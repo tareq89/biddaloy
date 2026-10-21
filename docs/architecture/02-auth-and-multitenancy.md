@@ -401,7 +401,7 @@ sequenceDiagram
     Route->>Guard: @RequireApproval(scope)
     Guard-->>Staff: 403 { details: { code: "APPROVAL_REQUIRED", scope } }
     Staff->>UI: modal opens (useApprovedMutation)
-    UI->>API: POST /auth/step-up/otp/request { identifier }
+    UI->>API: POST /auth/step-up/otp/request { identifier, scope }
     API-->>UI: 202 (always — never reveals if identifier is an approver)
     Staff->>UI: enters the approver's OTP (or password)
     UI->>API: POST /auth/step-up { identifier, method, otp, scope }
@@ -452,6 +452,14 @@ building a new gated route:
   new code is sent, so ten staff cannot text one approver ten times. Only codes
   actually sent count: a request inside the caller's own 60 s cooldown sends
   nothing and gives its slot back.
+- **A step-up code is bound to the school, the caller and the scope it was
+  requested for.** `POST /auth/step-up/otp/request` takes `{ identifier, scope }`
+  and the code is stored under `tenant:caller:scope:approver`. Using it for a
+  different scope or from a different account fails like a wrong code.
+  Example: a code requested for `fees.discount` and sent to `POST /auth/step-up`
+  with `scope: payments.reverse` gives `401 Invalid credentials`, the same body
+  and the same audit row as a wrong code. The three attempt counters above
+  carry no scope, so rotating the scope buys no extra guesses.
 - **The 403 body is nested.** `ApprovalRequiredException`
   (`server/src/common/errors/approval-required.exception.ts`) must put
   `code`/`scope` under a `details` key — the global exception filter only

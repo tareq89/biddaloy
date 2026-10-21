@@ -73,7 +73,7 @@ describe('[ACAD-05] Exam lifecycle guards', () => {
     const { body } = await http()
       .post(`${API}/auth/step-up/otp/request`)
       .set(as(UserRole.ADMIN))
-      .send({ identifier })
+      .send({ identifier, scope })
       .expect(202);
     if (!body.debug?.otp) {
       throw new Error(`step-up OTP was not echoed: ${JSON.stringify(body)}`);

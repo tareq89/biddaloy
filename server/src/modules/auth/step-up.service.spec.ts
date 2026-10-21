@@ -74,6 +74,7 @@ const APPROVER = {
 const MEMBERSHIP = { user_id: 'approver-1', tenant_id: 'tenant-1', role: UserRole.ADMIN };
 
 const ACTOR_USER_ID = 'actor-1';
+const SCOPE = ApprovalScope.FEES_DUPLICATE_OVERRIDE;
 const TENANT_ID = 'tenant-1';
 const CONTEXT = { ip: '127.0.0.1', userAgent: 'vitest' };
 
@@ -390,6 +391,54 @@ describe('StepUpService', () => {
       expect(bcrypt.compare).toHaveBeenCalledTimes(1);
     });
 
+    // [F-132] The OTP id carries the scope the code was requested for, so a
+    // verify under another scope looks under an id that holds no code. The
+    // mismatch still runs exactly one `otpService.verify`, so its timing is
+    // that of a wrong code (Rule 18).
+    it('verifies the code under the tenant:actor:scope:identifier id', async () => {
+      const { service, otpService } = buildService();
+
+      await service.verify(otpDto(), ACTOR_USER_ID, TENANT_ID, CONTEXT);
+
+      expect(otpService.verify).toHaveBeenCalledTimes(1);
+      expect(otpService.verify).toHaveBeenCalledWith(
+        'STEP_UP',
+        `${TENANT_ID}:${ACTOR_USER_ID}:${ApprovalScope.FEES_DUPLICATE_OVERRIDE}:admin@example.com`,
+        '123456',
+      );
+    });
+
+    it('a wrong-scope verify still calls OtpService.verify exactly once, under the mismatched id, and fails with the uniform 401', async () => {
+      const otpService = {
+        request: vi.fn().mockResolvedValue({ code: '123456' }),
+        verify: vi.fn().mockResolvedValue('invalid'),
+      };
+      const { service, auditService, jwtService } = buildService({ otpService });
+
+      await expect(
+        service.verify(
+          otpDto({ scope: ApprovalScope.PAYMENTS_REVERSE }),
+          ACTOR_USER_ID,
+          TENANT_ID,
+          CONTEXT,
+        ),
+      ).rejects.toMatchObject({ status: HttpStatus.UNAUTHORIZED, message: 'Invalid credentials' });
+
+      expect(otpService.verify).toHaveBeenCalledTimes(1);
+      expect(otpService.verify).toHaveBeenCalledWith(
+        'STEP_UP',
+        `${TENANT_ID}:${ACTOR_USER_ID}:${ApprovalScope.PAYMENTS_REVERSE}:admin@example.com`,
+        '123456',
+      );
+      expect(jwtService.sign).not.toHaveBeenCalled();
+      expect(auditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.LOGIN_FAILED,
+          new_values: expect.objectContaining({ scope: ApprovalScope.PAYMENTS_REVERSE }),
+        }),
+      );
+    });
+
     it('503s (and never returns 200) when the single-use approval-token marker fails to persist', async () => {
       const { service, redis } = buildService();
       redis.set.mockRejectedValue(new Error('ECONNREFUSED'));
@@ -439,22 +488,22 @@ describe('StepUpService', () => {
       const { service } = buildService();
 
       await expect(
-        service.requestOtp('unknown@example.com', TENANT_ID, ACTOR_USER_ID),
+        service.requestOtp('unknown@example.com', SCOPE, TENANT_ID, ACTOR_USER_ID),
       ).resolves.toEqual({});
     });
 
     it('calls OtpService.request only for an eligible approver', async () => {
       const { service, otpService } = buildService();
 
-      await service.requestOtp('admin@example.com', TENANT_ID, ACTOR_USER_ID);
+      await service.requestOtp('admin@example.com', SCOPE, TENANT_ID, ACTOR_USER_ID);
 
       expect(otpService.request).toHaveBeenCalledWith(
         'STEP_UP',
-        `${TENANT_ID}:${ACTOR_USER_ID}:admin@example.com`,
+        `${TENANT_ID}:${ACTOR_USER_ID}:${SCOPE}:admin@example.com`,
       );
 
       otpService.request.mockClear();
-      await service.requestOtp('unknown@example.com', TENANT_ID, ACTOR_USER_ID);
+      await service.requestOtp('unknown@example.com', SCOPE, TENANT_ID, ACTOR_USER_ID);
       expect(otpService.request).not.toHaveBeenCalled();
     });
 
@@ -464,12 +513,12 @@ describe('StepUpService', () => {
       const { service, otpService } = buildService();
 
       for (let i = 0; i < 20; i++) {
-        await service.requestOtp('admin@example.com', TENANT_ID, `caller-${i}`);
+        await service.requestOtp('admin@example.com', SCOPE, TENANT_ID, `caller-${i}`);
       }
       expect(otpService.request).toHaveBeenCalledTimes(20);
 
       await expect(
-        service.requestOtp('admin@example.com', TENANT_ID, 'caller-21'),
+        service.requestOtp('admin@example.com', SCOPE, TENANT_ID, 'caller-21'),
       ).resolves.toEqual({});
       expect(otpService.request).toHaveBeenCalledTimes(20);
     });
@@ -489,14 +538,14 @@ describe('StepUpService', () => {
       const { service } = buildService({ otpService });
 
       for (let i = 0; i < 25; i++) {
-        await service.requestOtp('admin@example.com', TENANT_ID, 'caller-a');
+        await service.requestOtp('admin@example.com', SCOPE, TENANT_ID, 'caller-a');
       }
       otpService.request.mockClear();
 
-      await service.requestOtp('admin@example.com', TENANT_ID, 'caller-b');
+      await service.requestOtp('admin@example.com', SCOPE, TENANT_ID, 'caller-b');
       expect(otpService.request).toHaveBeenCalledWith(
         'STEP_UP',
-        `${TENANT_ID}:caller-b:admin@example.com`,
+        `${TENANT_ID}:caller-b:${SCOPE}:admin@example.com`,
       );
     });
   });

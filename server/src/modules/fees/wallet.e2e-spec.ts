@@ -279,7 +279,7 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
         .post(`${API}/auth/step-up/otp/request`)
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({ identifier })
+        .send({ identifier, scope })
         .expect(202);
       const verifyRes = await supertest(app.getHttpServer())
         .post(`${API}/auth/step-up`)

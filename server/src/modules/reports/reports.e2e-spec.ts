@@ -234,7 +234,7 @@ describe('GET /reports/collections (16.6.2)', () => {
       .post(`${API}/auth/step-up/otp/request`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
-      .send({ identifier: APPROVER_EMAIL })
+      .send({ identifier: APPROVER_EMAIL, scope: 'payments.reverse' })
       .expect(202);
     const stepUp = await http()
       .post(`${API}/auth/step-up`)

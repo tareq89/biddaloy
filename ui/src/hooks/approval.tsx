@@ -112,8 +112,8 @@ export interface ModalVerifyInput {
  * can drive them directly without a wrapped mutation in the loop. */
 export function useStepUp() {
   const requestOtpMutation = useMutation({
-    mutationFn: (identifier: string) =>
-      apiClient.post<void>('/auth/step-up/otp/request', { identifier }),
+    mutationFn: ({ identifier, scope }: { identifier: string; scope: string }) =>
+      apiClient.post<void>('/auth/step-up/otp/request', { identifier, scope }),
     retry: false,
   });
 
@@ -124,8 +124,9 @@ export function useStepUp() {
   });
 
   return {
-    requestOtp: (identifier: string) =>
-      requestOtpMutation.mutateAsync(identifier).then(() => undefined),
+    /** The code is minted for `scope` only: the server rejects it under any other scope. */
+    requestOtp: (identifier: string, scope: string) =>
+      requestOtpMutation.mutateAsync({ identifier, scope }).then(() => undefined),
     verify: (input: StepUpVerifyInput) => verifyMutation.mutateAsync(input),
     isRequestingOtp: requestOtpMutation.isPending,
     isVerifying: verifyMutation.isPending,
@@ -182,7 +183,10 @@ export function ApprovalModalHostProvider({ children }: { children: React.ReactN
 
   async function handleRequestOtp(identifier: string): Promise<void> {
     try {
-      await stepUp.requestOtp(identifier);
+      if (!current) {
+        throw new Error('No approval request is queued.');
+      }
+      await stepUp.requestOtp(identifier, current.scope);
       setVerifyError(null);
     } catch (error) {
       setVerifyError(toVerificationError(error));

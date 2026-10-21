@@ -42,14 +42,21 @@ const STEP_UP_OTP_PURPOSE: OtpPurpose = 'STEP_UP';
 
 /**
  * The OtpService identifier for a step-up code: tenant, then the calling
- * user, then the approver. OtpService counts wrong guesses (and locks) per
+ * user, then the approval scope, then the approver. It pins the code to the
+ * school, the caller AND the scope it was requested for: a mismatch on any
+ * of them looks under an id that holds no code and fails exactly like a
+ * wrong code (F-132). OtpService counts wrong guesses (and locks) per
  * identifier with no tenant or caller, so an unscoped id let any user lock
- * another school's approver (or another caller's code) out of step-up. Same
- * scope as the `step-up-attempts:pair:` rate limit. Request and verify must
- * pass the same actor.
+ * another school's approver (or another caller's code) out of step-up.
+ * Request and verify must pass the same actor and scope.
  */
-function stepUpOtpId(tenantId: string, actorUserId: string, normalizedIdentifier: string): string {
-  return `${tenantId}:${actorUserId}:${normalizedIdentifier}`;
+function stepUpOtpId(
+  tenantId: string,
+  actorUserId: string,
+  scope: ApprovalScope,
+  normalizedIdentifier: string,
+): string {
+  return `${tenantId}:${actorUserId}:${scope}:${normalizedIdentifier}`;
 }
 
 const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
@@ -122,6 +129,7 @@ export class StepUpService {
    */
   async requestOtp(
     identifier: string,
+    scope: ApprovalScope,
     actorTenantId: string,
     actorUserId: string,
   ): Promise<StepUpOtpRequestResult> {
@@ -141,7 +149,7 @@ export class StepUpService {
     try {
       const { code } = await this.otpService.request(
         STEP_UP_OTP_PURPOSE,
-        stepUpOtpId(actorTenantId, actorUserId, normalizeLoginIdentifier(identifier)),
+        stepUpOtpId(actorTenantId, actorUserId, scope, normalizeLoginIdentifier(identifier)),
       );
       return isSecretEchoEnabled(this.config) ? { debug: { otp: code } } : {};
     } catch {
@@ -168,6 +176,8 @@ export class StepUpService {
     // ceiling across all callers, so N accounts cannot multiply the guess rate.
     // It is counted only once the caller's own keys allow the attempt: then one
     // caller adds at most `max` to it per window and cannot fill it alone.
+    // None of these keys carry the scope (unlike the OTP id): a caller must not
+    // get one guess quota per ApprovalScope by rotating `dto.scope`.
     const [pairAllowed, actorAllowed] = await Promise.all([
       this.checkAndIncrementRateLimit(
         `step-up-attempts:pair:${actorTenantId}:${actorUserId}:${identifier}`,
@@ -205,7 +215,7 @@ export class StepUpService {
     const verified = await this.verifyCredential(
       dto,
       approver,
-      stepUpOtpId(actorTenantId, actorUserId, identifier),
+      stepUpOtpId(actorTenantId, actorUserId, dto.scope, identifier),
     );
 
     if (!approver || !verified) {

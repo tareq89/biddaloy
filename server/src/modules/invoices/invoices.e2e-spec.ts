@@ -222,7 +222,7 @@ describe('Invoices E2E', () => {
         .post('/api/v1/auth/step-up/otp/request')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
-        .send({ identifier: SEED_ADMIN_EMAIL })
+        .send({ identifier: SEED_ADMIN_EMAIL, scope: 'payments.reverse' })
         .expect(202);
       const verifyRes = await supertest(app.getHttpServer())
         .post('/api/v1/auth/step-up')

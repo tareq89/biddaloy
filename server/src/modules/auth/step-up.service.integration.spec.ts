@@ -147,7 +147,7 @@ describe('StepUpService (integration)', () => {
     const otpService = module.get(OtpService);
     const { code } = await otpService.request(
       'STEP_UP' as any,
-      `${SEED_TENANT_ID}:${ACTOR_ID}:approver@example.com`,
+      `${SEED_TENANT_ID}:${ACTOR_ID}:${ApprovalScope.FEES_DUPLICATE_OVERRIDE}:approver@example.com`,
     );
 
     const result = await service.verify(
@@ -174,7 +174,7 @@ describe('StepUpService (integration)', () => {
     const otpService = module.get(OtpService);
     const { code } = await otpService.request(
       'STEP_UP' as any,
-      `${SEED_TENANT_ID}:${ACTOR_ID}:approver@example.com`,
+      `${SEED_TENANT_ID}:${ACTOR_ID}:${ApprovalScope.FEES_DUPLICATE_OVERRIDE}:approver@example.com`,
     );
 
     await service.verify(verifyDto({ otp: code }), ACTOR_ID, SEED_TENANT_ID, context);
@@ -225,6 +225,109 @@ describe('StepUpService (integration)', () => {
     await expect(
       service.verify(verifyDto(), actorB.id, SEED_TENANT_ID, context),
     ).rejects.toMatchObject({ status: 401 });
+  });
+
+  // [F-132] The OTP id is `tenant:actor:scope:identifier`, so a code is only
+  // good for the scope it was requested with, and only for the caller who
+  // requested it. A mismatch on either looks under an id that holds no code.
+  describe('a step-up code is bound to its scope and its requester', () => {
+    async function mintCode(actorId: string, scope: ApprovalScope): Promise<string> {
+      const { code } = await module
+        .get(OtpService)
+        .request('STEP_UP' as any, `${SEED_TENANT_ID}:${actorId}:${scope}:approver@example.com`);
+      return code;
+    }
+
+    it('a code requested for fees.discount verified as payments.reverse is 401, audited with the sent scope, and mints no approval key', async () => {
+      await createApprover();
+      const code = await mintCode(ACTOR_ID, ApprovalScope.FEES_DISCOUNT);
+
+      await expect(
+        service.verify(
+          verifyDto({ otp: code, scope: ApprovalScope.PAYMENTS_REVERSE }),
+          ACTOR_ID,
+          SEED_TENANT_ID,
+          context,
+        ),
+      ).rejects.toMatchObject({ status: 401, message: 'Invalid credentials' });
+
+      const rows = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_type: 'ApprovalToken', action: AuditAction.LOGIN_FAILED } });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].new_values).toMatchObject({ scope: ApprovalScope.PAYMENTS_REVERSE });
+      expect(await stepUpRedis.keys('approval:*')).toEqual([]);
+    });
+
+    it('a code requested by actor A cannot be verified by actor B for the same approver and scope', async () => {
+      await createApprover();
+      const userRepo = dataSource.getRepository(User);
+      const actorB = await userRepo.save(
+        userRepo.create({
+          full_name: 'Second Accountant',
+          email: 'actor-b@example.com',
+          status: UserStatus.ACTIVE,
+          password_hash: null,
+        }),
+      );
+      const membershipRepo = dataSource.getRepository(UserTenant);
+      await membershipRepo.save(
+        membershipRepo.create({
+          user_id: actorB.id,
+          tenant_id: SEED_TENANT_ID,
+          role: UserRole.ACCOUNTANT,
+        }),
+      );
+      const code = await mintCode(ACTOR_ID, ApprovalScope.FEES_DISCOUNT);
+
+      await expect(
+        service.verify(
+          verifyDto({ otp: code, scope: ApprovalScope.FEES_DISCOUNT }),
+          actorB.id,
+          SEED_TENANT_ID,
+          context,
+        ),
+      ).rejects.toMatchObject({ status: 401, message: 'Invalid credentials' });
+    });
+
+    it('a scope mismatch neither burns nor leaks the real code: the matching scope still verifies afterwards', async () => {
+      await createApprover();
+      const code = await mintCode(ACTOR_ID, ApprovalScope.FEES_DISCOUNT);
+
+      await expect(
+        service.verify(
+          verifyDto({ otp: code, scope: ApprovalScope.PAYMENTS_REVERSE }),
+          ACTOR_ID,
+          SEED_TENANT_ID,
+          context,
+        ),
+      ).rejects.toMatchObject({ status: 401 });
+
+      const result = await service.verify(
+        verifyDto({ otp: code, scope: ApprovalScope.FEES_DISCOUNT }),
+        ACTOR_ID,
+        SEED_TENANT_ID,
+        context,
+      );
+      expect(result.approval_token).toBeTruthy();
+    });
+
+    it('scope mismatches spend the unscoped per-pair attempt counter, so rotating the scope buys no extra guesses', async () => {
+      await createApprover();
+      const code = await mintCode(ACTOR_ID, ApprovalScope.FEES_DISCOUNT);
+
+      for (const scope of [ApprovalScope.PAYMENTS_REVERSE, ApprovalScope.FEES_EDIT_PAID]) {
+        await expect(
+          service.verify(verifyDto({ otp: code, scope }), ACTOR_ID, SEED_TENANT_ID, context),
+        ).rejects.toMatchObject({ status: 401 });
+      }
+
+      expect(
+        await stepUpRedis.get(
+          `step-up-attempts:pair:${SEED_TENANT_ID}:${ACTOR_ID}:approver@example.com`,
+        ),
+      ).toBe('2');
+    });
   });
 
   it('rejects an approver who belongs only to a different tenant', async () => {

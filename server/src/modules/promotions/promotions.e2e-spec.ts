@@ -58,7 +58,7 @@ describe('Promotions E2E (#788)', () => {
       .post(`${API}/auth/step-up/otp/request`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
-      .send({ identifier })
+      .send({ identifier, scope })
       .expect(202);
     const otp = requestRes.body.debug?.otp;
 
