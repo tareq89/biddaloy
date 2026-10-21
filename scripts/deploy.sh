@@ -20,7 +20,7 @@ shift 2
 # ssh joins its arguments and the remote shell splits them again, so quote each one.
 cmd="biddaloy-deploy $(printf '%q ' "$stack" "$full" "$@")"
 rc=0
-ssh -o ServerAliveInterval=30 "deploy@$BIDDALOY_HOST" "$cmd" || rc=$?
+ssh -o ServerAliveInterval=30 -- "deploy@$BIDDALOY_HOST" "$cmd" || rc=$?
 
 echo
 echo "exit $rc. Rerun with:"

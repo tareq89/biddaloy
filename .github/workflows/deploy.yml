@@ -1,7 +1,15 @@
 name: Deploy
 
 # Runs biddaloy-deploy on the VM through a forced-command SSH key (D12, D21). The key can only
-# run the forms biddaloy-deploy --from-github allows. No third-party actions are used (Rule 21).
+# run the forms biddaloy-deploy --from-github allows, and only for commits on main. No
+# third-party actions are used (Rule 21).
+#
+# OWNER SETUP: DEPLOY_HOST, DEPLOY_SSH_KEY and DEPLOY_SSH_KNOWN_HOSTS must be secrets of the
+# `production` Environment (Settings > Environments), and that environment must allow only the
+# main branch as a deployment branch. Repository-level secrets would let any branch run this.
+#
+# Rule 13: the Actions log and summary show only the FAILED / Why / Next block and the PLAY
+# RECAP. The full ansible output stays on the VM in /opt/biddaloy/logs/<stack>-last-deploy.log.
 on:
   workflow_dispatch:
     inputs:
@@ -30,7 +38,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    environment: production
+    timeout-minutes: 60
     steps:
       - name: Deploy
         env:
@@ -41,15 +50,17 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          LC_ALL: C
         run: |
           set -euo pipefail
+          umask 077
           install -d -m 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          # "--" ends ssh's options, so a command that starts with "--" is not read as one.
           ssh_vm() {
             ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes \
-              -o ServerAliveInterval=30 -i ~/.ssh/deploy_key "deploy@$DEPLOY_HOST" "$1"
+              -o ServerAliveInterval=30 -i ~/.ssh/deploy_key -- "deploy@$DEPLOY_HOST" "$1"
           }
 
           if [ -z "$SHA" ]; then
@@ -59,15 +70,17 @@ jobs:
               SHA="$GITHUB_SHA"
             fi
           fi
-          if ! printf '%s' "$SHA" | grep -Eqx '[0-9a-f]{40}'; then
+          sha_re='^[0-9a-f]{40}$'
+          if ! [[ $SHA =~ $sha_re ]]; then
             echo "FAILED at: resolve sha" >&2
-            echo "Why: '$SHA' is not a full lowercase 40-hex sha" >&2
+            echo "Why: the sha is not a full lowercase 40-hex sha" >&2
             echo "Next: pass the full sha, or leave it empty" >&2
             exit 2
           fi
           cmd="$STACK $SHA"
           if [ -n "$HOTFIX" ]; then
-            if ! printf '%s' "$HOTFIX" | grep -Eqx '[A-Za-z0-9 .,:_/-]{3,200}'; then
+            reason_re='^[A-Za-z0-9 .,:_/-]{3,200}$'
+            if ! [[ $HOTFIX =~ $reason_re ]]; then
               echo "FAILED at: hotfix reason" >&2
               echo "Why: 3-200 characters of letters, digits, space . , : _ / - only" >&2
               echo "Next: reword the reason" >&2
@@ -82,13 +95,12 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           rc=0
-          ssh_vm "$cmd" 2>&1 | tee deploy.out || rc=${PIPESTATUS[0]}
+          ssh_vm "$cmd" > deploy.out 2>&1 || rc=$?
           {
-            if [ "$rc" -ne 0 ]; then
-              grep -A2 '^FAILED at:' deploy.out || echo "FAILED: ssh exited $rc"
-            fi
             echo '```text'
-            tail -n 40 deploy.out
+            grep -E -A2 '^FAILED at:' deploy.out || true
+            grep -E -A8 '^PLAY RECAP' deploy.out || true
+            if [ "$rc" -ne 0 ]; then echo "ssh exited $rc"; fi
             echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           exit "$rc"
