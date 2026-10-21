@@ -1,29 +1,28 @@
 #!/usr/bin/env bash
-# [75.4] Behaviour test for nginx/trusted-proxies.sh: runs the real edge nginx
-# (same image, templates and mounts as docker-compose's `nginx` service) in
-# front of a fake upstream that echoes X-Real-IP / X-Forwarded-For, and checks:
-#   1. trusted peer + CF-Connecting-IP  -> upstream sees the header value
-#   2. untrusted peer + CF-Connecting-IP -> upstream sees the peer (no spoofing)
-#   3. empty TRUSTED_PROXY_CIDRS         -> header ignored (today's behaviour)
-#   4. invalid entry                     -> container exits non-zero, names it
-#   5. `nginx -t` passes in both modes
-# Needs docker only (no app image, no database). Run by hand or by the CI
-# `infra` job:  bash nginx/test/real-ip.infra.test.sh
+# [75.4, 79.0] Behaviour test for nginx/edge-mode.sh: runs the real edge nginx (same image,
+# templates and mounts as deploy/edge.yml's `nginx` service) in front of a fake upstream
+# that echoes X-Real-IP / X-Forwarded-For, and checks:
+#   1. tunnel mode: a request from the edge subnet with CF-Connecting-IP is seen by the
+#      upstream and written to the access log under that address
+#   2. tunnel mode, no header: the peer address is used
+#   3. direct mode: CF-Connecting-IP is ignored, the TCP peer is used (no spoofing)
+#   4. `nginx -t` passes in both modes
+# Needs docker only (no app image, no database). Run by hand or by the CI `infra` job:
+#   bash nginx/test/real-ip.infra.test.sh
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
 NET=realip-test
-VOL=realip-test-certs
+VOL=realip-test-le
 NGINX_IMG=nginx:1.31-alpine
 CURL_IMG=curlimages/curl
 EDGE_IP=172.30.99.10
-TRUSTED_IP=172.30.99.50
-OTHER_IP=172.30.99.60
+CLIENT_IP=172.30.99.50
 FAILS=0
 
 cleanup() {
-  docker rm -f realip-upstream realip-edge realip-bad >/dev/null 2>&1 || true
+  docker rm -f realip-upstream realip-edge >/dev/null 2>&1 || true
   docker volume rm "$VOL" >/dev/null 2>&1 || true
   docker network rm "$NET" >/dev/null 2>&1 || true
 }
@@ -36,79 +35,69 @@ fail() { echo "FAIL - $1 (got: $2)"; FAILS=$((FAILS + 1)); }
 docker network create --subnet 172.30.99.0/24 "$NET" >/dev/null
 docker volume create "$VOL" >/dev/null
 
-# Fake upstream, resolvable as `app` (what the nginx template proxies to).
+# Fake upstream, resolvable as `prod-app` (what default.conf.template proxies to).
 UP_CONF='server { listen 3000; location / { default_type text/plain; return 200 "xri=$http_x_real_ip xff=$http_x_forwarded_for"; } }'
-docker run -d --name realip-upstream --network "$NET" --network-alias app \
+docker run -d --name realip-upstream --network "$NET" --network-alias prod-app \
   --entrypoint sh "$NGINX_IMG" \
   -c "echo '$UP_CONF' > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'" >/dev/null
 
-# Dummy cert, generated exactly like the build overlay's `cert-bootstrap` service.
-docker run --rm -e APP_DOMAIN=example.test -v "$VOL:/certs" \
-  -v "$PWD/nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro" \
-  --entrypoint sh certbot/certbot /scripts/generate-dummy-cert.sh >/dev/null
+# Self-signed cert where certbot would put it (direct mode reads /etc/letsencrypt/live/<APP_DOMAIN>).
+docker run --rm -v "$VOL:/le" --entrypoint sh alpine/openssl -c \
+  'mkdir -p /le/live/example.test && openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+    -keyout /le/live/example.test/privkey.pem -out /le/live/example.test/fullchain.pem -subj /CN=example.test' >/dev/null 2>&1
 
-# run_edge <name> <cidrs> [ip] — same mounts/env as the compose `nginx` service.
+EDGE_ARGS=(-e APP_DOMAIN=example.test -e STAGING_DOMAIN=staging.example.test -e DEMO_DOMAIN=demo.example.test
+  -e LANDING_DOMAIN=landing.example.test -e KUMA_DOMAIN=kuma.example.test -e BESZEL_DOMAIN=beszel.example.test
+  -e LOGS_DOMAIN=logs.example.test -e OPS_UPSTREAM_HOST=
+  -v "$PWD/nginx/templates:/etc/nginx/templates:ro"
+  -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro"
+  -v "$PWD/nginx/edge-mode.sh:/docker-entrypoint.d/15-edge-mode.sh:ro"
+  -v "$VOL:/etc/letsencrypt:ro")
+
+# run_edge <tunnel|direct> — same mounts/env as the compose `nginx` service.
 run_edge() {
-  local name="$1" cidrs="$2" ip="${3:-}"
-  local ipflag=()
-  [ -n "$ip" ] && ipflag=(--ip "$ip")
-  docker run -d --name "$name" --network "$NET" ${ipflag[@]+"${ipflag[@]}"} \
-    -e APP_DOMAIN=example.test -e "TRUSTED_PROXY_CIDRS=$cidrs" \
-    -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
-    -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
-    -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
-    -v "$VOL:/etc/nginx/certs:ro" "$NGINX_IMG" >/dev/null
-  # readiness: wait (max ~20 s) for 443 to listen, or for the container to exit
+  docker rm -f realip-edge >/dev/null 2>&1 || true
+  docker run -d --name realip-edge --network "$NET" --ip "$EDGE_IP" -e "EDGE_MODE=$1" \
+    "${EDGE_ARGS[@]}" "$NGINX_IMG" >/dev/null
   for _ in $(seq 20); do
-    [ "$(docker inspect -f '{{.State.Running}}' "$name")" = true ] || break
-    docker exec "$name" nc -z 127.0.0.1 443 >/dev/null 2>&1 && break
+    docker exec realip-edge nc -z 127.0.0.1 80 >/dev/null 2>&1 && break
     sleep 1
   done
 }
 
-# get_as <client-ip> [path] — request through the edge, spoofing CF-Connecting-IP.
-# `|| true`: a refused request must show up as a FAIL line, not end the script.
-get_as() {
-  docker run --rm --network "$NET" --ip "$1" "$CURL_IMG" -sk \
-    --resolve "example.test:443:$EDGE_IP" -H 'CF-Connecting-IP: 203.0.113.9' \
-    "https://example.test${2:-/api/x}" || true
+nginx_t() { # <mode>
+  docker run --rm --network "$NET" -e "EDGE_MODE=$1" "${EDGE_ARGS[@]}" "$NGINX_IMG" nginx -t >/dev/null 2>&1
 }
 
-nginx_t() { # <cidrs>
-  docker run --rm --network "$NET" -e APP_DOMAIN=example.test -e "TRUSTED_PROXY_CIDRS=$1" \
-    -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
-    -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
-    -v "$VOL:/etc/nginx/certs:ro" "$NGINX_IMG" sh -c \
-    '/docker-entrypoint.sh true >/dev/null 2>&1; nginx -t' 2>&1
+# get_tunnel <header-args...> — plain HTTP through the edge, as cloudflared would.
+get_tunnel() {
+  docker run --rm --network "$NET" --ip "$CLIENT_IP" "$CURL_IMG" -s -H 'Host: example.test' "$@" "http://$EDGE_IP/api/x" || true
+}
+# get_direct <header-args...> — HTTPS through the edge.
+get_direct() {
+  docker run --rm --network "$NET" --ip "$CLIENT_IP" "$CURL_IMG" -sk --resolve "example.test:443:$EDGE_IP" "$@" https://example.test/api/x || true
 }
 
-# 5. config syntax, both modes
-nginx_t '173.245.48.0/20 2400:cb00::/32' >/dev/null && pass "nginx -t with a CIDR list" || fail "nginx -t with a CIDR list" "non-zero"
-nginx_t '' >/dev/null && pass "nginx -t with empty list" || fail "nginx -t with empty list" "non-zero"
+# 4. config syntax, both modes
+nginx_t tunnel && pass "nginx -t, tunnel" || fail "nginx -t, tunnel" "non-zero"
+nginx_t direct && pass "nginx -t, direct" || fail "nginx -t, direct" "non-zero"
 
-# 1 + 2. trusted list = only TRUSTED_IP
-run_edge realip-edge "$TRUSTED_IP/32" "$EDGE_IP"
-body=$(get_as "$TRUSTED_IP")
+# 1 + 2. tunnel mode
+run_edge tunnel
+body=$(get_tunnel -H 'CF-Connecting-IP: 203.0.113.9')
 [[ "$body" == *"xri=203.0.113.9"* && "$body" == *"xff=203.0.113.9"* ]] \
-  && pass "trusted peer: header value reaches upstream" || fail "trusted peer" "$body"
-# An untrusted peer only reaches /api/health once the origin lock-down is on.
-body=$(get_as "$OTHER_IP" /api/health)
-[[ "$body" == *"xri=$OTHER_IP"* && "$body" != *"203.0.113.9"* ]] \
-  && pass "untrusted peer: spoofed header ignored" || fail "untrusted peer" "$body"
+  && pass "tunnel: CF-Connecting-IP reaches upstream" || fail "tunnel: header" "$body"
+sleep 1
+docker logs realip-edge 2>&1 | grep -q '^203\.0\.113\.9 - \[' \
+  && pass "tunnel: access log has the visitor address" || fail "tunnel: access log" "$(docker logs realip-edge 2>&1 | tail -3)"
+body=$(get_tunnel)
+[[ "$body" == *"xri=$CLIENT_IP"* ]] && pass "tunnel: no header, peer address used" || fail "tunnel: no header" "$body"
 
-# 3. empty list = today's behaviour
-docker rm -f realip-edge >/dev/null
-run_edge realip-edge "" "$EDGE_IP"
-body=$(get_as "$TRUSTED_IP")
-[[ "$body" == *"xri=$TRUSTED_IP"* && "$body" != *"203.0.113.9"* ]] \
-  && pass "empty list: header ignored" || fail "empty list" "$body"
-
-# 4. invalid entry stops the container and is named in its log
-run_edge realip-bad "not-a-cidr"
-code=$(docker inspect -f '{{.State.ExitCode}}' realip-bad)
-logs=$(docker logs realip-bad 2>&1)
-[[ "$code" != 0 && "$logs" == *"invalid entry 'not-a-cidr'"* ]] \
-  && pass "invalid entry: exits non-zero, names the entry" || fail "invalid entry" "exit=$code $logs"
+# 3. direct mode
+run_edge direct
+body=$(get_direct -H 'CF-Connecting-IP: 203.0.113.9')
+[[ "$body" == *"xri=$CLIENT_IP"* && "$body" != *"203.0.113.9"* ]] \
+  && pass "direct: spoofed header ignored" || fail "direct: header" "$body"
 
 [ "$FAILS" = 0 ] || { echo "$FAILS check(s) failed"; exit 1; }
 echo "all checks passed"

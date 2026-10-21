@@ -1,50 +1,44 @@
-# Ops UIs (docker-compose.ops.yml) at https://${OPS_DOMAIN}/{beszel,kuma,dozzle}/.
-# Cloudflare Access gates the hostname; $origin_allowed (conf.d/00-trusted-proxies.conf)
-# keeps the origin Cloudflare-only (Security rule 12). A request with no Access token
-# header is dropped: a tripwire against a mis-set Access app (DNS before Access, wrong
-# path, grey cloud), NOT authentication. Presence only, the signature is not checked, so
-# any client nginx trusts can send it. deploy.yml refuses OPS_DOMAIN with
-# TRUSTED_PROXY_CIDRS empty, where "trusted" would mean everyone.
-# Same redacted log format as the app. Needs OPS_DOMAIN in the nginx container env (nginx
-# only substitutes variables it has); unset, it is ops.invalid and this block matches nothing.
-# Known limit: Uptime Kuma 1.x and Beszel have no sub-path support, so /kuma/ and /beszel/
-# do not work here (12-operations.md section 1). Dozzle does (DOZZLE_BASE).
-# nginx meets the UIs on the `biddaloy-ops-edge` network (infra/ansible/tasks/attach-edge.yml).
+# Ops UIs (deploy/ops.yml), one hostname each at `/`: KUMA_DOMAIN, BESZEL_DOMAIN, LOGS_DOMAIN
+# (all `*.invalid` when unset). Not rendered when OPS_UPSTREAM_HOST is empty: ops runs on
+# another host then (reload-loop.sh removes conf.d/ops.conf).
 #
-# Upstreams are variables behind Docker's resolver, so nginx still boots when the ops
-# stack is down (a fixed `proxy_pass host` fails at startup if the name does not resolve).
+# Two login layers (D14). Outer: tunnel mode = Cloudflare Access, checked by cloudflared;
+# direct mode = basic auth here ($basic_auth, off in tunnel mode). Inner: each tool's own.
+# The one exception is Kuma's push endpoint: the VM's own timers post job results to it
+# with a token in the URL and cannot answer a login.
+#
+# Upstreams use `resolve` (Docker's DNS), so nginx still boots when the ops stack is down.
+# nginx meets the UIs on the `biddaloy-ops-edge` network.
 map $http_upgrade $ops_connection {
     default upgrade;
     ''      close;
 }
 
-server {
-    listen 80;
-    access_log /var/log/nginx/access.log redacted;
-    server_name ${OPS_DOMAIN};
+upstream kuma_upstream {
+    zone kuma_upstream 256k;
+    server uptime-kuma:3001 resolve;
+}
 
-    location / {
-        if ($origin_allowed = 0) { return 444; }
-        return 301 https://$host$request_uri;
-    }
+upstream beszel_upstream {
+    zone beszel_upstream 256k;
+    server beszel:8090 resolve;
+}
+
+upstream dozzle_upstream {
+    zone dozzle_upstream 256k;
+    server dozzle:8080 resolve;
 }
 
 server {
-    listen 443 ssl;
+    listen 80;
+    include /etc/nginx/snippets/edge-server.conf;
     access_log /var/log/nginx/access.log redacted;
-    http2 on;
-    server_name ${OPS_DOMAIN};
+    server_name ${KUMA_DOMAIN};
 
-    ssl_certificate     /etc/nginx/certs/origin.pem;
-    ssl_certificate_key /etc/nginx/certs/origin.key;
+    auth_basic $basic_auth;
+    auth_basic_user_file /etc/nginx/auth/htpasswd;
 
-    resolver 127.0.0.11 valid=10s;
-
-    if ($origin_allowed = 0) { return 444; }
-    if ($http_cf_access_jwt_assertion = "") { return 444; }
-
-    # Shared by the three UIs: websocket upgrade (Kuma socket.io, Beszel realtime, Dozzle
-    # log stream) and long reads so a live tail is not cut at 60 s.
+    # Websocket upgrade (Kuma socket.io) and long reads so a live view is not cut at 60 s.
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header Upgrade $http_upgrade;
@@ -53,23 +47,59 @@ server {
     proxy_read_timeout 3600s;
     proxy_buffering off;
 
-    location / { return 404; }
-
-    location /beszel/ {
-        set $up http://beszel:8090;
-        rewrite ^/beszel/(.*)$ /$1 break;
-        proxy_pass $up;
+    location / {
+        proxy_pass http://kuma_upstream;
     }
 
-    location /kuma/ {
-        set $up http://uptime-kuma:3001;
-        rewrite ^/kuma/(.*)$ /$1 break;
-        proxy_pass $up;
+    # D14: job results are pushed here by the VM's timers; the token in the URL is the login.
+    location ^~ /api/push/ {
+        auth_basic off;
+        proxy_pass http://kuma_upstream;
     }
+}
 
-    # Dozzle serves under its own prefix (DOZZLE_BASE=/dozzle): no rewrite.
-    location /dozzle/ {
-        set $up http://dozzle:8080;
-        proxy_pass $up;
+server {
+    listen 80;
+    include /etc/nginx/snippets/edge-server.conf;
+    access_log /var/log/nginx/access.log redacted;
+    server_name ${BESZEL_DOMAIN};
+
+    auth_basic $basic_auth;
+    auth_basic_user_file /etc/nginx/auth/htpasswd;
+
+    # Websocket upgrade (Beszel realtime) and long reads.
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $ops_connection;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+    proxy_buffering off;
+
+    location / {
+        proxy_pass http://beszel_upstream;
+    }
+}
+
+server {
+    listen 80;
+    include /etc/nginx/snippets/edge-server.conf;
+    access_log /var/log/nginx/access.log redacted;
+    server_name ${LOGS_DOMAIN};
+
+    auth_basic $basic_auth;
+    auth_basic_user_file /etc/nginx/auth/htpasswd;
+
+    # Dozzle log stream (websocket / SSE) and long reads so a live tail is not cut at 60 s.
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $ops_connection;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+    proxy_buffering off;
+
+    location / {
+        proxy_pass http://dozzle_upstream;
     }
 }
