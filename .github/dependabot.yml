@@ -36,9 +36,9 @@ updates:
           - "minor"
           - "patch"
 
-  # docker-compose.yml image digests ([75.29]).
+  # docker-compose.yml and deploy/*.yml image digests ([75.29]).
   - package-ecosystem: "docker-compose"
-    directory: "/"
+    directories: ["/", "/deploy"]
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

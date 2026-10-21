@@ -118,11 +118,10 @@ jobs:
               - 'nginx/**'
               - 'docker-compose.yml'
               - 'Dockerfile'
+              - 'deploy/**'
               - 'scripts/backup/**'
               - 'scripts/demo/**'
-              - 'docker-compose.demo.yml'
               - 'docker-compose.build.yml'
-              - 'docker-compose.demo.build.yml'
               - '**/*.infra.test.sh'
               - '.github/workflows/ci.yml'
 
@@ -144,7 +143,7 @@ jobs:
       # `${VAR:?...}`), so a deploy with a forgotten .env fails loudly.
       - name: Compose refuses an empty env
         run: |
-          out=$(env -i PATH="$PATH" HOME="$HOME" docker compose config -q 2>&1) && {
+          out=$(env -i PATH="$PATH" HOME="$HOME" docker compose -f deploy/stack.yml config -q 2>&1) && {
             echo "docker compose accepted an empty environment" >&2
             exit 1
           }
@@ -1209,7 +1208,6 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           ansible-galaxy install -r requirements.yml
           ansible-playbook -i inventory/prod.yml --syntax-check provision.yml
-          ansible-playbook -i inventory/prod.yml --syntax-check ops.yml
           ansible-playbook -i inventory/prod.yml --syntax-check deploy.yml -e env=prod -e version=0000000000000000000000000000000000000000
           ansible-playbook -i inventory/prod.yml --syntax-check deploy.yml -e env=staging -e version=0000000000000000000000000000000000000000
 
