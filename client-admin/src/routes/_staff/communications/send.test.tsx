@@ -207,9 +207,9 @@ describe('/communications/send', () => {
       expect(bar.closest('div')?.contains(screen.getByRole('combobox', { name: 'Send by' }))).toBe(
         false,
       );
-      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Review and send' }).disabled).toBe(
-        false,
-      );
+      expect(
+        screen.getByRole<HTMLButtonElement>('button', { name: 'Review and send' }).disabled,
+      ).toBe(false);
 
       await user.click(screen.getByRole('combobox', { name: 'Send by' }));
       await user.click(await screen.findByRole('option', { name: 'Email' }));
@@ -223,7 +223,34 @@ describe('/communications/send', () => {
       await screen.findByText(NO_CREDIT_TEXT);
     });
 
-    it('READY or a 500: no bar, Send enabled', async () => {
+    async function expectNoBarAndSendEnabled(
+      user: ReturnType<typeof userEvent.setup>,
+      queryClient: { getQueryState: (key: unknown[]) => { status: string } | undefined },
+      settledStatus: 'success' | 'error',
+    ) {
+      await screen.findByRole('heading', { name: 'Send Message' });
+      await pickGuardian(user);
+      // Wait for the readiness query to settle so "no bar" is a decision, not a race.
+      // `shouldRetryQuery` retries a 500 with backoff before it settles as an error.
+      await waitFor(
+        () => expect(queryClient.getQueryState(['sms-readiness'])?.status).toBe(settledStatus),
+        { timeout: 10_000 },
+      );
+      expect(screen.queryByText(NO_GATEWAY_TEXT)).toBeNull();
+      expect(screen.queryByText(NO_CREDIT_TEXT)).toBeNull();
+      expect(
+        screen.getByRole<HTMLButtonElement>('button', { name: 'Review and send' }).disabled,
+      ).toBe(false);
+    }
+
+    it('READY: no bar, Send enabled', async () => {
+      server.use(studentSearchHandler(), readiness('READY'));
+      const user = userEvent.setup();
+      const { queryClient } = render();
+      await expectNoBarAndSendEnabled(user, queryClient, 'success');
+    });
+
+    it('a 500 from the readiness call: no bar, Send enabled (fails open)', async () => {
       server.use(
         studentSearchHandler(),
         http.get('/api/v1/communications/sms-credits/readiness', () =>
@@ -231,14 +258,8 @@ describe('/communications/send', () => {
         ),
       );
       const user = userEvent.setup();
-      render();
-      await screen.findByRole('heading', { name: 'Send Message' });
-      await pickGuardian(user);
-      expect(screen.queryByText(NO_GATEWAY_TEXT)).toBeNull();
-      expect(screen.queryByText(NO_CREDIT_TEXT)).toBeNull();
-      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Review and send' }).disabled).toBe(
-        false,
-      );
+      const { queryClient } = render();
+      await expectNoBarAndSendEnabled(user, queryClient, 'error');
     });
   });
 
