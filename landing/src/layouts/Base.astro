@@ -1,0 +1,53 @@
+---
+import '../styles/fonts.css';
+import '../styles/tokens.css';
+import '../styles/base.css';
+import { useTranslations, LANGS, type Lang } from '../i18n';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import ConsentBar from '../components/ConsentBar.astro';
+import Analytics from '../components/Analytics.astro';
+
+interface Props { lang: Lang; title?: string; description?: string; noindex?: boolean }
+const { lang, title, description, noindex } = Astro.props;
+const t = useTranslations(lang);
+const rest = Astro.url.pathname.replace(/^\/(bn|en)(?=\/|$)/, '');
+const alt = (l: string) => new URL(`/${l}${rest}`, Astro.site).href;
+const pageTitle = title ? `${title} · ${t('site.title')}` : t('site.title');
+const desc = description ?? t('site.description');
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={desc} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <meta name="theme-color" content="#ffffff" />
+    <script is:inline>
+      (function () {
+        try {
+          var s = localStorage.getItem('sm:theme');
+          var dark = s === 'dark' || (s !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) {
+            document.documentElement.dataset.theme = 'dark';
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#191919');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    {LANGS.map((l) => <link rel="alternate" hreflang={l} href={alt(l)} />)}
+    <link rel="alternate" hreflang="x-default" href={alt('bn')} />
+    <link rel="canonical" href={alt(lang)} />
+    {lang === 'bn' && <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/hind-siliguri-700-bengali.woff2" />}
+    <Analytics />
+  </head>
+  <body>
+    <a class="skip" href="#main">{t('skip')}</a>
+    <Header lang={lang} />
+    <main id="main"><slot /></main>
+    <Footer lang={lang} />
+    <ConsentBar lang={lang} />
+  </body>
+</html>

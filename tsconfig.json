@@ -6,6 +6,7 @@
     { "path": "client-admin" },
     { "path": "client-admin/tsconfig.sw.json" },
     { "path": "server/tsconfig.lint.json" },
-    { "path": "e2e" }
+    { "path": "e2e" },
+    { "path": "landing" }
   ]
 }

@@ -1,0 +1,6 @@
+---
+// Umami is cookieless, so it loads without consent (D14). Clarity/Meta hook onto `sm:consent` in 50.11.
+const id = import.meta.env.PUBLIC_UMAMI_ID;
+const src = import.meta.env.PUBLIC_UMAMI_SRC ?? 'https://stats.schoolmanagerp.com/script.js';
+---
+{id && <script is:inline defer src={src} data-website-id={id} data-domains="schoolmanagerp.com,www.schoolmanagerp.com"></script>}

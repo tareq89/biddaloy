@@ -58,7 +58,8 @@ export const ALL_FRONTEND_FIVE = Object.freeze([
   'shared:node',
 ]);
 export const SCRIPTS_PROJECT = 'scripts:node';
-export const ALL_PROJECTS = Object.freeze([...ALL_FRONTEND_FIVE, SCRIPTS_PROJECT]);
+export const LANDING_PROJECT = 'landing';
+export const ALL_PROJECTS = Object.freeze([...ALL_FRONTEND_FIVE, SCRIPTS_PROJECT, LANDING_PROJECT]);
 
 const UI_PROJECTS = ['ui:node', 'ui:jsdom', 'client-admin:node', 'client-admin:jsdom'];
 const CLIENT_ADMIN_PROJECTS = ['client-admin:node', 'client-admin:jsdom'];
@@ -90,6 +91,9 @@ function classify(file) {
   }
   if (file.startsWith('client-admin/')) {
     return { frontendProjects: CLIENT_ADMIN_PROJECTS, server: false };
+  }
+  if (file.startsWith('landing/')) {
+    return { frontendProjects: [LANDING_PROJECT], server: false };
   }
   if (file.startsWith('server/')) {
     return { frontendProjects: [], server: true };

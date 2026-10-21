@@ -1,0 +1,8 @@
+---
+import { useTranslations, otherLang, type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const t = useTranslations(lang);
+// Same path in the other language: /bn/pricing/ -> /en/pricing/
+const href = Astro.url.pathname.replace(/^\/(bn|en)(?=\/|$)/, '/' + otherLang(lang));
+---
+<a class="pill" href={href} hreflang={otherLang(lang)} lang={otherLang(lang)} aria-label={t('lang.switchLabel')}>{t('lang.other')}</a>

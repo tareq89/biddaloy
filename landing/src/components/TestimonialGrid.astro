@@ -1,0 +1,15 @@
+---
+import TestimonialCard from './TestimonialCard.astro';
+import { testimonials } from '../content/testimonials';
+import type { Lang } from '../i18n';
+const { lang, limit } = Astro.props as { lang: Lang; limit?: number };
+const items = limit ? testimonials.slice(0, limit) : testimonials;
+const empty = lang === 'bn' ? 'এখনো কোনো উক্তি প্রকাশ করা হয়নি।' : 'No testimonials published yet.';
+---
+{items.length
+  ? <div class="grid">{items.map((t) => <TestimonialCard t={t} lang={lang} />)}</div>
+  : <p class="empty">{empty}</p>}
+<style>
+  .grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));margin-top:1.5rem}
+  .empty{color:var(--muted);margin-top:1.5rem}
+</style>

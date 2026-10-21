@@ -1,0 +1,48 @@
+---
+import { useTranslations, DOCS_URL, APP_URL, DEMO_URL, type Lang } from '../i18n';
+import ThemeToggle from './ThemeToggle.astro';
+import LangSwitch from './LangSwitch.astro';
+const { lang } = Astro.props as { lang: Lang };
+const t = useTranslations(lang);
+const cur = (p: string) => (Astro.url.pathname.startsWith(`/${lang}/${p}`) ? 'page' : undefined);
+---
+<div class="ribbon" id="ribbon" hidden>
+  <div class="wrap">
+    <span>{t('ribbon.text')}</span>
+    <a href={`${APP_URL}/register`} target="_blank" rel="noopener">{t('ribbon.cta')}</a>
+    <button id="ribbonX" type="button" aria-label={t('ribbon.close')}>✕</button>
+  </div>
+</div>
+<header class="site">
+  <div class="wrap">
+    <a class="wordmark" href={`/${lang}/`} aria-label="SchoolManager ERP"><span class="mono">SM</span>School<span class="m">Manager</span><span class="erp">ERP</span></a>
+    <nav class="nav" id="nav" aria-label={t('nav.label')}>
+      <a href={`/${lang}/features/`} aria-current={cur('features')}>{t('nav.features')}</a>
+      <a href={`/${lang}/pricing/`} aria-current={cur('pricing')}>{t('nav.pricing')}</a>
+      <a href={DOCS_URL} target="_blank" rel="noopener">{t('nav.docs')}</a>
+      <a href={`/${lang}/contact/`} aria-current={cur('contact')}>{t('nav.contact')}</a>
+      <a class="mobile-only" href={DEMO_URL} target="_blank" rel="noopener">{t('btn.demo')}</a>
+      <a class="mobile-only" href={`${APP_URL}/login`} target="_blank" rel="noopener">{t('btn.login')}</a>
+    </nav>
+    <div class="ctl">
+      <button class="pill menuBtn" id="menuBtn" type="button" aria-label={t('nav.menu')} aria-expanded="false" aria-controls="nav">☰</button>
+      <LangSwitch lang={lang} />
+      <ThemeToggle lang={lang} />
+      <a class="linklike" href={`${APP_URL}/login`} target="_blank" rel="noopener">{t('btn.login')}</a>
+      <a class="btn secondary small" href={DEMO_URL} target="_blank" rel="noopener">{t('btn.demo')}</a>
+      <a class="btn primary small" href={`${APP_URL}/register`} target="_blank" rel="noopener"><span class="full">{t('btn.signup')}</span><span class="short">{t('btn.signupShort')}</span></a>
+    </div>
+  </div>
+</header>
+<script is:inline>
+  (function () {
+    var rb = document.getElementById('ribbon');
+    try { if (!localStorage.getItem('sm:ribbon')) rb.hidden = false; } catch (e) { rb.hidden = false; }
+    document.getElementById('ribbonX').addEventListener('click', function () {
+      rb.hidden = true;
+      try { localStorage.setItem('sm:ribbon', '1'); } catch (e) {}
+    });
+    var m = document.getElementById('menuBtn'), n = document.getElementById('nav');
+    m.addEventListener('click', function () { m.setAttribute('aria-expanded', String(n.classList.toggle('open'))); });
+  })();
+</script>

@@ -1,0 +1,37 @@
+---
+import { SOON, areaCopy, areaId, type Area } from '../../content/features';
+import { DOCS_URL, type Lang } from '../../i18n';
+const { area, n, lang } = Astro.props as { area: Area; n: number; lang: Lang };
+const c = areaCopy(area, lang);
+const soon = lang === 'bn' ? 'শীঘ্রই' : 'Coming soon';
+const shotLabel = lang === 'bn' ? 'স্ক্রিনশট' : 'Screenshot';
+const fromDemo = lang === 'bn' ? 'ডেমো থেকে' : 'from the demo';
+const more = lang === 'bn' ? 'ডকুমেন্টেশনে বিস্তারিত →' : 'Details in the documentation →';
+---
+<article class={`area c-${area.hue}`} id={areaId(n)}>
+  <div class="ghead"><div class="ic" aria-hidden="true">{area.icon}</div><h2>{n + 1}. {c.title}</h2></div>
+  <ul>
+    {c.bullets.map((b) => b.startsWith(SOON)
+      ? <li>{b.slice(1).trim()} <span class="badge">{soon}</span></li>
+      : <li>{b}</li>)}
+  </ul>
+  <div class="shots">
+    {c.shots.map((s) => <figure class="shot"><figcaption><b>{shotLabel}: {s}</b>{fromDemo}</figcaption></figure>)}
+  </div>
+  <a class="docs" href={`${DOCS_URL}/${area.docs}`} target="_blank" rel="noopener">{more}</a>
+</article>
+<style>
+  /* ponytail: `.shot` is a dashed placeholder until #2727 ships the Shot component with real screenshots. */
+  .area{padding:2.2rem 0;border-top:1px solid var(--line);scroll-margin-top:70px}
+  .area:first-child{border-top:0;padding-top:0}
+  .ghead{display:flex;gap:.7rem;align-items:center;margin-bottom:.8rem}
+  .ghead h2{font-size:1.1rem}
+  .ic{width:40px;height:40px;border-radius:10px;background:var(--tint);color:var(--hue);display:grid;place-items:center;font-size:1.15rem;flex:none;font-weight:700}
+  .area ul{margin:0 0 1.2rem;padding-left:1.2rem;color:var(--fg);display:grid;gap:.35rem;max-width:68ch}
+  .area li{padding-left:.2rem}
+  .badge{display:inline-block;font-size:.7rem;font-weight:600;letter-spacing:.03em;border-radius:999px;padding:.1rem .5rem;background:var(--amber-t);color:var(--amber);vertical-align:middle;margin-left:.3rem}
+  .shots{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+  .shot{margin:0;background:var(--shot);border:1px dashed var(--shot-ink);border-radius:10px;color:var(--shot-ink);display:grid;place-items:center;text-align:center;font-size:.85rem;padding:1rem;aspect-ratio:16/9;max-width:100%}
+  .shot b{display:block;font-size:.95rem;color:var(--fg)}
+  .docs{display:inline-block;margin-top:.8rem;color:var(--hue);font-weight:600;text-decoration:none;font-size:.9rem}
+</style>

@@ -1,0 +1,62 @@
+---
+import { useTranslations, DOCS_URL, APP_URL, DEMO_URL, type Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const t = useTranslations(lang);
+const path = Astro.url.pathname.replace(/^\/(bn|en)(?=\/|$)/, '');
+// Footer links without a page of their own go to the docs root (D37).
+// ponytail: WhatsApp number is a placeholder until the business number is decided (D7).
+const WA = 'https://wa.me/8801000000000';
+const ext = { target: '_blank', rel: 'noopener' };
+---
+<footer>
+  <div class="wrap">
+    <div class="fgrid">
+      <div>
+        <a class="wordmark" href={`/${lang}/`}><span class="mono">SM</span>School<span class="m">Manager</span><span class="erp">ERP</span></a>
+        <p style="color:var(--muted);font-size:.9rem;max-width:30ch">{t('footer.tagline')}</p>
+      </div>
+      <div>
+        <h4>{t('footer.product')}</h4>
+        <a href={`/${lang}/features/`}>{t('nav.features')}</a>
+        <a href={`/${lang}/pricing/`}>{t('nav.pricing')}</a>
+        <a href={DEMO_URL} {...ext}>{t('btn.demo')}</a>
+        <a href={`${APP_URL}/login`} {...ext}>{t('btn.login')}</a>
+        <a href={`${APP_URL}/register`} {...ext}>{t('btn.signup')}</a>
+      </div>
+      <div>
+        <h4>{t('footer.audience')}</h4>
+        <a href={`/${lang}/for/school/`}>{t('footer.schools')}</a>
+        <a href={`/${lang}/for/madrasa/`}>{t('footer.madrasa')}</a>
+        <a href={`/${lang}/for/english-medium/`}>{t('footer.english')}</a>
+        <a href={DOCS_URL} {...ext}>{t('footer.guardians')}</a>
+      </div>
+      <div>
+        <h4>{t('footer.resources')}</h4>
+        <a href={DOCS_URL} {...ext}>{t('nav.docs')}</a>
+        <a href={`/${lang}/contact/`}>{t('nav.contact')}</a>
+        <a href={WA} {...ext}>{t('footer.whatsapp')}</a>
+      </div>
+      <div>
+        <h4>{t('footer.company')}</h4>
+        <a href={`/${lang}/contact/`}>{t('footer.about')}</a>
+        <a href={`/${lang}/privacy/`}>{t('footer.privacy')}</a>
+        <a href={`/${lang}/terms/`}>{t('footer.terms')}</a>
+        <a href={`/${lang}/privacy/`}>{t('footer.security')}</a>
+      </div>
+    </div>
+    <div class="fbottom">
+      <span>{t('footer.copy')} · <button id="cookieAgain" type="button">{t('footer.cookies')}</button></span>
+      <label>{t('footer.language')}:
+        <select id="langSel" data-path={path}>
+          <option value="bn" selected={lang === 'bn'}>বাংলা</option>
+          <option value="en" selected={lang === 'en'}>English</option>
+        </select>
+      </label>
+    </div>
+  </div>
+</footer>
+<script is:inline>
+  document.getElementById('langSel').addEventListener('change', function (e) {
+    location.href = '/' + e.target.value + e.target.dataset.path;
+  });
+</script>

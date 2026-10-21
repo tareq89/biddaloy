@@ -252,6 +252,11 @@ fails if `VITE_USE_MOCKS=true`.
 Docker too — see the README's "Production Build" / "Deploy to VPS"
 sections for that path.
 
+`landing/` (the Astro marketing site) is built separately by CI's `landing`
+job: `yarn workspace @biddaloy/landing build`, then
+`node landing/scripts/check-tokens.mjs` (token drift vs the app), then
+`landing/dist` is uploaded as artifact `landing-dist-<sha>` (30 days).
+
 **Images (GHCR).** `.github/workflows/publish-image.yml` runs on every merge
 to `main` and pushes three images, each tagged `<commit-sha>` and `main`.
 Production pulls, never builds.

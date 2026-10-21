@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 
 const publicRoots = [
+  'landing/',
   'client-admin/index.html',
   'client-admin/public/',
   'client-admin/src/pwa/',
@@ -24,14 +25,25 @@ const trackedFiles = execFileSync('git', ['ls-files'], { encoding: 'utf8' })
 
 const failures = [];
 const oldBrand = /\bBiddaloy\b|\bbiddaloy\b/;
+// `by Biddaloy` is allowed: the company name appears on the landing tagline
+// ("SchoolManager ERP by Biddaloy") only.
 const compatibilityReference =
-  /@biddaloy|biddaloy(?:[._:/-]|['"`;]|\.test|\.com)|tareq89\/biddaloy|\/opt\/biddaloy|postgres:\/\/[^\s]*biddaloy/;
+  /\bby Biddaloy\b|@biddaloy|biddaloy(?:[._:/-]|['"`;]|\.test|\.com)|tareq89\/biddaloy|\/opt\/biddaloy|postgres:\/\/[^\s]*biddaloy/;
+
+// The company name (not the old product name) may appear in landing copy: footer
+// tagline, about link and copyright line. Only those i18n keys are exempt; the
+// rest of the landing translations are still scanned.
+const companyNameAllowed = (file, line) =>
+  file.startsWith('landing/src/i18n/') && /^\s*"footer\.(tagline|about|copy)"/.test(line);
 
 for (const file of trackedFiles) {
   const content = await readFile(file, 'utf8');
   const hasOldPublicBrand = content
     .split('\n')
-    .some((line) => oldBrand.test(line) && !compatibilityReference.test(line));
+    .some(
+      (line) =>
+        oldBrand.test(line) && !compatibilityReference.test(line) && !companyNameAllowed(file, line),
+    );
   if (hasOldPublicBrand) failures.push(file);
 }
 
