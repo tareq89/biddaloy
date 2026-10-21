@@ -46,7 +46,7 @@ docker exec accesslog-edge nginx -t >/dev/null 2>&1 && pass "nginx -t" || fail "
 # One request per secret-bearing shape, each with a secret Referer.
 for path in '/reset-password?token=SECRET1' '/api/v1/public/verify/SECRET2' \
   '/api/v1/calendar/feed/SECRET3.ics' '/i/SECRET4' '/v/SECRET5' \
-  '/api/v1/public/invoices/SECRET6'; do
+  '/api/v1/public/invoices/SECRET6' '/api/push/SECRET10?status=up'; do
   docker run --rm --network "$NET" "$CURL_IMG" -s -o /dev/null \
     --resolve "example.test:80:$EDGE_IP" -H 'Referer: https://x/?token=SECRET7' \
     "http://example.test$path"
@@ -65,6 +65,8 @@ count=$(grep -c SECRET <<<"$logs" || true)
   && pass "path token masked" || fail "verify token not masked" "$logs"
 [[ "$logs" == *'/i/[REDACTED]'* && "$logs" == *'/v/[REDACTED]'* ]] \
   && pass "SPA tokens masked" || fail "SPA tokens not masked" "$logs"
+[[ "$logs" == *'/api/push/[REDACTED]'* ]] \
+  && pass "Kuma push token masked" || fail "Kuma push token not masked" "$logs"
 
 [ "$FAILS" = 0 ] || { echo "$FAILS check(s) failed"; exit 1; }
 echo "all checks passed"

@@ -42,7 +42,7 @@ encrypted cert yet (sops arrives with Epic 61 W3): copy `origin.pem` and
 **Security rules for this stack** (full text in [08-security.md](08-security.md#security-rules)):
 
 - [Rule 11](08-security.md#rule-11-client-ip-comes-only-from-reqip): the client IP is `req.ip`, set by nginx from `CF-Connecting-IP` for peers in `TRUSTED_PROXY_CIDRS`.
-- [Rule 12](08-security.md#rule-12-the-origin-accepts-only-cloudflare): the origin accepts only Cloudflare (next section).
+- [Rule 12](08-security.md#rule-12-the-origin-is-reachable-only-through-the-edge): the origin is reachable only through the edge (next section).
 - Cloudflare dashboard settings: the checklist in [25-cloudflare.md](25-cloudflare.md) (75.31).
 - After every deploy: `yarn smoke:post-deploy` ([12-operations.md §7](12-operations.md#7-post-deploy-smoke-check)).
 
@@ -149,7 +149,7 @@ to the app) instead of the bundled nginx:
 
 - Don't run the `nginx` service. An Origin CA certificate is not trusted by
   browsers, so use your load balancer's own certificate there. The
-  Cloudflare-only origin lock ([Rule 12](08-security.md#rule-12-the-origin-accepts-only-cloudflare))
+  Cloudflare-only origin lock ([Rule 12](08-security.md#rule-12-the-origin-is-reachable-only-through-the-edge))
   lives in nginx, so the LB or a firewall must do that job instead.
 - Point the LB at the `app` service's port directly (change `expose` to
   `ports` in `docker-compose.yml`, or route through your platform's service

@@ -26,7 +26,7 @@ EVERY="${RELOAD_EVERY_SECONDS:-21600}"
     if [ "$now" != "$last" ] || [ "$waited" -ge "$EVERY" ]; then
       last=$now
       waited=0
-      nginx -s reload
+      nginx -s reload || echo "reload-loop: reload failed" >&2
     fi
   done
 ) &

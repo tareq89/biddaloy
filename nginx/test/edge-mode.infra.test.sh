@@ -165,6 +165,27 @@ expect "direct: kuma with credentials -> 200" "200 0" "$(curl_as -u u:p $(https 
 # shellcheck disable=SC2046
 expect "direct: kuma /api/push/x without credentials -> 200 from upstream" "200 0" \
   "$(curl_as $(https kuma.example.test /api/push/x))"
+# The Let's Encrypt challenge must work on protected hosts (certbot has no login): never 401.
+for h in kuma.example.test staging.example.test beszel.example.test logs.example.test; do
+  # shellcheck disable=SC2046
+  expect "direct: ACME path on $h (http) is not behind the login (file absent -> 404)" "404 0" \
+    "$(curl_as $(http "$h" /.well-known/acme-challenge/x))"
+  # shellcheck disable=SC2046
+  expect "direct: ACME path on $h (https) is not behind the login" "404 0" \
+    "$(curl_as $(https "$h" /.well-known/acme-challenge/x))"
+done
+# Only a plain /api/push/<token> skips the outer login; path tricks must not reach Kuma unauthenticated.
+# shellcheck disable=SC2046
+expect "direct: kuma /api/push/tok?status=up without credentials -> 200" "200 0" \
+  "$(curl_as $(https kuma.example.test '/api/push/tok?status=up'))"
+for trick in '/socket.io/..%2fapi/push/x' '/metrics/%2e%2e/api/push/x' '/api/push/' '/api/push/a/b'; do
+  # shellcheck disable=SC2046
+  got=$(curl_as --path-as-is $(https kuma.example.test "$trick"))
+  case "$got" in "401 0" | "404 0") pass "direct: kuma $trick without credentials -> ${got%% *}" ;; *) fail "direct: kuma $trick" "$got" ;; esac
+done
+# shellcheck disable=SC2046
+hsts=$(body_as -skI $(https example.test /) | tr -d '\r' | grep -i '^strict-transport-security: max-age=' || true)
+[ -n "$hsts" ] && pass "direct: app host sends HSTS" || fail "direct: HSTS" "missing"
 # shellcheck disable=SC2046
 expect "direct: staging without credentials -> 401" "401 0" "$(curl_as $(https staging.example.test /))"
 # shellcheck disable=SC2046

@@ -43,7 +43,7 @@ server {
     proxy_set_header Host $host;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $ops_connection;
-    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Proto $edge_proto;
     proxy_read_timeout 3600s;
     proxy_buffering off;
 
@@ -53,6 +53,10 @@ server {
 
     # D14: job results are pushed here by the VM's timers; the token in the URL is the login.
     location ^~ /api/push/ {
+        # nginx matches the decoded, normalised path, but the upstream gets the raw one:
+        # `/socket.io/..%2fapi/push/x` would reach Kuma unauthenticated. Only a plain
+        # /api/push/<token> request may skip the outer login; anything else is not found.
+        if ($request_uri !~ "^/api/push/[A-Za-z0-9_-]+(\?|$)") { return 404; }
         auth_basic off;
         proxy_pass http://kuma_upstream;
     }
@@ -72,7 +76,7 @@ server {
     proxy_set_header Host $host;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $ops_connection;
-    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Proto $edge_proto;
     proxy_read_timeout 3600s;
     proxy_buffering off;
 
@@ -95,7 +99,7 @@ server {
     proxy_set_header Host $host;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $ops_connection;
-    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Proto $edge_proto;
     proxy_read_timeout 3600s;
     proxy_buffering off;
 
