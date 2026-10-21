@@ -1,0 +1,54 @@
+---
+// Dashed placeholder box (mockup `.shot`). With `name` (+`lang`) it shows the committed screenshot
+// from `landing/scripts/shoot.ts` (50.9), falling back to the placeholder when the file is missing.
+import { Picture } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import placeholder from '../../assets/shots/placeholder.svg';
+import blur from '../../assets/shots/shots.placeholders.json';
+interface Props { label: string; sub?: string; src?: string; fill?: boolean; name?: string; lang?: string }
+const { label, sub, src = placeholder.src, fill = false, name, lang = 'bn' } = Astro.props;
+
+const files = import.meta.glob<{ default: ImageMetadata }>('../../assets/shots/*/*.png', { eager: true });
+const blurs = blur as Record<string, string>;
+const pick = (theme: 'light' | 'dark') => {
+  const key = `${name}.${lang}.${theme}`;
+  const img = files[`../../assets/shots/${key}.png`]?.default;
+  return img ? { img, blur: blurs[key] } : undefined;
+};
+const pairs = name ? ([['light', pick('light')], ['dark', pick('dark')]] as const) : [];
+// Both themes or none: a lone theme would be hidden under the other one.
+const variants = pairs.every(([, v]) => v) ? pairs : [];
+---
+<div class:list={['shot', { fill, real: variants.length > 0 }]}>
+  {variants.length > 0 ? (
+    variants.map(([theme, v]) => (
+      <Picture
+        src={v!.img}
+        alt={label}
+        formats={['avif', 'webp']}
+        loading="lazy"
+        class={`t-${theme}`}
+        style={v!.blur ? `background:center/cover url(${v!.blur})` : undefined}
+      />
+    ))
+  ) : (
+    <img src={src} alt="" loading="lazy" decoding="async" />
+  )}
+  {variants.length === 0 && <span><b>{label}</b>{sub}</span>}
+</div>
+<style>
+  .shot{position:relative;background:var(--shot);border:1px dashed var(--shot-ink);border-radius:10px;color:var(--shot-ink);display:grid;place-items:center;text-align:center;font-size:.85rem;padding:1rem;aspect-ratio:16/9;max-width:100%;overflow:hidden}
+  .shot.fill{aspect-ratio:auto;height:100%;border:0;border-radius:0}
+  .shot.real{border:0;padding:0}
+  .shot img,.shot :global(picture),.shot :global(picture img){position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .shot span{position:relative}
+  .shot b{display:block;font-size:.95rem;color:var(--fg)}
+  /* Light screenshot by default; the dark one wins on a dark scheme or data-theme=dark. */
+  .shot :global(.t-dark){display:none}
+  @media (prefers-color-scheme: dark){
+    :global(:root:not([data-theme='light'])) .shot :global(.t-dark){display:block}
+    :global(:root:not([data-theme='light'])) .shot :global(.t-light){display:none}
+  }
+  :global(:root[data-theme='dark']) .shot :global(.t-dark){display:block}
+  :global(:root[data-theme='dark']) .shot :global(.t-light){display:none}
+</style>

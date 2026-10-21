@@ -20,7 +20,7 @@ describe('AuthLayout', () => {
       { locale: 'en' },
     );
 
-    expect(await screen.findByText('SchoolManager')).toBeTruthy();
+    expect(await screen.findByRole('img', { name: 'SchoolManager' })).toBeTruthy();
     expect(screen.getByRole('main')).toBeTruthy();
     expect(container.querySelectorAll('section')).toHaveLength(1);
     expect(container.querySelector('section')?.textContent).toBe('child');
@@ -52,7 +52,9 @@ describe('AuthLayout', () => {
 
     const langRow = screen.getByRole('button', { name: /English/ }).parentElement;
     expect(langRow?.className).toContain('print:hidden');
-    expect(screen.getByText('SchoolManager').parentElement?.className).toContain('print:hidden');
+    expect(screen.getByRole('img', { name: 'SchoolManager' }).parentElement?.className).toContain(
+      'print:hidden',
+    );
     expect(container.querySelector('section')?.className).toContain('print:border-0');
   });
 

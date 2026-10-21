@@ -1,0 +1,74 @@
+---
+import WhatsAppLink from './WhatsAppLink.astro';
+import { company } from '../content/legal';
+import type { Lang } from '../i18n';
+const { lang } = Astro.props as { lang: Lang };
+const bn = lang === 'bn';
+const site = import.meta.env.PUBLIC_AIPRAKTOR_SITE ?? '';
+const num = import.meta.env.PUBLIC_WA_NUMBER;
+const wa = num ? `https://wa.me/${num}` : company.whatsapp;
+---
+<!-- Facade: plain button, zero third-party JS until click (or 20 s idle after chat consent). D15, D27. -->
+<button class="chatfab" id="chatFab" type="button" data-chat-open data-site={site} data-lang={lang} data-wa={wa} aria-label={bn ? 'চ্যাট' : 'Chat'}>💬 <span>{bn ? 'চ্যাট' : 'Chat'}</span></button>
+<noscript><div class="chatfab"><WhatsAppLink lang={lang} class="" label="WhatsApp" /></div></noscript>
+<script>
+  import { track, parseConsent, withChat } from '../scripts/events';
+  const EMBED = 'https://www.aipraktor.com/embed.js';
+  const fab = document.getElementById('chatFab') as HTMLButtonElement;
+  // Navigate (not window.open): a timer or onerror callback is not a user gesture, so popups get blocked.
+  const wa = () => { location.href = fab.dataset.wa as string; };
+  let state: 'idle' | 'loading' | 'ready' = 'idle';
+  let script: HTMLScriptElement | null = null; // one tag, ever
+  let openAfterReady = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  window.addEventListener('aipraktor:ready', () => {
+    clearTimeout(timer); state = 'ready'; fab.hidden = true; // the widget draws its own bubble
+    if (openAfterReady) window.dispatchEvent(new CustomEvent('aipraktor:open'));
+  });
+
+  function load(openAfter: boolean) {
+    const { site, lang } = fab.dataset;
+    if (!site) { if (openAfter) wa(); return; } // chat not configured = WhatsApp
+    if (state === 'ready') { if (openAfter) window.dispatchEvent(new CustomEvent('aipraktor:open')); return; }
+    if (openAfter) openAfterReady = true;
+    if (state === 'loading') return;
+    state = 'loading';
+    // D27: chat offline or slow (5 s) -> WhatsApp, never a dead button. The script may still arrive
+    // later; it is kept (not re-added), so a later click reuses it.
+    timer = setTimeout(() => { if (state === 'loading') { state = 'idle'; if (openAfterReady) { openAfterReady = false; wa(); } } }, 5000);
+    if (script) return;
+    const s = document.createElement('script');
+    script = s;
+    s.src = EMBED; s.async = true; s.dataset.site = site; s.dataset.lang = lang;
+    s.onerror = () => { clearTimeout(timer); state = 'idle'; script = null; s.remove(); if (openAfterReady) { openAfterReady = false; wa(); } };
+    document.head.appendChild(s);
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!(e.target as Element).closest('[data-chat-open]')) return;
+    track('chat_open');
+    try { localStorage.setItem('sm:consent', JSON.stringify(withChat(localStorage.getItem('sm:consent')))); } catch { /* storage blocked */ }
+    load(true);
+  });
+
+  // Idle preload only once the visitor allowed chat; every consent change re-checks it, and the
+  // pending timer is dropped, so withdrawing chat before it fires never injects the script.
+  let preload: ReturnType<typeof setTimeout> | undefined;
+  const chatAllowed = () => { try { return !!parseConsent(localStorage.getItem('sm:consent'))?.chat; } catch { return false; } };
+  function arm() {
+    clearTimeout(preload);
+    if (chatAllowed()) preload = setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(() => { if (chatAllowed()) load(false); }) : chatAllowed() && load(false)), 20000);
+  }
+  arm();
+  // The widget has no teardown API, so withdrawing chat after it was injected reloads the page.
+  window.addEventListener('sm:consent', () => {
+    arm();
+    if (script && !chatAllowed()) { clearTimeout(timer); openAfterReady = false; location.reload(); }
+  });
+</script>
+<style>
+  .chatfab{position:fixed;right:1rem;bottom:1rem;z-index:40;display:inline-flex;gap:.4rem;align-items:center;border:0;cursor:pointer;border-radius:999px;padding:.7rem 1rem;font-weight:600;background:var(--ink);color:var(--ink-fg);box-shadow:0 4px 14px rgb(0 0 0/.25)}
+  .chatfab[hidden]{display:none}
+  .chatfab :global(a){color:inherit;text-decoration:none}
+</style>

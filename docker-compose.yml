@@ -237,6 +237,7 @@ services:
       # `.invalid` never resolves, so an unconfigured block matches nothing.
       OPS_DOMAIN: ${OPS_DOMAIN:-ops.invalid}
       STAGING_DOMAIN: ${STAGING_DOMAIN:-staging.invalid}
+      LANDING_DOMAIN: ${LANDING_DOMAIN:-landing.invalid}
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
     volumes:
       - ./nginx/templates:/etc/nginx/templates:ro
@@ -246,6 +247,10 @@ services:
       # (origin.key chmod 600). No default: a missing dir fails here, not as an
       # nginx crash loop.
       - ${TLS_CERT_DIR:?TLS_CERT_DIR must be set}:/etc/nginx/certs:ro
+      # Landing site (landing.conf.template). Mounts the PARENT of the `current` symlink on
+      # purpose: Docker resolves a symlink mount once, at container start, so mounting
+      # `current` itself would keep serving the old release after a deploy.
+      - ${LANDING_DIST_DIR:-/opt/biddaloy/landing}:/usr/share/nginx/landing:ro
     # /healthz answers loopback callers only (nginx/templates/default.conf.template).
     healthcheck:
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1/healthz || exit 1']

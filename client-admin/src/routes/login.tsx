@@ -1,5 +1,6 @@
 import {
   ApiError,
+  getAccessToken,
   getFirstPasswordGate,
   NoMembershipsError,
   RateLimitedError,
@@ -66,6 +67,9 @@ const loginSearchSchema = z.object({
   social: z.enum(['not_linked']).optional().catch(undefined),
   // 13.5.3: `_staff` sends a session that still owes a first password here.
   step: z.enum(['password']).optional().catch(undefined),
+  // 50.8: the landing's `/login?role=<key>` signs in as that demo card. Only ever matched against
+  // the demo cards (never echoed); anything else, or a non-demo host, ignores it (D8).
+  role: z.string().max(40).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/login')({
@@ -151,6 +155,26 @@ function LoginPage() {
     onSuccess: handleSuccess,
     onError: () => setOwnOpen(true),
   });
+
+  // 50.8: fire once per page load; `role` leaves the URL so a reload does not sign in again.
+  // `mutate` is stable across renders (the `mutation` object is not), so keep it in a ref.
+  const roleFired = React.useRef(false);
+  const signInRef = React.useRef(mutation.mutate);
+  signInRef.current = mutation.mutate;
+  React.useEffect(() => {
+    if (!demo.enabled || !search.role || roleFired.current) return;
+    const card = demo.cards.find((c) => c.key === search.role);
+    if (!card) return;
+    roleFired.current = true;
+    void navigate({
+      to: '/login',
+      search: (prev) => ({ ...prev, role: undefined }),
+      replace: true,
+    });
+    // Already signed in (the root guard has finished its silent refresh by now): never swap the session.
+    if (getAccessToken()) return;
+    signInRef.current({ email: card.email, password: demo.password });
+  }, [demo.enabled, demo.cards, demo.password, search.role, navigate]);
 
   const otpRequestMutation = useMutation({
     mutationFn: (identifier: string) => requestOtp(identifier),
@@ -248,7 +272,10 @@ function LoginPage() {
         <TabsContent value="password">
           <SignInForm
             headingLevel={demo.enabled ? 'h2' : 'h1'}
-            onSubmit={(credentials) => mutation.mutate(credentials)}
+            onSubmit={(credentials) => {
+              roleFired.current = true; // a manual sign-in cancels a pending ?role= deep link
+              mutation.mutate(credentials);
+            }}
             loading={mutation.isPending}
             error={buildLoginError(mutation.error, t)}
             secondaryAction={
@@ -273,7 +300,10 @@ function LoginPage() {
           <OtpSignInForm
             headingLevel={demo.enabled ? 'h2' : 'h1'}
             onRequest={(phone) => otpRequestMutation.mutateAsync(phone).then(() => undefined)}
-            onVerify={(credentials) => otpVerifyMutation.mutate(credentials)}
+            onVerify={(credentials) => {
+              roleFired.current = true;
+              otpVerifyMutation.mutate(credentials);
+            }}
             loading={otpVerifyMutation.isPending}
             error={buildOtpError(otpVerifyMutation.error ?? otpRequestMutation.error, t)}
           />

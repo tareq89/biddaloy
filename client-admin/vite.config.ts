@@ -22,6 +22,16 @@ export default defineConfig({
         }
       },
     },
+    // Link-preview crawlers need an absolute og:image. VITE_APP_URL overrides the default (e.g. the demo host).
+    {
+      name: 'og-image-base',
+      // loadEnv also reads .env files (and the process env), which plain process.env does not.
+      transformIndexHtml(html, ctx) {
+        const env = loadEnv(ctx.server?.config.mode ?? process.env.NODE_ENV ?? 'production', process.cwd(), 'VITE_');
+        const base = env.VITE_APP_URL ?? 'https://app.schoolmanagerp.com';
+        return html.replace('%OG_BASE%', base.replace(/\/$/, ''));
+      },
+    },
     // Must come before react() — the plugin transforms route files (and
     // generates routeTree.gen.ts) before the React plugin ever sees them.
     tanstackRouter({

@@ -101,6 +101,12 @@ login screen shows exactly these cards. Every card uses `DEMO_PASSWORD`.
 | `guardian`         | `PARENT`          | `guardian@bmsc.example`   | `bmsc-high` | children (two kids, one in Primary) |
 | `student-9b`       | `STUDENT`         | `student9b@bmsc.example`  | `bmsc-high` | homework                            |
 
+#### Deep links
+
+`/login?role=<Card key>` on a demo host signs in as that card, once, then drops the param from the URL
+(for example `/login?role=guardian` lands on `/portal`). The landing's role list copies the keys above.
+An unknown key, or a host without demo mode, ignores it silently and shows the normal login.
+
 `ctx.rng` is one seeded faker, so the same anchor and scale give the same data.
 `ctx.ids` is how a slice hands tenant, year and user ids to later slices.
 Every seeded login shares one bcrypt hash made once in `createContext` (cost 12

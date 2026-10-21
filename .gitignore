@@ -196,6 +196,7 @@ build-output/
 /test-results/
 /test-results-pwa/
 /playwright-report/
+/.lighthouseci-landing/
 /playwright-report-pwa/
 /blob-report/
 /playwright/.cache/
@@ -288,3 +289,6 @@ infra/secrets/*
 !infra/secrets/*.enc.pem
 !infra/secrets/*.example.env
 !infra/secrets/README.md
+
+# landing.yml downloads CI artifacts here (infra/ansible/landing.yml)
+.landing-dist/

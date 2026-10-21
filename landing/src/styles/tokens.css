@@ -18,9 +18,12 @@
   --amber-t: #fff3d6;
   --coral: #e4572e;
   --coral-t: #fde9e2;
+  --teal-ink: #0a6e5f;
+  --amber-ink: #8a5a00;
+  --coral-ink: #b8401a;
   --brand: var(--indigo);
   --shot: #f1f1ee;
-  --shot-ink: #8a8984;
+  --shot-ink: #6b6a65;
   --font: 'Hind Siliguri', 'Noto Sans Bengali', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
@@ -38,6 +41,7 @@
     --ink: #e6e6e3; --ink-fg: #191919;
     --indigo: #9aa0f5; --indigo-t: #26284a; --teal: #4fd1bd; --teal-t: #143b35;
     --amber: #f2b63a; --amber-t: #3f3115; --coral: #f08a68; --coral-t: #44251b;
+    --teal-ink: var(--teal); --amber-ink: var(--amber); --coral-ink: var(--coral);
     --shot: #232323; color-scheme: dark;
   }
 }
@@ -46,9 +50,10 @@
   --ink: #e6e6e3; --ink-fg: #191919;
   --indigo: #9aa0f5; --indigo-t: #26284a; --teal: #4fd1bd; --teal-t: #143b35;
   --amber: #f2b63a; --amber-t: #3f3115; --coral: #f08a68; --coral-t: #44251b;
+  --teal-ink: var(--teal); --amber-ink: var(--amber); --coral-ink: var(--coral);
   --shot: #232323; color-scheme: dark;
 }
-.c-indigo { --hue: var(--indigo); --tint: var(--indigo-t); }
-.c-teal { --hue: var(--teal); --tint: var(--teal-t); }
-.c-amber { --hue: var(--amber); --tint: var(--amber-t); }
-.c-coral { --hue: var(--coral); --tint: var(--coral-t); }
+.c-indigo { --hue: var(--indigo); --hue-ink: var(--indigo); --tint: var(--indigo-t); }
+.c-teal { --hue: var(--teal); --hue-ink: var(--teal-ink); --tint: var(--teal-t); }
+.c-amber { --hue: var(--amber); --hue-ink: var(--amber-ink); --tint: var(--amber-t); }
+.c-coral { --hue: var(--coral); --hue-ink: var(--coral-ink); --tint: var(--coral-t); }

@@ -744,6 +744,18 @@
 }
 
 /**
+ * Brand-mark colours (wordmark / monogram). Fixed brand values that follow
+ * the theme, so `brand-mark.tsx` uses `fill-[color:var(--brand-mark-ink)]`
+ * instead of a raw hex (check:raw-palette). Match wordmark{,-dark}.svg.
+ */
+:root {
+  --brand-mark-ink: #191919;
+  --brand-mark-accent: #4a3fd4;
+  --brand-mark-erp: #3a30b0;
+  --brand-mark-glyph: #ffffff;
+}
+
+/**
  * Dark-mode token values, defined per [8.1.2] and exposed by [8.13.12]'s
  * theme toggle. Selector is `:root[data-theme="dark"]`, not `@media
  * (prefers-color-scheme: dark)` directly — the media query would activate
@@ -766,6 +778,10 @@
   --color-border-functional: var(--color-neutral-500); /* same value; verified separately against the dark bg */
   --color-border-subtle: var(--color-neutral-700); /* decorative only — exempt from 3:1, see the light block */
   --color-brand: var(--color-brand-400);
+  --brand-mark-ink: #f5f5f4;
+  --brand-mark-accent: #9aa0f5;
+  --brand-mark-erp: #9aa0f5;
+  --brand-mark-glyph: #191919;
 
   /* Dark-scope shadcn aliases. These are the only ones that cannot follow
      their referenced token automatically:

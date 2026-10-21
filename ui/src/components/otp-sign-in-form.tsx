@@ -21,6 +21,7 @@ import { cn } from '../primitives/lib/utils';
 import { detectLoginIdentifier, toLatinDigits } from '../utils';
 
 import { useInsideAuthLayout } from './auth-layout';
+import { Wordmark } from './brand-mark';
 import { Button } from './button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './form-field';
 import { Input } from './input';
@@ -192,14 +193,8 @@ export function OtpSignInForm({
   }
 
   const brandMark = framed ? (
-    <div className="flex items-center justify-center gap-2">
-      <div
-        aria-hidden="true"
-        className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand text-base font-bold text-primary-foreground"
-      >
-        ব
-      </div>
-      <span className="text-lg font-semibold tracking-tight">{t('brand')}</span>
+    <div className="flex justify-center">
+      <Wordmark />
     </div>
   ) : null;
 

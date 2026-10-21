@@ -1,0 +1,19 @@
+---
+import type { Lang } from '../../i18n';
+import { faq, faqTitle } from '../../content/faq';
+const { lang } = Astro.props as { lang: Lang };
+const privacy = `/${lang}/privacy/`;
+---
+<section><div class="wrap narrow">
+  <h2 class="h2">{faqTitle[lang]}</h2>
+  <div class="faq">
+    {faq.map((f, i) => (
+      <details open={i === 0}><summary>{f.q[lang]}</summary><p set:html={f.a[lang].replace('{privacy}', privacy)} /></details>
+    ))}
+  </div>
+</div></section>
+<style>
+  .faq{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 2.5rem;margin-top:1rem}
+  @media (max-width:760px){.faq{grid-template-columns:1fr}}
+  details{border-top:1px solid var(--line);padding:.8rem 0}summary{cursor:pointer;font-weight:600}details p{color:var(--muted);margin-top:.4rem;max-width:65ch}
+</style>
