@@ -21,7 +21,12 @@ const mono = (name, size, out) =>
 await Promise.all([
   mono('monogram.svg', 32, 'favicon-32.png'),
   mono('monogram-maskable.svg', 180, 'apple-touch-icon.png'), // iOS rounds the corners itself
-  mono('monogram.svg', 192, 'icons/pwa-192.png'),
+  // 192 is a downscale of the 512 render, not its own render: client-admin's icons test
+  // compares the two pixel for pixel, and separate renders differ on glyph edges.
+  sharp(await sharp(svg('monogram.svg'), { density: 384 }).resize(512, 512).png().toBuffer())
+    .resize(192, 192)
+    .png({ compressionLevel: 9 }) // no palette: a quantised 192 drifts from the 512 on edges
+    .toFile(join(pub, 'icons/pwa-192.png')),
   mono('monogram.svg', 512, 'icons/pwa-512.png'),
   mono('monogram-maskable.svg', 512, 'icons/pwa-maskable-512.png'),
 ]);
