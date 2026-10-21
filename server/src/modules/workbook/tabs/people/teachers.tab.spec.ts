@@ -180,18 +180,23 @@ describe('round-trip', () => {
     expect(errors.some((e) => e.column === 'user')).toBe(true);
   });
 
-  it('empty required cells (employee_id, user) each yield their own RowError', () => {
-    const teacher = makeTeacher();
-    const cells = toCells(teacher);
+  it('an empty employee_id yields a RowError', () => {
+    const cells = toCells(makeTeacher());
     cells.employee_id = '';
-    cells.user = '';
 
     const result = teachersTab.fromRow(cells, 5, importCtx());
     expect('errors' in result).toBe(true);
     const errors = (result as { errors: RowError[] }).errors;
-    const columns = errors.map((e) => e.column);
-    expect(columns).toContain('employee_id');
-    expect(columns).toContain('user');
+    expect(errors.map((e) => e.column)).toContain('employee_id');
+  });
+
+  it('a blank user cell is not a row error here (the engine checks new rows, #2668)', () => {
+    const cells = toCells(makeTeacher());
+    cells.user = '';
+
+    const result = teachersTab.fromRow(cells, 5, importCtx());
+    if ('errors' in result) throw new Error(JSON.stringify(result.errors));
+    expect(result.row.user_id).toBeNull();
   });
 
   it('employee_id over 50 chars yields a RowError', () => {

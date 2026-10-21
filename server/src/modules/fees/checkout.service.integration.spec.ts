@@ -1328,6 +1328,11 @@ describe('CheckoutService (integration)', () => {
         where: { student_id: student.id },
       });
       expect(invoices).toHaveLength(1);
+      expect(
+        await auditLogRepo.count({
+          where: { entity_id: invoices[0].id, action: AuditAction.INVOICE_GENERATED },
+        }),
+      ).toBe(1);
     });
 
     it('recovers an orphaned payment (invoice creation failed post-commit) on the next idempotent replay', async () => {
@@ -1375,6 +1380,12 @@ describe('CheckoutService (integration)', () => {
       expect(retryMeta.replayed).toBe(true);
       expect(retried.payment.id).toBe(orphaned.id);
       expect(retried.invoice_id).toBeTruthy();
+      // [#2690] The mocked first attempt wrote nothing; the repair writes the one row.
+      const generatedRows = await auditLogRepo.find({
+        where: { action: AuditAction.INVOICE_GENERATED },
+      });
+      expect(generatedRows).toHaveLength(1);
+      expect(generatedRows[0].entity_id).toBe(retried.invoice_id);
       // [68.4.10] The sequential retry is what sends the guardian the receipt
       // the first request never enqueued (the jobId makes a repeat harmless).
       expect(feeNotifyAdd).toHaveBeenCalledWith(
@@ -1522,8 +1533,31 @@ describe('CheckoutService (integration)', () => {
       expect(received[0].performed_by_user_id).toBe(ACTOR_USER_ID);
       expect(received[0].entity_type).toBe('Payment');
       expect(received[0].tenant_id).toBe(TENANT_ID);
-      // Checkout writes no INVOICE_GENERATED row (only the deleted recordWithAllocation did).
       expect(invoice_id).toBeTruthy();
+
+      // [#2690] The invoice's own transaction writes the INVOICE_GENERATED row.
+      const generated = await auditLogRepo.find({
+        where: { entity_id: invoice_id!, action: AuditAction.INVOICE_GENERATED },
+      });
+      expect(generated).toHaveLength(1);
+      expect(generated[0].entity_type).toBe('Invoice');
+      expect(generated[0].performed_by_user_id).toBe(ACTOR_USER_ID);
+      expect(generated[0].tenant_id).toBe(TENANT_ID);
+      expect(generated[0].new_values).toMatchObject({
+        invoice_id,
+        payment_id: payment.id,
+      });
+    });
+
+    it('replaying the same idempotency key still leaves one INVOICE_GENERATED row', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id));
+      await pay(bill.id, 400, KEY(6));
+      await pay(bill.id, 400, KEY(6));
+
+      expect(await auditLogRepo.count({ where: { action: AuditAction.INVOICE_GENERATED } })).toBe(
+        1,
+      );
     });
 
     // #2700: the three cases from the deleted recordWithAllocation spec that had no checkout twin.
@@ -1587,6 +1621,10 @@ describe('CheckoutService (integration)', () => {
 
       expect(second.payment.id).not.toBe(first.payment.id);
       expect(second.payment.tenant_id).toBe(OTHER_TENANT_ID);
+      const firstRow = await auditLogRepo.findOneByOrFail({ entity_id: first.invoice_id! });
+      const secondRow = await auditLogRepo.findOneByOrFail({ entity_id: second.invoice_id! });
+      expect(firstRow.tenant_id).toBe(TENANT_ID);
+      expect(secondRow.tenant_id).toBe(OTHER_TENANT_ID);
     });
   });
 });

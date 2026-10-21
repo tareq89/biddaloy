@@ -2,7 +2,7 @@
  * [16.7.2] The clock for platform-wide cron triggers (e.g. the 00:30 fees-daily
  * run). `DEFAULT_REGION_SETTINGS` carries its own 'Asia/Dhaka' literal. Code that knows its tenant
  * must use `SchoolsService.todayFor(tenantId)` for "today", not this.
- * // ponytail: remaining todayInSchoolTz() callers (print jobs, application reports, student-lifecycle DTO validators, promotions, fines) still use Dhaka; move each to todayFor when a non-Bangladesh school is onboarded.
+ * // ponytail: remaining todayInSchoolTz() callers (print jobs, exam-cohort, application reports, student-lifecycle DTO validators, promotions, fines) still use Dhaka; move each to todayFor when a non-Bangladesh school is onboarded.
  */
 export const SCHOOL_TZ = 'Asia/Dhaka';
 

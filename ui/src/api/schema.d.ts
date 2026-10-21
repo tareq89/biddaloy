@@ -12111,6 +12111,7 @@ export interface components {
             sent: number;
             failed: number;
             queued: number;
+            skipped: number;
         };
         QuietHoursDto: {
             /** @example 21:00 */

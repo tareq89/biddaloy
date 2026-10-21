@@ -10,7 +10,8 @@ import { Invoice, InvoiceSnapshot, InvoiceSnapshotStudent } from './entities/inv
 import { Student } from '../students/entities/student.entity';
 import { Payment } from '../fees/entities/payment.entity';
 import { School } from '../schools/entities/school.entity';
-import { InvoiceStatus, InvoiceKind, PaymentStatus } from '@biddaloy/shared';
+import { InvoiceStatus, InvoiceKind, PaymentStatus, AuditAction } from '@biddaloy/shared';
+import { AuditService } from '../audit/audit.service';
 import { QueryInvoiceDto } from './dto/invoices.dto';
 import { generateInvoiceNumber, generateCreditNoteNumber } from './invoice-numbering.util';
 import { MONTH_NAMES, periodStartFromLabel } from './invoice-period.util';
@@ -76,6 +77,7 @@ export class InvoicesService {
     @InjectRepository(School)
     private readonly schoolRepo: Repository<School>,
     private readonly storage: StorageService,
+    private readonly auditService: AuditService,
   ) {}
 
   /** [16.5.1] Groups `payment.allocations` by the (possibly different, for
@@ -228,6 +230,23 @@ export class InvoicesService {
         notes: null,
         issuer_snapshot: issuerSnapshot,
       }),
+    );
+    // Same transaction as the insert (`manager`): no invoice without its row.
+    await this.auditService.record(
+      {
+        action: AuditAction.INVOICE_GENERATED,
+        entity_type: 'Invoice',
+        entity_id: invoice.id,
+        tenant_id: payment.tenant_id,
+        performed_by_user_id: payment.received_by_user_id,
+        new_values: {
+          invoice_id: invoice.id,
+          invoice_number: invoiceNumber,
+          payment_id: payment.id,
+          total_amount: snapshot.totals.paid,
+        },
+      },
+      manager,
     );
     return invoice;
   }

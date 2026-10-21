@@ -16,7 +16,10 @@ const {
   CANCEL,
   PICK_STAFF,
   PICK_SECTION,
+  PICK_MANY,
+  ADMIT_MANY,
   SECTION_ID,
+  EXAM_ID,
 } = vi.hoisted(() => ({
   CREATE_TEMPLATE: 'create-template',
   ADD_PRINTER: 'add-printer',
@@ -26,8 +29,13 @@ const {
   CANCEL: 'cancel-picker',
   PICK_STAFF: 'pick-staff',
   PICK_SECTION: 'pick-section',
+  PICK_MANY: 'pick-many',
+  ADMIT_MANY: 'admit-many',
   SECTION_ID: '11111111-1111-4111-8111-111111111111',
+  EXAM_ID: '22222222-2222-4222-8222-222222222222',
 }));
+
+const manyIds = (n: number) => Array.from({ length: n }, (_, i) => `s${i}`);
 
 // The big screens have their own tests. Here only the ROUTES are under test, so each page
 // component is a stub that shows what the route handed it.
@@ -94,6 +102,23 @@ vi.mock('../../components/print/print-id-card-modal', () => ({
       >
         {PICK_SECTION}
       </button>
+      <button
+        type="button"
+        onClick={() => props.onConfirm({ subjectType: 'STUDENT', ids: manyIds(41).join(',') })}
+      >
+        {PICK_MANY}
+      </button>
+    </div>
+  ),
+}));
+// [2704] The admit-card picker hands back a comma string too; this one confirms a whole exam.
+vi.mock('../../components/print/admit-card-picker', () => ({
+  AdmitCardPicker: (props: { examId: string; onConfirm: (ids: string) => void }) => (
+    <div>
+      <output data-testid="admit-exam">{props.examId}</output>
+      <button type="button" onClick={() => props.onConfirm(manyIds(300).join(','))}>
+        {ADMIT_MANY}
+      </button>
     </div>
   ),
 }));
@@ -125,16 +150,12 @@ const render = (path: string, role: UserRole = UserRole.ADMIN) =>
     locale: 'en',
   });
 
+// Drives the per-query `FakeMediaQueryList` from `ui/src/test/jsdom-polyfills.ts`: `useIsWide`
+// listens for `change`, so flipping the width mid-test re-renders the page like a real resize.
 function setWidth(wide: boolean) {
-  window.matchMedia = ((query: string) => ({
-    matches: wide,
-    media: query,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
+  const mql = window.matchMedia('(min-width: 768px)') as MediaQueryList & { matches: boolean };
+  mql.matches = wide;
+  mql.dispatchEvent(new Event('change'));
 }
 
 describe('print routes [32.4.1]', () => {
@@ -252,6 +273,54 @@ describe('print routes [32.4.1]', () => {
       }),
     );
     expect((await screen.findByTestId('preview')).textContent).toBe('u1,u2');
+    expect(router.state.location.state.printIds).toBeUndefined();
+  });
+
+  it('[2704] 41 people from the ID-card picker go to history state, not the URL', async () => {
+    const { router } = render('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT');
+    await userEvent.setup().click(await screen.findByRole('button', { name: PICK_MANY }));
+    await waitFor(() => expect(router.state.location.state.printIds).toHaveLength(41));
+    expect(router.state.location.search).toMatchObject({ pick: '1', subject_type: 'STUDENT' });
+    expect(router.state.location.search).not.toHaveProperty('ids');
+    expect((await screen.findByTestId('preview')).textContent?.split(',')).toHaveLength(41);
+  });
+
+  it('[2704] a whole exam (300 students) from the admit-card picker goes to history state', async () => {
+    server.use(
+      http.get(`/api/v1/exams/${EXAM_ID}/documents/admit-cards`, () =>
+        HttpResponse.json({ students: [] }),
+      ),
+    );
+    const { router } = render(
+      `/print/preview?kind=EXAM_ADMIT_CARD&subject_type=STUDENT&context_type=EXAM&context_id=${EXAM_ID}`,
+    );
+    expect((await screen.findByTestId('admit-exam')).textContent).toBe(EXAM_ID);
+    await userEvent.setup().click(screen.getByRole('button', { name: ADMIT_MANY }));
+    await waitFor(() => expect(router.state.location.state.printIds).toHaveLength(300));
+    expect(router.state.location.search).toMatchObject({ pick: '1', kind: 'EXAM_ADMIT_CARD' });
+    expect(router.state.location.search).not.toHaveProperty('ids');
+    expect((await screen.findByTestId('preview')).textContent?.split(',')).toHaveLength(300);
+  });
+
+  it('[2704] shrunk to a phone after a state-held pick, the gate offers no Copy link', async () => {
+    const { router } = render('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT');
+    await userEvent.setup().click(await screen.findByRole('button', { name: PICK_MANY }));
+    await waitFor(() => expect(router.state.location.state.printIds).toHaveLength(41));
+    setWidth(false);
+    expect(await screen.findByText(/too long for a link/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+  });
+
+  it('[2704] Back after a state-held pick returns to the picker with nothing left in state', async () => {
+    const { router } = render('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: PICK_MANY }));
+    await waitFor(() => expect(router.state.location.state.printIds).toHaveLength(41));
+    await user.click(await screen.findByRole('button', { name: BACK }));
+    await waitFor(() => expect(router.state.location.state.printIds).toBeUndefined());
+    expect(router.state.location.search).not.toHaveProperty('pick');
+    expect(await screen.findByTestId('picker-type')).toBeTruthy();
   });
 
   it('a section choice turns into class_section_id', async () => {

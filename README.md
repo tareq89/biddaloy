@@ -201,7 +201,7 @@ enforces this in CI). After changing a server endpoint or DTO:
 yarn api:types
 ```
 
-This regenerates `server/openapi.json` (`docs:generate`) and then
+It builds `@biddaloy/shared` first (`predocs:generate`) and runs under `yarn test-env`, so the local Docker stack must be up: `docker compose up -d db redis seaweedfs && yarn api:types`. It regenerates `server/openapi.json` (`docs:generate`) and then
 `ui/src/api/schema.d.ts` from it — see [`ui/README.md`](ui/README.md#api-client)
 for what the generated client does with those types, or
 [`docs/architecture/03-backend-modules.md`](docs/architecture/03-backend-modules.md#api-documentation-swagger)

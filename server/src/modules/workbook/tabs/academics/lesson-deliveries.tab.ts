@@ -12,6 +12,7 @@ import type {
 import { optionalKeyOf } from '../../codec/tab-spec';
 import { sectionsTab } from './sections.tab';
 import { periodSlotsTab } from '../routines/period-slots.tab';
+import { nullableActor, stampActorKeys } from '../actor-keys';
 
 /**
  * The `lesson_deliveries` tab (Epic 66.0, [66.1.03]): one row per
@@ -98,8 +99,8 @@ export const lessonDeliveriesTab: TabSpec<LessonDelivery, LessonDeliveryRow> = {
   naturalKey: ['section', 'date', 'period_slot'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<LessonDelivery[]> {
-    return m.find(LessonDelivery, {
+  async load(tenantId: string, m: EntityManager): Promise<LessonDelivery[]> {
+    const rows = await m.find(LessonDelivery, {
       where: { tenant_id: tenantId },
       // `keyOf` reads the section's class/year and the slot's shift name.
       relations: [
@@ -110,6 +111,7 @@ export const lessonDeliveriesTab: TabSpec<LessonDelivery, LessonDeliveryRow> = {
         'period_slot.shift',
       ],
     });
+    return stampActorKeys(tenantId, rows, 'recorded_by_user_id', 'recorded_by_key', m);
   },
 
   toRow(entity: LessonDelivery, ctx: ExportContext): Record<string, unknown> {
@@ -225,9 +227,10 @@ export const lessonDeliveriesTab: TabSpec<LessonDelivery, LessonDeliveryRow> = {
     if (row.note !== existing.note) changed.push('note');
     if (row.is_extra !== existing.is_extra) changed.push('is_extra');
     if (row.auto !== existing.auto) changed.push('auto');
+    // A blank cell clears a current recorder; a departed one is kept (#2687).
     if (
-      row.recorded_by_user_id !== null &&
-      row.recorded_by_user_id !== existing.recorded_by_user_id
+      nullableActor(row.recorded_by_user_id, existing, 'recorded_by_user_id', 'recorded_by_key') !==
+      (existing.recorded_by_user_id ?? null)
     )
       changed.push('recorded_by');
     return changed;
@@ -250,7 +253,12 @@ export const lessonDeliveriesTab: TabSpec<LessonDelivery, LessonDeliveryRow> = {
     delivery.note = row.note;
     delivery.is_extra = row.is_extra;
     delivery.auto = row.auto;
-    delivery.recorded_by_user_id = row.recorded_by_user_id ?? existing?.recorded_by_user_id ?? null;
+    delivery.recorded_by_user_id = nullableActor(
+      row.recorded_by_user_id,
+      existing,
+      'recorded_by_user_id',
+      'recorded_by_key',
+    );
     // Loaded relations would override the FK columns set above on save.
     delivery.section = undefined as never;
     delivery.subject = undefined as never;

@@ -204,6 +204,7 @@ export function InviteGuardiansDialog({
                     ? t('invite.done.finished', {
                         sent: batch?.sent ?? 0,
                         failed: batch?.failed ?? 0,
+                        skipped: batch?.skipped ?? 0,
                       })
                     : t('invite.done.inProgress', {
                         queued: batch?.queued ?? 0,

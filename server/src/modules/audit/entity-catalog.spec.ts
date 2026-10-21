@@ -65,7 +65,7 @@ describe('audit entity-type catalog contract', () => {
 
     const missingFromCatalog = [...written].filter((type) => !catalog.has(type));
     expect(missingFromCatalog).toEqual([]);
-  });
+  }, 30_000); // filesystem scan of server/src; hit the 5s default under a full parallel run
 
   it('has no dead catalog entries — every entry is written somewhere under server/src', () => {
     const written = collectWrittenEntityTypes(serverSrcDir);

@@ -88,9 +88,10 @@ describe('ClassService / SectionService (integration)', () => {
     // can't express it, so `1789800010700-AddOrganisationDimensions.ts`
     // is the source of truth, not `synchronize: true` above. This test
     // module runs no migrations, so the index is created by hand here,
-    // matching that migration's `up()` exactly.
+    // matching `1791900000400-CaseInsensitiveAcademicNames.ts` `up()` exactly (it replaced the index from
+    // `1789800010700-AddOrganisationDimensions.ts` with a `lower("name")` key).
     await dataSource.query(
-      `CREATE UNIQUE INDEX "IDX_cl_name_year_tenant_shift_version" ON "classes" ("name", "academic_year_id", "tenant_id", "shift", "version") NULLS NOT DISTINCT`,
+      `CREATE UNIQUE INDEX "IDX_cl_name_year_tenant_shift_version" ON "classes" (lower("name"), "academic_year_id", "tenant_id", "shift", "version") NULLS NOT DISTINCT`,
     );
 
     const schoolRepo = dataSource.getRepository(School);

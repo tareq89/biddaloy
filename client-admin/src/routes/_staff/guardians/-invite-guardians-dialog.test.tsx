@@ -86,6 +86,6 @@ describe('InviteGuardiansDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Send invitations' }));
 
-    expect(await screen.findByText('Done — 2 sent, 0 failed.')).toBeTruthy();
+    expect(await screen.findByText('Done — 2 sent, 0 failed, 0 skipped.')).toBeTruthy();
   });
 });

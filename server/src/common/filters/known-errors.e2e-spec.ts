@@ -153,6 +153,69 @@ describe('known-errors (e2e)', () => {
       const ren = await api('patch', `/academic-years/${other.body.id}`).send({ name });
       expect(ren.status).toBe(409);
     });
+
+    // [2657] Names that differ only by letter case are the same name in one school.
+    it('class: a case-only duplicate gives 409 on create and on rename, without echoing', async () => {
+      const name = `Case Clash ${suffix()}`;
+      await createClass(name).then((r) => expect(r.status).toBe(201));
+      const res = await createClass(name.toLowerCase());
+      expect(res.status).toBe(409);
+      expect(res.body.message).toBe('A class with this name already exists in this year');
+      expect(JSON.stringify(res.body)).not.toContain(name.toLowerCase());
+
+      const other = await createClass(`Case Other ${suffix()}`);
+      const ren = await api('patch', `/classes/${other.body.id}`).send({
+        name: name.toUpperCase(),
+      });
+      expect(ren.status).toBe(409);
+    });
+
+    it('section: a case-only duplicate gives 409 on create and on rename', async () => {
+      const cls = await createClass(`Case Sec Class ${suffix()}`);
+      const sectionsUrl = `/classes/${cls.body.id}/sections`;
+      const name = `Blue${suffix()}`;
+      await api('post', sectionsUrl)
+        .send({ section_name: name, capacity: 30 })
+        .then((r) => expect(r.status).toBe(201));
+      const dup = await api('post', sectionsUrl).send({
+        section_name: name.toUpperCase(),
+        capacity: 30,
+      });
+      expect(dup.status).toBe(409);
+      expect(dup.body.message).toBe('A section with this name already exists in this class');
+      expect(JSON.stringify(dup.body)).not.toContain(name.toUpperCase());
+
+      const other = await api('post', sectionsUrl).send({
+        section_name: `T${suffix()}`,
+        capacity: 30,
+      });
+      const ren = await api('patch', `${sectionsUrl}/${other.body.id}`).send({
+        section_name: name.toLowerCase(),
+      });
+      expect(ren.status).toBe(409);
+    });
+
+    it('academic year: a case-only duplicate gives 409 on create and on rename', async () => {
+      const base = 4000 + Math.floor(Math.random() * 4000);
+      const year = (offset: number, name: string) =>
+        api('post', '/academic-years').send({
+          name,
+          start_date: `${base + offset}-01-01`,
+          end_date: `${base + offset}-12-31`,
+        });
+      const name = `Case Year ${suffix()}`;
+      await year(0, name).then((r) => expect(r.status).toBe(201));
+      const dup = await year(1, name.toUpperCase());
+      expect(dup.status).toBe(409);
+      expect(dup.body.message).toBe('An academic year with this name already exists');
+      expect(JSON.stringify(dup.body)).not.toContain(name.toUpperCase());
+
+      const other = await year(2, `Case Other ${suffix()}`);
+      const ren = await api('patch', `/academic-years/${other.body.id}`).send({
+        name: name.toLowerCase(),
+      });
+      expect(ren.status).toBe(409);
+    });
   });
 
   describe('multer errors', () => {

@@ -21,7 +21,8 @@ import { Shift } from '../../routines/entities/shift.entity';
  * Classes are unique per academic year + tenant + shift + version, with
  * NULL shift/version treated as one more distinct value rather than as
  * "don't care" (`NULLS NOT DISTINCT`, `1789800010700-AddOrganisationDimensions.ts`).
- * That migration is the source of truth for the index — TypeORM's
+ * That migration, and `1791900000400-CaseInsensitiveAcademicNames.ts` (the name is
+ * compared as `lower(name)`), are the source of truth for the index — TypeORM's
  * `@Index` decorator cannot express `NULLS NOT DISTINCT`, so it is not
  * declared here to avoid drifting from the actual DB schema.
  * Each class has multiple sections (e.g., "A", "B").

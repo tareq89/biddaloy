@@ -157,7 +157,7 @@
     },
     "done": {
       "inProgress": "Sending… {{queued}} of {{total}} still in progress.",
-      "finished": "Done — {{sent}} sent, {{failed}} failed."
+      "finished": "Done — {{sent}} sent, {{failed}} failed, {{skipped}} skipped."
     },
     "errors": {
       "previewFailed": "Could not preview invitations. Please try again.",

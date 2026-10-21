@@ -3,6 +3,8 @@ import { NotFoundException, BadRequestException, ConflictException } from '@nest
 import { Repository, DataSource, IsNull } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { InvoicesService } from './invoices.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { Invoice } from './entities/invoice.entity';
 import { StudentFee } from '../fees/entities/student-fee.entity';
 import { FeeStructure } from '../fees/entities/fee-structure.entity';
@@ -34,6 +36,7 @@ import {
   PaymentMethod,
   PaymentStatus,
   PaymentAllocationType,
+  AuditAction,
 } from '@biddaloy/shared';
 
 /**
@@ -206,11 +209,26 @@ describe('InvoicesService (integration)', () => {
     return dataSource.manager.transaction((manager) => service.create(paymentId, manager));
   }
 
-  beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [InvoicesService], [StorageModule], {
-      synchronize: true,
-      dropSchema: true,
+  function auditRows(invoiceId?: string): Promise<AuditLog[]> {
+    return dataSource.getRepository(AuditLog).find({
+      where: {
+        action: AuditAction.INVOICE_GENERATED,
+        ...(invoiceId ? { entity_id: invoiceId } : {}),
+      },
+      order: { created_at: 'ASC' },
     });
+  }
+
+  beforeAll(async () => {
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [AuditService, InvoicesService],
+      [StorageModule],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     service = module.get<InvoicesService>(InvoicesService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
@@ -285,6 +303,7 @@ describe('InvoicesService (integration)', () => {
 
   beforeEach(async () => {
     if (dataSource) {
+      await dataSource.query('DELETE FROM audit_logs');
       await dataSource.query('DELETE FROM payment_allocations');
       await dataSource.query('DELETE FROM invoices');
       await dataSource.query('DELETE FROM payments');
@@ -594,6 +613,82 @@ describe('InvoicesService (integration)', () => {
       await expect(createInvoice('00000000-0000-4000-8000-000000000001')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('INVOICE_GENERATED audit row', () => {
+    it('create() writes one row naming actor, invoice and payment', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
+
+      const rows = await auditRows(invoice.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].entity_type).toBe('Invoice');
+      expect(rows[0].tenant_id).toBe(TENANT_ID);
+      expect(rows[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
+      expect(rows[0].new_values).toMatchObject({
+        invoice_id: invoice.id,
+        payment_id: payment.id,
+      });
+    });
+
+    it('a payment with no receiving user still gets its invoice and a null-actor row', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]], {
+        received_by_user_id: null,
+      });
+      const invoice = await createInvoice(payment.id);
+
+      const rows = await auditRows(invoice.id);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].performed_by_user_id).toBeNull();
+      expect(rows[0].new_values).toMatchObject({ invoice_id: invoice.id, payment_id: payment.id });
+    });
+
+    it('createFromPayment twice, and twice concurrently, leaves one row', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      await service.createFromPayment(payment.id, TENANT_ID);
+      await service.createFromPayment(payment.id, TENANT_ID);
+      expect(await auditRows()).toHaveLength(1);
+
+      const fee2 = await studentFeeRepo.save(makeFee(student.id, { month: 4 }));
+      const payment2 = await makePayment(student.id, [[fee2, 1000]]);
+      await Promise.all([
+        service.createFromPayment(payment2.id, TENANT_ID),
+        service.createFromPayment(payment2.id, TENANT_ID),
+      ]);
+      expect(await auditRows()).toHaveLength(2);
+    });
+
+    it('rolls back with the invoice when the surrounding transaction throws', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+
+      await expect(
+        dataSource.manager.transaction(async (manager) => {
+          await service.create(payment.id, manager);
+          throw new Error('boom');
+        }),
+      ).rejects.toThrow('boom');
+
+      expect(await auditRows()).toHaveLength(0);
+    });
+
+    it('a credit note adds no INVOICE_GENERATED row', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      await createInvoice(payment.id);
+      await dataSource.manager.transaction((manager) =>
+        service.createCreditNote(payment.id, 'Refund', manager),
+      );
+      expect(await auditRows()).toHaveLength(1);
     });
   });
 

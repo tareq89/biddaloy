@@ -14,22 +14,26 @@ function buildService() {
     manager: {
       createQueryBuilder: vi.fn(),
       connection: { entityMetadatas: [] },
+      count: vi.fn(async () => 0),
       softDelete: vi.fn(async () => undefined),
     },
   };
   // [2703 m4] The guard and the soft-delete share one transaction.
   repo.manager.transaction = vi.fn(async (cb: (m: unknown) => unknown) => cb(repo.manager));
-  // [2627] seat-allocation count chain; tests override the resolved count.
+  // [2706] `remove()` lock-reads the parent (`getOne`) and counts seat allocations
+  // (`getCount`) through the same query-builder mock; tests override the resolved values.
+  const locked = { value: { id: 'room-1', tenant_id: TENANT_ID } as unknown };
   const seatCount = { value: 0 };
   const qb: any = {
+    setLock: vi.fn(() => qb),
     innerJoin: vi.fn(() => qb),
     where: vi.fn(() => qb),
+    getOne: vi.fn(async () => locked.value),
     getCount: vi.fn(async () => seatCount.value),
   };
   repo.manager.createQueryBuilder = vi.fn(() => qb);
-  const routineSlotRepo: any = { count: vi.fn(async () => 0) };
-  const service = new RoomsService(repo, routineSlotRepo);
-  return { service, repo, routineSlotRepo, seatCount };
+  const service = new RoomsService(repo);
+  return { service, repo, qb, locked, seatCount };
 }
 
 describe('RoomsService [21.3.1]', () => {
@@ -58,17 +62,23 @@ describe('RoomsService [21.3.1]', () => {
     await expect(ctx.service.findOne('room-1', TENANT_ID)).rejects.toThrow(NotFoundException);
   });
 
+  it('[2706] remove() 404s when the lock read finds no row for this tenant', async () => {
+    ctx.locked.value = null;
+    await expect(ctx.service.remove('room-1', TENANT_ID)).rejects.toThrow(NotFoundException);
+    expect(ctx.qb.setLock).toHaveBeenCalledWith('pessimistic_write');
+    expect(ctx.repo.manager.count).not.toHaveBeenCalled();
+    expect(ctx.repo.manager.softDelete).not.toHaveBeenCalled();
+  });
+
   it('refuses to delete a room referenced by a routine slot, naming the count', async () => {
-    ctx.repo.findOne = vi.fn(async () => ({ id: 'room-1', tenant_id: TENANT_ID }));
-    ctx.routineSlotRepo.count = vi.fn(async () => 2);
+    ctx.repo.manager.count = vi.fn(async () => 2);
     await expect(ctx.service.remove('room-1', TENANT_ID)).rejects.toThrow(/2 routine slot\(s\)/);
     await expect(ctx.service.remove('room-1', TENANT_ID)).rejects.toThrow(ConflictException);
     expect(ctx.repo.manager.softDelete).not.toHaveBeenCalled();
   });
 
   it('soft-deletes an unreferenced room', async () => {
-    ctx.repo.findOne = vi.fn(async () => ({ id: 'room-1', tenant_id: TENANT_ID }));
-    ctx.routineSlotRepo.count = vi.fn(async () => 0);
+    ctx.repo.manager.count = vi.fn(async () => 0);
     await ctx.service.remove('room-1', TENANT_ID);
     expect(ctx.repo.manager.softDelete).toHaveBeenCalledWith(expect.anything(), {
       id: 'room-1',
@@ -77,7 +87,6 @@ describe('RoomsService [21.3.1]', () => {
   });
 
   it('[2627] refuses to delete a room used by a seat plan allocation', async () => {
-    ctx.repo.findOne = vi.fn(async () => ({ id: 'room-1', tenant_id: TENANT_ID }));
     ctx.seatCount.value = 3;
     await expect(ctx.service.remove('room-1', TENANT_ID)).rejects.toThrow(ConflictException);
     expect(ctx.repo.manager.softDelete).not.toHaveBeenCalled();

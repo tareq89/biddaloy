@@ -2,6 +2,8 @@ import type { EntityManager } from 'typeorm';
 import { CommunicationMedium } from '@biddaloy/shared';
 import { Guardian } from '../../../students/entities/guardian.entity';
 import { fromCell } from '../../codec/cell-format';
+import { optionalKeyOf } from '../../codec/tab-spec';
+import { memberKeysById } from './users.tab';
 import type {
   ColumnSpec,
   ExportContext,
@@ -132,6 +134,19 @@ const MAX_LENGTHS: Record<string, number> = {
   occupation: 100,
 };
 
+/** A guardian as `load()` returns it: `user_key` is '' when the login's owner has left. */
+type LoadedGuardian = Guardian & { user_key?: string };
+
+/**
+ * The login a row leaves on the guardian. A blank cell keeps the stored login when
+ * its owner has left (the export could not name them) and clears it otherwise.
+ */
+function keptUserId(row: GuardianRow, existing: Guardian | null | undefined): string | null {
+  if (row.user_id) return row.user_id;
+  const departed = existing?.user_id && (existing as LoadedGuardian).user_key === '';
+  return departed ? existing.user_id : null;
+}
+
 export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
   name: 'guardians',
   entity: Guardian,
@@ -141,11 +156,22 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
   naturalKey: ['phone'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<Guardian[]> {
+  async load(tenantId: string, m: EntityManager): Promise<Guardian[]> {
     // `user` is loaded eagerly for `toRow`'s `user` cell. TypeORM excludes
     // soft-deleted rows from a default `find`, so a soft-deleted guardian is
     // correctly absent without passing `withDeleted`.
-    return m.find(Guardian, { where: { tenant_id: tenantId }, relations: ['user'] });
+    const guardians = (await m.find(Guardian, {
+      where: { tenant_id: tenantId },
+      relations: ['user'],
+    })) as LoadedGuardian[];
+    // '' = the login belongs to a member who has left (the export wrote a blank cell).
+    const members = await memberKeysById(
+      tenantId,
+      guardians.flatMap((g) => (g.user_id ? [g.user_id] : [])),
+      m,
+    );
+    for (const g of guardians) if (g.user_id) g.user_key = members.get(g.user_id) ?? '';
+    return guardians;
   },
 
   toRow(entity: Guardian, ctx: ExportContext): Record<string, unknown> {
@@ -153,7 +179,7 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
       id: entity.id,
       // `user_id` is nullable here, unlike every other existing ref site —
       // guarded rather than calling `ctx.keyOf` with a possibly-null id.
-      user: entity.user_id ? ctx.keyOf('users', entity.user_id) : null,
+      user: entity.user_id ? optionalKeyOf(ctx, 'users', entity.user_id) : null,
       full_name: entity.full_name,
       relationship: entity.relationship,
       phone: entity.phone,
@@ -276,7 +302,6 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
   diffFields(row: GuardianRow, existing: Guardian): string[] {
     const changed: string[] = [];
     const fields = [
-      'user_id',
       'full_name',
       'relationship',
       'phone',
@@ -291,6 +316,7 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
     for (const key of fields) {
       if (row[key] !== existing[key]) changed.push(key);
     }
+    if (keptUserId(row, existing) !== existing.user_id) changed.push('user_id');
     return changed;
   },
 
@@ -311,6 +337,8 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
     // `existing` is always live (`load()` excludes soft-deleted rows), so
     // unlike teachers/students there is no soft-deleted match to re-check.
     let guardian = existing;
+    // A blank cell keeps a departed member's login and clears a current one (D12).
+    const userId = keptUserId(row, guardian);
 
     // Even with an `existing` match (found by the engine's `KeyIndex` on
     // phone/email/name), the row's `user` ref can still point at a
@@ -320,12 +348,12 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
     // deliberate error. A soft-deleted row and a live row can share the user,
     // so the LIVE holder wins; a soft-deleted one is only revived when nothing
     // else matched. The same user may hold a guardian row in another school.
-    if (row.user_id && (!guardian || guardian.user_id !== row.user_id)) {
-      const where = { user_id: row.user_id, tenant_id: tenantId };
+    if (userId && (!guardian || guardian.user_id !== userId)) {
+      const where = { user_id: userId, tenant_id: tenantId };
       const live = await m.findOne(Guardian, { where });
       if (live && guardian && live.id !== guardian.id) {
         throw new Error(
-          `Guardian with user "${row.user_key ?? row.user_id}" already belongs to a different ` +
+          `Guardian with user "${row.user_key ?? userId}" already belongs to a different ` +
             `guardian record and cannot be reassigned by a restore.`,
         );
       }
@@ -339,7 +367,9 @@ export const guardiansTab: TabSpec<Guardian, GuardianRow> = {
     }
 
     guardian.tenant_id = tenantId;
-    guardian.user_id = row.user_id;
+    guardian.user_id = userId;
+    // A loaded `user` relation would win over a null FK on save, so drop it too.
+    if (userId === null) guardian.user = null;
     guardian.full_name = row.full_name;
     guardian.relationship = row.relationship;
     guardian.phone = row.phone;

@@ -13,6 +13,7 @@ import type {
 import { optionalKeyOf } from '../../codec/tab-spec';
 import { programEnrollmentsTab } from './program-enrollments.tab';
 import { programMilestonesTab } from './program-milestones.tab';
+import { nullableActor, stampActorKeys } from '../actor-keys';
 
 /**
  * The `milestone_achievements` tab (Epic 34.0, [34.1.4]): a student's
@@ -92,8 +93,8 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
   naturalKey: ['enrollment', 'milestone'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<MilestoneAchievement[]> {
-    return m.find(MilestoneAchievement, {
+  async load(tenantId: string, m: EntityManager): Promise<MilestoneAchievement[]> {
+    const rows = await m.find(MilestoneAchievement, {
       where: { tenant_id: tenantId },
       relations: [
         'enrollment',
@@ -104,6 +105,7 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
         'recorded_by_user',
       ],
     });
+    return stampActorKeys(tenantId, rows, 'recorded_by', 'recorded_by_key', m);
   },
 
   toRow(entity: MilestoneAchievement, ctx: ExportContext): Record<string, unknown> {
@@ -223,7 +225,11 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
   diffFields(row: MilestoneAchievementRow, existing: MilestoneAchievement): string[] {
     const changed: string[] = [];
     if (row.achieved_on !== existing.achieved_on) changed.push('achieved_on');
-    if (row.recorded_by !== null && row.recorded_by !== existing.recorded_by)
+    // A blank cell clears a current recorder; a departed one is kept (#2687).
+    if (
+      nullableActor(row.recorded_by, existing, 'recorded_by', 'recorded_by_key') !==
+      (existing.recorded_by ?? null)
+    )
       changed.push('recorded_by');
     if (row.score !== existing.score) changed.push('score');
     if (row.grade !== existing.grade) changed.push('grade');
@@ -269,10 +275,19 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
     }
     achievement.program_id = milestone.program_id;
     achievement.achieved_on = row.achieved_on;
-    achievement.recorded_by = row.recorded_by ?? existing?.recorded_by ?? null;
+    achievement.recorded_by = nullableActor(
+      row.recorded_by,
+      existing,
+      'recorded_by',
+      'recorded_by_key',
+    );
     achievement.score = row.score;
     achievement.grade = row.grade;
     achievement.remark = row.remark;
+    // `load()` joined these; a loaded relation beats its FK column on save.
+    achievement.enrollment = undefined as never;
+    achievement.milestone = undefined as never;
+    achievement.recorded_by_user = undefined as never;
     return m.save(MilestoneAchievement, achievement);
   },
 

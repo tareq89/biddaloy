@@ -14,6 +14,8 @@ import {
   type SeatUsage,
 } from '../../../schools/trial/seat-limit.service';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
+import { optionalKeyOf } from '../../codec/tab-spec';
+import { memberKeysById } from './users.tab';
 import { ownStorageKey } from '../../codec/storage-key-scope';
 import type {
   ColumnSpec,
@@ -242,6 +244,19 @@ const MAX_LENGTHS: Record<string, number> = {
   gender: 10,
 };
 
+/** A student as `load()` returns it: `user_key` is '' when the login's owner has left. */
+type LoadedStudent = Student & { user_key?: string };
+
+/**
+ * The login a row leaves on the student. A blank cell keeps the stored login when
+ * its owner has left (the export could not name them) and clears it otherwise.
+ */
+function keptUserId(row: StudentRow, existing: Student | null | undefined): string | null {
+  if (row.user_id) return row.user_id;
+  const departed = existing?.user_id && (existing as LoadedStudent).user_key === '';
+  return departed ? existing.user_id : null;
+}
+
 export const studentsTab: TabSpec<Student, StudentRow> = {
   name: 'students',
   entity: Student,
@@ -255,11 +270,11 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
   naturalKey: ['registration_number'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<Student[]> {
+  async load(tenantId: string, m: EntityManager): Promise<Student[]> {
     // `class`/`academic_year` are derived from the section, not stored, so
     // `toRow` needs this full eager chain or it produces empty key
     // fragments. Default `find` excludes soft-deleted rows.
-    return m.find(Student, {
+    const students = (await m.find(Student, {
       where: { tenant_id: tenantId },
       relations: [
         'user',
@@ -268,7 +283,15 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         'class_section.class.academic_year',
         'guardians',
       ],
-    });
+    })) as LoadedStudent[];
+    // '' = the login belongs to a member who has left (the export wrote a blank cell).
+    const members = await memberKeysById(
+      tenantId,
+      students.flatMap((s) => (s.user_id ? [s.user_id] : [])),
+      m,
+    );
+    for (const s of students) if (s.user_id) s.user_key = members.get(s.user_id) ?? '';
+    return students;
   },
 
   toRow(entity: Student, ctx: ExportContext): Record<string, unknown> {
@@ -304,7 +327,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       preferred_communication: entity.preferred_communication,
       enrollment_status: entity.enrollment_status,
       guardian_phones: guardianKeys,
-      user: entity.user_id ? ctx.keyOf('users', entity.user_id) : null,
+      user: entity.user_id ? optionalKeyOf(ctx, 'users', entity.user_id) : null,
     };
   },
 
@@ -512,11 +535,11 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       'mother_name',
       'preferred_communication',
       'enrollment_status',
-      'user_id',
     ] as const;
     for (const key of fields) {
       if (row[key] !== existing[key]) changed.push(key);
     }
+    if (keptUserId(row, existing) !== existing.user_id) changed.push('user_id');
     if (row.class_section_id !== existing.class_section_id) changed.push('section');
     if (row.date_of_birth !== formatNullableDateOnly(existing.date_of_birth))
       changed.push('date_of_birth');
@@ -551,7 +574,15 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         where: { registration_number: row.registration_number, tenant_id: tenantId },
         withDeleted: true,
       });
+      // Not from `load()`, so name the login's owner here (else a departed login reads as current).
+      if (student?.user_id) {
+        const members = await memberKeysById(tenantId, [student.user_id], m);
+        (student as LoadedStudent).user_key = members.get(student.user_id) ?? '';
+      }
     }
+
+    // A blank cell keeps a departed member's login and clears a current one (D12).
+    const userId = keptUserId(row, student);
 
     // `students (tenant_id, user_id)` is unique per school among LIVE rows
     // (D11, partial on `deleted_at`), so look the holder up in THIS tenant
@@ -560,15 +591,12 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     // abort the restore. The same user may hold a student row in another school.
     // A soft-deleted match (by registration number) is checked too: it may
     // carry this user while a live twin already does.
-    if (
-      row.user_id &&
-      (!student || student.user_id !== row.user_id || student.deleted_at !== null)
-    ) {
-      const where = { user_id: row.user_id, tenant_id: tenantId };
+    if (userId && (!student || student.user_id !== userId || student.deleted_at !== null)) {
+      const where = { user_id: userId, tenant_id: tenantId };
       const live = await m.findOne(Student, { where });
       if (live && student && live.id !== student.id) {
         throw new Error(
-          `Student with user "${row.user_key ?? row.user_id}" already belongs to a different ` +
+          `Student with user "${row.user_key ?? userId}" already belongs to a different ` +
             `student record and cannot be reassigned by a restore.`,
         );
       }
@@ -617,7 +645,9 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     student.mother_name = row.mother_name;
     student.preferred_communication = row.preferred_communication;
     student.enrollment_status = row.enrollment_status;
-    student.user_id = row.user_id;
+    student.user_id = userId;
+    // A loaded `user` relation would win over a null FK on save, so drop it too.
+    if (userId === null) student.user = null;
     // `guardians` is deliberately never assigned here (C7): `Student.guardians`
     // has `cascade: ['insert']`, and assigning it before `m.save` risks
     // TypeORM inserting a duplicate `Guardian` row. The join table is

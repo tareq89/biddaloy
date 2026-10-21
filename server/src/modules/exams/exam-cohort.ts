@@ -4,13 +4,12 @@ import { Exam } from './entities/exam.entity';
 import { ExamSchedule } from './entities/exam-schedule.entity';
 import { Mark } from './entities/mark.entity';
 import { Result } from './entities/result.entity';
+import { localDate } from '../../common/time';
 import { Enrollment } from '../students/entities/enrollment.entity';
 import { AcademicTerm } from '../calendar/entities/academic-term.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Latest sitting date (YYYY-MM-DD) of the exam: its newest live schedule
  * row, else the linked term's end date, else null. */
@@ -38,7 +37,7 @@ export async function lastSittingDate(
 
 /**
  * The sitting date every late-joiner rule uses: the last schedule/term date,
- * else — when the exam has neither — the day of the first mark write. Marks
+ * else — when the exam has neither — the school-local day of the first mark write. Marks
  * are only ever written after the sitting, so that day is a safe stand-in
  * (created_at, not updated_at: a grid re-save must not move it). No marks at
  * all: nobody can be told apart, so null and nobody is late.
@@ -56,16 +55,15 @@ export async function effectiveSittingDate(
     .select('MIN(m.created_at)', 'first_mark_at')
     .where('m.exam_id = :examId AND m.tenant_id = :tenantId', { examId: exam.id, tenantId })
     .getRawOne<{ first_mark_at: Date | null }>();
-  return row?.first_mark_at ? new Date(row.first_mark_at).toISOString().slice(0, 10) : null;
+  // Same school-local day `joinedAfterExam` compares against: a UTC day here
+  // would call a student enrolled at 00:30 Dhaka late for marks written ten
+  // minutes earlier (#2705 boundary).
+  return row?.first_mark_at ? localDate(new Date(row.first_mark_at)) : null;
 }
 
-/** True when the enrollment started after the last sitting. Whole-day
- * comparison in UTC; a few hours of time-zone slop only ever keeps a
- * student in, never drops one. */
+/** True when the enrollment started on a school-local day after the last sitting. */
 export function joinedAfterExam(enrolledAt: Date, lastSitting: string | null): boolean {
-  if (!lastSitting) return false;
-  const nextDay = new Date(`${lastSitting}T00:00:00Z`).getTime() + DAY_MS;
-  return enrolledAt.getTime() >= nextDay;
+  return lastSitting !== null && localDate(enrolledAt) > lastSitting;
 }
 
 /** One student of the exam's cohort and the section they sat it in. */

@@ -8,8 +8,18 @@ export const staffTrainingTab = createStaffChildTab<StaffTraining>({
   naturalKeyFields: ['title', 'institution'],
   fields: [
     { key: 'title', type: 'string', required: true, label: { en: 'Title', bn: 'শিরোনাম' } },
-    { key: 'institution', type: 'string', required: true, label: { en: 'Institution', bn: 'প্রতিষ্ঠান' } },
-    { key: 'from_date', type: 'date', required: true, label: { en: 'From date', bn: 'শুরুর তারিখ' } },
+    {
+      key: 'institution',
+      type: 'string',
+      required: true,
+      label: { en: 'Institution', bn: 'প্রতিষ্ঠান' },
+    },
+    {
+      key: 'from_date',
+      type: 'date',
+      required: true,
+      label: { en: 'From date', bn: 'শুরুর তারিখ' },
+    },
     { key: 'to_date', type: 'date', label: { en: 'To date', bn: 'শেষ তারিখ' } },
     { key: 'certificate_no', type: 'string', label: { en: 'Certificate no.', bn: 'সনদ নং' } },
   ],

@@ -327,7 +327,7 @@ controller, so "Try it out" works once you paste in a token.
   the app refuses to boot with `ENABLE_API_DOCS=true` and no credentials
   set, rather than silently serving the docs unauthenticated).
 
-**Generating a client**: `yarn docs:generate` (from `server/`) writes the
+**Generating a client**: `docs:generate` first builds `@biddaloy/shared` (`predocs:generate`) and, run directly, still needs DB env. `yarn docs:generate` (from `server/`) writes the
 current OpenAPI document to `server/openapi.json`, for the SPAs to generate
 a typed client from (`yarn api:types` at the repo root runs both steps —
 see the root README's "Regenerating API types"). This runs `nest build`
