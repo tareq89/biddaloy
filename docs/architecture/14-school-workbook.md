@@ -335,7 +335,7 @@ flowchart LR
   B[Browser] -->|"file up to 64 MB"| N["nginx: 70M on /api/v1/backup/validate only (55M elsewhere)"]
   N --> M["multer: BACKUP_MAX_UPLOAD_BYTES = 64 MB"]
   M --> G["unzip guard: 512 MB inflated, 5,000 entries"]
-  G --> E["exceljs load, all in memory"]
+  G --> E["streaming read: each sheet inflated from the buffer and parsed row by row"]
 ```
 
 | Limit                      | Value  | Constant                    |
@@ -350,37 +350,47 @@ Backup screen says it is too big to restore.
 
 **Worked example, the 10,000-student load school** (`yarn workspace @biddaloy/server load:seed`):
 39.8 MB zipped, 281.9 MB unzipped, 104 entries. That fits under all three
-limits with room to spare. The read is not streamed: exceljs builds the whole
-workbook in memory, so memory use is several times the unzipped size.
+limits with room to spare. Since #2686 the read streams: `readWorkbook`
+inflates one sheet at a time straight out of the uploaded buffer and keeps
+only the plain rows it returns, never exceljs's whole workbook object model.
+(It does not use exceljs's own `WorkbookReader` zip walk — in exceljs 4.4.0
+that walk drops whichever zip parts come last, and our exports put the sheet
+names last; the module doc comment in `workbook-codec.ts` has the details.)
 
 **Measured validate run (D5 merge gate)**
 
-| Date       | File                     | Validate time | Peak memory                                                                                    | Container limit                                                                                                        | Result                                                   |
-| ---------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| 2026-10-19 | 10k school, 38 MB zipped | 74 s          | 1.8 GB RSS during validate (0.95 GB before it); 2.0 GB for the whole export + validate process | none: run in a plain Node 24 process on a laptop, not a container (no Docker). The deployment guide suggests 4 GB RAM. | Not refused, no out-of-memory, under Cloudflare's 100 s. |
+| Date       | File                                                                                          | Validate time                                                                                         | Peak memory                                                                                                                                                                                                                                                                                                        | Container limit                                                                                                        | Result                                                              |
+| ---------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 2026-10-19 | 10k school, 38 MB zipped                                                                      | 74 s                                                                                                  | 1.8 GB RSS during validate (0.95 GB before it); 2.0 GB for the whole export + validate process                                                                                                                                                                                                                     | none: run in a plain Node 24 process on a laptop, not a container (no Docker). The deployment guide suggests 4 GB RAM. | Not refused, no out-of-memory, under Cloudflare's 100 s.            |
+| 2026-10-21 | 10k school, 38 MB zipped, 281.9 MB unzipped, 95 sheets / 602,482 rows (#2686, streaming read) | `readWorkbook` alone 10.5 s (old in-memory parse on the same file and box: 260.8 s); `validate` 301 s | `readWorkbook` alone: peak 883 MB RSS, +427 MB over the 456 MB before it, i.e. 1.5x the unzipped size (old parse on the same file: peak 510 MB, +264 MB, but 25x slower while V8 fought for heap). `validate` in the same process as the export: peak 1.46 GB, +446 MB over the 1.01 GB the export had left behind | none: Node 24 vitest worker on a laptop, next to another test run (the times are inflated by that; the memory is not)  | Peak is well under 3x the unzipped size (846 MB). No out-of-memory. |
 
-**One validate at a time per process.** Memory is the real limit, not the
-file size: a file near the 512 MB inflate cap needs about 1.5 GB just to parse.
-So `ValidationService` lets only one workbook be parsed per API process:
+**Two validates at a time per process** (D17). The read streams, but every
+row it returns is still resident until the validate finishes (the sheets map
+plus the typed rows), so `ValidationService` caps validates at two per API
+process. The third upload gets `429 VALIDATE_BUSY`; the restore worker waits
+its turn in arrival order (no polling):
 
 ```mermaid
 sequenceDiagram
   participant A as School A upload
   participant B as School B upload
+  participant C as School C upload
   participant R as Restore worker
-  participant V as ValidationService (one slot per process)
+  participant V as ValidationService (two slots per process)
   A->>V: POST /backup/validate
-  B->>V: POST /backup/validate (A still parsing)
-  V-->>B: 429 VALIDATE_BUSY "Another backup is being checked right now. Try again in a minute."
+  B->>V: POST /backup/validate (runs alongside A)
+  C->>V: POST /backup/validate (A and B still running)
+  V-->>C: 429 VALIDATE_BUSY "Another backup is being checked right now. Try again in a minute."
   R->>V: validate (waitIfBusy)
   V-->>A: result
-  V-->>R: runs after A, then result
+  V-->>R: takes A's slot, then result
+  V-->>B: result
 ```
 
 An upload is refused straight away (fail closed, no queue of 64 MB buffers).
 The restore worker waits instead, because a restore the admin already
-confirmed must not fail for this. The cost: one large validate makes every other
-school wait. The real fix is a streaming read, tracked in #2686.
+confirmed must not fail for this. Raise the cap only after re-measuring the
+table above.
 
 Validation of that file reported 216 errors, all in `guardians` and `students` (blank `relationship`, guardians that share a phone number, open dues). They come from the load seed's data, not from size.
 

@@ -166,7 +166,9 @@ describe('writeWorkbook / readWorkbook round trip', () => {
     expect([...fromExport.sheets.keys()]).toEqual(['classes', 'payments']);
     expect([...fromResave.sheets.keys()]).toEqual(['classes', 'payments']);
     expect(fromResave.sheets.get('classes')!.rows).toEqual(fromExport.sheets.get('classes')!.rows);
-    expect(fromResave.sheets.get('payments')!.rows).toEqual(fromExport.sheets.get('payments')!.rows);
+    expect(fromResave.sheets.get('payments')!.rows).toEqual(
+      fromExport.sheets.get('payments')!.rows,
+    );
     expect(fromExport.sheets.get('classes')!.rows[0].cells).toEqual({
       id: ID_A,
       name: 'Six',
@@ -456,7 +458,10 @@ describe('WorkbookFormatError', () => {
         ['schema_version', String(SCHEMA_VERSION)],
         ['kind', 'BACKUP'],
       ]),
-      'xl/worksheets/sheet2.xml': sheetXml([['id', 'name'], [ID_A, 'Six']]),
+      'xl/worksheets/sheet2.xml': sheetXml([
+        ['id', 'name'],
+        [ID_A, 'Six'],
+      ]),
       // A mismatched closing tag: the SAX parser rejects it on sight.
       'xl/worksheets/sheet3.xml':
         '<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>id</t></is></c></rowx>' +

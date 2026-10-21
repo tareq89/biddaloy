@@ -212,9 +212,9 @@ describe('ValidationService', () => {
       await expect(first).rejects.toThrow('boom');
       // The failed run's slot is free again: a third is accepted.
       readWorkbook.mockResolvedValueOnce(fakeReadResult(new Map()));
-      await expect(service.validate(Buffer.from(''), 't3', manager, [tab])).resolves.toMatchObject(
-        { hardErrorCount: 0 },
-      );
+      await expect(service.validate(Buffer.from(''), 't3', manager, [tab])).resolves.toMatchObject({
+        hardErrorCount: 0,
+      });
 
       b.release();
       await expect(second).resolves.toMatchObject({ hardErrorCount: 0 });
