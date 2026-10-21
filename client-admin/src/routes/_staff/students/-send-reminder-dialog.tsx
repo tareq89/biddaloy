@@ -94,8 +94,7 @@ export function SendReminderDialog({
 
   // [78 D37/D38] Warn, never block: guardians on SMS would miss this one.
   const readiness = useSmsReadiness(open);
-  const smsNotReady =
-    readiness.data && readiness.data.sms !== 'READY' ? readiness.data.sms : null;
+  const smsNotReady = readiness.data && readiness.data.sms !== 'READY' ? readiness.data.sms : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
