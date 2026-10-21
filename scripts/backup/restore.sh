@@ -7,13 +7,18 @@
 #
 # Flags:
 #   --no-migrate          accepted and ignored (migration was removed; old callers still pass it)
-#   --require-empty       before pg_restore, count rows in schools + users (a missing table counts
-#                         as 0); if > 0, exit 3 with "refusing: target already has data"
+#   --require-empty       the target must hold no data: users = 0 and no school except the
+#                         migration-made 'default-school' (a missing table counts as 0). Checked
+#                         first (before the download), then again inside the restore transaction.
+#                         Not empty: exit 3. The restore is then ONE transaction: check, DROP SCHEMA
+#                         public CASCADE, CREATE SCHEMA public, the dump. Any failure rolls back.
+#                         Without it, pg_restore --clean --if-exists is used (empty _next DBs).
 #   --expect-db <name>    the target URL's database name must equal <name>, else exit 1
 #   --allow-live-target   lets the target equal this environment's DATABASE_URL (the prod restore
 #                         does exactly that). Only valid with --require-empty and --expect-db, so
 #                         the empty check and the name check are always the protection.
-#   --single-transaction  pg_restore --single-transaction: a failure leaves the target untouched
+#   --single-transaction  accepted and ignored (--require-empty is always one transaction)
+# Migrations are NOT run here: run migrate.js from the app image afterwards.
 # "@env" as the target means "use $DATABASE_URL", so the password never goes on a command line.
 #
 # A bare key starting with "db/" (e.g. db/hourly/<ts>.dump.age) is fetched from
@@ -44,14 +49,14 @@ usage() {
   exit 1
 }
 
-REQUIRE_EMPTY=0 ALLOW_LIVE=0 SINGLE_TX=0 EXPECT_DB=""
+REQUIRE_EMPTY=0 ALLOW_LIVE=0 EXPECT_DB=""
 args=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-migrate) ;;
     --require-empty) REQUIRE_EMPTY=1 ;;
     --allow-live-target) ALLOW_LIVE=1 ;;
-    --single-transaction) SINGLE_TX=1 ;;
+    --single-transaction) ;;
     --expect-db) [[ $# -ge 2 ]] || usage; EXPECT_DB="$2"; shift ;;
     *) args+=("$1") ;;
   esac
@@ -92,6 +97,24 @@ if [[ -n "$EXPECT_DB" ]]; then
   if [[ "$target_db" != "$EXPECT_DB" ]]; then
     echo "restore.sh: refusing to restore — the target database name is not the expected one." >&2
     exit 1
+  fi
+fi
+
+# A missing table counts as 0. query_to_xml keeps a missing table from failing at parse time.
+# Counts only; no row content is read.
+count_sql() {
+  cat <<'SQL'
+SELECT CASE WHEN to_regclass('public.users') IS NULL THEN 0
+         ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.users', false, true, '')))[1]::text::int END
+     + CASE WHEN to_regclass('public.schools') IS NULL THEN 0
+         ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.schools where slug <> ''default-school''', false, true, '')))[1]::text::int END
+SQL
+}
+if [[ $REQUIRE_EMPTY -eq 1 ]]; then
+  counts="$(psql "$TARGET_DATABASE_URL" -v ON_ERROR_STOP=1 -tAq -c "$(count_sql)")" || exit 1
+  if [[ "$counts" != "0" ]]; then
+    echo "restore.sh: refusing: target already has data (${counts} users + non-default schools)" >&2
+    exit 3
   fi
 fi
 
@@ -161,23 +184,40 @@ fi
 echo "restore.sh: decrypting"
 age --decrypt -i "$BACKUP_AGE_PRIVATE_KEY_FILE" -o "$DUMP_PATH" "$ENCRYPTED_PATH"
 
-if [[ $REQUIRE_EMPTY -eq 1 ]]; then
-  # A missing table counts as 0. Counts only; no row content is read.
-  counts="$(psql "$TARGET_DATABASE_URL" -v ON_ERROR_STOP=1 -tAqc "SELECT
-    CASE WHEN to_regclass('public.schools') IS NULL THEN 0 ELSE (SELECT count(*) FROM public.schools) END
-    + CASE WHEN to_regclass('public.users') IS NULL THEN 0 ELSE (SELECT count(*) FROM public.users) END")"
-  if [[ "$counts" != "0" ]]; then
-    echo "restore.sh: refusing: target already has data (${counts} rows in schools + users)" >&2
-    exit 3
-  fi
-fi
-
 echo "restore.sh: restoring into target database"
-restore_args=(--clean --if-exists --no-owner)
-[[ $SINGLE_TX -eq 1 ]] && restore_args+=(--single-transaction)
-pg_restore "${restore_args[@]}" -d "$TARGET_DATABASE_URL" "$DUMP_PATH"
+if [[ $REQUIRE_EMPTY -eq 1 ]]; then
+  # One transaction: re-check emptiness, wipe the schema, load the dump. A dump older than the
+  # deployed code cannot clash with newer tables, because nothing from the migrated schema is kept.
+  # CREATE EXTENSION (btree_gist) comes back from the dump. pg_restore writes the SQL to a file
+  # first, so a pg_restore failure can never reach psql as a half-finished script.
+  pg_restore --no-owner -f "$WORKDIR/restore.sql" "$DUMP_PATH"
+  {
+    cat <<'SQL'
+DO $guard$
+DECLARE n bigint := 0; m bigint := 0;
+BEGIN
+  IF to_regclass('public.users') IS NOT NULL THEN EXECUTE 'select count(*) from public.users' INTO n; END IF;
+  IF to_regclass('public.schools') IS NOT NULL THEN EXECUTE 'select count(*) from public.schools where slug <> ''default-school''' INTO m; END IF;
+  IF n + m > 0 THEN RAISE EXCEPTION 'restore-refused-not-empty'; END IF;
+END
+$guard$;
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+SQL
+    cat "$WORKDIR/restore.sql"
+  } | psql -1 -q -v ON_ERROR_STOP=1 -o /dev/null "$TARGET_DATABASE_URL" 2>"$WORKDIR/psql.err" || {
+    if grep -q 'restore-refused-not-empty' "$WORKDIR/psql.err"; then
+      echo "restore.sh: refusing: target already has data (found inside the restore transaction)" >&2
+      exit 3
+    fi
+    echo "restore.sh: restore FAILED and was rolled back (the target is unchanged)" >&2
+    exit 1
+  }
+else
+  pg_restore --clean --if-exists --no-owner -d "$TARGET_DATABASE_URL" "$DUMP_PATH"
+fi
 
 echo "restore.sh: verifying integrity"
 psql "$TARGET_DATABASE_URL" -f "$(dirname "$0")/verify.sql"
 
-echo "restore.sh: done"
+echo "restore.sh: done (migrations NOT run; run migrate.js from the app image)"

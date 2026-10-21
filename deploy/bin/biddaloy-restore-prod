@@ -2,7 +2,7 @@
 # Restore a prod backup onto a fresh prod VM (Epic 79, #2802, decisions P9, D21; closes #2748).
 #
 #   biddaloy-restore-prod --age-key-file <path> --from <db/hourly/F.dump.age|db/daily/F.dump.age|latest-hourly|latest-daily> \
-#                         --yes-restore-prod <db-name> [--skip-files]
+#                         --yes-restore-prod <db-name> [--skip-files] [--max-age-hours N]
 #
 # Run it once, after `provision` and `biddaloy-deploy all <sha>`. It restores the chosen R2 dump
 # into the EMPTY prod database, copies the uploaded files back, migrates with the prod app image,
@@ -15,10 +15,10 @@
 #   3. The age private key file must be a regular file, mode 0400 or 0600. Its path is the only
 #      thing that is ever on a command line; its content is read only inside the jobs container.
 #   4. The backup is chosen by you (--from) and its object age is printed.
-#   5. The prod DB must hold no school and no user (a missing table counts as 0), else exit 2.
-#      restore.sh checks the same again with --require-empty right before pg_restore.
-#   6. The restore is one transaction (pg_restore --single-transaction): if it fails, the database
-#      is exactly as it was (empty).
+#   5. Empty means: no user and no school except the migration-made 'default-school' (a missing
+#      table counts as 0), else exit 2. restore.sh checks it again, first and inside its transaction.
+#   6. The emptiness check, the wipe (DROP SCHEMA public CASCADE) and the dump load are ONE
+#      transaction inside restore.sh: if anything fails, the database is exactly as it was.
 # Why not restore into <prod>_next and swap: scripts/backup/db-swap.sh accepts only
 # biddaloy_staging* / biddaloy_demo* names, on purpose, so it can never rename prod. The target is
 # empty by check 5, so a transactional restore in place loses nothing.
@@ -38,13 +38,14 @@ DEPLOYS_LOG="$ROOT/prod/deploys.log"
 say() { printf '%s biddaloy-restore-prod: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*" >&2; }
 refuse() { say "REFUSED: $1"; say "Nothing was modified."; exit 2; }
 
-KEY_FILE="" FROM="" CONFIRM="" SKIP_FILES=0
+KEY_FILE="" FROM="" CONFIRM="" SKIP_FILES=0 MAX_AGE_H=36
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --age-key-file) [[ $# -ge 2 ]] || refuse "--age-key-file needs a path"; KEY_FILE="$2"; shift 2 ;;
     --from) [[ $# -ge 2 ]] || refuse "--from needs a value"; FROM="$2"; shift 2 ;;
     --yes-restore-prod) [[ $# -ge 2 ]] || refuse "--yes-restore-prod needs the database name"; CONFIRM="$2"; shift 2 ;;
     --skip-files) SKIP_FILES=1; shift ;;
+    --max-age-hours) [[ $# -ge 2 && "$2" =~ ^[0-9]+$ ]] || refuse "--max-age-hours needs a number"; MAX_AGE_H="$2"; shift 2 ;;
     *) refuse "unknown argument '$1' (usage: --age-key-file <path> --from <key|latest-hourly|latest-daily> --yes-restore-prod <db-name> [--skip-files])" ;;
   esac
 done
@@ -71,9 +72,14 @@ POSTGRES_PASSWORD="$(envval POSTGRES_PASSWORD)"
 [[ -f "$KEY_FILE" && ! -L "$KEY_FILE" ]] || refuse "age key file is not a regular file (symlinks are refused)"
 KEY_MODE="$(stat -c '%a' "$KEY_FILE" 2>/dev/null || stat -f '%Lp' "$KEY_FILE")"
 [[ "$KEY_MODE" == 400 || "$KEY_MODE" == 600 ]] || refuse "age key file mode is $KEY_MODE; it must be 0400 or 0600 (not readable by group or others)"
+KEY_OWNER_WANT="${RESTORE_KEY_UID:-10001}"
+KEY_OWNER="$(stat -c '%u' "$KEY_FILE" 2>/dev/null || stat -f '%u' "$KEY_FILE")"
+[[ "$KEY_OWNER" == "$KEY_OWNER_WANT" ]] || refuse "age key file is owned by uid $KEY_OWNER; the jobs container reads it as uid $KEY_OWNER_WANT: run chown $KEY_OWNER_WANT on it"
 KEY_DIR="$(cd "$(dirname "$KEY_FILE")" && pwd)"
 KEY_BASE="$(basename "$KEY_FILE")"
 [[ "$KEY_BASE" =~ ^[A-Za-z0-9._-]+$ ]] || refuse "age key file name must match [A-Za-z0-9._-]+"
+# The whole directory is mounted into the container, so it may hold nothing but the key.
+[[ "$(ls -A "$KEY_DIR")" == "$KEY_BASE" ]] || refuse "key directory $KEY_DIR holds more than the key; put the key alone in a directory such as $ROOT/prod/restore/"
 
 # --- check 4: the backup selector ---------------------------------------------------------------
 case "$FROM" in
@@ -99,12 +105,15 @@ export BACKUP_AGE_KEY_DIR="$KEY_DIR" PGPASSWORD="$POSTGRES_PASSWORD"
 dc() { docker compose -p prod --project-directory "$ROOT/prod" -f "$REPO/deploy/stack.yml" "$@"; }
 psql_db() { dc exec -T -e PGPASSWORD db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -tAqc "$1"; }
 
-# Prints <schools>|<users>|<current database>. A missing table counts as 0. Counts only.
-COUNT_SQL="SELECT CASE WHEN to_regclass('public.schools') IS NULL THEN 0 ELSE (SELECT count(*) FROM public.schools) END
-  || '|' || CASE WHEN to_regclass('public.users') IS NULL THEN 0 ELSE (SELECT count(*) FROM public.users) END
+# Prints <schools except default-school>|<users>|<current database>. A missing table counts as 0
+# (query_to_xml keeps a missing table from failing at parse time). Counts only.
+COUNT_SQL="SELECT (CASE WHEN to_regclass('public.schools') IS NULL THEN 0
+    ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.schools where slug <> ''default-school''', false, true, '')))[1]::text::int END)
+  || '|' || (CASE WHEN to_regclass('public.users') IS NULL THEN 0
+    ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.users', false, true, '')))[1]::text::int END)
   || '|' || current_database()"
 
-STATE="nothing was modified"
+STATE="nothing was modified" OUTCOME=failed
 LOGGED_KEY="$FROM"
 log_deploy() { printf '%s prod restore %s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$LOGGED_KEY" "$1" >> "$DEPLOYS_LOG" || true; }
 # fail <step> <why> <next>: the FAILED at / Why / Next / State block, then exit 1.
@@ -113,7 +122,7 @@ fail() {
   say "Why: $2"
   say "State: $STATE"
   say "Next: $3"
-  [[ "$STATE" == "nothing was modified" ]] || log_deploy failed
+  [[ "$STATE" == "nothing was modified" ]] || log_deploy "$OUTCOME"
   exit 1
 }
 
@@ -124,7 +133,7 @@ counts="$(psql_db "$COUNT_SQL")" || fail check-empty "could not read the prod da
 n_schools="${BASH_REMATCH[1]}" n_users="${BASH_REMATCH[2]}" got_db="${BASH_REMATCH[3]}"
 [[ "$got_db" == "$POSTGRES_DB" ]] || refuse "connected to database '$got_db', expected '$POSTGRES_DB'"
 if [[ "$n_schools" != 0 || "$n_users" != 0 ]]; then
-  say "check: schools=$n_schools users=$n_users in $POSTGRES_DB (both must be 0)"
+  say "check: schools=$n_schools users=$n_users in $POSTGRES_DB (both must be 0; the default-school the migrations make is not counted)"
   say "this VM already has prod data - you probably want a normal deploy (biddaloy-deploy prod <sha>), not a restore"
   refuse "target database is not empty"
 fi
@@ -135,7 +144,7 @@ LIST_SH='set -eu
 export AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto
 aws s3 ls --endpoint-url "$BACKUP_S3_ENDPOINT" "s3://$BACKUP_S3_BUCKET/$1"'
 echo "step: choose-backup"
-listing="$(dc run --rm -T --no-deps jobs sh -c "$LIST_SH" sh "$PREFIX")" || fail choose-backup "could not list the backup bucket" "check BACKUP_S3_* in $ENV_FILE; nothing was changed"
+listing="$(dc run --rm -T --no-deps -e TZ=UTC jobs sh -c "$LIST_SH" sh "$PREFIX")" || fail choose-backup "could not list the backup bucket" "check BACKUP_S3_* in $ENV_FILE; nothing was changed"
 # aws s3 ls line: "<date> <time> <size> <name>". Newest = highest name (names are timestamps).
 if [[ "$PICK" == latest ]]; then
   line="$(printf '%s\n' "$listing" | awk 'NF >= 4 && $4 ~ /\.dump\.age$/' | sort -k4 | tail -1)"
@@ -148,12 +157,10 @@ read -r b_date b_time _ b_name <<<"$line"
 if [[ "$PICK" == latest ]]; then KEY="${PREFIX}${b_name}"; else KEY="$FROM"; fi
 LOGGED_KEY="$KEY"
 b_epoch="$(date -u -d "$b_date $b_time" +%s 2>/dev/null || date -j -u -f '%Y-%m-%d %H:%M:%S' "$b_date $b_time" +%s 2>/dev/null || echo 0)"
-if [[ "$b_epoch" -gt 0 ]]; then
-  age_h=$(( ($(date -u +%s) - b_epoch) / 3600 ))
-  say "backup: $KEY written $b_date $b_time UTC (${age_h} hours old)"
-else
-  say "backup: $KEY written $b_date $b_time UTC (age could not be computed)"
-fi
+[[ "$b_epoch" -gt 0 ]] || refuse "could not compute the age of $KEY ($b_date $b_time)"
+age_h=$(( ($(date -u +%s) - b_epoch) / 3600 ))
+say "backup: $KEY written $b_date $b_time UTC (${age_h} hours old)"
+[[ "$age_h" -le "$MAX_AGE_H" ]] || refuse "$KEY is ${age_h} hours old, over the ${MAX_AGE_H} hour limit; pick a newer one or pass --max-age-hours N"
 say "target: database $POSTGRES_DB (schools=0 users=0), key file $KEY_BASE in $KEY_DIR"
 
 # --- from here the stack changes -----------------------------------------------------------------
@@ -164,11 +171,12 @@ dc stop app app2 backup || fail stop-app "docker compose stop failed" "run: dock
 echo "step: restore-db"
 rc=0
 dc run --rm -T --no-deps -e "BACKUP_AGE_PRIVATE_KEY_FILE=/run/age/$KEY_BASE" jobs /app/restore.sh "$KEY" @env \
-  --no-migrate --require-empty --allow-live-target --single-transaction --expect-db "$POSTGRES_DB" || rc=$?
+  --no-migrate --require-empty --allow-live-target --expect-db "$POSTGRES_DB" || rc=$?
 if [[ $rc -eq 3 ]]; then
   say "this VM already has prod data - you probably want a normal deploy (biddaloy-deploy prod <sha>), not a restore"
-  say "REFUSED: restore.sh found data in the target. The database was not changed; app, app2 and backup are stopped (biddaloy-deploy prod <sha> starts them)."
-  exit 2
+  STATE="the database was not changed; app, app2 and backup are stopped"
+  OUTCOME=refused
+  fail restore-db "restore.sh found data in the target (it checked again after the stop)" "biddaloy-deploy prod <sha> starts the stack again; this VM has prod data, so a restore is not wanted"
 fi
 [[ $rc -eq 0 ]] || fail restore-db "restore.sh exited $rc (download, decrypt or pg_restore failed; the restore is one transaction)" "the database is still empty: fix the cause (key, bucket, dump) and run this again; the app is stopped, run biddaloy-deploy prod <sha> to start it without data if you must"
 
@@ -210,8 +218,8 @@ echo "step: verify"
 counts="$(psql_db "$COUNT_SQL")" || fail verify "could not count the restored rows" "check the db container; the restore itself finished"
 [[ "$counts" =~ ^([0-9]+)\|([0-9]+)\|([a-z0-9_]+)$ ]] || fail verify "unexpected answer from the count query" "check the db container; the restore itself finished"
 say "restored: schools=${BASH_REMATCH[1]} users=${BASH_REMATCH[2]} in ${BASH_REMATCH[3]}"
-[[ "${BASH_REMATCH[1]}" -gt 0 ]] || fail verify "the restored database has no school" "check that '$KEY' is a prod backup; the database now holds an empty schema"
+[[ "${BASH_REMATCH[1]}" -gt 0 ]] || fail verify "the restored database has no school besides default-school" "check that '$KEY' is a prod backup; the database now holds an empty schema"
 
 STATE="restored and migrated; app, app2 and backup are stopped"
-log_deploy ok
+if [[ -n "$WARNINGS" ]]; then log_deploy ok-files-missing; else log_deploy ok; fi
 say "done${WARNINGS:+ (warning: $WARNINGS)}. Next: biddaloy-deploy prod <sha>   (backs up, migrates, starts the app and smokes it)"
