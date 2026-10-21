@@ -319,9 +319,9 @@ scripts/backup/restore.sh \
 ```
 
 What it does, in order: download (or read a local file) → `age --decrypt`
-→ `pg_restore --clean --if-exists --no-owner` → run server migrations
-against the target (skipped with `--no-migrate`, which the weekly drill uses)
-→ print `scripts/backup/verify.sql`'s row/tenant counts
+→ `pg_restore --clean --if-exists --no-owner` (with `--require-empty`: one
+transaction that checks the target is empty, drops schema `public` and loads the
+dump) → print `scripts/backup/verify.sql`'s row/tenant counts
 and the `schools.logo_key` list. See
 [`scripts/backup/README.md`](../../scripts/backup/README.md) for every env
 var it reads.

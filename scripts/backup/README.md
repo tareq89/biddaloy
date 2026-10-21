@@ -92,9 +92,12 @@ integration case.
 scripts/backup/restore.sh <s3-key-or-local-file> <TARGET_DATABASE_URL>
 ```
 
-Decrypts the chosen archive, restores it into `TARGET_DATABASE_URL`, runs
-server migrations against it, and prints integrity counts from
-`verify.sql`. Refuses to run if `TARGET_DATABASE_URL` equals the `DATABASE_URL`
+Decrypts the chosen archive, restores it into `TARGET_DATABASE_URL`, and
+prints integrity counts from `verify.sql`. It does **not** run migrations:
+run `node server/dist/scripts/migrate.js run` from the app image afterwards.
+`--require-empty` (prod restore, used by `deploy/bin/biddaloy-restore-prod`)
+refuses a target that has a user or a school besides `default-school` (exit 3)
+and does the check, the schema wipe and the load in one transaction. Refuses to run if `TARGET_DATABASE_URL` equals the `DATABASE_URL`
 env var (the running production database) — see the script for the exact
 check.
 
