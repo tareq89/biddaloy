@@ -98,6 +98,17 @@ Learnings log, 2026-10-21 (same format as Wave 1 above). Epic 78 (#2752) works t
 - **A slow test is not a broken test.** `entity-catalog.spec.ts` took 7.7 s inside the 440-file parallel suite and under 1 s alone. Fix: a 30 s timeout on that `it`. -> no rule.
 - **The workbook tabs had two sweeps hiding in one ticket.** #2687 fixed the blank departed-actor cells in the tabs it named, and the same pattern ("a relation joined in `load()` beats the FK column on save") exists in other tabs. Cost: two follow-ups, #2760 and #2761, so the ticket stayed finishable. -> no rule.
 
+### Epic 78 Wave 2
+
+Learnings log, 2026-10-21 (same format as Wave 1 above).
+
+- **exceljs's own reader silently drops sheets.** `WorkbookReader` walks the zip through `unzipper`, which emits `end` at the central directory while entries are still queued, so the tail parts are lost. Our exports put `workbook.xml` last. Measured over 20 runs: 14 wrong sheet names or a missing `_meta`, 1 crash, 5 fine. Cost: the plan's step 2 (use `WorkbookReader`) was unusable. Fix: `openXlsx` in `workbook-codec.ts` reads the zip central directory itself and drives exceljs's part parsers per sheet (#2686). Rule candidate: any exceljs upgrade re-runs `workbook-codec.spec.ts` first, because we rely on its internals -> checklist item, no security rule.
+- **A "single admin" test had no admin.** The #2661 integration cases deleted every `user_tenants` row and never re-inserted the actor's own ADMIN row, so the `Not(actorUserId)` clause was untested: delete it and every test still passed, while every real single-admin school would have been refused. Found by the money review. Fix: the actor's own row is inserted in all five allow-path cases, and the lane proved the cases fail without the clause. Rule candidate: for a guard that excludes "the caller", the allow-path test must include the caller's own row -> checklist item.
+- **Composing the scope into the OTP id fans every per-id limit out nine times.** #2660 binds the step-up code to its scope, so one approver can hold one live code per `ApprovalScope`. Still bounded by the unscoped request cap and attempt counters, so the extra cost is SMS volume only. Passing `scope` as OtpService's `bind` argument would keep one code per pair. -> no rule, noted for #2660 follow-ups.
+- **Codes issued before the deploy fail once.** The OTP key changed shape, so a code requested just before the deploy gets a 401, and an old UI bundle that sends no `scope` gets a 400 until it reloads. The code lives 5 minutes. -> no rule.
+- **The post-deploy smoke test sent an invalid body.** `scripts/smoke-post-deploy.mjs` still posted `{ identifier }` after `scope` became required; it passed only because the permission guard returns 403 before validation. Fix: the body carries `scope: 'payments.reverse'` so the 403 stays attributable to the role. -> no rule.
+- **Lane agents stop and wait on their own test runs.** Several times a lane reported "waiting on background work" and went quiet for 20-40 minutes while its DB specs ran one at a time (they cannot overlap `api:types`). Cost: hours of wall clock, not wrong code. Fix: a status message resumes the agent. -> no rule.
+
 ## One click, one effect
 
 ```mermaid
