@@ -52,13 +52,16 @@ const wa = num ? `https://wa.me/${num}` : company.whatsapp;
     load(true);
   });
 
-  // Idle preload only once the visitor allowed chat.
+  // Idle preload only once the visitor allowed chat; every consent change re-checks it, and the
+  // pending timer is dropped, so withdrawing chat before it fires never injects the script.
+  let preload: ReturnType<typeof setTimeout> | undefined;
+  const chatAllowed = () => { try { return !!parseConsent(localStorage.getItem('sm:consent'))?.chat; } catch { return false; } };
   function arm() {
-    let c = null; try { c = parseConsent(localStorage.getItem('sm:consent')); } catch { /* blocked */ }
-    if (c?.chat) setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(() => load(false)) : load(false)), 20000);
+    clearTimeout(preload);
+    if (chatAllowed()) preload = setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(() => { if (chatAllowed()) load(false); }) : chatAllowed() && load(false)), 20000);
   }
   arm();
-  window.addEventListener('sm:consent', arm, { once: true });
+  window.addEventListener('sm:consent', arm);
 </script>
 <style>
   .chatfab{position:fixed;right:1rem;bottom:1rem;z-index:40;display:inline-flex;gap:.4rem;align-items:center;border:0;cursor:pointer;border-radius:999px;padding:.7rem 1rem;font-weight:600;background:var(--ink);color:var(--ink-fg);box-shadow:0 4px 14px rgb(0 0 0/.25)}

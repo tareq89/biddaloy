@@ -156,7 +156,7 @@ npx playwright test -c playwright.landing.config.ts          # starts `serve` it
 CHROME_PATH=... npx lhci autorun --config lighthouserc.landing.cjs   # with `serve landing/dist -l 4321` running
 ```
 
-`playwright.config.ts` ignores `e2e/landing/**`, so the app's e2e run never picks these up. The smoke test skips `*.pdf` links until the one-page PDF (Collateral) exists.
+`playwright.config.ts` ignores `e2e/landing/**`, so the app's e2e run never picks these up. The smoke test checks `*.pdf` links too: `build-collateral.mjs` writes `dist/sm-ek-pata.pdf` during `build`.
 
 Proof that the gate bites: adding a 70 KB script to the home page made `resource-summary:script:size` fail (73 662 > 51 200) and performance drop under 0.8.
 
@@ -183,7 +183,7 @@ Until a PNG exists, `Shot.astro` shows a dashed placeholder. Steps and environme
 
 ## Deploy
 
-CI is the only builder: the `landing` job uploads `landing-dist-<sha>.tar.gz`. How that tarball is served (nginx, TLS, CSP, cache headers) is Infra work, see #2730 and [28-platform-runbook.md](28-platform-runbook.md). The CSP hosts the site needs are listed under Third parties above.
+CI is the only builder: the `landing` job uploads `landing-dist-<sha>.tar.gz`. The host serves it from `releases/<sha>/` behind a `current` symlink (nginx template + `infra/ansible/landing.yml`); see [07-deployment.md](07-deployment.md) and [28-platform-runbook.md](28-platform-runbook.md). The CSP hosts the site needs are listed under Third parties above.
 
 ## Lessons from building it
 
@@ -193,7 +193,7 @@ CI is the only builder: the `landing` job uploads `landing-dist-<sha>.tar.gz`. H
 | The chat button sat on top of the consent bar's "No" button                             | consent could not be clicked on desktop      | consent bar `z-index: 50`, above the chat button                                | A bar the visitor must answer goes above floating buttons |
 | Web fonts delayed first paint and LCP (5 s on 3G)                                       | Lighthouse performance 0.65                  | `font-display: optional`, fonts added after first paint                         | Nothing render-critical depends on a font download        |
 | The 3G profile cannot reach LCP 1.5 s                                                   | the written target was not testable as given | gate at the measured floor, target kept in the config comment                   | Check a budget is reachable before writing it into CI     |
-| Home page linked to `/sm-ek-pata.pdf`, which did not exist yet                          | link check returned 404                      | `.pdf` skipped in the link test until Collateral lands                          | Remove the skip when the PDF ships                        |
+| Home page linked to `/sm-ek-pata.pdf`, which did not exist yet                          | link check returned 404                      | `.pdf` was skipped in the link test; the skip is gone now that the PDF ships         | Never skip a link kind in the link test                        |
 
 ## Events (D22)
 

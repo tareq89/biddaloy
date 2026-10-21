@@ -1,9 +1,8 @@
 ---
 import { APP_URL, DOCS_URL, type Lang } from '../../i18n';
 import { setup } from '../../content/value';
+import WhatsAppLink from '../WhatsAppLink.astro';
 const { lang } = Astro.props as { lang: Lang };
-// ponytail: WhatsApp number is a placeholder until the business number is decided (D7); same as Footer.astro.
-const WA = 'https://wa.me/8801000000000';
 const last = setup.steps.length - 1;
 ---
 <section class="soft"><div class="wrap">
@@ -21,7 +20,7 @@ const last = setup.steps.length - 1;
       </div>
     ))}
   </div>
-  <div class="ctas"><a class="btn primary lg" href={`${APP_URL}/register`} target="_blank" rel="noopener" data-ev="register_click">{setup.register[lang]}</a><a class="btn secondary lg" href={WA} target="_blank" rel="noopener" data-ev="whatsapp_click">{setup.whatsapp[lang]}</a></div>
+  <div class="ctas"><a class="btn primary lg" href={`${APP_URL}/register`} target="_blank" rel="noopener" data-ev="register_click">{setup.register[lang]}</a><WhatsAppLink lang={lang} class="btn secondary lg" label={setup.whatsapp[lang]} /></div>
 </div></section>
 <style>
   .setup{display:grid;gap:1rem;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:1.75rem}

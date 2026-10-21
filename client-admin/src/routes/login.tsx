@@ -272,7 +272,10 @@ function LoginPage() {
         <TabsContent value="password">
           <SignInForm
             headingLevel={demo.enabled ? 'h2' : 'h1'}
-            onSubmit={(credentials) => mutation.mutate(credentials)}
+            onSubmit={(credentials) => {
+              roleFired.current = true; // a manual sign-in cancels a pending ?role= deep link
+              mutation.mutate(credentials);
+            }}
             loading={mutation.isPending}
             error={buildLoginError(mutation.error, t)}
             secondaryAction={
@@ -297,7 +300,10 @@ function LoginPage() {
           <OtpSignInForm
             headingLevel={demo.enabled ? 'h2' : 'h1'}
             onRequest={(phone) => otpRequestMutation.mutateAsync(phone).then(() => undefined)}
-            onVerify={(credentials) => otpVerifyMutation.mutate(credentials)}
+            onVerify={(credentials) => {
+              roleFired.current = true;
+              otpVerifyMutation.mutate(credentials);
+            }}
             loading={otpVerifyMutation.isPending}
             error={buildOtpError(otpVerifyMutation.error ?? otpRequestMutation.error, t)}
           />

@@ -1,6 +1,6 @@
 ---
 import { DOCS_URL, type Lang } from '../../i18n';
-import { areas, areasCopy } from '../../content/areas';
+import { areas, areasCopy, publishedSlugs } from '../../content/areas';
 const { lang } = Astro.props as { lang: Lang };
 ---
 <section class="soft"><div class="wrap">
@@ -12,7 +12,7 @@ const { lang } = Astro.props as { lang: Lang };
         <div class="ghead"><div class="ic">{a.icon}</div><h3>{a.title[lang]}</h3></div>
         <div class="ops">
           {a.ops.map((o) => (
-            <a class="op" href={`${DOCS_URL}/${o.slug}`} target="_blank" rel="noopener" data-ev="docs_card" data-ev-slug={o.slug}><b>{o.name[lang]}</b><span>{o.blurb[lang]}</span><i>{areasCopy.docs[lang]}</i></a>
+            <a class="op" href={publishedSlugs.has(o.slug) ? `${DOCS_URL}/${o.slug}` : DOCS_URL} target="_blank" rel="noopener" data-ev="docs_card" data-ev-slug={o.slug}><b>{o.name[lang]}</b><span>{o.blurb[lang]}</span><i>{areasCopy.docs[lang]}</i></a>
           ))}
         </div>
       </div>

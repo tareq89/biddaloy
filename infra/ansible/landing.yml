@@ -37,10 +37,18 @@
         path: '{{ landing_dir }}/releases/{{ version }}/bn/index.html'
       register: release
 
-    - name: Download the CI artifact on the laptop
-      ansible.builtin.command: >-
-        gh run download --repo tareq89/biddaloy --name landing-dist-{{ version }}
-        --dir {{ playbook_dir }}/../../.landing-dist/{{ version }}
+    # CI uploads the tarball with `archive: false`, so the artifact is named after the file
+    # (landing-dist-<sha>.tar.gz) and downloads as that single file; unpack it here.
+    - name: Download the CI artifact on the laptop and unpack it
+      ansible.builtin.shell: |
+        set -eu
+        dir='{{ playbook_dir }}/../../.landing-dist/{{ version }}'
+        rm -rf "$dir" && mkdir -p "$dir/dl"
+        gh run download --repo tareq89/biddaloy --name 'landing-dist-{{ version }}.tar.gz' --dir "$dir/dl"
+        tar -xzf "$dir/dl/landing-dist-{{ version }}.tar.gz" -C "$dir"
+        rm -rf "$dir/dl"
+      args:
+        executable: /bin/bash
       delegate_to: localhost
       become: false
       run_once: true

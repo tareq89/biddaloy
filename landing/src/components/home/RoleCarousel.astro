@@ -13,12 +13,12 @@ const { lang } = Astro.props as { lang: Lang };
         {r.frame === 'desktop' ? (
           <div class="body"><div class="win">
             <div class="winbar"><i></i><i></i><i></i><span class="url">{r.url}</span></div>
-            <div class="app"><Shot label={r.shot[lang]} fill /></div>
+            <div class="app"><Shot label={r.shot[lang]} name={r.shotName} {lang} fill /></div>
           </div></div>
         ) : (
           <div class="phonewrap"><div class="phone">
             <div class="status"><span>৮:০৪</span><span>▲ ●●●</span></div>
-            <div class="pbody"><Shot label={r.shot[lang]} fill /></div>
+            <div class="pbody"><Shot label={r.shot[lang]} name={r.shotName} {lang} fill /></div>
           </div></div>
         )}
         <div class="ba"><div><b>{captions.before[lang]}</b>{r.before[lang]}</div><div><b>{captions.after[lang]}</b>{r.after[lang]}</div></div>
@@ -42,6 +42,9 @@ const { lang } = Astro.props as { lang: Lang };
     var car = document.getElementById('car');
     car.addEventListener('mouseenter', function () { clearInterval(auto); });
     car.addEventListener('mouseleave', restart);
+    // WCAG 2.2.2: keyboard users get the same pause as hover.
+    car.addEventListener('focusin', function () { clearInterval(auto); });
+    car.addEventListener('focusout', function (e) { if (!car.contains(e.relatedTarget)) restart(); });
     var sx = 0;
     track.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
     track.addEventListener('touchend', function (e) { var dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) { go(dx < 0 ? cur + 1 : cur - 1); restart(); } });

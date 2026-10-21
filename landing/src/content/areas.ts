@@ -7,6 +7,9 @@ import type { Hue, L } from './hero';
 export interface Op { name: L; blurb: L; slug: string }
 export interface Area { hue: Hue; icon: string; title: L; bullets: L[]; ops: Op[]; shots: L[] }
 
+/** Slugs that exist on the GitBook (checked 2026-10-21: none yet). Add one when its chapter is live. */
+export const publishedSlugs = new Set<string>();
+
 export const areasCopy = {
   title: { bn: 'SchoolManager কী কী পারে, দেখে নিন', en: 'See what SchoolManager can do' },
   lead: { bn: 'প্রতিটা কাজ ডকুমেন্টেশনের সেই পাতায় নিয়ে যায়।', en: 'Every item links to its documentation page.' },
@@ -231,7 +234,7 @@ export const areas: Area[] = [
     bullets: [
       { bn: 'প্রতিটা স্কুলের তথ্য আলাদা, সিস্টেমের ভেতরেই দেয়াল (tenant isolation)।', en: 'Each school’s data is separate, a wall inside the system (tenant isolation).' },
       { bn: '২৩টা লিখিত নিরাপত্তা নিয়ম, প্রতিটার পরীক্ষা কোডে।', en: '23 written security rules, each with a test in code.' },
-      { bn: 'এনক্রিপ্টেড ব্যাকআপ (◌ প্রতি ঘণ্টায় দেশের বাইরের কপি)।', en: 'Encrypted backups (◌ hourly off-site copy).' },
+      { bn: 'এনক্রিপ্টেড ব্যাকআপ (◌ প্রতি ঘণ্টায় আলাদা জায়গায় কপি)।', en: 'Encrypted backups (◌ hourly off-site copy).' },
       { bn: 'সাসপেন্ড/রিসেট করলে সব সেশন তৎক্ষণাৎ বন্ধ।', en: 'Suspend or reset ends every session immediately.' },
       { bn: 'পাবলিক ফর্মে বট-সুরক্ষা, rate limit, আপলোডের signature check।', en: 'Bot protection on public forms, rate limits, upload signature checks.' },
     ],
