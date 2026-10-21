@@ -1,0 +1,362 @@
+# One environment of the app (Epic 79.0, docs/architecture/30-deployment-target.md).
+# Started three times on one host, each with its own .env:
+#
+#   ENV_NAME=prod    docker compose -p prod    -f deploy/stack.yml --env-file /opt/biddaloy/prod/.env up -d
+#   ENV_NAME=staging docker compose -p staging -f deploy/stack.yml --env-file /opt/biddaloy/staging/.env up -d
+#   ENV_NAME=demo    docker compose -p demo    -f deploy/stack.yml --env-file /opt/biddaloy/demo/.env up -d
+#
+# No container_name and no host ports: the project name scopes every name, and
+# data stores are reached with `docker compose -p <env> exec`. Only app / app2
+# join the shared `biddaloy-edge` network, where edge nginx finds them by alias.
+# Prod's .env sets COMPOSE_PROFILES=replica,backup.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '20m'
+    max-file: '5'
+
+x-s3: &s3-env
+  # SeaweedFS is not TLS-terminated on the private network, a tracked exception:
+  # see "Known gap: SeaweedFS traffic is not TLS-terminated" in docs/architecture/08-security.md.
+  S3_ENDPOINT: http://seaweedfs:8333
+  S3_ALLOW_INSECURE_HTTP: 'true'
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET: ${S3_BUCKET:-biddaloy}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID must be set}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY must be set}
+
+x-db-url: &db-url postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}?sslmode=require
+
+x-app: &app
+  logging: *logging
+  image: ghcr.io/tareq89/biddaloy-app:${APP_VERSION:?APP_VERSION must be set}
+  restart: unless-stopped
+  environment:
+    <<: *s3-env
+    NODE_ENV: production
+    ENV_NAME: ${ENV_NAME:?ENV_NAME must be set}
+    DATABASE_URL: *db-url
+    # Self-signed server cert (D3): trust the env's own CA, keep verification on.
+    NODE_EXTRA_CA_CERTS: /etc/postgresql/tls/ca.crt
+    DB_SSL: 'true'
+    DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
+    REDIS_URL: redis://redis:6379
+    JWT_SECRET: ${JWT_SECRET}
+    # Rotation grace window (12-operations.md section 8): verify-only, empty = off.
+    JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
+    CORS_ORIGINS: ${CORS_ORIGINS:-}
+    S3_FORCE_PATH_STYLE: 'true'
+    # Public https origin; invitation, reset and social sign-in links are built from it.
+    APP_BASE_URL: ${APP_BASE_URL:-}
+    # Public https origin of invoice share links (`/i/<token>`). Required in production.
+    PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+    # Opt-in token for /api/health/ready (12-operations.md); unset = that route 404s.
+    HEALTH_TOKEN: ${HEALTH_TOKEN:-}
+    SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
+    SETTINGS_ENCRYPTION_KEY_PREVIOUS: ${SETTINGS_ENCRYPTION_KEY_PREVIOUS:-}
+    PLATFORM_SMS_PROVIDER: ${PLATFORM_SMS_PROVIDER:-greenweb}
+    PLATFORM_SMS_API_KEY: ${PLATFORM_SMS_API_KEY:-}
+    PLATFORM_SMS_SENDER_ID: ${PLATFORM_SMS_SENDER_ID:-}
+    PLATFORM_SMS_API_URL: ${PLATFORM_SMS_API_URL:-}
+    PLATFORM_ALERT_PHONES: ${PLATFORM_ALERT_PHONES:-}
+    # Required in production: the id of the platform school (env.validation.ts).
+    PLATFORM_TENANT_ID: ${PLATFORM_TENANT_ID:-}
+    TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+    GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+    GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+    FACEBOOK_OAUTH_CLIENT_ID: ${FACEBOOK_OAUTH_CLIENT_ID:-}
+    FACEBOOK_OAUTH_CLIENT_SECRET: ${FACEBOOK_OAUTH_CLIENT_SECRET:-}
+    SUPPORT_CONTACT_URL: ${SUPPORT_CONTACT_URL:-}
+    OTP_SMS_ALLOWED_PREFIXES: ${OTP_SMS_ALLOWED_PREFIXES:-+880}
+    # Runtime values for the SPA (one image serves every env, W1.01).
+    TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+    SENTRY_DSN_WEB: ${SENTRY_DSN_WEB:-}
+    SENTRY_ENVIRONMENT: ${ENV_NAME}
+    SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-}
+    APP_VERSION: ${APP_VERSION}
+    SENTRY_RELEASE: ${APP_VERSION}
+    DEMO_MODE: ${DEMO_MODE:-false}
+    DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+  volumes:
+    - ${PG_TLS_DIR:?PG_TLS_DIR must be set}:/etc/postgresql/tls:ro
+    - demo-state:/demo-state:ro
+  # Demo only: default-school's id changes every rebuild, so the demo reset writes it to the
+  # demo-state volume and PLATFORM_TENANT_ID must name it, or platform authority is gone.
+  command:
+    - sh
+    - -c
+    - 'if [ "$$DEMO_MODE" = true ]; then [ -s /demo-state/platform-tenant-id ] || { echo "demo: run the first rebuild before starting app" >&2; exit 1; }; PLATFORM_TENANT_ID="$$(cat /demo-state/platform-tenant-id)"; export PLATFORM_TENANT_ID; fi; exec node server/dist/main.js'
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    seaweedfs:
+      condition: service_healthy
+  expose:
+    - '3000'
+  deploy:
+    resources:
+      limits:
+        memory: ${APP_MEM:-768m}
+        cpus: ${APP_CPUS:-1}
+  # /api/health is unthrottled; busybox wget ships in node:*-alpine.
+  healthcheck:
+    test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1']
+    interval: 10s
+    timeout: 5s
+    retries: 6
+    start_period: 60s
+
+x-jobs-env: &jobs-env
+  <<: *s3-env
+  DATABASE_URL: *db-url
+  PGSSLMODE: require
+  BACKUP_AGE_PUBLIC_KEY: ${BACKUP_AGE_PUBLIC_KEY}
+  BACKUP_AGE_PRIVATE_KEY_FILE: /run/age/key.txt
+  # Empty = entrypoint.sh picks: hourly in R2 mode, 02:00 daily in legacy mode.
+  BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-}
+  BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+  SENTRY_CRON_MONITOR_URL: ${SENTRY_CRON_MONITOR_URL:-}
+  # Cloudflare R2 offsite target (all six or none; none = legacy S3_* only).
+  BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+  BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+  BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+  BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
+  BACKUP_RCLONE_CRYPT_PASSWORD: ${BACKUP_RCLONE_CRYPT_PASSWORD:-}
+  BACKUP_RCLONE_CRYPT_SALT: ${BACKUP_RCLONE_CRYPT_SALT:-}
+  BACKUP_PUSH_URL: ${BACKUP_PUSH_URL:-}
+  BACKUP_HOURLY_KEEP: ${BACKUP_HOURLY_KEEP:-100}
+  BACKUP_DAILY_KEEP: ${BACKUP_DAILY_KEEP:-30}
+  BACKUP_TRASH_DAYS: ${BACKUP_TRASH_DAYS:-30}
+  BACKUP_FILES_MAX_DELETE: ${BACKUP_FILES_MAX_DELETE:-500}
+  BACKUP_NET_WAIT_SECS: ${BACKUP_NET_WAIT_SECS:-900}
+
+x-age-key: &age-key
+  # Age private key dir, read-only. Each env sets its own BACKUP_AGE_KEY_DIR, no default:
+  # prod's key must never reach staging. A directory, not the file, so a missing key fails
+  # only the job that needs it, never `up` or the hourly dumps.
+  type: bind
+  source: ${BACKUP_AGE_KEY_DIR:-./BACKUP_AGE_KEY_DIR-is-not-set}
+  target: /run/age
+  read_only: true
+  bind:
+    create_host_path: false
+
+services:
+  app:
+    <<: *app
+    networks:
+      default: {}
+      edge:
+        aliases: ['${ENV_NAME:?ENV_NAME must be set}-app']
+
+  # Second copy of app (D25): prod restarts the two one at a time.
+  app2:
+    <<: *app
+    profiles: [replica]
+    networks:
+      default: {}
+      edge:
+        aliases: ['${ENV_NAME:?ENV_NAME must be set}-app2']
+
+  redis:
+    logging: *logging
+    image: redis:8-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+    command: ['redis-server', '--appendonly', 'yes']
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    deploy:
+      resources:
+        limits:
+          memory: ${REDIS_MEM:-256m}
+          cpus: ${REDIS_CPUS:-0.5}
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db:
+    logging: *logging
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    restart: unless-stopped
+    # Self-signed TLS (D3): the env's PG_TLS_DIR holds server.crt, server.key (readable by
+    # uid 70) and ca.crt.
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql-tls.conf
+      - -c
+      - max_connections=300
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/postgresql/tls/server.crt
+      - -c
+      - ssl_key_file=/etc/postgresql/tls/server.key
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
+    # Postgres 18+ images keep data in /var/lib/postgresql/18/docker, so the volume sits one level up.
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ${PG_TLS_DIR:?PG_TLS_DIR must be set}:/etc/postgresql/tls:ro
+      - ./postgres/postgresql-tls.conf:/etc/postgresql/postgresql-tls.conf:ro
+    deploy:
+      resources:
+        limits:
+          memory: ${PG_MEM:-1g}
+          cpus: ${PG_CPUS:-1}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  seaweedfs:
+    logging: *logging
+    # SeaweedFS `mini` = master + volume + filer + S3 gateway in one process. It creates
+    # S3_BUCKET on boot if missing. Keep the tag pinned.
+    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    restart: unless-stopped
+    command: ['mini', '-dir=/data', '-webdav=false', '-admin.ui=false']
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID must be set}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY must be set}
+      S3_BUCKET: ${S3_BUCKET:-biddaloy}
+    volumes:
+      - seaweedfsdata:/data
+    deploy:
+      resources:
+        limits:
+          memory: ${S3_MEM:-512m}
+          cpus: ${S3_CPUS:-0.5}
+    # Healthy = S3 up AND the bucket exists (the filer alone can answer before 8333 does).
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/${S3_BUCKET:-biddaloy}/',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Hourly encrypted pg_dump (+ files to R2) - scripts/backup/README.md. Prod only.
+  backup:
+    logging: *logging
+    profiles: [backup]
+    image: ghcr.io/tareq89/biddaloy-backup:${APP_VERSION:?APP_VERSION must be set}
+    restart: unless-stopped
+    environment:
+      <<: *jobs-env
+    volumes:
+      - *age-key
+    deploy:
+      resources:
+        limits:
+          memory: ${BACKUP_MEM:-256m}
+          cpus: ${BACKUP_CPUS:-0.5}
+    depends_on:
+      db:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+
+  # One-off runner (D24): staging refresh, log archive, restore. Same image and env as backup.
+  #   docker compose -p staging run --rm jobs /app/staging-refresh.sh
+  jobs:
+    logging: *logging
+    profiles: [jobs]
+    image: ghcr.io/tareq89/biddaloy-backup:${APP_VERSION:?APP_VERSION must be set}
+    entrypoint: []
+    restart: 'no'
+    environment:
+      <<: *jobs-env
+    volumes:
+      - *age-key
+    deploy:
+      resources:
+        limits:
+          memory: ${JOBS_MEM:-512m}
+          cpus: ${JOBS_CPUS:-1}
+    depends_on:
+      db:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+
+  # One-off demo rebuild (D11), run from a host systemd timer. No docker socket:
+  #   docker compose -p demo run --rm demo-reset /app/reset.sh --now
+  demo-reset:
+    logging: *logging
+    profiles: [demo-jobs]
+    image: ghcr.io/tareq89/biddaloy-demo-reset:${APP_VERSION:?APP_VERSION must be set}
+    entrypoint: []
+    restart: 'no'
+    # Root only to write the demo-state volume.
+    user: root
+    environment:
+      <<: *s3-env
+      NODE_ENV: production
+      DEMO_MODE: 'true'
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?DEMO_PASSWORD must be set}
+      # The LIVE demo database. reset.sh builds biddaloy_demo_next beside it and swaps by rename.
+      DATABASE_URL: postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/biddaloy_demo?sslmode=require
+      PGSSLMODE: require
+      NODE_EXTRA_CA_CERTS: /etc/postgresql/tls/ca.crt
+      REDIS_URL: redis://redis:6379
+      DEMO_STATE_DIR: /demo-state
+      DEMO_SCALE: ${DEMO_SCALE:-1}
+      DEMO_YEARS: ${DEMO_YEARS:-10}
+      # The nightly sweep needs a Playwright runner sharing this container's network namespace
+      # and reaching the temporary app at http://127.0.0.1:3999 (the session cookie is
+      # `__Host-`, kept over plain HTTP only on loopback). One of DEMO_SWEEP_CMD or
+      # DEMO_SKIP_SWEEP is required.
+      DEMO_SWEEP_CMD: ${DEMO_SWEEP_CMD:-}
+      DEMO_SWEEP_URL: ${DEMO_SWEEP_URL:-http://127.0.0.1:3999}
+      DEMO_SKIP_SWEEP: ${DEMO_SKIP_SWEEP:-}
+      DEMO_SWEEP_TIMEOUT: ${DEMO_SWEEP_TIMEOUT:-1800}
+      SENTRY_CRONS_URL: ${SENTRY_CRONS_URL:-}
+      # Uptime Kuma push URL of the demo rebuild monitor; it embeds a token.
+      DEMO_RESET_PUSH_URL: ${DEMO_RESET_PUSH_URL:-}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
+      DB_SSL: 'true'
+      DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
+      APP_BASE_URL: ${APP_BASE_URL:-}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      S3_FORCE_PATH_STYLE: 'true'
+    volumes:
+      - demo-state:/demo-state
+      - ${PG_TLS_DIR:?PG_TLS_DIR must be set}:/etc/postgresql/tls:ro
+    deploy:
+      resources:
+        limits:
+          memory: ${DEMO_RESET_MEM:-1g}
+          cpus: ${DEMO_RESET_CPUS:-1}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  seaweedfsdata:
+  demo-state:
+
+networks:
+  default: {}
+  # Created by the deploy (W3.01). Edge nginx reaches app / app2 here by alias.
+  edge:
+    name: biddaloy-edge
+    external: true

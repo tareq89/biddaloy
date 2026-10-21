@@ -1,0 +1,92 @@
+# Edge: nginx + landing + cloudflared (Epic 79.0, docs/architecture/30-deployment-target.md).
+# Tunnel mode by default: no published web ports, cloudflared dials out.
+#
+#   EDGE_DIR=/opt/biddaloy/edge docker compose -p edge -f deploy/edge.yml --env-file /opt/biddaloy/edge/.env --profile tunnel up -d
+#
+# Direct mode (BDIX host, no Cloudflare) adds the overlay, see edge.direct.yml:
+#   docker compose -p edge -f deploy/edge.yml -f deploy/edge.direct.yml ...
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '20m'
+    max-file: '5'
+
+services:
+  nginx:
+    logging: *logging
+    image: nginx:1.31-alpine@sha256:df221db836e1754089190208cee7eeda94f233197056426eda74a43ab1abeac2
+    restart: unless-stopped
+    environment:
+      EDGE_MODE: ${EDGE_MODE:?EDGE_MODE must be set to tunnel or direct}
+      # The server blocks render server_name from these; an unset variable would stay literal
+      # in the template and stop nginx booting. `.invalid` never resolves, so an unconfigured
+      # block matches nothing.
+      APP_DOMAIN: ${APP_DOMAIN:-app.invalid}
+      STAGING_DOMAIN: ${STAGING_DOMAIN:-staging.invalid}
+      DEMO_DOMAIN: ${DEMO_DOMAIN:-demo.invalid}
+      LANDING_DOMAIN: ${LANDING_DOMAIN:-landing.invalid}
+      KUMA_DOMAIN: ${KUMA_DOMAIN:-kuma.invalid}
+      BESZEL_DOMAIN: ${BESZEL_DOMAIN:-beszel.invalid}
+      LOGS_DOMAIN: ${LOGS_DOMAIN:-logs.invalid}
+      # Host that serves Kuma / Beszel / Dozzle on `biddaloy-ops-edge`; empty when ops is elsewhere.
+      OPS_UPSTREAM_HOST: ${OPS_UPSTREAM_HOST:-}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+    volumes:
+      - ../nginx/templates:/etc/nginx/templates:ro
+      - ../nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro
+      - ../nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro
+    networks: [edge, ops-edge]
+    deploy:
+      resources:
+        limits:
+          memory: ${NGINX_MEM:-128m}
+          cpus: ${NGINX_CPUS:-0.5}
+    # /healthz answers loopback callers only (nginx/templates/default.conf.template).
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1/healthz || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  landing:
+    logging: *logging
+    image: ghcr.io/tareq89/biddaloy-landing:${LANDING_VERSION:?LANDING_VERSION must be set}
+    restart: unless-stopped
+    networks: [edge]
+
+  # Host and container metrics reporter; runs on every app host. Key is the hub's public key.
+  beszel-agent:
+    logging: *logging
+    image: henrygd/beszel-agent:0.21.0@sha256:f27b1aa2c68404bc5b9e1a2ab36653bd9b4ee14f6299862f09cd5051a4134767
+    restart: unless-stopped
+    environment:
+      LISTEN: '45876'
+      KEY: ${BESZEL_KEY:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # Tunnel mode only. Config is rendered into ${EDGE_DIR}/cloudflared/ from
+  # deploy/cloudflared/config.yml.tmpl; the credentials file sits beside it.
+  cloudflared:
+    logging: *logging
+    profiles: [tunnel]
+    image: cloudflare/cloudflared:2025.11.1@sha256:89ee50efb1e9cb2ae30281a8a404fed95eb8f02f0a972617526f8c5b417acae2
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ${EDGE_DIR:?EDGE_DIR must be set}/cloudflared:/etc/cloudflared:ro
+    networks: [edge]
+    depends_on:
+      nginx:
+        condition: service_healthy
+
+networks:
+  # Created by the deploy (W3.01). app / app2 of every env join it.
+  edge:
+    name: biddaloy-edge
+    external: true
+  # Created by the deploy (W3.01); only used when ops runs on this host.
+  ops-edge:
+    name: biddaloy-ops-edge
+    external: true

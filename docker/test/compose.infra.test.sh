@@ -8,24 +8,52 @@ cd "$(dirname "$0")/../.."
 fail() { echo "FAIL: $1" >&2; exit 1; }
 pass() { echo "ok: $1"; }
 
-export APP_VERSION=test TLS_CERT_DIR=./.certs POSTGRES_USER=x POSTGRES_PASSWORD=x POSTGRES_DB=x JWT_SECRET=x \
-  S3_ACCESS_KEY_ID=x S3_SECRET_ACCESS_KEY=x \
+export APP_VERSION=test POSTGRES_USER=x POSTGRES_PASSWORD=x POSTGRES_DB=x JWT_SECRET=x \
+  S3_ACCESS_KEY_ID=x S3_SECRET_ACCESS_KEY=x PG_TLS_DIR=./.pgtls DEMO_PASSWORD=x EDGE_DIR=./.edge \
+  LANDING_VERSION=test EDGE_MODE=tunnel OPS_DIR=./.ops \
   BACKUP_AGE_PUBLIC_KEY=age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 
-docker compose config -q && pass "compose config is valid" || fail "compose config is invalid"
-# [58.4.01] The demo overlay (docker-compose.demo.yml) must merge onto the base file.
-DEMO_PASSWORD=x S3_BUCKET=biddaloy-demo \
-  docker compose -f docker-compose.yml -f docker-compose.demo.yml config -q \
-  && pass "demo overlay config is valid" || fail "demo overlay config is invalid"
+# Dev compose (db, redis, seaweedfs only) must stay valid.
+docker compose config -q && pass "dev compose config is valid" || fail "dev compose config is invalid"
 
-# prod + local-build overlay must merge too.
-docker compose -f docker-compose.yml -f docker-compose.build.yml config -q \
+# [79.0] The stack is one file started once per env; every env must merge.
+STACK=(-f deploy/stack.yml)
+ENV_NAME=prod COMPOSE_PROFILES=replica,backup docker compose "${STACK[@]}" config -q \
+  && pass "stack (prod) config is valid" || fail "stack (prod) config is invalid"
+ENV_NAME=staging docker compose "${STACK[@]}" config -q \
+  && pass "stack (staging) config is valid" || fail "stack (staging) config is invalid"
+ENV_NAME=demo DEMO_MODE=true docker compose "${STACK[@]}" config -q \
+  && pass "stack (demo) config is valid" || fail "stack (demo) config is invalid"
+ENV_NAME=local docker compose "${STACK[@]}" -f docker-compose.build.yml config -q \
   && pass "build overlay config is valid" || fail "build overlay config is invalid"
+docker compose -f deploy/edge.yml config -q \
+  && pass "edge (tunnel) config is valid" || fail "edge (tunnel) config is invalid"
+EDGE_MODE=direct docker compose -f deploy/edge.yml -f deploy/edge.direct.yml config -q \
+  && pass "edge (direct) config is valid" || fail "edge (direct) config is invalid"
+docker compose -f deploy/ops.yml config -q \
+  && pass "ops config is valid" || fail "ops config is invalid"
+
+# Only app / app2 join the edge network; no host ports on any stack service; no docker socket
+# in the stack (the demo rebuild runs without one, D11).
+stack_json="$(ENV_NAME=prod docker compose "${STACK[@]}" --profile '*' config --format json)"
+on_edge="$(jq -r '.services | to_entries[] | select(.value.networks | has("edge")) | .key' <<<"$stack_json" | sort | tr '\n' ' ')"
+[ "$on_edge" = "app app2 " ] && pass "only app and app2 join the edge network" || fail "edge network members: $on_edge"
+ports="$(jq -r '.services | to_entries[] | select(.value.ports) | .key' <<<"$stack_json")"
+[ -z "$ports" ] && pass "stack publishes no host ports" || fail "stack services with host ports: $ports"
+jq -e '[.services[].volumes[]? | select(.source | tostring | test("docker\\.sock"))] | length == 0' <<<"$stack_json" >/dev/null \
+  && pass "stack mounts no docker socket" || fail "stack mounts a docker socket"
+jq -e '[.services | to_entries[] | select(.value.container_name)] | length == 0' <<<"$stack_json" >/dev/null \
+  && pass "stack sets no container_name" || fail "stack sets container_name"
 
 # Every third-party image in compose is pinned by digest. First-party GHCR
-# images must carry exactly the APP_VERSION tag (the commit SHA in prod), so a
-# mutable `:main` / `:latest` fails here too (Rule 21).
-unpinned="$(docker compose config --images | grep -v -E "^ghcr\.io/tareq89/biddaloy-[a-z-]+:${APP_VERSION}\$" | grep -v -E '@sha256:[0-9a-f]{64}$' || true)"
+# images must carry exactly the APP_VERSION tag (the commit SHA in prod), or
+# LANDING_VERSION for the landing site, so a mutable `:main` / `:latest` fails here too (Rule 21).
+unpinned="$( { ENV_NAME=prod docker compose "${STACK[@]}" --profile '*' config --images
+  docker compose -f deploy/edge.yml --profile '*' config --images
+  docker compose -f deploy/edge.yml -f deploy/edge.direct.yml --profile '*' config --images
+  docker compose -f deploy/ops.yml config --images
+  docker compose config --images; } | sort -u \
+  | grep -v -E "^ghcr\.io/tareq89/biddaloy-[a-z-]+:(${APP_VERSION}|${LANDING_VERSION})\$" | grep -v -E '@sha256:[0-9a-f]{64}$' || true)"
 [ -z "$unpinned" ] || fail "compose images not digest-pinned: $unpinned"
 pass "compose images are digest-pinned"
 
