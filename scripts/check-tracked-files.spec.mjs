@@ -218,6 +218,14 @@ describe('findComposeDrift', () => {
     expect(drift[0]).toContain('KUMA_MEM');
   });
 
+  it('also catches a bare $VAR and a lowercase name, but not an escaped $$VAR', () => {
+    const drift = findComposeDrift((f) =>
+      f === 'deploy/ops.yml' ? 'a: $PLAIN_VAR\nb: ${lower_var}\nc: $$ESCAPED\n' : read(f),
+    );
+    expect(drift.join('\n')).toMatch(/PLAIN_VAR[\s\S]*lower_var|lower_var[\s\S]*PLAIN_VAR/);
+    expect(drift.join('\n')).not.toContain('ESCAPED');
+  });
+
   it('holds for the real deploy files', () => {
     expect(findComposeDrift(readText)).toEqual([]);
   });

@@ -197,7 +197,9 @@ export function findComposeDrift(read) {
     const text = read(file);
     if (text === null) return [];
     const listed = stacks.map(keysOf);
-    const vars = new Set([...text.matchAll(/\$\{([A-Z][A-Z0-9_]*)/g)].map((m) => m[1]));
+    const vars = new Set(
+      [...text.matchAll(/(?<!\$)\$\{?([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1]),
+    );
     return [...vars]
       .filter((v) => !DEPLOY_SET.has(v) && !listed.some((k) => k.has(v)))
       .sort()

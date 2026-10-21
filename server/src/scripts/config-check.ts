@@ -69,6 +69,9 @@ export const TURNSTILE_TEST_SECRET = '1x0000000000000000000000000000000AA';
 
 // Every variable that can reach a real SMS / WhatsApp / email / push provider (.env.example).
 const PROVIDER_VAR = /^(SMS_|MIMSMS_|GREENWEB_|WHATSAPP_|SMTP_|VAPID_|PLATFORM_SMS_)/;
+// Also refused on staging: real alert phones and social sign-in (real accounts) credentials.
+const EXTRA_REFUSED = /^(PLATFORM_ALERT_PHONES|GOOGLE_OAUTH_|FACEBOOK_OAUTH_)/;
+export const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA';
 
 export type Stack = 'prod' | 'staging' | 'demo';
 
@@ -80,10 +83,13 @@ export type Stack = 'prod' | 'staging' | 'demo';
 export function composeAppEnv(env: Record<string, unknown>): Record<string, unknown> {
   const str = (k: string) => String(env[k] ?? '');
   return {
-    DATABASE_URL: `postgres://${str('POSTGRES_USER')}:${str('POSTGRES_PASSWORD')}@db:5432/${str('POSTGRES_DB')}`,
     ...env,
+    // Same defaults and fixed values as the x-app block of deploy/stack.yml.
     S3_BUCKET: str('S3_BUCKET') || 'biddaloy',
-    DB_SSL: 'true', // hardcoded in deploy/stack.yml
+    SENTRY_TRACES_SAMPLE_RATE: str('SENTRY_TRACES_SAMPLE_RATE') || '0.1',
+    DB_SSL: 'true',
+    // After ...env: compose builds it, a DATABASE_URL in the host file is never used.
+    DATABASE_URL: `postgres://${str('POSTGRES_USER')}:${str('POSTGRES_PASSWORD')}@db:5432/${str('POSTGRES_DB')}?sslmode=require`,
   };
 }
 
@@ -134,8 +140,23 @@ export function runStackConfigCheck(
     if (set('POSTGRES_DB') && val('POSTGRES_DB') !== `biddaloy_${stack}`) {
       errors.push(`POSTGRES_DB must be biddaloy_${stack}`);
     }
-    if (!val('S3_BUCKET').includes(stack)) {
-      errors.push(`S3_BUCKET must contain "${stack}" (never the prod bucket)`);
+    if (val('S3_BUCKET') !== `biddaloy-${stack}`) {
+      errors.push(`S3_BUCKET must be biddaloy-${stack} (never the prod bucket)`);
+    }
+    // The jobs and replica profiles of prod must not start on another stack.
+    const profiles = val('COMPOSE_PROFILES')
+      .split(',')
+      .map((p) => p.trim());
+    for (const p of ['backup', 'replica']) {
+      if (profiles.includes(p)) errors.push(`COMPOSE_PROFILES must not contain ${p} on ${stack}`);
+    }
+    // No offsite backup target on a non-prod stack (it could overwrite prod's backups).
+    if (stack === 'demo') {
+      errors.push(
+        ...Object.keys(env)
+          .filter((k) => k.startsWith('BACKUP_S3_') && set(k))
+          .map((k) => `${k} must be empty on demo`),
+      );
     }
   }
   if (stack === 'staging') {
@@ -146,11 +167,14 @@ export function runStackConfigCheck(
     }
     errors.push(
       ...Object.keys(env)
-        .filter((k) => (PROVIDER_VAR.test(k) || k === 'PLATFORM_ALERT_PHONES') && set(k))
+        .filter((k) => (PROVIDER_VAR.test(k) || EXTRA_REFUSED.test(k)) && set(k))
         .map(
           (k) => `${k} must be empty on staging (no real SMS / WhatsApp / email / push provider)`,
         ),
     );
+    if (val('TURNSTILE_SITE_KEY') !== TURNSTILE_TEST_SITE_KEY) {
+      errors.push("TURNSTILE_SITE_KEY must be Cloudflare's always-pass test key on staging");
+    }
     if (set('TURNSTILE_SECRET_KEY') && val('TURNSTILE_SECRET_KEY') !== TURNSTILE_TEST_SECRET) {
       errors.push("TURNSTILE_SECRET_KEY must be Cloudflare's always-pass test secret on staging");
     }

@@ -142,9 +142,114 @@ describe('runStackConfigCheck', () => {
     expect(runStackConfigCheck('demo', demo)).toEqual({ ok: true, output: 'config ok' });
   });
 
-  it('COMMON_REQUIRED is every `:?` variable the app container needs in deploy/stack.yml', () => {
-    const compose = readFileSync(join(repoRoot, 'deploy/stack.yml'), 'utf8');
-    for (const key of COMMON_REQUIRED) expect(compose, key).toContain(`\${${key}:?`);
+  // The part of deploy/stack.yml that makes the app container: x-s3, x-db-url and x-app.
+  const stackYml = readFileSync(join(repoRoot, 'deploy/stack.yml'), 'utf8');
+  const appBlock = stackYml.slice(stackYml.indexOf('\nx-s3:'), stackYml.indexOf('\nx-jobs-env:'));
+
+  it('COMMON_REQUIRED equals the `:?` variables of the app container (both ways)', () => {
+    const fromCompose = [...appBlock.matchAll(/\$\{([A-Z][A-Z0-9_]*):\?/g)]
+      .map((m) => m[1])
+      .filter((k) => k !== 'PG_TLS_DIR'); // a path the deploy sets, not in the .env
+    expect([...new Set(fromCompose)].sort()).toEqual([...COMMON_REQUIRED].sort());
+  });
+
+  // What really keeps a provider key out of the staging app is that stack.yml passes an explicit
+  // list. A new key there must be classified on purpose: listed here as not a provider, or
+  // refused by the staging check when set.
+  it('every key stack.yml passes to the app is a known non-provider or refused on staging', () => {
+    const env = appBlock.slice(appBlock.indexOf('  environment:'), appBlock.indexOf('  volumes:'));
+    const keys = [...env.matchAll(/^ {4}([A-Z][A-Z0-9_]*):/gm)].map((m) => m[1]);
+    const s3 = appBlock.slice(appBlock.indexOf('x-s3:'), appBlock.indexOf('x-db-url:'));
+    keys.push(...[...s3.matchAll(/^ {2}([A-Z][A-Z0-9_]*):/gm)].map((m) => m[1]));
+    const notProvider = new Set([
+      'NODE_ENV',
+      'ENV_NAME',
+      'DATABASE_URL',
+      'NODE_EXTRA_CA_CERTS',
+      'DB_SSL',
+      'DB_SSL_REJECT_UNAUTHORIZED',
+      'REDIS_URL',
+      'JWT_SECRET',
+      'JWT_SECRET_PREVIOUS',
+      'CORS_ORIGINS',
+      'S3_ENDPOINT',
+      'S3_ALLOW_INSECURE_HTTP',
+      'S3_REGION',
+      'S3_BUCKET',
+      'S3_ACCESS_KEY_ID',
+      'S3_SECRET_ACCESS_KEY',
+      'S3_FORCE_PATH_STYLE',
+      'APP_BASE_URL',
+      'PUBLIC_APP_URL',
+      'HEALTH_TOKEN',
+      'SETTINGS_ENCRYPTION_KEY',
+      'SETTINGS_ENCRYPTION_KEY_PREVIOUS',
+      'PLATFORM_TENANT_ID',
+      'TURNSTILE_SECRET_KEY',
+      'TURNSTILE_SITE_KEY',
+      'SENTRY_DSN_WEB',
+      'SENTRY_ENVIRONMENT',
+      'SENTRY_TRACES_SAMPLE_RATE',
+      'SENTRY_RELEASE',
+      'APP_VERSION',
+      'SUPPORT_CONTACT_URL',
+      'OTP_SMS_ALLOWED_PREFIXES',
+      'DEMO_MODE',
+      'DEMO_PASSWORD',
+    ]);
+    expect(keys.length).toBeGreaterThan(20);
+    const unclassified = keys.filter(
+      (k) =>
+        !notProvider.has(k) &&
+        !runStackConfigCheck('staging', { ...staging, [k]: 'live-value-123' }).output.includes(
+          `${k} must be empty on staging`,
+        ),
+    );
+    expect(unclassified).toEqual([]);
+  });
+
+  it('staging refuses Google and Facebook sign-in credentials', () => {
+    for (const key of ['GOOGLE_OAUTH_CLIENT_ID', 'FACEBOOK_OAUTH_CLIENT_SECRET']) {
+      const result = runStackConfigCheck('staging', { ...staging, [key]: 'live-value-123' });
+      expect(result.output).toContain(`${key} must be empty on staging`);
+    }
+  });
+
+  it('staging needs the Cloudflare test Turnstile site key', () => {
+    const result = runStackConfigCheck('staging', { ...staging, TURNSTILE_SITE_KEY: '0x4AAAreal' });
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain('TURNSTILE_SITE_KEY');
+    expect(result.output).not.toContain('0x4AAAreal');
+  });
+
+  it('non-prod refuses the backup and replica profiles', () => {
+    for (const [stack, env] of [
+      ['staging', staging],
+      ['demo', demo],
+    ] as const) {
+      for (const profile of ['backup', 'replica']) {
+        const result = runStackConfigCheck(stack, { ...env, COMPOSE_PROFILES: `jobs,${profile}` });
+        expect(result.output, `${stack} ${profile}`).toContain(`must not contain ${profile}`);
+      }
+    }
+    expect(runStackConfigCheck('prod', prod).ok).toBe(true); // prod keeps both
+  });
+
+  it('demo refuses an offsite backup target', () => {
+    const result = runStackConfigCheck('demo', { ...demo, BACKUP_S3_BUCKET: 'prod-backups' });
+    expect(result.output).toContain('BACKUP_S3_BUCKET must be empty on demo');
+  });
+
+  it('SENTRY_TRACES_SAMPLE_RATE defaults to 0.1 as in stack.yml; an invalid value fails', () => {
+    expect(runStackConfigCheck('prod', { ...prod, SENTRY_TRACES_SAMPLE_RATE: '' }).ok).toBe(true);
+    const bad = runStackConfigCheck('prod', { ...prod, SENTRY_TRACES_SAMPLE_RATE: '5' });
+    expect(bad.ok).toBe(false);
+    expect(bad.output).toContain('SENTRY_TRACES_SAMPLE_RATE');
+  });
+
+  it('a DATABASE_URL in the host file cannot override the one compose builds', () => {
+    const result = runStackConfigCheck('prod', { ...prod, DATABASE_URL: 'not-a-url' });
+    expect(result.ok).toBe(true);
   });
 
   it('fails when a required variable is missing, per stack', () => {
@@ -214,10 +319,12 @@ describe('runStackConfigCheck', () => {
     expect(runStackConfigCheck('staging', { ...staging, SMTP_HOST: '' }).ok).toBe(true);
   });
 
-  it('demo with a bucket not containing demo fails', () => {
-    const result = runStackConfigCheck('demo', { ...demo, S3_BUCKET: 'biddaloy' });
-    expect(result.ok).toBe(false);
-    expect(result.output).toContain('S3_BUCKET');
+  it('demo with a bucket other than biddaloy-demo fails', () => {
+    for (const bucket of ['biddaloy', 'prod-demo-copy']) {
+      const result = runStackConfigCheck('demo', { ...demo, S3_BUCKET: bucket });
+      expect(result.ok).toBe(false);
+      expect(result.output).toContain('S3_BUCKET must be biddaloy-demo');
+    }
   });
 
   it('demo needs DEMO_MODE=true; prod refuses it', () => {
