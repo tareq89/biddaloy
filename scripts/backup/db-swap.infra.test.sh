@@ -138,7 +138,7 @@ forbid "live equals next" "same database" "$LIVE" "$LIVE"
 forbid "--drop-prev-old on production" "refusing to touch database 'biddaloy'" --drop-prev-old biddaloy
 forbid "a live name ending in _prev" "ends in _next, _prev or _prev_old" "${LIVE}_prev" "$NEXT"
 forbid "a live name ending in _next" "ends in _next, _prev or _prev_old" "${LIVE}_next" "$NEXT"
-forbid "next is the live's _prev_old" "its _prev_old" "$LIVE" "${LIVE}_prev_old"
+forbid "next is the live's _prev_old" "as next: it is ${LIVE}'s _prev_old" "$LIVE" "${LIVE}_prev_old"
 forbid "no arguments" "usage:"
 
 # ---- 4. a rename that fails half way rolls back and leaves live intact -------------------------

@@ -80,20 +80,8 @@ const EXAMPLE_VALUES_ALLOWED = {
     'REDIS_MEM=256m',
     'S3_MEM=512m',
   ],
-  staging: [
-    'ENV_NAME=staging',
-    'DEMO_MODE=false',
-    'COMPOSE_PROFILES=jobs',
-    ...MEM_SMALL,
-    ...TURNSTILE_TEST,
-  ],
-  demo: [
-    'ENV_NAME=demo',
-    'DEMO_MODE=true',
-    'COMPOSE_PROFILES=demo-jobs',
-    ...MEM_SMALL,
-    ...TURNSTILE_TEST,
-  ],
+  staging: ['ENV_NAME=staging', 'DEMO_MODE=false', ...MEM_SMALL, ...TURNSTILE_TEST],
+  demo: ['ENV_NAME=demo', 'DEMO_MODE=true', ...MEM_SMALL, ...TURNSTILE_TEST],
   edge: ['EDGE_MODE=tunnel'],
 };
 const EXAMPLE_VALUE_ALLOWED = new Set(

@@ -3,6 +3,7 @@ name: Publish images
 # [1766 D10] Every merge to main publishes the three images to GHCR, tagged
 # with the commit SHA and `main`, so the production VM only ever pulls.
 # GITHUB_TOKEN pushes; SENTRY_AUTH_TOKEN (optional) uploads source maps.
+# The app image is built, checked for SPA source maps, and only then pushed.
 # [Epic 79 #2794] Four images: app, backup, demo-reset, landing.
 on:
   push:
@@ -39,11 +40,15 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Build into the local docker store first (no push): the source-map check runs on the exact
+      # image that `docker push` sends afterwards, so a leaking image never reaches GHCR.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: Dockerfile
-          push: true
+          load: true
+          push: false
+          provenance: false
           tags: |
             ${{ env.REGISTRY }}/biddaloy-app:${{ github.sha }}
             ${{ env.REGISTRY }}/biddaloy-app:main
@@ -56,11 +61,16 @@ jobs:
             sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
           cache-from: type=gha,scope=app
           cache-to: type=gha,scope=app,mode=max
-      # Maps are for Sentry only; none may ship in the image.
-      - name: Image has no source maps
+      # Vite maps are for Sentry only; none may ship in the SPA. Scoped to /app/client-admin:
+      # server/dist (tsconfig sourceMap) and node_modules carry .map files on purpose.
+      - name: SPA has no source maps
         run: |
-          out=$(docker run --rm "$REGISTRY/biddaloy-app:${{ github.sha }}" sh -c 'find /app -name "*.map" | head -1')
+          out=$(docker run --rm --entrypoint sh "$REGISTRY/biddaloy-app:${{ github.sha }}" -c 'cd /app/client-admin && find . -name "*.map" | head -1')
           [ -z "$out" ] || { echo "source map in image: $out"; exit 1; }
+      - name: Push
+        run: |
+          docker push "$REGISTRY/biddaloy-app:${{ github.sha }}"
+          docker push "$REGISTRY/biddaloy-app:main"
 
   # demo-reset is `FROM app`, so it builds after the app image is pushed.
   # backup is independent but rides along (small, cached).

@@ -19,8 +19,9 @@
 #   BACKUP_S3_ENDPOINT (https), BACKUP_S3_BUCKET, BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY
 #     The R2 token here must be the READ-ONLY one (D19). This script only ever reads.
 #   BACKUP_AGE_PRIVATE_KEY_FILE (default /run/age/key.txt)
-#   STAGING_PASSWORD_HASH  bcrypt hash of the shared staging password, made by the caller with the
-#                          app's hashPassword (Rule 9). Must start with $2.
+#   STAGING_PASSWORD_HASH_B64  base64 of the bcrypt cost-12 hash of the shared staging password,
+#                          made with the app's hashPassword (Rule 9). base64 because compose expands
+#                          every `$` in a .env value; config:check verifies it against STAGING_PASSWORD.
 #   SMOKE_SCHOOL_SLUG      the school whose users keep their email (D20)
 #   PLATFORM_TENANT_ID     uuid of the platform tenant; its super admins keep their email (D6)
 # Optional env:
@@ -28,8 +29,10 @@
 #                               is sent by the host after the swap and the smoke test.
 #   STAGING_REFRESH_DEADLINE    HH:MM Dhaka time to stop waiting for the backup (default 02:50)
 #   STAGING_REFRESH_POLL_SECS   seconds between checks (default 60)
-#   STAGING_REFRESH_LOCK        lock file shared with the host swap and the demo reset
-#                               (default /run/lock/biddaloy-swap.lock); STAGING_REFRESH_LOCK_WAIT
+#   STAGING_REFRESH_LOCK        optional lock file; unset = no lock here. The real lock is the host's:
+#                               biddaloy-nightly@.service runs this under `flock` on
+#                               /run/lock/biddaloy-swap.lock, shared with the deploy swap. Set it only
+#                               to a path this uid (10001) can write. STAGING_REFRESH_LOCK_WAIT
 #                               seconds to wait for it (default 600)
 #   SCRUB_SQL                   path to scrub.sql (default: next to this script)
 #
@@ -51,11 +54,12 @@ if ! [[ "$POSTGRES_DB" =~ ^biddaloy_staging[a-z0-9_]*$ ]] || [[ "$POSTGRES_DB" =
   exit 2
 fi
 for v in POSTGRES_USER POSTGRES_PASSWORD BACKUP_S3_ENDPOINT BACKUP_S3_BUCKET BACKUP_S3_ACCESS_KEY_ID \
-  BACKUP_S3_SECRET_ACCESS_KEY STAGING_PASSWORD_HASH SMOKE_SCHOOL_SLUG PLATFORM_TENANT_ID; do
+  BACKUP_S3_SECRET_ACCESS_KEY STAGING_PASSWORD_HASH_B64 SMOKE_SCHOOL_SLUG PLATFORM_TENANT_ID; do
   [[ -n "${!v:-}" ]] || { say "$v is required"; exit 2; }
 done
 [[ "$BACKUP_S3_ENDPOINT" == https://* ]] || { say "BACKUP_S3_ENDPOINT must be https://"; exit 2; }
-[[ "$STAGING_PASSWORD_HASH" =~ ^\$2[aby]\$12\$[./A-Za-z0-9]{53}$ ]] || { say "STAGING_PASSWORD_HASH is not a bcrypt cost-12 hash"; exit 2; }
+STAGING_PASSWORD_HASH="$(printf '%s' "$STAGING_PASSWORD_HASH_B64" | base64 -d 2>/dev/null)" || STAGING_PASSWORD_HASH=""
+[[ "$STAGING_PASSWORD_HASH" =~ ^\$2[aby]\$12\$[./A-Za-z0-9]{53}$ ]] || { say "STAGING_PASSWORD_HASH_B64 is not a base64 bcrypt cost-12 hash"; exit 2; }
 [[ "$PLATFORM_TENANT_ID" =~ ^[0-9a-fA-F-]{36}$ ]] || { say "PLATFORM_TENANT_ID is not a uuid"; exit 2; }
 [[ "$SMOKE_SCHOOL_SLUG" =~ ^[a-z0-9-]+$ ]] || { say "SMOKE_SCHOOL_SLUG must be lowercase letters, digits and dashes"; exit 2; }
 AGE_KEY="${BACKUP_AGE_PRIVATE_KEY_FILE:-/run/age/key.txt}"
@@ -63,10 +67,12 @@ AGE_KEY="${BACKUP_AGE_PRIVATE_KEY_FILE:-/run/age/key.txt}"
 SCRUB_SQL="${SCRUB_SQL:-$HERE/scrub.sql}"
 [[ -r "$SCRUB_SQL" ]] || { say "scrub.sql not found"; exit 2; }
 
-# One refresh or swap at a time on this host (the image ships flock).
-LOCK="${STAGING_REFRESH_LOCK:-/run/lock/biddaloy-swap.lock}"
-exec 9>"$LOCK" || { say "cannot open lock file"; exit 2; }
-flock -w "${STAGING_REFRESH_LOCK_WAIT:-600}" 9 || { say "another swap or refresh holds the lock"; exit 1; }
+# The host unit already holds the swap lock around this container (see the header). An extra
+# lock is taken only when asked for (the image ships flock).
+if [[ -n "${STAGING_REFRESH_LOCK:-}" ]]; then
+  exec 9>"$STAGING_REFRESH_LOCK" || { say "cannot open lock file"; exit 2; }
+  flock -w "${STAGING_REFRESH_LOCK_WAIT:-600}" 9 || { say "another swap or refresh holds the lock"; exit 1; }
+fi
 
 NEXT="${POSTGRES_DB}_next"
 HOST="${POSTGRES_HOST:-db}"
