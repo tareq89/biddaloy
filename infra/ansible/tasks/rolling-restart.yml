@@ -11,7 +11,7 @@
       {{ dc }} up -d --no-deps "$s" || { echo "could not start $s" >&2; exit 1; }
       i=0
       until out=$({{ dc }} exec -T "$s" sh -c \
-        'wget -qO- --header "X-Health-Token: $HEALTH_TOKEN" http://127.0.0.1:3000/api/health/ready') \
+        'wget -T 5 -qO- --header "X-Health-Token: $HEALTH_TOKEN" http://127.0.0.1:3000/api/health/ready') \
         && ! printf %s "$out" | tr -d ' ' | grep -q '"status":"fail"'; do
         i=$((i+1))
         [ "$i" -lt 24 ] || { echo "$s was not ready after 120 s" >&2; exit 1; }

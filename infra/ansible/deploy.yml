@@ -2,7 +2,11 @@
 # One command deploys one stack, on the VM that runs it (D1). biddaloy-deploy runs:
 #   ansible-playbook -c local -i localhost, /opt/biddaloy/repo/infra/ansible/deploy.yml \
 #     -e stack=<prod|staging|demo|edge|ops> -e version=<full 40-hex git sha> \
-#     [-e hotfix_reason="..."] [-e skip_backup=true]
+#     [-e skip_backup=true]
+# and BIDDALOY_HOTFIX_REASON="..." in the environment (never an extra var: Ansible templates
+# extra vars, so a reason or stack holding {{ }} would run code as root). biddaloy-deploy MUST check
+# stack against the five names and version against ^[0-9a-f]{40}$ in bash before calling
+# ansible, and reject { } % # in anything it forwards. A -e hotfix_reason is ignored.
 # with ANSIBLE_COLLECTIONS_PATH=/opt/biddaloy/ansible/collections. Files come from the checkout in
 # /opt/biddaloy/repo (already at `version`); compose runs from there with
 # --project-directory /opt/biddaloy/<stack>, where the generated .env lives.
@@ -24,7 +28,8 @@
   vars:
     stack: ''
     version: ''
-    hotfix_reason: ''
+    # From the environment: lookup results are never templated again (see the header).
+    hotfix_note: "{{ lookup('ansible.builtin.env', 'BIDDALOY_HOTFIX_REASON') }}"
     skip_backup: false
     repo_root: '{{ biddaloy_root }}/repo'
     stacks: [prod, staging, demo, edge, ops]
@@ -58,6 +63,10 @@
     images: '{{ images_by_stack[stack] | default([]) }}'
     version_key: "{{ 'LANDING_VERSION' if stack == 'edge' else 'APP_VERSION' }}"
     rollout: "{{ ['app', 'app2'] if stack == 'prod' else ['app'] }}"
+    # Named on every app-stack `up`: staging and demo set COMPOSE_PROFILES for their one-off
+    # jobs (jobs, demo-reset), and a bare `up` would try to start those.
+    app_services: "{{ 'db redis seaweedfs app app2 backup' if stack == 'prod' else 'db redis seaweedfs app' }}"
+    env_saved: false
     deploy_status: failed
     fail_step: deploy
     fail_why: ''
@@ -70,7 +79,11 @@
     - name: Deploy
       block:
         - name: Pre-flight
-          ansible.builtin.include_tasks: tasks/preflight.yml
+          ansible.builtin.include_tasks:
+            file: tasks/preflight.yml
+            apply:
+              tags: [always]
+          tags: [always]
 
         # biddaloy-edge is external for every stack: app / app2 join it and edge nginx finds them
         # there. The subnet is pinned for tunnel mode; an existing network keeps whatever it
@@ -100,7 +113,18 @@
         - name: Step is the env
           ansible.builtin.set_fact:
             deploy_started: true
-            fail_ctx: { step: env, next: 'ls -l {{ project_dir }}; check the sops file with: sops -d infra/secrets/{{ stack }}.enc.env >/dev/null' }
+            fail_ctx: { step: env, next: 'ls -l {{ project_dir }}; check the sops file with:
+                sops -d infra/secrets/{{ stack }}.enc.env >/dev/null' }
+        # The rescue puts this back, so a rollback runs with the old secrets and derived values.
+        - name: Keep the current .env for a rollback
+          ansible.builtin.shell: if [ -f .env ]; then cp -p .env .env.prev; fi # noqa command-instead-of-shell
+          args:
+            chdir: '{{ project_dir }}'
+          changed_when: false
+          when: not ansible_check_mode
+        - name: Remember the .env copy exists
+          ansible.builtin.set_fact:
+            env_saved: true
         - name: Self-signed Postgres TLS
           ansible.builtin.include_tasks: tasks/pg-tls.yml
           when: stack in app_stacks
@@ -135,7 +159,8 @@
         # only when there is no database volume at all (a truly fresh host).
         - name: Step is the backup
           ansible.builtin.set_fact:
-            fail_ctx: { step: backup, next: 'docker compose -p prod logs --tail 100 backup; biddaloy-doctor prod; or add --skip-backup if you accept the risk' }
+            fail_ctx: { step: backup, next: 'docker compose -p prod logs --tail 100 backup; biddaloy-doctor prod;
+                or add --skip-backup if you accept the risk' }
           when: stack == 'prod'
         - name: Fresh backup before migrating (prod)
           ansible.builtin.command: '{{ dc }} run --rm --no-deps --entrypoint /app/backup.sh backup'
@@ -146,7 +171,8 @@
         # migrate.js pending exits 0 none, 2 pending, 1 error.
         - name: Step is the migration
           ansible.builtin.set_fact:
-            fail_ctx: { step: migrate, next: 'docker compose -p {{ stack }} run --rm app node server/dist/scripts/migrate.js pending; biddaloy-doctor {{ stack }}' }
+            fail_ctx: { step: migrate, next: 'docker compose -p {{ stack }} run --rm app node server/dist/scripts/migrate.js pending;
+                biddaloy-doctor {{ stack }}' }
           when: stack in app_stacks
         - name: Are migrations pending?
           ansible.builtin.command: '{{ dc }} run --rm app node server/dist/scripts/migrate.js pending'
@@ -161,7 +187,8 @@
 
         - name: Step is the data services
           ansible.builtin.set_fact:
-            fail_ctx: { step: data-services, next: 'docker compose -p {{ stack }} ps; docker compose -p {{ stack }} logs --tail 200 db redis seaweedfs' }
+            fail_ctx: { step: data-services, next: 'docker compose -p {{ stack }} ps;
+                docker compose -p {{ stack }} logs --tail 200 db redis seaweedfs' }
           when: stack in app_stacks
         - name: Bring up db redis seaweedfs
           ansible.builtin.include_tasks: tasks/compose-up.yml
@@ -187,18 +214,17 @@
           ansible.builtin.include_tasks: tasks/compose-up.yml
           vars:
             up_wait: '{{ stack != "edge" }}'
+            up_services: "{{ app_services if stack in app_stacks else '' }}"
           when: not ansible_check_mode
 
-        - name: Step is the nginx reload
+        # nginx renders its templates only when the container starts, and they are bind mounts, so
+        # `up` does not see a template change: recreate it (the config just passed nginx -t).
+        - name: Step is the nginx recreate
           ansible.builtin.set_fact:
-            fail_ctx: { step: nginx-reload, next: 'docker compose -p edge logs --tail 200 nginx' }
+            fail_ctx: { step: nginx-recreate, next: 'docker compose -p edge logs --tail 200 nginx' }
           when: stack == 'edge'
-        - name: Reload nginx (templates render at container start; a reload picks up new certs)
-          ansible.builtin.command: '{{ dc }} exec -T nginx nginx -s reload'
-          register: nginx_reload
-          until: nginx_reload.rc == 0
-          retries: 12
-          delay: 5
+        - name: Recreate nginx so it renders the new templates
+          ansible.builtin.command: '{{ dc }} up -d --wait --wait-timeout 120 --no-deps --force-recreate nginx'
           changed_when: true
           when: stack == 'edge' and not ansible_check_mode
 
@@ -228,11 +254,25 @@
                   else (failed_item.msg | default('(no message)'))) | string | truncate(300) | replace('\n', ' ') }}
             deploy_status: failed
           vars:
-            failed_item: "{{ (ansible_failed_result.results | default([]) | selectattr('failed', 'defined') | selectattr('failed') | list | first) | default(ansible_failed_result) }}"
+            failed_item: >-
+              {{ (ansible_failed_result.results | default([]) | selectattr('failed', 'defined')
+                  | selectattr('failed') | list | first) | default(ansible_failed_result) }}
+
+        # An nginx -t failure never touched the running edge: only the files change back.
+        - name: Put the previous .env back after an nginx check failure
+          ansible.builtin.command: cp -p {{ project_dir }}/.env.prev {{ project_dir }}/.env
+          changed_when: true
+          when: fail_step == 'nginx-check' and env_saved | bool and not ansible_check_mode
 
         - name: Roll back to the previous version (migrations stay applied, D11)
-          when: deploy_started | bool and previous_version | length > 0 and stack != 'ops' and not ansible_check_mode
+          when: >-
+            deploy_started | bool and previous_version | length > 0 and stack != 'ops'
+            and fail_step != 'nginx-check' and not ansible_check_mode
           block:
+            - name: Put the previous .env back
+              ansible.builtin.command: cp -p {{ project_dir }}/.env.prev {{ project_dir }}/.env
+              changed_when: true
+              when: env_saved | bool
             - name: Pin the previous version
               ansible.builtin.lineinfile:
                 path: '{{ project_dir }}/.env'
@@ -249,6 +289,7 @@
               ansible.builtin.include_tasks: tasks/compose-up.yml
               vars:
                 up_wait: '{{ stack != "edge" }}'
+                up_services: "{{ app_services if stack in app_stacks else '' }}"
             - name: Note the rollback
               ansible.builtin.set_fact:
                 deploy_status: rolled-back

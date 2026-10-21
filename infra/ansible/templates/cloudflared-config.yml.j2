@@ -1,5 +1,5 @@
 # cloudflared config, rendered by tasks/write-env.yml into /opt/biddaloy/edge/cloudflared/config.yml.
-# Same layout as deploy/cloudflared/config.yml.tmpl, with one change: staging and the ops
+# The one cloudflared template (D17). One thing to know: staging and the ops
 # hosts sit behind different Cloudflare Access apps (D14), so each group gets its own audience
 # tag (CF_ACCESS_AUD_STAGING, CF_ACCESS_AUD_OPS). The credentials file sits beside this one.
 tunnel: {{ tunnel_id }}

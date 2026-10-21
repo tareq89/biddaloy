@@ -15,14 +15,17 @@
       # CI tags images with the full commit SHA (publish-image.yml); a short one never exists.
       - version is match('^[0-9a-f]{40}$')
       # The reason goes into deploys.log and Telegram: one line, no control characters.
-      - hotfix_reason | length <= 200
-      - hotfix_reason is match('^[^\x00-\x1f\x7f]*$')
-    fail_msg: 'need stack in {{ stacks | join("/") }}, version a full 40-hex sha, and hotfix_reason one line of at most 200 characters'
+      - hotfix_note | length <= 200
+      - not (hotfix_note is search('[\x00-\x1f\x7f]'))
+    fail_msg: >-
+      need stack in {{ stacks | join("/") }}, version a full 40-hex sha, and
+      BIDDALOY_HOTFIX_REASON one line of at most 200 characters
     quiet: true
 
 - name: Step is the checkout
   ansible.builtin.set_fact:
-    fail_ctx: { step: checkout, next: 'cd {{ repo_root }} && git status; biddaloy-deploy checks out the sha itself, so only a hand edit in the checkout causes this' }
+    fail_ctx: { step: checkout, next: 'cd {{ repo_root }} && git status; biddaloy-deploy checks out the sha itself,
+      so only a hand edit in the checkout causes this' }
 - name: Read the repo HEAD and tree state
   ansible.builtin.shell: | # noqa command-instead-of-module
     set -o pipefail
@@ -82,9 +85,17 @@
     fail_ctx: { step: settings, next: 'sops infra/secrets/{{ stack }}.enc.env (or edge.enc.env), set the named keys, commit, deploy that commit' }
     required_keys: '{{ required_by_stack[stack] }}'
   vars:
+    smoke_keys:
+      - SMOKE_ADMIN_EMAIL
+      - SMOKE_ADMIN_PASSWORD
+      - SMOKE_TEACHER_EMAIL
+      - SMOKE_TEACHER_PASSWORD
+      - SMOKE_SUPER_ADMIN_EMAIL
+      - SMOKE_SUPER_ADMIN_PASSWORD
+      - HEALTH_TOKEN
     required_by_stack:
-      prod: [SMOKE_ADMIN_EMAIL, SMOKE_ADMIN_PASSWORD, SMOKE_TEACHER_EMAIL, SMOKE_TEACHER_PASSWORD, SMOKE_SUPER_ADMIN_EMAIL, SMOKE_SUPER_ADMIN_PASSWORD, HEALTH_TOKEN]
-      staging: [SMOKE_ADMIN_EMAIL, SMOKE_ADMIN_PASSWORD, SMOKE_TEACHER_EMAIL, SMOKE_TEACHER_PASSWORD, SMOKE_SUPER_ADMIN_EMAIL, SMOKE_SUPER_ADMIN_PASSWORD, HEALTH_TOKEN, BACKUP_AGE_PRIVATE_KEY]
+      prod: '{{ smoke_keys }}'
+      staging: "{{ smoke_keys + ['BACKUP_AGE_PRIVATE_KEY'] }}"
       demo: [HEALTH_TOKEN]
       edge: []
       ops: [DOZZLE_USERS_YML]
@@ -105,7 +116,10 @@
     that: (secret_env.edge[item] | default('')) | length > 0
     fail_msg: '{{ item }} is empty in infra/secrets/edge.enc.env ({{ edge_mode }} mode)'
     quiet: true
-  loop: "{{ ['APP_DOMAIN', 'STAGING_DOMAIN', 'DEMO_DOMAIN', 'LANDING_DOMAIN', 'KUMA_DOMAIN', 'BESZEL_DOMAIN', 'LOGS_DOMAIN'] + (['CLOUDFLARE_TUNNEL_ID', 'CLOUDFLARE_TUNNEL_CREDENTIALS_JSON', 'CF_ACCESS_TEAM', 'CF_ACCESS_AUD_STAGING', 'CF_ACCESS_AUD_OPS'] if edge_mode == 'tunnel' else ['BASIC_AUTH_HTPASSWD']) }}"
+  loop: "{{ edge_domain_keys + (edge_tunnel_keys if edge_mode == 'tunnel' else ['BASIC_AUTH_HTPASSWD']) }}"
+  vars:
+    edge_domain_keys: [APP_DOMAIN, STAGING_DOMAIN, DEMO_DOMAIN, LANDING_DOMAIN, KUMA_DOMAIN, BESZEL_DOMAIN, LOGS_DOMAIN]
+    edge_tunnel_keys: [CLOUDFLARE_TUNNEL_ID, CLOUDFLARE_TUNNEL_CREDENTIALS_JSON, CF_ACCESS_TEAM, CF_ACCESS_AUD_STAGING, CF_ACCESS_AUD_OPS]
   when: stack == 'edge'
 
 # Staging gate (D10): prod runs only a sha that staging has passed, unless --hotfix says why.
@@ -123,10 +137,26 @@
   when: stack == 'prod'
 - name: Refuse an un-staged sha unless it is a hotfix
   ansible.builtin.assert:
-    that: staging_ok.rc == 0 or hotfix_reason | length > 0
-    fail_msg: '{{ version[:12] }} has no "staging ok" in {{ biddaloy_root }}/staging/deploys.log and no hotfix_reason was given'
+    that: staging_ok.rc == 0 or hotfix_note | trim | length > 0
+    fail_msg: '{{ version[:12] }} has no "staging ok" in {{ biddaloy_root }}/staging/deploys.log and no hotfix reason was given'
     quiet: true
   when: stack == 'prod'
+
+- name: Step is the disk check
+  ansible.builtin.set_fact:
+    fail_ctx: { step: disk, next: 'docker system df; /usr/local/sbin/biddaloy-image-prune; df -h /var/lib/docker' }
+- name: Free space on /var/lib/docker (GB)
+  ansible.builtin.shell: set -o pipefail; df --output=avail -BG /var/lib/docker | tail -n1 | tr -dc 0-9
+  args:
+    executable: /bin/bash
+  register: free_gb
+  changed_when: false
+  check_mode: false
+- name: At least 10 GB free
+  ansible.builtin.assert:
+    that: free_gb.stdout | int >= 10
+    fail_msg: 'only {{ free_gb.stdout }} GB free on /var/lib/docker (need 10)'
+    quiet: true
 
 # The repo is private (P16): the pull token lives in edge.enc.env.
 - name: Step is the registry
@@ -156,7 +186,9 @@
     fail_ctx: { step: config-check, next: 'fix the variables named above in infra/secrets/{{ stack }}.enc.env (sops), commit, deploy that commit' }
   when: stack in app_stacks
 - name: Config check from the app image
-  ansible.builtin.command: docker run --rm -i ghcr.io/tareq89/biddaloy-app:{{ version }} node server/dist/scripts/config-check.js --env {{ stack }} --file /dev/stdin
+  ansible.builtin.command: >-
+    docker run --rm -i ghcr.io/tareq89/biddaloy-app:{{ version }}
+    node server/dist/scripts/config-check.js --env {{ stack }} --file /dev/stdin
   args:
     stdin: "{{ secret_text[stack] }}\nAPP_VERSION={{ version }}\n"
   register: config_check
@@ -168,24 +200,8 @@
 # The task above is no_log (its stdin is the secrets); config:check names variables, never values.
 - name: Stop when the config check failed
   ansible.builtin.fail:
-    msg: "{{ (config_check.stderr | default('')) ~ (config_check.stdout | default('')) | trim | replace('\n', '; ') }}"
+    msg: "{{ ((config_check.stderr | default('')) ~ (config_check.stdout | default(''))) | trim | replace('\n', '; ') }}"
   when: stack in app_stacks and config_check.rc | default(0) != 0
-
-- name: Step is the disk check
-  ansible.builtin.set_fact:
-    fail_ctx: { step: disk, next: 'docker system df; /usr/local/sbin/biddaloy-image-prune; df -h /var/lib/docker' }
-- name: Free space on /var/lib/docker (GB)
-  ansible.builtin.shell: set -o pipefail; df --output=avail -BG /var/lib/docker | tail -n1 | tr -dc 0-9
-  args:
-    executable: /bin/bash
-  register: free_gb
-  changed_when: false
-  check_mode: false
-- name: At least 10 GB free
-  ansible.builtin.assert:
-    that: free_gb.stdout | int >= 10
-    fail_msg: 'only {{ free_gb.stdout }} GB free on /var/lib/docker (need 10)'
-    quiet: true
 
 # Rollback target: the last `ok` line of this stack's deploys.log. When there is none (log
 # deleted, stack started by hand, first deploy), the tag of the running app container.
@@ -196,7 +212,8 @@
     f={{ project_dir }}/deploys.log
     v=$([ -f "$f" ] && awk '$2=="{{ stack }}" && $4=="ok" {v=$3} END {print v}' "$f")
     [ -n "$v" ] || v=$(docker ps --filter label=com.docker.compose.project={{ project_name }} \
-      --filter label=com.docker.compose.service={{ 'landing' if stack == 'edge' else 'app' }} --format '{% raw %}{{.Image}}{% endraw %}' | head -n1 | sed 's/.*://')
+      --filter label=com.docker.compose.service={{ 'landing' if stack == 'edge' else 'app' }} \
+      --format '{% raw %}{{.Image}}{% endraw %}' | head -n1 | sed 's/.*://')
     echo "$v" | grep -E '^[0-9a-f]{40}$' || true
   args:
     executable: /bin/bash

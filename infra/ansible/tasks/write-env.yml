@@ -21,7 +21,11 @@
       prod: { PG_TLS_DIR: '{{ project_dir }}/pg-tls', APP_VERSION: '{{ version }}' }
       staging: { PG_TLS_DIR: '{{ project_dir }}/pg-tls', APP_VERSION: '{{ version }}', BACKUP_AGE_KEY_DIR: '{{ project_dir }}/restore' }
       demo: { PG_TLS_DIR: '{{ project_dir }}/pg-tls', APP_VERSION: '{{ version }}' }
-      edge: { EDGE_DIR: '{{ project_dir }}', EDGE_TRUSTED_CIDR: '{{ edge_subnet_actual | default(edge_subnet) }}', LANDING_VERSION: '{{ version }}' }
+      edge:
+        EDGE_DIR: '{{ project_dir }}'
+        REPO_DIR: '{{ repo_root }}'
+        EDGE_TRUSTED_CIDR: '{{ edge_subnet_actual | default(edge_subnet) }}'
+        LANDING_VERSION: '{{ version }}'
       ops: { OPS_DIR: '{{ project_dir }}' }
 
 - name: Write the stack .env
@@ -31,7 +35,7 @@
       {% for k in (derived_env.keys() | list) + dropped_keys %}
       {% set ns.t = ns.t | regex_replace('(?m)^[ \t]*(export[ \t]+)?' ~ k ~ '[ \t]*=.*$', '') %}
       {% endfor %}
-      {{ ns.t | regex_replace('\n{2,}', '\n') | trim }}
+      {{ ns.t | regex_replace('\n{2,}', '\n') | trim | regex_replace(quote_from, quote_to) }}
       {% for k, v in derived_env.items() %}
       {{ k }}={{ v }}
       {% endfor %}
@@ -39,6 +43,11 @@
     mode: '0640'
     owner: root
     group: '{{ deploy_user }}'
+  vars:
+    # compose expands $VAR in unquoted .env values; single quotes keep a secret literal. Values
+    # that already start with a quote, or hold one, are left as the secret has them.
+    quote_from: '(?m)^([A-Za-z_][A-Za-z0-9_]*)=([^''"\n][^''\n]*)$'
+    quote_to: '\1=''\2'''
   diff: false
   no_log: true
 

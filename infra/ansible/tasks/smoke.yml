@@ -24,18 +24,30 @@
 # verdict line. smoke-post-deploy.mjs prints PASS/FAIL lines and never a credential.
 - name: Stop when the smoke test failed
   ansible.builtin.fail:
-    msg: "{{ (smoke.stdout_lines | default([]) | select('search', 'FAIL|usage|smoke:') | list | last) | default('the smoke test failed') }}"
+    msg: >-
+      {{ (smoke.stdout_lines | default([]) | select('search', 'FAIL|usage|smoke:') | list | last)
+         | default('the smoke test failed') }}
   when: stack in ['prod', 'staging'] and smoke.rc | default(0) != 0
 
 - name: Demo health
-  ansible.builtin.command: docker run --rm --network biddaloy-edge --entrypoint wget ghcr.io/tareq89/biddaloy-app:{{ version }} -qO- http://demo-app:3000/api/health
+  ansible.builtin.command: >-
+    docker run --rm --network biddaloy-edge --entrypoint wget
+    ghcr.io/tareq89/biddaloy-app:{{ version }} -T 5 -qO- http://demo-app:3000/api/health
   changed_when: false
   when: stack == 'demo'
 
-# Prod is also checked the way users reach it (Cloudflare or direct).
+# Prod is also checked the way users reach it (Cloudflare or direct). Direct mode's first deploy
+# still serves cert-bootstrap's self-signed placeholder; certbot writes renewal/<domain>.conf once
+# a real certificate exists, so until then (and only then) the certificate is not verified.
+- name: Is there a real certificate yet? (direct mode)
+  ansible.builtin.stat:
+    path: '{{ biddaloy_root }}/edge/letsencrypt/renewal/{{ secret_env.edge.APP_DOMAIN }}.conf'
+  register: real_cert
+  when: stack == 'prod' and edge_mode == 'direct'
 - name: Public health of prod
   ansible.builtin.uri:
     url: 'https://{{ secret_env.edge.APP_DOMAIN }}/api/health'
+    validate_certs: "{{ edge_mode != 'direct' or real_cert.stat.exists }}"
     timeout: 20
   register: public_health
   until: public_health.status == 200

@@ -2,7 +2,7 @@
 # The one place every result goes through: prints the failure block, appends to deploys.log,
 # and tells Telegram. Included from deploy.yml's `always`, and by test/report.infra.test.sh.
 # Inputs: stack, version, deploy_status (ok|rolled-back|failed), fail_step, fail_why, fail_next,
-# hotfix_reason, project_dir. Optional: log_chown=false (the test is not root).
+# hotfix_note (BIDDALOY_HOTFIX_REASON), project_dir. Optional: log_chown=false (the test is not root).
 #
 #   FAILED at: <step> (<stack>, <sha12>)
 #   Why:       <why>
@@ -26,8 +26,8 @@
     path: '{{ project_dir }}/deploys.log'
     line: >-
       {{ lookup('ansible.builtin.pipe', 'date -u +%FT%TZ') }} {{ stack }} {{ version }} {{ deploy_status }}{{
-      (' hotfix: ' ~ hotfix_reason) if stack == 'prod' and hotfix_reason | length > 0 and hotfix_reason | length <= 200
-      and hotfix_reason is match('^[^\x00-\x1f\x7f]*$') else '' }}
+      (' hotfix: ' ~ (hotfix_note | trim)) if stack == 'prod' and hotfix_note | trim | length > 0
+      and hotfix_note | length <= 200 and not (hotfix_note is search('[\x00-\x1f\x7f]')) else '' }}
     create: true
     mode: '0640'
   when: not ansible_check_mode and stack in stacks and version is match('^[0-9a-f]{40}$')
