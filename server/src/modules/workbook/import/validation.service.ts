@@ -35,19 +35,22 @@ export class ValidationBusyError extends Error {
   }
 }
 
-// ponytail: one workbook parse per process. exceljs holds the whole workbook in
-// memory (about 3x the unzipped size, see 14-school-workbook.md "Size limits"),
-// so two large ones at once could exhaust the heap and take every school down.
-// Module-level, not per instance: memory is per process. A streaming read lifts
-// this; see the follow-up issue linked from that doc section.
-let inFlight: Promise<unknown> | null = null;
+// ponytail: cap 2 per process (D17): the read streams (#2686) but every
+// streamed row is still resident afterwards (sheets map + typed rows, see
+// 14-school-workbook.md "Size limits"); raise after re-measuring. Module-level,
+// not per instance: memory is per process.
+const MAX_CONCURRENT_VALIDATES = 2;
+let running = 0;
+/** Callers that chose to wait, in arrival order; each is woken by one `finally`. */
+const waiting: Array<() => void> = [];
 
 @Injectable()
 export class ValidationService {
   /**
-   * Validates one workbook. Only one runs per process at a time: a second call
-   * throws `ValidationBusyError`, or waits its turn with `waitIfBusy` (the
-   * restore worker, which must not fail just because an upload is being checked).
+   * Validates one workbook. At most `MAX_CONCURRENT_VALIDATES` run per process
+   * at a time: a further call throws `ValidationBusyError`, or waits its turn
+   * with `waitIfBusy` (the restore worker, which must not fail just because
+   * uploads are being checked).
    */
   async validate(
     buffer: Buffer,
@@ -59,16 +62,20 @@ export class ValidationService {
     tabSpecs: readonly TabSpec<any, any>[] = ALL_TABS,
     opts: { waitIfBusy?: boolean } = {},
   ): Promise<ValidatedWorkbook> {
-    while (inFlight) {
+    if (running >= MAX_CONCURRENT_VALIDATES) {
       if (!opts.waitIfBusy) throw new ValidationBusyError();
-      await inFlight.catch(() => undefined);
+      // FIFO: the finishing run hands its slot straight to the oldest waiter
+      // (`running` never drops in between), so a newcomer cannot slip in.
+      await new Promise<void>((wake) => waiting.push(wake));
+    } else {
+      running++;
     }
-    const run = this.validateNow(buffer, tenantId, manager, tabSpecs);
-    inFlight = run;
     try {
-      return await run;
+      return await this.validateNow(buffer, tenantId, manager, tabSpecs);
     } finally {
-      if (inFlight === run) inFlight = null;
+      const next = waiting.shift();
+      if (next) next();
+      else running--;
     }
   }
 

@@ -87,7 +87,94 @@ async function buildWorkbook(
   });
 }
 
+/** A minimal sheet part: every cell an inline string, rows numbered from 1. */
+function sheetXml(rows: string[][]): string {
+  const body = rows
+    .map(
+      (cells, r) =>
+        `<row r="${r + 1}">` +
+        cells
+          .map(
+            (v, c) =>
+              `<c r="${String.fromCharCode(65 + c)}${r + 1}" t="inlineStr"><is><t>${v}</t></is></c>`,
+          )
+          .join('') +
+        '</row>',
+    )
+    .join('');
+  return (
+    '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    `<sheetData>${body}</sheetData></worksheet>`
+  );
+}
+
+/**
+ * Builds a zip by hand with every part stored (method 0), so a test can put
+ * any bytes it likes in a part — exceljs would never write broken XML for
+ * us. CRCs are left at 0: neither the size guard nor the reader checks them.
+ */
+function storedZip(parts: Record<string, string>): Buffer {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const [path, text] of Object.entries(parts)) {
+    const name = Buffer.from(path, 'utf8');
+    const data = Buffer.from(text, 'utf8');
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(offset, 42);
+    locals.push(local, name, data);
+    centrals.push(central, name);
+    offset += local.length + name.length + data.length;
+  }
+  const centralSize = centrals.reduce((n, b) => n + b.length, 0);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(centrals.length / 2, 8);
+  eocd.writeUInt16LE(centrals.length / 2, 10);
+  eocd.writeUInt32LE(centralSize, 12);
+  eocd.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, ...centrals, eocd]);
+}
+
 describe('writeWorkbook / readWorkbook round trip', () => {
+  // #2686: our own export puts `workbook.xml` (the sheet names) last in the
+  // zip and uses no shared-strings table; a file Excel or exceljs saves puts
+  // the names first and every string in `sharedStrings.xml`. The streaming
+  // read must give the same rows for both layouts.
+  it('reads the same rows from an export and from that export re-saved by exceljs', async () => {
+    const rows = {
+      classes: [{ id: ID_A, name: 'Six', capacity: 40 }],
+      payments: [{ id: ID_B, name: 'Tuition', amount: '100.00', paid: true }],
+    };
+    const exported = await buildWorkbook({ rows });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exported as unknown as ArrayBuffer);
+    const resaved = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const fromExport = await readWorkbook(exported);
+    const fromResave = await readWorkbook(resaved);
+
+    expect([...fromExport.sheets.keys()]).toEqual(['classes', 'payments']);
+    expect([...fromResave.sheets.keys()]).toEqual(['classes', 'payments']);
+    expect(fromResave.sheets.get('classes')!.rows).toEqual(fromExport.sheets.get('classes')!.rows);
+    expect(fromResave.sheets.get('payments')!.rows).toEqual(fromExport.sheets.get('payments')!.rows);
+    expect(fromExport.sheets.get('classes')!.rows[0].cells).toEqual({
+      id: ID_A,
+      name: 'Six',
+      capacity: '40',
+    });
+    expect(fromResave.meta).toEqual(meta);
+  });
+
   it('returns keys, values and order unchanged', async () => {
     const buffer = await buildWorkbook({
       rows: {
@@ -333,6 +420,54 @@ describe('WorkbookFormatError', () => {
     });
 
     await expect(readWorkbook(buffer)).rejects.toMatchObject({ code: 'MISSING_META' });
+  });
+
+  // #2686 fail closed (D18): a stream that stops half-way is a format error,
+  // never a partly read workbook that a restore could then apply.
+  it('throws NOT_XLSX or TOO_LARGE for a buffer cut in half, never a partial result', async () => {
+    const whole = await buildWorkbook({
+      rows: { classes: [{ id: ID_A, name: 'Six', capacity: 40 }] },
+    });
+    const half = whole.subarray(0, Math.floor(whole.length / 2));
+
+    await expect(readWorkbook(half)).rejects.toSatisfy(
+      (e: unknown) =>
+        e instanceof WorkbookFormatError && (e.code === 'NOT_XLSX' || e.code === 'TOO_LARGE'),
+    );
+  });
+
+  // The zip is intact and every part inflates (so the size guard passes),
+  // but one sheet's XML is broken: the streaming parser must throw, not
+  // return the sheets it managed to read before it.
+  it('throws NOT_XLSX when a sheet part holds broken XML', async () => {
+    const parts = {
+      'xl/_rels/workbook.xml.rels':
+        '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="x" Target="worksheets/sheet1.xml"/>' +
+        '<Relationship Id="rId2" Type="x" Target="worksheets/sheet2.xml"/>' +
+        '<Relationship Id="rId3" Type="x" Target="worksheets/sheet3.xml"/></Relationships>',
+      'xl/workbook.xml':
+        '<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+        '<sheet name="_meta" sheetId="1" r:id="rId1"/><sheet name="classes" sheetId="2" r:id="rId2"/>' +
+        '<sheet name="payments" sheetId="3" r:id="rId3"/></sheets></workbook>',
+      'xl/worksheets/sheet1.xml': sheetXml([
+        ['key', 'value'],
+        ['schema_version', String(SCHEMA_VERSION)],
+        ['kind', 'BACKUP'],
+      ]),
+      'xl/worksheets/sheet2.xml': sheetXml([['id', 'name'], [ID_A, 'Six']]),
+      // A mismatched closing tag: the SAX parser rejects it on sight.
+      'xl/worksheets/sheet3.xml':
+        '<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>id</t></is></c></rowx>' +
+        '</sheetData></worksheet>',
+    };
+
+    await expect(readWorkbook(storedZip(parts))).rejects.toMatchObject({ code: 'NOT_XLSX' });
+    // Same parts with a well-formed sheet3 read fine, so it is the XML and
+    // not the hand-built zip that the reader objects to.
+    const fixed = storedZip({ ...parts, 'xl/worksheets/sheet3.xml': sheetXml([['id', 'name']]) });
+    expect((await readWorkbook(fixed)).sheets.get('classes')!.rows[0].cells.name).toBe('Six');
   });
 
   it('throws NOT_XLSX for a csv-shaped buffer', async () => {
