@@ -136,8 +136,16 @@ Needs (all passed by `deploy/stack.yml`, from `infra/secrets/staging.enc.env`):
 - `POSTGRES_DB` (must start `biddaloy_staging`), `POSTGRES_USER`, `POSTGRES_PASSWORD`
 - `BACKUP_S3_ENDPOINT` (https), `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`: the **read-only** R2 token
 - the age private key at `/run/age/key.txt` (`BACKUP_AGE_KEY_DIR` mounted read-only)
-- `STAGING_PASSWORD_HASH` (bcrypt cost 12), `SMOKE_SCHOOL_SLUG`, `PLATFORM_TENANT_ID` (uuid)
-- optional: `STAGING_REFRESH_PUSH_URL` (Kuma, failures only), `STAGING_REFRESH_DEADLINE` (HH:MM, default 02:50)
+- `STAGING_PASSWORD_HASH_B64` (base64 of a bcrypt cost-12 hash), `SMOKE_SCHOOL_SLUG`, `PLATFORM_TENANT_ID` (uuid)
+- optional: `STAGING_REFRESH_PUSH_URL` (Kuma, failures only), `STAGING_REFRESH_DEADLINE` (HH:MM, default 02:50),
+  `STAGING_REFRESH_LOCK` (extra lock file; unset by default, the host unit's `flock` is the real lock)
+
+Why base64: compose expands every `$` in a `.env` value, and a bcrypt hash (`$2b$12$...`) is full
+of them. Make the value from the app image, then check it with `config:check --env staging`:
+
+```bash
+node -e "require('/app/server/dist/modules/auth/password-hash').hashPassword(process.argv[1]).then(h => console.log(Buffer.from(h).toString('base64')))" '<STAGING_PASSWORD>'
+```
 
 Exit codes: `0` ready; `1` failed, staging untouched, a `down` push was sent; `2` refused
 (wrong database name, missing or malformed env). Output is step names and counts only.

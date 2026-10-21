@@ -51,6 +51,8 @@ SRC="biddaloy_staging_${TAG}_src"
 PLATFORM_ID="00000000-0000-4000-8000-000000000001"
 # A bcrypt cost-12 shaped hash: $2b$12$ + 53 characters.
 HASH="\$2b\$12\$$(printf 'a%.0s' $(seq 1 53))"
+# The env carries it base64-encoded (compose would expand the `$`s), as the stack does.
+b64() { printf '%s' "$1" | base64 | tr -d '\n'; }
 DAY="$(date -u -d "@$(($(date +%s) + 21600))" +%F 2>/dev/null || date -u -r "$(($(date +%s) + 21600))" +%F)"
 
 WORK="$(mktemp -d)"
@@ -139,10 +141,10 @@ run_refresh() { # run_refresh VAR=value ... ; output goes to $WORK/out
     POSTGRES_DB="$LIVE" POSTGRES_USER="$PG_USER" POSTGRES_PASSWORD="$PG_PASS" POSTGRES_HOST=127.0.0.1 \
     BACKUP_S3_ENDPOINT=https://r2.invalid BACKUP_S3_BUCKET=bucket \
     BACKUP_S3_ACCESS_KEY_ID=read-only BACKUP_S3_SECRET_ACCESS_KEY=read-only-secret \
-    BACKUP_AGE_PRIVATE_KEY_FILE="$WORK/key.txt" STAGING_PASSWORD_HASH="$HASH" \
+    BACKUP_AGE_PRIVATE_KEY_FILE="$WORK/key.txt" STAGING_PASSWORD_HASH_B64="$(b64 "$HASH")" \
     SMOKE_SCHOOL_SLUG=smoke-test-school PLATFORM_TENANT_ID="$PLATFORM_ID" \
     STAGING_REFRESH_PUSH_URL=https://kuma.invalid/api/push/token STAGING_REFRESH_POLL_SECS=1 \
-    STAGING_REFRESH_DEADLINE=23:59 STAGING_REFRESH_LOCK="$WORK/lock" SCRUB_SQL="$WORK/stub-scrub.sql" \
+    STAGING_REFRESH_DEADLINE=23:59 SCRUB_SQL="$WORK/stub-scrub.sql" \
     "$@" bash "$REFRESH" >"$WORK/out" 2>&1
 }
 next_exists() { [[ "$(pg -d postgres -c "SELECT count(*) FROM pg_database WHERE datname = '${LIVE}_next'")" != 0 ]]; }
@@ -157,7 +159,7 @@ echo "PASS: non-staging database refused"
 
 # 2. a hash that is not bcrypt cost 12 is refused before anything is read or restored.
 BAD_HASH="\$2b\$12\$short"
-set +e; run_refresh STAGING_PASSWORD_HASH="$BAD_HASH"; code=$?; set -e
+set +e; run_refresh STAGING_PASSWORD_HASH_B64="$(b64 "$BAD_HASH")"; code=$?; set -e
 [[ $code -eq 2 ]] || fail "bad hash must exit 2, got $code"
 if grep -q '^aws' "$SHIM_LOG"; then fail "aws ran with a bad hash"; fi
 echo "PASS: malformed hash refused"

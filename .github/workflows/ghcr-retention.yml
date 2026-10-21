@@ -1,8 +1,10 @@
 name: GHCR retention
 
-# [Epic 79 #2794 W5] Weekly: keep the newest 30 versions of each image, delete the rest.
-# Every merge writes `:main` onto the newest version, so the `main` tag always sits inside the
-# kept 30; `ignore-versions` also spares any version whose name is `main`.
+# [Epic 79 #2794 W5] Weekly: keep the newest 30 tagged images of each package, delete the rest.
+# A version on GHCR is one manifest, not one image: a push can add an index, the image manifest
+# and an attestation manifest. ghcr-cleanup-action counts tagged images and deletes an image
+# together with its children, so it never cuts part of a kept image (a plain "keep N versions"
+# cut could, and that sha would no longer pull). `main` is always kept.
 on:
   schedule:
     - cron: '0 3 * * 1'
@@ -20,10 +22,11 @@ jobs:
       matrix:
         package: [biddaloy-app, biddaloy-backup, biddaloy-demo-reset, biddaloy-landing]
     steps:
-      - uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55 # v5.0.0
+      - uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
-          package-name: ${{ matrix.package }}
-          package-type: container
-          min-versions-to-keep: 30
-          delete-only-untagged-versions: false
-          ignore-versions: '^main$'
+          package: ${{ matrix.package }}
+          keep-n-tagged: 30
+          exclude-tags: main
+          # Untagged leftovers (a superseded `main`), never the children of a kept image.
+          delete-untagged: true
+          validate: true

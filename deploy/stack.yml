@@ -283,7 +283,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       # `:-`, not `:?`: prod and demo resolve this service too (inactive profile); the script
       # refuses an empty one.
-      STAGING_PASSWORD_HASH: ${STAGING_PASSWORD_HASH:-}
+      # base64: compose would expand the `$`s of a raw bcrypt hash (see staging.example.env).
+      STAGING_PASSWORD_HASH_B64: ${STAGING_PASSWORD_HASH_B64:-}
       SMOKE_SCHOOL_SLUG: ${SMOKE_SCHOOL_SLUG:-}
       PLATFORM_TENANT_ID: ${PLATFORM_TENANT_ID:-}
       STAGING_REFRESH_PUSH_URL: ${STAGING_REFRESH_PUSH_URL:-}

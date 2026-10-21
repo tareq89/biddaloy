@@ -217,7 +217,14 @@ describe('scrub.sql', () => {
         else if (c.data_type.startsWith('time')) v = lit('08:00:00');
         else if (c.data_type === 'jsonb' || c.data_type === 'json') {
           const mark = `ZZ${hex(8)}`;
-          v = lit(JSON.stringify({ studentName: mark }));
+          // The keys the attention rules write a student name into (homework-not-submitted.rule.ts).
+          v = lit(
+            JSON.stringify({
+              studentName: mark,
+              headline_en: `${mark} has not submitted the homework`,
+              headline_bn: `${mark} বাড়ির কাজ জমা দেয়নি`,
+            }),
+          );
           if (isListed) sentinels.push({ table, column: c.column_name, value: mark, kind: 'text' });
         } else if (c.data_type === 'ARRAY') {
           v = lit('{}');
@@ -419,6 +426,23 @@ describe('scrub.sql', () => {
         if (row.n !== 0) leaks.push(`${sv.table}.${sv.column}`);
       }
       expect([...new Set(leaks)]).toEqual([]);
+    },
+  ]);
+
+  checks.push([
+    'keeps alert headlines as a placeholder, without the student name',
+    async () => {
+      const leaks = await one(
+        `SELECT count(*)::int AS n FROM alerts WHERE params ? 'studentName'
+           OR coalesce(params->>'headline_en', '[scrubbed]') <> '[scrubbed]'
+           OR coalesce(params->>'headline_bn', '[scrubbed]') <> '[scrubbed]'`,
+      );
+      expect(leaks.n).toBe(0);
+      // The seeded rows had headlines: the title key is still there, as a placeholder.
+      const kept = await one(
+        `SELECT count(*)::int AS n FROM alerts WHERE params->>'headline_en' = '[scrubbed]'`,
+      );
+      expect(kept.n).toBeGreaterThan(0);
     },
   ]);
 

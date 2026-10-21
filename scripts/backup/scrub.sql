@@ -183,8 +183,14 @@ UPDATE communication_logs SET
   metadata = NULL,
   status = CASE WHEN status = 'QUEUED' THEN 'FAILED' ELSE status END;
 UPDATE reminder_batches SET message_template = NULL;
+-- params: studentName, and the headlines built from it (homework-not-submitted.rule.ts writes
+-- "<name> has not submitted ..."). The headlines stay as '[scrubbed]': they are the alert's title.
 UPDATE alerts SET manual_body = NULL,
-  manual_title = CASE WHEN manual_title IS NULL THEN NULL ELSE '[scrubbed]' END, params = params - 'studentName';
+  manual_title = CASE WHEN manual_title IS NULL THEN NULL ELSE '[scrubbed]' END,
+  params = (params - ARRAY['studentName', 'headline_en', 'headline_bn'])
+    || CASE WHEN params ?| ARRAY['headline_en', 'headline_bn']
+         THEN '{"headline_en": "[scrubbed]", "headline_bn": "[scrubbed]"}'::jsonb
+         ELSE '{}'::jsonb END;
 
 -- Free text about people ----------------------------------------------------------------------
 

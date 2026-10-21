@@ -161,7 +161,7 @@
       check_mode: false
     - name: Swapfile needs to be (re)made
       ansible.builtin.set_fact:
-        swap_recreate: "{{ not swapfile.stat.exists or swapfile.stat.size != swap_bytes | int }}"
+        swap_recreate: '{{ not swapfile.stat.exists or swapfile.stat.size != swap_bytes | int }}'
     - name: Swap off before resizing
       ansible.builtin.command: swapoff /swapfile
       changed_when: true
@@ -266,7 +266,7 @@
       become: true
       become_user: '{{ deploy_user }}'
       register: galaxy_install
-      changed_when: "\"Installing '\" in galaxy_install.stdout"
+      changed_when: '"Installing ''" in galaxy_install.stdout'
     # sops: release binary, checksum from the release's published checksums file.
     - name: Sops (pinned, checksum verified)
       ansible.builtin.get_url:
@@ -281,7 +281,10 @@
     # and creates no directories). root writes; deploy reads, because
     # `docker compose` reads <env>/.env on the client side, even for `exec`.
     #   <env>/           root:deploy 0750   <env>/.env  root:deploy 0640
-    #   <env>/pg-tls/    deploy 0700 (prod, staging, demo; self-signed Postgres TLS, D3)
+    #   <env>/pg-tls/    root:root 0755 (prod, staging, demo; self-signed Postgres TLS, D3)
+    #                    The containers must enter it: Postgres runs as uid 70, the app as 1001.
+    #                    Files (W3 deploy, pg-tls.yml): server.key 0600 70:70, server.crt and
+    #                    ca.crt 0644 (the app reads ca.crt through NODE_EXTRA_CA_CERTS).
     #   staging/restore/ 10001 0500 (the backup container's uid)
     #   repo/ logs-export/ deploy 0755      keys/  deploy 0700
     - name: Env directories
@@ -307,9 +310,9 @@
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/{{ item }}/pg-tls'
         state: directory
-        owner: '{{ deploy_user }}'
-        group: '{{ deploy_user }}'
-        mode: '0700'
+        owner: root
+        group: root
+        mode: '0755'
       loop: '{{ biddaloy_app_envs }}'
     - name: Restore directory (staging, backup uid only)
       ansible.builtin.file:

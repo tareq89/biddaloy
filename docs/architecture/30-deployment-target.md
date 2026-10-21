@@ -38,27 +38,27 @@ flowchart TB
   O -->|"Telegram + SMS"| Owner["Owner"]
 ```
 
-| Hostname | What | Data | Every night |
-|---|---|---|---|
-| `schoolmanagerp.com` (`www.` redirects) | landing (static) | none | — |
-| `app.schoolmanagerp.com` | prod | real schools | backed up every hour |
-| `staging.schoolmanagerp.com` | staging | yesterday's prod, scrubbed | replaced from the 02:00 backup |
-| `demo.schoolmanagerp.com` | demo | demo seed | rebuilt from scripts |
-| `kuma.` / `beszel.` / `logs.` | ops (uptime, host metrics, log viewer) | ops only | — |
+| Hostname                                | What                                   | Data                       | Every night                    |
+| --------------------------------------- | -------------------------------------- | -------------------------- | ------------------------------ |
+| `schoolmanagerp.com` (`www.` redirects) | landing (static)                       | none                       | —                              |
+| `app.schoolmanagerp.com`                | prod                                   | real schools               | backed up every hour           |
+| `staging.schoolmanagerp.com`            | staging                                | yesterday's prod, scrubbed | replaced from the 02:00 backup |
+| `demo.schoolmanagerp.com`               | demo                                   | demo seed                  | rebuilt from scripts           |
+| `kuma.` / `beszel.` / `logs.`           | ops (uptime, host metrics, log viewer) | ops only                   | —                              |
 
 ## What was wrong with the old setup (found 2026-10-22)
 
 These are the reasons the setup was rebuilt rather than patched.
 
-| Finding | Where | Effect |
-|---|---|---|
-| Production requires `DB_SSL=true`, but the bundled Postgres has no TLS | `server/src/db-ssl.ts:26` | prod would not boot |
-| `DEMO_MODE=true` refuses to boot on real school data | `server/src/modules/demo/demo-boot-check.ts:37` | staging could never run a prod copy |
-| Demo's Docker socket proxy can stop any container on the host | `docker-compose.demo.yml:121` | unsafe once demo shares a VM with prod |
-| Staging joins prod's nginx through a hand-attached network | `infra/ansible/tasks/attach-edge.yml` | three overlays, hardcoded container names |
-| Kuma and Beszel do not work under `/kuma/`, `/beszel/` paths | `nginx/templates/ops.conf.template:10` | ops UI unreachable (#2747) |
-| The frontend bakes Turnstile key, support URL and Sentry DSN at build time | `Dockerfile:41`, `client-admin/src/main.tsx:113` | one image cannot serve three envs |
-| No command restores a backup onto a fresh VM | `docs/architecture/29-epic61-go-live.md` | moving VM is a manual tunnel dance (#2748) |
+| Finding                                                                    | Where                                            | Effect                                     |
+| -------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------ |
+| Production requires `DB_SSL=true`, but the bundled Postgres has no TLS     | `server/src/db-ssl.ts:26`                        | prod would not boot                        |
+| `DEMO_MODE=true` refuses to boot on real school data                       | `server/src/modules/demo/demo-boot-check.ts:37`  | staging could never run a prod copy        |
+| Demo's Docker socket proxy can stop any container on the host              | `docker-compose.demo.yml:121`                    | unsafe once demo shares a VM with prod     |
+| Staging joins prod's nginx through a hand-attached network                 | `infra/ansible/tasks/attach-edge.yml`            | three overlays, hardcoded container names  |
+| Kuma and Beszel do not work under `/kuma/`, `/beszel/` paths               | `nginx/templates/ops.conf.template:10`           | ops UI unreachable (#2747)                 |
+| The frontend bakes Turnstile key, support URL and Sentry DSN at build time | `Dockerfile:41`, `client-admin/src/main.tsx:113` | one image cannot serve three envs          |
+| No command restores a backup onto a fresh VM                               | `docs/architecture/29-epic61-go-live.md`         | moving VM is a manual tunnel dance (#2748) |
 
 ## How a deploy works
 
@@ -125,14 +125,14 @@ flowchart LR
 The edge can run in two modes. Both are built and tested (D8), so moving to
 a BDIX host without Cloudflare is a config switch, not new work.
 
-| | Tunnel mode (now) | Direct mode (BDIX later) |
-|---|---|---|
-| Public web ports | none; `cloudflared` dials out | 80 and 443 |
-| TLS | Cloudflare edge | Let's Encrypt HTTP-01, auto-renew |
-| Client IP | `CF-Connecting-IP` from cloudflared | the TCP peer |
-| Staging/ops outer login | Cloudflare Access, checked by cloudflared | nginx basic auth |
-| Inner login | each tool's own (Kuma, Beszel, Dozzle, app) | same |
-| Moving VM | DNS does not change | update DNS A records |
+|                         | Tunnel mode (now)                           | Direct mode (BDIX later)          |
+| ----------------------- | ------------------------------------------- | --------------------------------- |
+| Public web ports        | none; `cloudflared` dials out               | 80 and 443                        |
+| TLS                     | Cloudflare edge                             | Let's Encrypt HTTP-01, auto-renew |
+| Client IP               | `CF-Connecting-IP` from cloudflared         | the TCP peer                      |
+| Staging/ops outer login | Cloudflare Access, checked by cloudflared   | nginx basic auth                  |
+| Inner login             | each tool's own (Kuma, Beszel, Dozzle, app) | same                              |
+| Moving VM               | DNS does not change                         | update DNS A records              |
 
 ## Secrets and accounts
 
@@ -140,13 +140,13 @@ Secrets stay in git, encrypted with sops + age (chosen over Infisical and
 Bitwarden: no outside service). Each file is encrypted for three keys: yours, the offline recovery key, and
 the VM's own host key.
 
-| File | Holds |
-|---|---|
-| `infra/secrets/prod.enc.env` | prod app, DB, R2 backup write token, SMS, OAuth, Turnstile, Sentry |
-| `infra/secrets/staging.enc.env` | staging app, `STAGING_PASSWORD`, R2 **read-only** token |
-| `infra/secrets/demo.enc.env` | demo app, `DEMO_PASSWORD` |
-| `infra/secrets/edge.enc.env` | tunnel credentials, GHCR pull token, basic-auth users (direct mode) |
-| `infra/secrets/ops.enc.env` | Beszel key, Dozzle users, Telegram bot |
+| File                            | Holds                                                               |
+| ------------------------------- | ------------------------------------------------------------------- |
+| `infra/secrets/prod.enc.env`    | prod app, DB, R2 backup write token, SMS, OAuth, Turnstile, Sentry  |
+| `infra/secrets/staging.enc.env` | staging app, `STAGING_PASSWORD`, R2 **read-only** token             |
+| `infra/secrets/demo.enc.env`    | demo app, `DEMO_PASSWORD`                                           |
+| `infra/secrets/edge.enc.env`    | tunnel credentials, GHCR pull token, basic-auth users (direct mode) |
+| `infra/secrets/ops.enc.env`     | Beszel key, Dozzle users, Telegram bot                              |
 
 GitHub holds only what it needs to SSH in: the host, a pinned host key and a
 deploy key that can run nothing but `biddaloy-deploy` (D12).
@@ -155,34 +155,34 @@ deploy key that can run nothing but `biddaloy-deploy` (D12).
 
 Full text lives in the Epic 79.0 issue ([#2786](https://github.com/tareq89/biddaloy/issues/2786)), with the owner's pre-grill choices P1–P16 and the widen items W1–W7. One line each:
 
-| # | Decision | Chosen over |
-|---|---|---|
-| D1 | Deploy runs on the VM; laptop and GitHub only SSH in | Ansible on the laptop or runner (age key in GitHub) |
-| D2 | Keep 100 hourly + 30 daily backups | 100 hourly only (≈ 4 days) |
-| D3 | Per-env self-signed Postgres TLS, `DB_SSL=true` | a code exemption for private networks |
-| D4 | Job results go to Kuma push monitors | healthchecks.io (Kuma will move to its own VM) |
-| D5 | Nightly staging restore replaces the weekly drill | keeping both |
-| D6 | Full staging scrub | contacts and secrets only |
-| D7 | Logs archived to R2 for 180 days | other retention |
-| D8 | Tunnel and direct edge modes both built now | seam only |
-| D9 | Dozzle kept at `logs.` | dropping it |
-| D10 | Prod refuses a SHA staging has not passed; `--hotfix` overrides and is logged | no override |
-| D11 | Nightly jobs run from host systemd timers; no Docker socket proxy | cron inside containers |
-| D12 | GitHub's SSH key is a forced command | a full shell |
-| D13 | Memory and CPU limits per env | none |
-| D14 | Two auth layers on staging/ops; Kuma `/api/push/*` bypasses the outer one | one layer |
-| D15 | New Epic 79.0; Epic 61 leftovers closed as superseded | rewriting #1766 |
-| D16 | Production compose moves to `deploy/`; root compose is dev-only | one file for both |
-| D17 | Tunnel config in git, credentials in sops | dashboard-managed token |
-| D18 | Direct-mode certs via Let's Encrypt HTTP-01 | DNS-01 |
-| D19 | Staging waits until 02:50 for the daily copy, reads R2 read-only | — |
-| D20 | A "Smoke Test School" in prod lets staging run the full smoke | health-only staging smoke |
-| D21 | `biddaloy-deploy <env> <sha>` CLI, `all` for a fresh VM | — |
-| D22 | Hostnames as in the table above | — |
-| D23 | Starting memory limits; tune from Beszel | — |
-| D24 | Staging refresh and log archive extend the backup image; one shared DB-swap script | new images |
-| D25 | Prod runs 2 app containers, restarted one at a time | load balancer + several VMs |
-| D26 | This page holds the summary, decisions and future work | chat only |
+| #   | Decision                                                                           | Chosen over                                         |
+| --- | ---------------------------------------------------------------------------------- | --------------------------------------------------- |
+| D1  | Deploy runs on the VM; laptop and GitHub only SSH in                               | Ansible on the laptop or runner (age key in GitHub) |
+| D2  | Keep 100 hourly + 30 daily backups                                                 | 100 hourly only (≈ 4 days)                          |
+| D3  | Per-env self-signed Postgres TLS, `DB_SSL=true`                                    | a code exemption for private networks               |
+| D4  | Job results go to Kuma push monitors                                               | healthchecks.io (Kuma will move to its own VM)      |
+| D5  | Nightly staging restore replaces the weekly drill                                  | keeping both                                        |
+| D6  | Full staging scrub                                                                 | contacts and secrets only                           |
+| D7  | Logs archived to R2 for 180 days                                                   | other retention                                     |
+| D8  | Tunnel and direct edge modes both built now                                        | seam only                                           |
+| D9  | Dozzle kept at `logs.`                                                             | dropping it                                         |
+| D10 | Prod refuses a SHA staging has not passed; `--hotfix` overrides and is logged      | no override                                         |
+| D11 | Nightly jobs run from host systemd timers; no Docker socket proxy                  | cron inside containers                              |
+| D12 | GitHub's SSH key is a forced command                                               | a full shell                                        |
+| D13 | Memory and CPU limits per env                                                      | none                                                |
+| D14 | Two auth layers on staging/ops; Kuma `/api/push/*` bypasses the outer one          | one layer                                           |
+| D15 | New Epic 79.0; Epic 61 leftovers closed as superseded                              | rewriting #1766                                     |
+| D16 | Production compose moves to `deploy/`; root compose is dev-only                    | one file for both                                   |
+| D17 | Tunnel config in git, credentials in sops                                          | dashboard-managed token                             |
+| D18 | Direct-mode certs via Let's Encrypt HTTP-01                                        | DNS-01                                              |
+| D19 | Staging waits until 02:50 for the daily copy, reads R2 read-only                   | —                                                   |
+| D20 | A "Smoke Test School" in prod lets staging run the full smoke                      | health-only staging smoke                           |
+| D21 | `biddaloy-deploy <env> <sha>` CLI, `all` for a fresh VM                            | —                                                   |
+| D22 | Hostnames as in the table above                                                    | —                                                   |
+| D23 | Starting memory limits; tune from Beszel                                           | —                                                   |
+| D24 | Staging refresh and log archive extend the backup image; one shared DB-swap script | new images                                          |
+| D25 | Prod runs 2 app containers, restarted one at a time                                | load balancer + several VMs                         |
+| D26 | This page holds the summary, decisions and future work                             | chat only                                           |
 
 ## How this compares with established companies
 
@@ -194,27 +194,27 @@ the next command.
 
 **Deliberately smaller than a large company:**
 
-| Area | Large company | Here, and why |
-|---|---|---|
-| Hosts | prod on its own machines | prod, staging, demo on one VM; cost; isolated networks + limits |
-| Redundancy | several app servers behind a load balancer | one VM, two app containers; the DB is the real single point |
-| Database | managed Postgres, point-in-time recovery | Postgres in a container, hourly dumps (≤ 1 h data loss) |
-| Monitoring | off-box | same VM until ops moves |
-| Deploy source | CI only | laptop or CI; `deploys.log` + Telegram keep the record |
-| Orchestration | Kubernetes / GitOps | Ansible + Compose; right for one or two VMs |
+| Area          | Large company                              | Here, and why                                                   |
+| ------------- | ------------------------------------------ | --------------------------------------------------------------- |
+| Hosts         | prod on its own machines                   | prod, staging, demo on one VM; cost; isolated networks + limits |
+| Redundancy    | several app servers behind a load balancer | one VM, two app containers; the DB is the real single point     |
+| Database      | managed Postgres, point-in-time recovery   | Postgres in a container, hourly dumps (≤ 1 h data loss)         |
+| Monitoring    | off-box                                    | same VM until ops moves                                         |
+| Deploy source | CI only                                    | laptop or CI; `deploys.log` + Telegram keep the record          |
+| Orchestration | Kubernetes / GitOps                        | Ansible + Compose; right for one or two VMs                     |
 
 ## Future work, with the trigger that brings each back
 
-| Work | Trigger | First step |
-|---|---|---|
-| Move ops (Kuma, Beszel, Dozzle) to its own VM | as soon as budget allows; until then **a dead VM pages nobody** (#2749) | point the inventory `ops` group at the new host, run `biddaloy-deploy ops` |
-| Move staging and demo off the prod VM | first paying schools | change their inventory host |
-| Managed or replicated Postgres, WAL backups (pgBackRest) | DB > ~5 GB, or 1 h data loss no longer acceptable | — |
-| Load balancer + second app VM | a written uptime SLA, or one VM no longer fits | only after the database is HA |
-| R2 Bucket Lock | when retention moves to lifecycle rules | lock must be shorter than the pruning window |
-| Cloudflare as code (Terraform) | more hosts, or frequent DNS/Access changes | — |
-| CI minutes on the private repo | the repo goes private (~54k min / 30 days vs 2k free) | separate issue (see the epic) |
-| Status page (#1770), load tests (#1772), capacity plan (#1773) | before 10 schools | unchanged from Epic 61 |
+| Work                                                           | Trigger                                                                 | First step                                                                 |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Move ops (Kuma, Beszel, Dozzle) to its own VM                  | as soon as budget allows; until then **a dead VM pages nobody** (#2749) | point the inventory `ops` group at the new host, run `biddaloy-deploy ops` |
+| Move staging and demo off the prod VM                          | first paying schools                                                    | change their inventory host                                                |
+| Managed or replicated Postgres, WAL backups (pgBackRest)       | DB > ~5 GB, or 1 h data loss no longer acceptable                       | —                                                                          |
+| Load balancer + second app VM                                  | a written uptime SLA, or one VM no longer fits                          | only after the database is HA                                              |
+| R2 Bucket Lock                                                 | when retention moves to lifecycle rules                                 | lock must be shorter than the pruning window                               |
+| Cloudflare as code (Terraform)                                 | more hosts, or frequent DNS/Access changes                              | —                                                                          |
+| CI minutes on the private repo                                 | the repo goes private (~54k min / 30 days vs 2k free)                   | separate issue (see the epic)                                              |
+| Status page (#1770), load tests (#1772), capacity plan (#1773) | before 10 schools                                                       | unchanged from Epic 61                                                     |
 
 ## Learnings
 
@@ -230,14 +230,14 @@ flowchart LR
 
 ### What surprised us
 
-| Surprise | Cost | Fix / rule |
-|---|---|---|
+| Surprise                                                                                                                                                                                              | Cost                                                                          | Fix / rule                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Lanes disagreed on the edge wiring: `edge.yml` still mounted the removed `trusted-proxies.sh`, and certbot touched `/var/www/acme/.reload` while `reload-loop.sh` watched `/etc/letsencrypt/.reload`. | nginx would not have booted; renewals would only load after the 6 h fallback. | Closing sub-wave rewired it: `edge.yml` mounts `edge-mode.sh` and sets `RELOAD_FLAG`. Rule: a file mounted by one lane and written by another needs one owner and one path. |
-| ACME HTTP-01 got `401` on basic-auth hosts. | A renewal for `staging` / `ops` would fail. | `location ^~ /.well-known/acme-challenge/ { auth_basic off; }` in every direct-mode server (`edge-mode.sh`). |
-| Kuma push monitors live under the same host as the basic-auth UI. | Probes would be asked to log in. | Match the push path exactly (percent-decoded, normalised) and skip auth only there. nginx matches the decoded path but forwards the raw one, so check both. |
-| `X-Forwarded-Proto` in tunnel mode: cloudflared talks plain HTTP, so the app saw `http`. | `SameOriginGuard` rejected valid requests. | Tunnel mode forces `$edge_proto` to `https`. |
-| `proxy_connect_timeout` too long on a down upstream. | A dead staging or app2 hung requests instead of failing fast. | Short connect timeout; upstreams use `resolve` so nginx boots with a container missing. |
-| `reset.sh` exit codes. | The caller could not tell "swapped, some steps failed" from "nothing moved". | Contract: **0 or 3 means the swap happened, restart the app**; 1 failed and rolled back; 2 refused. Only 0 and 3 restart. |
+| ACME HTTP-01 got `401` on basic-auth hosts.                                                                                                                                                           | A renewal for `staging` / `ops` would fail.                                   | `location ^~ /.well-known/acme-challenge/ { auth_basic off; }` in every direct-mode server (`edge-mode.sh`).                                                                |
+| Kuma push monitors live under the same host as the basic-auth UI.                                                                                                                                     | Probes would be asked to log in.                                              | Match the push path exactly (percent-decoded, normalised) and skip auth only there. nginx matches the decoded path but forwards the raw one, so check both.                 |
+| `X-Forwarded-Proto` in tunnel mode: cloudflared talks plain HTTP, so the app saw `http`.                                                                                                              | `SameOriginGuard` rejected valid requests.                                    | Tunnel mode forces `$edge_proto` to `https`.                                                                                                                                |
+| `proxy_connect_timeout` too long on a down upstream.                                                                                                                                                  | A dead staging or app2 hung requests instead of failing fast.                 | Short connect timeout; upstreams use `resolve` so nginx boots with a container missing.                                                                                     |
+| `reset.sh` exit codes.                                                                                                                                                                                | The caller could not tell "swapped, some steps failed" from "nothing moved".  | Contract: **0 or 3 means the swap happened, restart the app**; 1 failed and rolled back; 2 refused. Only 0 and 3 restart.                                                   |
 
 ### Decisions taken in the lanes (recommended option each time)
 
@@ -268,28 +268,29 @@ flowchart LR
 
 #### What the reviews caught that mattered
 
-| Finding | Why it mattered | Rule that came out of it |
-|---|---|---|
-| The forced-command key line was built by joining parts with a newline. | One key could have carried a second `authorized_keys` line: a shell instead of the one command. | Build the line from one validated string, reject `\n` and `\r` in every part. |
-| `scrub.sql` passed on the fixture but real data broke a CHECK or a write-block trigger (override note, withdraw reason, frozen invoice snapshot). | The refresh would have failed every night on real rows. | A scrubbed value must satisfy the column's CHECK (`'[scrubbed]'`, not empty). Append-only triggers are lifted inside the scrub transaction only. |
-| Fake values were not unique (`user-1@...` style). | A UNIQUE index on email, phone or token hash would abort the whole transaction. | Fakes carry the whole row id (emails) or a per-table running number (phones). |
-| `config-check` still required variables of a compose file that was deleted. | `--env staging` would fail on a variable nothing reads. | `COMMON_REQUIRED` is pinned to the `:?` list of `deploy/stack.yml` by a spec. Change both together. |
-| Dependabot did not scan the stack images (#2811). | Image digests would never get update PRs. | Rename stack files to a name Dependabot reads (open). |
-| The `jobs` service never passed `STAGING_PASSWORD_HASH`, `SMOKE_SCHOOL_SLUG`, `PLATFORM_TENANT_ID`, `POSTGRES_*`, `STAGING_REFRESH_*`. | Found only here: each lane tested its own half. `staging-refresh.sh` would exit 2 on its first guard. | Fixed in `deploy/stack.yml`; the two new names are in all three example envs. `check-tracked-files.mjs` (drift guard) caught the missing example keys. |
+| Finding                                                                                                                                           | Why it mattered                                                                                       | Rule that came out of it                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The forced-command key line was built by joining parts with a newline.                                                                            | One key could have carried a second `authorized_keys` line: a shell instead of the one command.       | Build the line from one validated string, reject `\n` and `\r` in every part.                                                                       |
+| `scrub.sql` passed on the fixture but real data broke a CHECK or a write-block trigger (override note, withdraw reason, frozen invoice snapshot). | The refresh would have failed every night on real rows.                                               | A scrubbed value must satisfy the column's CHECK (`'[scrubbed]'`, not empty). Append-only triggers are lifted inside the scrub transaction only.    |
+| Fake values were not unique (`user-1@...` style).                                                                                                 | A UNIQUE index on email, phone or token hash would abort the whole transaction.                       | Fakes carry the whole row id (emails) or a per-table running number (phones).                                                                       |
+| `config-check` still required variables of a compose file that was deleted.                                                                       | `--env staging` would fail on a variable nothing reads.                                               | `COMMON_REQUIRED` is pinned to the `:?` list of `deploy/stack.yml` by a spec. Change both together.                                                 |
+| Dependabot did not scan the stack images (#2811).                                                                                                 | Image digests would never get update PRs.                                                             | Rename stack files to a name Dependabot reads (open).                                                                                               |
+| The `jobs` service never passed `STAGING_PASSWORD_HASH`, `SMOKE_SCHOOL_SLUG`, `PLATFORM_TENANT_ID`, `POSTGRES_*`, `STAGING_REFRESH_*`.            | Found only here: each lane tested its own half. `staging-refresh.sh` would exit 2 on its first guard. | Fixed in `deploy/stack.yml`; the new names are in the staging example env. `check-tracked-files.mjs` (drift guard) caught the missing example keys. |
 
 #### Decisions taken in the lanes (recommended option each time)
 
-- The staging password is one bcrypt cost-12 hash (`STAGING_PASSWORD_HASH`), made by the caller with the app's `hashPassword` (Rule 9). The script never hashes. Option rejected: `crypt()` in SQL (a second hash cost and format).
+- The staging password is one bcrypt cost-12 hash, made by the caller with the app's `hashPassword` (Rule 9). The script never hashes. Option rejected: `crypt()` in SQL (a second hash cost and format).
+- PR #2813 review: the hash is carried base64-encoded (`STAGING_PASSWORD_HASH_B64`), because compose expands every `$` in a `.env` value. Option rejected: single quotes around the raw hash (every tool that writes or reads the file, sops and `config:check` included, would have to keep them). `config:check --env staging` decodes it and runs `verifyPassword(STAGING_PASSWORD, hash)`, so the two cannot drift.
 - Contacts and free text are scrubbed; **dates of birth are shifted, not removed**, and **religion and blood group are kept**: the app needs them to behave like prod, and alone they do not identify a person. Revisit if the data-protection review says otherwise.
 - The refresh stops at a ready `_next` database. Migrations and the swap run on the host with the staging app image (W3.04), so the backup image never needs app code.
-- The lock is a file inside the container (`/run/lock/biddaloy-swap.lock`). `db-swap.sh` locks `/tmp/db-swap-<live>.lock`, also container-local. A host-wide lock needs a shared bind mount: W3.
+- The lock is the host's: `biddaloy-nightly@.service` runs each job under `flock` on `/run/lock/biddaloy-swap.lock`. PR #2813 review: the script's own lock is now off unless `STAGING_REFRESH_LOCK` names a file (the old default under `/run/lock` was not writable by uid 10001, and a bind mount of the host file would wait on the host's own lock). `db-swap.sh` locks `/tmp/db-swap-<live>.lock`, container-local.
 
 #### Open follow-ups
 
 - #2811: Dependabot filename for the stack files.
 - #2812: edge HSTS owner and the narrower cloudflared push bypass.
 - Ansible `venv_constraints` pins: installed clean with `ansible-core==2.18.6` on a scratch venv (Python 3.15, macOS). Not yet tried on the VM's own Python; a wheel missing for it is the likely failure.
-- The shared swap lock above.
+- The deploy (W3) takes the same host lock before a swap.
 
 #### Never run yet (no Docker in the closing sub-wave)
 

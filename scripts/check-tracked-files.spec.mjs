@@ -166,6 +166,9 @@ describe('findBadContent', () => {
     expect(run('infra/secrets/prod.example.env', '# Never put a value here.\nA=\n')).toEqual([]);
     expect(run('infra/secrets/staging.example.env', TEST_KEY)).toEqual([]);
     expect(run('infra/secrets/prod.example.env', TEST_KEY)).toHaveLength(1);
+    // A one-off runner profile would make `up -d` start it (PR #2813): never an example value.
+    expect(run('infra/secrets/staging.example.env', 'COMPOSE_PROFILES=jobs\n')).toHaveLength(1);
+    expect(run('infra/secrets/demo.example.env', 'COMPOSE_PROFILES=demo-jobs\n')).toHaveLength(1);
     expect(run('infra/secrets/prod.example.env', '#POSTGRES_PASSWORD=hunter2\n')).toHaveLength(1);
     expect(run('infra/secrets/prod.example.env', '# KEY=value pairs, empty here.\n')).toHaveLength(
       1,
