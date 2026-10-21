@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EntityManager } from 'typeorm';
 import type { ReadWorkbookResult, SheetData } from '../codec/workbook-codec';
 import type {
@@ -141,29 +141,84 @@ function fakeReadResult(
 describe('ValidationService', () => {
   const manager = {} as EntityManager;
 
-  it('#2624: parses one workbook at a time per process; a second caller is refused or waits', async () => {
-    let finish!: (r: ReadWorkbookResult) => void;
-    readWorkbook.mockReturnValueOnce(new Promise<ReadWorkbookResult>((r) => (finish = r)));
+  // #2686 (D17): two validates share the process; the third is refused or
+  // waits. Held promises are the latch — no timing, no sleeps.
+  describe('two validates per process', () => {
     const tab = makeTab('a');
-    const service = new ValidationService();
-    const first = service.validate(Buffer.from(''), 't1', manager, [tab]);
-    // Another school's upload while the first is still in memory: refused, fail-closed.
-    await expect(service.validate(Buffer.from(''), 't2', manager, [tab])).rejects.toBeInstanceOf(
-      ValidationBusyError,
-    );
-    // A different instance shares the slot: the limit is per process, not per service object.
-    await expect(
-      new ValidationService().validate(Buffer.from(''), 't2', manager, [tab]),
-    ).rejects.toBeInstanceOf(ValidationBusyError);
-    // The restore worker waits for its turn instead.
-    readWorkbook.mockResolvedValueOnce(fakeReadResult(new Map()));
-    const queued = service.validate(Buffer.from(''), 't3', manager, [tab], { waitIfBusy: true });
-    finish(fakeReadResult(new Map()));
-    await expect(first).resolves.toMatchObject({ hardErrorCount: 0 });
-    await expect(queued).resolves.toMatchObject({ hardErrorCount: 0 });
-    // Free again once both are done.
-    readWorkbook.mockResolvedValueOnce(fakeReadResult(new Map()));
-    await expect(service.validate(Buffer.from(''), 't4', manager, [tab])).resolves.toBeDefined();
+    beforeEach(() => readWorkbook.mockReset());
+    /** A `readWorkbook` call that stays open until the test releases it. */
+    function hold() {
+      let release!: (r: ReadWorkbookResult) => void;
+      let fail!: (e: Error) => void;
+      readWorkbook.mockReturnValueOnce(
+        new Promise<ReadWorkbookResult>((resolve, reject) => {
+          release = resolve;
+          fail = reject;
+        }),
+      );
+      return { release: () => release(fakeReadResult(new Map())), fail };
+    }
+
+    it('runs two schools at once and refuses a third without waitIfBusy', async () => {
+      const service = new ValidationService();
+      const a = hold();
+      const b = hold();
+      const first = service.validate(Buffer.from(''), 't1', manager, [tab]);
+      const second = service.validate(Buffer.from(''), 't2', manager, [tab]);
+      // Both are genuinely in flight: readWorkbook was entered twice.
+      expect(readWorkbook).toHaveBeenCalledTimes(2);
+      // A third upload is refused, fail-closed — and the limit is per
+      // process, not per service object.
+      await expect(
+        new ValidationService().validate(Buffer.from(''), 't3', manager, [tab]),
+      ).rejects.toBeInstanceOf(ValidationBusyError);
+
+      a.release();
+      b.release();
+      await expect(first).resolves.toMatchObject({ hardErrorCount: 0 });
+      await expect(second).resolves.toMatchObject({ hardErrorCount: 0 });
+    });
+
+    it('starts a waitIfBusy caller only after one of the two running finishes', async () => {
+      const service = new ValidationService();
+      const a = hold();
+      const b = hold();
+      const first = service.validate(Buffer.from(''), 't1', manager, [tab]);
+      const second = service.validate(Buffer.from(''), 't2', manager, [tab]);
+      readWorkbook.mockResolvedValueOnce(fakeReadResult(new Map()));
+      // The restore worker waits for its turn instead of failing.
+      const queued = service.validate(Buffer.from(''), 't3', manager, [tab], { waitIfBusy: true });
+      await Promise.resolve();
+      expect(readWorkbook).toHaveBeenCalledTimes(2);
+
+      a.release();
+      await expect(first).resolves.toMatchObject({ hardErrorCount: 0 });
+      await expect(queued).resolves.toMatchObject({ hardErrorCount: 0 });
+      // It ran once a slot freed, while the second was still open.
+      expect(readWorkbook).toHaveBeenCalledTimes(3);
+
+      b.release();
+      await expect(second).resolves.toMatchObject({ hardErrorCount: 0 });
+    });
+
+    it('frees the slot when a run rejects', async () => {
+      const service = new ValidationService();
+      const a = hold();
+      const b = hold();
+      const first = service.validate(Buffer.from(''), 't1', manager, [tab]);
+      const second = service.validate(Buffer.from(''), 't2', manager, [tab]);
+
+      a.fail(new Error('boom'));
+      await expect(first).rejects.toThrow('boom');
+      // The failed run's slot is free again: a third is accepted.
+      readWorkbook.mockResolvedValueOnce(fakeReadResult(new Map()));
+      await expect(service.validate(Buffer.from(''), 't3', manager, [tab])).resolves.toMatchObject({
+        hardErrorCount: 0,
+      });
+
+      b.release();
+      await expect(second).resolves.toMatchObject({ hardErrorCount: 0 });
+    });
   });
 
   it('reports a dangling cross-tab reference by row, column, and key', async () => {

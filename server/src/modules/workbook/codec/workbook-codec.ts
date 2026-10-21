@@ -1,4 +1,5 @@
-import { PassThrough } from 'node:stream';
+import { PassThrough, Readable } from 'node:stream';
+import { createInflateRaw } from 'node:zlib';
 import { Logger } from '@nestjs/common';
 import {
   assertXlsxWithinLimits,
@@ -20,16 +21,24 @@ import type { ColumnSpec, RowError, TabSpec } from './tab-spec';
  * that replacing exceljs later is a one-file change.
  * `workbook-codec.spec.ts` enforces the exclusivity by scanning the tree.
  *
- * ### Known asymmetry: writing streams, reading does not
+ * ### Both directions stream
  *
  * `writeWorkbook` commits rows as they arrive, so no tab's full row set is
- * resident. `readWorkbook` cannot match that — the signature takes a
- * `Buffer` and exceljs's `xlsx.load` materialises the whole workbook object
- * model, which runs several times the file size in heap. That is acceptable
- * for the file sizes this feature targets, but a restore of a very large
- * backup is the place to look first if the API container runs out of memory.
- * Moving to `exceljs`'s streaming reader would mean changing this signature,
- * so it is deliberately left for whoever needs it.
+ * resident. `readWorkbook` (#2686) streams too: each sheet's XML is inflated
+ * straight out of the zipped buffer and parsed row by row, so the only
+ * things resident besides the upload itself are the plain `SheetData` rows
+ * it returns, never exceljs's whole workbook object model.
+ *
+ * It does *not* use exceljs's `WorkbookReader` zip walk. That walk reads the
+ * archive in file order and spills a sheet to a temp file when it arrives
+ * before `sharedStrings.xml`; and `unzipper` (exceljs 4.4.0's zip parser)
+ * re-emits `end` the moment it reaches the central directory, while entries
+ * are still queued unread — so the walk silently drops whatever parts come
+ * last. In our own exports `workbook.xml` (the sheet names) is last. Instead,
+ * {@link openXlsx} reads the zip's central directory itself (stdlib `zlib`),
+ * parses the four bookkeeping parts first through exceljs's own part
+ * parsers, and then streams each sheet by name. The parsers it calls are
+ * exceljs internals pinned by `workbook-codec.spec.ts`'s round-trip cases.
  */
 
 export type WorkbookFormatErrorCode =
@@ -315,8 +324,12 @@ const LEGACY_SHEET_ALIASES: Readonly<Record<string, string>> = {
 
 const readWorkbookLogger = new Logger('readWorkbook');
 
+const NOT_XLSX_MESSAGE =
+  'This file is not a valid .xlsx workbook. Export a backup from SchoolManager and upload that file.';
+
 export async function readWorkbook(buffer: Buffer): Promise<ReadWorkbookResult> {
-  const workbook = new ExcelJS.Workbook();
+  const warnings: RowError[] = [];
+  const sheets = new Map<string, SheetData>();
 
   try {
     // Whole-school backup: limits are shared with the upload cap and the
@@ -325,74 +338,216 @@ export async function readWorkbook(buffer: Buffer): Promise<ReadWorkbookResult> 
       maxUncompressedBytes: BACKUP_MAX_INFLATED_BYTES,
       maxEntries: BACKUP_MAX_ENTRIES,
     });
-    await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+    const xlsx = await openXlsx(buffer);
+
+    if (!xlsx.sheetNames.includes(META_SHEET)) {
+      throw new WorkbookFormatError(
+        'MISSING_META',
+        `This workbook has no "${META_SHEET}" sheet, so it cannot be identified as a SchoolManager backup.`,
+      );
+    }
+    // Meta first, whatever the sheet order: an unsupported version is
+    // refused before any data sheet is inflated.
+    const meta = await readMeta(xlsx.rows(META_SHEET));
+    const known = new Set<string>(EXPECTED_TABS);
+    const presentSheetNames = new Set<string>(xlsx.sheetNames);
+
+    for (const originalName of xlsx.sheetNames) {
+      if (originalName === META_SHEET || originalName === README_SHEET) continue;
+
+      // A legacy sheet name is only aliased when the workbook has no sheet
+      // already using the current name — a backup never carries both
+      // `holidays` and `calendar_events`, but this guard keeps the current
+      // sheet authoritative if it somehow did.
+      const aliasTarget = LEGACY_SHEET_ALIASES[originalName];
+      const name = aliasTarget && !presentSheetNames.has(aliasTarget) ? aliasTarget : originalName;
+
+      if (name !== originalName) {
+        readWorkbookLogger.log(
+          `Restoring legacy sheet "${originalName}" as "${name}" (${originalName} was renamed in [17.2.5]).`,
+        );
+      }
+
+      if (!known.has(name)) {
+        // Skipped, not fatal: a workbook written by a newer schema may carry a
+        // sheet this version has never heard of, and that must not make the
+        // rest of the backup unreadable. Skipped before it is inflated, too.
+        warnings.push({
+          tab: name,
+          row: 0,
+          column: null,
+          message: `Sheet "${name}" is not a known tab and was ignored.`,
+          severity: 'warning',
+        });
+        continue;
+      }
+
+      const tab = ALL_TABS.find((t) => t.name === name);
+      sheets.set(name, await readSheet(xlsx.rows(originalName), name, warnings, tab));
+    }
+
+    return { meta, sheets, warnings };
   } catch (cause) {
+    if (cause instanceof WorkbookFormatError) throw cause;
     if (cause instanceof XlsxTooLargeError) {
       throw new WorkbookFormatError('TOO_LARGE', XLSX_TOO_LARGE_MESSAGE, { cause });
     }
-    throw new WorkbookFormatError(
-      'NOT_XLSX',
-      'This file is not a valid .xlsx workbook. Export a backup from SchoolManager and upload that file.',
-      { cause },
-    );
+    // Fail closed (D18): a broken part, a sheet the zip does not carry, an
+    // inflate error mid-sheet — the caller never sees a partly read workbook.
+    throw new WorkbookFormatError('NOT_XLSX', NOT_XLSX_MESSAGE, { cause });
   }
-
-  const warnings: RowError[] = [];
-  const meta = readMeta(workbook);
-  const known = new Set<string>(EXPECTED_TABS);
-  const sheets = new Map<string, SheetData>();
-  const presentSheetNames = new Set<string>(workbook.worksheets.map((ws) => ws.name));
-
-  workbook.eachSheet((worksheet) => {
-    const originalName = worksheet.name;
-    if (originalName === META_SHEET || originalName === README_SHEET) return;
-
-    // A legacy sheet name is only aliased when the workbook has no sheet
-    // already using the current name — a backup never carries both
-    // `holidays` and `calendar_events`, but this guard keeps the current
-    // sheet authoritative if it somehow did.
-    const aliasTarget = LEGACY_SHEET_ALIASES[originalName];
-    const name = aliasTarget && !presentSheetNames.has(aliasTarget) ? aliasTarget : originalName;
-
-    if (name !== originalName) {
-      readWorkbookLogger.log(
-        `Restoring legacy sheet "${originalName}" as "${name}" (${originalName} was renamed in [17.2.5]).`,
-      );
-    }
-
-    if (!known.has(name)) {
-      // Skipped, not fatal: a workbook written by a newer schema may carry a
-      // sheet this version has never heard of, and that must not make the
-      // rest of the backup unreadable.
-      warnings.push({
-        tab: name,
-        row: 0,
-        column: null,
-        message: `Sheet "${name}" is not a known tab and was ignored.`,
-        severity: 'warning',
-      });
-      return;
-    }
-
-    const tab = ALL_TABS.find((t) => t.name === name);
-    sheets.set(name, readSheet(worksheet, name, warnings, tab));
-  });
-
-  return { meta, sheets, warnings };
 }
 
-function readMeta(workbook: ExcelJS.Workbook): WorkbookMeta {
-  const sheet = workbook.getWorksheet(META_SHEET);
-  if (!sheet) {
-    throw new WorkbookFormatError(
-      'MISSING_META',
-      `This workbook has no "${META_SHEET}" sheet, so it cannot be identified as a SchoolManager backup.`,
-    );
+// ---------------------------------------------------------------------------
+// Streaming read of one .xlsx buffer (see the module doc comment for why this
+// does not use exceljs's own `WorkbookReader` zip walk).
+// ---------------------------------------------------------------------------
+
+const EOCD_SIG = 0x06054b50;
+const CEN_SIG = 0x02014b50;
+const LOC_SIG = 0x04034b50;
+const ZIP_STORED = 0;
+const ZIP_DEFLATED = 8;
+
+interface ZipEntry {
+  method: number;
+  dataStart: number;
+  compressedSize: number;
+}
+
+/**
+ * Walks the central directory and returns every entry by path. Structure
+ * errors throw a plain `Error` (mapped to `NOT_XLSX` by the caller);
+ * `assertXlsxWithinLimits` has already inflated every entry against the
+ * size budget, so nothing here is trusted for size — only for position.
+ */
+function zipEntries(buf: Buffer): Map<string, ZipEntry> {
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65_557); i--) {
+    if (buf.readUInt32LE(i) === EOCD_SIG) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error('Not a zip file');
+  const count = buf.readUInt16LE(eocd + 10);
+  let p = buf.readUInt32LE(eocd + 16);
+  const entries = new Map<string, ZipEntry>();
+  for (let n = 0; n < count; n++) {
+    if (p + 46 > buf.length || buf.readUInt32LE(p) !== CEN_SIG)
+      throw new Error('Bad zip directory');
+    const method = buf.readUInt16LE(p + 10);
+    const compressedSize = buf.readUInt32LE(p + 20);
+    const nameLength = buf.readUInt16LE(p + 28);
+    const extraLength = buf.readUInt16LE(p + 30);
+    const commentLength = buf.readUInt16LE(p + 32);
+    const local = buf.readUInt32LE(p + 42);
+    const path = buf.toString('utf8', p + 46, p + 46 + nameLength);
+    if (local + 30 > buf.length || buf.readUInt32LE(local) !== LOC_SIG)
+      throw new Error('Bad zip entry');
+    const dataStart = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
+    if (dataStart + compressedSize > buf.length) throw new Error('Bad zip entry');
+    entries.set(path, { method, dataStart, compressedSize });
+    p += 46 + nameLength + extraLength + commentLength;
+  }
+  return entries;
+}
+
+/** The entry's inflated bytes as a stream. Nothing is copied: the deflated
+ * slice is a view of the upload and inflates in 16 KB chunks. */
+function entryStream(buf: Buffer, entry: ZipEntry): Readable {
+  const deflated = Readable.from([
+    buf.subarray(entry.dataStart, entry.dataStart + entry.compressedSize),
+  ]);
+  if (entry.method === ZIP_STORED) return deflated;
+  if (entry.method !== ZIP_DEFLATED) throw new Error(`Unsupported zip method ${entry.method}`);
+  return deflated.pipe(createInflateRaw());
+}
+
+/** exceljs's `WorkbookReader` part parsers. Undeclared in `index.d.ts`, real
+ * in `node_modules/exceljs/lib/stream/xlsx/workbook-reader.js`; the shapes of
+ * `model.sheets` and `workbookRels` come from `sheet-xform.js` and
+ * `relationships-xform.js`. Narrowed to one place, same as
+ * `WorksheetWithValidations` above. */
+interface WorkbookReaderInternals {
+  model?: { sheets?: Array<{ name: string; rId: string }> };
+  workbookRels?: Array<{ Id: string; Target: string }>;
+  _parseRels(entry: Readable): Promise<void>;
+  _parseWorkbook(entry: Readable): Promise<void>;
+  _parseSharedStrings(entry: Readable): AsyncIterable<unknown>;
+  _parseStyles(entry: Readable): Promise<void>;
+  _parseWorksheet(
+    iterator: Readable,
+    sheetNo: string,
+  ): Iterable<{ eventType: string; value: AsyncIterable<ExcelJS.Row> }>;
+}
+
+interface OpenedXlsx {
+  /** Every sheet `xl/workbook.xml` declares, in workbook order. */
+  sheetNames: string[];
+  /** Streams that sheet's rows. Throws if the zip has no part for it. */
+  rows(sheetName: string): AsyncIterable<ExcelJS.Row>;
+}
+
+/**
+ * Parses the bookkeeping parts (`workbook.xml`, its rels, shared strings,
+ * styles) once, then lets the caller stream any sheet by name. `styles` is
+ * cached on purpose: without it a real Excel date cell comes back as a
+ * serial number instead of a `Date`.
+ */
+async function openXlsx(buffer: Buffer): Promise<OpenedXlsx> {
+  const entries = zipEntries(buffer);
+  const part = (path: string): Readable | undefined => {
+    const entry = entries.get(path);
+    return entry && entryStream(buffer, entry);
+  };
+
+  // The input stream is never read: every part is fed to the parsers below.
+  const reader = new ExcelJS.stream.xlsx.WorkbookReader(new PassThrough(), {
+    worksheets: 'emit',
+    sharedStrings: 'cache',
+    styles: 'cache',
+    hyperlinks: 'ignore',
+    entries: 'ignore',
+  }) as unknown as WorkbookReaderInternals;
+
+  const rels = part('xl/_rels/workbook.xml.rels');
+  const workbook = part('xl/workbook.xml');
+  if (!rels || !workbook) throw new Error('Not an xlsx: workbook part missing');
+  await reader._parseRels(rels);
+  await reader._parseWorkbook(workbook);
+  const sharedStrings = part('xl/sharedStrings.xml');
+  if (sharedStrings) for await (const _ of reader._parseSharedStrings(sharedStrings)) void _;
+  const styles = part('xl/styles.xml');
+  if (styles) await reader._parseStyles(styles);
+
+  const relsById = new Map((reader.workbookRels ?? []).map((r) => [r.Id, r.Target]));
+  const partBySheet = new Map<string, string>();
+  for (const sheet of reader.model?.sheets ?? []) {
+    const target = relsById.get(sheet.rId);
+    if (!target) throw new Error(`Not an xlsx: sheet "${sheet.name}" has no part`);
+    // Targets are relative to `xl/` ("worksheets/sheet1.xml"), or absolute
+    // ("/xl/worksheets/sheet1.xml") from some writers.
+    partBySheet.set(sheet.name, target.startsWith('/') ? target.slice(1) : `xl/${target}`);
   }
 
+  return {
+    sheetNames: [...partBySheet.keys()],
+    rows(sheetName) {
+      const path = partBySheet.get(sheetName);
+      const stream = path && part(path);
+      if (!stream) throw new Error(`Not an xlsx: sheet part missing`);
+      const sheetNo = /sheet(\d+)\.xml$/.exec(path)?.[1] ?? '0';
+      for (const { value } of reader._parseWorksheet(stream, sheetNo)) return value;
+      throw new Error('Not an xlsx: sheet part unreadable');
+    },
+  };
+}
+
+async function readMeta(rows: AsyncIterable<ExcelJS.Row>): Promise<WorkbookMeta> {
   const values: Record<string, string> = {};
-  sheet.eachRow((row, rowNo) => {
-    if (rowNo === 1) return; // header: key | value
+  for await (const row of rows) {
+    if (row.number === 1) continue; // header: key | value
     // Keys are normalised (they are ASCII identifiers), but values are read
     // as plain text: `normalizeCell` would rewrite Bengali digits in a
     // school name, turning `৫ নম্বর সরকারি বিদ্যালয়` into
@@ -400,7 +555,7 @@ function readMeta(workbook: ExcelJS.Workbook): WorkbookMeta {
     // user at restore time.
     const key = normalizeCell(row.getCell(1).value);
     if (key !== '') values[key] = cellText(row.getCell(2).value);
-  });
+  }
 
   const version = Number(values.schema_version);
   if (!Number.isInteger(version) || version !== SCHEMA_VERSION) {
@@ -434,18 +589,19 @@ function readMeta(workbook: ExcelJS.Workbook): WorkbookMeta {
   };
 }
 
-function readSheet(
-  worksheet: ExcelJS.Worksheet,
+async function readSheet(
+  sheetRows: AsyncIterable<ExcelJS.Row>,
   name: string,
   warnings: RowError[],
   tab: TabSpec<any, any> | undefined,
-): SheetData {
+): Promise<SheetData> {
   let header: string[] = [];
   let headerSeen = false;
   const rows: SheetData['rows'] = [];
 
-  worksheet.eachRow((row, rowNo) => {
-    // The header is the first row `eachRow` actually yields, not row 1.
+  for await (const row of sheetRows) {
+    const rowNo = row.number;
+    // The header is the first row the stream actually yields, not row 1.
     // exceljs skips empty rows entirely, so if a user inserts a blank row
     // above the header in Excel — routine — the first yielded rowNo is 2.
     // Keying on `rowNo === 1` would then consume the real header as data,
@@ -455,7 +611,7 @@ function readSheet(
     if (!headerSeen) {
       headerSeen = true;
       header = readRowValues(row).map((v) => normalizeCell(v));
-      return;
+      continue;
     }
 
     const values = readRowValues(row);
@@ -475,7 +631,7 @@ function readSheet(
     });
 
     // A blank row is spreadsheet noise (a user pressing enter), not a record.
-    if (blank) return;
+    if (blank) continue;
 
     // Template sample rows exist to show the expected shape and must never
     // be imported as real data.
@@ -498,11 +654,11 @@ function readSheet(
           severity: 'warning',
         });
       }
-      return;
+      continue;
     }
 
     rows.push({ rowNo, cells });
-  });
+  }
 
   if (header.length === 0) {
     // `severity: 'error'`, not a warning: a known tab with no header is a
