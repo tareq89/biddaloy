@@ -1,0 +1,63 @@
+---
+# The one place every result goes through: prints the failure block, appends to deploys.log,
+# and tells Telegram. Included from deploy.yml's `always`, and by test/report.infra.test.sh.
+# Inputs: stack, version, deploy_status (ok|rolled-back|failed), fail_step, fail_why, fail_next,
+# hotfix_reason, project_dir. Optional: log_chown=false (the test is not root).
+#
+#   FAILED at: <step> (<stack>, <sha12>)
+#   Why:       <why>
+#   Next:      <command>
+#
+# deploys.log line (the prod gate greps ` staging <sha> ok`; the previous-version lookup reads
+# the `ok` lines):
+#   <UTC ISO> <stack> <sha> ok|rolled-back|failed [hotfix: <reason>]
+- name: Print the failure block
+  ansible.builtin.debug:
+    msg:
+      - 'FAILED at: {{ fail_step }} ({{ stack }}, {{ version[:12] }})'
+      - 'Why:       {{ fail_why }}'
+      - 'Next:      {{ fail_next }}'
+  when: deploy_status != 'ok'
+
+# Only for a valid stack and sha: a typo in the inputs must not write a made-up log line. A
+# hotfix reason that failed the input check (a newline could forge a line) is left out.
+- name: Append to deploys.log
+  ansible.builtin.lineinfile:
+    path: '{{ project_dir }}/deploys.log'
+    line: >-
+      {{ lookup('ansible.builtin.pipe', 'date -u +%FT%TZ') }} {{ stack }} {{ version }} {{ deploy_status }}{{
+      (' hotfix: ' ~ hotfix_reason) if stack == 'prod' and hotfix_reason | length > 0 and hotfix_reason | length <= 200
+      and hotfix_reason is match('^[^\x00-\x1f\x7f]*$') else '' }}
+    create: true
+    mode: '0640'
+  when: not ansible_check_mode and stack in stacks and version is match('^[0-9a-f]{40}$')
+- name: Set the deploys.log owner
+  ansible.builtin.file:
+    path: '{{ project_dir }}/deploys.log'
+    owner: root
+    group: '{{ deploy_user }}'
+  when: not ansible_check_mode and stack in stacks and version is match('^[0-9a-f]{40}$') and log_chown | default(true) | bool
+
+# Fail open: a failed message only prints a warning. The token is in the URL, so no_log, and
+# the warning below shows the status only.
+- name: Tell Telegram
+  ansible.builtin.uri:
+    url: 'https://api.telegram.org/bot{{ tg_token }}/sendMessage'
+    method: POST
+    body_format: form-urlencoded
+    body:
+      chat_id: '{{ tg_chat }}'
+      text: "{{ stack }} {{ version[:12] }} {{ deploy_status }}{{ (' at ' ~ fail_step) if deploy_status != 'ok' else '' }}"
+    timeout: 10
+  register: telegram
+  failed_when: false
+  changed_when: false
+  no_log: true
+  vars:
+    tg_token: "{{ ((secret_env | default({})).edge | default({})).TELEGRAM_BOT_TOKEN | default('') }}"
+    tg_chat: "{{ ((secret_env | default({})).edge | default({})).TELEGRAM_CHAT_ID | default('') }}"
+  when: not ansible_check_mode and tg_token | length > 0 and tg_chat | length > 0
+- name: Warn when Telegram did not take the message
+  ansible.builtin.debug:
+    msg: 'warning: the Telegram message was not sent (status {{ telegram.status | default(-1) }}); the deploy result above stands'
+  when: telegram is defined and not (telegram is skipped) and telegram.status | default(-1) != 200

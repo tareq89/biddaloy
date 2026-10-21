@@ -1,0 +1,23 @@
+---
+# Start the app (and, on prod, app2) one container at a time (D25). Each is recreated only if
+# its image or config changed, then must report ready (24 x 5 s) before the next is touched, so
+# a bad version stops at the first container and the second keeps serving the old one.
+#   rr_services: [app, app2] on prod, [app] on staging and demo
+# /api/health/ready needs HEALTH_TOKEN in the container (the route 404s without it).
+- name: Restart the app containers one at a time, each until ready
+  ansible.builtin.shell: |
+    set -u -o pipefail
+    for s in {{ rr_services | join(' ') }}; do
+      {{ dc }} up -d --no-deps "$s" || { echo "could not start $s" >&2; exit 1; }
+      i=0
+      until out=$({{ dc }} exec -T "$s" sh -c \
+        'wget -qO- --header "X-Health-Token: $HEALTH_TOKEN" http://127.0.0.1:3000/api/health/ready') \
+        && ! printf %s "$out" | tr -d ' ' | grep -q '"status":"fail"'; do
+        i=$((i+1))
+        [ "$i" -lt 24 ] || { echo "$s was not ready after 120 s" >&2; exit 1; }
+        sleep 5
+      done
+    done
+  args:
+    executable: /bin/bash
+  changed_when: true
