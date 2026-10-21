@@ -282,9 +282,9 @@ done
 Check in the dashboard (DNS > Records): each name is a **Proxied** CNAME to
 `5b1c7a52-0f3e-4c34-9a77-3d1d5a0c1f10.cfargotunnel.com`.
 
-> `www.schoolmanagerp.com` is left out of this list. nginx would redirect it to the apex,
-> but the tunnel config has **no** `www.` rule, so a `www.` name gets a 404 from the
-> tunnel. See [Known gaps](#known-gaps) #4.
+> `www.schoolmanagerp.com` is not in the list above because it is not one of the seven
+> names. The tunnel config routes it too, and nginx redirects it to the apex. If you want
+> it to work, add a proxied `www` CNAME to the same tunnel target.
 
 ### 4d. Zero Trust: the Access login (staging and ops)
 
@@ -311,6 +311,10 @@ Check in the dashboard (DNS > Records): each name is a **Proxied** CNAME to
 **If it fails.** Open `https://staging.schoolmanagerp.com` in a private window after part 10:
 it must show the Cloudflare login. A page with no login means the Access application does
 not cover that hostname. Next: edit the application's hostnames.
+
+No deploy checks this for you: there is no `access_confirmed` switch any more. In tunnel
+mode, Cloudflare Access is what keeps staging and ops closed. In direct mode, the basic-auth
+login does the same job.
 
 ### 4e. Turnstile (the captcha on public forms)
 
@@ -936,8 +940,8 @@ sequenceDiagram
   A-->>You: PLAY RECAP, Telegram message
 ```
 
-\* `ops` is only deployed by `all` if `/opt/biddaloy/host-groups` lists it. Nothing writes
-that file today, so deploy ops yourself ([Known gaps](#known-gaps) #1).
+\* `ops` is deployed by `all` when the host is in the `ops` group. Provision writes the
+host's groups to `/opt/biddaloy/host-groups`, and `biddaloy-deploy all` reads that file.
 
 ### The command
 
@@ -974,6 +978,7 @@ failure names the one it stopped at:
 | pull, backup          | pulls images; prod backs up to R2 first (skipped on a truly fresh host)                                |
 | migration             | runs pending migrations                                                                                |
 | up, smoke             | starts the stack, waits for ready, logs in as the smoke accounts                                       |
+| edge only             | nginx templates come from a snapshot at `/opt/biddaloy/edge/release`, not the live checkout            |
 
 On the end of each stack:
 
@@ -1011,16 +1016,15 @@ failures:
 | `settings`  | a key named in `Why:` is empty                                            | `sops infra/secrets/<file>`, fix, commit, merge, rerun                |
 | `registry`  | `GHCR_PULL_USER` / `GHCR_PULL_TOKEN` wrong or token lacks `read:packages` | part 5b                                                               |
 | `image`     | Publish images did not finish for that sha                                | `gh run list -w publish-image.yml`                                    |
-| `smoke`     | no smoke accounts yet (a brand-new database)                              | read the **GAP** below                                                |
 
-> **GAP, first install and the smoke test.** `prod` and `staging` deploys end by logging in
-> as the `SMOKE_*` accounts. On a brand-new database those accounts do not exist yet, so
-> the first staging (inside `all`) and prod deploys stop at **smoke**. The stack is left
-> running (there is no earlier version to roll back to) and no "ok" line is written. The
-> code has no flag to skip smoke and no command that creates the first platform super
-> admin ([Known gaps](#known-gaps) #2 and #3). Until that is closed, treat the first
-> install as: deploy `edge`, then `ops`, then `demo`, then `prod`; let prod stop at smoke;
-> do part 11; then rerun `scripts/deploy.sh prod <same sha>` and `staging <same sha>`.
+> **First install and the smoke test.** `prod` and `staging` deploys end by logging in as
+> the `SMOKE_*` accounts. On a brand-new database (zero users) those accounts cannot exist
+> yet, so the deploy runs the health checks only. It prints a `WARNING: smoke login checks
+SKIPPED` line and writes `note: smoke-login-skipped` on the `deploys.log` line and in
+> Telegram. So `all` works on the first install, in this order: edge, ops, staging, prod,
+> demo. After part 11, redeploy prod and staging so the login checks run. The first `demo`
+> deploy runs `reset.sh --now` by itself to build the demo school.
+> Still open: nothing creates the first platform super admin ([Known gaps](#known-gaps) #1).
 > **UNVERIFIED on a real VM.**
 
 Now run the doctor, a read-only health table:
@@ -1046,7 +1050,7 @@ The super admin belongs to the **platform school**, whose id is `PLATFORM_TENANT
 fresh prod database. The decision is the owner's: either insert the first user by hand in
 Postgres, or add a one-off bootstrap command to the app. Whatever you choose, record the
 login in `prod.enc.env` (`SMOKE_SUPER_ADMIN_EMAIL`, `SMOKE_SUPER_ADMIN_PASSWORD`). See
-[Known gaps](#known-gaps) #3.
+[Known gaps](#known-gaps) #1.
 
 Find the platform school id and set it:
 
@@ -1185,7 +1189,7 @@ scripts/deploy.sh staging 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
 scripts/deploy.sh prod    3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
 ```
 
-**From GitHub:** repo > **Actions > Deploy > Run workflow**. The form has four fields:
+**From GitHub:** repo > **Actions > Deploy > Run workflow**. The workflow runs from `main` only, and the VM refuses any sha that is not on `main`. The form has four fields:
 
 | Field         | Value                                                                                                          |
 | ------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -1298,7 +1302,7 @@ flowchart TD
 | 1   | New VM, `ssh root@<new-ip> true`                                                                                                                                                                             | 10 min       | nothing                                                                   |
 | 2   | `export BIDDALOY_HOST=<new-ip>` and run part 7 (both runs). New host age key and repo deploy key print                                                                                                       | 15 min       | nothing                                                                   |
 | 3   | Add the new host age key to `.sops.yaml` (keep the old one for now), `sops updatekeys infra/secrets/<file>` for each of the 5 files, commit, merge, wait for Publish. Add the new repo deploy key to GitHub. | 10 min       | nothing                                                                   |
-| 4   | `scripts/deploy.sh all <sha>` against the new IP (**see the smoke GAP**: the new prod database is empty)                                                                                                     | 20 to 40 min | nothing (old VM still serves)                                             |
+| 4   | `scripts/deploy.sh all <sha>` against the new IP (the new prod database is empty, so smoke login is skipped with a warning)                                                                                  | 20 to 40 min | nothing (old VM still serves)                                             |
 | 5   | On the new VM, with the backup private key file (mode 0600, owner uid 10001): see below                                                                                                                      | 5 to 30 min  | nothing                                                                   |
 | 6   | `scripts/deploy.sh prod <sha>`: backs up, migrates, starts, smokes                                                                                                                                           | 5 min        | nothing                                                                   |
 | 7   | Stop traffic to the old VM and let the new one answer ([below](#step-7-move-the-traffic))                                                                                                                    | 1 to 5 min   | **writes between the last backup and now are lost; up to 1 hour of data** |
@@ -1318,6 +1322,9 @@ biddaloy-restore-prod --age-key-file /opt/biddaloy/restore-key.txt --from latest
 ```
 
 - `--from` takes `latest-hourly`, `latest-daily`, or a key such as `db/hourly/20260922T200000Z.dump.age`.
+  The `latest-*` choices only pick dumps newer than this VM's `prod_pgdata` volume was
+  created, so a stale dump from before the VM existed is never picked. If the age cannot be
+  read, pass an exact key.
 - `--yes-restore-prod` must repeat the database name from `/opt/biddaloy/prod/.env` (`POSTGRES_DB`).
 - It refuses a non-empty database, so a mistake cannot overwrite live data. `--skip-files`
   skips copying uploaded files; `--max-age-hours N` changes the freshness limit (default 36).
@@ -1440,7 +1447,7 @@ Kuma dies with it.
 **UNVERIFIED, and not fully supported yet:** the inventory shape above matches
 `group_vars/all.yml` (`ops_host: "{{ groups['ops'][0] }}"`), but a tunnel serving
 `kuma.` to a second VM needs a second `cloudflared` there, and the repo has no ops-only
-edge. Treat part 15 as a plan to confirm in wave 5 ([Known gaps](#known-gaps) #5).
+edge. Treat part 15 as a plan to confirm in wave 5 ([Known gaps](#known-gaps) #2).
 
 ## Part 16. Rotate a secret, lose a key
 
@@ -1497,13 +1504,8 @@ staging's private key, redeploy. New backups use the new key. Keep two offline c
 Places where the code and a first-time setup disagree. None is fixed by this page; each
 needs a code or owner decision.
 
-| #   | Gap                                                                                                                                                            | Where                                                                                           | Effect                                                                               |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| 1   | `deploy all` skips `ops` unless `/opt/biddaloy/host-groups` lists it; nothing (provision, deploy playbook) writes that file                                    | `deploy/bin/biddaloy-deploy:218`                                                                | `all` prints `skip ops`; run `scripts/deploy.sh ops <sha>` yourself                  |
-| 2   | Prod and staging deploys end with a login smoke test; on an empty database the `SMOKE_*` accounts do not exist, and there is no skip flag                      | `infra/ansible/tasks/smoke.yml`, `infra/ansible/deploy.yml:231`                                 | first `all` stops at staging smoke; first prod deploy fails at smoke                 |
-| 3   | No command creates the first platform super admin on a fresh prod database                                                                                     | none (searched `server/src/scripts`, docs)                                                      | part 11a is a manual step the owner must decide                                      |
-| 4   | Tunnel ingress has no rule for `www.<landing_domain>`, but nginx redirects `www.` to the apex                                                                  | `infra/ansible/templates/cloudflared-config.yml.j2`, `nginx/templates/landing.conf.template:25` | `www.schoolmanagerp.com` returns 404 in tunnel mode                                  |
-| 5   | Ops on its own VM: `edge.yml` always runs a Beszel agent and nginx on the app VM, and the tunnel config lists the ops hostnames for the same `cloudflared`     | `deploy/edge.yml`, `cloudflared-config.yml.j2`                                                  | part 15 needs a second edge or tunnel; unconfirmed                                   |
-| 6   | `infra/ansible/README.md` and `scripts/deploy.sh` header say first deploy uses `--hotfix "first deploy"`; `all` runs staging first so the gate is already open | `biddaloy-deploy:219-223`                                                                       | harmless; not needed                                                                 |
-| 7   | `25-cloudflare.md` still describes Origin CA, `Full (strict)` and `TRUSTED_PROXY_CIDRS` (old setup)                                                            | `docs/architecture/25-cloudflare.md`                                                            | follow part 4 of this page for tunnel mode; the other lane rewrites that file        |
-| 8   | `access_confirmed` in `inventory/prod.yml` is no longer read by any playbook or script, though its comment says a prod deploy checks it                        | `infra/ansible/inventory/prod.yml`                                                              | no effect; the Access check is manual (part 4d). Remove the variable or reconnect it |
+| #   | Gap                                                                                                                                                            | Where                                          | Effect                                             |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------- |
+| 1   | No command creates the first platform super admin on a fresh prod database                                                                                     | none (searched `server/src/scripts`, docs)     | part 11a is a manual step the owner must decide    |
+| 2   | Ops on its own VM: `edge.yml` always runs a Beszel agent and nginx on the app VM, and the tunnel config lists the ops hostnames for the same `cloudflared`     | `deploy/edge.yml`, `cloudflared-config.yml.j2` | part 15 needs a second edge or tunnel; unconfirmed |
+| 3   | `infra/ansible/README.md` and `scripts/deploy.sh` header say first deploy uses `--hotfix "first deploy"`; `all` runs staging first so the gate is already open | `biddaloy-deploy:219-223`                      | harmless; not needed                               |
