@@ -64,9 +64,13 @@ const SECRET_VALUE_ALLOWED = new Set([
   'YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=',
   'ci-secret-key',
 ]);
-// Cloudflare's public always-pass Turnstile test secret (staging only, D25).
+// Fixed, public staging values: Cloudflare's always-pass Turnstile test keys
+// (D25), the demo-mode switch and the staging bucket name. None is a secret.
 const EXAMPLE_VALUE_ALLOWED = new Set([
   'infra/secrets/staging.example.env:TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA',
+  'infra/secrets/staging.example.env:TURNSTILE_SITE_KEY=1x00000000000000000000AA',
+  'infra/secrets/staging.example.env:DEMO_MODE=true',
+  'infra/secrets/staging.example.env:S3_BUCKET=biddaloy-staging',
 ]);
 
 // \r too: an old-Mac line end must not glue a plaintext line onto an ENC one.

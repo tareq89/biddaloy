@@ -11,5 +11,7 @@
       document.documentElement.dataset.theme = 'dark';
       document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1e293b');
     }
-  } catch (e) {}
+  } catch {
+    // No storage or matchMedia (private mode, old browser): keep the light default.
+  }
 })();
