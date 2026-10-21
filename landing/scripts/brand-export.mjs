@@ -18,16 +18,13 @@ const svg = (name) => readFileSync(join(brand, name));
 copyFileSync(join(brand, 'monogram.svg'), join(pub, 'favicon.svg'));
 const mono = (name, size, out) =>
   png(sharp(svg(name), { density: 384 }).resize(size, size), join(pub, out));
+// 192 is a downscale of the emitted 512 file, not its own render: client-admin's icons test compares
+// the two pixel for pixel, and separate renders (or a quantised 192) differ on glyph edges.
+await mono('monogram.svg', 512, 'icons/pwa-512.png');
+await sharp(join(pub, 'icons/pwa-512.png')).resize(192, 192).png({ compressionLevel: 9 }).toFile(join(pub, 'icons/pwa-192.png'));
 await Promise.all([
   mono('monogram.svg', 32, 'favicon-32.png'),
   mono('monogram-maskable.svg', 180, 'apple-touch-icon.png'), // iOS rounds the corners itself
-  // 192 is a downscale of the 512 render, not its own render: client-admin's icons test
-  // compares the two pixel for pixel, and separate renders differ on glyph edges.
-  sharp(await sharp(svg('monogram.svg'), { density: 384 }).resize(512, 512).png().toBuffer())
-    .resize(192, 192)
-    .png({ compressionLevel: 9 }) // no palette: a quantised 192 drifts from the 512 on edges
-    .toFile(join(pub, 'icons/pwa-192.png')),
-  mono('monogram.svg', 512, 'icons/pwa-512.png'),
   mono('monogram-maskable.svg', 512, 'icons/pwa-maskable-512.png'),
 ]);
 

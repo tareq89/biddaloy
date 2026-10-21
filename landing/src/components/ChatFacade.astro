@@ -61,7 +61,11 @@ const wa = num ? `https://wa.me/${num}` : company.whatsapp;
     if (chatAllowed()) preload = setTimeout(() => ('requestIdleCallback' in window ? requestIdleCallback(() => { if (chatAllowed()) load(false); }) : chatAllowed() && load(false)), 20000);
   }
   arm();
-  window.addEventListener('sm:consent', arm);
+  // The widget has no teardown API, so withdrawing chat after it was injected reloads the page.
+  window.addEventListener('sm:consent', () => {
+    arm();
+    if (script && !chatAllowed()) { clearTimeout(timer); openAfterReady = false; location.reload(); }
+  });
 </script>
 <style>
   .chatfab{position:fixed;right:1rem;bottom:1rem;z-index:40;display:inline-flex;gap:.4rem;align-items:center;border:0;cursor:pointer;border-radius:999px;padding:.7rem 1rem;font-weight:600;background:var(--ink);color:var(--ink-fg);box-shadow:0 4px 14px rgb(0 0 0/.25)}
