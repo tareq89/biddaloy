@@ -11453,6 +11453,7 @@ export interface components {
                 [key: string]: components["schemas"]["LateFeeRuleDto"];
             };
             fineDueDays?: number;
+            requireSecondApprover?: boolean;
         };
         EvaluationsSettingsDto: {
             incidentSmsEnabled?: boolean;
