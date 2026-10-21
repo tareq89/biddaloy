@@ -2,8 +2,8 @@ name: Publish images
 
 # [1766 D10] Every merge to main publishes the three images to GHCR, tagged
 # with the commit SHA and `main`, so the production VM only ever pulls.
-# Only GITHUB_TOKEN is used; the two VITE_* values are repo variables (public
-# in the bundle anyway).
+# GITHUB_TOKEN pushes; SENTRY_AUTH_TOKEN (optional) uploads source maps.
+# [Epic 79 #2794] Four images: app, backup, demo-reset, landing.
 on:
   push:
     branches: [main]
@@ -49,10 +49,18 @@ jobs:
             ${{ env.REGISTRY }}/biddaloy-app:main
           labels: org.opencontainers.image.revision=${{ github.sha }}
           build-args: |
-            VITE_TURNSTILE_SITE_KEY=${{ vars.VITE_TURNSTILE_SITE_KEY }}
-            VITE_SUPPORT_URL=${{ vars.VITE_SUPPORT_URL }}
+            APP_VERSION=${{ github.sha }}
+            SENTRY_ORG=${{ vars.SENTRY_ORG }}
+            SENTRY_PROJECT=${{ vars.SENTRY_PROJECT }}
+          secrets: |
+            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
           cache-from: type=gha,scope=app
           cache-to: type=gha,scope=app,mode=max
+      # Maps are for Sentry only; none may ship in the image.
+      - name: Image has no source maps
+        run: |
+          out=$(docker run --rm "$REGISTRY/biddaloy-app:${{ github.sha }}" sh -c 'find /app -name "*.map" | head -1')
+          [ -z "$out" ] || { echo "source map in image: $out"; exit 1; }
 
   # demo-reset is `FROM app`, so it builds after the app image is pushed.
   # backup is independent but rides along (small, cached).
@@ -68,9 +76,12 @@ jobs:
           - image: biddaloy-backup
             context: scripts/backup
             app_context: ""
+            extra_context: ""
           - image: biddaloy-demo-reset
             context: scripts/demo
             app_context: app=docker-image://ghcr.io/tareq89/biddaloy-app:${{ github.sha }}
+            # db-swap.sh is copied from the backup context (scripts/demo/Dockerfile).
+            extra_context: backup=scripts/backup
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -85,7 +96,9 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.context }}/Dockerfile
-          build-contexts: ${{ matrix.app_context }}
+          build-contexts: |
+            ${{ matrix.app_context }}
+            ${{ matrix.extra_context }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.sha }}
@@ -93,3 +106,39 @@ jobs:
           labels: org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+  # Static site: built on the runner (Chromium renders the PDFs), then wrapped in nginx.
+  landing:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PUBLIC_UMAMI_ID: ${{ vars.PUBLIC_UMAMI_ID }}
+      PUBLIC_UMAMI_SRC: ${{ vars.PUBLIC_UMAMI_SRC }}
+      PUBLIC_CLARITY_ID: ${{ vars.PUBLIC_CLARITY_ID }}
+      PUBLIC_META_PIXEL_ID: ${{ vars.PUBLIC_META_PIXEL_ID }}
+      PUBLIC_WA_NUMBER: ${{ vars.PUBLIC_WA_NUMBER }}
+      PUBLIC_AIPRAKTOR_SITE: ${{ vars.PUBLIC_AIPRAKTOR_SITE }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - run: yarn workspace @biddaloy/landing build
+      - run: node landing/scripts/check-tokens.mjs
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: landing
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/biddaloy-landing:${{ github.sha }}
+            ${{ env.REGISTRY }}/biddaloy-landing:main
+          labels: org.opencontainers.image.revision=${{ github.sha }}

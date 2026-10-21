@@ -1,0 +1,29 @@
+name: GHCR retention
+
+# [Epic 79 #2794 W5] Weekly: keep the newest 30 versions of each image, delete the rest.
+# Every merge writes `:main` onto the newest version, so the `main` tag always sits inside the
+# kept 30; `ignore-versions` also spares any version whose name is `main`.
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  packages: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [biddaloy-app, biddaloy-backup, biddaloy-demo-reset, biddaloy-landing]
+    steps:
+      - uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55 # v5.0.0
+        with:
+          package-name: ${{ matrix.package }}
+          package-type: container
+          min-versions-to-keep: 30
+          delete-only-untagged-versions: false
+          ignore-versions: '^main$'

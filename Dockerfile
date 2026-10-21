@@ -37,7 +37,17 @@ RUN yarn install --frozen-lockfile --production --network-timeout 600000
 FROM base AS builder
 COPY --from=deps /app ./
 COPY . .
-RUN yarn build:shared && yarn build:server && yarn build:client-admin
+# Sentry source maps (W2): the token is a BuildKit secret, never an ARG or layer. No token = empty =
+# the vite plugin stays off and writes no maps. The plugin deletes maps after upload, so the image
+# never carries one. SENTRY_RELEASE = the commit SHA = the runtime release.
+ARG APP_VERSION=dev
+ARG SENTRY_ORG
+ARG SENTRY_PROJECT
+RUN --mount=type=secret,id=sentry_auth_token,required=false \
+    yarn build:shared && yarn build:server \
+    && export SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" \
+       SENTRY_RELEASE="$APP_VERSION" SENTRY_ORG="$SENTRY_ORG" SENTRY_PROJECT="$SENTRY_PROJECT" \
+    && yarn build:client-admin
 
 # ---- Runner (production) ----
 FROM base AS runner
