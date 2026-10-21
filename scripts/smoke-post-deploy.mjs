@@ -181,7 +181,7 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
           'X-Tenant-ID': m.tenantId,
           'X-Role': 'PARENT',
         },
-        body: { identifier: 'smoke@invalid.test' },
+        body: { identifier: 'smoke@invalid.test', scope: 'payments.reverse' },
         expect: 403,
       });
     }
