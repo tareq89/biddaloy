@@ -434,7 +434,8 @@ function zipEntries(buf: Buffer): Map<string, ZipEntry> {
   let p = buf.readUInt32LE(eocd + 16);
   const entries = new Map<string, ZipEntry>();
   for (let n = 0; n < count; n++) {
-    if (p + 46 > buf.length || buf.readUInt32LE(p) !== CEN_SIG) throw new Error('Bad zip directory');
+    if (p + 46 > buf.length || buf.readUInt32LE(p) !== CEN_SIG)
+      throw new Error('Bad zip directory');
     const method = buf.readUInt16LE(p + 10);
     const compressedSize = buf.readUInt32LE(p + 20);
     const nameLength = buf.readUInt16LE(p + 28);
@@ -442,7 +443,8 @@ function zipEntries(buf: Buffer): Map<string, ZipEntry> {
     const commentLength = buf.readUInt16LE(p + 32);
     const local = buf.readUInt32LE(p + 42);
     const path = buf.toString('utf8', p + 46, p + 46 + nameLength);
-    if (local + 30 > buf.length || buf.readUInt32LE(local) !== LOC_SIG) throw new Error('Bad zip entry');
+    if (local + 30 > buf.length || buf.readUInt32LE(local) !== LOC_SIG)
+      throw new Error('Bad zip entry');
     const dataStart = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
     if (dataStart + compressedSize > buf.length) throw new Error('Bad zip entry');
     entries.set(path, { method, dataStart, compressedSize });
@@ -454,7 +456,9 @@ function zipEntries(buf: Buffer): Map<string, ZipEntry> {
 /** The entry's inflated bytes as a stream. Nothing is copied: the deflated
  * slice is a view of the upload and inflates in 16 KB chunks. */
 function entryStream(buf: Buffer, entry: ZipEntry): Readable {
-  const deflated = Readable.from([buf.subarray(entry.dataStart, entry.dataStart + entry.compressedSize)]);
+  const deflated = Readable.from([
+    buf.subarray(entry.dataStart, entry.dataStart + entry.compressedSize),
+  ]);
   if (entry.method === ZIP_STORED) return deflated;
   if (entry.method !== ZIP_DEFLATED) throw new Error(`Unsupported zip method ${entry.method}`);
   return deflated.pipe(createInflateRaw());
