@@ -1,0 +1,8 @@
+---
+import type { Lang } from '../../i18n';
+import { copy, formatMoney, formatNumber, slabRows } from '../../content/pricing';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const c = copy[lang];
+---
+<div class="tablewrap" style="margin-top:1.5rem"><table><thead><tr><th>{c.thStudents}</th>{c.thMonths.map((h) => <th>{h}</th>)}</tr></thead><tbody>{slabRows().map((r) => <tr><th scope="row">{formatNumber(lang, r.students)}</th>{r.totals.map((t) => <td>{formatMoney(lang, t)}</td>)}</tr>)}</tbody></table></div>

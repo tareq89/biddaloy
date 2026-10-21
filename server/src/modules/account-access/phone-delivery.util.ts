@@ -14,7 +14,10 @@ export function toE164ish(phone: string): string {
   return p;
 }
 
-/** D31: SMS only to numbers whose canonical form starts with an allowed prefix (comma list, e.g. `+880`). */
+/**
+ * D31: SMS only to numbers whose canonical form starts with an allowed prefix (comma list, e.g. `+880`).
+ * Used by OTP login. Registration also gates on it, because the signup code is SMS-only (D6).
+ */
 export function isSmsAllowed(phone: string, allowedPrefixes: string): boolean {
   const e164 = toE164ish(phone);
   return allowedPrefixes

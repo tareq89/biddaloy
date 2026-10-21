@@ -1,0 +1,8 @@
+---
+import type { Lang } from '../../i18n';
+import { copy } from '../../content/pricing';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const c = copy[lang];
+---
+<div style="margin-top:2rem">{c.faq.map((f) => <details><summary>{f.q}</summary><p>{f.a}</p></details>)}</div>

@@ -1,0 +1,50 @@
+---
+import Base from '../../layouts/Base.astro';
+import { company } from '../../content/legal';
+import { LANGS, type Lang } from '../../i18n';
+export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang } }));
+const lang = Astro.params.lang as Lang;
+const bn = lang === 'bn';
+const title = bn ? 'গোপনীয়তা' : 'Privacy';
+const description = bn ? 'আপনার তথ্য, আমাদের দায়িত্ব: পাঁচটা অঙ্গীকার।' : 'Your data, our responsibility: five commitments.';
+// D37: five plain-language commitments. bn verbatim from the locked mockup; hourly backups carry শীঘ্রই until Epic 61 #1745 ships (D34).
+const soon = bn ? 'শীঘ্রই' : 'Coming soon';
+const items = bn ? [
+  { hue: 'teal', ic: '🌐', h: 'এই ওয়েবসাইট আপনার ব্যক্তিগত তথ্য নেয় না', p: 'পাতাটা কতবার দেখা হলো, শুধু সেটুকু গোনা হয়, কুকি ছাড়া, নিজের সার্ভারে (Umami)। আপনি "সব মেনে নিন" না দিলে কোনো তৃতীয় পক্ষের ট্র্যাকার চলে না। চ্যাটে যা লেখেন তা চ্যাট-সেবাদাতার সার্ভারে, বাংলাদেশের বাইরে, প্রক্রিয়া হয়, চ্যাট খুললেই শুধু।' },
+  { hue: 'indigo', ic: '🇧🇩', h: 'অ্যাপে আপনার তথ্য দেশের ভেতরে থাকে', p: 'স্কুলের সব তথ্য বাংলাদেশে অবস্থিত সার্ভারে রাখা হয়। প্রতিটা স্কুলের তথ্য আলাদা (tenant isolation): এক স্কুল আরেক স্কুলের কিছু দেখে না, এই দেয়াল সিস্টেমের ভেতরেই, প্রতিটা অনুরোধে যাচাই হয়।' },
+  { hue: 'amber', ic: '⏱', h: 'প্রতি ঘণ্টায় ব্যাকআপ', soon: true, p: 'ডেটাবেস ও আপলোড করা ফাইলের এনক্রিপ্টেড (age) কপি প্রতি ঘণ্টায় নেওয়া হয়, আলাদা, নিরাপদ স্টোরেজে; প্রতি সপ্তাহে রিস্টোর পরীক্ষা করে দেখা হয় কপিটা সত্যিই কাজ করে কি না।' },
+  { hue: 'coral', ic: '🚫', h: 'আমরা আপনার তথ্য বিক্রি করি না', p: 'ছাত্র, অভিভাবক বা শিক্ষকের কোনো তথ্য কখনো বিজ্ঞাপনদাতা বা অন্য কাউকে দেওয়া হয় না। SMS পাঠাতে যে গেটওয়ে ব্যবহার হয়, সে শুধু নম্বর আর বার্তাটুকু পায়। আপনার স্কুলের পুরো তথ্য যেকোনো সময় Excel-এ নামিয়ে নিতে পারেন; lock-in নেই।' },
+  { hue: 'indigo', ic: '🛡', h: 'হ্যাকারদের থেকে সুরক্ষা', p: '২৩টা লিখিত নিরাপত্তা নিয়ম, প্রতিটার জন্য কোডে স্বয়ংক্রিয় পরীক্ষা। সব যোগাযোগ TLS-এ (HTTPS); পাসওয়ার্ড bcrypt-এ হ্যাশ করা; সেশন টোকেন স্বল্পমেয়াদি, স্কুল সাসপেন্ড বা পাসওয়ার্ড রিসেট হলে সব সেশন তৎক্ষণাৎ বাতিল; পাবলিক ফর্মে বট-সুরক্ষা (Turnstile) ও rate limit; আপলোড করা ফাইল সিগনেচার দেখে যাচাই; সংবেদনশীল কাজে আবার OTP/পাসওয়ার্ড (step-up); প্রতিটা পরিবর্তনের audit log। সার্ভারে শুধু Cloudflare-এর মাধ্যমে ঢোকা যায়।' },
+] : [
+  { hue: 'teal', ic: '🌐', h: 'This website collects no personal data', p: 'Only page views are counted, without cookies, on our own server (Umami). Unless you choose "Accept all", no third-party tracker runs. What you type in the chat is processed on the chat provider’s servers, outside Bangladesh, and only once you open the chat.' },
+  { hue: 'indigo', ic: '🇧🇩', h: 'In the app, your data stays in the country', p: 'All school data is stored on servers located in Bangladesh. Each school’s data is separate (tenant isolation): one school never sees another’s; that wall is inside the system itself and is checked on every request.' },
+  { hue: 'amber', ic: '⏱', h: 'Hourly backups', soon: true, p: 'An encrypted (age) copy of the database and uploaded files is taken every hour into separate, secure storage; every week a restore is tested to confirm the copy really works.' },
+  { hue: 'coral', ic: '🚫', h: 'We do not sell your data', p: 'No student, guardian or teacher data is ever given to advertisers or anyone else. The SMS gateway receives only the number and the message. You can download your whole school’s data to Excel at any time; there is no lock-in.' },
+  { hue: 'indigo', ic: '🛡', h: 'Protection from attackers', p: '23 written security rules, each with an automated test in code. All traffic over TLS (HTTPS); passwords hashed with bcrypt; short-lived session tokens, and every session is revoked at once when a school is suspended or a password reset; bot protection (Turnstile) and rate limits on public forms; uploaded files checked by signature; OTP/password again for sensitive actions (step-up); an audit log of every change. The server is reachable only through Cloudflare.' },
+];
+---
+<Base lang={lang} title={title} description={description}>
+  <section><div class="wrap legal">
+    <p class="eyebrow">{title}</p>
+    <h1 class="h2">{bn ? 'আপনার তথ্য, আমাদের দায়িত্ব' : 'Your data, our responsibility'}</h1>
+    {items.map((it) => <>
+      <h2 class={`c-${it.hue}`}><span class="ic" aria-hidden="true">{it.ic}</span>{it.h}{it.soon && <span class="badge">{soon}</span>}</h2>
+      <p>{it.p}</p>
+    </>)}
+    <div class="commit"><p><b>{bn ? 'আমাদের অঙ্গীকার:' : 'Our commitment:'}</b> {bn
+      ? 'আপনার স্কুলের তথ্য আপনার। আমরা তা দেশের ভেতরে রাখি, এনক্রিপ্টেড ব্যাকআপ রাখি, কারো কাছে বিক্রি করি না, আর কেউ চুরি করতে না পারে সেজন্য প্রযুক্তিগত ব্যবস্থা প্রতিনিয়ত শক্ত করি। প্রশ্ন থাকলে: '
+      : 'Your school’s data is yours. We keep it inside the country, keep encrypted backups, never sell it to anyone, and keep hardening the technical measures so nobody can steal it. Questions: '}<a href={`mailto:${company.privacyEmail}`}>{company.privacyEmail}</a></p></div>
+  </div></section>
+</Base>
+<style>
+  section{padding-block:4rem}
+  .eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:.6rem}
+  .h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin-bottom:.6rem}
+  .legal{max-width:70ch}
+  .legal h2{margin-top:1.6rem;margin-bottom:.4rem;display:flex;gap:.6rem;align-items:center}
+  .legal p{color:var(--muted)}
+  .ic{width:32px;height:32px;border-radius:10px;background:var(--tint);color:var(--hue);display:grid;place-items:center;font-size:.9rem;flex:none;font-weight:700}
+  .badge{display:inline-block;font-size:.7rem;font-weight:600;letter-spacing:.03em;border-radius:999px;padding:.1rem .5rem;background:var(--amber-t);color:var(--amber);vertical-align:middle;margin-left:.3rem}
+  .commit{border:1px solid var(--line);border-radius:12px;padding:1.2rem;margin-top:1.5rem;background:var(--surface)}
+  .commit p{color:var(--fg)}
+</style>

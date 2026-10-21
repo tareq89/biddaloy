@@ -52,7 +52,9 @@ test.describe('tenant switch purges cached data', () => {
 
     await test.step('fill both caches with Default School data', async () => {
       await shell.navigateTo('nav.items.students');
-      await expect(page.getByRole('heading', { name: t('students.list.title') })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 1, name: t('students.list.title') }),
+      ).toBeVisible();
       await expect
         .poll(() => apiCacheKeysForTenant(page, tenantA).then((keys) => keys.length))
         .toBeGreaterThan(0);

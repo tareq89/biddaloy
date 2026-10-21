@@ -63,6 +63,7 @@ import {
   UserPlusIcon,
   UserRoundIcon,
   UsersRoundIcon,
+  WalletCardsIcon,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -129,10 +130,11 @@ export const STAFF_NAV_ICONS: Record<StaffNavItemId, LucideIcon> = {
   'administration.curriculumPreset': BlocksIcon,
 };
 
-/** The platform console's two pages (also appended to SUPER_ADMIN's staff sidebar). */
+/** The platform console's pages (also appended to SUPER_ADMIN's staff sidebar). */
 export const PLATFORM_NAV_ICONS = {
   '/schools': Building2Icon,
   '/holiday-sets': TreePalmIcon,
+  '/subscriptions': WalletCardsIcon,
 } as const;
 export const STAFF_PLATFORM_EXTRA_ICONS = PLATFORM_NAV_ICONS;
 

@@ -252,6 +252,11 @@ fails if `VITE_USE_MOCKS=true`.
 Docker too — see the README's "Production Build" / "Deploy to VPS"
 sections for that path.
 
+`landing/` (the Astro marketing site) is built separately by CI's `landing`
+job: `yarn workspace @biddaloy/landing build`, then
+`node landing/scripts/check-tokens.mjs` (token drift vs the app), then
+`landing/dist` is uploaded as artifact `landing-dist-<sha>` (30 days).
+
 **Images (GHCR).** `.github/workflows/publish-image.yml` runs on every merge
 to `main` and pushes three images, each tagged `<commit-sha>` and `main`.
 Production pulls, never builds.
@@ -326,7 +331,6 @@ bundle when it is built, so they are Docker build args, not runtime env.
 | `VITE_TURNSTILE_SITE_KEY`                              | client, build arg in the `Dockerfile`                           | no captcha widget is drawn                                               |
 | `SUPPORT_CONTACT_URL`                                  | server, at runtime                                              | no support link from the API                                             |
 | `VITE_SUPPORT_URL`                                     | client, build arg (Compose fills it from `SUPPORT_CONTACT_URL`) | no "Contact us" on the trial-ended screen                                |
-| `TRIAL_DAYS`, `TRIAL_SEAT_LIMIT`                       | server                                                          | 30 days, 10 students                                                     |
 | `OTP_SMS_ALLOWED_PREFIXES`                             | server                                                          | `+880`                                                                   |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | server                                                          | Google is not offered                                                    |
 

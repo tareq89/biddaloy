@@ -37,6 +37,7 @@ import * as React from 'react';
 
 import { CommandPaletteLauncher } from '../components/command-palette-launcher';
 import { PlatformAlertBanner } from '../components/platform-alert-banner';
+import { ReadOnlyNoticeGate } from '../components/read-only-notice';
 import { RestoreInProgressBar } from '../components/restore-in-progress-bar';
 import { StaffUserMenu } from '../components/staff-user-menu';
 import { useAttentionCenter } from '../features/attention/attention-center';
@@ -218,6 +219,7 @@ function StaffLayout() {
 
   const SchoolsIcon = PLATFORM_NAV_ICONS['/schools'];
   const HolidaySetsIcon = PLATFORM_NAV_ICONS['/holiday-sets'];
+  const SubscriptionsIcon = PLATFORM_NAV_ICONS['/subscriptions'];
 
   // [31.3.1]: each role's own bottom-bar cells. They are built from the
   // sidebar's own item defs, and `BottomNav` applies the same permission
@@ -283,6 +285,11 @@ function StaffLayout() {
                     to: '/holiday-sets',
                     label: t('items.platformHolidaySets'),
                     icon: <HolidaySetsIcon aria-hidden="true" />,
+                  },
+                  {
+                    to: '/subscriptions',
+                    label: t('items.platformSubscriptions'),
+                    icon: <SubscriptionsIcon aria-hidden="true" />,
                   },
                 ]
               : []),
@@ -395,6 +402,7 @@ function StaffLayout() {
             >
               <RestoreInProgressBar />
               <PlatformAlertBanner enabled={activeRole === UserRole.SUPER_ADMIN} />
+              {activeRole === UserRole.ADMIN && <ReadOnlyNoticeGate />}
               {attention.bar}
               {attention.modal}
               <TrialDetailsLanding />

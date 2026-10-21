@@ -1,6 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import {
   IsIn,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -236,14 +237,36 @@ class EnvironmentVariables {
   })
   PUBLIC_HOLIDAY_FETCH_TIMEOUT_MS?: string;
 
-  // Onboarding / trial [13.1.2]. All optional; defaults live where they are read.
+  // Billing [49.4]. Seats are free until this instant; checked in
+  // assertProductionConfig and parsed by billingFreeUntil().
   @IsOptional()
-  @Matches(POSITIVE_INTEGER, { message: 'TRIAL_DAYS must be a positive integer' })
-  TRIAL_DAYS?: string;
+  @IsISO8601({ strict: true })
+  BILLING_FREE_UNTIL?: string;
 
   @IsOptional()
-  @Matches(POSITIVE_INTEGER, { message: 'TRIAL_SEAT_LIMIT must be a positive integer' })
-  TRIAL_SEAT_LIMIT?: string;
+  @IsString()
+  BKASH_BASE_URL?: string;
+
+  // VAT registration number printed on seat receipts; unset = no VAT line (Epic 62 #1779).
+  @IsOptional()
+  @IsString()
+  BILLING_VAT_REGISTRATION?: string;
+
+  @IsOptional()
+  @IsString()
+  BKASH_APP_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  BKASH_APP_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  BKASH_USERNAME?: string;
+
+  @IsOptional()
+  @IsString()
+  BKASH_PASSWORD?: string;
 
   // Comma-separated phone prefixes OTP SMS may go to; default "+880".
   @IsOptional()
@@ -296,6 +319,13 @@ class EnvironmentVariables {
  * platform tenant from the database instead of assuming this id). Never
  * used in production (`seed.ts` refuses to run there). */
 export const DEV_SEED_PLATFORM_TENANT_ID = '00000000-0000-4000-8000-000000000001';
+
+export const BILLING_FREE_UNTIL_DEFAULT = '2027-01-01T00:00:00+06:00';
+
+/** Parsed BILLING_FREE_UNTIL (default 2027-01-01T00:00+06:00). */
+export function billingFreeUntil(raw = process.env.BILLING_FREE_UNTIL): Date {
+  return new Date(raw || BILLING_FREE_UNTIL_DEFAULT);
+}
 
 export function validate(config: Record<string, unknown>) {
   const validatedConfig = plainToInstance(EnvironmentVariables, config, {
@@ -369,6 +399,15 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
   }
   if (str('JWT_SECRET') && str('JWT_SECRET') === str('JWT_SECRET_PREVIOUS')) {
     problems.push('JWT_SECRET must differ from JWT_SECRET_PREVIOUS');
+  }
+
+  const freeUntil = str('BILLING_FREE_UNTIL');
+  // An offset (Z or +06:00) is required: without it the instant depends on the server's timezone.
+  if (
+    freeUntil &&
+    (Number.isNaN(Date.parse(freeUntil)) || !/(Z|[+-]\d{2}:?\d{2})$/i.test(freeUntil))
+  ) {
+    problems.push('BILLING_FREE_UNTIL must be an ISO-8601 date with an explicit offset');
   }
 
   for (const key of ['SETTINGS_ENCRYPTION_KEY', 'APP_BASE_URL', 'PUBLIC_APP_URL']) {

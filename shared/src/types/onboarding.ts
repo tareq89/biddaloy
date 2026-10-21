@@ -26,3 +26,7 @@ export interface OnboardingStatus {
 }
 
 export const TRIAL_EXPIRED_REASON = 'TRIAL_EXPIRED';
+
+// [49.4] status_reason values for billing suspensions (see TRIAL_EXPIRED_REASON).
+export const IDLE_REASON = 'IDLE';
+export const SEATS_EXPIRED_REASON = 'SEATS_EXPIRED';

@@ -82,6 +82,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'holidaySets' } },
     { label: { key: 'holidaySetDetail' }, dynamic: 'entity' },
   ],
+  '/_platform/subscriptions/': [{ label: { key: 'subscriptions' } }],
   '/_platform/schools/': [{ label: { key: 'schools' } }],
   '/_platform/schools/new': [{ label: { key: 'schools' } }, { label: { key: 'new' } }],
   '/_platform/schools/$schoolId': [

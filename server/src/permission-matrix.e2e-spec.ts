@@ -159,11 +159,39 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       '15.4.5 — platform route (SUPER_ADMIN suspend/reactivate), same rationale as GET /schools.',
   },
   {
-    controller: 'SchoolsController',
-    method: 'PATCH',
-    path: '/schools/:id/trial',
+    controller: 'PlatformBillingController',
+    method: 'GET',
+    path: '/platform/billing/schools',
     reason:
-      '[13.3.4] platform route (SUPER_ADMIN extends a trial, PlatformSuperAdminGuard), same rationale as GET /schools.',
+      "[49 W4] platform route (SUPER_ADMIN lists every school's seats and orders, PlatformSuperAdminGuard), same rationale as GET /schools.",
+  },
+  {
+    controller: 'PlatformBillingController',
+    method: 'GET',
+    path: '/platform/billing/schools/:id',
+    reason:
+      "[49 W4] platform route (SUPER_ADMIN reads one school's orders, PlatformSuperAdminGuard), same rationale as GET /schools.",
+  },
+  {
+    controller: 'PlatformBillingController',
+    method: 'POST',
+    path: '/platform/billing/orders/:id/offline-payment',
+    reason:
+      '[49 W4] platform route (SUPER_ADMIN records an offline payment, PlatformSuperAdminGuard), same rationale as GET /schools.',
+  },
+  {
+    controller: 'PlatformBillingController',
+    method: 'POST',
+    path: '/platform/billing/schools/:id/grant',
+    reason:
+      '[49 W4] platform route (SUPER_ADMIN grants seats, PlatformSuperAdminGuard), same rationale as GET /schools.',
+  },
+  {
+    controller: 'SchoolsController',
+    method: 'POST',
+    path: '/schools/:id/revive',
+    reason:
+      '[49.15] platform route (SUPER_ADMIN revives an idle school, PlatformSuperAdminGuard), same rationale as GET /schools.',
   },
   {
     controller: 'OnboardingController',

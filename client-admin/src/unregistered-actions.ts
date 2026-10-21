@@ -40,7 +40,19 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   },
   { file: `${R}_platform/holiday-sets/index.tsx`, reason: 'Platform console, pages-only palette' },
   {
-    file: `${R}_platform/schools/-detail/extend-trial-dialog.tsx`,
+    file: `${R}_platform/subscriptions/index.tsx`,
+    reason: 'Platform console, pages-only palette; the detail dialog acts on one school',
+  },
+  {
+    file: `${R}_platform/subscriptions/-detail/grant-seats-dialog.tsx`,
+    reason: 'Platform console; acts on one school',
+  },
+  {
+    file: `${R}_platform/subscriptions/-detail/record-payment-dialog.tsx`,
+    reason: 'Platform console; acts on one order',
+  },
+  {
+    file: `${R}_platform/subscriptions/-detail/revive-dialog.tsx`,
     reason: 'Platform console; acts on one school',
   },
   {

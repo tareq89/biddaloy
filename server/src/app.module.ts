@@ -81,6 +81,10 @@ import { AcrAssessment } from './modules/acr/entities/acr-assessment.entity';
 import { AcrScore } from './modules/acr/entities/acr-score.entity';
 import { StaffIncident } from './modules/incidents/entities/staff-incident.entity';
 import { Alert } from './modules/attention/entities/alert.entity';
+import { SeatOrder } from './modules/billing/entities/seat-order.entity';
+import { PlatformPayment } from './modules/billing/entities/platform-payment.entity';
+import { BillingModule } from './modules/billing/billing.module';
+import { IdleAccountModule } from './modules/billing/idle-account.module';
 import { PlatformAlert } from './modules/health/platform-alerts/platform-alert.entity';
 import { AlertRecipient } from './modules/attention/entities/alert-recipient.entity';
 import { Survey } from './modules/surveys/entities/survey.entity';
@@ -368,6 +372,8 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             Alert,
             AlertRecipient,
             PlatformAlert,
+            SeatOrder,
+            PlatformPayment,
             Survey,
             SurveyQuestion,
             SurveyTarget,
@@ -446,6 +452,8 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     FeeModule,
     InvoicesModule,
     CommunicationsModule,
+    BillingModule,
+    IdleAccountModule,
     SchoolsModule,
     AttendanceModule,
     RoutinesModule,

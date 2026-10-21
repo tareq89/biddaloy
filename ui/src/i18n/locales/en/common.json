@@ -149,7 +149,14 @@
   },
   "suspended": {
     "pageTitle": "This school has been suspended",
-    "pageExplanation": "Access is paused for this school. Contact your platform administrator to reactivate it."
+    "pageExplanation": "Access is paused for this school. Contact your platform administrator to reactivate it.",
+    "seatsTitle": "Your school is paused",
+    "seatsExplanation": "The paid seats of this school have ended. Your data is safe. Buy seats in Settings, Seats & billing and the school reopens immediately.",
+    "buySeats": "Buy seats"
+  },
+  "readOnly": {
+    "notice": "Read-only. The school pauses on {{date}}. Buy seats to keep it open.",
+    "buy": "Buy seats"
   },
   "sync": {
     "offline": "You're offline",

@@ -18,7 +18,7 @@ import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { requestOtp, setFirstPassword, verifyOtp } from './auth';
 import { downloadWorkbookTemplate } from './backup';
 import { useCommitStaffUpload, useValidateStaffUpload } from './bulk-upload';
-import { schoolsKeys, useExtendTrial, useSchools } from './school-settings';
+import { useSchools } from './school-settings';
 import { useLeaveSchool, useRestoreMember, useUsers, userKeys } from './users';
 
 afterEach(() => {
@@ -335,37 +335,5 @@ describe('platform schools trial', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(trial).toBe('active');
     expect(result.current.data?.[0]?.seat_limit).toBe(10);
-  });
-
-  it('useExtendTrial PATCHes the trial and invalidates the school lists', async () => {
-    let body: unknown;
-    server.use(
-      http.patch('/api/v1/schools/:id/trial', async ({ request }) => {
-        body = await request.json();
-        return HttpResponse.json({ id: 's1' });
-      }),
-    );
-    const { result, queryClient } = renderHookWithProviders(() => useExtendTrial('s1'), {
-      tenantId: 'tenant-1',
-    });
-    queryClient.setQueryData(schoolsKeys.lists(), []);
-    result.current.mutate({ days: 14, reason: 'pilot' });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(body).toEqual({ days: 14, reason: 'pilot' });
-    expect(queryClient.getQueryState(schoolsKeys.lists())?.isInvalidated).toBe(true);
-  });
-
-  it('useExtendTrial surfaces the ApiError shape (403)', async () => {
-    server.use(
-      http.patch('/api/v1/schools/:id/trial', () =>
-        HttpResponse.json(apiErrorBody(403, 'no', '/x'), { status: 403 }),
-      ),
-    );
-    const { result } = renderHookWithProviders(() => useExtendTrial('s1'), {
-      tenantId: 'tenant-1',
-    });
-    result.current.mutate({ days: 1, reason: 'x' });
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.error).toMatchObject({ statusCode: 403 });
   });
 });

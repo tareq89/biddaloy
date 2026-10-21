@@ -15,7 +15,7 @@ import { CommunicationProviderRegistryService } from '../../communications/provi
 import { AdminNoticeKey, NoticeLocale, NoticeVars, renderNotice } from './admin-notice-templates';
 
 /**
- * SMS + email to every ADMIN of a school (trial warnings, trial ended, welcome). Sent through the
+ * SMS + email to every ADMIN of a school (welcome). Sent through the
  * tenant's own provider, with the platform env fallback the providers already apply. One bad
  * address never blocks the rest; every attempt is logged in `communication_logs`.
  */
@@ -34,6 +34,7 @@ export class AdminNoticeService {
     schoolId: string,
     key: AdminNoticeKey,
     vars: Omit<NoticeVars, 'school'> = {},
+    opts: { emailOnly?: boolean } = {},
   ): Promise<void> {
     const school = await this.schools.findOne({ where: { id: schoolId } });
     if (!school) return;
@@ -51,7 +52,8 @@ export class AdminNoticeService {
       if (admin.user?.status !== UserStatus.ACTIVE) continue;
       const targets: { medium: CommunicationMedium; to: string | null | undefined }[] = [
         { medium: CommunicationMedium.EMAIL, to: admin.user?.email },
-        { medium: CommunicationMedium.SMS, to: admin.user?.phone },
+        // A receipt is not worth a metered SMS on the platform keys.
+        { medium: CommunicationMedium.SMS, to: opts.emailOnly ? null : admin.user?.phone },
       ];
       for (const { medium, to } of targets) {
         if (to) await this.send(schoolId, medium, to, admin.user.full_name, key, subject, body);
@@ -74,10 +76,7 @@ export class AdminNoticeService {
       const provider = this.registry.resolve(medium);
       if (provider) {
         // Platform notice to the school's own admins: may use the platform SMS keys (#2233, #2340).
-        const result = await provider.send(
-          { to, body, subject, allowPlatformSms: true },
-          tenantId,
-        );
+        const result = await provider.send({ to, body, subject, allowPlatformSms: true }, tenantId);
         if (result.success) {
           status = CommunicationStatus.SENT;
           providerMessageId = result.providerMessageId;

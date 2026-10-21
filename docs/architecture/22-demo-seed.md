@@ -77,8 +77,12 @@ because it derives alerts from everything before it.
 
 ```mermaid
 flowchart LR
-  org --> staff --> students --> student-extras --> routine --> attendance --> fees --> exams --> learning --> people-ops --> comms-print --> applications --> attention
+  org --> staff --> students --> student-extras --> routine --> attendance --> fees --> exams --> learning --> people-ops --> comms-print --> applications --> billing --> attention
 ```
+
+The `billing` slice (Epic 49) gives each of the three branches one PAID seat order (1,400 seats, 12 months, period
+anchor -6 months to +6 months) and one `OFFLINE_BANK` payment for the full amount (`seats * 12 * 1000` paisa).
+It leaves `schools.seat_limit` and `trial_ends_at` NULL, so the demo stays unlimited.
 
 ### The demo login cards (`DEMO_CARDS`)
 

@@ -25,6 +25,9 @@ import {
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   // [75.34] platform incident state; no FKs.
   'platform_alerts',
+  // [49.4] billing; payments FK orders, so they clear first.
+  'platform_payments',
+  'seat_orders',
   // [67.1.02] attention engine; recipients FK alerts, so they clear first.
   'alert_recipients',
   'alerts',

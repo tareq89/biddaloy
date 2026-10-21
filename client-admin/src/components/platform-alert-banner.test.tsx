@@ -1,12 +1,14 @@
 import '@biddaloy/ui/test';
 
-import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { cleanupTestState, renderWithProviders, renderWithRouter, server } from '@biddaloy/ui/test';
 import { focusManager } from '@tanstack/react-query';
+import { createRootRoute } from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PlatformAlertBanner } from './platform-alert-banner';
+import { ReadOnlyNotice, ReadOnlyNoticeGate } from './read-only-notice';
 
 const OPEN = { alerts: [{ kind: 'REDIS_DOWN', opened_at: '2026-10-13T08:02:00.000Z' }] };
 
@@ -144,5 +146,61 @@ describe('PlatformAlertBanner', () => {
 
     const notice = await screen.findByRole('status');
     expect(notice.textContent).toContain('থেকে Redis বন্ধ');
+  });
+});
+
+describe('ReadOnlyNotice', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  it('says when the school pauses and links to buy seats', async () => {
+    renderWithRouter(
+      createRootRoute({ component: () => <ReadOnlyNotice until="2026-12-07T18:00:00.000Z" /> }),
+      { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+    );
+    const notice = await screen.findByRole('status');
+    expect(notice.textContent).toMatch(
+      /^Read-only\. The school pauses on .+\. Buy seats to keep it open\./,
+    );
+    expect(screen.getByRole('link', { name: 'Buy seats' })).toBeTruthy();
+  });
+
+  const summary = (read_only_until: string | null) =>
+    http.get('/api/v1/billing/summary', () =>
+      HttpResponse.json({
+        free_until: '2026-12-31T18:00:00.000Z',
+        seats_bought: 10,
+        seats_used: 12,
+        paid_until: '2026-10-01',
+        read_only_until,
+        orders: [],
+      }),
+    );
+  const renderGate = () =>
+    renderWithRouter(createRootRoute({ component: ReadOnlyNoticeGate }), {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+    });
+
+  it('the gate shows the notice while the summary says the school is over its seats', async () => {
+    server.use(summary('2026-12-07T18:00:00.000Z'));
+    renderGate();
+    expect((await screen.findByRole('status')).textContent).toMatch(/^Read-only\./);
+  });
+
+  it('the gate shows nothing when the school is within its seats, or the request fails', async () => {
+    server.use(summary(null));
+    const { unmount } = renderGate();
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+    unmount();
+    server.use(
+      http.get('/api/v1/billing/summary', () =>
+        HttpResponse.json({ message: 'x' }, { status: 500 }),
+      ),
+    );
+    renderGate();
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
   });
 });

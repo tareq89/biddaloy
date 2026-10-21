@@ -9,6 +9,12 @@ function nodeTask(name, script) {
   return { name, command: process.execPath, args: ['-e', script] };
 }
 
+describe('buildLintCommand (full run)', () => {
+  it('includes the landing package lint', () => {
+    expect(buildLintCommand(false).args.join(' ')).toContain('@biddaloy/landing lint');
+  });
+});
+
 describe('runTasks', () => {
   it('exits ok with three checkmarks when every task passes', async () => {
     const lines = [];

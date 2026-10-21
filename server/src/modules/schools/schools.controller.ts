@@ -2,14 +2,15 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiForbiddenResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -25,14 +26,13 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { SETTINGS_RATE_LIMIT } from '../../rate-limit';
 import { requestContext } from '../../common/request-context.util';
-import { TrialService } from './trial/trial.service';
 import { SchoolsService } from './schools.service';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { assertCanManageSchool } from './assert-can-manage-school.util';
-import { ExtendTrialDto } from './dto/extend-trial.dto';
 import { ListSchoolsQueryDto, SchoolListItemDto } from './dto/school-list-item.dto';
 import { TenantSettingsResponseDto } from './dto/school-settings-response.dto';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
+import { ReviveSchoolDto } from './dto/revive-school.dto';
 import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
 @ApiTags('schools')
@@ -40,10 +40,7 @@ import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorat
 @Controller('schools')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class SchoolsController {
-  constructor(
-    private readonly schools: SchoolsService,
-    private readonly moduleRef: ModuleRef,
-  ) {}
+  constructor(private readonly schools: SchoolsService) {}
 
   @AuthenticatedOnly()
   @Get()
@@ -88,22 +85,21 @@ export class SchoolsController {
   }
 
   @AuthenticatedOnly()
-  @Patch(':id/trial')
+  @Post(':id/revive')
+  @HttpCode(200)
   @Roles(UserRole.SUPER_ADMIN)
   @UseGuards(PlatformSuperAdminGuard)
   @ApiOperation({
     summary:
-      'Extend a school trial by N days and optionally raise its seat limit (#1625). Platform SUPER_ADMIN only. An expired trial reactivates the school. Audited with the reason.',
+      'Revive a school paused or soft-deleted for having no students (Epic 49 D5). Platform SUPER_ADMIN only; within 90 days of the soft delete; audited REACTIVATE.',
   })
-  async extendTrial(
+  async revive(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ExtendTrialDto,
+    @Body() dto: ReviveSchoolDto,
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    // Looked up lazily: TrialModule -> CommunicationsModule -> SchoolsModule is a file-level import
-    // cycle, so SchoolsModule can't import TrialModule. TrialModule is registered in AppModule.
-    const trial = this.moduleRef.get(TrialService, { strict: false });
-    return trial.extend(id, dto, { userId: user.sub });
+    return this.schools.revive(id, dto, user.sub, requestContext(request));
   }
 
   @Get(':id/settings')

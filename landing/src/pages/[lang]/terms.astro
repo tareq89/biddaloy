@@ -1,0 +1,30 @@
+---
+import Base from '../../layouts/Base.astro';
+import { company } from '../../content/legal';
+import { LANGS, APP_URL, type Lang } from '../../i18n';
+export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang } }));
+const lang = Astro.params.lang as Lang;
+const bn = lang === 'bn';
+const title = bn ? 'শর্তাবলি' : 'Terms';
+const description = bn ? 'SchoolManager ব্যবহারের শর্ত; বাধ্যতামূলক শর্তাবলি অ্যাপের ভেতরে।' : 'Terms of using SchoolManager; the binding terms live inside the app.';
+// ponytail: in-app ToS (#1750) is the binding document; this page only points at it. URL is a placeholder until #1750 ships.
+const tos = `${APP_URL}/terms`;
+---
+<Base lang={lang} title={title} description={description}>
+  <section><div class="wrap legal">
+    <p class="eyebrow">{title}</p>
+    <h1 class="h2">{bn ? 'ব্যবহারের শর্তাবলি' : 'Terms of use'}</h1>
+    <p>{bn
+      ? 'SchoolManager ERP চালায় Biddaloy। এই ওয়েবসাইট শুধু তথ্যের জন্য; অ্যাপ ব্যবহারের বাধ্যতামূলক শর্তাবলি অ্যাকাউন্ট খোলার সময় অ্যাপের ভেতরে দেখানো হয় এবং সেটিই প্রযোজ্য।'
+      : 'SchoolManager ERP is operated by Biddaloy. This website is for information only; the binding terms of using the app are shown inside the app when an account is opened, and those are the ones that apply.'}</p>
+    <p><a class="btn secondary small" href={tos} target="_blank" rel="noopener">{bn ? 'অ্যাপের শর্তাবলি পড়ুন →' : 'Read the in-app terms →'}</a></p>
+    <p>{bn ? 'প্রশ্ন থাকলে: ' : 'Questions: '}<a href={`mailto:${company.email}`}>{company.email}</a></p>
+  </div></section>
+</Base>
+<style>
+  section{padding-block:4rem}
+  .eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:.6rem}
+  .h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin-bottom:.6rem}
+  .legal{max-width:70ch}
+  .legal p{color:var(--muted);margin-top:1rem}
+</style>

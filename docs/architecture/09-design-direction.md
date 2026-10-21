@@ -1662,3 +1662,60 @@ does not close them.
 The page grammar lives in [21-ui-patterns.md](21-ui-patterns.md): page archetypes,
 dialog versus full-page modal, states, buttons, formats. The lint guards that
 enforce part of it are listed in [15-ux-principles.md §2](15-ux-principles.md).
+
+## 19. Brand mark (landing site, Epic 50)
+
+> Numbered §19, not §15: §15 was already taken by "Route and action access states".
+
+The brand is two marks: the **wordmark** (name) and the **monogram** (small square).
+Both are SVG with the text already turned into paths, so no font is needed to show them.
+The tagline "by Biddaloy" is **never** inside an SVG. It is set in HTML.
+
+```mermaid
+flowchart LR
+  A[monogram.svg] --> B[favicon.svg, favicon-32.png, PWA icons]
+  C[wordmark.svg] --> D[site header, footer]
+  E[brand-export.mjs] --> F[og-bn.png, og-en.png]
+```
+
+Example, the wordmark on a light page (`School` ink, `Manager` indigo `#4a3fd4`, `ERP` in a rounded box):
+
+<svg xmlns="http://www.w3.org/2000/svg" width="260" viewBox="0 0 330 64" role="img" aria-label="SchoolManager ERP"><text x="0" y="44" font-size="40" font-weight="700" font-family="sans-serif"><tspan fill="#191919">School</tspan><tspan fill="#4a3fd4">Manager</tspan></text></svg>
+
+(The inline example uses live text for the doc only. Real pages use the SVG files.)
+
+### Which file where
+
+| File (in `landing/`)                                   | Use it for                                                   |
+| ------------------------------------------------------ | ------------------------------------------------------------ |
+| `src/assets/brand/wordmark.svg`                        | Header and footer on light backgrounds                       |
+| `src/assets/brand/wordmark-dark.svg`                   | Dark theme (ink becomes `#f5f5f4`, indigo becomes `#9aa0f5`) |
+| `src/assets/brand/wordmark-mono.svg`                   | One-colour print, stamps, watermarks                         |
+| `src/assets/brand/monogram.svg`, `public/favicon.svg`  | Favicon, small avatar                                        |
+| `public/favicon-32.png`, `public/apple-touch-icon.png` | Fallback icons                                               |
+| `public/icons/pwa-{192,512,maskable-512}.png`          | Web app manifest                                             |
+| `src/assets/og/og-{bn,en}.png`                         | Social preview (1200x630), one per language                  |
+
+The PNGs are generated and committed: `node landing/scripts/brand-export.mjs` from the repo root.
+The OG text uses a system fallback font until the site fonts are wired in. Re-run the script then.
+
+### Clear space and minimum size
+
+```text
++--------------------------------------------+
+|  x                                         |
+|  x  SchoolManager [ERP]                    |   x = height of the "S" cap
+|  x                                         |
++--------------------------------------------+
+```
+
+- Clear space on every side: at least the cap height of the "S" (about 0.6 of the wordmark height).
+- Minimum width: wordmark 120 px, monogram 16 px. Below 120 px use the monogram.
+- Maskable icon: the "SM" sits inside the central 60 %, because Android may crop 20 % off each edge.
+
+### Don'ts
+
+- Do not recolour "Manager" or the ERP box. Use the mono file if you need one colour.
+- Do not stretch, rotate, outline or add shadows.
+- Do not put "by Biddaloy" inside the SVG or merge it into the wordmark.
+- Do not type the name in another font. Use the SVG.

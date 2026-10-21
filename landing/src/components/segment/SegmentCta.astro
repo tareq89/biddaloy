@@ -1,0 +1,39 @@
+---
+import { APP_URL, DEMO_URL, type Lang } from '../../i18n';
+import type { Segment } from '../../content/segments';
+interface Props { lang: Lang; seg: Segment }
+const { lang, seg } = Astro.props;
+const bn = lang === 'bn';
+---
+<section>
+  <div class="wrap narrow">
+    <h2 class="h2">{bn ? 'যে প্রশ্নগুলো সবাই করেন' : 'Questions everyone asks'}</h2>
+    <div class="faq">
+      {seg.faq.map((f) => (
+        <details><summary>{f.q[lang]}</summary><p>{f.a[lang]}</p></details>
+      ))}
+    </div>
+  </div>
+</section>
+<section class="soft final">
+  <div class="wrap">
+    <h2 class="h2">{bn ? 'আগে নিজের চোখে দেখুন, তারপর সিদ্ধান্ত' : 'See it yourself first, then decide'}</h2>
+    <div class="ctas">
+      <a class="btn primary lg" href={`${APP_URL}/register`} target="_blank" rel="noopener">{bn ? 'ফ্রি অ্যাকাউন্ট খুলুন' : 'Open a free account'}</a>
+      <a class="btn secondary lg" href={DEMO_URL} target="_blank" rel="noopener">{bn ? '▶ ডেমো স্কুলে ঢুকুন' : '▶ Enter the demo school'}</a>
+      <span class="tiny">{bn ? '৩১ ডিসেম্বর ২০২৬ পর্যন্ত সব ছাত্র ফ্রি · কোনো কার্ড লাগে না' : 'Free for every student until 31 December 2026 · no card needed'}</span>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* from docs/architecture/assets/landing-mockup/landing-mockup-v5.html */
+  section{padding-block:4rem}section.soft{background:var(--surface)}
+  .h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin-bottom:.6rem}
+  .faq{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 2.5rem;margin-top:1rem}
+  @media (max-width:760px){.faq{grid-template-columns:1fr}}
+  details{border-top:1px solid var(--line);padding:.8rem 0}summary{cursor:pointer;font-weight:600}details p{color:var(--muted);margin-top:.4rem;max-width:65ch}
+  .final{text-align:center}.final .ctas{margin-top:1.2rem}
+  .ctas{display:flex;gap:.7rem;flex-wrap:wrap;justify-content:center;align-items:center}
+  .ctas .tiny{font-size:.85rem;color:var(--muted);width:100%;text-align:center}
+</style>

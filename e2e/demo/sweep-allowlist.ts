@@ -65,6 +65,7 @@ export const NOT_SWEPT: Record<string, string> = {
   '/schools/new': 'platform console: no demo card is a SUPER_ADMIN',
   '/holiday-sets': 'platform console: no demo card is a SUPER_ADMIN',
   '/holiday-sets/$setId': 'platform console: no demo card is a SUPER_ADMIN',
+  '/subscriptions': 'platform console: no demo card is a SUPER_ADMIN',
   '/i/$token': 'the seed stores only the share token hash, so no link can be rebuilt',
   '/v/$token': 'the seed stores only the ID card verify token hash, so no link can be rebuilt',
 };

@@ -42,9 +42,11 @@ at hand instead of loading the whole set.
 | [25-domain-invariants.md](25-domain-invariants.md) | Planning or reviewing any change to money, enrolment, results, attendance, tenancy or permissions — the rules that must always hold, and the code that enforces each one |
 | [26-dashboard.md](26-dashboard.md) | Working on `/dashboard`: role dashboards, widgets and the widget catalogue, adding a widget, the layout and digest preferences, the morning summary push, or committee aggregates |
 | [26-dashboard-load-test.md](26-dashboard-load-test.md) | Running or changing the manual 10,000-student dashboard load test (`load:seed`, `run-dashboard-load.ts`), or reading its p95-per-widget table |
+| [28-billing.md](28-billing.md) | Working on seat orders, the bKash pay step and its callback, the reconciler, the numbered receipt, or `platform_payments` |
 | [23-attention.md](23-attention.md) | Working on the attention bar/modal, alert rules, the to-do/history page, manual alerts, the alerts report, push mute/quiet hours, or the guardian SMS fallback |
 | [27-qa-audit-lessons.md](27-qa-audit-lessons.md) | You are fixing a bug found by QA, or closing a wave of Epic #2642 |
 | [28-platform-runbook.md](28-platform-runbook.md) | Running the servers: day-0 checklist, provisioning, first deploy, releases and rollback, alert thresholds and the verification log, backups and restore, secret rotation, growing or moving the VM |
+| [29-epic61-go-live.md](29-epic61-go-live.md) | Epic 61 is merged but unproven on a real host: the ordered owner steps, the checks that must pass before the closed issues count, and the follow-up gaps |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the _why_ behind the
