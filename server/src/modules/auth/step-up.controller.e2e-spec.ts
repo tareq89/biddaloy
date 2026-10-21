@@ -112,6 +112,14 @@ describe('StepUpController (e2e)', () => {
     await app.close();
   });
 
+  // The per-actor guess limit (5 per window) is shared by every verify in this file;
+  // without a reset the sixth verify by ACTOR_ID gets a 429 instead of the case under test.
+  beforeEach(async () => {
+    const redis = app.get<Redis>(STEP_UP_REDIS);
+    const stale = await redis.keys(`step-up-attempts:*${ACTOR_ID}*`);
+    await redis.del(`step-up-attempts:actor:${ACTOR_ID}`, ...stale);
+  });
+
   function authed(req: supertest.Test) {
     return req.set('Authorization', `Bearer ${actorToken}`).set('X-Tenant-ID', SEED_TENANT_ID);
   }
