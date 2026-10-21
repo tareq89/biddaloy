@@ -1,6 +1,7 @@
 # Managed by Ansible (provision.yml). One job per instance: biddaloy-nightly@<job>.service
 [Unit]
 Description=biddaloy nightly job %i
+Wants=network-online.target
 After=docker.service network-online.target
 Requires=docker.service
 

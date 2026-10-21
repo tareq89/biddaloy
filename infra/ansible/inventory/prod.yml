@@ -28,4 +28,7 @@ all:
     kuma_domain: kuma.schoolmanagerp.com
     beszel_domain: beszel.schoolmanagerp.com
     logs_domain: logs.schoolmanagerp.com
+    # Public key CI uses to run biddaloy-deploy (forced command, D12). Pinned here so every
+    # provision run keeps it. UNSET... = placeholder = no key installed yet.
+    github_deploy_pubkey_pinned: UNSET-paste-the-GitHub-Actions-deploy-public-key-here
     ops_host: "{{ groups['ops'][0] }}"

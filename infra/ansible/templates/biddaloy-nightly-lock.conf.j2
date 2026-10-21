@@ -1,0 +1,2 @@
+# Managed by Ansible (provision.yml). Host lock for nightly jobs and DB swaps.
+f {{ swap_lock_file }} 0664 {{ deploy_user }} {{ deploy_user }} -

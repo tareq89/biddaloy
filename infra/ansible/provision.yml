@@ -12,7 +12,14 @@
           - ansible_facts.distribution == 'Ubuntu'
           # ansible-core 2.18 (pinned for the VM) needs Python 3.11+
           - ansible_facts.distribution_version is version('24.04', '>=')
-        fail_msg: edge_mode must be tunnel or direct, and the host Ubuntu 24.04 or newer
+          # One plain key line: no options (command=, from=), no newline, no quotes. A
+          # smuggled option would otherwise ride along in front of the forced command.
+          - >-
+            not github_key_active
+            or (github_deploy_pubkey | trim) is match('^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( [A-Za-z0-9@._-]+)?$')
+        fail_msg: >-
+          edge_mode must be tunnel or direct, the host Ubuntu 24.04 or newer, and
+          github_deploy_pubkey a single "ssh-ed25519 <base64> [comment]" line with no options
       tags: always
     - name: Deploy user
       ansible.builtin.user:
@@ -27,10 +34,6 @@
       ansible.posix.authorized_key:
         user: '{{ deploy_user }}'
         key: '{{ operator_ssh_pubkey }}'
-    # Full sudo stays: this play (run by the operator key over SSH) and deploy.yml
-    # (become: root, run on the VM by biddaloy-deploy) both need root, and a
-    # command-list rule around ansible-playbook would be root-equivalent anyway.
-    # The GitHub key never gets a shell: it is a forced command (D12, below).
     # Full sudo stays: this play (run by the operator key over SSH) and deploy.yml
     # (become: root, run on the VM by biddaloy-deploy) both need root, and a
     # command-list rule around ansible-playbook would be root-equivalent anyway.
@@ -61,7 +64,7 @@
     - name: Only the operator keys and the GitHub forced-command key on deploy user
       ansible.posix.authorized_key:
         user: '{{ deploy_user }}'
-        key: '{{ deploy_authorized_keys }}'
+        key: "{{ deploy_authorized_keys | join('\n') }}"
         exclusive: true
   roles:
     - geerlingguy.security
@@ -71,7 +74,7 @@
     # first value it reads. Cloud images ship 50-cloud-init.conf with
     # PasswordAuthentication yes, which beats the role's sshd_config edits.
     # 00- sorts first; sshd -T then proves the effective values.
-    - name: sshd drop-in that wins over cloud-init's
+    - name: Sshd drop-in that wins over cloud-init's
       ansible.builtin.copy:
         dest: /etc/ssh/sshd_config.d/00-biddaloy.conf
         content: |
@@ -138,26 +141,50 @@
       community.general.timezone:
         name: '{{ host_timezone }}'
 
-    # 4 GB swap (W4). Made once; skipped when /swapfile exists.
+    # 4 GB swap (W4). The file is judged by what it is (type and size), not by
+    # whether it exists, so a half-made or wrong-sized file is repaired.
     - name: Swapfile status
       ansible.builtin.stat:
         path: /swapfile
       register: swapfile
-    - name: Create and format the swapfile
-      when: not swapfile.stat.exists
-      block:
-        - name: Allocate swapfile
-          ansible.builtin.command: fallocate -l {{ swap_size }} /swapfile
-          changed_when: true
-        - name: Swapfile root-only
-          ansible.builtin.file:
-            path: /swapfile
-            owner: root
-            group: root
-            mode: '0600'
-        - name: Format swapfile
-          ansible.builtin.command: mkswap /swapfile
-          changed_when: true
+    - name: Swapfile type
+      ansible.builtin.command: blkid -o value -s TYPE /swapfile
+      register: swapfile_type
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      when: swapfile.stat.exists
+    - name: Swap in use now
+      ansible.builtin.command: swapon --show=NAME --noheadings
+      register: swap_before
+      changed_when: false
+      check_mode: false
+    - name: Swapfile needs to be (re)made
+      ansible.builtin.set_fact:
+        swap_recreate: "{{ not swapfile.stat.exists or swapfile.stat.size != swap_bytes | int }}"
+    - name: Swap off before resizing
+      ansible.builtin.command: swapoff /swapfile
+      changed_when: true
+      when: swap_recreate and '/swapfile' in swap_before.stdout
+    - name: Remove the wrong-sized swapfile
+      ansible.builtin.file:
+        path: /swapfile
+        state: absent
+      when: swap_recreate
+    - name: Allocate swapfile
+      ansible.builtin.command: fallocate -l {{ swap_bytes }} /swapfile
+      changed_when: true
+      when: swap_recreate
+    - name: Swapfile root-only
+      ansible.builtin.file:
+        path: /swapfile
+        owner: root
+        group: root
+        mode: '0600'
+    - name: Format swapfile
+      ansible.builtin.command: mkswap /swapfile
+      changed_when: true
+      when: swap_recreate or (swapfile_type.stdout | default('')) != 'swap'
     - name: Swapfile in fstab
       ansible.posix.mount:
         path: none
@@ -165,7 +192,7 @@
         fstype: swap
         opts: sw
         state: present
-    - name: Active swap
+    - name: Swap in use after
       ansible.builtin.command: swapon --show=NAME --noheadings
       register: active_swap
       changed_when: false
@@ -203,9 +230,17 @@
         owner: '{{ deploy_user }}'
         group: '{{ deploy_user }}'
         mode: '0755'
+    - name: Pins for the venv's dependencies
+      ansible.builtin.copy:
+        dest: '{{ biddaloy_root }}/ansible/constraints.txt'
+        content: "{{ venv_constraints | join('\n') }}\n"
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '0644'
     - name: Ansible-core in a venv (pinned)
       ansible.builtin.pip:
         name: ansible-core=={{ ansible_core_version }}
+        extra_args: -c {{ biddaloy_root }}/ansible/constraints.txt
         virtualenv: '{{ biddaloy_root }}/ansible/venv'
         virtualenv_command: python3 -m venv
       become: true
@@ -336,12 +371,13 @@
         group: '{{ deploy_user }}'
         mode: '0600'
     - name: GitHub host key (pinned)
-      ansible.builtin.copy:
-        dest: '/home/{{ deploy_user }}/.ssh/known_hosts'
-        content: "github.com {{ github_ssh_host_key }}\n"
-        owner: '{{ deploy_user }}'
-        group: '{{ deploy_user }}'
-        mode: '0644'
+      ansible.builtin.known_hosts:
+        path: '/home/{{ deploy_user }}/.ssh/known_hosts'
+        name: github.com
+        key: 'github.com {{ github_ssh_host_key }}'
+        state: present
+      become: true
+      become_user: '{{ deploy_user }}'
     - name: Repo deploy public key
       ansible.builtin.slurp:
         src: '/home/{{ deploy_user }}/.ssh/github_repo.pub'
@@ -350,6 +386,17 @@
     # Nightly jobs (D11): host systemd timers; one host flock serialises them
     # with the deploy script's DB swaps (the swap flock inside containers is per
     # container). Persistent=false: a missed night is not replayed at boot.
+    # Created up front and owned by deploy, so root (a manual or W3 run) can flock it
+    # too under fs.protected_regular (root cannot open another user's file in /run/lock
+    # with O_CREAT).
+    - name: Lock file rule (systemd-tmpfiles)
+      ansible.builtin.template:
+        src: biddaloy-nightly-lock.conf.j2
+        dest: /etc/tmpfiles.d/biddaloy-nightly-lock.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Create tmpfiles
     - name: Nightly service
       ansible.builtin.template:
         src: biddaloy-nightly@.service.j2
@@ -367,6 +414,31 @@
         mode: '0644'
       loop: '{{ nightly_jobs }}'
       when: inventory_hostname == env_hosts[item.env]
+      notify: Systemd reload
+    - name: Nightly timer files present
+      ansible.builtin.stat:
+        path: '/etc/systemd/system/biddaloy-nightly@{{ item.job }}.timer'
+      loop: '{{ nightly_jobs }}'
+      loop_control:
+        label: '{{ item.job }}'
+      register: timer_files
+    - name: Nightly timers off (env moved to another host)
+      ansible.builtin.systemd_service:
+        name: 'biddaloy-nightly@{{ item.item.job }}.timer'
+        enabled: false
+        state: stopped
+      loop: '{{ timer_files.results }}'
+      loop_control:
+        label: '{{ item.item.job }}'
+      when: item.stat.exists and inventory_hostname != env_hosts[item.item.env]
+    - name: Nightly timer files removed (env moved to another host)
+      ansible.builtin.file:
+        path: '/etc/systemd/system/biddaloy-nightly@{{ item.job }}.timer'
+        state: absent
+      loop: '{{ nightly_jobs }}'
+      loop_control:
+        label: '{{ item.job }}'
+      when: inventory_hostname != env_hosts[item.env]
       notify: Systemd reload
     - name: Apply unit changes now
       ansible.builtin.meta: flush_handlers
@@ -439,6 +511,9 @@
           - 'Add it as a read-only deploy key on the GitHub repo (Settings > Deploy keys).'
 
   handlers:
+    - name: Create tmpfiles
+      ansible.builtin.command: systemd-tmpfiles --create /etc/tmpfiles.d/biddaloy-nightly-lock.conf
+      changed_when: true
     - name: Systemd reload
       ansible.builtin.systemd_service:
         daemon_reload: true
