@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { AdmitCardPicker } from '../../../components/print/admit-card-picker';
 import { copyPageLink, useIsWide } from '../../../components/print/desktop-only-gate';
 import { PrintPreview } from '../../../components/print/preview/print-preview';
+import { previewIdsNav } from '../../../components/print/preview-ids';
 import { PrintIdCardModal } from '../../../components/print/print-id-card-modal';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
@@ -62,6 +63,19 @@ function PrintPreviewPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const router = useRouter();
+  // [2704] Every picker hand-off goes through previewIdsNav: > 40 ids ride in history state, not the URL.
+  const showChosen = (ids: string[], extra: Partial<z.infer<typeof searchSchema>> = {}) => {
+    const nav = previewIdsNav(ids);
+    void navigate({
+      replace: true,
+      state: nav.state,
+      search: (prev) => {
+        const next = { ...prev, ...extra, pick: '1' as const, ...nav.search };
+        if (nav.search.ids === undefined) delete next.ids;
+        return next;
+      },
+    });
+  };
   const wide = useIsWide();
   // `from` is an in-app path checked by the schema, not a typed route.
   const close = useCloseFullPage(() => router.history.push(search.from ?? '/'));
@@ -115,9 +129,7 @@ function PrintPreviewPage() {
       <AdmitCardPicker
         examId={admitExam}
         onClose={close}
-        onConfirm={(ids) =>
-          void navigate({ replace: true, search: (prev) => ({ ...prev, pick: '1', ids }) })
-        }
+        onConfirm={(ids) => showChosen(ids.split(',').filter(Boolean))}
       />
     );
   }
@@ -128,20 +140,27 @@ function PrintPreviewPage() {
       <PrintIdCardModal
         initialType={search.subject_type}
         onClose={close}
-        onConfirm={(choice) =>
-          void navigate({
-            replace: true,
-            search: (prev) => ({
-              ...prev,
-              pick: '1',
-              kind: choice.subjectType === 'STAFF' ? 'STAFF_ID_CARD' : 'STUDENT_ID_CARD',
-              subject_type: choice.subjectType,
-              ...('classSectionId' in choice
-                ? { class_section_id: choice.classSectionId }
-                : { ids: choice.ids }),
-            }),
-          })
-        }
+        onConfirm={(choice) => {
+          const kind = choice.subjectType === 'STAFF' ? 'STAFF_ID_CARD' : 'STUDENT_ID_CARD';
+          // A section is one uuid, so it can stay in the URL; a list of people goes through the split.
+          if ('classSectionId' in choice) {
+            void navigate({
+              replace: true,
+              search: (prev) => ({
+                ...prev,
+                pick: '1',
+                kind,
+                subject_type: choice.subjectType,
+                class_section_id: choice.classSectionId,
+              }),
+            });
+            return;
+          }
+          showChosen(choice.ids.split(',').filter(Boolean), {
+            kind,
+            subject_type: choice.subjectType,
+          });
+        }}
       />
     );
   }

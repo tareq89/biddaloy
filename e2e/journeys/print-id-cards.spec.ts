@@ -137,6 +137,35 @@ test.describe('ACCOUNTANT prints a whole section', () => {
     });
   });
 
+  // [2704] The picker hands its choice to the preview through `previewIdsNav`: up to 40 ids in
+  // `?ids=`, more in history state. The e2e seed has 3 students per section, so only the <= 40
+  // branch is reachable here; the > 40 branch is covered by client-admin's print-routes.test.tsx.
+  test('the ID-card picker puts a short pick in the URL, and it survives a reload', async ({
+    page,
+  }) => {
+    await page.goto('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT');
+    await expect(
+      page.getByRole('heading', { level: 1, name: t('printPreview.picker.title') }),
+    ).toBeVisible();
+    await page.getByLabel(t('printPreview.picker.search')).fill(`Print E2E ${SUFFIX}`);
+    for (const n of ['01', '02']) {
+      await page.getByRole('checkbox', { name: `Print E2E ${SUFFIX} ${n}` }).check();
+    }
+    await page
+      .getByRole('button', { name: t('printPreview.picker.continue_other', { n: 2 }) })
+      .click();
+    const twoCards = page.getByText(
+      t('printPreview.header.batch', { current: 1, total: 1, count: 2 }),
+    );
+    await expect(twoCards).toBeVisible();
+    expect(new URL(page.url()).searchParams.get('ids')?.split(',').length ?? 0).toBeLessThanOrEqual(
+      40,
+    );
+
+    await page.reload();
+    await expect(twoCards).toBeVisible();
+  });
+
   test('on a phone, the preview says to use a computer', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 800 });
     await page.goto('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT');
