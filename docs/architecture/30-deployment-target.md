@@ -252,3 +252,53 @@ flowchart LR
 - Not run in this sub-wave (no Docker allowed): `docker/test/compose.infra.test.sh`, `nginx/test/*.infra.test.sh`, `scripts/backup/*.test.sh`, `scripts/demo/reset.infra.test.sh`. Run them at integration (`yarn ci:local` on Node 24). `cert-bootstrap` needs the `openssl` binary in the certbot image: unverified.
 - Old docs and Ansible still mention `TRUSTED_PROXY_CIDRS`, `trusted-proxies.sh`, `demo-docker-proxy`, `nginx/demo` (`docs/architecture/07-deployment.md`, `12-operations.md`, `22-demo-seed.md`, `infra/ansible/deploy.yml`). They go away in the later waves that replace that setup.
 - Issue #2792 steps 1 to 4 (`ci:local`, snapshots, `api:types`) are for the integration run.
+
+### Wave 2 (2026-10-22): staging scrub, staging refresh, DB swap, Ansible
+
+W2 added the nightly staging copy: prod backup in, scrub, `_next` database, swap. Four lanes built the pieces alone; the closing sub-wave checked the wiring between them.
+
+```mermaid
+flowchart LR
+  R2[(R2 daily backup<br/>read-only token)] --> RF[staging-refresh.sh<br/>in the jobs container]
+  RF -->|restore.sh| N[(biddaloy_staging_next)]
+  RF -->|scrub.sql, one transaction| N
+  N -->|host: migrate, then db-swap.sh| L[(biddaloy_staging)]
+  RF -. failure only .-> K[Kuma push: down]
+```
+
+#### What the reviews caught that mattered
+
+| Finding | Why it mattered | Rule that came out of it |
+|---|---|---|
+| The forced-command key line was built by joining parts with a newline. | One key could have carried a second `authorized_keys` line: a shell instead of the one command. | Build the line from one validated string, reject `\n` and `\r` in every part. |
+| `scrub.sql` passed on the fixture but real data broke a CHECK or a write-block trigger (override note, withdraw reason, frozen invoice snapshot). | The refresh would have failed every night on real rows. | A scrubbed value must satisfy the column's CHECK (`'[scrubbed]'`, not empty). Append-only triggers are lifted inside the scrub transaction only. |
+| Fake values were not unique (`user-1@...` style). | A UNIQUE index on email, phone or token hash would abort the whole transaction. | Fakes carry the whole row id (emails) or a per-table running number (phones). |
+| `config-check` still required variables of a compose file that was deleted. | `--env staging` would fail on a variable nothing reads. | `COMMON_REQUIRED` is pinned to the `:?` list of `deploy/stack.yml` by a spec. Change both together. |
+| Dependabot did not scan the stack images (#2811). | Image digests would never get update PRs. | Rename stack files to a name Dependabot reads (open). |
+| The `jobs` service never passed `STAGING_PASSWORD_HASH`, `SMOKE_SCHOOL_SLUG`, `PLATFORM_TENANT_ID`, `POSTGRES_*`, `STAGING_REFRESH_*`. | Found only here: each lane tested its own half. `staging-refresh.sh` would exit 2 on its first guard. | Fixed in `deploy/stack.yml`; the two new names are in all three example envs. `check-tracked-files.mjs` (drift guard) caught the missing example keys. |
+
+#### Decisions taken in the lanes (recommended option each time)
+
+- The staging password is one bcrypt cost-12 hash (`STAGING_PASSWORD_HASH`), made by the caller with the app's `hashPassword` (Rule 9). The script never hashes. Option rejected: `crypt()` in SQL (a second hash cost and format).
+- Contacts and free text are scrubbed; **dates of birth are shifted, not removed**, and **religion and blood group are kept**: the app needs them to behave like prod, and alone they do not identify a person. Revisit if the data-protection review says otherwise.
+- The refresh stops at a ready `_next` database. Migrations and the swap run on the host with the staging app image (W3.04), so the backup image never needs app code.
+- The lock is a file inside the container (`/run/lock/biddaloy-swap.lock`). `db-swap.sh` locks `/tmp/db-swap-<live>.lock`, also container-local. A host-wide lock needs a shared bind mount: W3.
+
+#### Open follow-ups
+
+- #2811: Dependabot filename for the stack files.
+- #2812: edge HSTS owner and the narrower cloudflared push bypass.
+- Ansible `venv_constraints` pins: installed clean with `ansible-core==2.18.6` on a scratch venv (Python 3.15, macOS). Not yet tried on the VM's own Python; a wheel missing for it is the likely failure.
+- The shared swap lock above.
+
+#### Never run yet (no Docker in the closing sub-wave)
+
+Run these once at integration (`yarn ci:local`, Node 24, Docker allowed):
+
+- `nginx/test/*.infra.test.sh`
+- `scripts/backup/db-swap.infra.test.sh`
+- `scripts/demo/reset.infra.test.sh`
+- `scripts/backup/staging-refresh.infra.test.sh`
+- the tail of `docker/test/compose.infra.test.sh`
+
+Done instead, without a daemon: `docker compose config` on prod (profiles `replica,backup`), staging, demo, edge tunnel, edge direct and ops with filled copies of the example envs (all parse); `ansible-playbook --syntax-check` on `provision.yml` and `deploy.yml` (prod and staging); the config-check, env.validation, runtime-config and security-headers specs; `check-tracked-files`; `staging-scrub.integration.spec.ts` (5 passed).

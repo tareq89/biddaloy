@@ -119,3 +119,26 @@ Neither script uses `set -x`, and neither prints `DATABASE_URL` or any key
 material to stdout/stderr. If you add debug output, log shape/status only
 ("upload ok", "12 objects found") — never a variable that could hold a
 credential.
+
+## staging-refresh.sh
+
+Builds tomorrow's staging database from last night's prod backup, scrubbed. Runs in the
+staging `jobs` container: `docker compose -p staging run --rm jobs /app/staging-refresh.sh`.
+It ends at a ready `<POSTGRES_DB>_next`; the host migrates it and calls `db-swap.sh`.
+
+```mermaid
+flowchart LR
+  A[guard] --> B[wait for<br/>db/daily/DAY.dump.age] --> C[create _next] --> D[restore.sh] --> E[scrub.sql] --> F[verify counts] --> G["staging_next ready"]
+```
+
+Needs (all passed by `deploy/stack.yml`, from `infra/secrets/staging.enc.env`):
+
+- `POSTGRES_DB` (must start `biddaloy_staging`), `POSTGRES_USER`, `POSTGRES_PASSWORD`
+- `BACKUP_S3_ENDPOINT` (https), `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`: the **read-only** R2 token
+- the age private key at `/run/age/key.txt` (`BACKUP_AGE_KEY_DIR` mounted read-only)
+- `STAGING_PASSWORD_HASH` (bcrypt cost 12), `SMOKE_SCHOOL_SLUG`, `PLATFORM_TENANT_ID` (uuid)
+- optional: `STAGING_REFRESH_PUSH_URL` (Kuma, failures only), `STAGING_REFRESH_DEADLINE` (HH:MM, default 02:50)
+
+Exit codes: `0` ready; `1` failed, staging untouched, a `down` push was sent; `2` refused
+(wrong database name, missing or malformed env). Output is step names and counts only.
+Example: `step 5/7: scrub` then `staging_next ready`.
