@@ -69,6 +69,7 @@ const feesSchema = z.object({
   approvalMode: z.enum(['OTP', 'OTP_OR_PASSWORD']),
   notifyOnManualGenerationDefault: z.boolean(),
   notifyOnScheduleDefault: z.boolean(),
+  requireSecondApprover: z.boolean(),
   lateFees: z.record(z.string(), lateFeeSchema),
 });
 
@@ -88,6 +89,7 @@ function toFormValues(fees: FeesSettings | undefined): FeesFormValues {
     approvalMode: fees?.approvalMode ?? 'OTP',
     notifyOnManualGenerationDefault: fees?.notifyOnManualGenerationDefault ?? false,
     notifyOnScheduleDefault: fees?.notifyOnScheduleDefault ?? true,
+    requireSecondApprover: fees?.requireSecondApprover ?? false,
     lateFees: Object.fromEntries(
       LATE_FEE_TYPES.map((type) => {
         const setting = fees?.late_fees?.[type];
@@ -140,6 +142,7 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
           approvalMode: values.approvalMode,
           notifyOnManualGenerationDefault: values.notifyOnManualGenerationDefault,
           notifyOnScheduleDefault: values.notifyOnScheduleDefault,
+          requireSecondApprover: values.requireSecondApprover,
           late_fees: lateFees,
         },
       },
@@ -150,8 +153,9 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
   const feeName = (type: string) => tFeeTypes(`feeTypes.${type}`, { ns: 'feeStructures' });
 
   const checkboxField = (
-    name: 'notifyOnScheduleDefault' | 'notifyOnManualGenerationDefault',
+    name: 'notifyOnScheduleDefault' | 'notifyOnManualGenerationDefault' | 'requireSecondApprover',
     label: string,
+    description?: string,
   ) => (
     <FormField
       control={form.control}
@@ -165,9 +169,12 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
               onCheckedChange={(checked) => field.onChange(checked === true)}
             />
           </FormControl>
-          <FormLabel htmlFor={`fees-${name}`} className="flex-1 self-stretch">
-            {label}
-          </FormLabel>
+          <div className="flex flex-1 flex-col">
+            <FormLabel htmlFor={`fees-${name}`} className="self-stretch">
+              {label}
+            </FormLabel>
+            {description ? <FormDescription>{description}</FormDescription> : null}
+          </div>
         </FormItem>
       )}
     />
@@ -319,6 +326,13 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
               </FormItem>
             )}
           />
+        </div>
+        <div className="mt-2 flex flex-col">
+          {checkboxField(
+            'requireSecondApprover',
+            t('fees.requireSecondApprover'),
+            t('fees.requireSecondApproverHelp'),
+          )}
         </div>
 
         <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">

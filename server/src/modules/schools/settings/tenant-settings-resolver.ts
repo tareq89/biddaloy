@@ -255,9 +255,17 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
   // `@IsIn` rejects a bad `approvalMode` on write; this covers a row that
   // got there some other way (predates the schema, hand-edited, restored).
   const overlaidFees = overlayOnDefaults(DEFAULT_FEES_SETTINGS, stored?.fees);
-  const fees = FEES_APPROVAL_MODES.includes(overlaidFees.approvalMode)
-    ? overlaidFees
-    : { ...overlaidFees, approvalMode: DEFAULT_FEES_SETTINGS.approvalMode };
+  // [78 D1] A non-boolean `requireSecondApprover` reads as the default
+  // (`false`), the same read guard `documents.withholdAdmitCardForDues` uses.
+  const fees = {
+    ...(FEES_APPROVAL_MODES.includes(overlaidFees.approvalMode)
+      ? overlaidFees
+      : { ...overlaidFees, approvalMode: DEFAULT_FEES_SETTINGS.approvalMode }),
+    requireSecondApprover:
+      typeof overlaidFees.requireSecondApprover === 'boolean'
+        ? overlaidFees.requireSecondApprover
+        : DEFAULT_FEES_SETTINGS.requireSecondApprover,
+  };
 
   // [35.1.2] No default: `preset` is absent until a preset is applied, so
   // "has a preset" is a truthiness check. Passed through only if stored.

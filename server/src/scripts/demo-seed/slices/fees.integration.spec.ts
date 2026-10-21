@@ -313,6 +313,19 @@ describe('fees slice (integration, 2 years, scale 0.1)', () => {
     expect(continued.length, 'branch-years with bulk and live invoices').toBeGreaterThan(0);
     for (const r of continued) expect(Number(r.live_min)).toBeGreaterThan(Number(r.bulk_max));
 
+    // [78 D1] The college branch requires a second approver; the others keep the default.
+    const branchSettings = await q<{ slug: string; settings: unknown }>(
+      `SELECT slug, settings FROM schools s WHERE ${DEMO} ORDER BY slug`,
+    );
+    const requireSecond = Object.fromEntries(
+      branchSettings.map((r) => [
+        r.slug,
+        resolveTenantSettings(r.settings as any).fees?.requireSecondApprover,
+      ]),
+    );
+    expect(requireSecond['bmsc-college']).toBe(true);
+    expect(requireSecond['bmsc-high']).toBe(false);
+
     // Three live share links. expires_at is computed in JS under the faked clock, so compare with that
     // clock, not the database's now() (that would start failing 30 days after the anchor).
     const links = await q(`SELECT 1 FROM invoice_share_tokens WHERE expires_at > $1::timestamptz`, [

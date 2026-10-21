@@ -63,6 +63,13 @@ export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReverseP
       ? (reversePayment.error.details as ReverseLaterPaymentsFirstDetails | undefined)?.payment_ids
       : undefined;
 
+  // [78 D1] The actor approved their own reversal but the school needs another person.
+  const secondApproverRequired =
+    reversePayment.error instanceof ApiError &&
+    reversePayment.error.statusCode === 403 &&
+    (reversePayment.error.details as { code?: string } | undefined)?.code ===
+      'SECOND_APPROVER_REQUIRED';
+
   function handleConfirm() {
     if (reasonInvalid) return;
     reversePayment.mutate(
@@ -132,7 +139,9 @@ export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReverseP
               </div>
             ) : (
               <p role="alert" className="text-sm text-destructive">
-                {t('detail.reverseDialog.errorMessage')}
+                {secondApproverRequired
+                  ? t('detail.reverseDialog.errorSecondApprover')
+                  : t('detail.reverseDialog.errorMessage')}
               </p>
             ))}
 

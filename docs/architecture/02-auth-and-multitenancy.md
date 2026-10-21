@@ -431,10 +431,29 @@ shows `approver_id = actor_id = Rahim`.
 A few things worth being explicit about, because they're easy to get wrong
 building a new gated route:
 
-- **The approver can be the acting user.** This is deliberate and pinned by
-  `step-up.controller.e2e-spec.ts` ("the actor may verify themselves as the
-  approver"); a school that wants a different person is a later setting, not
-  a code rule.
+- **The approver can be the acting user, but a reversal checks who else
+  could have approved.** Step-up itself lets the actor verify as their own
+  approver (pinned by `step-up.controller.e2e-spec.ts`, "the actor may verify
+  themselves as the approver"). `POST /payments/:id/reverse` then applies the
+  Epic 78 D1 rule in `PaymentReversalService` before any lock or money row:
+
+  ```mermaid
+  flowchart TD
+    A[approver == actor?] -- no --> OK[reversal runs<br/>audit self_approved: false]
+    A -- yes --> B{fees.requireSecondApprover on?}
+    B -- yes --> NO[403 SECOND_APPROVER_REQUIRED<br/>nothing changes]
+    B -- no --> C{another ACTIVE FEE_APPROVE holder<br/>in this school? SUPER_ADMIN does not count}
+    C -- yes --> NO
+    C -- no --> OK2[reversal runs<br/>audit self_approved: true]
+  ```
+
+  Example: Rahim is the only admin of his school and reverses a payment with
+  his own code. That runs, and the audit row says `self_approved: true`. Once
+  a second admin, Karim, joins, Rahim's own code is refused with
+  `403 { details: { code: "SECOND_APPROVER_REQUIRED" } }`; the approval token
+  is already spent, so he runs step-up again with Karim's code. A school can
+  also turn on **Always need a second admin to reverse a payment**
+  (`fees.requireSecondApprover`) to refuse self-approval even with one admin.
 - **Attempts are counted three ways** (Redis, 15-minute window, limit
   `STEP_UP_RATE_LIMIT_MAX_ATTEMPTS`, default 5). Every attempt counts, right
   or wrong, before the credential is checked. Any one over its limit is a 429.

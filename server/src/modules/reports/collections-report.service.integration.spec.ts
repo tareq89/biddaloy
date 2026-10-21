@@ -14,7 +14,12 @@ import {
 } from '@biddaloy/shared';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { createTestModule } from '@test/helpers/module.helper';
-import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
+import {
+  SEED_TENANT_ID,
+  SEED_SECTION_1_ID,
+  SEED_ACADEMIC_YEAR_ID,
+  SEED_ADMIN_USER_ID,
+} from '@test/constants';
 import { CollectionsReportService } from './collections-report.service';
 import { CollectionsReportDto } from './dto/collections-report.dto';
 import { Student } from '../students/entities/student.entity';
@@ -24,6 +29,7 @@ import { Payment } from '../fees/entities/payment.entity';
 import { PaymentAllocation } from '../fees/entities/payment-allocation.entity';
 import { User } from '../users/entities/user.entity';
 import { PaymentReversalService } from '../fees/payment-reversal.service';
+import { SchoolsService } from '../schools/schools.service';
 import { PaymentsQueryService } from '../fees/payments-query.service';
 import { WalletService } from '../fees/wallet.service';
 import { AuditService } from '../audit/audit.service';
@@ -63,6 +69,8 @@ describe('CollectionsReportService', () => {
       [
         CollectionsReportService,
         PaymentReversalService,
+        // [78 D1] PaymentReversalService reads fees.requireSecondApprover.
+        { provide: SchoolsService, useValue: { getResolvedSettings: async () => ({}) } },
         WalletService,
         AuditService,
         InvoicesService,
@@ -724,11 +732,13 @@ describe('CollectionsReportService', () => {
           discount_amount: 0,
         }),
       );
+      // [78 D1] Actor and approver differ: a self-approved reversal is refused
+      // once another ADMIN exists in the seed school (other specs add some).
       const reversal = await reversalService.reverse(
         payment.id,
         SEED_TENANT_ID,
         COLLECTOR_USER_ID,
-        COLLECTOR_USER_ID,
+        SEED_ADMIN_USER_ID,
         'repro',
       );
       await paymentRepo.update(reversal.id, { payment_date: new Date('2026-03-16T05:00:00Z') });

@@ -303,6 +303,8 @@
     "title": "Fee rules",
     "description": "Approval, telling families and late fees — for every fee bill.",
     "approvalModeHelp": "How an admin confirms once more before sensitive changes, such as changing late fees.",
+    "requireSecondApprover": "Always need a second admin to reverse a payment",
+    "requireSecondApproverHelp": "When off, an admin can approve their own reversal only if they are the school's only admin.",
     "lateFeeIntro": "Tick the fees that get a late fee.",
     "lateFeeType": "Fee type"
   },

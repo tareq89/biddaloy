@@ -744,6 +744,13 @@ export class FeesSettingsDto {
   @Min(1)
   @Max(60)
   fineDueDays?: number;
+
+  /** [Epic 78 D1] `true` = a payment reversal always needs a second person.
+   * Default `false`: self-approval is allowed only in a single-admin school. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  requireSecondApprover?: boolean;
 }
 
 /** [28.2.1] `settings.evaluations` — incident notification options. Absent = off. */

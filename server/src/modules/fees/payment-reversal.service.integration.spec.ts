@@ -13,7 +13,9 @@ import Redis from 'ioredis';
 import {
   PaymentReversalService,
   ReverseLaterPaymentsFirstException,
+  SecondApproverRequiredException,
 } from './payment-reversal.service';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { CheckoutService } from './checkout.service';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
@@ -56,6 +58,8 @@ import {
   PaymentStatus,
   WalletTransactionKind,
   AuditAction,
+  UserRole,
+  UserStatus,
 } from '@biddaloy/shared';
 
 /**
@@ -68,6 +72,9 @@ import {
  */
 
 const JWT_SECRET = 'test-reversal-secret';
+
+/** [78 D1] What the SchoolsService stub resolves; reset before every test. */
+let settings: Record<string, unknown> = {};
 const TENANT_ID = SEED_TENANT_ID;
 const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
 const ACTOR_USER_ID = SEED_ADMIN_USER_ID;
@@ -156,7 +163,7 @@ describe('PaymentReversalService (integration)', () => {
         PaymentReversalService,
         CheckoutService,
         { provide: getQueueToken(FEE_NOTIFY_QUEUE), useValue: { add: feeNotifyAdd } },
-        { provide: SchoolsService, useValue: { getResolvedSettings: async () => ({}) } },
+        { provide: SchoolsService, useValue: { getResolvedSettings: async () => settings } },
         WalletService,
         AuditService,
         InvoicesService,
@@ -239,6 +246,8 @@ describe('PaymentReversalService (integration)', () => {
   });
 
   beforeEach(async () => {
+    settings = {};
+    await dataSource.query('DELETE FROM user_tenants');
     await dataSource.query('DELETE FROM audit_logs');
     await dataSource.query('DELETE FROM wallet_transactions');
     await dataSource.query('DELETE FROM student_wallets');
@@ -308,6 +317,150 @@ describe('PaymentReversalService (integration)', () => {
     const reversalAllocations = await allocationRepo.find({ where: { payment_id: reversal.id } });
     expect(reversalAllocations).toHaveLength(1);
     expect(Number(reversalAllocations[0].allocated_amount)).toBe(1000);
+  });
+
+  // [78 D1] Self-approval is allowed only in a single-admin school, and never
+  // when the school asks for a second approver.
+  describe('self-approved reversal (78 D1)', () => {
+    let seq = 0;
+
+    async function paidPayment() {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+      seq += 1;
+      const { payment } = await checkoutService.checkout(
+        {
+          idempotency_key: `d1d1d1d1-d1d1-4d1d-8d1d-${String(seq).padStart(12, '0')}`,
+          lines: [{ student_fee_id: bill.id, amount: 1000, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
+        } as any,
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      return { payment, bill };
+    }
+
+    async function membership(
+      role: UserRole,
+      opts: { tenantId?: string; status?: UserStatus; deleted?: boolean } = {},
+    ) {
+      const userRepo = dataSource.getRepository(User);
+      seq += 1;
+      const user = await userRepo.save(
+        userRepo.create({
+          email: `second-approver-${seq}@example.com`,
+          full_name: 'Second Approver',
+          status: opts.status ?? UserStatus.ACTIVE,
+          password_hash: null,
+        }),
+      );
+      const membershipRepo = dataSource.getRepository(UserTenant);
+      const row = await membershipRepo.save(
+        membershipRepo.create({ user_id: user.id, tenant_id: opts.tenantId ?? TENANT_ID, role }),
+      );
+      if (opts.deleted) await membershipRepo.softDelete({ id: row.id });
+      return user;
+    }
+
+    async function expectRefused(paymentId: string, billId: string) {
+      await expect(
+        service.reverse(paymentId, TENANT_ID, ACTOR_USER_ID, ACTOR_USER_ID, 'self'),
+      ).rejects.toBeInstanceOf(SecondApproverRequiredException);
+      const original = await paymentRepo.findOneByOrFail({ id: paymentId });
+      expect(original.reversed_by_payment_id).toBeNull();
+      expect(await paymentRepo.count({ where: { reversal_of_payment_id: paymentId } })).toBe(0);
+      expect(Number((await studentFeeRepo.findOneByOrFail({ id: billId })).paid_amount)).toBe(1000);
+      expect(await dataSource.getRepository(WalletTransaction).count()).toBe(0);
+      expect(await auditLogRepo.count({ where: { entity_type: 'Payment', action: AuditAction.UPDATE } })).toBe(0);
+    }
+
+    it('single admin, setting absent: self-approval succeeds and the audit row says so', async () => {
+      const { payment } = await paidPayment();
+
+      await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, ACTOR_USER_ID, 'self');
+
+      const [row] = await auditLogRepo.find({
+        where: { entity_type: 'Payment', action: AuditAction.UPDATE },
+      });
+      expect(row.new_values).toMatchObject({
+        approved_by_user_id: row.performed_by_user_id,
+        self_approved: true,
+      });
+    });
+
+    it('a second ACTIVE ADMIN in the school: self-approval is refused and nothing changes', async () => {
+      await membership(UserRole.ADMIN);
+      const { payment, bill } = await paidPayment();
+
+      await expectRefused(payment.id, bill.id);
+      const error = await service
+        .reverse(payment.id, TENANT_ID, ACTOR_USER_ID, ACTOR_USER_ID, 'self')
+        .catch((e) => e);
+      expect(error.getResponse()).toEqual({
+        message: 'Another approver is needed for this reversal',
+        details: { code: 'SECOND_APPROVER_REQUIRED' },
+      });
+    });
+
+    it('a SUSPENDED second ADMIN does not count', async () => {
+      await membership(UserRole.ADMIN, { status: UserStatus.SUSPENDED });
+      const { payment } = await paidPayment();
+
+      await expect(
+        service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, ACTOR_USER_ID, 'self'),
+      ).resolves.toBeDefined();
+    });
+
+    it('a soft-deleted second ADMIN membership does not count', async () => {
+      await membership(UserRole.ADMIN, { deleted: true });
+      const { payment } = await paidPayment();
+
+      await expect(
+        service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, ACTOR_USER_ID, 'self'),
+      ).resolves.toBeDefined();
+    });
+
+    it("an ADMIN of a different school does not count (tenant isolation)", async () => {
+      await membership(UserRole.ADMIN, { tenantId: OTHER_TENANT_ID });
+      const { payment } = await paidPayment();
+
+      await expect(
+        service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, ACTOR_USER_ID, 'self'),
+      ).resolves.toBeDefined();
+    });
+
+    it('a SUPER_ADMIN membership in the school does not count (D23)', async () => {
+      await membership(UserRole.SUPER_ADMIN);
+      const { payment } = await paidPayment();
+
+      await expect(
+        service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, ACTOR_USER_ID, 'self'),
+      ).resolves.toBeDefined();
+    });
+
+    it('setting true with a single admin: self-approval is refused', async () => {
+      settings = { fees: { requireSecondApprover: true } };
+      const { payment, bill } = await paidPayment();
+
+      await expectRefused(payment.id, bill.id);
+    });
+
+    it('setting true with a distinct approver: succeeds with self_approved: false', async () => {
+      settings = { fees: { requireSecondApprover: true } };
+      const approver = await membership(UserRole.ADMIN);
+      const { payment } = await paidPayment();
+
+      await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, approver.id, 'other');
+
+      const [row] = await auditLogRepo.find({
+        where: { entity_type: 'Payment', action: AuditAction.UPDATE },
+      });
+      expect(row.new_values).toMatchObject({
+        approved_by_user_id: approver.id,
+        self_approved: false,
+      });
+    });
   });
 
   it('a committed reversal rechecks the fee alerts', async () => {

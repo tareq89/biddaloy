@@ -386,6 +386,24 @@ describe('resolveTenantSettings', () => {
     });
   });
 
+  describe('fees.requireSecondApprover (78 D1)', () => {
+    it('absent resolves to false', () => {
+      expect(resolveTenantSettings({}).fees?.requireSecondApprover).toBe(false);
+      expect(resolveTenantSettings({ fees: {} }).fees?.requireSecondApprover).toBe(false);
+    });
+    it('a stored true stays true', () => {
+      expect(
+        resolveTenantSettings({ fees: { requireSecondApprover: true } }).fees?.requireSecondApprover,
+      ).toBe(true);
+    });
+    it('a stored non-boolean falls back to false', () => {
+      expect(
+        resolveTenantSettings({ fees: { requireSecondApprover: 'yes' } }).fees
+          ?.requireSecondApprover,
+      ).toBe(false);
+    });
+  });
+
   it('a school unset returns the default otpLoginEnabled=true, and a stored false overrides it', () => {
     expect(resolveTenantSettings(null).auth?.otpLoginEnabled).toBe(true);
     expect(resolveTenantSettings({ auth: { otpLoginEnabled: false } }).auth?.otpLoginEnabled).toBe(

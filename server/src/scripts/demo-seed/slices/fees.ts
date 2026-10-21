@@ -694,6 +694,17 @@ export const slice: DemoSlice = {
           }),
         ],
       );
+      // [78 D1] Only the college branch asks for a second approver, so the demo
+      // admin (ADMIN of all three branches) sees both behaviours: in bmsc-high
+      // their own code reverses a payment; in bmsc-college it is refused.
+      if (t.slug === 'bmsc-college') {
+        await ctx.ds.query(
+          `UPDATE schools SET settings = COALESCE(settings, '{}'::jsonb) || jsonb_build_object('fees',
+             COALESCE(settings->'fees', '{}'::jsonb) || jsonb_build_object('requireSecondApprover', true))
+            WHERE id = $1`,
+          [t.id],
+        );
+      }
       const sweep = await ctx.app
         .get(FineSweepService)
         .generate(t.id, adminId, prevMonth, {}, DuplicateStrategy.SKIP, false, request, ctx.anchor);

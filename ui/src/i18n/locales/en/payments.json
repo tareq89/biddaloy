@@ -147,6 +147,7 @@
       "reasonLabel": "Reason",
       "confirm": "Reverse payment",
       "errorMessage": "Reversing this payment failed.",
+      "errorSecondApprover": "Another admin must approve this reversal. Ask them to enter their code.",
       "errorLaterPayments": "Later payments must be reversed first:",
       "laterPaymentLink": "Later payment {{n}}"
     },
