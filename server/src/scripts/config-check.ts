@@ -20,7 +20,9 @@ import { requireDocsCredentials } from '../swagger';
  * DB_SSL (db-ssl.ts), the SETTINGS_ENCRYPTION_KEY(_PREVIOUS) shape (encryption-key.ts),
  * the APP_BASE_URL / PUBLIC_APP_URL https checks the link builders run, and
  * the ENABLE_API_DOCS credentials check (main.ts).
- * `--env staging` adds the no-real-provider rules (runStagingConfigCheck).
+ * `--env prod|staging|demo` adds that stack's rules (runStackConfigCheck): required vars, ENV_NAME,
+ * no prod database or bucket outside prod, DEMO_MODE, the Turnstile key pair. From the app image:
+ * `node server/dist/scripts/config-check.js --env <e> --file /dev/stdin`.
  * Every failing check is listed. Error text names variables only, never
  * their values.
  */
@@ -68,46 +70,94 @@ export const TURNSTILE_TEST_SECRET = '1x0000000000000000000000000000000AA';
 // Every variable that can reach a real SMS / WhatsApp / email / push provider (.env.example).
 const PROVIDER_VAR = /^(SMS_|MIMSMS_|GREENWEB_|WHATSAPP_|SMTP_|VAPID_|PLATFORM_SMS_)/;
 
+export type Stack = 'prod' | 'staging' | 'demo';
+
 /**
- * What docker-compose.staging.yml sets for `app`, whatever the host `.env` says. The host
- * `.env` is a compose-side file: these never come from it. config-check.spec.ts keeps this
- * equal to the overlay, so the check judges the env the container really gets.
+ * What deploy/stack.yml hands the app that the host `.env` does not hold: the database URL is
+ * built from POSTGRES_*, and the bucket falls back to the prod default. The check judges the
+ * env the container really gets.
  */
-export function stagingAppEnv(env: Record<string, unknown>): Record<string, string> {
+export function composeAppEnv(env: Record<string, unknown>): Record<string, unknown> {
+  const str = (k: string) => String(env[k] ?? '');
   return {
-    DEMO_MODE: 'true',
-    DATABASE_URL: `postgres://${String(env.POSTGRES_USER ?? '')}:${String(env.POSTGRES_PASSWORD ?? '')}@db:5432/biddaloy_staging`,
-    S3_BUCKET: 'biddaloy-staging',
-    PLATFORM_SMS_API_KEY: '',
-    PLATFORM_ALERT_PHONES: '',
+    DATABASE_URL: `postgres://${str('POSTGRES_USER')}:${str('POSTGRES_PASSWORD')}@db:5432/${str('POSTGRES_DB')}`,
+    ...env,
+    S3_BUCKET: str('S3_BUCKET') || 'biddaloy',
+    DB_SSL: 'true', // hardcoded in deploy/stack.yml
   };
 }
 
+// The `:?` variables of deploy/stack.yml for every stack, plus what each stack adds
+// (a spec keeps the common part equal to the compose file).
+export const COMMON_REQUIRED = [
+  'ENV_NAME',
+  'APP_VERSION',
+  'POSTGRES_USER',
+  'POSTGRES_DB',
+  'POSTGRES_PASSWORD',
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
+];
+const EXTRA_REQUIRED: Record<Stack, string[]> = {
+  prod: ['BACKUP_AGE_PUBLIC_KEY'],
+  staging: ['STAGING_PASSWORD'],
+  demo: ['DEMO_PASSWORD'],
+};
+
 /**
- * `--env staging` (D25): the production checks on the env the staging container gets (the
- * host file plus the overlay's own values, so DEMO_MODE=true and the staging bucket are a
- * given), plus staging must not be able to message anyone.
- * Provider variables are judged on the host file itself: a key there is refused even where
- * the overlay would blank it. Names variables only, never values.
+ * `--env prod|staging|demo`: the production checks on the env the container gets, plus the
+ * rules of that stack. Provider variables are judged on the host file itself. Names variables
+ * only, never values.
  */
-export function runStagingConfigCheck(env: Record<string, unknown>): {
-  ok: boolean;
-  output: string;
-} {
-  const container: Record<string, unknown> = { ...env, ...stagingAppEnv(env) };
-  const prod = runProductionConfigCheck(container);
-  const set = (k: string) => typeof env[k] === 'string' && env[k] !== '';
-  const errors = [
-    ...Object.keys(env)
-      .filter((k) => (PROVIDER_VAR.test(k) || k === 'PLATFORM_ALERT_PHONES') && set(k))
-      .map((k) => `${k} must be empty on staging (no real SMS / WhatsApp / email / push provider)`),
-    // The db container creates POSTGRES_DB; the app connects to biddaloy_staging.
-    ...(env.POSTGRES_DB === 'biddaloy_staging' ? [] : ['POSTGRES_DB must be biddaloy_staging']),
-    ...(env.TURNSTILE_SECRET_KEY === TURNSTILE_TEST_SECRET
-      ? []
-      : ["TURNSTILE_SECRET_KEY must be Cloudflare's always-pass test secret on staging"]),
+export function runStackConfigCheck(
+  stack: Stack,
+  env: Record<string, unknown>,
+): { ok: boolean; output: string } {
+  const base = runProductionConfigCheck(composeAppEnv(env));
+  const val = (k: string) => (typeof env[k] === 'string' ? (env[k] as string) : '');
+  const set = (k: string) => val(k) !== '';
+  const errors: string[] = [
+    ...[...COMMON_REQUIRED, ...EXTRA_REQUIRED[stack]]
+      .filter((k) => !set(k))
+      .map((k) => `${k} must be set`),
+    ...(set('ENV_NAME') && val('ENV_NAME') !== stack ? [`ENV_NAME must be ${stack}`] : []),
+    // Both Turnstile keys or neither: a lone key breaks or silently disables the public forms.
+    ...(set('TURNSTILE_SITE_KEY') !== set('TURNSTILE_SECRET_KEY')
+      ? ['TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together']
+      : []),
   ];
-  const all = [...(prod.ok ? [] : [prod.output]), ...errors];
+  if (stack === 'prod' && val('DEMO_MODE') === 'true') {
+    errors.push('DEMO_MODE must not be true on prod');
+  }
+  if (stack !== 'prod') {
+    // A non-prod stack must not touch a prod resource: it has its own database and bucket.
+    if (set('POSTGRES_DB') && val('POSTGRES_DB') !== `biddaloy_${stack}`) {
+      errors.push(`POSTGRES_DB must be biddaloy_${stack}`);
+    }
+    if (!val('S3_BUCKET').includes(stack)) {
+      errors.push(`S3_BUCKET must contain "${stack}" (never the prod bucket)`);
+    }
+  }
+  if (stack === 'staging') {
+    // Prod data is refused under demo mode (demo-boot-check.ts), so staging runs with it off.
+    if (val('DEMO_MODE') !== 'false') errors.push('DEMO_MODE must be false on staging');
+    if (set('STAGING_PASSWORD') && val('STAGING_PASSWORD').length < 12) {
+      errors.push('STAGING_PASSWORD must be at least 12 characters');
+    }
+    errors.push(
+      ...Object.keys(env)
+        .filter((k) => (PROVIDER_VAR.test(k) || k === 'PLATFORM_ALERT_PHONES') && set(k))
+        .map(
+          (k) => `${k} must be empty on staging (no real SMS / WhatsApp / email / push provider)`,
+        ),
+    );
+    if (set('TURNSTILE_SECRET_KEY') && val('TURNSTILE_SECRET_KEY') !== TURNSTILE_TEST_SECRET) {
+      errors.push("TURNSTILE_SECRET_KEY must be Cloudflare's always-pass test secret on staging");
+    }
+  }
+  if (stack === 'demo' && val('DEMO_MODE') !== 'true')
+    errors.push('DEMO_MODE must be true on demo');
+  const all = [...(base.ok ? [] : [base.output]), ...errors];
   return all.length === 0
     ? { ok: true, output: 'config ok' }
     : { ok: false, output: all.join('\n') };
@@ -131,13 +181,11 @@ if (require.main === module) {
   const file = arg('--file');
   if (!file) config({ path: resolve(__dirname, '..', '..', '..', '.env') });
   const target = arg('--env') ?? 'prod';
-  if (target !== 'prod' && target !== 'staging') {
-    console.error('Usage: config:check [--env prod|staging]');
+  if (target !== 'prod' && target !== 'staging' && target !== 'demo') {
+    console.error('Usage: config:check [--env prod|staging|demo] [--file <path>]');
     process.exit(2);
   }
-  const { ok, output } = (target === 'staging' ? runStagingConfigCheck : runProductionConfigCheck)(
-    loadEnvFile(file, process.env),
-  );
+  const { ok, output } = runStackConfigCheck(target, loadEnvFile(file, process.env));
   (ok ? console.log : console.error)(output);
   process.exit(ok ? 0 : 1);
 }

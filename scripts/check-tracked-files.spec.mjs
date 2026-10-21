@@ -1,7 +1,12 @@
 // [75.28] Pure-function cases plus one check against the real tracked tree.
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { findBadContent, findForbidden, readText } from './check-tracked-files.mjs';
+import {
+  findBadContent,
+  findComposeDrift,
+  findForbidden,
+  readText,
+} from './check-tracked-files.mjs';
 
 describe('findForbidden', () => {
   it.each([['.env'], ['server/.env'], ['.env.production']])('flags %s', (p) => {
@@ -191,5 +196,29 @@ describe('findBadContent', () => {
       run('scripts/backup/README.md', '# Private key: AGE-SECRET-KEY-1... stored offline'),
     ).toEqual([]);
     expect(run('img.png', null)).toEqual([]);
+  });
+});
+
+describe('findComposeDrift', () => {
+  const files = {
+    'deploy/ops.yml': 'memory: ${KUMA_MEM:-384m}\nx: ${OPS_DIR:?set}/y\n',
+    'infra/secrets/ops.example.env': 'KUMA_MEM=\n',
+  };
+  const read = (f) => files[f] ?? null;
+
+  it('passes when the example lists the var (OPS_DIR is set by the deploy)', () => {
+    expect(findComposeDrift(read)).toEqual([]);
+  });
+
+  it('names a compose var its example does not list', () => {
+    const drift = findComposeDrift((f) =>
+      f === 'infra/secrets/ops.example.env' ? '# none\n' : read(f),
+    );
+    expect(drift).toHaveLength(1);
+    expect(drift[0]).toContain('KUMA_MEM');
+  });
+
+  it('holds for the real deploy files', () => {
+    expect(findComposeDrift(readText)).toEqual([]);
   });
 });
