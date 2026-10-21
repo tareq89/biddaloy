@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+# Deploy one version of one stack on this host (Epic 79.0, D21).
+#
+#   biddaloy-deploy <prod|staging|demo|edge|ops|all> <40-hex sha> [--hotfix "reason"] [--skip-backup]
+#   biddaloy-deploy --last-ok <stack>     prints the last ok sha of that stack, nothing else
+#   biddaloy-deploy --from-github         forced command for GitHub's key; reads $SSH_ORIGINAL_COMMAND
+#
+# Exit codes: 0 ok, 1 deploy failed, 2 refused (bad input), 75 another deploy holds the lock.
+#
+# SECURITY: the --from-github path is the only thing a GitHub-held SSH key can run on
+# this host. Input is matched against anchored regexes and never reaches eval or a shell
+# string; the hotfix reason is limited to a small charset and handed to ansible in a file.
+# On that path the sha must also be an ancestor of origin/main.
+#
+# Ansible runs detached (own session) and writes /opt/biddaloy/logs/<stack>-last-deploy.log.
+# This script only tails that log, so a dropped SSH session cannot kill a deploy half way.
+set -euo pipefail
+# The regex classes below must be byte-wise. Not exported: ansible gets its own locale.
+LC_ALL=C
+export -n LC_ALL
+
+ROOT="${BIDDALOY_ROOT:-/opt/biddaloy}"
+REPO="$ROOT/repo"
+LOCK="$ROOT/deploy.lock"
+LOGS="$ROOT/logs"
+REPO_URL="git@github.com:tareq89/biddaloy.git"
+STACKS="prod staging demo edge ops"
+SHA_RE='^[0-9a-f]{40}$'
+REASON_RE='^[A-Za-z0-9 .,:_/-]{3,200}$'
+FROM_GITHUB_RE='^(prod|staging|demo|edge|ops) ([0-9a-f]{40})( --hotfix "([A-Za-z0-9 .,:_/-]{3,200})")?$'
+LAST_OK_RE='^--last-ok (staging|prod)$'
+HF_TMP=""
+
+refuse() { echo "refusing: $1" >&2; exit 2; }
+
+failed() { # failed <at> <why> <next>
+  printf 'FAILED at: %s\nWhy: %s\nNext: %s\n' "$1" "$2" "$3" >&2
+}
+
+is_stack() { case " $STACKS " in *" $1 "*) return 0 ;; esac; return 1; }
+
+# deploys.log reads fail closed: a log that exists but cannot be read is an error, not "empty".
+last_ok() { # last_ok <stack>: last ok sha in that stack's deploys.log, or nothing
+  local f="$ROOT/$1/deploys.log"
+  [ -e "$f" ] || return 0
+  [ -r "$f" ] || return 1
+  awk -v s="$1" '$2 == s && $4 == "ok" && length($3) == 40 && $3 !~ /[^0-9a-f]/ { v = $3 } END { if (v != "") print v }' "$f"
+}
+
+staging_ok() { # staging_ok <sha>: 0 only when staging has a readable log with an ok line for it
+  local f="$ROOT/staging/deploys.log"
+  [ -r "$f" ] || return 1
+  awk -v v="$1" '$2 == "staging" && $3 == v && $4 == "ok" { f = 1 } END { exit !f }' "$f"
+}
+
+ensure_repo() { # clone the first time, then fetch
+  if [ ! -d "$REPO/.git" ]; then
+    git clone --quiet "$REPO_URL" "$REPO" \
+      || { failed "clone" "could not clone $REPO_URL" "check the repo deploy key (provision step P16), then retry"; return 1; }
+  fi
+  git -C "$REPO" fetch --quiet --prune origin \
+    || { failed "fetch" "git fetch origin failed" "check the network and the repo deploy key, then retry"; return 1; }
+}
+
+# shellcheck disable=SC2329  # used by trap
+cleanup_hf() { if [ -n "$HF_TMP" ]; then rm -f "$HF_TMP"; fi; }
+
+deploy_one() { # deploy_one <stack> <sha> <hotfix or ""> <skip_backup 0|1>
+  local stack="$1" sha="$2" hotfix="$3" skip="$4" rc=0 pid off=0 size alive
+  local log="$LOGS/$stack-last-deploy.log"
+  mkdir -p "$ROOT/$stack" "$LOGS"
+
+  git -C "$REPO" checkout --quiet --detach "$sha" \
+    || { failed "checkout $stack" "commit $sha is not in the repo" "push the commit, or check the sha"; return 1; }
+
+  local args=(-c local -i "localhost," "$REPO/infra/ansible/deploy.yml" -e "stack=$stack" -e "version=$sha")
+  if [ -n "$hotfix" ]; then
+    HF_TMP=$(mktemp)
+    trap cleanup_hf EXIT INT TERM
+    # Charset-checked: no quote, backslash or $ can be in it, so this JSON is well formed.
+    printf '{"hotfix_reason": "%s"}\n' "$hotfix" > "$HF_TMP"
+    args+=(-e "@$HF_TMP")
+  fi
+  if [ "$skip" = 1 ]; then args+=(-e skip_backup=true); fi
+
+  # The log is 0640: ansible output can hold more than we want in a CI log.
+  rm -f "$log" "$log.rc"
+  ( umask 027; : > "$log" )
+  chmod 640 "$log"
+
+  echo "== deploy $stack $sha"
+  # Own session (setsid), no tty, fd 9 (the lock) inherited: ansible keeps the lock and
+  # runs to the end even when this script and the SSH session are gone. It removes the
+  # hotfix file itself and writes its exit code next to the log.
+  # shellcheck disable=SC2016  # the script is for the child bash
+  setsid --wait env \
+    ANSIBLE_STDOUT_CALLBACK=default ANSIBLE_DISPLAY_SKIPPED_HOSTS=false \
+    ANSIBLE_COLLECTIONS_PATH="$ROOT/ansible/collections" \
+    ANSIBLE_CONFIG="$REPO/infra/ansible/ansible.cfg" \
+    LC_ALL=C.UTF-8 BIDDALOY_HF="$HF_TMP" \
+    PATH="$ROOT/ansible/venv/bin:$PATH" \
+    bash -c 'rc=0; ansible-playbook "${@:2}" >> "$1" 2>&1 < /dev/null || rc=$?; if [ -n "${BIDDALOY_HF:-}" ]; then rm -f "$BIDDALOY_HF"; fi; echo "$rc" > "$1.rc"' \
+    _ "$log" "${args[@]}" > /dev/null 2>&1 < /dev/null &
+  pid=$!
+  trap - EXIT INT TERM
+  HF_TMP=""
+
+  # Stream the log until ansible is done. A closed client only makes the writes fail.
+  while :; do
+    alive=1
+    if [ -e "$log.rc" ] || ! kill -0 "$pid" 2>/dev/null; then alive=0; fi
+    size=$(wc -c < "$log" | tr -d ' ')
+    if [ "$size" -gt "$off" ]; then
+      tail -c "+$((off + 1))" "$log" 2>/dev/null || true
+      off=$size
+    fi
+    [ "$alive" = 1 ] || break
+    sleep 0.2
+  done
+  wait "$pid" 2>/dev/null || true
+  rc=$(cat "$log.rc" 2>/dev/null || echo 1)
+  if [ "$rc" != 0 ]; then
+    failed "ansible deploy $stack" "ansible-playbook exited $rc (the last lines above say which task)" \
+      "read $log and $ROOT/$stack/deploys.log; fix, then rerun: biddaloy-deploy $stack $sha"
+    return 1
+  fi
+}
+
+main() {
+  local from_github=0 stack sha hotfix="" skip=0 cmd
+  # A dropped SSH session sends HUP, and a closed client makes writes fail with PIPE.
+  trap '' HUP PIPE
+
+  if [ "${1:-}" = "--from-github" ]; then
+    [ $# -eq 1 ] || refuse "command not allowed"
+    from_github=1
+    cmd="${SSH_ORIGINAL_COMMAND:-}"
+    case "$cmd" in *$'\n'* | *$'\r'*) refuse "command not allowed" ;; esac
+    if [[ "$cmd" =~ $LAST_OK_RE ]]; then
+      set -- --last-ok "${BASH_REMATCH[1]}"
+    elif [[ "$cmd" =~ $FROM_GITHUB_RE ]]; then
+      set -- "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+      if [ -n "${BASH_REMATCH[4]:-}" ]; then set -- "$@" --hotfix "${BASH_REMATCH[4]}"; fi
+    else
+      refuse "command not allowed"
+    fi
+  fi
+
+  if [ "${1:-}" = "--last-ok" ]; then
+    { [ $# -eq 2 ] && is_stack "$2"; } || refuse "usage: biddaloy-deploy --last-ok <stack>"
+    sha=$(last_ok "$2") || { failed "read deploys.log" "$ROOT/$2/deploys.log exists but cannot be read" "fix its owner or mode (deploy 0640)"; exit 1; }
+    [ -n "$sha" ] || { echo "no ok deploy of $2 in its deploys.log" >&2; exit 1; }
+    echo "$sha"
+    exit 0
+  fi
+
+  [ $# -ge 2 ] || refuse "usage: biddaloy-deploy <stack|all> <sha> [--hotfix \"reason\"] [--skip-backup]"
+  stack="$1"; sha="$2"; shift 2
+  { [ "$stack" = all ] || is_stack "$stack"; } || refuse "unknown stack"
+  [[ "$sha" =~ $SHA_RE ]] || refuse "the sha must be 40 lowercase hex characters"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --hotfix)
+        [ $# -ge 2 ] || refuse "--hotfix needs a reason"
+        [[ "$2" =~ $REASON_RE ]] || refuse "hotfix reason: 3-200 characters of A-Z a-z 0-9 space . , : _ / -"
+        hotfix="$2"; shift 2 ;;
+      --skip-backup) skip=1; shift ;;
+      *) refuse "unknown argument" ;;
+    esac
+  done
+
+  # One deploy at a time on this host. Provision pre-creates the file, owned by deploy.
+  if ! ( : >> "$LOCK" ) 2> /dev/null; then
+    failed "lock $LOCK" "cannot open the lock file (missing or not writable by $(id -un))" "run the provision play again, it creates it owned by deploy"
+    exit 1
+  fi
+  exec 9>> "$LOCK"
+  if ! flock -n 9; then
+    failed "lock $LOCK" "another deploy is running (pid $(cat "$LOCK" 2> /dev/null || echo unknown))" "wait for it to finish, then retry"
+    exit 75
+  fi
+  echo $$ > "$LOCK" 2> /dev/null || true
+
+  # The sha must be a real commit that origin has. Fetch first, so a fresh push is seen.
+  ensure_repo || exit 1
+  if ! git -C "$REPO" cat-file -e "$sha^{commit}" 2> /dev/null; then
+    failed "checkout" "commit $sha is not on origin" "push the commit, or check the sha"
+    exit 1
+  fi
+  if [ "$from_github" = 1 ]; then
+    # GitHub's key may only deploy what is on main, so a pushed side branch cannot reach the host.
+    if ! git -C "$REPO" merge-base --is-ancestor "$sha" origin/main 2> /dev/null; then
+      failed "main check" "$sha is not an ancestor of origin/main" "merge it to main first, or deploy from the laptop with scripts/deploy.sh"
+      exit 1
+    fi
+  elif [ -z "$(git -C "$REPO" branch -r --contains "$sha" 2> /dev/null)" ]; then
+    failed "checkout" "commit $sha is not on origin" "push the commit, or check the sha"
+    exit 1
+  fi
+  # Checking out a commit without this CLI would delete the file /usr/local/bin/biddaloy-deploy points at.
+  if ! git -C "$REPO" cat-file -e "$sha:deploy/bin/biddaloy-deploy" 2> /dev/null; then
+    failed "cli check" "$sha has no deploy/bin/biddaloy-deploy; checking it out would remove this command" \
+      "deploy a newer sha; to go back that far, roll back by hand"
+    exit 1
+  fi
+
+  # Defence in depth: the playbook gates prod on staging-ok as well.
+  if [ "$from_github" = 1 ] && [ "$stack" = prod ] && [ -z "$hotfix" ] && ! staging_ok "$sha"; then
+    failed "gate prod" "$sha has no staging ok line in $ROOT/staging/deploys.log" \
+      "deploy it to staging first, or deploy with a hotfix reason"
+    exit 1
+  fi
+
+  if [ "$stack" != all ]; then
+    deploy_one "$stack" "$sha" "$hotfix" "$skip" || exit 1
+    return 0
+  fi
+
+  # Staging before prod: its ok line is what satisfies the prod gate.
+  local s h
+  for s in edge ops staging prod demo; do
+    if [ "$s" = ops ] && ! grep -qx ops "$ROOT/host-groups" 2> /dev/null; then
+      echo "== skip ops (not in this host's groups)"
+      continue
+    fi
+    h=""
+    if [ "$s" = prod ]; then h="$hotfix"; fi
+    deploy_one "$s" "$sha" "$h" "$skip" || exit 1
+  done
+}
+
+# Everything runs from main so bash has read the whole file before a checkout can replace it.
+main "$@"
+exit 0
