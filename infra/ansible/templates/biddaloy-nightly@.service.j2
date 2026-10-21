@@ -1,0 +1,12 @@
+# Managed by Ansible (provision.yml). One job per instance: biddaloy-nightly@<job>.service
+[Unit]
+Description=biddaloy nightly job %i
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User={{ deploy_user }}
+# One host-wide lock, shared with biddaloy-deploy, so two DB swaps never overlap.
+ExecStart=/usr/bin/flock -w 3600 {{ swap_lock_file }} /usr/local/bin/biddaloy-nightly %i
+TimeoutStartSec=3h
