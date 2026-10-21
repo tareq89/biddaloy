@@ -4,7 +4,7 @@
 # R2 mode (BACKUP_S3_* set): dump -> daily copy (from 02:00 Asia/Dhaka) -> db
 # count prunes -> rclone crypt sync of the files bucket -> trash date purge ->
 # Uptime Kuma push.
-# Legacy mode (BACKUP_S3_* unset: local dev, dev): old backups/db/
+# Legacy mode (BACKUP_S3_* unset: local dev): old backups/db/
 # key + LastModified prune with BACKUP_RETENTION_DAYS; no daily copy, no files.
 #
 # Pipeline: pg_dump -> age (encrypt) -> aws s3 cp (upload). Plaintext dump
@@ -318,7 +318,7 @@ if [[ $R2_MODE -eq 1 ]]; then
       fi
     done
 else
-  # Legacy retention (dev / dev): delete objects older than
+  # Legacy retention (dev): delete objects older than
   # BACKUP_RETENTION_DAYS by LastModified. Plain epoch arithmetic; the
   # timestamp is parsed as "YYYY-MM-DD hh:mm:ss", which GNU and busybox
   # date both accept.

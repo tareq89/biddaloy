@@ -6,9 +6,14 @@
 #   3. write default-school's id, flush Redis                    (always attempted)
 #   4. drop _prev_old and its S3 objects, Sentry / Kuma check-in (best effort)
 #
-# It runs ONCE per invocation (the host timer decides when, D11) and never restarts a container:
-# on success it prints "demo rebuild ok - restart the app" and exits 0, and the host restarts the
-# app. Any failure before step 2 drops _next and leaves yesterday's demo running. A failure inside
+# It runs ONCE per invocation (the host timer decides when, D11) and never restarts a container.
+# Exit codes (the host timer biddaloy-nightly, #2801, restarts the app on 0 AND 3):
+#   0  rebuilt and cleaned up: prints "demo rebuild ok — restart the app"
+#   3  the swap COMMITTED but a later step failed (state file, Redis flush, _prev_old purge, ...):
+#      prints "demo rebuild swapped, cleanup failed — restart the app". The new database is live, so
+#      the app must still be restarted; the error is reported to Sentry / Kuma.
+#   other  nothing was swapped (or it was rolled back): do NOT restart, yesterday's demo is live.
+# Any failure before step 2 drops _next and leaves yesterday's demo running. A failure inside
 # step 2 is rolled back by db-swap.sh, and the log says exactly which state the databases were left
 # in. Only one reset runs at a time (flock on $DEMO_STATE_DIR/reset.lock). Run by hand with
 #   docker compose -p demo run --rm demo-reset /app/reset.sh --now
@@ -21,8 +26,8 @@
 # be able to CREATE/DROP/ALTER databases), REDIS_URL, DEMO_PASSWORD, DEMO_STATE_DIR, S3_BUCKET
 # (a plain bucket name containing "demo"), S3_ENDPOINT, S3_REGION, S3_ACCESS_KEY_ID,
 # S3_SECRET_ACCESS_KEY.
-# Optional: DEMO_SCALE (1), DEMO_YEARS (10), SENTRY_CRONS_URL, DEMO_RESET_PUSH_URL
-# # DEMO_SWEEP_CMD (run with DEMO_SWEEP_URL, default http://127.0.0.1:3999 = the temporary app;
+# Optional: DEMO_SCALE (1), DEMO_YEARS (10), SENTRY_CRONS_URL, DEMO_RESET_PUSH_URL,
+# DEMO_SWEEP_CMD (run with DEMO_SWEEP_URL, default http://127.0.0.1:3999 = the temporary app;
 # non-zero = fail; killed after DEMO_SWEEP_TIMEOUT seconds, default 1800) or DEMO_SKIP_SWEEP=true,
 # DEMO_SWAP_CMD (default /app/db-swap.sh), and the DEMO_*_CMD overrides
 # below (tests inject fakes there; DEMO_PSQL / DEMO_REDIS_CLI do the same for the two clients).
@@ -148,6 +153,7 @@ purge_db() {
 }
 
 # Both are set just BEFORE their rename; recover() asks the catalog whether the rename committed.
+COMMITTED=false   # db-swap.sh reported (or the catalog shows) that _next is now live
 SWAPPED=false     # _next -> live was attempted
 LIVE_MOVED=false  # live -> _prev was attempted
 SWAP_T0=""
@@ -184,6 +190,11 @@ on_exit() {
   if [[ -n "$APP_PID" ]]; then kill "$APP_PID" 2>/dev/null || true; fi
   if [[ $rc -eq 0 ]]; then cron_checkin ok; exit 0; fi
   log "failed with exit code ${rc}"
+  # The new database is live, so the app must still be restarted whatever failed after that.
+  if [[ "$COMMITTED" == true ]]; then
+    rc=3
+    echo "demo rebuild swapped, cleanup failed — restart the app"
+  fi
   ( recover ) || log "recovery did not finish (see above)"
   "$DEMO_REDIS_CLI" -u "$SWEEP_REDIS" FLUSHDB >/dev/null 2>&1 || true
   cron_checkin error
@@ -247,19 +258,30 @@ swap() {
     purge_db "$PREV" || die "could not purge ${PREV} either; nothing renamed, swap skipped"
   fi
   SWAP_T0="$(date +%s)"
-  # Set BEFORE the call; recover() asks the catalog what actually happened.
-  LIVE_MOVED=true; SWAPPED=true
-  if ! "$DEMO_SWAP_CMD" "$LIVE" "$NEXT"; then
-    # db-swap.sh rolls back by itself. If the new database is live anyway (it failed re-opening
-    # connections), the post-swap steps in main() must still run.
-    if db_exists "$LIVE" && ! db_exists "$NEXT"; then failed+=" swap-reopen"; else die "swap failed (see above)"; fi
+  # Set BEFORE the call; recover() asks the catalog what actually happened. Live only moves if it exists.
+  if db_exists "$LIVE"; then LIVE_MOVED=true; fi
+  SWAPPED=true
+  local rc=0
+  "$DEMO_SWAP_CMD" "$LIVE" "$NEXT" || rc=$?
+  if [[ $rc -eq 0 ]]; then COMMITTED=true; return; fi
+  # db-swap.sh exits 2 when it refused (bad name, lock held): nothing moved. 1 = it failed and rolled
+  # back, unless the new database is live anyway (it failed re-opening connections), then the
+  # post-swap steps in main() must still run.
+  [[ $rc -ne 2 ]] || die "swap refused, nothing moved (see above)"
+  if db_exists "$LIVE" && ! db_exists "$NEXT"; then
+    COMMITTED=true
+    log "swap reported exit ${rc}, but ${NEXT} is now ${LIVE}"
+    [[ "$(psql_admin "SELECT datallowconn FROM pg_database WHERE datname = '${LIVE}'")" == t ]] \
+      || set_connections "$LIVE" true || failed+=" swap-reopen"
+  else
+    die "swap failed (see above)"
   fi
 }
 
 main() {
   # --now is kept so the old command line still works; the run is always immediate.
   case "${1:-}" in "" | --now) ;; *) die "usage: reset.sh [--now]" ;; esac
-  DEMO_SCALE="${DEMO_SCALE:-1}"; DEMO_YEARS="${DEMO_YEARS:-10}"; 
+  DEMO_SCALE="${DEMO_SCALE:-1}"; DEMO_YEARS="${DEMO_YEARS:-10}"
   DEMO_MIGRATE_CMD="${DEMO_MIGRATE_CMD:-node_modules/.bin/typeorm migration:run -d server/dist/data-source.js}"
   DEMO_SEED_CMD="${DEMO_SEED_CMD:-node server/dist/scripts/demo-seed/index.js --scale ${DEMO_SCALE} --years ${DEMO_YEARS}}"
   DEMO_VALIDATE_CMD="${DEMO_VALIDATE_CMD:-node server/dist/scripts/demo-seed/validate-cli.js}"
@@ -287,14 +309,14 @@ main() {
   swap
 
   # From here every step is attempted even if an earlier one failed. Order: the id file the app
-  # reads at boot, then a clean Redis. The host restarts the app only after exit 0.
+  # reads at boot, then a clean Redis. The host restarts the app on exit 0 or 3.
   log "swap done; downtime from backend terminate to reconnect: $(( $(date +%s) - SWAP_T0 )) s"
   { printf '%s\n' "$PLATFORM_ID" > "${state}.tmp" && mv "${state}.tmp" "$state"; } || failed+=" state-file"
   log "flushing Redis db ${REDIS_DB}"
   "$DEMO_REDIS_CLI" -u "$REDIS_URL" FLUSHDB >/dev/null || failed+=" redis-flush"
   log "dropping ${PREV_OLD} and its S3 objects"
-  purge_db "$PREV_OLD" || failed+=" purge-${PREV_OLD}"
-  [[ -z "$failed" ]] || die "swapped, but these steps failed:${failed}"
+  purge_db "$PREV_OLD" || failed+=" purge-${PREV_OLD}"  # non-fatal: the next run retries it
+  if [[ -n "$failed" ]]; then log "swapped, but these steps failed:${failed}"; exit 3; fi
   log "done"
   echo "demo rebuild ok — restart the app"
 }

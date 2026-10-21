@@ -14,6 +14,7 @@ RUN apk add --no-cache \
   aws-cli \
   rclone \
   tzdata \
+  flock \
   curl \
   supercronic
 

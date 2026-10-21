@@ -133,6 +133,9 @@ forbid "a name with SQL in it" "refusing to touch database" 'biddaloy_demo"; DRO
 forbid "a demo/staging mix" "both be demo or both be staging" biddaloy_demo biddaloy_staging_next
 forbid "live equals next" "same database" "$LIVE" "$LIVE"
 forbid "--drop-prev-old on production" "refusing to touch database 'biddaloy'" --drop-prev-old biddaloy
+forbid "a live name ending in _prev" "ends in _next, _prev or _prev_old" "${LIVE}_prev" "$NEXT"
+forbid "a live name ending in _next" "ends in _next, _prev or _prev_old" "${LIVE}_next" "$NEXT"
+forbid "next is the live's _prev_old" "its _prev_old" "$LIVE" "${LIVE}_prev_old"
 forbid "no arguments" "usage:"
 
 # ---- 4. a rename that fails half way rolls back and leaves live intact -------------------------
@@ -155,13 +158,38 @@ expect "$(allows "$NEXT")" t "_next accepts connections after the rollback"
 kill "$SLEEPER" 2>/dev/null || true; wait "$SLEEPER" 2>/dev/null || true
 pass "forced mid-swap failure: recover() puts the old live back, connections re-opened"
 
+# ---- 4b. swap back: next == _prev makes _prev live and the old live becomes _prev ---------------
+swap bash "$SWAP" --drop-prev-old "$LIVE" || fail "--drop-prev-old failed"
+before_live="$(marker "$LIVE")"; before_prev="$(marker "${LIVE}_prev")"
+swap bash "$SWAP" "$LIVE" "${LIVE}_prev" || fail "swap back exited non-zero"
+expect "$(cat "$WORK/out")" "swap ok: ${LIVE} (was ${LIVE}_prev), previous kept as ${LIVE}_prev" "swap-back success line"
+expect "$(marker "$LIVE")" "$before_prev" "the old _prev is live again"
+expect "$(marker "${LIVE}_prev")" "$before_live" "the old live is _prev"
+db_exists "${LIVE}_swap" && fail "the temporary ${LIVE}_swap must be gone"
+db_exists "${LIVE}_prev_old" && fail "swap back must not create _prev_old"
+expect "$(allows "$LIVE")" t "live accepts connections after swap back"
+expect "$(allows "${LIVE}_prev")" t "_prev accepts connections after swap back"
+swap bash "$SWAP" "$LIVE" "${LIVE}_prev" || fail "swapping back again (forward) failed"
+expect "$(marker "$LIVE")" "$before_live" "a second swap-back restores the original order"
+pass "swap back (next == _prev) keeps the chain intact"
+
+# ---- 4c. a first swap with no previous live database says so, and keeps a failed chain whole ---
+pg "DROP DATABASE IF EXISTS \"${LIVE}_prev\" WITH (FORCE)"
+pg "DROP DATABASE IF EXISTS \"$LIVE\" WITH (FORCE)"
+make_db "$NEXT" first
+swap bash "$SWAP" "$LIVE" "$NEXT" || fail "first swap (no live) failed"
+expect "$(cat "$WORK/out")" "swap ok: ${LIVE} (was ${NEXT}), there was no previous live database" "first-swap line"
+expect "$(marker "$LIVE")" first "live holds the first database"
+db_exists "${LIVE}_prev" && fail "no _prev should exist after a first swap"
+pass "first swap without a live database"
+
 # ---- 5. only one swap per live name at a time --------------------------------------------------
 exec 8>"/tmp/db-swap-${LIVE}.lock"
 PATH="$WORK/bin:$PATH" flock -n 8 || fail "test could not take the lock"
 if swap bash "$SWAP" "$LIVE" "$NEXT"; then exec 8>&-; fail "a concurrent swap must be refused"; fi
 exec 8>&-
 grep -q "another swap of ${LIVE} is running" "$WORK/err" || fail "lock refusal message missing"
-expect "$(marker "$LIVE")" new3 "live untouched by a refused concurrent swap"
+expect "$(marker "$LIVE")" first "live untouched by a refused concurrent swap"
 pass "a second swap while the lock is held is refused"
 
 echo "db-swap.infra.test.sh: all passed"
