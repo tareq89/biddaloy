@@ -15,20 +15,39 @@ describe('BrandMark', () => {
       locale: 'en',
     });
     const img = await screen.findByRole('img', { name: 'SchoolManager' });
-    expect(img.getAttribute('viewBox')).toBe('-4 0 1677 260');
-    expect(container.querySelector('path')?.getAttribute('fill')).toBe('#191919');
+    expect(img.getAttribute('viewBox')).toBe('0 0 397.8 57');
+    // paths: roof, house blocks, "SchoolManag", "ERP"
+    const text = () => container.querySelectorAll('path')[2];
+    const roof = () => container.querySelectorAll('path')[0];
+    expect(text()?.getAttribute('fill')).toBe('#17305e');
+    expect(roof()?.getAttribute('fill')).toBe('#e8890c');
     rerender(<Wordmark variant="dark" />);
-    expect(container.querySelector('path')?.getAttribute('fill')).toBe('#f5f5f4');
+    expect(text()?.getAttribute('fill')).toBe('#ffffff');
     rerender(<Wordmark variant="mono" />);
-    expect(container.querySelector('path')?.getAttribute('fill')).toBe('currentColor');
+    expect(text()?.getAttribute('fill')).toBe('currentColor');
   });
 
-  it('default (auto) follows the theme through dark: classes, not a fixed fill', async () => {
+  it('default (auto) follows the theme through CSS variables, not a fixed fill', async () => {
     const { container } = renderWithProviders(<Wordmark />, { locale: 'en' });
     await screen.findByRole('img', { name: 'SchoolManager' });
-    const path = container.querySelector('path');
-    expect(path?.getAttribute('fill')).toBeNull();
-    expect(path?.getAttribute('class')).toContain('fill-[color:var(--brand-mark-ink)]');
+    const text = container.querySelectorAll('path')[2];
+    expect(text?.getAttribute('fill')).toBeNull();
+    expect(text?.getAttribute('style')).toContain('var(--brand-mark-ink)');
+  });
+
+  it('"ERP" is filled by a gradient whose id is unique per logo', async () => {
+    const { container } = renderWithProviders(
+      <>
+        <Wordmark decorative />
+        <Wordmark decorative />
+      </>,
+      { locale: 'en' },
+    );
+    const ids = [...container.querySelectorAll('linearGradient')].map((g) => g.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    const erp = container.querySelectorAll('svg')[0]?.querySelectorAll('path')[3];
+    expect(erp?.getAttribute('fill')).toBe(`url(#${ids[0]})`);
   });
 
   it('monogram is named, and hidden from AT when decorative', async () => {

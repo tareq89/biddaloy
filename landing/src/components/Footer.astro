@@ -1,4 +1,5 @@
 ---
+import Logo from './Logo.astro';
 import { useTranslations, DOCS_URL, APP_URL, DEMO_URL, type Lang } from '../i18n';
 const { lang } = Astro.props as { lang: Lang };
 const t = useTranslations(lang);
@@ -12,7 +13,7 @@ const ext = { target: '_blank', rel: 'noopener' };
   <div class="wrap">
     <div class="fgrid">
       <div>
-        <a class="wordmark" href={`/${lang}/`}><span class="mono">SM</span>School<span class="m">Manager</span><span class="erp">ERP</span></a>
+        <a class="wordmark" href={`/${lang}/`}><Logo id="footer" /><span class="sr">SchoolManager ERP</span></a>
         <p style="color:var(--muted);font-size:.9rem;max-width:30ch">{t('footer.tagline')}</p>
       </div>
       <div>
