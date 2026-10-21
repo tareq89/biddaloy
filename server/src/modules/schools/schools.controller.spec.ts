@@ -6,7 +6,6 @@ import type { JwtPayload } from '@biddaloy/shared';
 import { SchoolsController } from './schools.controller';
 import { SchoolsService } from './schools.service';
 import { PlatformSuperAdminGuard } from '../auth/guards/platform-super-admin.guard';
-import type { ModuleRef } from '@nestjs/core';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 
 const SCHOOL_A = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -27,16 +26,11 @@ function fakeService() {
 
 describe('SchoolsController', () => {
   let service: ReturnType<typeof fakeService>;
-  let trial: { extend: ReturnType<typeof vi.fn> };
   let controller: SchoolsController;
 
   beforeEach(() => {
     service = fakeService();
-    trial = { extend: vi.fn() };
-    controller = new SchoolsController(
-      service as unknown as SchoolsService,
-      { get: () => trial } as unknown as ModuleRef,
-    );
+    controller = new SchoolsController(service as unknown as SchoolsService);
   });
 
   describe('findAll', () => {
@@ -191,16 +185,8 @@ describe('SchoolsController', () => {
     });
   });
 
-  describe('extendTrial', () => {
-    it('extends as the calling user (the checks run inside TrialService.extend)', async () => {
-      trial.extend.mockResolvedValue({ id: SCHOOL_A });
-      const dto = { days: 7, seat_limit: 20, reason: 'Customer asked for a week' };
-
-      await expect(controller.extendTrial(SCHOOL_A, dto, USER)).resolves.toEqual({ id: SCHOOL_A });
-      expect(trial.extend).toHaveBeenCalledWith(SCHOOL_A, dto, { userId: 'user-1' });
-    });
-
-    it.each(['findAll', 'getStats', 'updateStatus', 'extendTrial'] as const)(
+  describe('platform-only routes', () => {
+    it.each(['findAll', 'getStats', 'updateStatus'] as const)(
       '%s is platform-only: SUPER_ADMIN role plus PlatformSuperAdminGuard',
       (name) => {
         const handler = SchoolsController.prototype[name];

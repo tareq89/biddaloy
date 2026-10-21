@@ -12,6 +12,7 @@ import {
   LockIcon,
   MessageSquareIcon,
   PrinterIcon,
+  ReceiptTextIcon,
   WalletIcon,
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ export const SETTINGS_CATEGORY_IDS = [
   'school',
   'academics',
   'finance',
+  'billing',
   'communication',
   'alerts',
   'printing',
@@ -38,6 +40,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   { id: 'school', icon: Building2Icon, anchors: ['regional-section', 'organisation-section'] },
   { id: 'academics', icon: GraduationCapIcon, anchors: ['attendance-section'] },
   { id: 'finance', icon: WalletIcon, anchors: [] },
+  { id: 'billing', icon: ReceiptTextIcon, anchors: ['seats-billing-section'] },
   { id: 'communication', icon: MessageSquareIcon, anchors: [] },
   { id: 'alerts', icon: BellDotIcon, anchors: ['alerts-section'] },
   { id: 'printing', icon: PrinterIcon, anchors: ['printers-section'] },

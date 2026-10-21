@@ -1,0 +1,10 @@
+---
+import { DEMO_URL, DOCS_URL, type Lang } from '../../i18n';
+import { copy } from '../../content/pricing';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const c = copy[lang];
+---
+<h2 class="h2">{c.buyH2}</h2>
+<div class="steps" style="margin-top:1rem">{c.steps.map((s) => <div class="card"><h3>{s.h}{s.soon && ' '}{s.soon && <span class="badge">{c.soon}</span>}</h3><p>{s.p}</p></div>)}</div>
+<p class="lead" style="margin-top:1.25rem">{c.tryPre}<a href={DEMO_URL} target="_blank" rel="noopener">{c.demo}</a>{c.tryMid}<a href={DOCS_URL} target="_blank" rel="noopener">{c.docs}</a>{c.tryPost}</p>

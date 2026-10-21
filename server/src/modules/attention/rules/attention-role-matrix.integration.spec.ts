@@ -247,8 +247,14 @@ describe('Attention role matrix (integration)', () => {
     );
 
   it('every v1 rule in the catalogue has a registered rule class', () => {
+    // Retired by Epic 49 (no trial any more); the ids leave the catalogue at the Epic 49 close-out.
+    const retired = ['trial.ending', 'platform.trials_ending'];
     const missing = ALERT_RULES.filter(
-      (r) => !r.ownerEpic && r.key !== 'manual.alert' && !registry.get(r.key),
+      (r) =>
+        !r.ownerEpic &&
+        r.key !== 'manual.alert' &&
+        !retired.includes(r.key) &&
+        !registry.get(r.key),
     ).map((r) => r.key);
     expect(missing).toEqual([]);
   });

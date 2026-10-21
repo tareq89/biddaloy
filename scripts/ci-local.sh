@@ -53,10 +53,10 @@ AFFECTED=0
 
 usage() {
   echo "usage: $(basename "$0") [--integration] [--e2e] [--lighthouse] [--storybook] [--full] [--no-coverage] [--only <job,job,...>] [--affected]" >&2
-  echo "  --only accepts: verify, frontend, storybook, integration, e2e, audit, lighthouse, infra" >&2
+  echo "  --only accepts: verify, frontend, storybook, landing, integration, e2e, audit, lighthouse, infra" >&2
 }
 
-VALID_JOBS="verify frontend storybook integration e2e audit lighthouse infra"
+VALID_JOBS="verify frontend storybook landing integration e2e audit lighthouse infra"
 
 args=("$@")
 i=0
@@ -149,6 +149,14 @@ CI_PATHS_SERVER=(
   'yarn.lock'
   '.github/workflows/ci.yml'
 )
+# Mirror of ci.yml's `changes` job "landing" filter — keep in sync.
+CI_PATHS_LANDING=(
+  'landing/**'
+  'ui/src/styles/globals.css'
+  'yarn.lock'
+  'package.json'
+  '.github/workflows/ci.yml'
+)
 # Mirror of ci.yml's `changes` job "api-surface" filter — keep in sync.
 CI_PATHS_API_SURFACE=(
   'server/src/**'
@@ -214,6 +222,7 @@ area_touched() {
     server) patterns=("${CI_PATHS_SERVER[@]}") ;;
     ui) patterns=("${CI_PATHS_UI[@]}") ;;
     infra) patterns=("${CI_PATHS_INFRA[@]}") ;;
+    landing) patterns=("${CI_PATHS_LANDING[@]}") ;;
     api-surface) patterns=("${CI_PATHS_API_SURFACE[@]}") ;;
   esac
   # `set -u` treats an empty array's "${arr[@]}" as unbound on this
@@ -241,7 +250,7 @@ should_run() {
     [ "$found" = 1 ] || return 1
   else
     case "$name" in
-      verify | frontend | audit | infra) : ;;
+      verify | frontend | audit | infra | landing) : ;;
       storybook) [ "$RUN_STORYBOOK" = 1 ] || return 1 ;;
       integration) [ "$RUN_INTEGRATION" = 1 ] || return 1 ;;
       e2e) [ "$RUN_E2E" = 1 ] || return 1 ;;
@@ -266,6 +275,9 @@ should_run() {
         ;;
       infra)
         area_touched infra || return 1
+        ;;
+      landing)
+        area_touched landing || return 1
         ;;
       # verify, audit, lighthouse: no ci.yml area gating to mirror.
     esac
@@ -362,6 +374,13 @@ if should_run "frontend"; then
     yarn test:frontend --run ${FRONTEND_EXTRA_ARGS[@]+"${FRONTEND_EXTRA_ARGS[@]}"}
   fi
   section_done "frontend"
+fi
+
+if should_run "landing"; then
+  section "landing"
+  yarn workspace @biddaloy/landing build
+  node landing/scripts/check-tokens.mjs
+  section_done "landing"
 fi
 
 if should_run "storybook"; then

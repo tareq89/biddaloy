@@ -13,11 +13,23 @@ import {
 const meta = (k: string) => ALERT_RULES.find((r) => r.key === k)!;
 
 describe('alert rule catalogue', () => {
-  it('has 58 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
-    expect(ALERT_RULES).toHaveLength(58);
-    expect(new Set(ALERT_RULE_KEYS).size).toBe(58);
+  it('has 63 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
+    expect(ALERT_RULES).toHaveLength(63);
+    expect(new Set(ALERT_RULE_KEYS).size).toBe(63);
     expect(ALERT_RULES.map((r) => r.key)).toEqual([...ALERT_RULE_KEYS]);
-    for (const k of ALERT_RULE_KEYS) expect(k).toMatch(/^[a-z_]+\.[a-z_]+$/);
+    for (const k of ALERT_RULE_KEYS) expect(k).toMatch(/^[a-z_]+(\.[a-z_]+)+$/);
+  });
+
+  it('registers the billing seat rules (49.4)', () => {
+    for (const k of [
+      'seats.expiring',
+      'seats.exhausted',
+      'account.idle',
+      'platform.seats.expiring',
+    ]) {
+      expect(isAlertRuleKey(k), k).toBe(true);
+    }
+    expect(meta('platform.seats.expiring').roles).toEqual([UserRole.SUPER_ADMIN]);
   });
 
   it('does not contain incidents.open', () => {
@@ -63,7 +75,7 @@ describe('alert rule catalogue', () => {
     expect(meta('attendance.not_taken').cadence).toContain(AlertCadence.FAST);
   });
 
-  it('ownerEpic is set on exactly the 8 later-epic rows', () => {
+  it('ownerEpic is set on exactly the 13 later-epic rows', () => {
     expect(
       ALERT_RULES.filter((r) => r.ownerEpic)
         .map((r) => r.key)
@@ -78,6 +90,11 @@ describe('alert rule catalogue', () => {
         'billing.renewal_due',
         'students.at_risk',
         'committee.monthly_report_ready',
+        'seats.expiring',
+        'seats.exhausted',
+        'account.idle',
+        'platform.seats.expiring',
+        'platform.bkash.refund_due',
       ].sort(),
     );
   });
@@ -89,6 +106,11 @@ describe('alert rule catalogue', () => {
       guardianSmsFallback: true,
     });
     for (const k of ['fees.unassigned_students', 'fees.due_soon', 'fees.overdue_family'])
+      expect(meta(k).cadence).toContain(AlertCadence.ON_CHANGE);
+  });
+
+  it('both seat rules run ON_CHANGE: billing asks for a recheck, the scheduler drops it otherwise (Epic 49)', () => {
+    for (const k of ['seats.expiring', 'seats.exhausted'] as const)
       expect(meta(k).cadence).toContain(AlertCadence.ON_CHANGE);
   });
 

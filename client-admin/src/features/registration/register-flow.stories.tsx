@@ -89,7 +89,6 @@ export const ServerError: Story = {
 
 const codeArgs = {
   sentTo: '01712345678',
-  channel: 'sms' as const,
   resendIn: 60,
   resendNonce: 0,
   onVerify: fn(),
@@ -101,9 +100,9 @@ export const CodeStep: StoryObj<typeof RegisterCodeStep> = {
   render: () => <RegisterCodeStep {...codeArgs} />,
 };
 
-export const CodeStepEmailPhone: StoryObj<typeof RegisterCodeStep> = {
+export const CodeStepMobile: StoryObj<typeof RegisterCodeStep> = {
   parameters: { viewport: { defaultViewport: 'mobile1' } },
-  render: () => <RegisterCodeStep {...codeArgs} channel="email" sentTo="rahim@example.com" />,
+  render: () => <RegisterCodeStep {...codeArgs} />,
 };
 
 export const CodeStepInvalid: StoryObj<typeof RegisterCodeStep> = {

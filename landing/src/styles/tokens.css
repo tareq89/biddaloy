@@ -1,0 +1,54 @@
+/* Source of truth for radius/motion is ui/src/styles/globals.css; re-copy when it changes.
+   Colours are the Notion-like landing palette from the locked v5 mockup (D18, D28):
+   white ground, warm-grey surfaces, near-black ink/buttons, indigo only for wordmark/links. */
+:root {
+  --bg: #ffffff;
+  --surface: #f7f7f5;
+  --surface-2: #efefec;
+  --fg: #191919;
+  --muted: #6f6e69;
+  --line: #e6e6e2;
+  --ink: #191919;
+  --ink-fg: #ffffff;
+  --indigo: #4a3fd4;
+  --indigo-t: #eceefe;
+  --teal: #0f9d8a;
+  --teal-t: #e3f5f1;
+  --amber: #d99500;
+  --amber-t: #fff3d6;
+  --coral: #e4572e;
+  --coral-t: #fde9e2;
+  --brand: var(--indigo);
+  --shot: #f1f1ee;
+  --shot-ink: #8a8984;
+  --font: 'Hind Siliguri', 'Noto Sans Bengali', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-full: 9999px;
+  --motion-duration-fast: 120ms;
+  --motion-duration-base: 180ms;
+  --motion-duration-slow: 240ms;
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #191919; --surface: #202020; --surface-2: #2a2a2a; --fg: #e6e6e3; --muted: #9b9a94; --line: #2f2f2f;
+    --ink: #e6e6e3; --ink-fg: #191919;
+    --indigo: #9aa0f5; --indigo-t: #26284a; --teal: #4fd1bd; --teal-t: #143b35;
+    --amber: #f2b63a; --amber-t: #3f3115; --coral: #f08a68; --coral-t: #44251b;
+    --shot: #232323; color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #191919; --surface: #202020; --surface-2: #2a2a2a; --fg: #e6e6e3; --muted: #9b9a94; --line: #2f2f2f;
+  --ink: #e6e6e3; --ink-fg: #191919;
+  --indigo: #9aa0f5; --indigo-t: #26284a; --teal: #4fd1bd; --teal-t: #143b35;
+  --amber: #f2b63a; --amber-t: #3f3115; --coral: #f08a68; --coral-t: #44251b;
+  --shot: #232323; color-scheme: dark;
+}
+.c-indigo { --hue: var(--indigo); --tint: var(--indigo-t); }
+.c-teal { --hue: var(--teal); --tint: var(--teal-t); }
+.c-amber { --hue: var(--amber); --tint: var(--amber-t); }
+.c-coral { --hue: var(--coral); --tint: var(--coral-t); }

@@ -1,0 +1,22 @@
+---
+import Base from '../../layouts/Base.astro';
+import ContactOptions from '../../components/ContactOptions.astro';
+import { LANGS, type Lang } from '../../i18n';
+export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang } }));
+const lang = Astro.params.lang as Lang;
+const bn = lang === 'bn';
+const title = bn ? 'যোগাযোগ' : 'Contact';
+const description = bn ? 'অফিস, WhatsApp, চ্যাট, ফোন ও ইমেইল — যেভাবে সুবিধা।' : 'Office, WhatsApp, chat, phone and email — whichever suits you.';
+---
+<Base lang={lang} title={title} description={description}>
+  <section><div class="wrap">
+    <p class="eyebrow">{title}</p>
+    <h1 class="h2">{bn ? 'কথা বলুন, যেভাবে সুবিধা' : 'Talk to us, whichever way suits you'}</h1>
+    <ContactOptions lang={lang} />
+  </div></section>
+</Base>
+<style>
+  section{padding-block:4rem}
+  .eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:.6rem}
+  .h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin-bottom:.6rem}
+</style>

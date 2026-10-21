@@ -1,0 +1,8 @@
+---
+import type { Lang } from '../../i18n';
+import { PRICE_PER_SEAT_PAISA, copy, formatMoney } from '../../content/pricing';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const c = copy[lang];
+---
+<section class="center"><div class="wrap narrow"><p class="eyebrow">{c.eyebrow}</p><h1 style="font-size:clamp(1.8rem,4vw,3rem)">{c.h1Pre} <span class="price-big">{formatMoney(lang, PRICE_PER_SEAT_PAISA)}</span> {c.h1Post}</h1><p class="lead" style="margin-top:.8rem">{c.leadPre}<strong>{c.leadStrong}</strong>{c.leadPost}</p></div></section>

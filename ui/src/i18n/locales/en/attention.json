@@ -390,6 +390,18 @@
       "provider_failures": {
         "name": "Message services failing",
         "help": "Warns when SMS or email services keep failing."
+      },
+      "seats": {
+        "expiring": {
+          "name": "School seats expiring",
+          "help": "Lists schools whose paid seats are about to run out."
+        }
+      },
+      "bkash": {
+        "refund_due": {
+          "name": "bKash payments to refund",
+          "help": "Urgent until refunded: bKash took money that paid no order."
+        }
       }
     },
     "manual": {
@@ -436,6 +448,22 @@
       "monthly_report_ready": {
         "name": "Monthly report ready",
         "help": "Tells committee members the monthly report is ready."
+      }
+    },
+    "seats": {
+      "expiring": {
+        "name": "Seats expiring soon",
+        "help": "Warns before your paid seats run out."
+      },
+      "exhausted": {
+        "name": "All seats in use",
+        "help": "Warns when no seat is left for a new student."
+      }
+    },
+    "account": {
+      "idle": {
+        "name": "Account idle",
+        "help": "Reminds you when the school has had no activity for a while."
       }
     }
   },

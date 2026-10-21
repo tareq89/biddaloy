@@ -365,6 +365,16 @@ Which status a refused request gets depends on which guard refuses it:
 | `X-Role` names a role the user does not hold in this tenant                                     | `ContextGuard`     | **401**                                                 |
 | Missing or bad token                                                                            | `AuthGuard('jwt')` | **401**                                                 |
 
+`ContextGuard` also checks the school's own state, after the role is resolved (the platform tenant is exempt from both):
+
+| School state                                       | Request                                               | Answer                                                                   |
+| -------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| `SUSPENDED`                                        | anything, unless `@AllowWhenSuspendedForBilling`      | **403** `TENANT_SUSPENDED` (plus `reason` for a billing suspension)      |
+| `ACTIVE`, over its seats (7-day grace, Epic 49 D9) | `POST/PUT/PATCH/DELETE`, unless the handler is marked | **403** `TENANT_READ_ONLY` with `details.until`; `GET/HEAD/OPTIONS` pass |
+| `ACTIVE`, a backup restore running                 | `POST/PUT/PATCH/DELETE`                               | **423** `TENANT_RESTORING`                                               |
+
+How the grace window and the suspension work: [22-onboarding](22-onboarding.md) "Over the seats".
+
 Example, with a PARENT token for the same school:
 
 - `GET /guardians` (no `@Roles`; PARENT lacks `GUARDIAN_READ`) → `403`.

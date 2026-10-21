@@ -7,16 +7,15 @@ import {
   Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import {
-  JwtPayload,
-  JwtMembership,
-  UserRole,
-  SchoolStatus,
-  TRIAL_EXPIRED_REASON,
-} from '@biddaloy/shared';
+import { JwtPayload, JwtMembership, UserRole, SchoolStatus } from '@biddaloy/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import { ALLOW_WHEN_TRIAL_EXPIRED_KEY } from '../decorators/allow-when-trial-expired.decorator';
-import { TenantStatusService, tenantRestoringException } from '../../schools/tenant-status.service';
+import { ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY } from '../decorators/allow-when-suspended-for-billing.decorator';
+import { ALLOW_WHEN_READ_ONLY_KEY } from '../decorators/allow-when-read-only.decorator';
+import {
+  BILLING_SUSPENSION_REASONS,
+  TenantStatusService,
+  tenantRestoringException,
+} from '../../schools/tenant-status.service';
 
 /**
  * Priority ordering for role fallback when a user has multiple roles
@@ -193,22 +192,45 @@ export class ContextGuard implements CanActivate {
       if (status !== SchoolStatus.ACTIVE) {
         const reason = await this.tenantStatus.getStatusReason(tenantId);
         // D16: an ended trial may still export. Only a route marked
-        // @AllowWhenTrialExpired, only SUSPENDED + TRIAL_EXPIRED; PermissionsGuard
+        // @AllowWhenSuspendedForBilling, only SUSPENDED + TRIAL_EXPIRED; PermissionsGuard
         // still checks the permission. The final yes comes from an uncached DB read
-        // (`isTrialExpired`), so a stale cached reason cannot keep export open (#2399).
+        // (`isSuspendedForBilling`), so a stale cached reason cannot keep export open (#2399).
         const trialExportAllowed =
           status === SchoolStatus.SUSPENDED &&
-          reason === TRIAL_EXPIRED_REASON &&
-          this.reflector.get<boolean>(ALLOW_WHEN_TRIAL_EXPIRED_KEY, context.getHandler()) ===
-            true &&
-          (await this.tenantStatus.isTrialExpired(tenantId));
+          BILLING_SUSPENSION_REASONS.includes(reason ?? '') &&
+          this.reflector.get<boolean>(
+            ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY,
+            context.getHandler(),
+          ) === true &&
+          (await this.tenantStatus.isSuspendedForBilling(tenantId));
         if (!trialExportAllowed) {
           throw new ForbiddenException({
             message: 'This school has been suspended',
             details: {
               code: 'TENANT_SUSPENDED',
-              ...(reason === TRIAL_EXPIRED_REASON ? { reason } : {}),
+              ...(reason && BILLING_SUSPENSION_REASONS.includes(reason) ? { reason } : {}),
             },
+          });
+        }
+      }
+    }
+
+    // Seat grace (Epic 49 D9): an ACTIVE school over its seats can read but not write until the
+    // daily job suspends it. Platform tenant exempt. Handlers marked @AllowWhenSuspendedForBilling
+    // stay open; the billing routes must carry that mark (billing lane) for a school to pay.
+    // One message for every write (Rule 23); `until` is the school's own date, not an echo of input.
+    if (!isOwnPlatformTenant && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+      // @AllowWhenReadOnly: a user's own writes (alerts seen, step-up, push, preferences).
+      const allowed =
+        this.reflector.get<boolean>(ALLOW_WHEN_SUSPENDED_FOR_BILLING_KEY, context.getHandler()) ===
+          true ||
+        this.reflector.get<boolean>(ALLOW_WHEN_READ_ONLY_KEY, context.getHandler()) === true;
+      if (!allowed) {
+        const until = await this.tenantStatus.getReadOnlyUntil(tenantId);
+        if (until) {
+          throw new ForbiddenException({
+            message: 'This school is read-only',
+            details: { code: 'TENANT_READ_ONLY', until: until.toISOString() },
           });
         }
       }

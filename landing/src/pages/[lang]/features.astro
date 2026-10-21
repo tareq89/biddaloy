@@ -1,0 +1,37 @@
+---
+import Base from '../../layouts/Base.astro';
+import FeatureIndex from '../../components/features/FeatureIndex.astro';
+import AreaSection from '../../components/features/AreaSection.astro';
+import { areas } from '../../content/features';
+import { LANGS, type Lang } from '../../i18n';
+export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang } }));
+const lang = Astro.params.lang as Lang;
+const bn = lang === 'bn';
+const title = bn ? 'ফিচার' : 'Features';
+const description = bn ? 'একটা সিস্টেম, স্কুলের সব কাজ। ১৫টা ক্ষেত্র।' : 'One system for everything a school does. 15 areas.';
+---
+<Base lang={lang} title={title} description={description}>
+  <section><div class="wrap">
+    <div class="center">
+      <p class="eyebrow">{title}</p>
+      <h1 class="h2">{bn ? 'একটা সিস্টেম, স্কুলের সব কাজ' : 'One system, everything a school does'}</h1>
+      <p class="lead">{bn
+        ? <>১৫টা ক্ষেত্র। প্রতিটার পাশে আসল স্ক্রিনশট, বিস্তারিত ডকুমেন্টেশনে। <span class="badge">শীঘ্রই</span> = তৈরি হচ্ছে।</>
+        : <>15 areas. Real screenshots beside each, details in the documentation. <span class="badge">Coming soon</span> = being built.</>}</p>
+    </div>
+    <div class="feat">
+      <FeatureIndex lang={lang} />
+      <div>{areas.map((area, n) => <AreaSection area={area} n={n} lang={lang} />)}</div>
+    </div>
+  </div></section>
+</Base>
+<style>
+  section{padding-block:4rem}
+  .center{text-align:center;margin-bottom:2.5rem}
+  .eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:.6rem}
+  .h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin-bottom:.6rem}
+  .lead{color:var(--muted);max-width:62ch;font-size:1.05rem;margin-inline:auto}
+  .badge{display:inline-block;font-size:.7rem;font-weight:600;letter-spacing:.03em;border-radius:999px;padding:.1rem .5rem;background:var(--amber-t);color:var(--amber);vertical-align:middle;margin-left:.3rem}
+  .feat{display:grid;grid-template-columns:240px 1fr;gap:2.5rem;align-items:start}
+  @media (max-width:860px){.feat{grid-template-columns:1fr}}
+</style>

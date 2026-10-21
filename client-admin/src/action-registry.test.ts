@@ -87,6 +87,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/settings?section=communication': '/_staff/settings',
   '/settings?section=finance': '/_staff/settings',
   '/settings?section=backup': '/_staff/settings',
+  '/settings?section=billing': '/_staff/settings',
+  '/settings?section=billing&buy=1': '/_staff/settings',
   '/students?openPerformance=1': '/_staff/students/',
   '/fees/fines?logFine=1': '/_staff/fees/fines/',
   '/fees/fines?generateFines=1': '/_staff/fees/fines/',

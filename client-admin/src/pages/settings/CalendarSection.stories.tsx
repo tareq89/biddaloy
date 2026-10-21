@@ -73,7 +73,9 @@ export const WeekShapeError: Story = {
   parameters: {
     msw: {
       handlers: [
-        http.get('/api/v1/calendar-settings', () => HttpResponse.json({ message: 'error' }, { status: 500 })),
+        http.get('/api/v1/calendar-settings', () =>
+          HttpResponse.json({ message: 'error' }, { status: 500 }),
+        ),
       ],
     },
   },

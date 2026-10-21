@@ -120,7 +120,8 @@ export interface RouteErrorFallbackProps extends ErrorComponentProps {
 const CHUNK_LOAD_FAILURE =
   /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|loading chunk \S+ failed/i;
 
-type RouteErrorKind = 'offline' | 'update' | 'suspended' | 'trial-ended' | 'error';
+type RouteErrorKind =
+  'offline' | 'update' | 'suspended' | 'trial-ended' | 'seats-expired' | 'error';
 
 /** True for exactly the errors this boundary would render as its offline
  * fork. Exported so a route `loader` deciding whether to swallow a
@@ -138,10 +139,11 @@ function classifyRouteError(error: unknown): RouteErrorKind {
   }
 
   if (isTenantSuspendedError(error)) {
-    // The 403 carries `details.reason` only when the trial ran out.
-    return (error as { details?: { reason?: unknown } }).details?.reason === 'TRIAL_EXPIRED'
-      ? 'trial-ended'
-      : 'suspended';
+    // The 403 carries `details.reason` for billing suspensions. TRIAL_EXPIRED and IDLE get the
+    // data-export page; SEATS_EXPIRED gets a buy-seats page (Epic 49 D9).
+    const reason = (error as { details?: { reason?: unknown } }).details?.reason;
+    if (reason === 'SEATS_EXPIRED') return 'seats-expired';
+    return reason === 'TRIAL_EXPIRED' || reason === 'IDLE' ? 'trial-ended' : 'suspended';
   }
 
   const message = error instanceof Error ? error.message : '';
@@ -211,7 +213,9 @@ export function RouteErrorFallback({
     // not deserve an issue of its own in this deployment.
     if (kind !== 'error') {
       // A trial that ran out is a kind of suspension; same breadcrumb.
-      recordRouteChunkFallback(kind === 'trial-ended' ? 'suspended' : kind);
+      recordRouteChunkFallback(
+        kind === 'trial-ended' || kind === 'seats-expired' ? 'suspended' : kind,
+      );
       return;
     }
     captureRouteError(error);
@@ -255,11 +259,33 @@ export function RouteErrorFallback({
   if (kind === 'trial-ended') {
     return (
       <TrialEndedState
+        idle={(error as { details?: { reason?: unknown } }).details?.reason === 'IDLE'}
         onRetry={reset}
         retryLabel={retryLabel}
         onHome={onHome}
         homeLabel={homeLabel}
         supportUrl={supportUrl}
+      />
+    );
+  }
+
+  if (kind === 'seats-expired') {
+    // Primary action points to Settings > Seats & billing. The billing routes must carry
+    // @AllowWhenSuspendedForBilling (billing lane) for the school to be able to pay from here.
+    return (
+      <RouteStatusState
+        title={t('suspended.seatsTitle')}
+        explanation={t('suspended.seatsExplanation')}
+        onRetry={() =>
+          void navigate({
+            to: '/settings',
+            search: { section: 'billing' },
+          } as unknown as Parameters<typeof navigate>[0])
+        }
+        retryLabel={t('suspended.buySeats')}
+        onHome={onHome}
+        homeLabel={homeLabel}
+        icon={<Lock aria-hidden="true" />}
       />
     );
   }
@@ -348,12 +374,15 @@ function TrialExportAction() {
  * alone, and never wait on two more chunks when the network is the problem.
  */
 function TrialEndedState({
+  idle,
   onRetry,
   retryLabel,
   onHome,
   homeLabel,
   supportUrl,
 }: {
+  /** True when the school was paused for having no students (reason IDLE). */
+  idle: boolean;
   onRetry: () => void;
   retryLabel: string;
   onHome: () => void;
@@ -383,8 +412,8 @@ function TrialEndedState({
   return (
     <div className="flex flex-col items-center gap-2">
       <RouteStatusState
-        title={tTrial('ended.title')}
-        explanation={tTrial('ended.body')}
+        title={tTrial(idle ? 'idle.title' : 'ended.title')}
+        explanation={tTrial(idle ? 'idle.body' : 'ended.body')}
         onRetry={onRetry}
         retryLabel={retryLabel}
         onHome={onHome}

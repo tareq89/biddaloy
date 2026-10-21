@@ -49,6 +49,13 @@ describe('resolveAffected', () => {
     expect(plan.runServerUnit).toBe(false);
   });
 
+  it('a landing change runs only the landing project', () => {
+    const plan = resolveAffected(['landing/src/pages/index.astro']);
+    expect(plan.frontendProjects).toEqual(['landing']);
+    expect(plan.runServerUnit).toBe(false);
+    expect(plan.notes).toEqual([]);
+  });
+
   it.each([['README.md'], ['docs/architecture/README.md']])(
     'a docs-only change (%s) resolves to an empty plan',
     (file) => {

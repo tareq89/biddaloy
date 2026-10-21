@@ -82,6 +82,22 @@ test.describe('register and set up a school', () => {
     });
   });
 
+  test('register with the phone alone (email is optional, D6)', async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      const { email: _email, ...phoneOnly } = uniqueRegistration();
+      const register = new RegisterPage(page);
+      await register.goto();
+      const otp = await register.submitDetails({ ...phoneOnly, address: '1 Test Road, Dhaka' });
+      await register.submitCode(otp);
+      await register.setPassword('Strong-Pass-1');
+      await new WelcomePage(page).expectLoaded();
+    } finally {
+      await context.close();
+    }
+  });
+
   test('the guided door applies a curriculum preset', async ({ browser, playwright }) => {
     const school = await newSchool(browser, playwright);
     try {

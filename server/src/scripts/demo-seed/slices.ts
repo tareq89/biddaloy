@@ -11,6 +11,7 @@ import { slice as learning } from './slices/learning';
 import { slice as peopleOps } from './slices/people-ops';
 import { slice as commsPrint } from './slices/comms-print';
 import { slice as applications } from './slices/applications';
+import { slice as billing } from './slices/billing';
 import { slice as attention } from './slices/attention';
 
 /** Run order matters: later slices read ids earlier ones publish. `attention` is always last. */
@@ -27,6 +28,7 @@ export const SLICES: DemoSlice[] = [
   peopleOps,
   commsPrint,
   applications,
+  billing,
   attention,
 ];
 

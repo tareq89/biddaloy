@@ -53,6 +53,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   // Platform admin — its own nav, out of scope for the staff sidebar.
   '/_platform/holiday-sets/': 'platform admin page, has its own nav, not the staff sidebar',
   '/_platform/holiday-sets/$setId': 'platform admin page, has its own nav, not the staff sidebar',
+  '/_platform/subscriptions/': 'platform admin page, has its own nav, not the staff sidebar',
   '/_platform/schools/': 'platform admin page, has its own nav, not the staff sidebar',
   '/_platform/schools/$schoolId': 'platform admin page, has its own nav, not the staff sidebar',
   '/_platform/schools/new': 'platform admin page, has its own nav, not the staff sidebar',

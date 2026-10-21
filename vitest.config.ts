@@ -315,6 +315,19 @@ export default defineConfig({
           maxWorkers: PROJECT_MAX_WORKERS,
         },
       },
+      // [50.2] Astro landing site: pure logic (i18n parity, helpers), no DOM.
+      {
+        test: {
+          name: 'landing',
+          root: 'landing',
+          environment: 'node',
+          include: ['src/**/*.test.ts'],
+          globals: true,
+          testTimeout: PROJECT_TEST_TIMEOUT,
+          pool: PROJECT_POOL,
+          maxWorkers: PROJECT_MAX_WORKERS,
+        },
+      },
       // [15.1] Root `scripts/` had no Vitest project before this — the
       // `ui:node` project above also matches `scripts/**/*.spec.mjs`, but
       // it's rooted at `dir: 'ui'` (see `frontendPackage`'s `nodeInclude`),

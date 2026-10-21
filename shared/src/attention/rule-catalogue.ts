@@ -60,6 +60,11 @@ export const ALERT_RULE_KEYS = [
   'billing.renewal_due',
   'students.at_risk',
   'committee.monthly_report_ready',
+  'seats.expiring',
+  'seats.exhausted',
+  'account.idle',
+  'platform.seats.expiring',
+  'platform.bkash.refund_due',
 ] as const;
 
 export type AlertRuleKey = (typeof ALERT_RULE_KEYS)[number];
@@ -156,6 +161,13 @@ const ROWS: Row[] = [
   ['billing.renewal_due', C.BILLING, S.WARNING, [K.DAILY], [R.ADMIN], true, false, false, '#1649'],
   ['students.at_risk', C.CLASS, S.REMINDER, [K.DAILY], [R.EXECUTIVE, R.ADMIN, R.TEACHER], false, true, false, '#169'],
   ['committee.monthly_report_ready', C.COMMON, S.REMINDER, [K.DAILY], [R.COMMITTEE], false, true, false, '#169'],
+  // seats.expiring may overlap billing.renewal_due; which one supersedes is decided in #2716.
+  ['seats.expiring', C.BILLING, S.WARNING, [K.DAILY, K.ON_CHANGE], [R.ADMIN], true, false, false, '#1649'],
+  ['seats.exhausted', C.BILLING, S.WARNING, [K.DAILY, K.ON_CHANGE], [R.ADMIN], true, false, false, '#1649'],
+  ['account.idle', C.BILLING, S.REMINDER, [K.DAILY], [R.ADMIN], false, true, false, '#1649'],
+  ['platform.seats.expiring', C.PLATFORM, S.REMINDER, [K.DAILY], [R.SUPER_ADMIN], false, true, false, '#1649'],
+  // Money bKash took that paid no order: critical until refunded, so it cannot be turned off.
+  ['platform.bkash.refund_due', C.PLATFORM, S.CRITICAL, [K.HOURLY], [R.SUPER_ADMIN], true, false, false, '#1649'],
 ];
 
 export const ALERT_RULES: readonly AlertRuleMeta[] = ROWS.map(
