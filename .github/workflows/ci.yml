@@ -1208,8 +1208,11 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           ansible-galaxy install -r requirements.yml
           ansible-playbook -i inventory/prod.yml --syntax-check provision.yml
-          ansible-playbook -i inventory/prod.yml --syntax-check deploy.yml -e env=prod -e version=0000000000000000000000000000000000000000
-          ansible-playbook -i inventory/prod.yml --syntax-check deploy.yml -e env=staging -e version=0000000000000000000000000000000000000000
+          # deploy.yml runs on the VM with -c local (Epic 79 W3.01); one syntax check per stack.
+          for stack in prod staging demo edge ops; do
+            ansible-playbook -c local -i localhost, --syntax-check deploy.yml -e stack=$stack -e version=0000000000000000000000000000000000000000
+          done
+          bash test/report.infra.test.sh
 
   # [15.1] "tests got slower" needs to be a graph, not a feeling — this
   # publishes wall/work/gap, a per-job budget verdict, and the top-10

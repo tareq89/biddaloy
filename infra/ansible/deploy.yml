@@ -1,404 +1,310 @@
 ---
-# One command deploys a version:
-#   ansible-playbook deploy.yml -e env=prod -e version=<full 40-hex git sha>
-# Plan only (nothing pulled, written or restarted): add  --check
-# Order: pre-flight -> env -> nginx -t -> pull -> backup -> migrate -> up -> nginx -> edge networks
-#        -> ready -> smoke -> log.
-# On failure after pre-flight: redeploy the previous version. Migrations are NOT reverted (D11).
+# One command deploys one stack, on the VM that runs it (D1). biddaloy-deploy runs:
+#   ansible-playbook -c local -i localhost, /opt/biddaloy/repo/infra/ansible/deploy.yml \
+#     -e stack=<prod|staging|demo|edge|ops> -e version=<full 40-hex git sha> \
+#     [-e skip_backup=true]
+# and BIDDALOY_HOTFIX_REASON="..." in the environment (never an extra var: Ansible templates
+# extra vars, so a reason or stack holding {{ }} would run code as root). biddaloy-deploy MUST check
+# stack against the five names and version against ^[0-9a-f]{40}$ in bash before calling
+# ansible, and reject { } % # in anything it forwards. A -e hotfix_reason is ignored.
+# with ANSIBLE_COLLECTIONS_PATH=/opt/biddaloy/ansible/collections. Files come from the checkout in
+# /opt/biddaloy/repo (already at `version`); compose runs from there with
+# --project-directory /opt/biddaloy/<stack>, where the generated .env lives.
+# Plan only (nothing pulled, written or restarted): add --check.
+#
+# Order, app stacks: preflight -> networks -> env + pg-tls -> pull -> backup (prod) -> migrate
+#   -> db redis seaweedfs -> app (prod: app, then app2) -> the rest -> smoke -> log.
+# Order, edge: preflight -> networks -> env -> pull -> nginx -t -> up -> nginx reload.
+# Order, ops: preflight -> networks -> env -> pull -> up.
+# Every failure prints FAILED at / Why / Next (tasks/report.yml), is appended to
+# /opt/biddaloy/<stack>/deploys.log and sent to Telegram.
+# On failure after pre-flight: the previous version is brought back. Migrations are NOT
+# reverted (D11).
 - name: Deploy biddaloy
-  hosts: all
+  hosts: localhost
+  connection: local
+  gather_facts: false
   become: true
   vars:
-    env: ''
+    stack: ''
     version: ''
+    # From the environment: lookup results are never templated again (see the header).
+    hotfix_note: "{{ lookup('ansible.builtin.env', 'BIDDALOY_HOTFIX_REASON') }}"
     skip_backup: false
-    repo_root: '{{ playbook_dir }}/../..'
-    project_dir: '{{ biddaloy_root }}/{{ env }}'
-    project_name: 'biddaloy-{{ env }}'
-    overlay: { prod: [], demo: [docker-compose.demo.yml], staging: [docker-compose.staging.yml] }
-    compose_names: "{{ ['docker-compose.yml'] + (overlay[env] | default([])) }}"
-    compose_files: "{{ compose_names | map('regex_replace', '^', project_dir ~ '/') | list }}"
+    repo_root: '{{ biddaloy_root }}/repo'
+    stacks: [prod, staging, demo, edge, ops]
+    app_stacks: [prod, staging, demo]
+    project_dir: '{{ biddaloy_root }}/{{ stack }}'
+    project_name: '{{ stack }}'
+    # tunnel or direct, from edge.enc.env (preflight decrypts it before this is read).
+    edge_mode: "{{ ((secret_env | default({})).edge | default({})).EDGE_MODE | default('tunnel') }}"
+    # The subnet the deploy pins when it creates biddaloy-edge. nginx trusts CF-Connecting-IP
+    # only from here in tunnel mode (EDGE_TRUSTED_CIDR, Rule 11).
+    edge_subnet: 172.30.0.0/24
+    compose_names:
+      prod: [stack.yml]
+      staging: [stack.yml]
+      demo: [stack.yml]
+      ops: [ops.yml]
+      edge: "{{ ['edge.yml'] + (['edge.direct.yml'] if edge_mode == 'direct' else []) }}"
+    compose_files: "{{ compose_names[stack] | map('regex_replace', '^', repo_root ~ '/deploy/') | list }}"
     dc: >-
       docker compose --project-directory {{ project_dir }} -p {{ project_name }}
       {% for f in compose_files %}-f {{ f }} {% endfor %}
-    # write-env.yml pins APP_VERSION inside the file it writes: one write per run, mode and
-    # owner stay root:deploy 0640, and no handler restarts anything behind the play's back.
-    app_version: '{{ version }}'
-    images_by_env:
-      {
-        prod: [biddaloy-app, biddaloy-backup],
-        demo: [biddaloy-app, biddaloy-demo-reset],
-        staging: [biddaloy-app],
-      }
-    images: '{{ images_by_env[env] | default([]) }}'
-    smoke_vars:
-      [
-        SMOKE_ADMIN_EMAIL,
-        SMOKE_ADMIN_PASSWORD,
-        SMOKE_TEACHER_EMAIL,
-        SMOKE_TEACHER_PASSWORD,
-        SMOKE_SUPER_ADMIN_EMAIL,
-        SMOKE_SUPER_ADMIN_PASSWORD,
-      ]
-    # demo_domain is not in the inventory yet: demo skips the smoke test until it is.
-    # Staging also skips it: Cloudflare Access answers the smoke script with a login redirect.
-    base_domain: "{{ {'prod': app_domain, 'staging': '', 'demo': demo_domain | default('')}[env] | default('') }}"
-
-  pre_tasks:
-    # Everything here runs before any change, also under --check (D27).
-    - name: Check the inputs
-      ansible.builtin.assert:
-        that:
-          - env in ['prod', 'demo', 'staging']
-          # CI tags images with the full commit SHA (publish-image.yml); a short one never exists.
-          - version is match('^[0-9a-f]{40}$')
-          # Skipping pull/migrate/up would still log `<version> ok`: the next rollback target.
-          - "'mutating' not in ansible_skip_tags"
-        fail_msg: 'Usage: -e env=prod|demo|staging -e version=<full 40-hex git sha> (no --skip-tags mutating; plan with --check)'
-        quiet: true
-      tags: [always]
-
-    - name: Check the smoke credentials are set on this machine
-      ansible.builtin.assert:
-        that: lookup('ansible.builtin.env', item) | length > 0
-        fail_msg: 'export {{ item }} before deploying (smoke test logins)'
-        quiet: true
-      loop: '{{ smoke_vars }}'
-      when: base_domain | length > 0
-      no_log: true
-      tags: [always]
-
-    - name: Check the repo checkout is the version being deployed
-      ansible.builtin.assert:
-        that: lookup('ansible.builtin.pipe', 'git -C ' ~ repo_root ~ ' rev-parse HEAD') == version
-        fail_msg: 'Check out {{ version }} first: compose files and nginx are copied from this checkout.'
-        quiet: true
-      tags: [always]
-
-    # The copied files must be exactly what `version` holds, or deploys.log lies.
-    - name: Check the compose files and nginx/ have no uncommitted changes
-      ansible.builtin.assert:
-        that: lookup('ansible.builtin.pipe', 'git -C ' ~ repo_root ~ " status --porcelain -- 'docker-compose*.yml' nginx") | length == 0
-        fail_msg: 'Commit or discard your changes to docker-compose*.yml and nginx/ first: they would be deployed as {{ version }}.'
-        quiet: true
-      tags: [always]
-
-    - name: Check the compose files exist in the repo
-      ansible.builtin.stat:
-        path: '{{ repo_root }}/{{ item }}'
-      register: compose_src
-      delegate_to: localhost
-      become: false
-      loop: '{{ compose_names }}'
-      tags: [always]
-
-    - name: Stop early when a compose file is missing
-      ansible.builtin.fail:
-        msg: >-
-          {{ item.item }} is missing. Nothing was changed.
-      when: not item.stat.exists
-      loop: '{{ compose_src.results }}'
-      loop_control:
-        label: '{{ item.item }}'
-      tags: [always]
-
-    # Staging only (D25): refuse a provider key, a prod DB/bucket or a real Turnstile secret.
-    # Runs here, before any change. The decrypted env goes in on stdin; it is never written
-    # to the controller. Values are not printed (config-check names variables only).
-    # `--env staging` also applies what docker-compose.staging.yml sets for `app`
-    # (DEMO_MODE, DATABASE_URL, S3_BUCKET), so it judges the env the container really gets.
-    - name: Staging config check (no real SMS / WhatsApp / email provider)
-      ansible.builtin.command: yarn workspace @biddaloy/server config:check --env staging --file /dev/stdin
-      args:
-        chdir: '{{ repo_root }}'
-        stdin: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/staging.enc.env', rstrip=false) }}"
-      delegate_to: localhost
-      become: false
-      changed_when: false
-      check_mode: false
-      register: staging_check
-      failed_when: false
-      no_log: true
-      when: env == 'staging'
-      tags: [always]
-
-    # The task above is no_log (its stdin is the secrets), so print its verdict here.
-    - name: Stop when the staging config check failed
-      ansible.builtin.fail:
-        msg: "{{ staging_check.stderr | default('') }}{{ staging_check.stdout | default('') }}"
-      when: env == 'staging' and staging_check.rc | default(0) != 0
-      tags: [always]
-
-    # Cloudflare Access gate (12-operations.md section 1, step 0). OPS_DOMAIN / STAGING_DOMAIN
-    # in the prod .env are what make prod nginx answer ops.<domain> / staging.<domain>. Until
-    # the owner has set up Access for both and set access_confirmed: true in the inventory,
-    # a prod deploy refuses to write them. It also refuses them with TRUSTED_PROXY_CIDRS
-    # empty: then every peer is "Cloudflare", and nginx's Cf-Access-Jwt-Assertion check is a
-    # tripwire (presence only), not authentication, so anyone could reach Dozzle.
-    # The regexes read the file the way compose does (`export `, spaces, quotes).
-    - name: Do the prod secrets name the ops or staging hostname, and lock the origin?
-      ansible.builtin.set_fact:
-        names_access_hosts: '{{ prod_env is search(domain_re) }}'
-        has_proxy_cidrs: '{{ prod_env is search(cidrs_re) }}'
-      vars:
-        prod_env: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/prod.enc.env', rstrip=false) }}"
-        domain_re: '(?m)^[ \t]*(export[ \t]+)?(OPS|STAGING)_DOMAIN[ \t]*=[ \t]*[''"]?[^\s''"]'
-        cidrs_re: '(?m)^[ \t]*(export[ \t]+)?TRUSTED_PROXY_CIDRS[ \t]*=[ \t]*[''"]?[^\s''"]'
-      no_log: true
-      when: env == 'prod'
-      tags: [always]
-
-    - name: Refuse to expose ops / staging before Cloudflare Access and the origin lock
-      ansible.builtin.assert:
-        that: >-
-          not (names_access_hosts | default(false) | bool) or
-          ((access_confirmed | default(false) | bool) and (has_proxy_cidrs | default(false) | bool))
-        fail_msg: >-
-          prod.enc.env sets OPS_DOMAIN or STAGING_DOMAIN, but access_confirmed is not true or
-          TRUSTED_PROXY_CIDRS is empty. Set up Cloudflare Access for both hostnames first
-          (12-operations.md section 1, step 0), set TRUSTED_PROXY_CIDRS (section 3.5), then set
-          access_confirmed: true in inventory/prod.yml.
-        quiet: true
-      when: env == 'prod'
-      tags: [always]
-
-    - name: Check the image tag exists in the registry
-      ansible.builtin.command: docker manifest inspect ghcr.io/tareq89/{{ item }}:{{ version }}
-      changed_when: false
-      check_mode: false
-      loop: '{{ images }}'
-      tags: [always]
-
-    # The restore drill reads this key from the `drill/` directory mounted into `backup`; without
-    # it the weekly drill fails at its config check. 12-operations.md section 8 says how it gets here.
-    - name: Check the backup age key is on the host (prod)
-      ansible.builtin.stat:
-        path: '{{ project_dir }}/drill/key.txt'
-      register: age_key
-      when: env == 'prod'
-      tags: [always]
-
-    - name: Stop when the backup age key is missing or has the wrong owner or mode
-      ansible.builtin.assert:
-        that:
-          - age_key.stat.exists
-          - age_key.stat.uid == 10001
-          - age_key.stat.mode == '0400'
-        fail_msg: '{{ project_dir }}/drill/key.txt must exist, owner 10001, mode 0400 (12-operations.md section 8).'
-        quiet: true
-      when: env == 'prod'
-      tags: [always]
-
-    # Rollback target: the last `ok` line in deploys.log. When there is none (log deleted,
-    # stack started by hand, first deploy after a restore), the tag of the app container that
-    # is running now. Only a full commit SHA counts.
-    - name: Find the previous version
-      ansible.builtin.shell: |
-        f={{ project_dir }}/deploys.log
-        v=$([ -f "$f" ] && awk '$2=="{{ env }}" && $4=="ok" {v=$3} END {print v}' "$f")
-        [ -n "$v" ] || v=$(docker ps --filter label=com.docker.compose.project={{ project_name }} \
-          --filter label=com.docker.compose.service=app --format '{% raw %}{{.Image}}{% endraw %}' | head -n1 | sed 's/.*://')
-        echo "$v" | grep -E '^[0-9a-f]{40}$' || true
-      register: prev
-      changed_when: false
-      check_mode: false
-      tags: [always]
-
-    # The pre-migrate backup keys off the data, not the log: if the database volume exists,
-    # there may be data, so the backup must run (and must succeed).
-    - name: Does the prod database volume exist?
-      ansible.builtin.command: docker volume inspect {{ project_name }}_pgdata
-      register: pgdata
-      changed_when: false
-      failed_when: false
-      check_mode: false
-      when: env == 'prod'
-      tags: [always]
-
-    - name: Remember the previous version and whether prod has a database volume
-      ansible.builtin.set_fact:
-        previous_version: '{{ prev.stdout | trim }}'
-        db_volume_exists: "{{ env == 'prod' and pgdata.rc | default(1) == 0 }}"
-      tags: [always]
-
-    # `--tags env` only rewrites .env (APP_VERSION included) and restarts nothing. Pinning a
-    # version that was never deployed would start it, unmigrated, at the next restart.
-    # Rotation is a full deploy of the running version (12-operations.md section 8).
-    - name: Refuse --tags env with a version other than the running one
-      ansible.builtin.assert:
-        that: "'env' not in ansible_run_tags or version == previous_version"
-        fail_msg: '--tags env only re-pins the running version ({{ previous_version }}). Rotate with a full deploy of it.'
-        quiet: true
-      tags: [always]
+      {{ '--profile tunnel' if stack == 'edge' and edge_mode == 'tunnel' else '' }}
+    # Images each stack needs in GHCR, all tagged with the full commit sha. ops runs public
+    # images pinned by digest.
+    images_by_stack:
+      prod: [biddaloy-app, biddaloy-backup]
+      staging: [biddaloy-app, biddaloy-backup]
+      demo: [biddaloy-app, biddaloy-demo-reset]
+      edge: [biddaloy-landing]
+      ops: []
+    images: '{{ images_by_stack[stack] | default([]) }}'
+    version_key: "{{ 'LANDING_VERSION' if stack == 'edge' else 'APP_VERSION' }}"
+    rollout: "{{ ['app', 'app2'] if stack == 'prod' else ['app'] }}"
+    # Named on every app-stack `up`: staging and demo set COMPOSE_PROFILES for their one-off
+    # jobs (jobs, demo-reset), and a bare `up` would try to start those.
+    app_services: "{{ 'db redis seaweedfs app app2 backup' if stack == 'prod' else 'db redis seaweedfs app' }}"
+    env_saved: false
+    deploy_status: failed
+    fail_step: deploy
+    fail_why: ''
+    fail_next: ''
+    fail_ctx: { step: deploy, next: 'biddaloy-doctor {{ stack }}' }
+    deploy_started: false
+    previous_version: ''
 
   tasks:
     - name: Deploy
       block:
-        - name: Create the project directory
-          ansible.builtin.file:
-            path: '{{ project_dir }}'
-            state: directory
-            owner: root
-            group: '{{ deploy_user }}'
-            mode: '0750'
-          tags: [mutating]
+        - name: Pre-flight
+          ansible.builtin.include_tasks:
+            file: tasks/preflight.yml
+            apply:
+              tags: [always]
+          tags: [always]
 
-        - name: Copy the compose files
-          ansible.builtin.copy:
-            src: '{{ repo_root }}/{{ item }}'
-            dest: '{{ project_dir }}/{{ item }}'
-            mode: '0644'
-          loop: '{{ compose_names }}'
-          tags: [mutating]
+        # biddaloy-edge is external for every stack: app / app2 join it and edge nginx finds them
+        # there. The subnet is pinned for tunnel mode; an existing network keeps whatever it
+        # has and that subnet is what nginx is told to trust.
+        - name: Step is the networks
+          ansible.builtin.set_fact:
+            fail_ctx: { step: networks, next: 'docker network ls; docker network inspect biddaloy-edge biddaloy-ops-edge' }
+        - name: Create the shared networks (idempotent)
+          ansible.builtin.shell: |
+            docker network inspect {{ item.name }} >/dev/null 2>&1 || docker network create {{ item.args }} {{ item.name }}
+          loop:
+            - { name: biddaloy-edge, args: '--subnet {{ edge_subnet }}' }
+            - { name: biddaloy-ops-edge, args: '' }
+          changed_when: false
+        - name: Read the subnet of biddaloy-edge
+          ansible.builtin.command: docker network inspect -f '{% raw %}{{ (index .IPAM.Config 0).Subnet }}{% endraw %}' biddaloy-edge
+          register: edge_net
+          changed_when: false
+          check_mode: false
+          when: stack == 'edge'
+        - name: Remember the subnet
+          ansible.builtin.set_fact:
+            edge_subnet_actual: '{{ edge_net.stdout | trim }}'
+          when: stack == 'edge'
 
-        # nginx renders templates only when its container starts. Keep the current set, so a
-        # template that fails `nginx -t` is put back before anything can load it.
-        - name: Keep the current nginx files
-          ansible.builtin.shell: rm -rf nginx.prev && { [ ! -d nginx ] || cp -a nginx nginx.prev; }
+        # From here a failure rolls back (the .env is about to change).
+        - name: Step is the env
+          ansible.builtin.set_fact:
+            deploy_started: true
+            fail_ctx: { step: env, next: 'ls -l {{ project_dir }}; check the sops file with:
+                sops -d infra/secrets/{{ stack }}.enc.env >/dev/null' }
+        # The rescue puts this back, so a rollback runs with the old secrets and derived values.
+        - name: Keep the current .env for a rollback
+          ansible.builtin.shell: if [ -f .env ]; then cp -p .env .env.prev; fi # noqa command-instead-of-shell
           args:
             chdir: '{{ project_dir }}'
           changed_when: false
-          when: env in ['prod', 'demo'] and not ansible_check_mode
-          tags: [mutating]
-
-        - name: Copy the nginx templates
-          ansible.builtin.copy:
-            src: '{{ repo_root }}/nginx/'
-            dest: '{{ project_dir }}/nginx/'
-            mode: preserve
-          register: nginx_files
-          tags: [mutating]
-
-        - name: Write .env from the encrypted file
-          ansible.builtin.include_tasks:
-            file: tasks/write-env.yml
-            apply:
-              tags: [env]
-          tags: [env]
+          when: not ansible_check_mode
+        - name: Remember the .env copy exists
+          ansible.builtin.set_fact:
+            env_saved: true
+        - name: Self-signed Postgres TLS
+          ansible.builtin.include_tasks: tasks/pg-tls.yml
+          when: stack in app_stacks
+        - name: Write .env and the files that come out of the secrets
+          ansible.builtin.include_tasks: tasks/write-env.yml
 
         # Same image, entrypoint, env and mounts as the real nginx, so the templates render the
-        # way a restart would render them. Runs on every prod / demo deploy, not only when nginx/
-        # changed: a new .env value nginx reads (TRUSTED_PROXY_CIDRS, *_DOMAIN) can break it too,
-        # and compose-up would recreate nginx with it. On failure the previous files go back and
-        # the rescue redeploys the previous version; it reuses the new .env, so a bad env value
-        # still has to be fixed by hand (07-deployment "When rollback also fails").
-        # `nginx -t` resolves the fixed upstream
-        # `app` and fails when no app container runs (first deploy), so the throwaway container
-        # gets an /etc/hosts entry for it; only the config is tested, nothing is proxied.
-        - name: Check the new nginx config (nginx -t)
-          ansible.builtin.shell: |
-            {{ dc }} run --rm --no-deps -T --entrypoint sh nginx -c \
-              'grep -q "[[:space:]]app$" /etc/hosts || echo "127.0.0.1 app" >> /etc/hosts; exec /docker-entrypoint.sh nginx -t' || {
-              rm -rf nginx && { [ ! -d nginx.prev ] || mv nginx.prev nginx; }
-              echo 'nginx -t failed: the previous nginx files were put back' >&2
-              exit 1
-            }
-          args:
-            chdir: '{{ project_dir }}'
+        # way a restart would. A failure here leaves the running edge untouched. Direct mode
+        # first runs the one-shot that makes the placeholder certificate nginx needs to boot.
+        - name: Step is the nginx check
+          ansible.builtin.set_fact:
+            fail_ctx: { step: nginx-check, next: 'fix nginx/ in the repo and deploy a new commit; the running edge was not touched' }
+          when: stack == 'edge'
+        - name: Placeholder certificate (direct mode, first deploy only)
+          ansible.builtin.command: '{{ dc }} run --rm --no-deps cert-bootstrap'
           changed_when: false
-          when: env in ['prod', 'demo'] and not ansible_check_mode
-          tags: [mutating]
+          when: stack == 'edge' and edge_mode == 'direct' and not ansible_check_mode
+        - name: Check the new nginx config (nginx -t)
+          ansible.builtin.command: '{{ dc }} run --rm --no-deps -T --entrypoint sh nginx -c "exec /docker-entrypoint.sh nginx -t"'
+          changed_when: false
+          when: stack == 'edge' and not ansible_check_mode
 
+        - name: Step is the pull
+          ansible.builtin.set_fact:
+            fail_ctx: { step: pull, next: 'docker compose -p {{ stack }} pull; check disk (df -h /var/lib/docker) and the ghcr.io login' }
         - name: Pull the images
-          community.docker.docker_compose_v2_pull:
-            project_src: '{{ project_dir }}'
-            project_name: '{{ project_name }}'
-            files: '{{ compose_files }}'
-            policy: always
-          tags: [mutating]
+          ansible.builtin.command: '{{ dc }} pull --quiet'
+          changed_when: false
+          when: not ansible_check_mode
 
-        # Prod only. A failed backup stops the deploy before migrations touch the DB.
-        # Skipped only when there is no database volume at all (a truly fresh host).
+        # Prod only. A failed backup stops the deploy before migrations touch the DB. Skipped
+        # only when there is no database volume at all (a truly fresh host).
+        - name: Step is the backup
+          ansible.builtin.set_fact:
+            fail_ctx: { step: backup, next: 'docker compose -p prod logs --tail 100 backup; biddaloy-doctor prod;
+                or add --skip-backup if you accept the risk' }
+          when: stack == 'prod'
         - name: Fresh backup before migrating (prod)
           ansible.builtin.command: '{{ dc }} run --rm --no-deps --entrypoint /app/backup.sh backup'
-          when: db_volume_exists | bool and not (skip_backup | bool) and not ansible_check_mode
-          tags: [mutating]
+          changed_when: true
+          when: stack == 'prod' and db_volume_exists | bool and not (skip_backup | bool) and not ansible_check_mode
 
-        - name: Are migrations pending? (0 none, 2 pending, 1 error)
+        # `run` starts the missing db / redis / seaweedfs dependencies by itself.
+        # migrate.js pending exits 0 none, 2 pending, 1 error.
+        - name: Step is the migration
+          ansible.builtin.set_fact:
+            fail_ctx: { step: migrate, next: 'docker compose -p {{ stack }} run --rm app node server/dist/scripts/migrate.js pending;
+                biddaloy-doctor {{ stack }}' }
+          when: stack in app_stacks
+        - name: Are migrations pending?
           ansible.builtin.command: '{{ dc }} run --rm app node server/dist/scripts/migrate.js pending'
           register: pending
           changed_when: false
           failed_when: pending.rc not in [0, 2]
-          when: not ansible_check_mode
-          tags: [mutating]
-
+          when: stack in app_stacks and not ansible_check_mode
         - name: Run migrations
           ansible.builtin.command: '{{ dc }} run --rm app node server/dist/scripts/migrate.js run'
-          when: not ansible_check_mode and pending.rc == 2
-          tags: [mutating]
+          changed_when: true
+          when: stack in app_stacks and not ansible_check_mode and pending.rc == 2
 
-        - name: Start the new version
+        - name: Step is the data services
+          ansible.builtin.set_fact:
+            fail_ctx: { step: data-services, next: 'docker compose -p {{ stack }} ps;
+                docker compose -p {{ stack }} logs --tail 200 db redis seaweedfs' }
+          when: stack in app_stacks
+        - name: Bring up db redis seaweedfs
           ansible.builtin.include_tasks: tasks/compose-up.yml
+          vars:
+            up_services: db redis seaweedfs
+          when: stack in app_stacks and not ansible_check_mode
 
-        - name: Load the new nginx config (templates render only at container start)
-          ansible.builtin.command: '{{ dc }} up -d --wait --no-deps --force-recreate nginx'
-          when: env in ['prod', 'demo'] and nginx_files is changed and not ansible_check_mode
-          tags: [mutating]
+        # Prod (D25): app, ready, then app2, ready. A failure on app stops before app2.
+        - name: Step is the app rollout
+          ansible.builtin.set_fact:
+            fail_ctx: { step: ready, next: 'docker compose -p {{ stack }} logs --tail 200 app' }
+          when: stack in app_stacks
+        - name: Restart the app
+          ansible.builtin.include_tasks: tasks/rolling-restart.yml
+          vars:
+            rr_services: '{{ rollout }}'
+          when: stack in app_stacks and not ansible_check_mode
 
-        # `--tags edge` redoes only this, after a recreate by hand (a recreate drops the attaches).
-        - name: Attach prod nginx, staging and ops to their edge networks
-          ansible.builtin.include_tasks:
-            file: tasks/attach-edge.yml
-            apply:
-              tags: [edge]
-          tags: [edge]
-
-        - name: Wait until the app reports ready
-          ansible.builtin.command: >-
-            {{ dc }} exec -T app sh -c
-            'wget -qO- --header "X-Health-Token: $HEALTH_TOKEN" http://127.0.0.1:3000/api/health/ready'
-          register: ready
-          until: ready.rc == 0 and '"status":"fail"' not in (ready.stdout | replace(' ', ''))
-          retries: 24
-          delay: 5
-          changed_when: false
+        - name: Step is the stack start
+          ansible.builtin.set_fact:
+            fail_ctx: { step: up, next: 'docker compose -p {{ stack }} ps; docker compose -p {{ stack }} logs --tail 200' }
+        - name: Start the rest of the stack
+          ansible.builtin.include_tasks: tasks/compose-up.yml
+          vars:
+            up_wait: '{{ stack != "edge" }}'
+            up_services: "{{ app_services if stack in app_stacks else '' }}"
           when: not ansible_check_mode
 
-        - name: Smoke test the public URL
-          ansible.builtin.command: node scripts/smoke-post-deploy.mjs --base-url https://{{ base_domain }}
-          args:
-            chdir: '{{ repo_root }}'
-          delegate_to: localhost
-          become: false
-          changed_when: false
-          when: base_domain | length > 0 and not ansible_check_mode
+        # nginx renders its templates only when the container starts, and they are bind mounts, so
+        # `up` does not see a template change: recreate it (the config just passed nginx -t).
+        - name: Step is the nginx recreate
+          ansible.builtin.set_fact:
+            fail_ctx: { step: nginx-recreate, next: 'docker compose -p edge logs --tail 200 nginx' }
+          when: stack == 'edge'
+        - name: Recreate nginx so it renders the new templates
+          ansible.builtin.command: '{{ dc }} up -d --wait --wait-timeout 120 --no-deps --force-recreate nginx'
+          changed_when: true
+          when: stack == 'edge' and not ansible_check_mode
+
+        - name: Step is the smoke test
+          ansible.builtin.set_fact:
+            fail_ctx: { step: smoke, next: 'biddaloy-doctor {{ stack }}; docker compose -p {{ stack }} logs --tail 200 app' }
+          when: stack in app_stacks
+        - name: Smoke test
+          ansible.builtin.include_tasks: tasks/smoke.yml
+          when: stack in app_stacks and not ansible_check_mode
 
         - name: Deploy ok
           ansible.builtin.set_fact:
             deploy_status: ok
 
       rescue:
+        # The failing task's message; for a command, its last stderr line says more. A looped
+        # task reports its first failed item. A no_log task has neither (its output could hold
+        # a secret), so its `Next:` line has to carry the help.
+        - name: Note what failed
+          ansible.builtin.set_fact:
+            fail_step: '{{ fail_ctx.step }}'
+            fail_next: '{{ fail_ctx.next }}'
+            fail_why: >-
+              {{ ((failed_item.stderr | default('') | trim).splitlines() | last
+                  if (failed_item.stderr | default('') | trim | length > 0)
+                  else (failed_item.msg | default('(no message)'))) | string | truncate(300) | replace('\n', ' ') }}
+            deploy_status: failed
+          vars:
+            failed_item: >-
+              {{ (ansible_failed_result.results | default([]) | selectattr('failed', 'defined')
+                  | selectattr('failed') | list | first) | default(ansible_failed_result) }}
+
+        # An nginx -t failure never touched the running edge: only the files change back.
+        - name: Put the previous .env back after an nginx check failure
+          ansible.builtin.command: cp -p {{ project_dir }}/.env.prev {{ project_dir }}/.env
+          changed_when: true
+          when: fail_step == 'nginx-check' and env_saved | bool and not ansible_check_mode
+
         - name: Roll back to the previous version (migrations stay applied, D11)
-          when: previous_version | length > 0
+          when: >-
+            deploy_started | bool and previous_version | length > 0 and stack != 'ops'
+            and fail_step != 'nginx-check' and not ansible_check_mode
           block:
-            - name: Pin the previous APP_VERSION
+            - name: Put the previous .env back
+              ansible.builtin.command: cp -p {{ project_dir }}/.env.prev {{ project_dir }}/.env
+              changed_when: true
+              when: env_saved | bool
+            - name: Pin the previous version
               ansible.builtin.lineinfile:
                 path: '{{ project_dir }}/.env'
-                regexp: '^APP_VERSION='
-                line: 'APP_VERSION={{ previous_version }}'
+                regexp: '^{{ version_key }}='
+                line: '{{ version_key }}={{ previous_version }}'
               diff: false
               no_log: true
+            - name: Restart the app on the previous version
+              ansible.builtin.include_tasks: tasks/rolling-restart.yml
+              vars:
+                rr_services: '{{ rollout }}'
+              when: stack in app_stacks
             - name: Start the previous version
               ansible.builtin.include_tasks: tasks/compose-up.yml
-            - name: Attach prod nginx, staging and ops to their edge networks
-              ansible.builtin.include_tasks: tasks/attach-edge.yml
+              vars:
+                up_wait: '{{ stack != "edge" }}'
+                up_services: "{{ app_services if stack in app_stacks else '' }}"
             - name: Note the rollback
               ansible.builtin.set_fact:
                 deploy_status: rolled-back
+          rescue:
+            - name: Note that the rollback failed too
+              ansible.builtin.set_fact:
+                fail_why: '{{ fail_why }} | rollback to {{ previous_version[:12] }} failed too'
+                fail_next: 'see 07-deployment "When rollback also fails"; {{ fail_next }}'
 
         - name: Fail so the operator sees it
           ansible.builtin.fail:
             msg: >-
-              {{ version }} failed.
-              {{ ('Rolled back to ' ~ previous_version ~ '. Migrations were NOT reverted.')
-                 if previous_version | length > 0 else 'No previous version to roll back to.' }}
-              If the app is still down: see 07-deployment "When rollback also fails".
+              {{ stack }} {{ version[:12] }} {{ deploy_status }} at {{ fail_step }}.
+              {{ 'Migrations were NOT reverted.' if stack in app_stacks else '' }}
 
       always:
-        - name: Append to deploys.log
-          ansible.builtin.lineinfile:
-            path: '{{ project_dir }}/deploys.log'
-            line: "{{ lookup('pipe', 'date -u +%FT%TZ') }} {{ env }} {{ version }} {{ deploy_status | default('failed') }}"
-            create: true
-            mode: '0640'
-          when: not ansible_check_mode
+        - name: Report the result
+          ansible.builtin.include_tasks: tasks/report.yml

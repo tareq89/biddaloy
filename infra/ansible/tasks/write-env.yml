@@ -1,62 +1,133 @@
 ---
-# Writes the decrypted env file (and optionally the Origin CA pair) onto the host.
-# Use import_tasks (static), so `--tags env` reaches these tasks:
-#   - ansible.builtin.import_tasks: tasks/write-env.yml
-#     vars: { env: prod }    (prod | demo | staging)
-# (include_tasks is dynamic: `--tags env` would skip the untagged include and
-# run nothing, still exiting 0. If you must, tag the include and add
-# `apply: { tags: [env] }`.)
-#   write_certs: true    also writes <biddaloy_root>/certs/origin.{pem,key}  (D21)
-#   app_version: <sha>   pins APP_VERSION= in the written file (deploy.yml sets it), so the
-#                        file is written once per run and keeps root:deploy 0640
-#   env_notify: <name>   handler to notify on change (deploy.yml uses none: its own
-#                        compose up applies the new .env)
-#   secrets_dir: <path>  where the *.enc.* files are (default: <playbook_dir>/../secrets/)
+# Writes <stack>/.env from the secrets preflight.yml decrypted (on this VM, with the host
+# key), plus the derived values and the per-stack files that come out of the secrets.
+# Runs as root; the directories come from provision.yml and this file creates none of the
+# <stack> ones. Every task that touches a value has no_log: true and diff: false (Security
+# rule 13): the diff of a copy would print the contents.
 #
-# Directories come from provision.yml (the one owner model is written there);
-# this file only writes files into them.
+#   .env                 root:deploy 0640   all stacks
+#   edge: cloudflared/   config.yml + credentials.json (tunnel), letsencrypt/ acme-webroot/
+#         htpasswd       (direct)
+#   ops:  dozzle/users.yml
+#   staging: restore/key.txt (owner 10001, 0400; the backup container's uid)
 #
-# Decryption happens on the CONTROLLER (lookup plugins run locally) with the
-# operator's age key (SOPS_AGE_KEY_FILE); the sops keys stay off the host. The
-# backup age private key is a separate file on the host for the restore drill
-# (D18, 13-backup-restore.md "Key handling"); this file does not write it.
-# Every task that touches a value has no_log: true; --diff is also off, because
-# diff output would print the contents (Security rule 13).
-- name: Check the env name
-  ansible.builtin.assert:
-    that: env in ['prod', 'demo', 'staging']
-    quiet: true
-  tags: [env, always]
+# Values derived here win over the same name in the secrets (the lines are dropped first).
+- name: Derived values for this stack
+  ansible.builtin.set_fact:
+    derived_env: "{{ derived_by_stack[stack] }}"
+    dropped_keys: "{{ ['BACKUP_AGE_PRIVATE_KEY'] if stack == 'staging' else [] }}"
+  vars:
+    derived_by_stack:
+      prod: { PG_TLS_DIR: '{{ project_dir }}/pg-tls', APP_VERSION: '{{ version }}' }
+      staging: { PG_TLS_DIR: '{{ project_dir }}/pg-tls', APP_VERSION: '{{ version }}', BACKUP_AGE_KEY_DIR: '{{ project_dir }}/restore' }
+      demo: { PG_TLS_DIR: '{{ project_dir }}/pg-tls', APP_VERSION: '{{ version }}' }
+      edge:
+        EDGE_DIR: '{{ project_dir }}'
+        REPO_DIR: '{{ repo_root }}'
+        EDGE_TRUSTED_CIDR: '{{ edge_subnet_actual | default(edge_subnet) }}'
+        LANDING_VERSION: '{{ version }}'
+      ops: { OPS_DIR: '{{ project_dir }}' }
 
-- name: Write {{ biddaloy_root }}/{{ env }}/.env
+- name: Write the stack .env
   ansible.builtin.copy:
-    # With app_version: drop the file's APP_VERSION line and append the pinned one.
-    content: "{{ (env_text | regex_replace('(?m)^APP_VERSION=.*$', '')).rstrip() ~ '\nAPP_VERSION=' ~ app_version ~ '\n' if app_version | default('') | length > 0 else env_text }}"
-    dest: '{{ biddaloy_root }}/{{ env }}/.env'
+    content: |-
+      {% set ns = namespace(t=secret_text[stack]) %}
+      {% for k in (derived_env.keys() | list) + dropped_keys %}
+      {% set ns.t = ns.t | regex_replace('(?m)^[ \t]*(export[ \t]+)?' ~ k ~ '[ \t]*=.*$', '') %}
+      {% endfor %}
+      {{ ns.t | regex_replace('\n{2,}', '\n') | trim | regex_replace(quote_from, quote_to) }}
+      {% for k, v in derived_env.items() %}
+      {{ k }}={{ v }}
+      {% endfor %}
+    dest: '{{ project_dir }}/.env'
     mode: '0640'
     owner: root
     group: '{{ deploy_user }}'
   vars:
-    env_text: "{{ lookup('community.sops.sops', (secrets_dir | default(playbook_dir ~ '/../secrets/')) ~ env ~ '.enc.env', rstrip=false) }}"
+    # compose expands $VAR in unquoted .env values; single quotes keep a secret literal. Values
+    # that already start with a quote, or hold one, are left as the secret has them.
+    quote_from: '(?m)^([A-Za-z_][A-Za-z0-9_]*)=([^''"\n][^''\n]*)$'
+    quote_to: '\1=''\2'''
   diff: false
   no_log: true
-  notify: '{{ env_notify | default([]) }}'
-  tags: [env]
 
-- name: Write the Origin CA certificate and key
+- name: Staging restore key (the backup container reads it)
   ansible.builtin.copy:
-    content: "{{ lookup('community.sops.sops', (secrets_dir | default(playbook_dir ~ '/../secrets/')) ~ item.src, rstrip=false) }}"
-    dest: '{{ biddaloy_root }}/certs/{{ item.dest }}'
-    mode: '0600'
-    owner: root
-    group: root
-  loop:
-    - { src: origin-ca.enc.pem, dest: origin.pem }
-    - { src: origin-ca-key.enc.pem, dest: origin.key }
-  loop_control:
-    label: '{{ item.dest }}'
+    content: "{{ secret_env.staging.BACKUP_AGE_PRIVATE_KEY }}\n"
+    dest: '{{ project_dir }}/restore/key.txt'
+    owner: '10001'
+    group: '10001'
+    mode: '0400'
   diff: false
   no_log: true
-  notify: '{{ env_notify | default([]) }}'
-  when: write_certs | default(false) | bool
-  tags: [env]
+  when: stack == 'staging'
+
+- name: Dozzle users
+  when: stack == 'ops'
+  block:
+    - name: Dozzle directory
+      ansible.builtin.file:
+        path: '{{ project_dir }}/dozzle'
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    # The secret holds the whole users.yml on one line with \n for newlines.
+    - name: Dozzle users.yml (bcrypt hashes)
+      ansible.builtin.copy:
+        content: "{{ secret_env.ops.DOZZLE_USERS_YML | replace('\\n', '\n') }}\n"
+        dest: '{{ project_dir }}/dozzle/users.yml'
+        owner: root
+        group: root
+        mode: '0644'
+      diff: false
+      no_log: true
+
+- name: Edge files
+  when: stack == 'edge'
+  block:
+    - name: Edge directories
+      ansible.builtin.file:
+        path: '{{ project_dir }}/{{ item }}'
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop: "{{ ['cloudflared'] if edge_mode == 'tunnel' else ['letsencrypt', 'acme-webroot'] }}"
+    - name: Cloudflared config (tunnel mode)
+      ansible.builtin.template:
+        src: cloudflared-config.yml.j2
+        dest: '{{ project_dir }}/cloudflared/config.yml'
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        tunnel_id: '{{ secret_env.edge.CLOUDFLARE_TUNNEL_ID }}'
+        cf_access_team: '{{ secret_env.edge.CF_ACCESS_TEAM }}'
+        aud_staging: '{{ secret_env.edge.CF_ACCESS_AUD_STAGING }}'
+        aud_ops: '{{ secret_env.edge.CF_ACCESS_AUD_OPS }}'
+      no_log: true
+      when: edge_mode == 'tunnel'
+    # cloudflared runs as uid 65532 inside its image.
+    - name: Tunnel credentials (tunnel mode)
+      ansible.builtin.copy:
+        content: "{{ secret_env.edge.CLOUDFLARE_TUNNEL_CREDENTIALS_JSON }}\n"
+        dest: '{{ project_dir }}/cloudflared/credentials.json'
+        owner: '65532'
+        group: '65532'
+        mode: '0400'
+      diff: false
+      no_log: true
+      when: edge_mode == 'tunnel'
+    # One bcrypt line per user (`htpasswd -nB user`); \n in the secret becomes a newline.
+    # edge.direct.yml mounts this exact file path.
+    - name: Basic-auth users (direct mode)
+      ansible.builtin.copy:
+        content: "{{ secret_env.edge.BASIC_AUTH_HTPASSWD | replace('\\n', '\n') }}\n"
+        dest: '{{ project_dir }}/htpasswd'
+        owner: root
+        group: root
+        mode: '0644'
+      diff: false
+      no_log: true
+      when: edge_mode == 'direct'
