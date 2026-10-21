@@ -54,7 +54,7 @@ test('a gated route rejects without a token, then accepts a step-up token exactl
   // approver), then verify it. `ACCOUNT_ACCESS_ECHO_SECRETS=true` (test
   // config) echoes the generated OTP back on the request response — same
   // trick `api.ts`'s invite helpers use for invitation tokens.
-  const otp = await requestStepUpOtp(request, admin, SEED_ROLE_EMAILS.admin);
+  const otp = await requestStepUpOtp(request, admin, SEED_ROLE_EMAILS.admin, ApprovalScope.PAYMENTS_REVERSE);
 
   const verify = await request.post('/api/v1/auth/step-up', {
     headers: { Authorization: `Bearer ${admin.token}`, 'X-Tenant-ID': admin.tenantId },

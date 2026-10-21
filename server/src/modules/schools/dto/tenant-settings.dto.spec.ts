@@ -51,6 +51,23 @@ describe('TenantSettingsDto', () => {
     expect(errors.some((e) => e.property === 'version')).toBe(true);
   });
 
+  describe('fees.requireSecondApprover (78 D1)', () => {
+    const fees = (requireSecondApprover: unknown) => ({
+      version: TENANT_SETTINGS_SCHEMA_VERSION,
+      fees: { ...DEFAULT_FEES_SETTINGS, requireSecondApprover },
+    });
+
+    it('accepts a boolean', async () => {
+      expect(await validate(toDto(fees(true)), VALIDATION_OPTIONS)).toEqual([]);
+    });
+
+    it('rejects the string "true"', async () => {
+      const errors = await validate(toDto(fees('true')), VALIDATION_OPTIONS);
+      const feesErrors = errors.find((e) => e.property === 'fees')?.children ?? [];
+      expect(feesErrors.some((e) => e.property === 'requireSecondApprover')).toBe(true);
+    });
+  });
+
   it('rejects an unknown top-level key instead of silently persisting it', async () => {
     const dto = toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, branding: { logoUrl: 'x' } });
 

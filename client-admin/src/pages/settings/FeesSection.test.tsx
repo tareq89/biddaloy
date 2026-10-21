@@ -79,6 +79,30 @@ describe('FeesSection', () => {
     });
   });
 
+  // [78 D1]
+  it('renders the saved requireSecondApprover value and sends the toggled value in the PATCH', async () => {
+    const patchBody = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        patchBody(await request.json());
+        return HttpResponse.json({ version: 1 });
+      }),
+    );
+
+    const { user } = renderWithProviders(
+      <FeesSection schoolId={SCHOOL_ID} fees={{ ...FEES, requireSecondApprover: true }} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const box = await screen.findByLabelText('Always need a second admin to reverse a payment');
+    expect(isChecked(box)).toBe(true);
+    await user.click(box);
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(patchBody).toHaveBeenCalled());
+    expect(patchBody.mock.calls[0]![0].fees.requireSecondApprover).toBe(false);
+  });
+
   it('adding a late-fee config that gets a 403 APPROVAL_REQUIRED surfaces as a save error, not silently dropped', async () => {
     server.use(
       http.patch('/api/v1/schools/:id/settings', () =>

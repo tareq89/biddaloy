@@ -33,6 +33,9 @@ describe('StepUpController (e2e)', () => {
   // that actually sends a code needs its own identifier, not a shared one.
   const APPROVER2_ID = '00000000-0000-4000-8000-0000000005b2';
   const APPROVER2_EMAIL = 'step-up-approver2@testschool.com';
+  // A third ADMIN for the scope-mismatch test, for the same cooldown reason.
+  const APPROVER3_ID = '00000000-0000-4000-8000-0000000005b3';
+  const APPROVER3_EMAIL = 'step-up-approver3@testschool.com';
 
   beforeAll(async () => {
     process.env.DATABASE_URL =
@@ -79,6 +82,17 @@ describe('StepUpController (e2e)', () => {
        ON CONFLICT DO NOTHING`,
       [APPROVER2_ID, SEED_TENANT_ID],
     );
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status)
+       VALUES ($1, $2, NULL, 'Step-up Approver 3', 'ACTIVE')
+       ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, status = 'ACTIVE'`,
+      [APPROVER3_ID, APPROVER3_EMAIL],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, 'ADMIN')
+       ON CONFLICT DO NOTHING`,
+      [APPROVER3_ID, SEED_TENANT_ID],
+    );
 
     const loginRes = await supertest(app.getHttpServer())
       .post('/api/v1/auth/login')
@@ -93,7 +107,17 @@ describe('StepUpController (e2e)', () => {
     await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [ACTOR_ID]);
     await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [APPROVER2_ID]);
     await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [APPROVER2_ID]);
+    await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [APPROVER3_ID]);
+    await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [APPROVER3_ID]);
     await app.close();
+  });
+
+  // The per-actor guess limit (5 per window) is shared by every verify in this file;
+  // without a reset the sixth verify by ACTOR_ID gets a 429 instead of the case under test.
+  beforeEach(async () => {
+    const redis = app.get<Redis>(STEP_UP_REDIS);
+    const stale = await redis.keys(`step-up-attempts:*${ACTOR_ID}*`);
+    await redis.del(`step-up-attempts:actor:${ACTOR_ID}`, ...stale);
   });
 
   function authed(req: supertest.Test) {
@@ -107,13 +131,13 @@ describe('StepUpController (e2e)', () => {
     // below need to actually send SEED_ADMIN_EMAIL a code.
     const known = await authed(
       supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
-    ).send({ identifier: ACTOR_EMAIL });
+    ).send({ identifier: ACTOR_EMAIL, scope: 'fees.discount' });
     expect(known.status).toBe(202);
     expect(known.body).toEqual({});
 
     const unknown = await authed(
       supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
-    ).send({ identifier: 'nobody-at-all@testschool.com' });
+    ).send({ identifier: 'nobody-at-all@testschool.com', scope: 'fees.discount' });
     expect(unknown.status).toBe(202);
     expect(unknown.body).toEqual({});
   });
@@ -121,7 +145,7 @@ describe('StepUpController (e2e)', () => {
   it('full OTP flow: request -> verify -> a 300s-scoped approval token, actor != approver', async () => {
     const requestRes = await authed(
       supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
-    ).send({ identifier: SEED_ADMIN_EMAIL });
+    ).send({ identifier: SEED_ADMIN_EMAIL, scope: 'fees.duplicate_override' });
     expect(requestRes.status).toBe(202);
     const otp = requestRes.body.debug?.otp;
     expect(otp).toMatch(/^\d{6}$/);
@@ -154,7 +178,7 @@ describe('StepUpController (e2e)', () => {
 
     const requestRes = await authed(
       supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
-    ).send({ identifier: ACTOR_EMAIL });
+    ).send({ identifier: ACTOR_EMAIL, scope: 'payments.reverse' });
     const otp = requestRes.body.debug?.otp;
     expect(otp).toMatch(/^\d{6}$/);
 
@@ -178,6 +202,7 @@ describe('StepUpController (e2e)', () => {
   it('a wrong OTP is rejected with 401 and never echoes the identifier or code back', async () => {
     await authed(supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request')).send({
       identifier: APPROVER2_EMAIL,
+      scope: 'fees.discount',
     });
 
     const res = await authed(supertest(app.getHttpServer()).post('/api/v1/auth/step-up')).send({
@@ -189,6 +214,50 @@ describe('StepUpController (e2e)', () => {
 
     expect(res.status).toBe(401);
     expect(JSON.stringify(res.body)).not.toContain(APPROVER2_EMAIL);
+  });
+
+  // [F-132] The request body must name the scope the code is for.
+  it('otp/request without a scope, or with an unknown one, is 400 before any identifier lookup', async () => {
+    const missing = await authed(
+      supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
+    ).send({ identifier: 'nobody-at-all@testschool.com' });
+    expect(missing.status).toBe(400);
+    expect(missing.body.message).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^scope /)]),
+    );
+
+    const unknown = await authed(
+      supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
+    ).send({ identifier: 'nobody-at-all@testschool.com', scope: 'nope' });
+    expect(unknown.status).toBe(400);
+    expect(JSON.stringify(unknown.body)).not.toContain('nobody-at-all');
+  });
+
+  // [F-132] A code is bound to the scope it was requested for. Verifying it
+  // under another scope is the same 401 as a wrong code, and the body carries
+  // none of the identifier, the code or the scope (Rule 23).
+  it('a code requested for one scope verified under another is 401 Invalid credentials and echoes nothing back', async () => {
+    const requestRes = await authed(
+      supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
+    ).send({ identifier: APPROVER3_EMAIL, scope: 'fees.discount' });
+    expect(requestRes.status).toBe(202);
+    const otp = requestRes.body.debug?.otp;
+    expect(otp).toMatch(/^\d{6}$/);
+
+    const res = await authed(supertest(app.getHttpServer()).post('/api/v1/auth/step-up')).send({
+      identifier: APPROVER3_EMAIL,
+      method: 'OTP',
+      otp,
+      scope: 'payments.reverse',
+    });
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe('Invalid credentials');
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain(APPROVER3_EMAIL);
+    expect(body).not.toContain(otp);
+    expect(body).not.toContain('payments.reverse');
+    expect(body).not.toContain('fees.discount');
   });
 
   it('PASSWORD is rejected with 400 PASSWORD_NOT_ALLOWED by default (approval_mode is OTP-only)', async () => {
@@ -244,7 +313,7 @@ describe('StepUpController (e2e)', () => {
     const res = await supertest(app.getHttpServer())
       .post('/api/v1/auth/step-up/otp/request')
       .set('Authorization', `Bearer ${actorToken}`)
-      .send({ identifier: SEED_ADMIN_EMAIL });
+      .send({ identifier: SEED_ADMIN_EMAIL, scope: 'fees.discount' });
 
     expect(res.status).toBe(401);
   });
@@ -278,7 +347,7 @@ describe('StepUpController (e2e)', () => {
 
       const otp = await as(
         supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
-      ).send({ identifier: SEED_ADMIN_EMAIL });
+      ).send({ identifier: SEED_ADMIN_EMAIL, scope: 'fees.discount' });
       expect(otp.status).toBe(403);
       const verify = await as(supertest(app.getHttpServer()).post('/api/v1/auth/step-up')).send({
         identifier: SEED_ADMIN_EMAIL,
@@ -384,7 +453,7 @@ describe('StepUpController (e2e)', () => {
 
       const requestRes = await inB(
         supertest(app.getHttpServer()).post('/api/v1/auth/step-up/otp/request'),
-      ).send({ identifier: APPROVER_B_EMAIL });
+      ).send({ identifier: APPROVER_B_EMAIL, scope: 'fees.discount' });
       const otp = requestRes.body.debug?.otp;
       expect(otp).toMatch(/^\d{6}$/);
 

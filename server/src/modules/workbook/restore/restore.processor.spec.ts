@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { QueryFailedError } from 'typeorm';
 import { RestoreProcessor } from './restore.processor';
 import { ALL_TABS } from '../codec/registry';
+import { WorkbookFormatError } from '../codec/workbook-codec';
 import { WorkbookJobKind, WorkbookJobSource, WorkbookJobStatus } from '../jobs/workbook-job.entity';
 
 /** First five tabs in `ALL_TABS`/`EXPECTED_TABS` order — used to build a
@@ -217,6 +218,26 @@ describe('RestoreProcessor', () => {
       await run();
       expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
       expect(jobRow.error).toMatch(/staged import/i);
+    });
+
+    // #2686 (D18): the streaming read throws `NOT_XLSX` on a broken or
+    // truncated file instead of returning the sheets it got through. That
+    // throw happens inside `validate`, inside the outer try, so the job ends
+    // FAILED before any tab is loaded or written, and the lock is released.
+    it('fails the job and touches no tab when the workbook read throws NOT_XLSX', async () => {
+      validationService.validate.mockRejectedValue(
+        new WorkbookFormatError('NOT_XLSX', 'This file is not a valid .xlsx workbook.'),
+      );
+      const loadSpy = vi.spyOn(ALL_TABS[0], 'load');
+      const upsertSpy = vi.spyOn(ALL_TABS[0], 'upsert');
+
+      await run();
+
+      expect(jobRow.status).toBe(WorkbookJobStatus.FAILED);
+      expect(jobRow.error).toMatch(/not a valid \.xlsx/i);
+      expect(loadSpy).not.toHaveBeenCalled();
+      expect(upsertSpy).not.toHaveBeenCalled();
+      expect(restoreService.release).toHaveBeenCalledWith(TENANT, jobRow.id);
     });
 
     it('aborts before touching any tab when re-validation finds hard errors', async () => {

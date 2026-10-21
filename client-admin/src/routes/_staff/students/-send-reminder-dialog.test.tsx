@@ -67,6 +67,62 @@ function mockPost(respond?: () => Response) {
   );
 }
 
+// [78 D37/D38]
+describe('SendReminderDialog SMS readiness warning', () => {
+  afterEach(async () => {
+    await cleanupTestState();
+  });
+
+  it('open with NO_GATEWAY: the bar shows and Send stays enabled', async () => {
+    mockPost();
+    server.use(
+      http.get('/api/v1/communications/sms-credits/readiness', () =>
+        HttpResponse.json({ sms: 'NO_GATEWAY' }),
+      ),
+    );
+    mount(ids(2));
+    const user = userEvent.setup();
+    await screen.findByText(
+      'SMS is not set up for this school. Guardians who get messages by SMS will not receive this reminder.',
+    );
+    await user.type(screen.getByRole('textbox', { name: 'Message' }), 'Pay dues');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send' }).disabled).toBe(false);
+  });
+
+  it('closed: no readiness request is made', async () => {
+    let calls = 0;
+    server.use(
+      http.get('/api/v1/communications/sms-credits/readiness', () => {
+        calls += 1;
+        return HttpResponse.json({ sms: 'NO_GATEWAY' });
+      }),
+    );
+    function Closed() {
+      return (
+        <SendReminderDialog
+          open={false}
+          onOpenChange={() => {}}
+          studentIds={ids(2)}
+          onSent={() => {}}
+        />
+      );
+    }
+    const root = createRootRoute();
+    const home = createRoute({ getParentRoute: () => root, path: '/', component: Closed });
+    const { queryClient, localeReady } = renderWithRouter(root.addChildren([home]), {
+      initialEntries: ['/'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await localeReady;
+    // Render-tied, not time-tied: a disabled query never gets a cache entry.
+    expect(queryClient.getQueryState(['sms-readiness'])).toBeUndefined();
+    expect(calls).toBe(0);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
 describe('SendReminderDialog 500-student cap', () => {
   afterEach(async () => {
     await cleanupTestState();

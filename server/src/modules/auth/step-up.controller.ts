@@ -43,7 +43,7 @@ export class StepUpController {
     @CurrentTenant() tenant: { id: string },
     @CurrentUser() user: JwtPayload,
   ): Promise<StepUpOtpRequestResult> {
-    return this.stepUp.requestOtp(dto.identifier, tenant.id, user.sub);
+    return this.stepUp.requestOtp(dto.identifier, dto.scope, tenant.id, user.sub);
   }
 
   @AllowWhenReadOnly()

@@ -131,6 +131,7 @@ GET /communications/reminder/bulk | CommunicationsController | perm: COMMUNICATI
 GET /communications/reminder/bulk/:id | CommunicationsController | perm: COMMUNICATION_BULK_SEND
 GET /communications/reminder/bulk/:id/logs | CommunicationsController | perm: COMMUNICATION_BULK_SEND
 GET /communications/sms-credits | CreditsController | perm: COMMUNICATION_CREDIT_READ
+GET /communications/sms-credits/readiness | CreditsController | perm: COMMUNICATION_SEND
 GET /communications/student/:studentId | CommunicationsController | perm: COMMUNICATION_LOG_READ
 GET /dashboard/widgets/admissions-today | AdmissionDashboardController | perm: ADMISSION_REVIEW,DASHBOARD_VIEW
 GET /dashboard/widgets/approvals-pending | ApplicationsDashboardController | perm: APPLICATION_SUBMIT,DASHBOARD_VIEW

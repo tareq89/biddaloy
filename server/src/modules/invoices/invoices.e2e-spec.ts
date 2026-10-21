@@ -14,10 +14,15 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_USER_ID,
   SEED_ADMIN_PASSWORD,
+  SEED_ADMIN_PASSWORD_HASH,
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
 import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
+
+// [78 D1] A distinct ADMIN who approves the MON-05 reversal below.
+const REVERSE_APPROVER_ID = '00000000-0000-4000-8000-00000000a7d1';
+const REVERSE_APPROVER_EMAIL = 'invoices-reverse-approver@e2e.example';
 
 /**
  * E2E tests for the Invoice Generation & Printing API [16.5.1].
@@ -134,6 +139,19 @@ describe('Invoices E2E', () => {
        ON CONFLICT DO NOTHING`,
       [SEED_ADMIN_USER_ID, TENANT_ID, UserRole.STUDENT],
     );
+    // [78 D1] The MON-05 reversal below must not self-approve: a second ADMIN
+    // in the seed school (other specs add them) would make it a 403.
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Invoices Reverse E2E Approver', 'ACTIVE', NOW(), NOW())
+       ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, status = 'ACTIVE'`,
+      [REVERSE_APPROVER_ID, REVERSE_APPROVER_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, 'ADMIN', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [REVERSE_APPROVER_ID, TENANT_ID],
+    );
 
     const loginRes = await supertest(app.getHttpServer())
       .post('/api/v1/auth/login')
@@ -222,14 +240,14 @@ describe('Invoices E2E', () => {
         .post('/api/v1/auth/step-up/otp/request')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
-        .send({ identifier: SEED_ADMIN_EMAIL })
+        .send({ identifier: REVERSE_APPROVER_EMAIL, scope: 'payments.reverse' })
         .expect(202);
       const verifyRes = await supertest(app.getHttpServer())
         .post('/api/v1/auth/step-up')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
-          identifier: SEED_ADMIN_EMAIL,
+          identifier: REVERSE_APPROVER_EMAIL,
           method: 'OTP',
           otp: otpRes.body.debug?.otp,
           scope: 'payments.reverse',

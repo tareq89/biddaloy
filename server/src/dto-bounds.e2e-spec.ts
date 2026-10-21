@@ -74,7 +74,7 @@ describe('DTO bounds (75.14)', () => {
 
   async function issueApprovalToken(identifier: string): Promise<string> {
     const requestRes = await as('post', '/auth/step-up/otp/request', adminToken)
-      .send({ identifier })
+      .send({ identifier, scope: 'discount_rules.manage' })
       .expect(202);
     const verifyRes = await as('post', '/auth/step-up', adminToken)
       .send({
@@ -138,6 +138,28 @@ describe('DTO bounds (75.14)', () => {
   // nothing created here needs cleaning up.
   afterAll(async () => {
     await app.close();
+  });
+
+  describe('step-up OTP request scope', () => {
+    // [F-132] The scope is required and validated before any identifier lookup.
+    it('POST /auth/step-up/otp/request without scope is 400 naming scope', async () => {
+      expectFieldError(
+        await as('post', '/auth/step-up/otp/request', adminToken).send({
+          identifier: 'nobody@example.com',
+        }),
+        /^scope /,
+      );
+    });
+
+    it('POST /auth/step-up/otp/request with an unknown scope is 400 naming scope', async () => {
+      expectFieldError(
+        await as('post', '/auth/step-up/otp/request', adminToken).send({
+          identifier: 'nobody@example.com',
+          scope: 'nope',
+        }),
+        /^scope /,
+      );
+    });
   });
 
   describe('real dates', () => {

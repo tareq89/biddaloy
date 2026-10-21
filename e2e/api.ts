@@ -1047,11 +1047,12 @@ export async function requestStepUpOtp(
   request: APIRequestContext,
   session: ApiSession,
   identifier: string,
+  scope: string,
 ): Promise<string> {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const response = await request.post('/api/v1/auth/step-up/otp/request', {
       headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
-      data: { identifier },
+      data: { identifier, scope },
     });
     if (!response.ok()) {
       throw new Error(`step-up otp/request failed: ${response.status()} ${await response.text()}`);

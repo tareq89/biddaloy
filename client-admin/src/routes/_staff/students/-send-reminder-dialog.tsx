@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  NoticeBar,
   Textarea,
   toast,
 } from '@biddaloy/ui/components';
@@ -17,6 +18,7 @@ import { Link } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { MAX_BULK_REMINDER_STUDENTS } from '../communications/-shared/reminder-limits';
+import { useSmsReadiness } from '../communications/-shared/sms-readiness';
 
 export interface SendReminderDialogProps {
   open: boolean;
@@ -90,6 +92,10 @@ export function SendReminderDialog({
     );
   }
 
+  // [78 D37/D38] Warn, never block: guardians on SMS would miss this one.
+  const readiness = useSmsReadiness(open);
+  const smsNotReady = readiness.data && readiness.data.sms !== 'READY' ? readiness.data.sms : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -100,6 +106,13 @@ export function SendReminderDialog({
               {t('sendReminderDialog.description', { count: studentIds.length })}
             </DialogDescription>
           </DialogHeader>
+          {smsNotReady && (
+            <div className="mb-2">
+              <NoticeBar tone="warning">
+                {t(`sendReminderDialog.smsNotReady.${smsNotReady}`)}
+              </NoticeBar>
+            </div>
+          )}
           {over && (
             <p role="status" className="mb-2 text-sm text-destructive">
               {limitText}{' '}

@@ -124,6 +124,32 @@ describe('ReversePaymentDialog', () => {
     expect(screen.queryByText('payment-2')).toBeNull();
   });
 
+  // [78 D1]
+  it('shows the second-approver message on a 403 SECOND_APPROVER_REQUIRED', async () => {
+    server.use(
+      http.post('/api/v1/payments/:id/reverse', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(403, 'Forbidden', '/payments/payment-1/reverse'),
+            details: { code: 'SECOND_APPROVER_REQUIRED' },
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderDialog();
+
+    await user.type(await screen.findByLabelText('Reason'), 'Duplicate payment');
+    await user.click(await screen.findByRole('button', { name: 'Reverse payment' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe(
+      'Another admin must approve this reversal. Ask them to enter their code.',
+    );
+  });
+
   it('shows generic error copy on a non-409 error', async () => {
     server.use(
       http.post('/api/v1/payments/:id/reverse', () =>

@@ -1,5 +1,6 @@
 import { IsInt, IsOptional, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   SmsCreditLedgerKind,
   SmsCreditLedgerReferenceType,
@@ -22,6 +23,16 @@ export class QuerySmsCreditsDto {
   @Min(1)
   @Max(100)
   limit?: number = 20;
+}
+
+export const SMS_READINESS = ['READY', 'NO_GATEWAY', 'NO_CREDIT'] as const;
+export type SmsReadiness = (typeof SMS_READINESS)[number];
+
+/** [78 D37] `GET /communications/sms-credits/readiness` — a status only, no
+ * balance and no provider name: office staff may not read the balance. */
+export class SmsReadinessResponseDto {
+  @ApiProperty({ enum: SMS_READINESS })
+  sms: SmsReadiness;
 }
 
 /** Shared page envelope, matching `ReminderPaginatedResponseDto`'s shape. */
