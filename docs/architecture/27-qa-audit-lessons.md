@@ -87,6 +87,17 @@ Learnings log, 2026-10-19 (same format as Wave 1). Details sit in 21 and 09.
 - **Some write routes stay outside the Idempotency-Key interceptor.** `fees/generate`, `fees/schedules/run-now`, `fees/fines/generate` need a verified DB unique constraint (#2691). Also open: e2e for invoice send (#2692), double-submit leftovers (#2693), pre-send "no SMS gateway" warning (#2694). -> follow-ups, no rule yet.
 - **Wave-close full run not done by this ticket.** `ci-local --integration --e2e`, `e2e:pwa`, axe, responsive and the 10x flake gate were not run (no Docker, shared ports). Same gap as Waves 3 and 4. Rules 24-27 and their pointers in `08-security.md` and `CLAUDE.md` were written in #2683. -> run on a free machine.
 
+### Epic 78 Wave 1
+
+Learnings log, 2026-10-21 (same format as Wave 1 above). Epic 78 (#2752) works the follow-ups Epic 2642 left open.
+
+- **A test passed in Dhaka and failed in CI.** #2705 made `enrolled_at` the school-timezone day (Asia/Dhaka), but the exam-cohort fallback sitting day still used the UTC day (`toISOString().slice(0, 10)`). CI runs in UTC, so between 18:00 and 24:00 UTC the two days differ by one. Cost: six red integration tests on the first CI run. Fix: the fallback uses `localDate(...)`, plus regression test `m7` in `results.service.integration.spec.ts`. Rule candidate: when one query moves to the school day, grep the siblings that build the same date from a `Date` -> checklist item, no security rule.
+- **An unordered `getOne()` made a spec depend on seed data.** `resolve-routine.service.ts` picks the covering year with no `ORDER BY`, so two overlapping years return an arbitrary routine. Cost: three attendance-access failures until the spec year moved to 2027. Fix: spec only; the resolver is filed as #2774. -> no rule yet (overlapping years are #1169).
+- **Dependency advisories land mid-epic.** Three new advisories appeared while the epic ran: follow-redirects (high), vite 8.3.0 via launch-editor (high) and sanitize-html below 2.18 (moderate). The scan fails on moderate for production dependencies and on high for the rest. Cost: the scan was red on every branch, not only ours. Fix: root `resolutions` pins (`follow-redirects ^1.16.1`, `vite ^8.3.4`, `sanitize-html ^2.18.1`). -> no rule.
+- **A load timeout can leave a half-run migration behind.** Vitest does not cancel a hook that timed out, so the still-running migration raced the next file's reset on the same worker database and every later file failed with `relation does not exist`. Cost: 207 of 275 integration suites red locally. Fix: run integration on an isolated runner (GitHub CI) or on a quiet machine; the repo is unchanged. If it reproduces on a quiet machine, file it against `test/setup.ts`. -> no rule.
+- **A slow test is not a broken test.** `entity-catalog.spec.ts` took 7.7 s inside the 440-file parallel suite and under 1 s alone. Fix: a 30 s timeout on that `it`. -> no rule.
+- **The workbook tabs had two sweeps hiding in one ticket.** #2687 fixed the blank departed-actor cells in the tabs it named, and the same pattern ("a relation joined in `load()` beats the FK column on save") exists in other tabs. Cost: two follow-ups, #2760 and #2761, so the ticket stayed finishable. -> no rule.
+
 ## One click, one effect
 
 ```mermaid
