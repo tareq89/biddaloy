@@ -2,15 +2,21 @@
 # Nightly demo reset: build tomorrow's demo database aside, check it, swap it in by rename.
 #
 #   1. create biddaloy_demo_next, migrate, seed, validate, sweep   (live DB untouched)
-#   2. wait for 02:00 (skipped with --now)
-#   3. swap: live -> _prev, _next -> live   (a few seconds of downtime)
-#   4. re-open live and _prev, write default-school's id, flush Redis, restart  (always attempted)
-#   5. drop _prev_old and its S3 objects, Sentry check-in                    (best effort)
+#   2. swap with /app/db-swap.sh: live -> _prev, _next -> live   (a few seconds of downtime)
+#   3. write default-school's id, flush Redis                    (always attempted)
+#   4. drop _prev_old and its S3 objects, Sentry / Kuma check-in (best effort)
 #
-# Any failure before step 3 drops _next and leaves yesterday's demo running. A failure inside
-# step 3 is rolled back, and the log says exactly which state the databases were left in. Only one
-# reset runs at a time (flock on $DEMO_STATE_DIR/reset.lock). Run by hand with
-#   docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
+# It runs ONCE per invocation (the host timer decides when, D11) and never restarts a container.
+# Exit codes (the host timer biddaloy-nightly, #2801, restarts the app on 0 AND 3):
+#   0  rebuilt and cleaned up: prints "demo rebuild ok — restart the app"
+#   3  the swap COMMITTED but a later step failed (state file, Redis flush, _prev_old purge, ...):
+#      prints "demo rebuild swapped, cleanup failed — restart the app". The new database is live, so
+#      the app must still be restarted; the error is reported to Sentry / Kuma.
+#   other  nothing was swapped (or it was rolled back): do NOT restart, yesterday's demo is live.
+# Any failure before step 2 drops _next and leaves yesterday's demo running. A failure inside
+# step 2 is rolled back by db-swap.sh, and the log says exactly which state the databases were left
+# in. Only one reset runs at a time (flock on $DEMO_STATE_DIR/reset.lock). Run by hand with
+#   docker compose -p demo run --rm demo-reset /app/reset.sh --now
 #
 # SAFETY: this script drops and renames databases. Every such statement goes through
 # assert_demo_name (name must be biddaloy_demo*), and the script refuses to start unless
@@ -20,11 +26,10 @@
 # be able to CREATE/DROP/ALTER databases), REDIS_URL, DEMO_PASSWORD, DEMO_STATE_DIR, S3_BUCKET
 # (a plain bucket name containing "demo"), S3_ENDPOINT, S3_REGION, S3_ACCESS_KEY_ID,
 # S3_SECRET_ACCESS_KEY.
-# Optional: DEMO_SCALE (1), DEMO_YEARS (10), DEMO_SWAP_AT (02:00), SENTRY_CRONS_URL, DEMO_RESET_PUSH_URL
-# (+ DEMO_RESET_PUSH_ACCESS_CLIENT_ID / _SECRET, a Cloudflare Access service token),
+# Optional: DEMO_SCALE (1), DEMO_YEARS (10), SENTRY_CRONS_URL, DEMO_RESET_PUSH_URL,
 # DEMO_SWEEP_CMD (run with DEMO_SWEEP_URL, default http://127.0.0.1:3999 = the temporary app;
 # non-zero = fail; killed after DEMO_SWEEP_TIMEOUT seconds, default 1800) or DEMO_SKIP_SWEEP=true,
-# DEMO_RESTART_CMD (default: docker restart $DEMO_APP_CONTAINER), and the DEMO_*_CMD overrides
+# DEMO_SWAP_CMD (default /app/db-swap.sh), and the DEMO_*_CMD overrides
 # below (tests inject fakes there; DEMO_PSQL / DEMO_REDIS_CLI do the same for the two clients).
 #
 # Secrets discipline: never `set -x`, never echo DATABASE_URL or any key.
@@ -66,17 +71,13 @@ cron_checkin() {
   # Uptime Kuma push monitor `demo-reset-nightly` (12-operations.md section 1): up on ok, down
   # on error. Same shape as backup.sh's kuma_push: the token is in the path, any query is
   # dropped, the URL is never echoed and curl's stderr is discarded. No-op when unset.
-  # Kuma sits behind Cloudflare Access on another host: DEMO_RESET_PUSH_ACCESS_CLIENT_ID /
-  # _SECRET (an Access service token) go in as headers on stdin, never on the command line.
-  # Anything but a 2xx (Access's 302 to its login page, a refused connection = 000) is logged.
+  # Kuma's /api/push/* path bypasses Cloudflare Access (D14), so no auth headers go with it.
+  # Anything but a 2xx (a refused connection = 000) is logged.
   if [[ -n "${DEMO_RESET_PUSH_URL:-}" && "$1" != in_progress ]]; then
     local status=up code
     [[ "$1" == ok ]] || status=down
-    # shellcheck disable=SC2086 # the unquoted ${..:+-H @-} is two words or none, on purpose
-    code="$(printf 'CF-Access-Client-Id: %s\nCF-Access-Client-Secret: %s\n' \
-      "${DEMO_RESET_PUSH_ACCESS_CLIENT_ID:-}" "${DEMO_RESET_PUSH_ACCESS_CLIENT_SECRET:-}" |
-      curl -sS --connect-timeout 5 --max-time 10 -o /dev/null -w '%{http_code}' \
-        ${DEMO_RESET_PUSH_ACCESS_CLIENT_ID:+-H @-} "${DEMO_RESET_PUSH_URL%%\?*}?status=${status}&msg=$1" 2>/dev/null)" || true
+    code="$(curl -sS --connect-timeout 5 --max-time 10 -o /dev/null -w '%{http_code}' \
+      "${DEMO_RESET_PUSH_URL%%\?*}?status=${status}&msg=$1" 2>/dev/null)" || true
     [[ "$code" == 2* ]] || log "Kuma push got HTTP ${code:-000}, not 2xx"
   fi
 }
@@ -98,7 +99,6 @@ check_guards() {
   fi
   [[ "$DEMO_SCALE" =~ ^[0-9]+(\.[0-9]+)?$ ]] || die "DEMO_SCALE must be a number, got '$DEMO_SCALE'"
   [[ "$DEMO_YEARS" =~ ^[1-9][0-9]*$ ]] || die "DEMO_YEARS must be a positive integer, got '$DEMO_YEARS'"
-  [[ "$DEMO_SWAP_AT" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] || die "DEMO_SWAP_AT must be HH:MM, got '$DEMO_SWAP_AT'"
   [[ -n "${DEMO_SWEEP_CMD:-}" || "${DEMO_SKIP_SWEEP:-}" == "true" ]] \
     || die "set DEMO_SWEEP_CMD (the nightly sweep) or DEMO_SKIP_SWEEP=true"
 
@@ -153,6 +153,7 @@ purge_db() {
 }
 
 # Both are set just BEFORE their rename; recover() asks the catalog whether the rename committed.
+COMMITTED=false   # db-swap.sh reported (or the catalog shows) that _next is now live
 SWAPPED=false     # _next -> live was attempted
 LIVE_MOVED=false  # live -> _prev was attempted
 SWAP_T0=""
@@ -189,6 +190,11 @@ on_exit() {
   if [[ -n "$APP_PID" ]]; then kill "$APP_PID" 2>/dev/null || true; fi
   if [[ $rc -eq 0 ]]; then cron_checkin ok; exit 0; fi
   log "failed with exit code ${rc}"
+  # The new database is live, so the app must still be restarted whatever failed after that.
+  if [[ "$COMMITTED" == true ]]; then
+    rc=3
+    echo "demo rebuild swapped, cleanup failed — restart the app"
+  fi
   ( recover ) || log "recovery did not finish (see above)"
   "$DEMO_REDIS_CLI" -u "$SWEEP_REDIS" FLUSHDB >/dev/null 2>&1 || true
   cron_checkin error
@@ -239,52 +245,48 @@ sweep_next() {
   [[ $rc -eq 0 ]] || die "sweep failed (exit ${rc})"
 }
 
-wait_for_swap_time() {
-  local now secs
-  now="$(date +%H:%M:%S)"
-  secs=$(( 10#${DEMO_SWAP_AT:0:2} * 3600 + 10#${DEMO_SWAP_AT:3:2} * 60 - 10#${now:0:2} * 3600 - 10#${now:3:2} * 60 - 10#${now:6:2} ))
-  if (( secs > 0 )); then log "waiting ${secs}s until ${DEMO_SWAP_AT}"; sleep "$secs"; fi
-}
-
-# Any failure here exits; on_exit -> recover() reads the catalog to roll back.
+# Any failure here exits; on_exit -> recover() reads the catalog to confirm the final state.
 swap() {
   assert_demo_name "$LIVE"; assert_demo_name "$NEXT"; assert_demo_name "$PREV"; assert_demo_name "$PREV_OLD"
-  # Keep exactly one previous DB: _prev becomes _prev_old now, and _prev_old is purged once the app
-  # is back. A _prev_old found here is left over from a failed night.
+  # Keep exactly one previous DB: db-swap.sh turns _prev into _prev_old, and _prev_old is purged
+  # once the app is back. Its S3 objects must go first, so that purge stays here, not in db-swap.sh.
+  # A _prev_old found here is left over from a failed night.
   purge_db "$PREV_OLD" || log "could not purge leftover ${PREV_OLD}; continuing"
-  if db_exists "$PREV"; then
-    if ! db_exists "$PREV_OLD"; then rename_db "$PREV" "$PREV_OLD"
+  if db_exists "$PREV" && db_exists "$PREV_OLD"; then
     # The leftover's objects could not be deleted, so it stays for the next night to retry, and
     # _prev (due to be purged tonight anyway) goes now instead of being renamed onto it.
-    else purge_db "$PREV" || die "could not purge ${PREV} either; nothing renamed, swap skipped"; fi
+    purge_db "$PREV" || die "could not purge ${PREV} either; nothing renamed, swap skipped"
   fi
   SWAP_T0="$(date +%s)"
-  set_connections "$NEXT" false
-  if db_exists "$LIVE"; then
-    set_connections "$LIVE" false
-    psql_admin "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${LIVE}' AND pid <> pg_backend_pid()" >/dev/null
-    LIVE_MOVED=true
-    rename_db "$LIVE" "$PREV"
-  fi
+  # Set BEFORE the call; recover() asks the catalog what actually happened. Live only moves if it exists.
+  if db_exists "$LIVE"; then LIVE_MOVED=true; fi
   SWAPPED=true
-  # psql can report an error for a rename that did commit (connection lost on the reply): the
-  # catalog decides, so a committed swap always goes on to the post-swap steps in main().
-  rename_db "$NEXT" "$LIVE" \
-    || { db_exists "$LIVE" && ! db_exists "$NEXT" && log "psql reported an error, but ${NEXT} is now ${LIVE}"; } \
-    || die "could not rename ${NEXT} to ${LIVE}"
+  local rc=0
+  "$DEMO_SWAP_CMD" "$LIVE" "$NEXT" || rc=$?
+  if [[ $rc -eq 0 ]]; then COMMITTED=true; return; fi
+  # db-swap.sh exits 2 when it refused (bad name, lock held): nothing moved. 1 = it failed and rolled
+  # back, unless the new database is live anyway (it failed re-opening connections), then the
+  # post-swap steps in main() must still run.
+  [[ $rc -ne 2 ]] || die "swap refused, nothing moved (see above)"
+  if db_exists "$LIVE" && ! db_exists "$NEXT"; then
+    COMMITTED=true
+    log "swap reported exit ${rc}, but ${NEXT} is now ${LIVE}"
+    [[ "$(psql_admin "SELECT datallowconn FROM pg_database WHERE datname = '${LIVE}'")" == t ]] \
+      || set_connections "$LIVE" true || failed+=" swap-reopen"
+  else
+    die "swap failed (see above)"
+  fi
 }
 
 main() {
-  local now_flag=false
-  case "${1:-}" in "") ;; --now) now_flag=true ;; *) die "usage: reset.sh [--now]" ;; esac
-  DEMO_SCALE="${DEMO_SCALE:-1}"; DEMO_YEARS="${DEMO_YEARS:-10}"; DEMO_SWAP_AT="${DEMO_SWAP_AT:-02:00}"
+  # --now is kept so the old command line still works; the run is always immediate.
+  case "${1:-}" in "" | --now) ;; *) die "usage: reset.sh [--now]" ;; esac
+  DEMO_SCALE="${DEMO_SCALE:-1}"; DEMO_YEARS="${DEMO_YEARS:-10}"
   DEMO_MIGRATE_CMD="${DEMO_MIGRATE_CMD:-node_modules/.bin/typeorm migration:run -d server/dist/data-source.js}"
   DEMO_SEED_CMD="${DEMO_SEED_CMD:-node server/dist/scripts/demo-seed/index.js --scale ${DEMO_SCALE} --years ${DEMO_YEARS}}"
   DEMO_VALIDATE_CMD="${DEMO_VALIDATE_CMD:-node server/dist/scripts/demo-seed/validate-cli.js}"
   DEMO_APP_CMD="${DEMO_APP_CMD:-exec node server/dist/main.js}"
-  if [[ -z "${DEMO_RESTART_CMD:-}" ]]; then
-    DEMO_RESTART_CMD='docker restart "${DEMO_APP_CONTAINER:?DEMO_APP_CONTAINER is required}"'
-  fi
+  DEMO_SWAP_CMD="${DEMO_SWAP_CMD:-/app/db-swap.sh}"
   check_guards
 
   # One reset at a time, across the cron container and any `run --rm` copy (same demo-state volume).
@@ -297,39 +299,26 @@ main() {
   trap on_exit EXIT
   cron_checkin in_progress
 
-  local state="${DEMO_STATE_DIR}/platform-tenant-id" first_run=false failed="" out
-  [[ -s "$state" ]] || first_run=true
+  local state="${DEMO_STATE_DIR}/platform-tenant-id"
+  failed=""  # global: swap() adds to it
 
   build_next
   sweep_next
   "$DEMO_REDIS_CLI" -u "$SWEEP_REDIS" FLUSHDB >/dev/null
-  if [[ "$now_flag" == false ]]; then wait_for_swap_time; fi
 
   swap
 
-  # From here every step is attempted even if an earlier one failed: the app must come back on the
-  # new database. Order: connections, the id file the app reads at boot, a clean Redis, the restart.
-  if set_connections "$LIVE" true; then
-    log "swap done; downtime from backend terminate to reconnect: $(( $(date +%s) - SWAP_T0 )) s"
-  else failed+=" live-connections"; fi
-  # Yesterday's database stays usable, so a bad night can be undone by hand (see the runbook).
-  # Opened only now: a rollback rename needs it free of sessions.
-  if [[ "$LIVE_MOVED" == true ]]; then set_connections "$PREV" true || failed+=" prev-connections"; fi
+  # From here every step is attempted even if an earlier one failed. Order: the id file the app
+  # reads at boot, then a clean Redis. The host restarts the app on exit 0 or 3.
+  log "swap done; downtime from backend terminate to reconnect: $(( $(date +%s) - SWAP_T0 )) s"
   { printf '%s\n' "$PLATFORM_ID" > "${state}.tmp" && mv "${state}.tmp" "$state"; } || failed+=" state-file"
   log "flushing Redis db ${REDIS_DB}"
   "$DEMO_REDIS_CLI" -u "$REDIS_URL" FLUSHDB >/dev/null || failed+=" redis-flush"
-  log "restarting the app"
-  if ! out="$(bash -c "$DEMO_RESTART_CMD" 2>&1 9>&-)"; then
-    printf '%s\n' "$out" >&2
-    # First boot: `app` was never created (docker-compose.demo.yml header). Any other error counts.
-    if [[ "$first_run" == true && "$out" == *"No such container"* ]]; then
-      log "app not restarted: first run, start it with docker compose up"
-    else failed+=" app-restart"; fi
-  fi
   log "dropping ${PREV_OLD} and its S3 objects"
-  purge_db "$PREV_OLD" || failed+=" purge-${PREV_OLD}"
-  [[ -z "$failed" ]] || die "swapped, but these steps failed:${failed}"
+  purge_db "$PREV_OLD" || failed+=" purge-${PREV_OLD}"  # non-fatal: the next run retries it
+  if [[ -n "$failed" ]]; then log "swapped, but these steps failed:${failed}"; exit 3; fi
   log "done"
+  echo "demo rebuild ok — restart the app"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi
