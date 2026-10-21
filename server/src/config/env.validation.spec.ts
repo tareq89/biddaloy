@@ -40,6 +40,24 @@ describe('BILLING_FREE_UNTIL (49.4)', () => {
   });
 });
 
+describe('Turnstile keys (Epic 79)', () => {
+  it('production refuses only one of the site key and the secret', () => {
+    expect(() => validate({ ...prodConfig, TURNSTILE_SITE_KEY: 'site' })).toThrow(/TURNSTILE/);
+    expect(() => validate({ ...prodConfig, TURNSTILE_SECRET_KEY: 'secret' })).toThrow(/TURNSTILE/);
+  });
+
+  it('production accepts both or neither', () => {
+    expect(() =>
+      validate({ ...prodConfig, TURNSTILE_SITE_KEY: 'site', TURNSTILE_SECRET_KEY: 'secret' }),
+    ).not.toThrow();
+    expect(() => validate(prodConfig)).not.toThrow();
+  });
+
+  it('rejects a sample rate outside 0 to 1', () => {
+    expect(() => validate({ ...prodConfig, SENTRY_TRACES_SAMPLE_RATE: '5' })).toThrow();
+  });
+});
+
 describe('assertProductionConfig (via validate)', () => {
   it('accepts a fully valid production env', () => {
     expect(() => validate(prodConfig)).not.toThrow();

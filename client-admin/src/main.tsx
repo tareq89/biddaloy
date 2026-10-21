@@ -20,6 +20,7 @@ import { createRoot } from 'react-dom/client';
 import { registerServiceWorker } from './pwa/register';
 import { RouteErrorFallbackWithUpdate } from './route-error-fallback';
 import { routeTree } from './routeTree.gen';
+import { runtimeConfig } from './runtime-config';
 import './index.css';
 
 // [15.8.2]: `beforeinstallprompt` fires at most once, and Chrome can fire
@@ -107,17 +108,19 @@ const router = createRouter({
 // instance. The cost is that a throw inside `createRouter` itself goes
 // unreported — the same exposure every line above it already had.
 //
-// `VITE_SENTRY_TRACES_SAMPLE_RATE` is left `undefined` when unset (rather
-// than defaulted here) so `initSentry` owns the single default, and an
-// out-of-range or non-numeric value falls back to it too.
+// The values come from `/runtime-config.js` (server env at boot), not the
+// build. `initSentry` still owns the rate's range check and default. It has
+// no `release` option, so the release is set as a tag.
+const sentryConfig = runtimeConfig();
 initSentry({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
-  environment: import.meta.env.MODE,
+  dsn: sentryConfig.sentryDsn || undefined,
+  environment: sentryConfig.sentryEnvironment || import.meta.env.MODE,
   router,
-  ...(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE !== undefined && {
-    tracesSampleRate: Number.parseFloat(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE),
-  }),
+  tracesSampleRate: sentryConfig.sentryTracesSampleRate,
 });
+// ponytail: `release` is served but not yet sent to Sentry. `initSentry` has no
+// `release` option and client-admin has no `@sentry/react` dependency for a
+// setTag; add `release` to `ui/src/api/sentry.ts` `InitSentryOptions` and pass it here.
 
 // [8.9.8]: opaque tenant id only, kept current across a mid-session
 // switch — see `updateSentryTenantTag`'s own comment

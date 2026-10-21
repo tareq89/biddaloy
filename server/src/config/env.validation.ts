@@ -277,6 +277,30 @@ class EnvironmentVariables {
   @IsString()
   TURNSTILE_SECRET_KEY?: string;
 
+  // Public values served to the SPA at /runtime-config.js (runtime-config.ts).
+  @IsOptional()
+  @IsString()
+  TURNSTILE_SITE_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  SENTRY_DSN_WEB?: string;
+
+  @IsOptional()
+  @IsString()
+  SENTRY_ENVIRONMENT?: string;
+
+  // A fraction from 0 to 1, e.g. "0.1".
+  @IsOptional()
+  @Matches(/^(0(\.\d+)?|1(\.0+)?)$/, {
+    message: 'SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1',
+  })
+  SENTRY_TRACES_SAMPLE_RATE?: string;
+
+  @IsOptional()
+  @IsString()
+  APP_VERSION?: string;
+
   @IsOptional()
   @IsString()
   GOOGLE_OAUTH_CLIENT_ID?: string;
@@ -422,6 +446,10 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
     problems.push(
       'CORS_ORIGINS has an entry that is not a bare origin (expected e.g. https://app.school.org, no path or trailing slash)',
     );
+  }
+
+  if (Boolean(str('TURNSTILE_SITE_KEY')) !== Boolean(str('TURNSTILE_SECRET_KEY'))) {
+    problems.push('TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together or not at all');
   }
 
   if (problems.length > 0) {

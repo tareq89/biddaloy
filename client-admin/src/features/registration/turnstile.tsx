@@ -1,8 +1,13 @@
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
-/** No key → no widget (local dev and e2e); the server only checks the token when it has a secret. */
-export const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+import { runtimeConfig } from '../../runtime-config';
+
+/**
+ * No key → no widget (local dev and e2e); the server only checks the token when it has a secret.
+ * From `/runtime-config.js`, which loads before the bundle, so reading it at import time is safe.
+ */
+export const TURNSTILE_SITE_KEY = runtimeConfig().turnstileSiteKey;
 
 /** The server needs a non-empty token even when it will not check it. */
 export const NO_CAPTCHA_TOKEN = 'no-captcha';

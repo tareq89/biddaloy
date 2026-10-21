@@ -25,6 +25,7 @@ import {
   DOCS_PATH,
 } from './swagger';
 import { buildDocsBasicAuthMiddleware, buildDocsCspOverrideMiddleware } from './docs-auth';
+import { runtimeConfigHandler } from './runtime-config';
 import { buildSpaFallback } from './spa-fallback';
 import { assertSecretEchoAllowed } from './modules/account-access/account-access-echo';
 import * as Sentry from '@sentry/node';
@@ -116,6 +117,12 @@ async function bootstrap() {
   logger.log(`CORS allowlist: ${origins.length > 0 ? origins.join(', ') : '(none)'}`);
 
   app.enableCors(corsOptions);
+
+  // Public per-deploy config for the SPA (Turnstile key, Sentry...). A plain
+  // express handler like `buildSpaFallback`, not a controller: it must exist
+  // in every NODE_ENV and outside `/api`. Rule 1 does not apply (public
+  // values only, no tenant data); Rule 14: it answers `no-store`.
+  app.use('/runtime-config.js', runtimeConfigHandler());
 
   // In production, serve the one client build at `/` ([8.9.10] — staff and
   // guardians are separated by route inside a single SPA, not by package).
