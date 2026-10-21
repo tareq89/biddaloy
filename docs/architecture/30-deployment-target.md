@@ -215,3 +215,40 @@ the next command.
 | Cloudflare as code (Terraform) | more hosts, or frequent DNS/Access changes | — |
 | CI minutes on the private repo | the repo goes private (~54k min / 30 days vs 2k free) | separate issue (see the epic) |
 | Status page (#1770), load tests (#1772), capacity plan (#1773) | before 10 schools | unchanged from Epic 61 |
+
+## Learnings
+
+Wave 1 (2026-10-22): runtime config, alert probe, compose stacks, nginx edge modes, backup and demo reset. Each lane was built alone, so the wiring between them was only checked in the closing sub-wave.
+
+```mermaid
+flowchart LR
+  C[certbot loop] -->|touch /var/www/acme/.reload| R[reload-loop.sh in nginx]
+  R -->|nginx -s reload| N[nginx]
+  E[edge-mode.sh] -->|writes 00-edge.conf + snippets| N
+  B[cert-bootstrap] -->|self-signed cert, first boot only| N
+```
+
+### What surprised us
+
+| Surprise | Cost | Fix / rule |
+|---|---|---|
+| Lanes disagreed on the edge wiring: `edge.yml` still mounted the removed `trusted-proxies.sh`, and certbot touched `/var/www/acme/.reload` while `reload-loop.sh` watched `/etc/letsencrypt/.reload`. | nginx would not have booted; renewals would only load after the 6 h fallback. | Closing sub-wave rewired it: `edge.yml` mounts `edge-mode.sh` and sets `RELOAD_FLAG`. Rule: a file mounted by one lane and written by another needs one owner and one path. |
+| ACME HTTP-01 got `401` on basic-auth hosts. | A renewal for `staging` / `ops` would fail. | `location ^~ /.well-known/acme-challenge/ { auth_basic off; }` in every direct-mode server (`edge-mode.sh`). |
+| Kuma push monitors live under the same host as the basic-auth UI. | Probes would be asked to log in. | Match the push path exactly (percent-decoded, normalised) and skip auth only there. nginx matches the decoded path but forwards the raw one, so check both. |
+| `X-Forwarded-Proto` in tunnel mode: cloudflared talks plain HTTP, so the app saw `http`. | `SameOriginGuard` rejected valid requests. | Tunnel mode forces `$edge_proto` to `https`. |
+| `proxy_connect_timeout` too long on a down upstream. | A dead staging or app2 hung requests instead of failing fast. | Short connect timeout; upstreams use `resolve` so nginx boots with a container missing. |
+| `reset.sh` exit codes. | The caller could not tell "swapped, some steps failed" from "nothing moved". | Contract: **0 or 3 means the swap happened, restart the app**; 1 failed and rolled back; 2 refused. Only 0 and 3 restart. |
+
+### Decisions taken in the lanes (recommended option each time)
+
+- Direct mode first certificate: a one-shot `cert-bootstrap` makes a 30-day self-signed cert, so nginx can serve the ACME challenge. Option rejected: a manual `certbot standalone` run before `up` (a step a human forgets).
+- `EDGE_TRUSTED_CIDR` is empty by default and `edge-mode.sh` detects it from the network shared with `cloudflared`. `biddaloy-edge` is `external: true` here, so the deploy that creates it (W3.01) pins the subnet and sets the variable. Option rejected: `ipam` in `edge.yml` (cannot pin an external network).
+- `demo-reset` is `restart: 'no'` and has no Docker socket proxy; it is a run-once job.
+- Ops-less hosts drop `conf.d/ops.conf` when `OPS_UPSTREAM_HOST` is empty.
+
+### Open follow-ups
+
+- Sentry `release` was served but not sent. Fixed here (`initSentry` takes `release`, `client-admin/src/main.tsx` passes it).
+- Not run in this sub-wave (no Docker allowed): `docker/test/compose.infra.test.sh`, `nginx/test/*.infra.test.sh`, `scripts/backup/*.test.sh`, `scripts/demo/reset.infra.test.sh`. Run them at integration (`yarn ci:local` on Node 24). `cert-bootstrap` needs the `openssl` binary in the certbot image: unverified.
+- Old docs and Ansible still mention `TRUSTED_PROXY_CIDRS`, `trusted-proxies.sh`, `demo-docker-proxy`, `nginx/demo` (`docs/architecture/07-deployment.md`, `12-operations.md`, `22-demo-seed.md`, `infra/ansible/deploy.yml`). They go away in the later waves that replace that setup.
+- Issue #2792 steps 1 to 4 (`ci:local`, snapshots, `api:types`) are for the integration run.
