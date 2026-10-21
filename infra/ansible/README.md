@@ -55,7 +55,7 @@ What the play sets up, and what it costs:
   VM nothing is deployed yet, so the check only means something on runs after
   `deploy.yml` (61.1).
 - **Weekly prune.** Third-party images unused for 7 days go. Our own images
-  (`ghcr.io/tareq89/*`) keep the newest 4 per repo, so a rollback does not need GHCR.
+  (`ghcr.io/tareq89/*`) keep the newest 6 per repo, so a rollback does not need GHCR.
   Untagged (dangling) images go every week.
 
 Secrets are not here: see `infra/secrets`. Local `.vault*` files are ignored and
@@ -64,8 +64,27 @@ Lint: `ansible-lint infra/ansible`.
 
 ## Deploy a version
 
+`deploy.yml` runs **on the VM**, never from the laptop. You run the wrapper:
+
 ```bash
-ansible-playbook deploy.yml -e env=prod -e version=$(git rev-parse HEAD)   # full 40-hex sha; add --check to see the plan
+# laptop: checks the sha is pushed, then ssh deploy@<vm> biddaloy-deploy ...
+BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh staging 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh prod    3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+# first deploy on a fresh VM (prod has no staging ok line yet):
+BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh all <sha> --hotfix "first deploy"
 ```
 
-Pulls, backs up (prod), migrates, restarts, waits for ready, smoke-tests, and logs to `/opt/biddaloy/<env>/deploys.log`. On failure it redeploys the last good version (migrations are not reverted). Before deploying: check out that sha with no uncommitted changes to `docker-compose*.yml` or `nginx/` (files are copied from your checkout) and export `SMOKE_{ADMIN,TEACHER,SUPER_ADMIN}_{EMAIL,PASSWORD}` for the smoke test. Staging (`-e env=staging`) runs `config:check --env staging` first and skips the smoke test (Cloudflare Access). Full flow and rollback: `docs/architecture/07-deployment.md`.
+On the VM, `biddaloy-deploy` checks its input, takes `/opt/biddaloy/deploy.lock`, checks out the
+sha in `/opt/biddaloy/repo` and runs:
+
+```bash
+BIDDALOY_HOTFIX_REASON="<reason or empty>" \
+  ansible-playbook -c local -i localhost, /opt/biddaloy/repo/infra/ansible/deploy.yml \
+  -e stack=<prod|staging|demo|edge|ops> -e version=<40-hex sha> [-e skip_backup=true]
+```
+
+The hotfix reason is an environment variable, never `-e`: Ansible templates extra vars, so a
+`{{ }}` in one would run as root. Pulls, backs up (prod), migrates, restarts, waits for ready,
+smoke-tests, and logs to `/opt/biddaloy/<stack>/deploys.log` (full output:
+`/opt/biddaloy/logs/<stack>-last-deploy.log`). On failure it brings the previous version back
+(migrations are not reverted). Full flow: `docs/architecture/30-deployment-target.md`.

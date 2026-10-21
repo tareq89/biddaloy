@@ -7,7 +7,7 @@
 # extra vars, so a reason or stack holding {{ }} would run code as root). biddaloy-deploy MUST check
 # stack against the five names and version against ^[0-9a-f]{40}$ in bash before calling
 # ansible, and reject { } % # in anything it forwards. A -e hotfix_reason is ignored.
-# with ANSIBLE_COLLECTIONS_PATH=/opt/biddaloy/ansible/collections. Files come from the checkout in
+# It runs with ANSIBLE_COLLECTIONS_PATH=/opt/biddaloy/ansible/collections. Files come from the checkout in
 # /opt/biddaloy/repo (already at `version`); compose runs from there with
 # --project-directory /opt/biddaloy/<stack>, where the generated .env lives.
 # Plan only (nothing pulled, written or restarted): add --check.

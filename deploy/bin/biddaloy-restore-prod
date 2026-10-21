@@ -94,10 +94,8 @@ esac
 # --- locks (deploy lock, then swap lock) --------------------------------------------------------
 exec 8>"$ROOT/deploy.lock"
 flock -w 3600 8 || { say "deploy lock busy for an hour"; exit 1; }
-if [[ -z "${BIDDALOY_SWAP_LOCK_HELD:-}" ]]; then
-  exec 9>"$SWAP_LOCK"
-  flock -w 3600 9 || { say "swap lock busy for an hour"; exit 1; }
-fi
+exec 9>"$SWAP_LOCK"
+flock -w 3600 9 || { say "swap lock busy for an hour"; exit 1; }
 
 # dc: always the same project, project directory and file. The key directory is handed to compose
 # by interpolation (the environment wins over .env), so the key never touches a command line.

@@ -21,11 +21,12 @@
           edge_mode must be tunnel or direct, the host Ubuntu 24.04 or newer, and
           github_deploy_pubkey a single "ssh-ed25519 <base64> [comment]" line with no options
       tags: always
+    # systemd-journal: the nightly log-archive job (runs as deploy) exports host logs with journalctl.
     - name: Deploy user
       ansible.builtin.user:
         name: '{{ deploy_user }}'
         shell: /bin/bash
-        groups: sudo
+        groups: [sudo, systemd-journal]
         append: true
     # Add first (not exclusive), prove it, only then drop every other key. On a
     # re-run as deploy, a wrong operator_ssh_pubkey then stops at the probe while
@@ -287,6 +288,8 @@
     #                    ca.crt 0644 (the app reads ca.crt through NODE_EXTRA_CA_CERTS).
     #   staging/restore/ 10001 0500 (the backup container's uid)
     #   repo/ logs-export/ deploy 0755      keys/  deploy 0700
+    #   logs/  deploy 0775 (biddaloy-deploy writes <stack>-last-deploy.log here)
+    #   deploy.lock  deploy 0664 (one deploy at a time; nightly and restore-prod take it first)
     - name: Env directories
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/{{ item }}'
@@ -306,6 +309,17 @@
         - { name: repo, mode: '0755' }
         - { name: keys, mode: '0700' }
         - { name: logs-export, mode: '0755' }
+        - { name: logs, mode: '0775' }
+    # /opt/biddaloy is root's, so deploy cannot create the lock itself. preserve keeps re-runs at changed=0.
+    - name: Deploy lock file
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/deploy.lock'
+        state: touch
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '0664'
+        modification_time: preserve
+        access_time: preserve
     - name: Postgres TLS directories
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/{{ item }}/pg-tls'
@@ -386,9 +400,9 @@
         src: '/home/{{ deploy_user }}/.ssh/github_repo.pub'
       register: repo_deploy_pub
 
-    # Nightly jobs (D11): host systemd timers; one host flock serialises them
-    # with the deploy script's DB swaps (the swap flock inside containers is per
-    # container). Persistent=false: a missed night is not replayed at boot.
+    # Nightly jobs (D11): host systemd timers. biddaloy-nightly takes deploy.lock, then the
+    # host swap lock, itself (same order as biddaloy-restore-prod), so a job never overlaps a
+    # deploy or another swap. Persistent=false: a missed night is not replayed at boot.
     # Created up front and owned by deploy, so root (a manual or W3 run) can flock it
     # too under fs.protected_regular (root cannot open another user's file in /run/lock
     # with O_CREAT).

@@ -140,13 +140,13 @@ Secrets stay in git, encrypted with sops + age (chosen over Infisical and
 Bitwarden: no outside service). Each file is encrypted for three keys: yours, the offline recovery key, and
 the VM's own host key.
 
-| File                            | Holds                                                               |
-| ------------------------------- | ------------------------------------------------------------------- |
-| `infra/secrets/prod.enc.env`    | prod app, DB, R2 backup write token, SMS, OAuth, Turnstile, Sentry  |
-| `infra/secrets/staging.enc.env` | staging app, `STAGING_PASSWORD`, R2 **read-only** token             |
-| `infra/secrets/demo.enc.env`    | demo app, `DEMO_PASSWORD`                                           |
-| `infra/secrets/edge.enc.env`    | tunnel credentials, GHCR pull token, basic-auth users (direct mode) |
-| `infra/secrets/ops.enc.env`     | Beszel key, Dozzle users, Telegram bot                              |
+| File                            | Holds                                                                                                 |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `infra/secrets/prod.enc.env`    | prod app, DB, R2 backup write token, SMS, OAuth, Turnstile, Sentry                                    |
+| `infra/secrets/staging.enc.env` | staging app, `STAGING_PASSWORD`, R2 **read-only** token                                               |
+| `infra/secrets/demo.enc.env`    | demo app, `DEMO_PASSWORD`                                                                             |
+| `infra/secrets/edge.enc.env`    | tunnel credentials, GHCR pull token, basic-auth users (direct mode), Telegram bot for deploy messages |
+| `infra/secrets/ops.enc.env`     | Beszel key, Dozzle users                                                                              |
 
 GitHub holds only what it needs to SSH in: the host, a pinned host key and a
 deploy key that can run nothing but `biddaloy-deploy` (D12).
@@ -303,3 +303,59 @@ Run these once at integration (`yarn ci:local`, Node 24, Docker allowed):
 - the tail of `docker/test/compose.infra.test.sh`
 
 Done instead, without a daemon: `docker compose config` on prod (profiles `replica,backup`), staging, demo, edge tunnel, edge direct and ops with filled copies of the example envs (all parse); `ansible-playbook --syntax-check` on `provision.yml` and `deploy.yml` (prod and staging); the config-check, env.validation, runtime-config and security-headers specs; `check-tracked-files`; `staging-scrub.integration.spec.ts` (5 passed).
+
+### Wave 3 (2026-10-22): deploy CLI, deploy playbook, nightly jobs, doctor, restore-prod
+
+W3 made the VM run itself: `biddaloy-deploy` (one command for laptop and GitHub), `deploy.yml` (one playbook, five stacks), `biddaloy-nightly` (systemd timers), `biddaloy-doctor` and `biddaloy-restore-prod`. Five lanes built them alone; the closing ticket (#2803) wired them together. Who holds which lock:
+
+```mermaid
+flowchart LR
+  D[biddaloy-deploy] -->|1| L1["/opt/biddaloy/deploy.lock"]
+  N[biddaloy-nightly] -->|1| L1
+  N -->|2| L2["/run/lock/biddaloy-swap.lock"]
+  R[biddaloy-restore-prod] -->|1| L1
+  R -->|2| L2
+```
+
+Everyone takes `deploy.lock` first, then the swap lock. Same order everywhere, so two jobs can wait for each other but never deadlock.
+
+#### What surprised us
+
+| Surprise                                                                                                                                                                                                                              | Cost                                                                                                     | Fix / rule                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Compose resolves relative bind mounts against `--project-directory` (`/opt/biddaloy/edge`), not the folder of the compose file (`/opt/biddaloy/repo/deploy`).                                                                         | Edge nginx would have mounted empty paths for its templates and scripts.                                 | `edge.yml` mounts `${REPO_DIR}/nginx/...`; `write-env.yml` sets `REPO_DIR=/opt/biddaloy/repo`. Rule: with `--project-directory`, every relative path in a compose file needs a variable.                                                                                                                                                                                                                      |
+| `COMPOSE_PROFILES` in a `.env` (prod: `replica,backup`) turns on every service in those profiles for a bare `docker compose up`.                                                                                                      | A deploy could start one-off job containers as if they were services.                                    | Every app-stack `up` (and the rollback `up`) names its services.                                                                                                                                                                                                                                                                                                                                              |
+| Ansible templates `-e` extra vars. A hotfix reason `{{ lookup('pipe', 'touch /tmp/x') }}` passed as `-e hotfix_reason=...` runs as root. Checked: the same payload through `-e` created the file; through the environment it did not. | Anyone who can start a deploy with a reason could run code as root.                                      | The reason travels as `BIDDALOY_HOTFIX_REASON`; `deploy.yml` reads it with `lookup('env')`, whose result is never templated again. `biddaloy-deploy` checks `stack` against the five names and `version` against `^[0-9a-f]{40}$`, and refuses `{ } % #` in anything it forwards. `deploy/bin/test/biddaloy-deploy.test.sh` proves both halves (the playbook half where `ansible-playbook` exists, as in CI). |
+| The nightly unit ran `flock swap.lock biddaloy-nightly`, and the script then took `deploy.lock`. `biddaloy-restore-prod` takes them the other way round.                                                                              | Nightly and a restore could each hold one lock and wait forever for the other.                           | The unit runs the script bare (`ExecStart=/usr/local/bin/biddaloy-nightly %i`); the script takes both locks in order. The `BIDDALOY_SWAP_LOCK_HELD` bypass is gone. A test pins the `ExecStart` line.                                                                                                                                                                                                         |
+| Postgres TLS directory permissions.                                                                                                                                                                                                   | `pg-tls/` at 0700 stops Postgres (uid 70) and the app (uid 1001) from entering it: the db does not boot. | `pg-tls/` is root 0755; only `server.key` is secret (0600, owner 70). The comment that said provision makes it 0700 was wrong and is fixed.                                                                                                                                                                                                                                                                   |
+| A bcrypt hash in a `.env` (`$2b$12$...`): compose expands every `$`.                                                                                                                                                                  | The staging password hash arrived mangled.                                                               | W2: the hash is carried as `STAGING_PASSWORD_HASH_B64`; W3: `write-env.yml` single-quotes every value. The closing ticket also removed a second hash that `biddaloy-nightly` computed (`STAGING_PASSWORD_HASH`): `staging-refresh.sh` never read it.                                                                                                                                                          |
+| Provision did not create `/opt/biddaloy/deploy.lock` or `/opt/biddaloy/logs/`, and `/opt/biddaloy` is root's.                                                                                                                         | The first `biddaloy-deploy` (running as `deploy`) would have stopped at "cannot open the lock file".     | Provision makes `deploy.lock` (deploy, 0664) and `logs/` (deploy, 0775), and adds `deploy` to `systemd-journal` so the 04:00 log archive can read the host journal.                                                                                                                                                                                                                                           |
+
+#### Decisions taken in the closing ticket (recommended option each time)
+
+- **Telegram keys live in `edge.enc.env`.** Options: `ops.enc.env` (what this doc said) or `edge.enc.env` (what the playbook read). Chosen: edge, because every host decrypts it before every deploy, and ops may run on another host. Kuma's own Telegram alert is set in Kuma's UI and needs no key here.
+- **The smoke test over plain HTTP needs no change for `SameOriginGuard`.** The guard sits only on `POST /auth/refresh`, `POST /auth/logout` and `DELETE /auth/sessions/:id`; the smoke calls none of them. It also lets a request with no `Origin` header through, and Node's `fetch` sends none. Option rejected: send `X-Forwarded-Proto: https` from the smoke (it would test nothing new).
+- **The `biddaloy-edge` subnet is pinned where the network is made, and only there:** the networks step of `deploy.yml` (`docker network create --subnet 172.30.0.0/24`). Provision makes no Docker network. `EDGE_TRUSTED_CIDR` is the subnet read back from the live network, so an older network that was made without the pin still gets a matching value.
+- **`BIDDALOY_HOTFIX_REASON` is always set, empty without `--hotfix`.** A value left in the caller's shell can never open the staging gate.
+- **CI runs every `deploy/bin/test/*.test.sh`** in the Ansible step, where `ansible-playbook` is installed, so the Jinja check runs there.
+
+#### Owner to run on a VM (W5)
+
+None of this has run on a real host yet. It cannot be faked from CI. Record each output in the PR.
+
+1. Throwaway VM, tunnel mode, test hostnames (`*-test` subdomains or a spare zone): `ansible-playbook provision.yml -e ansible_user=root`, then again as `deploy`; the second run must end `changed=0`.
+2. Check: `ls -l /opt/biddaloy/deploy.lock` shows `deploy deploy` and `-rw-rw-r--`; `id deploy` lists `systemd-journal`; `docker network inspect biddaloy-edge` shows `172.30.0.0/24` after the first deploy.
+3. `biddaloy-deploy all <branch sha> --hotfix "first deploy"`.
+4. From GitHub (`workflow_dispatch` on the branch): staging, then prod, by sha.
+5. `sudo systemctl start biddaloy-nightly@staging-refresh.service` (then `demo-rebuild`, `log-archive`); `journalctl -u 'biddaloy-nightly@*'` shows each run and its Kuma push.
+6. `biddaloy-doctor`: every line OK, or a WARN with a `Next:`.
+7. A second fresh VM: `biddaloy-restore-prod --age-key-file <file> --from latest-daily --yes-restore-prod biddaloy_prod`, then `biddaloy-deploy prod <sha>`.
+8. Switch the first VM to direct mode (`edge_mode: direct`, `EDGE_MODE=direct`), provision again, `biddaloy-deploy edge <sha>`. Check that Let's Encrypt issues a real certificate and that staging and ops ask for basic auth (D8).
+
+#### Left for W4
+
+The heavier doc rewrites stay out of this wave: `07-deployment.md`, `12-operations.md`, `13-backup-restore.md`, `25-cloudflare.md`, the `28-platform-runbook.md` runbook (it still shows `-e env=staging` and the old compose files), deleting `29-epic61-go-live.md` (Epic 61 is superseded by this epic), and the root `README.md`.
+
+#### Run in the closing ticket
+
+`bash -n` and `shellcheck` on every touched script; every `deploy/bin/test/*.test.sh` (deploy test also with a real `ansible-playbook` 2.18.6, so the Jinja check ran); `ansible-playbook --syntax-check` on `provision.yml` and on `deploy.yml` for all five stacks (`-c local -i localhost,`); `ansible-lint` on the touched Ansible files; the `config-check` and `check-tracked-files` specs. Not run (no Docker here): the `*.infra.test.sh` files that start containers, and `yarn ci:local`.

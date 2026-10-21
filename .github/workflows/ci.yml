@@ -67,7 +67,7 @@ jobs:
               - 'e2e/landing/**'
               - 'nginx/templates/landing.conf.template'
               - 'nginx/test/landing.infra.test.sh'
-              - 'infra/ansible/landing.yml'
+              - 'deploy/edge.yml'
               - 'ui/src/styles/globals.css'
               - 'yarn.lock'
               - 'package.json'
@@ -1213,6 +1213,15 @@ jobs:
             ansible-playbook -c local -i localhost, --syntax-check deploy.yml -e stack=$stack -e version=0000000000000000000000000000000000000000
           done
           bash test/report.infra.test.sh
+          # The VM-side CLIs (Epic 79 W3). Docker-free shims; ansible-playbook is on PATH here, so
+          # the deploy test also proves a Jinja hotfix reason stays text in deploy.yml.
+          failed=""
+          for t in ../../deploy/bin/test/*.test.sh; do
+            echo "::group::$t"
+            bash "$t" || failed="$failed $t"
+            echo "::endgroup::"
+          done
+          [ -z "$failed" ] || { echo "::error::failed:$failed"; exit 1; }
 
   # [15.1] "tests got slower" needs to be a graph, not a feeling — this
   # publishes wall/work/gap, a per-job budget verdict, and the top-10

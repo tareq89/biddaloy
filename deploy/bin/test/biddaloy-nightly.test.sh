@@ -8,7 +8,8 @@
 # lock; 2 a migrate failure pushes `down&msg=migrate` and never swaps; 3 a smoke failure after the
 # swap swaps back, restarts the app and pushes `down`; 4 a busy lock exits 1 before any docker call;
 # 5 demo-rebuild: exit 3 still restarts the app (warning), another code does not and pushes down;
-# 6 log-archive exports, archives and pushes up; 7 no secret reaches a shim's arguments.
+# 6 log-archive exports, archives and pushes up; 7 no secret reaches a shim's arguments;
+# 8 the systemd unit runs the script bare (no flock wrapper, it would invert the lock order).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -25,7 +26,6 @@ line="$*"
 echo "docker $line" >> "$WORK/calls.log"
 if [[ -n "${FAIL_MATCH:-}" && "$line" == *"$FAIL_MATCH"* ]]; then exit "${FAIL_RC:-1}"; fi
 case "$line" in
-  *password-hash.js*) printf '%s' "$FAKE_HASH" ;;
   "ps --format"*) printf 'prod-app-1\nprod-db-1\n' ;;
   "logs "*) echo "line from $*" ;;
 esac
@@ -50,14 +50,13 @@ SHIM
 printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/bin/sleep"
 chmod +x "$WORK/bin/"*
 
-FAKE_HASH='$2b$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 SECRET_PW='sup3r-secret-pw'
 printf 'POSTGRES_DB=biddaloy_staging\nSTAGING_REFRESH_PUSH_URL=https://kuma.test/api/push/STAGINGTOKEN?status=up&msg=OK&ping=\nSMOKE_SCHOOL_SLUG=smoke\nSMOKE_ADMIN_EMAIL=a@x.test\nSMOKE_ADMIN_PASSWORD=%s\nSMOKE_TEACHER_EMAIL=t@x.test\nSMOKE_TEACHER_PASSWORD=%s\nSMOKE_SUPER_ADMIN_EMAIL=s@x.test\nSMOKE_SUPER_ADMIN_PASSWORD=%s\n' \
   "$SECRET_PW" "$SECRET_PW" "$SECRET_PW" > "$WORK/opt/staging/.env"
 echo 'DEMO_RESET_PUSH_URL=https://kuma.test/api/push/DEMOTOKEN' > "$WORK/opt/demo/.env"
 echo 'LOG_ARCHIVE_PUSH_URL=https://kuma.test/api/push/LOGTOKEN' > "$WORK/opt/prod/.env"
 
-export PATH="$WORK/bin:$PATH" WORK FAKE_HASH
+export PATH="$WORK/bin:$PATH" WORK
 export BIDDALOY_ROOT="$WORK/opt" BIDDALOY_REPO="$WORK/opt/repo" BIDDALOY_SWAP_LOCK="$WORK/swap.lock" NIGHTLY_SLEEP=0
 
 fails=0
@@ -74,7 +73,7 @@ run() { : > "$LOG"; RC=0; "$SCRIPT" "$@" >"$WORK/out" 2>&1 || RC=$?; }
 run staging-refresh
 expect "1 exit 0" test "$RC" = 0
 expect "1 pushed up" has "status=up&msg=ok"
-steps=(password-hash.js staging-refresh.sh migrate.js "stop app" "db-swap.sh biddaloy_staging biddaloy_staging_next" FLUSHALL "up -d app" "exec -T app wget" smoke-post-deploy.mjs "--drop-prev-old biddaloy_staging")
+steps=(staging-refresh.sh migrate.js "stop app" "db-swap.sh biddaloy_staging biddaloy_staging_next" FLUSHALL "up -d app" "exec -T app wget" smoke-post-deploy.mjs "--drop-prev-old biddaloy_staging")
 prev=0; inorder=yes
 for s in "${steps[@]}"; do
   n="$(at "$s")"; [[ -n "$n" && "$n" -gt "$prev" ]] || { inorder="no ($s)"; break; }; prev="$n"
@@ -134,9 +133,13 @@ expect "6 up" has "status=up&msg=ok"
 # 7 secrets: the password and hash never appear in any shim's arguments, nor in the output
 : > "$LOG"; run staging-refresh
 expect "7 password not in argv" hasnt "$SECRET_PW"
-expect "7 hash not in argv" hasnt "$FAKE_HASH"
-expect "7 hash not in output" test "$(grep -cF "$FAKE_HASH" "$WORK/out")" = 0
+expect "7 no hash made on the host (the .env holds STAGING_PASSWORD_HASH_B64)" hasnt "password-hash.js"
+expect "7 no STAGING_PASSWORD_HASH handed to the job" hasnt "STAGING_PASSWORD_HASH"
 expect "7 push URL token not in argv" test "$(grep '^curl' "$LOG" | grep -c STAGINGTOKEN)" = 0
+
+# 8 the unit must not wrap the script in flock: that takes the swap lock before deploy.lock
+UNIT="$HERE/../../../infra/ansible/templates/biddaloy-nightly@.service.j2"
+expect "8 unit ExecStart is the bare script" grep -qx 'ExecStart=/usr/local/bin/biddaloy-nightly %i' "$UNIT"
 
 [[ $fails -eq 0 ]] || { echo "$fails failed"; exit 1; }
 echo "all passed"

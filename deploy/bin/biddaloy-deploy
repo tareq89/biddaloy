@@ -9,8 +9,14 @@
 #
 # SECURITY: the --from-github path is the only thing a GitHub-held SSH key can run on
 # this host. Input is matched against anchored regexes and never reaches eval or a shell
-# string; the hotfix reason is limited to a small charset and handed to ansible in a file.
-# On that path the sha must also be an ancestor of origin/main.
+# string. On that path the sha must also be an ancestor of origin/main.
+#
+# Ansible templates extra vars, so a `-e` value holding {{ }} or {% %} would run code as root.
+# Only two -e values carry input: stack (one of the five names) and version (40 hex), both
+# checked here. The hotfix reason goes in the environment as BIDDALOY_HOTFIX_REASON, which
+# deploy.yml reads with lookup('env') (lookup results are never templated again), and its
+# charset has no { } % # either. No sudo or ssh sits between this script and ansible-playbook:
+# it runs as deploy and `become` happens per task, so the variable is not stripped.
 #
 # Ansible runs detached (own session) and writes /opt/biddaloy/logs/<stack>-last-deploy.log.
 # This script only tails that log, so a dropped SSH session cannot kill a deploy half way.
@@ -29,7 +35,6 @@ SHA_RE='^[0-9a-f]{40}$'
 REASON_RE='^[A-Za-z0-9 .,:_/-]{3,200}$'
 FROM_GITHUB_RE='^(prod|staging|demo|edge|ops) ([0-9a-f]{40})( --hotfix "([A-Za-z0-9 .,:_/-]{3,200})")?$'
 LAST_OK_RE='^--last-ok (staging|prod)$'
-HF_TMP=""
 
 refuse() { echo "refusing: $1" >&2; exit 2; }
 
@@ -62,9 +67,6 @@ ensure_repo() { # clone the first time, then fetch
     || { failed "fetch" "git fetch origin failed" "check the network and the repo deploy key, then retry"; return 1; }
 }
 
-# shellcheck disable=SC2329  # used by trap
-cleanup_hf() { if [ -n "$HF_TMP" ]; then rm -f "$HF_TMP"; fi; }
-
 deploy_one() { # deploy_one <stack> <sha> <hotfix or ""> <skip_backup 0|1>
   local stack="$1" sha="$2" hotfix="$3" skip="$4" rc=0 pid off=0 size alive
   local log="$LOGS/$stack-last-deploy.log"
@@ -74,13 +76,6 @@ deploy_one() { # deploy_one <stack> <sha> <hotfix or ""> <skip_backup 0|1>
     || { failed "checkout $stack" "commit $sha is not in the repo" "push the commit, or check the sha"; return 1; }
 
   local args=(-c local -i "localhost," "$REPO/infra/ansible/deploy.yml" -e "stack=$stack" -e "version=$sha")
-  if [ -n "$hotfix" ]; then
-    HF_TMP=$(mktemp)
-    trap cleanup_hf EXIT INT TERM
-    # Charset-checked: no quote, backslash or $ can be in it, so this JSON is well formed.
-    printf '{"hotfix_reason": "%s"}\n' "$hotfix" > "$HF_TMP"
-    args+=(-e "@$HF_TMP")
-  fi
   if [ "$skip" = 1 ]; then args+=(-e skip_backup=true); fi
 
   # The log is 0640: ansible output can hold more than we want in a CI log.
@@ -90,20 +85,19 @@ deploy_one() { # deploy_one <stack> <sha> <hotfix or ""> <skip_backup 0|1>
 
   echo "== deploy $stack $sha"
   # Own session (setsid), no tty, fd 9 (the lock) inherited: ansible keeps the lock and
-  # runs to the end even when this script and the SSH session are gone. It removes the
-  # hotfix file itself and writes its exit code next to the log.
+  # runs to the end even when this script and the SSH session are gone. It writes its exit
+  # code next to the log. BIDDALOY_HOTFIX_REASON is always set, empty when there is no hotfix,
+  # so a value left in the caller's environment never reaches the playbook.
   # shellcheck disable=SC2016  # the script is for the child bash
   setsid --wait env \
     ANSIBLE_STDOUT_CALLBACK=default ANSIBLE_DISPLAY_SKIPPED_HOSTS=false \
     ANSIBLE_COLLECTIONS_PATH="$ROOT/ansible/collections" \
     ANSIBLE_CONFIG="$REPO/infra/ansible/ansible.cfg" \
-    LC_ALL=C.UTF-8 BIDDALOY_HF="$HF_TMP" \
+    LC_ALL=C.UTF-8 BIDDALOY_HOTFIX_REASON="$hotfix" \
     PATH="$ROOT/ansible/venv/bin:$PATH" \
-    bash -c 'rc=0; ansible-playbook "${@:2}" >> "$1" 2>&1 < /dev/null || rc=$?; if [ -n "${BIDDALOY_HF:-}" ]; then rm -f "$BIDDALOY_HF"; fi; echo "$rc" > "$1.rc"' \
+    bash -c 'rc=0; ansible-playbook "${@:2}" >> "$1" 2>&1 < /dev/null || rc=$?; echo "$rc" > "$1.rc"' \
     _ "$log" "${args[@]}" > /dev/null 2>&1 < /dev/null &
   pid=$!
-  trap - EXIT INT TERM
-  HF_TMP=""
 
   # Stream the log until ansible is done. A closed client only makes the writes fail.
   while :; do
@@ -168,6 +162,8 @@ main() {
       *) refuse "unknown argument" ;;
     esac
   done
+  # Belt and braces over the checks above: nothing Jinja can parse reaches ansible.
+  case "$stack$sha$hotfix" in *[{}%#]*) refuse "{ } % # are not allowed" ;; esac
 
   # One deploy at a time on this host. Provision pre-creates the file, owned by deploy.
   if ! ( : >> "$LOCK" ) 2> /dev/null; then

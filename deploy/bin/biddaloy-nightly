@@ -10,9 +10,8 @@
 # A failed push is logged and ignored: Kuma being unreachable must not fail the job.
 #
 # Locks (jobs never overlap, and never overlap a deploy): $ROOT/deploy.lock first, then the host
-# swap lock /run/lock/biddaloy-swap.lock. If a caller already holds the swap lock (the current
-# systemd unit does, through `flock <lock> biddaloy-nightly`), it sets BIDDALOY_SWAP_LOCK_HELD=1
-# and this script does not take it again (a second flock on it would wait for itself).
+# swap lock /run/lock/biddaloy-swap.lock, same order as biddaloy-restore-prod. The systemd unit runs
+# this script bare: a `flock` wrapper around it would take the swap lock first and invert the order.
 #
 # Secrets: values come from /opt/biddaloy/<stack>/.env and travel only through the environment
 # (`-e NAME` with no value, compose interpolation), never on a command line or in the log. The
@@ -87,10 +86,8 @@ wait_ready() { # <stack>: /api/health, 24 tries x 5 s (the compose healthcheck's
 # --- locks --------------------------------------------------------------------------------------
 exec 8>"$ROOT/deploy.lock"
 flock -w 3600 8 || { say "deploy lock busy for an hour"; exit 1; }
-if [[ -z "${BIDDALOY_SWAP_LOCK_HELD:-}" ]]; then
-  exec 9>"$SWAP_LOCK"
-  flock -w 3600 9 || { say "swap lock busy for an hour"; exit 1; }
-fi
+exec 9>"$SWAP_LOCK"
+flock -w 3600 9 || { say "swap lock busy for an hour"; exit 1; }
 
 # --- staging-refresh ----------------------------------------------------------------------------
 staging_refresh() {
@@ -99,16 +96,9 @@ staging_refresh() {
   local live="$POSTGRES_DB"
   [[ "$live" == biddaloy_staging ]] || { say "POSTGRES_DB is not biddaloy_staging"; fail guard; }
 
-  # Rule 9: the hash comes from the app's own hashPassword (server/src/modules/auth/password-hash.ts,
-  # compiled to server/dist/modules/auth/password-hash.js). The password goes in by environment.
-  echo "step: hash"
-  STAGING_PASSWORD_HASH="$(dc staging run --rm -T --no-deps -e SMOKE_ADMIN_PASSWORD app node -e \
-    "require('./server/dist/modules/auth/password-hash.js').hashPassword(process.env.SMOKE_ADMIN_PASSWORD).then(h=>process.stdout.write(h))")" || fail hash
-  [[ "$STAGING_PASSWORD_HASH" == \$2* ]] || fail hash
-  export STAGING_PASSWORD_HASH
-
-  run_step refresh dc staging run --rm -T -e STAGING_PASSWORD_HASH jobs /app/staging-refresh.sh
-  unset STAGING_PASSWORD_HASH
+  # The scrub sets every password to STAGING_PASSWORD_HASH_B64, which the jobs service reads from
+  # the staging .env (made once with the app's hashPassword, Rule 9; config:check verifies it).
+  run_step refresh dc staging run --rm -T jobs /app/staging-refresh.sh
 
   # Tonight's prod data must migrate to the staging code. POSTGRES_DB in the environment wins over
   # .env in compose interpolation, so the app's DATABASE_URL points at _next without a URL on argv.

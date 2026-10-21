@@ -6,8 +6,8 @@
 # (ponytail: no rotation story. To reissue, delete {{ project_dir }}/pg-tls and deploy again;
 # the app and db pick the new files up on their restart).
 # The directory is 0755: the db container's uid 70 must be able to enter it, and only
-# server.key (0600, owner 70) is secret. provision.yml creates it 0700 for deploy; this sets
-# it back to what the mount needs.
+# server.key (0600, owner 70) is secret. provision.yml creates it root 0755 too; this task
+# keeps it that way if someone tightens it by hand (a 0700 dir stops postgres from booting).
 - name: Postgres TLS directory
   ansible.builtin.file:
     path: '{{ project_dir }}/pg-tls'
