@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && node scripts/llms.mjs && node scripts/build-collateral.mjs",
     "preview": "astro preview",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "serve": "serve dist -l 4321 --no-clipboard",
+    "shoot": "node scripts/shoot.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.6.0",
@@ -17,8 +19,14 @@
   },
   "devDependencies": {
     "eslint-plugin-astro": "^1.3.1",
+    "qrcode": "1.5.4",
+    "serve": "14.2.4",
     "sharp": "^0.35.5",
     "typescript": "^5",
-    "vitest": "^4"
+    "vitest": "^4",
+    "wait-on": "9.0.4"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

@@ -62,6 +62,12 @@ jobs:
             # change what Storybook builds without touching `ui/**` itself.
             landing:
               - 'landing/**'
+              - 'lighthouserc.landing.cjs'
+              - 'playwright.landing.config.ts'
+              - 'e2e/landing/**'
+              - 'nginx/templates/landing.conf.template'
+              - 'nginx/test/landing.infra.test.sh'
+              - 'infra/ansible/landing.yml'
               - 'ui/src/styles/globals.css'
               - 'yarn.lock'
               - 'package.json'
@@ -1123,11 +1129,43 @@ jobs:
 
       - uses: ./.github/actions/setup
 
+      # Before the build: build-collateral.mjs renders the PDFs with Chromium.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Build landing
         run: yarn workspace @biddaloy/landing build
 
       - name: Check landing tokens match the app
         run: node landing/scripts/check-tokens.mjs
+
+      # [50.13] Budget gate (D21): serve the built site and run Lighthouse + the
+      # landing smoke project against it. Either one failing fails the job.
+      # `serve` and `wait-on` are locked landing devDependencies (security Rule 21);
+      # serve also backs playwright.landing.config.ts.
+      - name: Serve landing dist
+        run: yarn workspace @biddaloy/landing serve &
+
+      - name: Wait for the landing server
+        run: yarn workspace @biddaloy/landing exec wait-on http://localhost:4321/bn/ --timeout 60000
+
+      - name: Lighthouse budget (landing)
+        run: npx lhci autorun --config lighthouserc.landing.cjs
+
+      - name: Landing smoke (Playwright)
+        run: npx playwright test -c playwright.landing.config.ts --project landing
+
+      - name: Upload landing reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: landing-reports
+          path: |
+            .lighthouseci-landing/
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Pack landing dist
         run: tar -czf "landing-dist-${{ github.sha }}.tar.gz" -C landing/dist .

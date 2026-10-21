@@ -1,6 +1,40 @@
 ---
-// Umami is cookieless, so it loads without consent (D14). Clarity/Meta hook onto `sm:consent` in 50.11.
+// Umami is cookieless, so it loads without consent (D14). Clarity (statistics) and Meta Pixel (ads) load only
+// inside the consent handler, from the stored choice or a fresh `sm:consent`. Both ids are optional.
 const id = import.meta.env.PUBLIC_UMAMI_ID;
 const src = import.meta.env.PUBLIC_UMAMI_SRC ?? 'https://stats.schoolmanagerp.com/script.js';
+const ids = { clarity: import.meta.env.PUBLIC_CLARITY_ID ?? '', meta: import.meta.env.PUBLIC_META_PIXEL_ID ?? '' };
 ---
 {id && <script is:inline defer src={src} data-website-id={id} data-domains="schoolmanagerp.com,www.schoolmanagerp.com"></script>}
+{(ids.clarity || ids.meta) && <script is:inline define:vars={{ ids }}>
+  (function () {
+    var done = {};
+    function add(src) { var s = document.createElement('script'); s.async = true; s.src = src; document.head.appendChild(s); }
+    function run(c) {
+      if (!c) return;
+      if (c.stat && ids.clarity && !done.c) {
+        done.c = 1;
+        window.clarity = window.clarity || function (...a) { (window.clarity.q = window.clarity.q || []).push(a); };
+        add('https://www.clarity.ms/tag/' + ids.clarity);
+      }
+      if (c.ads && ids.meta && !done.m) {
+        done.m = 1;
+        var q = window.fbq = function (...a) { if (q.callMethod) q.callMethod(...a); else q.queue.push(a); };
+        q.push = q; q.loaded = true; q.version = '2.0'; q.queue = [];
+        q('consent', 'grant'); q('init', ids.meta); q('track', 'PageView');
+        add('https://connect.facebook.net/en_US/fbevents.js');
+      }
+    }
+    try { run(JSON.parse(localStorage.getItem('sm:consent'))); } catch (e) {}
+    // Withdrawing a choice that was already used: stop Clarity, then reload so Meta's script is gone too.
+    window.addEventListener('sm:consent', function (e) {
+      var c = e.detail || {};
+      if ((done.c && !c.stat) || (done.m && !c.ads)) {
+        try { if (done.c && window.clarity) window.clarity('stop'); if (done.m && window.fbq) window.fbq('consent', 'revoke'); } catch (x) {}
+        location.reload();
+        return;
+      }
+      run(c);
+    });
+  })();
+</script>}

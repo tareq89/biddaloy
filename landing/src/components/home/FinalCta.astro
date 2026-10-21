@@ -1,0 +1,23 @@
+---
+import { APP_URL, DEMO_URL, type Lang } from '../../i18n';
+import { finalCta } from '../../content/faq';
+const { lang } = Astro.props as { lang: Lang };
+---
+<section class="soft final"><div class="wrap">
+  <h2 class="h2">{finalCta.title[lang]}</h2>
+  <p class="lead">{finalCta.lead[lang]}</p>
+  <div class="ctas">
+    <a class="btn secondary lg" href={DEMO_URL} target="_blank" rel="noopener" data-ev="demo_click">{finalCta.demo[lang]}</a>
+    <a class="btn primary lg" href={`${APP_URL}/register`} target="_blank" rel="noopener" data-ev="register_click">{finalCta.register[lang]}</a>
+  </div>
+  <a class="pdfcard" href="/sm-ek-pata.pdf" target="_blank" rel="noopener" data-ev="pdf_download"><div class="doc"></div><div><b>{finalCta.pdfB[lang]}</b><span>{finalCta.pdf[lang]}</span></div></a>
+</div></section>
+<style>
+  .final{text-align:center}
+  .final .lead{margin-inline:auto}
+  .ctas{display:flex;gap:.7rem;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:1.2rem}
+  .pdfcard{display:inline-flex;gap:.9rem;align-items:center;border:1px solid var(--line);border-radius:12px;padding:.9rem 1.1rem;margin-top:1.6rem;text-decoration:none;text-align:left;background:var(--bg);max-width:100%}
+  .pdfcard .doc{width:40px;height:52px;border-radius:4px;border:1px solid var(--line);flex:none;position:relative;background:var(--surface)}
+  .pdfcard .doc::after{content:"PDF";position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:.6rem;font-weight:700;color:var(--coral-ink)}
+  .pdfcard b{display:block}.pdfcard span{color:var(--muted);font-size:.88rem}
+</style>

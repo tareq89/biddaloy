@@ -1,0 +1,33 @@
+---
+import { DOCS_URL, type Lang } from '../../i18n';
+import { areas, areasCopy, publishedSlugs } from '../../content/areas';
+const { lang } = Astro.props as { lang: Lang };
+---
+<section class="soft"><div class="wrap">
+  <h2 class="h2">{areasCopy.title[lang]}</h2>
+  <p class="lead">{areasCopy.lead[lang]}</p>
+  <div class="groups">
+    {areas.map((a) => (
+      <div class={`group c-${a.hue}`}>
+        <div class="ghead"><div class="ic">{a.icon}</div><h3>{a.title[lang]}</h3></div>
+        <div class="ops">
+          {a.ops.map((o) => (
+            <a class="op" href={publishedSlugs.has(o.slug) ? `${DOCS_URL}/${o.slug}` : DOCS_URL} target="_blank" rel="noopener" data-ev="docs_card" data-ev-slug={o.slug}><b>{o.name[lang]}</b><span>{o.blurb[lang]}</span><i>{areasCopy.docs[lang]}</i></a>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+</div></section>
+<style>
+  .groups{display:grid;gap:1.4rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));margin-top:1.75rem;align-items:start}
+  .group{min-width:0}
+  .ghead{display:flex;gap:.7rem;align-items:center;margin-bottom:.6rem}
+  .ic{width:40px;height:40px;border-radius:10px;background:var(--tint);color:var(--hue-ink);display:grid;place-items:center;font-size:1.15rem;flex:none;font-weight:700}
+  .ghead h3{font-size:1.1rem}
+  .ops{display:grid;grid-template-columns:minmax(0,1fr);gap:.4rem}
+  .op{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:.6rem;align-items:center;border:1px solid var(--line);border-radius:8px;padding:.55rem .75rem;text-decoration:none;font-size:.9rem;min-width:0}
+  .op:hover{background:var(--surface)}
+  .op b{font-weight:600;display:block;line-height:1.3}.op span{color:var(--muted);display:block;font-size:.82rem;line-height:1.35;grid-column:1}
+  .op i{font-style:normal;color:var(--hue-ink);font-size:.8rem;white-space:nowrap;grid-row:1/3;grid-column:2;align-self:center}
+</style>

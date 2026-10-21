@@ -1,0 +1,36 @@
+---
+import type { Lang } from '../../i18n';
+import { captions } from '../../content/roles';
+import { value } from '../../content/value';
+const { lang } = Astro.props as { lang: Lang };
+---
+<section><div class="wrap">
+  <p class="eyebrow center">{value.eyebrow[lang]}</p>
+  <h2 class="h2 center">{value.title[lang]}</h2>
+  <p class="lead center">{value.lead[lang]}</p>
+  <div class="value">
+    {value.rows.map((r) => (
+      <div class={`vrow c-${r.hue}`}>
+        <div class="vh"><div class="ic">{r.icon}</div>{r.name[lang]}</div>
+        <div class="vcell"><b>{captions.before[lang]}</b>{r.before[lang]}</div>
+        <div class="vcell now"><b>{captions.after[lang]}</b>{r.after[lang]}</div>
+      </div>
+    ))}
+  </div>
+  <div class="vsum"><div class="n">{value.sum[lang]}<small>{value.sumSmall[lang]}</small></div><p>{value.sumText[lang]}</p></div>
+</div></section>
+<style>
+  .value{display:grid;gap:.75rem;margin-top:1.75rem}
+  .vrow{display:grid;grid-template-columns:180px 1fr 1fr;gap:.75rem;align-items:stretch}
+  @media (max-width:760px){.vrow{grid-template-columns:1fr}.vrow .vh{padding-bottom:0}}
+  .vh{display:flex;gap:.6rem;align-items:center;font-weight:700;font-size:1.05rem;padding:.9rem .2rem}
+  .ic{width:40px;height:40px;border-radius:10px;background:var(--tint);color:var(--hue-ink);display:grid;place-items:center;font-size:1.15rem;flex:none;font-weight:700}
+  .vcell{border:1px solid var(--line);border-radius:10px;padding:.9rem 1rem;font-size:.95rem;min-width:0}
+  .vcell b{display:block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+  .vcell.now{background:var(--tint);border-color:transparent}.vcell.now b{color:var(--hue-ink)}
+  .vsum{margin-top:1.5rem;border:1px solid var(--line);border-radius:12px;padding:1.2rem 1.4rem;display:grid;grid-template-columns:auto 1fr;gap:1rem 1.4rem;align-items:center;background:var(--bg)}
+  @media (max-width:640px){.vsum{grid-template-columns:1fr}}
+  .vsum .n{font-size:2.2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1;white-space:nowrap}
+  .vsum .n small{display:block;font-size:.8rem;font-weight:500;color:var(--muted);margin-top:.3rem}
+  .vsum p{color:var(--fg)}
+</style>

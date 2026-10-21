@@ -17,6 +17,11 @@
          contents live in `src/pwa/manifest.ts`. The tags below are ones
          the plugin does not emit. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Link previews need an absolute image URL; vite.config.ts fills %OG_BASE% from VITE_APP_URL. -->
+    <meta property="og:title" content="SchoolManager — School Management" />
+    <meta property="og:description" content="School management, made simple." />
+    <meta property="og:image" content="%OG_BASE%/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
     <!-- iOS ignores the manifest's icons for "Add to Home Screen". -->
     <link rel="apple-touch-icon" href="/icons/pwa-192.png" />
     <!-- brand-600, matching the manifest's `theme_color`: tints Android's

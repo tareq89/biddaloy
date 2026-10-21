@@ -13,7 +13,8 @@ const appCss = readFileSync(resolve(root, 'ui/src/styles/globals.css'), 'utf8');
 const LANDING_ONLY = new Set([
   '--bg', '--surface', '--surface-2', '--fg', '--muted', '--line', '--ink', '--ink-fg',
   '--indigo', '--indigo-t', '--teal', '--teal-t', '--amber', '--amber-t', '--coral', '--coral-t',
-  '--brand', '--shot', '--shot-ink', '--font', '--hue', '--tint',
+  '--brand', '--shot', '--shot-ink', '--font', '--hue', '--hue-ink', '--tint',
+  '--teal-ink', '--amber-ink', '--coral-ink',
 ]);
 
 const decls = (css) => {

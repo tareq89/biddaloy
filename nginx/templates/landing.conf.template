@@ -1,0 +1,84 @@
+# Landing site (Epic 50 #2730): schoolmanagerp.com + www, static files built by CI
+# (landing/dist). Rendered by PROD's nginx, which owns 443. LANDING_DOMAIN comes from
+# the prod host .env; `landing.invalid` (compose default) never resolves, so an unset
+# value matches nothing.
+# Only Cloudflare reaches here (`$origin_allowed`, rule 12). No /api, no cookies, no
+# upstream: nothing here can serve tenant data (rule 14). The CSP host list is reviewed:
+# change this file when the vendor list in docs/architecture/29-landing.md changes.
+# 'unsafe-inline' in script-src: the pages carry several `is:inline` snippets
+# (theme, consent, analytics), too many to hash by hand.
+
+# One Cache-Control per URI. A map (not `location` + add_header) because add_header in a
+# location drops every header set at server level.
+map $uri $landing_cache {
+    default                  "public, max-age=3600";
+    "~^/_astro/"             "public, max-age=31536000, immutable";
+    "~(/|\.html)$"           "no-cache";
+}
+
+# Redirect target without ${LANDING_DOMAIN}: where the variable is unset (the other infra
+# tests) envsubst leaves it literal, and nginx reads it in `return` as an unknown variable
+# and fails `nginx -t`. server_name has already matched, so $host is apex or www.apex.
+map $host $landing_apex {
+    "~^www\.(?<a>.+)$"       $a;
+    default                  $host;
+}
+
+server {
+    listen 80;
+    access_log /var/log/nginx/access.log redacted;
+    server_name ${LANDING_DOMAIN} www.${LANDING_DOMAIN};
+
+    location / {
+        if ($origin_allowed = 0) { return 444; }
+        return 301 https://$landing_apex$request_uri;
+    }
+}
+
+# www -> apex. Same certificate: the Origin CA cert must list both names.
+server {
+    listen 443 ssl;
+    access_log /var/log/nginx/access.log redacted;
+    http2 on;
+    server_name www.${LANDING_DOMAIN};
+
+    ssl_certificate     /etc/nginx/certs/origin.pem;
+    ssl_certificate_key /etc/nginx/certs/origin.key;
+
+    if ($origin_allowed = 0) { return 444; }
+    return 301 https://$landing_apex$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    access_log /var/log/nginx/access.log redacted;
+    http2 on;
+    server_name ${LANDING_DOMAIN};
+
+    ssl_certificate     /etc/nginx/certs/origin.pem;
+    ssl_certificate_key /etc/nginx/certs/origin.key;
+
+    if ($origin_allowed = 0) { return 444; }
+
+    # `current` is a symlink to releases/<sha> (infra/ansible/landing.yml).
+    root /usr/share/nginx/landing/current;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.aipraktor.com https://stats.schoolmanagerp.com https://*.clarity.ms https://connect.facebook.net; frame-src https://www.aipraktor.com; img-src 'self' data: https://www.facebook.com https://*.clarity.ms; connect-src 'self' https://stats.schoolmanagerp.com https://www.aipraktor.com https://*.clarity.ms https://www.facebook.com; style-src 'self' 'unsafe-inline'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'" always;
+    add_header Cache-Control $landing_cache always;
+
+    gzip on;
+    gzip_static on;
+    gzip_vary on;
+    gzip_types text/css application/javascript application/json image/svg+xml text/plain application/xml;
+
+    location = / {
+        return 302 /bn/;
+    }
+
+    location / {
+        try_files $uri $uri/index.html =404;
+    }
+}

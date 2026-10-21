@@ -9,6 +9,6 @@ export default defineConfig({
   trailingSlash: 'always',
   integrations: [sitemap({ filter: (page) => !(testimonialsNoindex() && page.includes('/testimonials/')) })],
   i18n: { defaultLocale: 'bn', locales: ['bn', 'en'], routing: { prefixDefaultLocale: true } },
-  build: { inlineStylesheets: 'auto' },
+  build: { inlineStylesheets: 'always' },
   redirects: { '/': '/bn/' },
 });

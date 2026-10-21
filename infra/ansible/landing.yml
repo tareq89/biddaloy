@@ -1,0 +1,89 @@
+---
+# Deploy the landing site (Epic 50 #2730, D19/D20). Run from the laptop:
+#   gh auth login            # once; the laptop's gh token needs actions:read
+#   ansible-playbook -i infra/ansible/inventory infra/ansible/landing.yml -e version=<git sha>
+# Roll back: run it again with an older sha still on the host (no download needed), or
+#   ssh deploy@host 'ln -sfn releases/<sha> /opt/biddaloy/landing/current'
+#
+# The laptop downloads CI's artifact `landing-dist-<sha>` with `gh` and rsyncs it up, so
+# no GitHub token ever lives on the VM. Prod nginx mounts the PARENT dir
+# ({{ biddaloy_root }}/landing) and serves `current/`, so swapping the symlink is the
+# whole deploy: no restart and no reload (docker-compose.yml explains why the parent).
+- name: Landing site
+  hosts: all
+  become: true
+  vars:
+    landing_dir: '{{ biddaloy_root }}/landing'
+    landing_keep: 3
+  tasks:
+    - name: Refuse a missing or malformed version
+      ansible.builtin.assert:
+        that:
+          - version is defined
+          - version is match('^[0-9a-f]{7,40}$')
+        fail_msg: 'Pass -e version=<git sha> (hex, 7-40 chars): the CI artifact is landing-dist-<sha>.'
+        quiet: true
+
+    - name: Releases directory exists
+      ansible.builtin.file:
+        path: '{{ landing_dir }}/releases'
+        state: directory
+        mode: '0755'
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+
+    - name: Is this release already on the host
+      ansible.builtin.stat:
+        path: '{{ landing_dir }}/releases/{{ version }}/bn/index.html'
+      register: release
+
+    # CI uploads the tarball with `archive: false`, so the artifact is named after the file
+    # (landing-dist-<sha>.tar.gz) and downloads as that single file; unpack it here.
+    - name: Download the CI artifact on the laptop and unpack it
+      ansible.builtin.shell: |
+        set -eu
+        dir='{{ playbook_dir }}/../../.landing-dist/{{ version }}'
+        rm -rf "$dir" && mkdir -p "$dir/dl"
+        gh run download --repo tareq89/biddaloy --name 'landing-dist-{{ version }}.tar.gz' --dir "$dir/dl"
+        tar -xzf "$dir/dl/landing-dist-{{ version }}.tar.gz" -C "$dir"
+        rm -rf "$dir/dl"
+      args:
+        executable: /bin/bash
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: true
+      when: not release.stat.exists
+
+    - name: Upload it to the host
+      ansible.posix.synchronize:
+        src: '{{ playbook_dir }}/../../.landing-dist/{{ version }}/'
+        dest: '{{ landing_dir }}/releases/{{ version }}/'
+        delete: true
+        rsync_opts: ['--chmod=D755,F644']
+      become: false
+      when: not release.stat.exists
+
+    - name: Point current at it (relative link, so it resolves inside the nginx container)
+      ansible.builtin.file:
+        src: 'releases/{{ version }}'
+        dest: '{{ landing_dir }}/current'
+        state: link
+        force: true
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+
+    - name: List releases, newest first
+      ansible.builtin.shell: ls -1t {{ landing_dir }}/releases
+      register: releases
+      changed_when: false
+
+    - name: Keep the newest few releases, never the live one
+      ansible.builtin.file:
+        path: '{{ landing_dir }}/releases/{{ item }}'
+        state: absent
+      loop: '{{ releases.stdout_lines[landing_keep:] | reject("equalto", version) | list }}'
+
+    - name: Say where to look
+      ansible.builtin.debug:
+        msg: 'Live: https://{{ landing_domain }}/ at {{ version }}. Check https://{{ landing_domain }}/bn/ returns 200.'

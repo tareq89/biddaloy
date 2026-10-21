@@ -8,6 +8,7 @@ all:
       ansible_user: deploy
   vars:
     app_domain: app.schoolmanagerp.com
+    landing_domain: schoolmanagerp.com
     # OPS_DOMAIN / STAGING_DOMAIN live in prod.enc.env (what nginx reads), not here.
     # true only once Cloudflare Access protects ops.<domain> and staging.<domain> and the
     # origin check in 12-operations.md section 1 step 0 passed. Until then a prod deploy

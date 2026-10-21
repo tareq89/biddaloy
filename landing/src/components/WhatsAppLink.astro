@@ -1,0 +1,10 @@
+---
+import { company } from '../content/legal';
+import type { Lang } from '../i18n';
+interface Props { lang: Lang; class?: string; label?: string }
+const { lang, class: cls = 'btn secondary small', label } = Astro.props;
+const num = import.meta.env.PUBLIC_WA_NUMBER;
+const base = num ? `https://wa.me/${num}` : company.whatsapp;
+const text = lang === 'bn' ? 'আমি ___ স্কুল থেকে, ডেমো দেখতে চাই' : 'I am from ___ school, I would like to see a demo';
+---
+<a class={cls} href={`${base}?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener" data-ev="whatsapp_click">{label ?? 'WhatsApp'}</a>
