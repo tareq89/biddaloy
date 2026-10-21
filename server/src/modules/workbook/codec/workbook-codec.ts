@@ -538,8 +538,9 @@ async function openXlsx(buffer: Buffer): Promise<OpenedXlsx> {
       const stream = path && part(path);
       if (!stream) throw new Error(`Not an xlsx: sheet part missing`);
       const sheetNo = /sheet(\d+)\.xml$/.exec(path)?.[1] ?? '0';
-      for (const { value } of reader._parseWorksheet(stream, sheetNo)) return value;
-      throw new Error('Not an xlsx: sheet part unreadable');
+      const [first] = reader._parseWorksheet(stream, sheetNo);
+      if (!first) throw new Error('Not an xlsx: sheet part unreadable');
+      return first.value;
     },
   };
 }
@@ -547,6 +548,9 @@ async function openXlsx(buffer: Buffer): Promise<OpenedXlsx> {
 async function readMeta(rows: AsyncIterable<ExcelJS.Row>): Promise<WorkbookMeta> {
   const values: Record<string, string> = {};
   for await (const row of rows) {
+    // Same as `readSheet`: a `<row>` with no cells (height only) is not the
+    // header, and `row.number === 1` must not key on it either.
+    if (!row.hasValues) continue;
     if (row.number === 1) continue; // header: key | value
     // Keys are normalised (they are ASCII identifiers), but values are read
     // as plain text: `normalizeCell` would rewrite Bengali digits in a
@@ -600,13 +604,17 @@ async function readSheet(
   const rows: SheetData['rows'] = [];
 
   for await (const row of sheetRows) {
+    // The streaming reader yields every `<row>` element, including one with
+    // no cells at all (Excel writes `<row r="1" ht="20"/>` for a row that
+    // only has a height or a styled empty cell). Skipped here, as `eachRow`
+    // used to skip them, so such a row can never become the header.
+    if (!row.hasValues) continue;
     const rowNo = row.number;
-    // The header is the first row the stream actually yields, not row 1.
-    // exceljs skips empty rows entirely, so if a user inserts a blank row
-    // above the header in Excel — routine — the first yielded rowNo is 2.
-    // Keying on `rowNo === 1` would then consume the real header as data,
-    // leave `header` empty, and drop every row as blank; for a tab with
-    // `deleteByAbsence` that reads as "no records" and would delete the
+    // The header is the first row with values, not row 1. If a user inserts
+    // a blank row above the header in Excel — routine — the first such
+    // rowNo is 2. Keying on `rowNo === 1` would then consume the real header
+    // as data, leave `header` empty, and drop every row as blank; for a tab
+    // with `deleteByAbsence` that reads as "no records" and would delete the
     // tenant's entire table.
     if (!headerSeen) {
       headerSeen = true;

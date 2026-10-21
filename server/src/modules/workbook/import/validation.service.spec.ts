@@ -201,6 +201,33 @@ describe('ValidationService', () => {
       await expect(second).resolves.toMatchObject({ hardErrorCount: 0 });
     });
 
+    // Direct handoff: the finishing run gives its slot to the oldest waiter
+    // before `running` ever drops, so a newcomer arriving in that window is
+    // still refused — the queued restore worker cannot be overtaken.
+    it('hands a freed slot to the queued waiter, not to a newcomer', async () => {
+      const service = new ValidationService();
+      const a = hold();
+      const b = hold();
+      const first = service.validate(Buffer.from(''), 't1', manager, [tab]);
+      const second = service.validate(Buffer.from(''), 't2', manager, [tab]);
+      const c = hold();
+      const queued = service.validate(Buffer.from(''), 't3', manager, [tab], { waitIfBusy: true });
+
+      a.release();
+      await expect(first).resolves.toMatchObject({ hardErrorCount: 0 });
+      // `queued` now holds the slot `first` freed (its readWorkbook is open):
+      // a fourth caller without waitIfBusy is refused.
+      expect(readWorkbook).toHaveBeenCalledTimes(3);
+      await expect(service.validate(Buffer.from(''), 't4', manager, [tab])).rejects.toBeInstanceOf(
+        ValidationBusyError,
+      );
+
+      c.release();
+      await expect(queued).resolves.toMatchObject({ hardErrorCount: 0 });
+      b.release();
+      await expect(second).resolves.toMatchObject({ hardErrorCount: 0 });
+    });
+
     it('frees the slot when a run rejects', async () => {
       const service = new ValidationService();
       const a = hold();

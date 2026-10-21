@@ -357,6 +357,34 @@ describe('readWorkbook resilience', () => {
     expect(classes.rows[0].cells.name).toBe('Six');
   });
 
+  // #2686 review: Excel writes `<row r="1" ht="20"/>` for a row that has a
+  // height (or a styled empty cell) but no values. The streaming reader
+  // yields that row, where `eachRow` used to skip it — it must not become
+  // the header, or the real header turns into data and the sheet reads as
+  // "no header row".
+  it('finds the header even when an empty row with a height precedes it', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const metaSheet = workbook.addWorksheet('_meta');
+    metaSheet.getRow(1).height = 20;
+    metaSheet.getRow(2).values = ['key', 'value'];
+    metaSheet.getRow(3).values = ['schema_version', SCHEMA_VERSION];
+    metaSheet.getRow(4).values = ['kind', 'BACKUP'];
+
+    const sheet = workbook.addWorksheet('classes');
+    sheet.getRow(1).height = 20;
+    sheet.getRow(2).values = ['id', 'name', 'capacity'];
+    sheet.getRow(3).values = [ID_A, 'Six', 40];
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const result = await readWorkbook(buffer);
+    const classes = result.sheets.get('classes')!;
+
+    expect(result.meta.kind).toBe('BACKUP');
+    expect(classes.header).toEqual(['id', 'name', 'capacity']);
+    expect(classes.rows).toEqual([{ rowNo: 3, cells: { id: ID_A, name: 'Six', capacity: '40' } }]);
+    expect(result.warnings).toEqual([]);
+  });
+
   // Business-critical: exceljs hands back a date-formatted cell as a real
   // JS `Date` (not the plain string `writeWorkbook` itself always emits via
   // `toCell`), so a workbook edited by hand in Excel/Sheets must still read
