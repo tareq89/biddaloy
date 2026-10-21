@@ -8,7 +8,13 @@ import { RequirePermissions } from '../../auth/decorators/require-permissions.de
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { SmsCreditService } from './sms-credit.service';
-import { QuerySmsCreditsDto, SmsCreditsResponseDto } from './dto/sms-credits.dto';
+import {
+  QuerySmsCreditsDto,
+  SmsCreditsResponseDto,
+  SmsReadinessResponseDto,
+} from './dto/sms-credits.dto';
+import { TenantProviderConfigResolver } from '../config/tenant-provider-config.resolver';
+import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
 
 /**
  * [15.6.7/#550] A tenant's own SMS credit balance + movement history.
@@ -21,7 +27,40 @@ import { QuerySmsCreditsDto, SmsCreditsResponseDto } from './dto/sms-credits.dto
 @Controller('communications/sms-credits')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class CreditsController {
-  constructor(private readonly smsCredits: SmsCreditService) {}
+  constructor(
+    private readonly smsCredits: SmsCreditService,
+    private readonly providerConfig: TenantProviderConfigResolver,
+  ) {}
+
+  /** [78 D37/D38] Can an SMS go out right now? Same resolver and credit check
+   * the send path uses, so the answer cannot drift from it. Open to every
+   * sender (not only credit readers) because it carries no balance. No
+   * outbound HTTP: config resolution only. */
+  @Get('readiness')
+  @RequirePermissions(Permission.COMMUNICATION_SEND)
+  @ApiOperation({
+    summary:
+      'Whether this school can send an SMS right now: READY, NO_GATEWAY (no SMS set-up) ' +
+      'or NO_CREDIT (metered and out of credit). Never blocks a send; the UI only warns.',
+  })
+  @ApiOkResponse({ type: SmsReadinessResponseDto })
+  async getSmsReadiness(
+    @CurrentTenant() tenant: { id: string; role: string },
+  ): Promise<SmsReadinessResponseDto> {
+    try {
+      await this.providerConfig.resolveSms(tenant.id);
+    } catch (error) {
+      if (error instanceof ProviderNotConfiguredError) return { sms: 'NO_GATEWAY' };
+      throw error;
+    }
+    if (
+      (await this.smsCredits.isMetered(tenant.id)) &&
+      (await this.smsCredits.getBalance(tenant.id)).available <= 0
+    ) {
+      return { sms: 'NO_CREDIT' };
+    }
+    return { sms: 'READY' };
+  }
 
   @Get()
   @RequirePermissions(Permission.COMMUNICATION_CREDIT_READ)

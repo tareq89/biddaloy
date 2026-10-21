@@ -249,6 +249,10 @@ export interface FeesSettings {
   notifyOnScheduleDefault: boolean;
   /** Days after creation a fine is due (Epic 38 D10). Default 7. */
   fineDueDays: number;
+  /** Default `false` (Epic 78 D1). `true` = a payment reversal always needs a
+   * second person; `false` = an admin may approve their own reversal only when
+   * they are the school's only active approver. */
+  requireSecondApprover?: boolean;
 }
 
 /** Which curriculum preset (Epic 35.0) a tenant applied, and when. */

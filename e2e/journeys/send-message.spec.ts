@@ -41,6 +41,16 @@ test.describe('office staff', () => {
     await expect(
       page.getByText(t('communications.send.recipientAddressLabel')).first(),
     ).toBeVisible();
+    // [78 D37] The e2e school has no SMS gateway: SMS (the default channel)
+    // shows the warning bar; Email hides it; the send is never blocked.
+    await expect(page.getByText(t('communications.send.smsNotReady.NO_GATEWAY'))).toBeVisible();
+    await page.getByRole('combobox', { name: t('communications.send.mediumLabel') }).click();
+    await page.getByRole('option', { name: t('communications.mediums.EMAIL') }).click();
+    await expect(page.getByText(t('communications.send.smsNotReady.NO_GATEWAY'))).toHaveCount(0);
+    await page.getByRole('combobox', { name: t('communications.send.mediumLabel') }).click();
+    await page.getByRole('option', { name: t('communications.mediums.SMS') }).click();
+    await expect(page.getByText(t('communications.send.smsNotReady.NO_GATEWAY'))).toBeVisible();
+
     await page
       .getByRole('textbox', { name: t('communications.send.messageLabel') })
       .fill('School closed tomorrow.');

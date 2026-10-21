@@ -111,6 +111,7 @@ export const DEFAULT_FEES_SETTINGS: FeesSettings = {
   notifyOnManualGenerationDefault: false,
   notifyOnScheduleDefault: true,
   fineDueDays: 7,
+  requireSecondApprover: false,
 };
 
 /** [21.1.1] D7 — 5-minute changeover between periods by default; no cap

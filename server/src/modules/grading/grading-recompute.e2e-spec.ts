@@ -81,7 +81,7 @@ describe('Grading scale recompute E2E (68.2.06)', () => {
       .post(`${API}/auth/step-up/otp/request`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
-      .send({ identifier: APPROVER_EMAIL })
+      .send({ identifier: APPROVER_EMAIL, scope: 'grading_scale.manage' })
       .expect(202);
     const verifyRes = await supertest(app.getHttpServer())
       .post(`${API}/auth/step-up`)

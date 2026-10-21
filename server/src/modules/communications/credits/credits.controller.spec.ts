@@ -5,6 +5,8 @@ import { UserRole, Permission } from '@biddaloy/shared';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { CreditsController } from './credits.controller';
 import { SmsCreditService } from './sms-credit.service';
+import { TenantProviderConfigResolver } from '../config/tenant-provider-config.resolver';
+import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
 import {
   SmsCreditLedgerKind,
   SmsCreditLedgerReferenceType,
@@ -19,14 +21,61 @@ import {
 describe('CreditsController', () => {
   let controller: CreditsController;
   let service: Record<string, ReturnType<typeof vi.fn>>;
+  let providerConfig: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT_A = { id: 'tenant-a', role: UserRole.ADMIN };
 
   beforeEach(() => {
     service = {
       getCreditsSummary: vi.fn(),
+      isMetered: vi.fn(),
+      getBalance: vi.fn(),
     };
-    controller = new CreditsController(service as unknown as SmsCreditService);
+    providerConfig = { resolveSms: vi.fn().mockResolvedValue({}) };
+    controller = new CreditsController(
+      service as unknown as SmsCreditService,
+      providerConfig as unknown as TenantProviderConfigResolver,
+    );
+  });
+
+  // [78 D37]
+  describe('getSmsReadiness', () => {
+    it('NO_GATEWAY when the resolver throws ProviderNotConfiguredError, without reading the balance', async () => {
+      providerConfig.resolveSms.mockRejectedValue(new ProviderNotConfiguredError('SMS', 'x'));
+
+      await expect(controller.getSmsReadiness(TENANT_A)).resolves.toEqual({ sms: 'NO_GATEWAY' });
+      expect(providerConfig.resolveSms).toHaveBeenCalledWith('tenant-a');
+      expect(service.isMetered).not.toHaveBeenCalled();
+      expect(service.getBalance).not.toHaveBeenCalled();
+    });
+
+    it('NO_CREDIT when metered with nothing available', async () => {
+      service.isMetered.mockResolvedValue(true);
+      service.getBalance.mockResolvedValue({ available: 0, reserved: 3 });
+
+      await expect(controller.getSmsReadiness(TENANT_A)).resolves.toEqual({ sms: 'NO_CREDIT' });
+      expect(service.getBalance).toHaveBeenCalledWith('tenant-a');
+    });
+
+    it('READY when metered with credit', async () => {
+      service.isMetered.mockResolvedValue(true);
+      service.getBalance.mockResolvedValue({ available: 12, reserved: 0 });
+
+      await expect(controller.getSmsReadiness(TENANT_A)).resolves.toEqual({ sms: 'READY' });
+    });
+
+    it('READY when unmetered with a gateway, and the balance is not read', async () => {
+      service.isMetered.mockResolvedValue(false);
+
+      await expect(controller.getSmsReadiness(TENANT_A)).resolves.toEqual({ sms: 'READY' });
+      expect(service.getBalance).not.toHaveBeenCalled();
+    });
+
+    it('rethrows any other resolver error', async () => {
+      providerConfig.resolveSms.mockRejectedValue(new Error('boom'));
+
+      await expect(controller.getSmsReadiness(TENANT_A)).rejects.toThrow('boom');
+    });
   });
 
   describe('getSmsCredits', () => {
@@ -158,6 +207,16 @@ describe('CreditsController', () => {
 
     it('allows ACCOUNTANT', () => {
       expect(permissionsGuard.canActivate(context(UserRole.ACCOUNTANT))).toBe(true);
+    });
+
+    // [78 D37] The readiness route needs only COMMUNICATION_SEND.
+    it('readiness: allows OFFICE_STAFF (COMMUNICATION_SEND, no COMMUNICATION_CREDIT_READ) and denies TEACHER', () => {
+      const readiness = CreditsController.prototype.getSmsReadiness;
+      const ctx = (role: UserRole) => ({ ...context(role), getHandler: () => readiness }) as any;
+      expect(permissionsGuard.canActivate(ctx(UserRole.OFFICE_STAFF))).toBe(true);
+      expect(() => permissionsGuard.canActivate(ctx(UserRole.TEACHER))).toThrow(
+        ForbiddenException,
+      );
     });
 
     it('denies a role holding COMMUNICATION_LOG_READ but not COMMUNICATION_CREDIT_READ at the PermissionsGuard', () => {

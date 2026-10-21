@@ -517,6 +517,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/communications/sms-credits/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether this school can send an SMS right now: READY, NO_GATEWAY (no SMS set-up) or NO_CREDIT (metered and out of credit). Never blocks a send; the UI only warns. */
+        get: operations["CreditsController_getSmsReadiness_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/sms-credits": {
         parameters: {
             query?: never;
@@ -9119,6 +9136,8 @@ export interface components {
         StepUpOtpRequestDto: {
             /** @description The approver's email or phone. */
             identifier: string;
+            /** @enum {string} */
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override";
         };
         StepUpVerifyDto: {
             /** @description The approver's email or phone. */
@@ -9244,6 +9263,10 @@ export interface components {
             role: components["schemas"]["UserRole"];
             /** Format: date-time */
             expires_at: string;
+        };
+        SmsReadinessResponseDto: {
+            /** @enum {string} */
+            sms: "READY" | "NO_GATEWAY" | "NO_CREDIT";
         };
         SmsCreditLedgerItemDto: {
             id: string;
@@ -11451,6 +11474,7 @@ export interface components {
                 [key: string]: components["schemas"]["LateFeeRuleDto"];
             };
             fineDueDays?: number;
+            requireSecondApprover?: boolean;
         };
         EvaluationsSettingsDto: {
             incidentSmsEnabled?: boolean;
@@ -17228,6 +17252,37 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CreditsController_getSmsReadiness_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmsReadinessResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -425,6 +425,11 @@ export const communicationHandlers = {
   getSmsCreditsLedgerEmpty,
 };
 
+/** [78 D37] Default: SMS can go out, so no warning bar renders. */
+export const getSmsReadinessReady = http.get('/api/v1/communications/sms-credits/readiness', () =>
+  HttpResponse.json({ sms: 'READY' }),
+);
+
 export const communicationDefaultHandlers = [
   previewReminder,
   sendSingleReminder,
@@ -438,6 +443,7 @@ export const communicationDefaultHandlers = [
   // wildcard — MSW matches handlers in array order, and `:id` happily
   // captures the literal segment "sms-credits" otherwise.
   getSmsCreditsOff,
+  getSmsReadinessReady,
   getOne,
   listByStudent,
   listByGuardian,

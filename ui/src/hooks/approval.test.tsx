@@ -53,6 +53,36 @@ function stepUpHandlers() {
   ];
 }
 
+describe('handleRequestOtp request body', () => {
+  it('posts { identifier, scope } to /auth/step-up/otp/request, with the queued request\'s scope', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/v1/auth/step-up/otp/request', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({}, { status: 202 });
+      }),
+    );
+
+    const mutationFn = vi.fn().mockRejectedValueOnce(approvalRequiredError());
+    const user = userEvent.setup();
+    renderWithProviders(<Harness mutationFn={mutationFn} />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+    });
+
+    await user.click(screen.getByRole('button', { name: 'run' }));
+    await screen.findByRole('dialog');
+    await user.type(screen.getByLabelText('Email or phone'), 'admin@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+    await screen.findByLabelText('Verification code');
+
+    expect(capturedBody).toEqual({
+      identifier: 'admin@example.com',
+      scope: 'fees.duplicate_create',
+    });
+  });
+});
+
 describe('handleVerify request body', () => {
   it('posts the server-shaped body to /auth/step-up: uppercase method, `otp`, and `scope`', async () => {
     let capturedBody: unknown;

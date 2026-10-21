@@ -187,6 +187,61 @@ describe('/communications/send', () => {
     expect(send.disabled).toBe(true);
   });
 
+  // [78 D37/D38] Warning bar for an SMS that cannot go out; sending is never blocked.
+  describe('SMS readiness warning', () => {
+    const readiness = (sms: string) =>
+      http.get('/api/v1/communications/sms-credits/readiness', () => HttpResponse.json({ sms }));
+    const NO_GATEWAY_TEXT =
+      'SMS is not set up for this school, so this SMS will not be delivered. An admin can turn it on in Settings › Communication, or pick another channel.';
+    const NO_CREDIT_TEXT =
+      'This school has no SMS credit left, so this SMS will not be delivered. Ask an admin to add credit, or pick another channel.';
+
+    it('NO_GATEWAY: the bar shows under Channel while SMS is selected, goes away on Email, and Send stays enabled', async () => {
+      server.use(studentSearchHandler(), readiness('NO_GATEWAY'));
+      const user = userEvent.setup();
+      render();
+      await screen.findByRole('heading', { name: 'Send Message' });
+      await pickGuardian(user);
+
+      const bar = await screen.findByText(NO_GATEWAY_TEXT);
+      expect(bar.closest('div')?.contains(screen.getByRole('combobox', { name: 'Send by' }))).toBe(
+        false,
+      );
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Review and send' }).disabled).toBe(
+        false,
+      );
+
+      await user.click(screen.getByRole('combobox', { name: 'Send by' }));
+      await user.click(await screen.findByRole('option', { name: 'Email' }));
+      await waitFor(() => expect(screen.queryByText(NO_GATEWAY_TEXT)).toBeNull());
+    });
+
+    it('NO_CREDIT: the credit text shows', async () => {
+      server.use(studentSearchHandler(), readiness('NO_CREDIT'));
+      render();
+      await screen.findByRole('heading', { name: 'Send Message' });
+      await screen.findByText(NO_CREDIT_TEXT);
+    });
+
+    it('READY or a 500: no bar, Send enabled', async () => {
+      server.use(
+        studentSearchHandler(),
+        http.get('/api/v1/communications/sms-credits/readiness', () =>
+          HttpResponse.json({ statusCode: 500, message: 'x' }, { status: 500 }),
+        ),
+      );
+      const user = userEvent.setup();
+      render();
+      await screen.findByRole('heading', { name: 'Send Message' });
+      await pickGuardian(user);
+      expect(screen.queryByText(NO_GATEWAY_TEXT)).toBeNull();
+      expect(screen.queryByText(NO_CREDIT_TEXT)).toBeNull();
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Review and send' }).disabled).toBe(
+        false,
+      );
+    });
+  });
+
   // Same rule as the server's addressForMedium: phone, else alternate phone.
   it('uses the alternate phone when the guardian has no main phone', async () => {
     const altOnly = guardianFactory({

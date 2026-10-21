@@ -79,7 +79,7 @@ describe('Application decisions E2E', () => {
   async function issueApprovalToken(spenderToken: string): Promise<string> {
     const identifier = emailOf(ids.approver);
     const otp = await call('post', '/api/v1/auth/step-up/otp/request', spenderToken)
-      .send({ identifier })
+      .send({ identifier, scope: 'discount_rules.manage' })
       .expect(202);
     const verified = await call('post', '/api/v1/auth/step-up', spenderToken)
       .send({ identifier, method: 'OTP', otp: otp.body.debug.otp, scope: 'discount_rules.manage' })

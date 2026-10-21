@@ -64,7 +64,11 @@
     "recipientEmailLabel": "Email address",
     "errorInvalid": "Something in the number, email or message isn't right. Check it and try again.",
     "errorNoAddress": "This guardian has no number or email for this channel. Pick another channel or guardian.",
-    "errorNotLinked": "This guardian is not linked to the chosen student."
+    "errorNotLinked": "This guardian is not linked to the chosen student.",
+    "smsNotReady": {
+      "NO_GATEWAY": "SMS is not set up for this school, so this SMS will not be delivered. An admin can turn it on in Settings › Communication, or pick another channel.",
+      "NO_CREDIT": "This school has no SMS credit left, so this SMS will not be delivered. Ask an admin to add credit, or pick another channel."
+    }
   },
   "reminders": {
     "title": "Fee Reminders",

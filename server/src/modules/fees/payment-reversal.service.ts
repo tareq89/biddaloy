@@ -1,17 +1,23 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, In, Repository } from 'typeorm';
+import { EntityManager, In, Not, Repository } from 'typeorm';
 import {
   AuditAction,
   ApprovalScope,
   FeeStatus,
   PaymentStatus,
+  Permission,
+  STAFF_ROLES,
+  UserRole,
+  UserStatus,
   WalletTransactionKind,
+  roleHasPermission,
 } from '@biddaloy/shared';
 import { round2, toPaisa } from '../../common/constants/money';
 import { Payment } from './entities/payment.entity';
@@ -22,6 +28,8 @@ import { StudentWallet } from './entities/student-wallet.entity';
 import { WalletService } from './wallet.service';
 import { AuditService } from '../audit/audit.service';
 import { InvoicesService } from '../invoices/invoices.service';
+import { SchoolsService } from '../schools/schools.service';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { emitRecheck } from '../attention/engine/attention-events';
 import { attentionEvents } from '../attention/attention.constants';
 
@@ -33,6 +41,23 @@ interface UndoneDebitAudit {
   paid_amount_after?: number;
   status_before?: FeeStatus;
   status_after?: FeeStatus;
+}
+
+/** [78 D1/D23] The school roles that can approve a reversal. SUPER_ADMIN is a
+ * platform role and does not count as "another approver" in a school. Bound
+ * with `In(...)`, never string-joined (Rule 4). */
+const FEE_APPROVER_ROLES = STAFF_ROLES.filter(
+  (r) => r !== UserRole.SUPER_ADMIN && roleHasPermission(r, Permission.FEE_APPROVE),
+);
+
+/** [78 D1] A self-approved reversal was refused. Fixed text, no ids (Rule 23). */
+export class SecondApproverRequiredException extends ForbiddenException {
+  constructor() {
+    super({
+      message: 'Another approver is needed for this reversal',
+      details: { code: 'SECOND_APPROVER_REQUIRED' },
+    });
+  }
 }
 
 /** Thrown by the reverse-in-order precondition (D10) — 409 with the
@@ -65,6 +90,7 @@ export class PaymentReversalService {
     private readonly walletService: WalletService,
     private readonly auditService: AuditService,
     private readonly invoicesService: InvoicesService,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   async reverse(
@@ -82,6 +108,15 @@ export class PaymentReversalService {
       throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
     }
     this.assertReversible(payment);
+
+    // [78 D1] Self-approval is allowed only in a single-admin school, and
+    // never when the school asks for a second person. Checked before any lock
+    // or money row. The approval token `ApprovalGuard` consumed is already
+    // spent: the remedy is to run step-up again with another approver.
+    const selfApproved = approverUserId === actorUserId;
+    if (selfApproved) {
+      await this.assertSelfApprovalAllowed(tenantId, actorUserId);
+    }
 
     // A cheap pre-check outside the transaction — cuts an obviously
     // doomed request off before it pays for a transaction and a wallet
@@ -409,6 +444,7 @@ export class PaymentReversalService {
           new_values: {
             reversal_payment_id: reversal.id,
             reversal_reason: reason,
+            self_approved: selfApproved,
             wallet_withdrawn: walletCreditAdded,
             removed_bill_wallet_debits: removedBillDebits,
             wallet_refunded: walletCreditUsed,
@@ -437,6 +473,25 @@ export class PaymentReversalService {
     emitRecheck(attentionEvents, { tenantId, ruleKey: 'fees.due_soon', actorUserId });
 
     return reversalPayment;
+  }
+
+  /** [78 D1] Throws when the actor approved their own reversal but the school
+   * requires a second approver, or another active FEE_APPROVE holder exists.
+   * Soft-deleted memberships are excluded by TypeORM's default. */
+  private async assertSelfApprovalAllowed(tenantId: string, actorUserId: string): Promise<void> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const requireSecond = settings.fees?.requireSecondApprover === true;
+    const anotherApprover =
+      requireSecond ||
+      (await this.paymentRepo.manager.exists(UserTenant, {
+        where: {
+          tenant_id: tenantId,
+          user_id: Not(actorUserId),
+          role: In(FEE_APPROVER_ROLES),
+          user: { status: UserStatus.ACTIVE },
+        },
+      }));
+    if (anotherApprover) throw new SecondApproverRequiredException();
   }
 
   private assertReversible(payment: Payment): void {

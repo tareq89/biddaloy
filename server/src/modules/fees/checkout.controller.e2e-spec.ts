@@ -551,6 +551,10 @@ const APPROVER_IDENTITIES: [string, string][] = [
   ['00000000-0000-4000-8000-0000006d0031', 'checkout-reverse-approver-1@e2e.example'],
   ['00000000-0000-4000-8000-0000006d0032', 'checkout-reverse-approver-2@e2e.example'],
   ['00000000-0000-4000-8000-0000006d0033', 'checkout-reverse-approver-3@e2e.example'],
+  // [78 D1] A reversal may not self-approve once another ADMIN exists in the
+  // school (other specs add some), so these two cases use their own approver.
+  ['00000000-0000-4000-8000-0000006d0034', 'checkout-reverse-approver-4@e2e.example'],
+  ['00000000-0000-4000-8000-0000006d0035', 'checkout-reverse-approver-5@e2e.example'],
 ];
 
 describe('POST /payments/:id/reverse (16.6.1)', () => {
@@ -638,7 +642,7 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
       .post(`${API}/auth/step-up/otp/request`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
-      .send({ identifier })
+      .send({ identifier, scope })
       .expect(202);
     const otp = requestRes.body.debug?.otp;
 
@@ -742,7 +746,7 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
     const fee = await createFee(student, 500);
     const paymentId = await recordPayment(student, fee, 500);
 
-    const approvalToken = await issueApprovalToken('payments.reverse', SEED_ADMIN_EMAIL);
+    const approvalToken = await issueApprovalToken('payments.reverse', APPROVER_IDENTITIES[3][1]);
 
     const res = await supertest(app.getHttpServer())
       .post(`${API}/payments/${paymentId}/reverse`)
@@ -799,9 +803,30 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
 
     it('a token for another scope -> 403', async () => {
       const fee = await createFee(await createStudent(), 500);
-      const token = await issueApprovalToken('payments.reverse', SEED_ADMIN_EMAIL);
+      const token = await issueApprovalToken('payments.reverse', APPROVER_IDENTITIES[4][1]);
       await post(fee, -2, token).expect(403);
     });
+  });
+
+  // [78 D1] The seed school has more than one ADMIN (this file and others add
+  // them), so a reversal the actor approved themselves is refused with a fixed body.
+  it('a self-approved reversal is 403 SECOND_APPROVER_REQUIRED when another ADMIN exists', async () => {
+    const student = await createStudent();
+    const fee = await createFee(student, 500);
+    const paymentId = await recordPayment(student, fee, 500);
+    const approvalToken = await issueApprovalToken('payments.reverse', SEED_ADMIN_EMAIL);
+
+    const res = await supertest(app.getHttpServer())
+      .post(`${API}/payments/${paymentId}/reverse`)
+      .send({ reason: 'Self-approved' })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .set('X-Approval-Token', approvalToken)
+      .expect(403);
+    expect(res.body.message).toBe('Another approver is needed for this reversal');
+    expect(res.body.details).toEqual({ code: 'SECOND_APPROVER_REQUIRED' });
+    expect(JSON.stringify(res.body)).not.toContain(SEED_ADMIN_EMAIL);
   });
 
   it('rejects reversal without an approval token (403 APPROVAL_REQUIRED)', async () => {

@@ -401,7 +401,7 @@ sequenceDiagram
     Route->>Guard: @RequireApproval(scope)
     Guard-->>Staff: 403 { details: { code: "APPROVAL_REQUIRED", scope } }
     Staff->>UI: modal opens (useApprovedMutation)
-    UI->>API: POST /auth/step-up/otp/request { identifier }
+    UI->>API: POST /auth/step-up/otp/request { identifier, scope }
     API-->>UI: 202 (always — never reveals if identifier is an approver)
     Staff->>UI: enters the approver's OTP (or password)
     UI->>API: POST /auth/step-up { identifier, method, otp, scope }
@@ -431,10 +431,29 @@ shows `approver_id = actor_id = Rahim`.
 A few things worth being explicit about, because they're easy to get wrong
 building a new gated route:
 
-- **The approver can be the acting user.** This is deliberate and pinned by
-  `step-up.controller.e2e-spec.ts` ("the actor may verify themselves as the
-  approver"); a school that wants a different person is a later setting, not
-  a code rule.
+- **The approver can be the acting user, but a reversal checks who else
+  could have approved.** Step-up itself lets the actor verify as their own
+  approver (pinned by `step-up.controller.e2e-spec.ts`, "the actor may verify
+  themselves as the approver"). `POST /payments/:id/reverse` then applies the
+  Epic 78 D1 rule in `PaymentReversalService` before any lock or money row:
+
+  ```mermaid
+  flowchart TD
+    A[approver == actor?] -- no --> OK[reversal runs<br/>audit self_approved: false]
+    A -- yes --> B{fees.requireSecondApprover on?}
+    B -- yes --> NO[403 SECOND_APPROVER_REQUIRED<br/>nothing changes]
+    B -- no --> C{another ACTIVE FEE_APPROVE holder<br/>in this school? SUPER_ADMIN does not count}
+    C -- yes --> NO
+    C -- no --> OK2[reversal runs<br/>audit self_approved: true]
+  ```
+
+  Example: Rahim is the only admin of his school and reverses a payment with
+  his own code. That runs, and the audit row says `self_approved: true`. Once
+  a second admin, Karim, joins, Rahim's own code is refused with
+  `403 { details: { code: "SECOND_APPROVER_REQUIRED" } }`; the approval token
+  is already spent, so he runs step-up again with Karim's code. A school can
+  also turn on **Always need a second admin to reverse a payment**
+  (`fees.requireSecondApprover`) to refuse self-approval even with one admin.
 - **Attempts are counted three ways** (Redis, 15-minute window, limit
   `STEP_UP_RATE_LIMIT_MAX_ATTEMPTS`, default 5). Every attempt counts, right
   or wrong, before the credential is checked. Any one over its limit is a 429.
@@ -452,6 +471,14 @@ building a new gated route:
   new code is sent, so ten staff cannot text one approver ten times. Only codes
   actually sent count: a request inside the caller's own 60 s cooldown sends
   nothing and gives its slot back.
+- **A step-up code is bound to the school, the caller and the scope it was
+  requested for.** `POST /auth/step-up/otp/request` takes `{ identifier, scope }`
+  and the code is stored under `tenant:caller:scope:approver`. Using it for a
+  different scope or from a different account fails like a wrong code.
+  Example: a code requested for `fees.discount` and sent to `POST /auth/step-up`
+  with `scope: payments.reverse` gives `401 Invalid credentials`, the same body
+  and the same audit row as a wrong code. The three attempt counters above
+  carry no scope, so rotating the scope buys no extra guesses.
 - **The 403 body is nested.** `ApprovalRequiredException`
   (`server/src/common/errors/approval-required.exception.ts`) must put
   `code`/`scope` under a `details` key — the global exception filter only

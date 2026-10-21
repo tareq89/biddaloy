@@ -11,6 +11,13 @@ export class StepUpOtpRequestDto {
   @IsString()
   @MaxLength(255)
   identifier: string;
+
+  /** The code is minted for this scope only; verifying it under any other
+   * scope fails like a wrong code (F-132). Required: a missing or unknown
+   * scope is a 400 before any identifier lookup. */
+  @ApiProperty({ enum: ApprovalScope })
+  @IsEnum(ApprovalScope)
+  scope: ApprovalScope;
 }
 
 /** `method` accepted by `POST /auth/step-up`. */
