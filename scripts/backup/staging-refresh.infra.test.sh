@@ -1,56 +1,102 @@
 #!/usr/bin/env bash
-# Test for staging-refresh.sh against a real Postgres. Same host setup as the restore drill
-# (.github/workflows/restore-drill.yml): psql, pg_dump, pg_restore (all major 18), age and aws on
-# PATH, Postgres on localhost:5432, Redis on localhost:6379 (the e2e seed boots AppModule), and
-# `yarn install` + `yarn build:shared` done. Run it with:
+# Test for staging-refresh.sh against a real Postgres, using only what a bare CI runner has:
+# docker, bash, flock, curl. No node, no yarn, no age, no host psql.
 #
 #   bash scripts/backup/staging-refresh.infra.test.sh
 #
-# It creates and drops only databases named biddaloy_staging_t<pid>*. R2 is replaced by a folder:
-# a PATH shim for `aws` answers `s3 ls` and `s3 cp` from it, and nothing leaves the machine. The
-# shim `curl` records the Kuma push. Cases:
-#   1. a non-staging database name (the production name) is refused with exit 2
-#   2. a password hash that is not bcrypt is refused before aws or the database are touched
-#   3. no daily backup and a deadline that has passed: exit 1, `no daily backup`, a `down` push,
-#      and the live staging database is untouched
-#   4. with the daily backup present: `staging_next ready`; the copy holds no original email
-#      apart from the platform super admins and the smoke school, and every user has the staging
-#      password hash
+# Same shape as db-swap.infra.test.sh: it uses the shared stack's db container when one is
+# running, otherwise starts a throwaway Postgres from the image docker-compose.yml pins and
+# removes it on exit. It creates and drops only databases named biddaloy_staging_t<pid>*.
+#
+# What is faked, and why:
+#   * psql, pg_dump and pg_restore are shims that run inside the Postgres container.
+#   * `age` is a shim that "decrypts" by copying (the file in the fake bucket is a plain dump).
+#   * `aws` reads a folder instead of R2; `curl` records the Kuma push. Nothing leaves the machine.
+#   * The scrub is a small stand-in over a three-table schema (SCRUB_SQL). The real scrub.sql
+#     needs the full migrated schema, which needs node: server/test/staging-scrub.integration.spec.ts
+#     runs the real file against every table with worst-case rows. This test covers the script
+#     itself: guards, waiting, the missing-backup path, restore, scrub hand-off, verify, ready.
+#
+# Cases: 1 production name refused (exit 2); 2 non-bcrypt hash refused before aws runs;
+# 3 no daily backup and the deadline passed: exit 1 + `down` push + staging untouched;
+# 4 bucket unreadable: a different message, still `down`; 5 backup present: `staging_next ready`,
+# every user has the staging hash, the live database is untouched; 6 a failing scrub drops _next
+# and pushes `down`.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 REFRESH="$HERE/staging-refresh.sh"
-PG="${TEST_PG_URL:-postgres://postgres:postgres@localhost:5432}"
+DB_CONTAINER="$(docker ps -q --filter label=com.docker.compose.project=biddaloy \
+  --filter label=com.docker.compose.service=db | head -1)"
+OWN_DB=""
+if [[ -z "$DB_CONTAINER" ]]; then
+  PG_IMAGE="$(sed -n 's/^ *image: \(postgres:.*\)$/\1/p' "$HERE/../../docker-compose.yml" | head -1)"
+  [[ -n "$PG_IMAGE" ]] || { echo "staging-refresh.infra.test.sh: no postgres image in docker-compose.yml" >&2; exit 1; }
+  OWN_DB="staging-refresh-infra-test-pg-$$"
+  docker run -d --rm --name "$OWN_DB" -e POSTGRES_USER=demo -e POSTGRES_PASSWORD=demo "$PG_IMAGE" >/dev/null
+  for _ in $(seq 1 60); do
+    docker exec "$OWN_DB" pg_isready -q -h 127.0.0.1 -U demo 2>/dev/null && break
+    sleep 1
+  done
+  docker exec "$OWN_DB" pg_isready -q -h 127.0.0.1 -U demo || { echo "staging-refresh.infra.test.sh: Postgres did not start" >&2; exit 1; }
+  DB_CONTAINER="$OWN_DB"
+fi
+ENV_OF_DB="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$DB_CONTAINER")"
+PG_USER="$(sed -n 's/^POSTGRES_USER=//p' <<<"$ENV_OF_DB")"
+PG_PASS="$(sed -n 's/^POSTGRES_PASSWORD=//p' <<<"$ENV_OF_DB")"
+
 TAG="t$$"
 LIVE="biddaloy_staging_${TAG}"
 SRC="biddaloy_staging_${TAG}_src"
-PLATFORM_ID="00000000-0000-4000-8000-000000000001" # DEV_SEED_PLATFORM_TENANT_ID
-# shellcheck disable=SC2016  # a bcrypt hash is literal text
-HASH='$2b$12$abcdefghijklmnopqrstuuabcdefghijklmnopqrstuvwxyz01234'
-DAY="$(TZ=Asia/Dhaka date +%F)"
+PLATFORM_ID="00000000-0000-4000-8000-000000000001"
+# A bcrypt cost-12 shaped hash: $2b$12$ + 53 characters.
+HASH="\$2b\$12\$$(printf 'a%.0s' $(seq 1 53))"
+DAY="$(date -u -d "@$(($(date +%s) + 21600))" +%F 2>/dev/null || date -u -r "$(($(date +%s) + 21600))" +%F)"
 
 WORK="$(mktemp -d)"
 FAKE_BUCKET="$WORK/bucket"
 mkdir -p "$WORK/bin" "$FAKE_BUCKET/db/daily"
-psql_admin() { psql "$PG/postgres" -v ON_ERROR_STOP=1 -tAqc "$1"; }
 cleanup() {
-  for d in "$LIVE" "${LIVE}_next" "$SRC"; do psql_admin "DROP DATABASE IF EXISTS \"$d\" WITH (FORCE)" >/dev/null 2>&1 || true; done
+  for d in "$LIVE" "${LIVE}_next" "$SRC"; do
+    docker exec -e PGPASSWORD="$PG_PASS" "$DB_CONTAINER" psql -h 127.0.0.1 -U "$PG_USER" -d postgres -qc "DROP DATABASE IF EXISTS \"$d\" WITH (FORCE)" >/dev/null 2>&1 || true
+  done
+  [[ -z "$OWN_DB" ]] || docker rm -f "$OWN_DB" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# aws shim: `s3 ls s3://b/<key>` and `s3 cp s3://b/<key> <file>` read $FAKE_BUCKET/<key>.
+# psql: runs in the container. A `-f <file>` on the host is fed through stdin instead.
+cat >"$WORK/bin/psql" <<EOS
+#!/usr/bin/env bash
+args=(); file=""
+while [[ \$# -gt 0 ]]; do if [[ "\$1" == -f ]]; then file="\$2"; shift 2; else args+=("\$1"); shift; fi; done
+if [[ -n "\$file" ]]; then
+  exec docker exec -i -e PGPASSWORD="\${PGPASSWORD:-$PG_PASS}" "$DB_CONTAINER" psql "\${args[@]}" < "\$file"
+fi
+exec docker exec -i -e PGPASSWORD="\${PGPASSWORD:-$PG_PASS}" "$DB_CONTAINER" psql "\${args[@]}" </dev/null
+EOS
+# pg_restore: the dump file (last argument) is fed through stdin.
+cat >"$WORK/bin/pg_restore" <<EOS
+#!/usr/bin/env bash
+file="\${*: -1}"; args=("\${@:1:\$#-1}")
+exec docker exec -i -e PGPASSWORD="\${PGPASSWORD:-$PG_PASS}" "$DB_CONTAINER" pg_restore "\${args[@]}" < "\$file"
+EOS
+# age: "decrypt" by copying. Usage: age --decrypt -i <key> -o <out> <in>
+cat >"$WORK/bin/age" <<'EOS'
+#!/usr/bin/env bash
+out=""; while [[ $# -gt 0 ]]; do [[ "$1" == -o ]] && out="$2"; last="$1"; shift; done
+cp "$last" "$out"
+EOS
+# aws: `s3 ls` and `s3 cp` read $FAKE_BUCKET/<key>. AWS_SHIM_ERROR=1 simulates a 403.
 cat >"$WORK/bin/aws" <<'EOS'
 #!/usr/bin/env bash
 echo "aws $*" >>"$SHIM_LOG"
-# drop `--endpoint-url X` wherever it sits (restore.sh and the refresh script put it after the verb)
 args=(); while [[ $# -gt 0 ]]; do if [[ "$1" == --endpoint-url ]]; then shift 2; else args+=("$1"); shift; fi; done
-key_of() { sed 's#^s3://[^/]*/##' <<<"$1"; }
+if [[ "${AWS_SHIM_ERROR:-}" == 1 ]]; then echo "An error occurred (AccessDenied) when calling the ListObjectsV2 operation" >&2; exit 254; fi
 case "${args[0]} ${args[1]}" in
   "s3 ls"|"s3 cp")
-    src="$FAKE_BUCKET/$(key_of "${args[2]}")"
+    src="$FAKE_BUCKET/$(sed 's#^s3://[^/]*/##' <<<"${args[2]}")"
     [[ -f "$src" ]] || exit 1
     [[ "${args[1]}" == cp ]] && cp "$src" "${args[3]}"
     exit 0 ;;
@@ -65,34 +111,42 @@ EOS
 chmod +x "$WORK/bin/"*
 export SHIM_LOG="$WORK/shim.log" FAKE_BUCKET
 : >"$SHIM_LOG"
+echo "key" >"$WORK/key.txt"
 
-# --- a source database with the real schema and seed, dumped and encrypted like backup.sh ------
-psql_admin "CREATE DATABASE \"$SRC\"" >/dev/null
-age-keygen -o "$WORK/key.txt" 2>"$WORK/keygen.log"
-AGE_PUB="$(grep 'Public key:' "$WORK/keygen.log" | sed 's/.*: //')"
-(
-  cd "$ROOT"
-  export DATABASE_URL="$PG/$SRC" NODE_ENV=test JWT_SECRET="${JWT_SECRET:-staging-refresh-test-jwt-secret-1234567890}" \
-    SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD:-staging-refresh-test-seed-password-1}"
-  yarn --silent workspace @biddaloy/server migration:run >/dev/null
-  yarn --silent workspace @biddaloy/server seed >/dev/null
-)
-EXPECTED_KEPT="$(psql "$PG/$SRC" -tAqc "SELECT count(DISTINCT user_id) FROM user_tenants WHERE tenant_id = '$PLATFORM_ID' AND role = 'SUPER_ADMIN' AND deleted_at IS NULL")"
+# A stand-in scrub over the stand-in schema (see the header).
+cat >"$WORK/stub-scrub.sql" <<'EOS'
+UPDATE users SET email = 'u-' || id::text || '@staging.invalid', password_hash = :'staging_password_hash';
+EOS
+cat >"$WORK/bad-scrub.sql" <<'EOS'
+UPDATE no_such_table SET x = 1;
+EOS
 
-# The live staging database that must survive every failed run.
-psql_admin "CREATE DATABASE \"$LIVE\"" >/dev/null
-psql "$PG/$LIVE" -qc "CREATE TABLE marker (v int); INSERT INTO marker VALUES (42)" >/dev/null
+pg() { docker exec -i -e PGPASSWORD="$PG_PASS" "$DB_CONTAINER" psql -h 127.0.0.1 -U "$PG_USER" -v ON_ERROR_STOP=1 -tAq "$@"; }
+pg -d postgres -c "CREATE DATABASE \"$SRC\"" >/dev/null
+pg -d "$SRC" >/dev/null <<'EOS'
+CREATE TABLE schools (id uuid PRIMARY KEY, slug text);
+CREATE TABLE users (id uuid PRIMARY KEY, email text, password_hash text);
+CREATE TABLE students (id uuid PRIMARY KEY, full_name text);
+INSERT INTO schools VALUES (gen_random_uuid(), 'a');
+INSERT INTO users VALUES (gen_random_uuid(), 'real1@school.example', 'old'), (gen_random_uuid(), 'real2@school.example', 'old');
+INSERT INTO students VALUES (gen_random_uuid(), 'Real Name');
+EOS
+pg -d postgres -c "CREATE DATABASE \"$LIVE\"" >/dev/null
+pg -d "$LIVE" -c "CREATE TABLE marker (v int); INSERT INTO marker VALUES (42)" >/dev/null
 
 run_refresh() { # run_refresh VAR=value ... ; output goes to $WORK/out
   env PATH="$WORK/bin:$PATH" \
-    POSTGRES_DB="$LIVE" POSTGRES_USER=postgres POSTGRES_PASSWORD=postgres POSTGRES_HOST=localhost \
+    POSTGRES_DB="$LIVE" POSTGRES_USER="$PG_USER" POSTGRES_PASSWORD="$PG_PASS" POSTGRES_HOST=127.0.0.1 \
     BACKUP_S3_ENDPOINT=https://r2.invalid BACKUP_S3_BUCKET=bucket \
     BACKUP_S3_ACCESS_KEY_ID=read-only BACKUP_S3_SECRET_ACCESS_KEY=read-only-secret \
     BACKUP_AGE_PRIVATE_KEY_FILE="$WORK/key.txt" STAGING_PASSWORD_HASH="$HASH" \
     SMOKE_SCHOOL_SLUG=smoke-test-school PLATFORM_TENANT_ID="$PLATFORM_ID" \
     STAGING_REFRESH_PUSH_URL=https://kuma.invalid/api/push/token STAGING_REFRESH_POLL_SECS=1 \
-    STAGING_REFRESH_DEADLINE=23:59 "$@" bash "$REFRESH" >"$WORK/out" 2>&1
+    STAGING_REFRESH_DEADLINE=23:59 STAGING_REFRESH_LOCK="$WORK/lock" SCRUB_SQL="$WORK/stub-scrub.sql" \
+    "$@" bash "$REFRESH" >"$WORK/out" 2>&1
 }
+next_exists() { [[ "$(pg -d postgres -c "SELECT count(*) FROM pg_database WHERE datname = '${LIVE}_next'")" != 0 ]]; }
+live_untouched() { [[ "$(pg -d "$LIVE" -c 'SELECT v FROM marker')" == 42 ]]; }
 
 # 1. the production database name is refused, exit 2, and nothing runs.
 set +e; run_refresh POSTGRES_DB=biddaloy; code=$?; set -e
@@ -101,11 +155,12 @@ grep -q 'refusing: not a staging database' "$WORK/out" || fail "no refusal messa
 [[ ! -s "$SHIM_LOG" ]] || fail "aws or curl ran before the guard"
 echo "PASS: non-staging database refused"
 
-# 2. a hash that is not bcrypt is refused before anything is read or restored.
-set +e; run_refresh STAGING_PASSWORD_HASH=plaintext; code=$?; set -e
+# 2. a hash that is not bcrypt cost 12 is refused before anything is read or restored.
+BAD_HASH="\$2b\$12\$short"
+set +e; run_refresh STAGING_PASSWORD_HASH="$BAD_HASH"; code=$?; set -e
 [[ $code -eq 2 ]] || fail "bad hash must exit 2, got $code"
-[[ ! -s "$SHIM_LOG" ]] || fail "aws ran with a bad hash"
-echo "PASS: non-bcrypt hash refused"
+if grep -q '^aws' "$SHIM_LOG"; then fail "aws ran with a bad hash"; fi
+echo "PASS: malformed hash refused"
 
 # 3. no daily backup and the deadline already passed: exit 1, a down push, staging untouched.
 set +e; run_refresh STAGING_REFRESH_DEADLINE=00:00; code=$?; set -e
@@ -113,21 +168,37 @@ set +e; run_refresh STAGING_REFRESH_DEADLINE=00:00; code=$?; set -e
 grep -q "no daily backup for $DAY" "$WORK/out" || fail "no 'no daily backup' message"
 grep -q 'status=down' "$SHIM_LOG" || fail "no down push"
 grep -q 'no daily backup' "$SHIM_LOG" || fail "down push does not say why"
-[[ "$(psql "$PG/$LIVE" -tAqc 'SELECT v FROM marker')" == 42 ]] || fail "live staging database changed"
-[[ "$(psql_admin "SELECT count(*) FROM pg_database WHERE datname = '${LIVE}_next'")" == 0 ]] || fail "_next left behind"
+live_untouched || fail "live staging database changed"
+next_exists && fail "_next left behind"
 echo "PASS: missing backup pushes down and leaves staging alone"
 
-# 4. with the daily backup present the copy is ready, scrubbed and has the staging password.
-pg_dump -Fc "$PG/$SRC" | age -r "$AGE_PUB" >"$FAKE_BUCKET/db/daily/$DAY.dump.age"
+# 4. a bucket that cannot be read is not reported as a missing backup.
+: >"$SHIM_LOG"
+set +e; run_refresh STAGING_REFRESH_DEADLINE=00:00 AWS_SHIM_ERROR=1; code=$?; set -e
+[[ $code -eq 1 ]] || fail "unreadable bucket must exit 1, got $code"
+grep -q 'cannot read the backup bucket' "$WORK/out" || fail "no bucket-error message"
+grep -q 'status=down' "$SHIM_LOG" || fail "no down push for a bucket error"
+echo "PASS: bucket error is its own message and still pushes down"
+
+# 5. with the daily backup present the copy is ready, scrubbed and has the staging password.
+docker exec -e PGPASSWORD="$PG_PASS" "$DB_CONTAINER" pg_dump -Fc -h 127.0.0.1 -U "$PG_USER" "$SRC" >"$FAKE_BUCKET/db/daily/$DAY.dump.age"
 run_refresh || { cat "$WORK/out" >&2; fail "refresh failed"; }
 grep -q '^staging_next ready$' "$WORK/out" || fail "no 'staging_next ready'"
 for n in 1 2 3 4 5 6 7; do grep -q "^step $n/7:" "$WORK/out" || fail "step $n not printed"; done
-NEXT="$PG/${LIVE}_next"
-kept="$(psql "$NEXT" -tAqc "SELECT count(*) FROM users WHERE email NOT LIKE '%@staging.invalid'")"
-[[ "$kept" == "$EXPECTED_KEPT" ]] || fail "expected $EXPECTED_KEPT kept emails, got $kept"
-bad="$(psql "$NEXT" -tAqc "SELECT count(*) FROM users WHERE password_hash IS DISTINCT FROM '$HASH'")"
-[[ "$bad" == 0 ]] || fail "$bad users still have another password"
-[[ "$(psql "$PG/$LIVE" -tAqc 'SELECT v FROM marker')" == 42 ]] || fail "refresh touched the live database"
+bad="$(pg -d "${LIVE}_next" -c "SELECT count(*) FROM users WHERE password_hash IS DISTINCT FROM '$HASH' OR email NOT LIKE '%@staging.invalid'")"
+[[ "$bad" == 0 ]] || fail "$bad users were not scrubbed"
+if grep -q 'real1@school.example' "$WORK/out"; then fail "a real email was printed"; fi
+live_untouched || fail "refresh touched the live database"
 echo "PASS: staging_next ready, scrubbed, live database untouched"
+
+# 6. a scrub that fails drops _next, pushes down, and leaves staging alone.
+: >"$SHIM_LOG"
+set +e; run_refresh SCRUB_SQL="$WORK/bad-scrub.sql"; code=$?; set -e
+[[ $code -eq 1 ]] || fail "failing scrub must exit 1, got $code"
+grep -q 'scrub FAILED' "$WORK/out" || fail "no scrub failure message"
+grep -q 'status=down' "$SHIM_LOG" || fail "no down push for a failed scrub"
+next_exists && fail "_next left behind after a failed scrub"
+live_untouched || fail "failed scrub touched the live database"
+echo "PASS: failed scrub cleans up and pushes down"
 
 echo "staging-refresh.infra.test.sh: all cases passed"

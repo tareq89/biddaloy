@@ -33,17 +33,27 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
     null: ['occupation'],
     'kept-public': ['relationship'],
   },
+  // blood_group and religion are kept: low identifiability without a name or contact (decision
+  // taken in the #2793 review, recommended option). date_of_birth moves 1-180 days.
   students: {
-    fake: ['full_name', 'home_address', 'father_name', 'mother_name'],
+    fake: ['full_name', 'home_address', 'father_name', 'mother_name', 'date_of_birth'],
     null: ['full_name_bn', 'birth_reg_no', 'health_notes', 'photo_key'],
     'kept-public': ['registration_number', 'blood_group', 'religion', 'gender'],
   },
   admission_applicants: {
-    fake: ['applicant_name', 'guardian_name', 'guardian_phone', 'guardian_email', 'home_address'],
+    fake: [
+      'applicant_name',
+      'guardian_name',
+      'guardian_phone',
+      'guardian_email',
+      'home_address',
+      'date_of_birth',
+    ],
     null: ['documents'],
     'kept-public': ['reference_number', 'gender', 'status'],
   },
   applications: {
+    'kept-public': ['serial_no'],
     fake: ['applicant_name'],
     null: ['letter_text', 'payload', 'granted', 'effect_result'],
   },
@@ -52,8 +62,10 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   user_identities: { 'delete-row': ['*'] },
   schools: {
     fake: ['phone', 'email', 'address'],
-    null: ['settings', 'status_reason'],
+    null: ['status_reason'],
+    // `settings` stays, minus every @Secret() path and the SMTP user/from (checked by the spec).
     'kept-public': [
+      'settings',
       'name',
       'name_bn',
       'slug',
@@ -75,8 +87,14 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
     null: ['name_bn', 'index_no', 'salary_code', 'salary_scale'],
     'kept-public': ['blood_group', 'religion', 'department'],
   },
-  staff_achievements: { null: ['description'] },
-  staff_experience: { null: ['description'] },
+  staff_achievements: { null: ['description', 'title', 'issued_by'] },
+  staff_experience: { null: ['description', 'designation', 'institution'] },
+  staff_education: {
+    null: ['institution', 'degree', 'board_university', 'result', 'passing_year'],
+  },
+  staff_training: { null: ['title', 'institution', 'certificate_no'] },
+  survey_answers: { null: ['text'] },
+  student_public_exams: { null: ['registration_no', 'roll_no'] },
   staff_designation_history: { null: ['notes'] },
   staff_incidents: { null: ['body', 'withdraw_reason'] },
   staff_documents: { fake: ['original_filename'], 'kept-public': ['storage_key'] },
@@ -93,7 +111,7 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   print_job_items: {
     fake: ['verify_token_hash', 'subject_label'],
     null: ['data_snapshot', 'revoke_reason'],
-    'kept-public': ['document_kind', 'subject_type', 'outcome', 'context_type'],
+    'kept-public': ['document_kind', 'subject_type', 'outcome', 'context_type', 'serial_no'],
   },
 
   // --- messages ---
@@ -113,7 +131,7 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
     'kept-public': ['batch_name', 'filters_applied'],
   },
   alerts: {
-    null: ['manual_body'],
+    null: ['manual_body', 'manual_title'],
     fake: ['params'],
     'kept-public': ['manual_audience', 'dedupe_key', 'rule_key', 'action_url'],
   },
@@ -125,11 +143,11 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   },
   wallet_transactions: { null: ['note'] },
   invoices: { null: ['notes', 'issuer_snapshot'], fake: ['snapshot'] },
-  payments: { null: ['remarks', 'reversal_reason', 'issuer_snapshot'] },
+  payments: { null: ['remarks', 'reversal_reason', 'issuer_snapshot', 'transaction_reference'] },
   payment_allocations: { null: ['notes'] },
   student_fees: { null: ['note'] },
   seat_orders: { null: ['receipt_snapshot'] },
-  platform_payments: { null: ['raw'] },
+  platform_payments: { null: ['raw', 'gateway_ref'] },
 
   // --- free text about people ---
   admission_evaluations: { null: ['notes'] },
@@ -140,7 +158,7 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   promotion_entries: { null: ['override_note'], 'kept-public': ['group_name'] },
   routine_change_requests: { null: ['note', 'resolution_note'] },
   routine_substitutions: { null: ['reason'] },
-  student_lifecycle_events: { null: ['reason', 'remark'] },
+  student_lifecycle_events: { null: ['reason', 'remark', 'destination'] },
   student_notes: { null: ['body'] },
   homework_submissions: { null: ['attachments'] },
   // Annual confidential reports are written about named staff.
@@ -151,6 +169,12 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   teachers: { 'kept-public': ['designations'] },
   grading_bands: { 'kept-public': ['comment'] },
   academic_terms: { 'kept-public': ['name'] },
+  designations: { 'kept-public': ['title_bn', 'title_en'] },
+  admission_intakes: { 'kept-public': ['required_document_types', 'title'] },
+  rooms: { 'kept-public': ['room_no'] },
+  surveys: { 'kept-public': ['title'] },
+  survey_questions: { 'kept-public': ['text'] },
+  attendance_sessions: { 'kept-public': ['period_no'] },
   academic_years: { 'kept-public': ['name'] },
   calendar_events: { 'kept-public': ['name', 'description', 'external_refs'] },
   class_sections: { 'kept-public': ['section_name', 'group_name'] },
@@ -165,8 +189,7 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   fee_structures: { 'kept-public': ['name'] },
   fine_rules: { 'kept-public': ['conditions'] },
   grading_scales: { 'kept-public': ['name'] },
-  homework: { 'kept-public': ['attachments', 'description'] },
-  admission_intakes: { 'kept-public': ['required_document_types'] },
+  homework: { 'kept-public': ['attachments', 'description', 'title'] },
   period_slots: { 'kept-public': ['name'] },
   print_jobs: { 'kept-public': ['printer_name'] },
   print_template_versions: { 'kept-public': ['definition'] },
@@ -180,7 +203,7 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   routines: { 'kept-public': ['name'] },
   seat_plans: { 'kept-public': ['name'] },
   shifts: { 'kept-public': ['name'] },
-  sms_credit_ledger: { 'kept-public': ['reason'] },
+  sms_credit_ledger: { 'kept-public': ['reason', 'reference_type'] },
   staff_languages: { 'kept-public': ['language_name'] },
   study_plan_templates: { 'kept-public': ['name', 'lessons'] },
   study_plans: { 'kept-public': ['lessons', 'exam_markers'] },
@@ -197,3 +220,38 @@ export const STAGING_SCRUB_COLUMNS: ScrubColumn[] = Object.entries(BY_TABLE).fla
       columns.map((column) => ({ table, column, handling: handling as ScrubHandling })),
     ),
 );
+
+// Types that are never personal text. Everything else is checked against PERSONAL_NAME, so a new
+// `guardian_dob date` or `nid bigint` is flagged just like a new varchar.
+// Enums are a fixed vocabulary, so they cannot hold free personal text.
+const SAFE_TYPES = [/^uuid$/, /^boolean$/, /^timestamp/, /^USER-DEFINED$/];
+// Names that suggest personal data. Substring match, case-insensitive.
+export const PERSONAL_NAME =
+  /(phone|email|name|address|token|secret|password|birth|dob|health|note|contact|otp|totp|mobile|nid|passport|endpoint|p256dh|auth|ip_|user_agent|photo|picture|signature|remark|comment|religion|blood|disab|occupation|father|mother|guardian|relation|bank|salary|hash|street|(^|_)city|district|village|post_?code|url|handle|social|whatsapp|username|reason|description|message|body|filename|text|title|_no$|institution|reference|answer|destination)/i;
+// jsonb, arrays and bytea can hold anything, so they are always reviewed.
+const STRUCTURED = /^(jsonb?|ARRAY|bytea)$/;
+
+export interface SchemaColumn {
+  table_name: string;
+  column_name: string;
+  data_type: string;
+}
+
+/** Columns in `rows` that look personal and are neither in the list nor in an emptied table. */
+export function unreviewedColumns(
+  rows: SchemaColumn[],
+  list: ScrubColumn[] = STAGING_SCRUB_COLUMNS,
+) {
+  const reviewed = new Set(list.map((c) => `${c.table}.${c.column}`));
+  const emptied = new Set(
+    list.filter((c) => c.handling === 'delete-row' && c.column === '*').map((c) => c.table),
+  );
+  return rows
+    .filter(
+      (r) =>
+        STRUCTURED.test(r.data_type) ||
+        (!SAFE_TYPES.some((t) => t.test(r.data_type)) && PERSONAL_NAME.test(r.column_name)),
+    )
+    .filter((r) => !emptied.has(r.table_name) && !reviewed.has(`${r.table_name}.${r.column_name}`))
+    .map((r) => `${r.table_name}.${r.column_name}`);
+}

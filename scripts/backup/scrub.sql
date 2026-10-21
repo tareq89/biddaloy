@@ -15,9 +15,11 @@
 --   * Fake values come from the row id, so they are stable and unique, and they carry no
 --     original value. Free text becomes NULL, or '[scrubbed]' where the column is NOT NULL.
 --   * Nothing here prints data.
---   * ponytail: fake phones use 9 digits of an md5, so two rows could collide once a table has
---     tens of thousands of rows with a unique phone index. The restore would fail loudly (the
---     transaction rolls back). Lengthen the digits if it ever happens.
+--   * Fakes cannot collide on unique indexes: emails carry the whole id, phones are a per-table
+--     prefix plus a running number. Phones keep the Bangladesh mobile shape (BD_PHONE_REGEX:
+--     880 1[3-9] + 8 digits) so app validation still accepts them; a row with no phone keeps none.
+--   * Where a column has a CHECK (override note, withdraw reason) the replacement satisfies it.
+--   * ponytail: phones allow 99,999,999 rows per table. Lengthen the number if it ever matters.
 
 -- Users whose email stays: platform super admins (D6) and users of the smoke school (D20).
 CREATE TEMP TABLE scrub_keep_email ON COMMIT DROP AS
@@ -36,22 +38,28 @@ WHERE ut.deleted_at IS NULL
 
 -- Contacts and names ------------------------------------------------------------------------
 
-UPDATE users SET email = 'u-' || left(id::text, 8) || '@staging.invalid'
+UPDATE users SET email = 'u-' || id::text || '@staging.invalid'
 WHERE email IS NOT NULL AND id NOT IN (SELECT id FROM scrub_keep_email);
 
+UPDATE users u SET phone = '+88013' || lpad(n.rn::text, 8, '0')
+FROM (SELECT id, row_number() OVER (ORDER BY id) AS rn FROM users
+      WHERE phone IS NOT NULL AND id NOT IN (SELECT id FROM scrub_keep_all)) n
+WHERE u.id = n.id;
+
 UPDATE users SET
-  phone = '+8801' || lpad(((('x' || substr(md5(id::text), 1, 8))::bit(32)::bigint) % 1000000000)::text, 9, '0'),
   full_name = 'Person ' || left(id::text, 4),
   profile_picture_url = NULL
 WHERE id NOT IN (SELECT id FROM scrub_keep_all);
 
+UPDATE guardians g SET phone = '+88014' || lpad(n.rn::text, 8, '0')
+FROM (SELECT id, row_number() OVER (ORDER BY id) AS rn FROM guardians WHERE phone IS NOT NULL) n
+WHERE g.id = n.id;
+UPDATE guardians g SET alternate_phone = '+88015' || lpad(n.rn::text, 8, '0')
+FROM (SELECT id, row_number() OVER (ORDER BY id) AS rn FROM guardians WHERE alternate_phone IS NOT NULL) n
+WHERE g.id = n.id;
 UPDATE guardians SET
   full_name = 'Person ' || left(id::text, 4),
-  phone = CASE WHEN phone IS NULL THEN NULL
-    ELSE '+8801' || lpad(((('x' || substr(md5(id::text), 1, 8))::bit(32)::bigint) % 1000000000)::text, 9, '0') END,
-  email = CASE WHEN email IS NULL THEN NULL ELSE 'g-' || left(id::text, 8) || '@staging.invalid' END,
-  alternate_phone = CASE WHEN alternate_phone IS NULL THEN NULL
-    ELSE '+8801' || lpad(((('x' || substr(md5(id::text || 'alt'), 1, 8))::bit(32)::bigint) % 1000000000)::text, 9, '0') END,
+  email = CASE WHEN email IS NULL THEN NULL ELSE 'g-' || id::text || '@staging.invalid' END,
   address = CASE WHEN address IS NULL THEN NULL ELSE 'Address ' || left(id::text, 4) END,
   occupation = NULL;
 
@@ -60,16 +68,23 @@ UPDATE students SET
   full_name_bn = NULL,
   home_address = CASE WHEN home_address IS NULL THEN NULL ELSE 'Address ' || left(id::text, 4) END,
   birth_reg_no = NULL,
+  -- Date of birth moves by 1 to 180 days, forward or back, derived from the id (never 0).
+  date_of_birth = date_of_birth + ((1 + (('x' || substr(md5(id::text), 1, 6))::bit(24)::int % 180))
+    * CASE WHEN ('x' || substr(md5(id::text), 7, 1))::bit(4)::int < 8 THEN 1 ELSE -1 END),
   father_name = CASE WHEN father_name IS NULL THEN NULL ELSE 'Father ' || left(id::text, 4) END,
   mother_name = CASE WHEN mother_name IS NULL THEN NULL ELSE 'Mother ' || left(id::text, 4) END,
   health_notes = NULL,
   photo_key = NULL;
 
+UPDATE admission_applicants a SET guardian_phone = '+88017' || lpad(n.rn::text, 8, '0')
+FROM (SELECT id, row_number() OVER (ORDER BY id) AS rn FROM admission_applicants) n
+WHERE a.id = n.id;
 UPDATE admission_applicants SET
   applicant_name = 'Person ' || left(id::text, 4),
   guardian_name = 'Person ' || left(id::text, 4),
-  guardian_phone = '+8801' || lpad(((('x' || substr(md5(id::text), 1, 8))::bit(32)::bigint) % 1000000000)::text, 9, '0'),
-  guardian_email = CASE WHEN guardian_email IS NULL THEN NULL ELSE 'a-' || left(id::text, 8) || '@staging.invalid' END,
+  date_of_birth = date_of_birth + ((1 + (('x' || substr(md5(id::text), 1, 6))::bit(24)::int % 180))
+    * CASE WHEN ('x' || substr(md5(id::text), 7, 1))::bit(4)::int < 8 THEN 1 ELSE -1 END),
+  guardian_email = CASE WHEN guardian_email IS NULL THEN NULL ELSE 'a-' || id::text || '@staging.invalid' END,
   home_address = CASE WHEN home_address IS NULL THEN NULL ELSE 'Address ' || left(id::text, 4) END,
   documents = '[]'::jsonb;
 
@@ -84,25 +99,43 @@ UPDATE application_attachments SET file_name = 'file-' || left(id::text, 8);
 
 DELETE FROM user_identities;
 
+UPDATE schools s SET phone = '+88018' || lpad(n.rn::text, 8, '0')
+FROM (SELECT id, row_number() OVER (ORDER BY id) AS rn FROM schools
+      WHERE phone IS NOT NULL AND id <> :'platform_tenant_id'::uuid) n
+WHERE s.id = n.id;
 UPDATE schools SET
-  phone = CASE WHEN phone IS NULL THEN NULL
-    ELSE '+8801' || lpad(((('x' || substr(md5(id::text), 1, 8))::bit(32)::bigint) % 1000000000)::text, 9, '0') END,
-  email = CASE WHEN email IS NULL THEN NULL ELSE 's-' || left(id::text, 8) || '@staging.invalid' END,
+  email = CASE WHEN email IS NULL THEN NULL ELSE 's-' || id::text || '@staging.invalid' END,
   address = CASE WHEN address IS NULL THEN NULL ELSE 'Address ' || left(id::text, 4) END
 WHERE id <> :'platform_tenant_id'::uuid;
 UPDATE schools SET status_reason = NULL;
 
-UPDATE staff_family_members SET
-  name = 'Person ' || left(id::text, 4),
-  contact = CASE WHEN contact IS NULL THEN NULL
-    ELSE '+8801' || lpad(((('x' || substr(md5(id::text), 1, 8))::bit(32)::bigint) % 1000000000)::text, 9, '0') END,
-  occupation = NULL;
+UPDATE staff_family_members f SET contact = '+88016' || lpad(n.rn::text, 8, '0')
+FROM (SELECT id, row_number() OVER (ORDER BY id) AS rn FROM staff_family_members WHERE contact IS NOT NULL) n
+WHERE f.id = n.id;
+UPDATE staff_family_members SET name = 'Person ' || left(id::text, 4), occupation = NULL;
 UPDATE staff_addresses SET district = NULL, post_office = NULL, upazila = NULL, village_street = NULL;
 UPDATE staff_hr_records SET name_bn = NULL, index_no = NULL, salary_code = NULL, salary_scale = NULL;
-UPDATE staff_achievements SET description = NULL;
-UPDATE staff_experience SET description = NULL;
+-- Education, training, experience, achievements: keep NULL as NULL, anything else becomes a placeholder.
+UPDATE staff_achievements SET description = NULL,
+  title = CASE WHEN title IS NULL THEN NULL ELSE '[scrubbed]' END,
+  issued_by = CASE WHEN issued_by IS NULL THEN NULL ELSE '[scrubbed]' END;
+UPDATE staff_experience SET description = NULL,
+  designation = CASE WHEN designation IS NULL THEN NULL ELSE '[scrubbed]' END,
+  institution = CASE WHEN institution IS NULL THEN NULL ELSE '[scrubbed]' END;
+UPDATE staff_education SET
+  institution = CASE WHEN institution IS NULL THEN NULL ELSE '[scrubbed]' END,
+  degree = CASE WHEN degree IS NULL THEN NULL ELSE '[scrubbed]' END,
+  board_university = CASE WHEN board_university IS NULL THEN NULL ELSE '[scrubbed]' END,
+  result = CASE WHEN result IS NULL THEN NULL ELSE '-' END,
+  passing_year = CASE WHEN passing_year IS NULL THEN NULL ELSE '-' END;
+UPDATE staff_training SET
+  title = CASE WHEN title IS NULL THEN NULL ELSE '[scrubbed]' END,
+  institution = CASE WHEN institution IS NULL THEN NULL ELSE '[scrubbed]' END,
+  certificate_no = CASE WHEN certificate_no IS NULL THEN NULL ELSE left(id::text, 8) END;
 UPDATE staff_designation_history SET notes = NULL;
-UPDATE staff_incidents SET body = '[scrubbed]', withdraw_reason = NULL;
+-- CHK_staff_incidents_withdraw_reason: a withdrawn incident needs a non-empty reason.
+UPDATE staff_incidents SET body = '[scrubbed]',
+  withdraw_reason = CASE WHEN withdrawn_at IS NOT NULL THEN '[scrubbed]' END;
 UPDATE staff_documents SET original_filename = 'file-' || left(id::text, 8);
 UPDATE print_assets SET original_name = 'file-' || left(id::text, 8);
 
@@ -150,28 +183,34 @@ UPDATE communication_logs SET
   metadata = NULL,
   status = CASE WHEN status = 'QUEUED' THEN 'FAILED' ELSE status END;
 UPDATE reminder_batches SET message_template = NULL;
-UPDATE alerts SET manual_body = NULL, params = params - 'studentName';
+UPDATE alerts SET manual_body = NULL,
+  manual_title = CASE WHEN manual_title IS NULL THEN NULL ELSE '[scrubbed]' END, params = params - 'studentName';
 
 -- Free text about people ----------------------------------------------------------------------
 
 UPDATE acr_assessments SET step1_data = NULL, step3_data = NULL;
 UPDATE admission_evaluations SET notes = '[scrubbed]';
 UPDATE attendance_records SET remarks = NULL;
-UPDATE invoices SET notes = NULL;
 UPDATE leave_records SET reason = NULL;
 UPDATE lesson_deliveries SET note = NULL;
 UPDATE milestone_achievements SET remark = NULL;
 UPDATE payment_allocations SET notes = NULL;
-UPDATE payments SET remarks = NULL, reversal_reason = NULL, issuer_snapshot = NULL;
-UPDATE promotion_entries SET override_note = NULL;
+UPDATE payments SET remarks = NULL, reversal_reason = NULL, issuer_snapshot = NULL, transaction_reference = NULL;
+-- CHK_promotion_entries_override_note: an override needs a non-empty note.
+UPDATE promotion_entries SET override_note = CASE WHEN is_override THEN '[scrubbed]' END;
 UPDATE routine_change_requests SET note = '[scrubbed]', resolution_note = NULL;
 UPDATE routine_substitutions SET reason = NULL;
 UPDATE student_fees SET note = NULL;
-UPDATE student_lifecycle_events SET reason = '[scrubbed]', remark = NULL;
+UPDATE student_lifecycle_events SET reason = '[scrubbed]', remark = NULL,
+  destination = CASE WHEN destination IS NULL THEN NULL ELSE '[scrubbed]' END;
 UPDATE student_notes SET body = '[scrubbed]';
+UPDATE survey_answers SET text = CASE WHEN text IS NULL THEN NULL ELSE '[scrubbed]' END;
+UPDATE student_public_exams SET
+  registration_no = CASE WHEN registration_no IS NULL THEN NULL ELSE left(id::text, 8) END,
+  roll_no = CASE WHEN roll_no IS NULL THEN NULL ELSE left(id::text, 8) END;
 UPDATE homework_submissions SET attachments = '[]'::jsonb;
 UPDATE seat_orders SET receipt_snapshot = NULL;
-UPDATE platform_payments SET raw = NULL;
+UPDATE platform_payments SET raw = NULL, gateway_ref = NULL;
 
 -- Append-only tables: their write-block triggers are lifted inside this transaction only. -------
 
@@ -186,6 +225,7 @@ ALTER TABLE audit_logs ENABLE TRIGGER trg_audit_logs_write_only;
 -- The invoice snapshot is frozen by trigger; rewrite it without names, contacts or issuer details.
 ALTER TABLE invoices DISABLE TRIGGER trg_enforce_invoice_immutability;
 UPDATE invoices SET
+  notes = NULL,
   issuer_snapshot = NULL,
   snapshot = jsonb_set(jsonb_set(jsonb_set(snapshot,
       '{issuer}', jsonb_build_object('name', 'Staging School', 'name_bn', NULL, 'address', NULL,

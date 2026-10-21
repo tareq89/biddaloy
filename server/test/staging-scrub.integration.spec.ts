@@ -6,7 +6,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ALL_ENTITIES } from './all-entities';
 import { SEED_TENANT_ID } from './constants';
-import { STAGING_SCRUB_COLUMNS } from './staging-scrub-columns';
+import { STAGING_SCRUB_COLUMNS, unreviewedColumns } from './staging-scrub-columns';
 import { TenantSettingsDto } from '../src/modules/schools/dto/tenant-settings.dto';
 import { getSecretPaths } from '../src/modules/schools/settings/secret-paths.util';
 
@@ -18,13 +18,6 @@ import { getSecretPaths } from '../src/modules/schools/settings/secret-paths.uti
  * (b) Runs `scripts/backup/scrub.sql` for real, inside a transaction that is rolled back, and
  *     checks that no original detail survives.
  */
-
-// Column names that may hold personal data, in a text-like column.
-const PERSONAL_NAME =
-  /(phone|email|name|address|token|secret|password|birth|health|note|contact|otp|totp|mobile|dob|nid|passport|endpoint|p256dh|auth|ip_|user_agent|photo|picture|signature|remark|comment|religion|blood|disab|occupation|father|mother|guardian|relation|bank|salary|hash|street|city|district|village|post_?code|url|handle|social|whatsapp|username|reason|description|message|body|filename)/i;
-// Any of these columns is reviewed whatever its name: free structure can hold anything.
-const STRUCTURED_TYPES = ['jsonb', 'json', 'ARRAY', 'bytea'];
-const TEXT_TYPES = ['character varying', 'character', 'text'];
 
 const SCRUB_SQL = join(__dirname, '..', '..', 'scripts', 'backup', 'scrub.sql');
 const HASH = '$2b$12$' + 'x'.repeat(53);
@@ -41,30 +34,32 @@ afterAll(async () => {
 
 describe('staging scrub column guard', () => {
   it('lists every column that may hold personal data', async () => {
-    const rows: { table_name: string; column_name: string; data_type: string }[] = await ds.query(
+    const rows = await ds.query(
       `SELECT table_name, column_name, data_type FROM information_schema.columns
        WHERE table_schema = 'public' AND table_name NOT LIKE 'typeorm\\_%'`,
     );
-    const reviewed = new Set(STAGING_SCRUB_COLUMNS.map((c) => `${c.table}.${c.column}`));
-    const emptied = new Set(
-      STAGING_SCRUB_COLUMNS.filter((c) => c.handling === 'delete-row' && c.column === '*').map(
-        (c) => c.table,
-      ),
+    const missing = unreviewedColumns(rows).map(
+      (c) =>
+        `new column ${c} may hold personal data — add it to scrub.sql and staging-scrub-columns.ts`,
     );
-    const missing = rows
-      .filter(
-        (r) =>
-          (TEXT_TYPES.includes(r.data_type) && PERSONAL_NAME.test(r.column_name)) ||
-          STRUCTURED_TYPES.includes(r.data_type),
-      )
-      .filter(
-        (r) => !emptied.has(r.table_name) && !reviewed.has(`${r.table_name}.${r.column_name}`),
-      )
-      .map(
-        (r) =>
-          `new column ${r.table_name}.${r.column_name} may hold personal data — add it to scrub.sql and staging-scrub-columns.ts`,
-      );
     expect(missing).toEqual([]);
+  });
+
+  it('flags a new date, number or text column that looks personal', () => {
+    const flagged = unreviewedColumns([
+      { table_name: 'guardians', column_name: 'guardian_dob', data_type: 'date' },
+      { table_name: 'guardians', column_name: 'nid', data_type: 'bigint' },
+      { table_name: 'guardians', column_name: 'guardian_phone', data_type: 'character varying' },
+      { table_name: 'guardians', column_name: 'extra', data_type: 'jsonb' },
+      { table_name: 'guardians', column_name: 'user_id', data_type: 'uuid' },
+      { table_name: 'guardians', column_name: 'created_at', data_type: 'timestamp with time zone' },
+    ]);
+    expect(flagged).toEqual([
+      'guardians.guardian_dob',
+      'guardians.nid',
+      'guardians.guardian_phone',
+      'guardians.extra',
+    ]);
   });
 
   it('lists only columns that exist', async () => {
@@ -131,6 +126,157 @@ describe('scrub.sql', () => {
     return settings;
   }
 
+  // ---- generic worst-state seeding ----------------------------------------------------------
+  // Every table the scrub touches gets 3 rows: each scrubbed column holds a unique sentinel and
+  // every other NOT NULL column a dummy, so NOT NULL, CHECK, unique-index and trigger problems
+  // in scrub.sql show up here and not on the first real night. Foreign keys are dropped in
+  // the transaction (rolled back with it); the scrub never touches key columns.
+  type Col = {
+    column_name: string;
+    data_type: string;
+    udt_name: string;
+    is_nullable: string;
+    column_default: string | null;
+    character_maximum_length: number | null;
+  };
+  const sentinels: { table: string; column: string; value: string; kind: 'text' | 'date' }[] = [];
+  const lit = (v: string) => `'${v.replace(/'/g, "''")}'`;
+  const hex = (n: number) =>
+    (randomUUID() + randomUUID() + randomUUID()).replace(/-/g, '').slice(0, n);
+
+  async function enumLabels(udt: string): Promise<string[]> {
+    const rows = await q(
+      `SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = $1 ORDER BY e.enumsortorder`,
+      [udt],
+    );
+    return rows.map((r: { enumlabel: string }) => r.enumlabel);
+  }
+
+  async function seedRows(table: string, fixed: Record<string, string> = {}) {
+    const cols: Col[] = await q(
+      `SELECT column_name, data_type, udt_name, is_nullable, column_default, character_maximum_length
+       FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1`,
+      [table],
+    );
+    const listed = new Set(
+      STAGING_SCRUB_COLUMNS.filter(
+        (c) => c.table === table && ['fake', 'null'].includes(c.handling),
+      ).map((c) => c.column),
+    );
+    // A column limited by CHECK (col IN ('A', 'B')) gets its first allowed value.
+    const defs: string[] = (
+      await q(
+        `SELECT pg_get_constraintdef(c.oid) AS d FROM pg_constraint c WHERE c.contype = 'c' AND c.conrelid = $1::regclass`,
+        [`"${table}"`],
+      )
+    ).map((r: { d: string }) => r.d);
+    const firstAllowed = (col: string) => {
+      for (const d of defs) {
+        const m = new RegExp(`\\(?"?${col}"?\\)?(?:::[a-z ]+)? = ANY[^\\[]*\\['([^']+)'`).exec(d);
+        if (m) return m[1];
+      }
+      return null;
+    };
+    for (let i = 0; i < 3; i++) {
+      const names: string[] = [];
+      const values: string[] = [];
+      for (const c of cols) {
+        const isListed = listed.has(c.column_name);
+        const needed = c.is_nullable === 'NO' && c.column_default === null;
+        if (c.column_name in fixed) {
+          names.push(c.column_name);
+          values.push(fixed[c.column_name]);
+          continue;
+        }
+        if (!isListed && !needed) continue;
+        const max = Math.min(c.character_maximum_length ?? 12, 12);
+        let v: string;
+        let cast: string = c.data_type;
+        if (c.data_type === 'uuid') v = lit(randomUUID());
+        else if (['character varying', 'text', 'character'].includes(c.data_type)) {
+          const len = c.data_type === 'character' ? (c.character_maximum_length ?? 1) : max;
+          const word = hex(len).padEnd(len, 'a');
+          const allowed = firstAllowed(c.column_name);
+          const marked = allowed ?? (isListed && len >= 8 ? `ZZ${word.slice(2)}` : word);
+          v = lit(marked);
+          if (c.data_type === 'character') cast = `character(${len})`;
+          if (!allowed && isListed && len >= 8)
+            sentinels.push({ table, column: c.column_name, value: marked, kind: 'text' });
+        } else if (
+          ['integer', 'smallint', 'bigint', 'numeric', 'double precision', 'real'].includes(
+            c.data_type,
+          )
+        )
+          v = String(i + 1);
+        else if (c.data_type === 'boolean') v = 'false';
+        else if (c.data_type === 'date') {
+          const d = `${2001 + i * 2}-03-10`; // 2 years apart: a shift of at most 180 days cannot land on another
+          v = lit(d);
+          if (isListed) sentinels.push({ table, column: c.column_name, value: d, kind: 'date' });
+        } else if (c.data_type.startsWith('timestamp')) v = lit(`2026-01-01T00:00:0${i}Z`);
+        else if (c.data_type.startsWith('time')) v = lit('08:00:00');
+        else if (c.data_type === 'jsonb' || c.data_type === 'json') {
+          const mark = `ZZ${hex(8)}`;
+          v = lit(JSON.stringify({ studentName: mark }));
+          if (isListed) sentinels.push({ table, column: c.column_name, value: mark, kind: 'text' });
+        } else if (c.data_type === 'ARRAY') {
+          v = lit('{}');
+          cast = `${c.udt_name.replace(/^_/, '')}[]`;
+        } else if (c.data_type === 'USER-DEFINED') {
+          v = lit((await enumLabels(c.udt_name))[0]);
+          cast = `"${c.udt_name}"`;
+        } else throw new Error(`seedRows: no dummy for ${table}.${c.column_name} (${c.data_type})`);
+        names.push(c.column_name);
+        values.push(`${v}::${cast}`);
+      }
+      const insert = `INSERT INTO "${table}" (${names.map((n) => `"${n}"`).join(', ')}) VALUES (${values.join(', ')})`;
+      await q(insert).catch((err) => {
+        throw new Error(`seeding ${table}: ${(err as Error).message} :: ${insert.slice(0, 600)}`);
+      });
+    }
+  }
+
+  async function seedWorstState() {
+    const notDraft = (await enumLabels('invoices_status_enum')).find((l) => l !== 'DRAFT');
+    expect(notDraft, 'an invoice status other than DRAFT').toBeDefined();
+    const snapshot = JSON.stringify({
+      issuer: { name: 'Real School', phone: REAL_PHONE, captured_at: '2026-01-01' },
+      students: [{ id: randomUUID(), full_name: REAL_NAME }],
+      payment: { reference: 'REF-1', received_by_name: REAL_NAME },
+    });
+    // Columns whose value matters for a constraint or trigger.
+    const fixed: Record<string, Record<string, string>> = {
+      // An issued invoice (a credit note carries notes) is frozen by trg_enforce_invoice_immutability.
+      invoices: {
+        status: `${lit(notDraft as string)}::"invoices_status_enum"`,
+        snapshot: `${lit(snapshot)}::jsonb`,
+      },
+      promotion_entries: { is_override: 'true' },
+      applications: {
+        applicant_user_id: lit(randomUUID()) + '::uuid',
+        subject_student_id: lit(randomUUID()) + '::uuid',
+      },
+      staff_incidents: { withdrawn_at: `'2026-01-02T00:00:00Z'::timestamptz` },
+      communication_logs: { status: `'QUEUED'::"communication_logs_status_enum"` },
+    };
+    const tables = [
+      ...new Set(
+        STAGING_SCRUB_COLUMNS.filter((c) => c.handling !== 'kept-public').map((c) => c.table),
+      ),
+    ];
+    // The dummy rows have no parents. Dropping the foreign keys is transactional DDL: it is rolled
+    // back with everything else, and it keeps Postgres from re-checking a key on every UPDATE of a
+    // row this transaction inserted (real rows are old, so it would not do that on staging).
+    for (const t of tables) {
+      const fks = await q(
+        `SELECT conname FROM pg_constraint WHERE contype = 'f' AND conrelid = $1::regclass`,
+        [`"${t}"`],
+      );
+      for (const { conname } of fks) await q(`ALTER TABLE "${t}" DROP CONSTRAINT "${conname}"`);
+    }
+    for (const t of tables) await seedRows(t, fixed[t] ?? {});
+  }
+
   async function prepare() {
     qr = ds.createQueryRunner();
     await qr.connect();
@@ -163,6 +309,7 @@ describe('scrub.sql', () => {
        VALUES ($1, $2, $3, 'k', 'a')`,
       [SEED_TENANT_ID, parentUserId, `https://push.example/${sfx}`],
     );
+    await seedWorstState();
     const scrub = readFileSync(SCRUB_SQL, 'utf8')
       .split('\n')
       .filter((l) => !l.startsWith('--'))
@@ -250,6 +397,54 @@ describe('scrub.sql', () => {
         const row = await one(`SELECT count(*)::int AS n FROM ${t}`);
         expect(row.n, t).toBe(0);
       }
+    },
+  ]);
+
+  checks.push([
+    'leaves none of the seeded sentinel values in any scrubbed column',
+    async () => {
+      expect(sentinels.length).toBeGreaterThan(50);
+      const leaks: string[] = [];
+      for (const sv of sentinels) {
+        const row =
+          sv.kind === 'text'
+            ? await one(
+                `SELECT count(*)::int AS n FROM "${sv.table}" WHERE strpos("${sv.column}"::text, $1) > 0`,
+                [sv.value],
+              )
+            : await one(
+                `SELECT count(*)::int AS n FROM "${sv.table}" WHERE "${sv.column}"::text = $1`,
+                [sv.value],
+              );
+        if (row.n !== 0) leaks.push(`${sv.table}.${sv.column}`);
+      }
+      expect([...new Set(leaks)]).toEqual([]);
+    },
+  ]);
+
+  checks.push([
+    'empties every delete-row table',
+    async () => {
+      for (const c of STAGING_SCRUB_COLUMNS.filter((x) => x.handling === 'delete-row')) {
+        const row = await one(`SELECT count(*)::int AS n FROM "${c.table}"`);
+        expect(row.n, c.table).toBe(0);
+      }
+    },
+  ]);
+
+  checks.push([
+    'writes unique fake phones in the Bangladesh mobile shape',
+    async () => {
+      const dup = await q(
+        `SELECT phone FROM users WHERE phone IS NOT NULL GROUP BY phone HAVING count(*) > 1`,
+      );
+      expect(dup).toEqual([]);
+      const bad = await one(
+        `SELECT count(*)::int AS n FROM users
+         WHERE phone IS NOT NULL AND phone !~ '^[+]?880?1[3-9][0-9]{8}$' AND id <> $1`,
+        [smokeUserId],
+      );
+      expect(bad.n).toBe(0);
     },
   ]);
 

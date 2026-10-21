@@ -28,6 +28,9 @@
 #                               is sent by the host after the swap and the smoke test.
 #   STAGING_REFRESH_DEADLINE    HH:MM Dhaka time to stop waiting for the backup (default 02:50)
 #   STAGING_REFRESH_POLL_SECS   seconds between checks (default 60)
+#   STAGING_REFRESH_LOCK        lock file shared with the host swap and the demo reset
+#                               (default /run/lock/biddaloy-swap.lock); STAGING_REFRESH_LOCK_WAIT
+#                               seconds to wait for it (default 600)
 #   SCRUB_SQL                   path to scrub.sql (default: next to this script)
 #
 # Prints step names and counts only, never a person's data. Never `set -x`; never echo a URL,
@@ -52,14 +55,18 @@ for v in POSTGRES_USER POSTGRES_PASSWORD BACKUP_S3_ENDPOINT BACKUP_S3_BUCKET BAC
   [[ -n "${!v:-}" ]] || { say "$v is required"; exit 2; }
 done
 [[ "$BACKUP_S3_ENDPOINT" == https://* ]] || { say "BACKUP_S3_ENDPOINT must be https://"; exit 2; }
-# shellcheck disable=SC2016  # a literal "$2" prefix, not an expansion
-[[ "$STAGING_PASSWORD_HASH" == '$2'* ]] || { say "STAGING_PASSWORD_HASH is not a bcrypt hash"; exit 2; }
+[[ "$STAGING_PASSWORD_HASH" =~ ^\$2[aby]\$12\$[./A-Za-z0-9]{53}$ ]] || { say "STAGING_PASSWORD_HASH is not a bcrypt cost-12 hash"; exit 2; }
 [[ "$PLATFORM_TENANT_ID" =~ ^[0-9a-fA-F-]{36}$ ]] || { say "PLATFORM_TENANT_ID is not a uuid"; exit 2; }
 [[ "$SMOKE_SCHOOL_SLUG" =~ ^[a-z0-9-]+$ ]] || { say "SMOKE_SCHOOL_SLUG must be lowercase letters, digits and dashes"; exit 2; }
 AGE_KEY="${BACKUP_AGE_PRIVATE_KEY_FILE:-/run/age/key.txt}"
 [[ -r "$AGE_KEY" ]] || { say "age key not readable"; exit 2; }
 SCRUB_SQL="${SCRUB_SQL:-$HERE/scrub.sql}"
 [[ -r "$SCRUB_SQL" ]] || { say "scrub.sql not found"; exit 2; }
+
+# One refresh or swap at a time on this host (the image ships flock).
+LOCK="${STAGING_REFRESH_LOCK:-/run/lock/biddaloy-swap.lock}"
+exec 9>"$LOCK" || { say "cannot open lock file"; exit 2; }
+flock -w "${STAGING_REFRESH_LOCK_WAIT:-600}" 9 || { say "another swap or refresh holds the lock"; exit 1; }
 
 NEXT="${POSTGRES_DB}_next"
 HOST="${POSTGRES_HOST:-db}"
@@ -96,18 +103,29 @@ drop_next() {
   fi
 }
 
+PUSHED=0
 fail() {
   say "$1"
   drop_next
   push_down "$1"
+  PUSHED=1
   exit 1
 }
+# Any non-zero exit that did not already push (an unexpected command failure) pushes `down`.
+on_exit() {
+  local rc=$?
+  drop_next
+  rm -f "${RESTORE_LOG:-}" "${SCRUB_ERR:-}"
+  if [[ $rc -ne 0 && $PUSHED -eq 0 ]]; then push_down "refresh failed at an unexpected step (exit ${rc})"; fi
+}
+trap on_exit EXIT
 
 # --- step 2: wait for today's daily backup ----------------------------------------------------
 log 2 "wait for daily backup"
 # Asia/Dhaka is a fixed UTC+6 (no DST): Dhaka time is epoch + 21600, so this is plain arithmetic
 # that works with busybox, GNU and BSD date alike.
-DAY="$(TZ=Asia/Dhaka date +%F)"
+fmt_epoch() { date -u -d "@$1" "+$2" 2>/dev/null || date -u -r "$1" "+$2"; }
+DAY="$(fmt_epoch $(($(date +%s) + 21600)) %F)"
 KEY="db/daily/${DAY}.dump.age"
 DEADLINE="${STAGING_REFRESH_DEADLINE:-02:50}"
 [[ "$DEADLINE" =~ ^([01][0-9]|2[0-3]):([0-5][0-9])$ ]] || { say "STAGING_REFRESH_DEADLINE must be HH:MM"; exit 2; }
@@ -115,13 +133,23 @@ POLL="${STAGING_REFRESH_POLL_SECS:-60}"
 [[ "$POLL" =~ ^[1-9][0-9]*$ ]] || { say "STAGING_REFRESH_POLL_SECS must be a positive integer"; exit 2; }
 deadline_secs=$((10#${DEADLINE%%:*} * 3600 + 10#${DEADLINE##*:} * 60))
 
-backup_exists() {
-  aws s3 ls --endpoint-url "$BACKUP_S3_ENDPOINT" "s3://${BACKUP_S3_BUCKET}/${KEY}" >/dev/null 2>&1
+# 0 found, 1 missing (aws prints nothing), 2 aws itself failed (auth, 403, network).
+BUCKET_ERROR=0
+backup_status() {
+  local err rc=0
+  err="$(aws s3 ls --endpoint-url "$BACKUP_S3_ENDPOINT" "s3://${BACKUP_S3_BUCKET}/${KEY}" 2>&1 >/dev/null)" || rc=$?
+  [[ $rc -eq 0 ]] && return 0
+  [[ -z "$err" ]] && return 1
+  return 2
 }
-while ! backup_exists; do
+while true; do
+  rc=0; backup_status || rc=$?
+  [[ $rc -eq 0 ]] && break
+  if [[ $rc -eq 2 ]]; then BUCKET_ERROR=1; else BUCKET_ERROR=0; fi
   dhaka_secs=$((($(date +%s) + 21600) % 86400))
   remaining=$((deadline_secs - dhaka_secs))
   if ((remaining <= 0)); then
+    [[ $BUCKET_ERROR -eq 0 ]] || fail "cannot read the backup bucket (credentials, permission or network)"
     fail "no daily backup for ${DAY}"
   fi
   sleep $((remaining < POLL ? remaining : POLL))
@@ -129,7 +157,6 @@ done
 
 # --- step 3: create the next database ---------------------------------------------------------
 log 3 "create ${NEXT}"
-trap 'drop_next' EXIT
 psql_admin "DROP DATABASE IF EXISTS \"${NEXT}\" WITH (FORCE)" >/dev/null || fail "could not clear old ${NEXT}"
 psql_admin "CREATE DATABASE \"${NEXT}\"" >/dev/null || fail "could not create ${NEXT}"
 NEXT_CREATED=1
@@ -137,7 +164,6 @@ NEXT_CREATED=1
 # --- step 4: download, decrypt, restore (restore.sh) ------------------------------------------
 log 4 "download, decrypt and restore ${KEY}"
 RESTORE_LOG="$(mktemp)"
-trap 'rm -f "$RESTORE_LOG"; drop_next' EXIT
 if ! "$HERE/restore.sh" "$KEY" "$NEXT_URL" --no-migrate >"$RESTORE_LOG" 2>&1; then
   # Only restore.sh's own lines: pg_restore errors can quote row data.
   grep '^restore.sh:' "$RESTORE_LOG" | cut -c1-200 >&2 || true
@@ -147,7 +173,6 @@ fi
 # --- step 5: scrub ----------------------------------------------------------------------------
 log 5 scrub
 SCRUB_ERR="$(mktemp)"
-trap 'rm -f "$RESTORE_LOG" "$SCRUB_ERR"; drop_next' EXIT
 if ! psql "$NEXT_URL" -1 -q -v ON_ERROR_STOP=1 \
   -v "staging_password_hash=${STAGING_PASSWORD_HASH}" \
   -v "smoke_slug=${SMOKE_SCHOOL_SLUG}" \
