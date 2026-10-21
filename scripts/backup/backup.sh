@@ -4,7 +4,7 @@
 # R2 mode (BACKUP_S3_* set): dump -> daily copy (from 02:00 Asia/Dhaka) -> db
 # count prunes -> rclone crypt sync of the files bucket -> trash date purge ->
 # Uptime Kuma push.
-# Legacy mode (BACKUP_S3_* unset: local dev, restore drill): old backups/db/
+# Legacy mode (BACKUP_S3_* unset: local dev, dev): old backups/db/
 # key + LastModified prune with BACKUP_RETENTION_DAYS; no daily copy, no files.
 #
 # Pipeline: pg_dump -> age (encrypt) -> aws s3 cp (upload). Plaintext dump
@@ -18,7 +18,7 @@
 # BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY,
 # BACKUP_RCLONE_CRYPT_PASSWORD, BACKUP_RCLONE_CRYPT_SALT.
 # Optional env: BACKUP_RETENTION_DAYS (legacy, default 30), BACKUP_HOURLY_KEEP
-# (72), BACKUP_DAILY_KEEP (30), BACKUP_TRASH_DAYS (30), BACKUP_FILES_MAX_DELETE
+# (100), BACKUP_DAILY_KEEP (30), BACKUP_TRASH_DAYS (30), BACKUP_FILES_MAX_DELETE
 # (500, files sync fails above this many deletes), BACKUP_PUSH_URL (Kuma),
 # BACKUP_NET_WAIT_SECS (900), BACKUP_NOW + BACKUP_TEST_CLOCK_OK=1 (tests only),
 # SENTRY_CRON_MONITOR_URL, S3_ALLOW_INSECURE_HTTP (opt into a plaintext
@@ -109,7 +109,7 @@ if [[ $r2_set -ne 0 && $r2_set -ne ${#r2_vars[@]} ]]; then
 fi
 if [[ $r2_set -eq 0 ]]; then R2_MODE=0; else R2_MODE=1; fi
 
-BACKUP_HOURLY_KEEP="${BACKUP_HOURLY_KEEP:-72}"
+BACKUP_HOURLY_KEEP="${BACKUP_HOURLY_KEEP:-100}"
 BACKUP_DAILY_KEEP="${BACKUP_DAILY_KEEP:-30}"
 BACKUP_TRASH_DAYS="${BACKUP_TRASH_DAYS:-30}"
 BACKUP_FILES_MAX_DELETE="${BACKUP_FILES_MAX_DELETE:-500}"
@@ -226,7 +226,7 @@ prune_keep() {
 CURRENT_STEP="dump"
 echo "backup.sh: dumping database and uploading to s3://${DEST_BUCKET}/${object_key}"
 
-pg_dump -Fc "$DATABASE_URL" \
+pg_dump -Fc -Z 6 "$DATABASE_URL" \
   | age -r "$BACKUP_AGE_PUBLIC_KEY" \
   | aws s3 cp "${S3_ENDPOINT_ARGS[@]}" - "s3://${DEST_BUCKET}/${object_key}"
 
@@ -318,7 +318,7 @@ if [[ $R2_MODE -eq 1 ]]; then
       fi
     done
 else
-  # Legacy retention (dev / restore drill): delete objects older than
+  # Legacy retention (dev / dev): delete objects older than
   # BACKUP_RETENTION_DAYS by LastModified. Plain epoch arithmetic; the
   # timestamp is parsed as "YYYY-MM-DD hh:mm:ss", which GNU and busybox
   # date both accept.

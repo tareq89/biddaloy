@@ -8,7 +8,7 @@
 # the R2 backup bucket with BACKUP_S3_ENDPOINT / BACKUP_S3_BUCKET /
 # BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY. Any other bare key or
 # an s3:// URL uses the legacy S3_* settings below.
-# --no-migrate skips the migration step (the weekly drill restores exactly
+# --no-migrate skips the migration step (the staging refresh restores exactly
 # what was dumped; manual restores keep migrating by default).
 #
 # Example:
