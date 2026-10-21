@@ -48,6 +48,7 @@ at hand instead of loading the whole set.
 | [28-platform-runbook.md](28-platform-runbook.md) | Running the servers: day-0 checklist, provisioning, first deploy, releases and rollback, alert thresholds and the verification log, backups and restore, secret rotation, growing or moving the VM |
 | [29-epic61-go-live.md](29-epic61-go-live.md) | Epic 61 is merged but unproven on a real host: the ordered owner steps, the checks that must pass before the closed issues count, and the follow-up gaps |
 | [29-landing.md](29-landing.md) | Working on the public marketing site `landing/`: content flags, third parties and consent, sitemap/robots/`llms.txt`/JSON-LD, the Lighthouse budget and Playwright smoke in CI, copy rules, screenshots |
+| [30-deployment-target.md](30-deployment-target.md) | Planning or building anything about servers, deploys, environments (prod/staging/demo), backups, the edge (tunnel/direct), secrets layout, or deciding *when* to add HA, managed DB or a second VM — the agreed target (Epic 79.0), its decisions D1–D26 and the future-work triggers |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the _why_ behind the

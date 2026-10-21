@@ -1,5 +1,7 @@
 # 28. Platform runbook
 
+> **Planned replacement:** the agreed target setup (one VM, all environments, tunnel, staging from prod) is in [30-deployment-target.md](30-deployment-target.md). This page describes what runs today until Epic 79.0 lands.
+
 One page for the person who runs the servers. With this page, the repo, an age
 key and a fresh VM you can bring up prod, demo, staging and the ops tools, ship a
 version, read the alerts, rotate a secret, restore a backup and move to a bigger

@@ -1,5 +1,7 @@
 # Deployment
 
+> **Planned replacement:** the agreed target setup (one VM, all environments, tunnel, staging from prod) is in [30-deployment-target.md](30-deployment-target.md). This page describes what runs today until Epic 79.0 lands.
+
 > Full step-by-step deploy/renewal instructions live in the root
 > [`README.md`](../../README.md#docker-deployment) — this doc is just the
 > shape of it, for orientation.
