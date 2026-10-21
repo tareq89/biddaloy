@@ -68,9 +68,12 @@ jobs:
           - image: biddaloy-backup
             context: scripts/backup
             app_context: ""
+            extra_context: ""
           - image: biddaloy-demo-reset
             context: scripts/demo
             app_context: app=docker-image://ghcr.io/tareq89/biddaloy-app:${{ github.sha }}
+            # db-swap.sh is copied from the backup context (scripts/demo/Dockerfile).
+            extra_context: backup=scripts/backup
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -85,7 +88,9 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.context }}/Dockerfile
-          build-contexts: ${{ matrix.app_context }}
+          build-contexts: |
+            ${{ matrix.app_context }}
+            ${{ matrix.extra_context }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.sha }}

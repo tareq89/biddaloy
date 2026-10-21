@@ -18,6 +18,8 @@ services:
     restart: unless-stopped
     volumes:
       - beszel_data:/beszel_data
+      # The edge beszel-agent's unix socket (deploy/edge.yml); same host only.
+      - /run/beszel:/beszel_socket
     networks: [default, ops-edge]
     deploy:
       resources:

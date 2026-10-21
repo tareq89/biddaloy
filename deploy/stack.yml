@@ -113,7 +113,6 @@ x-jobs-env: &jobs-env
   DATABASE_URL: *db-url
   PGSSLMODE: require
   BACKUP_AGE_PUBLIC_KEY: ${BACKUP_AGE_PUBLIC_KEY}
-  BACKUP_AGE_PRIVATE_KEY_FILE: /run/age/key.txt
   # Empty = entrypoint.sh picks: hourly in R2 mode, 02:00 daily in legacy mode.
   BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-}
   BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
@@ -133,9 +132,10 @@ x-jobs-env: &jobs-env
   BACKUP_NET_WAIT_SECS: ${BACKUP_NET_WAIT_SECS:-900}
 
 x-age-key: &age-key
-  # Age private key dir, read-only. Each env sets its own BACKUP_AGE_KEY_DIR, no default:
-  # prod's key must never reach staging. A directory, not the file, so a missing key fails
-  # only the job that needs it, never `up` or the hourly dumps.
+  # Age private key dir, read-only, mounted on `jobs` only (restore needs it; the hourly
+  # `backup` only encrypts with the public key). Each env sets its own BACKUP_AGE_KEY_DIR, no
+  # default: prod's key must never reach staging. A directory, not the file, so a missing key
+  # fails only the job that needs it, never `up`.
   type: bind
   source: ${BACKUP_AGE_KEY_DIR:-./BACKUP_AGE_KEY_DIR-is-not-set}
   target: /run/age
@@ -183,13 +183,14 @@ services:
     image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     restart: unless-stopped
     # Self-signed TLS (D3): the env's PG_TLS_DIR holds server.crt, server.key (readable by
-    # uid 70) and ca.crt.
+    # uid 70) and ca.crt. Flags only, never `config_file=`: that replaces the image's
+    # postgresql.conf, and its listen_addresses='*' with it (Postgres would listen on localhost).
     command:
       - postgres
       - -c
-      - config_file=/etc/postgresql/postgresql-tls.conf
-      - -c
       - max_connections=300
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
       - -c
       - ssl=on
       - -c
@@ -204,14 +205,15 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
       - ${PG_TLS_DIR:?PG_TLS_DIR must be set}:/etc/postgresql/tls:ro
-      - ./postgres/postgresql-tls.conf:/etc/postgresql/postgresql-tls.conf:ro
     deploy:
       resources:
         limits:
           memory: ${PG_MEM:-1g}
           cpus: ${PG_CPUS:-1}
+    # Over TCP on the service name, as the apps connect: a socket-only check stays healthy
+    # while Postgres refuses network clients (and while the init script's temporary server runs).
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      test: ['CMD-SHELL', 'pg_isready -h db -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -253,8 +255,6 @@ services:
     restart: unless-stopped
     environment:
       <<: *jobs-env
-    volumes:
-      - *age-key
     deploy:
       resources:
         limits:
@@ -276,6 +276,7 @@ services:
     restart: 'no'
     environment:
       <<: *jobs-env
+      BACKUP_AGE_PRIVATE_KEY_FILE: /run/age/key.txt
     volumes:
       - *age-key
     deploy:
@@ -303,9 +304,12 @@ services:
       <<: *s3-env
       NODE_ENV: production
       DEMO_MODE: 'true'
-      DEMO_PASSWORD: ${DEMO_PASSWORD:?DEMO_PASSWORD must be set}
-      # The LIVE demo database. reset.sh builds biddaloy_demo_next beside it and swaps by rename.
-      DATABASE_URL: postgres://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/biddaloy_demo?sslmode=require
+      # `:-`, not `:?`: compose resolves this service on prod and staging too (inactive
+      # profile). reset.sh and env validation refuse an empty one under DEMO_MODE.
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      # The LIVE demo database, the one app reads (reset.sh refuses a name not biddaloy_demo*).
+      # reset.sh builds <name>_next beside it and swaps by rename.
+      DATABASE_URL: *db-url
       PGSSLMODE: require
       NODE_EXTRA_CA_CERTS: /etc/postgresql/tls/ca.crt
       REDIS_URL: redis://redis:6379
@@ -330,6 +334,8 @@ services:
       APP_BASE_URL: ${APP_BASE_URL:-}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # Both or neither: the temporary app refuses to boot with only one (env.validation.ts).
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       S3_FORCE_PATH_STYLE: 'true'
     volumes:

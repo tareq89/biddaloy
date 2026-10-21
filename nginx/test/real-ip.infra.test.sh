@@ -56,10 +56,11 @@ EDGE_ARGS=(-e APP_DOMAIN=example.test -e STAGING_DOMAIN=staging.example.test -e 
   -v "$VOL:/etc/letsencrypt:ro")
 
 # run_edge <tunnel|direct> [trusted-cidr] — same mounts/env as the compose `nginx` service.
+# The trusted CIDR defaults to the test network, as the deploy pins the biddaloy-edge subnet.
 run_edge() {
   docker rm -f realip-edge >/dev/null 2>&1 || true
   docker run -d --name realip-edge --network "$NET" --ip "$EDGE_IP" -e "EDGE_MODE=$1" \
-    -e "EDGE_TRUSTED_CIDR=${2-}" "${EDGE_ARGS[@]}" "$NGINX_IMG" >/dev/null
+    -e "EDGE_TRUSTED_CIDR=${2-172.30.99.0/24}" "${EDGE_ARGS[@]}" "$NGINX_IMG" >/dev/null
   for _ in $(seq 20); do
     docker exec realip-edge nc -z 127.0.0.1 80 >/dev/null 2>&1 && break
     sleep 1
@@ -67,7 +68,7 @@ run_edge() {
 }
 
 nginx_t() { # <mode>
-  docker run --rm --network "$NET" -e "EDGE_MODE=$1" "${EDGE_ARGS[@]}" "$NGINX_IMG" nginx -t >/dev/null 2>&1
+  docker run --rm --network "$NET" -e "EDGE_MODE=$1" -e EDGE_TRUSTED_CIDR=172.30.99.0/24 "${EDGE_ARGS[@]}" "$NGINX_IMG" nginx -t >/dev/null 2>&1
 }
 
 # get_tunnel <header-args...> — plain HTTP through the edge, as cloudflared would.

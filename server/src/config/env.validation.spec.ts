@@ -56,6 +56,10 @@ describe('Turnstile keys (Epic 79)', () => {
   it('rejects a sample rate outside 0 to 1', () => {
     expect(() => validate({ ...prodConfig, SENTRY_TRACES_SAMPLE_RATE: '5' })).toThrow();
   });
+
+  it('treats an empty sample rate as unset', () => {
+    expect(() => validate({ ...prodConfig, SENTRY_TRACES_SAMPLE_RATE: '' })).not.toThrow();
+  });
 });
 
 describe('assertProductionConfig (via validate)', () => {

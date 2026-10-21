@@ -69,7 +69,7 @@ async function bootstrap() {
   // security headers should apply to every response, including the SPAs.
   // [58.1.01, D27] Demo only: noindex on every response, SPA and 404s included.
   if (isDemoMode()) app.use(demoNoindex);
-  app.use(helmet(buildHelmetOptions(process.env.NODE_ENV)));
+  app.use(helmet(buildHelmetOptions(process.env.NODE_ENV, process.env.SENTRY_DSN_WEB)));
   // Swagger UI needs inline script/style the global CSP above deliberately
   // doesn't allow anywhere else — see docs-auth.ts.
   app.use(buildDocsCspOverrideMiddleware(`/api/${DOCS_PATH}`));

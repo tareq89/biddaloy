@@ -8,7 +8,7 @@ import {
   runConfigCheck,
   runProductionConfigCheck,
   runStagingConfigCheck,
-  stagingAppEnv,
+  composeAppEnv,
   TURNSTILE_TEST_SECRET,
 } from './config-check';
 
@@ -108,36 +108,32 @@ describe('runStagingConfigCheck', () => {
     Object.entries(example).map(([k, v]) => [k, v === '' ? (fill[k] ?? '') : v]),
   );
 
-  it('stagingAppEnv is what docker-compose.staging.yml sets for app', () => {
-    const overlay = readFileSync(join(repoRoot, 'docker-compose.staging.yml'), 'utf8');
-    const app = overlay.slice(overlay.indexOf('\n  app:'), overlay.indexOf('\n  seaweedfs:'));
-    const lines: Record<string, RegExp> = {
-      DEMO_MODE: /^ {6}DEMO_MODE: 'true'$/m,
-      DATABASE_URL:
-        /^ {6}DATABASE_URL: postgres:\/\/\$\{POSTGRES_USER[^}]*\}:\$\{POSTGRES_PASSWORD[^}]*\}@db:5432\/biddaloy_staging$/m,
-      S3_BUCKET: /^ {6}S3_BUCKET: biddaloy-staging$/m,
-      PLATFORM_SMS_API_KEY: /^ {6}PLATFORM_SMS_API_KEY: ''$/m,
-      PLATFORM_ALERT_PHONES: /^ {6}PLATFORM_ALERT_PHONES: ''$/m,
-    };
-    const env = stagingAppEnv({ POSTGRES_USER: 'u', POSTGRES_PASSWORD: 'p' });
-    expect(Object.keys(env).sort()).toEqual(Object.keys(lines).sort());
-    for (const [key, line] of Object.entries(lines)) expect(app, key).toMatch(line);
-    expect(env).toMatchObject({
-      DEMO_MODE: 'true',
-      DATABASE_URL: 'postgres://u:p@db:5432/biddaloy_staging',
-      S3_BUCKET: 'biddaloy-staging',
-    });
+  it('composeAppEnv builds the database URL the way deploy/stack.yml does', () => {
+    const stack = readFileSync(join(repoRoot, 'deploy/stack.yml'), 'utf8');
+    expect(stack).toMatch(
+      /^x-db-url: &db-url postgres:\/\/\$\{POSTGRES_USER[^}]*\}:\$\{POSTGRES_PASSWORD[^}]*\}@db:5432\/\$\{POSTGRES_DB[^}]*\}/m,
+    );
+    expect(
+      composeAppEnv({
+        POSTGRES_USER: 'u',
+        POSTGRES_PASSWORD: 'p',
+        POSTGRES_DB: 'biddaloy_staging',
+      }),
+    ).toMatchObject({ DATABASE_URL: 'postgres://u:p@db:5432/biddaloy_staging' });
   });
 
-  // What really keeps a provider key out of the staging app is that base compose passes an
+  // What really keeps a provider key out of the staging app is that deploy/stack.yml passes an
   // explicit list. A new key added there must be classified on purpose: either listed here as
   // not a provider, or refused by the staging check when set.
-  it('every key base compose passes to app is a known non-provider or refused on staging', () => {
-    const compose = readFileSync(join(repoRoot, 'docker-compose.yml'), 'utf8');
-    const app = compose.slice(compose.indexOf('\n  app:'), compose.indexOf('\n  redis:'));
-    const keys = [...app.matchAll(/^ {6}([A-Z][A-Z0-9_]*):/gm)].map((m) => m[1]);
+  it('every key deploy/stack.yml passes to app is a known non-provider or refused on staging', () => {
+    const stack = readFileSync(join(repoRoot, 'deploy/stack.yml'), 'utf8');
+    // x-s3 (merged in) through the end of x-app's environment block.
+    const app = stack.slice(stack.indexOf('\nx-s3:'), stack.indexOf('\n  volumes:'));
+    const keys = [...app.matchAll(/^ {2,4}([A-Z][A-Z0-9_]*):/gm)].map((m) => m[1]);
     const notProvider = new Set([
       'NODE_ENV',
+      'ENV_NAME',
+      'NODE_EXTRA_CA_CERTS',
       'DATABASE_URL',
       'REDIS_URL',
       'JWT_SECRET',
@@ -167,6 +163,14 @@ describe('runStagingConfigCheck', () => {
       'OTP_SMS_ALLOWED_PREFIXES',
       'TRIAL_DAYS',
       'TRIAL_SEAT_LIMIT',
+      'TURNSTILE_SITE_KEY',
+      'SENTRY_DSN_WEB',
+      'SENTRY_ENVIRONMENT',
+      'SENTRY_TRACES_SAMPLE_RATE',
+      'APP_VERSION',
+      'SENTRY_RELEASE',
+      'DEMO_MODE',
+      'DEMO_PASSWORD',
     ]);
     expect(keys.length).toBeGreaterThan(20);
     const unclassified = keys.filter(
@@ -216,10 +220,11 @@ describe('runStagingConfigCheck', () => {
     expect(result.output).not.toContain('0x4AAAAAAAreal');
   });
 
-  it('judges the container env: the overlay forces DEMO_MODE and the staging bucket', () => {
-    expect(
-      runStagingConfigCheck({ ...staging, DEMO_MODE: 'false', S3_BUCKET: 'biddaloy' }).ok,
-    ).toBe(true);
+  it('judges the .env itself: demo mode and the staging bucket must be set there', () => {
+    const result = runStagingConfigCheck({ ...staging, DEMO_MODE: 'false', S3_BUCKET: 'biddaloy' });
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain('DEMO_MODE');
+    expect(result.output).toContain('S3_BUCKET');
   });
 
   it('fails without DEMO_PASSWORD (the demo guards need it)', () => {

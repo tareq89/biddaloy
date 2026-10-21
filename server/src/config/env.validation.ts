@@ -290,9 +290,9 @@ class EnvironmentVariables {
   @IsString()
   SENTRY_ENVIRONMENT?: string;
 
-  // A fraction from 0 to 1, e.g. "0.1".
+  // A fraction from 0 to 1, e.g. "0.1". Empty = unset (compose passes '' for an unset var).
   @IsOptional()
-  @Matches(/^(0(\.\d+)?|1(\.0+)?)$/, {
+  @Matches(/^$|^(0(\.\d+)?|1(\.0+)?)$/, {
     message: 'SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1',
   })
   SENTRY_TRACES_SAMPLE_RATE?: string;

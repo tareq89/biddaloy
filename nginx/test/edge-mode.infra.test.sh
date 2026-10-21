@@ -35,7 +35,9 @@ cleanup
 pass() { echo "ok   - $1"; }
 fail() { echo "FAIL - $1 (got: $2)"; FAILS=$((FAILS + 1)); }
 
-docker network create --subnet 198.51.100.0/24 "$NET" >/dev/null
+# Tunnel mode requires the pinned edge subnet (EDGE_TRUSTED_CIDR); here, the test network.
+TRUSTED=198.51.100.0/24
+docker network create --subnet "$TRUSTED" "$NET" >/dev/null
 docker volume create "$VOL" >/dev/null
 docker volume create "$AUTH" >/dev/null
 
@@ -66,7 +68,7 @@ EDGE_ARGS=(-e APP_DOMAIN=example.test -e STAGING_DOMAIN=staging.example.test -e 
 run_edge() {
   docker rm -f edgemode-edge >/dev/null 2>&1 || true
   docker run -d --name edgemode-edge --network "$NET" --ip "$EDGE_IP" -e "EDGE_MODE=$1" \
-    -e "OPS_UPSTREAM_HOST=${2-ops}" "${EDGE_ARGS[@]}" "$NGINX_IMG" >/dev/null
+    -e "OPS_UPSTREAM_HOST=${2-ops}" -e "EDGE_TRUSTED_CIDR=$TRUSTED" "${EDGE_ARGS[@]}" "$NGINX_IMG" >/dev/null
   for _ in $(seq 20); do
     docker exec edgemode-edge nc -z 127.0.0.1 80 >/dev/null 2>&1 && break
     sleep 1
@@ -93,7 +95,7 @@ https() { echo --resolve "$1:443:$EDGE_IP" -k "https://$1$2"; }
 http() { echo --resolve "$1:80:$EDGE_IP" "http://$1$2"; }
 
 nginx_t() { # <mode> <ops-host>
-  docker run --rm --network "$NET" -e "EDGE_MODE=$1" -e "OPS_UPSTREAM_HOST=$2" "${EDGE_ARGS[@]}" "$NGINX_IMG" nginx -t >/dev/null 2>&1
+  docker run --rm --network "$NET" -e "EDGE_MODE=$1" -e "OPS_UPSTREAM_HOST=$2" -e "EDGE_TRUSTED_CIDR=$TRUSTED" "${EDGE_ARGS[@]}" "$NGINX_IMG" nginx -t >/dev/null 2>&1
 }
 nginx_t tunnel ops && pass "nginx -t, tunnel" || fail "nginx -t, tunnel" "non-zero"
 nginx_t direct ops && pass "nginx -t, direct" || fail "nginx -t, direct" "non-zero"
@@ -107,6 +109,14 @@ code=$?
 set -e
 [[ "$code" != 0 && "$bad" == *"EDGE_MODE must be tunnel or direct"* ]] \
   && pass "EDGE_MODE=bogus: exits non-zero, says why" || fail "EDGE_MODE=bogus" "exit=$code $bad"
+
+# --- tunnel mode without EDGE_TRUSTED_CIDR stops the container (never guessed, Rule 11) ---
+set +e
+bad=$(docker run --rm --name edgemode-bad --network "$NET" -e EDGE_MODE=tunnel "${EDGE_ARGS[@]}" "$NGINX_IMG" 2>&1)
+code=$?
+set -e
+[[ "$code" != 0 && "$bad" == *"EDGE_TRUSTED_CIDR must be set in tunnel mode"* ]] \
+  && pass "tunnel without EDGE_TRUSTED_CIDR: exits non-zero, says why" || fail "tunnel without EDGE_TRUSTED_CIDR" "exit=$code $bad"
 
 # --- tunnel mode ---
 run_edge tunnel

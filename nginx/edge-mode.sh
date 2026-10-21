@@ -7,7 +7,7 @@
 #
 #   tunnel  cloudflared dials in over the `biddaloy-edge` network, plain HTTP on :80.
 #           The visitor address comes from CF-Connecting-IP, but only from the trusted
-#           subnet (EDGE_TRUSTED_CIDR, else detected); no TLS lines, no basic auth
+#           subnet EDGE_TRUSTED_CIDR (required, pinned by the deploy); no TLS lines, no basic auth
 #           (Cloudflare Access is the outer login, checked by cloudflared). The app is told
 #           the public scheme is https.
 #   direct  80/443 are published. Let's Encrypt certificate, :80 only answers ACME and
@@ -45,49 +45,17 @@ DEFAULT="$ROOT/snippets/edge-default.conf"
 # when a container (staging, the second app, ops) is not up yet.
 RESOLVER='resolver 127.0.0.11 valid=10s ipv6=off;'
 
-# net_of <ip> <prefix> -> network address, e.g. 172.18.0.5 16 -> 172.18.0.0
-net_of() {
-  printf '%s\n' "$1" | awk -F. -v p="$2" '{
-    for (i = 1; i <= 4; i++) {
-      b = p - (i - 1) * 8; if (b > 8) b = 8; if (b < 0) b = 0
-      blk = 2 ^ (8 - b); n = $i - ($i % blk)
-      printf "%s%d", (i > 1 ? "." : ""), n
-    }
-    print ""
-  }'
-}
-
 if [ "$MODE" = tunnel ]; then
-  if [ -n "${EDGE_TRUSTED_CIDR:-}" ]; then
-    # Explicit and pinned by the deploy (the biddaloy-edge subnet): the safest source.
-    case "$EDGE_TRUSTED_CIDR" in
-    *[!0-9./]*) die "invalid EDGE_TRUSTED_CIDR '$EDGE_TRUSTED_CIDR'" ;;
-    esac
-    printf '%s\n' "$EDGE_TRUSTED_CIDR" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$' ||
-      die "invalid EDGE_TRUSTED_CIDR '$EDGE_TRUSTED_CIDR'"
-    subnet=$EDGE_TRUSTED_CIDR
-  else
-    # Detect: the interface on the same network as `cloudflared` when that name resolves,
-    # else eth0. The real prefix is kept (never widened to /16).
-    cf=$(getent hosts cloudflared 2>/dev/null | awk '{print $1; exit}' || true)
-    subnet=
-    for cidr in $(ip -o -f inet addr show | awk '$2 != "lo" {print $4}'); do
-      ip4=${cidr%/*}
-      pre=${cidr#*/}
-      net=$(net_of "$ip4" "$pre")
-      if [ -n "$cf" ] && [ "$(net_of "$cf" "$pre")" = "$net" ]; then
-        subnet="$net/$pre"
-        break
-      fi
-    done
-    if [ -z "$subnet" ]; then
-      cidr=$(ip -o -f inet addr show eth0 | awk '{print $4; exit}')
-      ip4=${cidr%/*}
-      printf '%s\n' "$ip4" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' ||
-        die "cannot read the IPv4 address of eth0 (got '$cidr')"
-      subnet="$(net_of "$ip4" "${cidr#*/}")/${cidr#*/}"
-    fi
-  fi
+  # Required, never detected (Rule 11): cloudflared starts after nginx is healthy, so it cannot
+  # be looked up here, and guessing an interface could trust the wrong network. A wrong subnet
+  # gives every visitor cloudflared's address, so one abuser's login throttle locks out everyone.
+  subnet="${EDGE_TRUSTED_CIDR:-}"
+  [ -n "$subnet" ] || die "EDGE_TRUSTED_CIDR must be set in tunnel mode (the pinned biddaloy-edge subnet)"
+  case "$subnet" in
+  *[!0-9./]*) die "invalid EDGE_TRUSTED_CIDR '$subnet'" ;;
+  esac
+  printf '%s\n' "$subnet" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$' ||
+    die "invalid EDGE_TRUSTED_CIDR '$subnet'"
   cat >"$CONF" <<EOF
 # Written by edge-mode.sh (EDGE_MODE=tunnel). Do not edit.
 $RESOLVER

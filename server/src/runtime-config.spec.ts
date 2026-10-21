@@ -27,6 +27,11 @@ describe('buildRuntimeConfig', () => {
     });
   });
 
+  it('treats an empty sample rate as unset, but keeps an explicit 0', () => {
+    expect(buildRuntimeConfig({ SENTRY_TRACES_SAMPLE_RATE: '' }).sentryTracesSampleRate).toBe(0.1);
+    expect(buildRuntimeConfig({ SENTRY_TRACES_SAMPLE_RATE: '0' }).sentryTracesSampleRate).toBe(0);
+  });
+
   it('passes SENTRY_ENVIRONMENT through', () => {
     expect(buildRuntimeConfig({ SENTRY_ENVIRONMENT: 'staging' }).sentryEnvironment).toBe('staging');
   });

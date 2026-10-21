@@ -44,7 +44,7 @@ docker run --rm -v "$VOL:/le" --entrypoint sh alpine/openssl -c \
 start_edge() { # <mode>
   docker rm -f landing-edge >/dev/null 2>&1 || true
   docker run -d --name landing-edge --network "$NET" --ip "$EDGE_IP" -e "EDGE_MODE=$1" \
-    -e APP_DOMAIN=example.test -e LANDING_DOMAIN=landing.test -e OPS_UPSTREAM_HOST= \
+    -e EDGE_TRUSTED_CIDR=172.30.98.0/24 -e APP_DOMAIN=example.test -e LANDING_DOMAIN=landing.test -e OPS_UPSTREAM_HOST= \
     -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
     -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
     -v "$PWD/nginx/edge-mode.sh:/docker-entrypoint.d/15-edge-mode.sh:ro" \

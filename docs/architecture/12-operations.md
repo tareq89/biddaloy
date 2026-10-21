@@ -100,7 +100,8 @@ flowchart LR
    # Beszel: http://localhost:8090   Kuma: http://localhost:3001
    ```
    Create both admins now.
-3. **Beszel agent.** In Beszel, "Add system": host `beszel-agent`, port `45876`.
+3. **Beszel agent.** In Beszel, "Add system": host `/beszel_socket/beszel.sock` (the agent's
+   unix socket, `deploy/edge.yml`; the port field is ignored).
    Copy the public key it shows into `BESZEL_KEY` (`sops infra/secrets/ops.enc.env`),
    then run `ops.yml` again (the whole playbook: `--tags env` would only write
    the file). Alerts: add a Shoutrrr Telegram URL in the hub settings;

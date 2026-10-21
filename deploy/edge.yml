@@ -30,8 +30,10 @@ services:
       LOGS_DOMAIN: ${LOGS_DOMAIN:-logs.invalid}
       # Host that serves Kuma / Beszel / Dozzle on `biddaloy-ops-edge`; empty when ops is elsewhere.
       OPS_UPSTREAM_HOST: ${OPS_UPSTREAM_HOST:-}
-      # Tunnel mode: the `biddaloy-edge` subnet (pinned where the deploy creates the network).
-      # Empty = edge-mode.sh detects it from the interface that shares a network with cloudflared.
+      # Tunnel mode, required (Rule 11): the `biddaloy-edge` subnet, which the deploy pins when
+      # it creates the network (W3.01), e.g. `docker network create --subnet 172.30.0.0/24
+      # biddaloy-edge` and EDGE_TRUSTED_CIDR=172.30.0.0/24. Only cloudflared's CF-Connecting-IP
+      # from there is trusted. Empty = nginx refuses to start in tunnel mode (no guessing).
       EDGE_TRUSTED_CIDR: ${EDGE_TRUSTED_CIDR:-}
       # Direct mode: certbot touches this file after a renewal (edge.direct.yml mounts it).
       RELOAD_FLAG: /var/www/acme/.reload
@@ -60,15 +62,20 @@ services:
     networks: [edge]
 
   # Host and container metrics reporter; runs on every app host. Key is the hub's public key.
+  # Host network (Beszel's documented setup: real host network stats). It listens on a unix
+  # socket, not a port, so nothing is exposed; the hub in deploy/ops.yml mounts the same host
+  # dir and is pointed at /beszel_socket/beszel.sock ("Add system").
   beszel-agent:
     logging: *logging
     image: henrygd/beszel-agent:0.21.0@sha256:f27b1aa2c68404bc5b9e1a2ab36653bd9b4ee14f6299862f09cd5051a4134767
     restart: unless-stopped
+    network_mode: host
     environment:
-      LISTEN: '45876'
+      LISTEN: /beszel_socket/beszel.sock
       KEY: ${BESZEL_KEY:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /run/beszel:/beszel_socket
 
   # Tunnel mode only. Config is rendered into ${EDGE_DIR}/cloudflared/ from
   # deploy/cloudflared/config.yml.tmpl; the credentials file sits beside it.

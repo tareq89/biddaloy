@@ -31,7 +31,7 @@ docker run -d --name accesslog-upstream --network "$NET" --network-alias prod-ap
   -c "echo '$UP_CONF' > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'" >/dev/null
 
 docker run -d --name accesslog-edge --network "$NET" --ip "$EDGE_IP" \
-  -e EDGE_MODE=tunnel -e APP_DOMAIN=example.test -e OPS_UPSTREAM_HOST= \
+  -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=172.30.96.0/24 -e APP_DOMAIN=example.test -e OPS_UPSTREAM_HOST= \
   -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
   -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
   -v "$PWD/nginx/edge-mode.sh:/docker-entrypoint.d/15-edge-mode.sh:ro" \

@@ -3,8 +3,8 @@
 # Runs reset.sh once per start (the host timer schedules it). It is the app image plus the tools reset.sh needs: the
 # migrations, the seed, the validator and a temporary server all run from the app's own
 # compiled code (server/dist), so nothing here drifts from what the demo serves.
-# `app` is a named build context: docker-compose.demo.yml sets `additional_contexts: app:
-# service:app`, so Compose builds the app image first and this one always sits on top of it.
+# `app` and `backup` are named build contexts, passed by docker-compose.build.yml and
+# .github/workflows/publish-image.yml, so this image always sits on top of the app image.
 FROM app
 
 USER root

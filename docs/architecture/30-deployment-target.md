@@ -242,7 +242,7 @@ flowchart LR
 ### Decisions taken in the lanes (recommended option each time)
 
 - Direct mode first certificate: a one-shot `cert-bootstrap` makes a 30-day self-signed cert, so nginx can serve the ACME challenge. Option rejected: a manual `certbot standalone` run before `up` (a step a human forgets).
-- `EDGE_TRUSTED_CIDR` is empty by default and `edge-mode.sh` detects it from the network shared with `cloudflared`. `biddaloy-edge` is `external: true` here, so the deploy that creates it (W3.01) pins the subnet and sets the variable. Option rejected: `ipam` in `edge.yml` (cannot pin an external network).
+- `EDGE_TRUSTED_CIDR` is required in tunnel mode; `edge-mode.sh` stops nginx when it is empty. `biddaloy-edge` is `external: true` here, so the deploy that creates it (W3.01) must pin the subnet (`docker network create --subnet 172.30.0.0/24 biddaloy-edge`) and set the variable to it. Options rejected: `ipam` in `edge.yml` (cannot pin an external network); detecting the subnet at boot (`cloudflared` starts after nginx is healthy, so the lookup always fell back to `eth0`, which could be the ops network: every visitor would then share one address and one login throttle, Rule 11).
 - `demo-reset` is `restart: 'no'` and has no Docker socket proxy; it is a run-once job.
 - Ops-less hosts drop `conf.d/ops.conf` when `OPS_UPSTREAM_HOST` is empty.
 

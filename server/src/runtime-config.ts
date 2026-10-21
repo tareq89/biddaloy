@@ -11,7 +11,7 @@ export function buildRuntimeConfig(env: Record<string, string | undefined>) {
     supportUrl: env.SUPPORT_CONTACT_URL ?? '',
     sentryDsn: env.SENTRY_DSN_WEB ?? '',
     sentryEnvironment: env.SENTRY_ENVIRONMENT ?? env.NODE_ENV ?? '',
-    sentryTracesSampleRate: Number(env.SENTRY_TRACES_SAMPLE_RATE ?? 0.1),
+    sentryTracesSampleRate: Number(env.SENTRY_TRACES_SAMPLE_RATE || 0.1),
     release: env.APP_VERSION ?? '',
   };
 }

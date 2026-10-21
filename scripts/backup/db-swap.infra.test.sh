@@ -104,9 +104,12 @@ expect "$(marker "${LIVE}_prev")" new1 "_prev is the first swap"
 expect "$(marker "${LIVE}_prev_old")" old "_prev_old is the original"
 make_db "$NEXT" new3
 if swap bash "$SWAP" "$LIVE" "$NEXT"; then fail "a swap onto an existing _prev_old must fail"; fi
-grep -q "swap FAILED at prev-to-prev-old: " "$WORK/err" || fail "FAILED at <step> line missing"
+# Refused by the pre-check, before any rename.
+grep -q "swap FAILED at check-next: .*_prev_old still exists" "$WORK/err" || fail "FAILED at <step> line missing"
 expect "$(marker "$LIVE")" new2 "live untouched by the refused swap"
 expect "$(marker "${LIVE}_prev")" new1 "_prev untouched by the refused swap"
+expect "$(marker "${LIVE}_prev_old")" old "_prev_old untouched by the refused swap"
+expect "$(marker "$NEXT")" new3 "_next untouched by the refused swap"
 swap bash "$SWAP" --drop-prev-old "$LIVE" || fail "--drop-prev-old failed"
 db_exists "${LIVE}_prev_old" && fail "_prev_old should be dropped"
 swap bash "$SWAP" "$LIVE" "$NEXT" || fail "swap after --drop-prev-old failed"
