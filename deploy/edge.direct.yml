@@ -16,6 +16,35 @@ services:
     volumes:
       - ${EDGE_DIR:?EDGE_DIR must be set}/letsencrypt:/etc/letsencrypt:ro
       - ${EDGE_DIR}/acme-webroot:/var/www/acme:ro
+      # Basic-auth users for staging / ops hosts: `htpasswd -B ${EDGE_DIR}/htpasswd <user>`.
+      - ${EDGE_DIR}/htpasswd:/etc/nginx/auth/htpasswd:ro
+    depends_on:
+      cert-bootstrap:
+        condition: service_completed_successfully
+
+  # nginx will not boot without the certificate edge-mode.sh points at. On a fresh host this
+  # writes a 30-day self-signed one for APP_DOMAIN (a no-op when a cert exists). Once nginx
+  # is up, delete the placeholder (rm -r $EDGE_DIR/letsencrypt/live/$APP_DOMAIN), issue the real
+  # one, then the certbot loop below keeps it renewed:
+  #   docker compose -p edge exec certbot certbot certonly --webroot -w /var/www/acme \
+  #     --cert-name $APP_DOMAIN -d $APP_DOMAIN -d $STAGING_DOMAIN ... --force-renewal
+  cert-bootstrap:
+    logging: *logging
+    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
+    restart: 'no'
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN must be set}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        d=/etc/letsencrypt/live/$$APP_DOMAIN
+        [ -f $$d/fullchain.pem ] && exit 0
+        mkdir -p $$d
+        openssl req -x509 -nodes -newkey rsa:2048 -days 30 -subj "/CN=$$APP_DOMAIN" \
+          -keyout $$d/privkey.pem -out $$d/fullchain.pem
+    volumes:
+      - ${EDGE_DIR}/letsencrypt:/etc/letsencrypt
 
   # Renews twice a day (a no-op until a cert is due), then touches the flag that
   # nginx/reload-loop.sh watches so nginx picks up the new cert.
