@@ -363,6 +363,15 @@ describe('PaymentReversalService (integration)', () => {
       return user;
     }
 
+    /** The actor's own ADMIN row. Every allow-path case inserts it first, so a
+     * pass proves `Not(actorUserId)` excludes the actor from "another approver". */
+    async function actorIsAdmin() {
+      const membershipRepo = dataSource.getRepository(UserTenant);
+      await membershipRepo.save(
+        membershipRepo.create({ user_id: ACTOR_USER_ID, tenant_id: TENANT_ID, role: UserRole.ADMIN }),
+      );
+    }
+
     async function expectRefused(paymentId: string, billId: string) {
       await expect(
         service.reverse(paymentId, TENANT_ID, ACTOR_USER_ID, ACTOR_USER_ID, 'self'),
@@ -376,6 +385,7 @@ describe('PaymentReversalService (integration)', () => {
     }
 
     it('single admin, setting absent: self-approval succeeds and the audit row says so', async () => {
+      await actorIsAdmin();
       const { payment } = await paidPayment();
 
       await service.reverse(payment.id, TENANT_ID, ACTOR_USER_ID, ACTOR_USER_ID, 'self');
@@ -390,6 +400,7 @@ describe('PaymentReversalService (integration)', () => {
     });
 
     it('a second ACTIVE ADMIN in the school: self-approval is refused and nothing changes', async () => {
+      await actorIsAdmin();
       await membership(UserRole.ADMIN);
       const { payment, bill } = await paidPayment();
 
@@ -404,6 +415,7 @@ describe('PaymentReversalService (integration)', () => {
     });
 
     it('a SUSPENDED second ADMIN does not count', async () => {
+      await actorIsAdmin();
       await membership(UserRole.ADMIN, { status: UserStatus.SUSPENDED });
       const { payment } = await paidPayment();
 
@@ -413,6 +425,7 @@ describe('PaymentReversalService (integration)', () => {
     });
 
     it('a soft-deleted second ADMIN membership does not count', async () => {
+      await actorIsAdmin();
       await membership(UserRole.ADMIN, { deleted: true });
       const { payment } = await paidPayment();
 
@@ -422,6 +435,7 @@ describe('PaymentReversalService (integration)', () => {
     });
 
     it("an ADMIN of a different school does not count (tenant isolation)", async () => {
+      await actorIsAdmin();
       await membership(UserRole.ADMIN, { tenantId: OTHER_TENANT_ID });
       const { payment } = await paidPayment();
 
@@ -431,6 +445,7 @@ describe('PaymentReversalService (integration)', () => {
     });
 
     it('a SUPER_ADMIN membership in the school does not count (D23)', async () => {
+      await actorIsAdmin();
       await membership(UserRole.SUPER_ADMIN);
       const { payment } = await paidPayment();
 

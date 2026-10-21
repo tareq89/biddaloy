@@ -808,6 +808,27 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
     });
   });
 
+  // [78 D1] The seed school has more than one ADMIN (this file and others add
+  // them), so a reversal the actor approved themselves is refused with a fixed body.
+  it('a self-approved reversal is 403 SECOND_APPROVER_REQUIRED when another ADMIN exists', async () => {
+    const student = await createStudent();
+    const fee = await createFee(student, 500);
+    const paymentId = await recordPayment(student, fee, 500);
+    const approvalToken = await issueApprovalToken('payments.reverse', SEED_ADMIN_EMAIL);
+
+    const res = await supertest(app.getHttpServer())
+      .post(`${API}/payments/${paymentId}/reverse`)
+      .send({ reason: 'Self-approved' })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .set('X-Approval-Token', approvalToken)
+      .expect(403);
+    expect(res.body.message).toBe('Another approver is needed for this reversal');
+    expect(res.body.details).toEqual({ code: 'SECOND_APPROVER_REQUIRED' });
+    expect(JSON.stringify(res.body)).not.toContain(SEED_ADMIN_EMAIL);
+  });
+
   it('rejects reversal without an approval token (403 APPROVAL_REQUIRED)', async () => {
     const student = await createStudent();
     const fee = await createFee(student, 500);
