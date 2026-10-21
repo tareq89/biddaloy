@@ -71,7 +71,11 @@
     "limitNotice": "{{count}} students are selected, but one reminder can go to at most {{max}}. Send in batches of up to {{max}}: the bulk reminder page can pick students by class or section.",
     "limitLink": "Open bulk reminders",
     "errorMessage": "Couldn't send the reminder. Nothing was sent — try again.",
-    "outcomeUnknown": "We couldn't confirm whether the reminder went out. Check the sent reminders before you send it again."
+    "outcomeUnknown": "We couldn't confirm whether the reminder went out. Check the sent reminders before you send it again.",
+    "smsNotReady": {
+      "NO_GATEWAY": "SMS is not set up for this school. Guardians who get messages by SMS will not receive this reminder.",
+      "NO_CREDIT": "This school has no SMS credit left. Guardians who get messages by SMS will not receive this reminder."
+    }
   },
   "detail": {
     "forbidden": "You don't have permission to view this.",

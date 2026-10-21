@@ -11,6 +11,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  NoticeBar,
   RadioGroup,
   RadioGroupItem,
   Select,
@@ -45,6 +46,7 @@ import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { deliveryErrorKey } from './-shared/delivery-error';
 import { SelectedStudentRow } from './-shared/selected-student-row';
+import { useSmsReadiness } from './-shared/sms-readiness';
 import { SmsSegmentCounter } from './-shared/sms-segment-counter';
 import { StudentSearch } from './-shared/student-search';
 import { splitTemplateParams, WhatsappTemplateFields } from './-shared/whatsapp-template-fields';
@@ -113,6 +115,9 @@ function SendMessageBody() {
   const [student, setStudent] = React.useState<Student | null>(null);
   const [guardianId, setGuardianId] = React.useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
+  // [78 D37/D38] Warn, never block, when SMS cannot go out right now. Called
+  // here, above the result-panel early return, so the hook order is stable.
+  const readiness = useSmsReadiness(medium === 'SMS');
 
   // Refreshes the queued message's delivery status after the send — the
   // 201 body always says QUEUED (dispatch is async via BullMQ), so the
@@ -246,6 +251,10 @@ function SendMessageBody() {
   }
 
   const isEmail = medium === 'EMAIL';
+  const smsNotReady =
+    medium === 'SMS' && readiness.data && readiness.data.sms !== 'READY'
+      ? readiness.data.sms
+      : null;
   const formatAddress = (address: string) => (isEmail ? address : formatPhone(address, config));
 
   return (
@@ -364,6 +373,9 @@ function SendMessageBody() {
                   ))}
                 </SelectContent>
               </Select>
+              {smsNotReady && (
+                <NoticeBar tone="warning">{t(`send.smsNotReady.${smsNotReady}`)}</NoticeBar>
+              )}
             </div>
 
             {isEmail && (
