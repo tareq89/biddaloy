@@ -105,7 +105,10 @@ const waHtml = fill(await readFile(join(root, 'src/collateral/whatsapp.html'), '
 
 await mkdir(dist, { recursive: true });
 const tmp = await mkdtemp(join(tmpdir(), 'sm-collateral-'));
-const browser = await chromium.launch();
+const browser = await chromium.launch().catch((e) => {
+  if (/Executable doesn't exist/.test(String(e))) throw new Error('Chromium missing: run `yarn playwright install chromium`, then build again.');
+  throw e;
+});
 try {
   const render = async (name, html, run) => {
     const f = join(tmp, name);

@@ -63,8 +63,7 @@ test('every internal link on the two home pages answers 200', async ({ page, req
     }
   }
   expect(paths.size).toBeGreaterThan(5);
-  // /sm-ek-pata.pdf is Collateral (#2759) and may not be built yet; drop the .pdf skip when it lands.
-  for (const p of [...paths].filter((x) => !x.endsWith('.pdf')))
+  for (const p of [...paths])
     expect((await request.get(p)).status(), p).toBe(200);
 });
 

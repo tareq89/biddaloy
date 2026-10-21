@@ -59,7 +59,7 @@ try {
         await el.waitFor();
         await page.waitForLoadState('networkidle');
         const file = shotFile(s, lang, theme);
-        const png = await el.screenshot();
+        const png = await el.screenshot({ animations: 'disabled' });
         await mkdir(dirname(join(outDir, file)), { recursive: true });
         await writeFile(join(outDir, file), png);
         const tiny = await sharp(png).resize(16).blur().jpeg({ quality: 40 }).toBuffer();
