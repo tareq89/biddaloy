@@ -8,8 +8,12 @@ name: Deploy
 # `production` Environment (Settings > Environments), and that environment must allow only the
 # main branch as a deployment branch. Repository-level secrets would let any branch run this.
 #
-# Rule 13: the Actions log and summary show only the FAILED / Why / Next block and the PLAY
-# RECAP. The full ansible output stays on the VM in /opt/biddaloy/logs/<stack>-last-deploy.log.
+# Run it from main (the `production` environment allows only main), after the change is merged:
+# the VM refuses any sha that is not an ancestor of origin/main. Branch shas deploy from the
+# laptop with scripts/deploy.sh.
+#
+# Rule 13: the Actions log and summary show only the FAILED / Why / Next block, the skipped-smoke
+# warning and the PLAY RECAP. The full ansible output stays on the VM in /opt/biddaloy/logs/<stack>-last-deploy.log.
 on:
   workflow_dispatch:
     inputs:
@@ -98,7 +102,9 @@ jobs:
           ssh_vm "$cmd" > deploy.out 2>&1 || rc=$?
           {
             echo '```text'
-            grep -E -A2 '^FAILED at:' deploy.out || true
+            # Unanchored: ansible prints the block indented and quoted (result_format = yaml).
+            grep -E -A2 'FAILED at:' deploy.out || true
+            grep -E 'WARNING: smoke login' deploy.out || true
             grep -E -A8 '^PLAY RECAP' deploy.out || true
             if [ "$rc" -ne 0 ]; then echo "ssh exited $rc"; fi
             echo '```'

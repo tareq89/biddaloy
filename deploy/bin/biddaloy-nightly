@@ -71,8 +71,11 @@ run_step() {
   "$@" || fail "$name"
 }
 
-# dc <stack> <compose args...>: always the same project, project directory and file.
-dc() { local s="$1"; shift; docker compose -p "$s" --project-directory "$ROOT/$s" -f "$REPO/deploy/stack.yml" "$@"; }
+# dc <stack> <compose args...>: always the same project, project directory and file. The file is
+# the copy the stack's last ok deploy kept (deploy.yml), not the live checkout, which follows
+# whatever stack was deployed last. Before a first ok deploy there is no copy: the checkout's.
+compose_file() { if [[ -f "$ROOT/$1/stack.yml" ]]; then echo "$ROOT/$1/stack.yml"; else echo "$REPO/deploy/stack.yml"; fi; }
+dc() { local s="$1"; shift; docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(compose_file "$s")" "$@"; }
 
 wait_ready() { # <stack>: /api/health, 24 tries x 5 s (the compose healthcheck's own URL)
   local i
@@ -153,22 +156,31 @@ day_offset() { # <days back> -> YYYY-MM-DD in host time (GNU date, BSD date for 
   local t=$(($(date +%s) - $1 * 86400))
   date -d "@$t" +%F 2>/dev/null || date -r "$t" +%F
 }
+# The export is deploy's alone (umask 077): the jobs container (another uid) never mounts it,
+# it reads a tar of it on stdin.
 export_logs() {
   local y="$1" t="$2" out="$3" c
+  umask 077
   mkdir -p "$out"
   while IFS= read -r c; do
     [[ -n "$c" ]] || continue
     docker logs --since "${y}T00:00:00+06:00" --until "${t}T00:00:00+06:00" "$c" 2>&1 | gzip -9 > "$out/$c.log.gz" || return 1
   done < <(docker ps --format '{{.Names}}')
   journalctl --no-pager --since "$y 00:00:00" --until "$t 00:00:00" -u 'biddaloy-*' -u docker 2>&1 | gzip -9 > "$out/host.log.gz" || return 1
-  # The jobs container runs as another user and deletes the export after a good check.
-  chmod 0777 "$out" "$(dirname "$out")" && chmod 0644 "$out"/*.log.gz
+}
+# log-archive.sh unpacks the tar into the container's /tmp, ships and checks it there. The host copy
+# is deleted only after it exited 0; a failed night keeps it for a manual retry.
+archive_logs() { # <exp> <day>
+  tar -C "$1" -cf - "$2" \
+    | dc prod run --rm -T -e "LOG_ARCHIVE_DATE=$2" -e LOG_ARCHIVE_EXPORT_DIR=/tmp/export jobs \
+      sh -c 'mkdir -p /tmp/export && tar -C /tmp/export -xf - && exec /app/log-archive.sh'
 }
 log_archive() {
   local y t exp="$ROOT/logs-export"
   y="$(day_offset 1)"; t="$(day_offset 0)"
   run_step export export_logs "$y" "$t" "$exp/$y"
-  run_step archive dc prod run --rm -T -e "LOG_ARCHIVE_DATE=$y" -v "$exp:/export" jobs /app/log-archive.sh
+  run_step archive archive_logs "$exp" "$y"
+  rm -rf "${exp:?}/$y"
 }
 
 WARNING=""

@@ -13,9 +13,13 @@
 # Plan only (nothing pulled, written or restarted): add --check.
 #
 # Order, app stacks: preflight -> networks -> env + pg-tls -> pull -> backup (prod) -> migrate
-#   -> db redis seaweedfs -> app (prod: app, then app2) -> the rest -> smoke -> log.
-# Order, edge: preflight -> networks -> env -> pull -> nginx -t -> up -> nginx reload.
+#   -> db redis seaweedfs -> first rebuild (demo, fresh host only) -> app (prod: app, then app2)
+#   -> the rest -> smoke -> keep stack.yml -> log.
+# Order, edge: preflight -> networks -> env -> copy nginx/ to edge/release.new -> nginx -t on it
+#   -> pull -> release.new becomes edge/release (what nginx mounts) -> up -> nginx recreate.
 # Order, ops: preflight -> networks -> env -> pull -> up.
+# Host scripts never read the live checkout for a running stack: edge nginx mounts edge/release,
+# and nightly / doctor / restore-prod use <stack>/stack.yml, both copied only by an ok deploy.
 # Every failure prints FAILED at / Why / Next (tasks/report.yml), is appended to
 # /opt/biddaloy/<stack>/deploys.log and sent to Telegram.
 # On failure after pre-flight: the previous version is brought back. Migrations are NOT
@@ -66,7 +70,13 @@
     # Named on every app-stack `up`: staging and demo set COMPOSE_PROFILES for their one-off
     # jobs (jobs, demo-reset), and a bare `up` would try to start those.
     app_services: "{{ 'db redis seaweedfs app app2 backup' if stack == 'prod' else 'db redis seaweedfs app' }}"
-    env_saved: false
+    # Overwritten by write-env; each is copied to <file>.prev first and put back by the rescue.
+    rollback_files:
+      [.env, cloudflared/config.yml, cloudflared/credentials.json, htpasswd, dozzle/users.yml]
+    saved_files: []
+    release_swapped: false
+    # The compose command above on one line, for the `Next:` hints (runnable as printed).
+    dc_hint: "{{ dc.split() | join(' ') }}"
     deploy_status: failed
     fail_step: deploy
     fail_why: ''
@@ -90,7 +100,11 @@
         # has and that subnet is what nginx is told to trust.
         - name: Step is the networks
           ansible.builtin.set_fact:
-            fail_ctx: { step: networks, next: 'docker network ls; docker network inspect biddaloy-edge biddaloy-ops-edge' }
+            fail_ctx:
+              {
+                step: networks,
+                next: 'docker network ls; docker network inspect biddaloy-edge biddaloy-ops-edge',
+              }
         - name: Create the shared networks (idempotent)
           ansible.builtin.shell: |
             docker network inspect {{ item.name }} >/dev/null 2>&1 || docker network create {{ item.args }} {{ item.name }}
@@ -114,17 +128,24 @@
           ansible.builtin.set_fact:
             deploy_started: true
             fail_ctx: { step: env, next: 'ls -l {{ project_dir }}; check the sops file with:
-                sops -d infra/secrets/{{ stack }}.enc.env >/dev/null' }
-        # The rescue puts this back, so a rollback runs with the old secrets and derived values.
-        - name: Keep the current .env for a rollback
-          ansible.builtin.shell: if [ -f .env ]; then cp -p .env .env.prev; fi # noqa command-instead-of-shell
+                  sops -d infra/secrets/{{ stack }}.enc.env >/dev/null' }
+        # The rescue puts these back, so a rollback runs with the old secrets and derived values.
+        # Only files that exist now are kept; a stale .prev from an older run is removed first.
+        - name: Keep the current .env and secret files for a rollback
+          ansible.builtin.shell: |
+            set -e
+            for f in {{ rollback_files | join(' ') }}; do
+              rm -f "$f.prev"
+              if [ -f "$f" ]; then cp -p "$f" "$f.prev"; echo "$f"; fi
+            done
           args:
             chdir: '{{ project_dir }}'
+          register: kept
           changed_when: false
           when: not ansible_check_mode
-        - name: Remember the .env copy exists
+        - name: Remember which files were kept
           ansible.builtin.set_fact:
-            env_saved: true
+            saved_files: '{{ kept.stdout_lines | default([]) }}'
         - name: Self-signed Postgres TLS
           ansible.builtin.include_tasks: tasks/pg-tls.yml
           when: stack in app_stacks
@@ -132,24 +153,48 @@
           ansible.builtin.include_tasks: tasks/write-env.yml
 
         # Same image, entrypoint, env and mounts as the real nginx, so the templates render the
-        # way a restart would. A failure here leaves the running edge untouched. Direct mode
-        # first runs the one-shot that makes the placeholder certificate nginx needs to boot.
+        # way a restart would. The mounts point at a staged copy of this version's nginx/
+        # (REPO_DIR from the environment beats the .env): the live edge/release copy is replaced
+        # only after the check passed. A failure here leaves the running edge untouched. Direct
+        # mode first runs the one-shot that makes the placeholder certificate nginx needs to boot.
         - name: Step is the nginx check
           ansible.builtin.set_fact:
-            fail_ctx: { step: nginx-check, next: 'fix nginx/ in the repo and deploy a new commit; the running edge was not touched' }
+            fail_ctx:
+              {
+                step: nginx-check,
+                next: 'fix nginx/ in the repo and deploy a new commit; the running edge was not touched',
+              }
           when: stack == 'edge'
+        - name: Stage this version's nginx files (edge)
+          ansible.builtin.shell: |
+            set -e
+            rm -rf release.new
+            mkdir release.new
+            cp -a {{ repo_root }}/nginx release.new/nginx
+          args:
+            chdir: '{{ project_dir }}'
+          changed_when: false
+          when: stack == 'edge' and not ansible_check_mode
         - name: Placeholder certificate (direct mode, first deploy only)
           ansible.builtin.command: '{{ dc }} run --rm --no-deps cert-bootstrap'
+          environment:
+            REPO_DIR: '{{ project_dir }}/release.new'
           changed_when: false
           when: stack == 'edge' and edge_mode == 'direct' and not ansible_check_mode
         - name: Check the new nginx config (nginx -t)
           ansible.builtin.command: '{{ dc }} run --rm --no-deps -T --entrypoint sh nginx -c "exec /docker-entrypoint.sh nginx -t"'
+          environment:
+            REPO_DIR: '{{ project_dir }}/release.new'
           changed_when: false
           when: stack == 'edge' and not ansible_check_mode
 
         - name: Step is the pull
           ansible.builtin.set_fact:
-            fail_ctx: { step: pull, next: 'docker compose -p {{ stack }} pull; check disk (df -h /var/lib/docker) and the ghcr.io login' }
+            fail_ctx:
+              {
+                step: pull,
+                next: '{{ dc_hint }} pull; check disk (df -h /var/lib/docker) and the ghcr.io login',
+              }
         - name: Pull the images
           ansible.builtin.command: '{{ dc }} pull --quiet'
           changed_when: false
@@ -159,8 +204,9 @@
         # only when there is no database volume at all (a truly fresh host).
         - name: Step is the backup
           ansible.builtin.set_fact:
-            fail_ctx: { step: backup, next: 'docker compose -p prod logs --tail 100 backup; biddaloy-doctor prod;
-                or add --skip-backup if you accept the risk' }
+            fail_ctx:
+              { step: backup, next: '{{ dc_hint }} logs --tail 100 backup; biddaloy-doctor prod;
+                  or add --skip-backup if you accept the risk' }
           when: stack == 'prod'
         - name: Fresh backup before migrating (prod)
           ansible.builtin.command: '{{ dc }} run --rm --no-deps --entrypoint /app/backup.sh backup'
@@ -171,8 +217,12 @@
         # migrate.js pending exits 0 none, 2 pending, 1 error.
         - name: Step is the migration
           ansible.builtin.set_fact:
-            fail_ctx: { step: migrate, next: 'docker compose -p {{ stack }} run --rm app node server/dist/scripts/migrate.js pending;
-                biddaloy-doctor {{ stack }}' }
+            fail_ctx:
+              {
+                step: migrate,
+                next: '{{ dc_hint }} run --rm app node server/dist/scripts/migrate.js pending;
+                  biddaloy-doctor {{ stack }}',
+              }
           when: stack in app_stacks
         - name: Are migrations pending?
           ansible.builtin.command: '{{ dc }} run --rm app node server/dist/scripts/migrate.js pending'
@@ -187,8 +237,11 @@
 
         - name: Step is the data services
           ansible.builtin.set_fact:
-            fail_ctx: { step: data-services, next: 'docker compose -p {{ stack }} ps;
-                docker compose -p {{ stack }} logs --tail 200 db redis seaweedfs' }
+            fail_ctx:
+              {
+                step: data-services,
+                next: '{{ dc_hint }} ps; {{ dc_hint }} logs --tail 200 db redis seaweedfs',
+              }
           when: stack in app_stacks
         - name: Bring up db redis seaweedfs
           ansible.builtin.include_tasks: tasks/compose-up.yml
@@ -196,10 +249,34 @@
             up_services: db redis seaweedfs
           when: stack in app_stacks and not ansible_check_mode
 
+        # The demo app refuses to start until a rebuild has written default-school's id to the
+        # demo-state volume (stack.yml). On a fresh host the deploy runs that first rebuild; after
+        # that the nightly demo-rebuild owns it. reset.sh exit 3 = swapped, cleanup failed: live.
+        - name: Step is the first demo rebuild
+          ansible.builtin.set_fact:
+            fail_ctx:
+              {
+                step: demo-first-rebuild,
+                next: '{{ dc_hint }} run --rm -T demo-reset /app/reset.sh --now; then rerun the deploy',
+              }
+          when: stack == 'demo'
+        - name: Has the demo been built yet?
+          ansible.builtin.command: '{{ dc }} run --rm --no-deps -T demo-reset sh -c "test -s /demo-state/platform-tenant-id"'
+          register: demo_built
+          changed_when: false
+          failed_when: demo_built.rc not in [0, 1]
+          when: stack == 'demo' and not ansible_check_mode
+        - name: First demo rebuild (fresh host only)
+          ansible.builtin.command: '{{ dc }} run --rm -T demo-reset /app/reset.sh --now'
+          register: demo_first
+          changed_when: true
+          failed_when: demo_first.rc not in [0, 3]
+          when: stack == 'demo' and not ansible_check_mode and demo_built.rc == 1
+
         # Prod (D25): app, ready, then app2, ready. A failure on app stops before app2.
         - name: Step is the app rollout
           ansible.builtin.set_fact:
-            fail_ctx: { step: ready, next: 'docker compose -p {{ stack }} logs --tail 200 app' }
+            fail_ctx: { step: ready, next: '{{ dc_hint }} logs --tail 200 app' }
           when: stack in app_stacks
         - name: Restart the app
           ansible.builtin.include_tasks: tasks/rolling-restart.yml
@@ -207,9 +284,30 @@
             rr_services: '{{ rollout }}'
           when: stack in app_stacks and not ansible_check_mode
 
+        # Edge: the staged nginx/ passed nginx -t, so it becomes what nginx mounts. The old copy
+        # stays as release.prev for a rollback.
+        - name: Step is the nginx files
+          ansible.builtin.set_fact:
+            fail_ctx: { step: nginx-files, next: 'ls -l {{ project_dir }}; then rerun the deploy' }
+          when: stack == 'edge'
+        - name: Make the checked nginx files the live copy (edge)
+          ansible.builtin.shell: |
+            set -e
+            rm -rf release.prev
+            if [ -d release ]; then mv release release.prev; fi
+            mv release.new release
+          args:
+            chdir: '{{ project_dir }}'
+          changed_when: true
+          when: stack == 'edge' and not ansible_check_mode
+        - name: Remember the nginx files changed
+          ansible.builtin.set_fact:
+            release_swapped: true
+          when: stack == 'edge' and not ansible_check_mode
+
         - name: Step is the stack start
           ansible.builtin.set_fact:
-            fail_ctx: { step: up, next: 'docker compose -p {{ stack }} ps; docker compose -p {{ stack }} logs --tail 200' }
+            fail_ctx: { step: up, next: '{{ dc_hint }} ps; {{ dc_hint }} logs --tail 200' }
         - name: Start the rest of the stack
           ansible.builtin.include_tasks: tasks/compose-up.yml
           vars:
@@ -221,7 +319,7 @@
         # `up` does not see a template change: recreate it (the config just passed nginx -t).
         - name: Step is the nginx recreate
           ansible.builtin.set_fact:
-            fail_ctx: { step: nginx-recreate, next: 'docker compose -p edge logs --tail 200 nginx' }
+            fail_ctx: { step: nginx-recreate, next: '{{ dc_hint }} logs --tail 200 nginx' }
           when: stack == 'edge'
         - name: Recreate nginx so it renders the new templates
           ansible.builtin.command: '{{ dc }} up -d --wait --wait-timeout 120 --no-deps --force-recreate nginx'
@@ -230,10 +328,26 @@
 
         - name: Step is the smoke test
           ansible.builtin.set_fact:
-            fail_ctx: { step: smoke, next: 'biddaloy-doctor {{ stack }}; docker compose -p {{ stack }} logs --tail 200 app' }
+            fail_ctx:
+              {
+                step: smoke,
+                next: 'biddaloy-doctor {{ stack }}; {{ dc_hint }} logs --tail 200 app',
+              }
           when: stack in app_stacks
         - name: Smoke test
           ansible.builtin.include_tasks: tasks/smoke.yml
+          when: stack in app_stacks and not ansible_check_mode
+
+        # nightly, doctor and restore-prod run the stack with this copy, so a later deploy of
+        # another stack (which moves the checkout) cannot change the compose file they use.
+        - name: Keep this version's compose file for the host scripts
+          ansible.builtin.copy:
+            src: '{{ repo_root }}/deploy/stack.yml'
+            dest: '{{ project_dir }}/stack.yml'
+            remote_src: true
+            owner: root
+            group: '{{ deploy_user }}'
+            mode: '0640'
           when: stack in app_stacks and not ansible_check_mode
 
         - name: Deploy ok
@@ -259,20 +373,29 @@
                   | selectattr('failed') | list | first) | default(ansible_failed_result) }}
 
         # An nginx -t failure never touched the running edge: only the files change back.
-        - name: Put the previous .env back after an nginx check failure
-          ansible.builtin.command: cp -p {{ project_dir }}/.env.prev {{ project_dir }}/.env
+        - name: Put the previous .env and secret files back after an nginx check failure
+          ansible.builtin.command: cp -p {{ project_dir }}/{{ item }}.prev {{ project_dir }}/{{ item }}
+          loop: '{{ saved_files }}'
           changed_when: true
-          when: fail_step == 'nginx-check' and env_saved | bool and not ansible_check_mode
+          when: fail_step == 'nginx-check' and not ansible_check_mode
 
         - name: Roll back to the previous version (migrations stay applied, D11)
           when: >-
             deploy_started | bool and previous_version | length > 0 and stack != 'ops'
             and fail_step != 'nginx-check' and not ansible_check_mode
           block:
-            - name: Put the previous .env back
-              ansible.builtin.command: cp -p {{ project_dir }}/.env.prev {{ project_dir }}/.env
+            - name: Put the previous .env and secret files back
+              ansible.builtin.command: cp -p {{ project_dir }}/{{ item }}.prev {{ project_dir }}/{{ item }}
+              loop: '{{ saved_files }}'
               changed_when: true
-              when: env_saved | bool
+            - name: Put the previous nginx files back (edge)
+              ansible.builtin.shell: |
+                set -e
+                if [ -d release.prev ]; then rm -rf release; mv release.prev release; fi
+              args:
+                chdir: '{{ project_dir }}'
+              changed_when: true
+              when: stack == 'edge' and release_swapped | bool
             - name: Pin the previous version
               ansible.builtin.lineinfile:
                 path: '{{ project_dir }}/.env'
@@ -290,6 +413,11 @@
               vars:
                 up_wait: '{{ stack != "edge" }}'
                 up_services: "{{ app_services if stack in app_stacks else '' }}"
+            # The templates are bind mounts rendered at start: recreate so nginx renders the old ones.
+            - name: Recreate nginx on the previous nginx files (edge)
+              ansible.builtin.command: '{{ dc }} up -d --wait --wait-timeout 120 --no-deps --force-recreate nginx'
+              changed_when: true
+              when: stack == 'edge' and release_swapped | bool
             - name: Note the rollback
               ansible.builtin.set_fact:
                 deploy_status: rolled-back

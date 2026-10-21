@@ -11,7 +11,8 @@
 # 6 restore.sh exit 3 exits 2 and never copies files or migrates; 7 restore.sh failure exits 1
 # with the FAILED block and no files/migrate; 8 files failure is a warning; 9 a restored DB with no
 # school fails verify; 10 no secret reaches a shim's arguments; 11 every compose call carries the
-# project directory and file.
+# project directory and file; 13 latest-* skips the dumps this VM wrote itself; 14 the compose file
+# kept by prod's last ok deploy wins.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -32,6 +33,7 @@ case "$line" in
   *"psql -U"*)
     if grep -q "restore.sh" "$WORK/calls.log"; then echo "${COUNTS_AFTER}"; else echo "${COUNTS_BEFORE}"; fi ;;
   *"aws s3 ls"*) printf '%s\n' "${LISTING}" ;;
+  *"volume inspect"*) echo "${VOL_CREATED}" ;;
   *"migrate.js pending"*) exit "${PENDING_RC:-2}" ;;
 esac
 exit 0
@@ -66,6 +68,10 @@ export RESTORE_KEY_UID
 export PATH="$WORK/bin:$PATH" WORK
 export BIDDALOY_ROOT="$WORK/opt" BIDDALOY_REPO="$WORK/opt/repo" BIDDALOY_SWAP_LOCK="$WORK/swap.lock"
 export COUNTS_BEFORE="0|0|$DB" COUNTS_AFTER="3|12|$DB"
+# When this VM's prod_pgdata volume was made (docker's CreatedAt). Default: now, so every dump is older.
+VOL_CREATED="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+VOL_10H="$(date -u -d '10 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-10H '+%Y-%m-%dT%H:%M:%SZ')"
+export VOL_CREATED
 
 fails=0
 ok() { echo "ok   $1"; }
@@ -192,8 +198,26 @@ expect "10 busy lock exits 1 before any docker call" bash -c "[[ $RC -eq 1 ]] &&
 # 11/12. secrets and compose flags over a whole successful run
 run "${good[@]}"
 expect "11 no secret in any shim argument or output" bash -c "! grep -qF -e '$SECRET_PW' -e 'AGE-SECRET-KEY' '$LOG' '$WORK/out.txt'"
-expect "12 every compose call has project dir and file" bash -c "! grep '^docker' '$LOG' | grep -v -- '--project-directory $WORK/opt/prod -f $WORK/opt/repo/deploy/stack.yml'"
-expect "12 every compose call is project prod" bash -c "! grep '^docker' '$LOG' | grep -v 'compose -p prod '"
+expect "12 every compose call has project dir and file" bash -c "! grep '^docker compose' '$LOG' | grep -v -- '--project-directory $WORK/opt/prod -f $WORK/opt/repo/deploy/stack.yml'"
+expect "12 every compose call is project prod" bash -c "! grep '^docker compose' '$LOG' | grep -v 'compose -p prod '"
+expect "12 the only other docker call reads the volume's age" bash -c "! grep '^docker ' '$LOG' | grep -v '^docker compose' | grep -v 'volume inspect -f {{.CreatedAt}} prod_pgdata'"
+
+# 13. latest-* never picks a dump this VM wrote of its own empty database (M4)
+VOL_CREATED="$VOL_10H" run "${good[@]}"
+expect "13 a dump newer than this VM's volume is skipped" bash -c "[[ $RC -eq 0 ]] && grep -q 'restore.sh db/hourly/20261021T100000Z.dump.age' '$LOG'"
+expect "13 says it skipped them" outhas "skipping dumps written since"
+VOL_CREATED="$VOL_10H" run --age-key-file "$WORK/k/key.txt" --from db/hourly/20261022T120000Z.dump.age --yes-restore-prod "$DB"
+expect "13 an exact --from is taken as given" has "restore.sh db/hourly/20261022T120000Z.dump.age"
+FAIL_MATCH="volume inspect" run "${good[@]}"
+expect "13 unreadable volume age fails closed, nothing stopped" bash -c "[[ $RC -eq 1 ]] && ! grep -qE ' stop |restore.sh' '$LOG'"
+VOL_CREATED="$(date -u -d '100 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-100H '+%Y-%m-%dT%H:%M:%SZ')" run "${good[@]}"
+expect "13 only own dumps in the bucket: none found, nothing stopped" bash -c "[[ $RC -eq 1 ]] && ! grep -qE ' stop |restore.sh' '$LOG'"
+
+# 14. prod's last ok compose file wins over the live checkout
+printf 'x\n' > "$WORK/opt/prod/stack.yml"
+run "${good[@]}"
+expect "14 uses prod/stack.yml when the deploy kept one" has "-f $WORK/opt/prod/stack.yml"
+rm -f "$WORK/opt/prod/stack.yml"
 
 echo
 if [[ $fails -eq 0 ]]; then echo "all passed"; else echo "$fails failed"; exit 1; fi

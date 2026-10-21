@@ -2,7 +2,8 @@
 # The one place every result goes through: prints the failure block, appends to deploys.log,
 # and tells Telegram. Included from deploy.yml's `always`, and by test/report.infra.test.sh.
 # Inputs: stack, version, deploy_status (ok|rolled-back|failed), fail_step, fail_why, fail_next,
-# hotfix_note (BIDDALOY_HOTFIX_REASON), project_dir. Optional: log_chown=false (the test is not root).
+# hotfix_note (BIDDALOY_HOTFIX_REASON), project_dir. Optional: log_chown=false (the test is not root),
+# smoke_login_skipped (tasks/smoke.yml: the database had no user, so only health ran).
 #
 #   FAILED at: <step> (<stack>, <sha12>)
 #   Why:       <why>
@@ -10,7 +11,7 @@
 #
 # deploys.log line (the prod gate greps ` staging <sha> ok`; the previous-version lookup reads
 # the `ok` lines):
-#   <UTC ISO> <stack> <sha> ok|rolled-back|failed [hotfix: <reason>]
+#   <UTC ISO> <stack> <sha> ok|rolled-back|failed [note: smoke-login-skipped] [hotfix: <reason>]
 - name: Print the failure block
   ansible.builtin.debug:
     msg:
@@ -18,6 +19,13 @@
       - 'Why:       {{ fail_why }}'
       - 'Next:      {{ fail_next }}'
   when: deploy_status != 'ok'
+- name: Warn that the login smoke checks were skipped
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: smoke login checks SKIPPED for {{ stack }}: its database has no user yet (first
+      deploy), so only health and ready ran. They run on the next deploy once users exist
+      (after restore-prod for prod, after the nightly refresh for staging).
+  when: smoke_login_skipped | default(false) | bool
 
 # Only for a valid stack and sha: a typo in the inputs must not write a made-up log line. A
 # hotfix reason that failed the input check (a newline could forge a line) is left out.
@@ -26,6 +34,7 @@
     path: '{{ project_dir }}/deploys.log'
     line: >-
       {{ lookup('ansible.builtin.pipe', 'date -u +%FT%TZ') }} {{ stack }} {{ version }} {{ deploy_status }}{{
+      ' note: smoke-login-skipped' if smoke_login_skipped | default(false) | bool else '' }}{{
       (' hotfix: ' ~ (hotfix_note | trim)) if stack == 'prod' and hotfix_note | trim | length > 0
       and hotfix_note | length <= 200 and not (hotfix_note is search('[\x00-\x1f\x7f]')) else '' }}
     create: true
@@ -47,7 +56,9 @@
     body_format: form-urlencoded
     body:
       chat_id: '{{ tg_chat }}'
-      text: "{{ stack }} {{ version[:12] }} {{ deploy_status }}{{ (' at ' ~ fail_step) if deploy_status != 'ok' else '' }}"
+      text:
+        "{{ stack }} {{ version[:12] }} {{ deploy_status }}{{ (' at ' ~ fail_step) if deploy_status != 'ok' else '' }}{{
+        ' (smoke login skipped: no users yet)' if smoke_login_skipped | default(false) | bool else '' }}"
     timeout: 10
   register: telegram
   failed_when: false

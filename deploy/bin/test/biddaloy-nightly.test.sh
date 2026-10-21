@@ -8,7 +8,8 @@
 # lock; 2 a migrate failure pushes `down&msg=migrate` and never swaps; 3 a smoke failure after the
 # swap swaps back, restarts the app and pushes `down`; 4 a busy lock exits 1 before any docker call;
 # 5 demo-rebuild: exit 3 still restarts the app (warning), another code does not and pushes down;
-# 6 log-archive exports, archives and pushes up; 7 no secret reaches a shim's arguments;
+# 6 log-archive exports (deploy-only), hands the job a tar on stdin, removes the export after
+# success and keeps it after a failure; 7 no secret reaches a shim's arguments;
 # 8 the systemd unit runs the script bare (no flock wrapper, it would invert the lock order).
 set -euo pipefail
 
@@ -24,6 +25,8 @@ cat > "$WORK/bin/docker" <<'SHIM'
 #!/usr/bin/env bash
 line="$*"
 echo "docker $line" >> "$WORK/calls.log"
+# The archive job reads a tar of the export on stdin: keep it to look inside.
+if [[ "$line" == *log-archive.sh* ]]; then cat > "$WORK/archive.tar"; fi
 if [[ -n "${FAIL_MATCH:-}" && "$line" == *"$FAIL_MATCH"* ]]; then exit "${FAIL_RC:-1}"; fi
 case "$line" in
   "ps --format"*) printf 'prod-app-1\nprod-db-1\n' ;;
@@ -123,12 +126,27 @@ FAIL_MATCH=reset.sh FAIL_RC=1 run demo-rebuild
 expect "5 other code: no restart" hasnt "restart app"
 expect "5 other code: down&msg=reset" has "status=down&msg=reset"
 
-# 6 log archive
+# 6 log archive: the job gets a tar on stdin (no bind mount), the host copy goes after success
+mkdir -p "$WORK/opt/logs-export"
+rm -f "$WORK/archive.tar"
 run log-archive
 expect "6 exit 0" test "$RC" = 0
-expect "6 exported a gz per container and host.log.gz" test -f "$WORK/opt/logs-export/$(ls "$WORK/opt/logs-export")/host.log.gz" -a -f "$WORK/opt/logs-export/$(ls "$WORK/opt/logs-export")/prod-app-1.log.gz"
-expect "6 archive job mounts the export" has "-v $WORK/opt/logs-export:/export jobs /app/log-archive.sh"
+expect "6 tar holds a gz per container and host.log.gz" bash -c "tar -tf '$WORK/archive.tar' | grep -q '/host.log.gz\$' && tar -tf '$WORK/archive.tar' | grep -q '/prod-app-1.log.gz\$'"
+expect "6 no bind mount of the export" hasnt ":/export"
+expect "6 the job unpacks into its own /tmp" has "-e LOG_ARCHIVE_EXPORT_DIR=/tmp/export jobs sh -c"
+expect "6 host export removed after success" test -z "$(ls -A "$WORK/opt/logs-export")"
 expect "6 up" has "status=up&msg=ok"
+FAIL_MATCH=log-archive.sh run log-archive
+expect "6 archive failure exits 1, pushes down" bash -c "[[ $RC -eq 1 ]] && grep -qF 'status=down&msg=archive' '$LOG'"
+expect "6 archive failure keeps the host export" test -n "$(ls -A "$WORK/opt/logs-export")"
+d="$(find "$WORK/opt/logs-export" -mindepth 1 -maxdepth 1 | head -1)"
+expect "6 export is deploy-only (0700)" test "$(stat -c %a "$d" 2>/dev/null || stat -f %Lp "$d")" = 700
+rm -rf "$WORK/opt/logs-export"
+# 6b a stack's last ok compose file wins over the live checkout
+printf 'x\n' > "$WORK/opt/prod/stack.yml"
+run log-archive
+expect "6b uses <stack>/stack.yml when the deploy kept one" has "-f $WORK/opt/prod/stack.yml"
+rm -f "$WORK/opt/prod/stack.yml"
 
 # 7 secrets: the password and hash never appear in any shim's arguments, nor in the output
 : > "$LOG"; run staging-refresh

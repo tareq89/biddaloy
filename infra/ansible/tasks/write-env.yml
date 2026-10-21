@@ -14,16 +14,30 @@
 # Values derived here win over the same name in the secrets (the lines are dropped first).
 - name: Derived values for this stack
   ansible.builtin.set_fact:
-    derived_env: "{{ derived_by_stack[stack] }}"
+    derived_env: '{{ derived_by_stack[stack] }}'
     dropped_keys: "{{ ['BACKUP_AGE_PRIVATE_KEY'] if stack == 'staging' else [] }}"
   vars:
     derived_by_stack:
-      prod: { PG_TLS_DIR: '{{ project_dir }}/pg-tls', APP_VERSION: '{{ version }}' }
-      staging: { PG_TLS_DIR: '{{ project_dir }}/pg-tls', APP_VERSION: '{{ version }}', BACKUP_AGE_KEY_DIR: '{{ project_dir }}/restore' }
+      # prod/restore is empty (provision): log-archive's jobs container needs some key dir to mount.
+      prod:
+        {
+          PG_TLS_DIR: '{{ project_dir }}/pg-tls',
+          APP_VERSION: '{{ version }}',
+          BACKUP_AGE_KEY_DIR: '{{ project_dir }}/restore',
+        }
+      staging:
+        {
+          PG_TLS_DIR: '{{ project_dir }}/pg-tls',
+          APP_VERSION: '{{ version }}',
+          BACKUP_AGE_KEY_DIR: '{{ project_dir }}/restore',
+        }
       demo: { PG_TLS_DIR: '{{ project_dir }}/pg-tls', APP_VERSION: '{{ version }}' }
       edge:
         EDGE_DIR: '{{ project_dir }}'
-        REPO_DIR: '{{ repo_root }}'
+        # The nginx/ copy of the last edge deploy that passed nginx -t (deploy.yml), never the
+        # live checkout: a deploy of another stack or a failed one must not change what nginx
+        # renders when it restarts.
+        REPO_DIR: '{{ project_dir }}/release'
         EDGE_TRUSTED_CIDR: '{{ edge_subnet_actual | default(edge_subnet) }}'
         LANDING_VERSION: '{{ version }}'
       ops: { OPS_DIR: '{{ project_dir }}' }

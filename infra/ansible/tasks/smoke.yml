@@ -4,6 +4,23 @@
 # The script is not in the image (it holds server/dist and the SPA only); the checkout's copy
 # is mounted read-only. Credentials are passed by name (-e NAME) with the values in the task
 # environment, so they never appear in the process list. Demo runs health only.
+#
+# First deploy (M2): a database with no user at all (a fresh VM, before restore-prod or the first
+# staging refresh) cannot pass the login checks, so prod and staging then run health only and
+# say so loudly (report.yml): a WARNING line, `note: smoke-login-skipped` on the deploys.log line
+# and in the Telegram message. Ready was already checked per container (rolling-restart.yml).
+# A user count that cannot be read fails the deploy (unknown is not empty).
+- name: How many users does the database have? (0 = first deploy)
+  ansible.builtin.command: >-
+    {{ dc }} exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from public.users"'
+  register: user_count
+  changed_when: false
+  failed_when: user_count.rc != 0 or not (user_count.stdout | trim is match('^[0-9]+$'))
+  when: stack in ['prod', 'staging']
+- name: Skip the login checks on an empty database
+  ansible.builtin.set_fact:
+    smoke_login_skipped: "{{ stack in ['prod', 'staging'] and user_count.stdout | trim | int == 0 }}"
+
 - name: Smoke test the app over the edge network
   ansible.builtin.command: >-
     docker run --rm --network biddaloy-edge
@@ -19,7 +36,7 @@
   no_log: true
   register: smoke
   failed_when: false
-  when: stack in ['prod', 'staging']
+  when: stack in ['prod', 'staging'] and not smoke_login_skipped | bool
 # no_log hides the output (it sits next to the credentials), so print the script's own last
 # verdict line. smoke-post-deploy.mjs prints PASS/FAIL lines and never a credential.
 - name: Stop when the smoke test failed
@@ -27,14 +44,14 @@
     msg: >-
       {{ (smoke.stdout_lines | default([]) | select('search', 'FAIL|usage|smoke:') | list | last)
          | default('the smoke test failed') }}
-  when: stack in ['prod', 'staging'] and smoke.rc | default(0) != 0
+  when: stack in ['prod', 'staging'] and not smoke_login_skipped | bool and smoke.rc | default(0) != 0
 
-- name: Demo health
+- name: Health over the edge network (demo, and a first deploy)
   ansible.builtin.command: >-
     docker run --rm --network biddaloy-edge --entrypoint wget
-    ghcr.io/tareq89/biddaloy-app:{{ version }} -T 5 -qO- http://demo-app:3000/api/health
+    ghcr.io/tareq89/biddaloy-app:{{ version }} -T 5 -qO- http://{{ stack }}-app:3000/api/health
   changed_when: false
-  when: stack == 'demo'
+  when: stack == 'demo' or smoke_login_skipped | bool
 
 # Prod is also checked the way users reach it (Cloudflare or direct). Direct mode's first deploy
 # still serves cert-bootstrap's self-signed placeholder; certbot writes renewal/<domain>.conf once

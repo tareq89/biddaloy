@@ -24,10 +24,11 @@ services:
 
   # nginx will not boot without the certificate edge-mode.sh points at. On a fresh host this
   # writes a 30-day self-signed one for APP_DOMAIN (a no-op when a cert exists). Once nginx
-  # is up, delete the placeholder (rm -r $EDGE_DIR/letsencrypt/live/$APP_DOMAIN), issue the real
-  # one, then the certbot loop below keeps it renewed:
-  #   docker compose -p edge exec certbot certbot certonly --webroot -w /var/www/acme \
-  #     --cert-name $APP_DOMAIN -d $APP_DOMAIN -d $STAGING_DOMAIN ... --force-renewal
+  # is up, delete the placeholder (sudo rm -r /opt/biddaloy/edge/letsencrypt/live/<app domain>),
+  # issue the real one (the certbot container has LETSENCRYPT_EMAIL and APP_DOMAIN from the edge
+  # .env; add -d for every other hostname), then the certbot loop below keeps it renewed:
+  #   docker exec edge-certbot-1 sh -c 'certbot certonly --webroot -w /var/www/acme -n --agree-tos \
+  #     -m "$LETSENCRYPT_EMAIL" --cert-name "$APP_DOMAIN" -d "$APP_DOMAIN" -d <staging domain> ... --force-renewal'
   cert-bootstrap:
     logging: *logging
     image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
@@ -56,6 +57,10 @@ services:
       - sh
       - -c
       - 'while :; do certbot renew --webroot -w /var/www/acme --deploy-hook "touch /var/www/acme/.reload"; sleep 12h; done'
+    # For the first `certbot certonly` (comment above). Required in direct mode (deploy pre-flight).
+    environment:
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:-}
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN must be set}
     volumes:
       - ${EDGE_DIR}/letsencrypt:/etc/letsencrypt
       - ${EDGE_DIR}/acme-webroot:/var/www/acme

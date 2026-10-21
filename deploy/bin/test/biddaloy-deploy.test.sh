@@ -170,13 +170,16 @@ reset
 run "github prod with a hotfix skips the gate" 0 -- from_github "prod $SHA2 --hotfix \"urgent fix\""
 has "$SHIM_LOG" "stack=prod -e version=$SHA2" "hotfix prod deployed"
 
-# Lock.
-reset
-FLOCK_BUSY=1 run "busy lock exits 75" 75 -- bash "$DEPLOY" staging "$SHA"
-has "$T/out" "FAILED at: lock" "lock FAILED block"
-has "$T/out" "Why: another deploy is running" "lock why"
-has "$T/out" "Next: wait for it to finish" "lock next"
-hasnt "$SHIM_LOG" "ansible" "busy lock never runs ansible"
+# Lock. The FLOCK_BUSY shim exists only without a real flock (macOS); Linux (CI) holds the
+# real lock in the L6 case below instead.
+if [ "$HAVE_FLOCK" = 0 ]; then
+  reset
+  FLOCK_BUSY=1 run "busy lock exits 75" 75 -- bash "$DEPLOY" staging "$SHA"
+  has "$T/out" "FAILED at: lock" "lock FAILED block"
+  has "$T/out" "Why: another deploy is running" "lock why"
+  has "$T/out" "Next: wait for it to finish" "lock next"
+  hasnt "$SHIM_LOG" "ansible" "busy lock never runs ansible"
+fi
 
 # Skip backup flag.
 reset
@@ -232,7 +235,8 @@ run "--last-ok with no ok line exits 1" 1 -- bash "$DEPLOY" --last-ok prod
 reset
 run "deploy for locale" 0 -- bash "$DEPLOY" demo "$SHA"
 has "$SHIM_LOG" "locale: C.UTF-8 cfg: $BIDDALOY_ROOT/repo/infra/ansible/ansible.cfg" "ansible runs with C.UTF-8 and the repo ansible.cfg"
-mode=$(stat -f %Lp "$BIDDALOY_ROOT/logs/demo-last-deploy.log" 2> /dev/null || stat -c %a "$BIDDALOY_ROOT/logs/demo-last-deploy.log")
+# GNU first: GNU `stat -f` means file-system status and succeeds, so it must not come first.
+mode=$(stat -c %a "$BIDDALOY_ROOT/logs/demo-last-deploy.log" 2> /dev/null || stat -f %Lp "$BIDDALOY_ROOT/logs/demo-last-deploy.log")
 if [ "$mode" = 640 ]; then ok "deploy log is 0640"; else bad "deploy log mode $mode"; fi
 
 # H2: a lock file that cannot be opened gives a FAILED block, not a silent exit.
@@ -280,11 +284,15 @@ fi
 # L6: the real lock, when this host has flock (the shim covers the 75 path otherwise).
 if [ "$HAVE_FLOCK" = 1 ]; then
   reset
-  ( exec 8>> "$BIDDALOY_ROOT/deploy.lock"; flock -n 8; sleep 5 ) &
+  ( exec 8>> "$BIDDALOY_ROOT/deploy.lock"; flock -n 8; exec sleep 5 ) &
   holder=$!
   sleep 0.5
   run "real flock: busy lock exits 75" 75 -- bash "$DEPLOY" staging "$SHA"
+  has "$T/out" "FAILED at: lock" "real flock: lock FAILED block"
+  has "$T/out" "Why: another deploy is running" "real flock: lock why"
+  hasnt "$SHIM_LOG" "ansible" "real flock: busy lock never runs ansible"
   kill "$holder" 2> /dev/null || true
+  wait "$holder" 2> /dev/null || true
 else
   echo "skip real flock test (no flock on this host; the shim covers the 75 path)"
 fi
@@ -306,6 +314,9 @@ if [ -n "$REAL_AP" ]; then
   cat > "$T/inert.yml" <<PLAY
 - hosts: localhost
   gather_facts: false
+  # CI runs this from infra/ansible, whose ansible.cfg sets become = True: the file would then
+  # be root's 0600 and unreadable here.
+  become: false
   vars:
 $line
   tasks:

@@ -7,7 +7,11 @@
 # Secrets: every task that holds a decrypted value has no_log; nothing here prints one.
 - name: Step is the inputs
   ansible.builtin.set_fact:
-    fail_ctx: { step: inputs, next: 'biddaloy-deploy <prod|staging|demo|edge|ops> <full 40-hex sha> [--hotfix "<reason>"]' }
+    fail_ctx:
+      {
+        step: inputs,
+        next: 'biddaloy-deploy <prod|staging|demo|edge|ops> <full 40-hex sha> [--hotfix "<reason>"]',
+      }
 - name: Check the inputs
   ansible.builtin.assert:
     that:
@@ -24,8 +28,12 @@
 
 - name: Step is the checkout
   ansible.builtin.set_fact:
-    fail_ctx: { step: checkout, next: 'cd {{ repo_root }} && git status; biddaloy-deploy checks out the sha itself,
-      so only a hand edit in the checkout causes this' }
+    fail_ctx:
+      {
+        step: checkout,
+        next: 'cd {{ repo_root }} && git status; biddaloy-deploy checks out the sha itself,
+          so only a hand edit in the checkout causes this',
+      }
 - name: Read the repo HEAD and tree state
   ansible.builtin.shell: | # noqa command-instead-of-module
     set -o pipefail
@@ -46,7 +54,11 @@
 
 - name: Step is decrypt
   ansible.builtin.set_fact:
-    fail_ctx: { step: decrypt, next: 'add the host public key to .sops.yaml, sops updatekeys infra/secrets/*.enc.env, commit, deploy that commit' }
+    fail_ctx:
+      {
+        step: decrypt,
+        next: 'add the host public key to .sops.yaml, sops updatekeys infra/secrets/*.enc.env, commit, deploy that commit',
+      }
     secret_files: "{{ [stack] if stack == 'edge' else [stack, 'edge'] }}"
 - name: Decrypt the secrets with the host key (as text, for .env)
   ansible.builtin.command: sops -d --input-type dotenv --output-type dotenv {{ repo_root }}/infra/secrets/{{ item }}.enc.env
@@ -82,7 +94,11 @@
 
 - name: Step is the settings of this stack
   ansible.builtin.set_fact:
-    fail_ctx: { step: settings, next: 'sops infra/secrets/{{ stack }}.enc.env (or edge.enc.env), set the named keys, commit, deploy that commit' }
+    fail_ctx:
+      {
+        step: settings,
+        next: 'sops infra/secrets/{{ stack }}.enc.env (or edge.enc.env), set the named keys, commit, deploy that commit',
+      }
     required_keys: '{{ required_by_stack[stack] }}'
   vars:
     smoke_keys:
@@ -116,17 +132,37 @@
     that: (secret_env.edge[item] | default('')) | length > 0
     fail_msg: '{{ item }} is empty in infra/secrets/edge.enc.env ({{ edge_mode }} mode)'
     quiet: true
-  loop: "{{ edge_domain_keys + (edge_tunnel_keys if edge_mode == 'tunnel' else ['BASIC_AUTH_HTPASSWD']) }}"
+  loop: "{{ edge_domain_keys + (edge_tunnel_keys if edge_mode == 'tunnel' else ['BASIC_AUTH_HTPASSWD', 'LETSENCRYPT_EMAIL']) }}"
   vars:
-    edge_domain_keys: [APP_DOMAIN, STAGING_DOMAIN, DEMO_DOMAIN, LANDING_DOMAIN, KUMA_DOMAIN, BESZEL_DOMAIN, LOGS_DOMAIN]
-    edge_tunnel_keys: [CLOUDFLARE_TUNNEL_ID, CLOUDFLARE_TUNNEL_CREDENTIALS_JSON, CF_ACCESS_TEAM, CF_ACCESS_AUD_STAGING, CF_ACCESS_AUD_OPS]
+    edge_domain_keys:
+      [
+        APP_DOMAIN,
+        STAGING_DOMAIN,
+        DEMO_DOMAIN,
+        LANDING_DOMAIN,
+        KUMA_DOMAIN,
+        BESZEL_DOMAIN,
+        LOGS_DOMAIN,
+      ]
+    edge_tunnel_keys:
+      [
+        CLOUDFLARE_TUNNEL_ID,
+        CLOUDFLARE_TUNNEL_CREDENTIALS_JSON,
+        CF_ACCESS_TEAM,
+        CF_ACCESS_AUD_STAGING,
+        CF_ACCESS_AUD_OPS,
+      ]
   when: stack == 'edge'
 
 # Staging gate (D10): prod runs only a sha that staging has passed, unless --hotfix says why.
 # The log line is `<UTC ISO> staging <sha> ok`, written by report.yml.
 - name: Step is the staging gate
   ansible.builtin.set_fact:
-    fail_ctx: { step: staging-gate, next: 'biddaloy-deploy staging {{ version }}, or add --hotfix "<reason>"' }
+    fail_ctx:
+      {
+        step: staging-gate,
+        next: 'biddaloy-deploy staging {{ version }}, or add --hotfix "<reason>"',
+      }
   when: stack == 'prod'
 - name: Has staging passed this sha?
   ansible.builtin.command: grep -Eq ' staging {{ version }} ok' {{ biddaloy_root }}/staging/deploys.log
@@ -144,7 +180,11 @@
 
 - name: Step is the disk check
   ansible.builtin.set_fact:
-    fail_ctx: { step: disk, next: 'docker system df; /usr/local/sbin/biddaloy-image-prune; df -h /var/lib/docker' }
+    fail_ctx:
+      {
+        step: disk,
+        next: 'docker system df; /usr/local/sbin/biddaloy-image-prune; df -h /var/lib/docker',
+      }
 - name: Free space on /var/lib/docker (GB)
   ansible.builtin.shell: set -o pipefail; df --output=avail -BG /var/lib/docker | tail -n1 | tr -dc 0-9
   args:
@@ -161,7 +201,11 @@
 # The repo is private (P16): the pull token lives in edge.enc.env.
 - name: Step is the registry
   ansible.builtin.set_fact:
-    fail_ctx: { step: registry, next: 'check GHCR_PULL_USER and GHCR_PULL_TOKEN in infra/secrets/edge.enc.env (token needs read:packages)' }
+    fail_ctx:
+      {
+        step: registry,
+        next: 'check GHCR_PULL_USER and GHCR_PULL_TOKEN in infra/secrets/edge.enc.env (token needs read:packages)',
+      }
 - name: Log in to ghcr.io
   ansible.builtin.command: docker login ghcr.io -u {{ secret_env.edge.GHCR_PULL_USER }} --password-stdin
   args:
@@ -172,7 +216,11 @@
 
 - name: Step is the image
   ansible.builtin.set_fact:
-    fail_ctx: { step: image, next: 'check the Publish image run for {{ version[:12] }}: gh run list -w publish-image.yml' }
+    fail_ctx:
+      {
+        step: image,
+        next: 'check the Publish image run for {{ version[:12] }}: gh run list -w publish-image.yml',
+      }
 - name: Check the images exist in the registry
   ansible.builtin.command: docker manifest inspect ghcr.io/tareq89/{{ item }}:{{ version }}
   loop: '{{ images }}'
@@ -183,7 +231,11 @@
 # adds it), so it is added here to judge the env the container will really get.
 - name: Step is the config check
   ansible.builtin.set_fact:
-    fail_ctx: { step: config-check, next: 'fix the variables named above in infra/secrets/{{ stack }}.enc.env (sops), commit, deploy that commit' }
+    fail_ctx:
+      {
+        step: config-check,
+        next: 'fix the variables named above in infra/secrets/{{ stack }}.enc.env (sops), commit, deploy that commit',
+      }
   when: stack in app_stacks
 - name: Config check from the app image
   ansible.builtin.command: >-

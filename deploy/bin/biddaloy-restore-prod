@@ -14,7 +14,9 @@
 #   2. --yes-restore-prod must repeat that name exactly.
 #   3. The age private key file must be a regular file, mode 0400 or 0600. Its path is the only
 #      thing that is ever on a command line; its content is read only inside the jobs container.
-#   4. The backup is chosen by you (--from) and its object age is printed.
+#   4. The backup is chosen by you (--from) and its object age is printed. latest-* never picks a
+#      dump written at or after this VM's prod database volume was made: the new VM's own `backup`
+#      service dumps its empty database to the same prefix every hour until this restore runs.
 #   5. Empty means: no user and no school except the migration-made 'default-school' (a missing
 #      table counts as 0), else exit 2. restore.sh checks it again, first and inside its transaction.
 #   6. The emptiness check, the wipe (DROP SCHEMA public CASCADE) and the dump load are ONE
@@ -99,8 +101,11 @@ flock -w 3600 9 || { say "swap lock busy for an hour"; exit 1; }
 
 # dc: always the same project, project directory and file. The key directory is handed to compose
 # by interpolation (the environment wins over .env), so the key never touches a command line.
+# The file is the copy prod's last ok deploy kept (deploy.yml); before one, the checkout's.
 export BACKUP_AGE_KEY_DIR="$KEY_DIR" PGPASSWORD="$POSTGRES_PASSWORD"
-dc() { docker compose -p prod --project-directory "$ROOT/prod" -f "$REPO/deploy/stack.yml" "$@"; }
+STACK_YML="$ROOT/prod/stack.yml"
+[[ -f "$STACK_YML" ]] || STACK_YML="$REPO/deploy/stack.yml"
+dc() { docker compose -p prod --project-directory "$ROOT/prod" -f "$STACK_YML" "$@"; }
 psql_db() { dc exec -T -e PGPASSWORD db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -tAqc "$1"; }
 
 # Prints <schools except default-school>|<users>|<current database>. A missing table counts as 0
@@ -113,7 +118,15 @@ COUNT_SQL="SELECT (CASE WHEN to_regclass('public.schools') IS NULL THEN 0
 
 STATE="nothing was modified" OUTCOME=failed
 LOGGED_KEY="$FROM"
-log_deploy() { printf '%s prod restore %s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$LOGGED_KEY" "$1" >> "$DEPLOYS_LOG" || true; }
+# deploys.log is root:deploy 0640 (report.yml): deploy appends through sudo (it has NOPASSWD).
+# A line that cannot be written is a loud warning with the line to add, never silent.
+log_deploy() {
+  local l
+  l="$(date -u '+%Y-%m-%dT%H:%M:%SZ') prod restore $LOGGED_KEY $1"
+  { printf '%s\n' "$l" >> "$DEPLOYS_LOG"; } 2>/dev/null \
+    || printf '%s\n' "$l" | sudo -n tee -a "$DEPLOYS_LOG" >/dev/null 2>&1 \
+    || say "WARN: could not write to $DEPLOYS_LOG; add this line by hand: $l"
+}
 # fail <step> <why> <next>: the FAILED at / Why / Next / State block, then exit 1.
 fail() {
   say "FAILED at: $1"
@@ -143,13 +156,21 @@ export AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$BACK
 aws s3 ls --endpoint-url "$BACKUP_S3_ENDPOINT" "s3://$BACKUP_S3_BUCKET/$1"'
 echo "step: choose-backup"
 listing="$(dc run --rm -T --no-deps -e TZ=UTC jobs sh -c "$LIST_SH" sh "$PREFIX")" || fail choose-backup "could not list the backup bucket" "check BACKUP_S3_* in $ENV_FILE; nothing was changed"
-# aws s3 ls line: "<date> <time> <size> <name>". Newest = highest name (names are timestamps).
+# aws s3 ls line: "<date> <time> <size> <name>" (UTC, TZ=UTC above). Newest = highest name (names
+# are timestamps). latest-* skips anything written at or after this VM's prod database volume was
+# made: those are this VM's own hourly dumps of its empty database.
 if [[ "$PICK" == latest ]]; then
-  line="$(printf '%s\n' "$listing" | awk 'NF >= 4 && $4 ~ /\.dump\.age$/' | sort -k4 | tail -1)"
+  vol_created="$(docker volume inspect -f '{{.CreatedAt}}' prod_pgdata 2>/dev/null)" || vol_created=""
+  cutoff="$(date -u -d "$vol_created" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
+    || date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$vol_created" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" || cutoff=""
+  [[ "$cutoff" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\ [0-9]{2}:[0-9]{2}:[0-9]{2}$ ]] \
+    || fail choose-backup "could not read when this VM's prod database volume (prod_pgdata) was made" "pass an exact --from db/hourly/<file>.dump.age; nothing was changed"
+  say "skipping dumps written since $cutoff UTC (this VM's own prod database)"
+  line="$(printf '%s\n' "$listing" | awk -v c="$cutoff" 'NF >= 4 && $4 ~ /\.dump\.age$/ && ($1 " " $2) < c' | sort -k4 | tail -1)"
 else
   line="$(printf '%s\n' "$listing" | awk -v n="$(basename "$FROM")" 'NF >= 4 && $4 == n' | tail -1)"
 fi
-[[ -n "$line" ]] || fail choose-backup "no backup found for '$FROM'" "list the bucket by hand and pass an exact --from; nothing was changed"
+[[ -n "$line" ]] || fail choose-backup "no backup found for '$FROM' (latest-* ignores this VM's own dumps)" "list the bucket by hand and pass an exact --from; nothing was changed"
 read -r b_date b_time _ b_name <<<"$line"
 [[ "$b_name" =~ ^[A-Za-z0-9._-]+\.dump\.age$ ]] || fail choose-backup "unexpected object name in the listing" "nothing was changed"
 if [[ "$PICK" == latest ]]; then KEY="${PREFIX}${b_name}"; else KEY="$FROM"; fi
@@ -164,7 +185,7 @@ say "target: database $POSTGRES_DB (schools=0 users=0), key file $KEY_BASE in $K
 # --- from here the stack changes -----------------------------------------------------------------
 echo "step: stop-app"
 STATE="app, app2 and backup may be stopped; the database was not touched"
-dc stop app app2 backup || fail stop-app "docker compose stop failed" "run: docker compose -p prod --project-directory $ROOT/prod -f $REPO/deploy/stack.yml ps; then run this again"
+dc stop app app2 backup || fail stop-app "docker compose stop failed" "run: docker compose -p prod --project-directory $ROOT/prod -f $STACK_YML ps; then run this again"
 
 echo "step: restore-db"
 rc=0
@@ -208,7 +229,7 @@ dc run --rm -T --no-deps app node server/dist/scripts/migrate.js pending || rc=$
 case "$rc" in
   0) echo "no pending migrations" ;;
   2) dc run --rm -T --no-deps app node server/dist/scripts/migrate.js run \
-       || fail migrate "migrations failed on the restored data" "fix the cause, then: docker compose -p prod --project-directory $ROOT/prod -f $REPO/deploy/stack.yml run --rm -T --no-deps app node server/dist/scripts/migrate.js run (do not re-run this restore: the database is no longer empty)" ;;
+       || fail migrate "migrations failed on the restored data" "fix the cause, then: docker compose -p prod --project-directory $ROOT/prod -f $STACK_YML run --rm -T --no-deps app node server/dist/scripts/migrate.js run (do not re-run this restore: the database is no longer empty)" ;;
   *) fail migrate "listing pending migrations failed (exit $rc)" "fix the cause, then run migrate.js run by hand (do not re-run this restore)" ;;
 esac
 

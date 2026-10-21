@@ -51,7 +51,11 @@ envval() { # envval <file> <KEY>: value without quotes; no `source` (values hold
   printf '%s' "$v"
 }
 
-dc() { local s="$1"; shift; tmo docker compose -p "$s" --project-directory "$ROOT/$s" -f "$REPO/deploy/stack.yml" "$@"; }
+# The compose file the stack's last ok deploy kept (deploy.yml), else the checkout's. dcs prints
+# the same command for a `Next:` hint, so the hint runs as printed.
+compose_file() { if [[ -f "$ROOT/$1/stack.yml" ]]; then echo "$ROOT/$1/stack.yml"; else echo "$REPO/deploy/stack.yml"; fi; }
+dcs() { echo "docker compose -p $1 --project-directory $ROOT/$1 -f $(compose_file "$1")"; }
+dc() { local s="$1"; shift; tmo docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(compose_file "$s")" "$@"; }
 
 # --- host ---------------------------------------------------------------------------------------
 check_disk() { # <path>
@@ -103,7 +107,7 @@ check_container() { # <name>
   local line st
   line="$(printf '%s\n' "$DOCKER_PS" | grep "^$1|" | head -1)"
   st="${line#*|}"
-  if [[ -z "$line" ]]; then emit "container $1" FAIL "not found" "docker compose -p edge ps -a"
+  if [[ -z "$line" ]]; then emit "container $1" FAIL "not found" "docker ps -a --filter label=com.docker.compose.project=edge"
   elif [[ "$st" == *unhealthy* ]]; then emit "container $1" FAIL "unhealthy" "docker logs --tail 50 $1"
   elif [[ "$st" == *"health: starting"* ]]; then emit "container $1" WARN "still starting" "docker logs --tail 50 $1"
   elif [[ "$st" == Up* ]]; then emit "container $1" OK "${st%% (*}"
@@ -125,14 +129,20 @@ edge_checks() {
       else emit "tunnel connections" FAIL "no 'Registered tunnel connection' in 10 min" "docker logs --since 10m edge-cloudflared-1"; fi
     fi
   fi
+  # The certificate nginx really serves, fetched over 443: certbot's live/ is root-only (0700), so
+  # deploy cannot read the file, and the served one is what users see anyway.
   if [[ "$mode" == direct ]]; then
     need "cert expiry" openssl || return
-    cert="$ROOT/edge/letsencrypt/live/$domain/fullchain.pem"
-    if [[ -z "$domain" || ! -f "$cert" ]]; then emit "cert expiry" WARN "certificate file not found" "ls $ROOT/edge/letsencrypt/live/"; return; fi
-    if ! openssl x509 -noout -checkend 0 -in "$cert" >/dev/null 2>&1; then
-      emit "cert expiry" FAIL "$domain certificate expired" "docker compose -p edge logs --tail 50 certbot"
-    elif ! openssl x509 -noout -checkend $((20 * 86400)) -in "$cert" >/dev/null 2>&1; then
-      emit "cert expiry" WARN "$domain expires in under 20 days ($(openssl x509 -noout -enddate -in "$cert" 2>/dev/null))" "docker compose -p edge logs --tail 50 certbot"
+    if [[ -n "$domain" ]]; then
+      cert="$(tmo openssl s_client -connect 127.0.0.1:443 -servername "$domain" </dev/null 2>/dev/null)"
+    fi
+    if [[ -z "$domain" || "$cert" != *"BEGIN CERTIFICATE"* ]]; then
+      emit "cert expiry" WARN "no certificate served on 127.0.0.1:443 for ${domain:-APP_DOMAIN (unset)}" "docker logs --tail 50 edge-nginx-1"; return
+    fi
+    if ! printf '%s\n' "$cert" | openssl x509 -noout -checkend 0 >/dev/null 2>&1; then
+      emit "cert expiry" FAIL "$domain certificate expired" "docker logs --tail 50 edge-certbot-1"
+    elif ! printf '%s\n' "$cert" | openssl x509 -noout -checkend $((20 * 86400)) >/dev/null 2>&1; then
+      emit "cert expiry" WARN "$domain expires in under 20 days ($(printf '%s\n' "$cert" | openssl x509 -noout -enddate 2>/dev/null))" "docker logs --tail 50 edge-certbot-1"
     else emit "cert expiry" OK "$domain valid for 20+ days"; fi
   fi
 }
@@ -140,7 +150,8 @@ edge_checks() {
 # --- per stack ----------------------------------------------------------------------------------
 last_ok() { # <stack>: last ok sha in deploys.log
   [[ -f "$ROOT/$1/deploys.log" ]] || return 0
-  awk -v s="$1" '$2 == s && $4 == "ok" && $3 ~ /^[0-9a-f]{40}$/ { v = $3 } END { if (v != "") print v }' "$ROOT/$1/deploys.log"
+  # No regex interval: Ubuntu's mawk has none. Same test as biddaloy-deploy's last_ok.
+  awk -v s="$1" '$2 == s && $4 == "ok" && length($3) == 40 && $3 !~ /[^0-9a-f]/ { v = $3 } END { if (v != "") print v }' "$ROOT/$1/deploys.log"
 }
 
 stack_checks() { # <stack>
@@ -158,8 +169,8 @@ stack_checks() { # <stack>
       if [[ "$st" != running || "$h" == unhealthy ]]; then bad+="$svc($st${h:+/$h}) "
       elif [[ "$h" == starting ]]; then warn+="$svc "; fi
     done <<<"$rows"
-    if [[ -n "$bad" ]]; then emit "$s services" FAIL "not healthy: $bad" "docker compose -p $s --project-directory $ROOT/$s -f $REPO/deploy/stack.yml logs --tail 50"
-    elif [[ -n "$warn" ]]; then emit "$s services" WARN "still starting: $warn" "docker compose -p $s --project-directory $ROOT/$s -f $REPO/deploy/stack.yml ps"
+    if [[ -n "$bad" ]]; then emit "$s services" FAIL "not healthy: $bad" "$(dcs "$s") logs --tail 50"
+    elif [[ -n "$warn" ]]; then emit "$s services" WARN "still starting: $warn" "$(dcs "$s") ps"
     else emit "$s services" OK "$(printf '%s\n' "$rows" | wc -l | tr -d ' ') running, none unhealthy"; fi
   fi
 
@@ -170,7 +181,7 @@ stack_checks() { # <stack>
   else
     code="$(dc "$s" exec -T app node -e "fetch('http://127.0.0.1:3000/api/health/ready',{headers:{'x-health-token':process.env.HEALTH_TOKEN}}).then(r=>process.stdout.write(String(r.status))).catch(()=>process.stdout.write('0'))" 2>/dev/null)"
     if [[ "$code" == 200 ]]; then emit "$s ready" OK "ready (200)"
-    else emit "$s ready" FAIL "ready answered ${code:-nothing}" "docker compose -p $s --project-directory $ROOT/$s -f $REPO/deploy/stack.yml logs --tail 50 app"; fi
+    else emit "$s ready" FAIL "ready answered ${code:-nothing}" "$(dcs "$s") logs --tail 50 app"; fi
   fi
 
   # running tag vs last ok deploy
@@ -188,11 +199,11 @@ stack_checks() { # <stack>
   out="$(dc "$s" exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from pg_stat_activity"; psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "show max_connections"' 2>/dev/null)"
   conns="$(printf '%s\n' "$out" | sed -n 1p | tr -d ' ')"; max="$(printf '%s\n' "$out" | sed -n 2p | tr -d ' ')"
   if ! [[ "$conns" =~ ^[0-9]+$ && "$max" =~ ^[0-9]+$ && "$max" -gt 0 ]]; then
-    emit "$s db connections" WARN "cannot read pg_stat_activity" "docker compose -p $s --project-directory $ROOT/$s -f $REPO/deploy/stack.yml ps db"
+    emit "$s db connections" WARN "cannot read pg_stat_activity" "$(dcs "$s") ps db"
   else
     pct=$((conns * 100 / max))
-    if ((pct >= 95)); then emit "$s db connections" FAIL "$conns of $max (${pct}%)" "docker compose -p $s exec db psql -U \$POSTGRES_USER -c 'select state, count(*) from pg_stat_activity group by 1'"
-    elif ((pct >= 80)); then emit "$s db connections" WARN "$conns of $max (${pct}%)" "docker compose -p $s exec db psql -U \$POSTGRES_USER -c 'select state, count(*) from pg_stat_activity group by 1'"
+    if ((pct >= 95)); then emit "$s db connections" FAIL "$conns of $max (${pct}%)" "$(dcs "$s") exec db sh -c 'psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"select state, count(*) from pg_stat_activity group by 1\"'"
+    elif ((pct >= 80)); then emit "$s db connections" WARN "$conns of $max (${pct}%)" "$(dcs "$s") exec db sh -c 'psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"select state, count(*) from pg_stat_activity group by 1\"'"
     else emit "$s db connections" OK "$conns of $max (${pct}%)"; fi
   fi
 }
@@ -205,14 +216,14 @@ backup_check() {
   # shellcheck disable=SC2016  # the keys expand inside the container, on purpose
   out="$(dc prod exec -T backup sh -c 'AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto aws s3 ls --endpoint-url "$BACKUP_S3_ENDPOINT" "s3://$BACKUP_S3_BUCKET/db/hourly/"' 2>/dev/null)"
   newest="$(printf '%s\n' "$out" | awk '{ print $NF }' | grep -E '^[0-9]{8}T[0-9]{6}Z' | sort | tail -1)"
-  if [[ -z "$newest" ]]; then emit "backup age" FAIL "no db/hourly backup found" "docker compose -p prod --project-directory $ROOT/prod -f $REPO/deploy/stack.yml logs --tail 50 backup"; return; fi
+  if [[ -z "$newest" ]]; then emit "backup age" FAIL "no db/hourly backup found" "$(dcs prod) logs --tail 50 backup"; return; fi
   ts="${newest:0:4}-${newest:4:2}-${newest:6:2} ${newest:9:2}:${newest:11:2}:${newest:13:2}"
   ep="$(date -u -d "$ts" +%s 2>/dev/null || date -u -j -f '%Y-%m-%d %H:%M:%S' "$ts" +%s 2>/dev/null)"
   now="$(date -u +%s)"
   if ! [[ "$ep" =~ ^[0-9]+$ ]]; then emit "backup age" WARN "cannot read the time in $newest" "aws s3 ls the db/hourly/ prefix by hand"; return; fi
   age=$(((now - ep) / 60))
-  if ((age > 130)); then emit "backup age" FAIL "newest hourly backup is ${age} min old" "docker compose -p prod --project-directory $ROOT/prod -f $REPO/deploy/stack.yml logs --tail 50 backup"
-  elif ((age > 70)); then emit "backup age" WARN "newest hourly backup is ${age} min old" "docker compose -p prod --project-directory $ROOT/prod -f $REPO/deploy/stack.yml logs --tail 50 backup"
+  if ((age > 130)); then emit "backup age" FAIL "newest hourly backup is ${age} min old" "$(dcs prod) logs --tail 50 backup"
+  elif ((age > 70)); then emit "backup age" WARN "newest hourly backup is ${age} min old" "$(dcs prod) logs --tail 50 backup"
   else emit "backup age" OK "newest hourly backup is ${age} min old"; fi
 }
 

@@ -1,7 +1,10 @@
 # Edge: nginx + landing + cloudflared (Epic 79.0, docs/architecture/30-deployment-target.md).
 # Tunnel mode by default: no published web ports, cloudflared dials out.
 #
-#   EDGE_DIR=/opt/biddaloy/edge docker compose -p edge -f deploy/edge.yml --env-file /opt/biddaloy/edge/.env --profile tunnel up -d
+#   docker compose --project-directory /opt/biddaloy/edge -p edge -f deploy/edge.yml --profile tunnel up -d
+#
+# deploy.yml runs it that way; /opt/biddaloy/edge/.env sets EDGE_DIR and REPO_DIR (the nginx/ copy
+# of the last edge deploy that passed nginx -t, /opt/biddaloy/edge/release).
 #
 # Direct mode (BDIX host, no Cloudflare) adds the overlay, see edge.direct.yml:
 #   docker compose -p edge -f deploy/edge.yml -f deploy/edge.direct.yml ...

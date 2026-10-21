@@ -70,8 +70,8 @@ Lint: `ansible-lint infra/ansible`.
 # laptop: checks the sha is pushed, then ssh deploy@<vm> biddaloy-deploy ...
 BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh staging 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
 BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh prod    3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
-# first deploy on a fresh VM (prod has no staging ok line yet):
-BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh all <sha> --hotfix "first deploy"
+# first deploy on a fresh VM: `all` deploys staging before prod, so prod's gate is met
+BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh all <sha>
 ```
 
 On the VM, `biddaloy-deploy` checks its input, takes `/opt/biddaloy/deploy.lock`, checks out the

@@ -287,6 +287,10 @@
     #                    Files (W3 deploy, pg-tls.yml): server.key 0600 70:70, server.crt and
     #                    ca.crt 0644 (the app reads ca.crt through NODE_EXTRA_CA_CERTS).
     #   staging/restore/ 10001 0500 (the backup container's uid)
+    #   prod/restore/    root:root 0755, empty: the jobs container mounts it (BACKUP_AGE_KEY_DIR),
+    #                    and biddaloy-restore-prod reads a key put there by hand (10001 0400)
+    #   host-groups      root 0644, this host's inventory groups, one per line (biddaloy-deploy
+    #                    all reads it: ops is deployed only where the ops group points)
     #   repo/ logs-export/ deploy 0755      keys/  deploy 0700
     #   logs/  deploy 0775 (biddaloy-deploy writes <stack>-last-deploy.log here)
     #   deploy.lock  deploy 0664 (one deploy at a time; nightly and restore-prod take it first)
@@ -328,6 +332,21 @@
         group: root
         mode: '0755'
       loop: '{{ biddaloy_app_envs }}'
+    # deploy as the operator must list and stat the key here; the key file itself is 10001 0400.
+    - name: Restore directory (prod, empty until a restore)
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/prod/restore'
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: This host's inventory groups (biddaloy-deploy all reads it)
+      ansible.builtin.copy:
+        dest: '{{ biddaloy_root }}/host-groups'
+        content: "{{ group_names | sort | join('\n') }}\n"
+        owner: root
+        group: root
+        mode: '0644'
     - name: Restore directory (staging, backup uid only)
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/staging/restore'

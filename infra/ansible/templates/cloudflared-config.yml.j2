@@ -10,7 +10,8 @@ ingress:
   - hostname: {{ secret_env.edge.KUMA_DOMAIN }}
     path: ^/api/push/
     service: http://nginx:80
-{% for host in [secret_env.edge.APP_DOMAIN, secret_env.edge.LANDING_DOMAIN, secret_env.edge.DEMO_DOMAIN] %}
+{# www.<landing> too: nginx/templates/landing.conf.template redirects it to the apex. #}
+{% for host in [secret_env.edge.APP_DOMAIN, secret_env.edge.LANDING_DOMAIN, 'www.' ~ secret_env.edge.LANDING_DOMAIN, secret_env.edge.DEMO_DOMAIN] %}
   - hostname: {{ host }}
     service: http://nginx:80
 {% endfor %}

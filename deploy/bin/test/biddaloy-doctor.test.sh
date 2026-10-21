@@ -32,6 +32,7 @@ shim systemctl 'case "$*" in
   *show*) echo "Result=$NIGHTLY_RESULT"; echo "ExecMainExitTimestamp=Wed 2026-10-22 02:20:00 UTC" ;;
 esac'
 shim openssl 'case "$*" in
+  *s_client*) [ -n "${CERT_SERVED-1}" ] && echo "-----BEGIN CERTIFICATE-----" ;;
   *-checkend*) prev=""; for a in "$@"; do [ "$prev" = -checkend ] && n="$a"; prev="$a"; done
     [ $((CERT_DAYS * 86400)) -gt "$n" ] ;;
   *-enddate*) echo "notAfter=Dec 31 00:00:00 2026 GMT" ;;
@@ -138,6 +139,9 @@ defaults; set_mode direct; export CERT_DAYS=19; run
 check "cert 19 days WARN" row "cert expiry" WARN
 defaults; set_mode direct; export CERT_DAYS=0; run
 check "cert expired FAIL" row "cert expiry" FAIL
+defaults; set_mode direct; export CERT_SERVED=""; run
+check "no certificate served on 443 WARN" row "cert expiry" WARN
+unset CERT_SERVED
 
 # --- edge, tunnel, stacks ------------------------------------------------------------------------------------
 defaults; export PS_LINES="edge-nginx-1|Up 1 hour (unhealthy)\nedge-landing-1|Up 1 hour (healthy)\n"; run

@@ -40,6 +40,9 @@ check "prints the FAILED line" 'FAILED at: migrate \(prod, 0123456789ab\)' "$wor
 check "prints the Why line" 'Why:       relation fee_items' "$work/out.txt"
 check "prints the Next line" 'Next:      docker compose -p prod logs app' "$work/out.txt"
 check "log line carries status and reason" "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z prod $sha failed hotfix: login broken\$" "$work/prod/deploys.log"
+# The Deploy workflow's summary grep (.github/workflows/deploy.yml) finds the block as printed.
+grep -E -A2 'FAILED at:' "$work/out.txt" > "$work/summary.txt"
+check "workflow summary grep gets the Next line" 'Next: ' "$work/summary.txt"
 
 # 2. a success prints no FAILED block and the prod gate can read it
 run '{"stack":"staging","version":"'$sha'","deploy_status":"ok"}' ""
@@ -59,6 +62,12 @@ if ! tail -n1 "$work/prod/deploys.log" | grep -q 'hotfix:'; then echo "ok   blan
 # 5. Jinja in the reason is data, not code
 run '{"stack":"prod","version":"'$sha'","deploy_status":"failed","fail_step":"inputs","fail_why":"bad","fail_next":"none"}' "{{ lookup('pipe','echo PWNED') }}"
 if ! grep -q 'PWNED$' "$work/prod/deploys.log"; then echo "ok   reason is not templated"; else echo "FAIL reason was executed"; fails=$((fails + 1)); fi
+
+# 7. a first deploy whose login smoke was skipped: loud warning, note on the line, gate still reads it
+run '{"stack":"staging","version":"'$sha'","deploy_status":"ok","smoke_login_skipped":true}' ""
+check "skipped login smoke prints a WARNING" 'WARNING: smoke login checks SKIPPED for staging' "$work/out.txt"
+check "skipped login smoke is noted on the log line" " staging $sha ok note: smoke-login-skipped\$" "$work/prod/deploys.log"
+if tail -n1 "$work/prod/deploys.log" | grep -Eq " staging $sha ok"; then echo "ok   the prod gate still reads the noted line"; else echo "FAIL noted line breaks the prod gate"; fails=$((fails + 1)); fi
 
 # 6. an unknown stack writes no log
 before=$(count)
