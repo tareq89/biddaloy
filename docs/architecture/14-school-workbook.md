@@ -353,6 +353,11 @@ Backup screen says it is too big to restore.
 limits with room to spare. Since #2686 the read streams: `readWorkbook`
 inflates one sheet at a time straight out of the uploaded buffer and keeps
 only the plain rows it returns, never exceljs's whole workbook object model.
+What stays resident for the whole read, besides the upload and those rows,
+is the workbook's shared-strings table and its styles (`openXlsx` parses
+both once, up front, because any sheet may reference them) — that is why the
+measured peak is about 1.5x the unzipped size rather than 1x, and what to
+size `MAX_CONCURRENT_VALIDATES` against.
 (It does not use exceljs's own `WorkbookReader` zip walk — in exceljs 4.4.0
 that walk drops whichever zip parts come last, and our exports put the sheet
 names last; the module doc comment in `workbook-codec.ts` has the details.)
