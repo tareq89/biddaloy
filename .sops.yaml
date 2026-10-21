@@ -1,6 +1,10 @@
-# Encrypts infra/secrets/*.enc.(env|pem) to two age public keys (D7).
-# Public keys only: safe to commit. Replace both placeholders (README step 3)
-# BEFORE running `sops` for the first time.
+# Encrypts infra/secrets/*.enc.(env|pem) to three age public keys: operator, recovery and the
+# host (P5). Public keys only: safe to commit. Replace the three placeholders (README step 3)
+# BEFORE running `sops` for the first time. After replacing them on files that already exist,
+# run `sops updatekeys infra/secrets/<file>` for each.
 creation_rules:
   - path_regex: infra/secrets/.*\.enc\.(env|pem)$
-    age: age1REPLACE_WITH_OPERATOR_PUBLIC_KEY,age1REPLACE_WITH_RECOVERY_PUBLIC_KEY
+    age: >-
+      REPLACE_WITH_OPERATOR_KEY,
+      REPLACE_WITH_RECOVERY_KEY,
+      REPLACE_WITH_HOST_KEY
