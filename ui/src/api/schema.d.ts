@@ -9119,6 +9119,8 @@ export interface components {
         StepUpOtpRequestDto: {
             /** @description The approver's email or phone. */
             identifier: string;
+            /** @enum {string} */
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override";
         };
         StepUpVerifyDto: {
             /** @description The approver's email or phone. */
