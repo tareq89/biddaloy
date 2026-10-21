@@ -33,7 +33,7 @@ const ADMIN_B_EMAIL = 'sms-readiness-admin-b@e2e.example';
 describe('GET /communications/sms-credits route order E2E', () => {
   let app: INestApplication;
   let token: string;
-  let dataSource: DataSource;
+  let dataSource: DataSource | undefined;
 
   async function loginAs(email: string): Promise<string> {
     const res = await supertest(app.getHttpServer())
@@ -44,13 +44,13 @@ describe('GET /communications/sms-credits route order E2E', () => {
   }
 
   async function upsertUser(id: string, email: string, tenantId: string, role: UserRole) {
-    await dataSource.query(
+    await dataSource!.query(
       `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
        VALUES ($1, $2, $3, 'SMS Readiness E2E', 'ACTIVE', NOW(), NOW())
        ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, status = 'ACTIVE'`,
       [id, email, SEED_ADMIN_PASSWORD_HASH],
     );
-    await dataSource.query(
+    await dataSource!.query(
       `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
        VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
       [id, tenantId, role],
@@ -86,13 +86,17 @@ describe('GET /communications/sms-credits route order E2E', () => {
   }, 60000);
 
   afterAll(async () => {
-    for (const id of [OFFICE_STAFF_ID, TEACHER_ID, ADMIN_B_ID]) {
-      await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
-      await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [id]);
-      await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [id]);
+    // Guarded: a beforeAll that failed before `app.get(DataSource)` must surface
+    // its own error, not a TypeError from here, and must still close the app.
+    if (dataSource) {
+      for (const id of [OFFICE_STAFF_ID, TEACHER_ID, ADMIN_B_ID]) {
+        await dataSource.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
+        await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1`, [id]);
+        await dataSource.query(`UPDATE users SET status = 'INACTIVE' WHERE id = $1`, [id]);
+      }
+      await dataSource.query(`DELETE FROM schools WHERE id = $1`, [TENANT_B]);
     }
-    await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_B]);
-    await app.close();
+    await app?.close();
   });
 
   // [78 D37] GET /communications/sms-credits/readiness
@@ -126,15 +130,24 @@ describe('GET /communications/sms-credits route order E2E', () => {
     });
 
     it("tenant isolation: school B's answer reflects B's own settings, not A's", async () => {
-      // B is metered with no credit; A has no gateway at all. Each answer is its own.
-      await dataSource.query(
-        `UPDATE schools SET settings = '{"communications":{"sms":{"metering":"PLATFORM"}}}'::jsonb
-          WHERE id = $1`,
-        [TENANT_B],
-      );
+      // B owns a Greenweb key (saved through the real settings route, so it is
+      // encrypted the way the resolver reads it) and is unmetered, so B is
+      // exactly READY while A, with no gateway, stays NO_GATEWAY. A controller
+      // that ignored tenant.id would answer the same for both.
       const tokenB = await loginAs(ADMIN_B_EMAIL);
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/schools/${TENANT_B}/settings`)
+        .set('Authorization', `Bearer ${tokenB}`)
+        .set('X-Tenant-ID', TENANT_B)
+        .send({
+          version: 1,
+          communications: {
+            sms: { provider: 'greenweb', greenweb: { apiKey: 'sms-readiness-b-key' } },
+          },
+        })
+        .expect(200);
       const resB = await readiness(tokenB, TENANT_B).expect(200);
-      expect(['NO_GATEWAY', 'NO_CREDIT']).toContain(resB.body.sms);
+      expect(resB.body).toEqual({ sms: 'READY' });
       const resA = await readiness(token).expect(200);
       expect(resA.body).toEqual({ sms: 'NO_GATEWAY' });
       // B's admin cannot read A's answer at all: ContextGuard refuses a tenant

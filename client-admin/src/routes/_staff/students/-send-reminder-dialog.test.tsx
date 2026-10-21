@@ -99,18 +99,25 @@ describe('SendReminderDialog SMS readiness warning', () => {
     );
     function Closed() {
       return (
-        <SendReminderDialog open={false} onOpenChange={() => {}} studentIds={ids(2)} onSent={() => {}} />
+        <SendReminderDialog
+          open={false}
+          onOpenChange={() => {}}
+          studentIds={ids(2)}
+          onSent={() => {}}
+        />
       );
     }
     const root = createRootRoute();
     const home = createRoute({ getParentRoute: () => root, path: '/', component: Closed });
-    renderWithRouter(root.addChildren([home]), {
+    const { queryClient, localeReady } = renderWithRouter(root.addChildren([home]), {
       initialEntries: ['/'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await localeReady;
+    // Render-tied, not time-tied: a disabled query never gets a cache entry.
+    expect(queryClient.getQueryState(['sms-readiness'])).toBeUndefined();
     expect(calls).toBe(0);
     expect(screen.queryByRole('dialog')).toBeNull();
   });

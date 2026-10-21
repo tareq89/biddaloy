@@ -53,6 +53,9 @@ export class CreditsController {
       if (error instanceof ProviderNotConfiguredError) return { sms: 'NO_GATEWAY' };
       throw error;
     }
+    // ponytail: `available <= 0` is a yes/no on having any credit at all (D37);
+    // a 1-credit school sending a 2-segment SMS is READY here and still gets
+    // the send path's 409. Segment-aware readiness would need the draft text.
     if (
       (await this.smsCredits.isMetered(tenant.id)) &&
       (await this.smsCredits.getBalance(tenant.id)).available <= 0
