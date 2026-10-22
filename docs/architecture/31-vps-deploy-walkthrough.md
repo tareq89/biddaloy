@@ -393,21 +393,37 @@ ssh deploy@<VPS_IP> biddaloy-doctor
 
 ## 11. After the first deploy
 
-1. **Platform super admin** (runbook 11a; there is no bootstrap command yet). Find the platform
-   school id and put it in `PLATFORM_TENANT_ID` of prod **and** staging:
+1. **Platform school id.** The first migration creates one school, `default-school`. It is the
+   platform school. Read its id and put it in `PLATFORM_TENANT_ID` of prod **and** staging
+   (`sops set`), commit, build images (step 9), redeploy prod:
    ```bash
    ssh deploy@<VPS_IP>
    dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
    dcp prod exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -c "SELECT id, slug FROM schools"'
+   # 1b71ca19-b3d4-4f28-a09e-2b8c2b0a524d|default-school
    ```
-2. **Smoke Test School**: register it with slug `smoke-test-school`, grant it seats from the
+   Ours: `1b71ca19-b3d4-4f28-a09e-2b8c2b0a524d`.
+2. **Platform super admins** with `create-platform-admin` (added on this run; before it, the
+   runbook's Known gap #1 had no command). The password is read from `ADMIN_PASSWORD`, never
+   from the command line; running it twice is safe. Make two: you, and the smoke-test account
+   (its password is `SMOKE_SUPER_ADMIN_PASSWORD` in `prod.enc.env`).
+   ```bash
+   ssh deploy@<VPS_IP>
+   dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
+   read -rs ADMIN_PASSWORD && export ADMIN_PASSWORD          # type or paste, nothing is shown
+   dcp prod run --rm --no-deps -e ADMIN_PASSWORD app \
+     node server/dist/scripts/create-platform-admin.js you@example.com "Your Name"
+   # you@example.com: created
+   unset ADMIN_PASSWORD
+   ```
+3. **Smoke Test School**: register it with slug `smoke-test-school`, grant it seats from the
    platform billing page, create the admin and teacher with the emails and passwords already in
    `prod.enc.env` (`sops -d --extract '["SMOKE_ADMIN_PASSWORD"]' infra/secrets/prod.enc.env`).
-3. **Kuma**, **Beszel**, **Dozzle** at `kuma.`, `beszel.`, `logs.` (runbook 11c–11e). Put each
+4. **Kuma**, **Beszel**, **Dozzle** at `kuma.`, `beszel.`, `logs.` (runbook 11c–11e). Put each
    Kuma push URL into its key (`BACKUP_PUSH_URL`, `LOG_ARCHIVE_PUSH_URL` in prod,
    `STAGING_REFRESH_PUSH_URL` in staging, `DEMO_RESET_PUSH_URL` in demo) and `BESZEL_KEY` into
    edge and ops.
-4. Commit, build images (step 9), redeploy prod with the new sha.
+5. Commit, build images (step 9), redeploy prod with the new sha.
 
 ## 12. Staging and demo
 
@@ -434,4 +450,6 @@ check → `scripts/deploy.sh prod <sha>`, from the laptop or the GitHub **Deploy
 | `biddaloy-deploy` missing on the VPS                                     | the link points into a repo nobody had cloned                                                              | add the repo deploy key, re-run provision (it clones now, `13a0c75`)                                                                                                   |
 | prod `config-check`: `SETTINGS_ENCRYPTION_KEY is required in production` | the empty-key filter (`grep -v '=$'`) also dropped base64 values ending in `=`                             | new key with `sops set`; filter now matches only `KEY=` lines                                                                                                          |
 | prod app restarting, `Cannot find module 'express'`, ready timeout       | `server/src/main.ts` imports `express` but only a dev tool pulled it in; the production install skipped it | `express` 5.2.1 declared in `server/package.json`; Publish images now runs `scripts/check-image-requires.cjs` inside the image so this fails the build, not the deploy |
+| no way to log in on a fresh prod (no user, no command)                   | runbook Known gap #1                                                                                       | `server/dist/scripts/create-platform-admin.js` (step 11.2)                                                                                                             |
+| landing `/` redirects to `http://`                                       | landing nginx builds absolute redirects and only sees http behind the tunnel                               | `absolute_redirect off` in `landing/nginx.conf`                                                                                                                        |
 | `y` and `y.pub` in the repo folder                                       | `y` typed at ssh-keygen's file-name prompt                                                                 | delete them; press Enter at that prompt                                                                                                                                |
