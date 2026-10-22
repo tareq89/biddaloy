@@ -67,9 +67,12 @@
         user: '{{ deploy_user }}'
         key: "{{ deploy_authorized_keys | join('\n') }}"
         exclusive: true
+  # docker before security: the docker role ends with a reset_connection, and on a
+  # first run (as root) that reconnect fails once security has turned root login off.
+  # After security, the play keeps its open connection until it ends.
   roles:
-    - geerlingguy.security
     - geerlingguy.docker
+    - geerlingguy.security
   tasks:
     # Ubuntu's sshd_config includes sshd_config.d/*.conf first and sshd keeps the
     # first value it reads. Cloud images ship 50-cloud-init.conf with
