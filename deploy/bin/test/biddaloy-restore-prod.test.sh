@@ -71,6 +71,11 @@ export COUNTS_BEFORE="0|0|$DB" COUNTS_AFTER="3|12|$DB"
 # When this VM's prod_pgdata volume was made (docker's CreatedAt). Default: now, so every dump is older.
 VOL_CREATED="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 VOL_10H="$(date -u -d '10 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-10H '+%Y-%m-%dT%H:%M:%SZ')"
+# Docker's real shape: the daemon's local offset, e.g. 2026-10-22T10:15:30+06:00 (Asia/Dhaka).
+plus6() { # plus6 <hours ago> -> that moment written as Dhaka time with +06:00
+  local e=$(($(date -u +%s) - $1 * 3600 + 6 * 3600))
+  printf '%s+06:00' "$(date -u -d "@$e" '+%Y-%m-%dT%H:%M:%S' 2>/dev/null || date -u -r "$e" '+%Y-%m-%dT%H:%M:%S')"
+}
 export VOL_CREATED
 
 fails=0
@@ -206,10 +211,20 @@ expect "12 the only other docker call reads the volume's age" bash -c "! grep '^
 VOL_CREATED="$VOL_10H" run "${good[@]}"
 expect "13 a dump newer than this VM's volume is skipped" bash -c "[[ $RC -eq 0 ]] && grep -q 'restore.sh db/hourly/20261021T100000Z.dump.age' '$LOG'"
 expect "13 says it skipped them" outhas "skipping dumps written since"
+expect "13 names the newest skipped dump for a planned move" outhas "newest skipped: db/hourly/20261022T120000Z.dump.age"
 VOL_CREATED="$VOL_10H" run --age-key-file "$WORK/k/key.txt" --from db/hourly/20261022T120000Z.dump.age --yes-restore-prod "$DB"
 expect "13 an exact --from is taken as given" has "restore.sh db/hourly/20261022T120000Z.dump.age"
+VOL_CREATED="$(plus6 10)" run "${good[@]}"
+expect "13 docker's +06:00 form: the newer dump is skipped" bash -c "[[ $RC -eq 0 ]] && grep -q 'restore.sh db/hourly/20261021T100000Z.dump.age' '$LOG'"
+VOL_CREATED="$(plus6 0)" run "${good[@]}"
+expect "13 docker's +06:00 form, volume made now: newest dump kept" has "restore.sh db/hourly/20261022T120000Z.dump.age"
 FAIL_MATCH="volume inspect" run "${good[@]}"
 expect "13 unreadable volume age fails closed, nothing stopped" bash -c "[[ $RC -eq 1 ]] && ! grep -qE ' stop |restore.sh' '$LOG'"
+# GNU date reads "" as today 00:00: an empty or odd answer must fail before any date parsing.
+for v in "" "yesterday" "2026-10-22" "2026-10-22 10:15:30"; do
+  VOL_CREATED="$v" run "${good[@]}"
+  expect "13 volume time '$v' fails closed, nothing stopped" bash -c "[[ $RC -eq 1 ]] && ! grep -qE ' stop |restore.sh' '$LOG' && grep -q 'FAILED at: choose-backup' '$WORK/out.txt'"
+done
 VOL_CREATED="$(date -u -d '100 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-100H '+%Y-%m-%dT%H:%M:%SZ')" run "${good[@]}"
 expect "13 only own dumps in the bucket: none found, nothing stopped" bash -c "[[ $RC -eq 1 ]] && ! grep -qE ' stop |restore.sh' '$LOG'"
 

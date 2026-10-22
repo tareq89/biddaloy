@@ -71,11 +71,12 @@ run_step() {
   "$@" || fail "$name"
 }
 
-# dc <stack> <compose args...>: always the same project, project directory and file. The file is
-# the copy the stack's last ok deploy kept (deploy.yml), not the live checkout, which follows
-# whatever stack was deployed last. Before a first ok deploy there is no copy: the checkout's.
-compose_file() { if [[ -f "$ROOT/$1/stack.yml" ]]; then echo "$ROOT/$1/stack.yml"; else echo "$REPO/deploy/stack.yml"; fi; }
-dc() { local s="$1"; shift; docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(compose_file "$s")" "$@"; }
+# shellcheck source=deploy/bin/lib.sh
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib.sh"
+
+# dc <stack> <compose args...>: always the same project, project directory and file (the copy the
+# stack's last ok deploy kept, lib.sh).
+dc() { local s="$1"; shift; docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(kept_file "$s" stack.yml deploy/stack.yml)" "$@"; }
 
 wait_ready() { # <stack>: /api/health, 24 tries x 5 s (the compose healthcheck's own URL)
   local i
@@ -116,7 +117,7 @@ staging_refresh() {
   run_step start-app dc staging up -d app
   echo "step: ready"; wait_ready staging || fail ready
   run_step smoke dc staging run --rm -T --no-deps \
-    -v "$REPO/scripts/smoke-post-deploy.mjs:/tmp/smoke-post-deploy.mjs:ro" \
+    -v "$(kept_file staging smoke-post-deploy.mjs scripts/smoke-post-deploy.mjs):/tmp/smoke-post-deploy.mjs:ro" \
     -e SMOKE_SCHOOL_SLUG -e SMOKE_ADMIN_EMAIL -e SMOKE_ADMIN_PASSWORD -e SMOKE_TEACHER_EMAIL \
     -e SMOKE_TEACHER_PASSWORD -e SMOKE_SUPER_ADMIN_EMAIL -e SMOKE_SUPER_ADMIN_PASSWORD \
     app node /tmp/smoke-post-deploy.mjs --base-url http://app:3000
@@ -156,9 +157,9 @@ day_offset() { # <days back> -> YYYY-MM-DD in host time (GNU date, BSD date for 
   local t=$(($(date +%s) - $1 * 86400))
   date -d "@$t" +%F 2>/dev/null || date -r "$t" +%F
 }
-# The export is deploy's alone (umask 077): the jobs container (another uid) never mounts it,
-# it reads a tar of it on stdin.
-export_logs() {
+# The export is deploy's alone (umask 077, in this subshell only): the jobs container (another
+# uid) never mounts it, it reads a tar of it on stdin.
+export_logs() (
   local y="$1" t="$2" out="$3" c
   umask 077
   mkdir -p "$out"
@@ -167,7 +168,7 @@ export_logs() {
     docker logs --since "${y}T00:00:00+06:00" --until "${t}T00:00:00+06:00" "$c" 2>&1 | gzip -9 > "$out/$c.log.gz" || return 1
   done < <(docker ps --format '{{.Names}}')
   journalctl --no-pager --since "$y 00:00:00" --until "$t 00:00:00" -u 'biddaloy-*' -u docker 2>&1 | gzip -9 > "$out/host.log.gz" || return 1
-}
+)
 # log-archive.sh unpacks the tar into the container's /tmp, ships and checks it there. The host copy
 # is deleted only after it exited 0; a failed night keeps it for a manual retry.
 archive_logs() { # <exp> <day>

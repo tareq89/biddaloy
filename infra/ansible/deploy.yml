@@ -69,7 +69,22 @@
     rollout: "{{ ['app', 'app2'] if stack == 'prod' else ['app'] }}"
     # Named on every app-stack `up`: staging and demo set COMPOSE_PROFILES for their one-off
     # jobs (jobs, demo-reset), and a bare `up` would try to start those.
-    app_services: "{{ 'db redis seaweedfs app app2 backup' if stack == 'prod' else 'db redis seaweedfs app' }}"
+    # Prod's hourly `backup` is held back while the database had no user before this deploy (a
+    # fresh VM): it would upload empty dumps into the live R2 prefixes, push real hourlies out of
+    # retention and maybe write today's daily. The next prod deploy (after restore-prod) starts it.
+    app_services: >-
+      {{ ('db redis seaweedfs app app2' ~ ('' if (db_users_before | default(1) | int) == 0 else ' backup'))
+         if stack == 'prod' else 'db redis seaweedfs app' }}
+    # Users in the database, in one psql call; a missing table counts as 0 (query_to_xml keeps a
+    # missing table from failing at parse time). Run with `dc exec db`, the query as $1.
+    users_sql: >-
+      SELECT CASE WHEN to_regclass('public.users') IS NULL THEN 0 ELSE (xpath('/row/c/text()',
+      query_to_xml('select count(*) c from public.users', false, true, '')))[1]::text::int END
+    psql_users_sh: 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -tAc "$1"'
+    # The rollback runs the previous version with the compose file(s) its own ok deploy kept
+    # (<stack>/stack.yml, edge/release/edge*.yml), not the failing commit's; the checkout's
+    # only when no copy exists yet.
+    prev_compose_dir: "{{ project_dir ~ '/release' if stack == 'edge' else project_dir }}"
     # Overwritten by write-env; each is copied to <file>.prev first and put back by the rescue.
     rollback_files:
       [.env, cloudflared/config.yml, cloudflared/credentials.json, htpasswd, dozzle/users.yml]
@@ -171,6 +186,7 @@
             rm -rf release.new
             mkdir release.new
             cp -a {{ repo_root }}/nginx release.new/nginx
+            cp -p {{ repo_root }}/deploy/edge.yml {{ repo_root }}/deploy/edge.direct.yml release.new/
           args:
             chdir: '{{ project_dir }}'
           changed_when: false
@@ -200,8 +216,33 @@
           changed_when: false
           when: not ansible_check_mode
 
+        # Counted BEFORE the migration: only a database that had no user before this deploy (a
+        # fresh VM) may skip the login smoke (smoke.yml) and hold back prod's backup. A migration
+        # that empties a populated users table still fails the smoke. Unknown is not empty.
+        - name: Step is the user count
+          ansible.builtin.set_fact:
+            fail_ctx:
+              { step: user-count, next: '{{ dc_hint }} ps db; {{ dc_hint }} logs --tail 100 db' }
+          when: stack in ['prod', 'staging']
+        - name: Database up for the user count
+          ansible.builtin.command: '{{ dc }} up -d --wait --wait-timeout 180 db'
+          changed_when: false
+          when: stack in ['prod', 'staging'] and not ansible_check_mode
+        - name: How many users before the migration?
+          ansible.builtin.command:
+            argv: "{{ dc.split() + ['exec', '-T', 'db', 'sh', '-c', psql_users_sh, 'sh', users_sql] }}"
+          register: users_before
+          changed_when: false
+          failed_when: users_before.rc != 0 or not (users_before.stdout | trim is match('^[0-9]+$'))
+          when: stack in ['prod', 'staging'] and not ansible_check_mode
+        - name: Remember the user count before the migration
+          ansible.builtin.set_fact:
+            db_users_before: '{{ users_before.stdout | trim | int }}'
+          when: stack in ['prod', 'staging'] and not ansible_check_mode
+
         # Prod only. A failed backup stops the deploy before migrations touch the DB. Skipped
-        # only when there is no database volume at all (a truly fresh host).
+        # when there is no database volume at all (a truly fresh host), or no user in it (an
+        # empty dump would only take a real one's place in R2).
         - name: Step is the backup
           ansible.builtin.set_fact:
             fail_ctx:
@@ -211,7 +252,9 @@
         - name: Fresh backup before migrating (prod)
           ansible.builtin.command: '{{ dc }} run --rm --no-deps --entrypoint /app/backup.sh backup'
           changed_when: true
-          when: stack == 'prod' and db_volume_exists | bool and not (skip_backup | bool) and not ansible_check_mode
+          when: >-
+            stack == 'prod' and db_volume_exists | bool and (db_users_before | default(1) | int) > 0
+            and not (skip_backup | bool) and not ansible_check_mode
 
         # `run` starts the missing db / redis / seaweedfs dependencies by itself.
         # migrate.js pending exits 0 none, 2 pending, 1 error.
@@ -260,18 +303,19 @@
                 next: '{{ dc_hint }} run --rm -T demo-reset /app/reset.sh --now; then rerun the deploy',
               }
           when: stack == 'demo'
+        # 42, not 1: compose exits 1 for its own errors too, and those must not start a rebuild.
         - name: Has the demo been built yet?
-          ansible.builtin.command: '{{ dc }} run --rm --no-deps -T demo-reset sh -c "test -s /demo-state/platform-tenant-id"'
+          ansible.builtin.command: '{{ dc }} run --rm --no-deps -T demo-reset sh -c "test -s /demo-state/platform-tenant-id || exit 42"'
           register: demo_built
           changed_when: false
-          failed_when: demo_built.rc not in [0, 1]
+          failed_when: demo_built.rc not in [0, 42]
           when: stack == 'demo' and not ansible_check_mode
         - name: First demo rebuild (fresh host only)
           ansible.builtin.command: '{{ dc }} run --rm -T demo-reset /app/reset.sh --now'
           register: demo_first
           changed_when: true
           failed_when: demo_first.rc not in [0, 3]
-          when: stack == 'demo' and not ansible_check_mode and demo_built.rc == 1
+          when: stack == 'demo' and not ansible_check_mode and demo_built.rc == 42
 
         # Prod (D25): app, ready, then app2, ready. A failure on app stops before app2.
         - name: Step is the app rollout
@@ -285,10 +329,12 @@
           when: stack in app_stacks and not ansible_check_mode
 
         # Edge: the staged nginx/ passed nginx -t, so it becomes what nginx mounts. The old copy
-        # stays as release.prev for a rollback.
+        # stays as release.prev for a rollback. The flag is set before the two moves, so a swap
+        # that stops half way (release gone) is still put back by the rescue.
         - name: Step is the nginx files
           ansible.builtin.set_fact:
             fail_ctx: { step: nginx-files, next: 'ls -l {{ project_dir }}; then rerun the deploy' }
+            release_swapped: '{{ stack == "edge" and not ansible_check_mode }}'
           when: stack == 'edge'
         - name: Make the checked nginx files the live copy (edge)
           ansible.builtin.shell: |
@@ -298,11 +344,8 @@
             mv release.new release
           args:
             chdir: '{{ project_dir }}'
+          register: release_swap
           changed_when: true
-          when: stack == 'edge' and not ansible_check_mode
-        - name: Remember the nginx files changed
-          ansible.builtin.set_fact:
-            release_swapped: true
           when: stack == 'edge' and not ansible_check_mode
 
         - name: Step is the stack start
@@ -338,16 +381,18 @@
           ansible.builtin.include_tasks: tasks/smoke.yml
           when: stack in app_stacks and not ansible_check_mode
 
-        # nightly, doctor and restore-prod run the stack with this copy, so a later deploy of
-        # another stack (which moves the checkout) cannot change the compose file they use.
-        - name: Keep this version's compose file for the host scripts
+        # nightly, doctor, restore-prod and the next deploy's rollback run the stack with these
+        # copies, so a later deploy of another stack (which moves the checkout) cannot change the
+        # compose file or the smoke script they use.
+        - name: Keep this version's compose file and smoke script for the host scripts
           ansible.builtin.copy:
-            src: '{{ repo_root }}/deploy/stack.yml'
-            dest: '{{ project_dir }}/stack.yml'
+            src: '{{ repo_root }}/{{ item }}'
+            dest: '{{ project_dir }}/{{ item | basename }}'
             remote_src: true
             owner: root
             group: '{{ deploy_user }}'
             mode: '0640'
+          loop: [deploy/stack.yml, scripts/smoke-post-deploy.mjs]
           when: stack in app_stacks and not ansible_check_mode
 
         - name: Deploy ok
@@ -388,14 +433,27 @@
               ansible.builtin.command: cp -p {{ project_dir }}/{{ item }}.prev {{ project_dir }}/{{ item }}
               loop: '{{ saved_files }}'
               changed_when: true
+            # Only when the swap finished, or stopped with release gone: release.prev is then the
+            # previous version's copy.
             - name: Put the previous nginx files back (edge)
               ansible.builtin.shell: |
                 set -e
-                if [ -d release.prev ]; then rm -rf release; mv release.prev release; fi
+                if [ -d release.prev ] && { [ ! -d release ] || {{ 'true' if (release_swap.rc | default(1)) == 0 else 'false' }}; }; then
+                  rm -rf release; mv release.prev release
+                fi
               args:
                 chdir: '{{ project_dir }}'
               changed_when: true
               when: stack == 'edge' and release_swapped | bool
+            - name: Is there a compose file from the previous ok deploy?
+              ansible.builtin.stat:
+                path: '{{ prev_compose_dir }}/{{ compose_names[stack][0] }}'
+              register: prev_compose
+            - name: Compose command for the previous version
+              ansible.builtin.set_fact:
+                dc_rollback: >-
+                  {{ (dc_hint | replace(repo_root ~ '/deploy/', prev_compose_dir ~ '/'))
+                     if prev_compose.stat.exists else dc_hint }}
             - name: Pin the previous version
               ansible.builtin.lineinfile:
                 path: '{{ project_dir }}/.env'
@@ -407,15 +465,17 @@
               ansible.builtin.include_tasks: tasks/rolling-restart.yml
               vars:
                 rr_services: '{{ rollout }}'
+                dc: '{{ dc_rollback }}'
               when: stack in app_stacks
             - name: Start the previous version
               ansible.builtin.include_tasks: tasks/compose-up.yml
               vars:
                 up_wait: '{{ stack != "edge" }}'
                 up_services: "{{ app_services if stack in app_stacks else '' }}"
+                dc: '{{ dc_rollback }}'
             # The templates are bind mounts rendered at start: recreate so nginx renders the old ones.
             - name: Recreate nginx on the previous nginx files (edge)
-              ansible.builtin.command: '{{ dc }} up -d --wait --wait-timeout 120 --no-deps --force-recreate nginx'
+              ansible.builtin.command: '{{ dc_rollback }} up -d --wait --wait-timeout 120 --no-deps --force-recreate nginx'
               changed_when: true
               when: stack == 'edge' and release_swapped | bool
             - name: Note the rollback

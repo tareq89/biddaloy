@@ -330,6 +330,18 @@ Then: reconcile `communication_logs` (above), and spot-check any
 `logo_key` the verify output printed against the bucket if you suspect
 objects were lost around the same incident.
 
+### Restore prod onto a fresh VM (`biddaloy-restore-prod`)
+
+Which `--from` to pass depends on whether the old VM still runs:
+
+| Situation                            | Pass                                                                                                             | Why                                                                                                                                                                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The old VM is dead (disaster)        | `--from latest-hourly` (or `latest-daily`)                                                                       | Picks the newest dump written before this VM's `prod_pgdata` volume was made, so never this VM's own empty dumps.                                                                                                      |
+| Planned move (the old VM still runs) | Stop the old VM's app and `backup`, take or wait for one last dump, then `--from db/hourly/<that file>.dump.age` | `latest-*` skips everything written after the new volume was made, so it would restore older data. The script prints the newest skipped dump to make this easy: `newest skipped: db/hourly/20261022T120000Z.dump.age`. |
+
+A fresh prod does not run its hourly `backup` while its database has no user (`deploy.yml`), so it
+does not fill the R2 prefixes with empty dumps. The next `biddaloy-deploy prod` after the restore starts it.
+
 ### Restore files from R2
 
 Files are encrypted in R2 (file contents and names), so read them through
@@ -377,34 +389,34 @@ The restore is refused with a row-by-row list, never a 500. Only run
 All in `.env.example`, grouped under "Object storage" and "Backup and
 disaster recovery":
 
-| Var                            | Ticket | Purpose                                                                                                                     |
-| ------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `S3_ENDPOINT`                  | 15.3.1 | Bucket endpoint (SeaweedFS in dev, your provider in prod)                                                                   |
-| `S3_REGION`                    | 15.3.1 | Bucket region                                                                                                               |
-| `S3_BUCKET`                    | 15.3.1 | Bucket name                                                                                                                 |
-| `S3_ACCESS_KEY_ID`             | 15.3.1 | Bucket credentials                                                                                                          |
-| `S3_SECRET_ACCESS_KEY`         | 15.3.1 | Bucket credentials                                                                                                          |
-| `S3_FORCE_PATH_STYLE`          | 15.3.1 | `true` for SeaweedFS/self-hosted, unset for AWS S3                                                                          |
-| `BACKUP_AGE_PUBLIC_KEY`        | 15.3.2 | Encrypts new backups                                                                                                        |
-| `BACKUP_SCHEDULE`              | 15.3.2 | Cron schedule, `TZ=Asia/Dhaka`. Unset: `0 * * * *` (hourly) in R2 mode, `0 2 * * *` (daily) in legacy mode                  |
-| `BACKUP_RETENTION_DAYS`        | 15.3.2 | Legacy mode only (no `BACKUP_S3_*`): backups older than this are deleted (default 30)                                       |
-| `BACKUP_S3_ENDPOINT`           | #1745  | R2 endpoint `https://<acct>.r2.cloudflarestorage.com`. The six `BACKUP_S3_*` / `BACKUP_RCLONE_CRYPT_*` vars are all-or-none |
-| `BACKUP_S3_BUCKET`             | #1745  | R2 bucket for `db/` and `files/`                                                                                            |
-| `BACKUP_S3_ACCESS_KEY_ID`      | #1745  | R2 API token, scoped to the bucket                                                                                          |
-| `BACKUP_S3_SECRET_ACCESS_KEY`  | #1745  | R2 API token secret                                                                                                         |
-| `BACKUP_RCLONE_CRYPT_PASSWORD` | #1745  | Encrypts file contents and names. Store a copy outside the host                                                             |
-| `BACKUP_RCLONE_CRYPT_SALT`     | #1745  | Second crypt secret (salt). Store a copy outside the host                                                                   |
-| `BACKUP_PUSH_URL`              | #1745  | Uptime Kuma push URL (`?status=up/down&msg=<step>` appended), `http://uptime-kuma:3001/api/push/<token>` on prod. Unset = no push                                               |
-| `BACKUP_HOURLY_KEEP`           | #1745  | Hourly dumps kept (default 72)                                                                                              |
-| `BACKUP_DAILY_KEEP`            | #1745  | Daily dumps kept (default 30)                                                                                               |
-| `BACKUP_TRASH_DAYS`            | #1745  | Days a deleted file stays in `files-trash/` (default 30)                                                                    |
-| `BACKUP_FILES_MAX_DELETE`      | #1745  | Files sync refuses to sync (touches nothing) if it would delete more than this many files in one run (default 500)          |
-| `SENTRY_CRON_MONITOR_URL`      | 15.3.2 | Optional cron check-in                                                                                                      |
-| `DRILL_SCHEDULE`               | #1774  | Cron for the weekly restore drill (default `30 3 * * 0`)                                                                    |
-| `DRILL_PUSH_URL`               | #1774  | Uptime Kuma push URL for the drill, `http://uptime-kuma:3001/api/push/<token>` on prod. Unset = no push                                                                         |
-| `DRILL_DATABASE_URL`           | #1774  | Scratch database (name must contain `drill`; default `<live server>/biddaloy_drill`)                                        |
-| `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Key path inside the container (`/run/age/key.txt`). The key itself is never in `.env`; see "Key handling"                   |
-| `BACKUP_AGE_KEY_DIR`           | #1774  | Host dir of that key, mounted at `/run/age` in `backup` only: `/opt/biddaloy/<env>/drill` (10001, 0500). No default         |
+| Var                            | Ticket | Purpose                                                                                                                           |
+| ------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `S3_ENDPOINT`                  | 15.3.1 | Bucket endpoint (SeaweedFS in dev, your provider in prod)                                                                         |
+| `S3_REGION`                    | 15.3.1 | Bucket region                                                                                                                     |
+| `S3_BUCKET`                    | 15.3.1 | Bucket name                                                                                                                       |
+| `S3_ACCESS_KEY_ID`             | 15.3.1 | Bucket credentials                                                                                                                |
+| `S3_SECRET_ACCESS_KEY`         | 15.3.1 | Bucket credentials                                                                                                                |
+| `S3_FORCE_PATH_STYLE`          | 15.3.1 | `true` for SeaweedFS/self-hosted, unset for AWS S3                                                                                |
+| `BACKUP_AGE_PUBLIC_KEY`        | 15.3.2 | Encrypts new backups                                                                                                              |
+| `BACKUP_SCHEDULE`              | 15.3.2 | Cron schedule, `TZ=Asia/Dhaka`. Unset: `0 * * * *` (hourly) in R2 mode, `0 2 * * *` (daily) in legacy mode                        |
+| `BACKUP_RETENTION_DAYS`        | 15.3.2 | Legacy mode only (no `BACKUP_S3_*`): backups older than this are deleted (default 30)                                             |
+| `BACKUP_S3_ENDPOINT`           | #1745  | R2 endpoint `https://<acct>.r2.cloudflarestorage.com`. The six `BACKUP_S3_*` / `BACKUP_RCLONE_CRYPT_*` vars are all-or-none       |
+| `BACKUP_S3_BUCKET`             | #1745  | R2 bucket for `db/` and `files/`                                                                                                  |
+| `BACKUP_S3_ACCESS_KEY_ID`      | #1745  | R2 API token, scoped to the bucket                                                                                                |
+| `BACKUP_S3_SECRET_ACCESS_KEY`  | #1745  | R2 API token secret                                                                                                               |
+| `BACKUP_RCLONE_CRYPT_PASSWORD` | #1745  | Encrypts file contents and names. Store a copy outside the host                                                                   |
+| `BACKUP_RCLONE_CRYPT_SALT`     | #1745  | Second crypt secret (salt). Store a copy outside the host                                                                         |
+| `BACKUP_PUSH_URL`              | #1745  | Uptime Kuma push URL (`?status=up/down&msg=<step>` appended), `http://uptime-kuma:3001/api/push/<token>` on prod. Unset = no push |
+| `BACKUP_HOURLY_KEEP`           | #1745  | Hourly dumps kept (default 72)                                                                                                    |
+| `BACKUP_DAILY_KEEP`            | #1745  | Daily dumps kept (default 30)                                                                                                     |
+| `BACKUP_TRASH_DAYS`            | #1745  | Days a deleted file stays in `files-trash/` (default 30)                                                                          |
+| `BACKUP_FILES_MAX_DELETE`      | #1745  | Files sync refuses to sync (touches nothing) if it would delete more than this many files in one run (default 500)                |
+| `SENTRY_CRON_MONITOR_URL`      | 15.3.2 | Optional cron check-in                                                                                                            |
+| `DRILL_SCHEDULE`               | #1774  | Cron for the weekly restore drill (default `30 3 * * 0`)                                                                          |
+| `DRILL_PUSH_URL`               | #1774  | Uptime Kuma push URL for the drill, `http://uptime-kuma:3001/api/push/<token>` on prod. Unset = no push                           |
+| `DRILL_DATABASE_URL`           | #1774  | Scratch database (name must contain `drill`; default `<live server>/biddaloy_drill`)                                              |
+| `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Key path inside the container (`/run/age/key.txt`). The key itself is never in `.env`; see "Key handling"                         |
+| `BACKUP_AGE_KEY_DIR`           | #1774  | Host dir of that key, mounted at `/run/age` in `backup` only: `/opt/biddaloy/<env>/drill` (10001, 0500). No default               |
 
 ## Learnings (#1745)
 

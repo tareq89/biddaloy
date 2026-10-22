@@ -16,7 +16,7 @@ TOKEN="FAKE-HEALTH-TOKEN-0123456789"
 PASS=0; FAIL=0
 
 # Real tools the doctor needs, linked into the private PATH (jq only if the machine has it).
-for t in bash env awk sed grep sort tail head tr wc date cat tee dirname rm jq python3; do
+for t in bash env awk sed grep sort tail head tr wc date cat tee dirname readlink rm jq python3; do
   p="$(command -v "$t" 2>/dev/null)" && ln -s "$p" "$BIN/$t"
 done
 

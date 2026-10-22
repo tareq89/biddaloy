@@ -2,24 +2,27 @@
 # Post-deploy checks, run from the app image on the biddaloy-edge network, so staging and
 # prod are tested the way nginx reaches them (no Cloudflare Access in the way, D20).
 # The script is not in the image (it holds server/dist and the SPA only); the checkout's copy
-# is mounted read-only. Credentials are passed by name (-e NAME) with the values in the task
+# (at this deploy's sha) is mounted read-only. Credentials are passed by name (-e NAME) with the values in the task
 # environment, so they never appear in the process list. Demo runs health only.
 #
-# First deploy (M2): a database with no user at all (a fresh VM, before restore-prod or the first
-# staging refresh) cannot pass the login checks, so prod and staging then run health only and
-# say so loudly (report.yml): a WARNING line, `note: smoke-login-skipped` on the deploys.log line
-# and in the Telegram message. Ready was already checked per container (rolling-restart.yml).
+# First deploy: a database that had no user before this deploy's migration (deploy.yml,
+# db_users_before: a fresh VM, before restore-prod or the first staging refresh) and still has
+# none cannot pass the login checks, so prod and staging then run health only and say so loudly
+# (report.yml): a WARNING line, `note: smoke-login-skipped` on the deploys.log line and in the
+# Telegram message. Ready was already checked per container (rolling-restart.yml). A database
+# that HAD users keeps the full login smoke, so a migration that empties `users` still fails it.
 # A user count that cannot be read fails the deploy (unknown is not empty).
-- name: How many users does the database have? (0 = first deploy)
-  ansible.builtin.command: >-
-    {{ dc }} exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from public.users"'
+- name: How many users does the database have now?
+  ansible.builtin.command:
+    argv: "{{ dc.split() + ['exec', '-T', 'db', 'sh', '-c', psql_users_sh, 'sh', users_sql] }}"
   register: user_count
   changed_when: false
   failed_when: user_count.rc != 0 or not (user_count.stdout | trim is match('^[0-9]+$'))
   when: stack in ['prod', 'staging']
-- name: Skip the login checks on an empty database
-  ansible.builtin.set_fact:
-    smoke_login_skipped: "{{ stack in ['prod', 'staging'] and user_count.stdout | trim | int == 0 }}"
+- name: Decide whether the login checks run
+  ansible.builtin.include_tasks: smoke-gate.yml
+  vars:
+    db_users_after: "{{ user_count.stdout | default('') | trim }}"
 
 - name: Smoke test the app over the edge network
   ansible.builtin.command: >-

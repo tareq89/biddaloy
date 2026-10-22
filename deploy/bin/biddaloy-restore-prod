@@ -16,7 +16,10 @@
 #      thing that is ever on a command line; its content is read only inside the jobs container.
 #   4. The backup is chosen by you (--from) and its object age is printed. latest-* never picks a
 #      dump written at or after this VM's prod database volume was made: the new VM's own `backup`
-#      service dumps its empty database to the same prefix every hour until this restore runs.
+#      service would dump its empty database to the same prefix (deploy.yml holds it back while
+#      prod has no user; this is the second guard). latest-* is for a dead old VM. For a planned
+#      move, stop the old VM's writes and pass its final dump as an exact --from (the newest
+#      skipped dump is printed).
 #   5. Empty means: no user and no school except the migration-made 'default-school' (a missing
 #      table counts as 0), else exit 2. restore.sh checks it again, first and inside its transaction.
 #   6. The emptiness check, the wipe (DROP SCHEMA public CASCADE) and the dump load are ONE
@@ -103,8 +106,9 @@ flock -w 3600 9 || { say "swap lock busy for an hour"; exit 1; }
 # by interpolation (the environment wins over .env), so the key never touches a command line.
 # The file is the copy prod's last ok deploy kept (deploy.yml); before one, the checkout's.
 export BACKUP_AGE_KEY_DIR="$KEY_DIR" PGPASSWORD="$POSTGRES_PASSWORD"
-STACK_YML="$ROOT/prod/stack.yml"
-[[ -f "$STACK_YML" ]] || STACK_YML="$REPO/deploy/stack.yml"
+# shellcheck source=deploy/bin/lib.sh
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib.sh"
+STACK_YML="$(kept_file prod stack.yml deploy/stack.yml)"
 dc() { docker compose -p prod --project-directory "$ROOT/prod" -f "$STACK_YML" "$@"; }
 psql_db() { dc exec -T -e PGPASSWORD db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -tAqc "$1"; }
 
@@ -160,13 +164,27 @@ listing="$(dc run --rm -T --no-deps -e TZ=UTC jobs sh -c "$LIST_SH" sh "$PREFIX"
 # are timestamps). latest-* skips anything written at or after this VM's prod database volume was
 # made: those are this VM's own hourly dumps of its empty database.
 if [[ "$PICK" == latest ]]; then
+  # docker prints CreatedAt in the daemon's own offset, e.g. 2026-10-22T10:15:30+06:00. The shape
+  # is checked first: GNU `date -d ""` would read an empty answer as today 00:00 and fail open.
   vol_created="$(docker volume inspect -f '{{.CreatedAt}}' prod_pgdata 2>/dev/null)" || vol_created=""
+  [[ "$vol_created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$ ]] \
+    || fail choose-backup "could not read when this VM's prod database volume (prod_pgdata) was made" "pass an exact --from db/hourly/<file>.dump.age; nothing was changed"
+  # BSD date (local runs) needs +0600, no fraction.
+  bsd_created="$(printf '%s' "$vol_created" | sed -E 's/\.[0-9]+//; s/Z$/+0000/; s/([+-][0-9]{2}):([0-9]{2})$/\1\2/')"
   cutoff="$(date -u -d "$vol_created" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
-    || date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$vol_created" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" || cutoff=""
+    || date -j -u -f '%Y-%m-%dT%H:%M:%S%z' "$bsd_created" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" || cutoff=""
   [[ "$cutoff" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\ [0-9]{2}:[0-9]{2}:[0-9]{2}$ ]] \
     || fail choose-backup "could not read when this VM's prod database volume (prod_pgdata) was made" "pass an exact --from db/hourly/<file>.dump.age; nothing was changed"
   say "skipping dumps written since $cutoff UTC (this VM's own prod database)"
-  line="$(printf '%s\n' "$listing" | awk -v c="$cutoff" 'NF >= 4 && $4 ~ /\.dump\.age$/ && ($1 " " $2) < c' | sort -k4 | tail -1)"
+  dumps="$(printf '%s\n' "$listing" | awk 'NF >= 4 && $4 ~ /\.dump\.age$/')"
+  line="$(printf '%s\n' "$dumps" | awk -v c="$cutoff" '($1 " " $2) < c' | sort -k4 | tail -1)"
+  # A planned move (old VM still writing) has real dumps after the cutoff: name the newest, so the
+  # operator can pass it as an exact --from instead of restoring older data.
+  skipped="$(printf '%s\n' "$dumps" | awk -v c="$cutoff" 'NF >= 4 && ($1 " " $2) >= c' | sort -k4 | tail -1)"
+  if [[ -n "$skipped" ]]; then
+    read -r s_date s_time _ s_name <<<"$skipped"
+    say "newest skipped: ${PREFIX}${s_name} (written $s_date $s_time UTC). If the old VM was still running (a planned move), restore that one with --from ${PREFIX}${s_name}"
+  fi
 else
   line="$(printf '%s\n' "$listing" | awk -v n="$(basename "$FROM")" 'NF >= 4 && $4 == n' | tail -1)"
 fi
