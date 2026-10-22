@@ -194,7 +194,7 @@ secret `DEPLOY_SSH_KEY` in part 5. The playbook accepts only one line of the for
 
 Ask for:
 
-- Ubuntu **LTS** (22.04 or 24.04), x86_64 or arm64
+- Ubuntu **24.04 LTS** or newer, x86_64 or arm64 (22.04 is refused: its Python 3.10 cannot run the ansible-core the deploy uses on the VM)
 - 6 vCPU, 12 GB RAM, 100 GB NVMe (decision P12)
 - a public **IPv4** address
 - your SSH public key installed for **root** (most providers have a field for it)
