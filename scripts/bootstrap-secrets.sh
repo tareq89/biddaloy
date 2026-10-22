@@ -53,7 +53,7 @@ SMOKE_SLUG=smoke-test-school
 
 enc() { # <stack>, dotenv on stdin
   local out="infra/secrets/$1.enc.env"
-  grep -v '=$' | sops -e --input-type dotenv --output-type dotenv --filename-override "$out" /dev/stdin >"$out"
+  grep -vE '^[A-Za-z_][A-Za-z0-9_]*=$' | sops -e --input-type dotenv --output-type dotenv --filename-override "$out" /dev/stdin >"$out"
   echo "wrote $out ($(sops -d "$out" | grep -c =) keys, FILL_ME: $(sops -d "$out" | grep -c '=FILL_ME$'))"
 }
 

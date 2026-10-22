@@ -345,6 +345,16 @@ sops -d --extract '["DEMO_PASSWORD"]' infra/secrets/demo.enc.env
 
 Every secrets change is a new commit, and a deploy pulls images tagged with that exact commit.
 
+Before you spend 20 minutes on a build, run the same config check the deploy runs, against an
+image that already exists on the VPS (it names variables, never values):
+
+```bash
+for s in prod demo; do
+  { sops -d infra/secrets/$s.enc.env; echo APP_VERSION=<any built sha>; } |
+    ssh deploy@<VPS_IP> "docker run --rm -i ghcr.io/tareq89/biddaloy-app:<any built sha> node server/dist/scripts/config-check.js --env $s --file /dev/stdin"
+done                                                      # config ok, config ok
+```
+
 ```bash
 git rev-parse HEAD                                        # the sha you will deploy
 gh workflow run publish-image.yml --ref <branch>          # on main: merging does it
@@ -412,14 +422,15 @@ check → `scripts/deploy.sh prod <sha>`, from the laptop or the GitHub **Deploy
 
 ## Problems we hit, in one table
 
-| Symptom                                                      | Cause                                            | Fix                                                                  |
-| ------------------------------------------------------------ | ------------------------------------------------ | -------------------------------------------------------------------- |
-| `the host Ubuntu 24.04 or newer`                             | VPS on 22.04 (Python 3.10)                       | reinstall 24.04; guide corrected (`7f72d57`)                         |
-| `root@...: Permission denied` halfway through provision      | docker role reconnected after root login was off | finish as `deploy`; roles reordered (`bb888fb`)                      |
-| `Tsconfig not found astro/tsconfigs/strict` in the app image | Docker build stage never installed `landing/`    | `COPY landing/package.json` (`a32410d`)                              |
-| `landing token drift: --logo-ink ...`                        | new logo colours not on the landing-only list    | added them (`2d2edaa`)                                               |
-| Branch images never built                                    | publish workflow was main-only                   | manual runs publish `:<sha>` (`4f685ef`)                             |
-| `tracked but must stay local: infra/secrets/*.enc.env`       | empty `KEY=` lines stay plaintext in sops        | leave empty keys out                                                 |
-| Prod preflight wants `SMOKE_*` before any account exists     | settings check runs on the first deploy too      | set the smoke logins up front, create the accounts in step 11        |
-| `biddaloy-deploy` missing on the VPS                         | the link points into a repo nobody had cloned    | add the repo deploy key, re-run provision (it clones now, `13a0c75`) |
-| `y` and `y.pub` in the repo folder                           | `y` typed at ssh-keygen's file-name prompt       | delete them; press Enter at that prompt                              |
+| Symptom                                                                  | Cause                                                                          | Fix                                                                  |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `the host Ubuntu 24.04 or newer`                                         | VPS on 22.04 (Python 3.10)                                                     | reinstall 24.04; guide corrected (`7f72d57`)                         |
+| `root@...: Permission denied` halfway through provision                  | docker role reconnected after root login was off                               | finish as `deploy`; roles reordered (`bb888fb`)                      |
+| `Tsconfig not found astro/tsconfigs/strict` in the app image             | Docker build stage never installed `landing/`                                  | `COPY landing/package.json` (`a32410d`)                              |
+| `landing token drift: --logo-ink ...`                                    | new logo colours not on the landing-only list                                  | added them (`2d2edaa`)                                               |
+| Branch images never built                                                | publish workflow was main-only                                                 | manual runs publish `:<sha>` (`4f685ef`)                             |
+| `tracked but must stay local: infra/secrets/*.enc.env`                   | empty `KEY=` lines stay plaintext in sops                                      | leave empty keys out                                                 |
+| Prod preflight wants `SMOKE_*` before any account exists                 | settings check runs on the first deploy too                                    | set the smoke logins up front, create the accounts in step 11        |
+| `biddaloy-deploy` missing on the VPS                                     | the link points into a repo nobody had cloned                                  | add the repo deploy key, re-run provision (it clones now, `13a0c75`) |
+| prod `config-check`: `SETTINGS_ENCRYPTION_KEY is required in production` | the empty-key filter (`grep -v '=$'`) also dropped base64 values ending in `=` | new key with `sops set`; filter now matches only `KEY=` lines        |
+| `y` and `y.pub` in the repo folder                                       | `y` typed at ssh-keygen's file-name prompt                                     | delete them; press Enter at that prompt                              |
