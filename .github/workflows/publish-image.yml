@@ -68,6 +68,9 @@ jobs:
         run: |
           out=$(docker run --rm --entrypoint sh "$REGISTRY/biddaloy-app:${{ github.sha }}" -c 'cd /app/client-admin && find . -name "*.map" | head -1')
           [ -z "$out" ] || { echo "source map in image: $out"; exit 1; }
+      # A package only a dev install provides would crash prod at boot ("Cannot find module").
+      - name: Image resolves every module the server requires
+        run: docker run --rm -v "$PWD/scripts/check-image-requires.cjs:/check.cjs:ro" "$REGISTRY/biddaloy-app:${{ github.sha }}" node /check.cjs
       - name: Push
         run: |
           docker push "$REGISTRY/biddaloy-app:${{ github.sha }}"
