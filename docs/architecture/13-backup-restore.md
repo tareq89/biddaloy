@@ -354,6 +354,18 @@ Then: reconcile `communication_logs` (above), and spot-check any
 `logo_key` the verify output printed against the bucket if you suspect
 objects were lost around the same incident.
 
+### Restore prod onto a fresh VM (`biddaloy-restore-prod`)
+
+Which `--from` to pass depends on whether the old VM still runs:
+
+| Situation                            | Pass                                                                                                             | Why                                                                                                                                                                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The old VM is dead (disaster)        | `--from latest-hourly` (or `latest-daily`)                                                                       | Picks the newest dump written before this VM's `prod_pgdata` volume was made, so never this VM's own empty dumps.                                                                                                      |
+| Planned move (the old VM still runs) | Stop the old VM's app and `backup`, take or wait for one last dump, then `--from db/hourly/<that file>.dump.age` | `latest-*` skips everything written after the new volume was made, so it would restore older data. The script prints the newest skipped dump to make this easy: `newest skipped: db/hourly/20261022T120000Z.dump.age`. |
+
+A fresh prod does not run its hourly `backup` while its database has no user (`deploy.yml`), so it
+does not fill the R2 prefixes with empty dumps. The next `biddaloy-deploy prod` after the restore starts it.
+
 ### Restore files from R2
 
 Files are encrypted in R2 (file contents and names), so read them through

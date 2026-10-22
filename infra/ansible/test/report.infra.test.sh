@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tasks/report.yml with a forced failure: the three-line FAILED block is printed and the
+# tasks/report.yml (and, case 8, tasks/smoke-gate.yml) with a forced failure: the three-line FAILED block is printed and the
 # deploys.log line is written. No root, no Docker, no network: a throwaway directory stands in
 # for /opt/biddaloy/<stack>, and no secrets are loaded, so Telegram is skipped.
 # The hotfix reason comes from BIDDALOY_HOTFIX_REASON, as in deploy.yml.
@@ -73,5 +73,31 @@ if tail -n1 "$work/prod/deploys.log" | grep -Eq " staging $sha ok"; then echo "o
 before=$(count)
 run '{"stack":"nope","version":"'$sha'","deploy_status":"failed","fail_step":"inputs","fail_why":"bad","fail_next":"none"}' ""
 if [ "$(count)" = "$before" ]; then echo "ok   unknown stack writes no log line"; else echo "FAIL unknown stack wrote a log line"; fails=$((fails + 1)); fi
+
+# 8. tasks/smoke-gate.yml: the login smoke is skipped only on a database that never had a user.
+# A migration that empties a populated users table (before > 0, after 0) must NOT skip it.
+cat > "$work/gate.yml" <<EOF
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  tasks:
+    - ansible.builtin.include_tasks: $here/../tasks/smoke-gate.yml
+    - ansible.builtin.debug:
+        msg: 'GATE={{ smoke_login_skipped | bool }}'
+EOF
+gate() { # gate <stack> <before> <after> <want True|False> <desc>
+  ansible-playbook -c local -i localhost, "$work/gate.yml" \
+    -e "{\"stack\":\"$1\",\"db_users_before\":\"$2\",\"db_users_after\":\"$3\"}" > "$work/gate.txt" 2>&1
+  if grep -q "GATE=$4" "$work/gate.txt"; then echo "ok   $5"; else echo "FAIL $5"; cat "$work/gate.txt"; fails=$((fails + 1)); fi
+}
+gate staging 0 0 True "gate: fresh database (0 before, 0 after) skips the login smoke"
+gate prod 0 0 True "gate: fresh prod skips too"
+gate staging 5 0 False "gate: a migration that emptied users does not skip"
+gate prod 12 0 False "gate: same on prod"
+gate staging 0 3 False "gate: users appeared, login smoke runs"
+gate staging '' 0 False "gate: unknown before-count never skips"
+gate staging 0 'x' False "gate: unreadable after-count never skips"
+gate demo 0 0 False "gate: demo never takes the login path"
 
 [ "$fails" = 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }

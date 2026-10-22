@@ -147,6 +147,11 @@ printf 'x\n' > "$WORK/opt/prod/stack.yml"
 run log-archive
 expect "6b uses <stack>/stack.yml when the deploy kept one" has "-f $WORK/opt/prod/stack.yml"
 rm -f "$WORK/opt/prod/stack.yml"
+# 6c the staging smoke script is the copy staging's last ok deploy kept, not the checkout's
+printf 'x\n' > "$WORK/opt/staging/smoke-post-deploy.mjs"
+run staging-refresh
+expect "6c smoke mounts <stack>/smoke-post-deploy.mjs" has "-v $WORK/opt/staging/smoke-post-deploy.mjs:/tmp/smoke-post-deploy.mjs:ro"
+rm -f "$WORK/opt/staging/smoke-post-deploy.mjs"
 
 # 7 secrets: the password and hash never appear in any shim's arguments, nor in the output
 : > "$LOG"; run staging-refresh

@@ -24,7 +24,8 @@
     msg: >-
       WARNING: smoke login checks SKIPPED for {{ stack }}: its database has no user yet (first
       deploy), so only health and ready ran. They run on the next deploy once users exist
-      (after restore-prod for prod, after the nightly refresh for staging).
+      (after restore-prod for prod, after the nightly refresh for staging).{{
+      ' The hourly backup is held back until then.' if stack == 'prod' else '' }}
   when: smoke_login_skipped | default(false) | bool
 
 # Only for a valid stack and sha: a typo in the inputs must not write a made-up log line. A

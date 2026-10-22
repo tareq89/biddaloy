@@ -51,11 +51,12 @@ envval() { # envval <file> <KEY>: value without quotes; no `source` (values hold
   printf '%s' "$v"
 }
 
-# The compose file the stack's last ok deploy kept (deploy.yml), else the checkout's. dcs prints
-# the same command for a `Next:` hint, so the hint runs as printed.
-compose_file() { if [[ -f "$ROOT/$1/stack.yml" ]]; then echo "$ROOT/$1/stack.yml"; else echo "$REPO/deploy/stack.yml"; fi; }
-dcs() { echo "docker compose -p $1 --project-directory $ROOT/$1 -f $(compose_file "$1")"; }
-dc() { local s="$1"; shift; tmo docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(compose_file "$s")" "$@"; }
+# shellcheck source=deploy/bin/lib.sh
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib.sh"
+# The compose file the stack's last ok deploy kept (lib.sh). dcs prints the same command for a
+# `Next:` hint, so the hint runs as printed.
+dcs() { echo "docker compose -p $1 --project-directory $ROOT/$1 -f $(kept_file "$1" stack.yml deploy/stack.yml)"; }
+dc() { local s="$1"; shift; tmo docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(kept_file "$s" stack.yml deploy/stack.yml)" "$@"; }
 
 # --- host ---------------------------------------------------------------------------------------
 check_disk() { # <path>
