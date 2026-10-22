@@ -245,11 +245,24 @@ ssh root@<VPS_IP> true                                    # Permission denied (p
 ssh deploy@<VPS_IP> 'ssh -T git@github.com'               # "successfully authenticated"   ← the VPS can read the repo
 ```
 
+After the repo deploy key is on GitHub, run provision once more so it clones the repo
+(`biddaloy-deploy` lives inside it). Before Epic 79 is merged, name the branch that has it:
+
+```bash
+ansible-playbook provision.yml -e repo_bootstrap_ref=epic/79/accum-4 | grep -E 'Repo (cloned|NOT)|changed='
+ssh deploy@<VPS_IP> 'test -x /usr/local/bin/biddaloy-deploy && echo ready'      # ready
+```
+
 > **What went wrong for us.** The first run stopped halfway with `root@...: Permission denied`:
 > the security role turned root login off, then the docker role reconnected as root. The
 > `deploy` user was already working, so we finished with `ansible-playbook provision.yml` (no
 > `-e ansible_user=root`). Fixed for next time: the docker role now runs before the security
 > role (`bb888fb`).
+>
+> And `biddaloy-deploy` was a broken link: it points into `/opt/biddaloy/repo`, which nothing had
+> cloned (the command was meant to clone the repo itself, but it lives in the repo). Fixed:
+> provision now clones the repo once the deploy key works (`repo_bootstrap_ref`, default `main`,
+> `13a0c75`).
 
 ## 8. Secrets
 
@@ -399,13 +412,14 @@ check → `scripts/deploy.sh prod <sha>`, from the laptop or the GitHub **Deploy
 
 ## Problems we hit, in one table
 
-| Symptom                                                      | Cause                                            | Fix                                                           |
-| ------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------- |
-| `the host Ubuntu 24.04 or newer`                             | VPS on 22.04 (Python 3.10)                       | reinstall 24.04; guide corrected (`7f72d57`)                  |
-| `root@...: Permission denied` halfway through provision      | docker role reconnected after root login was off | finish as `deploy`; roles reordered (`bb888fb`)               |
-| `Tsconfig not found astro/tsconfigs/strict` in the app image | Docker build stage never installed `landing/`    | `COPY landing/package.json` (`a32410d`)                       |
-| `landing token drift: --logo-ink ...`                        | new logo colours not on the landing-only list    | added them (`2d2edaa`)                                        |
-| Branch images never built                                    | publish workflow was main-only                   | manual runs publish `:<sha>` (`4f685ef`)                      |
-| `tracked but must stay local: infra/secrets/*.enc.env`       | empty `KEY=` lines stay plaintext in sops        | leave empty keys out                                          |
-| Prod preflight wants `SMOKE_*` before any account exists     | settings check runs on the first deploy too      | set the smoke logins up front, create the accounts in step 11 |
-| `y` and `y.pub` in the repo folder                           | `y` typed at ssh-keygen's file-name prompt       | delete them; press Enter at that prompt                       |
+| Symptom                                                      | Cause                                            | Fix                                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------ | -------------------------------------------------------------------- |
+| `the host Ubuntu 24.04 or newer`                             | VPS on 22.04 (Python 3.10)                       | reinstall 24.04; guide corrected (`7f72d57`)                         |
+| `root@...: Permission denied` halfway through provision      | docker role reconnected after root login was off | finish as `deploy`; roles reordered (`bb888fb`)                      |
+| `Tsconfig not found astro/tsconfigs/strict` in the app image | Docker build stage never installed `landing/`    | `COPY landing/package.json` (`a32410d`)                              |
+| `landing token drift: --logo-ink ...`                        | new logo colours not on the landing-only list    | added them (`2d2edaa`)                                               |
+| Branch images never built                                    | publish workflow was main-only                   | manual runs publish `:<sha>` (`4f685ef`)                             |
+| `tracked but must stay local: infra/secrets/*.enc.env`       | empty `KEY=` lines stay plaintext in sops        | leave empty keys out                                                 |
+| Prod preflight wants `SMOKE_*` before any account exists     | settings check runs on the first deploy too      | set the smoke logins up front, create the accounts in step 11        |
+| `biddaloy-deploy` missing on the VPS                         | the link points into a repo nobody had cloned    | add the repo deploy key, re-run provision (it clones now, `13a0c75`) |
+| `y` and `y.pub` in the repo folder                           | `y` typed at ssh-keygen's file-name prompt       | delete them; press Enter at that prompt                              |
