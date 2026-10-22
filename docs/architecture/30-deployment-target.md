@@ -130,6 +130,8 @@ the next command.
 
 ## Future work, with the trigger that brings each back
 
+Tracked as issues: load balancer #2816, staging/demo off the VM #2817, managed Postgres/PITR #2818, ops on its own VM #2819, R2 Bucket Lock #2820, Cloudflare as code #2821, CI minutes #2808. Also open: first platform super admin command #2822, W3 review leftovers #2823.
+
 | Work                                                           | Trigger                                                                 | First step                                                                 |
 | -------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Move ops (Kuma, Beszel, Dozzle) to its own VM                  | as soon as budget allows; until then **a dead VM pages nobody** (#2749) | point the inventory `ops` group at the new host, run `biddaloy-deploy ops` |
@@ -329,3 +331,9 @@ None of this has run on a real host yet. It cannot be faked from CI. Record each
 #### Run in the closing ticket
 
 `bash -n` and `shellcheck` on every touched script; every `deploy/bin/test/*.test.sh` (deploy test also with a real `ansible-playbook` 2.18.6, so the Jinja check ran); `ansible-playbook --syntax-check` on `provision.yml` and on `deploy.yml` for all five stacks (`-c local -i localhost,`); `ansible-lint` on the touched Ansible files; the `config-check` and `check-tracked-files` specs. Not run (no Docker here): the `*.infra.test.sh` files that start containers, and `yarn ci:local`.
+
+### Wave 4 and epic close
+
+- Docs were rewritten against the code, not the plan: writing the setup guide found nine places where the W3 code disagreed with the plan (first-deploy smoke, `www.` routing, `host-groups`, stale `access_confirmed`, demo first deploy, `LETSENCRYPT_EMAIL`, hints that did not run). All were fixed in PR 3 before this one.
+- Nothing here has run on a real VM. W5 (owner, test VM) is the first real proof; its checklist is in W3 Learnings. Treat every `UNVERIFIED` mark in the setup guide as a to-do.
+- Known gap: no command creates the first platform super admin (#2822).

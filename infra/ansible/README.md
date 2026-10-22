@@ -16,7 +16,7 @@ flowchart LR
 | --- | --- | --- |
 | `provision.yml` | your laptop, against the VM | Hardens a fresh Ubuntu LTS VM (key-only SSH, ufw, fail2ban, auto-updates), installs Docker, makes `/opt/biddaloy`, the host age key and the repo deploy key, installs the `biddaloy-*` commands and the nightly timers. Safe to re-run; the second run ends `changed=0`. |
 | `deploy.yml` | **on the VM**, started by `biddaloy-deploy` | Deploys one stack (`prod`, `staging`, `demo`, `edge` or `ops`) at one 40-hex sha. Never run from the laptop. |
-| `inventory/prod.yml` | both | The host, `edge_mode` (`tunnel` or `direct`), the seven hostnames, `github_deploy_pubkey_pinned`, `access_confirmed`. |
+| `inventory/prod.yml` | both | The host, `edge_mode` (`tunnel` or `direct`), the seven hostnames, `github_deploy_pubkey_pinned`. |
 | `group_vars/all.yml` | both | Non-secret settings: pinned tool versions, nightly job times, ports, locks. |
 | `requirements.yml` | laptop and VM | Pinned Galaxy roles (by commit) and collections. |
 | `tasks/`, `templates/` | included | Pre-flight, env files, smoke test, failure report, the cloudflared config and the nightly systemd units. |
@@ -53,9 +53,7 @@ On the VM the same thing is `biddaloy-deploy <prod|staging|demo|edge|ops|all> <s
 - **The hotfix reason** reaches `deploy.yml` in the environment variable
   `BIDDALOY_HOTFIX_REASON`, never as `-e`: Ansible templates extra vars, so a `{{ }}` in one
   would run as root.
-- **`access_confirmed`** in `inventory/prod.yml` is `false` and nothing in `deploy.yml`
-  reads it any more (searched `infra/`, `deploy/`, `.github/`). It is a leftover of the old
-  setup; the Access check is now part 4d of the guide, done by hand.
+- Staging and ops stay closed without an `access_confirmed` switch: cloudflared checks the Access token (tunnel mode) or nginx basic auth does (direct mode). The Access setup is part 4d of the guide, done by hand.
 - Secrets are not here: see [`infra/secrets/README.md`](../secrets/README.md). The CI guard
   (`scripts/check-tracked-files.mjs`) fails if a `.vault*` file or a decrypted `.env` is
   committed.
