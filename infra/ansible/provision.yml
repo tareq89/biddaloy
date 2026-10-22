@@ -421,6 +421,23 @@
       ansible.builtin.slurp:
         src: '/home/{{ deploy_user }}/.ssh/github_repo.pub'
       register: repo_deploy_pub
+    # biddaloy-deploy lives in the repo (/usr/local/bin links into it), so it cannot clone the
+    # repo itself the first time. Provision does, once the repo deploy key is on GitHub; until
+    # then this fails softly and "Keys to register" says to re-run. Same URL as biddaloy-deploy.
+    # The branch must contain deploy/bin: main once Epic 79 is merged; before that, pass
+    # -e repo_bootstrap_ref=<branch>. Later deploys check out their own sha.
+    - name: Is the repo cloned?
+      ansible.builtin.stat:
+        path: '{{ biddaloy_root }}/repo/.git'
+      register: repo_git
+    - name: First clone of the repo
+      ansible.builtin.command: git clone --quiet --branch {{ repo_bootstrap_ref | default('main') }} git@github.com:tareq89/biddaloy.git {{ biddaloy_root }}/repo
+      become: true
+      become_user: '{{ deploy_user }}'
+      register: repo_clone
+      changed_when: repo_clone.rc == 0
+      failed_when: false
+      when: not repo_git.stat.exists
 
     # Nightly jobs (D11): host systemd timers. biddaloy-nightly takes deploy.lock, then the
     # host swap lock, itself (same order as biddaloy-restore-prod), so a job never overlaps a
@@ -548,6 +565,7 @@
           - 'Add it to .sops.yaml, run `sops updatekeys infra/secrets/*.enc.env`, and commit.'
           - 'REPO DEPLOY KEY: {{ repo_deploy_pub.content | b64decode | trim }}'
           - 'Add it as a read-only deploy key on the GitHub repo (Settings > Deploy keys).'
+          - "{{ 'Repo cloned: biddaloy-deploy is ready.' if repo_git.stat.exists or (repo_clone.rc | default(1)) == 0 else 'Repo NOT cloned yet: add the deploy key above on GitHub, then re-run provision.' }}"
 
   handlers:
     - name: Create tmpfiles
