@@ -194,9 +194,7 @@ knownIssues:
 
 <details>
 <summary><strong>পুরো কাজটি একসাথে</strong></summary>
-…GIFs, and the video marker:…
-<!-- guide:generated:video:<feature> -->
-<!-- /guide:generated -->
+…GIFs (desktop, then phone at width 300). No video block: narrated video is deferred (D48).…
 </details>
 
 **সম্পর্কিত পাতা**
