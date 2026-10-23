@@ -1,48 +1,31 @@
-# Local build overlay: builds the images instead of pulling them from GHCR and
-# makes a dummy TLS cert so nginx can boot.
+# Local build of deploy/stack.yml: builds the images instead of pulling them from GHCR.
+# Paths are relative to deploy/ (the directory of the first -f file).
 #
-#   APP_VERSION=local TLS_CERT_DIR=./.certs docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
+#   ENV_NAME=local APP_VERSION=local docker compose -p local -f deploy/stack.yml -f docker-compose.build.yml build
 #
-# Demo host: add -f docker-compose.demo.yml -f docker-compose.demo.build.yml.
-
-x-logging: &logging
-  driver: json-file
-  options:
-    max-size: '10m'
-    max-file: '3'
-
+# Needs a current Docker Compose for `service:` contexts: 2.20.2 reads them as a folder path.
 services:
   app:
     build:
-      context: .
+      context: ..
       dockerfile: Dockerfile
-      # Inlined into the client bundle at build time (see .env.example).
-      args:
-        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
-        VITE_SUPPORT_URL: ${SUPPORT_CONTACT_URL:-}
 
   backup:
     build:
-      context: ./scripts/backup
+      context: ../scripts/backup
       dockerfile: Dockerfile
 
-  # Writes a self-signed origin.pem / origin.key into ./.certs (ignored by version control).
-  cert-bootstrap:
-    logging: *logging
-    image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20
-    entrypoint: ['sh', '/scripts/generate-dummy-cert.sh']
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN:-localhost}
-    volumes:
-      - ./.certs:/certs
-      - ./nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro
-    restart: 'no'
+  jobs:
+    build:
+      context: ../scripts/backup
+      dockerfile: Dockerfile
 
-  # Same target as the base mount, so compose replaces it with the local dummy pair.
-  nginx:
-    logging: *logging
-    volumes:
-      - ./.certs:/etc/nginx/certs:ro
-    depends_on:
-      cert-bootstrap:
-        condition: service_completed_successfully
+  demo-reset:
+    build:
+      context: ../scripts/demo
+      dockerfile: Dockerfile
+      # `FROM app` in the Dockerfile is the `app` service's image, built first and fresh.
+      # `backup` gives the demo image db-swap.sh (W1.05).
+      additional_contexts:
+        app: service:app
+        backup: ../scripts/backup

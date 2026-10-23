@@ -36,9 +36,12 @@ updates:
           - "minor"
           - "patch"
 
-  # docker-compose.yml image digests ([75.29]).
+  # docker-compose.yml image digests ([75.29]). Dependabot only reads files whose name
+  # contains `compose` (FILENAME_REGEX in dependabot-core's docker_compose file_fetcher.rb),
+  # so deploy/stack.yml, edge*.yml and ops.yml are NOT bumped until they are renamed
+  # (e.g. deploy/compose.stack.yml); the /deploy entry is for that.
   - package-ecosystem: "docker-compose"
-    directory: "/"
+    directories: ["/", "/deploy"]
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

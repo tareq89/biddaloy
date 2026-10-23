@@ -294,6 +294,14 @@ describe('[8.12.7] browser tracing wiring', () => {
     expect(vi.mocked(Sentry.init).mock.calls.at(-1)?.[0]?.integrations).toEqual([]);
   });
 
+  it('sends the release when given, none when empty', () => {
+    initSentry({ dsn: 'https://key@sentry.example/1', environment: 'production', release: '1.2.3' });
+    expect(vi.mocked(Sentry.init).mock.calls.at(-1)?.[0]?.release).toBe('1.2.3');
+
+    initSentry({ dsn: 'https://key@sentry.example/1', environment: 'production', release: '' });
+    expect(vi.mocked(Sentry.init).mock.calls.at(-1)?.[0]?.release).toBeUndefined();
+  });
+
   it('samples 10% of transactions by default, so a traffic spike cannot exhaust the quota', () => {
     initSentry({ dsn: 'https://key@sentry.example/1', environment: 'production', router });
 
