@@ -1,21 +1,21 @@
 # Backup and disaster recovery
 
-How SchoolManager's database gets backed up, how to restore it, and what to do
-about the parts a database restore doesn't cover (the object store,
-in-flight background jobs).
+How SchoolManager's database gets backed up, how the nightly staging copy
+proves the backups work, how to restore, and what to do about the parts a
+database restore doesn't cover (the object store, in-flight background jobs).
 
-> Operator steps (day 0, first deploy, releases, alerts, restore) live in
+> Operator steps (day 0, first deploy, releases, restore commands) live in
 > [28-platform-runbook.md](28-platform-runbook.md). This page keeps how backups work.
 
 ## The numbers
 
-|                                      |                                                                                                                                                          |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RPO** (how much data you can lose) | 1 hour — one backup an hour (R2 mode; 24 h in legacy/dev mode, default 02:00)                                                                            |
-| **RTO** (how long a restore takes)   | 4 hours                                                                                                                                                  |
-| **Retention**                        | 72 hourly + 30 daily dumps, 30 days of deleted-file history (R2 mode)                                                                                    |
-| **Drill cadence**                    | Quarterly — run [`restore-drill.yml`](../../.github/workflows/restore-drill.yml) manually                                                                |
-| **Backup owner**                     | Whoever holds the `BACKUP_AGE_PUBLIC_KEY`/private-key pair for the environment (see "Key handling" below) — set this to a real name/role per environment |
+|                                      |                                                                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **RPO** (how much data you can lose) | 1 hour: one backup an hour                                                                                                                       |
+| **RTO** (how long a restore takes)   | 4 hours                                                                                                                                          |
+| **Retention**                        | 100 hourly + 30 daily database dumps (D2); deleted or changed files stay 30 days in `files-trash/`; logs 180 days                                |
+| **Restore proof**                    | Every night: the staging refresh restores the day's backup into a scratch database and scrubs it (D5). There is no separate drill any more       |
+| **Backup owner**                     | Whoever holds the offline copy of the `BACKUP_AGE_PRIVATE_KEY` for the environment (see "Key handling"). Set this to a real name per environment |
 
 RPO of 1h means: if the database is lost right now, everything written
 since the last hourly backup (up to 1 hour ago) is gone.
@@ -24,57 +24,50 @@ since the last hourly backup (up to 1 hour ago) is gone.
 
 ```mermaid
 flowchart LR
-    db[(Postgres db)] -->|pg_dump -Fc| dump[dump bytes]
+    db[(prod Postgres)] -->|pg_dump -Fc| dump[dump bytes]
     dump -->|age -r PUBLIC_KEY| enc[encrypted bytes]
-    enc -->|aws s3 cp| bucket[(S3 bucket<br/>backups/db/*.dump.age)]
-    logos[Live app writes<br/>e.g. school logos] -.->|StorageService.put| bucket
+    enc -->|aws s3 cp| bucket[("R2 bucket<br/>db/hourly/*.dump.age")]
+    files[Uploaded files<br/>in SeaweedFS] -->|rclone sync, encrypted| bucket
 ```
 
-### The hourly run to R2 (production)
+The prod `backup` container (image `biddaloy-backup`, run by supercronic as uid
+10001, `TZ=Asia/Dhaka`) runs `backup.sh` every hour at minute 0. A prod deploy
+also runs it once before migrating. Plaintext never touches disk: `pg_dump`,
+`age` and `aws s3 cp` are one pipe, and the pipe is the only place the plaintext
+exists. Prod holds only the **public** key, so a stolen prod host can write
+backups but cannot read them.
 
-With the `BACKUP_S3_*` vars set, `backup.sh` runs every hour and writes to
-Cloudflare R2 instead. Example key: `db/hourly/20260920T200000Z.dump.age`.
+### The hourly run to R2
+
+Example key: `db/hourly/20260920T200000Z.dump.age`.
 
 ```mermaid
 flowchart TD
-    start([cron, every hour]) --> dump["pg_dump | age | aws s3 cp<br/>db/hourly/&lt;UTC ts&gt;.dump.age"]
+    start([timer, every hour]) --> dump["pg_dump | age | aws s3 cp<br/>db/hourly/&lt;UTC ts&gt;.dump.age"]
     dump --> h{"Dhaka hour >= 02<br/>and today's daily missing?"}
     h -->|yes| daily["server-side copy to<br/>db/daily/&lt;date&gt;.dump.age"]
     h -->|no| prune
-    daily --> prune["prune db: keep 72 hourly,<br/>30 daily"]
+    daily --> prune["prune db: keep 100 hourly,<br/>30 daily"]
     prune --> files["rclone sync SeaweedFS bucket<br/>(not backups/) to r2crypt:files<br/>changed or deleted files go to<br/>files-trash/&lt;date&gt;/"]
     files --> trash["purge trash folders older than 30 days"]
     trash --> push["Uptime Kuma push: up<br/>(any failed step: down + step name, exit non-zero)"]
 ```
 
-| What                                                           | Where in R2           | Kept for     |
-| -------------------------------------------------------------- | --------------------- | ------------ |
-| Hourly database dumps                                          | `db/hourly/`          | 72 (3 days)  |
-| Daily database dumps                                           | `db/daily/`           | 30 (30 days) |
-| Files (contents + names encrypted; top-level folder names too) | `files/`              | current copy |
-| Deleted/changed files                                          | `files-trash/<date>/` | 30 days      |
+| What                                                           | Where in R2           | Kept for           |
+| -------------------------------------------------------------- | --------------------- | ------------------ |
+| Hourly database dumps                                          | `db/hourly/`          | 100 (about 4 days) |
+| Daily database dumps                                           | `db/daily/`           | 30 (30 days)       |
+| Files (contents + names encrypted; top-level folder names too) | `files/`              | current copy       |
+| Deleted/changed files                                          | `files-trash/<date>/` | 30 days            |
+| Host and container logs (see "The log archive")                | `logs/<date>/`        | 180 days           |
 
-**RPO is now 1 hour** (was 24 h). Without `BACKUP_S3_*` (local dev, the
-restore drill) the old behaviour stays: one `backups/db/` key per run, once
-a day at 02:00 by default, pruned by age with `BACKUP_RETENTION_DAYS`, no
-files sync. Legacy dumps sit on the same disk as the database, so legacy
-mode stays daily unless you set `BACKUP_SCHEDULE` yourself.
-
-The default schedule depends on the mode (`entrypoint.sh` picks it when
-`BACKUP_SCHEDULE` is unset):
-
-| Mode                     | Default `BACKUP_SCHEDULE` |
-| ------------------------ | ------------------------- |
-| R2 (all six vars set)    | `0 * * * *` (hourly)      |
-| Legacy (none of the six) | `0 2 * * *` (02:00 daily) |
-
-**Upgrading an existing deploy:** a production `.env` that sets
-`BACKUP_SCHEDULE='0 2 * * *'` must drop that line (or set `0 * * * *`), or
-the R2 backup stays daily. After the switch, keep the old `backups/db/`
-objects in SeaweedFS: the files sync skips `backups/`, so they are your only
-history from before R2. Delete them once (a one-time cleanup) only after R2
-holds 30 daily dumps in `db/daily/` and a test restore from R2 has worked
-(see "Restore runbook" below).
+Without the `BACKUP_S3_*` variables (local dev) the container keeps the old
+single-key behaviour: one `backups/db/` dump a day at 02:00, pruned by age with
+`BACKUP_RETENTION_DAYS`, no files sync. That mode is for development only: its
+dumps sit on the same disk as the database. Production always sets all six of
+`BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`,
+`BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_RCLONE_CRYPT_PASSWORD`,
+`BACKUP_RCLONE_CRYPT_SALT` (all or none).
 
 **Safety checks before files are touched:**
 
@@ -100,7 +93,7 @@ holds 30 daily dumps in `db/daily/` and a test restore from R2 has worked
 - Recommended (a Cloudflare setting, not code): add R2 **Bucket Lock** rules
   so a compromised host with the delete-capable token cannot wipe the
   offsite dumps. Keep each lock clearly **shorter** than its keep window, for
-  example `db/hourly/` 48 hours (keep 72) and `db/daily/` 25 days (keep 30).
+  example `db/hourly/` 72 hours (keep 100, about 100 hours) and `db/daily/` 25 days (keep 30).
   A lock equal to the window breaks: one extra or manual run, or a dump that
   finishes a few seconds faster, makes the prune try to delete a key that is
   still locked. The prune then fails, and because the db prunes run first,
@@ -109,28 +102,77 @@ holds 30 daily dumps in `db/daily/` and a test restore from R2 has worked
 If the network is down at the start, the run probes and waits (up to
 `BACKUP_NET_WAIT_SECS`, default 900) instead of failing at once.
 
-Two independent things land in the same bucket, and that's the key fact
-this whole doc is built around:
+## The nightly staging refresh is the restore drill
 
-- **`backups/db/*.dump.age`** — a snapshot (legacy/dev layout, daily by default; R2 uses `db/hourly/`), written by
-  [`scripts/backup/backup.sh`](../../scripts/backup/backup.sh). Consistent
-  as of the moment `pg_dump` ran.
-- **Everything else** (e.g. `tenants/<id>/logos/*.png`, written by
-  `StorageService` — see `server/src/modules/storage/`) — live, current
-  right now, never "backed up" in the pg_dump sense because it was never
-  in Postgres to begin with. The bucket itself _is_ the durable copy.
+A backup nobody restores is a hope, not a backup. So every night staging is
+rebuilt from the prod backup. If that works, last night's backup is proven
+restorable (D5). It replaced the old weekly drill, which only checked row
+counts once a week.
 
-**Consistency rule:** after a restore, the database reflects yesterday's
-world and the bucket reflects today's (up to an hour old in R2 mode). A row can reference an object key
-that didn't exist yet at backup time (fine — it exists now) or, if an
-object was deleted between the backup and now, a row can reference a key
-that's gone. `scripts/backup/verify.sql` prints every `schools.logo_key`
-value after a restore specifically so an operator can spot-check which of
-those went missing — see the restore runbook below.
+```mermaid
+sequenceDiagram
+  participant T as systemd timer 02:20
+  participant N as biddaloy-nightly staging-refresh
+  participant J as jobs container (staging)
+  participant R as R2 (read-only token)
+  participant P as Postgres (staging)
+  participant K as Uptime Kuma
+  T->>N: start (holds deploy.lock, then swap lock)
+  N->>J: staging-refresh.sh
+  J->>R: wait for db/daily/TODAY.dump.age (until 02:50)
+  J->>P: create biddaloy_staging_next
+  J->>R: restore.sh: download, age decrypt, pg_restore
+  J->>P: scrub.sql in ONE transaction
+  J->>P: verify: schools, users, students not empty
+  N->>P: migrate _next with the staging app image
+  N->>P: stop app, db-swap.sh (rename live to _prev, _next to live)
+  N->>N: flush Redis, start app, ready, smoke
+  N->>K: push up (or down + failed step)
+```
 
-Plaintext dump bytes never touch disk — `backup.sh`'s three commands
-(`pg_dump` → `age` → `aws s3 cp`) are one pipe, and the pipe is the only
-place the plaintext exists.
+**What a green night proves:** the newest daily dump downloads, decrypts with
+the real private key, `pg_restore` loads it, every personal-data column can be
+scrubbed, the current code's migrations run on real prod data, and the app
+boots and passes the smoke test on the result.
+
+**What it does not prove:** that the _hourly_ dumps of other hours work (they
+are the same pipe, so unlikely to differ), that uploaded **files** can be
+restored (staging gets no files), or that a restore onto an _empty prod_ VM
+works. That last path is `biddaloy-restore-prod` (below); rehearse it after any
+change to it.
+
+If the 02:00 daily is late, the job waits until `STAGING_REFRESH_DEADLINE`
+(default 02:50) and then fails with a `down` push; staging keeps yesterday's
+copy. A failure after the swap swaps yesterday's database back. The swap itself
+(`scripts/backup/db-swap.sh`) renames by name and accepts only
+`biddaloy_staging*` and `biddaloy_demo*` databases, so it can never touch prod.
+
+### The scrub (D6) and the column guard
+
+Staging must never be able to message a real person or leak one. `scripts/backup/scrub.sql`
+runs on the restored copy, in one transaction, before the app ever sees it:
+
+| Data                                                                                                                                                        | What happens                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Emails, phones, names, addresses, guardian details, free-text notes                                                                                         | replaced by fakes built from the row id (stable, unique, no original value), or `NULL`, or `'[scrubbed]'` where the column is `NOT NULL` and has a `CHECK` |
+| School provider settings and keys, linked sign-in identities, refresh / auth / invoice-share / calendar-feed tokens, push subscriptions, attendance devices | blanked or deleted                                                                                                                                         |
+| Passwords                                                                                                                                                   | every user gets the one `STAGING_PASSWORD` hash (`STAGING_PASSWORD_HASH_B64` in `staging.enc.env`)                                                         |
+| Emails of platform super admins and of users in the smoke school (`SMOKE_SCHOOL_SLUG`)                                                                      | kept, so you and the smoke test can sign in                                                                                                                |
+| Dates of birth                                                                                                                                              | shifted, not removed                                                                                                                                       |
+| Religion, blood group                                                                                                                                       | kept: the app behaves differently without them, and alone they identify nobody (revisit if the data-protection review says otherwise)                      |
+| Uploaded files                                                                                                                                              | never copied                                                                                                                                               |
+
+Example: guardian phone `01712345678` becomes `+88014` followed by a running
+number, still in the Bangladesh mobile shape so validation passes.
+
+**The column guard.** Every column that may hold personal data is listed in
+`server/test/staging-scrub-columns.ts`. `server/test/staging-scrub.integration.spec.ts`
+runs the exact `scrub.sql` and **fails CI when a new column that may hold
+personal data is not on the list**. This is why adding a column to the schema
+asks you to decide how it is scrubbed. The password hash is made with the app's
+own `hashPassword` (bcrypt cost 12) and carried as base64, because compose
+expands every `$` in a `.env` value; `config-check --env staging` decodes it and
+verifies it against `STAGING_PASSWORD`.
 
 ## Two kinds of backup
 
@@ -146,36 +188,34 @@ feature with its own retention rules and restore semantics — see
 
 ## Key handling
 
-`BACKUP_AGE_PUBLIC_KEY` (encrypts) lives in `.env`/deploy config like any
-other env var — it's not a secret. The matching private key
-(`BACKUP_AGE_PRIVATE_KEY_FILE`, used by `restore.sh`) is the one thing that
+`BACKUP_AGE_PUBLIC_KEY` (encrypts) lives in `prod.enc.env` like any other
+variable; it is not a secret. The matching private key is the one thing that
 actually matters:
 
-- **Where it lives:** in two places.
+- **Where it lives:**
   1. The master copy is outside the host, in a password manager or vault the
-     backup owner controls. Never committed, never in `.env`.
-  2. Since the weekly drill (D18), a copy also sits **on the VM** at
-     `/opt/biddaloy/<env>/drill/key.txt` (owner 10001, mode 0400), mounted only
-     into the `backup` container. `backup.sh` still needs only the public key.
-- **What that costs.** The VM now holds both the private key and the R2
-  credentials. Someone who takes over the host can read every retained dump
-  (72 hourly + 30 daily, so about 30 days of history), including rows already
-  deleted from the live database. Before D18 a host compromise exposed only the
-  live data. We accept this so the drill runs on the VM and the key never
-  reaches a CI runner.
-- **Rotation:** generate a new keypair (`age-keygen`), point
-  `BACKUP_AGE_PUBLIC_KEY` at the new public half and replace the host's
-  `drill/key.txt` with the new private half in the same deploy (otherwise the
-  next drill cannot decrypt). New backups from
-  that point encrypt to the new key. **No re-encryption of old archives is
-  needed** — keep the old private key until no archive it encrypted is
-  left. Do not count days: R2 keeps the last 30 daily dumps by count, so a
-  missed run can keep an old-key dump past day 30. Before you discard it,
-  list what is left and check that no key is older than the rotation date:
+     backup owner controls. Never committed in the clear.
+  2. A copy sits in `staging.enc.env` as `BACKUP_AGE_PRIVATE_KEY`. The deploy writes
+     it to `/opt/biddaloy/staging/restore/key.txt` (owner 10001, mode 0400), mounted
+     read-only into the staging `jobs` container only. It is left out of staging's
+     `.env`. Prod never holds it.
+- **What that costs.** The VM holds both the private key (in the staging project)
+  and read access to the R2 dumps. Someone who takes over the host can read every
+  retained dump (100 hourly + 30 daily, about 30 days of history), including rows
+  already deleted from the live database. We accept this so the restore proof runs
+  on the VM every night and the key never reaches a CI runner. The R2 token staging
+  holds is **read-only**, so a compromised staging cannot overwrite or delete a prod
+  backup, and it is never given prod's file-crypt password.
+- **Rotation:** generate a new keypair (`age-keygen`), put the new public key in
+  `prod.enc.env` and the new private key in `staging.enc.env`, and deploy both in the
+  same step (otherwise tomorrow's refresh cannot decrypt). New backups from that point
+  encrypt to the new key. **No re-encryption of old archives is needed**: keep the old
+  private key until no archive it encrypted is left. Do not count days: R2 keeps the
+  last 30 daily dumps by count, so a missed run can keep an old-key dump past day 30.
+  Before you discard it, list what is left and check that no key is older than the
+  rotation date:
   `aws s3 ls s3://<BACKUP_S3_BUCKET>/db/ --recursive --endpoint-url https://<acct>.r2.cloudflarestorage.com`
-  (keys carry their date, e.g. `db/daily/2026-10-20.dump.age`). Check any
-  legacy `backups/db/` archives you still keep the same way (legacy prunes
-  by age, `BACKUP_RETENTION_DAYS`).
+  (keys carry their date, e.g. `db/daily/2026-10-20.dump.age`).
 - **Lost key = archives unrecoverable.** Stated plainly because it's true:
   age has no recovery mechanism and no backdoor. If the private key is
   gone, every archive it encrypted is permanently unreadable, full stop.
@@ -217,96 +257,73 @@ UPDATE communication_logs SET status = 'FAILED' WHERE status = 'QUEUED';
 -- delivered. When in doubt, use Option A.
 ```
 
-## Drill
+## Restore runbook
 
-Every Sunday 03:30 (Asia/Dhaka) the `backup` container proves the newest R2
-dump can really be restored. Script: `scripts/backup/drill.sh`.
+Two cases. Pick by what you lost.
 
 ```mermaid
-sequenceDiagram
-    participant C as supercronic
-    participant D as drill.sh
-    participant R as R2
-    participant P as Postgres
-    participant K as Uptime Kuma
-    C->>D: Sunday 03:30
-    D->>R: newest key under db/hourly/
-    D->>P: create scratch DB biddaloy_drill
-    D->>R: restore.sh db/hourly/... --no-migrate
-    D->>P: verify.sql on scratch DB and on live DB
-    D->>R: one random live file via rclone crypt, sha256 vs live
-    D->>P: drop biddaloy_drill (always, even on failure)
-    D->>K: push up (ok-N-tables) or down (failed step)
+flowchart TD
+  A["What happened?"] --> B{"The whole VM is gone,<br/>or prod data is lost"}
+  A --> C{"Need to look at old data,<br/>or one tenant's files"}
+  B --> D["biddaloy-restore-prod<br/>into the EMPTY prod database"]
+  C --> E["restore.sh into a scratch database<br/>(never prod)"]
 ```
 
-**What "pass" means**
+### Rebuild prod on a fresh VM: `biddaloy-restore-prod`
 
-- For each table in `verify.sql`, drill count is not above the live count
-  (data only moves forward after a dump) and is not 0 when live is above 0.
-- One random file from the live bucket has the same sha256 read back through
-  `r2crypt:files/<key>`. An empty bucket skips this check.
-
-**Safety.** The scratch database name must contain `drill`, and
-`DRILL_DATABASE_URL` must differ from `DATABASE_URL`, or the script refuses to
-start. The live database is only read (`verify.sql` counts). No URL, key or
-password is printed. Before it creates the scratch database it checks that the
-disk has about 2.5x the live database size free (the scratch copy, the
-decrypted dump and live Postgres share one disk). Only one drill runs at a
-time (`flock`): a manual run during the cron run exits without touching the
-other run's database.
-
-**Reading Kuma.** One green beat per week with message `ok-8-tables`. A red
-beat carries the failed step: `find-dump`, `disk`, `create-db`, `restore`,
-`counts`, `file-roundtrip`, `drop-db` (the run passed but the scratch database
-could not be dropped, so a full copy of prod is still in the cluster), or
-`config` for a missing setting. Telegram and SMS fire from the push monitor (D14).
-
-**Run by hand** (on the VM):
+Run it once, after `provision` and `biddaloy-deploy all <sha>` have made an
+empty prod stack. It restores a chosen R2 dump **in place** into the empty prod
+database, copies the uploaded files back, migrates with the prod app image,
+checks the counts and prints the next command. It never starts the app: you run
+`biddaloy-deploy prod <sha>` afterwards, which backs up, migrates, starts and smokes.
 
 ```bash
-docker compose exec backup /app/drill.sh
+# the age PRIVATE key: a file owned by uid 10001, mode 0400 or 0600, alone in its own directory
+sudo install -d -m 0755 /opt/biddaloy/prod/restore
+sudo install -o 10001 -g 10001 -m 0400 age-private-key.txt /opt/biddaloy/prod/restore/key.txt
+
+biddaloy-restore-prod \
+  --age-key-file /opt/biddaloy/prod/restore/key.txt \
+  --from latest-daily \
+  --yes-restore-prod biddaloy_prod
+# --from: latest-hourly | latest-daily | db/hourly/<file>.dump.age | db/daily/<file>.dump.age
+# optional: --skip-files   --max-age-hours N (default 36)
 ```
 
-**Setup.**
+(Use the real value of `POSTGRES_DB` from `/opt/biddaloy/prod/.env` after
+`--yes-restore-prod`; you must repeat it exactly.) Delete the key file when
+you are done.
 
-- `DRILL_SCHEDULE` (cron, default `30 3 * * 0`) and `DRILL_PUSH_URL` (in sops).
-- The age private key, as `key.txt` in a host directory mounted read-only at
-  `/run/age`. Host directory: `BACKUP_AGE_KEY_DIR`, set per env (for example
-  `/opt/biddaloy/prod/drill`), with **no default**, so prod's key can never
-  reach staging. `provision.yml` creates the directory (owner `10001`, the
-  backup user, mode `0500`). Nothing writes the key yet: the operator copies it
-  in by hand (owner `10001`, mode `0400`):
+```mermaid
+flowchart LR
+  A["checks: db name repeated,<br/>key file mode/owner/alone in dir,<br/>backup age under limit"] --> B["check-empty: no user,<br/>no school but default-school"]
+  B --> C["stop app, app2, backup"] --> D["restore.sh --require-empty<br/>(one transaction)"]
+  D --> E["copy files back<br/>(rclone r2crypt:files)"] --> F["migrate with prod image"] --> G["verify counts"]
+  G --> H["Next: biddaloy-deploy prod sha"]
+```
 
-  ```bash
-  sudo install -o 10001 -g 10001 -m 0400 key.txt /opt/biddaloy/prod/drill/key.txt
-  ```
+It refuses (exit 2, nothing modified) unless: the confirmation equals the prod
+database name; the key file is a regular file, not a symlink, mode 0400 or 0600,
+owned by uid 10001, alone in its directory; the backup is no older than
+`--max-age-hours`; and the prod database is **empty** (no user, and no school
+besides the migration-made `default-school`). If it finds data it says so and
+points you at a normal `biddaloy-deploy prod <sha>`. It takes `deploy.lock` and
+then the swap lock, like every nightly job. Every outcome is a line in
+`/opt/biddaloy/prod/deploys.log` (`prod restore <key> ok`).
 
-  Until it is there, only the drill fails, at step `config` (Kuma gets
-  `down config`). `docker compose up` and the hourly dumps, which need only the
-  public key, are not affected. Only the `backup` container mounts it.
+**Why in place and not "restore to `_next`, then swap":** `db-swap.sh` accepts only
+staging and demo names, on purpose, so it can never rename prod. The target is
+empty by the check above, and the empty check, the schema wipe and the load are
+one transaction inside `restore.sh`, so a failure leaves the database exactly as
+it was.
 
-- In Uptime Kuma, the `drill-weekly` monitor: type **Push**, heartbeat interval
-  **8 days**, retries **0**. The default 60 s interval would page all week.
-- Optional `DRILL_DATABASE_URL` / `DRILL_ADMIN_URL` default to the live server
-  with database `biddaloy_drill` / `postgres`.
-
-**CI.** `.github/workflows/restore-drill.yml` runs a synthetic drill (seed,
-backup, restore, diff) on pull requests that touch `scripts/backup/**` or the
-workflow itself, and on manual dispatch.
-
-## Restore runbook
+### `restore.sh` by hand (inspect old data, never onto prod)
 
 ```bash
 # 1. Point at the archive and a target database that is NOT production.
 #    restore.sh refuses to run if TARGET_DATABASE_URL equals this shell's
 #    own DATABASE_URL, precisely to stop this mistake.
 export BACKUP_AGE_PRIVATE_KEY_FILE=/path/to/age-key.txt   # never in .env
-export S3_BUCKET=biddaloy S3_ENDPOINT=https://s3.example.com \
-       S3_REGION=us-east-1 S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=...
-
-scripts/backup/restore.sh \
-  backups/db/20260907T020000Z.dump.age \
-  postgres://postgres:postgres@localhost:5432/biddaloy_restored
 
 # R2 form (production dumps). A bare key starting with db/ is read from the
 # R2 bucket using BACKUP_S3_ENDPOINT / BACKUP_S3_BUCKET / BACKUP_S3_ACCESS_KEY_ID /
@@ -318,13 +335,20 @@ scripts/backup/restore.sh \
   postgres://postgres:postgres@localhost:5432/biddaloy_restored
 ```
 
-What it does, in order: download (or read a local file) → `age --decrypt`
-→ `pg_restore --clean --if-exists --no-owner` (with `--require-empty`: one
-transaction that checks the target is empty, drops schema `public` and loads the
-dump) → print `scripts/backup/verify.sql`'s row/tenant counts
-and the `schools.logo_key` list. See
-[`scripts/backup/README.md`](../../scripts/backup/README.md) for every env
-var it reads.
+What it does, in order: download (or read a local file) → `age --decrypt` →
+`pg_restore --clean --if-exists --no-owner` → print `scripts/backup/verify.sql`'s
+row/tenant counts and the `schools.logo_key` list. It does **not** run migrations:
+run `node server/dist/scripts/migrate.js run` from the app image afterwards.
+
+`--require-empty` (what `biddaloy-restore-prod` uses) changes three things: the
+target must hold no user and no school besides `default-school` (else **exit 3**,
+checked first and again inside the transaction); the restore becomes **one
+transaction** (check, `DROP SCHEMA public CASCADE`, `CREATE SCHEMA public`, the dump)
+that rolls back on any failure; and `--expect-db <name>` must name the target
+database. `--allow-live-target` lets the target equal this environment's
+`DATABASE_URL`, but only together with `--require-empty` and `--expect-db`, so the
+empty check and the name check are always the protection. See
+[`scripts/backup/README.md`](../../scripts/backup/README.md) for every env var.
 
 Then: reconcile `communication_logs` (above), and spot-check any
 `logo_key` the verify output printed against the bucket if you suspect
@@ -384,39 +408,68 @@ still checks every row that is inserted or updated later.
 The restore is refused with a row-by-row list, never a 500. Only run
 `VALIDATE CONSTRAINT` once the audit SQL returns no rows.
 
+## The log archive
+
+Container logs rotate on the VM (5 files of 20 MB each), so a day of logs must
+leave the host before it is lost. Every night at 04:00 `biddaloy-nightly log-archive`
+exports yesterday's logs and ships them, encrypted, to R2 (D7).
+
+```mermaid
+flowchart LR
+  A["docker logs --since 00:00 --until 24:00<br/>per container, plus the host journal"] --> B["/opt/biddaloy/logs-export/&lt;date&gt;/*.log.gz"]
+  B --> C["log-archive.sh in the prod jobs container:<br/>rclone copy to r2crypt:logs/&lt;date&gt;/"]
+  C --> D["rclone check"] --> E["delete the local export<br/>(only after the check passed)"]
+  C --> F["delete logs/ folders older than 180 days"]
+```
+
+Logs are redacted at the source ([Rule 13](08-security.md#rule-13-logs-never-carry-secrets)); the
+script never opens a log file, it only hands paths to rclone. File names and
+contents are encrypted with the same style of rclone crypt as the file backup,
+using the `LOG_ARCHIVE_*` settings in the prod `.env` (`prod.enc.env`; each falls
+back to the matching `BACKUP_*` value). `biddaloy-nightly log-archive` runs in
+the prod `jobs` container, so `edge.enc.env` is not read. The result is the `log-archive-nightly` Kuma push.
+To read a day back, build an rclone config as for "Restore files from R2" and run
+`rclone copy r2crypt:logs/<date> ./logs-out`.
+
 ## Env vars ([15.3.x])
 
-All in `.env.example`, grouped under "Object storage" and "Backup and
+In `infra/secrets/*.example.env` (the committed key lists) and
+`.env.example` for development, grouped under "Object storage" and "Backup and
 disaster recovery":
 
-| Var                            | Ticket | Purpose                                                                                                                           |
-| ------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `S3_ENDPOINT`                  | 15.3.1 | Bucket endpoint (SeaweedFS in dev, your provider in prod)                                                                         |
-| `S3_REGION`                    | 15.3.1 | Bucket region                                                                                                                     |
-| `S3_BUCKET`                    | 15.3.1 | Bucket name                                                                                                                       |
-| `S3_ACCESS_KEY_ID`             | 15.3.1 | Bucket credentials                                                                                                                |
-| `S3_SECRET_ACCESS_KEY`         | 15.3.1 | Bucket credentials                                                                                                                |
-| `S3_FORCE_PATH_STYLE`          | 15.3.1 | `true` for SeaweedFS/self-hosted, unset for AWS S3                                                                                |
-| `BACKUP_AGE_PUBLIC_KEY`        | 15.3.2 | Encrypts new backups                                                                                                              |
-| `BACKUP_SCHEDULE`              | 15.3.2 | Cron schedule, `TZ=Asia/Dhaka`. Unset: `0 * * * *` (hourly) in R2 mode, `0 2 * * *` (daily) in legacy mode                        |
-| `BACKUP_RETENTION_DAYS`        | 15.3.2 | Legacy mode only (no `BACKUP_S3_*`): backups older than this are deleted (default 30)                                             |
-| `BACKUP_S3_ENDPOINT`           | #1745  | R2 endpoint `https://<acct>.r2.cloudflarestorage.com`. The six `BACKUP_S3_*` / `BACKUP_RCLONE_CRYPT_*` vars are all-or-none       |
-| `BACKUP_S3_BUCKET`             | #1745  | R2 bucket for `db/` and `files/`                                                                                                  |
-| `BACKUP_S3_ACCESS_KEY_ID`      | #1745  | R2 API token, scoped to the bucket                                                                                                |
-| `BACKUP_S3_SECRET_ACCESS_KEY`  | #1745  | R2 API token secret                                                                                                               |
-| `BACKUP_RCLONE_CRYPT_PASSWORD` | #1745  | Encrypts file contents and names. Store a copy outside the host                                                                   |
-| `BACKUP_RCLONE_CRYPT_SALT`     | #1745  | Second crypt secret (salt). Store a copy outside the host                                                                         |
-| `BACKUP_PUSH_URL`              | #1745  | Uptime Kuma push URL (`?status=up/down&msg=<step>` appended), `http://uptime-kuma:3001/api/push/<token>` on prod. Unset = no push |
-| `BACKUP_HOURLY_KEEP`           | #1745  | Hourly dumps kept (default 72)                                                                                                    |
-| `BACKUP_DAILY_KEEP`            | #1745  | Daily dumps kept (default 30)                                                                                                     |
-| `BACKUP_TRASH_DAYS`            | #1745  | Days a deleted file stays in `files-trash/` (default 30)                                                                          |
-| `BACKUP_FILES_MAX_DELETE`      | #1745  | Files sync refuses to sync (touches nothing) if it would delete more than this many files in one run (default 500)                |
-| `SENTRY_CRON_MONITOR_URL`      | 15.3.2 | Optional cron check-in                                                                                                            |
-| `DRILL_SCHEDULE`               | #1774  | Cron for the weekly restore drill (default `30 3 * * 0`)                                                                          |
-| `DRILL_PUSH_URL`               | #1774  | Uptime Kuma push URL for the drill, `http://uptime-kuma:3001/api/push/<token>` on prod. Unset = no push                           |
-| `DRILL_DATABASE_URL`           | #1774  | Scratch database (name must contain `drill`; default `<live server>/biddaloy_drill`)                                              |
-| `BACKUP_AGE_PRIVATE_KEY_FILE`  | 15.3.3 | Key path inside the container (`/run/age/key.txt`). The key itself is never in `.env`; see "Key handling"                         |
-| `BACKUP_AGE_KEY_DIR`           | #1774  | Host dir of that key, mounted at `/run/age` in `backup` only: `/opt/biddaloy/<env>/drill` (10001, 0500). No default               |
+| Var                                              | Ticket  | Purpose                                                                                                                                        |
+| ------------------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `S3_ENDPOINT`                                    | 15.3.1  | Bucket endpoint (SeaweedFS in every environment on the VM)                                                                                     |
+| `S3_REGION`                                      | 15.3.1  | Bucket region                                                                                                                                  |
+| `S3_BUCKET`                                      | 15.3.1  | Bucket name                                                                                                                                    |
+| `S3_ACCESS_KEY_ID`                               | 15.3.1  | Bucket credentials                                                                                                                             |
+| `S3_SECRET_ACCESS_KEY`                           | 15.3.1  | Bucket credentials                                                                                                                             |
+| `S3_FORCE_PATH_STYLE`                            | 15.3.1  | `true` for SeaweedFS/self-hosted, unset for AWS S3                                                                                             |
+| `BACKUP_AGE_PUBLIC_KEY`                          | 15.3.2  | Encrypts new backups (prod)                                                                                                                    |
+| `BACKUP_SCHEDULE`                                | 15.3.2  | Cron schedule, `TZ=Asia/Dhaka`. Unset: `0 * * * *` (hourly) in R2 mode, `0 2 * * *` (daily) in legacy mode                                     |
+| `BACKUP_RETENTION_DAYS`                          | 15.3.2  | Legacy mode only (no `BACKUP_S3_*`): backups older than this are deleted (default 30)                                                          |
+| `BACKUP_S3_ENDPOINT`                             | #1745   | R2 endpoint `https://<acct>.r2.cloudflarestorage.com`. The six `BACKUP_S3_*` / `BACKUP_RCLONE_CRYPT_*` vars are all-or-none                    |
+| `BACKUP_S3_BUCKET`                               | #1745   | R2 bucket for `db/`, `files/` and `logs/`                                                                                                      |
+| `BACKUP_S3_ACCESS_KEY_ID`                        | #1745   | R2 API token, scoped to the bucket. Prod: read-write. Staging: **read-only**                                                                   |
+| `BACKUP_S3_SECRET_ACCESS_KEY`                    | #1745   | R2 API token secret                                                                                                                            |
+| `BACKUP_RCLONE_CRYPT_PASSWORD`                   | #1745   | Encrypts file contents and names. Prod only. Store a copy outside the host                                                                     |
+| `BACKUP_RCLONE_CRYPT_SALT`                       | #1745   | Second crypt secret (salt). Prod only. Store a copy outside the host                                                                           |
+| `BACKUP_PUSH_URL`                                | #1745   | Uptime Kuma push URL, `https://<KUMA_DOMAIN>/api/push/<token>` (`?status=up/down&msg=<step>` appended). Unset = no push                        |
+| `BACKUP_HOURLY_KEEP`                             | #1745   | Hourly dumps kept (default 100)                                                                                                                |
+| `BACKUP_DAILY_KEEP`                              | #1745   | Daily dumps kept (default 30)                                                                                                                  |
+| `BACKUP_TRASH_DAYS`                              | #1745   | Days a deleted file stays in `files-trash/` (default 30)                                                                                       |
+| `BACKUP_FILES_MAX_DELETE`                        | #1745   | Files sync refuses to sync (touches nothing) if it would delete more than this many files in one run (default 500)                             |
+| `SENTRY_CRON_MONITOR_URL`                        | 15.3.2  | Optional cron check-in                                                                                                                         |
+| `BACKUP_AGE_PRIVATE_KEY`                         | Epic 79 | Staging only: the age private key; the deploy writes it to `restore/key.txt`, it is not left in `.env`                                         |
+| `BACKUP_AGE_PRIVATE_KEY_FILE`                    | 15.3.3  | Key path inside the container (`/run/age/key.txt`). The key itself is never in a container env; see "Key handling"                             |
+| `BACKUP_AGE_KEY_DIR`                             | Epic 79 | Host dir of that key, mounted read-only at `/run/age`. No default; the deploy sets it for staging, `biddaloy-restore-prod` sets it for its run |
+| `STAGING_PASSWORD_HASH_B64`                      | Epic 79 | Base64 of the bcrypt (cost 12) hash of `STAGING_PASSWORD`; the scrub sets it on every user                                                     |
+| `STAGING_REFRESH_PUSH_URL`                       | Epic 79 | Kuma push URL of the staging refresh (staging `.env`)                                                                                          |
+| `STAGING_REFRESH_DEADLINE`                       | Epic 79 | `HH:MM` Dhaka time to stop waiting for the daily backup (default `02:50`)                                                                      |
+| `SMOKE_SCHOOL_SLUG`                              | Epic 79 | The school whose users keep their email in staging (the "Smoke Test School")                                                                   |
+| `LOG_ARCHIVE_PUSH_URL`                           | Epic 79 | Kuma push URL of the log archive (prod `.env`)                                                                                                 |
+| `LOG_ARCHIVE_KEEP_DAYS`                          | Epic 79 | Days of logs kept in R2 (default 180)                                                                                                          |
+| `LOG_ARCHIVE_S3_*`, `LOG_ARCHIVE_RCLONE_CRYPT_*` | Epic 79 | R2 settings for `logs/`; each falls back to the matching `BACKUP_*` value                                                                      |
 
 ## Learnings (#1745)
 

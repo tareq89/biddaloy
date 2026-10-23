@@ -22,6 +22,11 @@ COPY shared/package.json shared/package.json
 COPY server/package.json server/package.json
 COPY ui/package.json ui/package.json
 COPY client-admin/package.json client-admin/package.json
+# landing is not built here, but the root tsconfig references it and the PWA
+# service-worker build (rolldown) follows that reference to landing/tsconfig.json,
+# which extends `astro/tsconfigs/strict`. Without astro installed the client
+# build fails with "Tsconfig not found astro/tsconfigs/strict".
+COPY landing/package.json landing/package.json
 RUN yarn install --frozen-lockfile --network-timeout 600000
 
 # ---- Production-only dependencies ----

@@ -1,11 +1,16 @@
 # 30. Deployment target: one VM, every environment (Epic 79.0, [#2786](https://github.com/tareq89/biddaloy/issues/2786))
 
-> **Status: decided 2026-10-22, not built yet.** This page records the
-> deployment we agreed to build, why, and what we deliberately left for later.
-> Until Epic 79.0 lands, [07-deployment.md](07-deployment.md) and
-> [28-platform-runbook.md](28-platform-runbook.md) still describe what runs
-> today. When the epic is done, those pages are rewritten from this one and
-> this page keeps only the decisions and the future-work list.
+> **Status: built (Epic 79.0, 2026-10-22).** This page keeps the decisions,
+> the comparison with larger companies, the future-work triggers and the
+> learnings of each wave. How it is operated lives elsewhere:
+>
+> | Question                                                          | Page                                             |
+> | ----------------------------------------------------------------- | ------------------------------------------------ |
+> | How is it shaped (networks, images, edge modes, deploy sequence)? | [07-deployment.md](07-deployment.md)             |
+> | What do I do at 2 a.m. (monitors, alerts, runbooks)?              | [12-operations.md](12-operations.md)             |
+> | How do backups, the nightly staging copy and restore work?        | [13-backup-restore.md](13-backup-restore.md)     |
+> | Which Cloudflare settings does it rely on?                        | [25-cloudflare.md](25-cloudflare.md)             |
+> | Which commands do I type (day 0, deploy, rollback)?               | [28-platform-runbook.md](28-platform-runbook.md) |
 
 ## In one picture
 
@@ -46,84 +51,15 @@ flowchart TB
 | `demo.schoolmanagerp.com`               | demo                                   | demo seed                  | rebuilt from scripts           |
 | `kuma.` / `beszel.` / `logs.`           | ops (uptime, host metrics, log viewer) | ops only                   | —                              |
 
-## What was wrong with the old setup (found 2026-10-22)
-
-These are the reasons the setup was rebuilt rather than patched.
-
-| Finding                                                                    | Where                                            | Effect                                     |
-| -------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------ |
-| Production requires `DB_SSL=true`, but the bundled Postgres has no TLS     | `server/src/db-ssl.ts:26`                        | prod would not boot                        |
-| `DEMO_MODE=true` refuses to boot on real school data                       | `server/src/modules/demo/demo-boot-check.ts:37`  | staging could never run a prod copy        |
-| Demo's Docker socket proxy can stop any container on the host              | `docker-compose.demo.yml:121`                    | unsafe once demo shares a VM with prod     |
-| Staging joins prod's nginx through a hand-attached network                 | `infra/ansible/tasks/attach-edge.yml`            | three overlays, hardcoded container names  |
-| Kuma and Beszel do not work under `/kuma/`, `/beszel/` paths               | `nginx/templates/ops.conf.template:10`           | ops UI unreachable (#2747)                 |
-| The frontend bakes Turnstile key, support URL and Sentry DSN at build time | `Dockerfile:41`, `client-admin/src/main.tsx:113` | one image cannot serve three envs          |
-| No command restores a backup onto a fresh VM                               | `docs/architecture/29-epic61-go-live.md`         | moving VM is a manual tunnel dance (#2748) |
-
-## How a deploy works
-
-You pick a commit SHA. It goes to staging first, then the **same image**
-goes to prod. Laptop and GitHub run the exact same command on the VM.
-
-```mermaid
-sequenceDiagram
-  actor Op as You (laptop or GitHub)
-  participant V as VM: biddaloy-deploy
-  participant S as staging
-  participant P as prod
-  Op->>V: biddaloy-deploy staging 3f9c2ab…(40 hex)
-  V->>V: lock · git checkout sha · image exists in GHCR? · config check
-  V->>S: migrate · up · ready · smoke → deploys.log "ok"
-  V-->>Op: OK (also a Telegram message)
-  Op->>V: biddaloy-deploy prod 3f9c2ab…
-  V->>V: staging has "ok" for this sha? (else refuse, unless --hotfix "reason")
-  V->>P: backup · migrate · restart app 1 → ready → app 2 → ready · smoke
-  V-->>Op: OK / FAILED at <step>: <why> → next: <command>
-```
-
-Command shape (D21):
-
-```bash
-# from the laptop (a thin ssh wrapper)
-scripts/deploy.sh staging 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
-scripts/deploy.sh prod    3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
-scripts/deploy.sh prod    <sha> --hotfix "login broken for all schools"
-
-# on the VM (what the wrapper and GitHub actually run)
-biddaloy-deploy <prod|staging|demo|edge|ops|all> <sha> [--hotfix "reason"] [--skip-backup]
-```
-
-Every failure prints the same three lines, so the message alone is enough
-to start debugging:
-
-```text
-FAILED at: migrate (prod, 3f9c2ab)
-Why:       migration 1797… failed: relation "fee_items" does not exist
-Next:      biddaloy-doctor prod   ·   logs: docker compose -p prod logs app
-```
-
-## Every night (Asia/Dhaka)
-
-```mermaid
-flowchart LR
-  B["every hour :00<br/>prod backup → R2<br/>(02:00 run also makes the daily copy)"] --> S["02:20 staging refresh<br/>restore → scrub → migrate → swap → ready"]
-  S --> D["03:00 demo rebuild<br/>seed → swap → ready"]
-  D --> A["04:00 log archive<br/>yesterday's logs → R2"]
-  S & D & A & B -.->|"Kuma push: ok / fail"| K["Kuma → Telegram + SMS"]
-```
-
-- Backups keep the last **100 hourly** and **30 daily** copies (D2).
-- The staging refresh is also the **restore drill**: if it works, last
-  night's backup is proven restorable (D5).
-- Staging is **scrubbed** before the app sees it: contacts, names,
-  addresses, notes, school provider keys, tokens, and every password set to
-  `STAGING_PASSWORD`. It can never send a real SMS or email (D6).
-- Uploaded files are not copied to staging. Missing images there are expected.
-
 ## Edge: two modes, same nginx
 
-The edge can run in two modes. Both are built and tested (D8), so moving to
-a BDIX host without Cloudflare is a config switch, not new work.
+The edge can run in two modes. Both are built and tested locally (D8), so moving to
+a BDIX host without Cloudflare is a config switch, not new code. Direct mode
+has **not** run on a real host: Let's Encrypt issuance, and the `openssl`
+binary that `cert-bootstrap` needs in the certbot image, are unverified (see
+the real-VM checklist below). The design
+(files, networks, what each mode turns on) is in
+[07-deployment.md](07-deployment.md#the-two-edge-modes).
 
 |                         | Tunnel mode (now)                           | Direct mode (BDIX later)          |
 | ----------------------- | ------------------------------------------- | --------------------------------- |
@@ -134,22 +70,14 @@ a BDIX host without Cloudflare is a config switch, not new work.
 | Inner login             | each tool's own (Kuma, Beszel, Dozzle, app) | same                              |
 | Moving VM               | DNS does not change                         | update DNS A records              |
 
-## Secrets and accounts
+## Where the details moved
 
-Secrets stay in git, encrypted with sops + age (chosen over Infisical and
-Bitwarden: no outside service). Each file is encrypted for three keys: yours, the offline recovery key, and
-the VM's own host key.
-
-| File                            | Holds                                                                                                 |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `infra/secrets/prod.enc.env`    | prod app, DB, R2 backup write token, SMS, OAuth, Turnstile, Sentry                                    |
-| `infra/secrets/staging.enc.env` | staging app, `STAGING_PASSWORD`, R2 **read-only** token                                               |
-| `infra/secrets/demo.enc.env`    | demo app, `DEMO_PASSWORD`                                                                             |
-| `infra/secrets/edge.enc.env`    | tunnel credentials, GHCR pull token, basic-auth users (direct mode), Telegram bot for deploy messages |
-| `infra/secrets/ops.enc.env`     | Beszel key, Dozzle users                                                                              |
-
-GitHub holds only what it needs to SSH in: the host, a pinned host key and a
-deploy key that can run nothing but `biddaloy-deploy` (D12).
+| Was here                                                    | Now in                                                          |
+| ----------------------------------------------------------- | --------------------------------------------------------------- |
+| How a deploy works (sequence, command shape, failure lines) | [07-deployment.md](07-deployment.md#how-a-deploy-runs)          |
+| The nightly timeline                                        | [12-operations.md](12-operations.md#the-nightly-timeline)       |
+| Backups, staging refresh, scrub, restore                    | [13-backup-restore.md](13-backup-restore.md)                    |
+| Secrets files and who reads them                            | [07-deployment.md](07-deployment.md#runtime-config-and-secrets) |
 
 ## Decisions
 
@@ -205,6 +133,8 @@ the next command.
 
 ## Future work, with the trigger that brings each back
 
+Tracked as issues: load balancer #2816, staging/demo off the VM #2817, managed Postgres/PITR #2818, ops on its own VM #2819, R2 Bucket Lock #2820, Cloudflare as code #2821, CI minutes #2808. Also open: first platform super admin command #2822, W3 review leftovers #2823.
+
 | Work                                                           | Trigger                                                                 | First step                                                                 |
 | -------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Move ops (Kuma, Beszel, Dozzle) to its own VM                  | as soon as budget allows; until then **a dead VM pages nobody** (#2749) | point the inventory `ops` group at the new host, run `biddaloy-deploy ops` |
@@ -250,7 +180,7 @@ flowchart LR
 
 - Sentry `release` was served but not sent. Fixed here (`initSentry` takes `release`, `client-admin/src/main.tsx` passes it).
 - Not run in this sub-wave (no Docker allowed): `docker/test/compose.infra.test.sh`, `nginx/test/*.infra.test.sh`, `scripts/backup/*.test.sh`, `scripts/demo/reset.infra.test.sh`. Run them at integration (`yarn ci:local` on Node 24). `cert-bootstrap` needs the `openssl` binary in the certbot image: unverified.
-- Old docs and Ansible still mention `TRUSTED_PROXY_CIDRS`, `trusted-proxies.sh`, `demo-docker-proxy`, `nginx/demo` (`docs/architecture/07-deployment.md`, `12-operations.md`, `22-demo-seed.md`, `infra/ansible/deploy.yml`). They go away in the later waves that replace that setup.
+- Stale pages that still described the removed per-host proxy list, the demo Docker proxy and the old nginx demo folder were rewritten in W4 (see the W4 section).
 - Issue #2792 steps 1 to 4 (`ci:local`, snapshots, `api:types`) are for the integration run.
 
 ### Wave 2 (2026-10-22): staging scrub, staging refresh, DB swap, Ansible
@@ -397,10 +327,16 @@ None of this has run on a real host yet. It cannot be faked from CI. Record each
 7. A second fresh VM, **on its own Cloudflare tunnel** (a separate tunnel id, credentials and test hostnames in that VM's edge secrets). Two connectors on the first VM's tunnel would split real traffic between the two VMs, so users of the first VM would reach an empty prod. For a real cutover instead, stop `cloudflared` on the old VM first. Then: provision, `biddaloy-deploy all <sha>`, put the key in `/opt/biddaloy/prod/restore/` (`sudo install -o 10001 -g 10001 -m 0400 key.txt /opt/biddaloy/prod/restore/key.txt`), `biddaloy-restore-prod --age-key-file /opt/biddaloy/prod/restore/key.txt --from latest-daily --yes-restore-prod biddaloy_prod` (the first VM still runs, so this is a planned move: pass the printed `newest skipped` dump as an exact `--from` to get the newest data, see 13-backup-restore.md), then `biddaloy-deploy prod <sha>` (full login smoke now), then `sudo rm /opt/biddaloy/prod/restore/key.txt`.
 8. Switch the first VM to direct mode (`edge_mode: direct`, `EDGE_MODE=direct`), provision again, `biddaloy-deploy edge <sha>`. Check that Let's Encrypt issues a real certificate and that staging and ops ask for basic auth (D8).
 
-#### Left for W4
+#### Left for W4 (done in W4)
 
-The heavier doc rewrites stay out of this wave: `07-deployment.md`, `12-operations.md`, `13-backup-restore.md`, `25-cloudflare.md`, the `28-platform-runbook.md` runbook (it still shows `-e env=staging` and the old compose files), deleting `29-epic61-go-live.md` (Epic 61 is superseded by this epic), and the root `README.md`.
+`07-deployment.md`, `12-operations.md`, `13-backup-restore.md`, `25-cloudflare.md`, `22-demo-seed.md`, `10-third-party-services.md` and the root `README.md` were rewritten for this setup, and the Epic 61 go-live page was deleted. `28-platform-runbook.md` and `infra/ansible/README.md` were rewritten in a parallel lane.
 
 #### Run in the closing ticket
 
 `bash -n` and `shellcheck` on every touched script; every `deploy/bin/test/*.test.sh` (deploy test also with a real `ansible-playbook` 2.18.6, so the Jinja check ran); `ansible-playbook --syntax-check` on `provision.yml` and on `deploy.yml` for all five stacks (`-c local -i localhost,`); `ansible-lint` on the touched Ansible files; the `config-check` and `check-tracked-files` specs. Not run (no Docker here): the `*.infra.test.sh` files that start containers, and `yarn ci:local`.
+
+### Wave 4 and epic close
+
+- Docs were rewritten against the code, not the plan: writing the setup guide found nine places where the W3 code disagreed with the plan (first-deploy smoke, `www.` routing, `host-groups`, stale `access_confirmed`, demo first deploy, `LETSENCRYPT_EMAIL`, hints that did not run). All were fixed in PR 3 before this one.
+- Nothing here has run on a real VM. W5 (owner, test VM) is the first real proof; its checklist is in W3 Learnings. Treat every `UNVERIFIED` mark in the setup guide as a to-do.
+- Known gap: no command creates the first platform super admin (#2822).

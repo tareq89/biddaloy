@@ -111,6 +111,7 @@ FLOCK_FAIL=1 run staging-refresh
 expect "4 exit 1" test "$RC" = 1
 expect "4 no docker call" hasnt "docker "
 expect "4 waited with -w" has "flock -w 3600"
+expect "4 pushes down for the lock" has "status=down&msg=deploy+lock"
 
 # 4b Kuma unreachable is not fatal
 CURL_FAIL=1 run staging-refresh

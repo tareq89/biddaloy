@@ -89,9 +89,9 @@ wait_ready() { # <stack>: /api/health, 24 tries x 5 s (the compose healthcheck's
 
 # --- locks --------------------------------------------------------------------------------------
 exec 8>"$ROOT/deploy.lock"
-flock -w 3600 8 || { say "deploy lock busy for an hour"; exit 1; }
+flock -w 3600 8 || { say "deploy lock busy for an hour"; fail "deploy lock"; }
 exec 9>"$SWAP_LOCK"
-flock -w 3600 9 || { say "swap lock busy for an hour"; exit 1; }
+flock -w 3600 9 || { say "swap lock busy for an hour"; fail "swap lock"; }
 
 # --- staging-refresh ----------------------------------------------------------------------------
 staging_refresh() {

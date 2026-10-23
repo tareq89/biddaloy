@@ -5,6 +5,6 @@
 creation_rules:
   - path_regex: infra/secrets/.*\.enc\.(env|pem)$
     age: >-
-      REPLACE_WITH_OPERATOR_KEY,
-      REPLACE_WITH_RECOVERY_KEY,
-      REPLACE_WITH_HOST_KEY
+      age14ha6kg4lhmt5v8nq8aaxnfgay7rftpfp8kugsp54dj724mfrtens6cl7ek,
+      age1d2pektdt7gh9tdzpjwg4v788lfuvvctg6krspqz8wznfq0yf9f8s6pxky6,
+      age10mffhj27pgnsqejrrxtrmxn5rzyv5d56624j4qfscv3nml647vps3dvzzn

@@ -5,6 +5,9 @@ name: Publish images
 # GITHUB_TOKEN pushes; SENTRY_AUTH_TOKEN (optional) uploads source maps.
 # The app image is built, checked for SPA source maps, and only then pushed.
 # [Epic 79 #2794] Four images: app, backup, demo-reset, landing.
+# A manual run (workflow_dispatch) on any other branch publishes only the
+# `<sha>` tags, so a branch can be deployed to a test VM before it merges.
+# `:main` is written only by main.
 on:
   push:
     branches: [main]
@@ -26,8 +29,6 @@ env:
 
 jobs:
   app:
-    # workflow_dispatch can start on any branch; only main may publish `:main`.
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -51,7 +52,7 @@ jobs:
           provenance: false
           tags: |
             ${{ env.REGISTRY }}/biddaloy-app:${{ github.sha }}
-            ${{ env.REGISTRY }}/biddaloy-app:main
+            ${{ github.ref == 'refs/heads/main' && format('{0}/biddaloy-app:main', env.REGISTRY) || '' }}
           labels: org.opencontainers.image.revision=${{ github.sha }}
           build-args: |
             APP_VERSION=${{ github.sha }}
@@ -67,16 +68,18 @@ jobs:
         run: |
           out=$(docker run --rm --entrypoint sh "$REGISTRY/biddaloy-app:${{ github.sha }}" -c 'cd /app/client-admin && find . -name "*.map" | head -1')
           [ -z "$out" ] || { echo "source map in image: $out"; exit 1; }
+      # A package only a dev install provides would crash prod at boot ("Cannot find module").
+      - name: Image resolves every module the server requires
+        run: docker run --rm -v "$PWD/scripts/check-image-requires.cjs:/check.cjs:ro" "$REGISTRY/biddaloy-app:${{ github.sha }}" node /check.cjs
       - name: Push
         run: |
           docker push "$REGISTRY/biddaloy-app:${{ github.sha }}"
-          docker push "$REGISTRY/biddaloy-app:main"
+          if [ "$GITHUB_REF" = refs/heads/main ]; then docker push "$REGISTRY/biddaloy-app:main"; fi
 
   # demo-reset is `FROM app`, so it builds after the app image is pushed.
   # backup is independent but rides along (small, cached).
   satellites:
     needs: app
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -112,14 +115,13 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ matrix.image }}:main
+            ${{ github.ref == 'refs/heads/main' && format('{0}/{1}:main', env.REGISTRY, matrix.image) || '' }}
           labels: org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
 
   # Static site: built on the runner (Chromium renders the PDFs), then wrapped in nginx.
   landing:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -150,5 +152,5 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/biddaloy-landing:${{ github.sha }}
-            ${{ env.REGISTRY }}/biddaloy-landing:main
+            ${{ github.ref == 'refs/heads/main' && format('{0}/biddaloy-landing:main', env.REGISTRY) || '' }}
           labels: org.opencontainers.image.revision=${{ github.sha }}
