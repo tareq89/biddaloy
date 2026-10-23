@@ -47,12 +47,19 @@ for (const file of files) {
   const sha = createHash('sha1').update(source).digest('hex');
   const svg = readFileSync(out, 'utf8')
     .replace(/<title>[\s\S]*?<\/title>|<desc>[\s\S]*?<\/desc>/g, '')
-    .replace(
-      /<svg\b([^>]*)>/,
-      (open, attrs) =>
-        `<svg${attrs.replace(/\s(?:aria-[a-z]+|role)="[^"]*"/g, '')} role="img" aria-labelledby="t d">` +
-        `<title id="t">${escapeXml(title)}</title><desc id="d">${escapeXml(desc)}</desc>`,
-    );
+    .replace(/<svg\b([^>]*)>/, (open, attrs) => {
+      // mmdc writes width="100%" + a max-width style. As an <img> that has no
+      // intrinsic size, so GitHub stretches a 180 px diagram to the full column.
+      // Pin the real size from the viewBox instead.
+      const [, w, h] = attrs.match(/viewBox="[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/) ?? [];
+      const sized = attrs
+        .replace(/\s(?:aria-[a-z]+|role|width|height)="[^"]*"/g, '')
+        .replace(/max-width:[^;"]*;?\s*/, '');
+      return (
+        `<svg${sized} width="${Math.ceil(w)}" height="${Math.ceil(h)}" role="img" aria-labelledby="t d">` +
+        `<title id="t">${escapeXml(title)}</title><desc id="d">${escapeXml(desc)}</desc>`
+      );
+    });
   writeFileSync(out, `<!-- src:${sha} -->\n${svg}`);
   console.log(`${file} -> ${out}`);
 }

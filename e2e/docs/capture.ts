@@ -10,7 +10,7 @@
  *   into a GIF with ffmpeg (≤ 960 px wide, 8 fps, 96 colours: keeps a 15 s GIF under 2 MB).
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, renameSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import type { Browser, BrowserContextOptions, Locator, Page } from '@playwright/test';
@@ -32,6 +32,14 @@ export function imgDir(section: string): string {
 }
 
 const CALLOUT_COLOUR = '#d9480f';
+/** A 3 px grey frame so a screenshot reads as a picture, not part of the page text. */
+const FRAME = 'pad=iw+6:ih+6:3:3:color=#ced4da';
+
+function frame(file: string): void {
+  const tmp = `${file}.tmp.png`;
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', file, '-vf', FRAME, tmp]);
+  renameSync(tmp, file);
+}
 
 /** Runs in the page before any app code. Kept self-contained: it is serialised. */
 function pointerOverlay(): void {
@@ -140,6 +148,9 @@ export async function shoot(
   }
   // Scroll once, then measure every target at that same scroll position.
   await callouts[0]?.target.scrollIntoViewIfNeeded();
+  // Smooth scrolling is still moving when scrollIntoViewIfNeeded resolves; measuring
+  // then drew the boxes one element too high on the phone.
+  await page.waitForTimeout(400);
   const boxes = [];
   for (const c of callouts) {
     const box = await c.target.boundingBox();
@@ -191,6 +202,7 @@ export async function shoot(
   // Let toasts and focus rings settle so the shot matches what a reader sees.
   await page.waitForTimeout(250);
   await page.screenshot({ path: file, animations: 'disabled', caret: 'hide' });
+  frame(file);
   await page.evaluate(() => {
     document.querySelectorAll('[data-guide-overlay="callouts"]').forEach((n) => n.remove());
     document
@@ -229,7 +241,7 @@ export async function recordGif(
   const webm = await video!.path();
   const width = Math.min(opts.width ?? 960, viewport.width);
   const trim = String(opts.trimStartSec ?? 0);
-  const filters = `fps=8,scale=${width}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle`;
+  const filters = `fps=8,scale=${width}:-1:flags=lanczos,${FRAME},split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle`;
   execFileSync('ffmpeg', [
     '-y',
     '-loglevel',
