@@ -105,7 +105,8 @@ deploy_one() { # deploy_one <stack> <sha> <hotfix or ""> <skip_backup 0|1>
     if [ -e "$log.rc" ] || ! kill -0 "$pid" 2>/dev/null; then alive=0; fi
     size=$(wc -c < "$log" | tr -d ' ')
     if [ "$size" -gt "$off" ]; then
-      tail -c "+$((off + 1))" "$log" 2>/dev/null || true
+      # exactly the measured bytes: what Ansible appends after `wc` goes out next round, not twice
+      tail -c "+$((off + 1))" "$log" 2>/dev/null | head -c "$((size - off))" || true
       off=$size
     fi
     [ "$alive" = 1 ] || break
