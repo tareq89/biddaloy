@@ -122,6 +122,17 @@ describe('runStagingConfigCheck', () => {
     ).toMatchObject({ DATABASE_URL: 'postgres://u:p@db:5432/biddaloy_staging' });
   });
 
+  it('composeAppEnv: a DATABASE_URL in the .env never overrides the derived one', () => {
+    expect(
+      composeAppEnv({
+        DATABASE_URL: 'postgres://stray@elsewhere/x',
+        POSTGRES_USER: 'u',
+        POSTGRES_PASSWORD: 'p',
+        POSTGRES_DB: 'd',
+      }).DATABASE_URL,
+    ).toBe('postgres://u:p@db:5432/d');
+  });
+
   // What really keeps a provider key out of the staging app is that deploy/stack.yml passes an
   // explicit list. A new key added there must be classified on purpose: either listed here as
   // not a provider, or refused by the staging check when set.

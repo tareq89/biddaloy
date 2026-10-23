@@ -75,8 +75,9 @@ const PROVIDER_VAR = /^(SMS_|MIMSMS_|GREENWEB_|WHATSAPP_|SMTP_|VAPID_|PLATFORM_S
 export function composeAppEnv(env: Record<string, unknown>): Record<string, unknown> {
   const str = (k: string) => String(env[k] ?? '');
   return {
-    DATABASE_URL: `postgres://${str('POSTGRES_USER')}:${str('POSTGRES_PASSWORD')}@db:5432/${str('POSTGRES_DB')}`,
     ...env,
+    // Last: stack.yml sets DATABASE_URL explicitly, so a stray `.env` value never reaches the app.
+    DATABASE_URL: `postgres://${str('POSTGRES_USER')}:${str('POSTGRES_PASSWORD')}@db:5432/${str('POSTGRES_DB')}`,
   };
 }
 
