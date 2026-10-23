@@ -30,10 +30,9 @@ all:
     logs_domain: logs.schoolmanagerp.com
     # Public key CI uses to run biddaloy-deploy (forced command, D12). Pinned here so every
     # provision run keeps it. UNSET... = placeholder = no key installed yet.
-    github_deploy_pubkey_pinned: UNSET-paste-the-GitHub-Actions-deploy-public-key-here
+    github_deploy_pubkey_pinned: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO3r2MVN+IDQDvLMzN+/n4YK0WQrxn16Xl90no5URKwE biddaloy-github-deploy
     ops_host: "{{ groups['ops'][0] }}"
-    # OPS_DOMAIN / STAGING_DOMAIN live in prod.enc.env (what nginx reads), not here.
-    # true only once Cloudflare Access protects ops.<domain> and staging.<domain> and the
-    # origin check in 12-operations.md section 1 step 0 passed. Until then a prod deploy
-    # refuses a prod.enc.env that sets either hostname (25-cloudflare.md tells the owner to flip it).
-    access_confirmed: false
+    # The staging and ops hostnames live in edge.enc.env. They are closed until Access is set up
+    # without any switch here: in tunnel mode cloudflared rejects every request to them that has
+    # no valid Access token for their audience (templates/cloudflared-config.yml.j2), and direct
+    # mode puts basic auth in front of them.

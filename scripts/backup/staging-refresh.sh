@@ -30,8 +30,8 @@
 #   STAGING_REFRESH_DEADLINE    HH:MM Dhaka time to stop waiting for the backup (default 02:50)
 #   STAGING_REFRESH_POLL_SECS   seconds between checks (default 60)
 #   STAGING_REFRESH_LOCK        optional lock file; unset = no lock here. The real lock is the host's:
-#                               biddaloy-nightly@.service runs this under `flock` on
-#                               /run/lock/biddaloy-swap.lock, shared with the deploy swap. Set it only
+#                               biddaloy-nightly (the host script) holds /opt/biddaloy/deploy.lock and
+#                               /run/lock/biddaloy-swap.lock around this container. Set it only
 #                               to a path this uid (10001) can write. STAGING_REFRESH_LOCK_WAIT
 #                               seconds to wait for it (default 600)
 #   SCRUB_SQL                   path to scrub.sql (default: next to this script)
@@ -67,7 +67,7 @@ AGE_KEY="${BACKUP_AGE_PRIVATE_KEY_FILE:-/run/age/key.txt}"
 SCRUB_SQL="${SCRUB_SQL:-$HERE/scrub.sql}"
 [[ -r "$SCRUB_SQL" ]] || { say "scrub.sql not found"; exit 2; }
 
-# The host unit already holds the swap lock around this container (see the header). An extra
+# The host script already holds the swap lock around this container (see the header). An extra
 # lock is taken only when asked for (the image ships flock).
 if [[ -n "${STAGING_REFRESH_LOCK:-}" ]]; then
   exec 9>"$STAGING_REFRESH_LOCK" || { say "cannot open lock file"; exit 2; }

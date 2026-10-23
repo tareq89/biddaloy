@@ -8,6 +8,8 @@ Requires=docker.service
 [Service]
 Type=oneshot
 User={{ deploy_user }}
-# One host-wide lock, shared with biddaloy-deploy, so two DB swaps never overlap.
-ExecStart=/usr/bin/flock -w 3600 {{ swap_lock_file }} /usr/local/bin/biddaloy-nightly %i
+# No flock wrapper here: the script takes /opt/biddaloy/deploy.lock and then {{ swap_lock_file }}
+# itself. A wrapper holding the swap lock first would invert that order against
+# biddaloy-restore-prod (deploy lock, then swap lock) and the two could wait on each other forever.
+ExecStart=/usr/local/bin/biddaloy-nightly %i
 TimeoutStartSec=3h

@@ -94,6 +94,7 @@ const EXAMPLE_VALUE_ALLOWED = new Set(
 // or from a path it computes), so no example lists them.
 const DEPLOY_SET = new Set([
   'EDGE_DIR',
+  'REPO_DIR',
   'OPS_DIR',
   'PG_TLS_DIR',
   'EDGE_TRUSTED_CIDR',

@@ -6,7 +6,7 @@ Plaintext never gets committed (CI guard: `scripts/check-tracked-files.mjs`).
 ```mermaid
 flowchart LR
   A[operator laptop<br/>age private key] -->|sops edit| B[infra/secrets/*.enc.env<br/>in git, encrypted]
-  B -->|ansible lookup, on the laptop| C[write-env.yml]
+  B -->|sops -d with the host key, on the VM| C[write-env.yml]
   C -->|copy, 0640 root:deploy| D["/opt/biddaloy/<env>/.env on the VPS"]
   R[recovery key<br/>offline, Epic 65] -.can also decrypt.-> B
 ```
@@ -16,17 +16,16 @@ flowchart LR
 | `prod.enc.env` | prod | `deploy/stack.yml` (`ENV_NAME=prod`), `config:check --env prod`, the smoke test | `/opt/biddaloy/prod/.env` |
 | `staging.enc.env` | staging | `deploy/stack.yml` (`ENV_NAME=staging`), the nightly refresh | `/opt/biddaloy/staging/.env` |
 | `demo.enc.env` | demo | `deploy/stack.yml` (`ENV_NAME=demo`), `scripts/demo/reset.sh` | `/opt/biddaloy/demo/.env` |
-| `edge.enc.env` | edge | `deploy/edge.yml`, `deploy/edge.direct.yml`, deploy messages, log archive | `/opt/biddaloy/edge/.env` |
+| `edge.enc.env` | edge | `deploy/edge.yml`, `deploy/edge.direct.yml`, deploy messages | `/opt/biddaloy/edge/.env` |
 | `ops.enc.env` | ops | `deploy/ops.yml` (Beszel, Kuma, Dozzle) | `/opt/biddaloy/ops/.env` |
-| `origin-ca.enc.pem`, `origin-ca-key.enc.pem` | edge (direct mode) | nginx | Cloudflare Origin CA pair (D21) |
 | `*.example.env` | all | people | nowhere: committed key lists with empty values |
 
 Staging has no OAuth or SMS keys on purpose (D6); its Turnstile pair is Cloudflare's public
 always-pass test pair. The examples hold a value only for public defaults (stack name, memory
 limits, that test pair): the list is in `scripts/check-tracked-files.mjs`.
 
-Paths and switches the deploy sets itself are not in any example (`EDGE_DIR`, `OPS_DIR`,
-`PG_TLS_DIR`, `EDGE_TRUSTED_CIDR`, `BACKUP_AGE_KEY_DIR`).
+Paths and switches the deploy sets itself are not in any example (`EDGE_DIR`, `REPO_DIR`,
+`OPS_DIR`, `PG_TLS_DIR`, `EDGE_TRUSTED_CIDR`, `BACKUP_AGE_KEY_DIR`).
 
 `BESZEL_KEY` is in both `edge.example.env` (the agent in `edge.yml`) and `ops.example.env`
 (the hub); it is the same public value.
@@ -69,16 +68,8 @@ Install `sops` (3.9 or newer, for `--filename-override`) and `age` (`brew instal
    `DATABASE_URL` without URL-encoding, so `@`, `/`, `:` and `$` break it.
    Never fill the values into `prod.example.env` itself: the CI guard fails on
    any value there.
-   Repeat for `demo` and `staging`. The certs are whole files, so they need a
-   short-lived temp file (`umask 077`, then delete it; on a laptop disk
-   deletion is best effort, not a guarantee):
-   ```bash
-   umask 077; t=$(mktemp)              # paste the PEM into $t, then:
-   sops --encrypt --filename-override infra/secrets/origin-ca.enc.pem \
-     --input-type binary --output-type binary "$t" > infra/secrets/origin-ca.enc.pem
-   rm -f "$t"
-   ```
-   Same for `origin-ca-key.enc.pem`.
+   Repeat for `demo`, `staging`, `edge` and `ops`. No certificate file is kept here:
+   tunnel mode needs none at the origin, and direct mode gets Let's Encrypt on the VM.
 5. Check **both** keys work. Run the recovery check on a clean machine, or with
    an empty home so nothing is cached, then lock that key away:
    ```bash

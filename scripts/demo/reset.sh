@@ -68,7 +68,7 @@ cron_checkin() {
   if [[ -n "${SENTRY_CRONS_URL:-}" ]]; then
     curl -fsS --connect-timeout 5 --max-time 10 -X POST "${SENTRY_CRONS_URL}?status=$1" >/dev/null || true
   fi
-  # Uptime Kuma push monitor `demo-reset-nightly` (12-operations.md section 1): up on ok, down
+  # Uptime Kuma push monitor `demo-rebuild-nightly` (12-operations.md section 1): up on ok, down
   # on error. Same shape as backup.sh's kuma_push: the token is in the path, any query is
   # dropped, the URL is never echoed and curl's stderr is discarded. No-op when unset.
   # Kuma's /api/push/* path bypasses Cloudflare Access (D14), so no auth headers go with it.

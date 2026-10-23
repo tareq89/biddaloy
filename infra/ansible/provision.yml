@@ -21,11 +21,12 @@
           edge_mode must be tunnel or direct, the host Ubuntu 24.04 or newer, and
           github_deploy_pubkey a single "ssh-ed25519 <base64> [comment]" line with no options
       tags: always
+    # systemd-journal: the nightly log-archive job (runs as deploy) exports host logs with journalctl.
     - name: Deploy user
       ansible.builtin.user:
         name: '{{ deploy_user }}'
         shell: /bin/bash
-        groups: sudo
+        groups: [sudo, systemd-journal]
         append: true
     # Add first (not exclusive), prove it, only then drop every other key. On a
     # re-run as deploy, a wrong operator_ssh_pubkey then stops at the probe while
@@ -66,9 +67,12 @@
         user: '{{ deploy_user }}'
         key: "{{ deploy_authorized_keys | join('\n') }}"
         exclusive: true
+  # docker before security: the docker role ends with a reset_connection, and on a
+  # first run (as root) that reconnect fails once security has turned root login off.
+  # After security, the play keeps its open connection until it ends.
   roles:
-    - geerlingguy.security
     - geerlingguy.docker
+    - geerlingguy.security
   tasks:
     # Ubuntu's sshd_config includes sshd_config.d/*.conf first and sshd keeps the
     # first value it reads. Cloud images ship 50-cloud-init.conf with
@@ -286,7 +290,13 @@
     #                    Files (W3 deploy, pg-tls.yml): server.key 0600 70:70, server.crt and
     #                    ca.crt 0644 (the app reads ca.crt through NODE_EXTRA_CA_CERTS).
     #   staging/restore/ 10001 0500 (the backup container's uid)
+    #   prod/restore/    root:root 0755, empty: the jobs container mounts it (BACKUP_AGE_KEY_DIR),
+    #                    and biddaloy-restore-prod reads a key put there by hand (10001 0400)
+    #   host-groups      root 0644, this host's inventory groups, one per line (biddaloy-deploy
+    #                    all reads it: ops is deployed only where the ops group points)
     #   repo/ logs-export/ deploy 0755      keys/  deploy 0700
+    #   logs/  deploy 0775 (biddaloy-deploy writes <stack>-last-deploy.log here)
+    #   deploy.lock  deploy 0664 (one deploy at a time; nightly and restore-prod take it first)
     - name: Env directories
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/{{ item }}'
@@ -306,6 +316,17 @@
         - { name: repo, mode: '0755' }
         - { name: keys, mode: '0700' }
         - { name: logs-export, mode: '0755' }
+        - { name: logs, mode: '0775' }
+    # /opt/biddaloy is root's, so deploy cannot create the lock itself. preserve keeps re-runs at changed=0.
+    - name: Deploy lock file
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/deploy.lock'
+        state: touch
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '0664'
+        modification_time: preserve
+        access_time: preserve
     - name: Postgres TLS directories
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/{{ item }}/pg-tls'
@@ -314,6 +335,21 @@
         group: root
         mode: '0755'
       loop: '{{ biddaloy_app_envs }}'
+    # deploy as the operator must list and stat the key here; the key file itself is 10001 0400.
+    - name: Restore directory (prod, empty until a restore)
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/prod/restore'
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: This host's inventory groups (biddaloy-deploy all reads it)
+      ansible.builtin.copy:
+        dest: '{{ biddaloy_root }}/host-groups'
+        content: "{{ group_names | sort | join('\n') }}\n"
+        owner: root
+        group: root
+        mode: '0644'
     - name: Restore directory (staging, backup uid only)
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/staging/restore'
@@ -385,10 +421,53 @@
       ansible.builtin.slurp:
         src: '/home/{{ deploy_user }}/.ssh/github_repo.pub'
       register: repo_deploy_pub
+    # biddaloy-deploy lives in the repo (/usr/local/bin links into it), so it cannot clone the
+    # repo itself the first time. Provision does, once the repo deploy key is on GitHub; until
+    # then this fails softly and "Keys to register" says to re-run. Same URL as biddaloy-deploy.
+    # The branch must contain deploy/bin: main once Epic 79 is merged; before that, pass
+    # -e repo_bootstrap_ref=<branch>. Later deploys check out their own sha.
+    - name: Is the repo cloned?
+      ansible.builtin.stat:
+        path: '{{ biddaloy_root }}/repo/.git'
+      register: repo_git
+    - name: First clone of the repo
+      ansible.builtin.command: git clone --quiet --branch {{ repo_bootstrap_ref | default('main') }} git@github.com:tareq89/biddaloy.git {{ biddaloy_root }}/repo
+      become: true
+      become_user: '{{ deploy_user }}'
+      register: repo_clone
+      changed_when: repo_clone.rc == 0
+      failed_when: false
+      when: not repo_git.stat.exists
+    # A clone of a branch without deploy/bin (main, before Epic 79 is merged) leaves .git behind
+    # but no command. Do not treat that as done: pointing repo_bootstrap_ref at the right branch
+    # fetches and checks it out. Only when the command is missing and a ref was passed, so a
+    # normal re-run (and any later deploy checkout) is never touched.
+    - name: Is biddaloy-deploy in the checkout?
+      ansible.builtin.stat:
+        path: '{{ biddaloy_root }}/repo/deploy/bin/biddaloy-deploy'
+      register: repo_cmd_before
+    - name: Recover a clone that lacks biddaloy-deploy
+      ansible.builtin.shell: |
+        set -e
+        git -C {{ biddaloy_root }}/repo fetch --quiet origin {{ repo_bootstrap_ref | quote }}
+        git -C {{ biddaloy_root }}/repo checkout --quiet --detach FETCH_HEAD
+      become: true
+      become_user: '{{ deploy_user }}'
+      register: repo_recover
+      changed_when: repo_recover.rc == 0
+      failed_when: false
+      when:
+        - repo_bootstrap_ref is defined
+        - repo_git.stat.exists
+        - not repo_cmd_before.stat.exists
+    - name: Is biddaloy-deploy ready now?
+      ansible.builtin.stat:
+        path: '{{ biddaloy_root }}/repo/deploy/bin/biddaloy-deploy'
+      register: repo_cmd
 
-    # Nightly jobs (D11): host systemd timers; one host flock serialises them
-    # with the deploy script's DB swaps (the swap flock inside containers is per
-    # container). Persistent=false: a missed night is not replayed at boot.
+    # Nightly jobs (D11): host systemd timers. biddaloy-nightly takes deploy.lock, then the
+    # host swap lock, itself (same order as biddaloy-restore-prod), so a job never overlaps a
+    # deploy or another swap. Persistent=false: a missed night is not replayed at boot.
     # Created up front, owned by root with group deploy. fs.protected_regular refuses an
     # O_CREAT open (flock does one) of a file in /run/lock whose owner is neither the opener
     # nor the directory owner, and root is not exempt. A root-owned file passes for everyone,
@@ -513,6 +592,11 @@
           - 'Add it to .sops.yaml, run `sops updatekeys infra/secrets/*.enc.env`, and commit.'
           - 'REPO DEPLOY KEY: {{ repo_deploy_pub.content | b64decode | trim }}'
           - 'Add it as a read-only deploy key on the GitHub repo (Settings > Deploy keys).'
+          - >-
+            {{ 'Repo cloned: biddaloy-deploy is ready.' if repo_cmd.stat.exists
+            else 'Repo cloned but deploy/bin/biddaloy-deploy is missing: that branch lacks it. Re-run with -e repo_bootstrap_ref=<branch that has deploy/bin>.'
+            if repo_git.stat.exists or (repo_clone.rc | default(1)) == 0
+            else 'Repo NOT cloned yet: add the deploy key above on GitHub, then re-run provision.' }}
 
   handlers:
     - name: Create tmpfiles
