@@ -11,6 +11,11 @@ const landingCss = readFileSync(resolve(root, 'landing/src/styles/tokens.css'), 
 const appCss = readFileSync(resolve(root, 'ui/src/styles/globals.css'), 'utf8');
 
 const LANDING_ONLY = new Set([
+  // the landing logo's colours; the app logo uses its own --brand-mark-* variables
+  '--logo-ink',
+  '--logo-roof',
+  '--logo-erp-via',
+  '--logo-erp-to',
   '--bg',
   '--surface',
   '--surface-2',
