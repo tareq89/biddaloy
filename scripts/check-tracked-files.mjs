@@ -183,14 +183,24 @@ export function findComposeDrift(read) {
     );
   };
   return Object.entries(COMPOSE_EXAMPLES).flatMap(([file, stacks]) => {
-    const text = read(file);
-    if (text === null) return [];
+    const raw = read(file);
+    // A renamed or unreadable mapped file must fail the guard, not pass it as "no drift".
+    if (raw === null) return [`${file} is mapped in COMPOSE_EXAMPLES but could not be read`];
+    // Compose does not interpolate YAML comments. ponytail: regex, not a YAML parse; a
+    // " #" inside a quoted value hides the rest of that line. Use a parser if that bites.
+    const text = raw.replace(/(^|\s)#.*$/gm, '$1');
     const listed = stacks.map(keysOf);
-    const vars = new Set(
-      [...text.matchAll(/(?<!\$)\$\{?([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1]),
-    );
+    const refs = (re) => new Set([...text.matchAll(re)].map((m) => m[1]));
+    const vars = refs(/(?<!\$)\$\{?([A-Za-z_][A-Za-z0-9_]*)/g);
+    // `${VAR:?}` breaks `compose up` for any stack missing it, so every example must list it;
+    // an optional var only needs one stack that uses it.
+    const required = refs(/(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*):\?/g);
     return [...vars]
-      .filter((v) => !DEPLOY_SET.has(v) && !listed.some((k) => k.has(v)))
+      .filter(
+        (v) =>
+          !DEPLOY_SET.has(v) &&
+          !(required.has(v) ? listed.every((k) => k.has(v)) : listed.some((k) => k.has(v))),
+      )
       .sort()
       .map(
         (v) =>

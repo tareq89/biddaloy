@@ -192,6 +192,13 @@ export async function runStackConfigCheck(
   if (stack === 'prod' && val('DEMO_MODE') === 'true') {
     errors.push('DEMO_MODE must not be true on prod');
   }
+  if (
+    stack === 'prod' &&
+    (val('TURNSTILE_SITE_KEY') === TURNSTILE_TEST_SITE_KEY ||
+      val('TURNSTILE_SECRET_KEY') === TURNSTILE_TEST_SECRET)
+  ) {
+    errors.push("TURNSTILE_* must not be Cloudflare's always-pass test keys on prod");
+  }
   if (stack !== 'prod') {
     // A non-prod stack must not touch a prod resource: it has its own database and bucket.
     if (set('POSTGRES_DB') && val('POSTGRES_DB') !== `biddaloy_${stack}`) {

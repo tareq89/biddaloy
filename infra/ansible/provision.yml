@@ -422,9 +422,10 @@
     # Nightly jobs (D11): host systemd timers. biddaloy-nightly takes deploy.lock, then the
     # host swap lock, itself (same order as biddaloy-restore-prod), so a job never overlaps a
     # deploy or another swap. Persistent=false: a missed night is not replayed at boot.
-    # Created up front and owned by deploy, so root (a manual or W3 run) can flock it
-    # too under fs.protected_regular (root cannot open another user's file in /run/lock
-    # with O_CREAT).
+    # Created up front, owned by root with group deploy. fs.protected_regular refuses an
+    # O_CREAT open (flock does one) of a file in /run/lock whose owner is neither the opener
+    # nor the directory owner, and root is not exempt. A root-owned file passes for everyone,
+    # and the deploy group keeps write access.
     - name: Lock file rule (systemd-tmpfiles)
       ansible.builtin.template:
         src: biddaloy-nightly-lock.conf.j2
