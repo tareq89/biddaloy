@@ -20,6 +20,7 @@ if [[ -z "$DB_CONTAINER" ]]; then
   PG_IMAGE="$(sed -n 's/^ *image: \(postgres:.*\)$/\1/p' "$HERE/../../docker-compose.yml" | head -1)"
   [[ -n "$PG_IMAGE" ]] || { echo "db-swap.infra.test.sh: no postgres image in docker-compose.yml" >&2; exit 1; }
   OWN_DB="db-swap-infra-test-pg-$$"
+  trap 'docker rm -f "$OWN_DB" >/dev/null 2>&1 || true' EXIT   # replaced by cleanup() below
   docker run -d --rm --name "$OWN_DB" -e POSTGRES_USER=demo -e POSTGRES_PASSWORD=demo "$PG_IMAGE" >/dev/null
   for _ in $(seq 1 60); do
     docker exec "$OWN_DB" pg_isready -q -h 127.0.0.1 -U demo 2>/dev/null && break
