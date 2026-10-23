@@ -12,6 +12,11 @@ The first real deploy of Epic 79, written down step by step while it happened
 
 ## The picture
 
+Terms used below: **VPS** = the rented Linux server. **GHCR** = GitHub's container image registry
+(where the built images live). **R2** = Cloudflare's file storage (our backups). **sops** = the tool
+that encrypts our secret files so they can sit in git. **Access** = Cloudflare's login page in
+front of staging and the ops tools.
+
 ```mermaid
 flowchart LR
   subgraph laptop ["Your laptop"]
