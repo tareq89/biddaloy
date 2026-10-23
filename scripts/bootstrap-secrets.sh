@@ -57,6 +57,8 @@ STAGING_HASH_B64=$(bcrypt_b "$STAGING_PW" | base64 | tr -d '\n')
 DOZZLE_PW=$(hex 12)
 DOZZLE_HASH=$(printf '%s' "$DOZZLE_PW" | htpasswd -inBC 12 owner | cut -d: -f2 | sed 's/^\$2y\$/$2a$/' | tr -d '\n')
 TUNNEL_JSON=$(jq -c . "$creds")
+# Placeholder: registration adds a random suffix to the slug. Replace it with the real one
+# after registering the Smoke Test School (walkthrough Part 12c step 4).
 SMOKE_SLUG=smoke-test-school
 
 enc() { # <stack>, dotenv on stdin
