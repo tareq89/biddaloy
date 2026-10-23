@@ -34,9 +34,25 @@ Calling the roll from a paper register every morning takes time. Registers get l
 
 In SchoolManager you take attendance from a phone or a computer in **about two minutes**. For example, Class 10 – B has 20 students. You press **All present**, tap the two students who did not come, and press **Submit attendance**. That's it. The monthly register and the reports are built for you.
 
+**On this page**
+
+- [At a glance](#at-a-glance)
+- [Where to find it](#where)
+- [Parts of the page](#parts)
+- [Tasks](#tasks)
+  - [Taking the daily attendance](#task-daily)
+  - [When a student is late or on leave](#task-late-leave)
+  - [Submitting before everyone is marked](#task-unmarked)
+  - [Fixing a mistake](#task-fix)
+- [Faster on a computer (keyboard)](#keyboard)
+- [Works together with](#related)
+- [What each field means](#fields)
+- [Who can do what](#roles)
+- [Video](#video)
+
 ---
 
-## At a glance
+## At a glance <a href="#at-a-glance" id="at-a-glance"></a>
 
 <figure>
   <img src="diagrams/attendance-overview.svg" alt="A teacher marks the section register; attendance reports and the monthly attendance register are built from it; an admin fixes old registers; an alert comes if it is not taken on time" width="720">
@@ -58,7 +74,7 @@ The daily job is just five steps:
 
 ---
 
-## Where to find it
+## Where to find it <a href="#where" id="where"></a>
 
 On a computer there are two ways to reach the attendance page:
 
@@ -84,7 +100,7 @@ On a computer there are two ways to reach the attendance page:
 
 ---
 
-## Parts of the page
+## Parts of the page <a href="#parts" id="parts"></a>
 
 ### The section list
 
@@ -119,9 +135,9 @@ On a computer there are two ways to reach the attendance page:
 
 ---
 
-## Tasks
+## Tasks <a href="#tasks" id="tasks"></a>
 
-### Taking the daily attendance
+### Taking the daily attendance <a href="#task-daily" id="task-daily"></a>
 
 <!-- slot:before -->
 
@@ -200,7 +216,7 @@ On a computer there are two ways to reach the attendance page:
   <figcaption><em>What the page shows on a closed day</em></figcaption>
 </figure>
 
-### When a student is late or on leave
+### When a student is late or on leave <a href="#task-late-leave" id="task-late-leave"></a>
 
 <!-- slot:before -->
 
@@ -228,7 +244,7 @@ On a computer there are two ways to reach the attendance page:
 
 > **If something goes wrong:** on a future date only **Leave** can be marked, and only if your school allows it. The page then says "Future date — only Leave can be marked ahead of time."
 
-### Submitting before everyone is marked
+### Submitting before everyone is marked <a href="#task-unmarked" id="task-unmarked"></a>
 
 <!-- slot:before -->
 
@@ -255,7 +271,7 @@ If you press **Submit attendance** now, the app checks with you first:
 
 > **If something goes wrong:** in Bangla, the **বাতিল** (Cancel) button under this question is cut off and cannot be pressed. Press **✕** at the top to go back. We are fixing this.
 
-### Fixing a mistake
+### Fixing a mistake <a href="#task-fix" id="task-fix"></a>
 
 <!-- slot:before -->
 
@@ -285,7 +301,7 @@ On an old register each row has a **⋮** button on the right. Press it to see t
 
 ---
 
-## Faster on a computer (keyboard)
+## Faster on a computer (keyboard) <a href="#keyboard" id="keyboard"></a>
 
 After you press one name, you can mark with the keyboard:
 
@@ -302,7 +318,7 @@ After you press one name, you can mark with the keyboard:
 
 ---
 
-## Works together with
+## Works together with <a href="#related" id="related"></a>
 
 - **Teacher assignments** — an admin assigns your sections here. Without it your list is empty.
 - **Class routine** — once the routine is published and per-period attendance is on, the register shows period tabs.
@@ -312,7 +328,7 @@ After you press one name, you can mark with the keyboard:
 
 ---
 
-## What each field means
+## What each field means <a href="#fields" id="fields"></a>
 
 <!-- guide:generated:fields:attendance -->
 
@@ -326,7 +342,7 @@ After you press one name, you can mark with the keyboard:
 
 ---
 
-## Who can do what
+## Who can do what <a href="#roles" id="roles"></a>
 
 ### For teachers
 
@@ -351,7 +367,7 @@ After you press one name, you can mark with the keyboard:
 
 ---
 
-## Video
+## Video <a href="#video" id="video"></a>
 
 <!-- guide:generated:video:attendance.attendance -->
 
