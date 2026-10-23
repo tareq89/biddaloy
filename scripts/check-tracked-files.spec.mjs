@@ -207,7 +207,8 @@ describe('findComposeDrift', () => {
     'deploy/ops.yml': 'memory: ${KUMA_MEM:-384m}\nx: ${OPS_DIR:?set}/y\n',
     'infra/secrets/ops.example.env': 'KUMA_MEM=\n',
   };
-  const read = (f) => files[f] ?? null;
+  // The other mapped compose files read no variables here; an unlisted example is just empty.
+  const read = (f) => files[f] ?? (f.startsWith('deploy/') ? '' : null);
 
   it('passes when the example lists the var (OPS_DIR is set by the deploy)', () => {
     expect(findComposeDrift(read)).toEqual([]);
@@ -227,6 +228,33 @@ describe('findComposeDrift', () => {
     );
     expect(drift.join('\n')).toMatch(/PLAIN_VAR[\s\S]*lower_var|lower_var[\s\S]*PLAIN_VAR/);
     expect(drift.join('\n')).not.toContain('ESCAPED');
+  });
+
+  it('reports a mapped compose file it cannot read', () => {
+    const drift = findComposeDrift((f) => (f === 'deploy/ops.yml' ? null : read(f)));
+    expect(drift).toHaveLength(1);
+    expect(drift[0]).toContain('deploy/ops.yml');
+  });
+
+  it('ignores a ${VAR} that only appears in a YAML comment', () => {
+    const drift = findComposeDrift((f) =>
+      f === 'deploy/ops.yml'
+        ? '# set ${EXAMPLE_VAR} here\nmemory: ${KUMA_MEM:-384m} # or ${OTHER_VAR}\n'
+        : read(f),
+    );
+    expect(drift).toEqual([]);
+  });
+
+  it('needs a required ${VAR:?} in every mapped example, an optional one in any', () => {
+    const stack = {
+      'deploy/stack.yml': 'a: ${NEED:?set}\nb: ${OPT:-x}\n',
+      'infra/secrets/prod.example.env': 'NEED=\nOPT=\n',
+      'infra/secrets/staging.example.env': 'NEED=\n',
+      'infra/secrets/demo.example.env': '# none\n',
+    };
+    const drift = findComposeDrift((f) => stack[f] ?? (f.startsWith('deploy/') ? '' : null));
+    expect(drift).toHaveLength(1);
+    expect(drift[0]).toContain('NEED');
   });
 
   it('holds for the real deploy files', () => {

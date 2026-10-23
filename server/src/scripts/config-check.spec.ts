@@ -9,6 +9,8 @@ import {
   runConfigCheck,
   runProductionConfigCheck,
   runStackConfigCheck,
+  TURNSTILE_TEST_SECRET,
+  TURNSTILE_TEST_SITE_KEY,
 } from './config-check';
 import { hashPassword } from '../modules/auth/password-hash';
 
@@ -225,6 +227,18 @@ describe('runStackConfigCheck', () => {
     for (const key of ['GOOGLE_OAUTH_CLIENT_ID', 'FACEBOOK_OAUTH_CLIENT_SECRET']) {
       const result = await runStackConfigCheck('staging', { ...staging, [key]: 'live-value-123' });
       expect(result.output).toContain(`${key} must be empty on staging`);
+    }
+  });
+
+  it('prod refuses Cloudflare always-pass Turnstile test keys', async () => {
+    for (const test of [
+      { TURNSTILE_SITE_KEY: TURNSTILE_TEST_SITE_KEY, TURNSTILE_SECRET_KEY: TURNSTILE_TEST_SECRET },
+      { TURNSTILE_SITE_KEY: TURNSTILE_TEST_SITE_KEY },
+      { TURNSTILE_SECRET_KEY: TURNSTILE_TEST_SECRET },
+    ]) {
+      const result = await runStackConfigCheck('prod', { ...prod, ...test });
+      expect(result.ok).toBe(false);
+      expect(result.output).toContain("TURNSTILE_* must not be Cloudflare's always-pass");
     }
   });
 
