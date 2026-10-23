@@ -2,6 +2,7 @@
 
 - [SchoolManager-এ স্বাগতম](README.md)
 - [SchoolManager-এর একটি নমুনা কাজ](sample-page.md)
+- [উপস্থিতি নেওয়া](attendance/attendance.md)
 - [প্রিন্ট ও আইডি কার্ড](printing/README.md)
   - [টেমপ্লেট](printing/templates.md)
   - [ডিজাইনারের গাইড](printing/designer-guide.md)

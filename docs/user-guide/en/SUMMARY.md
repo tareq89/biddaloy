@@ -2,6 +2,7 @@
 
 - [Welcome to SchoolManager](README.md)
 - [A sample SchoolManager task](sample-page.md)
+- [Taking attendance](attendance/attendance.md)
 - [Printing and ID cards](printing/README.md)
   - [Templates](printing/templates.md)
   - [Designer guide](printing/designer-guide.md)
