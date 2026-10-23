@@ -277,6 +277,18 @@ services:
     environment:
       <<: *jobs-env
       BACKUP_AGE_PRIVATE_KEY_FILE: /run/age/key.txt
+      # staging-refresh.sh reads the parts, not DATABASE_URL (host `db`, port 5432 are its defaults).
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # `:-`, not `:?`: prod and demo resolve this service too (inactive profile); the script
+      # refuses an empty one.
+      # base64: compose would expand the `$`s of a raw bcrypt hash (see staging.example.env).
+      STAGING_PASSWORD_HASH_B64: ${STAGING_PASSWORD_HASH_B64:-}
+      SMOKE_SCHOOL_SLUG: ${SMOKE_SCHOOL_SLUG:-}
+      PLATFORM_TENANT_ID: ${PLATFORM_TENANT_ID:-}
+      STAGING_REFRESH_PUSH_URL: ${STAGING_REFRESH_PUSH_URL:-}
+      STAGING_REFRESH_DEADLINE: ${STAGING_REFRESH_DEADLINE:-}
     volumes:
       - *age-key
     deploy:

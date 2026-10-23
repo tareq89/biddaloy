@@ -140,6 +140,8 @@ export default defineConfig({
             org: process.env.SENTRY_ORG,
             project: process.env.SENTRY_PROJECT,
             authToken: process.env.SENTRY_AUTH_TOKEN,
+            // Equals the runtime `release` (the commit SHA) so events match their maps.
+            release: { name: process.env.SENTRY_RELEASE },
             // Deleted after upload: the maps exist for Sentry, not for
             // the public — shipping them would hand anyone the app's
             // unminified source.

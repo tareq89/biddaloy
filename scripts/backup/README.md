@@ -92,9 +92,12 @@ integration case.
 scripts/backup/restore.sh <s3-key-or-local-file> <TARGET_DATABASE_URL>
 ```
 
-Decrypts the chosen archive, restores it into `TARGET_DATABASE_URL`, runs
-server migrations against it, and prints integrity counts from
-`verify.sql`. Refuses to run if `TARGET_DATABASE_URL` equals the `DATABASE_URL`
+Decrypts the chosen archive, restores it into `TARGET_DATABASE_URL`, and
+prints integrity counts from `verify.sql`. It does **not** run migrations:
+run `node server/dist/scripts/migrate.js run` from the app image afterwards.
+`--require-empty` (prod restore, used by `deploy/bin/biddaloy-restore-prod`)
+refuses a target that has a user or a school besides `default-school` (exit 3)
+and does the check, the schema wipe and the load in one transaction. Refuses to run if `TARGET_DATABASE_URL` equals the `DATABASE_URL`
 env var (the running production database) — see the script for the exact
 check.
 
@@ -119,3 +122,34 @@ Neither script uses `set -x`, and neither prints `DATABASE_URL` or any key
 material to stdout/stderr. If you add debug output, log shape/status only
 ("upload ok", "12 objects found") — never a variable that could hold a
 credential.
+
+## staging-refresh.sh
+
+Builds tomorrow's staging database from last night's prod backup, scrubbed. Runs in the
+staging `jobs` container: `docker compose -p staging run --rm jobs /app/staging-refresh.sh`.
+It ends at a ready `<POSTGRES_DB>_next`; the host migrates it and calls `db-swap.sh`.
+
+```mermaid
+flowchart LR
+  A[guard] --> B[wait for<br/>db/daily/DAY.dump.age] --> C[create _next] --> D[restore.sh] --> E[scrub.sql] --> F[verify counts] --> G["staging_next ready"]
+```
+
+Needs (all passed by `deploy/stack.yml`, from `infra/secrets/staging.enc.env`):
+
+- `POSTGRES_DB` (must start `biddaloy_staging`), `POSTGRES_USER`, `POSTGRES_PASSWORD`
+- `BACKUP_S3_ENDPOINT` (https), `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`: the **read-only** R2 token
+- the age private key at `/run/age/key.txt` (`BACKUP_AGE_KEY_DIR` mounted read-only)
+- `STAGING_PASSWORD_HASH_B64` (base64 of a bcrypt cost-12 hash), `SMOKE_SCHOOL_SLUG`, `PLATFORM_TENANT_ID` (uuid)
+- optional: `STAGING_REFRESH_PUSH_URL` (Kuma, failures only), `STAGING_REFRESH_DEADLINE` (HH:MM, default 02:50),
+  `STAGING_REFRESH_LOCK` (extra lock file; unset by default, the host unit's `flock` is the real lock)
+
+Why base64: compose expands every `$` in a `.env` value, and a bcrypt hash (`$2b$12$...`) is full
+of them. Make the value from the app image, then check it with `config:check --env staging`:
+
+```bash
+node -e "require('/app/server/dist/modules/auth/password-hash').hashPassword(process.argv[1]).then(h => console.log(Buffer.from(h).toString('base64')))" '<STAGING_PASSWORD>'
+```
+
+Exit codes: `0` ready; `1` failed, staging untouched, a `down` push was sent; `2` refused
+(wrong database name, missing or malformed env). Output is step names and counts only.
+Example: `step 5/7: scrub` then `staging_next ready`.

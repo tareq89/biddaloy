@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+# Host-side nightly jobs (Epic 79, decisions D4, D5, D7, D11, D19, P3, P4, P11), run by the
+# systemd timers biddaloy-nightly@<job>.timer as /usr/local/bin/biddaloy-nightly <job>.
+#
+#   biddaloy-nightly staging-refresh   prod backup -> scrubbed _next -> migrate -> swap -> smoke
+#   biddaloy-nightly demo-rebuild      demo-reset (rebuild + swap) -> restart app -> ready
+#   biddaloy-nightly log-archive       export yesterday's logs, ship them encrypted to R2
+#
+# Every run ends in exactly one Kuma push: `up` (msg ok) or `down` (msg = the step that failed).
+# A failed push is logged and ignored: Kuma being unreachable must not fail the job.
+#
+# Locks (jobs never overlap, and never overlap a deploy): $ROOT/deploy.lock first, then the host
+# swap lock /run/lock/biddaloy-swap.lock, same order as biddaloy-restore-prod. The systemd unit runs
+# this script bare: a `flock` wrapper around it would take the swap lock first and invert the order.
+#
+# Secrets: values come from /opt/biddaloy/<stack>/.env and travel only through the environment
+# (`-e NAME` with no value, compose interpolation), never on a command line or in the log. The
+# Kuma URL is handed to curl on stdin. `set -x` is never used.
+#
+# Exit codes: 0 ok, 1 a step failed (down pushed), 2 bad usage.
+set -euo pipefail
+
+ROOT="${BIDDALOY_ROOT:-/opt/biddaloy}"
+REPO="${BIDDALOY_REPO:-$ROOT/repo}"
+SWAP_LOCK="${BIDDALOY_SWAP_LOCK:-/run/lock/biddaloy-swap.lock}"
+SLEEP="${NIGHTLY_SLEEP:-5}"
+JOB="${1:-}"
+
+say() { printf '%s biddaloy-nightly: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*" >&2; }
+
+case "$JOB" in
+  staging-refresh) STACK=staging; PUSH_VAR=STAGING_REFRESH_PUSH_URL ;;
+  demo-rebuild) STACK=demo; PUSH_VAR=DEMO_RESET_PUSH_URL ;;
+  log-archive) STACK=prod; PUSH_VAR=LOG_ARCHIVE_PUSH_URL ;;
+  *) say "usage: biddaloy-nightly <staging-refresh|demo-rebuild|log-archive>"; exit 2 ;;
+esac
+ENV_FILE="$ROOT/$STACK/.env"
+
+# Prints the value of KEY in the stack's .env (no `source`: values hold $ and quotes).
+envval() {
+  local v
+  v="$(sed -n "s/^$1=//p" "$ENV_FILE" | tail -1)" || true
+  v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
+  printf '%s' "$v"
+}
+# Exports the named keys from .env so `-e NAME` and compose interpolation can see them.
+load() { local k; for k in "$@"; do export "$k=$(envval "$k")"; done; }
+
+PUSH_URL="$(envval "$PUSH_VAR")"
+# push <up|down> <msg>: msg is cut down to URL-safe characters.
+push() {
+  local msg
+  msg="$(printf '%s' "$2" | tr -c 'A-Za-z0-9._-' '+')"
+  if [[ -z "$PUSH_URL" ]]; then say "no $PUSH_VAR set; push skipped ($1 $msg)"; return 0; fi
+  # The URL (it embeds a token) goes to curl on stdin, not on the command line.
+  printf 'url = "%s?status=%s&msg=%s&ping="\n' "${PUSH_URL%%\?*}" "$1" "$msg" \
+    | curl -fsS --max-time 10 -K - >/dev/null || say "push to Kuma failed (ignored)"
+}
+
+ROLLBACK=""  # a function name, run once by fail() before the `down` push
+fail() {
+  local step="$1" fn="$ROLLBACK"
+  say "FAILED at step: $step"
+  if [[ -n "$fn" ]]; then ROLLBACK=""; "$fn" || say "rollback did not finish: fix by hand"; fi
+  push down "$step"
+  exit 1
+}
+run_step() {
+  local name="$1"; shift
+  echo "step: $name"
+  "$@" || fail "$name"
+}
+
+# shellcheck source=deploy/bin/lib.sh
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib.sh"
+
+# dc <stack> <compose args...>: always the same project, project directory and file (the copy the
+# stack's last ok deploy kept, lib.sh).
+dc() { local s="$1"; shift; docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(kept_file "$s" stack.yml deploy/stack.yml)" "$@"; }
+
+wait_ready() { # <stack>: /api/health, 24 tries x 5 s (the compose healthcheck's own URL)
+  local i
+  for ((i = 0; i < 24; i++)); do
+    dc "$1" exec -T app wget -q -O /dev/null http://127.0.0.1:3000/api/health >/dev/null 2>&1 && return 0
+    sleep "$SLEEP"
+  done
+  return 1
+}
+
+# --- locks --------------------------------------------------------------------------------------
+exec 8>"$ROOT/deploy.lock"
+flock -w 3600 8 || { say "deploy lock busy for an hour"; fail "deploy lock"; }
+exec 9>"$SWAP_LOCK"
+flock -w 3600 9 || { say "swap lock busy for an hour"; fail "swap lock"; }
+
+# --- staging-refresh ----------------------------------------------------------------------------
+staging_refresh() {
+  load POSTGRES_DB SMOKE_SCHOOL_SLUG SMOKE_ADMIN_EMAIL SMOKE_ADMIN_PASSWORD SMOKE_TEACHER_EMAIL \
+    SMOKE_TEACHER_PASSWORD SMOKE_SUPER_ADMIN_EMAIL SMOKE_SUPER_ADMIN_PASSWORD
+  local live="$POSTGRES_DB"
+  [[ "$live" == biddaloy_staging ]] || { say "POSTGRES_DB is not biddaloy_staging"; fail guard; }
+
+  # The scrub sets every password to STAGING_PASSWORD_HASH_B64, which the jobs service reads from
+  # the staging .env (made once with the app's hashPassword, Rule 9; config:check verifies it).
+  run_step refresh dc staging run --rm -T jobs /app/staging-refresh.sh
+
+  # Tonight's prod data must migrate to the staging code. POSTGRES_DB in the environment wins over
+  # .env in compose interpolation, so the app's DATABASE_URL points at _next without a URL on argv.
+  run_step migrate migrate_next "$live"
+
+  # From here staging is down or swapped; any failure must leave it serving something.
+  ROLLBACK=staging_restore_old
+  run_step stop-app dc staging stop app
+  run_step swap dc staging run --rm -T jobs /app/db-swap.sh "$live" "${live}_next"
+  ROLLBACK=staging_swap_back
+  run_step flush-redis dc staging exec -T redis redis-cli FLUSHALL
+  run_step start-app dc staging up -d app
+  echo "step: ready"; wait_ready staging || fail ready
+  run_step smoke dc staging run --rm -T --no-deps \
+    -v "$(kept_file staging smoke-post-deploy.mjs scripts/smoke-post-deploy.mjs):/tmp/smoke-post-deploy.mjs:ro" \
+    -e SMOKE_SCHOOL_SLUG -e SMOKE_ADMIN_EMAIL -e SMOKE_ADMIN_PASSWORD -e SMOKE_TEACHER_EMAIL \
+    -e SMOKE_TEACHER_PASSWORD -e SMOKE_SUPER_ADMIN_EMAIL -e SMOKE_SUPER_ADMIN_PASSWORD \
+    app node /tmp/smoke-post-deploy.mjs --base-url http://app:3000
+  ROLLBACK=""
+  # ponytail: a failed drop is only a warning (the swap worked); tomorrow's swap refuses while
+  # _prev_old exists, and the warning in Kuma is how that gets noticed.
+  echo "step: drop-prev-old"
+  if dc staging run --rm -T jobs /app/db-swap.sh --drop-prev-old "$live"; then WARNING=""; else WARNING="drop-prev-old failed"; fi
+}
+migrate_next() { POSTGRES_DB="${1}_next" dc staging run --rm -T --no-deps app node server/dist/scripts/migrate.js run; }
+staging_restore_old() { # the swap did not happen: yesterday's data, app back up
+  dc staging up -d app && wait_ready staging
+}
+staging_swap_back() { # the swap happened but the new data does not serve: put yesterday's back
+  dc staging stop app
+  dc staging run --rm -T jobs /app/db-swap.sh "$POSTGRES_DB" "${POSTGRES_DB}_prev"
+  # a leftover _prev_old makes tomorrow's swap refuse; a failed drop must not block the restart
+  dc staging run --rm -T jobs /app/db-swap.sh --drop-prev-old "$POSTGRES_DB" || true
+  dc staging exec -T redis redis-cli FLUSHALL || true
+  dc staging up -d app && wait_ready staging
+}
+
+# --- demo-rebuild -------------------------------------------------------------------------------
+demo_rebuild() {
+  echo "step: reset"
+  local rc=0
+  dc demo run --rm -T demo-reset /app/reset.sh --now || rc=$?
+  case "$rc" in
+    0) ;;
+    3) WARNING="swapped but cleanup failed" ;; # the new demo is live: restart anyway
+    *) fail reset ;;                           # nothing swapped: yesterday's demo keeps running
+  esac
+  run_step restart-app dc demo restart app
+  echo "step: ready"; wait_ready demo || fail ready
+}
+
+# --- log-archive --------------------------------------------------------------------------------
+day_offset() { # <days back> -> YYYY-MM-DD in host time (GNU date, BSD date for local runs)
+  local t=$(($(date +%s) - $1 * 86400))
+  date -d "@$t" +%F 2>/dev/null || date -r "$t" +%F
+}
+# The export is deploy's alone (umask 077, in this subshell only): the jobs container (another
+# uid) never mounts it, it reads a tar of it on stdin.
+export_logs() (
+  local y="$1" t="$2" out="$3" c z off
+  z="$(date +%z)"; off="${z:0:3}:${z:3:2}" # host offset, so docker logs cover the same day as journalctl
+  umask 077
+  mkdir -p "$out"
+  while IFS= read -r c; do
+    [[ -n "$c" ]] || continue
+    docker logs --since "${y}T00:00:00${off}" --until "${t}T00:00:00${off}" "$c" 2>&1 | gzip -9 > "$out/$c.log.gz" || return 1
+  done < <(docker ps --format '{{.Names}}')
+  journalctl --no-pager --since "$y 00:00:00" --until "$t 00:00:00" -u 'biddaloy-*' -u docker 2>&1 | gzip -9 > "$out/host.log.gz" || return 1
+)
+# log-archive.sh unpacks the tar into the container's /tmp, ships and checks it there. The host copy
+# is deleted only after it exited 0; a failed night keeps it for a manual retry.
+archive_logs() { # <exp> <day>
+  tar -C "$1" -cf - "$2" \
+    | dc prod run --rm -T -e "LOG_ARCHIVE_DATE=$2" -e LOG_ARCHIVE_EXPORT_DIR=/tmp/export jobs \
+      sh -c 'mkdir -p /tmp/export && tar -C /tmp/export -xf - && exec /app/log-archive.sh'
+}
+log_archive() {
+  local y t exp="$ROOT/logs-export"
+  y="$(day_offset 1)"; t="$(day_offset 0)"
+  run_step export export_logs "$y" "$t" "$exp/$y"
+  run_step archive archive_logs "$exp" "$y"
+  rm -rf "${exp:?}/$y"
+}
+
+WARNING=""
+case "$JOB" in
+  staging-refresh) staging_refresh ;;
+  demo-rebuild) demo_rebuild ;;
+  log-archive) log_archive ;;
+esac
+if [[ -n "$WARNING" ]]; then say "warning: $WARNING"; push up "ok, warning: $WARNING"; else push up ok; fi
