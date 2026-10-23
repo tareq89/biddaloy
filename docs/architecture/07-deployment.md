@@ -162,7 +162,14 @@ for what Cloudflare does for you in tunnel mode and what replaces it.
 
 `.github/workflows/publish-image.yml` runs on every merge to `main`. Each
 image is tagged with the **full 40-character commit SHA** and `main`. The VM
-only pulls, never builds. The pull login is the `GHCR_PULL_USER` /
+only pulls, never builds.
+
+To test a branch before it merges, run the same workflow by hand
+(`gh workflow run publish-image.yml --ref <branch>`; it is a `workflow_dispatch`).
+On any branch other than `main` it publishes **only** the full-SHA tags and never
+writes `:main`, so `:main` always means "what is merged". Deploy that SHA with
+`biddaloy-deploy <stack> <sha>` (see
+[30-deployment-target.md](30-deployment-target.md)). The pull login is the `GHCR_PULL_USER` /
 `GHCR_PULL_TOKEN` pair in `edge.enc.env` (a token with only `read:packages`).
 
 | Image                                 | Built from                                                                                  | Used by                                                              |

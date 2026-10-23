@@ -53,8 +53,11 @@ flowchart TB
 
 ## Edge: two modes, same nginx
 
-The edge can run in two modes. Both are built and tested (D8), so moving to
-a BDIX host without Cloudflare is a config switch, not new work. The design
+The edge can run in two modes. Both are built and tested locally (D8), so moving to
+a BDIX host without Cloudflare is a config switch, not new code. Direct mode
+has **not** run on a real host: Let's Encrypt issuance, and the `openssl`
+binary that `cert-bootstrap` needs in the certbot image, are unverified (see
+the real-VM checklist below). The design
 (files, networks, what each mode turns on) is in
 [07-deployment.md](07-deployment.md#the-two-edge-modes).
 

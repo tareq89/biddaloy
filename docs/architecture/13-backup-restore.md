@@ -93,7 +93,7 @@ dumps sit on the same disk as the database. Production always sets all six of
 - Recommended (a Cloudflare setting, not code): add R2 **Bucket Lock** rules
   so a compromised host with the delete-capable token cannot wipe the
   offsite dumps. Keep each lock clearly **shorter** than its keep window, for
-  example `db/hourly/` 48 hours (keep 72) and `db/daily/` 25 days (keep 30).
+  example `db/hourly/` 72 hours (keep 100, about 100 hours) and `db/daily/` 25 days (keep 30).
   A lock equal to the window breaks: one extra or manual run, or a dump that
   finishes a few seconds faster, makes the prune try to delete a key that is
   still locked. The prune then fails, and because the db prunes run first,
@@ -425,8 +425,9 @@ flowchart LR
 Logs are redacted at the source ([Rule 13](08-security.md#rule-13-logs-never-carry-secrets)); the
 script never opens a log file, it only hands paths to rclone. File names and
 contents are encrypted with the same style of rclone crypt as the file backup,
-using the `LOG_ARCHIVE_*` settings in `edge.enc.env` (each falls back to the
-matching `BACKUP_*` value). The result is the `log-archive-nightly` Kuma push.
+using the `LOG_ARCHIVE_*` settings in the prod `.env` (`prod.enc.env`; each falls
+back to the matching `BACKUP_*` value). `biddaloy-nightly log-archive` runs in
+the prod `jobs` container, so `edge.enc.env` is not read. The result is the `log-archive-nightly` Kuma push.
 To read a day back, build an rclone config as for "Restore files from R2" and run
 `rclone copy r2crypt:logs/<date> ./logs-out`.
 

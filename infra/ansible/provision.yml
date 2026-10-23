@@ -438,6 +438,32 @@
       changed_when: repo_clone.rc == 0
       failed_when: false
       when: not repo_git.stat.exists
+    # A clone of a branch without deploy/bin (main, before Epic 79 is merged) leaves .git behind
+    # but no command. Do not treat that as done: pointing repo_bootstrap_ref at the right branch
+    # fetches and checks it out. Only when the command is missing and a ref was passed, so a
+    # normal re-run (and any later deploy checkout) is never touched.
+    - name: Is biddaloy-deploy in the checkout?
+      ansible.builtin.stat:
+        path: '{{ biddaloy_root }}/repo/deploy/bin/biddaloy-deploy'
+      register: repo_cmd_before
+    - name: Recover a clone that lacks biddaloy-deploy
+      ansible.builtin.shell: |
+        set -e
+        git -C {{ biddaloy_root }}/repo fetch --quiet origin {{ repo_bootstrap_ref | quote }}
+        git -C {{ biddaloy_root }}/repo checkout --quiet --detach FETCH_HEAD
+      become: true
+      become_user: '{{ deploy_user }}'
+      register: repo_recover
+      changed_when: repo_recover.rc == 0
+      failed_when: false
+      when:
+        - repo_bootstrap_ref is defined
+        - repo_git.stat.exists
+        - not repo_cmd_before.stat.exists
+    - name: Is biddaloy-deploy ready now?
+      ansible.builtin.stat:
+        path: '{{ biddaloy_root }}/repo/deploy/bin/biddaloy-deploy'
+      register: repo_cmd
 
     # Nightly jobs (D11): host systemd timers. biddaloy-nightly takes deploy.lock, then the
     # host swap lock, itself (same order as biddaloy-restore-prod), so a job never overlaps a
@@ -565,7 +591,11 @@
           - 'Add it to .sops.yaml, run `sops updatekeys infra/secrets/*.enc.env`, and commit.'
           - 'REPO DEPLOY KEY: {{ repo_deploy_pub.content | b64decode | trim }}'
           - 'Add it as a read-only deploy key on the GitHub repo (Settings > Deploy keys).'
-          - "{{ 'Repo cloned: biddaloy-deploy is ready.' if repo_git.stat.exists or (repo_clone.rc | default(1)) == 0 else 'Repo NOT cloned yet: add the deploy key above on GitHub, then re-run provision.' }}"
+          - >-
+            {{ 'Repo cloned: biddaloy-deploy is ready.' if repo_cmd.stat.exists
+            else 'Repo cloned but deploy/bin/biddaloy-deploy is missing: that branch lacks it. Re-run with -e repo_bootstrap_ref=<branch that has deploy/bin>.'
+            if repo_git.stat.exists or (repo_clone.rc | default(1)) == 0
+            else 'Repo NOT cloned yet: add the deploy key above on GitHub, then re-run provision.' }}
 
   handlers:
     - name: Create tmpfiles

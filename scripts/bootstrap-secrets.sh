@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Writes the five first-time secret files (infra/secrets/{edge,ops,prod,staging,demo}.enc.env)
-# for a new VPS. Walkthrough: docs/architecture/31-vps-deploy-walkthrough.md, step 8.
+# for a NEW installation. It refuses when any of them exists; to reuse committed files on another
+# VPS, grant the new host key instead (walkthrough step 8, path A). Walkthrough: docs/architecture/31-vps-deploy-walkthrough.md, step 8.
 #
 # - Public values come from the environment variables below (no defaults: a missing one stops).
 # - Random secrets (DB passwords, JWT, encryption keys, the backup age pair, the staging and
@@ -28,7 +29,13 @@ grep -q REPLACE_WITH_ .sops.yaml && { echo "FAILED: put the three age public key
 creds=~/.cloudflared/$TUNNEL_ID.json
 [ -f "$creds" ] || { echo "FAILED: $creds not found (cloudflared tunnel create)" >&2; exit 2; }
 for f in edge ops prod staging demo; do
-  [ -e "infra/secrets/$f.enc.env" ] && { echo "FAILED: infra/secrets/$f.enc.env exists; this script only makes new files" >&2; exit 2; }
+  [ -e "infra/secrets/$f.enc.env" ] && {
+    echo "FAILED: infra/secrets/$f.enc.env exists; this script never overwrites credentials." >&2
+    echo "  Same installation, new host key: do not run this script; grant the key with 'sops updatekeys'" >&2
+    echo "  (walkthrough step 8, path A). A brand-new installation: move the five files away yourself first" >&2
+    echo "  (path B); every secret is then new and the old deployment's values stop matching." >&2
+    exit 2
+  }
 done
 for t in sops age-keygen htpasswd openssl jq; do command -v "$t" >/dev/null || { echo "FAILED: $t not installed" >&2; exit 2; }; done
 
@@ -37,7 +44,8 @@ R2_ENDPOINT=https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com
 hex() { openssl rand -hex "$1"; }
 b64key() { openssl rand -base64 32; }
 # The app accepts $2a/$2b/$2y; $2b is what its own hashPassword writes (Rule 9).
-bcrypt_b() { htpasswd -bnBC 12 "" "$1" | tr -d ':\n' | sed 's/^\$2y\$/$2b$/'; }
+# The password goes in on stdin (-i), never as an argument another local user could see in `ps`.
+bcrypt_b() { printf '%s' "$1" | htpasswd -inBC 12 "" | tr -d ':\n' | sed 's/^\$2y\$/$2b$/'; }
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -47,7 +55,7 @@ BACKUP_PRIV=$(grep '^AGE-SECRET-KEY-' "$tmp/backup")
 STAGING_PW=$(hex 16)
 STAGING_HASH_B64=$(bcrypt_b "$STAGING_PW" | base64 | tr -d '\n')
 DOZZLE_PW=$(hex 12)
-DOZZLE_HASH=$(htpasswd -bnBC 12 owner "$DOZZLE_PW" | cut -d: -f2 | sed 's/^\$2y\$/$2a$/' | tr -d '\n')
+DOZZLE_HASH=$(printf '%s' "$DOZZLE_PW" | htpasswd -inBC 12 owner | cut -d: -f2 | sed 's/^\$2y\$/$2a$/' | tr -d '\n')
 TUNNEL_JSON=$(jq -c . "$creds")
 SMOKE_SLUG=smoke-test-school
 

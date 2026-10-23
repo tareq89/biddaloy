@@ -63,17 +63,24 @@ then only inside `sops`).
 
 ## 1. Laptop tools
 
+This walkthrough was done on **macOS with Homebrew**. On Linux the same tools exist under the
+same names (use your package manager; `htpasswd` is in `apache2-utils`); the only
+macOS-only line is `ssh-add --apple-use-keychain` in step 2, where Linux uses plain `ssh-add`.
+Docker is needed on the laptop only for the image check in step 9.
+
 ```bash
-brew install ansible sops cloudflared       # age, gh, htpasswd: often already installed
+brew install ansible sops cloudflared age gh node jq   # htpasswd ships with macOS
+brew install --cask docker                             # or any Docker engine you already run
 cd ~/Workspace-personal/biddaloy            # the repo, on the branch you deploy
 ansible-galaxy install -r infra/ansible/requirements.yml
 gh auth login
 ```
 
-Check:
+Check every tool the later steps call (each prints a version or a path):
 
 ```bash
 ansible --version | head -1; sops --version | head -1; cloudflared --version; age --version
+gh --version | head -1; node --version; jq --version; docker --version; command -v htpasswd
 ```
 
 Seen working: ansible-core 2.21.5, sops 3.13.3, cloudflared 2026.10.3, age 1.3.2. The VPS
@@ -88,11 +95,11 @@ pins its own ansible-core (2.18.6), so your laptop version only runs `provision.
 | Your SSH key      | `ssh-keygen -t ed25519 -C "you-laptop"` (Enter for the default path, then a passphrase)  | `~/.ssh/id_ed25519`                      | VPS root (step 3)                  |
 | GitHub deploy key | `ssh-keygen -t ed25519 -N '' -C biddaloy-github-deploy -f ~/.ssh/biddaloy_github_deploy` | GitHub secret (step 5)                   | `infra/ansible/inventory/prod.yml` |
 
-Then make sops find your key in every terminal, and let macOS remember the SSH passphrase:
+Then make sops find your key in every terminal, and let the SSH agent remember the passphrase:
 
 ```bash
 echo 'export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt' >> ~/.zshrc && source ~/.zshrc
-ssh-add --apple-use-keychain ~/.ssh/id_ed25519
+ssh-add --apple-use-keychain ~/.ssh/id_ed25519    # macOS; on Linux: ssh-add ~/.ssh/id_ed25519
 ```
 
 Write down the two `Public key: age1...` lines.
@@ -106,18 +113,42 @@ Write down the two `Public key: age1...` lines.
 Order **Ubuntu 24.04 LTS** (not 22.04). We used Contabo "Cloud VPS 6 NVMe": 6 vCPU, 12 GB RAM,
 100 GB NVMe, one public IPv4.
 
+**Check the host key before you type the root password.** Otherwise a man in the middle could
+collect the password. The provider's web console (Contabo: VNC console) is a channel the
+network attacker does not control:
+
+```mermaid
+flowchart LR
+  C["Provider web console:<br/>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"] -->|"note SHA256:..."| M{"same as the<br/>laptop's scan?"}
+  L["Laptop:<br/>ssh-keyscan -t ed25519 IP | ssh-keygen -lf -"] --> M
+  M -->|yes| OK["trust it: add to known_hosts,<br/>then ssh-copy-id"]
+  M -->|no| STOP["stop: wrong machine or attacker"]
+```
+
 ```bash
+# 1. In the provider console (logged in as root there), note the fingerprint:
+#      ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub        # 256 SHA256:AbC... root@... (ED25519)
+# 2. On the laptop, scan; the SHA256:... part must be identical:
+ssh-keyscan -t ed25519 <VPS_IP> 2>/dev/null | tee /tmp/vps_hostkey | ssh-keygen -lf -
+# 3. Only if they match, trust that exact key, then install your key:
+cat /tmp/vps_hostkey >> ~/.ssh/known_hosts
 ssh-copy-id -i ~/.ssh/id_ed25519.pub root@<VPS_IP>      # asks the root password once
 ssh root@<VPS_IP> 'grep VERSION= /etc/os-release'        # VERSION="24.04.x LTS (Noble Numbat)"
 ```
+
+Keep `/tmp/vps_hostkey`: step 5b stores the same, already verified, key in GitHub.
 
 Take a snapshot in the provider panel now; it is free insurance.
 
 > **What went wrong for us.** We first installed Ubuntu 22.04. Provision refused it at its first
 > check (`the host Ubuntu 24.04 or newer`): the deploy runs ansible-core 2.18 **on the VPS**,
 > and that needs Python 3.11+; 22.04 has 3.10. We reinstalled 24.04 from the Contabo panel
-> (Reinstall, 10 minutes). After a reinstall the host fingerprint changes, so run
-> `ssh-keygen -R <VPS_IP>` on the laptop and update `DEPLOY_SSH_KNOWN_HOSTS` (step 5).
+> (Reinstall, 10 minutes). After a reinstall the host fingerprint changes: redo the
+> fingerprint check above, run `ssh-keygen -R <VPS_IP>` on the laptop and update
+> `DEPLOY_SSH_KNOWN_HOSTS` (step 5).
+>
+> Not done the safe way the first time: we ran `ssh-copy-id` before comparing fingerprints. The
+> order above is the fix for next time.
 
 ## 4. Cloudflare
 
@@ -173,15 +204,16 @@ branch, that branch, e.g. `epic/79/accum-4`; remove it after merging). Then:
 ```bash
 gh secret set DEPLOY_HOST --env production --body <VPS_IP>
 gh secret set DEPLOY_SSH_KEY --env production < ~/.ssh/biddaloy_github_deploy
-ssh-keyscan -t ed25519 <VPS_IP> 2>/dev/null | grep -v '^#' | gh secret set DEPLOY_SSH_KNOWN_HOSTS --env production
 ```
 
-Before trusting the scanned key, compare fingerprints:
+The known-hosts secret must hold the key you already verified against the provider console in
+step 3, not a fresh scan:
 
 ```bash
-ssh-keyscan -t ed25519 <VPS_IP> 2>/dev/null > /tmp/kh && ssh-keygen -lf /tmp/kh
-ssh root@<VPS_IP> 'ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub'     # same SHA256:...
+grep -v '^#' /tmp/vps_hostkey | gh secret set DEPLOY_SSH_KNOWN_HOSTS --env production
 ```
+
+(If `/tmp/vps_hostkey` is gone, repeat the step 3 comparison first.)
 
 **5c. Pin the GitHub deploy public key** in `infra/ansible/inventory/prod.yml`
 (`github_deploy_pubkey_pinned: ssh-ed25519 AAAA... biddaloy-github-deploy`), commit, push. On the
@@ -193,8 +225,9 @@ any other branch builds them when you start the workflow by hand (tags `:<sha>` 
 
 ```bash
 gh workflow run publish-image.yml --ref <branch>
-gh run list -w publish-image.yml --branch <branch> --limit 1
 ```
+
+The next step shows how to wait for the run of one specific commit.
 
 > **What went wrong for us.**
 >
@@ -212,12 +245,20 @@ gh run list -w publish-image.yml --branch <branch> --limit 1
 We left these to the end. With them empty, deploy messages and error reports are simply off;
 nothing fails. Add them later with the `setsecret` helper from step 8b:
 
-| Value                                                                              | File                | How to get it                                                                                                                              |
-| ---------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`                                           | edge                | @BotFather `/newbot`; add the bot to a group; `curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates" \| jq '.result[].message.chat.id'` |
-| `SENTRY_DSN` (Node.js project), `SENTRY_DSN_WEB` (React project)                   | prod, staging, demo | sentry.io project settings                                                                                                                 |
-| `SENTRY_AUTH_TOKEN` (repo secret), `SENTRY_ORG`, `SENTRY_PROJECT` (repo variables) | GitHub              | Sentry → Auth Tokens (`project:releases`)                                                                                                  |
-| `PLATFORM_SMS_*`, `PLATFORM_ALERT_PHONES`                                          | prod only           | your SMS gateway                                                                                                                           |
+| Value                                                                              | File                | How to get it                                                                                   |
+| ---------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`                                           | edge                | @BotFather `/newbot`; add the bot to a group; read the chat id with the snippet below the table |
+| `SENTRY_DSN` (Node.js project), `SENTRY_DSN_WEB` (React project)                   | prod, staging, demo | sentry.io project settings                                                                      |
+| `SENTRY_AUTH_TOKEN` (repo secret), `SENTRY_ORG`, `SENTRY_PROJECT` (repo variables) | GitHub              | Sentry → Auth Tokens (`project:releases`)                                                       |
+| `PLATFORM_SMS_*`, `PLATFORM_ALERT_PHONES`                                          | prod only           | your SMS gateway                                                                                |
+
+Read the Telegram chat id without putting the token in shell history or in `ps`. The prompt does
+not echo, and curl reads its URL from stdin:
+
+```bash
+read -rs TG; printf 'url = "https://api.telegram.org/bot%s/getUpdates"\n' "$TG" \
+  | curl -s -K - | jq '.result[].message.chat.id'; unset TG
+```
 
 ## 7. Provision the VPS
 
@@ -239,7 +280,7 @@ It ends with two values:
 Then run it again as `deploy` and check:
 
 ```bash
-ansible-playbook provision.yml | tail -3                  # changed=0
+( set -o pipefail; ansible-playbook provision.yml | tail -3 ) || echo PROVISION FAILED     # changed=0
 ssh deploy@<VPS_IP> 'id; command -v biddaloy-deploy'      # groups include docker; /usr/local/bin/biddaloy-deploy
 ssh root@<VPS_IP> true                                    # Permission denied (publickey)  ← good
 ssh deploy@<VPS_IP> 'ssh -T git@github.com'               # "successfully authenticated"   ← the VPS can read the repo
@@ -249,9 +290,16 @@ After the repo deploy key is on GitHub, run provision once more so it clones the
 (`biddaloy-deploy` lives inside it). Before Epic 79 is merged, name the branch that has it:
 
 ```bash
-ansible-playbook provision.yml -e repo_bootstrap_ref=epic/79/accum-4 | grep -E 'Repo (cloned|NOT)|changed='
+( set -o pipefail; ansible-playbook provision.yml -e repo_bootstrap_ref=epic/79/accum-4 \
+    | grep -E 'Repo (cloned|NOT)|missing|changed=' ) || echo PROVISION FAILED
 ssh deploy@<VPS_IP> 'test -x /usr/local/bin/biddaloy-deploy && echo ready'      # ready
 ```
+
+Provision only says `Repo cloned: biddaloy-deploy is ready.` when `deploy/bin/biddaloy-deploy`
+exists in the checkout. If the first clone took a branch without it (for example `main` before
+the merge), the message says the file is missing; run the command above with the right
+`repo_bootstrap_ref` and provision fetches that branch into the existing checkout. (Not yet run
+against a real VPS in that broken state: unverified.)
 
 > **What went wrong for us.** The first run stopped halfway with `root@...: Permission denied`:
 > the security role turned root login off, then the docker role reconnected as root. The
@@ -266,7 +314,48 @@ ssh deploy@<VPS_IP> 'test -x /usr/local/bin/biddaloy-deploy && echo ready'      
 
 ## 8. Secrets
 
-### 8a. `.sops.yaml` and the five files
+### 8.0 Pick a path first
+
+The five `infra/secrets/*.enc.env` files are committed. A fresh clone of this repo already has
+them, encrypted to the three age keys in `.sops.yaml`. `scripts/bootstrap-secrets.sh` refuses to
+run while any of them exists, so it can never overwrite credentials by accident.
+
+```mermaid
+flowchart TD
+  Q{"Do the committed<br/>secrets belong to the<br/>installation you are deploying?"}
+  Q -->|"yes: a new or rebuilt VPS,<br/>same domain and same data"| A["Path A: reuse them.<br/>Grant the new host key with<br/>sops updatekeys. No new secrets."]
+  Q -->|"no: a different domain or<br/>a clean-slate installation"| B["Path B: move the old files away,<br/>run bootstrap-secrets.sh.<br/>Every secret is new."]
+```
+
+**Path A, reuse (new or rebuilt VPS of the same installation).** Put the `HOST AGE PUBLIC KEY`
+that provision printed (step 7) into `.sops.yaml` as the third key, then re-encrypt every file to
+it. You need the operator key from step 2 (it is one of the recipients):
+
+```bash
+cd ~/Workspace-personal/biddaloy
+# edit .sops.yaml: replace the third age key (the old host) with the new HOST AGE PUBLIC KEY
+for f in infra/secrets/*.enc.env; do sops updatekeys -y "$f"; done
+git add .sops.yaml infra/secrets/*.enc.env && git commit -m "chore(secrets): grant the new host key" && git push
+```
+
+Then skip 8a and 8b (the values are already there and filled) and go to the `0 left` check in 8b
+and the commit in 8c. Two things stay the same on purpose: the tunnel (a second live connector on
+the same tunnel splits real traffic, see [30-deployment-target.md](30-deployment-target.md)) and
+the database passwords (a new VPS has empty databases; restore them from R2, see
+[13-backup-restore.md](13-backup-restore.md)). Path A has not been run on a second VPS yet:
+unverified.
+
+**Path B, new installation.** This makes **all-new** credentials, so nothing already deployed with
+the old values will match them, and the old values stay readable in git history. Move the old
+files out of the way yourself, on purpose, then run 8a:
+
+```bash
+mkdir -p ~/biddaloy-secrets-old && mv infra/secrets/{edge,ops,prod,staging,demo}.enc.env ~/biddaloy-secrets-old/
+```
+
+(When this walkthrough was first run, the files did not exist yet, so 8a ran as written below.)
+
+### 8a. `.sops.yaml` and the five files (path B)
 
 Put the three public keys into `.sops.yaml` in this order: operator, recovery, host. Then run
 the bootstrap script with your 🟢 values:
@@ -301,10 +390,11 @@ What the script does (`scripts/bootstrap-secrets.sh`):
   slug `smoke-test-school`); you create these accounts in step 11
 - writes `FILL_ME` for the 7 values only you have, and leaves out empty keys
 
-### 8b. Fill the 7 account values
+### 8b. Fill the 7 account values (path B)
 
 ```bash
-setsecret() { printf "%s → %s: " "$1" "$2"; read -rs v; echo; sops set "infra/secrets/$1.enc.env" "[\"$2\"]" "\"$v\""; unset v; }
+# The value goes to sops on stdin as JSON (jq quotes it): never in an argument, so not in `ps`.
+setsecret() { printf "%s → %s: " "$1" "$2"; read -rs v; echo; printf '%s' "$v" | jq -Rs . | sops set --value-stdin "infra/secrets/$1.enc.env" "[\"$2\"]"; unset v; }
 setsecret edge    GHCR_PULL_TOKEN                # step 5a
 setsecret prod    BACKUP_S3_ACCESS_KEY_ID        # R2 biddaloy-prod-rw
 setsecret prod    BACKUP_S3_SECRET_ACCESS_KEY    # R2 biddaloy-prod-rw
@@ -356,13 +446,26 @@ done                                                      # config ok, config ok
 ```
 
 ```bash
-git rev-parse HEAD                                        # the sha you will deploy
+git push                                                  # the commit must be on GitHub first
+SHA=$(git rev-parse HEAD)                                 # the sha you will deploy
 gh workflow run publish-image.yml --ref <branch>          # on main: merging does it
-gh run watch $(gh run list -w publish-image.yml --branch <branch> --limit 1 --json databaseId -q '.[0].databaseId')
+# The new run shows up a few seconds late; wait for the one built from $SHA, then watch that id.
+until RUN=$(gh run list -w publish-image.yml --branch <branch> --json databaseId,headSha \
+    -q ".[] | select(.headSha==\"$SHA\") | .databaseId" | head -1); [ -n "$RUN" ]; do sleep 3; done
+gh run watch "$RUN" --exit-status
+```
+
+Then check the four images exist. The packages are private, so log the laptop in to GHCR first with
+the step 5a token (`read:packages`), typed at a hidden prompt:
+
+```bash
+read -rs T; printf '%s' "$T" | docker login ghcr.io -u <github user> --password-stdin; unset T
 for i in app backup demo-reset landing; do
-  docker manifest inspect ghcr.io/tareq89/biddaloy-$i:<sha> >/dev/null && echo "$i ok"
+  docker manifest inspect ghcr.io/tareq89/biddaloy-$i:$SHA >/dev/null && echo "$i ok"
 done
 ```
+
+(If you started the workflow twice for one commit, the loop above picks the newest run.)
 
 Ours: `0571a91cd86797dc932ed32232c87e8daea54a4d`, four images, 2026-10-22.
 
@@ -376,7 +479,7 @@ prod's platform school id (`PLATFORM_TENANT_ID`), which exists only after prod i
 ```bash
 cd ~/Workspace-personal/biddaloy
 export BIDDALOY_HOST=<VPS_IP>
-SHA=<sha from step 9>
+SHA=<sha from step 9>                                       # the shell from step 9 already has it
 scripts/deploy.sh edge "$SHA"
 scripts/deploy.sh ops  "$SHA"
 scripts/deploy.sh prod "$SHA" --hotfix "first deploy"      # no staging ok line exists yet
@@ -427,7 +530,11 @@ ssh deploy@<VPS_IP> biddaloy-doctor
 
 ## 12. Staging and demo
 
+Step 11 made new commits, so `$SHA` from step 10 is stale. Set it to the commit step 11.5 built
+(a new shell has no `SHA` at all):
+
 ```bash
+SHA=<the sha you built in step 11.5>         # git rev-parse HEAD, once step 9 has built and checked its images
 scripts/deploy.sh staging "$SHA"
 scripts/deploy.sh demo    "$SHA"
 scripts/deploy.sh prod    "$SHA"            # now passes the staging gate without --hotfix

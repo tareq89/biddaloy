@@ -65,7 +65,8 @@ flowchart LR
   down is `fail` (503); Redis, the queue or a stale engine is `degraded` (200),
   so a Redis outage does not take the instance out of rotation.
   Token-protected (`X-Health-Token`) and answered with 404 by the edge nginx,
-  so only something inside the app container can call it. The deploy's rolling
+  so the public route is closed; only a caller on an allowed internal network
+  that holds `HEALTH_TOKEN` can reach it. The deploy's rolling
   restart and `biddaloy-doctor <stack>` do exactly that; **Kuma cannot**,
   because Kuma sits on `biddaloy-ops-edge` and the app does not (see
   [07-deployment.md](07-deployment.md#networks-who-joins-what)). See
@@ -335,7 +336,7 @@ flowchart TD
    lines in the last 10 minutes. None means `cloudflared` cannot reach
    Cloudflare, or its credentials are wrong. Look at the log, then check the
    tunnel in Zero Trust > Networks > Tunnels. Redeploying the edge rewrites the
-   credentials file from `edge.enc.env`: `biddaloy-deploy edge $(biddaloy-deploy --last-ok prod)`.
+   credentials file from `edge.enc.env`: `biddaloy-deploy edge $(biddaloy-deploy --last-ok edge)`.
 2. **nginx will not start.** Its start-up script `edge-mode.sh` stops the
    container on a bad value (`EDGE_MODE`, or `EDGE_TRUSTED_CIDR` empty in tunnel
    mode). The message names the value. Fix `edge.enc.env`, commit, redeploy the edge.
