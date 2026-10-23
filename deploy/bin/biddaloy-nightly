@@ -134,6 +134,8 @@ staging_restore_old() { # the swap did not happen: yesterday's data, app back up
 staging_swap_back() { # the swap happened but the new data does not serve: put yesterday's back
   dc staging stop app
   dc staging run --rm -T jobs /app/db-swap.sh "$POSTGRES_DB" "${POSTGRES_DB}_prev"
+  # a leftover _prev_old makes tomorrow's swap refuse; a failed drop must not block the restart
+  dc staging run --rm -T jobs /app/db-swap.sh --drop-prev-old "$POSTGRES_DB" || true
   dc staging exec -T redis redis-cli FLUSHALL || true
   dc staging up -d app && wait_ready staging
 }
@@ -160,12 +162,13 @@ day_offset() { # <days back> -> YYYY-MM-DD in host time (GNU date, BSD date for 
 # The export is deploy's alone (umask 077, in this subshell only): the jobs container (another
 # uid) never mounts it, it reads a tar of it on stdin.
 export_logs() (
-  local y="$1" t="$2" out="$3" c
+  local y="$1" t="$2" out="$3" c z off
+  z="$(date +%z)"; off="${z:0:3}:${z:3:2}" # host offset, so docker logs cover the same day as journalctl
   umask 077
   mkdir -p "$out"
   while IFS= read -r c; do
     [[ -n "$c" ]] || continue
-    docker logs --since "${y}T00:00:00+06:00" --until "${t}T00:00:00+06:00" "$c" 2>&1 | gzip -9 > "$out/$c.log.gz" || return 1
+    docker logs --since "${y}T00:00:00${off}" --until "${t}T00:00:00${off}" "$c" 2>&1 | gzip -9 > "$out/$c.log.gz" || return 1
   done < <(docker ps --format '{{.Names}}')
   journalctl --no-pager --since "$y 00:00:00" --until "$t 00:00:00" -u 'biddaloy-*' -u docker 2>&1 | gzip -9 > "$out/host.log.gz" || return 1
 )

@@ -29,7 +29,7 @@ echo "Mem: 1000 300 200 0 100 $MEM_AVAIL"; echo "Swap: 1000 $SWAP_USED 0"'
 shim timedatectl 'echo "$NTP"'
 shim systemctl 'case "$*" in
   *list-units*) printf "%s" "$FAILED_UNITS" ;;
-  *show*) echo "Result=$NIGHTLY_RESULT"; echo "ExecMainExitTimestamp=Wed 2026-10-22 02:20:00 UTC" ;;
+  *show*) echo "LoadState=${NIGHTLY_LOAD:-loaded}"; echo "Result=$NIGHTLY_RESULT"; echo "ExecMainExitTimestamp=Wed 2026-10-22 02:20:00 UTC" ;;
 esac'
 shim openssl 'case "$*" in
   *s_client*) [ -n "${CERT_SERVED-1}" ] && echo "-----BEGIN CERTIFICATE-----" ;;
@@ -42,7 +42,7 @@ stack=""; prev=""; for x in "$@"; do [ "$prev" = -p ] && stack="$x"; prev="$x"; 
 case "$a" in
   "ps -a"*) printf "%b" "$PS_LINES" ;;
   "logs --since 10m edge-cloudflared-1"*) printf "%b" "$TUNNEL_LOG" ;;
-  *"ps --format json"*) cat "$ROOT_DIR/ps.$stack" 2>/dev/null ;;
+  *"ps --all --format json"*) cat "$ROOT_DIR/ps.$stack" 2>/dev/null ;;
   *"exec -T app"*) printf "%s" "$READY_CODE" ;;
   *"exec -T db"*) printf "%s\n%s\n" "$CONNS" "$MAXC" ;;
   *"exec -T backup"*) printf "%b" "$BACKUP_LS" ;;
@@ -70,7 +70,7 @@ key_ago() { # key_ago <minutes>: an `aws s3 ls` line for a backup that old
 
 defaults() {
   export ROOT_DIR="$ROOT" BIDDALOY_ROOT="$ROOT" PATH="$BIN"
-  export DF_ROOT=50 DF_DOCKER=40 MEM_AVAIL=600 SWAP_USED=0 NTP=yes FAILED_UNITS="" NIGHTLY_RESULT=success
+  export DF_ROOT=50 DF_DOCKER=40 MEM_AVAIL=600 SWAP_USED=0 NTP=yes FAILED_UNITS="" NIGHTLY_RESULT=success NIGHTLY_LOAD=loaded
   export CERT_DAYS=60 READY_CODE=200 CONNS=10 MAXC=100 TUNNEL_LOG="Registered tunnel connection\n"
   export PS_LINES="edge-nginx-1|Up 2 hours (healthy)\nedge-landing-1|Up 2 hours (healthy)\nedge-cloudflared-1|Up 2 hours (healthy)\n"
   export BACKUP_LS="$(key_ago 10)"
@@ -119,6 +119,8 @@ defaults; export FAILED_UNITS="biddaloy-nightly@demo-rebuild.service loaded fail
 check "failed nightly unit FAIL" row "nightly units" FAIL
 defaults; export NIGHTLY_RESULT=exit-code; run
 check "nightly result FAIL" row "nightly demo-rebuild" FAIL
+defaults; export NIGHTLY_LOAD=not-found; run
+check "missing nightly unit WARN" row "nightly demo-rebuild" WARN
 
 # --- backup age (OK <=70, WARN 71..130, FAIL >130) ----------------------------------------------------
 for c in "69 OK 0" "71 WARN 1" "129 WARN 1" "131 FAIL 2"; do

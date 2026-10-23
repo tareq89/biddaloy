@@ -99,7 +99,7 @@ expect "3 exit 1" test "$RC" = 1
 expect "3 swapped back" has "db-swap.sh biddaloy_staging biddaloy_staging_prev"
 expect "3 app restarted after the swap back" test "$(grep -c 'up -d app' "$LOG")" = 2
 expect "3 down&msg=smoke" has "status=down&msg=smoke"
-expect "3 did not drop _prev_old" hasnt "--drop-prev-old"
+expect "3 dropped _prev_old after the swap back" has "--drop-prev-old biddaloy_staging"
 
 # 3b swap itself fails: no swap-back (db-swap rolls itself back), app restarted
 FAIL_MATCH="db-swap.sh biddaloy_staging biddaloy_staging_next" run staging-refresh

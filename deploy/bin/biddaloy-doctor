@@ -42,7 +42,7 @@ emit() {
 have() { command -v "$1" >/dev/null 2>&1; }
 # need <check> <tool>: WARN and return 1 when the tool is missing.
 need() { have "$2" && return 0; emit "$1" WARN "$2 not found, check skipped" "install $2 on this host"; return 1; }
-tmo() { if have timeout; then timeout 15 "$@"; else "$@"; fi; }
+tmo() { if have timeout; then timeout 15 "$@" </dev/null; else "$@" </dev/null; fi; }
 
 envval() { # envval <file> <KEY>: value without quotes; no `source` (values hold $ and quotes)
   local v
@@ -161,8 +161,9 @@ stack_checks() { # <stack>
   if [[ ! -f "$envf" ]]; then emit "$s" WARN "$envf missing" "provision the stack: biddaloy-deploy $s <sha>"; return; fi
   need "$s services" docker || return
   need "$s services" jq || return
-  ps="$(dc "$s" ps --format json 2>/dev/null)"
-  rows="$(printf '%s\n' "$ps" | jq -r 'if type=="array" then .[] else . end | [.Service, .State, (.Health // ""), .Image] | @tsv' 2>/dev/null)"
+  # --all: a stopped container must show up. jobs and demo-reset are one-shots that exit by design.
+  ps="$(dc "$s" ps --all --format json 2>/dev/null)"
+  rows="$(printf '%s\n' "$ps" | jq -r 'if type=="array" then .[] else . end | select(.Service != "jobs" and .Service != "demo-reset") | [.Service, .State, (.Health // ""), .Image] | @tsv' 2>/dev/null)"
   if [[ -z "$rows" ]]; then
     emit "$s services" FAIL "no services running" "biddaloy-deploy $s \$(biddaloy-deploy --last-ok $s)"
   else
@@ -231,12 +232,14 @@ backup_check() {
 # --- nightly ------------------------------------------------------------------------------------
 nightly_checks() {
   need "nightly jobs" systemctl || return
-  local j out res ts
+  local j out res ts ls
   for j in staging-refresh demo-rebuild log-archive; do
-    out="$(systemctl show "biddaloy-nightly@$j.service" -p Result,ExecMainExitTimestamp 2>/dev/null)"
+    out="$(systemctl show "biddaloy-nightly@$j.service" -p LoadState,Result,ExecMainExitTimestamp 2>/dev/null)"
+    # systemctl show exits 0 for a missing unit (Result=success, LoadState=not-found)
+    ls="$(printf '%s\n' "$out" | sed -n 's/^LoadState=//p')"
     res="$(printf '%s\n' "$out" | sed -n 's/^Result=//p')"
     ts="$(printf '%s\n' "$out" | sed -n 's/^ExecMainExitTimestamp=//p')"
-    if [[ -z "$res" ]]; then emit "nightly $j" WARN "unit not found" "systemctl list-timers 'biddaloy-nightly@*'"
+    if [[ "$ls" != loaded ]]; then emit "nightly $j" WARN "unit not found" "systemctl list-timers 'biddaloy-nightly@*'"
     elif [[ -z "$ts" ]]; then emit "nightly $j" OK "has not run yet"
     elif [[ "$res" == success ]]; then emit "nightly $j" OK "last run ok ($ts)"
     else emit "nightly $j" FAIL "last result $res ($ts)" "journalctl -u biddaloy-nightly@$j.service -n 50 --no-pager"; fi
