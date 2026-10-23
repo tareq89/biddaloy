@@ -6,10 +6,10 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * It needs a DEMO_MODE server on a `seed:demo` database and the client on
  * :5174, already running (docs/architecture/22-demo-seed.md, "Running the demo
- * end to end"). Run it once per language:
+ * end to end"). Run it once per language; GUIDE_LANG must match the project's:
  *
- *   GUIDE_LANG=bn yarn guide:shoot attendance
- *   GUIDE_LANG=en yarn guide:shoot attendance
+ *   GUIDE_LANG=bn npx playwright test -c playwright.docs.config.ts --project=bn-desktop --project=bn-phone attendance
+ *   GUIDE_LANG=en npx playwright test -c playwright.docs.config.ts --project=en-desktop --project=en-phone attendance
  */
 export default defineConfig({
   testDir: './e2e/docs/tours',
@@ -26,12 +26,22 @@ export default defineConfig({
     deviceScaleFactor: 1,
     trace: 'off',
   },
-  projects: [
-    { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
+  projects: (['bn', 'en'] as const).flatMap((lang) => [
+    {
+      name: `${lang}-desktop`,
+      metadata: { lang, device: 'desktop' },
+      use: { locale: lang, viewport: { width: 1440, height: 900 } },
+    },
     // D6: 390 px phone, no bezel (D32). Pixel 7's UA so the app picks its phone layout.
     {
-      name: 'phone',
-      use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 },
+      name: `${lang}-phone`,
+      metadata: { lang, device: 'phone' },
+      use: {
+        ...devices['Pixel 7'],
+        locale: lang,
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 2,
+      },
     },
-  ],
+  ]),
 });

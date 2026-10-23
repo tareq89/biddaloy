@@ -15,7 +15,7 @@ import bnDashboard from '../../../ui/src/i18n/locales/bn/dashboard.json';
 import enAttendance from '../../../ui/src/i18n/locales/en/attendance.json';
 import enDashboard from '../../../ui/src/i18n/locales/en/dashboard.json';
 import enNav from '../../../ui/src/i18n/locales/en/nav.json';
-import { beat, guideLang, imgDir, prepare, recordGif, shoot } from '../capture';
+import { beat, guideLang, imgDir, loginAs, prepare, recordGif, shoot } from '../helpers/capture';
 
 const DAY = process.env.GUIDE_DAY ?? '2026-10-22';
 const OLD_DAY = process.env.GUIDE_OLD_DAY ?? '2026-10-15';
@@ -65,15 +65,6 @@ async function resetCaptureDay(): Promise<void> {
   }
 }
 
-async function signIn(page: Page, card: string): Promise<void> {
-  await page.goto(`/login?role=${card}`);
-  await page.waitForURL(/\/(dashboard|select-school)/);
-  if (page.url().includes('/select-school')) {
-    await page.getByRole('button', { name: /Continue|চালিয়ে যান/ }).click();
-    await page.waitForURL(/\/dashboard/);
-  }
-}
-
 const sectionLink = (page: Page, name: string) =>
   page.getByRole('main').getByRole('link', { name: new RegExp(name) });
 
@@ -87,9 +78,9 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(resetCaptureDay);
 
 test('desktop: menu, sections, register, states', async ({ page }, info) => {
-  test.skip(info.project.name !== 'desktop');
+  test.skip(info.project.metadata.device !== 'desktop');
   await prepare(page);
-  await signIn(page, 'class-teacher-8a');
+  await loginAs(page, 'class-teacher-8a');
 
   // 01 — where Attendance sits: the menu group, and the dashboard card.
   const sidebar = page.getByRole('complementary').getByRole('navigation');
@@ -191,9 +182,9 @@ test('desktop: GIF of the daily workflow, then the list after submitting', async
   browser,
   page,
 }, info) => {
-  test.skip(info.project.name !== 'desktop');
+  test.skip(info.project.metadata.device !== 'desktop');
   await prepare(page);
-  await signIn(page, 'class-teacher-8a');
+  await loginAs(page, 'class-teacher-8a');
   const storageState = await page.context().storageState();
 
   await recordGif(
@@ -221,16 +212,16 @@ test('desktop: GIF of the daily workflow, then the list after submitting', async
 
   // 08 — what the list shows right after a teacher submits. The recording
   // context rotated the refresh token, so this page signs in again.
-  await signIn(page, 'class-teacher-8a');
+  await loginAs(page, 'class-teacher-8a');
   await page.goto(`/attendance?date=${DAY}`);
   await expect(sectionLink(page, GIF_SECTION)).toBeVisible();
   await shoot(page, file('08-after-submit.png'), [{ target: sectionLink(page, GIF_SECTION) }]);
 });
 
 test('desktop: an old register is read-only for the teacher', async ({ page }, info) => {
-  test.skip(info.project.name !== 'desktop');
+  test.skip(info.project.metadata.device !== 'desktop');
   await prepare(page);
-  await signIn(page, 'class-teacher-8a');
+  await loginAs(page, 'class-teacher-8a');
   await page.goto(`/attendance?date=${OLD_DAY}`);
   await sectionLink(page, SHOT_SECTION).click();
   const banner = page.getByText(
@@ -244,9 +235,9 @@ test('desktop: an old register is read-only for the teacher', async ({ page }, i
 });
 
 test('phone: sections, register and the daily workflow', async ({ browser, page }, info) => {
-  test.skip(info.project.name !== 'phone');
+  test.skip(info.project.metadata.device !== 'phone');
   await prepare(page);
-  await signIn(page, 'class-teacher-8a');
+  await loginAs(page, 'class-teacher-8a');
 
   await page.goto(`/attendance?date=${DAY}`);
   await expect(sectionLink(page, SHOT_SECTION)).toBeVisible();
@@ -296,9 +287,9 @@ test('phone: sections, register and the daily workflow', async ({ browser, page 
 // older than the correction window gets no reason box, but the server requires
 // a reason there, so the save fails.
 test('evidence: admin edit of an old register', async ({ page }, info) => {
-  test.skip(info.project.name !== 'desktop' || lang !== 'en');
+  test.skip(info.project.metadata.device !== 'desktop' || lang !== 'en');
   await prepare(page);
-  await signIn(page, 'admin');
+  await loginAs(page, 'admin');
   await page.goto(`/attendance?date=${OLD_DAY}`);
   await sectionLink(page, SHOT_SECTION).first().click();
   await expect(page.getByRole('button', { name: a.mark.allPresent })).toBeVisible();
