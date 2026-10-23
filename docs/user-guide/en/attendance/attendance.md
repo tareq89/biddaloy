@@ -28,6 +28,7 @@ helpIds:
     attendance.attendance.field.date,
   ]
 devices: [desktop, phone]
+entry: [sidebar, palette, dashboard:my-pending-sections]
 keywords: [হাজিরা, উপস্থিতি, রোল কল, অনুপস্থিত, attendance, roll call, absent]
 appVersion: 0.1.0 (7b776974b)
 owner: tareq89
@@ -51,6 +52,7 @@ Every section (for example Class 6, section B) has one **register** per day. Thi
 
 **On this page**
 
+- [How you get here](#arrive)
 - [Take today's attendance](#task-daily)
 - [How to know the attendance was submitted](#confirm)
 - [Other situations](#other)
@@ -63,6 +65,16 @@ Every section (for example Class 6, section B) has one **register** per day. Thi
 - [Who can do what](#roles)
 - [Known issues](#known-issues)
 - [Learn more](#more)
+
+---
+
+## How you get here <a href="#arrive" id="arrive"></a>
+
+**From the left menu:** **Attendance → Attendance**. The section list opens; start at step 1 below.
+
+**From the dashboard:** after signing in, the **Attendance left to take** card on the dashboard lists today's sections still to do. Press a name. → That section's register opens directly, on today's date; start at step 3 below.
+
+**From search:** in the search box at the top (Ctrl+K) type "attendance" and choose **Attendance**. The section list opens.
 
 ---
 
