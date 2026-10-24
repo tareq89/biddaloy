@@ -1,0 +1,18 @@
+%% title: Academic coordinator: who does what
+%% desc: The Academic coordinator receives applications, results and reports, and sends alerts to families and certificates to students.
+flowchart LR
+  exec["Academic<br/>coordinator"]:::me
+  tea["Teacher"]
+  exam["Exam<br/>controller"]
+  acc["Accountant"]
+  gua["Guardian"]
+  stu["Student"]
+  tea -->|"Applications, leave"| exec
+  tea -->|"Attendance, marks"| exec
+  exam -->|"Results"| exec
+  acc -->|"Collection report"| exec
+  exec -->|"Alerts"| gua
+  exec -->|"Certificates"| stu
+  exec -->|"Programs"| tea
+  classDef me fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef view fill:#ebfbee,stroke:#2b8a3e,color:#14411d
