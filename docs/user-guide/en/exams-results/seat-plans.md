@@ -353,6 +353,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 - [**Exams**](exams.md) — the exam schedule, which the plan's subjects come from.
 - [**Exam structures**](exam-templates.md) — set exam parts once.
 - [**Routine setup**](../academics/routine-setup.md) — add rooms and their capacity.
+- [**Printing exam documents**](../administration/print-templates/exam-documents.md) — Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
 
 ---
 

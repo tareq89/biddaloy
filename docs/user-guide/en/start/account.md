@@ -256,6 +256,7 @@ Checked on version 0.1.0, 2026-10-24. When fixed, this is removed from here.
 - [**Changing the language**](language.md) — **Language** in the account menu.
 - [**Open on your phone and install as an app**](phone.md) — **Install app** in the account menu.
 - [**Finding any page**](find-anything.md) — The other buttons in the top bar.
+- [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
 
 ---
 

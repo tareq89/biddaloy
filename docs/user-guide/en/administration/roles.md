@@ -44,7 +44,9 @@ Every staff member has one **role**, such as Teacher or Accountant. The role dec
 **On this page**
 
 - [See the permissions of one role](#task-main)
+- [How to know you are on the right card](#confirm)
 - [Who can do what, in short](#matrix)
+- [Other situations](#other)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
 - [Learn more](#more)
@@ -70,6 +72,12 @@ Every staff member has one **role**, such as Teacher or Accountant. The role dec
 > **Remember:** these cards come from the same list the school's system uses to check every action. So what the card says matches what the app allows. A Teacher's permissions still work only inside their own sections.
 
 This page does not save anything, so there is no "was it saved" state to check.
+
+---
+
+## How to know you are on the right card <a href="#confirm" id="confirm"></a>
+
+The card has the role's name at the top and a number such as **18 permissions**. When you open a group, the number in brackets after its name equals the number of permissions listed inside it. This page never saves anything, so there is no "saved" message to look for.
 
 ---
 
@@ -99,6 +107,13 @@ A teacher sees the students, attendance and marks of only the sections given to 
 | Committee member      | View only: dashboard, committee reports, staff evaluations, calendar.                                                                                                                                                                                                        | See student details, change anything                                                 |
 
 Every staff role except Committee member can mark and view their own attendance, and can apply for themselves ([**Applications**](../applications/applications.md)).
+
+---
+
+## Other situations <a href="#other" id="other"></a>
+
+- **A role you expected is missing:** the school has seven fixed roles. There is no way to add one here.
+- **A permission seems missing from a group:** groups only show permissions the role has. A permission the role does not have is not listed.
 
 ---
 
@@ -134,7 +149,7 @@ Opening this page needs the permission to view the staff list, which only the Ad
 2. The role card — name and a one-line description.
 3. Data access — **Whole school** or **Assigned sections only**.
 4. The number of permissions.
-5. The permission groups — for example **Fees**, **Attendance & leave**, **Applications**; press one to open it.
+5. The permission groups — for example **Fees**, **Attendance & leave**, [**Applications**](../applications/applications.md); press one to open it.
 
 <!-- image pending: Roles & access page, the five parts marked with numbers; admin, desktop -->
 
@@ -161,6 +176,7 @@ Opening this page needs the permission to view the staff list, which only the Ad
 - [**Teacher assignments**](../people/teaching-assignments.md) — which teacher sees which section.
 - [**Activity log**](audit-logs.md) — who changed what, and when.
 - [**Applications**](../applications/applications.md) — which role decides which application.
+- [**Changing the school's settings**](settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
 
 ---
 

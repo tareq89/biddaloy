@@ -88,7 +88,7 @@ Searching does not submit anything, so there is no three-state list here. When t
 1. Press **Ctrl+K**. The **People** tab is open first.
 2. Type a student's name, roll number, a guardian, a staff member or an invoice number.
 
-   → Results appear under **Students**, **Guardians**, **Staff**, **Invoices** and **Receipts**.
+   → Results appear under **Students**, **Guardians**, **Staff**, [**Invoices**](../finance/invoices.md) and **Receipts**.
 
 3. Tap the one you want. → Their page opens.
 
@@ -166,7 +166,7 @@ Press **?** (when you are not in a text box) to open the **Keyboard shortcuts** 
   />
 </figure>
 
-- A page name matches the name written in the current language, and for some pages extra words (for example the **Applications** page also appears if you type "leave").
+- A page name matches the name written in the current language, and for some pages extra words (for example the [**Applications**](../applications/applications.md) page also appears if you type "leave").
 - Results show only the pages and actions for your role.
 - **People** search comes from the school's system, a moment after you stop typing.
 

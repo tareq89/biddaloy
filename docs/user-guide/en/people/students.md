@@ -242,15 +242,15 @@ The tabs come in this order:
 | **Programs**             | The program the student is enrolled in, with progress and milestones.                                                  |
 | **Performance**          | A summary built from marks. Only people who may see marks get this tab.                                                |
 | **Fees**                 | Total billed, total paid, dues; **Open bills**, **Credit balance**, **History** and **Discounts**.                     |
-| **Fines**                | All of this student's [fines](../help/glossary.md#fine).                                                               |
+| [**Fines**](../finance/fines.md)                | All of this student's [fines](../help/glossary.md#fine).                                                               |
 | **Automatic billing**    | Which recurring bills the student is on, and which they are left out of.                                               |
-| **Payments**             | All money received, with date and method.                                                                              |
-| **Invoices**             | Invoices issued; you can **Print** them.                                                                               |
+| [**Payments**](../finance/payments.md)             | All money received, with date and method.                                                                              |
+| [**Invoices**](../finance/invoices.md)             | Invoices issued; you can **Print** them.                                                                               |
 | **Communication**        | Messages and reminders sent to the guardian.                                                                           |
 | **Notes**                | Staff-only notes ([see](#task-notes)). The tab is missing if you may not see notes.                                    |
 | **Records**              | Family, health and public exam details ([see](#task-records)). Missing if you may not see records.                     |
 | **Documents**            | Photo, ID card, certificates and the list of printed papers ([see](#task-documents)). Needs print, certificate or print-history permission. |
-| **Applications**         | Applications submitted for this student. Missing if you may not handle applications.                                   |
+| [**Applications**](../applications/applications.md)         | Applications submitted for this student. Missing if you may not handle applications.                                   |
 | **Activity**             | Who changed what in this student's details, and when.                                                                  |
 
 ### Add a guardian <a href="#task-guardians" id="task-guardians"></a>
@@ -271,7 +271,7 @@ The guardian's own page (**Guardians**) is not written in this guide yet.
 
 <!-- link pending: finance/dues.md, finance/payments.md -->
 
-- **Collect fees:** press **Collect fees** on a row in the list or at the top of the profile. → The page for taking money opens, with this student already chosen. The rest happens on the **Payments** page (not written in this guide yet).
+- **Collect fees:** press **Collect fees** on a row in the list or at the top of the profile. → The page for taking money opens, with this student already chosen. The rest happens on the [**Payments**](../finance/payments.md) page (not written in this guide yet).
 - **How much is [due](../help/glossary.md#dues):** look at the profile's **Fees** tab.
 - **Send reminder:** on the profile, or choose several students in the list and press **Send reminder**. Type a **Message** and press **Send**. → **Reminder sent to N guardians.** The message goes out. There is a limit on how many students one reminder can go to; if you choose more, the dialog says so.
 
@@ -579,13 +579,21 @@ Only an admin can do this. For a student who has left the school, [record leavin
 - [**Printing ID cards**](../administration/print-templates/id-cards.md) — ID cards from the list or a profile.
 - [**Taking attendance**](../attendance/attendance.md) — students added here appear in the attendance register by roll number.
 - [**Viewing guardians, fixing their details and sending invitations**](guardians.md) — the page for guardians linked to a student.
-- **Student dues** and **Payments** — the pages for collecting fees.
+- [**Student dues**](../finance/dues.md) and [**Payments**](../finance/payments.md) — the pages for collecting fees.
 - **Promotion** — moving classes at the end of the year.
 - [**Arranging classes, sections and subjects**](../academics/classes.md) — make the class and section a student joins.
 - [**Seeing your own class on one page**](../academics/my-class.md) — a teacher sees the section's students on one page.
 - [**Attendance register**](../attendance/attendance-register.md) — a month of attendance for the students of a section.
 - [**Attendance reports**](../attendance/attendance-reports.md) — attendance numbers for students.
 - [**Programs and milestones**](programs.md) — put students into a program and track milestones.
+- [**Printing ID cards, certificates and exam papers**](../administration/print-templates.md) — Make a print design from a ready-made one, publish it and make it the default.
+- [**Issuing certificates**](../administration/print-templates/certificates.md) — Issue a student certificate with its own serial number, reprint it as a duplicate, and revoke it so the QR check shows revoked.
+- [**Applications**](../applications/applications.md) — Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper.
+- [**Promoting students**](../exams-results/promotion.md) — Using published results, move a class's students up to the next class in the new academic year, keep them in the same class or graduate them.
+- [**Processing and publishing results**](../exams-results/results.md) — Build an exam's results from the submitted marks, check them and publish, send guardians an SMS, reopen when needed, and print each.
+- [**Student dues**](../finance/dues.md) — See in one list how much each student still owes, set the overdue ones apart, then collect the fee, send a reminder or export the list as.
+- [**Creating fee bills**](../finance/generate-fees.md) — Create fee bills for chosen students for one month or week in one go.
+- [**Print & documents**](../reports/printables.md) — See what was printed, which certificates were issued and what is still waiting to be printed, in three tabs.
 
 ---
 

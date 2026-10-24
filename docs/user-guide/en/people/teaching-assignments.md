@@ -291,6 +291,9 @@ Someone without permission who opens the page sees **You don't have access to th
 - [**Attendance register**](../attendance/attendance-register.md) — which sections a teacher sees in the register.
 - [**Evaluations: ACR, teacher surveys and incidents**](evaluations.md) — evaluations of the teacher who holds these duties.
 - [**Taking attendance**](../attendance/attendance.md) — attendance is taken for the sections assigned here.
+- [**Roles and permissions**](../administration/roles.md) — See side by side what each staff role in the school can see and do, on one page. The page is view-only.
+- [**Applications**](../applications/applications.md) — Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper.
+- [**Entering and submitting exam marks**](../exams-results/marks-entry.md) — Pick an exam, open the marks list for your section and subject, type each student's marks or mark them absent or exempt, then submit the.
 
 ---
 

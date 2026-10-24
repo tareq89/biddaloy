@@ -202,6 +202,7 @@ To see the **Print** tab you need both the permission to manage exams and the pr
 - [**Exams**](../../exams-results/exams.md) — exams, schedules, marks parts.
 - [**Seat plans**](../../exams-results/seat-plans.md) — make and publish a seat plan.
 - [**Results**](../../exams-results/results.md) — process and publish results.
+- [**Designer's guide**](designer-guide.md) — Get the design kit, send it to a designer, import the drawn SVG, check the fields and publish.
 
 ---
 

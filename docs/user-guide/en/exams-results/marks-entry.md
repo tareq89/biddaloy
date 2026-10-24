@@ -300,6 +300,7 @@ On a Mac you can press **⌘** instead of **Ctrl**.
 - [**Teaching assignments**](../people/teaching-assignments.md) — which Teacher enters marks for which subject in which section.
 - Creating an exam and mark parts <!-- link pending: ../exams-results/exams.md --> — the lists and their columns come from here.
 - Result analysis <!-- link pending: ../exams-results/analysis.md --> — merit list and pass/fail from the marks.
+- [**Merit list and result analysis**](analysis.md) — See an exam's merit list, the students who failed or were absent and the pass/fail by subject, filter by section, print or download a CSV.
 
 ---
 

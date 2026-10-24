@@ -204,6 +204,7 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 
 **Related pages**
 
+- [**Applications**](../applications/applications.md) — Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper.
 <!-- link pending: applications/applications.md — applications (other lane) -->
 <!-- link pending: people/staff-leave — staff leave (other lane) -->
 
