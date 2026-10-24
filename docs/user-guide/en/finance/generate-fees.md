@@ -274,8 +274,8 @@ When approval is needed, the window says so first, for example **… of … bill
 - [**Students**](../people/students.md) — the people who get the bills.
 - [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
 - [**Fee reminders**](../communications/fee-reminders.md) — Remind the guardians of one student, or of up to 500 students at once, about unpaid fees.
-- [**Student dues**](dues.md) — See in one list how much each student still owes, set the overdue ones apart, then collect the fee, send a reminder or export the list as.
-- [**Fines**](fines.md) — Add a student's fine by hand, make the month's fines at month end from absence or lateness rules, set the fine rules, and waive a fine in.
+- [**Student dues**](dues.md) — See in one list how much each student still owes, set the overdue ones apart, then collect the fee.
+- [**Fines**](fines.md) — Add a student's fine by hand, make the month's fines at month end from absence or lateness rules, set the fine rules.
 - [**Payments**](payments.md) — Find every payment taken at the school, open one to see which bills the money went to, print the receipt again, and reverse a wrong payment.
 - [**Record payment**](record-payment.md) — Take money against the open bills of one or more students — the money is split across the oldest bills, give a discount if needed, work out.
 

@@ -589,8 +589,8 @@ Only an admin can do this. For a student who has left the school, [record leavin
 - [**Issuing certificates**](../administration/print-templates/certificates.md) — Issue a student certificate with its own serial number, reprint it as a duplicate, and revoke it so the QR check shows revoked.
 - [**Applications**](../applications/applications.md) — Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper.
 - [**Promoting students**](../exams-results/promotion.md) — Using published results, move a class's students up to the next class in the new academic year, keep them in the same class or graduate them.
-- [**Processing and publishing results**](../exams-results/results.md) — Build an exam's results from the submitted marks, check them and publish, send guardians an SMS, reopen when needed, and print each.
-- [**Student dues**](../finance/dues.md) — See in one list how much each student still owes, set the overdue ones apart, then collect the fee, send a reminder or export the list as.
+- [**Processing and publishing results**](../exams-results/results.md) — Build an exam's results from the submitted marks, check them and publish, send guardians an SMS, reopen when needed.
+- [**Student dues**](../finance/dues.md) — See in one list how much each student still owes, set the overdue ones apart, then collect the fee.
 - [**Creating fee bills**](../finance/generate-fees.md) — Create fee bills for chosen students for one month or week in one go.
 - [**Print & documents**](../reports/printables.md) — See what was printed, which certificates were issued and what is still waiting to be printed, in three tabs.
 

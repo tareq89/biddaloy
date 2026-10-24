@@ -276,7 +276,7 @@ Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. 
 **Related pages**
 
 - [**Class routine**](routine-builder.md) — use the periods set here to arrange each section's weekly routine.
-- [**Making and publishing seat plans**](../exams-results/seat-plans.md) — Pick the subjects of an exam and the rooms to make who sits in which room and seat, change seats if needed, give rooms an invigilator, then.
+- [**Making and publishing seat plans**](../exams-results/seat-plans.md) — Pick the subjects of an exam and the rooms to make who sits in which room and seat, change seats if needed, give rooms an invigilator.
 
 ---
 

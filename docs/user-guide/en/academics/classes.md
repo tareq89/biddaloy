@@ -407,7 +407,7 @@ Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It
 - [**Giving homework**](homework.md) — give homework to a section.
 - [**Seeing your own class on one page**](my-class.md) — a class teacher sees the section on one page.
 - [**Syllabus and study plans**](syllabus.md) — study plans for the subjects of a section.
-- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects, grading scale and exam templates in.
+- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects.
 - [**Creating and setting up exams**](../exams-results/exams.md) — Add an exam for a class, set the parts and marks of each subject, give a schedule, and follow the exam from marks submission to published.
 - [**Setting up grading scales**](../exams-results/grading-scales.md) — Set which percentage of marks gives which grade and GPA for each academic year.
 - [**Setting up fee structures**](../finance/fee-structures.md) — Write down which fee costs how much for each academic year.
