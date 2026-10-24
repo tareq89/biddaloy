@@ -1,0 +1,12 @@
+%% title: কয়টি শাখা থাকলে কী খোলে
+%% desc: আমার শ্রেণি চাপলে চলমান শিক্ষাবর্ষে আপনার শাখা গোনা হয়। কোনো শাখা না থাকলে ফাঁকা বার্তা। একটি থাকলে সরাসরি সেই শাখার পাতা। দুই বা বেশি থাকলে শাখা বাছার কার্ড।
+flowchart TD
+  M["আমার শ্রেণি"]:::teacher --> Q{"কয়টি শাখা?"}:::note
+  Q -->|"০"| E["এখনো কোনো<br/>শাখা নেই"]:::note
+  Q -->|"১"| S["সরাসরি<br/>শাখার পাতা"]:::teacher
+  Q -->|"২ বা বেশি"| P["শাখা বাছুন"]:::teacher
+  P --> S
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
