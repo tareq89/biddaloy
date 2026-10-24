@@ -1,0 +1,11 @@
+%% title: The three states of an exam
+%% desc: A new exam is a draft. Processing the results makes it processed. Publishing makes it published. Reopening published results lets the exam change again.
+flowchart LR
+  D["Draft<br/>parts, schedule, marks"]:::teacher -->|"Process result"| P["Processed"]:::admin
+  P -->|"Publish"| PB["Published<br/>parts locked"]:::guardian
+  P -->|"Process again"| P
+  PB -->|"Reopen"| P
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
