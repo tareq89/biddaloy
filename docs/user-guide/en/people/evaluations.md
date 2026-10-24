@@ -38,7 +38,10 @@ keywords:
 appVersion: 0.1.0 (5f7194a2e)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues: []
+knownIssues:
+  - { id: acr-start-no-criteria-wrong-message, checked: 2026-10-25, issue: null }
+  - { id: survey-open-shows-waiting, checked: 2026-10-25, issue: null }
+  - { id: survey-named-results-show-no-names, checked: 2026-10-25, issue: null }
 -->
 
 # Evaluations: ACR, teacher surveys and incidents
@@ -46,7 +49,7 @@ knownIssues: []
 Three ways to judge staff work, on one page: the **ACR** (Annual Confidential Report, scored with numbers), **surveys** (what students and guardians think), and **incidents** (a record of someone's behaviour, absence, a complaint or a commendation).
 
 **Go to:** **People → Evaluations** in the left menu. Do the work on this page on a computer.
-**Before you start:** only an Admin (see and write) and a governing committee member (see only) get this page. Look at the "who sees what" picture below first ([who can do what](#roles)). To start an ACR the person must already be on the [Staff](staff.md) list.
+**Before you start:** only an Admin (see and write) and a governing committee member (see only) get this page. Look at the "who sees what" picture below first ([who can do what](#roles)). To start an ACR the person must already be on the [Staff](staff.md) list, and the school's ACR criteria must be saved once in **Settings** (the "ACR criteria" section).
 
 ![Who sees and changes evaluations: the Admin sees and writes, a committee member only sees, teachers and other staff do not get the page, students and guardians answer surveys in the portal, and a teacher who is the subject of a survey cannot see their own results](diagrams/people-evaluations-who-sees.svg)
 
@@ -105,7 +108,7 @@ One ACR per staff member per academic year. Whoever starts it is its assessor.
 
 5. Press **Start ACR**.
 
-   → The dialog closes and the ACR's full page opens. If this person already has an ACR for this year you see **An ACR already exists for this staff member and year.**
+   → The dialog closes and the ACR's full page opens. If this person already has an ACR for this year you see **An ACR already exists for this staff member and year.** You see the same message if the school has not saved its ACR criteria yet ([known issues](#known-issues)).
 
 6. On **Step 1: Period and description**, fill in **Period from**, **Period to**, **Duration of employment** and **Description of duties**, then go to the **Next** step.
 
@@ -131,11 +134,11 @@ One ACR per staff member per academic year. Whoever starts it is its assessor.
 
 ACR details are saved only when you are online. Work on this page cannot be stored to send later, so there is no **Saved on this device** state here. (Checked in the code, not tried in the app.)
 
-| State                                  | How you can tell                                                         | What next                                    |
-| -------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
-| **Changed on screen only**             | The corner says **Saving…**; if it fails it says "Retrying…"             | Check your internet; wait for **Saved**      |
-| **Reached the system, in progress**    | **Saved** shows; the register status is **In progress**                  | Press **Complete ACR**                       |
-| **Completed**                          | Register status **Completed**, with **Total score** and a completed date | Done                                         |
+| State                               | How you can tell                                                         | What next                               |
+| ----------------------------------- | ------------------------------------------------------------------------ | --------------------------------------- |
+| **Changed on screen only**          | The corner says **Saving…**; if it fails it says "Retrying…"             | Check your internet; wait for **Saved** |
+| **Reached the system, in progress** | **Saved** shows; the register status is **In progress**                  | Press **Complete ACR**                  |
+| **Completed**                       | Register status **Completed**, with **Total score** and a completed date | Done                                    |
 
 **To check:** reload the page and look at the row in the **ACR register**.
 
@@ -153,7 +156,7 @@ ACR details are saved only when you are online. Work on this page cannot be stor
 
 2. Press **Open** at the end of a row.
 
-   → The ACR page opens. **Close** takes you to that person's own page, not back to the Evaluations list.
+   → The ACR page opens. **Close** takes you back to the page you came from. If there is no page to go back to, it opens that person's own page.
 
 > **Remember:** filters only change what you see. They change no ACR.
 
@@ -195,7 +198,7 @@ In a survey, students or guardians give their opinion of teachers in the portal.
 
 6. Decide **Anonymous — hidden from management**. It is ticked already.
 
-   → If ticked, you see only totals and comments, never who answered. If you untick it, each answer shows the person's name.
+   → If ticked, management sees only totals and comments, never who answered. If you untick it, the form says management will see each person's name, but the results screen in this version shows no names ([known issues](#known-issues)).
 
 7. If you need to, set **Opens on** and **Closes on** (the closing date must be after the opening date), and set **Minimum answers before results show**.
 
@@ -211,17 +214,17 @@ In a survey, students or guardians give their opinion of teachers in the portal.
 
 ### Close a survey and see results <a href="#task-results" id="task-results"></a>
 
-1. In the **Surveys** tab list (**Title**, **Status**, **Who answers**, **Closes**) press **Open** at the end of a row.
+1. In the **Surveys** tab list (**Title**, **Who answers**, **Status**, **Closes**) press **Open** at the end of a row.
 
    → The survey page opens. At the top is the status (**Draft**, **Open** or **Closed**).
 
 2. If it is a draft, press **Publish**. If it is open, press **Close survey** when it is time.
 
-   → Before closing, the app asks **Close this survey?**: "Once it is closed nobody can answer it any more. It cannot be reopened."
+   → Before closing, the app asks **Close this survey?**: "Once “{title}” is closed nobody can answer it any more. It cannot be reopened."
 
 3. On a closed survey, look at **Results**.
 
-   → For each teacher and subject you see the **number of responses**, the star **average** and the **comments**. If there are fewer responses than the minimum, you see a **Waiting** mark and "Waiting for more responses (2 of 3)." On an open survey there are no results: **Results appear once the survey is closed.**
+   → For each teacher and subject you see the number of responses, and for each question the star average and the comments. If there are fewer responses than the minimum, you see a **Waiting** mark and "Waiting for more responses (2 of 3)." While the survey is open, every teacher shows the **Waiting** mark, even with enough answers ([known issues](#known-issues)); results show only after closing.
 
 > **Careful:** a closed survey cannot be opened again. Results show only after closing, so nobody can guess who answered while it is open. This applies to Admins too. A teacher who is the subject of a survey cannot see its results. (Checked in the server code.)
 
@@ -261,41 +264,40 @@ A wrong incident cannot be deleted, only withdrawn. This is not on the Evaluatio
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                              | What to do                                                                                          | Who can help |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------ |
-| **You don't have access to this page.**                        | The page is only for Admins and committee members ([who can do what](#roles)). Press **Back to dashboard**. | Admin |
-| **Couldn't load the ACR register.**                                       | Check your internet and reload the page.                                                            | Admin        |
-| **No ACRs** / "No ACRs yet for this filter."                              | Remove the **Academic year** and **Status** filters and look again.                                 | Admin        |
-| **An ACR already exists for this staff member and year.**                 | Find that staff member and year in the list and press **Open**. You cannot start another.           | Admin        |
-| **Couldn't start the ACR.**                                               | Check your internet and try again.                                                                  | Admin        |
-| **Couldn't load this ACR.**                                               | Check your internet and press **Retry**. This can also appear if you try to open your own ACR.      | Admin        |
-| **Score every criterion before completing.**                              | Give 4, 3, 2 or 1 to every criterion marked **Not scored**.                                         | Admin        |
-| **Couldn't complete the ACR.**                                            | Wait for **Saved**, then try again. Someone other than the person who started it cannot complete it. | Admin      |
-| **Couldn't reopen the ACR.**                                              | Check your internet and press **Reopen** again.                                                     | Admin        |
-| **Couldn't save. Retrying…**                                              | Check your internet. Do not close the page; wait for **Saved**.                                     | Admin        |
-| **Not saved: fix {n} field(s).**                                     | Fix the fields with red messages, then save again.                                                  | Admin        |
-| **Add at least one teacher and subject.**                                 | Fill in one row in **Teachers and subjects**.                                                       | Admin        |
-| **A teacher is not assigned to the chosen subject. Change the teacher or the subject.** | Give the subject on the [Teacher assignments](teaching-assignments.md) page, or choose another subject. | Admin |
-| **Minimum answers must be 3 or more.**                                    | Make **Minimum answers before results show** 3 or more.                                             | Admin        |
-| **The closing date must be after the opening date.**                      | Fix the dates.                                                                                      | Admin        |
-| **Couldn't publish the survey.** / **Couldn't close the survey.**         | Check your internet and try again.                                                                  | Admin        |
-| **Couldn't load results.**                                                | Reload the page. You will not get results for a survey in which you are the teacher.                | Admin        |
-| **Results appear once the survey is closed.**                             | First press **Close survey** (when it is time).                                                     | Admin        |
-| **Choose a staff member.** / **Choose a type.** / **Choose a severity.**  | Choose the fields.                                                                                  | Admin        |
-| **Describe what happened.**                                               | Write in **What happened**.                                                                         | Admin        |
-| **The date cannot be in the future.**                                      | Give today's date or an earlier one.                                                                | Admin        |
-| **Couldn't report the incident.** / **Couldn't withdraw the incident.**   | Check your internet and try again.                                                                  | Admin        |
-| **Give a reason.**                                                        | Write a reason in **Why is it being withdrawn?**                                                    | Admin        |
+| What you see                                                                            | What to do                                                                                                                                                      | Who can help |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **You don't have access to this page.**                                                 | The page is only for Admins and committee members ([who can do what](#roles)). Press **Back to dashboard**.                                                     | Admin        |
+| **Couldn't load the ACR register.**                                                     | Check your internet and reload the page.                                                                                                                        | Admin        |
+| **No ACRs** / "No ACRs yet for this filter."                                            | Remove the **Academic year** and **Status** filters and look again.                                                                                             | Admin        |
+| **An ACR already exists for this staff member and year.**                               | Find that staff member and year in the list and press **Open**. You cannot start another. If there is no such ACR, save the ACR criteria in **Settings** first. | Admin        |
+| **Couldn't start the ACR.**                                                             | Check your internet and try again.                                                                                                                              | Admin        |
+| **Couldn't load this ACR.**                                                             | Check your internet and press **Retry**. This can also appear if you try to open your own ACR.                                                                  | Admin        |
+| **Score every criterion before completing.**                                            | Give 4, 3, 2 or 1 to every criterion marked **Not scored**.                                                                                                     | Admin        |
+| **Couldn't complete the ACR.**                                                          | Wait for **Saved**, then try again. Someone other than the person who started it cannot complete it.                                                            | Admin        |
+| **Couldn't reopen the ACR.**                                                            | Check your internet and press **Reopen** again.                                                                                                                 | Admin        |
+| **Couldn't save. Retrying…**                                                            | Check your internet. Do not close the page; wait for **Saved**.                                                                                                 | Admin        |
+| **Not saved: fix {n} field(s).**                                                        | Fix the fields with red messages, then save again.                                                                                                              | Admin        |
+| **Add at least one teacher and subject.**                                               | Fill in one row in **Teachers and subjects**.                                                                                                                   | Admin        |
+| **A teacher is not assigned to the chosen subject. Change the teacher or the subject.** | Give the subject on the [Teacher assignments](teaching-assignments.md) page, or choose another subject.                                                         | Admin        |
+| **Minimum answers must be 3 or more.**                                                  | Make **Minimum answers before results show** 3 or more.                                                                                                         | Admin        |
+| **The closing date must be after the opening date.**                                    | Fix the dates.                                                                                                                                                  | Admin        |
+| **Couldn't publish the survey.** / **Couldn't close the survey.**                       | Check your internet and try again.                                                                                                                              | Admin        |
+| **Couldn't load results.**                                                              | Reload the page. You will not get results for a survey in which you are the teacher.                                                                            | Admin        |
+| **Choose a staff member.** / **Choose a type.** / **Choose a severity.**                | Choose the fields.                                                                                                                                              | Admin        |
+| **Describe what happened.**                                                             | Write in **What happened**.                                                                                                                                     | Admin        |
+| **The date cannot be in the future.**                                                   | Give today's date or an earlier one.                                                                                                                            | Admin        |
+| **Couldn't report the incident.** / **Couldn't withdraw the incident.**                 | Check your internet and try again.                                                                                                                              | Admin        |
+| **Give a reason.**                                                                      | Write a reason in **Why is it being withdrawn?**                                                                                                                | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                                                       | See the three tabs, ACRs and survey results | Start and write ACRs, create, publish and close surveys, report incidents |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------- |
-| Admin                                                                                                      | Yes                                         | Yes (writing an ACR only for the person who started it)                   |
-| Governing committee member                                                                                 | Yes                                         | No (the buttons do not show)                                              |
-| Teacher, Academic coordinator, Accountant, Office assistant, Exam controller, Executive                    | No                                          | No                                                                        |
+| Role                                                              | See the three tabs, ACRs and survey results | Start and write ACRs, create, publish and close surveys, report incidents |
+| ----------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------- |
+| Admin                                                             | Yes                                         | Yes (writing an ACR only for the person who started it)                   |
+| Governing committee member                                        | Yes                                         | No (the buttons do not show)                                              |
+| Teacher, Accountant, Office assistant, Exam controller, Executive | No                                          | No                                                                        |
 
 People without access who open the page see **You don't have access to this page.**, and **Evaluations** is not in their left menu. Nobody can open their own ACR. Students and guardians answer surveys in the portal.
 
@@ -305,7 +307,9 @@ People without access who open the page see **You don't have access to this page
 
 Checked in the code on version 0.1.0, 2026-10-24. Not tried in the app.
 
-There are no known issues on this page right now.
+- Starting an ACR before the school has saved its ACR criteria shows **An ACR already exists for this staff member and year.** The real cause is that no criteria are saved. Save them in **Settings** ("ACR criteria") first.
+- On an open survey every teacher shows the **Waiting** mark and "Waiting for more responses", even when enough answers are in. Close the survey to see results.
+- With **Anonymous — hidden from management** unticked, the form says management will see each person's name, but the results screen shows no names.
 
 ---
 
@@ -317,7 +321,7 @@ There are no known issues on this page right now.
 1. **Evaluations** — the title and the small line under it.
 2. **Start ACR** / **New survey** / **Report an incident** — one button at the top; the task of the tab you are on (only Admins see it).
 3. **The tabs** — **ACR**, **Surveys**, **Incidents**.
-4. **The list** — ACR: **Staff member**, **Academic year**, **Status**, **Total score**, **Completed**; surveys: **Title**, **Status**, **Who answers**, **Closes**; incidents: **Staff member**, **Type**, **Severity**, **Date**, **Details**.
+4. **The list** — ACR: **Staff member**, **Academic year**, **Status**, **Total score**, **Completed**; surveys: **Title**, **Who answers**, **Status**, **Closes**; incidents: **Staff member**, **Type**, **Severity**, **Date**, **Details**.
 
 <!-- image pending: the four parts of the Evaluations page marked with numbers, admin, desktop -->
 

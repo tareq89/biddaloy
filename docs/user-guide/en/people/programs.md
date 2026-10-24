@@ -121,10 +121,10 @@ A program has many milestones, and each student gets one achievement per milesto
 
 Program details are saved only when you are online. Work on this page cannot be stored on your phone or computer to send later, so there is no **Saved on this device** state here. (Checked in the code, not tried in the app.)
 
-| State                         | How you can tell                                         | What next                                    |
-| ----------------------------- | -------------------------------------------------------- | -------------------------------------------- |
-| **Changed on screen only**    | The dialog is open and filled in, but has not closed     | Press **Save**                               |
-| **Reached the school system** | The dialog closed and the new name is in the list        | Done. Now add milestones and students        |
+| State                         | How you can tell                                     | What next                             |
+| ----------------------------- | ---------------------------------------------------- | ------------------------------------- |
+| **Changed on screen only**    | The dialog is open and filled in, but has not closed | Press **Save**                        |
+| **Reached the school system** | The dialog closed and the new name is in the list    | Done. Now add milestones and students |
 
 **To check:** reload the page. If the name comes up in the program list, it is in the system. On the program page, match the number under **Milestones**.
 
@@ -142,7 +142,7 @@ A student's achievements cannot be recorded until they are enrolled. You can enr
 
 1. At the top of the program page press **Enrol students**. (If the Students tab is empty, a button with the same name is there too.)
 
-   → A full-page form opens, titled **Enrol students**. Opened from the program page, the program is already chosen.
+   → A full-page form opens, titled **Enrol students**. Opened from the program page, the program is already chosen. Opened from search, choose it first in **Program**.
 
 2. Choose a class in **Class**.
 
@@ -160,7 +160,7 @@ A student's achievements cannot be recorded until they are enrolled. You can enr
 
 6. Press **Enrol**.
 
-   → The form closes and the students appear on the program's **Students** tab. Students who were already **Active** are skipped, and the message "{n} students already enrolled, skipped." appears.
+   → The form closes and the students appear on the program's **Students** tab. If some students were already **Active**, they are skipped: the form stays open with the message "{n} students already enrolled, skipped.", and the others are enrolled. Then press **Cancel** to close the form.
 
 <!-- image pending: Enrol students form, class, section, date and student list marked, admin, desktop -->
 
@@ -172,7 +172,7 @@ You can record one milestone for many students at once.
 
 1. At the top of the program page press **Record achievement**. If you press **Record achievement for {name}** on a student's row, that student is already chosen.
 
-   → A full-page form opens, titled **Record achievement**.
+   → A full-page form opens, titled **Record achievement**. Opened from search, choose the program first in **Program**.
 
 2. In **Milestone**, choose the step that was passed.
 
@@ -204,11 +204,11 @@ You can record one milestone for many students at once.
 
 2. From the menu on the row of the student whose state you want to change, choose:
 
-   | Menu text           | When it appears                            | What happens                       |
-   | ------------------- | ------------------------------------------ | ---------------------------------- |
-   | **Mark complete**   | In the **Active** list                     | The student becomes **Completed**  |
-   | **Withdraw**        | In the **Active** list                     | The student becomes **Withdrawn**  |
-   | **Reactivate**      | In the **Completed** or **Withdrawn** list | The student becomes **Active**     |
+   | Menu text         | When it appears                            | What happens                      |
+   | ----------------- | ------------------------------------------ | --------------------------------- |
+   | **Mark complete** | In the **Active** list                     | The student becomes **Completed** |
+   | **Withdraw**      | In the **Active** list                     | The student becomes **Withdrawn** |
+   | **Reactivate**    | In the **Completed** or **Withdrawn** list | The student becomes **Active**    |
 
    → When every milestone is achieved, **Mark complete** reads **All milestones achieved — mark complete?** These menu items show only to people who can manage programs (Admin, executive).
 
@@ -247,36 +247,36 @@ From the buttons at the top of the program page:
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                              | What to do                                                                                        | Who can help |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------ |
-| **You don't have access to this page.**                                   | This page is not for everyone ([who can do what](#roles)). Press **Back to dashboard**.            | Admin        |
-| **Couldn't load programs**                                                | Check your internet and reload the page.                                                          | Admin        |
-| **You don't have permission to view this program**                        | If you see this on a program page, check your role and tell the Admin.                            | Admin        |
-| **Enter a name for the program.**                                         | Type a name in **Name**.                                                                          | Admin        |
-| **The name can be at most 200 characters.**                               | Shorten the name.                                                                                 | Admin        |
-| **A program with this name already exists**                               | Look for the name in the list (including archived programs). Use another name, or unarchive it.   | Admin        |
-| **Couldn't save this program**                                            | Check your internet and press **Save** again. What you typed stays.                               | Admin        |
-| **Couldn't save the milestone. Try again.**                               | Check your internet and press again.                                                              | Admin        |
-| **Couldn't enrol these students**                                         | Check your internet and try again.                                                                | Admin        |
-| **Couldn't record this achievement**                                      | Check your internet and try again.                                                                | Admin        |
-| **Enter the score as a number.**                                          | Type only a number in **Score** (for example 85 or 85.5).                                         | Admin        |
-| **Couldn't change the student's status. Try again.**                      | Check your internet and try again. If the student is already **Active** on another row, look at that first. | Admin |
-| **Couldn't change this program's status. Try again.**                     | Check your internet and press **Archive** again.                                                  | Admin        |
-| **This program has enrolled students — archive it instead of deleting.**  | Press **Archive**.                                                                                | Admin        |
-| **Couldn't delete this program. Try again.**                              | Check your internet and try again.                                                                | Admin        |
-| The program is not in the list                                            | It may be archived. Tick **Also show archived programs**.                                         | Admin        |
+| What you see                                                             | What to do                                                                                                  | Who can help |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ------------ |
+| **You don't have access to this page.**                                  | This page is not for everyone ([who can do what](#roles)). Press **Back to dashboard**.                     | Admin        |
+| **Couldn't load programs**                                               | Check your internet and reload the page.                                                                    | Admin        |
+| **You don't have permission to view this program**                       | If you see this on a program page, check your role and tell the Admin.                                      | Admin        |
+| **Enter a name for the program.**                                        | Type a name in **Name**.                                                                                    | Admin        |
+| **The name can be at most 200 characters.**                              | Shorten the name.                                                                                           | Admin        |
+| **A program with this name already exists**                              | Look for the name in the list (including archived programs). Use another name, or unarchive it.             | Admin        |
+| **Couldn't save this program**                                           | Check your internet and press **Save** again. What you typed stays.                                         | Admin        |
+| **Couldn't save the milestone. Try again.**                              | Check your internet and press again.                                                                        | Admin        |
+| **Couldn't enrol these students**                                        | Check your internet and try again.                                                                          | Admin        |
+| **Couldn't record this achievement**                                     | Check your internet and try again.                                                                          | Admin        |
+| **Enter the score as a number.**                                         | Type only a number in **Score** (for example 85 or 85.5).                                                   | Admin        |
+| **Couldn't change the student's status. Try again.**                     | Check your internet and try again. If the student is already **Active** on another row, look at that first. | Admin        |
+| **Couldn't change this program's status. Try again.**                    | Check your internet and press **Archive** again.                                                            | Admin        |
+| **This program has enrolled students — archive it instead of deleting.** | Press **Archive**.                                                                                          | Admin        |
+| **Couldn't delete this program. Try again.**                             | Check your internet and try again.                                                                          | Admin        |
+| The program is not in the list                                           | It may be archived. Tick **Also show archived programs**.                                                   | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                              | See the list and pages | Change programs, milestones, enrolment and status | Record achievements |
-| --------------------------------- | ---------------------- | ------------------------------------------------- | ------------------- |
-| Admin                             | Yes                    | Yes                                               | Yes                 |
-| Executive                         | Yes                    | Yes                                               | Yes                 |
-| Teacher                           | Yes                    | No                                                | Yes                 |
-| Accountant and other staff        | No                     | No                                                | No                  |
-| Parents and students              | Not the staff pages; they see their own programs in the portal | No                  | No                  |
+| Role                       | See the list and pages                                         | Change programs, milestones, enrolment and status | Record achievements |
+| -------------------------- | -------------------------------------------------------------- | ------------------------------------------------- | ------------------- |
+| Admin                      | Yes                                                            | Yes                                               | Yes                 |
+| Executive                  | Yes                                                            | Yes                                               | Yes                 |
+| Teacher                    | Yes                                                            | No                                                | Yes                 |
+| Accountant and other staff | No                                                             | No                                                | No                  |
+| Parents and students       | Not the staff pages; they see their own programs in the portal | No                                                | No                  |
 
 For teachers, the code shows no class or section limit: a teacher sees every program and all its active students and can record their achievements. (Not tried in the app.)
 
