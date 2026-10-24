@@ -1,0 +1,12 @@
+%% title: কর্মী যোগ থেকে ভূমিকা অনুযায়ী পাতা
+%% desc: অ্যাডমিন কর্মী যোগ করেন ও ভূমিকা বাছেন। কর্মী আমন্ত্রণ পেয়ে অ্যাকাউন্ট চালু করেন। এরপর ভূমিকা অনুযায়ী শিক্ষক নিজের শাখা, হিসাবরক্ষক ফি, অফিস সহকারী ভর্তি দেখেন।
+flowchart LR
+  A["অ্যাডমিন<br/>কর্মী যোগ"]:::admin --> I["আমন্ত্রণ"]:::note
+  I --> S["কর্মী<br/>সাইন ইন"]
+  S --> T["শিক্ষক<br/>নিজের শাখা"]:::teacher
+  S --> F["হিসাবরক্ষক<br/>ফি ও পেমেন্ট"]:::admin
+  S --> O["অফিস সহকারী<br/>ভর্তি"]
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
