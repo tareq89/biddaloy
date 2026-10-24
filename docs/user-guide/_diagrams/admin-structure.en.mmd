@@ -1,0 +1,8 @@
+%% title: Year, class, section
+%% desc: A class sits inside an academic year, and a section inside a class. Shift and version are labels on the class; group is a label on the section.
+flowchart LR
+  Y["Academic year<br/>2026"] --> C["Class<br/>Class 9"] --> S["Section<br/>A"]
+  SH["Shift"]:::label -.-> C
+  V["Version"]:::label -.-> C
+  G["Group"]:::label -.-> S
+  classDef label fill:#f1f3f5,stroke:#868e96,color:#343a40
