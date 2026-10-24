@@ -187,6 +187,8 @@ If the school buys blank cards that already have the design printed on them, onl
 | A thin white border around the card                                        | An office printer does not print to the edge; use a card printer, or add [bleed](designer-guide.md#safe-bleed) in the design | Admin |
 | The whole print is a little small or big                                   | Check that **Scale** is 100%, then fix **Size**                            | Admin        |
 
+More help with this: [What to do when something goes wrong](../../help/troubleshooting.md#print).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

@@ -174,6 +174,10 @@ The school works out and publishes results from the [**Processing and publishing
 
 **Related pages**
 
+- [**Programs (parent and student)**](programs.md) — programs and their progress.
+
+
+
 - [**Overview**](overview.md) — the latest result's GPA, at a glance.
 - [**Fees and invoices**](fees.md) — the month-by-month fee account.
 - [**Attendance**](attendance.md) — every day of the month.

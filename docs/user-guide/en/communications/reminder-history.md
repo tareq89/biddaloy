@@ -154,6 +154,7 @@ In the **Search** box above the list type the round's name. Filter by **Status**
 | **Too many bulk requests in a row — …**                                         | Wait a minute and press again.                                                          | —            |
 | A round stays **Processing** for a long time                                    | Some messages are still queued. If it stays long, tell the Admin.                       | Admin        |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
 
 ---
 

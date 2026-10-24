@@ -141,9 +141,9 @@ Teachers and the school add study plans and topics on the [**Syllabus and study 
 **Related pages**
 
 - [**Syllabus and study plans**](../academics/syllabus.md) — study plans and topics on the school side.
-- <!-- link pending: portal/routine.md --> **Routine** — which subject has class on which day.
-- <!-- link pending: portal/exam-schedule.md --> **Exam schedule** — exam dates.
-- <!-- link pending: portal/overview.md --> **Overview** — the first page.
+- [**Routine**](routine.md) — which subject has class on which day.
+- [**Exam schedule**](exam-schedule.md) — exam dates.
+- [**Overview**](overview.md) — the first page.
 
 ---
 

@@ -435,7 +435,7 @@ A holiday or closed day on the calendar takes effect in several places by itself
 | Teacher                                                                                 | Yes, events for everyone and for staff, and events for the classes they teach                   | No                                        | Yes                      |
 | Accountant, Executive, Office staff, Exam controller, Committee member                  | Yes, published events only                                                                      | No                                        | Yes                      |
 
-If your role is not allowed to change events, the **Government holidays**, **Import**, **Add event** and other buttons do not show on the page. Guardians and students see the calendar in their own portal; <!-- link pending: portal/calendar.md -->that page is separate.
+If your role is not allowed to change events, the **Government holidays**, **Import**, **Add event** and other buttons do not show on the page. Guardians and students see the calendar in their own portal; that page is separate: [**Calendar**](../portal/calendar.md).
 
 ---
 
@@ -523,6 +523,10 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 <!-- image pending: GIF of importing from a file, from the preview to confirming, admin, desktop -->
 
 </details>
+
+**Related pages**
+
+- [**Calendar**](../portal/calendar.md) — the calendar as guardians and students see it.
 
 ---
 

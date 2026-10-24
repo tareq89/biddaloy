@@ -119,8 +119,8 @@ Programs are made, students are enrolled and milestones are ticked on the [**Pro
 **Related pages**
 
 - [**Programs and milestones**](../people/programs.md) — programs and milestones on the school side.
-- <!-- link pending: portal/results.md --> **Results** — exam results.
-- <!-- link pending: portal/overview.md --> **Overview** — the first page.
+- [**Results**](results.md) — exam results.
+- [**Overview**](overview.md) — the first page.
 
 ---
 

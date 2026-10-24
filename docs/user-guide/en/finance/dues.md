@@ -183,6 +183,10 @@ For other roles, **Student dues** is not in the left menu.
 
 **Related pages**
 
+- [**Fees and invoices**](../portal/fees.md) — how a guardian sees the same fees.
+
+
+
 - [**Record payment**](record-payment.md) — taking money against dues.
 - [**Payments**](payments.md) — all payments taken, receipts and reversals.
 - [**Creating fee bills**](generate-fees.md) — where dues come from.

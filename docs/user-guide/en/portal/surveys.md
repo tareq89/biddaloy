@@ -162,7 +162,7 @@ Surveys are made and results are seen on the [**Evaluations: ACR, teacher survey
 
 - [**Evaluations: ACR, teacher surveys and incidents**](../people/evaluations.md) — making surveys and seeing results on the school side.
 - [**Alerts and notifications**](notifications.md) — the "Survey answer pending" reminder.
-- <!-- link pending: portal/overview.md --> **Overview** — the Surveys card.
+- [**Overview**](overview.md) — the Surveys card.
 
 ---
 

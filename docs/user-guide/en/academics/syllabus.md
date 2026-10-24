@@ -359,6 +359,7 @@ Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part 
 - [**Teacher assignments**](../people/teaching-assignments.md) — which teacher has which section and subject.
 - [**Giving homework**](homework.md) — give homework to a section.
 - [**My class**](my-class.md) — a summary of the class teacher's section.
+- [**Syllabus (parent and student)**](../portal/syllabus.md) — how guardians and students see the syllabus.
 
 ---
 

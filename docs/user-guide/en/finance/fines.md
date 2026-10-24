@@ -222,6 +222,8 @@ From the row's menu you can **Edit**, **Deactivate** / **Activate**, and **Delet
 | An active fine rule already exists for this year, trigger and class | Change the old rule, or deactivate it first.                                                                              | Accountant   |
 | The fine rules cannot be loaded                                  | If you are a teacher, academic coordinator or office assistant, the rules page does not open for you. For others: reload. | Admin        |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#fees).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
@@ -313,6 +315,10 @@ Only sees all fines, for example when a guardian asks. Cannot make any change.
 </details>
 
 **Related pages**
+
+- [**Fees and invoices**](../portal/fees.md) — how a guardian sees fines.
+
+
 
 - [**Student dues**](dues.md) — fine bills show as owed here.
 - [**Record payment**](record-payment.md) — taking the fine money.

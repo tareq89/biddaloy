@@ -181,6 +181,8 @@ knownIssues: []
 | **কার্ডটি বাতিল করা যায়নি।**                                       | আবার চেষ্টা করুন                                                                  | অ্যাডমিন              |
 | ছাপা কাগজে সরে গেছে বা কেটে গেছে                                 | **Scale 100%**, **Margins None** দিন, তারপর [মাপ ঠিক করুন](printers-and-calibration.md#calibrate) | অ্যাডমিন              |
 
+এ নিয়ে আরও সাহায্য: [সমস্যা হলে কী করবেন](../../help/troubleshooting.md#print)।
+
 ---
 
 ## কে কী করতে পারেন <a href="#roles" id="roles"></a>

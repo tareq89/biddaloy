@@ -321,6 +321,7 @@ Arrow keys: move from cell to cell · Enter: open a cell · Delete: clear a cell
 - [**Recording a substitute teacher**](routine-substitutions.md) — for a one-day absence, give a substitute instead of changing the routine.
 - [**Giving teachers class and section duties**](../people/teaching-assignments.md) — which teacher teaches which subject in which section; Fill empty periods picks teachers from here.
 - [**Taking attendance**](../attendance/attendance.md) — per-period attendance needs the routine.
+- [**Routine**](../portal/routine.md) — how guardians and students see the routine.
 
 ---
 

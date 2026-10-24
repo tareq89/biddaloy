@@ -174,6 +174,8 @@ If the guardian has not replied to the school on WhatsApp in the last 24 hours, 
 | **Message not sent** — **Sending by … is not set up for this school. …**    | Press **Open Settings › Communication** (Admin).                                                                      | Admin        |
 | **Message not sent** — **Could not be sent.**                               | Press **Send another message** and try again.                                                                         | Admin        |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

@@ -192,6 +192,8 @@ When approval is needed, the window says so first, for example **… of … bill
 | **Failed to load the generated fees log**                                                                                         | Reload the page.                                                                                                                 | Admin        |
 | One student has two bills for the same fee in one month                                                                           | Someone chose **Create anyway**. If it was a mistake and no money has been paid on the second round, press **Remove uncollected**. | Admin        |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#fees).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

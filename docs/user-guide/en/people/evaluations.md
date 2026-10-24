@@ -80,6 +80,8 @@ Three ways to judge staff work, on one page: the **ACR** (Annual Confidential Re
 
 **From search:** in the search box at the top (Ctrl+K) type **Start ACR**, **Report an incident** or **Publish teacher survey** and choose it. → The Evaluations page opens with the matching dialog or form already open. How search works: [Find any page](../start/find-anything.md).
 
+A Committee member can open the Evaluations page to read it only: they cannot start or write an ACR or report an incident.
+
 **From a staff member's page:** each person's own page has ACR and incident tabs; you can start an ACR and report an incident from there too ([Staff](staff.md)).
 
 ---
@@ -384,6 +386,7 @@ Checked in the code on version 0.1.0, 2026-10-24. Not tried in the app.
 
 - [**Adding and managing staff**](staff.md) — a staff member's page with their ACR history and incidents.
 - [**Teacher assignments**](teaching-assignments.md) — the assignment a survey's teacher-subject pair needs.
+- [**Surveys (parent and student)**](../portal/surveys.md) — where guardians and students fill in a survey.
 
 ---
 

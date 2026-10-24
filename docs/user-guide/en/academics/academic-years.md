@@ -235,6 +235,8 @@ Press the year's name in the list, or **View**, to open its page. At the top are
 | **Could not change the order**                                                           | Reload the page and press the arrow again.                                                               | Admin        |
 | A new class or a list shows the old year                                                 | [Set the new year as current](#task-current).                                                            | Admin        |
 
+If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

@@ -152,6 +152,10 @@ The school makes the routine, from the [**Arranging a class's weekly routine**](
 
 **Related pages**
 
+- [**Syllabus (parent and student)**](syllabus.md) — what is taught in each subject.
+
+
+
 - [**Overview**](overview.md) — whether your child is at school today, at a glance.
 - [**Fees and invoices**](fees.md) — the month-by-month fee account.
 - [**Attendance**](attendance.md) — every day of the month.

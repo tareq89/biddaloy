@@ -152,6 +152,7 @@ Every phone, computer and browser remembers its own choice. A new device starts 
 - [**Signing in**](sign-in.md) — the language button on the sign-in page.
 - [**Open on your phone and install as an app**](phone.md) — where the menus are on a phone.
 - [**Your account**](account.md) — everything else in the account menu.
+- [**Account (parent and student)**](../portal/account.md) — changing the language in the guardian and student portal.
 
 ---
 

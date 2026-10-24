@@ -176,6 +176,7 @@ If the link is turned off, expired or wrong, the guardian sees **This link isn't
 | **The share link could not be created.** / **The link couldn't be turned off.** | Try again. If you are an office assistant this is not for you; ask the accountant. | Admin        |
 | A guardian says **This link isn't valid**                                       | The link's 30 days are over, or it was turned off. Make a new link and send it.    | Accountant   |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#fees).
 
 ---
 

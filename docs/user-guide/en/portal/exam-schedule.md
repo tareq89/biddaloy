@@ -179,6 +179,10 @@ Staff cannot print admit cards from this page; they do it from the exam pages. S
 
 **Related pages**
 
+- [**Syllabus (parent and student)**](syllabus.md) — what is being taught, subject by subject.
+
+
+
 - [**Overview**](overview.md) — dues and today's news, at a glance.
 - [**Fees and invoices**](fees.md) — see dues and news of payment.
 - [**Attendance**](attendance.md) — every day of the month.

@@ -200,6 +200,10 @@ The school's internal details (for example who took a payment) do not appear on 
 
 **Related pages**
 
+- [**Alerts and notifications (parent and student)**](notifications.md) — the unpaid fees alert.
+
+
+
 - [**Overview**](overview.md) — total outstanding and what is due this month.
 - [**Attendance**](attendance.md) — every day of the month.
 - [**Routine**](routine.md) — classes today and over the coming days.

@@ -222,6 +222,8 @@ A committee member does not see today's summary like the others. On their page:
 
 <!-- image pending: the committee member's dashboard, with the Print monthly meeting report button, committee member, desktop -->
 
+The whole role in one place: [Committee member](../roles/committee.md).
+
 ### The dashboard on a phone <a href="#task-phone" id="task-phone"></a>
 
 On a phone the widgets are the same, just laid out differently:

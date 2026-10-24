@@ -124,6 +124,12 @@ To see the whole list, tap **See all to-do** in the panel. Tapping the coloured 
 | Nothing happens when you press **Ctrl+K** | The window may have opened and closed again (pressing a second time closes it). Press once, or tap the **Search…** box at the top. | —            |
 | **Could not load alerts.**                | Tap **Try again** in the panel.                                                                                                    | —            |
 
+If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
+
+If a word is not clear, see the [Glossary](../help/glossary.md).
+
+What's newo see what is new, read [T](../help/whats-new.md).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

@@ -190,6 +190,8 @@ Only an Admin can do this.
 | **Could not revoke this card.**                                             | Try again                                                                   | Admin        |
 | The print is shifted or cut on the paper                                    | [Fix the measurements](printers-and-calibration.md#calibrate)               | Admin        |
 
+More help with this: [What to do when something goes wrong](../../help/troubleshooting.md#print).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

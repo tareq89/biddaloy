@@ -237,6 +237,8 @@ Every printed card has its own QR code. Anyone can scan it with a phone and the 
 | Printing a staff card says you have no permission                             | A staff card also needs permission to see staff HR details; ask an Admin     | Admin        |
 | When scanning a QR code: **Too many checks — try again in a minute.**         | Wait a minute and scan again                                                 | You          |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#print).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

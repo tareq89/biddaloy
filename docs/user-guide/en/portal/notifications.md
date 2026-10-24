@@ -182,8 +182,10 @@ Closing an alert hides it only from your own list. It stays on another parent's 
 
 - [**Applications**](applications.md) — the state and decision of an application.
 - [**Surveys**](surveys.md) — from the "Survey answer pending" alert.
-- <!-- link pending: portal/fees.md --> **Fees and invoices** — from the unpaid fees alert.
+- [**Fees and invoices**](fees.md) — from the unpaid fees alert.
 - [**Seeing and settling alerts**](../dashboard/alerts.md) — the alerts page for school staff.
+- [**Account (parent and student)**](account.md) — turn alerts on or off for your account.
+- [**Overview**](overview.md) — the first page, with the bell.
 
 ---
 
