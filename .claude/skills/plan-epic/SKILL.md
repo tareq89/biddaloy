@@ -125,6 +125,9 @@ Before Phase 1 ends, run one round on UX using
    `21-ui-patterns.md` §3), and the kit patterns it uses by name. A pattern the
    kit lacks is a shared-component ticket first, never a one-off in a route file.
 
+7. **User guide** — which guide pages (`docs/user-guide/{bn,en}`) change, and
+   which fields need (?) help text (i18n `help.*` keys).
+
 Write the answers into `## UX requirements` (see Phase 5). Skip the round only
 for epics with no UI, and say so in the epic body.
 
@@ -199,6 +202,7 @@ exists? Push the answer into a decision (either "new, because `<X>`" or
 ## Screens                                   ← only if UI; which shell / pattern each screen reuses
 ## UX requirements       ← per screen: tree path, keyboard path, palette actions, breadcrumb, empty/error states, phone layout (15-ux-principles §8)
 ## Backup & restore coverage ← entities added → workbook tab + round-trip test + seed rows, and the ticket that does it
+## User guide coverage    ← feature → guide page (bn+en) → ticket; removed features → page removed (docs/architecture/25-user-guide.md)
 ## Demo seed coverage     ← every table/column added or changed → which demo-seed slice covers it (or DEMO_SEED_EXEMPT + reason), and the ticket (docs/architecture/22-demo-seed.md)
 ## No-silent-gaps checklist ← route manifest · nav tree · action registry · i18n en+bn · workbook tab · seed — each with its ticket
 ## Review tier overrides                     ← optional explicit money-tier list; otherwise implement-epic's path rule applies
@@ -228,6 +232,9 @@ Wave: <N>   Decisions: D3, D7   Depends on: #<n> (or "—")
 
 Slicing rules — these are what make `implement-epic` run without conflicts:
 
+- **Every epic with a user-visible change carries a user-guide ticket in its
+  last wave** (Recipe R1 per feature it adds or changes; remove the pages of
+  removed features).
 - **Sonnet-low sized**: one lane of work, ≤ ~15 files, one afternoon. If you
   can't write `## Steps` without a paragraph of reasoning, split it.
 - **File-disjoint inside a wave.** Two tickets in one wave never name the
@@ -320,6 +327,8 @@ which is on GitHub.
   body.
 - Never write a sub-issue without all five sections; never let two tickets in
   a wave share a file; never let two tickets touch `shared/`.
+- Never plan a user-visible epic without a user-guide ticket in its last wave
+  and its line in **User guide coverage**.
 - Never plan a table or column without its demo-seed slice ticket (or a
   `DEMO_SEED_EXEMPT` reason) and its line in **Demo seed coverage**.
 - Never create issues before Phase 4 is done — editing forty bodies after a

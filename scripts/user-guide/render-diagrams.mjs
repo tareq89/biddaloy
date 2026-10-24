@@ -7,11 +7,12 @@
 // The section is the part of <name> before the first "-" ("attendance-daily" → attendance/).
 // Each svg gets <title>/<desc> from the `%% title:` / `%% desc:` lines and a
 // `<!-- src:<sha1> -->` stamp of its source, so a check can tell a stale svg.
-// Needs mmdc: `MMDC` env (a path) or `npx -p @mermaid-js/mermaid-cli mmdc`.
+// Needs mmdc: `MMDC` env (a path), else the devDependency's node_modules/.bin/mmdc,
+// else `npx -p @mermaid-js/mermaid-cli mmdc`.
 // `PUPPETEER_CONFIG` may point mmdc at an installed Chrome.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const SRC = 'docs/user-guide/_diagrams';
@@ -23,8 +24,9 @@ const escapeXml = (s) =>
 
 function mmdc(args) {
   const extra = process.env.PUPPETEER_CONFIG ? ['-p', process.env.PUPPETEER_CONFIG] : [];
-  if (process.env.MMDC)
-    return execFileSync(process.env.MMDC, [...args, ...extra], { stdio: 'inherit' });
+  const local =
+    process.env.MMDC ?? (existsSync('node_modules/.bin/mmdc') ? 'node_modules/.bin/mmdc' : '');
+  if (local) return execFileSync(local, [...args, ...extra], { stdio: 'inherit' });
   return execFileSync(
     'npx',
     ['-y', '-p', '@mermaid-js/mermaid-cli@11', 'mmdc', ...args, ...extra],

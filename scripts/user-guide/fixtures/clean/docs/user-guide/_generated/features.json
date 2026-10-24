@@ -1,0 +1,26 @@
+[
+  {
+    "id": "demo.one",
+    "kind": "nav",
+    "path": "demo/one",
+    "route": "/one",
+    "routes": [
+      "/one"
+    ],
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "id": "demo.two",
+    "kind": "nav",
+    "path": "demo/two",
+    "route": "/two",
+    "routes": [
+      "/two"
+    ],
+    "roles": [
+      "ADMIN"
+    ]
+  }
+]

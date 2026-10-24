@@ -298,6 +298,11 @@ changes a table or column must also cover it in the demo seed**
 included. A schema change with no slice, no `DEMO_SEED_EXEMPT` reason and
 (before #2161) no PR line is a finding.
 
+Either tier, one more check: **a user-visible change updates its guide page(s)
+in `docs/user-guide/{bn,en}` (bn and en), or the PR body has
+`User guide: not affected — <reason>`; `yarn guide:check` and `yarn guide:impact`
+pass.** A miss is a finding.
+
 Either tier, a ticket touching `server/src/modules/auth/**`, a guard, a
 controller or an upload path also runs the **security hunt list** in
 `.claude/agents/issue-reviewer.md` §4, and attaches the
