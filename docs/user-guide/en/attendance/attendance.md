@@ -372,7 +372,8 @@ After you press one name:
 
 - **Teacher assignments** — where an admin assigns sections.
 - **Class routine** — needed for per-period attendance.
-- **Attendance reports** and **Attendance register** — built from the attendance taken here.
+- [**Attendance reports**](attendance-reports.md) and [**Attendance register**](attendance-register.md) — built from the attendance taken here.
+- [**Staff attendance and leave**](staff-attendance.md) — teachers' and staff's own attendance and leave.
 - **Settings › Attendance policy** (admin) — weekly off days, the correction window, per-period attendance, leave in advance.
 
 ---
