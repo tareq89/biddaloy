@@ -303,7 +303,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 
 - [**Exams**](exams.md) — add an exam by picking a structure, change parts later.
 - [**Seat plans**](seat-plans.md) — arrange seating by exam subject.
-- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects, grading scale and exam templates in.
+- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects.
 
 ---
 

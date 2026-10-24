@@ -231,7 +231,7 @@ In the **Search** box above the list, type a name. You can also filter by **Acad
 - [**Automatic billing**](recurring-schedules.md) — bills from this structure every month or week, on their own.
 - [**Academic years**](../academics/academic-years.md) — every structure belongs to one academic year.
 - [**Classes**](../academics/classes.md) — a structure can be set for a class or section.
-- [**Fines**](fines.md) — Add a student's fine by hand, make the month's fines at month end from absence or lateness rules, set the fine rules, and waive a fine in.
+- [**Fines**](fines.md) — Add a student's fine by hand, make the month's fines at month end from absence or lateness rules, set the fine rules.
 - [**Student dues**](dues.md) — see who owes what
 
 ---

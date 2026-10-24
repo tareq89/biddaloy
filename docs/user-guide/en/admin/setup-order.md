@@ -291,7 +291,7 @@ Only the admin sees the **Finish setting up your school** card.
 - [**Creating and managing academic years**](../academics/academic-years.md): step 2: make the academic year first.
 - [**Arranging classes, sections and subjects**](../academics/classes.md): step 3: make classes, sections and subjects by hand.
 - [**Adding students and viewing their details**](../people/students.md): step 5: add or import students.
-- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects, grading scale and exam templates in.
+- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects.
 
 ---
 
