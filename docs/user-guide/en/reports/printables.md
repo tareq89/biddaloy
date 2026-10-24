@@ -35,7 +35,7 @@ helpIds:
 devices: [desktop]
 entry: [sidebar, palette]
 keywords:
-  [print, printed, print history, certificate, certificate register, admit card, id card, reprint, revoke, QR]
+  [print, printed, print history, certificate, certificate register, admit card, id card, reprint, revoke, QR, history]
 appVersion: 0.1.0 (3f7e424fc)
 owner: tareq89
 lastVerified: 2026-10-25

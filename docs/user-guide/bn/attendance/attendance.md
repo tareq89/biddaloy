@@ -29,7 +29,8 @@ helpIds:
   ]
 devices: [desktop, phone]
 entry: [sidebar, palette, dashboard:my-pending-sections]
-keywords: [হাজিরা, উপস্থিতি, রোল কল, অনুপস্থিত, attendance, roll call, absent]
+keywords:
+  [হাজিরা, উপস্থিতি, রোল কল, অনুপস্থিত, attendance, roll call, absent, routine, timetable]
 appVersion: 0.1.0 (7b776974b)
 owner: tareq89
 lastVerified: 2026-10-23

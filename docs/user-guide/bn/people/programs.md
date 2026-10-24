@@ -28,7 +28,7 @@ helpIds:
 devices: [desktop]
 entry: [sidebar, palette]
 keywords:
-  [প্রোগ্রাম, মাইলস্টোন, হিফজ, ক্লাব, কোর্স, অর্জন, তালিকাভুক্ত, অগ্রগতি, programs, milestone, hifz, enrol, achievement]
+  [প্রোগ্রাম, মাইলস্টোন, হিফজ, ক্লাব, কোর্স, অর্জন, তালিকাভুক্ত, অগ্রগতি, programs, milestone, hifz, enrol, achievement, program, club, track]
 appVersion: 0.1.0 (5f7194a2e)
 owner: tareq89
 lastVerified: 2026-10-24

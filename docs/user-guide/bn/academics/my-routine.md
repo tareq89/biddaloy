@@ -36,7 +36,7 @@ helpIds:
 devices: [desktop, phone]
 entry: [sidebar, palette, page:dashboard]
 keywords:
-  [আমার রুটিন, রুটিন, আজকের পিরিয়ড, পিরিয়ড জানান, পড়ানো হয়েছে, বদলি, পাঠ, my routine, timetable, today, lesson, taught]
+  [আমার রুটিন, রুটিন, আজকের পিরিয়ড, পিরিয়ড জানান, পড়ানো হয়েছে, বদলি, পাঠ, my routine, timetable, today, lesson, taught, routine, agenda]
 appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24

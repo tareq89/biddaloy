@@ -36,7 +36,7 @@ helpIds:
 devices: [desktop, phone]
 entry: [sidebar, palette, page:dashboard]
 keywords:
-  [my routine, routine, today's periods, report periods, taught, substitute, lesson, timetable, today]
+  [my routine, routine, today's periods, report periods, taught, substitute, lesson, timetable, today, agenda]
 appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
