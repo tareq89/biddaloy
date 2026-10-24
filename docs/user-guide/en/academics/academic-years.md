@@ -308,6 +308,7 @@ Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It
 - [**Classes**](classes.md) — arrange classes, sections and subjects inside a year.
 - [**Steps to set up the school**](../admin/setup-order.md) — which job comes after which.
 - [**How everything in the school fits together**](../admin/how-it-works.md) — a picture of year, class and section.
+- [**Syllabus and study plans**](syllabus.md) — study plans run inside an academic year.
 
 ---
 

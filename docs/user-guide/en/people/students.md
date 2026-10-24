@@ -255,8 +255,6 @@ The tabs come in this order:
 
 ### Add a guardian <a href="#task-guardians" id="task-guardians"></a>
 
-<!-- link pending: people/guardians.md -->
-
 1. In the add or edit form, go to **Guardians**.
 2. Type a name or phone number in **Search guardians**. Choose the person from the list.
 
@@ -575,14 +573,19 @@ Only an admin can do this. For a student who has left the school, [record leavin
 
 **Related pages**
 
-<!-- link pending: people/guardians.md, finance/dues.md, finance/payments.md, exams-results/promotion.md -->
+<!-- link pending: finance/dues.md, finance/payments.md, exams-results/promotion.md -->
 
 - [**School setup order**](../admin/setup-order.md) — students are added or imported at step 5.
 - [**Printing ID cards**](../printing/printing-id-cards.md) — ID cards from the list or a profile.
 - [**Taking attendance**](../attendance/attendance.md) — students added here appear in the attendance register by roll number.
-- **Guardians** — the page for guardians linked to a student.
+- [**Viewing guardians, fixing their details and sending invitations**](guardians.md) — the page for guardians linked to a student.
 - **Student dues** and **Payments** — the pages for collecting fees.
 - **Promotion** — moving classes at the end of the year.
+- [**Arranging classes, sections and subjects**](../academics/classes.md) — make the class and section a student joins.
+- [**Seeing your own class on one page**](../academics/my-class.md) — a teacher sees the section's students on one page.
+- [**Attendance register**](../attendance/attendance-register.md) — a month of attendance for the students of a section.
+- [**Attendance reports**](../attendance/attendance-reports.md) — attendance numbers for students.
+- [**Programs and milestones**](programs.md) — put students into a program and track milestones.
 
 ---
 

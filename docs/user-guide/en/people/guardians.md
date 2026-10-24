@@ -372,6 +372,10 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 
 </details>
 
+**Related pages**
+
+- [**Adding students and viewing their details**](students.md) — add and edit the students a guardian is linked to.
+
 ---
 
 _Version 0.1.0 · Last checked 2026-10-24_

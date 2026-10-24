@@ -218,6 +218,7 @@ For the other roles, see the **Roles** section (→ `../roles/README.md`).
 
 - [**Creating your school and the setup wizard**](create-school.md): opening a school and the first setup.
 - [**Setup order**](setup-order.md): which task to do in which order.
+- [**Creating and managing academic years**](../academics/academic-years.md): make the year that everything else sits in.
 
 ---
 

@@ -285,6 +285,12 @@ Someone without permission who opens the page sees **You don't have access to th
 - [**Adding and managing staff**](staff.md) — add staff and give a teacher profile; the duties here can also be seen from there.
 - [**Adding staff from Excel**](staff-import.md) — add many teachers at once, then give their duties here.
 - [**Arranging a class's weekly routine**](../academics/routine-builder.md) — the duties given here decide who "Fill empty periods" picks; placing a teacher without a duty shows a warning.
+- [**Arranging classes, sections and subjects**](../academics/classes.md) — where classes, sections and subjects are made.
+- [**Giving homework**](../academics/homework.md) — a teacher can give homework only to sections assigned here.
+- [**Syllabus and study plans**](../academics/syllabus.md) — study plans follow the duties given here.
+- [**Attendance register**](../attendance/attendance-register.md) — which sections a teacher sees in the register.
+- [**Evaluations: ACR, teacher surveys and incidents**](evaluations.md) — evaluations of the teacher who holds these duties.
+- [**Taking attendance**](../attendance/attendance.md) — attendance is taken for the sections assigned here.
 
 ---
 

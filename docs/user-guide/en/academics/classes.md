@@ -404,6 +404,9 @@ Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It
 - [**Teacher assignments**](../people/teaching-assignments.md) — the duties of teachers across all classes in one place.
 - [**Students**](../people/students.md) — enrol students in a section.
 - [**Steps to set up the school**](../admin/setup-order.md) — which job comes after which.
+- [**Giving homework**](homework.md) — give homework to a section.
+- [**Seeing your own class on one page**](my-class.md) — a class teacher sees the section on one page.
+- [**Syllabus and study plans**](syllabus.md) — study plans for the subjects of a section.
 
 ---
 

@@ -218,6 +218,7 @@ Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. 
 
 - [**Arranging a class's weekly routine**](routine-builder.md) — lasting changes are made there; here it is for one day only.
 - [**Seeing your routine and reporting periods**](my-routine.md) — the substitute teacher sees that day's period there.
+- [**Staff attendance and leave**](../attendance/staff-attendance.md) — a teacher on leave is what makes a substitute necessary.
 
 ---
 

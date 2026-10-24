@@ -370,11 +370,13 @@ After you press one name:
 
 **Related pages**
 
-- **Teacher assignments** — where an admin assigns sections.
-- **Class routine** — needed for per-period attendance.
+- [**Giving teachers class and section duties**](../people/teaching-assignments.md) — where an admin assigns sections.
+- [**Arranging a class's weekly routine**](../academics/routine-builder.md) — needed for per-period attendance.
 - [**Attendance reports**](attendance-reports.md) and [**Attendance register**](attendance-register.md) — built from the attendance taken here.
 - [**Staff attendance and leave**](staff-attendance.md) — teachers' and staff's own attendance and leave.
 - **Settings › Attendance policy** (admin) — weekly off days, the correction window, per-period attendance, leave in advance.
+- [**Seeing your own class on one page**](../academics/my-class.md) — your section on one page, with today's attendance.
+- [**Adding students and viewing their details**](../people/students.md) — students whose attendance is taken here.
 
 ---
 

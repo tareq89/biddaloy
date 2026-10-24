@@ -320,6 +320,7 @@ Arrow keys: move from cell to cell · Enter: open a cell · Delete: clear a cell
 - [**Reviewing and publishing the routine**](routine-review.md) — send the arranged routine for review and publish it.
 - [**Recording a substitute teacher**](routine-substitutions.md) — for a one-day absence, give a substitute instead of changing the routine.
 - [**Giving teachers class and section duties**](../people/teaching-assignments.md) — which teacher teaches which subject in which section; Fill empty periods picks teachers from here.
+- [**Taking attendance**](../attendance/attendance.md) — per-period attendance needs the routine.
 
 ---
 

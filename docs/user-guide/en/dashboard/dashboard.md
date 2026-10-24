@@ -306,6 +306,8 @@ A widget shows only when it is set aside for your role and you have permission t
 - [**Customising the dashboard**](customise.md) — show, hide and rearrange widgets; the school's dashboard settings; the monthly meeting report.
 - [**Alerts and notifications**](alerts.md) — the full list behind today's summary.
 - [**Welcome to SchoolManager**](../README.md) — what each role does, at a glance.
+- [**Attendance reports**](../attendance/attendance-reports.md) — the full attendance numbers behind the dashboard.
+- [**Staff attendance and leave**](../attendance/staff-attendance.md) — staff attendance and leave.
 
 ---
 
