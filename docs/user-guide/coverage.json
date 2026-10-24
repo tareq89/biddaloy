@@ -1,5 +1,5 @@
 {
-  "dashboard": "planned",
+  "dashboard": "done",
   "applications": "planned",
   "people.students": "planned",
   "people.guardians": "planned",
@@ -73,11 +73,13 @@
   "start.language": "done",
   "start.account": "done",
   "start.findAnything": "done",
-  "admin.howItWorks": "planned",
-  "admin.setupOrder": "planned",
-  "admin.scenarios": "planned",
-  "admin.createSchool": "planned",
-  "dashboard.alerts": "planned",
+  "admin.howItWorks": "done",
+  "admin.setupOrder": "done",
+  "admin.scenarios": "done",
+  "admin.createSchool": "done",
+  "dashboard.alerts": "done",
+  "dashboard.widgets": "done",
+  "dashboard.customise": "done",
   "help.glossary": "done",
   "help.troubleshooting": "planned"
 }
