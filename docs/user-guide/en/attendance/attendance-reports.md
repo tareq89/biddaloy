@@ -183,12 +183,12 @@ Checked in the code for version 0.1.0 on 2026-10-25. Not run in the app. Each li
 
 <!-- guide:generated:fields:attendanceReports -->
 
-| Field                  | What to enter                                                                                       | Required?                |
-| ---------------------- | --------------------------------------------------------------------------------------------------- | ------------------------ |
-| Month                  | Which month. The current month is filled in; you can pick back up to 12 months.                      | Yes                      |
-| Class                  | Which class. Changing it empties the section.                                                        | Yes, for month summary   |
-| Section                | Which section.                                                                                       | Yes, for month summary   |
-| Minimum attendance (%) | The percentage limit, for example 75. If empty, low attendance uses the school's settings limit.     | No                       |
+| Field                  | What to enter                                                                                    | Required?              |
+| ---------------------- | ------------------------------------------------------------------------------------------------ | ---------------------- |
+| Month                  | Which month. The current month is filled in; you can pick back up to 12 months.                  | Yes                    |
+| Class                  | Which class. Changing it empties the section.                                                    | Yes, for month summary |
+| Section                | Which section.                                                                                   | Yes, for month summary |
+| Minimum attendance (%) | The percentage limit, for example 75. If empty, low attendance uses the school's settings limit. | No                     |
 
 <!-- /guide:generated -->
 

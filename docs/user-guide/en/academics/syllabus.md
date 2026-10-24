@@ -323,16 +323,16 @@ Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part 
 
 <!-- guide:generated:fields:syllabus -->
 
-| Field                 | What to enter                                                                  | Required? |
-| --------------------- | ------------------------------------------------------------------------------ | --------- |
-| Name (topic)          | The name of a part of the syllabus, for example Chapter 3: Fractions.          | Yes       |
-| Description (topic)   | What the topic contains, in detail.                                            | No        |
-| Status (topic)        | Planned, in progress or done. Planned at the start.                            | Yes       |
-| Term                  | Which term the plan is for. If there are no terms, the whole year.             | Yes       |
-| Lesson title          | The name of one lesson, up to 200 characters.                                  | Yes       |
-| Periods needed        | How many periods the lesson takes to teach, 1 to 20.                           | Yes       |
-| Syllabus topic        | Which topic the lesson belongs to.                                             | No        |
-| Notes or links        | A note for yourself or a link, up to 2000 characters.                          | No        |
+| Field               | What to enter                                                         | Required? |
+| ------------------- | --------------------------------------------------------------------- | --------- |
+| Name (topic)        | The name of a part of the syllabus, for example Chapter 3: Fractions. | Yes       |
+| Description (topic) | What the topic contains, in detail.                                   | No        |
+| Status (topic)      | Planned, in progress or done. Planned at the start.                   | Yes       |
+| Term                | Which term the plan is for. If there are no terms, the whole year.    | Yes       |
+| Lesson title        | The name of one lesson, up to 200 characters.                         | Yes       |
+| Periods needed      | How many periods the lesson takes to teach, 1 to 20.                  | Yes       |
+| Syllabus topic      | Which topic the lesson belongs to.                                    | No        |
+| Notes or links      | A note for yourself or a link, up to 2000 characters.                 | No        |
 
 <!-- /guide:generated -->
 

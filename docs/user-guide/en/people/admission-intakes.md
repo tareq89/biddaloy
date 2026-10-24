@@ -294,7 +294,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 <details>
 <summary><strong>What the fields mean</strong></summary>
 
-<!-- guide:generated:fields:admission-intakes -->
+<!-- guide:generated:fields:admission-staff-intakes -->
 
 | Field              | What to enter                                                                                                                   | Required? |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------- |
@@ -311,17 +311,17 @@ Fields on the guardian's form:
 
 <!-- guide:generated:fields:admission-public -->
 
-| Field                              | What to enter                                                                    | Required?         |
-| ---------------------------------- | -------------------------------------------------------------------------------- | ----------------- |
-| Which admission are you applying for? | The round you are applying to. Chosen for you when only one is open.          | Yes               |
-| Student's full name                | The child's full name.                                                           | Yes               |
-| Student's date of birth            | The child's date of birth.                                                       | Yes               |
-| Student's gender                   | Boy, Girl or Other.                                                              | Yes               |
-| Parent/guardian's name             | The person applying.                                                             | Yes               |
-| Parent/guardian's phone number     | A correct mobile number. SMS messages and the status check both use this number. | Yes               |
-| Parent/guardian's email (optional) | A correct email address.                                                         | No                |
-| Home address (optional)            | The home address. When admitted, it goes to the student's address.               | No                |
-| Papers                             | One photo (JPG, PNG) or PDF for each document the round asks for, at most 5 MB.  | If the round asks |
+| Field                                 | What to enter                                                                    | Required?         |
+| ------------------------------------- | -------------------------------------------------------------------------------- | ----------------- |
+| Which admission are you applying for? | The round you are applying to. Chosen for you when only one is open.             | Yes               |
+| Student's full name                   | The child's full name.                                                           | Yes               |
+| Student's date of birth               | The child's date of birth.                                                       | Yes               |
+| Student's gender                      | Boy, Girl or Other.                                                              | Yes               |
+| Parent/guardian's name                | The person applying.                                                             | Yes               |
+| Parent/guardian's phone number        | A correct mobile number. SMS messages and the status check both use this number. | Yes               |
+| Parent/guardian's email (optional)    | A correct email address.                                                         | No                |
+| Home address (optional)               | The home address. When admitted, it goes to the student's address.               | No                |
+| Papers                                | One photo (JPG, PNG) or PDF for each document the round asks for, at most 5 MB.  | If the round asks |
 
 <!-- /guide:generated -->
 

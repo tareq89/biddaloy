@@ -165,10 +165,10 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 
 <!-- guide:generated:fields:admission-reports -->
 
-| Field         | What to choose                                                                                    | Required?                                  |
-| ------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| Academic year | The year whose totals you want to see. If you choose none, it is the current year.                | No, the current year is chosen for you     |
-| Class         | One class; if you choose none, all classes. It is cleared when you change the academic year.      | No                                         |
+| Field         | What to enter                                                                                | Required?                              |
+| ------------- | -------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Academic year | The year whose totals you want to see. If you choose none, it is the current year.           | No, the current year is chosen for you |
+| Class         | One class; if you choose none, all classes. It is cleared when you change the academic year. | No                                     |
 
 <!-- /guide:generated -->
 

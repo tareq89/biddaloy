@@ -274,7 +274,7 @@ Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It
 <details>
 <summary><strong>What the fields mean</strong></summary>
 
-<!-- guide:generated:fields:academic-years -->
+<!-- guide:generated:fields:academicYears -->
 
 | Field                            | What to enter                                                                                                  | Required? |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------- |

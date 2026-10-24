@@ -304,12 +304,12 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 <details>
 <summary><strong>What the fields mean</strong></summary>
 
-<!-- guide:generated:fields:admission-applicants -->
+<!-- guide:generated:fields:admission-staff-applicants -->
 
-| Field                                       | What to enter                                                                                                          | Required?                    |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| Note                                        | The reason for the shortlist or note, or the next step. It stays in the history inside the school only.                | Yes                          |
-| Reason (optional)                           | Why you are rejecting. The guardian does not see it.                                                                   | No                           |
+| Field                                           | What to enter                                                                                                               | Required?                    |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Note                                            | The reason for the shortlist or note, or the next step. It stays in the history inside the school only.                     | Yes                          |
+| Reason (optional)                               | Why you are rejecting. The guardian does not see it.                                                                        | No                           |
 | This phone number already belongs to a guardian | "Link" if it is the same family, "Create a new guardian" if it is a different family. Appears only when the number matches. | Yes, when the number matches |
 
 <!-- /guide:generated -->
