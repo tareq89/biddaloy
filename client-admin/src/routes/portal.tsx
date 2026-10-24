@@ -77,6 +77,110 @@ const BOTTOM_NAV_CELLS: Record<string, string> = {
   '/portal/results': 'results',
 };
 
+// `FEE_READ`/`INVOICE_READ` are what `ROLE_PERMISSIONS[PARENT]` and
+// `[STUDENT]` actually hold, so `AppShell`'s own `visibleItems()` filter
+// keeps this honest without a second list of "guardian links".
+//
+// [5.2]: one array, two renderings — the sidebar at >=768px and the
+// `BottomNav` below it. Icons are only ever decorative here; the label
+// is always real text, so an item is never an unlabelled glyph.
+export interface PortalNavItemDef {
+  to: string;
+  labelKey: string;
+  permission?: Permission;
+}
+
+export const PORTAL_NAV_ITEMS: readonly PortalNavItemDef[] = [
+  {
+    to: '/portal',
+    labelKey: 'items.portalOverview',
+    permission: Permission.FEE_READ,
+  },
+  {
+    to: '/portal/fees',
+    labelKey: 'items.portalFees',
+    permission: Permission.INVOICE_READ,
+  },
+  {
+    to: '/portal/attendance',
+    labelKey: 'items.portalAttendance',
+    // [9.9] No `permission`: attendance's family-facing reads
+    // (`AttendanceSummaryController`) are gated with `@Roles(...,
+    // PARENT, STUDENT)` directly, not a `Permission` — there is no
+    // `ATTENDANCE_READ` in `ROLE_PERMISSIONS` to key off, same "every
+    // signed-in role in this shell owns it" case `/portal/account`
+    // documents above.
+  },
+  {
+    to: '/portal/routine',
+    labelKey: 'items.portalRoutine',
+    permission: Permission.ROUTINE_READ,
+  },
+  {
+    to: '/portal/calendar',
+    labelKey: 'items.portalCalendar',
+    // [17.5.2] Same reasoning as `/portal/attendance` above: family
+    // visibility is role-gated server-side (`@Roles(..., PARENT,
+    // STUDENT)`), not behind a `Permission`, so no `permission` here.
+  },
+  {
+    to: '/portal/results',
+    labelKey: 'items.portalResults',
+    // [19.9.1] `StudentResultsController` gates on `RESULT_READ`, which
+    // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
+    // `/portal/fees`'s `INVOICE_READ` above.
+    permission: Permission.RESULT_READ,
+  },
+  {
+    to: '/portal/programs',
+    labelKey: 'items.portalPrograms',
+    // [34.5.2] `StudentProgramsController` (D24) gates
+    // `GET /students/:id/programs` on `PROGRAM_READ`, which
+    // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
+    // `/portal/results`'s `RESULT_READ` above.
+    permission: Permission.PROGRAM_READ,
+  },
+  {
+    to: '/portal/exam-schedule',
+    labelKey: 'items.portalExamSchedule',
+    // [19.11.1] `StudentExamScheduleController` gates on `RESULT_READ`,
+    // same as `/portal/results` above.
+    permission: Permission.RESULT_READ,
+  },
+  {
+    to: '/portal/syllabus',
+    labelKey: 'items.portalSyllabus',
+    // [22.4.5] PARENT and STUDENT both hold `SYLLABUS_READ`.
+    permission: Permission.SYLLABUS_READ,
+  },
+  {
+    to: '/portal/homework',
+    labelKey: 'items.portalHomework',
+    // [8.10.7.5.10] PARENT and STUDENT hold HOMEWORK_READ (shared/src/enums/permissions.ts:512,530).
+    permission: Permission.HOMEWORK_READ,
+  },
+  {
+    to: '/portal/surveys',
+    labelKey: 'items.portalSurveys',
+    // No `permission`: `SurveyRespondController` is `@Roles(PARENT, STUDENT)`,
+    // the same role-gated case as `/portal/attendance` above.
+  },
+  {
+    to: '/portal/applications',
+    labelKey: 'items.portalApplications',
+    // [52.6.1] PARENT and STUDENT both hold `APPLICATION_SUBMIT` (D22). Not a bottom-bar
+    // cell: it lives under "More".
+    permission: Permission.APPLICATION_SUBMIT,
+  },
+  {
+    to: '/portal/account',
+    labelKey: 'items.portalAccount',
+    // [8.14.4] No `permission`: every signed-in role in this shell owns
+    // its own account — this is the exact "everyone in the shell sees
+    // it" case `app-shell.tsx`'s `NavItem.permission` documents.
+  },
+];
+
 function PortalLayout() {
   const demo = useDemoMode();
   const { t } = useTranslation('nav');
@@ -113,105 +217,9 @@ function PortalLayout() {
     }
   }, [breadcrumbTitle]);
 
-  // `FEE_READ`/`INVOICE_READ` are what `ROLE_PERMISSIONS[PARENT]` and
-  // `[STUDENT]` actually hold, so `AppShell`'s own `visibleItems()` filter
-  // keeps this honest without a second list of "guardian links".
-  //
-  // [5.2]: one array, two renderings — the sidebar at >=768px and the
-  // `BottomNav` below it. Icons are only ever decorative here; the label
-  // is always real text, so an item is never an unlabelled glyph.
-  const navItems = [
-    {
-      to: '/portal',
-      label: t('items.portalOverview'),
-      permission: Permission.FEE_READ,
-    },
-    {
-      to: '/portal/fees',
-      label: t('items.portalFees'),
-      permission: Permission.INVOICE_READ,
-    },
-    {
-      to: '/portal/attendance',
-      label: t('items.portalAttendance'),
-      // [9.9] No `permission`: attendance's family-facing reads
-      // (`AttendanceSummaryController`) are gated with `@Roles(...,
-      // PARENT, STUDENT)` directly, not a `Permission` — there is no
-      // `ATTENDANCE_READ` in `ROLE_PERMISSIONS` to key off, same "every
-      // signed-in role in this shell owns it" case `/portal/account`
-      // documents above.
-    },
-    {
-      to: '/portal/routine',
-      label: t('items.portalRoutine'),
-      permission: Permission.ROUTINE_READ,
-    },
-    {
-      to: '/portal/calendar',
-      label: t('items.portalCalendar'),
-      // [17.5.2] Same reasoning as `/portal/attendance` above: family
-      // visibility is role-gated server-side (`@Roles(..., PARENT,
-      // STUDENT)`), not behind a `Permission`, so no `permission` here.
-    },
-    {
-      to: '/portal/results',
-      label: t('items.portalResults'),
-      // [19.9.1] `StudentResultsController` gates on `RESULT_READ`, which
-      // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
-      // `/portal/fees`'s `INVOICE_READ` above.
-      permission: Permission.RESULT_READ,
-    },
-    {
-      to: '/portal/programs',
-      label: t('items.portalPrograms'),
-      // [34.5.2] `StudentProgramsController` (D24) gates
-      // `GET /students/:id/programs` on `PROGRAM_READ`, which
-      // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
-      // `/portal/results`'s `RESULT_READ` above.
-      permission: Permission.PROGRAM_READ,
-    },
-    {
-      to: '/portal/exam-schedule',
-      label: t('items.portalExamSchedule'),
-      // [19.11.1] `StudentExamScheduleController` gates on `RESULT_READ`,
-      // same as `/portal/results` above.
-      permission: Permission.RESULT_READ,
-    },
-    {
-      to: '/portal/syllabus',
-      label: t('items.portalSyllabus'),
-      // [22.4.5] PARENT and STUDENT both hold `SYLLABUS_READ`.
-      permission: Permission.SYLLABUS_READ,
-    },
-    {
-      to: '/portal/homework',
-      label: t('items.portalHomework'),
-      // [8.10.7.5.10] PARENT and STUDENT hold HOMEWORK_READ (shared/src/enums/permissions.ts:512,530).
-      permission: Permission.HOMEWORK_READ,
-    },
-    {
-      to: '/portal/surveys',
-      label: t('items.portalSurveys'),
-      // No `permission`: `SurveyRespondController` is `@Roles(PARENT, STUDENT)`,
-      // the same role-gated case as `/portal/attendance` above.
-    },
-    {
-      to: '/portal/applications',
-      label: t('items.portalApplications'),
-      // [52.6.1] PARENT and STUDENT both hold `APPLICATION_SUBMIT` (D22). Not a bottom-bar
-      // cell: it lives under "More".
-      permission: Permission.APPLICATION_SUBMIT,
-    },
-    {
-      to: '/portal/account',
-      label: t('items.portalAccount'),
-      // [8.14.4] No `permission`: every signed-in role in this shell owns
-      // its own account — this is the exact "everyone in the shell sees
-      // it" case `app-shell.tsx`'s `NavItem.permission` documents.
-    },
-  ].map((item) => {
+  const navItems = PORTAL_NAV_ITEMS.map((item) => {
     const Icon = PORTAL_NAV_ICONS[item.to]!;
-    return { ...item, icon: <Icon aria-hidden="true" /> };
+    return { ...item, label: t(item.labelKey), icon: <Icon aria-hidden="true" /> };
   });
   const portalPages = navItems.map((i) => ({ id: i.to, label: i.label, to: i.to }));
 

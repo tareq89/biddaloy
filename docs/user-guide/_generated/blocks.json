@@ -1,0 +1,32 @@
+{
+  "bn": {
+    "fields:attendance": "| ঘর                          | কী লিখবেন                                                                                  | বাধ্যতামূলক?                      |\n| --------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------- |\n| তারিখ                       | কোন দিনের হাজিরা। আজকের তারিখ বসানো থাকে। তালিকা থেকে ভবিষ্যতের তারিখ বেছে নেওয়া যায় না। | হ্যাঁ                             |\n| অবস্থা (প্রতিটি শিক্ষার্থী) | উপস্থিত, অনুপস্থিত, বিলম্বে বা ছুটি। ভবিষ্যতের দিনে (আগাম ছুটি চালু থাকলে) শুধু ছুটি।      | না — বাকি থাকলে অ্যাপ জিজ্ঞেস করে |\n| বিলম্বের মিনিট              | কত মিনিট দেরি, শুধু **বিলম্বে** দিলে। ইংরেজি সংখ্যায়, ০ থেকে ১৪৪০।                        | না                                |"
+  },
+  "en": {
+    "fields:attendance": "| Field                 | What to enter                                                                                | Required?                         |\n| --------------------- | -------------------------------------------------------------------------------------------- | --------------------------------- |\n| Date                  | Which day you are marking. Today is filled in. A future date cannot be chosen from the list. | Yes                               |\n| Status (each student) | Present, Absent, Late or Leave. On a future day (when leave-in-advance is on), only Leave.   | No — the app asks if any are left |\n| Minutes late          | How many minutes late, only with **Late**. Latin digits, 0 to 1440.                          | No                                |"
+  },
+  "roleAnchors": {
+    "bn": {
+      "ADMIN": "অ্যাডমিন",
+      "ACCOUNTANT": "হিসাবরক্ষক",
+      "TEACHER": "শিক্ষক",
+      "PARENT": "অভিভাবক",
+      "STUDENT": "শিক্ষার্থী",
+      "EXECUTIVE": "একাডেমিক-কো-অর্ডিনেটর",
+      "OFFICE_STAFF": "অফিস-সহকারী",
+      "EXAM_CONTROLLER": "পরীক্ষা-নিয়ন্ত্রক",
+      "COMMITTEE": "পরিচালনা-পর্ষদ-সদস্য"
+    },
+    "en": {
+      "ADMIN": "admin",
+      "ACCOUNTANT": "accountant",
+      "TEACHER": "teacher",
+      "PARENT": "parent",
+      "STUDENT": "student",
+      "EXECUTIVE": "academic-coordinator",
+      "OFFICE_STAFF": "office-staff",
+      "EXAM_CONTROLLER": "exam-controller",
+      "COMMITTEE": "committee-member"
+    }
+  }
+}

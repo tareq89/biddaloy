@@ -7,7 +7,15 @@
     "primaryBorderColor": "#adb5bd",
     "primaryTextColor": "#212529",
     "lineColor": "#868e96",
-    "edgeLabelBackground": "#ffffff"
+    "edgeLabelBackground": "#ffffff",
+    "secondaryColor": "#eef1fe",
+    "secondaryBorderColor": "#8f96f4",
+    "tertiaryColor": "#dfe3fd",
+    "tertiaryBorderColor": "#4a3fd4"
   },
-  "flowchart": { "curve": "basis", "htmlLabels": true, "padding": 12 }
+  "flowchart": {
+    "curve": "basis",
+    "htmlLabels": true,
+    "padding": 12
+  }
 }
