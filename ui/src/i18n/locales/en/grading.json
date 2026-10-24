@@ -196,5 +196,39 @@
     "noDefaultersTitle": "Everyone passed",
     "noDefaultersText": "No student failed or missed a subject in this exam.",
     "noRowsSectionText": "Try another section."
+  },
+  "fields": {
+    "scaleName": "Name",
+    "academicYear": "Academic year",
+    "appliesTo": "Applies to",
+    "percentFrom": "From (%)",
+    "percentTo": "To (%)",
+    "grade": "Grade",
+    "gpa": "GPA",
+    "failGrade": "Fail grade",
+    "comment": "Comment (optional)",
+    "copyAcademicYear": "To academic year",
+    "copyClass": "To class"
+  },
+  "help": {
+    "scaleName": "The scale's name, for example National curriculum 2026; up to 200 characters. It cannot be changed from this page later.",
+    "academicYear": "Which academic year the scale is for. It can only be chosen when you create it.",
+    "appliesTo": "All classes of the year, or one class. If a class has its own scale, that one applies to that class. A year has only one scale for all classes, and a class has only one scale of its own.",
+    "percentFrom": "The lowest percentage of the row, a whole number from 0 to 100. The lowest row starts at 0, and each row starts at the number right after the previous row's end.",
+    "percentTo": "The highest percentage of the row, a whole number from 0 to 100. The highest row ends at 100.",
+    "grade": "The grade name, for example A+; up to 10 characters.",
+    "gpa": "The GPA of this grade, for example 3.5; up to two decimals. A fail grade has no GPA.",
+    "failGrade": "A subject that falls in this range counts as failed. Ticking it clears the GPA.",
+    "comment": "Text shown in the grade legend on the report card, for example Outstanding; up to 500 characters.",
+    "copyAcademicYear": "The year the grades will be copied into. At first it is the year of this scale.",
+    "copyClass": "The class the grades will be copied into, or all classes. Nothing is copied if it already has a scale with grades."
+  },
+  "helpRequired": {
+    "scaleName": "Yes",
+    "academicYear": "Yes",
+    "percentFrom": "Yes",
+    "percentTo": "Yes",
+    "grade": "Yes",
+    "copyAcademicYear": "Yes"
   }
 }
