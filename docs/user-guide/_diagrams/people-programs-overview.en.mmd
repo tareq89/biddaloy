@@ -1,0 +1,12 @@
+%% title: From creating a program to seeing progress
+%% desc: An Admin or executive sets up the program and its milestones and enrols students. A teacher or Admin records achievements. Progress shows on the program page, and also on the report card and in the portal.
+flowchart LR
+  A["Admin<br/>adds program"]:::admin --> M["Set the<br/>milestones"]:::admin
+  M --> E["Enrol<br/>students"]:::admin
+  E --> R["Record<br/>achievements"]:::teacher
+  R --> P["Progress<br/>3 / 5"]:::note
+  P --> C["Report card and<br/>portal"]:::guardian
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
