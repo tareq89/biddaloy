@@ -377,6 +377,7 @@ After you press one name:
 - **Settings › Attendance policy** (admin) — weekly off days, the correction window, per-period attendance, leave in advance.
 - [**Seeing your own class on one page**](../academics/my-class.md) — your section on one page, with today's attendance.
 - [**Adding students and viewing their details**](../people/students.md) — students whose attendance is taken here.
+- [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
 
 ---
 

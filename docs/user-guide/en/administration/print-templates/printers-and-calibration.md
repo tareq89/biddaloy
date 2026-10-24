@@ -222,6 +222,10 @@ If the school buys blank cards that already have the design printed on them, onl
 - [**Printing ID cards**](id-cards.md) — one person, a few people or a whole section.
 - [**Exam documents**](exam-documents.md) — admit cards, seat lists, marks sheets, result certificates.
 - [**Certificates**](certificates.md) — transfer certificates, testimonials; serial numbers and the register.
+- [**Changing the school's settings**](../settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
+- [**Invoices**](../../finance/invoices.md) — Find the invoice and credit note of every payment, print them, send them to a guardian by WhatsApp or SMS, and give a 30-day share link.
+- [**Payments**](../../finance/payments.md) — Find every payment taken at the school, open one to see which bills the money went to, print the receipt again, and reverse a wrong payment.
+- [**Record payment**](../../finance/record-payment.md) — Take money against the open bills of one or more students — the money is split across the oldest bills, give a discount if needed, work out.
 <!-- link pending: administration/settings.md — Settings → Printing; page not there yet -->
 
 ---

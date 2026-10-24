@@ -98,7 +98,7 @@ This page only shows; nothing changes here. When you take money, the list shrink
 
 2. Take the money there. When you come back, the dues have gone down.
 
-To start without picking anyone, press **Record payment** at the top. To see all of a student's bills and payments, press **View** on the row; the fees section of the [**Students**](../people/students.md) page opens.
+To start without picking anyone, press [**Record payment**](record-payment.md) at the top. To see all of a student's bills and payments, press **View** on the row; the fees section of the [**Students**](../people/students.md) page opens.
 
 ### See overdue students only <a href="#task-overdue" id="task-overdue"></a>
 
@@ -129,7 +129,7 @@ Tick the students, then press **Export CSV**. The file is named `dues.csv` and h
 | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------ |
 | **No outstanding dues found**                                | Clear the filters and look again. It also shows when everyone has truly paid.                             | —            |
 | **Couldn't load student dues**                               | Reload the page.                                                                                          | Admin        |
-| **Collect fee** or **Record payment** is missing             | You need both the collect-fee and the record-payment permissions. Ask the admin.                          | Admin        |
+| **Collect fee** or [**Record payment**](record-payment.md) is missing             | You need both the collect-fee and the record-payment permissions. Ask the admin.                          | Admin        |
 | **Credit balance** column shows —                            | The student's credit balance did not load. Reload the page.                                               | —            |
 | You are looking for a student but the **Search** box is gone | Untick **Overdue only**.                                                                                  | —            |
 | Fewer rows in the export file                                | Only rows seen before a reload come in. Go through the pages again and tick. ([Export CSV](#task-export)) | —            |
@@ -157,7 +157,7 @@ For other roles, **Student dues** is not in the left menu.
 <details>
 <summary><strong>Parts of the page</strong> — the student dues list</summary>
 
-1. The **Student dues** heading and the **Record payment** button.
+1. The **Student dues** heading and the [**Record payment**](record-payment.md) button.
 2. The filters: **Search**, **Class**, **Section**, **Month**, **Year**, **Status**, **Fee type**, **Overdue only**.
 3. The list: press the arrow to open the bills; the row menu has **View**, **Collect fee**, **Remind**.
 4. When you tick rows, **Send reminder**, **Export CSV** and **Clear selection** appear at the top.

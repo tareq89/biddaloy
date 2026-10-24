@@ -320,6 +320,9 @@ Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. 
 - Creating an exam and the exam page <!-- link pending: ../exams-results/exams.md --> — the same results tab is on the exam's page too.
 - Result analysis <!-- link pending: ../exams-results/analysis.md --> — merit list and pass/fail from the **Result analysis** button.
 - Promotion <!-- link pending: ../exams-results/promotion.md --> — moving students up to the next class after the results.
+- [**Printing exam documents**](../administration/print-templates/exam-documents.md) — Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
+- [**Merit list and result analysis**](analysis.md) — See an exam's merit list, the students who failed or were absent and the pass/fail by subject, filter by section, print or download a CSV.
+- [**Promoting students**](promotion.md) — Using published results, move a class's students up to the next class in the new academic year, keep them in the same class or graduate them.
 
 ---
 

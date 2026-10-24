@@ -115,7 +115,7 @@ The colours in the pictures show who does what. Orange boxes are the admin or ac
 
 - First the admin or accountant sets a fee structure: which class pays how much for which item.
 - Then, when you create the fee bills, the dues are created in each student's name.
-- When money is received, the accountant records the payment. A receipt is then created. In the app, the receipt is in the **Invoices** list.
+- When money is received, the accountant records the payment. A receipt is then created. In the app, the receipt is in the [**Invoices**](../finance/invoices.md) list.
 - The parent opens **Fees and invoices** in their own portal to see the dues and the receipt.
 - The path starts at the fee structure. Without a structure, no bill is created.
 

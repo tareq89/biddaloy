@@ -191,7 +191,7 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 <details>
 <summary><strong>Parts of the page</strong> — the payments list</summary>
 
-1. The **Payments** heading and the **Record payment** button.
+1. The **Payments** heading and the [**Record payment**](record-payment.md) button.
 2. The filters — **Search**, **Payment method**, **Payment date**, **Show reversed too**.
 3. The list — press **View** on a row to open the payment's page.
 
@@ -244,3 +244,4 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 - [**Setting up printers and sizes**](../administration/print-templates/printers-and-calibration.md) — fixing the receipt printer.
 - [**Invoices**](invoices.md) — see invoices and credit notes, share links.
 - [**Fines**](fines.md) — waiving a fine.
+- [**Adding students and viewing their details**](../people/students.md) — Add a new student, import many at once, and use each student's profile to handle class, guardians, fees, notes and leaving the school.

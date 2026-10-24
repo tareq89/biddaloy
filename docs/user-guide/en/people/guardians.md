@@ -255,7 +255,7 @@ Press **View** on a linked student's row to open that student's page: [Adding st
 
 When a guardian pays, you can start recording the payment from the guardian's page. (Only an Admin and an Accountant see this button.)
 
-1. Press **Record payment** at the top of the guardian's page.
+1. Press [**Record payment**](../finance/record-payment.md) at the top of the guardian's page.
 
    → The record payment page opens, already set up with this guardian's children. For the other steps, see <!-- link pending: finance/payments.md -->the record payment page.
 
@@ -375,6 +375,8 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 **Related pages**
 
 - [**Adding students and viewing their details**](students.md) — add and edit the students a guardian is linked to.
+- [**Fee reminders**](../communications/fee-reminders.md) — Remind the guardians of one student, or of up to 500 students at once, about unpaid fees.
+- [**Send a message**](../communications/send-message.md) — Send your own message to one guardian of a student by SMS, WhatsApp or email.
 
 ---
 

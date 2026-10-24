@@ -222,6 +222,7 @@ Only the platform administrator, who is not a staff member of any school, can un
 - [**Academic years**](../academics/academic-years.md) and [**Classes**](../academics/classes.md) — what is created from here.
 - [**Grading scales**](../exams-results/grading-scales.md) and [**Exam structures**](../exams-results/exam-templates.md) — check them after applying.
 - [**Activity log**](audit-logs.md) — who did what, and when.
+- [**Changing the school's settings**](settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
 
 ---
 

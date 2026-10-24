@@ -383,6 +383,7 @@ knownIssues:
 - [**পরীক্ষার কাঠামো**](exam-templates.md) — অংশ আর নম্বর একবার ঠিক করে প্রতিটি পরীক্ষায় ব্যবহার।
 - [**সিট প্ল্যান**](seat-plans.md) — পরীক্ষার বিষয় ধরে কে কোন কক্ষে কোন আসনে বসবে।
 - [**শ্রেণি, শাখা ও বিষয়**](../academics/classes.md) — পরীক্ষার শ্রেণি আর বিষয় যেখানে ঠিক হয়।
+- [**পরীক্ষার কাগজপত্র ছাপা**](../administration/print-templates/exam-documents.md) — পরীক্ষার প্রবেশপত্র, সিট স্লিপ, নম্বরপত্র ও ফলাফলের কাগজ এক এক করে বা ব্যাচে ছাপুন।.
 
 <!-- link pending: exams-results/marks-entry.md, exams-results/results.md, exams-results/analysis.md, exams-results/promotion.md, exams-results/grading-scales.md, other lanes -->
 

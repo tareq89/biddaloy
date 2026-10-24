@@ -383,6 +383,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 - [**Exam structures**](exam-templates.md) — set parts and marks once and use them in every exam.
 - [**Seat plans**](seat-plans.md) — who sits in which room and seat, by exam subject.
 - [**Classes, sections and subjects**](../academics/classes.md) — where the exam's class and subjects are set.
+- [**Printing exam documents**](../administration/print-templates/exam-documents.md) — Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
 
 <!-- link pending: exams-results/marks-entry.md, exams-results/results.md, exams-results/analysis.md, exams-results/promotion.md, exams-results/grading-scales.md, other lanes -->
 

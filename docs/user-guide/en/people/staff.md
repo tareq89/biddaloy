@@ -337,7 +337,7 @@ Press a person's name in the list, or **View**, to open their page. At the top a
 | **ACR**, **Incidents**, **Performance** | Staff evaluation                                                                                                                         |
 | **Documents**                           | The staff photo, ID card printing and the list of earlier prints                                                                         |
 | **Attendance & Leave**                  | The person's attendance and leave balance                                                                                                |
-| **Applications**                        | Applications filed in the person's name                                                                                                  |
+| [**Applications**](../applications/applications.md)                        | Applications filed in the person's name                                                                                                  |
 | **Login history**                       | When, and from which IP address and device, they signed in                                                                               |
 
 Which tabs you see depends on your permissions. To see and change the assignments of every teacher in one place, see the [Teacher assignments](teaching-assignments.md) page.
@@ -451,6 +451,10 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 - [**Teacher assignments**](teaching-assignments.md) — give a teacher a class, section and subject.
 - [**Staff attendance and leave**](../attendance/staff-attendance.md) — staff attendance and leave.
 - [**Evaluations: ACR, teacher surveys and incidents**](evaluations.md) — evaluations of staff.
+- [**Activity log**](../administration/audit-logs.md) — See who created, changed or deleted what in the school, and who signed in, from newest to oldest.
+- [**Printing ID cards, certificates and exam papers**](../administration/print-templates.md) — Make a print design from a ready-made one, publish it and make it the default.
+- [**Printing ID cards**](../administration/print-templates/id-cards.md) — Print ID cards for one student or staff member, a few people or a whole section.
+- [**Roles and permissions**](../administration/roles.md) — See side by side what each staff role in the school can see and do, on one page. The page is view-only.
 
 ---
 

@@ -308,7 +308,7 @@ knownIssues: []
 
 <!-- /guide:generated -->
 
-**সনদ দেওয়া**
+[**সনদ দেওয়া**](print-templates/certificates.md)
 
 <!-- guide:generated:fields:certificates -->
 

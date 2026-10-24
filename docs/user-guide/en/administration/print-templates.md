@@ -308,7 +308,7 @@ The QR check page is open to everyone, no sign-in needed.
 
 <!-- /guide:generated -->
 
-**Issuing certificates**
+[**Issuing certificates**](print-templates/certificates.md)
 
 <!-- guide:generated:fields:certificates -->
 
