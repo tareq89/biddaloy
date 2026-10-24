@@ -284,6 +284,7 @@ Someone without permission who opens the page sees **You don't have access to th
 
 - [**Adding and managing staff**](staff.md) — add staff and give a teacher profile; the duties here can also be seen from there.
 - [**Adding staff from Excel**](staff-import.md) — add many teachers at once, then give their duties here.
+- [**Arranging a class's weekly routine**](../academics/routine-builder.md) — the duties given here decide who "Fill empty periods" picks; placing a teacher without a duty shows a warning.
 
 ---
 
