@@ -273,6 +273,25 @@ Only sees all fines, for example when a guardian asks. Cannot make any change.
 <summary><strong>What the boxes mean</strong></summary>
 
 <!-- guide:generated:fields:fines -->
+
+| Field                | What to enter                                                                                                                         | Required? |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Trigger              | Whether to count absent days or late arrivals. This cannot be changed after the rule is made.                                         | Required. |
+| Fine type            | Which fine type applies; its own amount is used each time. Only fees of the fine type appear here.                                    | Required. |
+| Class                | For one class, or for the whole school.                                                                                               | No        |
+| Free per month       | The first this-many times in a month are not fined; every time after that is. 0 means fined from the very first time.                 | No        |
+| Cap per month        | A student's total fine under this rule in one month will not go above this. Leave empty for no limit.                                 | No        |
+| Minimum minutes late | Late-arrival rules only: counts only if at least this many minutes late, 0 to 240. If no late minutes are recorded, it always counts. | No        |
+| Students             | One or more students, up to 200 at a time. A separate bill is made for each.                                                          | Required. |
+| Fine type            | Which fine type; only fees of the fine type appear here.                                                                              | Required. |
+| Amount               | If left empty, the fine type's own amount is used. More than zero, up to two decimals.                                                | No        |
+| Incident date        | When it happened. It cannot be a date after today, and it must be inside the fine type's academic year.                               | Required. |
+| Reason               | Why the fine; 3 to 280 characters. The bill carries this reason.                                                                      | Required. |
+| Notify guardian      | When on, the guardian is told about the fine.                                                                                         | No        |
+| In full or part      | Whether to waive everything that is left, or only part of it.                                                                         | No        |
+| Amount to waive      | How much, when waiving part. It cannot be more than what is left.                                                                     | No        |
+| Reason               | Why you are waiving it; 3 to 280 characters.                                                                                          | Required. |
+
 <!-- /guide:generated -->
 
 </details>

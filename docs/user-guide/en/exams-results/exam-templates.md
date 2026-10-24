@@ -266,16 +266,16 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 
 <!-- guide:generated:fields:examTemplates -->
 
-| Field | What to enter | Required? |
-| --- | --- | --- |
-| Name (structure) | E.g. Half-yearly; at most 200 characters. Two structures cannot share a name. | Yes |
-| Type (structure) | Term, monthly, model or other. | No |
-| Class number | 1 to 99, e.g. 9. The structure is matched to the class grade. | Yes |
-| Subject | One of the school subjects. Exams match it by subject code. | Yes |
-| Part name | E.g. Written; two parts of one subject cannot share a name. | Yes |
-| Type (part) | Written, MCQ, viva and so on. Only one attendance part per subject. | No |
-| Full marks | More than 0, at most 9999.99, up to 2 decimal places. | Yes |
-| Pass marks | From 0 to the full marks, up to 2 decimal places. | Yes |
+| Field            | What to enter                                                                 | Required? |
+| ---------------- | ----------------------------------------------------------------------------- | --------- |
+| Name (structure) | E.g. Half-yearly; at most 200 characters. Two structures cannot share a name. | Yes       |
+| Type (structure) | Term, monthly, model or other.                                                | No        |
+| Class number     | 1 to 99, e.g. 9. The structure is matched to the class grade.                 | Yes       |
+| Subject          | One of the school subjects. Exams match it by subject code.                   | Yes       |
+| Part name        | E.g. Written; two parts of one subject cannot share a name.                   | Yes       |
+| Type (part)      | Written, MCQ, viva and so on. Only one attendance part per subject.           | No        |
+| Full marks       | More than 0, at most 9999.99, up to 2 decimal places.                         | Yes       |
+| Pass marks       | From 0 to the full marks, up to 2 decimal places.                             | Yes       |
 
 <!-- /guide:generated -->
 

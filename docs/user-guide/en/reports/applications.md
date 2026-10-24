@@ -175,6 +175,12 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 <summary><strong>What each field means</strong></summary>
 
 <!-- guide:generated:fields:applicationsReports -->
+
+| Field         | What to enter                                                                                                                                         | Required? |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Academic year | Which academic year to count. When chosen, only that year’s applications are counted.                                                                 | No        |
+| Submitted     | Filters by the day an application was submitted; both the start and end days count. Staff leave days use the same dates, by the day the leave starts. | No        |
+
 <!-- /guide:generated -->
 
 </details>

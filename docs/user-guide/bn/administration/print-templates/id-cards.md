@@ -1,3 +1,38 @@
+<!-- guide:meta
+feature: administration.printIdCards
+title: আইডি কার্ড ছাপা
+summary: একজন, কয়েকজন বা পুরো শাখার আইডি কার্ড ছাপুন; হারানো কার্ড বাতিল করলে তার কিউআর আর বৈধ দেখায় না।
+roles: [ADMIN, ACCOUNTANT, OFFICE_STAFF, EXAM_CONTROLLER]
+sources:
+  - client-admin/src/routes/_staff/print/document.tsx
+  - client-admin/src/routes/_staff/print/preview.tsx
+  - client-admin/src/components/print/preview/print-preview.tsx
+  - server/src/modules/print/jobs/
+  - server/src/modules/print/verify/
+labels:
+  [
+    printPreview:*,
+    printHistory:actions.*,
+    printHistory:revoke.*,
+    verify:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.print,
+    administration.printTemplates.action.confirmRound,
+    administration.printTemplates.action.revoke,
+    administration.printTemplates.field.batchSize,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [আইডি কার্ড, ছাপা, কিউআর, বাতিল, ব্যাচ, ID card, print, QR, revoke]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # আইডি কার্ড ছাপা
 
 একজন, কয়েকজন বা পুরো শাখার শিক্ষার্থী বা কর্মীর আইডি কার্ড ছাপুন, আর দরকারে আবার ছাপুন বা হারানো কার্ড বাতিল করুন।

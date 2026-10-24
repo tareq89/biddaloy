@@ -225,6 +225,23 @@ When approval is needed, the window says so first, for example **… of … bill
 <summary><strong>What each field means</strong></summary>
 
 <!-- guide:generated:fields:feeGeneration -->
+
+| Field                                  | What to enter                                                                                                                                                                                 | Required?     |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Academic year                          | The academic year whose fee structures are billed. The period must fall inside this year.                                                                                                     | Required.     |
+| Period type                            | Bill for a month or for a week.                                                                                                                                                               | No            |
+| Month                                  | The month and year being billed. It must fall inside the academic year.                                                                                                                       | Required.     |
+| Week start                             | First day of the week for a weekly bill.                                                                                                                                                      | No            |
+| Due date                               | The date payment is due. Defaults to 9 days after the period starts; change it if needed.                                                                                                     | Required.     |
+| Class                                  | Filters the student list by class. It selects nobody by itself.                                                                                                                               | No            |
+| Section                                | Filters the student list by section.                                                                                                                                                          | No            |
+| Program                                | Picking a program bills every active student in it, even without ticking each one.                                                                                                            | No            |
+| Show inactive students too             | When ticked, inactive students appear in the list and are billed if picked.                                                                                                                   | No            |
+| Students                               | Who gets billed. Up to 5,000 at a time.                                                                                                                                                       | No            |
+| Fees                                   | Which fee structures to bill; one bill per picked student per fee. Up to 20 at a time. The class is not checked.                                                                              | At least one. |
+| What to do with existing bills         | When a bill for the same fee and period exists: skip (no approval), remove the older one and create new (approval if money was paid), or create a second bill anyway (always needs approval). | No            |
+| Notify families when bills are created | When ticked, families get a message once bills are created. Ticked by default.                                                                                                                | No            |
+
 <!-- /guide:generated -->
 
 </details>

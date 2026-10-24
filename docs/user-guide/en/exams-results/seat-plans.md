@@ -147,7 +147,7 @@ Seat plans are saved only when you are online; they cannot be kept on the device
 | ------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | **Changed on screen only**      | The dialog is open with subjects and rooms picked, but the plan page has not opened | Press **Generate**                                                  |
 | **Reached the school's system** | The plan page has opened, the state is **Draft**, and the room cards list students | Check the seats, then [publish](#task-publish)                       |
-| **Published**                   | The state is **Published**; it says the plan can no longer be changed           | [Print admit cards and seat lists](../printing/exam-documents.md)       |
+| **Published**                   | The state is **Published**; it says the plan can no longer be changed           | [Print admit cards and seat lists](../administration/print-templates/exam-documents.md)       |
 
 **To check:** go back to the list and see whether the plan is there, and whether the number in the **Students** column is right.
 
@@ -272,7 +272,7 @@ Press the plan's name in the list, or **View**, to open its page. At the top are
 | Exam controller                                                                     | Yes                    | Yes                                          | Yes                   |
 | Academic coordinator, teacher, accountant, office assistant, governing board member | No                     | No                                           | No                    |
 
-For other roles, **Seat plans** is not in the left menu; if they open the page, they see **You don't have access to this page.** There is no separate view-only permission. Seat lists and invigilator sheets are printed from the exam's **Print** tab ([Exam documents](../printing/exam-documents.md)).
+For other roles, **Seat plans** is not in the left menu; if they open the page, they see **You don't have access to this page.** There is no separate view-only permission. Seat lists and invigilator sheets are printed from the exam's **Print** tab ([Exam documents](../administration/print-templates/exam-documents.md)).
 
 ---
 
@@ -308,23 +308,23 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 
 <!-- guide:generated:fields:seatPlans -->
 
-| Field | What to enter | Required? |
-| --- | --- | --- |
-| Plan name | E.g. Half-yearly, first week. | Yes |
-| Exam | The exam whose subjects you are seating. | Yes |
-| Exam subjects | Subjects on the exam schedule; at least one. | Yes |
-| Rooms | At least one room. Rooms fill in the order you pick them. | Yes |
-| Seat order | In order: one after another by class, section and roll. Random: seats in random order. | No |
+| Field         | What to enter                                                                          | Required? |
+| ------------- | -------------------------------------------------------------------------------------- | --------- |
+| Plan name     | E.g. Half-yearly, first week.                                                          | Yes       |
+| Exam          | The exam whose subjects you are seating.                                               | Yes       |
+| Exam subjects | Subjects on the exam schedule; at least one.                                           | Yes       |
+| Rooms         | At least one room. Rooms fill in the order you pick them.                              | Yes       |
+| Seat order    | In order: one after another by class, section and roll. Random: seats in random order. | No        |
 
 <!-- /guide:generated -->
 
 <!-- guide:generated:fields:seatPlansDetail -->
 
-| Field | What to enter | Required? |
-| --- | --- | --- |
-| Invigilator | A staff member who watches the room. Cannot be someone busy at that time. | No |
-| Room | The room you move the student to when changing a seat. | Yes |
-| Seat number | The number of a free seat in that room. | Yes |
+| Field       | What to enter                                                             | Required? |
+| ----------- | ------------------------------------------------------------------------- | --------- |
+| Invigilator | A staff member who watches the room. Cannot be someone busy at that time. | No        |
+| Room        | The room you move the student to when changing a seat.                    | Yes       |
+| Seat number | The number of a free seat in that room.                                   | Yes       |
 
 <!-- /guide:generated -->
 
@@ -344,7 +344,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 </figure>
 
 - A seat plan goes by subject, not by whole exam. Subjects of one week can go in one plan, and subjects of the next week in another.
-- After publishing, print the seat list, invigilator sheet and seat stickers: [Exam documents](../printing/exam-documents.md).
+- After publishing, print the seat list, invigilator sheet and seat stickers: [Exam documents](../administration/print-templates/exam-documents.md).
 
 </details>
 

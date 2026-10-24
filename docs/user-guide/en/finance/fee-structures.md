@@ -196,6 +196,16 @@ In the **Search** box above the list, type a name. You can also filter by **Acad
 <summary><strong>What each field means</strong></summary>
 
 <!-- guide:generated:fields:feeStructures -->
+
+| Field         | What to enter                                                                                                                  | Required? |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| Name          | Name shown in the list and on bills, for example Monthly tuition; up to 100 characters.                                        | Required. |
+| Fee type      | The kind of fee, for example Monthly tuition or Exam fee. Once any bill uses this structure the type can no longer change.     | No        |
+| Amount        | Amount per student; more than 0, up to two decimals. A change applies only to bills created afterwards, not to existing bills. | Required. |
+| Academic year | The academic year this fee belongs to. Chosen only when creating; it cannot change later.                                      | Required. |
+| Class         | The class this fee is for; leave empty for the whole school. It is a label only; generating bills charges whoever you pick.    | No        |
+| Section       | One section of the class; leave empty for all sections of the class. Pick a class first.                                       | No        |
+
 <!-- /guide:generated -->
 
 </details>

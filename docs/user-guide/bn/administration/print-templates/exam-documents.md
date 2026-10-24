@@ -1,3 +1,33 @@
+<!-- guide:meta
+feature: administration.printExamDocuments
+title: পরীক্ষার কাগজপত্র ছাপা
+summary: পরীক্ষার প্রবেশপত্র, সিট স্লিপ, নম্বরপত্র ও ফলাফলের কাগজ এক এক করে বা ব্যাচে ছাপুন।
+roles: [ADMIN, ACCOUNTANT, OFFICE_STAFF, EXAM_CONTROLLER]
+sources:
+  - client-admin/src/routes/_staff/print/document.tsx
+  - server/src/modules/print/jobs/
+labels:
+  [
+    examDocuments:fields.*,
+    examDocuments:help.*,
+    printPreview:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.print,
+    administration.printTemplates.field.kind,
+    administration.printTemplates.field.design,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [পরীক্ষা, প্রবেশপত্র, সিট স্লিপ, নম্বরপত্র, ফলাফল, ছাপা, exam, admit card, print]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # পরীক্ষার কাগজপত্র ছাপা
 
 একটি পরীক্ষার সব কাগজ এক জায়গা থেকে ছাপুন: প্রবেশপত্র, রুটিন নোটিশ, সিট লিস্ট, ইনভিজিলেটর শিট, সিট স্টিকার, ফাঁকা নম্বর-শিট, মার্কশিট, টেবুলেশন, ফলাফল সনদ আর মেধা সনদ।

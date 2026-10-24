@@ -1,3 +1,33 @@
+<!-- guide:meta
+feature: administration.printDesignerGuide
+title: ডিজাইনারের গাইড
+summary: ডিজাইন কিট নিন, ডিজাইনারকে পাঠান, আঁকা SVG ইমপোর্ট করুন, ঘরগুলো দেখে নিন আর প্রকাশ করুন।
+roles: [ADMIN]
+sources:
+  - client-admin/src/routes/_staff/print-templates/$templateId.edit.tsx
+  - server/src/modules/print/templates/
+labels:
+  [
+    printEditor:publish.*,
+    printEditor:topbar.*,
+    printEditor:fields.*,
+    printEditor:help.*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.publish,
+    administration.printTemplates.action.makeDefault,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [ডিজাইনার, SVG, কিট, ইমপোর্ট, ঘর, প্রকাশ, designer, import, publish]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # ডিজাইনারের গাইড
 
 কার্ডের পেছনের ছবি Illustrator, Inkscape, Affinity বা Figma-তে আঁকুন, একটি SVG ফাইল দিন, স্কুল এক ধাপে নকশায় তুলে নেবে।

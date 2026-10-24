@@ -189,6 +189,14 @@ Only the platform administrator, who is not a staff member of any school, can un
 <summary><strong>What the fields mean</strong></summary>
 
 <!-- guide:generated:fields:curriculumPreset -->
+
+| Field                               | What to enter                                                                                                                                         | Required?                 |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| Stages to set up                    | The stages whose classes and subjects are created, such as Primary or Secondary. Every stage is ticked when you pick a curriculum; keep at least one. | Yes                       |
+| Versions to set up                  | Shown only for a curriculum that has versions. None is ticked at first; pick at least one.                                                            | Yes, when it has versions |
+| Start year                          | The year of the first academic year, from 2000 to 2100. The current year is filled in at first.                                                       | Yes                       |
+| Type the curriculum name to confirm | In the confirm window, type the curriculum's English name exactly as the window shows it. Apply stays disabled until it matches.                      | Yes                       |
+
 <!-- /guide:generated -->
 
 </details>

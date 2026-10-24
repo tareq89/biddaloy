@@ -322,7 +322,7 @@ knownIssues:
 
 2. **আইডি কার্ড প্রিন্ট (সংখ্যা)** চাপুন।
 
-   → প্রিন্টের প্রিভিউ পাতা খোলে। বাকি ধাপ: [কর্মীর আইডি কার্ড](../printing/printing-id-cards.md)।
+   → প্রিন্টের প্রিভিউ পাতা খোলে। বাকি ধাপ: [কর্মীর আইডি কার্ড](../administration/print-templates/id-cards.md)।
 
 ### কর্মীর পাতা: ট্যাবগুলো <a href="#task-detail" id="task-detail"></a>
 

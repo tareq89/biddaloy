@@ -20,7 +20,14 @@ import {
 import { STAFF_NAV_GROUPS, STAFF_TOP_NAV_ITEMS } from '../../nav-tree';
 import { PORTAL_NAV_ITEMS } from '../../routes/portal';
 
-export type FeatureKind = 'nav' | 'portal' | 'start' | 'admin' | 'dashboard' | 'help';
+export type FeatureKind =
+  | 'nav'
+  | 'portal'
+  | 'start'
+  | 'admin'
+  | 'administration'
+  | 'dashboard'
+  | 'help';
 
 export interface Feature {
   id: string;
@@ -47,7 +54,16 @@ interface Fixed {
   id: string;
   routes: string[];
   roles: readonly UserRole[];
+  /** Page path when it is not derived from the id (a child page of a nav page). */
+  path?: string;
 }
+
+const PRINT_ROLES = [
+  UserRole.ADMIN,
+  UserRole.ACCOUNTANT,
+  UserRole.OFFICE_STAFF,
+  UserRole.EXAM_CONTROLLER,
+];
 
 // Ids with no sidebar item. A fixed id with no routes is a page about a thing,
 // not a screen.
@@ -75,6 +91,37 @@ const FIXED: Fixed[] = [
   { id: 'dashboard.widgets', roles: STAFF, routes: [] },
   { id: 'dashboard.customise', roles: STAFF, routes: [] },
   { id: 'dashboard.alerts', roles: STAFF, routes: ['/notifications'] },
+  // Child pages of administration/print-templates: pages about a thing, no screen of their own.
+  {
+    id: 'administration.printDesignerGuide',
+    path: 'administration/print-templates/designer-guide',
+    roles: [UserRole.ADMIN],
+    routes: [],
+  },
+  {
+    id: 'administration.printPrinters',
+    path: 'administration/print-templates/printers-and-calibration',
+    roles: PRINT_ROLES,
+    routes: [],
+  },
+  {
+    id: 'administration.printIdCards',
+    path: 'administration/print-templates/id-cards',
+    roles: PRINT_ROLES,
+    routes: [],
+  },
+  {
+    id: 'administration.printExamDocuments',
+    path: 'administration/print-templates/exam-documents',
+    roles: PRINT_ROLES,
+    routes: [],
+  },
+  {
+    id: 'administration.printCertificates',
+    path: 'administration/print-templates/certificates',
+    roles: [UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.OFFICE_STAFF],
+    routes: [],
+  },
   { id: 'help.glossary', roles: EVERYONE, routes: [] },
   { id: 'help.troubleshooting', roles: EVERYONE, routes: [] },
 ];
@@ -134,7 +181,7 @@ export function buildFeatures(manifestRoutes: readonly string[]): Feature[] {
     ...FIXED.map((f) => ({
       id: f.id,
       kind: f.id.split('.')[0] as FeatureKind,
-      path: pathOf(f.id),
+      path: f.path ?? pathOf(f.id),
       route: f.routes[0] ?? null,
       roles: [...f.roles],
     })),

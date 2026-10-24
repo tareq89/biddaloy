@@ -49,7 +49,7 @@ See in one place what the school has printed, which certificates were given and 
 **Where to go:** in the left menu, **Reports → Print & documents**. Do the work on this page on a computer.
 **Before you start:** be an Admin, Academic coordinator, Office staff or Exam controller ([who can do what](#roles)). To reprint, a printer must already be added.
 
-The page has three tabs: **Print history**, **Certificate register** and **To print**. Every printed copy has its own number and QR code. The rules for printing cards and certificates are on the pages [Printing ID cards](../printing/printing-id-cards.md), [Certificates](../printing/certificates.md) and [Exam documents](../printing/exam-documents.md).
+The page has three tabs: **Print history**, **Certificate register** and **To print**. Every printed copy has its own number and QR code. The rules for printing cards and certificates are on the pages [Printing ID cards](../administration/print-templates/id-cards.md), [Certificates](../administration/print-templates/certificates.md) and [Exam documents](../administration/print-templates/exam-documents.md).
 
 [See the history](#task-main) · [Reprint](#task-reprint) · [Revoke](#task-revoke) · [To print](#task-to-print) · [Problems and fixes](#trouble)
 
@@ -174,7 +174,7 @@ You can filter the waiting list by type and **Class**.
 | What you see                                              | What to do                                                                       | Who can help |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------ |
 | **Could not load the print history.**                     | Reload the page.                                                                 | Admin        |
-| **Add a printer in Settings first.**                      | Add a printer ([Printers](../printing/printers-and-calibration.md)).             | Admin        |
+| **Add a printer in Settings first.**                      | Add a printer ([Printers](../administration/print-templates/printers-and-calibration.md)).             | Admin        |
 | **Your browser blocked the print window. …**              | Allow pop-ups for this site, then press **Print** again.                         | —            |
 | **Could not start printing. Nothing was printed.**        | Try again.                                                                       | Admin        |
 | **Could not revoke this card.**                           | Reload the page and check whether someone else already revoked it.               | Admin        |
@@ -224,6 +224,13 @@ An Accountant may have permission to print but not to view the history, so **Pri
 <summary><strong>What each field means</strong></summary>
 
 <!-- guide:generated:fields:printHistory -->
+
+| Field               | What to enter                                                                                                                 | Required? |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Reason for revoking | Why you are revoking the card, such as card lost; up to 280 characters. Only staff see it.                                    | Yes       |
+| Status              | Valid means the card or certificate is still good. Revoked means someone cancelled it; a QR scan shows it is no longer valid. | No        |
+| Result              | Filter by how the print went: Printed, Not printed or Waiting. Leave empty for all.                                           | No        |
+
 <!-- /guide:generated -->
 
 </details>

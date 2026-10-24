@@ -1,3 +1,32 @@
+<!-- guide:meta
+feature: administration.printPrinters
+title: Printers and calibration
+summary: Add a printer and its paper size, print the measuring page and fix the offset so the print lands exactly on the card.
+roles: [ADMIN, ACCOUNTANT, OFFICE_STAFF, EXAM_CONTROLLER]
+sources:
+  - client-admin/src/routes/_staff/print/preview.tsx
+  - client-admin/src/components/print/preview/print-preview.tsx
+  - client-admin/src/components/print/preview/run-print.ts
+  - server/src/modules/print/printers/
+labels:
+  [
+    printPreview:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.field.printer,
+    administration.printTemplates.field.batchSize,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [printer, calibration, paper, offset, measuring page, alignment]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # Printers and calibration
 
 Add each of the school's printers once and fix its measurements, so that cards print in the right place.
