@@ -313,21 +313,21 @@ On the program page: at the top **Name**, **Status** and three facts; buttons **
 
 <!-- guide:generated:fields:programs -->
 
-| Field               | What to enter                                                                                      | Required?                 |
-| ------------------- | -------------------------------------------------------------------------------------------------- | ------------------------- |
-| Name                | The program's name, at most 200 characters. A school cannot have two programs with the same name. | Yes                       |
-| Description         | A line or two about the program. Milestones can have a description too.                            | No                        |
-| Show on report card | Tick it and the program's progress appears on the report card.                                     | No                        |
-| New milestone name  | The name of one step of the program, for example "Surah Baqarah".                                  | Yes                       |
-| Class               | The class whose students you will enrol.                                                           | Yes                       |
-| Section             | One section of the class; leave empty to list the whole class.                                     | No                        |
-| Started on          | When the student joins the program. Today's date is filled in.                                     | No                        |
-| Students            | Tick the students to enrol, or the students whose achievement you are recording.                   | Yes, at least one         |
-| Milestone           | Which step's achievement is being recorded.                                                        | Yes                       |
-| Achieved on         | When the step was passed. Today's date is filled in.                                               | No                        |
-| Score               | A number, at most two digits after the decimal point, no more than 9999.99.                        | No                        |
-| Grade               | For example A+ or "Good". Free text.                                                               | No                        |
-| Remark              | A short teacher's note. Free text.                                                                 | No                        |
+| Field               | What to enter                                                                                     | Required?         |
+| ------------------- | ------------------------------------------------------------------------------------------------- | ----------------- |
+| Name                | The program's name, at most 200 characters. A school cannot have two programs with the same name. | Yes               |
+| Description         | A line or two about the program. Milestones can have a description too.                           | No                |
+| Show on report card | Tick it and the program's progress appears on the report card.                                    | No                |
+| New milestone name  | The name of one step of the program, for example "Surah Baqarah".                                 | Yes               |
+| Class               | The class whose students you will enrol.                                                          | Yes               |
+| Section             | One section of the class; leave empty to list the whole class.                                    | No                |
+| Started on          | When the student joins the program. Today's date is filled in.                                    | No                |
+| Students            | Tick the students to enrol, or the students whose achievement you are recording.                  | Yes, at least one |
+| Milestone           | Which step's achievement is being recorded.                                                       | Yes               |
+| Achieved on         | When the step was passed. Today's date is filled in.                                              | No                |
+| Score               | A number, at most two digits after the decimal point, no more than 9999.99.                       | No                |
+| Grade               | For example A+ or "Good". Free text.                                                              | No                |
+| Remark              | A short teacher's note. Free text.                                                                | No                |
 
 <!-- /guide:generated -->
 

@@ -363,18 +363,18 @@ Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part 
 
 <!-- guide:generated:fields:homework -->
 
-| Field         | What to enter                                                                                    | Required?           |
-| ------------- | ------------------------------------------------------------------------------------------------ | ------------------- |
-| Class         | Which class the homework is for. It does not change later.                                       | Yes                 |
-| Subject       | One subject attached to the class. It does not change later.                                     | Yes                 |
-| Title         | A short name for the homework, for example Exercise 3.2.                                         | Yes                 |
-| Description   | What to do, in detail.                                                                           | No                  |
-| Grading mode  | Tick, partial completion or marks. Tick at the start. It does not change later.                  | Yes                 |
-| Assign to     | A whole section, or one student.                                                                 | Yes                 |
-| Section       | A section of the class. Even to pick a student, pick the section first.                          | Yes                 |
-| Student       | One student of the section. It shows only when giving to a student.                              | When giving to a student |
-| Assigned date | The date it is given. Today at the start.                                                        | Yes                 |
-| Due date      | The date it must be done by. Seven days later at the start; not before the assigned date.        | Yes                 |
+| Field         | What to enter                                                                             | Required?                |
+| ------------- | ----------------------------------------------------------------------------------------- | ------------------------ |
+| Class         | Which class the homework is for. It does not change later.                                | Yes                      |
+| Subject       | One subject attached to the class. It does not change later.                              | Yes                      |
+| Title         | A short name for the homework, for example Exercise 3.2.                                  | Yes                      |
+| Description   | What to do, in detail.                                                                    | No                       |
+| Grading mode  | Tick, partial completion or marks. Tick at the start. It does not change later.           | Yes                      |
+| Assign to     | A whole section, or one student.                                                          | Yes                      |
+| Section       | A section of the class. Even to pick a student, pick the section first.                   | Yes                      |
+| Student       | One student of the section. It shows only when giving to a student.                       | When giving to a student |
+| Assigned date | The date it is given. Today at the start.                                                 | Yes                      |
+| Due date      | The date it must be done by. Seven days later at the start; not before the assigned date. | Yes                      |
 
 <!-- /guide:generated -->
 

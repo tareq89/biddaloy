@@ -256,10 +256,10 @@ While on a name:
 
 <!-- guide:generated:fields:staffAttendance -->
 
-| Field                 | What to enter                                                                        | Required?                                   |
-| --------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------- |
-| Date                  | Which day's attendance. Today is filled in. On a future day, only Leave.             | Yes                                         |
-| Status (each person)  | Present, Absent, Late or Leave.                                                      | No — nothing is sent for unmarked people    |
+| Field                | What to enter                                                            | Required?                                |
+| -------------------- | ------------------------------------------------------------------------ | ---------------------------------------- |
+| Date                 | Which day's attendance. Today is filled in. On a future day, only Leave. | Yes                                      |
+| Status (each person) | Present, Absent, Late or Leave.                                          | No — nothing is sent for unmarked people |
 
 <!-- /guide:generated -->
 

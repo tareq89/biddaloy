@@ -484,18 +484,18 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 
 <!-- guide:generated:fields:calendar -->
 
-| Field                              | What to enter                                                                                                                                                  | Required?                         |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| Type                               | Holiday, Exam, Event, Meeting, Deadline or Make-up school day. Event to start with. When you change the type, the working-day tick changes too, unless you already touched the tick yourself. | Yes                               |
-| Name                               | The event's name, for example "Eid-ul-Fitr holiday".                                                                                                           | Yes                               |
-| Start date                         | The day the event starts. It must be inside the current academic year.                                                                                         | Yes                               |
-| End date                           | The day the event ends. For a one-day event, the same as the start date.                                                                                       | Yes                               |
-| Why is this being added late?      | Shows when the start date has passed and the day is a closed day. At least 3 characters, at most 500.                                                          | Yes, then                         |
-| Description                        | A short description of the event. Free text.                                                                                                                   | No                                |
-| Counts as a working day            | If ticked, school runs that day. If not ticked, it is a closed day and attendance cannot be taken. For the Holiday type it starts unticked; for other types it is ticked. | No                                |
-| Publish immediately                | Only when adding. If ticked, everyone sees it. If not, it is a draft.                                                                                          | No, ticked to start with          |
-| Notify affected families/staff     | If ticked, a notice goes to the people who can see the event.                                                                                                  | No                                |
-| Also notify by SMS                 | An SMS goes to the guardians' phones too. It stays off unless the box above is ticked.                                                                         | No                                |
+| Field                          | What to enter                                                                                                                                                                                 | Required?                |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Type                           | Holiday, Exam, Event, Meeting, Deadline or Make-up school day. Event to start with. When you change the type, the working-day tick changes too, unless you already touched the tick yourself. | Yes                      |
+| Name                           | The event's name, for example "Eid-ul-Fitr holiday".                                                                                                                                          | Yes                      |
+| Start date                     | The day the event starts. It must be inside the current academic year.                                                                                                                        | Yes                      |
+| End date                       | The day the event ends. For a one-day event, the same as the start date.                                                                                                                      | Yes                      |
+| Why is this being added late?  | Shows when the start date has passed and the day is a closed day. At least 3 characters, at most 500.                                                                                         | Yes, then                |
+| Description                    | A short description of the event. Free text.                                                                                                                                                  | No                       |
+| Counts as a working day        | If ticked, school runs that day. If not ticked, it is a closed day and attendance cannot be taken. For the Holiday type it starts unticked; for other types it is ticked.                     | No                       |
+| Publish immediately            | Only when adding. If ticked, everyone sees it. If not, it is a draft.                                                                                                                         | No, ticked to start with |
+| Notify affected families/staff | If ticked, a notice goes to the people who can see the event.                                                                                                                                 | No                       |
+| Also notify by SMS             | An SMS goes to the guardians' phones too. It stays off unless the box above is ticked.                                                                                                        | No                       |
 
 <!-- /guide:generated -->
 

@@ -336,16 +336,16 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 
 <!-- guide:generated:fields:guardians -->
 
-| Field               | What to enter                                                                                                                                                                                                  | Required? |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Full name           | The guardian's full name.                                                                                                                                                                                      | Yes       |
-| Relationship        | Relationship to the student, for example Father, Mother, Uncle. What you type stays as typed; the list filter catches only Father, Mother, Brother, Sister, Grandfather, Grandmother, Uncle, Aunt and Other.   | No        |
-| Phone               | In English digits, for example 01712345678. If there is no email, the invitation goes to this number by SMS. If the guardian signs in on their own, it cannot be changed from here.                            | No        |
-| Email               | The invitation goes here first. If the guardian signs in on their own, it cannot be changed from here.                                                                                                         | No        |
-| Alternate phone     | A second number. If there is no phone but this one is filled in, the details do not count as incomplete.                                                                                                       | No        |
-| Occupation          | The guardian's work. Free text.                                                                                                                                                                                | No        |
-| Preferred channel   | SMS, WhatsApp, Email, Phone call or Messenger. If you choose none, it stays SMS. It does not decide how the invitation is sent.                                                                                | No        |
-| Address             | The guardian's address. Free text.                                                                                                                                                                             | No        |
+| Field             | What to enter                                                                                                                                                                                                | Required? |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| Full name         | The guardian's full name.                                                                                                                                                                                    | Yes       |
+| Relationship      | Relationship to the student, for example Father, Mother, Uncle. What you type stays as typed; the list filter catches only Father, Mother, Brother, Sister, Grandfather, Grandmother, Uncle, Aunt and Other. | No        |
+| Phone             | In English digits, for example 01712345678. If there is no email, the invitation goes to this number by SMS. If the guardian signs in on their own, it cannot be changed from here.                          | No        |
+| Email             | The invitation goes here first. If the guardian signs in on their own, it cannot be changed from here.                                                                                                       | No        |
+| Alternate phone   | A second number. If there is no phone but this one is filled in, the details do not count as incomplete.                                                                                                     | No        |
+| Occupation        | The guardian's work. Free text.                                                                                                                                                                              | No        |
+| Preferred channel | SMS, WhatsApp, Email, Phone call or Messenger. If you choose none, it stays SMS. It does not decide how the invitation is sent.                                                                              | No        |
+| Address           | The guardian's address. Free text.                                                                                                                                                                           | No        |
 
 <!-- /guide:generated -->
 

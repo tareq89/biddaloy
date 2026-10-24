@@ -360,20 +360,20 @@ Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It
 
 <!-- guide:generated:fields:classes -->
 
-| Field            | What to enter                                                                                              | Required? |
-| ---------------- | ---------------------------------------------------------------------------------------------------------- | --------- |
-| Name (class)     | The name of the class, for example Class 6.                                                                | Yes       |
-| Grade            | The class number, for example 6; a positive whole number. Used to put classes in order.                    | No        |
-| Academic year    | Which year the class belongs to. You can pick it only when adding; it does not change later.               | Yes       |
-| Shift            | For example Morning or Day. It shows only if the school has two or more shifts.                            | No        |
-| Version          | For example Bangla or English. It shows only if there are two or more versions.                            | No        |
-| Section name     | For example A.                                                                                             | Yes       |
-| Capacity         | How many can sit in the section, for example 40. Only for display; it does not stop extra enrolments.      | No        |
-| Group            | For example Science. It shows only if there are two or more groups.                                        | No        |
-| Subject          | One of the school's active subjects.                                                                       | Yes       |
-| Optional subject | Tick it if not everyone studies it.                                                                        | No        |
-| Teacher          | Someone who has a teacher profile.                                                                         | Yes       |
-| Assignment type  | Class teacher, Assistant class teacher or Subject teacher.                                                 | Yes       |
+| Field            | What to enter                                                                                         | Required? |
+| ---------------- | ----------------------------------------------------------------------------------------------------- | --------- |
+| Name (class)     | The name of the class, for example Class 6.                                                           | Yes       |
+| Grade            | The class number, for example 6; a positive whole number. Used to put classes in order.               | No        |
+| Academic year    | Which year the class belongs to. You can pick it only when adding; it does not change later.          | Yes       |
+| Shift            | For example Morning or Day. It shows only if the school has two or more shifts.                       | No        |
+| Version          | For example Bangla or English. It shows only if there are two or more versions.                       | No        |
+| Section name     | For example A.                                                                                        | Yes       |
+| Capacity         | How many can sit in the section, for example 40. Only for display; it does not stop extra enrolments. | No        |
+| Group            | For example Science. It shows only if there are two or more groups.                                   | No        |
+| Subject          | One of the school's active subjects.                                                                  | Yes       |
+| Optional subject | Tick it if not everyone studies it.                                                                   | No        |
+| Teacher          | Someone who has a teacher profile.                                                                    | Yes       |
+| Assignment type  | Class teacher, Assistant class teacher or Subject teacher.                                            | Yes       |
 
 <!-- /guide:generated -->
 

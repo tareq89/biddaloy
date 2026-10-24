@@ -232,11 +232,11 @@ Checked in the code for version 0.1.0 on 2026-10-25. There are no known issues o
 
 <!-- guide:generated:fields:attendanceRegister -->
 
-| Field                 | What to enter                                                                                  | Required?                               |
-| --------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Class                 | Which class. Changing it empties the section.                                                  | Yes                                     |
-| Section               | Which section.                                                                                 | Yes                                     |
-| Month                 | Which month's register. The current month is filled in.                                        | Yes                                     |
+| Field                 | What to enter                                                                                   | Required?                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Class                 | Which class. Changing it empties the section.                                                   | Yes                                         |
+| Section               | Which section.                                                                                  | Yes                                         |
+| Month                 | Which month's register. The current month is filled in.                                         | Yes                                         |
 | Reason for correction | Why you are changing it. At least 3 letters. The same reason is kept in every change's history. | Only when changing a day outside the window |
 
 <!-- /guide:generated -->
