@@ -1,0 +1,8 @@
+%% title: The fee path, structure to receipt
+%% desc: The admin or accountant sets the fee structure and creates fee bills. That creates each student's dues. Taking a payment makes a receipt, and the parent can see the dues and the receipt.
+flowchart LR
+  S["Fee structure"]:::admin --> B["Create<br/>fee bills"]:::admin --> D["Student<br/>dues"] --> P["Take<br/>payment"]:::admin --> R["Receipt"]
+  D -.-> G["Parent<br/>sees dues"]:::guardian
+  R -.-> G
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
