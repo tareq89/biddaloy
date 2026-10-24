@@ -110,5 +110,23 @@
     "open": "Open"
   },
   "subtitle": "Add classes, subjects, exams and grading to a new school in one go.",
-  "unverifiedBadge": "Not verified"
+  "unverifiedBadge": "Not verified",
+  "fields": {
+    "stages": "Stages to set up",
+    "versions": "Versions to set up",
+    "startYear": "Start year",
+    "confirmName": "Type the curriculum name to confirm"
+  },
+  "help": {
+    "stages": "The stages whose classes and subjects are created, such as Primary or Secondary. Every stage is ticked when you pick a curriculum; keep at least one.",
+    "versions": "Shown only for a curriculum that has versions. None is ticked at first; pick at least one.",
+    "startYear": "The year of the first academic year, from 2000 to 2100. The current year is filled in at first.",
+    "confirmName": "In the confirm window, type the curriculum's English name exactly as the window shows it. Apply stays disabled until it matches."
+  },
+  "helpRequired": {
+    "stages": "Yes",
+    "versions": "Yes, when it has versions",
+    "startYear": "Yes",
+    "confirmName": "Yes"
+  }
 }
