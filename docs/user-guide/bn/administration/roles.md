@@ -23,7 +23,7 @@ helpIds: [administration.roles]
 devices: [desktop]
 entry: [sidebar, palette]
 keywords:
-  [ভূমিকা, অনুমতি, কে কী দেখে, শিক্ষক, হিসাবরক্ষক, অফিস সহকারী, পরীক্ষা নিয়ন্ত্রক, roles, permissions, access]
+  [ভূমিকা, অনুমতি, কে কী দেখে, শিক্ষক, হিসাবরক্ষক, অফিস সহকারী, পরীক্ষা নিয়ন্ত্রক, roles, permissions, access, role, permission, রোল]
 appVersion: 0.1.0 (63bfc7884)
 owner: tareq89
 lastVerified: 2026-10-25

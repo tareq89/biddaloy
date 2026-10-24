@@ -35,7 +35,7 @@ helpIds:
 devices: [desktop]
 entry: [sidebar, palette]
 keywords:
-  [প্রিন্ট, ছাপা, ছাপার ইতিহাস, সনদ, সনদ রেজিস্টার, প্রবেশপত্র, পরিচয়পত্র, আইডি কার্ড, আবার ছাপা, বাতিল, QR, print history, certificate register, reprint, revoke, admit card, id card]
+  [প্রিন্ট, ছাপা, ছাপার ইতিহাস, সনদ, সনদ রেজিস্টার, প্রবেশপত্র, পরিচয়পত্র, আইডি কার্ড, আবার ছাপা, বাতিল, QR, print history, certificate register, reprint, revoke, admit card, id card, printed, history]
 appVersion: 0.1.0 (3f7e424fc)
 owner: tareq89
 lastVerified: 2026-10-25

@@ -49,7 +49,7 @@ helpIds:
 devices: [desktop]
 entry: [sidebar, palette]
 keywords:
-  [আবেদন, আবেদনপত্র, ছুটির আবেদন, ফি মওকুফ, ছাড়পত্র, টিসি, প্রশংসাপত্র, অনুমোদন, নামঞ্জুর, application, leave, approve, reject, waiver]
+  [আবেদন, আবেদনপত্র, ছুটির আবেদন, ফি মওকুফ, ছাড়পত্র, টিসি, প্রশংসাপত্র, অনুমোদন, নামঞ্জুর, application, leave, approve, reject, waiver, testimonial, ছুটি, মওকুফ]
 appVersion: 0.1.0 (63bfc7884)
 owner: tareq89
 lastVerified: 2026-10-25
