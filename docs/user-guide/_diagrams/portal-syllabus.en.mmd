@@ -1,0 +1,9 @@
+%% title: How "behind" is worked out
+%% desc: As many lessons should be done as there are periods already held in the routine. That is compared with how many lessons the teacher has taught. If fewer, the class is behind. If not, it is on time.
+flowchart LR
+  R["Periods already held<br/>in the routine"] --> E["Lessons that should<br/>be done by now"]
+  T["Lessons the teacher<br/>has taught"] --> C{"Fewer?"}
+  E --> C
+  C -- "Yes" --> B["Lessons behind"]
+  C -- "No" --> O["On time"]:::done
+  classDef done fill:#ebfbee,stroke:#2b8a3e,color:#14411d
