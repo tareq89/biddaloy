@@ -72,6 +72,8 @@ const FIXED: Fixed[] = [
   { id: 'admin.setupOrder', roles: [UserRole.ADMIN], routes: [] },
   { id: 'admin.scenarios', roles: [UserRole.ADMIN], routes: [] },
   { id: 'admin.createSchool', roles: [UserRole.ADMIN], routes: ['/register', '/welcome'] },
+  { id: 'dashboard.widgets', roles: STAFF, routes: [] },
+  { id: 'dashboard.customise', roles: STAFF, routes: [] },
   { id: 'dashboard.alerts', roles: STAFF, routes: ['/notifications'] },
   { id: 'help.glossary', roles: EVERYONE, routes: [] },
   { id: 'help.troubleshooting', roles: EVERYONE, routes: [] },
