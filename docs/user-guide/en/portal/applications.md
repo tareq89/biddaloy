@@ -254,7 +254,7 @@ An approved leave is marked in attendance by itself. An approved fee waiver is a
 **Related pages**
 
 - [**Applications**](../applications/applications.md) — how school staff decide on an application.
-- <!-- link pending: portal/overview.md --> **Overview** — the parent's first page.
+- [**Overview**](overview.md) — the parent's first page.
 - [**Alerts and notifications**](notifications.md) — the school's other alerts and reminders.
 - [**Your account**](../start/account.md) — name, phone and password.
 

@@ -246,6 +246,8 @@ In the **Processed** state there is a **Process again** button (on a phone, insi
 | Some students have no **Position** in the list                                                              | This is normal: a student who failed has no position.                                                                                                                                                                                                                                   | —                                                   |
 | You do not see the **Process result** or **Publish** button                                                 | See [Who can do what](#roles).                                                                                                                                                                                                                                                          | Admin                                               |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
@@ -322,6 +324,7 @@ Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. 
 - [**Printing exam documents**](../administration/print-templates/exam-documents.md) — Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
 - [**Merit list and result analysis**](analysis.md) — See an exam's merit list, the students who failed or were absent and the pass/fail by subject, filter by section, print or download a CSV.
 - [**Promoting students**](promotion.md) — Using published results, move a class's students up to the next class in the new academic year, keep them in the same class or graduate them.
+- [**Results**](../portal/results.md) — where guardians and students see published results.
 
 ---
 

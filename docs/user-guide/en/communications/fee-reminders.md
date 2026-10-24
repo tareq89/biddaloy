@@ -191,6 +191,8 @@ How many characters one SMS holds is on the [**Send a message**](send-message.md
 | **Select at most 500 students — remove … to continue.**                        | Untick some; send the rest in another round.                                                              | —            |
 | **The student list could not be loaded.**                                      | Reload the page.                                                                                          | Admin        |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

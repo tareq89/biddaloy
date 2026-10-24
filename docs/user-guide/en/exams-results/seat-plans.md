@@ -354,6 +354,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 - [**Exam structures**](exam-templates.md) — set exam parts once.
 - [**Routine setup**](../academics/routine-setup.md) — add rooms and their capacity.
 - [**Printing exam documents**](../administration/print-templates/exam-documents.md) — Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
+- [**Exam schedule**](../portal/exam-schedule.md) — where guardians and students see exam dates and the seat.
 
 ---
 

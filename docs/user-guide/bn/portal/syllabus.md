@@ -141,9 +141,9 @@ knownIssues: []
 **সম্পর্কিত পাতা**
 
 - [**সিলেবাস**](../academics/syllabus.md) — স্কুলের দিকে পাঠ পরিকল্পনা আর টপিক।
-- <!-- link pending: portal/routine.md --> **রুটিন** — কোন দিন কোন বিষয়ের ক্লাস।
-- <!-- link pending: portal/exam-schedule.md --> **পরীক্ষার সময়সূচি** — পরীক্ষার তারিখ।
-- <!-- link pending: portal/overview.md --> **সারসংক্ষেপ** — প্রথম পাতা।
+- [**রুটিন**](routine.md) — কোন দিন কোন বিষয়ের ক্লাস।
+- [**পরীক্ষার সময়সূচি**](exam-schedule.md) — পরীক্ষার তারিখ।
+- [**সারসংক্ষেপ**](overview.md) — প্রথম পাতা।
 
 ---
 

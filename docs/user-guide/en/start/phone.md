@@ -158,6 +158,8 @@ On a phone, the menu on the left is hidden. Where to find things:
 | Opening from the icon asks you to sign in again  | The installed app may open separately from the browser. [Sign in](sign-in.md) once more.                               | —            |
 | The address does not open                        | Compare the address with the one the admin sent, and check your internet.                                              | School admin |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#phone).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

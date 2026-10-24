@@ -347,6 +347,7 @@ A writing field needs at least 3 characters; **Reason** and **Details** are with
 - [**Teacher assignments**](../people/teaching-assignments.md) — who is the class teacher of which section.
 - [**Students**](../people/students.md) — the student an application is for.
 - [**Roles and permissions**](../administration/roles.md) — what each role can do.
+- [**Applications (parent and student)**](../portal/applications.md) — where a guardian or student sends an application.
 
 ---
 

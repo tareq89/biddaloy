@@ -218,6 +218,8 @@ Without internet, the submit button says **Save on device**. When you press it:
 - **This changed elsewhere while waiting** — someone else has already submitted this register. Choose which version to keep from the panel.
 - **This could not be sent after several attempts** — open the register again, check the marks, and press **Submit attendance**. If that fails too, tell an admin.
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#offline).
+
 ---
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
@@ -379,6 +381,7 @@ After you press one name:
 - [**Seeing your own class on one page**](../academics/my-class.md) — your section on one page, with today's attendance.
 - [**Adding students and viewing their details**](../people/students.md) — students whose attendance is taken here.
 - [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
+- [**Attendance**](../portal/attendance.md) — what the guardian sees of the attendance you take.
 
 ---
 

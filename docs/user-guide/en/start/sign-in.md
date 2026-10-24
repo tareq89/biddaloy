@@ -212,11 +212,13 @@ These buttons work only when the Google or Facebook account is already connected
 | **You are not in any school yet**                                      | Same reason. Ask the admin to add you.                                                                                                  | School admin |
 | **That number, email or code is incorrect.**                           | Check the code and type it again. If it still does not match, tap **Resend code** to get a new one.                                     | —            |
 | The code does not come                                                 | Check that the number is right. If it still does not come after a few tries, try again after an hour. For email, check the spam folder. | School admin |
-| **This account has been suspended.**                                   | The school has put your account on hold. Contact the school office.                                                                     | School admin |
+| **This account has been suspended.** (only on the page an invitation link opens) | The school has put your account on hold, so the invitation cannot be used. Contact the school office. At the sign-in page itself this message does not appear. | School admin |
 | **This link has expired.**                                             | For an invitation link, see [If you got an invitation link](#task-invite); for a reset link, see [Forgot your password](#task-forgot).  | School admin |
 | **Set password** cannot be tapped                                      | Not all the rules under the box are met, or the two passwords differ (**Passwords do not match.**).                                     | —            |
 | **Use a shorter password — at most 72 letters, or 24 Bangla letters.** | Make the password shorter.                                                                                                              | —            |
 | **Something went wrong. Please try again.**                            | Check your internet and try again. If it keeps happening, tell the admin.                                                               | School admin |
+
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#signin).
 
 ---
 

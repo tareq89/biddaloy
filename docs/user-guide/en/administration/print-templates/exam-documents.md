@@ -164,6 +164,8 @@ In the guardian portal, on the **Exam schedule** page, the guardian presses **Pr
 | **Nothing to print.**                                                         | Open it again from the exam's **Print** tab                             | You             |
 | The print is shifted or cut on the paper                                      | [Fix the measurements](printers-and-calibration.md#calibrate)           | Admin           |
 
+More help with this: [What to do when something goes wrong](../../help/troubleshooting.md#print).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

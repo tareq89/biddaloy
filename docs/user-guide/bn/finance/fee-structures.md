@@ -40,8 +40,8 @@ appVersion: 0.1.0 (a25ab3344)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - মোছা আটকে গেলে জানালার লাল লেখা বলে "পেমেন্ট নেওয়া হয়েছে", কিন্তু সার্ভার আসলে আটকায় যখন কোনো জরিমানার নিয়ম বা স্বয়ংক্রিয় বিলের নিয়ম কাঠামোটি ব্যবহার করে।
-  - জানালার নিচের লেখা বলে শ্রেণি মিলে গেলে প্রতি মাসে নিজে থেকে ফি হয়; আসলে বিল হয় শুধু "বিল তৈরি করুন" বা স্বয়ংক্রিয় বিলের নিয়ম চালালে।
+  - { id: delete-blocked-wrong-reason, checked: 2026-10-25, issue: null } # delete-blocked red text names payments, but a fine rule or automatic billing rule is the real cause
+  - { id: window-text-says-monthly-fees, checked: 2026-10-25, issue: null } # window text says fees are generated monthly; bills are created only by Create bills or an automatic billing rule
 -->
 
 # ফি কাঠামো ঠিক করা

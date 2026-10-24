@@ -377,6 +377,8 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 - [**Adding students and viewing their details**](students.md) — add and edit the students a guardian is linked to.
 - [**Fee reminders**](../communications/fee-reminders.md) — Remind the guardians of one student, or of up to 500 students at once, about unpaid fees.
 - [**Send a message**](../communications/send-message.md) — Send your own message to one guardian of a student by SMS, WhatsApp or email.
+- [**Overview**](../portal/overview.md) — the first page a guardian sees.
+- [**Account (parent and student)**](../portal/account.md) — how a guardian manages their own account.
 
 ---
 

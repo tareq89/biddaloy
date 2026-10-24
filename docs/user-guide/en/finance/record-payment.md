@@ -193,6 +193,8 @@ After that, **Record another** opens an empty page; **View invoice** opens the i
 
 If the school's system refuses the payment for any reason, the screen shows only **Recording payment failed.**; it does not say which rule was broken.
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#fees).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

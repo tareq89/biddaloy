@@ -215,6 +215,8 @@ An Admin gets past all these rules and can see and work on every section.
 | You cannot find a teacher in the **Teacher** field                                     | They have no teacher profile. [Give a teacher profile](staff.md#task-teacher).                                                                                                                       | Admin        |
 | A teacher says they see no section                                                     | Check whether their row is in the **Teacher assignments** tab, and whether the class is of the current academic year ([the condition](#after)).                                                      | Admin        |
 
+If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

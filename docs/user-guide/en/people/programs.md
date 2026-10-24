@@ -362,6 +362,7 @@ On the program page: at the top **Name**, **Status** and three facts; buttons **
 
 - [**Students**](students.md) — add students and see their programs on their page.
 - [**Automatic billing rules**](../finance/recurring-schedules.md) — Set a rule so fee bills for active students are created on their own on a fixed day each month or week.
+- [**Programs (parent and student)**](../portal/programs.md) — how guardians and students see programs.
 
 ---
 

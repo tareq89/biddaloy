@@ -367,6 +367,7 @@ Everyone sees only their own alerts. Parents see **Alerts & notifications** in t
 - [**What the widgets mean**](widgets.md) — the numbers that show alongside alerts.
 - [**Customising your dashboard**](customise.md) — where the morning summary time is set.
 - [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
+- [**Alerts and notifications (parent and student)**](../portal/notifications.md) — the alerts a guardian or student gets.
 
 ---
 

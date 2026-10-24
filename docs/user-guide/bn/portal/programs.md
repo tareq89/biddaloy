@@ -119,8 +119,8 @@ knownIssues: []
 **সম্পর্কিত পাতা**
 
 - [**প্রোগ্রাম**](../people/programs.md) — স্কুলের দিকে প্রোগ্রাম আর মাইলফলক।
-- <!-- link pending: portal/results.md --> **ফলাফল** — পরীক্ষার ফলাফল।
-- <!-- link pending: portal/overview.md --> **সারসংক্ষেপ** — প্রথম পাতা।
+- [**ফলাফল**](results.md) — পরীক্ষার ফলাফল।
+- [**সারসংক্ষেপ**](overview.md) — প্রথম পাতা।
 
 ---
 

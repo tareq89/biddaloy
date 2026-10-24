@@ -40,8 +40,8 @@ appVersion: 0.1.0 (a25ab3344)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - When a delete is blocked, the red text in the window says "payments have already been recorded", but the server actually blocks it when a fine rule or an automatic billing rule uses the structure.
-  - The text at the bottom of the window says fees are generated every month for matching classes; in fact bills are created only when you run "Create bills" or an automatic billing rule runs.
+  - { id: delete-blocked-wrong-reason, checked: 2026-10-25, issue: null } # delete-blocked red text names payments, but a fine rule or automatic billing rule is the real cause
+  - { id: window-text-says-monthly-fees, checked: 2026-10-25, issue: null } # window text says fees are generated monthly; bills are created only by Create bills or an automatic billing rule
 -->
 
 # Setting up fee structures

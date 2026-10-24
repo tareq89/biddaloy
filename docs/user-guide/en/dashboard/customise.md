@@ -203,6 +203,8 @@ The numbers in the report always match the committee widgets on the dashboard, b
 | **The report could not load.**                      | Reload the page.                                                             | Admin        |
 | There is no **Print monthly meeting report** button | The button only appears on the committee member's dashboard.                 | Admin        |
 
+If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

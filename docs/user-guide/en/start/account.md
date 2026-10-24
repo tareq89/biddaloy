@@ -257,6 +257,8 @@ Checked on version 0.1.0, 2026-10-24. When fixed, this is removed from here.
 - [**Open on your phone and install as an app**](phone.md) — **Install app** in the account menu.
 - [**Finding any page**](find-anything.md) — The other buttons in the top bar.
 - [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
+- [**Account (parent and student)**](../portal/account.md) — the same account page for guardians and students.
+- [**Applications (parent and student)**](../portal/applications.md) — sending a leave or other application from the portal.
 
 ---
 

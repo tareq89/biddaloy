@@ -169,6 +169,7 @@ A **Reversal entry** shows the same amount as the original payment, not a minus 
 | **The receipt could not be opened for printing.**                           | Allow pop-ups for this site and check the connection, then press again.                             | —            |
 | **Deleted student**                                                         | The student has been deleted; the payment stays in the books.                                       | Admin        |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#fees).
 
 ---
 
