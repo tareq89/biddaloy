@@ -61,7 +61,7 @@ Each row in the list is one student who has at least one bill that is not fully 
 
 1. In the left menu press **Finance**, then **Student dues**.
 
-   → The **Student dues** list opens. Each row shows **Student**, **Class**, **Due**, **Status**, **Credit balance** and **Last reminder**.
+   → The **Student dues** list opens. Each row shows **Student**, **Class**, **Due**, **Status**, **Credit balance** and **Last reminder**. The student who owes the most comes first. 25 rows show per page at first; you can raise it up to 100.
 
 2. In the **Search** box type the student's name or registration number. If needed, filter by **Class**, **Section**, **Month**, **Year**, **Status** or **Fee type**.
 3. Press the arrow on the left of the row.
@@ -102,7 +102,7 @@ To start without picking anyone, press [**Record payment**](record-payment.md) a
 
 ### See overdue students only <a href="#task-overdue" id="task-overdue"></a>
 
-In the filter, tick **Overdue only**. Only students with at least one bill past its due date remain (the due date itself is not yet overdue). The student with the most such bills comes first.
+In the filter, tick **Overdue only**. Only students with at least one bill past its due date remain (the due date itself is not yet overdue). The student with the most such bills comes first; if two are equal, the one who owes more comes first.
 
 In this mode **Search**, **Month**, **Year**, **Status** and **Fee type** are hidden, and you cannot sort by pressing a column. **Class** and **Section** stay.
 
@@ -119,7 +119,7 @@ When you send to several students at once, the ticks clear after sending.
 
 Tick the students, then press **Export CSV**. The file is named `dues.csv` and has: **Student**, **Class**, **Section**, **Total**, **Paid**, **Due**, **Status**, **Last reminder**.
 
-> **Remember:** the file only includes ticked rows that you have seen on this visit to the page. Ticks made on other pages before a reload do come into the file; after a reload, ticks from earlier pages do not. If needed, raise the number of rows per page.
+> **Remember:** the tick box at the top of the list ticks only the rows on this page. Your ticks stay when you go to another page or change a filter, so you can tick across pages. Reloading the page clears all ticks. To tick many at once, raise the number of rows per page (up to 100).
 
 ---
 
@@ -132,7 +132,7 @@ Tick the students, then press **Export CSV**. The file is named `dues.csv` and h
 | **Collect fee** or [**Record payment**](record-payment.md) is missing             | You need both the collect-fee and the record-payment permissions. Ask the admin.                          | Admin        |
 | **Credit balance** column shows —                            | The student's credit balance did not load. Reload the page.                                               | —            |
 | You are looking for a student but the **Search** box is gone | Untick **Overdue only**.                                                                                  | —            |
-| Fewer rows in the export file                                | Only rows seen before a reload come in. Go through the pages again and tick. ([Export CSV](#task-export)) | —            |
+| Fewer rows in the export file                                | Only ticked rows come in, and a reload clears the ticks. Go through the pages again and tick. ([Export CSV](#task-export)) | —            |
 
 ---
 

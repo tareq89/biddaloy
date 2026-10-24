@@ -133,6 +133,8 @@ If it was recorded for the wrong student, with the wrong amount or the wrong met
 - A **Reversal entry** cannot itself be reversed. If you reversed by mistake, record the payment again as new.
 - A payment that did not complete successfully cannot be reversed.
 
+There is no time limit: an older payment can be reversed too, as long as none of the above applies.
+
 > **Remember:** if the school has another active admin who can approve, or the school's settings have a second approver switched on, you cannot approve your own reversal. Ask another admin to enter their code. If the school has only one admin, they can approve it themselves.
 
 ### When it asks you to reverse later payments first <a href="#task-later" id="task-later"></a>
