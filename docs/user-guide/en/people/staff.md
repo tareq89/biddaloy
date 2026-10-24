@@ -449,6 +449,8 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 
 - [**Importing from Excel**](staff-import.md) — add many staff at once.
 - [**Teacher assignments**](teaching-assignments.md) — give a teacher a class, section and subject.
+- [**Staff attendance and leave**](../attendance/staff-attendance.md) — staff attendance and leave.
+- [**Evaluations: ACR, teacher surveys and incidents**](evaluations.md) — evaluations of staff.
 
 ---
 

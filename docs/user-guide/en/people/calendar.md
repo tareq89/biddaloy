@@ -397,7 +397,7 @@ A holiday or closed day on the calendar takes effect in several places by itself
 - **Attendance:** on a closed day, attendance cannot be taken in the attendance book ([Taking attendance](../attendance/attendance.md)). The page says "School is closed on this day".
 - **Attendance percentages:** in attendance percentages, closed days are not counted in the total working days.
 - **Absence messages:** on a closed day, absence notices do not go to guardians.
-- **Routine:** on a closed day, <!-- link pending: academics/routine-builder.md -->the routine holds no classes.
+- **Routine:** on a closed day, [the routine holds no classes](../academics/routine-builder.md).
 - **The other way round:** you cannot make a day a closed day if any class or staff member has attendance marked for it ([Problems and fixes](#trouble)). So put the holiday on the calendar first, and then attendance will start.
 
 ---
