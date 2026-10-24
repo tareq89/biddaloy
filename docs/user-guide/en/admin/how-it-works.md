@@ -128,7 +128,7 @@ The colours in the pictures show who does what. Orange boxes are the admin or ac
 </figure>
 
 - Every section has one attendance sheet for each day. The teacher fills it in and submits it.
-- From the submitted sheets, the **Attendance reports** and the monthly **Attendance register** are created.
+- From the submitted sheets, the [**Attendance reports**](../attendance/attendance-reports.md) and the monthly [**Attendance register**](../attendance/attendance-register.md) are created.
 - If attendance is not taken on time, an alert goes to the teacher.
 - A teacher can take attendance only when they have been given that section. So set up classes, sections and teacher assignments first.
 

@@ -348,7 +348,7 @@ After you press one name:
 </figure>
 
 - Every section has one register per day.
-- The **Attendance reports** and the monthly **Attendance register** are built from it.
+- The [**Attendance reports**](attendance-reports.md) and the monthly [**Attendance register**](attendance-register.md) are built from it.
 - If attendance is not taken on time, the teacher gets a reminder; if it is very late, the headmaster and the admin too.
 
 </details>
