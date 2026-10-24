@@ -265,7 +265,7 @@ For the other roles, **Fee Reminders** is not in the left menu.
 - [**Creating fee bills**](../finance/generate-fees.md) — the dues come from these bills.
 - [**Viewing, fixing and inviting guardians**](../people/guardians.md) — numbers, preferred channel and main contact.
 
-<!-- link pending: finance/dues.md — student dues (other lane) -->
+- [**Student dues**](../finance/dues.md) — see who owes what
 
 ---
 

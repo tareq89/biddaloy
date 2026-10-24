@@ -39,8 +39,7 @@ See on one page how much money came in, who took it and how it came. Use it at t
 **Where to go:** in the left menu, **Reports → Fee collection report**. It works on a computer or a phone.
 **Before you start:** be an Admin, Accountant or Academic coordinator ([who can do what](#roles)). This page is view-only; nothing here changes any money.
 
-The report's money comes from the payments taken. When a payment is reversed, it goes into **Reversed** and is taken off the net.
-<!-- link pending: finance/payments.md — payments (other lane) -->
+The report's money comes from the [payments](../finance/payments.md) taken. When a payment is reversed, it goes into **Reversed** and is taken off the net.
 
 [See today's collection](#task-main) · [Other dates](#task-range) · [One collector](#task-collector) · [Problems and fixes](#trouble)
 
@@ -207,9 +206,9 @@ For the other roles, **Fee collection report** is not in the left menu.
 
 **Related pages**
 
-<!-- link pending: finance/payments.md — payments and reversals (other lane) -->
-<!-- link pending: finance/record-payment.md — take a payment (other lane) -->
-<!-- link pending: finance/dues.md — student dues (other lane) -->
+- [**Payments**](../finance/payments.md) — payments, receipts and reversals
+- [**Record payment**](../finance/record-payment.md) — take a payment
+- [**Student dues**](../finance/dues.md) — see who owes what
 
 ---
 

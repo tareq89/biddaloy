@@ -278,9 +278,6 @@ When approval is needed, the window says so first, for example **… of … bill
 - [**Fines**](fines.md) — Add a student's fine by hand, make the month's fines at month end from absence or lateness rules, set the fine rules, and waive a fine in.
 - [**Payments**](payments.md) — Find every payment taken at the school, open one to see which bills the money went to, print the receipt again, and reverse a wrong payment.
 - [**Record payment**](record-payment.md) — Take money against the open bills of one or more students — the money is split across the oldest bills, give a discount if needed, work out.
-<!-- link pending: finance/student-dues.md — student dues (other lane) -->
-<!-- link pending: finance/payments.md — record a payment and the receipt (other lane) -->
-<!-- link pending: finance/fee-reminders.md — fee reminders (other lane) -->
 
 ---
 

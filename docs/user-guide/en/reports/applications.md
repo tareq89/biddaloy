@@ -39,8 +39,7 @@ See the count of all the school's applications, and who is on leave today, on on
 **Where to go:** in the left menu, **Reports → Application reports**. View this page on a computer.
 **Before you start:** be an Admin, Academic coordinator or Office staff ([who can do what](#roles)). This page is view-only; you cannot decide on an application from here.
 
-The numbers come from the school's applications, such as leave applications. Staff leave counts come from the record of approved leave.
-<!-- link pending: applications/applications.md — applications (other lane) -->
+The numbers come from the school's [applications](../applications/applications.md), such as leave applications. Staff leave counts come from the record of approved leave.
 
 [See the count](#task-main) · [Open old applications](#task-stale) · [Change the time](#task-filter) · [Problems and fixes](#trouble)
 
@@ -205,8 +204,7 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 **Related pages**
 
 - [**Applications**](../applications/applications.md) — Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper.
-<!-- link pending: applications/applications.md — applications (other lane) -->
-<!-- link pending: people/staff-leave — staff leave (other lane) -->
+- [**Staff attendance and leave**](../attendance/staff-attendance.md) — staff leave
 
 ---
 

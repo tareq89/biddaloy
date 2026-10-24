@@ -141,7 +141,7 @@ The old copy stays valid. For a lost card, first [revoke it](#revoke), then prin
 
 ### See the print history <a href="#history" id="history"></a>
 
-**Reports → Print & documents** → **Print history** tab. <!-- link pending: reports/printables.md — the Print & documents page is not written yet -->
+[**Reports → Print & documents**](../../reports/printables.md) → **Print history** tab.
 
 - Columns: **Printed**, **Printed by**, **Document**, **Person**, **Copy**, **Status**.
 - Filters: **Document type**, **Design**, **Printed by**, **Date**, **Result**, **Status** (**Valid only** / **Revoked only**), and **Search by name**.
@@ -220,7 +220,7 @@ To print a staff card you need the print permission and also the permission to s
 - [**Certificates**](certificates.md) — transfer certificates, testimonials; serial numbers and the register.
 - [**Students**](../../people/students.md) — the student's page and its **Documents** tab.
 - [**Staff**](../../people/staff.md) — the staff member's page.
-<!-- link pending: reports/printables.md — Print & documents (history, reprint, revoke); page not there yet -->
+- [**Print & documents**](../../reports/printables.md) — print history, reprint and revoke
 
 ---
 

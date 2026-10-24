@@ -254,7 +254,9 @@ An Accountant may have permission to print but not to view the history, so **Pri
 
 - [**Adding students and viewing their details**](../people/students.md) — a student's certificate is issued from there.
 
-<!-- link pending: administration/print-templates.md — print designs (other lane) -->
+- [**Printing ID cards, certificates and exam papers**](../administration/print-templates.md) — the print designs
+- [**Issuing certificates**](../administration/print-templates/certificates.md) — designing and issuing certificates
+- [**Printing ID cards**](../administration/print-templates/id-cards.md) — designing and printing ID cards
 
 ---
 

@@ -252,7 +252,7 @@ The state is written at the top of the exam page, and beside it are only the but
 | **Processed** | Results worked out from the submitted marks, not yet published | **Result analysis**, **Process again**, **Publish**      |
 | **Published** | Results are published; parts are locked                 | **Result analysis**, **Send result SMS**, **Reopen**            |
 
-Pressing **Reopen** makes the exam **Processed** again. The full rules for processing, publishing and reopening will be on the results page. <!-- link pending: exams-results/results.md, results page owns process/publish/reopen -->
+Pressing **Reopen** makes the exam **Processed** again. The full rules for processing, publishing and reopening will be on [the results page](results.md).
 
 ### Delete an exam <a href="#task-delete" id="task-delete"></a>
 
@@ -307,7 +307,7 @@ Press the exam name in the list, or **View**, to open its page. At the top are t
 | Exam controller                                                                            | Yes                        | Yes                           | Yes                              | Yes       |
 | Academic coordinator, teacher, accountant, office assistant, governing board member        | No                         | No                            | No                               | No        |
 
-For other roles, **Exams** is not in the left menu; if they open the page, they see **You don't have access to this page.** A teacher and an academic coordinator see the exam name only in the exam picker on the marks entry and result analysis pages. <!-- link pending: exams-results/marks-entry.md, exams-results/analysis.md, other lanes -->
+For other roles, **Exams** is not in the left menu; if they open the page, they see **You don't have access to this page.** A teacher and an academic coordinator see the exam name only in the exam picker on the [marks entry](marks-entry.md) and [result analysis](analysis.md) pages.
 
 ---
 
@@ -372,8 +372,8 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
   <figcaption><em>From exam to promotion</em></figcaption>
 </figure>
 
-- Teachers enter marks by section and subject, using the exam's parts. <!-- link pending: exams-results/marks-entry.md, other lane -->
-- Grade and GPA come from the school's grading scale. <!-- link pending: exams-results/grading-scales.md, other lane -->
+- Teachers enter [marks](marks-entry.md) by section and subject, using the exam's parts.
+- Grade and GPA come from the school's [grading scale](grading-scales.md).
 - If the same parts are needed again and again, make an [exam structure](exam-templates.md).
 
 </details>
@@ -384,8 +384,11 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 - [**Seat plans**](seat-plans.md) — who sits in which room and seat, by exam subject.
 - [**Classes, sections and subjects**](../academics/classes.md) — where the exam's class and subjects are set.
 - [**Printing exam documents**](../administration/print-templates/exam-documents.md) — Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
-
-<!-- link pending: exams-results/marks-entry.md, exams-results/results.md, exams-results/analysis.md, exams-results/promotion.md, exams-results/grading-scales.md, other lanes -->
+- [**Entering and submitting exam marks**](marks-entry.md) — Teachers submit the marks lists before the results.
+- [**Processing and publishing results**](results.md) — process, publish and reopen the results.
+- [**Merit list and result analysis**](analysis.md) — merit list and pass/fail after the results.
+- [**Promoting students**](promotion.md) — moving students up to the next class.
+- [**Setting up grading scales**](grading-scales.md) — which percentage gets which grade and GPA.
 
 ---
 

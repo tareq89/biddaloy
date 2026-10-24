@@ -174,7 +174,7 @@ Only the Admin sees the list for the whole school. A few roles can see the histo
 - [**Staff**](../people/staff.md) — the people whose names appear in the **Who** column.
 - [**Ready-made curriculum**](curriculum-preset.md) — what gets created when you apply one.
 
-<!-- link pending: administration/settings.md — Settings (another lane) -->
+- [**Changing the school's settings**](settings.md) — the school settings
 
 ---
 

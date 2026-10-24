@@ -257,7 +257,7 @@ When a guardian pays, you can start recording the payment from the guardian's pa
 
 1. Press [**Record payment**](../finance/record-payment.md) at the top of the guardian's page.
 
-   → The record payment page opens, already set up with this guardian's children. For the other steps, see <!-- link pending: finance/payments.md -->the record payment page.
+   → The record payment page opens, already set up with this guardian's children. For the other steps, see [the record payment page](../finance/record-payment.md).
 
 2. When the payment is recorded, go back to the guardian's page and open the **Payment History** tab. The new payment is at the top of the list.
 

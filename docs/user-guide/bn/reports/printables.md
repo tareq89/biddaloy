@@ -254,7 +254,9 @@ knownIssues: []
 
 - [**শিক্ষার্থী যোগ করা ও তাদের তথ্য দেখা**](../people/students.md) — শিক্ষার্থীর সনদ সেখান থেকে ইস্যু হয়।
 
-<!-- link pending: administration/print-templates.md — প্রিন্টের নকশা (অন্য লেনের) -->
+- [**পরিচয়পত্র, সনদ ও পরীক্ষার কাগজ ছাপা**](../administration/print-templates.md) — প্রিন্টের নকশা
+- [**সনদ দেওয়া**](../administration/print-templates/certificates.md) — সনদের নকশা ও ইস্যু
+- [**আইডি কার্ড ছাপা**](../administration/print-templates/id-cards.md) — পরিচয়পত্রের নকশা ও ছাপা
 
 ---
 

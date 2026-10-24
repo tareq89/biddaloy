@@ -210,7 +210,7 @@ Every printed card has its own QR code. Anyone can scan it with a phone and the 
 
 **Revoke a lost card** (Admin only):
 
-1. In the left menu open **Reports → Print & documents**. <!-- link pending: reports/printables.md — the Print & documents page is not written yet -->
+1. In the left menu open [**Reports → Print & documents**](../reports/printables.md).
 2. In the card's row press **Revoke**.
 3. Write a **Reason** (required, up to 280 characters; staff see it, the public does not).
 4. Press **Revoke card**.
@@ -358,8 +358,8 @@ The QR check page is open to everyone, no sign-in needed.
 - [**Certificates**](print-templates/certificates.md) — transfer certificates, testimonials; serial numbers and the register.
 - [**Students**](../people/students.md) — ID card printing starts from the student's page.
 - [**Staff**](../people/staff.md) — the staff card from the staff member's page.
-<!-- link pending: reports/printables.md — Print & documents (history, reprint, revoke); page not there yet -->
-<!-- link pending: administration/settings.md — Settings → Printing; page not there yet -->
+- [**Print & documents**](../reports/printables.md) — print history, reprint and revoke
+- [**Changing the school's settings**](settings.md) — the school settings
 
 ---
 
