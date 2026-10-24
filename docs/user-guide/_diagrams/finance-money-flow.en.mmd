@@ -1,0 +1,12 @@
+%% title: The path of the money, from fee structure to receipt
+%% desc: The fee structure fixes which fee costs how much. When you create bills yourself, or an automatic billing rule runs, the student's dues are made. When a payment is taken, a receipt is made. Running again for the same period skips the earlier bills, so money is never counted twice.
+flowchart LR
+  S["Fee structure<br/>which fee, how much"]:::admin --> M["Create bills<br/>by hand"]:::admin
+  S --> A["Automatic billing<br/>by rule"]:::admin
+  M --> D["Student's<br/>dues"]
+  A --> D
+  D --> P["Payment<br/>taken"]:::admin --> R["Receipt"]:::guardian
+  M -.->|"run again for the same period"| K["Earlier bills<br/>are skipped"]:::note
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
