@@ -1,0 +1,15 @@
+%% title: The path of one message
+%% desc: Pick the student and guardian, write the message and press Review and send. Check the recipient and message in the window and press Send message. For an SMS at a school that counts SMS credit, as many credits as there are SMS are held; if there are too few, nothing is sent. The message goes into the queue. When the service takes it, the credit is deducted; if it cannot be sent, the credit is returned.
+flowchart TD
+  A["Student · guardian · message"]:::admin --> B["Review and send"]:::admin
+  B --> C["Check in the window,<br/>Send message"]:::admin
+  C --> Q{"SMS, and a school<br/>that counts credit?"}:::note
+  Q -->|"No"| S["Queued"]
+  Q -->|"Yes"| R{"Enough credit for<br/>all the SMS?"}:::note
+  R -->|"No"| X["Nothing is sent"]
+  R -->|"Yes, credit held"| S
+  S --> D{"Could it be sent?"}:::note
+  D -->|"Yes"| OK["Sent<br/>credit deducted"]
+  D -->|"No"| F["Failed<br/>credit returned"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
