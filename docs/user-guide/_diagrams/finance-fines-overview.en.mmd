@@ -1,0 +1,11 @@
+%% title: From a fine to payment or waiver
+%% desc: A fine is added by hand, or made from the rules at month end. Either way it is the student's bill and shows in dues. It is paid by a payment, or waived with an admin's approval.
+flowchart TD
+  H["Added by hand<br/>Log fine"]:::admin --> B["The student's fine bill"]
+  R["Made from rules<br/>at month end"]:::admin --> B
+  B --> D["Shows in Student dues"]
+  D --> Q{"What next?"}:::note
+  Q -->|"Money received"| PAY["Record payment<br/>fine is paid"]
+  Q -->|"Admin waives"| W["Admin approves<br/>amount comes off as discount"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
