@@ -1,3 +1,33 @@
+<!-- guide:meta
+feature: administration.printDesignerGuide
+title: Designer's guide
+summary: Get the design kit, send it to a designer, import the drawn SVG, check the fields and publish.
+roles: [ADMIN]
+sources:
+  - client-admin/src/routes/_staff/print-templates/$templateId.edit.tsx
+  - server/src/modules/print/templates/
+labels:
+  [
+    printEditor:publish.*,
+    printEditor:topbar.*,
+    printEditor:fields.*,
+    printEditor:help.*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.publish,
+    administration.printTemplates.action.makeDefault,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [designer, SVG, kit, import, fields, placeholder, publish]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # Designer's guide
 
 Draw the card's background in Illustrator, Inkscape, Affinity or Figma, hand over one SVG file, and the school turns it into a design in one step.

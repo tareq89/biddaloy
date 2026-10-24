@@ -1,3 +1,32 @@
+<!-- guide:meta
+feature: administration.printPrinters
+title: প্রিন্টার ও ক্যালিব্রেশন
+summary: প্রিন্টার আর কাগজের মাপ যোগ করুন, মাপার পাতা ছাপুন, আর সরানো ঠিক করুন যেন ছাপা ঠিক কার্ডের ওপর পড়ে।
+roles: [ADMIN, ACCOUNTANT, OFFICE_STAFF, EXAM_CONTROLLER]
+sources:
+  - client-admin/src/routes/_staff/print/preview.tsx
+  - client-admin/src/components/print/preview/print-preview.tsx
+  - client-admin/src/components/print/preview/run-print.ts
+  - server/src/modules/print/printers/
+labels:
+  [
+    printPreview:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.field.printer,
+    administration.printTemplates.field.batchSize,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [প্রিন্টার, ক্যালিব্রেশন, কাগজ, মাপ, সারিবদ্ধ, printer, calibration]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # প্রিন্টার ও ক্যালিব্রেশন
 
 স্কুলের প্রতিটি প্রিন্টার একবার যোগ করুন আর মাপ ঠিক করুন, যাতে কার্ড ঠিক জায়গায় ছাপা হয়।

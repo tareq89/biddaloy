@@ -363,7 +363,7 @@ If you may not write, you can only read, and you see no buttons.
 In the profile's **Documents** tab:
 
 - **Photo:** **Upload photo** (or **Replace photo**). Use a clear passport-style photo with the face in the middle. → **Photo saved**. Only people who may edit students see this button.
-- **Print ID card:** a preview page opens before printing. More: [Printing ID cards](../printing/printing-id-cards.md). The **Print ID card** button at the top of the profile does the same.
+- **Print ID card:** a preview page opens before printing. More: [Printing ID cards](../administration/print-templates/id-cards.md). The **Print ID card** button at the top of the profile does the same.
 - **Issue certificate** and **Printed documents**: the list of papers already printed for this student.
 
 ### Upload many photos at once <a href="#task-photos" id="task-photos"></a>
@@ -576,7 +576,7 @@ Only an admin can do this. For a student who has left the school, [record leavin
 <!-- link pending: finance/dues.md, finance/payments.md, exams-results/promotion.md -->
 
 - [**School setup order**](../admin/setup-order.md) — students are added or imported at step 5.
-- [**Printing ID cards**](../printing/printing-id-cards.md) — ID cards from the list or a profile.
+- [**Printing ID cards**](../administration/print-templates/id-cards.md) — ID cards from the list or a profile.
 - [**Taking attendance**](../attendance/attendance.md) — students added here appear in the attendance register by roll number.
 - [**Viewing guardians, fixing their details and sending invitations**](guardians.md) — the page for guardians linked to a student.
 - **Student dues** and **Payments** — the pages for collecting fees.

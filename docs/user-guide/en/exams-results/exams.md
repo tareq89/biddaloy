@@ -277,7 +277,7 @@ Press the exam name in the list, or **View**, to open its page. At the top are t
 | **Marks breakdown** | The parts of a subject; [Set the parts](#task-components)                                                                                                          |
 | **Schedule**       | The date and time of each subject; [Give a schedule](#task-schedule)                                                                                                |
 | **Results**        | Result by student: **Position**, **Roll · Name**, **Total**, **GPA**, **Grade**, **Status**                                                                         |
-| **Print**          | Admit cards, seat lists, mark sheets and so on; [Exam documents](../printing/exam-documents.md). The tab shows only if you have the print permission                |
+| **Print**          | Admit cards, seat lists, mark sheets and so on; [Exam documents](../administration/print-templates/exam-documents.md). The tab shows only if you have the print permission                |
 
 ---
 
@@ -342,18 +342,18 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 
 <!-- guide:generated:fields:exams -->
 
-| Field | What to enter | Required? |
-| --- | --- | --- |
-| Name (exam) | The exam name, e.g. Half Yearly 2026. Two exams of the same class and year cannot share a name. | Yes |
-| Kind (exam) | Term, monthly, model or other. Cannot change once results are published. | No |
-| Mark entry deadline | Teachers see the days left on their dashboard. Leave empty if there is none. | No |
-| Academic year | The year the exam belongs to. Chosen only when you add the exam. | Yes |
-| Class | The class that sits the exam. Pick the year first; it cannot change later. | Yes |
-| Start from an exam structure (optional) | Pick an exam structure and the parts for the class subjects are made for you. Hidden when there is no structure. | No |
-| Name (part) | The part name, e.g. Written. Two parts of one subject cannot share a name. | Yes |
-| Kind (part) | Written, MCQ, viva, practical and so on. Attendance is counted for you. | No |
-| Full marks | The full marks of the part, e.g. 70; a positive number. Not shown for an attendance part. | Yes, except attendance parts |
-| Pass marks | The pass mark of the part, e.g. 23. Not more than the full marks. Leave empty if not needed. | No |
+| Field                                   | What to enter                                                                                                    | Required?                    |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Name (exam)                             | The exam name, e.g. Half Yearly 2026. Two exams of the same class and year cannot share a name.                  | Yes                          |
+| Kind (exam)                             | Term, monthly, model or other. Cannot change once results are published.                                         | No                           |
+| Mark entry deadline                     | Teachers see the days left on their dashboard. Leave empty if there is none.                                     | No                           |
+| Academic year                           | The year the exam belongs to. Chosen only when you add the exam.                                                 | Yes                          |
+| Class                                   | The class that sits the exam. Pick the year first; it cannot change later.                                       | Yes                          |
+| Start from an exam structure (optional) | Pick an exam structure and the parts for the class subjects are made for you. Hidden when there is no structure. | No                           |
+| Name (part)                             | The part name, e.g. Written. Two parts of one subject cannot share a name.                                       | Yes                          |
+| Kind (part)                             | Written, MCQ, viva, practical and so on. Attendance is counted for you.                                          | No                           |
+| Full marks                              | The full marks of the part, e.g. 70; a positive number. Not shown for an attendance part.                        | Yes, except attendance parts |
+| Pass marks                              | The pass mark of the part, e.g. 23. Not more than the full marks. Leave empty if not needed.                     | No                           |
 
 <!-- /guide:generated -->
 

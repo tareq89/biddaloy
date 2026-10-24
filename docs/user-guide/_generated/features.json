@@ -773,6 +773,46 @@
     "routes": ["/notifications"]
   },
   {
+    "id": "administration.printDesignerGuide",
+    "kind": "administration",
+    "path": "administration/print-templates/designer-guide",
+    "route": null,
+    "roles": ["ADMIN"],
+    "routes": []
+  },
+  {
+    "id": "administration.printPrinters",
+    "kind": "administration",
+    "path": "administration/print-templates/printers-and-calibration",
+    "route": null,
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": []
+  },
+  {
+    "id": "administration.printIdCards",
+    "kind": "administration",
+    "path": "administration/print-templates/id-cards",
+    "route": null,
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": []
+  },
+  {
+    "id": "administration.printExamDocuments",
+    "kind": "administration",
+    "path": "administration/print-templates/exam-documents",
+    "route": null,
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": []
+  },
+  {
+    "id": "administration.printCertificates",
+    "kind": "administration",
+    "path": "administration/print-templates/certificates",
+    "route": null,
+    "roles": ["ADMIN", "EXECUTIVE", "OFFICE_STAFF"],
+    "routes": []
+  },
+  {
     "id": "help.glossary",
     "kind": "help",
     "path": "help/glossary",

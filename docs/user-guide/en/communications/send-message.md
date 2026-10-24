@@ -220,6 +220,18 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 <summary><strong>What each field means</strong></summary>
 
 <!-- guide:generated:fields:communications -->
+
+| Field                      | What to enter                                                                                                 | Required?         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Which guardian to send to  | One guardian of the chosen student. Their phone or email shows below; without one you cannot send.            | Yes               |
+| How to send (Send message) | SMS, WhatsApp or Email. SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. | No                |
+| Message (Send message)     | What to send. For SMS, the characters and the number of SMS it uses show below.                               | Yes               |
+| Who to remind              | Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.      | Yes, at least one |
+| Message (Fee reminder)     | Use the buttons below to put in the name, due amount or month; each guardian gets their real details.         | Yes               |
+| How to send (Fee reminder) | Starts on each guardian’s preferred channel. Pick one to send everyone on that channel this time.             | No                |
+| Batch name                 | A name for this batch; you find it by this name in Reminder history later.                                    | Yes               |
+| Channels (bulk reminder)   | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                     | Yes, at least one |
+
 <!-- /guide:generated -->
 
 </details>

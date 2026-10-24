@@ -1,3 +1,36 @@
+<!-- guide:meta
+feature: administration.printCertificates
+title: Issuing certificates
+summary: Issue a student certificate with its own serial number, reprint it as a duplicate, and revoke it so the QR check shows revoked.
+roles: [ADMIN, EXECUTIVE, OFFICE_STAFF]
+sources:
+  - client-admin/src/routes/_staff/print/document.tsx
+  - client-admin/src/components/print/history/revoke-dialog.tsx
+  - server/src/modules/print/jobs/
+  - server/src/modules/print/verify/
+labels:
+  [
+    certificates:fields.*,
+    certificates:help.*,
+    printHistory:revoke.*,
+    verify:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.print,
+    administration.printTemplates.action.revoke,
+    administration.printTemplates.field.kind,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [certificate, serial number, duplicate, revoke, QR, issue]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # Issuing certificates
 
 Issue a certificate to one student or a whole class: **Transfer certificate (TC)**, **Testimonial**, **Character certificate**, **Study certificate** or **Participation certificate**. Every certificate gets a serial number and goes into the register, so you can find, reprint or revoke it later.

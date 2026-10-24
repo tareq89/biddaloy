@@ -175,6 +175,14 @@ For the other roles, **Fee collection report** is not in the left menu.
 <summary><strong>What each field means</strong></summary>
 
 <!-- guide:generated:fields:reports -->
+
+| Field        | What to enter                                                                                         | Required? |
+| ------------ | ----------------------------------------------------------------------------------------------------- | --------- |
+| Date range   | Which days to show. Starts on Today. This week starts on Monday. Days are counted in Bangladesh time. | No        |
+| Custom range | Shows only when Date range is Custom. Both the From and To days are included.                         | No        |
+| Method       | Show money that came one way only, such as Cash or bKash. Leave empty for all methods.                | No        |
+| Collector    | Show money taken by one staff member only. The list holds only people who took money in this range.   | No        |
+
 <!-- /guide:generated -->
 
 </details>

@@ -402,7 +402,7 @@ This category has two parts: **Printers** and **Documents and certificates**. To
 | **Shift left–right (mm)** / **Shift up–down (mm)** | In the **Measurements (advanced)** part; −10 to 10.                       |
 | **Size**                                           | In the **Measurements (advanced)** part; 0.90 to 1.10, 1 = actual size.   |
 
-**Print measuring page** prints a test page and shows steps in three parts: measure from the corner of the paper to the first cross (it should be exactly 20 mm), enter the difference in **Change the shift**, then print again. This page does not go into any print record. When you archive a printer, the records of past prints stay. More: [**Setting up printers and sizes**](../printing/printers-and-calibration.md).
+**Print measuring page** prints a test page and shows steps in three parts: measure from the corner of the paper to the first cross (it should be exactly 20 mm), enter the difference in **Change the shift**, then print again. This page does not go into any print record. When you archive a printer, the records of past prints stay. More: [**Setting up printers and sizes**](print-templates/printers-and-calibration.md).
 
 **Documents and certificates** — "Rules for admit cards and certificate serial numbers."
 
@@ -411,7 +411,7 @@ This category has two parts: **Printers** and **Documents and certificates**. To
 | **Withhold admit cards when fees are due** | When on, a family cannot print the admit card of a student with dues from the portal; staff can, with a warning. Off at the start. |
 | **School short code (optional)**           | 2 to 8 capital letters or digits; it is printed before every serial number. An example number shows below.                         |
 
-See: [**Exam documents**](../printing/exam-documents.md), [**Certificates**](../printing/certificates.md).
+See: [**Exam documents**](print-templates/exam-documents.md), [**Certificates**](print-templates/certificates.md).
 
 <!-- image pending: Printing category; 1 · printer list 2 · Print measuring page 3 · Documents and certificates; admin, desktop -->
 
@@ -542,9 +542,50 @@ See: [**Roles & access**](roles.md).
 <summary><strong>What the fields mean</strong></summary>
 
 <!-- guide:generated:fields:settings -->
+
+| Field                                           | What to enter                                                                                                                                                                                   | Required? |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Name                                            | The school's name. It shows on receipts, invoices and printouts. It cannot be left empty.                                                                                                       | Yes       |
+| Logo                                            | PNG, JPEG or WebP, up to 512 KB and 2048 pixels per side. It saves as soon as you pick the image.                                                                                               | No        |
+| Shift, version & group                          | Names used to arrange classes and sections. A value that a class or section still uses cannot be removed; rename it instead.                                                                    | No        |
+| Academic year start month                       | The month the academic year starts, 1 to 12.                                                                                                                                                    | No        |
+| What do you call a grading period?              | What a grading period is called in exams and results: Term, Semester or Trimester.                                                                                                              | No        |
+| Country                                         | Public holidays come from this country.                                                                                                                                                         | No        |
+| Late after                                      | A student who arrives after this time is marked late.                                                                                                                                           | Yes       |
+| Absent after                                    | A student who arrives after this time is marked absent.                                                                                                                                         | Yes       |
+| Correction window (days)                        | Past attendance can be corrected for this many days; 0 to 365.                                                                                                                                  | Yes       |
+| Low attendance threshold (%)                    | A student below this is shown as low attendance; 0 to 100.                                                                                                                                      | Yes       |
+| Automatic absence message                       | When on, the guardian of every absent student gets a message automatically, every day. You confirm once before it turns on.                                                                     | No        |
+| Tell the head teacher and admin after           | If a status is not reported for this many school days, the head teacher and admin are told; 1 to 10, holidays are not counted.                                                                  | No        |
+| Approval method                                 | How an admin confirms once more before a sensitive action: OTP only, or OTP or password.                                                                                                        | No        |
+| Always need a second admin to reverse a payment | When on, cancelling a payment always needs a second person. When off, the only admin can approve it themselves.                                                                                 | No        |
+| Grace days                                      | No late fee is charged for this many days after the bill's due date; 0 to 60.                                                                                                                   | No        |
+| Value                                           | For a percentage, 0 to 100. For a flat amount, zero or more taka.                                                                                                                               | No        |
+| SMS company                                     | The company all of this school's SMS go through: Greenweb or MimSMS. Test the connection before you change it.                                                                                  | No        |
+| Sender name (Sender ID)                         | Only for MimSMS, and then it is required. Use the name the company approved.                                                                                                                    | Yes       |
+| Phone number ID                                 | The long number in Meta's WhatsApp Manager, not a phone number. It cannot be left empty.                                                                                                        | Yes       |
+| Facebook Page ID                                | The ID of the school's Facebook page. Find it under the page's About section. It cannot be left empty.                                                                                          | Yes       |
+| Send emails from                                | The address the recipient sees. Enter a valid email address.                                                                                                                                    | Yes       |
+| Port                                            | 1 to 65535; usually 587. Do not change it unless your email server says so.                                                                                                                     | No        |
+| Withhold admit cards when fees are due          | When on, a family cannot print the admit card of a student with dues from the portal. Staff can still print it, with a warning. Off at the start.                                               | No        |
+| School short code (optional)                    | 2 to 8 capital English letters or digits. It goes before every certificate serial number. It can be left empty.                                                                                 | No        |
+| Name                                            | 1 to 80 characters. You pick the printer by this name when you print.                                                                                                                           | Yes       |
+| Shift left–right (mm)                           | Enter how many mm the measuring page printed off; −10 to 10. The up–down field has the same limit.                                                                                              | No        |
+| Size                                            | 1 means actual size; 0.90 to 1.10.                                                                                                                                                              | No        |
+| Cutting gap between cards (mm)                  | Office printers only; 0 to 20 mm.                                                                                                                                                               | No        |
+| Allow sign-in with a code sent to the phone     | When off, everyone in this school must sign in with a password. If someone is in several schools, sign-in with a code is off for them as soon as it is off in any one of them. On at the start. | No        |
+
 <!-- /guide:generated -->
 
 <!-- guide:generated:fields:backup -->
+
+| Field                              | What to enter                                                                                                                                                                                | Required? |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Automatic backup                   | Off, weekly or daily. It saves as soon as you choose; a change can take up to an hour to start. No email is sent when an automatic backup succeeds; if one fails, every admin gets an email. | No        |
+| Choose file                        | An .xlsx backup taken from this app, up to 64 MB. It is only checked; nothing changes before you press Confirm.                                                                              | No        |
+| Type the school's name to confirm  | Type the school's name exactly. If it does not match, the restore does not start.                                                                                                            | Yes       |
+| Send invitations to restored users | Restored users come back without passwords. Tick this to email them an invitation. Not ticked at the start.                                                                                  | No        |
+
 <!-- /guide:generated -->
 
 </details>
@@ -569,7 +610,7 @@ See: [**Roles & access**](roles.md).
 - [**Taking attendance**](../attendance/attendance.md) — where the attendance policy applies.
 - [**Creating fee bills**](../finance/generate-fees.md) — where the fee rules apply.
 - [**Ready-made curriculum**](curriculum-preset.md) — put the subjects and classes of a new school in at once.
-- [**Setting up printers and sizes**](../printing/printers-and-calibration.md) — add a printer and fix its measurements.
+- [**Setting up printers and sizes**](print-templates/printers-and-calibration.md) — add a printer and fix its measurements.
 - [**Your account**](../start/account.md) — your own ways to sign in and your devices.
 - [**Seeing and settling alerts**](../dashboard/alerts.md) — your own push notifications.
 

@@ -1,3 +1,38 @@
+<!-- guide:meta
+feature: administration.printIdCards
+title: Printing ID cards
+summary: Print ID cards for one student or staff member, a few people or a whole section; revoke a lost card so its QR no longer shows as valid.
+roles: [ADMIN, ACCOUNTANT, OFFICE_STAFF, EXAM_CONTROLLER]
+sources:
+  - client-admin/src/routes/_staff/print/document.tsx
+  - client-admin/src/routes/_staff/print/preview.tsx
+  - client-admin/src/components/print/preview/print-preview.tsx
+  - server/src/modules/print/jobs/
+  - server/src/modules/print/verify/
+labels:
+  [
+    printPreview:*,
+    printHistory:actions.*,
+    printHistory:revoke.*,
+    verify:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.print,
+    administration.printTemplates.action.confirmRound,
+    administration.printTemplates.action.revoke,
+    administration.printTemplates.field.batchSize,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [ID card, print, QR, revoke, lost card, batch, section]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # Printing ID cards
 
 Print ID cards for one student or staff member, a few, or a whole section; reprint when needed, or revoke a lost card.

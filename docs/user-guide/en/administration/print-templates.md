@@ -272,26 +272,65 @@ The QR check page is open to everyone, no sign-in needed.
 **New design window**
 
 <!-- guide:generated:fields:printTemplates -->
+
+| Field           | What to enter                                                                                                                     | Required? |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Document type   | What the design is for, for example Student ID card or Transfer certificate (TC). It cannot be changed later.                     | Yes       |
+| Choose a design | A ready-made design to start from. You can change everything in the editor afterwards.                                            | Yes       |
+| Name            | A name only your school sees in this list, for example Student ID 2027. Two designs cannot share a name. You can rename it later. | Yes       |
+
 <!-- /guide:generated -->
 
 **Editor: page and text**
 
 <!-- guide:generated:fields:printEditor -->
+
+| Field                   | What to enter                                                                                                                                        | Required? |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Paper                   | The size of one card or page: CR80 card portrait, CR80 card landscape, or your own size in mm.                                                       | No        |
+| Sides                   | Front only, or front and back.                                                                                                                       | No        |
+| Cards per round         | How many cards print in one round before the app asks if they all came out right. Up to 200. Heavy designs print more reliably in smaller rounds.    | No        |
+| Text on reprints        | Printed from the 2nd copy on, for example "Copy {n}" or "Duplicate". Leave empty if you do not want it.                                              | No        |
+| If the text is too long | What happens when a name or other text does not fit its box: shrink it, wrap it to more lines, cut it off, or print it and warn you before printing. | No        |
+| Smallest size (pt)      | Text shrinks down to this size and no further. Leave empty for the default.                                                                          | No        |
+
 <!-- /guide:generated -->
 
 **Print preview**
 
 <!-- guide:generated:fields:printPreview -->
+
+| Field           | What to enter                                                                                                                                                                                          | Required? |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| Design          | Which published design the cards use. The default design is chosen at first. It cannot change once printing starts.                                                                                    | Yes       |
+| Printer         | The printer these cards go to. Its saved settings (card or office printer, position fix) decide the page size and where things land on the paper. Choose the same printer in the browser print window. | Yes       |
+| Cards per round | How many cards print in one round. Print and confirm a round to unlock the next.                                                                                                                       | No        |
+
 <!-- /guide:generated -->
 
 **Issuing certificates**
 
 <!-- guide:generated:fields:certificates -->
+
+| Field                | What to enter                                                                                                                                      | Required? |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Which certificate?   | The certificate to issue. A transfer certificate needs a recorded transfer or withdrawal first.                                                    | Yes       |
+| Certificate language | The whole certificate prints in this one language. At first it is the school default.                                                              | No        |
+| Serial number        | Shown for you to check; you do not type it. The number belongs to this certificate as soon as you press Print. Closing before that uses no number. | No        |
+| Printer              | The printer the certificate goes to. Add one in printing settings first.                                                                           | Yes       |
+
 <!-- /guide:generated -->
 
 **Exam papers**
 
 <!-- guide:generated:fields:examDocuments -->
+
+| Field                        | What to enter                                                            | Required? |
+| ---------------------------- | ------------------------------------------------------------------------ | --------- |
+| Which admit cards            | Everyone, only those whose card is not printed yet, or one section.      | Yes       |
+| Rank by                      | Class position or section position decides who gets a merit certificate. | Yes       |
+| How many top students (1–50) | How many students from the top get a certificate, from 1 to 50.          | Yes       |
+
 <!-- /guide:generated -->
 
 </details>

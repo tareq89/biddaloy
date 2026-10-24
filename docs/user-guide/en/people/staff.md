@@ -322,7 +322,7 @@ You cannot remove yourself: it shows **You cannot remove your own account from t
 
 2. Press **Print ID cards (number)**.
 
-   → The print preview page opens. The rest of the steps: [Staff ID cards](../printing/printing-id-cards.md).
+   → The print preview page opens. The rest of the steps: [Staff ID cards](../administration/print-templates/id-cards.md).
 
 ### The staff member's page: the tabs <a href="#task-detail" id="task-detail"></a>
 

@@ -1,3 +1,36 @@
+<!-- guide:meta
+feature: administration.printCertificates
+title: সনদ দেওয়া
+summary: ক্রমিক নম্বরসহ শিক্ষার্থীর সনদ দিন, ডুপ্লিকেট হিসেবে আবার ছাপুন, আর বাতিল করলে কিউআর চেকে বাতিল দেখায়।
+roles: [ADMIN, EXECUTIVE, OFFICE_STAFF]
+sources:
+  - client-admin/src/routes/_staff/print/document.tsx
+  - client-admin/src/components/print/history/revoke-dialog.tsx
+  - server/src/modules/print/jobs/
+  - server/src/modules/print/verify/
+labels:
+  [
+    certificates:fields.*,
+    certificates:help.*,
+    printHistory:revoke.*,
+    verify:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.print,
+    administration.printTemplates.action.revoke,
+    administration.printTemplates.field.kind,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [সনদ, ক্রমিক নম্বর, ডুপ্লিকেট, বাতিল, কিউআর, certificate, serial, revoke]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # সনদ দেওয়া
 
 একজন শিক্ষার্থী বা পুরো শ্রেণিকে সনদ দিন: **ছাড়পত্র (টিসি)**, **প্রশংসাপত্র**, **চারিত্রিক সনদপত্র**, **অধ্যয়ন প্রত্যয়নপত্র** বা **অংশগ্রহণ সনদপত্র**। প্রতিটি সনদ একটি ক্রমিক নম্বর পায় আর রেজিস্টারে থাকে, তাই পরে খুঁজে পাওয়া, আবার ছাপা বা বাতিল করা যায়।

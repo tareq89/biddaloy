@@ -99,7 +99,7 @@ A reversal never deletes the original payment. A new **Reversal entry** is added
 
 On the payment's page press **Print receipt**. The invoice opens in a new place for printing; print from there.
 
-If the payment has no invoice (**No invoice**), this button does not appear. To see the full invoice, press [**View invoice**](invoices.md#task-main) — from there you can also send it to a guardian and give a [share link](invoices.md#task-share); to go to the student's page, press **Student page**. To fix the printer, see [**Setting up printers and sizes**](../printing/printers-and-calibration.md).
+If the payment has no invoice (**No invoice**), this button does not appear. To see the full invoice, press [**View invoice**](invoices.md#task-main) — from there you can also send it to a guardian and give a [share link](invoices.md#task-share); to go to the student's page, press **Student page**. To fix the printer, see [**Setting up printers and sizes**](../administration/print-templates/printers-and-calibration.md).
 
 ### Reverse a payment <a href="#task-reverse" id="task-reverse"></a>
 
@@ -203,6 +203,20 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 <summary><strong>What the boxes mean</strong></summary>
 
 <!-- guide:generated:fields:payments -->
+
+| Field                 | What to enter                                                                                                                                                                                      | Required? |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Amount received       | How much money you received in total. When you type it, the money is split across the bills with the oldest due dates first and fills the Pay boxes; or leave it empty and fill each box yourself. | No        |
+| Pay                   | How much money goes on this bill. Pay and discount together cannot be more than what is due on the bill.                                                                                           | No        |
+| Discount              | A one-off discount on this bill. Any discount needs an admin's approval when you submit.                                                                                                           | No        |
+| Use credit balance    | Tick to deduct from the student's earlier credit balance: the smaller of the credit balance and the subtotal comes off; credit balance cannot be used when paying for several students.            | No        |
+| Payment method        | How you received the money. Only with cash can you take more than the amount due and give change.                                                                                                  | No        |
+| Transaction reference | The transaction number for bKash, Nagad, Rocket, bank, cheque or card; this box is not shown for cash.                                                                                             | No        |
+| Cash handed over      | Cash only: how much the payer handed over. Used to work out the change; you can leave it empty. If it falls short of the amount due after credit balance, you cannot submit.                       | No        |
+| Change                | Whether to give the change back in hand or keep it as the student's credit balance. It can be kept as credit only when the payment is for one student.                                             | No        |
+| Remarks               | A note for yourselves, for example who dropped off the money.                                                                                                                                      | No        |
+| Reason                | Why you are reversing the payment; 3 to 500 characters. The reversal entry and the credit note carry this reason.                                                                                  | Required. |
+
 <!-- /guide:generated -->
 
 </details>
@@ -227,6 +241,6 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 - [**Record payment**](record-payment.md) — taking new money.
 - [**Student dues**](dues.md) — after a reversal the bills come back here.
 - [**Creating fee bills**](generate-fees.md) — where bills come from.
-- [**Setting up printers and sizes**](../printing/printers-and-calibration.md) — fixing the receipt printer.
+- [**Setting up printers and sizes**](../administration/print-templates/printers-and-calibration.md) — fixing the receipt printer.
 - [**Invoices**](invoices.md) — see invoices and credit notes, share links.
 - [**Fines**](fines.md) — waiving a fine.

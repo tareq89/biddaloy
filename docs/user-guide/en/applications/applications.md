@@ -293,6 +293,17 @@ Everyone sees the applications they submitted, the ones they are tagged on, and 
 <summary><strong>What the fields mean</strong> — New application</summary>
 
 <!-- guide:generated:fields:applicationsNew -->
+
+| Field                   | What to enter                                                                                                                                                                    | Required?                                     |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Type of application     | What the application is for. A type that is not open to you is greyed out, with the reason beside it.                                                                            | Yes                                           |
+| Applicant               | For a student paper application, the person applying: the student or a guardian. Shown only when you write an application for someone else.                                      | Yes when writing for someone else (or a name) |
+| Applicant's name        | If the applicant has no login, type their name, up to 150 characters. Pick from the list or type a name, not both.                                                               | Yes if no applicant is picked                 |
+| Addressed to            | Chosen only for a general application: class teacher, headmaster, office or a specific staff member. For every other type the app decides who it goes to and only shows it here. | Yes for a general application                 |
+| A specific staff member | When you choose a specific staff member, pick the person the letter goes to.                                                                                                     | Yes when a specific staff member is chosen    |
+| Tags (optional)         | Staff or roles you want to keep informed. Tagged people can view and comment, but cannot decide.                                                                                 | No                                            |
+| Attachments (optional)  | Up to 3 files, 5 MB each; PDF, JPG or PNG only.                                                                                                                                  | No                                            |
+
 <!-- /guide:generated -->
 
 **The details step of each type**

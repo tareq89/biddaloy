@@ -104,7 +104,7 @@ Credit note numbers run in a separate series, one digit wider than invoices. The
 
    → The invoice opens for printing; print from there.
 
-The app remembers the size you pick. You can also print straight from the list with **Print** on the row. To fix the printer, see [**Setting up printers and sizes**](../printing/printers-and-calibration.md).
+The app remembers the size you pick. You can also print straight from the list with **Print** on the row. To fix the printer, see [**Setting up printers and sizes**](../administration/print-templates/printers-and-calibration.md).
 
 ### Send to the guardian by WhatsApp or SMS <a href="#task-send" id="task-send"></a>
 
@@ -229,4 +229,4 @@ For other roles, **Invoices** is not in the left menu.
 - [**Payments**](payments.md) — reversing a payment, and credit notes.
 - [**Student dues**](dues.md) — seeing what is still owed.
 - [**Fines**](fines.md) — fine bills and waiving.
-- [**Setting up printers and sizes**](../printing/printers-and-calibration.md) — fixing the receipt printer.
+- [**Setting up printers and sizes**](../administration/print-templates/printers-and-calibration.md) — fixing the receipt printer.

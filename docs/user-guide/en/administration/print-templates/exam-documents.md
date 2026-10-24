@@ -1,3 +1,33 @@
+<!-- guide:meta
+feature: administration.printExamDocuments
+title: Printing exam documents
+summary: Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
+roles: [ADMIN, ACCOUNTANT, OFFICE_STAFF, EXAM_CONTROLLER]
+sources:
+  - client-admin/src/routes/_staff/print/document.tsx
+  - server/src/modules/print/jobs/
+labels:
+  [
+    examDocuments:fields.*,
+    examDocuments:help.*,
+    printPreview:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.print,
+    administration.printTemplates.field.kind,
+    administration.printTemplates.field.design,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [exam, admit card, seat slip, mark sheet, result, print]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # Printing exam documents
 
 Print all the papers of one exam from one place: admit cards, the routine notice, seat lists, invigilator sheets, seat stickers, blank marks sheets, mark sheets, tabulation, result certificates and merit certificates.
