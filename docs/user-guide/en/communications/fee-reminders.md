@@ -122,7 +122,7 @@ If you put **{Student name}**, **{Guardian name}**, **{Amount due}** and **{Due 
 
 This page does not keep anything on your phone or computer, so there is no "saved on this device" state.
 
-**If you are not sure, pressing again is safe:** if you press the same button again after the same preview, the school's system returns the earlier result within 24 hours; the message does not go twice.
+**If you are not sure, pressing again is safe:** if no answer came and you press the same button again after the same preview, without leaving or reloading the page, the school's system returns the earlier result (it remembers it for 24 hours); the message does not go twice. Once a send has shown as done, pressing again sends a new reminder.
 
 > **Remember:** the app does not stop you from sending another reminder to the same student on the same day. Check **Last reminder** before you send.
 
@@ -172,7 +172,7 @@ How many characters one SMS holds is on the [**Send a message**](send-message.md
 | **Preferred channel cannot be sent automatically**               | The preferred channel is phone call or Messenger                              |
 | **No phone or email on file for the preferred channel**          | There is no number or email for that channel                                  |
 
-**Which guardian gets it, when sending to many:** each student's main contact guardian. If there is no main one, or the main one turned notifications off, all the other guardians. **For one student**, everyone who is ticked gets it.
+**Which guardian gets it, when sending to many:** each student's main contact guardian. If there is no main one, or the main one turned notifications off, all the other guardians. **For one student**, everyone who is ticked gets it. A guardian of two picked students gets one message for each student.
 
 ---
 

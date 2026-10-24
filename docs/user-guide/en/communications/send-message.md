@@ -120,7 +120,7 @@ You can send to only one person at a time. To remind many guardians about dues t
 
 This page does not keep anything on your phone or computer, so there is no "saved on this device" state.
 
-**If you are not sure, pressing again is safe:** you cannot close the window while sending. If no answer comes and you press **Send message** again with the same message, the school's system returns the earlier result within 24 hours; the message does not go twice. If even one letter is changed, it is a new message.
+**If you are not sure, pressing again is safe:** you cannot close the window while sending. If no answer comes and you press **Send message** again with the same message, without leaving or reloading the page, the school's system returns the earlier result (it remembers it for 24 hours); the message does not go twice. If even one letter is changed, or the first send already showed as done, it is a new message.
 
 ---
 
@@ -246,7 +246,7 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 - **Where the number comes from:** the guardian's details. For SMS and WhatsApp, the phone number, or the alternate number if there is none; for email, the email.
 - **The queue:** when you press **Send message**, the message goes into a queue; the school's system sends it in the background. So the status is **Queued** at first.
 - **Credit:** only at a school that counts SMS credit. One SMS = one credit. Held before sending, deducted when sent, returned if not. If the result is unclear, the credit stays held and is matched by hand later.
-- **Never twice:** if you press the same message again within 24 hours, the earlier result is returned.
+- **Never twice:** if a send got no answer and you press again with the same message on the same open page, the earlier result is returned (kept for 24 hours). After a send that showed as done, pressing again sends a new message.
 
 </details>
 
