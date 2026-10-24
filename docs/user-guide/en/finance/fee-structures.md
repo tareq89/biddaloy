@@ -221,7 +221,7 @@ In the **Search** box above the list, type a name. You can also filter by **Acad
 - **Money limits:** the amount is above 0, has up to two digits after the decimal point, and is at most ৳9,99,99,999.99.
 - **When the money goes into a bill:** at the moment a bill is created, the structure's amount is copied into the bill. Changing or deleting the structure later does not change that bill.
 - **Discounts:** if a student has a discount rule, it is taken off this amount when the bill is created.
-- **Fine rules:** a fine rule also uses a fee structure. <!-- link pending: finance/fines.md (fines page owned by another lane) -->
+- **[Fine rules](fines.md):** a fine rule also uses a fee structure.
 
 </details>
 
@@ -232,7 +232,7 @@ In the **Search** box above the list, type a name. You can also filter by **Acad
 - [**Academic years**](../academics/academic-years.md) — every structure belongs to one academic year.
 - [**Classes**](../academics/classes.md) — a structure can be set for a class or section.
 - [**Fines**](fines.md) — Add a student's fine by hand, make the month's fines at month end from absence or lateness rules, set the fine rules, and waive a fine in.
-<!-- link pending: finance/student-dues.md — student dues (other lane) -->
+- [**Student dues**](dues.md) — see who owes what
 
 ---
 

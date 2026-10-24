@@ -246,7 +246,7 @@ Before you copy, have classes with the same names and fee structures with the sa
 - [**Fee structures**](fee-structures.md) — the rule's fees come from here.
 - [**Create bills**](generate-fees.md) — create one month's bills yourself, and see the rounds.
 - [**Programs**](../people/programs.md) — a program can narrow the rule's scope.
-<!-- link pending: finance/student-dues.md — student dues (other lane) -->
+- [**Student dues**](dues.md) — see who owes what
 
 ---
 

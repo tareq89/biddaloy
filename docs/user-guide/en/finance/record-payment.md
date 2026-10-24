@@ -271,3 +271,4 @@ For other roles, **Record payment** is not in the left menu.
 - [**Setting up printers and sizes**](../administration/print-templates/printers-and-calibration.md) — fixing the receipt printer.
 - [**Fines**](fines.md) — fine money is taken here too.
 - [**Invoices**](invoices.md) — print receipts again, send to guardians, share links.
+- [**Fee collection report**](../reports/collections-report.md) — the collection report built from payments

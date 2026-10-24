@@ -256,6 +256,7 @@ Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. 
 - [**Entering and submitting exam marks**](marks-entry.md) — if a mark looks wrong, correct it there.
 - [**Setting up grading scales**](grading-scales.md) — which percentage gets which grade.
 - [**Promoting students**](promotion.md) — move students up to the next class based on the results.
+- [**Creating and setting up exams**](exams.md) — creating and setting up exams
 
 ---
 

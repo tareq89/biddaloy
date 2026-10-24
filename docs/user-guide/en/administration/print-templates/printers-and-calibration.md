@@ -31,7 +31,7 @@ knownIssues: []
 
 Add each of the school's printers once and fix its measurements, so that cards print in the right place.
 
-**Where to go:** **Settings → Printing → Printers**. <!-- link pending: administration/settings.md — the Settings page is not written yet -->
+**Where to go:** [**Settings → Printing → Printers**](../settings.md).
 **Before you start:** to add a printer and fix its measurements you must be an Admin. Keep a ruler at hand.
 
 Here a **printer** is a name plus a few measurements: what kind of printer it is, how much blank space it leaves at the paper's edge, and how many millimetres the print must be shifted. When you choose a printer from this list while printing, the app applies those measurements to the page.
@@ -226,7 +226,6 @@ If the school buys blank cards that already have the design printed on them, onl
 - [**Invoices**](../../finance/invoices.md) — Find the invoice and credit note of every payment, print them, send them to a guardian by WhatsApp or SMS, and give a 30-day share link.
 - [**Payments**](../../finance/payments.md) — Find every payment taken at the school, open one to see which bills the money went to, print the receipt again, and reverse a wrong payment.
 - [**Record payment**](../../finance/record-payment.md) — Take money against the open bills of one or more students — the money is split across the oldest bills, give a discount if needed, work out.
-<!-- link pending: administration/settings.md — Settings → Printing; page not there yet -->
 
 ---
 

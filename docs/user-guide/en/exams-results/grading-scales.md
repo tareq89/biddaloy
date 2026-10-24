@@ -285,6 +285,7 @@ If an exam's results have been **Published** with this scale, the grades cannot 
 - [**Classes**](../academics/classes.md) — a class can be given a separate scale.
 - [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects, grading scale and exam templates in.
 - [**Merit list and result analysis**](analysis.md) — See an exam's merit list, the students who failed or were absent and the pass/fail by subject, filter by section, print or download a CSV.
+- [**Creating and setting up exams**](exams.md) — creating and setting up exams
 
 ---
 

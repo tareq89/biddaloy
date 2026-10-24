@@ -174,7 +174,7 @@ knownIssues: []
 - [**কর্মী**](../people/staff.md) — যাঁদের নাম **কে** কলামে আসে।
 - [**তৈরি শিক্ষাক্রম**](curriculum-preset.md) — প্রয়োগ করলে যা তৈরি হয়।
 
-<!-- link pending: administration/settings.md — সেটিংস (অন্য লেনের) -->
+- [**স্কুলের সেটিংস ঠিক করা**](settings.md) — স্কুলের সেটিংস
 
 ---
 

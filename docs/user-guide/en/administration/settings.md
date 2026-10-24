@@ -205,7 +205,7 @@ To add a **special timing**, press **Add special timing**. Give a name (up to 60
 
 See: [**Dashboard**](../dashboard/dashboard.md).
 
-**Study plans.** Who is told, and when, if a teacher does not report the status of every period.
+[**Study plans.**](../academics/syllabus.md) Who is told, and when, if a teacher does not report the status of every period.
 
 - **Status deadline** — on the same school day; reporting after this still counts, but late.
 - **Teacher reminder** — on the next school day, only if something is still open.
@@ -213,7 +213,7 @@ See: [**Dashboard**](../dashboard/dashboard.md).
 - **Weekly summary time** — on the last working day of the week, to guardians and the committee.
 - **Also send the guardians' weekly summary by SMS** — push is always sent, at no cost. If you turn SMS on, it uses credit every week.
 
-The box **What happens with these settings** at the top shows the current rules in plain words. <!-- link pending: study plans page -->
+The box **What happens with these settings** at the top shows the current rules in plain words.
 
 **Homework.** Two checkboxes; both are off until you turn them on: **Text guardians when homework is assigned** and **Text guardians when homework is not submitted**. See: [**Homework**](../academics/homework.md).
 
@@ -613,6 +613,9 @@ See: [**Roles & access**](roles.md).
 - [**Setting up printers and sizes**](print-templates/printers-and-calibration.md) — add a printer and fix its measurements.
 - [**Your account**](../start/account.md) — your own ways to sign in and your devices.
 - [**Seeing and settling alerts**](../dashboard/alerts.md) — your own push notifications.
+- [**Printing ID cards, certificates and exam papers**](print-templates.md) — print designs; printer settings are here
+- [**Send a message**](../communications/send-message.md) — sending a message to one guardian
+- [**Activity log**](audit-logs.md) — who changed what, and when
 
 ---
 

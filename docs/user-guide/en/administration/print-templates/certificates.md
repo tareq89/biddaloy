@@ -155,9 +155,8 @@ From **Reports → Print & documents** → **Certificate register** (or **Print 
 
 ### Certificate register <a href="#register" id="register"></a>
 
-The **Certificate register** tab of **Reports → Print & documents** holds every certificate issued, revoked ones too: serial, kind, student, date and status. Filter by kind and year. Press **Download for Excel** to get a CSV file that opens in Excel (up to 10,000 rows).
+The **Certificate register** tab of [**Reports → Print & documents**](../../reports/printables.md) holds every certificate issued, revoked ones too: serial, kind, student, date and status. Filter by kind and year. Press **Download for Excel** to get a CSV file that opens in Excel (up to 10,000 rows).
 
-<!-- link pending: reports/printables.md — Print & documents (register, history, reprint, revoke); page not there yet -->
 
 <!-- image pending: certificate register, one row revoked showing its reason; admin, desktop -->
 
@@ -230,7 +229,7 @@ The QR check page is open to everyone, no sign-in needed.
 - [**Printing ID cards**](id-cards.md) — student and staff cards.
 - [**Designer's guide**](designer-guide.md) — certificate designs.
 - [**Students**](../../people/students.md) — the **Documents** tab, recording leaving.
-<!-- link pending: reports/printables.md — Print & documents (register, reprint, revoke); page not there yet -->
+- [**Print & documents**](../../reports/printables.md) — print history, reprint and revoke
 
 ---
 

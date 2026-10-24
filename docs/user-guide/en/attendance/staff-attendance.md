@@ -285,6 +285,7 @@ While on a name:
 - [**Substitute teachers**](../academics/routine-substitutions.md) — who takes the class of a teacher on leave.
 - [**Dashboard**](../dashboard/dashboard.md) — today's summary.
 - [**Applications**](../applications/applications.md) — Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper.
+- [**Application reports**](../reports/applications.md) — application reports, including staff leave counts
 
 ---
 

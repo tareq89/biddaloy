@@ -245,3 +245,4 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 - [**Invoices**](invoices.md) — see invoices and credit notes, share links.
 - [**Fines**](fines.md) — waiving a fine.
 - [**Adding students and viewing their details**](../people/students.md) — Add a new student, import many at once, and use each student's profile to handle class, guardians, fees, notes and leaving the school.
+- [**Fee collection report**](../reports/collections-report.md) — the collection report built from payments

@@ -53,8 +53,7 @@ knownIssues:
 Send one message that you write to one guardian: by SMS, WhatsApp or email.
 
 **Where to go:** in the left menu, **Communications → Send Message**. Do the work on this page on a computer.
-**Before you start:** be an Admin, Accountant or Office staff ([who can do what](#roles)). The guardian's phone number or email must be in their details ([Guardians](../people/guardians.md)). The school must have SMS sending turned on.
-<!-- link pending: administration/settings.md — Settings › Communication (other lane) -->
+**Before you start:** be an Admin, Accountant or Office staff ([who can do what](#roles)). The guardian's phone number or email must be in their details ([Guardians](../people/guardians.md)). The school must have [SMS sending](../administration/settings.md) turned on.
 
 You can send to only one person at a time. To remind many guardians about dues together, use [**Fee reminders**](fee-reminders.md).
 
@@ -258,7 +257,7 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 - [**Viewing, fixing and inviting guardians**](../people/guardians.md) — numbers and emails are fixed here.
 
 <!-- link pending: communications/send-alert.md — urgent alerts (other lane) -->
-<!-- link pending: administration/settings.md — Settings › Communication, SMS and credit (other lane) -->
+- [**Changing the school's settings**](../administration/settings.md) — the school settings
 
 ---
 

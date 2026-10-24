@@ -96,7 +96,7 @@ This page is about an exam's **results**. The results of every exam are in one o
 
 **From the exam's page**
 
-1. The results tab of the exam's page has the same list and the same buttons <!-- link pending: ../exams-results/exams.md -->. The steps there follow this page.
+1. The results tab of [the exam's page](exams.md) has the same list and the same buttons. The steps there follow this page.
 
 ---
 
@@ -231,7 +231,7 @@ In the **Processed** state there is a **Process again** button (on a phone, insi
 
 | What you see                                                                                                | What to do                                                                                                                                                                                                                                                                              | Who can help                                        |
 | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| **No exams yet**                                                                                            | Create an exam first <!-- link pending: ../exams-results/exams.md -->.                                                                                                                                                                                                                  | Admin                                               |
+| **No exams yet**                                                                                            | [Create an exam](exams.md) first.                                                                                                                                                                                                                  | Admin                                               |
 | **Couldn't load exams.** or **Couldn't load results.**                                                      | Check your internet and try again.                                                                                                                                                                                                                                                      | Admin                                               |
 | **Submitted, but has blank cells — reopen this sheet**                                                      | The list is submitted but some cells are blank. The Admin [reopens](marks-entry.md#task-reopen) the list, and the Teacher fills the cells and submits again.                                                                                                                            | Teacher, Admin                                      |
 | **Couldn't process this exam.**                                                                             | It appears for a few reasons: the exam's academic year has no [grading scale](grading-scales.md); a student has not chosen a subject from an optional subject group; a section of a class with group-based subjects has no group set; or an internet problem. Check one by one and fix. | Admin                                               |
@@ -317,9 +317,8 @@ Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. 
 - [**Entering and submitting exam marks**](marks-entry.md) — Teachers submit the marks lists before the results.
 - [**Setting up grading scales**](grading-scales.md) — which percentage gets which grade and GPA.
 - [**Students**](../people/students.md) — a student's page shows the results of all their exams.
-- Creating an exam and the exam page <!-- link pending: ../exams-results/exams.md --> — the same results tab is on the exam's page too.
-- Result analysis <!-- link pending: ../exams-results/analysis.md --> — merit list and pass/fail from the **Result analysis** button.
-- Promotion <!-- link pending: ../exams-results/promotion.md --> — moving students up to the next class after the results.
+- [**Creating and setting up exams**](exams.md) — the same results tab is on the exam's page too.
+- [**Promoting students**](promotion.md) — moving students up to the next class after the results.
 - [**Printing exam documents**](../administration/print-templates/exam-documents.md) — Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
 - [**Merit list and result analysis**](analysis.md) — See an exam's merit list, the students who failed or were absent and the pass/fail by subject, filter by section, print or download a CSV.
 - [**Promoting students**](promotion.md) — Using published results, move a class's students up to the next class in the new academic year, keep them in the same class or graduate them.

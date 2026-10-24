@@ -188,7 +188,10 @@ For other roles, **Student dues** is not in the left menu.
 - [**Creating fee bills**](generate-fees.md) — where dues come from.
 - [**Students**](../people/students.md) — all of one student's bills and payments.
 
-<!-- link pending: finance/fee-reminders.md — Fee reminders (another lane) -->
+- [**Fee reminders**](../communications/fee-reminders.md) — send fee reminders to those who owe
 
 - [**Fines**](fines.md) — fine bills also show as owed here.
 - [**Invoices**](invoices.md) — find and send payment receipts.
+- [**Setting up fee structures**](fee-structures.md) — setting up fee structures
+- [**Automatic billing rules**](recurring-schedules.md) — automatic billing rules
+- [**Fee collection report**](../reports/collections-report.md) — the collection report built from payments

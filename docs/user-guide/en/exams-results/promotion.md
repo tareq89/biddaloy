@@ -334,6 +334,7 @@ One list's page:
 - [**Processing and publishing results**](results.md) — results must be published before the promotion.
 - [**Merit list and result analysis**](analysis.md) — check who passed and who failed first.
 - [**Adding students and viewing their details**](../people/students.md) — after the promotion, see a student's new class and roll.
+- [**Creating and setting up exams**](exams.md) — creating and setting up exams
 
 ---
 
