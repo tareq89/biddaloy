@@ -203,12 +203,19 @@ export function check(root = '.', { today = new Date() } = {}) {
     }
   }
 
+  // the longest existing section folder that prefixes the diagram name ("exams-results-x" → exams-results/)
+  const sectionOf = (lang, name) =>
+    readdirSync(path.join(guide, lang), { withFileTypes: true })
+      .filter((d) => d.isDirectory() && (name === d.name || name.startsWith(`${d.name}-`)))
+      .map((d) => d.name)
+      .sort((a, b) => b.length - a.length)[0] ?? name.split('-')[0];
+
   // ---- (g) diagram sources vs svg hash -----------------------------------
   const srcDir = path.join(guide, '_diagrams');
   for (const f of existsSync(srcDir) ? readdirSync(srcDir) : []) {
     const m = f.match(/^(.+)\.(bn|en)\.mmd$/);
     if (!m) continue;
-    const svg = path.join(guide, m[2], m[1].split('-')[0], 'diagrams', `${m[1]}.svg`);
+    const svg = path.join(guide, m[2], sectionOf(m[2], m[1]), 'diagrams', `${m[1]}.svg`);
     const want = sha1(readFileSync(path.join(srcDir, f), 'utf8'));
     if (!existsSync(svg)) fail(rel(path.join(srcDir, f)), `(g) no rendered svg at ${rel(svg)}`);
     else if (readFileSync(svg, 'utf8').match(/<!-- src:([0-9a-f]+) -->/)?.[1] !== want) fail(rel(svg), '(g) svg is stale: its .mmd source changed; run render-diagrams');
