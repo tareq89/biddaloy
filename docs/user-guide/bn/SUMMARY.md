@@ -2,6 +2,11 @@
 
 - [SchoolManager-এ স্বাগতম](README.md)
 - [শুরু করা](start/README.md)
+  - [সাইন ইন করা](start/sign-in.md)
+  - [ফোনে খোলা ও অ্যাপ হিসেবে ইনস্টল](start/phone.md)
+  - [ভাষা বদলানো](start/language.md)
+  - [নিজের অ্যাকাউন্ট](start/account.md)
+  - [যেকোনো পাতা খুঁজে পাওয়া](start/find-anything.md)
 - [প্রশাসকের জন্য](admin-setup/README.md)
 - [ড্যাশবোর্ড](dashboard/README.md)
 - [ভূমিকা](roles/README.md)

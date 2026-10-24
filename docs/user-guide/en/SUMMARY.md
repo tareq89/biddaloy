@@ -2,6 +2,11 @@
 
 - [Welcome to SchoolManager](README.md)
 - [Getting started](start/README.md)
+  - [Signing in](start/sign-in.md)
+  - [Open on your phone and install as an app](start/phone.md)
+  - [Changing the language](start/language.md)
+  - [Your account](start/account.md)
+  - [Finding any page](start/find-anything.md)
 - [For the admin](admin-setup/README.md)
 - [Dashboard](dashboard/README.md)
 - [Roles](roles/README.md)
