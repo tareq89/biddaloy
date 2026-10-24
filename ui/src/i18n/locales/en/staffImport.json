@@ -84,5 +84,27 @@
     "restore": "Brought back",
     "skip": "Skipped"
   },
-  "backToSetup": "Back to setup"
+  "backToSetup": "Back to setup",
+  "fields": {
+    "name": "Name",
+    "mobile": "Mobile",
+    "email": "Email",
+    "role": "Role",
+    "designation": "Designation",
+    "sendInvitationsNow": "Send invitations now"
+  },
+  "help": {
+    "name": "The person's full name.",
+    "mobile": "Mobile number, for example 01712345678. Bangla digits also work. In Excel, keep the cell type as Text.",
+    "email": "Email address, for example name@example.com.",
+    "role": "Teacher, Accountant or another role of your school. Write the role name as it is in the app (Bangla or English).",
+    "designation": "Optional. For example Assistant Teacher. It is used only for teachers; for another role, or if it is not recognised, it is dropped.",
+    "sendInvitationsNow": "If ticked, a link to activate the account goes to new staff by phone or email. Ticked to begin with. People who are brought back do not get it again."
+  },
+  "helpRequired": {
+    "name": "Yes",
+    "mobile": "No, but a mobile or an email is needed",
+    "email": "No, but a mobile or an email is needed",
+    "role": "Yes"
+  }
 }

@@ -46,5 +46,28 @@
     "applicantCount_other": "{{formatted}} applications received",
     "saved": "Saved",
     "loadError": "Failed to load this round"
+  },
+  "fields": {
+    "title": "Title",
+    "classSection": "Class / Section",
+    "seatCount": "Seat count",
+    "openDate": "Open date",
+    "closeDate": "Close date",
+    "requiredDocuments": "Required documents"
+  },
+  "help": {
+    "title": "The name guardians will recognise the round by, for example Class 6 Admission 2027.",
+    "classSection": "The section to admit into. The student joins this section when admitted.",
+    "seatCount": "How many can be admitted. Once that many are admitted, the round leaves the form. The number of applications does not block it.",
+    "openDate": "The day applications start.",
+    "closeDate": "The last day to apply; the day itself counts. It cannot be before the open date.",
+    "requiredDocuments": "Which of Photo, Birth certificate and Transcript the guardian must upload."
+  },
+  "helpRequired": {
+    "title": "Yes",
+    "classSection": "Yes",
+    "seatCount": "Yes",
+    "openDate": "Yes",
+    "closeDate": "Yes"
   }
 }
