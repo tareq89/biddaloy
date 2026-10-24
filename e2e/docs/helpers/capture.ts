@@ -130,8 +130,9 @@ export async function shot(
 ): Promise<void> {
   const registry = JSON.parse(
     readFileSync(path.join('docs', 'user-guide', '_generated', 'features.json'), 'utf8'),
-  ) as { features?: { id: string; section: string }[] };
-  const section = registry.features?.find((f) => f.id === feature)?.section;
+  ) as { id: string; path: string }[];
+  // `path` is `<section>/<page>`, relative to the language folder
+  const section = registry.find((f) => f.id === feature)?.path.split('/')[0];
   if (!section) throw new Error(`feature "${feature}" is not in features.json`);
   await shoot(page, path.join(imgDir(section), `${feature}-${nn}.png`), callouts, opts);
 }

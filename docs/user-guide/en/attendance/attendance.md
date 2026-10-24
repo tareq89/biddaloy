@@ -48,12 +48,12 @@ Take your section's attendance, mark late arrivals and leave, and fix mistakes.
 
 Every section (for example Class 6, section B) has one **register** per day. This page is where you fill it in; the monthly register and the reports are built from it.
 
-[Today's attendance](#task-daily) · [Late or on leave](#task-late-leave) · [Fix an earlier day](#task-fix) · [Problems and fixes](#trouble)
+[Today's attendance](#task-main) · [Late or on leave](#task-late-leave) · [Fix an earlier day](#task-fix) · [Problems and fixes](#trouble)
 
 **On this page**
 
 - [How you get here](#arrive)
-- [Take today's attendance](#task-daily)
+- [Take today's attendance](#task-main)
 - [How to know the attendance was submitted](#confirm)
 - [Other situations](#other)
   - [When a student is late or on leave](#task-late-leave)
@@ -78,7 +78,7 @@ Every section (for example Class 6, section B) has one **register** per day. Thi
 
 ---
 
-## Take today's attendance <a href="#task-daily" id="task-daily"></a>
+## Take today's attendance <a href="#task-main" id="task-main"></a>
 
 1. In the left menu press **Attendance**, then the inner **Attendance**. On a phone, press **Attendance** at the bottom.
 

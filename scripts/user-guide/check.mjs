@@ -162,7 +162,8 @@ export function check(root = '.', { today = new Date() } = {}) {
 
       // ---- (m) anchor ids ------------------------------------------------
       const ids = anchorIds(pg.body);
-      if (done(pg)) {
+      // help/ pages (glossary, ...) are reference pages, not task pages
+      if (done(pg) && !p.startsWith('help/')) {
         for (const id of REQUIRED_IDS) if (!ids.includes(id)) fail(file, `(m) missing required anchor id "${id}"`);
         const other = pages[lang === 'bn' ? 'en' : 'bn'].get(p);
         if (lang === 'bn' && other && sortedKey(ids) !== sortedKey(anchorIds(other.body)))
