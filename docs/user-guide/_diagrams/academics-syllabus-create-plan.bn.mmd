@@ -1,0 +1,15 @@
+%% title: নতুন পাঠ পরিকল্পনার চার ধাপ
+%% desc: প্রথমে শ্রেণি, শাখা, বিষয় ও টার্ম বাছুন। তারপর ঠিক করুন পাঠ কোথা থেকে আসবে: খালি, লাইব্রেরি বা CSV। প্রিভিউতে কোন পাঠ রাখবেন বাছুন। শেষে সংরক্ষণ করলে পরিকল্পনার পাতা খোলে।
+flowchart LR
+  A["১. শাখা · বিষয়<br/>· টার্ম"]:::teacher --> B["২. কীভাবে শুরু"]:::teacher
+  B --> B1["খালি থেকে"]:::note
+  B --> B2["লাইব্রেরি থেকে"]:::note
+  B --> B3["CSV থেকে"]:::note
+  B1 --> C["৩. প্রিভিউ<br/>পাঠ রাখুন বা বাদ দিন"]:::teacher
+  B2 --> C
+  B3 --> C
+  C --> D["৪. সংরক্ষণ<br/>পরিকল্পনার পাতা খোলে"]:::teacher
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
