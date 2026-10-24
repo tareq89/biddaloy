@@ -725,6 +725,38 @@
     "routes": ["/register", "/welcome"]
   },
   {
+    "id": "dashboard.widgets",
+    "kind": "dashboard",
+    "path": "dashboard/widgets",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "dashboard.customise",
+    "kind": "dashboard",
+    "path": "dashboard/customise",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
     "id": "dashboard.alerts",
     "kind": "dashboard",
     "path": "dashboard/alerts",
