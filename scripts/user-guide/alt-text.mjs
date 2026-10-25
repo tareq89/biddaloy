@@ -6,7 +6,7 @@
 //
 //   node scripts/user-guide/alt-text.mjs [rootDir]      one JSON line per problem, exit 1
 //
-// check.mjs wires it as rule (l) (done at the epic close, 42.6.06):
+// check.mjs wires it as rule (s) (done at the epic close, 42.6.06):
 //   import { checkAltText } from './alt-text.mjs';
 //   ... inside check(): for (const p of checkAltText(root)) fail(p.file, p.problem);
 // `<!-- image pending -->` comments and fenced / inline code are not images.
@@ -67,7 +67,7 @@ export function checkAltText(root = '.') {
   for (const file of walk(guide)) {
     for (const { alt, src } of imagesIn(readFileSync(file, 'utf8'))) {
       const why = alt === null ? 'missing' : altProblem(alt);
-      if (why) problems.push({ file: path.relative(root, file), problem: `(l) image ${src} has no meaningful alt text: ${why}` });
+      if (why) problems.push({ file: path.relative(root, file), problem: `(s) image ${src} has no meaningful alt text: ${why}` });
     }
   }
   return problems;

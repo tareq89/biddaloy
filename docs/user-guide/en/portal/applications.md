@@ -236,16 +236,16 @@ An approved leave is marked in attendance by itself. An approved fee waiver is a
 | Details                     | Explain the reason for the leave, 3 to 1000 characters.                                                                                         | Yes                            |
 | Waiver type                 | Percent or a fixed amount.                                                                                                                      | Yes                            |
 | Percent (1 to 100) / Amount | Percent: 1 to 100. Amount: more than zero, at most 2 decimals.                                                                                  | Yes                            |
-| Fees it applies to          | Which fees the waiver is for. Leave empty for all fees.                                                                                         | —                              |
-| From (optional)             | When the waiver should start. Can be left empty.                                                                                                | —                              |
-| Until (optional)            | When the waiver should end. Same as or after the start.                                                                                         | —                              |
+| Fees it applies to          | Which fees the waiver is for. Leave empty for all fees.                                                                                         | No                             |
+| From (optional)             | When the waiver should start. Can be left empty.                                                                                                | No                             |
+| Until (optional)            | When the waiver should end. Same as or after the start.                                                                                         | No                             |
 | Purpose                     | What the testimonial is for, such as college admission; 3 to 300 characters.                                                                    | Yes                            |
 | Leaving date                | The day the student leaves the school.                                                                                                          | Yes                            |
-| Where to (optional)         | Name or place of the new school, up to 200 characters.                                                                                          | —                              |
+| Where to (optional)         | Name or place of the new school, up to 200 characters.                                                                                          | No                             |
 | Reason                      | Reason for a fee waiver, transfer certificate or ID card, 3 to 1000 characters.                                                                 | Yes                            |
 | Subject                     | One-line subject of a general application, 3 to 200 characters.                                                                                 | Yes                            |
 | Letter                      | The main text of a general application, 3 to 5000 characters.                                                                                   | Yes                            |
-| Attachments (optional)      | Up to 3 files, 5 MB each. PDF, JPG or PNG.                                                                                                      | —                              |
+| Attachments (optional)      | Up to 3 files, 5 MB each. PDF, JPG or PNG.                                                                                                      | No                             |
 
 <!-- /guide:generated -->
 

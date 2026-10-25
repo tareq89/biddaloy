@@ -77,6 +77,12 @@ This page is view only. Nothing can be changed here.
 
 ---
 
+## How to know you are looking at the right thing <a href="#confirm" id="confirm"></a>
+
+At the top you see the student's name, class, roll and the name of the current term, then the exam card, then one subject open and the other subjects listed below it, each with a bar such as **6/10 lessons**. If the name at the top is your child, you are on the right page. With more than one child, check the name before reading the bars.
+
+---
+
 ## Other situations <a href="#other" id="other"></a>
 
 ### More than one child <a href="#task-child" id="task-child"></a>

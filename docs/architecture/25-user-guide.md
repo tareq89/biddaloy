@@ -124,7 +124,7 @@ required are in the [writing guide](../documentation/writing-guide.md#1-order-an
 ### Coverage
 
 `docs/user-guide/coverage.json` holds `{ "<feature id>": "planned" | "done" }`.
-`guide:check` _(planned, #2518)_ hard-fails when:
+`guide:check` hard-fails when:
 
 - a `features.json` id is missing from `coverage.json`;
 - a `done` id lacks a bn or an en page;
@@ -132,10 +132,11 @@ required are in the [writing guide](../documentation/writing-guide.md#1-order-an
 - a `done` page lacks a required anchor id, or lacks `#arrive` while `entry` has more than `sidebar`/`palette` (D44, D45);
 - a page bolds another page's title without a link, or a **সম্পর্কিত পাতা** link has no link back (D46);
 - a page has a `guide:generated:video` marker (D48);
-- a link or a helpId points at a missing page.
+- a link or a helpId points at a missing page;
+- an image has no meaningful alt text (rule `(s)`);
+- an id is still `planned` (rule `(t)`, strict coverage, D16). A new feature ships its page as `done`; it is not added as `planned`. Three ids have no page yet and only warn: `communications.sendAlert`, `reports.alertsReport`, `portal.homework` (the `PLANNED_EXCEPTIONS` list in `check.mjs`).
 
-It warns when a `knownIssues` entry was `checked` more than 30 days ago.
-42.6.06 flips every entry to `done`.
+It warns when a `knownIssues` entry was `checked` more than 30 days ago, or has no issue number.
 
 ### Media files
 
@@ -187,8 +188,7 @@ freshness _(planned, #2518)_.
 
 ## CI checks: guide:check and guide:impact
 
-Both are **planned**. `guide:check` is built by #2518; `guide:impact` by a later
-W1 ticket in the same epic.
+Both exist (`scripts/user-guide/check.mjs` and `impact.mjs`).
 
 ```mermaid
 flowchart LR

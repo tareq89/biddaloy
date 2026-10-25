@@ -41,6 +41,14 @@ How the school's news reaches you as totals.
 All your features, in the order of the left menu. The list is built automatically.
 
 <!-- guide:generated:roles:committee -->
+
+- [Dashboard](../dashboard/dashboard.md) — See on the first page after sign-in what needs your attention today, and go to the right page in one press.
+
+**People**
+
+- [Calendar](../people/calendar.md) — See school holidays, exams, meetings and events in a month calendar. The Admin adds them, imports them from a file or copies them from last year. Everyone can subscribe in their own phone calendar app.
+- [Evaluations](../people/evaluations.md) — Write a staff member's Annual Confidential Report (ACR), run teacher surveys with students and guardians, and report staff incidents. This page is not for everyone.
+
 <!-- /guide:generated -->
 
 ---
