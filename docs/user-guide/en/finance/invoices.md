@@ -113,7 +113,7 @@ The app remembers the size you pick. You can also print straight from the list w
 
    → **Receipt sent.** The message carries a new [share link](#task-share) to the receipt.
 
-- If there is no guardian, the button cannot be pressed and it says **There is no guardian to send this student's receipt to.**
+- If there is no guardian, the button cannot be pressed and it says **This student has no guardian to send a receipt to.**
 - If siblings were paid on one invoice, each student's guardians appear in the list.
 - SMS uses up the school's SMS credit. If the credit is low, it is not sent.
 - Each send makes a new link; the earlier link stays active.
@@ -122,15 +122,15 @@ The app remembers the size you pick. You can also print straight from the list w
 
 With the link, anyone can see the receipt without signing in. So give it only to the guardian.
 
-1. On the invoice page, in the **Share link** part, press **Create link**.
+1. On the invoice page, in the **Share link** part, press **Create share link**.
 
-   → The **Shareable receipt link** appears, for example `https://<your school's address>/i/…`. Below it, **The link works until …** — 30 days from today.
+   → The **Shareable receipt link** appears, for example `https://<your school's address>/i/…`. Below it, **Link works until …** — 30 days from today.
 
 2. Press **Copy link**, then send it to the guardian.
 
-> **Remember:** the link only shows right when it is created. If you reload the page it is gone; the app does not keep the link itself. If you need it again later, [**make a new link**](#task-regenerate).
+> **Remember:** the link only shows right when it is created. If you reload the page it is gone; the app does not keep the link itself. If you need it again later, [**regenerate the link**](#task-regenerate).
 
-After 30 days the link stops by itself. Then **Create link** comes back on the page.
+After 30 days the link stops by itself. Then **Create share link** comes back on the page.
 
 ### Make a new link or turn it off <a href="#task-regenerate" id="task-regenerate"></a>
 
@@ -138,10 +138,10 @@ When there is an active link, two buttons appear:
 
 | Button              | What happens                                                                                                                              |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Make a new link** | All the old links of this invoice stop, and a new 30-day link is made. Message: **A new link was created. The old links no longer work.** |
-| **Turn off link**   | This link stops. Message: **The share link was turned off.**                                                                              |
+| **Regenerate link** | All the old links of this invoice stop, and a new 30-day link is made. Message: **New link made. The old link no longer works.**          |
+| **Turn off link**   | This link stops. Message: **Share link revoked.**                                                                                         |
 
-Both ask first, because nobody holding an old link can open the receipt any more. If a link went to the wrong person, press **Make a new link**, then give the new one to the right guardian.
+Both ask first, because nobody holding an old link can open the receipt any more. If a link went to the wrong person, press **Regenerate link**, then give the new one to the right guardian.
 
 ### What the guardian sees when they open the link <a href="#task-guardian" id="task-guardian"></a>
 
@@ -166,14 +166,14 @@ If the link is turned off, expired or wrong, the guardian sees **This link isn't
 | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------ |
 | **No invoices found**                                                           | No payment has been made, or a filter is hiding them all. Clear the filters.       | —            |
 | **The invoice list could not be loaded**                                        | Reload the page.                                                                   | Admin        |
-| **Couldn't load the invoice.**                                                  | Press **Retry**.                                                                   | Admin        |
-| **The printable invoice could not be opened. Try again.**                       | Check whether pop-ups are allowed in the browser, then press again.                | —            |
+| **Couldn't load this invoice.**                                                 | Press **Retry**.                                                                   | Admin        |
+| **Couldn't open the printable invoice. Try again.**                             | Check whether pop-ups are allowed in the browser, then press again.                | —            |
 | The **Print** part is missing                                                   | Only an admin and an accountant print.                                             | Admin        |
-| **The receipt could not be sent.**                                              | Check that the guardian's phone number is right, then try again.                   | Admin        |
-| **The receipt could not be sent.** when sending by SMS                          | The school's SMS credit may have run out. Send by WhatsApp, or buy SMS credit.     | Admin        |
-| The share link is not visible any more                                          | The link only shows when it is created. Press **Make a new link**.                 | —            |
-| **The link could not be copied. Select it below and copy.**                     | Select the link's text yourself and copy it.                                       | —            |
-| **The share link could not be created.** / **The link couldn't be turned off.** | Try again. If you are an office assistant this is not for you; ask the accountant. | Admin        |
+| **Couldn't send the receipt.**                                                  | Check that the guardian's phone number is right, then try again.                   | Admin        |
+| **Couldn't send the receipt.** when sending by SMS                              | The school's SMS credit may have run out. Send by WhatsApp, or buy SMS credit.     | Admin        |
+| The share link is not visible any more                                          | The link only shows when it is created. Press **Regenerate link**.                 | —            |
+| **Couldn't copy the link. You can select and copy it below.**                   | Select the link's text yourself and copy it.                                       | —            |
+| **The share link couldn't be created.** / **The link couldn't be turned off.**  | Try again. If you are an office assistant this is not for you; ask the accountant. | Admin        |
 | A guardian says **This link isn't valid**                                       | The link's 30 days are over, or it was turned off. Make a new link and send it.    | Accountant   |
 
 
@@ -218,7 +218,7 @@ For other roles, **Invoices** is not in the left menu.
 </figure>
 
 - **The link is not kept:** the app keeps only a secret fingerprint of the link, not the whole link. That is why a link cannot be shown again later; a new one has to be made.
-- **Two people at once:** if two people press **Make a new link** on the same invoice at the same time, only one active link is left in the end.
+- **Two people at once:** if two people press **Regenerate link** on the same invoice at the same time, only one active link is left in the end.
 - **Off means off:** a link that is turned off or expired never works again.
 
 </details>
