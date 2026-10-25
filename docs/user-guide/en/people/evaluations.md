@@ -195,7 +195,7 @@ In a survey, students or guardians give their opinion of teachers in the portal.
 
 6. Decide **Anonymous — hidden from management**. It is ticked already.
 
-   → If ticked, you see only totals and comments, never who answered. If you untick it, each answer shows the person's name.
+   → If ticked, you see only totals and comments, never who answered. The results never show who answered, ticked or not.
 
 7. If you need to, set **Opens on** and **Closes on** (the closing date must be after the opening date), and set **Minimum answers before results show**.
 
