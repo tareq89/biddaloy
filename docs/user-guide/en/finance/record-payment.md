@@ -94,7 +94,7 @@ One submit makes one payment and one invoice (the receipt). The bills the money 
 
    → The **Payment recorded** page appears: the **Invoice** number, the **Amount paid**, and the **Change due** if there is change.
 
-<!-- image pending: Record payment page with one student chosen; 1 · Student 2 · Amount received 3 · Bills due and Pay boxes 4 · Payment method 5 · Record button; accountant, desktop -->
+<img src="img/record-payment-01.png" alt="Record payment page with one student chosen; 1 · Student 2 · Amount received 3 · Bills due and Pay boxes 4 · Payment method 5 · Record button; accountant">
 
 > **Remember:** on one bill, **Pay** and **Discount** together cannot be more than that bill's **Balance**. If you got more money than the bills, [give change or keep it as credit](#task-change).
 

@@ -80,7 +80,7 @@ You never make an invoice by hand. When you take money with [**Record payment**]
 
 An invoice number looks like this: `INV-2026-00042`. Each school counts from 1 again every year; the year means the calendar year in Bangladesh time.
 
-<!-- image pending: one invoice's page; 1 · Invoice details 2 · List of bills 3 · Totals 4 · Print 5 · Send to guardian 6 · Share link; accountant, desktop -->
+<img src="img/invoices-01-detail.png" alt="one invoice's page; 1 · Invoice details 2 · List of bills 3 · Totals 4 · Print 5 · Send to guardian 6 · Share link; accountant">
 
 ---
 
@@ -206,7 +206,7 @@ For other roles, **Invoices** is not in the left menu.
 2. The filters — **Search invoices**, **Status**, **Issue date**, **Amount (৳)**.
 3. The list — **View** and **Print** on each row. A credit note's row has a **Credit note** label.
 
-<!-- image pending: invoice list with one normal invoice and one credit note; the three parts numbered; accountant, desktop -->
+<img src="img/invoices-02-list.png" alt="invoice list with one normal invoice and one credit note; the three parts numbered; accountant">
 
 </details>
 

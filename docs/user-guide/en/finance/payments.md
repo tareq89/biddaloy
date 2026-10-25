@@ -77,7 +77,7 @@ Each payment is one row in the list, newest first. To take new money, see [**Rec
 
    → The payment's page opens: **Amount**, **Date**, **Method**, **Transaction reference**, **Collected by**, **Discount approved by**, **Invoice**. Below is **Where the money went** — how much money and how much discount landed on which bill.
 
-<!-- image pending: one payment's page; 1 · Amount and details 2 · Where the money went 3 · Print receipt 4 · Reverse payment; admin, desktop -->
+<img src="img/payments-01-detail.png" alt="one payment's page; 1 · Amount and details 2 · Where the money went 3 · Print receipt 4 · Reverse payment; admin">
 
 ---
 
