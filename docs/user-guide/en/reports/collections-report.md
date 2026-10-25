@@ -73,7 +73,7 @@ The report's money comes from the [payments](../finance/payments.md) taken. When
 
 4. Look at the other tables: **By payment method** (cash, bKash and so on), **By fee type** and **By day**.
 
-<!-- image pending: Fee collection report, Today; 1 · Date range 2 · Total collected, Reversed, Net collected 3 · Discounts and credit 4 · By collector table 5 · Print; accountant, desktop -->
+![Fee collection report with the date range, the Total collected, Reversed and Net collected boxes, discounts and credit, and the By payment method and By collector tables](img/collections-report-02-month.png)
 
 > **Remember:** only successful payments are counted. Pending or failed payments are not. A reversed payment shows twice: the original money in **Total collected**, and the refund in **Reversed**.
 
@@ -166,7 +166,7 @@ For the other roles, **Fee collection report** is not in the left menu.
 4. **Discounts and credit**: **Standing discount**, **One-off discount**, **Credit used**, **Credit added**, **Change returned**, **Cash paid out from wallets**.
 5. Four tables: **By payment method**, **By collector**, **By fee type**, **By day** (oldest first).
 
-<!-- image pending: Fee collection report, This month, five parts marked with numbers; admin, desktop -->
+![Fee collection report with the date range, the Total collected, Reversed and Net collected boxes, discounts and credit, and the By payment method and By collector tables](img/collections-report-02-month.png)
 
 </details>
 

@@ -71,7 +71,7 @@ The numbers come from the school's [applications](../applications/applications.m
 3. Below, look at the **Waiting more than 3 days** list. These are still waiting for someone's decision.
 4. Look at the **By type and status** and **By month** tables.
 
-<!-- image pending: Application reports; 1 · Academic year and Submitted on 2 · four boxes 3 · Waiting more than 3 days 4 · By type and status, By month 5 · On leave today 6 · Staff leave days; admin, desktop -->
+![Application reports with the Academic year and Submitted on filters, four summary boxes, and the By type and status and By month sections](img/applications-02-reports.png)
 
 > **Remember:** if you do not choose an **Academic year**, applications of all years are counted for now, even though it says "Current year". To see only this year, choose the year yourself from **Academic year** ([Known issues](#known-issues)).
 
@@ -166,7 +166,7 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 5. **By type and status** (**Pending**, **Approved**, **Rejected**, **Other**) and **By month** (**Submitted**, **Approved**, **Rejected**).
 6. **On leave today** and **Staff leave days**.
 
-<!-- image pending: Application reports, six parts marked with numbers; office staff, desktop -->
+![Application reports with the Academic year and Submitted on filters, four summary boxes, and the By type and status and By month sections](img/applications-02-reports.png)
 
 </details>
 
