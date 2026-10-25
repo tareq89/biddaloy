@@ -206,10 +206,53 @@ Primary branch and sees the Class 3 child. Admin and the guardian have several
 memberships, so they pass the school picker first (the card's `branchSlug`
 is only a label today).
 
-## The nightly reset (`scripts/demo/reset.sh`, #2178)
+## Running the demo site
 
-The demo host rebuilds itself every night. The new database is built **beside** the live one, so a
-bad night costs nothing: the old demo keeps running.
+The demo is the `demo` project on the one VM (`deploy/stack.yml` with
+`ENV_NAME=demo`, its own database, Redis and bucket), served at
+`demo.<domain>` by the shared edge nginx. It rebuilds itself every night from
+a **host systemd timer**, not from a cron inside a container (D11). The design
+is in [07-deployment.md](07-deployment.md#demo); this section is how to run it.
+
+```mermaid
+flowchart LR
+  T["systemd timer 03:00 Dhaka<br/>biddaloy-nightly@demo-rebuild"] --> N["biddaloy-nightly demo-rebuild<br/>(deploy.lock, then swap lock)"]
+  N --> R["docker compose -p demo run --rm demo-reset<br/>/app/reset.sh --now"]
+  R --> P[("biddaloy_demo_next, then rename to biddaloy_demo")]
+  N --> A["restart app, wait for /api/health"]
+  N --> K["one Kuma push: demo-rebuild-nightly"]
+```
+
+There is no Docker socket proxy any more: `reset.sh` never restarts a
+container. It builds and swaps the database, then exits; `biddaloy-nightly`
+restarts the app afterwards.
+
+**Setup.** A demo needs `infra/secrets/demo.enc.env` (key list:
+`demo.example.env`) and one deploy:
+
+```bash
+biddaloy-deploy demo <sha>
+```
+
+The first deploy has an order trap. `app` refuses to start until a rebuild has
+written the platform id (`demo: run the first rebuild before starting app`), so
+the first `biddaloy-deploy demo` stops at the app rollout. The data services
+are up by then, so run the rebuild once and deploy again:
+
+```bash
+sudo systemctl start biddaloy-nightly@demo-rebuild.service   # first rebuild, a long run
+biddaloy-deploy demo <sha>
+```
+
+(Unverified on a real host: it follows from the code, not from a run.)
+Planning numbers: the reset keeps three databases at once (live, `_next`,
+`_prev`), so plan for about 3x the database size. At full scale one demo database
+is about 2.7 GB (2,686 MB at scale 1, 10 years), and the full seed took 24 min on
+a busy laptop, so the demo shares the VM's CPU with prod at night. Watch the
+first nights in Beszel. Limits are `DEMO_RESET_MEM` / `DEMO_RESET_CPUS` (default 1 GB, 1 CPU).
+
+**The bucket.** One bucket whose name contains `demo`, used by nothing else. The
+reset deletes objects in it and refuses any other name.
 
 Names used below: `biddaloy_demo` is the live database. `_next` is tomorrow's, built aside.
 `_prev` is yesterday's. `_prev_old` is the one before that, waiting to be deleted.
@@ -217,105 +260,106 @@ Names used below: `biddaloy_demo` is the live database. `_next` is tomorrow's, b
 ```mermaid
 sequenceDiagram
   autonumber
-  participant C as cron (01:00)
+  participant C as biddaloy-nightly demo-rebuild
   participant R as reset.sh
   participant P as Postgres
   participant T as temp app :3999
   participant W as sweep runner
-  participant S as S3, Redis, app container
-  C->>R: start
+  participant S as S3, Redis
+  C->>R: docker compose -p demo run --rm demo-reset /app/reset.sh --now
   R->>R: flock reset.lock (a second run exits 1)
   R->>P: create biddaloy_demo_next, migrate, seed:demo, validate
   R->>T: start on _next (Redis db N+1)
   R->>W: DEMO_SWEEP_CMD (skipped if DEMO_SKIP_SWEEP=true)
   W-->>R: must exit 0, or no swap
-  R->>R: wait for 02:00 (not with --now)
-  R->>P: rename live to _prev, then _next to live
+  R->>P: db-swap.sh: rename live to _prev, then _next to live
   Note over R,S: the steps below always run, even if one fails
-  R->>P: re-open connections on live and _prev
   R->>R: write default-school id to /demo-state
-  R->>S: flush Redis, restart app
+  R->>S: flush Redis
   R->>S: purge _prev_old (S3 objects first, then DROP)
-  Note over R,P: on any failure recover() reads pg_database, not its own notes
+  R-->>C: exit 0 (3 if the swap committed but a later step failed)
+  C->>C: restart app, wait ready, Kuma push
 ```
 
-Run it by hand (skips the 02:00 wait):
+Run it by hand (same job as the timer; it waits for a running deploy):
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now
+sudo systemctl start biddaloy-nightly@demo-rebuild.service
+journalctl -u biddaloy-nightly@demo-rebuild.service -n 100 --no-pager
+```
+
+or only the script, without the restart and the Kuma push (you then restart the app yourself):
+
+```bash
+docker compose -p demo --project-directory /opt/biddaloy/demo -f /opt/biddaloy/repo/deploy/stack.yml \
+  run --rm demo-reset /app/reset.sh --now
 ```
 
 The tests are `scripts/demo/reset.infra.test.sh`. CI runs them in the infra job (they start a throwaway Postgres there); locally they use the `yarn test-env up` Postgres.
 
 ### What goes wrong, and what is left behind
 
-| Failure                              | State afterwards                                                                                     | Sentry |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------- | ------ |
-| Build, validate or sweep fails       | `_next` and its S3 objects are dropped. Yesterday's demo keeps running.                              | error  |
-| A rename fails mid-swap              | `recover()` renames `_prev` back and logs `rolled back: yesterday's database is biddaloy_demo again` | error  |
-| The rollback itself fails            | Log says `ROLLBACK FAILED` and names the databases. Finish by hand with the runbook below.           | error  |
-| A step after the swap fails          | The new demo is live. Exit 1 with `swapped, but these steps failed: redis-flush purge-...`.          | error  |
-| A second reset starts while one runs | Exits 1 with `another reset is running`. Nothing is touched.                                         | none   |
-
-`recover()` asks `pg_database` what really happened, because psql can report an error for a rename that did commit.
+| Failure                              | State afterwards                                                                                                              | Sentry / Kuma                              |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Build, validate or sweep fails       | `_next` and its S3 objects are dropped. Yesterday's demo keeps running. Exit 1, Kuma `down` (`reset`)                         | error                                      |
+| A rename fails mid-swap              | `db-swap.sh` renames `_prev` back and logs `rolled back`; the database names are as before                                    | error                                      |
+| The rollback itself fails            | Log says `ROLLBACK FAILED` and names the databases. Finish by hand with the runbook below.                                    | error                                      |
+| A step after the swap fails          | The new demo is live. Exit 3: `biddaloy-nightly` restarts the app anyway and pushes `ok, warning: swapped but cleanup failed` | Sentry: error. Kuma: `up` with the warning |
+| A second reset starts while one runs | Exits 1 with `another reset is running`. Nothing is touched.                                                                  | none                                       |
 
 ### Safety, how it is built
 
 - **Only `biddaloy_demo*` databases.** Every `DROP` and `RENAME` goes through one name check (`assert_demo_name`).
   The script refuses to start unless `DEMO_MODE=true`, `S3_BUCKET` is a plain bucket name containing `demo`
   (`biddaloy-demo` yes, `prod/demo` no), and no `SMS_*`, `SMTP_*` or `VAPID_*` variable is set (for example
-  `SMTP_USER=mailer` is refused too).
+  `SMTP_USER=mailer` is refused too). `db-swap.sh` accepts only `biddaloy_staging*` and `biddaloy_demo*`, so it can never touch prod.
 - **One previous database is kept, with its files.** `_prev` keeps its S3 objects until it is dropped as `_prev_old`
   the next night, so a rollback brings back a demo whose files still exist.
 - **The database is picked with `DATABASE_URL`** (the server reads no `DB_NAME`).
 - **`PLATFORM_TENANT_ID` changes every night.** A fresh migration makes a new random `default-school` id, and
   `TenantStatusService.platformTenantId()` uses `PLATFORM_TENANT_ID` to find the platform tenant. The reset writes the id
-  to the `demo-state` volume and the `app` service reads it at start. So `app` will not start until the first reset has
-  run once (that first run logs `app not restarted: first run`).
+  to the `demo-state` volume and the demo `app` reads it at start (`/demo-state/platform-tenant-id`).
 - **Build-time Redis is not the app's.** Migrate, seed, validate and the temporary app use Redis db N+1, so the live
   app's workers never see jobs for tenants that exist only in `_next`.
 - **S3 needs no prefix.** Keys are `tenants/<tenant-id>/...` and every reset creates new tenant ids, so a new run never
-  collides with an old one. Instead of the planned `S3_PREFIX` or second bucket, the reset deletes `tenants/<id>/` for
-  each `bmsc-%` school of a database it drops. Objects go first, the database second: if S3 fails, the database (and so
-  the list of ids) stays, and the next run tries again.
-- **The base `backup` service is off on the demo host** (its 02:00 dump would hit the 02:00 swap).
+  collides with an old one. The reset deletes `tenants/<id>/` for each `bmsc-%` school of a database it drops. Objects go
+  first, the database second: if S3 fails, the database (and so the list of ids) stays, and the next run tries again.
+- **Prod's `backup` service does not exist in the demo project.** Only prod sets `COMPOSE_PROFILES=replica,backup`.
 
 ### Host env variables
 
-Set these in the host `.env`. Compose passes them to `demo-reset`. Rows marked "set by compose" are fixed in
-`docker-compose.demo.yml`: a value in `.env` does nothing for them.
+Set these in `infra/secrets/demo.enc.env` (`sops`); the deploy writes them to
+`/opt/biddaloy/demo/.env` and compose passes them to `demo-reset`. Rows marked
+"set by compose" are fixed in `deploy/stack.yml`: a value in the file does nothing for them.
 
-| Variable                                       | Default                                      | Example                                            | Notes                                                                                                                                                                                                                       |
-| ---------------------------------------------- | -------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DEMO_MODE`                                    | `true`, set by compose                       | `true`                                             | Leave it. `reset.sh` and the server refuse to run without it.                                                                                                                                                               |
-| `DEMO_PASSWORD`                                | none, required                               | `Demo-Public-2026`                                 | Shown on the login screen, so it is public.                                                                                                                                                                                 |
-| `S3_BUCKET`                                    | none, required                               | `biddaloy-demo`                                    | A plain name containing `demo`. The reset deletes objects in it.                                                                                                                                                            |
-| `REDIS_URL`                                    | `redis://redis:6379` (db 0), set by compose  | `redis://redis:6379`                               | Fixed by compose for `app` and `demo-reset`. `reset.sh` needs a db below 15 (it builds on db N+1).                                                                                                                          |
-| `SENTRY_CRONS_URL`                             | empty (no check-ins)                         | `https://o1.ingest.sentry.io/api/2/cron/demo/KEY/` | Gets `?status=in_progress`, then `ok` or `error`.                                                                                                                                                                           |
-| `DEMO_RESET_PUSH_URL`                          | empty (no push)                              | `https://ops.<domain>/kuma/api/push/TOKEN`         | Uptime Kuma push monitor `demo-reset-nightly`: `?status=up&msg=ok` or `?status=down&msg=error`. Any query on the URL is dropped; the URL is never logged. A push that gets no 2xx is logged as `Kuma push got HTTP <code>`. |
-| `DEMO_RESET_PUSH_ACCESS_CLIENT_ID` / `_SECRET` | empty (no headers)                           | the `demo-reset-push` Access service token         | Kuma is behind Cloudflare Access on the prod host, so the push sends these as `CF-Access-Client-Id` / `-Secret` (on stdin, never on the command line). Setup: [25-cloudflare.md, Ops](25-cloudflare.md#ops-opsdomain).      |
-| `DEMO_RESET_SCHEDULE`                          | `0 1 * * *` (01:00 Asia/Dhaka)               | `30 0 * * *`                                       | One five-field cron expression. A start between 00:00 and 02:00 waits for 02:00 to swap; a start after 02:00 (or before midnight) swaps as soon as the build passes.                                                        |
-| `DEMO_SKIP_SWEEP`                              | empty                                        | `true`                                             | Needed today. See "The nightly sweep".                                                                                                                                                                                      |
-| `DEMO_SWEEP_CMD`                               | empty                                        | `/app/run-sweep.sh`                                | A command that drives a Playwright runner. Needed unless `DEMO_SKIP_SWEEP=true`.                                                                                                                                            |
-| `DEMO_SWEEP_URL`                               | `http://127.0.0.1:3999` (compose and script) | `http://127.0.0.1:3999`                            | Where the sweep finds the temporary app. Plain HTTP must be loopback (see "Staying signed in").                                                                                                                             |
-| `DEMO_SWEEP_TIMEOUT`                           | `1800` (seconds)                             | `900`                                              | The sweep is killed after this.                                                                                                                                                                                             |
-| `DEMO_STATE_DIR`                               | `/demo-state`, set by compose                | `/demo-state`                                      | Holds `reset.lock` and `platform-tenant-id`.                                                                                                                                                                                |
-| `DEMO_SCALE`                                   | `1`                                          | `0.05`                                             | Seed size.                                                                                                                                                                                                                  |
-| `DEMO_YEARS`                                   | `10`                                         | `2`                                                | Years of history.                                                                                                                                                                                                           |
-| `TURNSTILE_SECRET_KEY`                         | empty                                        | `0x4AAAAAAA...`                                    | Server. Needs its client twin below, or the public admission form refuses to submit (D42).                                                                                                                                  |
-| `VITE_TURNSTILE_SITE_KEY`                      | empty                                        | `0x4AAAAAAA...`                                    | Client build arg. Make both keys in Cloudflare for the demo hostname.                                                                                                                                                       |
+| Variable                                      | Default                                                        | Example                                            | Notes                                                                                                                                                                                                                                                           |
+| --------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEMO_MODE`                                   | `true`, set by compose                                         | `true`                                             | Leave it. `reset.sh` and the server refuse to run without it.                                                                                                                                                                                                   |
+| `DEMO_PASSWORD`                               | none, required                                                 | `Demo-Public-2026`                                 | Shown on the login screen, so it is public.                                                                                                                                                                                                                     |
+| `S3_BUCKET`                                   | `biddaloy` in compose: **invalid here**, `reset.sh` refuses it | `biddaloy-demo`                                    | Required. A plain name containing `demo`. The reset deletes objects in it.                                                                                                                                                                                      |
+| `REDIS_URL`                                   | `redis://redis:6379` (db 0), set by compose                    | `redis://redis:6379`                               | Fixed by compose for `demo-reset`. `reset.sh` needs a db below 15 (it builds on db N+1).                                                                                                                                                                        |
+| `SENTRY_CRONS_URL`                            | empty (no check-ins)                                           | `https://o1.ingest.sentry.io/api/2/cron/demo/KEY/` | Gets `?status=in_progress`, then `ok` or `error`.                                                                                                                                                                                                               |
+| `DEMO_RESET_PUSH_URL`                         | empty (no push)                                                | `https://kuma.<domain>/api/push/TOKEN`             | Uptime Kuma push monitor `demo-rebuild-nightly`. Public URL, **no Access headers**: the tunnel routes `/api/push/` without a login. Any query on the URL is dropped; the URL is never logged. A push that gets no 2xx is logged as `Kuma push got HTTP <code>`. |
+| `DEMO_SKIP_SWEEP`                             | empty                                                          | `true`                                             | Needed today. See "The nightly sweep".                                                                                                                                                                                                                          |
+| `DEMO_SWEEP_CMD`                              | empty                                                          | `/app/run-sweep.sh`                                | A command that drives a Playwright runner. Needed unless `DEMO_SKIP_SWEEP=true`.                                                                                                                                                                                |
+| `DEMO_SWEEP_URL`                              | `http://127.0.0.1:3999`                                        | `http://127.0.0.1:3999`                            | Where the sweep finds the temporary app. Plain HTTP must be loopback (see "Staying signed in").                                                                                                                                                                 |
+| `DEMO_SWEEP_TIMEOUT`                          | `1800` (seconds)                                               | `900`                                              | The sweep is killed after this.                                                                                                                                                                                                                                 |
+| `DEMO_STATE_DIR`                              | `/demo-state`, set by compose                                  | `/demo-state`                                      | Holds `reset.lock` and `platform-tenant-id`.                                                                                                                                                                                                                    |
+| `DEMO_SCALE`                                  | `1`                                                            | `0.05`                                             | Seed size.                                                                                                                                                                                                                                                      |
+| `DEMO_YEARS`                                  | `10`                                                           | `2`                                                | Years of history.                                                                                                                                                                                                                                               |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | empty                                                          | `0x4AAAAAAA...`                                    | Both or neither (the temporary app refuses to boot with one). The public admission form needs them (D42). Make the pair in Cloudflare for the demo hostname ([25-cloudflare.md](25-cloudflare.md)).                                                             |
+| `DEMO_RESET_MEM` / `DEMO_RESET_CPUS`          | `1g` / `1`                                                     | `2g`                                               | Limits of the one-off container.                                                                                                                                                                                                                                |
 
-`reset.sh` also reads these. They are not host settings, because compose pins them or the script defaults them:
-`DEMO_SWAP_AT` (default `02:00`; compose does **not** pass it, so change it only with `run -e DEMO_SWAP_AT=03:00`),
-`DEMO_SWEEP_PORT` (`3999`), `DEMO_APP_CONTAINER` (`biddaloy-demo-app`),
-`DEMO_RESTART_CMD` (default `docker restart $DEMO_APP_CONTAINER`), `DOCKER_HOST`, `S3_ENDPOINT`, `S3_REGION`,
-`S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ALLOW_INSECURE_HTTP`, and the test hooks
-`DEMO_MIGRATE_CMD`, `DEMO_SEED_CMD`, `DEMO_VALIDATE_CMD`, `DEMO_APP_CMD`, `DEMO_PSQL`, `DEMO_REDIS_CLI`.
+The timer decides when the rebuild runs (03:00), so there is no schedule variable:
+the old `DEMO_RESET_SCHEDULE`, `DEMO_SWAP_AT`, `DEMO_APP_CONTAINER` and
+`DEMO_RESTART_CMD` do not exist any more. `reset.sh` still reads the test hooks
+`DEMO_MIGRATE_CMD`, `DEMO_SEED_CMD`, `DEMO_VALIDATE_CMD`, `DEMO_APP_CMD`,
+`DEMO_PSQL`, `DEMO_REDIS_CLI`, `DEMO_SWAP_CMD` and `DEMO_SWEEP_PORT`.
 
-**Never set `SMS_*`, `SMTP_*` or `VAPID_*`** on the demo host. `reset.sh` refuses to run if any variable with one
+**Never set `SMS_*`, `SMTP_*` or `VAPID_*`** in the demo file. `reset.sh` refuses to run if any variable with one
 of those prefixes is set (D2).
 One hole remains: platform alerts text operators straight through the SMS gateway, outside the `DEMO_MODE`
-log-only switch. So leave `PLATFORM_SMS_API_KEY` and `PLATFORM_ALERT_PHONES` unset on the demo host.
+log-only switch. So leave `PLATFORM_SMS_API_KEY` and `PLATFORM_ALERT_PHONES` unset in the demo file.
 
 ### The nightly sweep
 
@@ -372,24 +416,24 @@ Bugs the sweep found:
 - **#2513**: `/attendance/staff` shows an error state for every staff role but admin (`GET /users` needs `USER_READ`). It is in `KNOWN_ISSUES`.
 - **#2514**: the route permission map and the API guards disagree, so pages load but their data calls return 403 for allowed roles.
 
-### Security of the reset host
+### Security of the reset job
 
-- **`demo-docker-proxy` can stop, restart or kill ANY container on the host**, not only `biddaloy-demo-app`. The proxy
-  image cannot name one container. A takeover of `demo-reset` could stop `db`, nginx or the proxy itself, but cannot create,
-  exec into or inspect one. This is acceptable only because the host runs nothing but the demo. Follow-up: #2512.
-- **`demo-reset` runs as root.** It needs that to write the `demo-state` volume, and it also holds the database superuser
-  password. Follow-up: #2512.
+- **No Docker socket.** `demo-reset` is a run-once job (`restart: 'no'`) with no socket and no
+  proxy, so a takeover of it cannot stop or start another container. It can still reach the
+  demo database as superuser, which is why the demo project has its own database and Redis.
+- **`demo-reset` runs as root** inside its container, to write the `demo-state` volume. It also holds
+  the demo database superuser password. Follow-up: #2512.
 
 ### Roll back a bad night
 
-Yesterday's database is still there as `biddaloy_demo_prev`, with its S3 objects. Run this on the demo host.
+Yesterday's database is still there as `biddaloy_demo_prev`, with its S3 objects. Run this on the VM.
 
 ```bash
-C="docker compose -f docker-compose.yml -f docker-compose.demo.yml"
+C="docker compose -p demo --project-directory /opt/biddaloy/demo -f /opt/biddaloy/repo/deploy/stack.yml"
 SQL='psql -U "$POSTGRES_USER" -d postgres -c'
 
-# 1. Stop both. A reset waiting for 02:00 would swap again on top of you.
-$C stop demo-reset app
+# 1. Stop the app. Make sure no rebuild is running (systemctl status biddaloy-nightly@demo-rebuild.service).
+$C stop app
 
 # 2. Swap the names back. The bad night becomes _prev_old, so the next reset deletes it AND its S3
 #    objects (a database dropped by hand leaves its tenants/<id>/ files behind for good).
@@ -405,18 +449,18 @@ $C run --rm --no-deps demo-reset sh -c "echo $ID > /demo-state/platform-tenant-i
 $C exec -T redis redis-cli FLUSHDB    # add -n <db> if REDIS_URL names a db
 
 # 5. Start again. Do not drop biddaloy_demo_prev_old by hand: the next nightly reset deletes it with its files.
-$C up -d app demo-reset
+$C up -d app
 ```
 
 ### Before the first live run
 
-Nobody could check these locally. Tick each one on the host.
+Nobody could check these locally (no Docker was allowed while the host was built). Tick each one on the VM.
 
-- [ ] Docker Compose is new enough for `additional_contexts: app: service:app` (2.20.2 reads it as a folder).
-- [ ] The first `docker compose build` works. It installs `flock` and pulls the `docker-socket-proxy` image.
-- [ ] `docker restart biddaloy-demo-app` works through the proxy. With the container missing it prints `No such container`, which is the first-run path.
-- [ ] `nginx -t` passes on the host. (CI's infra job already runs `nginx -t` with `nginx/demo` mounted, and `docker compose ... config -q` on the overlay.)
-- [ ] The sweep runner shares `demo-reset`'s network namespace and reaches `http://127.0.0.1:3999`.
+- [ ] `docker compose` is new enough for the `additional_contexts` the demo-reset image build used in CI (the VM only pulls the image, so this matters only for a local build).
+- [ ] The first `biddaloy-deploy demo <sha>` followed by the first rebuild works, in the order described above.
+- [ ] `sudo systemctl start biddaloy-nightly@demo-rebuild.service` ends with a Kuma `up` and `demo.<domain>` shows the 9 login cards.
+- [ ] `scripts/demo/reset.infra.test.sh` passes (`yarn ci:local`, Docker allowed).
+- [ ] The sweep runner shares `demo-reset`'s network namespace and reaches `http://127.0.0.1:3999` (or `DEMO_SKIP_SWEEP=true` stays).
 - [ ] Swap downtime at scale 1 is under 10 s. Look for `swap done; downtime from backend terminate to reconnect: N s` in the log.
 - [ ] The sweep finishes in under 8 min at full scale with 3 workers (it took 3.7 to 5.2 min at scale 0.05).
 - [ ] `SENTRY_CRONS_URL` is set, and a test run shows `in_progress` then `ok` in Sentry.
@@ -430,7 +474,7 @@ What `DEMO_MODE=true` does. The decision numbers are from Epic 58 (#1732).
 | D2       | SMS, email and push are log-only. Password change, reset and OTP are off. No lockout. The trial and backup schedulers are off.                                                                                                                                                                                                |
 | D23      | Destructive and bulk routes answer "disabled in demo": workbook restore and import, bulk upload, bulk delete, academic-year delete, removing demo accounts, school danger zone. The settings "Test connection" route (`POST /schools/:id/settings/test`) is blocked too.                                                      |
 | D24      | Multipart bodies over 2 MB are refused.                                                                                                                                                                                                                                                                                       |
-| D27      | Every response carries `X-Robots-Tag: noindex, nofollow`, and nginx serves a disallow-all `robots.txt` from `nginx/demo/`.                                                                                                                                                                                                    |
+| D27      | Every response carries `X-Robots-Tag: noindex, nofollow`, and the edge nginx serves a disallow-all `robots.txt` (`nginx/templates/demo.conf.template`).                                                                                                                                                                       |
 | D30      | Logins use the normal password login. The boot guard refuses to start if any school is not a `bmsc-*` branch (see [08-security.md](08-security.md#demo-boot-check-5801) and [Demo seed safety](08-security.md#demo-seed-safety-5813)). It runs after the BullMQ workers start, so a bad row stops the process a moment later. |
 
 ## The rule
