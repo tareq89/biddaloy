@@ -20,8 +20,8 @@ appVersion: 0.1.0 (fb209bd7c)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: named-people-first-100-staff, checked: 2026-10-25, issue: null }
-  - { id: portal-link-list-misses-pages, checked: 2026-10-25, issue: null }
+  - { id: named-people-first-100-staff, checked: 2026-10-25, issue: 2969 }
+  - { id: portal-link-list-misses-pages, checked: 2026-10-25, issue: 2970 }
 -->
 
 # সতর্কতা পাঠান
