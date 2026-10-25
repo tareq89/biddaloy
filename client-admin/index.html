@@ -39,20 +39,10 @@
          in sync if either changes. `ui/src/theme/theme-provider.tsx` takes
          over both the attribute and this meta tag the moment its module
          loads. -->
-    <script>
-      (function () {
-        try {
-          var stored = localStorage.getItem('biddaloy:theme');
-          var dark =
-            stored === 'dark' ||
-            (stored !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-          if (dark) {
-            document.documentElement.dataset.theme = 'dark';
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1e293b');
-          }
-        } catch (e) {}
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
+    <!-- Per-deploy public config (Turnstile key, Sentry, ...), rendered by
+         the server at boot. Must load before the bundle. -->
+    <script src="/runtime-config.js"></script>
   </head>
   <body class="bg-background text-foreground">
     <div id="root"></div>
