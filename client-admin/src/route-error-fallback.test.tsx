@@ -49,13 +49,14 @@ function renderExpiredDashboard() {
 }
 
 afterEach(async () => {
+  delete window.__BIDDALOY_CONFIG__;
   vi.unstubAllEnvs();
   await cleanupTestState();
 });
 
 describe('trial-ended screen in the app', () => {
-  it('links "Contact us" to VITE_SUPPORT_URL', async () => {
-    vi.stubEnv('VITE_SUPPORT_URL', 'https://example.com/help');
+  it('links "Contact us" to the runtime-config supportUrl', async () => {
+    window.__BIDDALOY_CONFIG__ = { supportUrl: 'https://example.com/help' };
     renderExpiredDashboard();
 
     expect(await screen.findByRole('heading', { name: 'Your trial has ended' })).toBeTruthy();

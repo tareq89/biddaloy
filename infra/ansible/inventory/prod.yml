@@ -1,16 +1,38 @@
 ---
 all:
+  children:
+    # One VM today. Moving ops to its own VM later (P10): point `ops` at that host.
+    app:
+      hosts:
+        biddaloy-1:
+    edge:
+      hosts:
+        biddaloy-1:
+    ops:
+      hosts:
+        biddaloy-1:
   hosts:
-    biddaloy-prod:
-      # Public IP of the VM: export BIDDALOY_PROD_HOST=203.0.113.10
-      ansible_host: "{{ lookup('ansible.builtin.env', 'BIDDALOY_PROD_HOST') }}"
+    biddaloy-1:
+      # Public IP of the VM: export BIDDALOY_HOST=203.0.113.10
+      ansible_host: "{{ lookup('ansible.builtin.env', 'BIDDALOY_HOST') or lookup('ansible.builtin.env', 'BIDDALOY_PROD_HOST') }}"
       # First run on a fresh VM: -e ansible_user=root (or the cloud image user).
       ansible_user: deploy
   vars:
-    app_domain: app.schoolmanagerp.com
+    # tunnel: only SSH is public (cloudflared dials out). direct: SSH, 80 and 443.
+    edge_mode: tunnel
+    # Hostnames (D22); www.<landing_domain> redirects to the apex.
     landing_domain: schoolmanagerp.com
-    # OPS_DOMAIN / STAGING_DOMAIN live in prod.enc.env (what nginx reads), not here.
-    # true only once Cloudflare Access protects ops.<domain> and staging.<domain> and the
-    # origin check in 12-operations.md section 1 step 0 passed. Until then a prod deploy
-    # refuses a prod.enc.env that sets either hostname.
-    access_confirmed: false
+    app_domain: app.schoolmanagerp.com
+    staging_domain: staging.schoolmanagerp.com
+    demo_domain: demo.schoolmanagerp.com
+    kuma_domain: kuma.schoolmanagerp.com
+    beszel_domain: beszel.schoolmanagerp.com
+    logs_domain: logs.schoolmanagerp.com
+    # Public key CI uses to run biddaloy-deploy (forced command, D12). Pinned here so every
+    # provision run keeps it. UNSET... = placeholder = no key installed yet.
+    github_deploy_pubkey_pinned: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO3r2MVN+IDQDvLMzN+/n4YK0WQrxn16Xl90no5URKwE biddaloy-github-deploy
+    ops_host: "{{ groups['ops'][0] }}"
+    # The staging and ops hostnames live in edge.enc.env. They are closed until Access is set up
+    # without any switch here: in tunnel mode cloudflared rejects every request to them that has
+    # no valid Access token for their audience (templates/cloudflared-config.yml.j2), and direct
+    # mode puts basic auth in front of them.
