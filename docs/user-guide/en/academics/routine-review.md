@@ -100,7 +100,7 @@ This page works on the current academic year's **routine**. A routine has three 
 
    → **Routine review** at the top, with the state next to it (for example **Draft**). The facts: **Academic year**, **Periods**, **Who can see it**. Below is the **All periods** list.
 
-![Routine review page, Draft state, the Submit for review button and the facts](img/routine-review-01.png)
+![Routine review page, Published state, the facts and the Copy to another year button](img/routine-review-01.png)
 
 2. Look through the **All periods** list to check that every section is filled ([See the list of all periods](#task-list)).
 
