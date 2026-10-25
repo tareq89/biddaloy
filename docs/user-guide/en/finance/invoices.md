@@ -113,7 +113,7 @@ The app remembers the size you pick. You can also print straight from the list w
 
    → **Receipt sent.** The message carries a new [share link](#task-share) to the receipt.
 
-- If there is no guardian, the button cannot be pressed and it says **There is no guardian to send this student's receipt to.**
+- If there is no guardian, the button cannot be pressed and it says **This student has no guardian to send a receipt to.**
 - If siblings were paid on one invoice, each student's guardians appear in the list.
 - SMS uses up the school's SMS credit. If the credit is low, it is not sent.
 - Each send makes a new link; the earlier link stays active.
@@ -124,7 +124,7 @@ With the link, anyone can see the receipt without signing in. So give it only to
 
 1. On the invoice page, in the **Share link** part, press **Create link**.
 
-   → The **Shareable receipt link** appears, for example `https://<your school's address>/i/…`. Below it, **The link works until …** — 30 days from today.
+   → The **Shareable receipt link** appears, for example `https://<your school's address>/i/…`. Below it, **Link works until …** — 30 days from today.
 
 2. Press **Copy link**, then send it to the guardian.
 
@@ -139,7 +139,7 @@ When there is an active link, two buttons appear:
 | Button              | What happens                                                                                                                              |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **Make a new link** | All the old links of this invoice stop, and a new 30-day link is made. Message: **A new link was created. The old links no longer work.** |
-| **Turn off link**   | This link stops. Message: **The share link was turned off.**                                                                              |
+| **Turn off link**   | This link stops. Message: **Share link revoked.**                                                                                         |
 
 Both ask first, because nobody holding an old link can open the receipt any more. If a link went to the wrong person, press **Make a new link**, then give the new one to the right guardian.
 
@@ -166,7 +166,7 @@ If the link is turned off, expired or wrong, the guardian sees **This link isn't
 | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------ |
 | **No invoices found**                                                           | No payment has been made, or a filter is hiding them all. Clear the filters.       | —            |
 | **The invoice list could not be loaded**                                        | Reload the page.                                                                   | Admin        |
-| **Couldn't load the invoice.**                                                  | Press **Retry**.                                                                   | Admin        |
+| **Couldn't load this invoice.**                                                 | Press **Retry**.                                                                   | Admin        |
 | **The printable invoice could not be opened. Try again.**                       | Check whether pop-ups are allowed in the browser, then press again.                | —            |
 | The **Print** part is missing                                                   | Only an admin and an accountant print.                                             | Admin        |
 | **The receipt could not be sent.**                                              | Check that the guardian's phone number is right, then try again.                   | Admin        |
