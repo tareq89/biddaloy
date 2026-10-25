@@ -109,7 +109,7 @@ A seat plan is made by exam **subject**, for example the **Bangla 1st Paper** of
 
    → At the top is the title **Seat plans**. The list has the columns **Name**, **Status**, **Exam subjects**, **Rooms**, **Students**. If there are none, it says **No seat plans yet**.
 
-<!-- image pending: the seat plan list, with the Generate seat plan button marked, Admin, desktop -->
+<img src="img/seat-plans-01-list.png" alt="the seat plan list, with the Generate seat plan button marked, Admin">
 
 2. At the top of the page, press **Generate seat plan**.
 
@@ -129,7 +129,7 @@ A seat plan is made by exam **subject**, for example the **Bangla 1st Paper** of
 
    → At the top it says, for example, **3 selected · 120 seats in total**. If there is no room, it says **No rooms are set up yet.**
 
-<!-- image pending: the Generate seat plan dialog, with the plan name, exam, seat order, exam subjects and rooms marked, Admin, desktop -->
+<img src="img/seat-plans-02-dialog.png" alt="the Generate seat plan dialog, with the plan name, exam, seat order, exam subjects and rooms marked, Admin">
 
 8. Press **Generate**. The button cannot be pressed until you give a name, at least one subject and one room.
 

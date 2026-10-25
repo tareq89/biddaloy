@@ -217,7 +217,7 @@ After reopening, the submitted marks lists do not open by themselves; the Admin 
 
    → The app first records the print, then opens the print window. If the record cannot be made, nothing is printed.
 
-<!-- image pending: one student's report card, GPA and position at the top, Print on the right, subject marks and the grade legend below; admin, desktop -->
+<img src="img/results-02-card.png" alt="one student's report card, GPA and position at the top, Print on the right, subject marks and the grade legend below; admin">
 
 To print many report cards or certificates at once, see [Certificates](../administration/print-templates/certificates.md) and [Exam documents](../administration/print-templates/exam-documents.md).
 
@@ -285,7 +285,7 @@ Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. 
 4. The action buttons — **Result analysis**, **Process again**, the main button, and **⋯**. On a phone you see the main button, and the rest are inside **⋯**.
 5. **The list** — **Position**, **Roll · Name**, **Total**, **GPA**, **Grade**, **Status**. Press a column name to sort by that column; it starts with 25 students per page.
 
-<!-- image pending: the five parts of the Results page of a processed exam marked with numbers, admin, desktop -->
+<img src="img/results-01-processed.png" alt="the five parts of the Results page of a processed exam marked with numbers, admin">
 
 </details>
 

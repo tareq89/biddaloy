@@ -279,7 +279,7 @@ One list's page:
 3. The summary badges.
 4. The students' rows, in rank order.
 
-<!-- image pending: the promotion list page, one draft list and one finalised list, parts numbered; Admin, desktop -->
+<img src="img/promotion-01-list.png" alt="the promotion list page, one draft list and one finalised list, parts numbered; Admin">
 
 </details>
 

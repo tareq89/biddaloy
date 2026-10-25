@@ -85,7 +85,7 @@ This page is about the **marks list**. There is one marks list for each subject 
 
    → The marks lists appear below: **Section**, **Subject**, **Status**. The lists that are **Not submitted** come first. A Teacher sees only the lists where they can enter marks.
 
-<!-- image pending: Marks entry page, exam chosen, three marks lists below in the Not submitted state; 1 · Exam box 2 · Status filter 3 · Enter marks; teacher, desktop -->
+<img src="img/marks-entry-01-list.png" alt="Marks entry page, exam chosen, three marks lists below in the Not submitted state; 1 · Exam box 2 · Status filter 3 · Enter marks; teacher">
 
 3. At the end of the row for the list you want, press **Enter marks**.
 
@@ -245,7 +245,7 @@ Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. 
 4. **Keyboard help line** — just above the list.
 5. **The list** — **Roll · Name**, then each mark part. Grey columns are worked out by the app (for example from attendance); you cannot type in them.
 
-<!-- image pending: the five parts of the marks list marked with numbers, teacher, desktop -->
+<img src="img/marks-entry-01-list.png" alt="the five parts of the marks list marked with numbers, teacher">
 
 </details>
 
