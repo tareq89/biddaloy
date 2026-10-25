@@ -26,10 +26,6 @@ const LANGS = ['bn', 'en'];
 const REQUIRED_IDS = ['task-main', 'confirm', 'other', 'trouble', 'roles', 'more'];
 const RELATED = /^\*\*(সম্পর্কিত পাতা|Related pages)\*\*\s*$/m;
 const DAY = 86400000;
-// D16: every coverage id is `done`. These ids are still `planned` because the page
-// does not exist yet; each is a warning, not a failure, until its page ships. A new id
-// must never be added here: a feature ships its page, or it is not added (D16).
-const PLANNED_EXCEPTIONS = new Set(['communications.sendAlert', 'reports.alertsReport', 'portal.homework']);
 
 const readJson = (file, fallback) => (existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : fallback);
 const sha1 = (s) => createHash('sha1').update(s).digest('hex');
@@ -101,10 +97,10 @@ export function check(root = '.', { today = new Date() } = {}) {
   }
 
   // ---- (t) a `planned` id (strict coverage, D16) ---------------------------
+  // D16: every coverage id is `done`; there are no exceptions.
   for (const [id, status] of Object.entries(coverage)) {
     if (status !== 'planned') continue;
-    if (PLANNED_EXCEPTIONS.has(id)) warn(rel(path.join(guide, 'coverage.json')), `"${id}" is still planned: its page is not written yet (documented exception)`);
-    else fail(rel(path.join(guide, 'coverage.json')), `(t) "${id}" is still planned; every id must be done (D16)`);
+    fail(rel(path.join(guide, 'coverage.json')), `(t) "${id}" is still planned; every id must be done (D16)`);
   }
 
   // ---- (c) bn/en pair differs -------------------------------------------

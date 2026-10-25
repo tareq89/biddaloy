@@ -368,6 +368,8 @@ Everyone sees only their own alerts. Parents see **Alerts & notifications** in t
 - [**Customising your dashboard**](customise.md) — where the morning summary time is set.
 - [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
 - [**Alerts and notifications (parent and student)**](../portal/notifications.md) — the alerts a guardian or student gets.
+- [**Send an alert**](../communications/send-alert.md) — send your own alert by hand.
+- [**Alerts report**](../reports/alerts-report.md) — how many alerts each rule raised in a month.
 
 ---
 

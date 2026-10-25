@@ -149,6 +149,7 @@ Teachers and the school add study plans and topics on the [**Syllabus and study 
 - [**Syllabus and study plans**](../academics/syllabus.md) — study plans and topics on the school side.
 - [**Routine**](routine.md) — which subject has class on which day.
 - [**Exam schedule**](exam-schedule.md) — exam dates.
+- [**Homework (parent and student)**](homework.md) — homework due today and later.
 - [**Overview**](overview.md) — the first page.
 
 ---
