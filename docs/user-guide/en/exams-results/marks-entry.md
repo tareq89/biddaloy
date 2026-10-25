@@ -115,7 +115,7 @@ This page is about the **marks list**. There is one marks list for each subject 
 
    → The app first saves any remaining changes, then submits the list. The window closes, and next to the **Submitted** badge at the top it says **Submitted on <time>. Only an admin can reopen it.** The cells can no longer be changed.
 
-<!-- image pending: marks list after submitting: Submitted badge and time at the top, cells grey; teacher, desktop -->
+![A marks list after submitting: 1 the Submitted badge with the time and the line that only an admin can reopen it, 2 the marks cells](img/marks-entry-04-submitted.png)
 
 | What you press in the window | What happens                                                                                   | Submitted? |
 | ---------------------------- | ---------------------------------------------------------------------------------------------- | ---------- |
@@ -158,7 +158,7 @@ On a small screen like a phone, the marks list shows one student at a time.
 
    → The **Submitted** badge appears, as on a computer.
 
-<!-- image pending: marks list on a phone, one student, Absent and Exempt buttons, Previous/Next at the top; teacher, phone, width 300 -->
+<img src="img/marks-entry-05-phone.png" alt="The marks list on a phone: one student, Absent and Exempt buttons beside the cell, Previous and Next above the card" width="300">
 
 On a phone, **A**, **E** and **Ctrl+Enter** do not work; use the buttons.
 
@@ -194,7 +194,7 @@ The Academic coordinator and the Exam controller can view marks but cannot type 
 
 | What you see                                                                                                  | What to do                                                                                                                                       | Who can help                                                      |
 | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| **No exams yet**                                                                                              | They will appear here once the Admin [creates an exam](exams.md).                                                                                            | Admin            |
+| **No exams yet**                                                                                              | They will appear here once the Admin [creates an exam](exams.md).                                                                                | Admin                                                             |
 | **No marks lists yet**                                                                                        | The exam's subjects and mark parts are not set, or you are not assigned to any subject in this exam.                                             | Admin ([Teaching assignments](../people/teaching-assignments.md)) |
 | A section or subject is missing from your list                                                                | A Teacher sees only the lists where they are the **Subject teacher** for that subject. Being the class teacher is not enough to enter marks.     | Admin ([Teaching assignments](../people/teaching-assignments.md)) |
 | A submitted list no longer shows in the list                                                                  | This is normal, see [Known issues](#known-issues). Check the submitted count at the top.                                                         | —                                                                 |
