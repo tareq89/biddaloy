@@ -89,6 +89,13 @@ export async function shoot(
     region?: { x: number; y: number; width: number; height: number };
   } = {},
 ): Promise<void> {
+  // Wait for data: no loading skeleton left on the page (the demo API is slower than prod).
+  await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => undefined);
+  await page
+    .waitForFunction(() => !document.querySelector('main .animate-pulse, main [aria-busy="true"]'), undefined, {
+      timeout: 30_000,
+    })
+    .catch(() => undefined);
   // A leftover "saved" toast would cover the part the shot is about.
   if (!opts.keepToasts) {
     await page.evaluate(() =>
