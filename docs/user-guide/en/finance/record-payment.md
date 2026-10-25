@@ -223,7 +223,7 @@ For other roles, **Record payment** is not in the left menu.
 3. **3. Take the money** — **Payment method**, **Cash handed over** and **Change** for cash, **Transaction reference** for other methods, **Remarks**.
 4. At the bottom, **Cancel** and **Record …**.
 
-<!-- image pending: Record payment with two siblings chosen, a discount on one bill, change in cash; the four parts numbered; accountant, desktop -->
+![Record payment with two siblings chosen, the amount received split across both bills, and change worked out for cash handed over; the three cards numbered](img/record-payment-02-siblings.png)
 
 </details>
 

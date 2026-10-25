@@ -153,7 +153,7 @@ When a guardian opens the link on a phone, they see the **Invoice receipt** page
 - If it is a credit note, it says **Credit note**.
 - At the bottom, **Save as PDF** — the phone's print opens, and from there the PDF can be kept.
 
-<!-- image pending: the invoice receipt page on a guardian's phone, 390 pixels wide; the Save as PDF button visible; guardian, phone -->
+<img src="img/invoices-02-receipt-phone.png" alt="the invoice receipt page on a guardian's phone, 390 pixels wide; the Save as PDF button visible" width="300">
 
 If the link is turned off, expired or wrong, the guardian sees **This link isn't valid** — **The receipt may have been revoked, or the link may be mistyped.** The page does not say which reason it is. Then give a new link from the school.
 
