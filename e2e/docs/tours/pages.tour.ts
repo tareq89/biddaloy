@@ -12,11 +12,10 @@ import { copyFileSync } from 'node:fs';
 import { test, type Page } from '@playwright/test';
 
 import plan from './shot-plan.json';
-import { guideLang, imgDir, loginAs, prepare, shoot } from '../helpers/capture';
+import { imgDir, loginAs, prepare, shoot } from '../helpers/capture';
 
 const DAY = process.env.GUIDE_DAY ?? '2026-10-22';
 const section = process.env.GUIDE_SECTION ?? '';
-const lang = guideLang();
 
 interface Entry {
   idx: number;
