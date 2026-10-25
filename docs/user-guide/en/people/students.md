@@ -162,7 +162,7 @@ Every student has a **profile**. The profile is their own page: at the top their
 
    → There is no separate message. The app goes straight to the new student's profile. At the top you see their name and their new **Registration no.**.
 
-> **Keep in mind:** nothing reaches the school's system until you press **Add student** in the last step. You do not type the registration number; the system creates it.
+> **Keep in mind:** the student and their guardian links reach the school's system only when you press **Add student** in the last step. A guardian you create with **Add guardian** is saved at once, even if you then leave the form. You do not type the registration number; the system creates it.
 
 ---
 
@@ -388,14 +388,14 @@ If it stops halfway, the photos sent so far are kept.
 
    → **File received. Checking it now.** Then **Check before saving** shows how many students will be created, the first few rows, and the **Rows with problems** table.
 
-4. If there are problem rows, press **Download problem rows (CSV)**, fix them in your own file and upload again. Rows with an **Error** are left out; a **Warning** only lets you know.
+4. If there are problem rows, press **Download problem rows (CSV)**, fix them in your own file and upload again. While any row has an **Error**, the import cannot be confirmed: fix or remove every error row and upload again. A **Warning** only lets you know.
 5. When it all looks right, press **Import N students**. Press it within the time shown at the top (**Save within … or upload again**).
 
    → **3. Result**: **All N students were imported.** or how many were imported and how many rows had problems.
 
 6. If you like, tick **Invite the imported students' guardians now**. At the end press **Go to the student list** or **Import another file**.
 
-The registration number column is ignored; the system creates the numbers. The link for the large whole-school file (**Migrating a whole school?**) is visible only to people who may manage backups.
+A registration number you fill in is checked and kept; a blank cell gets a number from the system. The link for the large whole-school file (**Migrating a whole school?**) is visible only to people who may manage backups.
 
 | You press               | What happens                                 | Saved? |
 | ----------------------- | -------------------------------------------- | ------ |
@@ -528,7 +528,7 @@ Only an admin can do this. For a student who has left the school, [record leavin
 | `class`                   | The name of a class that exists in the current academic year, for example Class 5. | Yes      |
 | `section`                 | A section of that class, for example A.                                           | Yes       |
 | `roll`                    | A whole number, unique within the section.                                        | No        |
-| `registration_number`     | Ignored — the system creates the number.                                          | No        |
+| `registration_number`     | Checked and kept if filled; blank gets one.                                        | No        |
 | `guardian1_name`          | The main guardian's full name.                                                    | Yes       |
 | `guardian1_phone`         | A Bangladeshi mobile number, for example 01712345678 or +8801712345678.           | Yes       |
 | `guardian1_email`         | An email address.                                                                 | No        |

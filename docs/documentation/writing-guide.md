@@ -394,7 +394,7 @@ P present · A absent · L late · V leave
 - You may only link pages that exist. For a page written in the **same wave**, list the missing link in the PR notes; the wave close adds it.
 
 **bn example:** `অ্যাডমিন **শিক্ষকের দায়িত্ব** পাতা থেকে বরাদ্দ করেন` becomes
-`অ্যাডমিন **শিক্ষকের দায়িত্ব** (→ `teacher-assignments.md`) পাতা থেকে বরাদ্দ করেন`.
+``অ্যাডমিন **শিক্ষকের দায়িত্ব** (→ `teacher-assignments.md`) পাতা থেকে বরাদ্দ করেন``.
 
 **en example:** "An admin assigns it on the **Teacher assignments** page" becomes
 "An admin assigns it on the **Teacher assignments** (→ `teacher-assignments.md`) page".
