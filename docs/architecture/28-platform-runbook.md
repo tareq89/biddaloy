@@ -1,651 +1,1511 @@
-# 28. Platform runbook
+# 28. Setup and operations guide
 
-> **Planned replacement:** the agreed target setup (one VM, all environments, tunnel, staging from prod) is in [30-deployment-target.md](30-deployment-target.md). This page describes what runs today until Epic 79.0 lands.
+One page. Follow it top to bottom and you end with five things live on one VM:
+**prod**, **staging**, **demo**, **ops** (Kuma, Beszel, Dozzle) and the **landing** site.
+Later parts cover daily use, switching VM, switching to BDIX (no Cloudflare) and
+losing a key.
 
-One page for the person who runs the servers. With this page, the repo, an age
-key and a fresh VM you can bring up prod, demo, staging and the ops tools, ship a
-version, read the alerts, rotate a secret, restore a backup and move to a bigger
-machine.
+Why the setup looks like this: [30-deployment-target.md](30-deployment-target.md)
+(decisions D1 to D26). Example values below are fake on purpose:
+`203.0.113.10` is a documentation IP, `age1qz...` is a shortened key, and the
+40-hex SHA `3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b` is made up. Replace them.
 
-Every command here exists in the repo today. Where something is not proven on a
-real host yet, it is listed in [Known gaps](#known-gaps), not hidden.
+> **What has and has not been proven.** Every command here was checked against the
+> code in this repo. Nothing has run on a real VM yet; that is Epic 79 wave 5 and
+> is owner-run. Steps marked **UNVERIFIED on a real VM** are exactly those. Steps
+> marked **GAP** are places where the code does not do what a first-time setup needs
+> ([Known gaps](#known-gaps)).
 
-> Numbering: `27` is taken by [27-qa-audit-lessons.md](27-qa-audit-lessons.md), so
-> this runbook is **28**. Tickets and older docs that say "27" mean this page.
+## Contents
 
-Jargon, once:
+- [Part 0. The picture and the order](#part-0-the-picture-and-the-order)
+- [Part 1. Laptop tools](#part-1-laptop-tools)
+- [Part 2. Keys](#part-2-keys)
+- [Part 3. Buy the VM](#part-3-buy-the-vm)
+- [Part 4. Cloudflare](#part-4-cloudflare-tunnel-mode)
+- [Part 5. GitHub](#part-5-github)
+- [Part 6. Sentry, Telegram, SMS](#part-6-sentry-telegram-sms)
+- [Part 7. Provision](#part-7-provision)
+- [Part 8. Secrets](#part-8-secrets)
+- [Part 9. The age key for backups](#part-9-the-age-key-for-backups)
+- [Part 10. First deploy](#part-10-first-deploy)
+- [Part 11. After the first deploy](#part-11-after-the-first-deploy)
+- [Part 12. Every day use](#part-12-every-day-use)
+- [Part 13. Switch VM or provider](#part-13-switch-vm-or-provider)
+- [Part 14. Switch to direct mode (BDIX)](#part-14-switch-to-direct-mode-bdix-no-cloudflare)
+- [Part 15. Move ops to its own VM](#part-15-move-ops-to-its-own-vm)
+- [Part 16. Rotate a secret, lose a key](#part-16-rotate-a-secret-lose-a-key)
+- [Known gaps](#known-gaps)
 
-- **VM** - the one rented server. Everything runs on it.
-- **Compose project** - a group of containers started together (`biddaloy-prod`, `biddaloy-demo`, `biddaloy-staging`, `biddaloy-ops`).
-- **sops + age** - how secrets are stored encrypted in git. `age` is the key, `sops` is the tool.
-- **Ansible playbook** - a script that logs in to the VM over SSH and makes it match a description.
-- **R2** - Cloudflare's file storage. Backups go there.
-- **Kuma / Beszel / Dozzle** - the ops tools: uptime checks, host and container graphs, live logs.
-
-## 1. What you are operating
-
-```mermaid
-flowchart LR
-  L["Your laptop<br/>repo + age key + ansible"] -->|"git push, CI builds"| G["GHCR<br/>3 images"]
-  L -->|"ansible over SSH"| VM
-  L -->|"ansible over SSH"| DH
-  subgraph VM["The VM (/opt/biddaloy)"]
-    P["prod<br/>app db redis seaweedfs nginx backup"]
-    S["staging<br/>no nginx, prod nginx serves it<br/>own db, redis, seaweedfs"]
-    O["ops<br/>beszel kuma dozzle"]
-  end
-  subgraph DH["Demo host (/opt/biddaloy/demo)"]
-    D["demo<br/>own nginx, db, redis, seaweedfs<br/>section 6 step 8"]
-  end
-  G -->|"docker compose pull"| VM
-  G -->|"docker compose pull"| DH
-  U["Visitors"] --> CF["Cloudflare<br/>DNS, TLS, Access"] --> P
-  CF --> D
-  P -->|"hourly dumps + files"| R2[("R2 bucket")]
-  O -->|"alerts"| T["Telegram / SMS"]
-```
-
-The demo binds ports 80/443 like prod, so it runs on a **second host**. The ops
-tools on the VM do not see it (section 8).
-
-Who can talk to whom. Staging and the ops UIs never join prod's network: each
-box below is a Docker network, and prod nginx is the only bridge. The reason and
-the proof step are in [07-deployment.md, Staging](07-deployment.md#staging).
-
-```mermaid
-flowchart TB
-  subgraph PN["biddaloy-prod_default"]
-    pn[prod nginx] --- pa[prod app] --- pdb[(prod db, redis, seaweedfs)]
-  end
-  subgraph EDGE["biddaloy-edge"]
-    pn2[prod nginx] --- sa2["staging app<br/>alias staging-app"]
-  end
-  subgraph SN["biddaloy-staging_default"]
-    sa[staging app] --- sdb[(staging db, redis, seaweedfs)]
-  end
-  subgraph OPS["biddaloy-ops-edge"]
-    pn3[prod nginx] --- pa3["prod app<br/>alias prod-app"] --- ui["beszel, uptime-kuma, dozzle"]
-    pb3["prod backup<br/>pushes to uptime-kuma:3001"] --- ui
-  end
-  pn -. same container .- pn2 -. same container .- pn3
-  sa -. same container .- sa2
-```
-
-`biddaloy-edge` and `biddaloy-ops-edge` belong to no compose project.
-`tasks/attach-edge.yml` creates and joins them after every `compose up`. A
-container recreated by hand loses its attach. Redo only the attach with
-`--tags edge` (section 12).
-
-| Thing          | Where it lives                                                                                                                                                                |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Images         | `ghcr.io/tareq89/biddaloy-app`, `-backup`, `-demo-reset`, tagged with the full 40-character git SHA                                                                           |
-| Host folders   | `/opt/biddaloy/{prod,demo,staging,ops}` and `/opt/biddaloy/certs`                                                                                                             |
-| Secrets in git | `infra/secrets/*.enc.env`, `origin-ca*.enc.pem` ([infra/secrets/README.md](../../infra/secrets/README.md))                                                                    |
-| Playbooks      | `infra/ansible/provision.yml`, `deploy.yml`, `ops.yml`, tasks `write-env.yml`, `compose-up.yml`, `attach-edge.yml` ([infra/ansible/README.md](../../infra/ansible/README.md)) |
-| Domains        | `app_domain` in `infra/ansible/inventory/prod.yml`; `OPS_DOMAIN` and `STAGING_DOMAIN` in `prod.enc.env` (what nginx reads)                                                    |
-
-## 2. Day 0 checklist (before any command)
-
-Tick each box. Nothing below needs the VM except the first one.
-
-- [ ] **VM bought.** Ubuntu LTS, root SSH works, public IP noted (example `203.0.113.10`). Size: see section 11.
-- [ ] **Laptop has an SSH key** at `~/.ssh/id_ed25519.pub` (provision copies it to the `deploy` user).
-- [ ] **Cloudflare zone** for the domain. DNS records, all **Proxied** (orange cloud): `app` and `demo` now. Add `staging` and `ops` only after their Access application exists (next item and [25-cloudflare.md](25-cloudflare.md#access-policies)).
-- [ ] **SSL/TLS = Full (strict).** Origin CA certificate issued (15 years) and it **covers every name you serve**: `app.`, `demo.`, `ops.` and `staging.<domain>` (a wildcard `*.<domain>` does all four). prod nginx serves app, ops and staging with the same `origin.pem`; a name it does not cover fails strict TLS.
-- [ ] **Access applications** for `staging.<domain>` and `ops.<domain>`, built **before** either name is exposed ([25-cloudflare.md](25-cloudflare.md#access-policies)). Kuma and Beszel make the first visitor the admin, and Dozzle has no login. On the `Ops` application also add the **Service Auth** policy for the `demo-reset-push` service token ([25-cloudflare.md, Ops](25-cloudflare.md#ops-opsdomain)); its id and secret go in `demo.enc.env`. Two locks enforce the order: a prod deploy refuses `OPS_DOMAIN` / `STAGING_DOMAIN` until `access_confirmed: true` is set in `inventory/prod.yml`, and nginx drops any request without a `Cf-Access-Jwt-Assertion` header.
-- [ ] **R2 bucket** (backups) and an API token with object read and write on that bucket only.
-- [ ] **`TRUSTED_PROXY_CIDRS`** value ready: Cloudflare's current ranges ([12-operations.md section 3.5](12-operations.md#35-cloudflare-ip-ranges-changed)).
-- [ ] **Telegram bot** and a private group; note the bot token and the group id.
-- [ ] **SMS gateway key** (for the three critical alerts).
-- [ ] **Sentry projects** (server, client) and the cron monitor URLs.
-- [ ] **GitHub repo variables** `VITE_TURNSTILE_SITE_KEY` and `VITE_SUPPORT_URL` set (Settings > Secrets and variables > Actions > Variables). `publish-image.yml` bakes them into the SPA at build time (`vars.*`). Unset means a build with no Turnstile widget.
-- [ ] **GHCR packages public** - after the first publish, make all three packages (`biddaloy-app`, `biddaloy-backup`, `biddaloy-demo-reset`) public (GitHub > your profile > Packages > package > Package settings > Change visibility). The VM pulls without a login. If they stay private the first `deploy.yml` fails at "Check the image tag exists in the registry".
-
-## 3. Laptop setup
-
-```bash
-brew install ansible sops age rclone          # sops must be 3.9 or newer
-yarn install                                  # in the repo root: a staging deploy runs `yarn config:check` on your laptop
-cd infra/ansible
-ansible-galaxy install -r requirements.yml    # roles + collections
-mkdir -p ~/.config/sops/age
-age-keygen -o ~/.config/sops/age/keys.txt     # prints "Public key: age1..."
-export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
-export BIDDALOY_PROD_HOST=203.0.113.10        # the VM's public IP
-```
-
-Add `SOPS_AGE_KEY_FILE` and `BIDDALOY_PROD_HOST` to your shell profile. Every
-playbook reads them.
-
-## 4. Secrets
-
-Full detail and the CI guard: [infra/secrets/README.md](../../infra/secrets/README.md).
-
-```mermaid
-flowchart LR
-  EX["prod.example.env<br/>(key list, empty)"] -->|"you fill values"| ED["sops infra/secrets/prod.enc.env"]
-  ED --> GIT["commit the encrypted file"]
-  GIT -->|"ansible lookup on laptop"| H["/opt/biddaloy/prod/.env<br/>root:deploy 0640"]
-```
-
-1. Do the one-time key setup in the secrets README (operator key, recovery key on a different machine, both public keys into `.sops.yaml`).
-2. Create each file with the sops editor, so no plaintext copy hits disk:
-
-   ```bash
-   sops infra/secrets/prod.enc.env      # paste keys from prod.example.env, fill values
-   sops infra/secrets/demo.enc.env
-   sops infra/secrets/staging.enc.env
-   sops infra/secrets/ops.enc.env       # only BESZEL_KEY=, leave it empty for now (section 6 step 5)
-   ```
-
-   Make random values with `openssl rand -hex 32`. Hex only: `$ @ / :` break `.env` expansion and `DATABASE_URL`.
-
-3. Encrypt the Origin CA pair (whole files, so a short-lived temp file):
-
-   ```bash
-   umask 077; t=$(mktemp)               # paste the certificate PEM into $t, then:
-   sops --encrypt --filename-override infra/secrets/origin-ca.enc.pem \
-     --input-type binary --output-type binary "$t" > infra/secrets/origin-ca.enc.pem
-   rm -f "$t"                            # repeat for origin-ca-key.enc.pem with the key
-   ```
-
-4. Check both keys open the files (recovery check on a clean machine):
-
-   ```bash
-   sops -d infra/secrets/prod.enc.env >/dev/null && echo laptop ok
-   HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=/Volumes/usb/recovery.txt sops -d infra/secrets/prod.enc.env >/dev/null && echo recovery ok
-   ```
-
-5. The prod file must also set `HEALTH_TOKEN`, `TLS_CERT_DIR=/opt/biddaloy/certs`, `TRUSTED_PROXY_CIDRS`, `BACKUP_AGE_KEY_DIR=/opt/biddaloy/prod/drill` (the directory; the key is `key.txt` inside, section 5), `BACKUP_PUSH_URL`, `DRILL_PUSH_URL`. All are listed in `prod.example.env`. **Leave `OPS_DOMAIN=` and `STAGING_DOMAIN=` empty for now.** They are `ops.<domain>` and `staging.<domain>`, and go in only at the end of section 6, after Access is up. `ops.enc.env` holds `BESZEL_KEY` and nothing else.
-
-The `*.enc.env` files do not exist in git until **you** create them. Commit them
-when done. `scripts/check-tracked-files.mjs` fails CI on any plaintext value.
-
-**Secrets come from your checkout.** A deploy decrypts `infra/secrets/*` from the
-commit you have checked out, and it refuses to run unless `HEAD` equals
-`version`. So the commit you deploy must contain the secrets you want:
-
-```mermaid
-flowchart LR
-  E["edit with sops"] --> C["commit + push to main"]
-  C --> P["wait for 'Publish image'<br/>on that commit"]
-  P --> D["deploy that NEW sha"]
-```
-
-An older SHA carries older (or no) secrets files. Deploying it writes those.
-
-## 5. Provision (once per VM)
-
-```mermaid
-sequenceDiagram
-  actor Op as Operator
-  participant V as VM
-  Op->>V: ssh root@203.0.113.10 (keep this session OPEN)
-  Op->>V: provision.yml -e ansible_user=root
-  V-->>Op: deploy user + key, sudo ok (proved from your laptop)
-  V-->>Op: sshd: no root, no password (checked with sshd -T)
-  V-->>Op: ufw 22/80/443, fail2ban, chrony, Docker, /opt/biddaloy folders
-  Op->>V: provision.yml again, as deploy
-  V-->>Op: changed=0
-```
-
-```bash
-cd infra/ansible
-ansible-playbook -i inventory/prod.yml provision.yml -e ansible_user=root   # first run
-ansible-playbook -i inventory/prod.yml provision.yml | tail -3              # second run: changed=0
-```
-
-**Keep a root SSH session open until the second run succeeds.** The first run
-turns root and password login off. It first runs
-`ssh -o BatchMode=yes deploy@<host> sudo -n true` from your laptop and stops if
-that fails. If you are locked out anyway, use the provider's VNC console.
-
-Folders and owners it creates (from `provision.yml`):
-
-| Path                                     | Owner         | Mode                        |
-| ---------------------------------------- | ------------- | --------------------------- |
-| `/opt/biddaloy/{prod,demo,staging,ops}/` | `root:deploy` | 0750                        |
-| `/opt/biddaloy/<env>/.env`               | `root:deploy` | 0640                        |
-| `/opt/biddaloy/certs/`, its files        | `root:root`   | 0700 / 0600                 |
-| `/opt/biddaloy/<env>/drill/` (not ops)   | `10001:10001` | 0500                        |
-| `/opt/biddaloy/<env>/drill/key.txt`      | `10001`       | 0400 (you copy it in)       |
-| `/opt/biddaloy/ops/.env`                 | `root:deploy` | 0640 (written by `ops.yml`) |
-
-Check from outside: `nmap -Pn 203.0.113.10` shows only 22, 80, 443. This is only
-meaningful after prod is up (section 6), because the play's own public-port check
-sees nothing on a fresh VM.
-
-Put the backup age **private** key on the host by hand. Nothing writes it (its
-master copy is in your password manager, never in git). The `backup` container
-needs it, and a prod deploy checks it in pre-flight: missing, wrong owner or
-wrong mode stops the deploy before anything changes. From the laptop, with no
-temp file on the host ([12-operations.md section 8](12-operations.md#8-secrets-and-rotation)):
-
-```bash
-ssh deploy@203.0.113.10 "sudo sh -c 'umask 0377; cat > /opt/biddaloy/prod/drill/key.txt && chown 10001:10001 /opt/biddaloy/prod/drill/key.txt'" < ~/age-key.txt
-ssh deploy@203.0.113.10 sudo stat -c '%u %a' /opt/biddaloy/prod/drill/key.txt   # must print: 10001 400
-```
-
-Put the Cloudflare Origin CA pair on the host too. No play does it yet (Known
-gaps #4, issue #2745). `/opt/biddaloy/certs` is root-only, so pipe it through
-`sudo`:
-
-```bash
-sops -d --input-type binary --output-type binary infra/secrets/origin-ca.enc.pem \
-  | ssh deploy@203.0.113.10 "sudo sh -c 'umask 077; cat > /opt/biddaloy/certs/origin.pem'"
-sops -d --input-type binary --output-type binary infra/secrets/origin-ca-key.enc.pem \
-  | ssh deploy@203.0.113.10 "sudo sh -c 'umask 077; cat > /opt/biddaloy/certs/origin.key'"
-ssh deploy@203.0.113.10 "sudo stat -c '%n %U %a' /opt/biddaloy/certs/origin.pem /opt/biddaloy/certs/origin.key"   # both: root 600
-```
-
-## 6. First deploy (prod, demo, ops)
-
-Order matters. Access comes before anything is exposed. Then prod, then ops
-(its UIs are reached over an SSH tunnel until the last step), then demo and
-staging.
+## Part 0. The picture and the order
 
 ```mermaid
 flowchart TD
-  A["checkout a SHA that has<br/>your secrets commit"] --> B["export SMOKE_* logins"]
-  B --> C["deploy.yml -e env=prod"]
-  C --> D{"green?"}
-  D -- no --> E["auto-rollback to last ok<br/>(none on first deploy: read the error)"]
-  D -- yes --> F["ops.yml<br/>(BESZEL_KEY empty is fine)"]
-  F --> G["admins over SSH tunnel,<br/>BESZEL_KEY, ops.yml again"]
-  G --> K["Kuma push URLs:<br/>commit, deploy the new SHA"]
-  K --> H["demo host (step 8)"]
-  H --> ST["staging (step 9)"]
-  ST --> AC["Access confirmed:<br/>OPS_DOMAIN + STAGING_DOMAIN,<br/>commit, deploy the new SHA"]
+  P1["1 Laptop tools"] --> P2["2 Keys"]
+  P2 --> P3["3 Buy the VM"]
+  P3 --> P4["4 Cloudflare:<br/>zone, tunnel, DNS, Access,<br/>Turnstile, R2"]
+  P4 --> P5["5 GitHub:<br/>deploy key, GHCR token,<br/>Actions secrets"]
+  P5 --> P6["6 Sentry, Telegram, SMS"]
+  P6 --> P7["7 Provision the VM<br/>(prints 2 public keys)"]
+  P7 --> P8["8 Secrets:<br/>.sops.yaml + 5 files"]
+  P8 --> P9["9 Backup age key"]
+  P9 --> P10["10 First deploy"]
+  P10 --> P11["11 After: super admin,<br/>Smoke Test School, Kuma, Beszel"]
+  P11 --> P12["12 Every day use"]
+  P12 -.-> P13["13 Switch VM"]
+  P12 -.-> P14["14 Direct mode"]
+  P12 -.-> P15["15 Ops on its own VM"]
+  P12 -.-> P16["16 Rotate / lose a key"]
 ```
 
-Run every `ansible-playbook` line below from `infra/ansible` (`cd infra/ansible`). Run `git` from the repo root.
+Parts 4 to 6 only create accounts and collect values. Nothing is installed until
+part 7. You can do 4 to 6 in any order, but finish them before part 8, because part 8
+needs every value.
 
-1. **Find the SHA.** It is the 40-character commit of the build you want, and it must contain your secrets commit from section 4 (the deploy reads secrets from the checkout). Take the newest `main` commit with a green run: GitHub > Actions > "Publish image" > the commit.
+### Accounts you will have at the end
 
-   ```bash
-   git fetch && git checkout 3f9c2ab1d4e5f60718293a4b5c6d7e8f90a1b2c3   # example SHA
-   ls infra/secrets/*.enc.env                                          # prod, demo, staging, ops
-   export SMOKE_ADMIN_EMAIL=... SMOKE_ADMIN_PASSWORD=... \
-          SMOKE_TEACHER_EMAIL=... SMOKE_TEACHER_PASSWORD=... \
-          SMOKE_SUPER_ADMIN_EMAIL=... SMOKE_SUPER_ADMIN_PASSWORD=...
-   ```
+| Account                 | What it is for                                                       | Part |
+| ----------------------- | -------------------------------------------------------------------- | ---- |
+| Cloudflare              | DNS, tunnel, Access login for staging and ops, Turnstile, R2 backups | 4    |
+| VM provider             | The one server (6 vCPU, 12 GB, 100 GB NVMe)                          | 3    |
+| GitHub                  | Code, image registry (GHCR), deploy button, deploy keys              | 5    |
+| Sentry                  | Error reports (one browser project, one server project)              | 6    |
+| Telegram                | Alerts and deploy messages (a bot and a group)                       | 6    |
+| SMS gateway             | The app's own SMS and critical alerts                                | 6    |
+| Google, Facebook (Meta) | "Sign in with" buttons (prod only, optional)                         | 6    |
 
-   The play refuses to start unless `HEAD` equals `version`, or if `docker-compose*.yml` or `nginx/` has uncommitted changes (they are copied from your checkout). `version` must be the full 40 characters; a short SHA fails pre-flight.
+### Hostnames
 
-2. **Plan first:** `ansible-playbook -i inventory/prod.yml deploy.yml -e env=prod -e version=$(git rev-parse HEAD) --check`
-3. **Deploy:** `ansible-playbook -i inventory/prod.yml deploy.yml -e env=prod -e version=$(git rev-parse HEAD)`
+The default domain in the repo is `schoolmanagerp.com`
+(`infra/ansible/inventory/prod.yml`). Seven names are served:
 
-   Watch it run, in this order:
-   1. Pre-flight: inputs, checkout, image tags, Access gate, age key. Nothing changes yet.
-   2. `.env`, with `APP_VERSION` inside.
-   3. `nginx -t` on the new templates. A failure puts the old files back.
-   4. Pull.
-   5. Backup. Skipped only when the volume `biddaloy-prod_pgdata` does not exist yet, i.e. the very first deploy.
-   6. Migrations, `up`, nginx recreate, edge networks.
-   7. Wait for `/api/health/ready` (up to 2 min).
-   8. Smoke test, then the `deploys.log` line.
+| Name                         | Goes to | Login in front of it                |
+| ---------------------------- | ------- | ----------------------------------- |
+| `schoolmanagerp.com`         | landing | none                                |
+| `app.schoolmanagerp.com`     | prod    | none (the app's own login)          |
+| `demo.schoolmanagerp.com`    | demo    | none                                |
+| `staging.schoolmanagerp.com` | staging | Cloudflare Access (+ the app login) |
+| `kuma.schoolmanagerp.com`    | Kuma    | Cloudflare Access (+ Kuma login)    |
+| `beszel.schoolmanagerp.com`  | Beszel  | Cloudflare Access (+ Beszel login)  |
+| `logs.schoolmanagerp.com`    | Dozzle  | Cloudflare Access (+ Dozzle login)  |
 
-4. **Ops stack.** Cloudflare Access for `ops.<domain>` must already exist (day 0). `BESZEL_KEY` stays empty in `ops.enc.env`:
+## Part 1. Laptop tools
 
-   ```bash
-   ansible-playbook -i inventory/prod.yml ops.yml
-   ```
+```bash
+brew install ansible sops age gh cloudflared
+cd ~/Workspace-personal/biddaloy            # your clone of tareq89/biddaloy
+ansible-galaxy install -r infra/ansible/requirements.yml
+gh auth login
+```
 
-   It writes `/opt/biddaloy/ops/.env`, creates `biddaloy-ops-edge` if prod has not, and starts the stack. Nothing is exposed: the UIs bind `127.0.0.1`. The `beszel-agent` container restarts in a loop until step 5; that is expected, and the play prints what is left.
+Versions to expect (the VM pins its own, see `infra/ansible/group_vars/all.yml`):
 
-5. **Admins, over an SSH tunnel.** `/kuma/` and `/beszel/` do not load under `ops.<domain>` (Known gaps #2), so the tunnel is the way in for now:
+```bash
+ansible --version | head -1      # ansible [core 2.18.x]  (CI and the VM use 2.18.6)
+sops --version                   # sops 3.9.x or newer (needed for --filename-override)
+age --version                    # 1.x
+gh --version                     # 2.x
+cloudflared --version            # any recent version
+```
 
-   ```bash
-   ssh -L 8090:127.0.0.1:8090 -L 3001:127.0.0.1:3001 deploy@203.0.113.10
-   # Beszel: http://localhost:8090    Kuma: http://localhost:3001
-   ```
+Optional: `htpasswd` (macOS has it built in; Linux: `apt install apache2-utils`).
+Part 8 uses it to make the staging password hash, and part 14 for basic-auth users.
 
-   **Beszel:** create the admin, "Add system", host `beszel-agent`, port `45876`. Copy the public key it shows into `sops infra/secrets/ops.enc.env` as `BESZEL_KEY`, then **run the whole `ops.yml` again**. `--tags env` would only write the file and start nothing. Add a Shoutrrr Telegram URL in hub settings (`telegram://<bot-token>@telegram?chats=<group-id>`).
+**If it fails.**
+`ansible-galaxy` says "role not found": check you are online, then re-run; the roles are
+pulled from GitHub by commit SHA. Next: `ansible-galaxy install -r infra/ansible/requirements.yml --force`.
 
-6. **Uptime Kuma** (tunnel, `http://localhost:3001`). Create the admin, then:
-   1. Create the push monitors `backup-hourly` and `drill-weekly`. Kuma shows each push URL as `http://localhost:3001/api/push/<token>` (you came in over the tunnel). Keep only the token. In `sops infra/secrets/prod.enc.env` set `BACKUP_PUSH_URL` and `DRILL_PUSH_URL` to `http://uptime-kuma:3001/api/push/<token>`.
-   2. Skip `demo-reset-nightly` for now. The demo host can reach Kuma only through `https://ops.<domain>/kuma/` with the `demo-reset-push` service token, and `/kuma/` does not load (Known gaps #2). Until Kuma has its own hostname, the demo's Sentry cron (`SENTRY_CRONS_URL`, [12-operations 3.7](12-operations.md#37-demo-reset-failed-sentry-cron-alert)) is its only alert.
-   3. Apply: commit `prod.enc.env`, push to `main`, wait for "Publish image", and deploy **that new SHA** (section 10, rotate a secret).
-   4. After the next full hour, on the VM: `cd /opt/biddaloy/prod && docker compose -p biddaloy-prod logs backup | grep 'Kuma push'` prints nothing.
-   5. Add the other monitors from the table in [12-operations.md section 1](12-operations.md#uptime-kuma-monitors). `app-internal-ready`: URL `http://prod-app:3000/api/health/ready`, header `X-Health-Token: <HEALTH_TOKEN from prod.enc.env>`, accepted 200-299, no keyword.
-   6. Notifications: Telegram default-on; SMS "Webhook" attached only to `app-public`, `backup-hourly`, `drill-weekly`.
-7. **Postgres connections monitor and its read-only role:** [section 8](#8-alerts-the-postgres-monitor-and-the-verification-log). Read the warning there first.
-8. **Demo, on its own host.** It binds ports 80/443 like prod, so it cannot share the VM. `inventory/prod.yml` lists only prod, so pass the demo IP as an ad-hoc inventory (`-i '<demo-ip>,'`, the comma matters). That inventory has no `ansible_user`, so name the user each time. Untested end to end (Known gaps #6).
-   1. Provision it, keeping a root session open as in section 5:
+## Part 2. Keys
 
-      ```bash
-      ansible-playbook -i '<demo-ip>,' provision.yml -e ansible_user=root
-      ```
-
-   2. Put the Origin CA pair in its `/opt/biddaloy/certs/` with the section 5 commands (demo nginx mounts `TLS_CERT_DIR` too).
-   3. Copy the files and `.env`. The play's last `up` may fail, because `app` refuses to boot before the first reset. That is expected.
-
-      ```bash
-      ansible-playbook -i '<demo-ip>,' -u deploy deploy.yml -e env=demo -e version=$(git rev-parse HEAD)
-      ```
-
-   4. First start, on the demo host. Keep `-p biddaloy-demo`: it is the project name `deploy.yml` uses. Without it compose makes a second project (`demo`) with empty volumes.
-
-      ```bash
-      cd /opt/biddaloy/demo
-      C="docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml"
-      $C up -d db redis seaweedfs
-      $C run --rm demo-reset /app/reset.sh --now    # first run logs "app not restarted: first run"
-      $C up -d
-      ```
-
-   5. The smoke test is skipped for demo until `demo_domain` is in the inventory.
-
-9. **Staging** (same VM as prod, see section 7): `ansible-playbook -i inventory/prod.yml deploy.yml -e env=staging -e version=$(git rev-parse HEAD)`. It runs `yarn config:check --env staging` on your laptop first and stops on a provider key, a prod database or a real Turnstile secret. Seed it once: [07-deployment.md Staging](07-deployment.md#staging).
-10. **Open the front door for ops and staging.** Only now, with both Access applications verified (`curl -sI` gives `302` to `cloudflareaccess.com`):
-    1. Set `access_confirmed: true` in `infra/ansible/inventory/prod.yml`.
-    2. `sops infra/secrets/prod.enc.env`: set `OPS_DOMAIN=ops.<domain>` and `STAGING_DOMAIN=staging.<domain>`.
-    3. Commit both files, push to `main`, wait for "Publish image", and deploy prod at **that new SHA**. The deploy reads both files from the checkout, so the running SHA would still say "no". nginx is recreated and now serves both names.
-    4. Check `https://ops.<domain>/dozzle/` asks for the Access login first, and the origin check in [25-cloudflare.md](25-cloudflare.md#access-policies) returns an empty reply.
-
-## 7. Every release
+Three kinds of key. Do not mix them up.
 
 ```mermaid
 flowchart LR
-  A["checkout SHA"] --> B["deploy.yml -e env=staging"]
-  B --> C["click through staging.<domain>"]
-  C --> D["deploy.yml -e env=prod<br/>same version"]
-  D --> E["smoke test runs by itself (prod only; staging and demo skip it)"]
-  E --> F["tail deploys.log"]
+  subgraph laptop ["Your laptop"]
+    OP["operator age key<br/>(opens secrets)"]
+    SSH["your SSH key<br/>(logs in to the VM)"]
+  end
+  subgraph offline ["Somewhere else, offline"]
+    REC["recovery age key<br/>(opens secrets if the laptop dies)"]
+  end
+  subgraph vm ["The VM makes these itself (part 7)"]
+    H["host age key"]
+    RD["repo deploy key"]
+  end
+  subgraph gh ["GitHub Actions"]
+    GD["GitHub deploy SSH key<br/>(can run only biddaloy-deploy)"]
+  end
 ```
 
+### 2a. Operator age key (your laptop)
+
 ```bash
-git fetch && git checkout <40-char sha>   # repo root; SMOKE_* exported (section 6 step 1)
+mkdir -p ~/.config/sops/age
+age-keygen -o ~/.config/sops/age/keys.txt
+# Public key: age1qz9x...        <- copy this line, it is the PUBLIC half
+export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+```
+
+Put the `export` line in your shell profile. The file holds the **private** key. Never
+commit it, never paste it in chat.
+
+### 2b. Recovery age key (not on the same laptop)
+
+Run this on a **different** machine (a friend's, or a clean one you will wipe), then move
+the private half somewhere offline:
+
+```bash
+age-keygen -o recovery.txt
+# Public key: age1rk4m...        <- you will paste this into .sops.yaml
+```
+
+Store `recovery.txt` on an encrypted USB stick (and a printed copy in a safe place).
+Delete it from the machine you made it on. **Rule: the operator key and the recovery
+key never live on the same laptop.** If they did, losing the laptop would lose both.
+
+### 2c. Your SSH key
+
+The playbook looks for `~/.ssh/id_ed25519` and its `.pub` by default
+(`operator_ssh_privkey` in `infra/ansible/group_vars/all.yml`).
+
+```bash
+ls ~/.ssh/id_ed25519 ~/.ssh/id_ed25519.pub || ssh-keygen -t ed25519 -C "you@laptop"
+```
+
+A different path: add `-e operator_ssh_privkey=~/.ssh/other` to every `ansible-playbook` line
+in part 7. Two operators: see [`infra/ansible/README.md`](../../infra/ansible/README.md).
+
+### 2d. The SSH key pair for GitHub deploys
+
+GitHub Actions logs in as `deploy` with this key. On the VM it can run **only**
+`biddaloy-deploy` (a "forced command", D12). Make a key with no passphrase:
+
+```bash
+ssh-keygen -t ed25519 -N '' -C biddaloy-github-deploy -f ~/.ssh/biddaloy_github_deploy
+cat ~/.ssh/biddaloy_github_deploy.pub
+# ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK7f... biddaloy-github-deploy
+```
+
+The **public** line goes to the VM in part 7. The **private** file goes into the GitHub
+secret `DEPLOY_SSH_KEY` in part 5. The playbook accepts only one line of the form
+`ssh-ed25519 <base64> [comment]` (`provision.yml`, first task).
+
+## Part 3. Buy the VM
+
+Ask for:
+
+- Ubuntu **24.04 LTS** or newer, x86_64 or arm64 (22.04 is refused: its Python 3.10 cannot run the ansible-core the deploy uses on the VM)
+- 6 vCPU, 12 GB RAM, 100 GB NVMe (decision P12)
+- a public **IPv4** address
+- your SSH public key installed for **root** (most providers have a field for it)
+
+Check it works:
+
+```bash
+ssh root@203.0.113.10 true && echo ok
+# ok
+```
+
+If the provider gives you a different admin user (`ubuntu`, `admin`), use that name in
+part 7: `-e ansible_user=ubuntu`. It must be able to `sudo`.
+
+**If it fails.** `Permission denied (publickey)`: the provider did not install your key. Add
+it in the provider's panel, or use their web console to paste it into
+`/root/.ssh/authorized_keys`. Next: re-run the `ssh` line.
+
+**Providers.** Any plain Ubuntu VM works. The setup needs no provider feature, only SSH and
+a stable IPv4. If you choose a **BDIX** provider (Bangladesh local network; needed for
+direct mode, part 14) check three things before you pay:
+
+| Check                 | Why                                                                           |
+| --------------------- | ----------------------------------------------------------------------------- |
+| A public IPv4 address | direct mode needs ports 80 and 443 reachable from the internet                |
+| VNC / web console     | if you ever lock yourself out of SSH, the console is the only way back in     |
+| Snapshot support      | take one before the first deploy and before each big change (cheap insurance) |
+
+## Part 4. Cloudflare, tunnel mode
+
+Tunnel mode means **no web port is open** on the VM. A small program on the VM
+(`cloudflared`) calls out to Cloudflare, and Cloudflare sends visitors through that call.
+
+```mermaid
+flowchart LR
+  V["Visitor"] --> CF["Cloudflare<br/>(TLS, Access login)"]
+  CF -->|"tunnel, VM dials out"| C["cloudflared on the VM"]
+  C --> N["nginx"]
+  N --> A["prod / staging / demo / ops / landing"]
+```
+
+### 4a. Add the zone
+
+1. Cloudflare dashboard, **Add a site**, enter `schoolmanagerp.com`, pick the Free plan.
+2. At your domain registrar, replace the nameservers with the two Cloudflare shows
+   (for example `ada.ns.cloudflare.com` and `bob.ns.cloudflare.com`).
+3. Wait until the dashboard says **Active** (minutes to a few hours).
+
+You do not set SSL/TLS mode for the tunnel: Cloudflare to `cloudflared` is already
+encrypted and the last hop stays inside the VM. Other Cloudflare settings (cache rule for
+`/api/*`, WAF, rate limit, Bot Fight off): [25-cloudflare.md](25-cloudflare.md). Note
+that page still describes the old Origin CA setup; the rows about `/api/` cache, WAF,
+rate limit and Bot Fight Mode still apply.
+
+### 4b. Create the tunnel
+
+```bash
+cloudflared tunnel login                 # opens a browser, pick the zone
+cloudflared tunnel create biddaloy
+# Created tunnel biddaloy with id 5b1c7a52-0f3e-4c34-9a77-3d1d5a0c1f10
+# Tunnel credentials written to /Users/you/.cloudflared/5b1c7a52-0f3e-4c34-9a77-3d1d5a0c1f10.json
+```
+
+Two values for `edge.enc.env` (part 8):
+
+| Key                                  | Value                                                                   |
+| ------------------------------------ | ----------------------------------------------------------------------- |
+| `CLOUDFLARE_TUNNEL_ID`               | `5b1c7a52-0f3e-4c34-9a77-3d1d5a0c1f10`                                  |
+| `CLOUDFLARE_TUNNEL_CREDENTIALS_JSON` | the file's contents on **one line**: `jq -c . ~/.cloudflared/<id>.json` |
+
+The tunnel's routing (which hostname goes where) is **not** set in the dashboard. It is
+rendered from git by the deploy (`infra/ansible/templates/cloudflared-config.yml.j2`, D17).
+
+### 4c. DNS: one CNAME per hostname
+
+```bash
+for h in schoolmanagerp.com app.schoolmanagerp.com demo.schoolmanagerp.com \
+         staging.schoolmanagerp.com kuma.schoolmanagerp.com \
+         beszel.schoolmanagerp.com logs.schoolmanagerp.com; do
+  cloudflared tunnel route dns biddaloy "$h"
+done
+# Added CNAME app.schoolmanagerp.com which will route to this tunnel
+```
+
+Check in the dashboard (DNS > Records): each name is a **Proxied** CNAME to
+`5b1c7a52-0f3e-4c34-9a77-3d1d5a0c1f10.cfargotunnel.com`.
+
+> `www.schoolmanagerp.com` is not in the list above because it is not one of the seven
+> names. The tunnel config routes it too, and nginx redirects it to the apex. If you want
+> it to work, add a proxied `www` CNAME to the same tunnel target.
+
+### 4d. Zero Trust: the Access login (staging and ops)
+
+1. Dashboard > **Zero Trust**. First time, pick a team name, for example `myteam`
+   (your login page becomes `myteam.cloudflareaccess.com`). That name is
+   `CF_ACCESS_TEAM`.
+2. **Access > Applications > Add an application > Self-hosted.**
+3. Application 1, name `Staging`, hostname `staging.schoolmanagerp.com`, session 24 hours.
+   Policy `Owner only`: action **Allow**, include **Emails** = your email. Identity
+   provider: Google (or One-time PIN if you have not set Google up). Save, then open the
+   application and copy **Application Audience (AUD) Tag**: that is `CF_ACCESS_AUD_STAGING`.
+4. Application 2, name `Ops`, **three** hostnames: `kuma.schoolmanagerp.com`,
+   `beszel.schoolmanagerp.com`, `logs.schoolmanagerp.com`, same `Owner only` policy.
+   Its AUD tag is `CF_ACCESS_AUD_OPS`.
+5. **Bypass for Kuma push (D14).** The VM's own timers post job results to
+   `https://kuma.schoolmanagerp.com/api/push/<token>` and cannot answer a login. Add a
+   third application: name `Kuma push`, hostname `kuma.schoolmanagerp.com`, path
+   `api/push/*`, one policy with action **Bypass** and include **Everyone**. A path-scoped
+   application is more specific than the `Ops` one, so it wins for that path only.
+   The tunnel config already skips the Access check for that path on the VM side (first
+   `ingress` rule of `cloudflared-config.yml.j2`); this is the Cloudflare-side half. The
+   push URL carries a secret token, and Kuma checks it.
+
+**If it fails.** Open `https://staging.schoolmanagerp.com` in a private window after part 10:
+it must show the Cloudflare login. A page with no login means the Access application does
+not cover that hostname. Next: edit the application's hostnames.
+
+No deploy checks this for you: there is no `access_confirmed` switch any more. In tunnel
+mode, Cloudflare Access is what keeps staging and ops closed. In direct mode, the basic-auth
+login does the same job.
+
+### 4e. Turnstile (the captcha on public forms)
+
+Dashboard > **Turnstile > Add widget**.
+
+| Widget | Hostname                  | Keys go to                                                           |
+| ------ | ------------------------- | -------------------------------------------------------------------- |
+| 1      | `app.schoolmanagerp.com`  | `prod.enc.env`: `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`         |
+| 2      | `demo.schoolmanagerp.com` | `demo.enc.env`: same two keys (replace the test pair in the example) |
+
+Staging uses Cloudflare's public always-pass test pair, already in
+`staging.example.env`. Prod needs both keys or neither (`config:check` refuses one alone).
+
+### 4f. R2 (backups and archived logs)
+
+1. Dashboard > **R2 Object Storage > Create bucket**, name `biddaloy-backups`
+   (location: automatic).
+2. Note your account id (R2 overview, right side). The S3 endpoint is
+   `https://<account-id>.r2.cloudflarestorage.com`, for example
+   `https://0a1b2c3d4e5f60718293a4b5c6d7e8f9.r2.cloudflarestorage.com`.
+3. **R2 > Manage API tokens > Create API token.**
+   - **Token 1:** permission **Object Read & Write**, restricted to bucket
+     `biddaloy-backups`. Copy the Access Key ID and Secret Access Key. They go to prod
+     `BACKUP_S3_ACCESS_KEY_ID` / `BACKUP_S3_SECRET_ACCESS_KEY` and edge
+     `LOG_ARCHIVE_S3_ACCESS_KEY_ID` / `LOG_ARCHIVE_S3_SECRET_ACCESS_KEY`.
+   - **Token 2:** permission **Object Read only**, same bucket. It goes to staging
+     `BACKUP_S3_ACCESS_KEY_ID` / `BACKUP_S3_SECRET_ACCESS_KEY` (D19). Staging can never
+     overwrite a prod backup.
+4. The bucket name `biddaloy-backups` and the endpoint also go into the `*_S3_BUCKET`
+   and `*_S3_ENDPOINT` keys of the same files.
+
+Backups land under `db/hourly/` and `db/daily/`; archived logs under `logs/`.
+
+## Part 5. GitHub
+
+### 5a. Repo deploy key (the VM reads the code)
+
+The VM clones `git@github.com:tareq89/biddaloy.git` with a key **it made itself** in part 7.
+You come back to this step after part 7 prints it. Repo **Settings > Deploy keys > Add
+deploy key**, title `biddaloy-vm`, paste the printed line, leave **Allow write access
+off** (read-only).
+
+### 5b. GHCR pull token
+
+The VM pulls images from `ghcr.io/tareq89/*`. When the repo is private the packages are
+private too (P16), so the VM needs a token.
+
+GitHub > your avatar > **Settings > Developer settings > Personal access tokens >
+Tokens (classic) > Generate new token (classic)**. Scope: **only `read:packages`**.
+It goes to edge: `GHCR_PULL_USER` = your GitHub username, `GHCR_PULL_TOKEN` = `ghp_...`.
+
+### 5c. Actions secrets for the Deploy button
+
+The workflow `.github/workflows/deploy.yml` uses an **Environment** named `production`.
+Put the three deploy secrets in that environment, **not** at repo level (repo-level secrets
+would let any branch deploy).
+
+1. Repo **Settings > Environments > New environment** `production`.
+2. **Deployment branches and tags** > **Selected branches** > add `main`.
+3. Add environment secrets:
+
+| Secret                   | Value                                                                |
+| ------------------------ | -------------------------------------------------------------------- |
+| `DEPLOY_HOST`            | `203.0.113.10`                                                       |
+| `DEPLOY_SSH_KEY`         | the whole **private** file `~/.ssh/biddaloy_github_deploy` (part 2d) |
+| `DEPLOY_SSH_KNOWN_HOSTS` | one line from `ssh-keyscan -t ed25519 203.0.113.10`                  |
+
+Make the known-hosts line, and check it against the VM's own fingerprint before you trust it:
+
+```bash
+ssh-keyscan -t ed25519 203.0.113.10
+# 203.0.113.10 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPq2...
+ssh-keyscan -t ed25519 203.0.113.10 | ssh-keygen -lf -
+# 256 SHA256:Zk3e... 203.0.113.10 (ED25519)
+# Compare that SHA256 with the one printed on the VM console:
+#   ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+```
+
+Set them from the terminal if you like:
+
+```bash
+gh secret set DEPLOY_HOST --env production --body 203.0.113.10
+gh secret set DEPLOY_SSH_KEY --env production < ~/.ssh/biddaloy_github_deploy
+ssh-keyscan -t ed25519 203.0.113.10 | gh secret set DEPLOY_SSH_KNOWN_HOSTS --env production
+```
+
+Repo-level (used when images are built, `publish-image.yml`):
+
+| Kind     | Name                                                                                                                            | Value                                           |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Secret   | `SENTRY_AUTH_TOKEN`                                                                                                             | Sentry token for uploading source maps (part 6) |
+| Variable | `SENTRY_ORG`                                                                                                                    | your Sentry organisation slug                   |
+| Variable | `SENTRY_PROJECT`                                                                                                                | the **browser** project slug                    |
+| Variable | `PUBLIC_UMAMI_ID`, `PUBLIC_UMAMI_SRC`, `PUBLIC_CLARITY_ID`, `PUBLIC_META_PIXEL_ID`, `PUBLIC_WA_NUMBER`, `PUBLIC_AIPRAKTOR_SITE` | landing-site values, all optional               |
+
+`SENTRY_AUTH_TOKEN` is optional: without it the build skips source-map upload.
+Variables are in **Settings > Secrets and variables > Actions > Variables**.
+
+### 5d. Make the first images exist
+
+The VM only pulls; it never builds. Images are published when `main` changes.
+
+```bash
+gh workflow run publish-image.yml --ref main      # or merge any PR into main
+gh run list -w publish-image.yml --limit 3
+# completed  success  Publish images  main  workflow_dispatch  ...
+```
+
+It builds four images for each commit: `biddaloy-app`, `biddaloy-backup`,
+`biddaloy-demo-reset`, `biddaloy-landing`. Do part 8 first if you have not: you will
+publish again after you commit the secrets.
+
+## Part 6. Sentry, Telegram, SMS
+
+### Sentry
+
+Create two projects in one organisation: a **Browser (React)** project and a **Node.js**
+project. Each gives a DSN (`https://<key>@o0.ingest.sentry.io/<id>`).
+
+| Key                          | From                                                           |
+| ---------------------------- | -------------------------------------------------------------- |
+| `SENTRY_DSN_WEB`             | the browser project DSN                                        |
+| `SENTRY_DSN`                 | the server project DSN                                         |
+| `SENTRY_TRACES_SAMPLE_RATE`  | `0.1` (must be filled; empty fails boot)                       |
+| `SENTRY_CRON_MONITOR_URL`    | optional: Sentry cron monitor check-in URL                     |
+| `SENTRY_AUTH_TOKEN` (GitHub) | Settings > Auth Tokens, scope `project:releases` / source maps |
+
+Prod, staging and demo all use the same two DSNs. The environment name comes from
+`SENTRY_ENVIRONMENT`, so Sentry shows them as separate environments by itself.
+
+### Telegram (alerts and deploy messages)
+
+1. In Telegram, message **@BotFather**, send `/newbot`, follow the prompts. It replies with
+   a token like `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`. That is `TELEGRAM_BOT_TOKEN`.
+2. Create a group, add the bot to it, send any message in the group.
+3. Read the chat id:
+
+   ```bash
+   curl -s "https://api.telegram.org/bot123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11/getUpdates" \
+     | jq '.result[].message.chat | {id, title}'
+   # { "id": -1001234567890, "title": "Biddaloy alerts" }
+   ```
+
+   `-1001234567890` is `TELEGRAM_CHAT_ID` (negative for groups). Empty `result`? Send one
+   more message in the group and repeat.
+
+Both keys live in **`edge.enc.env`** (not ops). Every deploy decrypts edge first, and ops
+may move to another VM. Kuma's and Beszel's own Telegram alerts are set in their web UIs
+(part 11) and need no key here.
+
+### SMS gateway
+
+Use the gateway you already use for school SMS. You need an API key, a sender id, and the
+gateway's HTTP API URL. They fill `PLATFORM_SMS_PROVIDER`, `PLATFORM_SMS_API_KEY`,
+`PLATFORM_SMS_SENDER_ID`, `PLATFORM_SMS_API_URL` in `prod.enc.env`, plus
+`PLATFORM_ALERT_PHONES` (fallback phone numbers for platform alerts, comma separated).
+Staging and demo never get SMS keys (`config:check --env staging` refuses them).
+
+### Google and Facebook sign-in (optional, prod only)
+
+Create an OAuth client in the Google Cloud console and a Meta app. Their id and secret
+go to the four `*_OAUTH_*` keys of `prod.enc.env`. Leave all four empty to turn the
+buttons off.
+
+## Part 7. Provision
+
+Provision turns the empty Ubuntu VM into the hardened Docker host (SSH keys only, firewall,
+fail2ban, auto-updates, Docker, `/opt/biddaloy`, the host age key, the repo deploy key,
+the nightly timers). It does not deploy the app.
+
+```mermaid
+flowchart LR
+  A["fresh VM, root login"] -->|"1st run: -e ansible_user=root"| B["probe: can deploy@ log in with<br/>your key and use sudo?"]
+  B -- "no" --> X["play stops.<br/>Root login is still open."]
+  B -- "yes" --> C["root and password login off,<br/>firewall, Docker, timers"]
+  C --> D["prints 2 public keys"]
+  D -->|"2nd run, as deploy"| E["changed=0"]
+```
+
+### 7a. First run
+
+```bash
+export BIDDALOY_HOST=203.0.113.10
 cd infra/ansible
-ansible-playbook -i inventory/prod.yml deploy.yml -e env=staging -e version=<40-char sha>
-ansible-playbook -i inventory/prod.yml deploy.yml -e env=prod    -e version=<40-char sha>
-ssh deploy@203.0.113.10 'sudo tail -n 5 /opt/biddaloy/prod/deploys.log'   # file is root-owned, 0640
-# 2026-10-20T09:00:00Z prod 3f9c2ab... ok
+ansible-playbook provision.yml -e ansible_user=root
 ```
 
-`deploys.log` lines are `<time> <env> <version> <ok|rolled-back|failed>`.
+**Keep a root SSH session open in another terminal until the second run succeeds.**
+The play turns off root login. Before it does, it adds your key to `deploy` and tests that
+login. If the test fails, the play stops with root still open.
 
-**What rollback does and does not do** (decision D11: migrations are never rolled back).
+At the end it prints (values are examples):
 
-```mermaid
-flowchart LR
-  F["a step fails after pre-flight"] --> R["APP_VERSION := last ok line,<br/>else the running app's image tag"]
-  R --> U["compose up (old image)"]
-  U --> L["log rolled-back, play ends red"]
-  M["migrations already run"] -. "NOT reverted" .-> L
+```text
+TASK [Keys to register] ****
+ok: [biddaloy-1] =>
+  msg:
+  - 'HOST AGE PUBLIC KEY: age1w8x3tq5p7c9...'
+  - 'Add it to .sops.yaml, run `sops updatekeys infra/secrets/*.enc.env`, and commit.'
+  - 'REPO DEPLOY KEY: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ4n... biddaloy-repo-deploy'
+  - 'Add it as a read-only deploy key on the GitHub repo (Settings > Deploy keys).'
 ```
 
-- It redeploys the old **image** only. New compose and nginx files stay on the host (the nginx ones already passed `nginx -t`).
-- Migrations are not reverted. Every migration must keep the old code working.
-- The target is the last `ok` line in `deploys.log`. With none (log deleted, stack started by hand), it is the tag of the `app` container running now. With neither (first ever deploy) there is nothing to go back to.
-- If the app is still down, on the VM: `cd /opt/biddaloy/prod && docker compose -p biddaloy-prod ps -a`, then `docker compose -p biddaloy-prod logs --tail 100 app`. Without `-p` compose looks at an empty project named `prod`. Then [07-deployment.md "When rollback also fails"](07-deployment.md#when-rollback-also-fails).
-- Skip the pre-migration backup only on purpose: `-e skip_backup=true`.
+Copy the two values to where they go:
 
-## 8. Alerts, the Postgres monitor and the verification log
+| Printed value         | Goes to                                                                                         |
+| --------------------- | ----------------------------------------------------------------------------------------------- |
+| `HOST AGE PUBLIC KEY` | `.sops.yaml` (part 8)                                                                           |
+| `REPO DEPLOY KEY`     | GitHub repo Settings > Deploy keys, read-only ([5a](#5a-repo-deploy-key-the-vm-reads-the-code)) |
 
-Thresholds live in [12-operations.md section 2](12-operations.md#2-alert-thresholds). The alert path:
+You can read them again any time: `ssh deploy@203.0.113.10 'sudo age-keygen -y /opt/biddaloy/keys/host.age; cat ~/.ssh/github_repo.pub'`.
 
-```mermaid
-flowchart LR
-  H["Beszel agent: CPU, RAM, disk, containers"] --> BH["Beszel hub"] -->|Shoutrrr| T["Telegram group"]
-  K["Kuma monitors incl. Postgres SQL"] -->|notifier| T
-  K -->|"webhook, 3 critical only"| S["SMS gateway"]
-  T --> You
-  S --> You
+### 7b. Install the GitHub deploy key
+
+`github_deploy_pubkey_pinned` in `infra/ansible/inventory/prod.yml` is a **placeholder**
+(`UNSET-paste-the-GitHub-Actions-deploy-public-key-here`). While it starts with `UNSET`, no
+GitHub key is installed. Replace it with the line from part 2d, commit it, and re-run:
+
+```yaml
+# infra/ansible/inventory/prod.yml
+github_deploy_pubkey_pinned: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK7f... biddaloy-github-deploy
 ```
 
-### The read-only `monitor` role
+For a quick test without editing the file you can use the environment variable instead:
+`BIDDALOY_GITHUB_DEPLOY_PUBKEY="$(cat ~/.ssh/biddaloy_github_deploy.pub)"` before the run.
+Pinning it in the file is better: a later run from another laptop keeps the key.
 
-Run once on the VM (the db container already has `POSTGRES_USER` and `POSTGRES_DB`).
-Make a hex password with `openssl rand -hex 24`, and type it only at the
-`\password` prompt, so it stays out of shell history:
+### 7c. Second run, as `deploy`
 
 ```bash
-cd /opt/biddaloy/prod
-docker compose -p biddaloy-prod exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+ansible-playbook provision.yml | tail -3
+# PLAY RECAP *****
+# biddaloy-1 : ok=61 changed=0 unreachable=0 failed=0 skipped=4 rescued=0 ignored=0
 ```
 
-```sql
-CREATE ROLE monitor LOGIN CONNECTION LIMIT 3;
-GRANT pg_monitor TO monitor;   -- read-only stats views, no table access
-\password monitor
-\q
-```
+`changed=0` is the proof that provision is repeatable. After 7b, run once more: the first
+run after setting the key shows `changed=1`, the next one `changed=0`.
 
-`pg_monitor` can read only stats and settings views, no tables. If Postgres is at
-`max_connections=300`, the monitor cannot connect either, and that also alerts.
-
-### Kuma click path (Postgres monitor)
-
-> **Warning, does not work as built.** Kuma sits only on `biddaloy-ops-edge`. Prod's
-> `db` is on `biddaloy-prod_default` and published only on the host's `127.0.0.1:5432`,
-> so the connection string below cannot be reached from Kuma (Known gaps #5). Until
-> that is decided, run the same query from a host cron job and push the result to a
-> Kuma **Push** monitor. UNVERIFIED, untested.
-
-1. Kuma > **Add New Monitor** > type **Postgres**.
-2. Name `postgres-connections`. Connection string
-   `postgres://monitor:<password>@biddaloy-prod-db-1:5432/<POSTGRES_DB>?sslmode=<match DB_SSL>` (the name Kuma would use if it could reach the db).
-3. Query: `SELECT CASE WHEN count(*) > 240 THEN 1/0 ELSE 1 END FROM pg_stat_activity`
-   (the division by zero is an error, and an error means "down": it fires above 80% of `max_connections=300`).
-4. Interval 60 s, retries 2, notifier Telegram. Save.
-5. Add the row to the monitors table in 12-operations section 1 in the same PR.
-
-### Beszel click path (host and containers)
-
-Beszel hub (tunnel, `http://localhost:8090`) > system `biddaloy-prod` > bell icon (**Alerts**). Set CPU, Memory, Disk, Status
-as in the table. Then open a container row and enable its container-down alert for
-`biddaloy-prod-app-1`, `db-1`, `redis-1`, `seaweedfs-1`, `nginx-1` and `backup-1`
-(if the UI has no per-container alert, see Known gaps #7). Bandwidth stays off. Notification: the Shoutrrr Telegram URL.
-
-The VM's agent sees only the VM's own containers. `biddaloy-demo-app` runs on the
-demo host, so alerting on it needs a second `beszel-agent` there. That is not built.
-
-### Verification (one alert at a time)
-
-Fire each alert once, see the Telegram message **and** the recovery message, then
-write the date in the log below.
-
-**Where to run it.** Best on the rehearsal VM (Known gaps #1), before go-live.
-On the live VM, only in an announced off-hours window: the RAM and disk tests
-squeeze the same machine that runs prod Postgres. Size them as below, never by
-guess. A test past 100% means the OOM killer or a full disk, and Postgres stops.
+Check:
 
 ```bash
-# RAM alert (Memory > 90% for 10 min). Brings use to 92%. Needs: sudo apt install stress-ng
-read -r total used <<<"$(free -m | awk '/^Mem:/ {print $2, $3}')"
-stress-ng --vm 1 --vm-bytes $(( total * 92 / 100 - used ))M --timeout 11m
-
-# Disk alert (Disk > 80%). Brings use to 82%, then delete the file.
-read -r size used <<<"$(df -B1 --output=size,used / | tail -1)"
-sudo fallocate -l $(( size * 82 / 100 - used )) /var/tmp/disk-alert-test
-sudo rm /var/tmp/disk-alert-test
-
-# Container-down alert. Between :10 and :50, so no hourly backup is due.
-docker stop biddaloy-prod-backup-1       # wait for Telegram, then:
-docker start biddaloy-prod-backup-1
-
-# Host-down alert (really "agent unreachable")
-docker stop biddaloy-ops-beszel-agent-1  # wait for Telegram, then:
-docker start biddaloy-ops-beszel-agent-1
+ssh deploy@203.0.113.10 'ls -l /opt/biddaloy/deploy.lock; id; command -v biddaloy-deploy'
+# -rw-rw-r-- 1 deploy deploy 0 ... /opt/biddaloy/deploy.lock
+# uid=1001(deploy) ... groups=...,docker,systemd-journal
+# /usr/local/bin/biddaloy-deploy
+ssh root@203.0.113.10 true
+# root@203.0.113.10: Permission denied (publickey).      <- good
 ```
 
-A negative number in the RAM or disk line means use is already past the line:
-do not run it, find out why first.
+**If it fails.**
 
-CPU alert: `stress-ng --cpu 0 --timeout 16m`. Postgres: temporarily set the Kuma
-threshold to `> 1`, wait for the alert, then put it back.
+| You see                                                    | Meaning / Next                                                                                           |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `Permission denied (publickey)` in the probe task          | your key is not the one in `operator_ssh_pubkey`. Fix `-e operator_ssh_privkey=...`. Root is still open. |
+| `Unexpected public listener: tcp 0.0.0.0:xxxx`             | something else listens on a public port. Find it: `ss -tuln`. Stop it, re-run.                           |
+| `github_deploy_pubkey ... a single "ssh-ed25519 ..." line` | the pasted key has options or a newline. Paste exactly one line.                                         |
+| You locked yourself out                                    | use the provider's VNC console, or restore the snapshot.                                                 |
 
-> **A dead VM pages nobody.** Kuma, Beszel and the SMS webhook all run on the VM.
-> Beszel's "Status" fires when the agent stops, not when the whole VM is gone.
-> Then only off-host Sentry cron monitors notice (the attention check-in, about
-> 15 min). Known gaps #9.
+**UNVERIFIED on a real VM** (Epic 79 wave 5, owner-run): the whole of part 7, including the
+`changed=0` second run and the ufw `limit` rule.
 
-Verification log (fill the date after each alert fired and recovered; #1771):
+## Part 8. Secrets
 
-| Alert                         | Fired (date) | Recovered (date) | Who |
-| ----------------------------- | ------------ | ---------------- | --- |
-| CPU > 90% for 15 min          |              |                  |     |
-| Memory > 90% for 10 min       |              |                  |     |
-| Disk > 80%                    |              |                  |     |
-| Host down (agent unreachable) |              |                  |     |
-| Container down (prod backup)  |              |                  |     |
-| Postgres connections > 240    |              |                  |     |
+All secrets live in git, **encrypted** with sops + age, in `infra/secrets/*.enc.env`. Each
+file is encrypted for three keys: yours (operator), the recovery key, and the VM's host key.
+That is why the VM can decrypt them itself during a deploy. Background and the CI guard:
+[`infra/secrets/README.md`](../../infra/secrets/README.md).
 
-## 9. When Telegram pings
+### 8a. Put the three public keys into `.sops.yaml`
 
-| Message (monitor name)         | Means                                          | First command (on the VM as `deploy`, unless it says otherwise)                                                                                                                      | Then read                                                                    |
-| ------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| `app-public` down (+ SMS)      | The public app does not answer                 | `cd /opt/biddaloy/prod && docker compose -p biddaloy-prod ps`                                                                                                                        | [12-operations 3.2](12-operations.md#32-readiness-failing)                   |
-| `app-internal-ready` down      | Postgres is down (only that is `fail`)         | `cd /opt/biddaloy/prod && docker compose -p biddaloy-prod logs --tail 50 db`                                                                                                         | 12-operations 3.2                                                            |
-| `backup-hourly` missed (+ SMS) | No dump in the last hour plus grace            | `cd /opt/biddaloy/prod && docker compose -p biddaloy-prod logs --tail 50 backup`                                                                                                     | [13-backup-restore](13-backup-restore.md)                                    |
-| `drill-weekly` red (+ SMS)     | A restore did not work; message names the step | `cd /opt/biddaloy/prod && docker compose -p biddaloy-prod exec backup /app/drill.sh`                                                                                                 | 13-backup-restore "Drill"                                                    |
-| `demo-reset-nightly` missed    | Demo not rebuilt (on the demo host)            | `cd /opt/biddaloy/demo && docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml logs --tail 50 demo-reset`                                                | [12-operations 3.7](12-operations.md#37-demo-reset-failed-sentry-cron-alert) |
-| TLS expires in < 14 days       | Cloudflare's edge cert near its end            | Cloudflare > SSL/TLS > Edge Certificates. Kuma never sees the 15-year Origin CA, only the edge cert, which renews itself                                                             | [25-cloudflare](25-cloudflare.md)                                            |
-| Beszel disk > 80%              | Disk filling                                   | `df -h /; docker system df`                                                                                                                                                          | section 12 "Check disk"                                                      |
-| Beszel memory/CPU high         | Leak or load                                   | `docker stats --no-stream`                                                                                                                                                           | Dozzle logs, section 12                                                      |
-| Container down                 | A container exited                             | `cd /opt/biddaloy/prod && docker compose -p biddaloy-prod ps -a`                                                                                                                     | `logs --tail 100 <service>`                                                  |
-| `postgres-connections`         | More than 240 of 300 connections used          | `cd /opt/biddaloy/prod && docker compose -p biddaloy-prod exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT state,count(*) FROM pg_stat_activity GROUP BY 1"'` | 12-operations 3.1                                                            |
-| Sentry 5xx spike               | Errors after a deploy or from one tenant       | Open the Sentry issue, look at `request_id`                                                                                                                                          | [12-operations 3.1](12-operations.md#31-5xx-spike)                           |
+```yaml
+# .sops.yaml  (public keys only, safe to commit)
+creation_rules:
+  - path_regex: infra/secrets/.*\.enc\.(env|pem)$
+    age: >-
+      age1qz9x...,
+      age1rk4m...,
+      age1w8x3tq5p7c9...
+```
 
-## 10. Backups and secrets
+Order in the file: operator, recovery, host (the three `REPLACE_WITH_...` lines today).
 
-### Where backups are
+### 8b. Create the five files
+
+```bash
+export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+sops infra/secrets/edge.enc.env       # opens $EDITOR on a new file
+sops infra/secrets/ops.enc.env
+sops infra/secrets/prod.enc.env
+sops infra/secrets/staging.enc.env
+sops infra/secrets/demo.enc.env
+```
+
+In each editor, paste the keys from the matching `infra/secrets/<name>.example.env` and
+fill every value from the table below. **Never type values into the `.example.env` files**
+(the CI guard fails on a value there, except the public defaults it lists).
+
+Random values: `openssl rand -hex 32`. **Hex only**, because compose expands `$` in `.env`
+values and `POSTGRES_PASSWORD` is dropped into `DATABASE_URL` without URL-encoding, so
+`@ / : $` would break it. The one exception is `SETTINGS_ENCRYPTION_KEY`, which must be
+base64 of 32 bytes (`openssl rand -base64 32`).
+
+### 8c. The staging password hash
+
+Staging sets one password on every user, `STAGING_PASSWORD` (at least 12 characters), and
+needs its bcrypt hash too, base64-encoded (`$` signs in the raw hash would be mangled).
+Make both, then paste them:
+
+```bash
+pw=$(openssl rand -hex 16)
+echo "STAGING_PASSWORD=$pw"
+htpasswd -bnBC 12 "" "$pw" | tr -d ':\n' | base64 | tr -d '\n'; echo
+# JDJ5JDEyJGFiY2RlZi4uLg==     <- STAGING_PASSWORD_HASH_B64 (shortened)
+```
+
+`config:check` decodes the hash and verifies it against `STAGING_PASSWORD`, so a wrong hash
+is caught in 8d. **UNVERIFIED:** `htpasswd` writes a `$2y$` hash; the check accepts `$2a$`,
+`$2b$` and `$2y$` prefixes (`scripts/backup/staging-refresh.sh:62`).
+
+### 8d. Check each file before it ships
+
+```bash
+sops -d infra/secrets/prod.enc.env    | yarn config:check --env prod    --file /dev/stdin
+sops -d infra/secrets/staging.enc.env | yarn config:check --env staging --file /dev/stdin
+sops -d infra/secrets/demo.enc.env    | yarn config:check --env demo    --file /dev/stdin
+# config:check: ok
+```
+
+It fails on a missing variable, a wrong `ENV_NAME`, one Turnstile key alone, and a staging
+or demo file that points at the prod database or bucket. Errors name variables, never values.
+`yarn` needs `yarn install` in the repo first; skip this check if you have not installed
+dependencies, the deploy runs the same check on the VM.
+
+### 8e. Check the recovery key opens them too
+
+```bash
+sops -d infra/secrets/prod.enc.env >/dev/null && echo laptop ok
+HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=/Volumes/usb/recovery.txt \
+  sops -d infra/secrets/prod.enc.env >/dev/null && echo recovery ok
+```
+
+### 8f. Commit, merge, publish
+
+```bash
+git checkout -b chore/secrets-first-setup
+git add .sops.yaml infra/ansible/inventory/prod.yml infra/secrets/*.enc.env
+git commit -m "chore: first secrets and GitHub deploy key"
+git push -u origin chore/secrets-first-setup
+```
+
+Open a PR, merge it into `main`, then wait for **Publish images** to turn green
+(`gh run list -w publish-image.yml --limit 1`). The sha you deploy in part 10 must be on
+`main` with its images published. The VM reads the secrets **from the checkout of that
+sha**, so a secret you change later needs a new commit and a new deploy.
+
+### Which value comes from where
+
+Every key of the five example files. "From" says which part gives you the value.
+
+| Key                                  | File              | From                 | Value shape                                                                       |
+| ------------------------------------ | ----------------- | -------------------- | --------------------------------------------------------------------------------- |
+| `ENV_NAME`                           | `prod.enc.env`    | part 7               | already filled in the example (`prod`)                                            |
+| `COMPOSE_PROFILES`                   | `prod.enc.env`    | part 8               | leave the example value (`replica,backup`)                                        |
+| `APP_VERSION`                        | `prod.enc.env`    | the deploy / default | leave empty; the deploy sets it                                                   |
+| `APP_MEM`                            | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `PG_MEM`                             | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `REDIS_MEM`                          | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `S3_MEM`                             | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `APP_CPUS`                           | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `PG_CPUS`                            | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `REDIS_CPUS`                         | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `S3_CPUS`                            | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `APP_BASE_URL`                       | `prod.enc.env`    | part 8               | `https://app.schoolmanagerp.com` (no trailing slash)                              |
+| `PUBLIC_APP_URL`                     | `prod.enc.env`    | part 8               | same as `APP_BASE_URL`                                                            |
+| `CORS_ORIGINS`                       | `prod.enc.env`    | part 8               | same origin as `APP_BASE_URL`                                                     |
+| `SUPPORT_CONTACT_URL`                | `prod.enc.env`    | part 8               | `https://wa.me/8801XXXXXXXXX`                                                     |
+| `PLATFORM_TENANT_ID`                 | `prod.enc.env`    | part 11              | id of the platform school (uuid); fill after part 11, then redeploy               |
+| `POSTGRES_USER`                      | `prod.enc.env`    | part 8               | `biddaloy`                                                                        |
+| `POSTGRES_DB`                        | `prod.enc.env`    | part 8               | prod `biddaloy`; staging must be `biddaloy_staging`; demo must be `biddaloy_demo` |
+| `POSTGRES_PASSWORD`                  | `prod.enc.env`    | part 8               | openssl rand -hex 32                                                              |
+| `S3_BUCKET`                          | `prod.enc.env`    | part 8               | prod `biddaloy`; staging must be `biddaloy-staging`; demo must be `biddaloy-demo` |
+| `S3_REGION`                          | `prod.enc.env`    | part 8               | `us-east-1`                                                                       |
+| `S3_ACCESS_KEY_ID`                   | `prod.enc.env`    | part 8               | `openssl rand -hex 16`                                                            |
+| `S3_SECRET_ACCESS_KEY`               | `prod.enc.env`    | part 8               | openssl rand -hex 32                                                              |
+| `DB_SSL_REJECT_UNAUTHORIZED`         | `prod.enc.env`    | part 8               | leave empty                                                                       |
+| `JWT_SECRET`                         | `prod.enc.env`    | part 8               | openssl rand -hex 32                                                              |
+| `JWT_SECRET_PREVIOUS`                | `prod.enc.env`    | the deploy / default | leave empty until you rotate                                                      |
+| `SETTINGS_ENCRYPTION_KEY`            | `prod.enc.env`    | part 8               | `openssl rand -base64 32`                                                         |
+| `SETTINGS_ENCRYPTION_KEY_PREVIOUS`   | `prod.enc.env`    | the deploy / default | leave empty until you rotate                                                      |
+| `HEALTH_TOKEN`                       | `prod.enc.env`    | part 8               | openssl rand -hex 32                                                              |
+| `BACKUP_AGE_PUBLIC_KEY`              | `prod.enc.env`    | part 9               | `age1qz...` (public half of the backup key)                                       |
+| `BACKUP_S3_ENDPOINT`                 | `prod.enc.env`    | part 4               | `https://<account-id>.r2.cloudflarestorage.com`                                   |
+| `BACKUP_S3_BUCKET`                   | `prod.enc.env`    | part 4               | `biddaloy-backups`                                                                |
+| `BACKUP_S3_ACCESS_KEY_ID`            | `prod.enc.env`    | part 4               | R2 token 1 (prod, read+write) or token 2 (staging, read-only)                     |
+| `BACKUP_S3_SECRET_ACCESS_KEY`        | `prod.enc.env`    | part 4               | same token as the key id above                                                    |
+| `BACKUP_RCLONE_CRYPT_PASSWORD`       | `prod.enc.env`    | part 8               | openssl rand -hex 32                                                              |
+| `BACKUP_RCLONE_CRYPT_SALT`           | `prod.enc.env`    | part 8               | openssl rand -hex 32                                                              |
+| `BACKUP_PUSH_URL`                    | `prod.enc.env`    | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                |
+| `LOG_ARCHIVE_PUSH_URL`               | `prod.enc.env`    | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                |
+| `SENTRY_CRON_MONITOR_URL`            | `prod.enc.env`    | part 6               | Sentry cron monitor check-in URL (optional)                                       |
+| `BACKUP_SCHEDULE`                    | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_RETENTION_DAYS`              | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_HOURLY_KEEP`                 | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_DAILY_KEEP`                  | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_TRASH_DAYS`                  | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_FILES_MAX_DELETE`            | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_NET_WAIT_SECS`               | `prod.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_MEM`                         | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `BACKUP_CPUS`                        | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `JOBS_MEM`                           | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `JOBS_CPUS`                          | `prod.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `TURNSTILE_SITE_KEY`                 | `prod.enc.env`    | part 4               | prod/demo: widget site key; staging/demo example already holds the test pair      |
+| `TURNSTILE_SECRET_KEY`               | `prod.enc.env`    | part 4               | prod: widget secret; staging/demo example already holds the test pair             |
+| `SENTRY_DSN`                         | `prod.enc.env`    | part 6               | `https://<key>@o0.ingest.sentry.io/0` (server project)                            |
+| `SENTRY_DSN_WEB`                     | `prod.enc.env`    | part 6               | `https://<key>@o0.ingest.sentry.io/1` (browser project)                           |
+| `SENTRY_TRACES_SAMPLE_RATE`          | `prod.enc.env`    | part 6               | `0.1`                                                                             |
+| `GOOGLE_OAUTH_CLIENT_ID`             | `prod.enc.env`    | part 6               | Google Cloud console (prod only; staging stays empty)                             |
+| `GOOGLE_OAUTH_CLIENT_SECRET`         | `prod.enc.env`    | part 6               | same console (prod only)                                                          |
+| `FACEBOOK_OAUTH_CLIENT_ID`           | `prod.enc.env`    | part 6               | Meta developers console (prod only)                                               |
+| `FACEBOOK_OAUTH_CLIENT_SECRET`       | `prod.enc.env`    | part 6               | same console (prod only)                                                          |
+| `PLATFORM_SMS_PROVIDER`              | `prod.enc.env`    | part 6               | provider name your gateway uses (prod only)                                       |
+| `PLATFORM_SMS_API_KEY`               | `prod.enc.env`    | part 6               | gateway API key (prod only)                                                       |
+| `PLATFORM_SMS_SENDER_ID`             | `prod.enc.env`    | part 6               | sender id approved by the gateway (prod only)                                     |
+| `PLATFORM_SMS_API_URL`               | `prod.enc.env`    | part 6               | gateway HTTP API URL (prod only)                                                  |
+| `PLATFORM_ALERT_PHONES`              | `prod.enc.env`    | part 6               | `+8801700000000,+8801800000000`                                                   |
+| `OTP_SMS_ALLOWED_PREFIXES`           | `prod.enc.env`    | the deploy / default | leave empty (default `+880`)                                                      |
+| `SMOKE_SCHOOL_SLUG`                  | `prod.enc.env`    | part 11              | slug of the Smoke Test School, e.g. `smoke-test`                                  |
+| `SMOKE_ADMIN_EMAIL`                  | `prod.enc.env`    | part 11              | login you create in part 11                                                       |
+| `SMOKE_ADMIN_PASSWORD`               | `prod.enc.env`    | part 11              | `openssl rand -hex 16`; staging must equal `STAGING_PASSWORD`                     |
+| `SMOKE_TEACHER_EMAIL`                | `prod.enc.env`    | part 11              | login you create in part 11                                                       |
+| `SMOKE_TEACHER_PASSWORD`             | `prod.enc.env`    | part 11              | `openssl rand -hex 16`; staging must equal `STAGING_PASSWORD`                     |
+| `SMOKE_SUPER_ADMIN_EMAIL`            | `prod.enc.env`    | part 11              | the platform super admin login                                                    |
+| `SMOKE_SUPER_ADMIN_PASSWORD`         | `prod.enc.env`    | part 11              | its password; staging must equal `STAGING_PASSWORD`                               |
+| `ENV_NAME`                           | `staging.enc.env` | part 7               | already filled in the example (`prod`)                                            |
+| `DEMO_MODE`                          | `staging.enc.env` | part 8               | leave the example value                                                           |
+| `APP_VERSION`                        | `staging.enc.env` | the deploy / default | leave empty; the deploy sets it                                                   |
+| `APP_MEM`                            | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `PG_MEM`                             | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `REDIS_MEM`                          | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `S3_MEM`                             | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `APP_CPUS`                           | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `PG_CPUS`                            | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `REDIS_CPUS`                         | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `S3_CPUS`                            | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `APP_BASE_URL`                       | `staging.enc.env` | part 8               | `https://app.schoolmanagerp.com` (no trailing slash)                              |
+| `PUBLIC_APP_URL`                     | `staging.enc.env` | part 8               | same as `APP_BASE_URL`                                                            |
+| `CORS_ORIGINS`                       | `staging.enc.env` | part 8               | same origin as `APP_BASE_URL`                                                     |
+| `SUPPORT_CONTACT_URL`                | `staging.enc.env` | part 8               | `https://wa.me/8801XXXXXXXXX`                                                     |
+| `PLATFORM_TENANT_ID`                 | `staging.enc.env` | part 11              | id of the platform school (uuid); fill after part 11, then redeploy               |
+| `POSTGRES_USER`                      | `staging.enc.env` | part 8               | `biddaloy`                                                                        |
+| `POSTGRES_DB`                        | `staging.enc.env` | part 8               | prod `biddaloy`; staging must be `biddaloy_staging`; demo must be `biddaloy_demo` |
+| `POSTGRES_PASSWORD`                  | `staging.enc.env` | part 8               | openssl rand -hex 32                                                              |
+| `S3_BUCKET`                          | `staging.enc.env` | part 8               | prod `biddaloy`; staging must be `biddaloy-staging`; demo must be `biddaloy-demo` |
+| `S3_REGION`                          | `staging.enc.env` | part 8               | `us-east-1`                                                                       |
+| `S3_ACCESS_KEY_ID`                   | `staging.enc.env` | part 8               | `openssl rand -hex 16`                                                            |
+| `S3_SECRET_ACCESS_KEY`               | `staging.enc.env` | part 8               | openssl rand -hex 32                                                              |
+| `DB_SSL_REJECT_UNAUTHORIZED`         | `staging.enc.env` | part 8               | leave empty                                                                       |
+| `JWT_SECRET`                         | `staging.enc.env` | part 8               | openssl rand -hex 32                                                              |
+| `JWT_SECRET_PREVIOUS`                | `staging.enc.env` | the deploy / default | leave empty until you rotate                                                      |
+| `SETTINGS_ENCRYPTION_KEY`            | `staging.enc.env` | part 8               | `openssl rand -base64 32`                                                         |
+| `SETTINGS_ENCRYPTION_KEY_PREVIOUS`   | `staging.enc.env` | the deploy / default | leave empty until you rotate                                                      |
+| `HEALTH_TOKEN`                       | `staging.enc.env` | part 8               | openssl rand -hex 32                                                              |
+| `STAGING_PASSWORD`                   | `staging.enc.env` | part 8               | at least 12 characters: `openssl rand -hex 16`                                    |
+| `BACKUP_AGE_PUBLIC_KEY`              | `staging.enc.env` | part 9               | `age1qz...` (public half of the backup key)                                       |
+| `BACKUP_AGE_PRIVATE_KEY`             | `staging.enc.env` | part 9               | `AGE-SECRET-KEY-1...` (staging only)                                              |
+| `BACKUP_S3_ENDPOINT`                 | `staging.enc.env` | part 4               | `https://<account-id>.r2.cloudflarestorage.com`                                   |
+| `BACKUP_S3_BUCKET`                   | `staging.enc.env` | part 4               | `biddaloy-backups`                                                                |
+| `BACKUP_S3_ACCESS_KEY_ID`            | `staging.enc.env` | part 4               | R2 token 1 (prod, read+write) or token 2 (staging, read-only)                     |
+| `BACKUP_S3_SECRET_ACCESS_KEY`        | `staging.enc.env` | part 4               | same token as the key id above                                                    |
+| `BACKUP_PUSH_URL`                    | `staging.enc.env` | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                |
+| `STAGING_REFRESH_PUSH_URL`           | `staging.enc.env` | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                |
+| `SENTRY_CRON_MONITOR_URL`            | `staging.enc.env` | part 6               | Sentry cron monitor check-in URL (optional)                                       |
+| `BACKUP_SCHEDULE`                    | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_RETENTION_DAYS`              | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_HOURLY_KEEP`                 | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_DAILY_KEEP`                  | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_TRASH_DAYS`                  | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_FILES_MAX_DELETE`            | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_NET_WAIT_SECS`               | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `BACKUP_MEM`                         | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `BACKUP_CPUS`                        | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `JOBS_MEM`                           | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `JOBS_CPUS`                          | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                            |
+| `TURNSTILE_SITE_KEY`                 | `staging.enc.env` | part 4               | prod/demo: widget site key; staging/demo example already holds the test pair      |
+| `TURNSTILE_SECRET_KEY`               | `staging.enc.env` | part 4               | prod: widget secret; staging/demo example already holds the test pair             |
+| `SENTRY_DSN`                         | `staging.enc.env` | part 6               | `https://<key>@o0.ingest.sentry.io/0` (server project)                            |
+| `SENTRY_DSN_WEB`                     | `staging.enc.env` | part 6               | `https://<key>@o0.ingest.sentry.io/1` (browser project)                           |
+| `SENTRY_TRACES_SAMPLE_RATE`          | `staging.enc.env` | part 6               | `0.1`                                                                             |
+| `GOOGLE_OAUTH_CLIENT_ID`             | `staging.enc.env` | part 6               | Google Cloud console (prod only; staging stays empty)                             |
+| `GOOGLE_OAUTH_CLIENT_SECRET`         | `staging.enc.env` | part 6               | same console (prod only)                                                          |
+| `FACEBOOK_OAUTH_CLIENT_ID`           | `staging.enc.env` | part 6               | Meta developers console (prod only)                                               |
+| `FACEBOOK_OAUTH_CLIENT_SECRET`       | `staging.enc.env` | part 6               | same console (prod only)                                                          |
+| `PLATFORM_SMS_PROVIDER`              | `staging.enc.env` | part 6               | provider name your gateway uses (prod only)                                       |
+| `PLATFORM_SMS_API_KEY`               | `staging.enc.env` | part 6               | gateway API key (prod only)                                                       |
+| `PLATFORM_SMS_SENDER_ID`             | `staging.enc.env` | part 6               | sender id approved by the gateway (prod only)                                     |
+| `PLATFORM_SMS_API_URL`               | `staging.enc.env` | part 6               | gateway HTTP API URL (prod only)                                                  |
+| `PLATFORM_ALERT_PHONES`              | `staging.enc.env` | part 6               | `+8801700000000,+8801800000000`                                                   |
+| `OTP_SMS_ALLOWED_PREFIXES`           | `staging.enc.env` | the deploy / default | leave empty (default `+880`)                                                      |
+| `SMOKE_SCHOOL_SLUG`                  | `staging.enc.env` | part 11              | slug of the Smoke Test School, e.g. `smoke-test`                                  |
+| `SMOKE_ADMIN_EMAIL`                  | `staging.enc.env` | part 11              | login you create in part 11                                                       |
+| `SMOKE_ADMIN_PASSWORD`               | `staging.enc.env` | part 11              | `openssl rand -hex 16`; staging must equal `STAGING_PASSWORD`                     |
+| `SMOKE_TEACHER_EMAIL`                | `staging.enc.env` | part 11              | login you create in part 11                                                       |
+| `SMOKE_TEACHER_PASSWORD`             | `staging.enc.env` | part 11              | `openssl rand -hex 16`; staging must equal `STAGING_PASSWORD`                     |
+| `SMOKE_SUPER_ADMIN_EMAIL`            | `staging.enc.env` | part 11              | the platform super admin login                                                    |
+| `SMOKE_SUPER_ADMIN_PASSWORD`         | `staging.enc.env` | part 11              | its password; staging must equal `STAGING_PASSWORD`                               |
+| `STAGING_PASSWORD_HASH_B64`          | `staging.enc.env` | part 8               | base64 of the bcrypt cost-12 hash of `STAGING_PASSWORD` (see part 8, step 4)      |
+| `STAGING_REFRESH_DEADLINE`           | `staging.enc.env` | the deploy / default | leave empty (default 02:50)                                                       |
+| `ENV_NAME`                           | `demo.enc.env`    | part 7               | already filled in the example (`prod`)                                            |
+| `DEMO_MODE`                          | `demo.enc.env`    | part 8               | leave the example value                                                           |
+| `APP_VERSION`                        | `demo.enc.env`    | the deploy / default | leave empty; the deploy sets it                                                   |
+| `APP_MEM`                            | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `PG_MEM`                             | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `REDIS_MEM`                          | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `S3_MEM`                             | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `APP_CPUS`                           | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `PG_CPUS`                            | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `REDIS_CPUS`                         | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `S3_CPUS`                            | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `APP_BASE_URL`                       | `demo.enc.env`    | part 8               | `https://app.schoolmanagerp.com` (no trailing slash)                              |
+| `PUBLIC_APP_URL`                     | `demo.enc.env`    | part 8               | same as `APP_BASE_URL`                                                            |
+| `CORS_ORIGINS`                       | `demo.enc.env`    | part 8               | same origin as `APP_BASE_URL`                                                     |
+| `SUPPORT_CONTACT_URL`                | `demo.enc.env`    | part 8               | `https://wa.me/8801XXXXXXXXX`                                                     |
+| `POSTGRES_USER`                      | `demo.enc.env`    | part 8               | `biddaloy`                                                                        |
+| `POSTGRES_DB`                        | `demo.enc.env`    | part 8               | prod `biddaloy`; staging must be `biddaloy_staging`; demo must be `biddaloy_demo` |
+| `POSTGRES_PASSWORD`                  | `demo.enc.env`    | part 8               | openssl rand -hex 32                                                              |
+| `S3_BUCKET`                          | `demo.enc.env`    | part 8               | prod `biddaloy`; staging must be `biddaloy-staging`; demo must be `biddaloy-demo` |
+| `S3_REGION`                          | `demo.enc.env`    | part 8               | `us-east-1`                                                                       |
+| `S3_ACCESS_KEY_ID`                   | `demo.enc.env`    | part 8               | `openssl rand -hex 16`                                                            |
+| `S3_SECRET_ACCESS_KEY`               | `demo.enc.env`    | part 8               | openssl rand -hex 32                                                              |
+| `DB_SSL_REJECT_UNAUTHORIZED`         | `demo.enc.env`    | part 8               | leave empty                                                                       |
+| `JWT_SECRET`                         | `demo.enc.env`    | part 8               | openssl rand -hex 32                                                              |
+| `JWT_SECRET_PREVIOUS`                | `demo.enc.env`    | the deploy / default | leave empty until you rotate                                                      |
+| `SETTINGS_ENCRYPTION_KEY`            | `demo.enc.env`    | part 8               | `openssl rand -base64 32`                                                         |
+| `SETTINGS_ENCRYPTION_KEY_PREVIOUS`   | `demo.enc.env`    | the deploy / default | leave empty until you rotate                                                      |
+| `HEALTH_TOKEN`                       | `demo.enc.env`    | part 8               | openssl rand -hex 32                                                              |
+| `DEMO_PASSWORD`                      | `demo.enc.env`    | part 8               | `openssl rand -hex 16`                                                            |
+| `DEMO_RESET_PUSH_URL`                | `demo.enc.env`    | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                |
+| `SENTRY_CRONS_URL`                   | `demo.enc.env`    | part 6               | Sentry crons check-in URL (optional)                                              |
+| `DEMO_SWEEP_CMD`                     | `demo.enc.env`    | part 8               | set this or `DEMO_SKIP_SWEEP`; start with `DEMO_SKIP_SWEEP=true`                  |
+| `DEMO_SKIP_SWEEP`                    | `demo.enc.env`    | part 8               | `true`                                                                            |
+| `DEMO_SWEEP_URL`                     | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `DEMO_SWEEP_TIMEOUT`                 | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `DEMO_SCALE`                         | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `DEMO_YEARS`                         | `demo.enc.env`    | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
+| `DEMO_RESET_MEM`                     | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `DEMO_RESET_CPUS`                    | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `TURNSTILE_SITE_KEY`                 | `demo.enc.env`    | part 4               | prod/demo: widget site key; staging/demo example already holds the test pair      |
+| `TURNSTILE_SECRET_KEY`               | `demo.enc.env`    | part 4               | prod: widget secret; staging/demo example already holds the test pair             |
+| `SENTRY_DSN`                         | `demo.enc.env`    | part 6               | `https://<key>@o0.ingest.sentry.io/0` (server project)                            |
+| `SENTRY_DSN_WEB`                     | `demo.enc.env`    | part 6               | `https://<key>@o0.ingest.sentry.io/1` (browser project)                           |
+| `SENTRY_TRACES_SAMPLE_RATE`          | `demo.enc.env`    | part 6               | `0.1`                                                                             |
+| `EDGE_MODE`                          | `edge.enc.env`    | part 4               | `tunnel` (`direct` in part 14)                                                    |
+| `NGINX_MEM`                          | `edge.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `NGINX_CPUS`                         | `edge.enc.env`    | the deploy / default | leave the example value or empty (D23)                                            |
+| `APP_DOMAIN`                         | `edge.enc.env`    | part 4               | `app.schoolmanagerp.com`                                                          |
+| `STAGING_DOMAIN`                     | `edge.enc.env`    | part 4               | `staging.schoolmanagerp.com`                                                      |
+| `DEMO_DOMAIN`                        | `edge.enc.env`    | part 4               | `demo.schoolmanagerp.com`                                                         |
+| `LANDING_DOMAIN`                     | `edge.enc.env`    | part 4               | `schoolmanagerp.com`                                                              |
+| `KUMA_DOMAIN`                        | `edge.enc.env`    | part 4               | `kuma.schoolmanagerp.com`                                                         |
+| `BESZEL_DOMAIN`                      | `edge.enc.env`    | part 4               | `beszel.schoolmanagerp.com`                                                       |
+| `LOGS_DOMAIN`                        | `edge.enc.env`    | part 4               | `logs.schoolmanagerp.com`                                                         |
+| `OPS_UPSTREAM_HOST`                  | `edge.enc.env`    | part 8               | `uptime-kuma` (any non-empty value; empty = ops is on another host)               |
+| `LANDING_VERSION`                    | `edge.enc.env`    | the deploy / default | leave empty; the deploy sets it                                                   |
+| `CLOUDFLARE_TUNNEL_ID`               | `edge.enc.env`    | part 4               | uuid printed by `cloudflared tunnel create`                                       |
+| `CLOUDFLARE_TUNNEL_CREDENTIALS_JSON` | `edge.enc.env`    | part 4               | the credentials JSON, on one line                                                 |
+| `CF_ACCESS_TEAM`                     | `edge.enc.env`    | part 4               | `myteam` (from `myteam.cloudflareaccess.com`)                                     |
+| `CF_ACCESS_AUD_STAGING`              | `edge.enc.env`    | part 4               | 64-hex Application Audience tag of the staging Access app                         |
+| `CF_ACCESS_AUD_OPS`                  | `edge.enc.env`    | part 4               | 64-hex Application Audience tag of the ops Access app                             |
+| `BASIC_AUTH_HTPASSWD`                | `edge.enc.env`    | part 14              | `htpasswd -nbB user pass`; leave empty in tunnel mode                             |
+| `LETSENCRYPT_EMAIL`                  | `edge.enc.env`    | part 14              | `ops@schoolmanagerp.com`; leave empty in tunnel mode                              |
+| `GHCR_PULL_USER`                     | `edge.enc.env`    | part 5               | your GitHub username                                                              |
+| `GHCR_PULL_TOKEN`                    | `edge.enc.env`    | part 5               | classic PAT with only `read:packages`: `ghp_...`                                  |
+| `TELEGRAM_BOT_TOKEN`                 | `edge.enc.env`    | part 6               | `123456:ABC...` from BotFather                                                    |
+| `TELEGRAM_CHAT_ID`                   | `edge.enc.env`    | part 6               | `-1001234567890`                                                                  |
+| `LOG_ARCHIVE_PUSH_URL`               | `edge.enc.env`    | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                |
+| `LOG_ARCHIVE_S3_ENDPOINT`            | `edge.enc.env`    | part 4               | same as prod `BACKUP_S3_ENDPOINT`                                                 |
+| `LOG_ARCHIVE_S3_BUCKET`              | `edge.enc.env`    | part 4               | `biddaloy-backups`                                                                |
+| `LOG_ARCHIVE_S3_ACCESS_KEY_ID`       | `edge.enc.env`    | part 4               | R2 token 1                                                                        |
+| `LOG_ARCHIVE_S3_SECRET_ACCESS_KEY`   | `edge.enc.env`    | part 4               | R2 token 1                                                                        |
+| `LOG_ARCHIVE_RCLONE_CRYPT_PASSWORD`  | `edge.enc.env`    | part 8               | same value as prod `BACKUP_RCLONE_CRYPT_PASSWORD`                                 |
+| `LOG_ARCHIVE_RCLONE_CRYPT_SALT`      | `edge.enc.env`    | part 8               | same value as prod `BACKUP_RCLONE_CRYPT_SALT`                                     |
+| `BESZEL_KEY`                         | `edge.enc.env`    | part 11              | public key from the Beszel hub "Add system"; same value in `edge` and `ops`       |
+| `BESZEL_KEY`                         | `ops.enc.env`     | part 11              | public key from the Beszel hub "Add system"; same value in `edge` and `ops`       |
+| `DOZZLE_USERS_YML`                   | `ops.enc.env`     | part 11              | the whole `users.yml` on one line, `\n` for newlines                              |
+| `BESZEL_MEM`                         | `ops.enc.env`     | the deploy / default | leave the example value or empty (D23)                                            |
+| `KUMA_MEM`                           | `ops.enc.env`     | the deploy / default | leave the example value or empty (D23)                                            |
+| `DOZZLE_MEM`                         | `ops.enc.env`     | the deploy / default | leave the example value or empty (D23)                                            |
+
+## Part 9. The age key for backups
+
+Prod encrypts every database dump with a **public** age key. Whoever holds the **private**
+half can read the backups, so it goes in two safe places only.
+
+```bash
+age-keygen -o backup.key
+# Public key: age1qz8s...
+```
+
+| Half    | Goes to                                                                                                                                          |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| public  | `prod.enc.env` `BACKUP_AGE_PUBLIC_KEY`, and `staging.enc.env` `BACKUP_AGE_PUBLIC_KEY`                                                            |
+| private | `staging.enc.env` `BACKUP_AGE_PRIVATE_KEY` (D19; staging restores last night's dump with it) and your **offline vault** next to the recovery key |
+
+Then delete `backup.key` from the laptop. The deploy writes the staging copy to
+`/opt/biddaloy/staging/restore/key.txt` (owner uid 10001, mode 0400).
+
+## Part 10. First deploy
+
+Deploy runs **on the VM**. Your laptop (or GitHub) only logs in and runs `biddaloy-deploy`.
+
+```mermaid
+sequenceDiagram
+  actor You
+  participant L as scripts/deploy.sh (laptop)
+  participant V as VM: biddaloy-deploy
+  participant A as ansible deploy.yml
+  You->>L: deploy all 3f9c2ab...
+  L->>L: sha pushed to origin?
+  L->>V: ssh deploy@VM "biddaloy-deploy all 3f9c2ab..."
+  V->>V: lock, fetch, checkout sha
+  V->>A: stack=edge, then ops*, staging, prod, demo
+  A->>A: preflight, env files, pull, backup (prod), migrate, up, smoke
+  A-->>You: PLAY RECAP, Telegram message
+```
+
+\* `ops` is deployed by `all` when the host is in the `ops` group. Provision writes the
+host's groups to `/opt/biddaloy/host-groups`, and `biddaloy-deploy all` reads that file.
+
+### The command
+
+```bash
+cd ~/Workspace-personal/biddaloy
+git fetch origin && git checkout main && git pull
+export BIDDALOY_HOST=203.0.113.10
+scripts/deploy.sh all 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+```
+
+`scripts/deploy.sh <stack|all> <sha> [--hotfix "reason"] [--skip-backup]` checks that the
+sha is on origin, then runs the same `biddaloy-deploy` GitHub runs. `all` deploys in the
+order **edge, ops (if in the host groups), staging, prod, demo**, and stops at the first
+failure. Staging goes before prod so its "ok" line opens the prod gate.
+
+Since the first sha is also the first prod deploy, no `--hotfix` is needed: staging runs
+first inside `all` and writes its own ok line. (The older example in
+`infra/ansible/README.md` that adds `--hotfix "first deploy"` is harmless, not required.)
+
+### What each step prints
+
+For every stack the playbook (`infra/ansible/deploy.yml`) goes through these steps, and a
+failure names the one it stopped at:
+
+| Step                  | What happens                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------ |
+| inputs, checkout      | sha is 40 hex, the checkout is clean                                                                   |
+| decrypt               | the host key opens the secrets                                                                         |
+| settings              | required keys are filled (smoke logins, `BACKUP_AGE_PRIVATE_KEY` on staging, domains, tunnel on edge)  |
+| staging-gate          | prod only: staging has an ok line for this sha, or `--hotfix`                                          |
+| disk, registry, image | at least 10 GB free, GHCR login works, the sha image exists                                            |
+| config-check          | `yarn config:check` on the new env                                                                     |
+| networks, env         | creates `biddaloy-edge` (`172.30.0.0/24`) and `biddaloy-ops-edge`, writes `/opt/biddaloy/<stack>/.env` |
+| pull, backup          | pulls images; prod backs up to R2 first (skipped on a truly fresh host)                                |
+| migration             | runs pending migrations                                                                                |
+| up, smoke             | starts the stack, waits for ready, logs in as the smoke accounts                                       |
+| edge only             | nginx templates come from a snapshot at `/opt/biddaloy/edge/release`, not the live checkout            |
+
+On the end of each stack:
+
+```text
+PLAY RECAP *****
+localhost : ok=58 changed=21 unreachable=0 failed=0 skipped=9 rescued=0 ignored=0
+```
+
+and a line is added to `/opt/biddaloy/<stack>/deploys.log`:
+
+```text
+2026-10-23T08:14:09Z staging 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b ok
+```
+
+### If it fails
+
+Every failure prints the same three lines and sends a Telegram message:
+
+```text
+FAILED at: image (staging, 3f9c2ab4e1d0)
+Why:       manifest unknown: ghcr.io/tareq89/biddaloy-app:3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+Next:      check the Publish image run for 3f9c2ab4e1d0: gh run list -w publish-image.yml
+```
+
+The full output stays on the VM in `/opt/biddaloy/logs/<stack>-last-deploy.log`. Run the
+`Next:` command (the doctor's `Next:` lines carry the full `docker compose -p ... -f ...`
+flags; the short `docker compose -p prod logs app` in a deploy message needs them added, see
+the `dcp` helper in [11a](#11a-platform-super-admin)), fix, and rerun the same `scripts/deploy.sh` line. Common first-time
+failures:
+
+| `FAILED at` | Usual cause                                                               | Next                                                                  |
+| ----------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `clone`     | the repo deploy key is not added to GitHub                                | part 5a, then rerun                                                   |
+| `decrypt`   | the host age key is not in `.sops.yaml` or files were not updated         | `sops updatekeys infra/secrets/<file>` for each, commit, merge, rerun |
+| `settings`  | a key named in `Why:` is empty                                            | `sops infra/secrets/<file>`, fix, commit, merge, rerun                |
+| `registry`  | `GHCR_PULL_USER` / `GHCR_PULL_TOKEN` wrong or token lacks `read:packages` | part 5b                                                               |
+| `image`     | Publish images did not finish for that sha                                | `gh run list -w publish-image.yml`                                    |
+
+> **First install and the smoke test.** `prod` and `staging` deploys end by logging in as
+> the `SMOKE_*` accounts. On a brand-new database (zero users) those accounts cannot exist
+> yet, so the deploy runs the health checks only. It prints a `WARNING: smoke login checks
+SKIPPED` line and writes `note: smoke-login-skipped` on the `deploys.log` line and in
+> Telegram. So `all` works on the first install, in this order: edge, ops, staging, prod,
+> demo. After part 11, redeploy prod and staging so the login checks run. The first `demo`
+> deploy runs `reset.sh --now` by itself to build the demo school.
+> Still open: nothing creates the first platform super admin ([Known gaps](#known-gaps) #1).
+> **UNVERIFIED on a real VM.**
+
+Now run the doctor, a read-only health table:
+
+```bash
+ssh deploy@203.0.113.10 biddaloy-doctor
+# (format: CHECK  STATUS  DETAIL, and an indented "Next: <command>" under every WARN or FAIL;
+#  the exact rows depend on your host, so this is the shape, not real output)
+```
+
+Exit code: `0` all OK, `1` a WARN, `2` a FAIL. One stack: `biddaloy-doctor prod` (also
+`staging`, `demo`, `edge`). Machine-readable: `biddaloy-doctor --json`.
+
+## Part 11. After the first deploy
+
+### 11a. Platform super admin
+
+The super admin belongs to the **platform school**, whose id is `PLATFORM_TENANT_ID` in
+`prod.enc.env` and `staging.enc.env`. SUPER_ADMINs of that school get platform rights
+(billing, alerts); everyone else does not.
+
+**GAP:** there is no script in the repo that creates the first platform super admin on a
+fresh prod database. The decision is the owner's: either insert the first user by hand in
+Postgres, or add a one-off bootstrap command to the app. Whatever you choose, record the
+login in `prod.enc.env` (`SMOKE_SUPER_ADMIN_EMAIL`, `SMOKE_SUPER_ADMIN_PASSWORD`). See
+[Known gaps](#known-gaps) #1.
+
+Find the platform school id and set it:
+
+```bash
+ssh deploy@203.0.113.10
+# helper: run docker compose against one stack the way the deploy does
+dcp() { docker compose -p "$1" --project-directory "/opt/biddaloy/$1" -f /opt/biddaloy/repo/deploy/stack.yml "${@:2}"; }
+dcp prod exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -c "SELECT id, slug FROM schools"'
+# 6f1c2a9e-0b7d-4c1e-9a55-2f3d8e4b7c10|default-school
+```
+
+Put the id in `PLATFORM_TENANT_ID` of `prod.enc.env` **and** `staging.enc.env`, then commit,
+merge, and redeploy ([Part 12](#part-12-every-day-use)).
+
+### 11b. The Smoke Test School (D20)
+
+The smoke test needs a real school in prod with logins of its own, so staging (a copy of
+prod) can run the same checks.
+
+1. Open `https://app.schoolmanagerp.com/register` and register a school named
+   **Smoke Test School**.
+2. As the platform super admin, open the platform billing page and **grant the school seats**
+   (D20), so its logins are not blocked.
+3. In that school create a **teacher** account.
+4. Write into `prod.enc.env` **and** `staging.enc.env`: `SMOKE_SCHOOL_SLUG` (lowercase
+   letters, digits, dashes, e.g. `smoke-test-school`), `SMOKE_ADMIN_EMAIL/PASSWORD`,
+   `SMOKE_TEACHER_EMAIL/PASSWORD`, `SMOKE_SUPER_ADMIN_EMAIL/PASSWORD`. In staging the
+   passwords must be the same as `STAGING_PASSWORD`, because the nightly copy resets every
+   password to it.
+5. Commit, merge, wait for Publish, then redeploy **prod**, then **staging**, at the new sha.
+
+### 11c. Uptime Kuma
+
+Open `https://kuma.schoolmanagerp.com` (Cloudflare login first, then Kuma's own). Create
+the Kuma admin account the first time. Then add these monitors.
+
+**Push monitors.** Kuma > **Add New Monitor** > type **Push**. Kuma shows a push URL; take
+the token from it and build `https://kuma.schoolmanagerp.com/api/push/<token>` (the
+public URL, so the VM's timers and containers can reach it; the Access bypass from 4d
+makes it work).
+
+| Monitor name              | Interval | Retries / grace | Token goes to                                            |
+| ------------------------- | -------- | --------------- | -------------------------------------------------------- |
+| `backup-hourly`           | 3600 s   | 900 s grace     | `prod.enc.env` `BACKUP_PUSH_URL`                         |
+| `staging-refresh-nightly` | 86400 s  | 3600 s grace    | `staging.enc.env` `STAGING_REFRESH_PUSH_URL`             |
+| `demo-rebuild-nightly`    | 86400 s  | 3600 s grace    | `demo.enc.env` `DEMO_RESET_PUSH_URL`                     |
+| `log-archive-nightly`     | 86400 s  | 3600 s grace    | `prod.enc.env` and `edge.enc.env` `LOG_ARCHIVE_PUSH_URL` |
+
+`staging.enc.env` also has `BACKUP_PUSH_URL`: leave it empty or give it its own push
+monitor (the staging backup container pushes to it).
+
+**HTTP monitors** (**Add New Monitor** > **HTTP(s)**):
+
+| Name             | URL                                          | Notes                                                                       |
+| ---------------- | -------------------------------------------- | --------------------------------------------------------------------------- |
+| `app-public`     | `https://app.schoolmanagerp.com/api/health`  | retries 3 (alert after ~3 min)                                              |
+| `demo-public`    | `https://demo.schoolmanagerp.com/api/health` |                                                                             |
+| `landing-public` | `https://schoolmanagerp.com/`                |                                                                             |
+| `app-tls-expiry` | `https://app.schoolmanagerp.com/`            | direct mode only (part 14): tick "Certificate Expiry Notification", 14 days |
+
+Cloudflare renews TLS in tunnel mode, so the expiry monitor matters only in direct mode.
+
+**Notifications.** Kuma > Settings > Notifications > **Setup Notification**:
+
+- **Telegram:** bot token and chat id from part 6, tick **Default enabled** and **Apply on
+  all existing monitors**.
+- **SMS (webhook):** type **Webhook**, URL = your SMS gateway's HTTP API, body in the
+  format the gateway documents (JSON or form). Attach it only to `app-public` and
+  `backup-hourly`. The URL shape each gateway expects is in
+  `server/src/modules/communications/providers/sms/*.gateway.ts`.
+
+Put the push URLs into the secret files, commit, merge, Publish, redeploy the affected
+stacks (prod, staging, demo, edge).
+
+### 11d. Beszel
+
+Open `https://beszel.schoolmanagerp.com`, create the admin. **Add System**: host
+`/beszel_socket/beszel.sock` (the agent's unix socket; the port is ignored). Beszel shows a
+public key. Put it in `ops.enc.env` **and** `edge.enc.env` as `BESZEL_KEY` (same value),
+commit, merge, Publish, then redeploy `edge` and `ops` (the whole deploy; the agent restarts
+until the key is set).
+
+Alerts (hub > system > bell icon), as in [12-operations.md](12-operations.md#2-alert-thresholds):
+
+| Signal | Threshold                |
+| ------ | ------------------------ |
+| CPU    | above 90% for 15 min     |
+| Memory | above 90% for 10 min     |
+| Disk   | above 80%                |
+| Status | down (agent unreachable) |
+
+Telegram for Beszel is a Shoutrrr URL in the hub settings:
+`telegram://123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11@telegram?chats=-1001234567890`.
+
+### 11e. Dozzle users
+
+Dozzle (the live log viewer at `logs.`) has its own login. Make a `users.yml` with bcrypt
+hashes, join it to one line with `\n` for newlines, and set it as `DOZZLE_USERS_YML` in
+`ops.enc.env`:
+
+```yaml
+users:
+  owner:
+    name: Owner
+    email: you@schoolmanagerp.com
+    password: '$2y$12$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ0123'
+```
+
+```bash
+htpasswd -nbB -C 12 owner 'a-long-password'     # prints owner:$2y$12$...; use the hash part
+```
+
+One line for the secret: `users:\n  owner:\n    name: Owner\n    email: ...`. The deploy renders it
+to `/opt/biddaloy/ops/dozzle/users.yml`. Dozzle's exact file format is Dozzle's; see its
+documentation for `users.yml`. **UNVERIFIED** here.
+
+## Part 12. Every day use
+
+### Deploy staging, then prod
+
+Always the same sha, staging first. Prod refuses a sha staging has not passed (D10).
 
 ```mermaid
 flowchart LR
-  DB[(Postgres)] -->|"hourly pg_dump + age"| R["R2: db/hourly/ (72), db/daily/ (30)"]
-  F[(SeaweedFS files)] -->|"rclone crypt sync"| R2["R2: files/, files-trash/ (30 days)"]
-  R --> DR["Sunday 03:30 drill restores newest dump into a scratch DB"]
+  M["merge to main"] --> P["Publish images<br/>(wait for green)"]
+  P --> S["deploy staging &lt;sha&gt;"]
+  S --> T["click through staging"]
+  T --> R["deploy prod &lt;sha&gt;"]
 ```
 
-Confirm last hour's backup: the `backup-hourly` Kuma monitor is green, and in the R2
-console `db/hourly/` has a key from the last hour (example `db/hourly/20260920T200000Z.dump.age`).
-Names under `files/` are encrypted on purpose; only `db/` is readable.
+**From the laptop:**
 
-- **Restore the database:** [13-backup-restore.md "Restore runbook"](13-backup-restore.md#restore-runbook) (`scripts/backup/restore.sh db/hourly/<key>.dump.age <target-url>`, never into prod's own URL).
-- **Restore one file** (through the encrypted remote):
+```bash
+export BIDDALOY_HOST=203.0.113.10
+scripts/deploy.sh staging 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+scripts/deploy.sh prod    3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+```
+
+**From GitHub:** repo > **Actions > Deploy > Run workflow**. The workflow runs from `main` only, and the VM refuses any sha that is not on `main`. The form has four fields:
+
+| Field         | Value                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
+| Branch        | `main` (the `production` environment allows only main)                                                         |
+| Stack         | pick `staging`, `prod`, `demo`, `edge` or `ops`                                                                |
+| sha           | the full 40-hex sha. Empty: for `prod` it is the last sha staging passed; for the others it is the branch head |
+| hotfix_reason | prod only; see below                                                                                           |
+
+or from the terminal: `gh workflow run deploy.yml -f stack=staging -f sha=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b`.
+
+The Actions summary shows only the three-line failure block and the Ansible recap; the full
+log stays on the VM.
+
+### Read a failure
+
+```text
+FAILED at: migrate (prod, 3f9c2ab4e1d0)
+Why:       migration 1797000000000 failed: relation "fee_items" does not exist
+Next:      biddaloy-doctor prod   ·   logs: docker compose -p prod logs app
+```
+
+- `FAILED at` is the step, `Why` is the reason, `Next` is what to run.
+- If the stack was already running an older version, the deploy puts that version back
+  (status `rolled-back` in `deploys.log`). **Migrations are not undone.**
+- Exit codes of `biddaloy-deploy`: `0` ok, `1` failed, `2` refused (bad input),
+  `75` another deploy is running (wait, rerun).
+
+### Hotfix
+
+A hotfix skips the "staging passed it first" gate. Use it only when you must ship now.
+
+```bash
+scripts/deploy.sh prod 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b --hotfix "login broken for all schools"
+```
+
+The reason is 3 to 200 characters of letters, digits, space and `. , : _ / -`. It travels
+in the environment variable `BIDDALOY_HOTFIX_REASON`, never as an Ansible `-e` value (Ansible
+would run a `{{ }}` in it as root), and is written to `deploys.log` and Telegram. Other
+flag: `--skip-backup` skips the pre-deploy prod backup (only if you accept the risk).
+
+### The nightly jobs
+
+All times are Asia/Dhaka. Each ends in one Kuma push, so a silent failure turns into an alert.
+
+| Time       | Job                                                 | Kuma monitor              |
+| ---------- | --------------------------------------------------- | ------------------------- |
+| every hour | prod backup to R2 (02:00 also keeps the daily copy) | `backup-hourly`           |
+| 02:20      | staging refresh (restore, scrub, migrate, swap)     | `staging-refresh-nightly` |
+| 03:00      | demo rebuild                                        | `demo-rebuild-nightly`    |
+| 04:00      | log archive to R2                                   | `log-archive-nightly`     |
+
+Run one by hand and read its result:
+
+```bash
+ssh deploy@203.0.113.10
+sudo systemctl start biddaloy-nightly@staging-refresh.service    # or demo-rebuild, log-archive
+journalctl -u 'biddaloy-nightly@*' --since today --no-pager | tail -20
+systemctl list-timers 'biddaloy-nightly@*'
+```
+
+### Where logs live
+
+| What                  | Where                                                          |
+| --------------------- | -------------------------------------------------------------- |
+| Recent logs, live     | Dozzle: `https://logs.schoolmanagerp.com`                      |
+| Last deploy output    | `/opt/biddaloy/logs/<stack>-last-deploy.log`                   |
+| Deploy history        | `/opt/biddaloy/<stack>/deploys.log`                            |
+| Older logs (180 days) | R2 bucket `biddaloy-backups`, folder `logs/<date>/`, encrypted |
+
+Download and decrypt one day. The folder and file names are encrypted by rclone, so you
+need the same crypt password and salt as in `prod.enc.env`
+(`BACKUP_RCLONE_CRYPT_PASSWORD` / `_SALT`, or `LOG_ARCHIVE_RCLONE_CRYPT_*` if you set them):
+
+```bash
+umask 077; mkdir -p ~/r2logs && cd ~/r2logs
+eval "$(sops -d ../path/to/infra/secrets/prod.enc.env | sed 's/^/export /')"   # or export the 6 values by hand
+export RCLONE_CONFIG=$PWD/rclone.conf
+{
+  printf '[r2]\ntype = s3\nprovider = Cloudflare\nendpoint = %s\nregion = auto\nno_check_bucket = true\naccess_key_id = %s\nsecret_access_key = %s\n\n' \
+    "$BACKUP_S3_ENDPOINT" "$BACKUP_S3_ACCESS_KEY_ID" "$BACKUP_S3_SECRET_ACCESS_KEY"
+  printf '[r2crypt]\ntype = crypt\nremote = r2:%s\nfilename_encryption = standard\npassword = %s\npassword2 = %s\n' \
+    "$BACKUP_S3_BUCKET" "$(printf %s "$BACKUP_RCLONE_CRYPT_PASSWORD" | rclone obscure -)" "$(printf %s "$BACKUP_RCLONE_CRYPT_SALT" | rclone obscure -)"
+} > rclone.conf
+rclone copy r2crypt:logs/2026-10-22/ ./2026-10-22/
+gunzip ./2026-10-22/*.log.gz && ls ./2026-10-22
+# host.log   prod-app.log   nginx.log ...
+```
+
+This is the same config `scripts/backup/log-archive.sh` builds. Delete `rclone.conf` and the
+exported variables afterwards. **UNVERIFIED** on a real bucket.
+
+## Part 13. Switch VM or provider
+
+Use this when the VM dies, is too small, or you change provider. The tunnel moves with
+you; in tunnel mode **DNS does not change**.
+
+```mermaid
+flowchart TD
+  A["1 Buy a new VM"] --> B["2 provision.yml<br/>(part 7; BIDDALOY_HOST = new IP)"]
+  B --> C["3 Add the new host age key<br/>to .sops.yaml, sops updatekeys,<br/>commit, merge, Publish"]
+  C --> D["4 deploy all &lt;sha&gt;"]
+  D --> E["5 biddaloy-restore-prod<br/>(prod data from R2)"]
+  E --> F["6 deploy prod &lt;sha&gt;"]
+  F --> G["7 Move the traffic:<br/>stop cloudflared on the old VM<br/>(direct mode: change A records)"]
+  G --> H["8 Keep the old VM 7 days, then delete"]
+```
+
+| #   | Step                                                                                                                                                                                                         | Time         | What users see                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | ------------------------------------------------------------------------- |
+| 1   | New VM, `ssh root@<new-ip> true`                                                                                                                                                                             | 10 min       | nothing                                                                   |
+| 2   | `export BIDDALOY_HOST=<new-ip>` and run part 7 (both runs). New host age key and repo deploy key print                                                                                                       | 15 min       | nothing                                                                   |
+| 3   | Add the new host age key to `.sops.yaml` (keep the old one for now), `sops updatekeys infra/secrets/<file>` for each of the 5 files, commit, merge, wait for Publish. Add the new repo deploy key to GitHub. | 10 min       | nothing                                                                   |
+| 4   | `scripts/deploy.sh all <sha>` against the new IP (the new prod database is empty, so smoke login is skipped with a warning)                                                                                  | 20 to 40 min | nothing (old VM still serves)                                             |
+| 5   | On the new VM, with the backup private key file (mode 0600, owner uid 10001): see below                                                                                                                      | 5 to 30 min  | nothing                                                                   |
+| 6   | `scripts/deploy.sh prod <sha>`: backs up, migrates, starts, smokes                                                                                                                                           | 5 min        | nothing                                                                   |
+| 7   | Stop traffic to the old VM and let the new one answer ([below](#step-7-move-the-traffic))                                                                                                                    | 1 to 5 min   | **writes between the last backup and now are lost; up to 1 hour of data** |
+| 8   | Keep the old VM, powered on but not serving, for 7 days                                                                                                                                                      | 7 days       | nothing                                                                   |
+
+### Step 5, restore prod data
+
+Prepare the key file on the new VM (the script refuses anything else):
+
+```bash
+scp backup.key deploy@<new-ip>:/tmp/backup.key
+ssh deploy@<new-ip>
+sudo install -o 10001 -g 10001 -m 0400 /tmp/backup.key /opt/biddaloy/restore-key.txt && shred -u /tmp/backup.key
+biddaloy-restore-prod --age-key-file /opt/biddaloy/restore-key.txt --from latest-daily \
+  --yes-restore-prod biddaloy
+# ... done. Next: biddaloy-deploy prod <sha>   (backs up, migrates, starts the app and smokes it)
+```
+
+- `--from` takes `latest-hourly`, `latest-daily`, or a key such as `db/hourly/20260922T200000Z.dump.age`.
+  The `latest-*` choices only pick dumps newer than this VM's `prod_pgdata` volume was
+  created, so a stale dump from before the VM existed is never picked. If the age cannot be
+  read, pass an exact key.
+- `--yes-restore-prod` must repeat the database name from `/opt/biddaloy/prod/.env` (`POSTGRES_DB`).
+- It refuses a non-empty database, so a mistake cannot overwrite live data. `--skip-files`
+  skips copying uploaded files; `--max-age-hours N` changes the freshness limit (default 36).
+- It never starts the app. Step 6 does.
+- Delete the key file afterwards: `shred -u /opt/biddaloy/restore-key.txt`.
+
+### Step 7, move the traffic
+
+- **Tunnel mode:** the new VM's `cloudflared` already uses the same tunnel credentials and
+  id, so both VMs are connected to the same tunnel. To cut over, on the **old** VM stop
+  the connector so Cloudflare sends everything to the new one:
 
   ```bash
-  rclone copy r2crypt:files/tenants/<tenant-id> ./out
-  rclone copy r2crypt:files-trash/2026-10-20/tenants/<tenant-id> ./out-trash
+  ssh deploy@<old-ip> 'docker stop edge-cloudflared-1'
   ```
 
-  Build the `r2` and `r2crypt` remotes as in [13-backup-restore.md "Restore files from R2"](13-backup-restore.md#restore-files-from-r2).
+  Nothing changes in DNS. To undo: `docker start edge-cloudflared-1` on the old VM.
+  (While both connectors run, Cloudflare spreads requests across them; stop the old one
+  right after step 6 so users do not hit the old database.)
 
-- **Drill result:** one green `drill-weekly` beat a week, message `ok-<n>-tables` (example `ok-8-tables`). A red beat names the step.
+- **Direct mode:** change the A records of the seven hostnames to the new IP at your DNS
+  provider. Allow the record's TTL to pass; lower the TTL a day before.
+
+After the cutover: `ssh deploy@<new-ip> biddaloy-doctor`, and look at `app-public` in Kuma.
+
+**UNVERIFIED on a real VM** (wave 5): steps 2 to 7 end to end, and the "two connectors on
+one tunnel" behaviour.
+
+## Part 14. Switch to direct mode (BDIX, no Cloudflare)
+
+Direct mode: the VM serves ports 80 and 443 itself, gets certificates from Let's Encrypt,
+and staging/ops sit behind **basic auth** instead of Cloudflare Access.
+
+| Part                  | Tunnel (now)      | Direct                                   |
+| --------------------- | ----------------- | ---------------------------------------- |
+| Public ports          | SSH only          | SSH, 80, 443                             |
+| TLS                   | Cloudflare        | Let's Encrypt, auto-renew (HTTP-01)      |
+| Staging and ops login | Cloudflare Access | nginx basic auth, then each tool's login |
+| Moving VM             | DNS unchanged     | change A records                         |
+
+Steps:
+
+1. **DNS at the new provider.** A records for all seven names (and `www.`) pointing at the
+   VM's public IPv4, for example `app.schoolmanagerp.com A 203.0.113.10`. They must resolve
+   **before** the deploy, or Let's Encrypt fails.
+2. **Inventory:** in `infra/ansible/inventory/prod.yml` set `edge_mode: direct`. This
+   opens ports 80 and 443 in the firewall.
+3. **`edge.enc.env`:** set `EDGE_MODE=direct`, `LETSENCRYPT_EMAIL=ops@schoolmanagerp.com`,
+   and `BASIC_AUTH_HTPASSWD` (one bcrypt line per user; join several with `\n`):
+
+   ```bash
+   htpasswd -nbB owner 'a-long-password'
+   # owner:$2y$05$k3m... -> BASIC_AUTH_HTPASSWD=owner:$2y$05$k3m...
+   ```
+
+   The tunnel keys can stay or be cleared; they are not used in direct mode.
+
+4. Commit, merge, wait for Publish. **Re-provision** to open the firewall:
+
+   ```bash
+   cd infra/ansible && ansible-playbook provision.yml     # changed>0 (ufw), then again: changed=0
+   ```
+
+5. Deploy the edge: `scripts/deploy.sh edge <sha>`. The first start serves a short-lived
+   self-signed certificate so nginx can answer Let's Encrypt's challenge, then certbot
+   fetches the real one and nginx reloads.
+6. Check:
+
+   ```bash
+   curl -sI https://app.schoolmanagerp.com/ | head -1     # HTTP/2 200
+   echo | openssl s_client -connect app.schoolmanagerp.com:443 -servername app.schoolmanagerp.com 2>/dev/null \
+     | openssl x509 -noout -issuer -enddate                # issuer: Let's Encrypt
+   curl -sI https://staging.schoolmanagerp.com/ | head -1  # HTTP/2 401  (basic auth)
+   ```
+
+What changes for the Access-protected hosts: `staging.`, `kuma.`, `beszel.` and `logs.` now
+ask for the **basic-auth** user and password first, then the tool's own login. Kuma's
+`/api/push/*` path stays open (the job timers cannot log in).
+
+**Turnstile still works without the Cloudflare proxy.** Turnstile is a separate widget
+that talks to Cloudflare from the visitor's browser and from the app's server; it does not
+need your site to be proxied. Verify: open `https://app.schoolmanagerp.com/register`; the
+widget must render and a test sign-up must not show a Turnstile error. Add the TLS-expiry
+Kuma monitor from part 11c.
+
+**UNVERIFIED on a real VM** (wave 5, step 8): real Let's Encrypt issuance and the basic-auth
+prompts.
+
+## Part 15. Move ops to its own VM
+
+Do this when budget allows: until ops has its own VM, **a dead VM pages nobody**, because
+Kuma dies with it.
+
+1. **Inventory.** In `infra/ansible/inventory/prod.yml` add a host and move `ops` to it:
+
+   ```yaml
+   all:
+     children:
+       ops:
+         hosts:
+           biddaloy-ops: # was biddaloy-1
+     hosts:
+       biddaloy-ops:
+         ansible_host: 198.51.100.20
+         ansible_user: deploy
+   ```
+
+2. **Provision the new host:** `ansible-playbook provision.yml -l biddaloy-ops -e ansible_user=root`
+   (then once more without `-e`). Add its host age key to `.sops.yaml`, `sops updatekeys`
+   on the five files (at least `ops.enc.env` and `edge.enc.env`), commit, merge, Publish.
+3. **Deploy ops there:** `biddaloy-deploy ops <sha>` on the new VM.
+4. **Remove ops from the first VM:** set `OPS_UPSTREAM_HOST=` (empty) in the first VM's
+   `edge.enc.env` so nginx stops serving the ops names, redeploy `edge`, then on the first
+   VM `docker compose -p ops --project-directory /opt/biddaloy/ops -f /opt/biddaloy/repo/deploy/ops.yml down`.
+5. **Push URLs stay the same.** They point at `https://kuma.schoolmanagerp.com/api/push/<token>`,
+   a hostname, so after the tunnel or DNS sends `kuma.` to the new VM nothing in the
+   secret files changes. Restore Kuma's settings (monitors, notifications) from its
+   backup, or re-create them with part 11c.
+
+**UNVERIFIED, and not fully supported yet:** the inventory shape above matches
+`group_vars/all.yml` (`ops_host: "{{ groups['ops'][0] }}"`), but a tunnel serving
+`kuma.` to a second VM needs a second `cloudflared` there, and the repo has no ops-only
+edge. Treat part 15 as a plan to confirm in wave 5 ([Known gaps](#known-gaps) #2).
+
+## Part 16. Rotate a secret, lose a key
 
 ### Rotate a secret
 
-Per-secret extra steps: [12-operations.md section 8](12-operations.md#8-secrets-and-rotation).
+1. `sops infra/secrets/prod.enc.env`, change the value. For `JWT_SECRET` and
+   `SETTINGS_ENCRYPTION_KEY` first copy the old value into the matching `*_PREVIOUS`
+   key, so nobody is signed out and nothing stored becomes unreadable.
+2. Commit, merge to `main`, wait for Publish images.
+3. Deploy the **new** sha: `scripts/deploy.sh staging <sha>` then `prod <sha>`. The deploy
+   reads secrets from the checkout of that sha, so an old sha never carries the new value.
+4. A database password also needs `ALTER ROLE` in Postgres before the deploy; per-secret
+   steps: [12-operations.md section 8](12-operations.md).
 
-A deploy reads secrets from the commit you have checked out (section 4). So a
-rotation is: commit the new value, then a full deploy of **that new commit**.
-Deploying the old running SHA would put the old value back and still log `ok`.
-
-```mermaid
-sequenceDiagram
-  actor Op as Operator
-  participant GH as GitHub main
-  participant VM
-  Op->>Op: sops infra/secrets/prod.enc.env (new value)
-  Op->>GH: commit + push
-  GH-->>Op: "Publish image" green on the new SHA
-  Op->>VM: deploy.yml -e version=<new SHA>
-  VM-->>Op: .env rewritten, backup, restart, readiness, smoke, deploys.log ok
-  Op->>VM: compare a hash of the line, never the value
-```
-
-```bash
-sops infra/secrets/prod.enc.env                          # 1. change the value
-git add infra/secrets/prod.enc.env && git commit -m "chore(secrets): rotate JWT_SECRET" && git push
-V=$(git rev-parse HEAD)                                  # 2. wait for "Publish image" on $V, then:
-cd infra/ansible && ansible-playbook -i inventory/prod.yml deploy.yml -e env=prod -e version=$V
-cd ../..                                                 # 3. verify: the two hashes match
-sops -d infra/secrets/prod.enc.env | grep '^JWT_SECRET=' | sha256sum
-ssh deploy@203.0.113.10 "sudo grep '^JWT_SECRET=' /opt/biddaloy/prod/.env | sha256sum"
-```
-
-The new SHA also ships every other commit on `main` since the running one. If
-there are any, take it through staging first, as for any release (section 7).
-
-`--tags env` is not the rotation. It only rewrites `.env` and restarts nothing, and
-the play refuses it unless `version` equals the running version.
-
-To re-issue the Origin CA cert: re-issue in Cloudflare, `sops` the two `origin-ca*.enc.pem` files (section 4), commit them, then put them on the host with the section 5 commands (Known gaps #4). nginx reloads itself every 6 hours (`nginx/reload-loop.sh`), so the new pair is live within 6 hours with no restart.
-
-## 11. Grow or move
-
-Moving to a bigger VM is a restore onto a new host. Untested end to end (Known gaps #1).
+### Lose the operator key (laptop lost)
 
 ```mermaid
 flowchart TD
-  S["old VM: stop app,<br/>final backup, stop backup"] --> N["new VM: provision.yml"]
-  N --> K["by hand: age key (drill/key.txt),<br/>Origin CA pair"]
-  K --> V["deploy.yml prod: empty stack<br/>(no pgdata, so no backup)"]
-  V --> R["stop app, restore.sh<br/>the final dump"]
-  R --> F["rclone copy r2crypt:files<br/>into the new SeaweedFS"]
-  F --> V2["deploy.yml prod again:<br/>migrations, app up"]
-  V2 --> O["ops.yml, admins, monitors"]
-  O --> DNS["switch DNS, smoke test"]
-  DNS --> OLD["keep old VM 7 days, then delete"]
+  A["Laptop lost"] --> B["Fetch the recovery key<br/>from the offline vault"]
+  B --> C["On a clean machine:<br/>sops -d proves it opens the files"]
+  C --> D["age-keygen a new operator key"]
+  D --> E["Edit .sops.yaml: replace the old<br/>operator key with the new public key"]
+  E --> F["sops updatekeys on all 5 files"]
+  F --> G["Assume the old key is stolen:<br/>rotate every secret, commit, deploy"]
 ```
 
-1. **Old VM: stop writes.** The site is down from here until DNS moves. The final run also syncs the files.
+```bash
+HOME=$(mktemp -d) SOPS_AGE_KEY_FILE=/Volumes/usb/recovery.txt sops -d infra/secrets/prod.enc.env >/dev/null && echo recovery ok
+age-keygen -o ~/.config/sops/age/keys.txt        # new operator key; edit .sops.yaml with the new public key
+for f in infra/secrets/*.enc.env; do SOPS_AGE_KEY_FILE=/Volumes/usb/recovery.txt sops updatekeys -y "$f"; done
+```
 
-   ```bash
-   cd /opt/biddaloy/prod
-   docker compose -p biddaloy-prod stop app
-   docker compose -p biddaloy-prod run --rm --no-deps --entrypoint /app/backup.sh backup   # final dump + files
-   docker compose -p biddaloy-prod stop backup     # two VMs must never back up to one bucket
-   ```
+Also revoke the lost laptop's SSH key on the VM (remove it from `deploy`'s authorized keys
+by re-running provision with the remaining keys in `operator_ssh_pubkey`).
 
-2. **New VM.** `export BIDDALOY_PROD_HOST=<new ip>`, then provision it (section 5).
-3. **By hand** (git holds neither): the age key into `drill/key.txt` and the Origin CA pair, with the section 5 commands.
-4. **Deploy prod** at the running SHA, with `-e app_domain=` added. It comes up empty and skips the backup (no `biddaloy-prod_pgdata` yet). `-e app_domain=` skips the smoke test, which would otherwise reach the old VM through DNS.
-5. **Restore the database.** Steps 5 and 6 run on your laptop (needs `age`, `pg_restore`, `aws`, `rclone`) over a tunnel: `ssh -L 5432:127.0.0.1:5432 -L 9000:127.0.0.1:9000 deploy@<new ip>`. On the new VM: `docker compose -p biddaloy-prod stop app`. Then run `restore.sh` on the newest key under `db/hourly/` (the final dump) into `postgres://<POSTGRES_USER>:<POSTGRES_PASSWORD>@127.0.0.1:5432/<POSTGRES_DB>` with `--no-migrate`, as in [13-backup-restore.md "Restore runbook"](13-backup-restore.md#restore-runbook). It refuses a target equal to its own shell's `DATABASE_URL`.
-6. **Restore the files.** Build `r2` and `r2crypt` as in [13-backup-restore.md "Restore files from R2"](13-backup-restore.md#restore-files-from-r2), plus a `src` S3 remote for the new SeaweedFS (`http://127.0.0.1:9000`, the `S3_*` keys from `prod.enc.env`). Then:
+### Lose the recovery key
 
-   ```bash
-   rclone copy r2crypt:files src:<S3_BUCKET>
-   rclone size r2crypt:files; rclone size src:<S3_BUCKET>   # files restored: the counts match
-   ```
+Nothing breaks today (the operator and host keys still work). Make a new recovery key as in
+2b, put its public key in `.sops.yaml` in place of the old one, `sops updatekeys` on all
+five files, commit, deploy. Do it soon: until then you have one fewer way back in.
 
-7. **Deploy prod again** (same SHA, `-e app_domain=` again). Migrations run, the app starts, readiness passes.
-8. **Ops.** `ops.yml`, then redo section 6 steps 5 and 6 and the section 8 alerts. Copying the `biddaloy-ops_kuma_data` and `biddaloy-ops_beszel_data` volumes instead is untested.
-9. **Switch DNS** in Cloudflare (`app`, `ops`, `staging` to the new IP). Then, from the repo root: `node scripts/smoke-post-deploy.mjs --base-url https://app.<domain>`. Redeploy staging (section 6 step 9).
-10. **Keep the old VM 7 days**, then delete it.
+### Lose the host age key (VM rebuilt)
 
-Grow when any of these is true for a week (placeholder triggers, tune with real data):
+A rebuilt VM makes a new host key. Add it (part 13 step 3) and `sops updatekeys`, then
+remove the old host public key from `.sops.yaml` and `updatekeys` again.
 
-| Signal               | Trigger               |
-| -------------------- | --------------------- |
-| Memory               | > 80% most of the day |
-| Disk                 | > 70% and growing     |
-| CPU                  | > 70% at peak, daily  |
-| Postgres connections | > 200 at peak         |
-| Restore drill        | fails the `disk` step |
+### Lose the backup age private key
 
-## 12. Small jobs
-
-- **Turn staging off or on.** Off: `cd /opt/biddaloy/staging && docker compose -p biddaloy-staging -f docker-compose.yml -f docker-compose.staging.yml down` (data stays; `-v` deletes it). On: `deploy.yml -e env=staging -e version=<sha>`. Prod can go down while staging runs: `biddaloy-edge` belongs to no compose project. Staging answers 502 until prod nginx is re-attached ([07-deployment.md](07-deployment.md#staging)).
-- **Re-attach the edge networks only** (after a container was recreated by hand, or staging answers 502). From `infra/ansible`, with the running SHA checked out (`HEAD` must equal `version`, like every run): `ansible-playbook -i inventory/prod.yml deploy.yml -e env=prod -e version=<running sha> --tags edge`.
-- **Rebuild demo.** `cd /opt/biddaloy/demo && docker compose -p biddaloy-demo -f docker-compose.yml -f docker-compose.demo.yml run --rm demo-reset /app/reset.sh --now` on the demo host. Nightly it rebuilds itself at 01:00 and swaps at 02:00.
-- **Check disk.** `df -h /` then `docker system df`. Weekly prune runs Sunday 04:00 and keeps the newest 4 of our images, so a rollback needs no GHCR.
-- **Read logs in Dozzle.** `https://ops.<domain>/dozzle/` (behind Cloudflare Access; nginx also drops requests with no Access token header), view-only. Or `cd /opt/biddaloy/prod && docker compose -p biddaloy-prod logs --tail 100 -f app`.
+You can no longer read **old** backups. Make a new pair (part 9), update prod's public key,
+staging's private key, redeploy. New backups use the new key. Keep two offline copies next time.
 
 ## Known gaps
 
-Read these before you trust the page. Each one is a real hole or an unproven step.
+Places where the code and a first-time setup disagree. None is fixed by this page; each
+needs a code or owner decision.
 
-| #   | Gap                                                                                                                                                                                                                                                                                                        | Workaround / who fixes it                                                                                                                                                                      |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Nothing here has run on a real host.** `deploy.yml`, `ops.yml` and `attach-edge.yml` were written from the files and tested only by `--check`, `--syntax-check`, lint and unit tests.                                                                                                                    | The rehearsal VM. Every command that fails there is a doc bug.                                                                                                                                 |
-| 2   | **`/kuma/` and `/beszel/` will not work.** Kuma 1.x and Beszel have no sub-path support ([12-operations.md](12-operations.md#setting-the-tools-up-by-hand-once)). Dozzle at `/dozzle/` does work. This also blocks the demo-reset push: the demo host can reach Kuma only at `https://ops.<domain>/kuma/`. | Per-host names (`kuma.<domain>`, `beszel.<domain>`, own Access app each) are the documented path and are not built. Stopgap: the SSH tunnel (section 6 step 5); for the demo, its Sentry cron. |
-| 3   | **`prod.enc.env`, `demo.enc.env`, `staging.enc.env`, `ops.enc.env` and the two `origin-ca*.enc.pem` files do not exist in git.** The operator creates them (section 4).                                                                                                                                    | Operator, once.                                                                                                                                                                                |
-| 4   | **No play places the Origin CA pair.** `write_certs` in `write-env.yml` is a flag no playbook passes, so `/opt/biddaloy/certs/origin.{pem,key}` is a manual step (section 5).                                                                                                                              | The section 5 commands; issue #2745.                                                                                                                                                           |
-| 5   | **Kuma cannot reach prod's Postgres**, so the `postgres-connections` monitor in section 8 cannot work as written. `biddaloy-ops-edge` has no db on it; the db port is on the host's loopback only.                                                                                                         | Host cron plus a Kuma Push monitor (UNVERIFIED), or an owner decision.                                                                                                                         |
-| 6   | **Demo needs its own host**, and `demo_domain` is not in `inventory/prod.yml`, so its smoke test is skipped. The demo first-start order is untested. The VM's Beszel cannot see the demo's containers.                                                                                                     | Add the host and `demo_domain` when the demo host exists; a `beszel-agent` there for container alerts.                                                                                         |
-| 7   | **Alerts (#1771) live in Beszel's and Kuma's own databases**, so the repo cannot hold them. The verification log (section 8) starts empty. Whether Beszel 0.21.0 offers a per-container "down" alert is UNVERIFIED.                                                                                        | Operator fills the log; if the UI has no such alert, use a Kuma Docker monitor.                                                                                                                |
-| 8   | **R2 Bucket Lock** on `db/` is recommended (a stolen R2 token could otherwise delete every backup) and is not set up. Lock must allow the backup's own prune, so test it on a scratch bucket first.                                                                                                        | Owner decision.                                                                                                                                                                                |
-| 9   | **A dead VM pages nobody.** Kuma, Beszel and the SMS webhook run on the VM itself. Beszel "Status" fires when the agent stops, not when the VM is gone. Only the off-host Sentry cron monitors notice (about 15 min).                                                                                      | An off-host check (Cloudflare health check or an external Kuma). Not built.                                                                                                                    |
+| #   | Gap                                                                                                                                                            | Where                                          | Effect                                             |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------- |
+| 1   | No command creates the first platform super admin on a fresh prod database                                                                                     | none (searched `server/src/scripts`, docs)     | part 11a is a manual step the owner must decide    |
+| 2   | Ops on its own VM: `edge.yml` always runs a Beszel agent and nginx on the app VM, and the tunnel config lists the ops hostnames for the same `cloudflared`     | `deploy/edge.yml`, `cloudflared-config.yml.j2` | part 15 needs a second edge or tunnel; unconfirmed |
+| 3   | `infra/ansible/README.md` and `scripts/deploy.sh` header say first deploy uses `--hotfix "first deploy"`; `all` runs staging first so the gate is already open | `biddaloy-deploy:219-223`                      | harmless; not needed                               |

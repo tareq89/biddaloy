@@ -4,6 +4,9 @@
 # they are pinned by commit SHA (the tag is in the comment).
 # Collections stay on Galaxy versions: a published collection version cannot be
 # re-uploaded, so the version is already immutable.
+# provision.yml also copies this file to the VM and installs the collections
+# there (/opt/biddaloy/ansible/collections). ansible-core, sops and age pins:
+# group_vars/all.yml (ansible_core_version, sops_version).
 roles:
   - name: geerlingguy.security
     src: https://github.com/geerlingguy/ansible-role-security.git
