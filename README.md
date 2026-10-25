@@ -1072,107 +1072,25 @@ yarn test:e2e
 yarn build:all
 ```
 
-Output is in `build-output/` — a self-contained deployable folder.
+Output is in `build-output/`. This is for **local builds** and checks only: no server is
+deployed from it. Servers run the images that CI publishes to GHCR.
 
-## Deploy to VPS
+## Deploying
 
-```bash
-# On your machine
-zip -r deploy.zip build-output/
-scp deploy.zip user@your-vps:/opt/biddaloy/
-
-# On the VPS
-cd /opt/biddaloy
-unzip -o deploy.zip
-cp .env.example .env   # Edit with real credentials
-./start.sh
-```
-
-## Docker Deployment
-
-`docker compose up -d` runs the full stack: `db` (Postgres), `redis`, `app`
-(this Nest API + the built SPAs, served statically — see `server/src/main.ts`),
-and `nginx` terminating TLS in front of it. Images are pulled from GHCR
-(`ghcr.io/tareq89/biddaloy-*`, tagged with the commit SHA); nginx serves a
-Cloudflare Origin CA certificate. There is no certificate renewal service.
-
-**Required, not optional, for any real deployment:** the `db` volume must sit
-on encrypted storage (a LUKS-encrypted disk, or the cloud provider's
-encryption-at-rest, if not self-hosting). `DB_SSL=true` is required
-whenever `NODE_ENV=production`, unconditionally — the app refuses to boot
-otherwise, regardless of network topology. **This bundled compose file does
-not currently configure TLS on the `db` service** — `postgres:18-alpine`
-needs a cert/key pair and `ssl=on` to serve it, neither of which this stack
-sets up. Deploying this file as-is with `NODE_ENV=production` will fail to
-boot until either the `db` service is given real TLS certs, or
-`DATABASE_URL` is repointed at an external Postgres that already serves
-TLS. See
-[`docs/architecture/08-security.md`](docs/architecture/08-security.md#data-protection-transit-at-rest-and-logs)'s
-"Data protection" section for the full posture and reasoning.
-
-### TLS: Cloudflare Origin CA
-
-```mermaid
-flowchart LR
-    CF["Cloudflare dashboard\n(SSL/TLS > Origin Server)"] -->|"create cert, 15 years"| files["origin.pem + origin.key"]
-    files -->|"copied onto the VM by hand\n(sops-encrypted copy: Epic 61 W3)"| dir["/opt/biddaloy/certs\n(TLS_CERT_DIR)"]
-    dir -->|"mounted read-only"| nginx
-```
-
-Cloudflare (SSL mode Full strict) trusts its own Origin CA, so nothing
-renews every 90 days. Browsers do not trust it, so always go through
-Cloudflare. Example: `TLS_CERT_DIR=/opt/biddaloy/certs` holds `origin.pem`
-and `origin.key`. nginx reloads itself every 6h (`nginx/reload-loop.sh`), so a
-replaced pair is picked up without a restart.
-
-There is no encrypted copy in the repo yet; the sops-encrypted pair arrives
-with the secrets work (Epic 61 W3). Until then, copy the pair onto the VM:
+Production, staging and the demo run on one VM from GHCR images that CI published, one
+command at a time:
 
 ```bash
-mkdir -p /opt/biddaloy/certs
-cp origin.pem origin.key /opt/biddaloy/certs/
-chmod 600 /opt/biddaloy/certs/origin.key
+BIDDALOY_HOST=<vm address> scripts/deploy.sh staging <40-hex commit sha>   # laptop; or the GitHub "Deploy" workflow
+BIDDALOY_HOST=<vm address> scripts/deploy.sh prod    <40-hex commit sha>   # only a sha that passed staging
 ```
 
-`TLS_CERT_DIR` has no default: if it is unset, `docker compose` stops with
-`TLS_CERT_DIR must be set` instead of starting nginx without a cert.
-
-### First-time setup
-
-```bash
-cp .env.example .env
-# Edit .env: set POSTGRES_USER/PASSWORD/DB, JWT_SECRET, APP_DOMAIN,
-# and CORS_ORIGINS=https://<your-domain>
-
-yarn config:check   # fails and lists any placeholder/weak value still in .env
-
-export APP_VERSION=<full commit SHA>   # no default, a forgotten tag fails loudly
-docker compose pull
-docker compose up -d
-```
-
-Confirm the stack is up (through Cloudflare, not the origin IP):
-
-```bash
-curl https://<your-domain>/api/health
-```
-
-Local development builds instead of pulling:
-`APP_VERSION=local TLS_CERT_DIR=./.certs docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`
-(the overlay also writes a dummy self-signed cert into `./.certs`).
-
-### Certificate rotation
-
-Replace `origin.pem` and `origin.key` in `TLS_CERT_DIR`; nginx picks them up
-within 6h, or run `docker compose exec nginx nginx -s reload` now.
-
-### Deploying behind an external load balancer instead
-
-If TLS terminates upstream of this stack (a cloud LB, Cloudflare, etc.), see
-[07-deployment.md → Deploying behind an external load balancer instead](docs/architecture/07-deployment.md#deploying-behind-an-external-load-balancer-instead).
-For Cloudflare in front of the bundled nginx (the default), see
-[07-deployment.md → Who can reach the origin](docs/architecture/07-deployment.md#who-can-reach-the-origin)
-and the security rules it links to.
+Day 0, the first deploy, releases, rollback, restore and secret rotation are
+step by step in
+[`docs/architecture/28-platform-runbook.md`](docs/architecture/28-platform-runbook.md).
+The shape of the setup is in
+[`07-deployment.md`](docs/architecture/07-deployment.md), and the reasons for it in
+[`30-deployment-target.md`](docs/architecture/30-deployment-target.md).
 
 ## Project Structure
 
@@ -1185,7 +1103,9 @@ biddaloy/
 ├── ui/               # Shared React component package, consumed by every client
 ├── scripts/          # Build and deploy scripts
 ├── docs/architecture/ # Why the system is built this way — start there for design context
-└── build-output/     # Generated: self-contained deployable
+├── deploy/           # Production compose files (stack, edge, ops) and the biddaloy-* host commands
+├── infra/            # Ansible playbooks and the encrypted secrets
+└── build-output/     # Generated by yarn build:all, local builds only
 ```
 
 See [`docs/architecture/00-overview.md`](docs/architecture/00-overview.md)

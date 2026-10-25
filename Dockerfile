@@ -22,6 +22,11 @@ COPY shared/package.json shared/package.json
 COPY server/package.json server/package.json
 COPY ui/package.json ui/package.json
 COPY client-admin/package.json client-admin/package.json
+# landing is not built here, but the root tsconfig references it and the PWA
+# service-worker build (rolldown) follows that reference to landing/tsconfig.json,
+# which extends `astro/tsconfigs/strict`. Without astro installed the client
+# build fails with "Tsconfig not found astro/tsconfigs/strict".
+COPY landing/package.json landing/package.json
 RUN yarn install --frozen-lockfile --network-timeout 600000
 
 # ---- Production-only dependencies ----
@@ -37,11 +42,17 @@ RUN yarn install --frozen-lockfile --production --network-timeout 600000
 FROM base AS builder
 COPY --from=deps /app ./
 COPY . .
-# Public Turnstile site key for the sign-up captcha; Vite inlines it at build time.
-ARG VITE_TURNSTILE_SITE_KEY
-# "Contact us" link on the trial-ended screen (same value as SUPPORT_CONTACT_URL).
-ARG VITE_SUPPORT_URL
-RUN yarn build:shared && yarn build:server && yarn build:client-admin
+# Sentry source maps (W2): the token is a BuildKit secret, never an ARG or layer. No token = empty =
+# the vite plugin stays off and writes no maps. The plugin deletes maps after upload, so the image
+# never carries one. SENTRY_RELEASE = the commit SHA = the runtime release.
+ARG APP_VERSION=dev
+ARG SENTRY_ORG
+ARG SENTRY_PROJECT
+RUN --mount=type=secret,id=sentry_auth_token,required=false \
+    yarn build:shared && yarn build:server \
+    && export SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" \
+       SENTRY_RELEASE="$APP_VERSION" SENTRY_ORG="$SENTRY_ORG" SENTRY_PROJECT="$SENTRY_PROJECT" \
+    && yarn build:client-admin
 
 # ---- Runner (production) ----
 FROM base AS runner
