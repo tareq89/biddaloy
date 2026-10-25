@@ -64,10 +64,49 @@ const SECRET_VALUE_ALLOWED = new Set([
   'YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=',
   'ci-secret-key',
 ]);
-// Cloudflare's public always-pass Turnstile test secret (staging only, D25).
-const EXAMPLE_VALUE_ALLOWED = new Set([
-  'infra/secrets/staging.example.env:TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA',
+// The only values an example may hold: public defaults, never a secret. Cloudflare's always-pass
+// Turnstile test pair (staging, demo), the stack name, and the starting memory limits (D23).
+const TURNSTILE_TEST = [
+  'TURNSTILE_SITE_KEY=1x00000000000000000000AA',
+  'TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA',
+];
+const MEM_SMALL = ['APP_MEM=768m', 'PG_MEM=1g', 'REDIS_MEM=128m', 'S3_MEM=256m'];
+const EXAMPLE_VALUES_ALLOWED = {
+  prod: [
+    'ENV_NAME=prod',
+    'COMPOSE_PROFILES=replica,backup',
+    'APP_MEM=1200m',
+    'PG_MEM=2g',
+    'REDIS_MEM=256m',
+    'S3_MEM=512m',
+  ],
+  staging: ['ENV_NAME=staging', 'DEMO_MODE=false', ...MEM_SMALL, ...TURNSTILE_TEST],
+  demo: ['ENV_NAME=demo', 'DEMO_MODE=true', ...MEM_SMALL, ...TURNSTILE_TEST],
+  edge: ['EDGE_MODE=tunnel'],
+};
+const EXAMPLE_VALUE_ALLOWED = new Set(
+  Object.entries(EXAMPLE_VALUES_ALLOWED).flatMap(([stack, ls]) =>
+    ls.map((l) => `infra/secrets/${stack}.example.env:${l}`),
+  ),
+);
+
+// Variables a deploy/*.yml file reads that the deploy sets itself (on the compose command line
+// or from a path it computes), so no example lists them.
+const DEPLOY_SET = new Set([
+  'EDGE_DIR',
+  'REPO_DIR',
+  'OPS_DIR',
+  'PG_TLS_DIR',
+  'EDGE_TRUSTED_CIDR',
+  'BACKUP_AGE_KEY_DIR',
 ]);
+// Which examples must list the variables each compose file reads.
+const COMPOSE_EXAMPLES = {
+  'deploy/stack.yml': ['prod', 'staging', 'demo'],
+  'deploy/edge.yml': ['edge'],
+  'deploy/edge.direct.yml': ['edge'],
+  'deploy/ops.yml': ['ops'],
+};
 
 // \r too: an old-Mac line end must not glue a plaintext line onto an ENC one.
 function lines(text) {
@@ -132,6 +171,44 @@ export function findBadContent(paths, read) {
   });
 }
 
+// Drift guard: every ${VAR} a compose file reads is a key of one of its stack's example files
+// (any one of prod / staging / demo for stack.yml), unless the deploy sets it. Returns messages.
+export function findComposeDrift(read) {
+  const keysOf = (stack) => {
+    const text = read(`infra/secrets/${stack}.example.env`);
+    return new Set(
+      text === null
+        ? []
+        : lines(text).flatMap((l) => (/^[A-Za-z_][A-Za-z0-9_]*=/.test(l) ? [l.split('=')[0]] : [])),
+    );
+  };
+  return Object.entries(COMPOSE_EXAMPLES).flatMap(([file, stacks]) => {
+    const raw = read(file);
+    // A renamed or unreadable mapped file must fail the guard, not pass it as "no drift".
+    if (raw === null) return [`${file} is mapped in COMPOSE_EXAMPLES but could not be read`];
+    // Compose does not interpolate YAML comments. ponytail: regex, not a YAML parse; a
+    // " #" inside a quoted value hides the rest of that line. Use a parser if that bites.
+    const text = raw.replace(/(^|\s)#.*$/gm, '$1');
+    const listed = stacks.map(keysOf);
+    const refs = (re) => new Set([...text.matchAll(re)].map((m) => m[1]));
+    const vars = refs(/(?<!\$)\$\{?([A-Za-z_][A-Za-z0-9_]*)/g);
+    // `${VAR:?}` breaks `compose up` for any stack missing it, so every example must list it;
+    // an optional var only needs one stack that uses it.
+    const required = refs(/(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*):\?/g);
+    return [...vars]
+      .filter(
+        (v) =>
+          !DEPLOY_SET.has(v) &&
+          !(required.has(v) ? listed.every((k) => k.has(v)) : listed.some((k) => k.has(v))),
+      )
+      .sort()
+      .map(
+        (v) =>
+          `${file} reads \${${v}} but infra/secrets/{${stacks.join(',')}}.example.env does not list it`,
+      );
+  });
+}
+
 export function readText(p) {
   try {
     return readFileSync(p, 'utf8');
@@ -145,7 +222,9 @@ function main() {
     .split('\0')
     .filter(Boolean);
   const bad = [...new Set([...findForbidden(tracked), ...findBadContent(tracked, readText)])];
-  if (bad.length === 0) {
+  const drift = findComposeDrift(readText);
+  for (const d of drift) console.error(d);
+  if (bad.length === 0 && drift.length === 0) {
     console.log('OK');
     return;
   }

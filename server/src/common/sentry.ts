@@ -66,7 +66,7 @@ export function initSentry(): void {
 const DEFAULT_TRACES_SAMPLE_RATE = 0.1;
 
 function resolveTracesSampleRate(value: string | undefined): number {
-  const rate = value === undefined ? NaN : Number(value);
+  const rate = value === undefined || value === '' ? NaN : Number(value);
   if (!Number.isFinite(rate) || rate < 0 || rate > 1) {
     return DEFAULT_TRACES_SAMPLE_RATE;
   }
