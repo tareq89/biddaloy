@@ -96,7 +96,7 @@ This is the whole path up to the first ID card. If no printer is added yet, firs
 
    → The **Print designs** list opens. If it is empty, it says **Start from a design**.
 
-<!-- image pending: Print designs list, two designs, one marked "Default"; admin, desktop -->
+<img src="img/print-templates-01-list.png" alt="Print designs list, two designs, one marked &quot;Default&quot;; admin">
 
 2. Press **New design**.
 
@@ -264,7 +264,7 @@ The QR check page is open to everyone, no sign-in needed.
 2. The **Document type** filter (**All documents**).
 3. The list — **Name**, **Type**, **Status** (**Published** / **Draft only**), **Cards per round**, **Last updated**, and **Actions**: **Edit design**, **Make default**, **Archive**.
 
-<!-- image pending: Print designs list, the three parts marked with numbers; admin, desktop -->
+<img src="img/print-templates-01-list.png" alt="Print designs list, the three parts marked with numbers; admin">
 
 </details>
 
