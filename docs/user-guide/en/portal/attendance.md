@@ -65,7 +65,7 @@ This page is for looking only. If a day looks wrong, tell the school.
 
 2. Scroll down to the month's calendar. The colour of each day shows what happened that day.
 
-<!-- image pending: Attendance, current month; 1 · Attendance rate and four boxes 2 · Month calendar 3 · Day details; parent, phone -->
+<img src="img/attendance-01.png" alt="Attendance, current month" width="300">
 
 > **Remember:** if no day in the month has been marked, the rate shows only a dash (—) and the text **Not enough marked days this month**. This does not mean 0%; the teacher has not taken attendance yet.
 
@@ -146,7 +146,7 @@ The teacher takes attendance from the [**Taking attendance**](../attendance/atte
 3. The month's calendar, with arrows at the top to change month.
 4. The details of the chosen day.
 
-<!-- image pending: Attendance, four parts numbered, a late day chosen; student, desktop -->
+![Attendance, a late day chosen](img/attendance-02.png)
 
 </details>
 

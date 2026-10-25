@@ -63,7 +63,7 @@ This page is view only. Nothing can be changed here.
 
    → The exam name, then **From 20 November · how much of the syllabus is taught**. Under each subject is a bar, such as **6/10 lessons**.
 
-<!-- image pending: img/portal-syllabus-01-overview.png (width 300) — The Syllabus page on a phone: 1 the exam card, 2 the subject that is most behind, 3 the list of other subjects -->
+<img src="img/syllabus-01.png" alt="The Syllabus page on a phone" width="300">
 
 3. Look at the open card below.
 
