@@ -76,7 +76,7 @@ See everything you need today for the section you are class teacher of, on one p
 
    → With only one section, its page opens directly; go to step 3. With two or more, under the **My class** heading you see **Pick a section to open.** and one card per section. With none, you see **No section yet**.
 
-![My class, two section cards to pick from, Class teacher and Assistant class teacher](img/my-class-01.png)
+<!-- image pending: My class, two section cards to pick from, Class teacher and Assistant class teacher marked, teacher, desktop (needs a teacher with two sections; the demo has none) -->
 
 2. Press the card of the section you want. The card shows the class and section name (for example **Class 6 – A**) and your duty below it, **Class teacher** or **Assistant class teacher**.
 
