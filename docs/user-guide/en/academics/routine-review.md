@@ -100,7 +100,7 @@ This page works on the current academic year's **routine**. A routine has three 
 
    → **Routine review** at the top, with the state next to it (for example **Draft**). The facts: **Academic year**, **Periods**, **Who can see it**. Below is the **All periods** list.
 
-<!-- image pending: Routine review page, Draft state, the Submit for review button and the facts marked, admin, desktop -->
+![Routine review page, Draft state, the Submit for review button and the facts](img/routine-review-01.png)
 
 2. Look through the **All periods** list to check that every section is filled ([See the list of all periods](#task-list)).
 
@@ -289,7 +289,7 @@ Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. 
 3. **Change requests** — only on a published routine.
 4. **All periods** — the list, with the **Class and section** filter.
 
-<!-- image pending: the Admin's page on a published routine, the four parts marked with numbers, admin, desktop -->
+![the Admin's page on a published routine, the four parts](img/routine-review-03.png)
 
 </details>
 

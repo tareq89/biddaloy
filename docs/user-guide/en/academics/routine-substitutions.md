@@ -71,7 +71,7 @@ This page works on the **list of substitute teachers**: who took whose period on
 
    → **Substitute teachers** at the top, and below it "Who took whose period on which day, and which periods were cancelled." Below that are the filters and the list.
 
-<!-- image pending: Substitute teachers page, with the Add substitute teacher button, the filters and the list marked, admin, desktop -->
+![Substitute teachers page, with the Add substitute teacher button, the filters and the list](img/routine-substitutions-01.png)
 
 2. At the top, press **Add substitute teacher**.
 
@@ -93,7 +93,7 @@ This page works on the **list of substitute teachers**: who took whose period on
 
 7. If you want, write a **Reason (optional)**, for example `Sick leave` (up to 280 characters).
 
-<!-- image pending: the Record a substitute teacher dialog, with Date, Class and section, Period and Substitute teacher marked, admin, desktop -->
+![the Record a substitute teacher dialog, with Date, Class and section, Period and Substitute teacher](img/routine-substitutions-02.png)
 
 8. Press **Save**.
 

@@ -97,7 +97,7 @@ Create homework for one subject of one class, then give it to a whole section or
 
    → At the top is the **Homework** heading, with **Homework assigned across classes and sections** below it. The list has the columns **Title**, **Subject**, **Class**, **Grading mode**, **Created**, newest first. If there is nothing, you see **No homework yet**.
 
-<!-- image pending: homework list, Assign homework and Import homework buttons marked, teacher, desktop -->
+![homework list, Assign homework and Import homework buttons](img/homework-01.png)
 
 2. At the top of the page, press **Assign homework**.
 
@@ -113,7 +113,7 @@ Create homework for one subject of one class, then give it to a whole section or
 
 5. Pick the **Grading mode**: **Tick (done / not done)**, **Partial completion** or **Marks**. **Tick** is selected at the start. Which one when: [Which grading mode to pick](#task-grading).
 
-<!-- image pending: Create homework, the 1. What to do part with class, subject, title and grading mode marked, teacher, desktop -->
+![Create homework, the 1. What to do part with class, subject, title and grading mode](img/homework-02.png)
 
 6. In **2. Who and when**, keep **Section** in **Assign to**, and pick a section in the **Section** field.
 
@@ -129,7 +129,7 @@ Create homework for one subject of one class, then give it to a whole section or
 
 **On a phone** the page opens full screen; the fields come one below the other, with the **Give homework** button at the bottom.
 
-<!-- image pending: Create homework on a phone, Give homework button at the bottom, teacher, phone -->
+<img src="img/homework-03.png" alt="Create homework on a phone, Give homework button at the bottom" width="300">
 
 > **Remember:** nothing is saved until you press **Give homework**. If you press **Cancel** midway, the app asks whether to throw away what you wrote.
 
@@ -198,7 +198,7 @@ To give many homework to many sections at once, such as a whole week's, import t
 
    → A file named `homework-import-template.csv` downloads. The first row has the column headers and the second row has an example.
 
-<!-- image pending: Import homework, Download template button and the column reference open, admin, desktop -->
+![Import homework, Download template button and the column reference open](img/homework-04.png)
 
 **2. Fill in the file**
 
@@ -354,7 +354,7 @@ Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part 
 3. **The filter row** — **Class**, **Section**, **Subject**, **Status**.
 4. **The list** — **Title**, **Subject**, **Class**, **Grading mode**, **Created**; **View** at the end of each row.
 
-<!-- image pending: the four parts of the homework list numbered, admin, desktop -->
+![the four parts of the homework list](img/homework-06.png)
 
 </details>
 

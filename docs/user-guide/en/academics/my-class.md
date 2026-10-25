@@ -76,7 +76,7 @@ See everything you need today for the section you are class teacher of, on one p
 
    → With only one section, its page opens directly; go to step 3. With two or more, under the **My class** heading you see **Pick a section to open.** and one card per section. With none, you see **No section yet**.
 
-<!-- image pending: My class, two section cards to pick from, marked Class teacher and Assistant class teacher, teacher, desktop -->
+![My class, two section cards to pick from, Class teacher and Assistant class teacher](img/my-class-01.png)
 
 2. Press the card of the section you want. The card shows the class and section name (for example **Class 6 – A**) and your duty below it, **Class teacher** or **Assistant class teacher**.
 
@@ -90,11 +90,11 @@ See everything you need today for the section you are class teacher of, on one p
 
    → Three columns on a computer, one column on a phone.
 
-<!-- image pending: section page, Take today's attendance button and the six cards numbered, teacher, desktop -->
+![section page, Take today's attendance button and the six cards](img/my-class-02.png)
 
 **On a phone** the cards come one below the other in the same order, and the **Take today's attendance** button is full width.
 
-<!-- image pending: section page on a phone, full-width Take today's attendance button at the top, teacher, phone -->
+<img src="img/my-class-03.png" alt="section page on a phone, full-width Take today's attendance button at the top" width="300">
 
 > **Remember:** this page is view-only. Pressing something here saves nothing; the work happens on the page it takes you to.
 
@@ -206,7 +206,7 @@ Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part 
 3. **Absent today**, **Attendance flags**, **Dues** — the first row of cards.
 4. **Homework**, **Results**, **Students** — the second row of cards.
 
-<!-- image pending: the four parts of the section page numbered, teacher, desktop -->
+![the four parts of the section page](img/my-class-04.png)
 
 </details>
 

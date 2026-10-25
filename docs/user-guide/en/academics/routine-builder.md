@@ -101,7 +101,7 @@ On this page you work on one **routine table** per section. The table's columns 
 
    → At the top: **{class} – {section}**, the routine's state, **Students** and **Filled** ("… of … periods"). Below it is the **Weekly routine table**. An empty cell says **Empty**, and a break row says **Break**.
 
-<!-- image pending: the class routine table, with the facts at the top, an empty cell and two buttons marked, admin, desktop -->
+![the class routine table, with the facts at the top, an empty cell and two buttons](img/routine-builder-01.png)
 
 4. Press the empty cell for the day and period you want to fill. (You can also move with the arrow keys and press Enter.)
 
@@ -277,7 +277,7 @@ Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. 
 3. **Weekly routine table** — day × period.
 4. **Teacher workload** — the period count for each teacher.
 
-<!-- image pending: the four parts of the section routine page marked with numbers, admin, desktop -->
+![the four parts of the section routine page](img/routine-builder-03.png)
 
 </details>
 
