@@ -27,7 +27,11 @@ export default defineConfig({
       name: 'og-image-base',
       // loadEnv also reads .env files (and the process env), which plain process.env does not.
       transformIndexHtml(html, ctx) {
-        const env = loadEnv(ctx.server?.config.mode ?? process.env.NODE_ENV ?? 'production', process.cwd(), 'VITE_');
+        const env = loadEnv(
+          ctx.server?.config.mode ?? process.env.NODE_ENV ?? 'production',
+          process.cwd(),
+          'VITE_',
+        );
         const base = env.VITE_APP_URL ?? 'https://app.schoolmanagerp.com';
         return html.replace('%OG_BASE%', base.replace(/\/$/, ''));
       },
@@ -103,7 +107,8 @@ export default defineConfig({
         // registration entirely in that mode) — precaching it would ship
         // a mocking harness to production users. `stats.html` is the
         // `ANALYZE=true` bundle report above, not app output.
-        globIgnores: ['**/mockServiceWorker.js', '**/stats.html'],
+        // `runtime-config.js` is server-rendered per deploy; `sw.ts` serves it NetworkOnly.
+        globIgnores: ['**/mockServiceWorker.js', '**/stats.html', '**/runtime-config.js'],
       },
       // No service worker in `vite dev`: it would cache the dev server's
       // unhashed module URLs and make every subsequent edit look like it
@@ -135,6 +140,8 @@ export default defineConfig({
             org: process.env.SENTRY_ORG,
             project: process.env.SENTRY_PROJECT,
             authToken: process.env.SENTRY_AUTH_TOKEN,
+            // Equals the runtime `release` (the commit SHA) so events match their maps.
+            release: { name: process.env.SENTRY_RELEASE },
             // Deleted after upload: the maps exist for Sentry, not for
             // the public — shipping them would hand anyone the app's
             // unminified source.

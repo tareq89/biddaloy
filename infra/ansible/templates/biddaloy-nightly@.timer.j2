@@ -1,0 +1,11 @@
+# Managed by Ansible (provision.yml). Host time is {{ host_timezone }}.
+[Unit]
+Description=biddaloy nightly job {{ item.job }}
+
+[Timer]
+OnCalendar=*-*-* {{ item.at }}
+Persistent=false
+Unit=biddaloy-nightly@{{ item.job }}.service
+
+[Install]
+WantedBy=timers.target
