@@ -168,7 +168,7 @@ Teachers mostly see alerts on a phone. On a phone:
 2. Each row of the list becomes a card, with the level (**Urgent**, **Warning** or **Reminder**) at the top.
 3. Press the card's action button, or **Remind me later** / **Close**.
 
-<!-- image pending: Alerts & notifications page on a phone, to-do cards, teacher, phone -->
+<img src="img/dashboard-alerts-01-todo.png" alt="Alerts & notifications page on a phone, to-do cards, teacher" width="300">
 
 ### Morning summary <a href="#task-digest" id="task-digest"></a>
 
@@ -196,7 +196,7 @@ If notifications are off on this device, the card says **Turn on notifications o
 
 Some rules cannot be switched off; they say **Can't be switched off**. It is not only the urgent ones: some **Warning** level rules are like this too (see the last column of the lists below). In this section you can also set the time of the morning and evening reminders and the quiet hours for push.
 
-<!-- image pending: Settings, the Alerts & reminders section, a switch marked Can't be switched off, admin, desktop -->
+<img src="img/dashboard-03-settings.png" alt="Settings, the Alerts & reminders section, a switch marked Can't be switched off, admin">
 
 ### What each alert means <a href="#task-kinds" id="task-kinds"></a>
 
