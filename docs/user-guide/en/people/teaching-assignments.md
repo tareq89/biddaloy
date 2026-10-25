@@ -71,7 +71,7 @@ Every section has a **list of duties**. Each row of the list is one teacher and 
 
    → The title **Teacher assignments** at the top, with "Who is class teacher and who teaches what, section by section" below it. Under that is the **Class** field, and a card for each section of that class: **Section A**, **Section B** and so on. The first class is already chosen.
 
-<!-- image pending: the Teacher assignments page, with the Class field, section cards, Add teacher button and duty list marked, admin, desktop -->
+![the Teacher assignments page, with the Class field, section cards, Add teacher button and duty list](img/teaching-assignments-01.png)
 
 2. In **Class**, choose the class whose section you will give a duty in.
 
@@ -240,7 +240,7 @@ Someone without permission who opens the page sees **You don't have access to th
 3. **The section card** — each section's name (for example **Section A**) and the **Add teacher** button.
 4. **The duty list** — **Teacher** (name and employee ID), **Duty**, **Subject**; at the end of each row, **Remove from section**.
 
-<!-- image pending: the four parts of the Teacher assignments page marked with numbers, admin, desktop -->
+![the four parts of the Teacher assignments page](img/teaching-assignments-04.png)
 
 </details>
 

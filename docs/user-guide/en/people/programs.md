@@ -81,7 +81,7 @@ A program has many milestones, and each student gets one achievement per milesto
 
    → At the top is the title **Programs** and under it "Track students' progress milestone by milestone." Below is the list: **Name**, **Milestones**, **Active students**, **On report card**.
 
-<!-- image pending: program list, Add program button and list columns marked, admin, desktop -->
+![program list, Add program button and list columns](img/programs-01.png)
 
 2. Press **Add program** at the top of the page. (If the list is empty, a button with the same name is in the middle too.)
 
@@ -99,7 +99,7 @@ A program has many milestones, and each student gets one achievement per milesto
 
    → If you do not tick it, the program does not appear on the report card. In the list, the **On report card** column shows **Yes** or **No**.
 
-<!-- image pending: Add program dialog, three fields and bottom button marked, admin, desktop -->
+![Add program dialog, three fields and bottom button](img/programs-02.png)
 
 6. Press **Save** at the bottom of the dialog.
 
@@ -162,7 +162,7 @@ A student's achievements cannot be recorded until they are enrolled. You can enr
 
    → The form closes and the students appear on the program's **Students** tab. If some students were already **Active**, they are skipped: the form stays open with the message "{n} students already enrolled, skipped.", and the others are enrolled. Then press **Cancel** to close the form.
 
-<!-- image pending: Enrol students form, class, section, date and student list marked, admin, desktop -->
+![Enrol students form, class, section, date and student list](img/programs-04.png)
 
 > **Remember:** the same student can be **Active** in the same program only once at a time. (Checked in the server code.)
 
@@ -192,7 +192,7 @@ You can record one milestone for many students at once.
 
    → The form closes. The student's progress bar grows (for example from 2 / 5 to 3 / 5). Recording the same milestone again for the same student replaces the earlier achievement; you do not get two. (Checked in the server code: up to 500 students at a time.)
 
-<!-- image pending: Record achievement form, milestone, students, date, score, grade, remark marked, teacher, desktop -->
+![Record achievement form, milestone, students, date, score, grade, remark](img/programs-05.png)
 
 > **Remember:** nothing is saved until you press **Save**. If you have typed something and press **Cancel**, the app asks **Discard your changes?** **Keep editing** keeps what you wrote; **Discard changes** throws it away.
 
@@ -302,7 +302,7 @@ There are no known issues on this page right now.
 3. **Also show archived programs** — the tick box in the filter row.
 4. **The list** — **Name**, **Milestones**, **Active students**, **On report card** (and **Status** when archived are shown); at the end of each row, **View** and **Edit program**.
 
-<!-- image pending: the four parts of the program list marked with numbers, admin, desktop -->
+![the four parts of the program list](img/programs-06.png)
 
 On the program page: at the top **Name**, **Status** and three facts; buttons **Record achievement**, **Enrol students**, **Edit program**, **Archive**, **Delete**; below, the tabs **Milestones** and **Students**.
 

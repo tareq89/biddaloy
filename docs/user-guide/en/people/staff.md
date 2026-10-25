@@ -114,7 +114,7 @@ This page is about the **staff list**. The list holds everyone at the school: te
 
    → The **Staff** title at the top, and below it "Everyone who can sign in to this school". Below that is the list of staff: **Name**, **Phone**, **Role**, **Status**, **Joined**.
 
-<!-- image pending: staff list, with the Add staff member button and the list columns marked, admin, desktop -->
+![staff list, with the Add staff member button and the list columns](img/staff-01.png)
 
 2. Press **Add staff member** at the top of the page.
 
@@ -132,7 +132,7 @@ This page is about the **staff list**. The list holds everyone at the school: te
 
    → Under each role the list shows one line about what it can do, for example for Teacher: "Own classes and sections: attendance, homework and marks." If you go on without a role, it shows **Choose a role.**
 
-<!-- image pending: the Add staff member dialog, the four fields and the button at the bottom marked, admin, desktop -->
+![the Add staff member dialog, the four fields and the button at the bottom](img/staff-02.png)
 
 6. Press **Add staff member** at the bottom of the dialog.
 
@@ -399,7 +399,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 3. **The filter row** — **Search**, **Membership**, **Role**, **Status**, **Invitation**, **Designation**, **Joined date**.
 4. **The list** — **Name**, **Phone**, **Role**, **Status**, **Joined**; at the end of each row, **View**, **Edit**, **Remove from school**.
 
-<!-- image pending: the four parts of the staff list marked with numbers, admin, desktop -->
+![the four parts of the staff list](img/staff-04.png)
 
 </details>
 

@@ -108,7 +108,7 @@ Do this to put a holiday, exam, meeting or event on the calendar. (Only an Admin
 
    → The **Calendar** title at the top, and below it this month's calendar. On the right are the events of the chosen day and the **Upcoming** list.
 
-<!-- image pending: calendar page, with the buttons at the top, the month grid and the two lists on the right marked, admin, desktop -->
+![calendar page, with the buttons at the top, the month grid and the two lists on the right](img/calendar-01.png)
 
 2. Press **Add event** at the top of the page.
 
@@ -126,7 +126,7 @@ Do this to put a holiday, exam, meeting or event on the calendar. (Only an Admin
 
    → You cannot choose an end date before the start date. If the start date has already passed, see [Add a holiday for a day that has passed](#task-past).
 
-<!-- image pending: the Add event page, with the two parts, the type and date boxes and the buttons at the bottom marked, admin, desktop -->
+![the Add event page, with the two parts, the type and date boxes and the buttons at the bottom](img/calendar-02.png)
 
 6. If you need to, write a **Description**. People see it when they open the event.
 
@@ -461,7 +461,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 4. **The chosen day's list** — all the events of that day.
 5. **Upcoming** — the next five events and the date of the next holiday.
 
-<!-- image pending: the five parts of the calendar marked with numbers, admin, desktop -->
+![the five parts of the calendar](img/calendar-04.png)
 
 </details>
 
