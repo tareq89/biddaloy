@@ -197,6 +197,8 @@ export async function recordGif(
 
 /** Sign in through a demo-school login card (`/login?role=<card>`), picking the school if asked. */
 export async function loginAs(page: Page, card: string): Promise<void> {
+  // /auth/login and /auth/refresh allow 5 a minute per IP; a tour that signs in often must pace itself.
+  await page.waitForTimeout(13_000);
   await page.goto(`/login?role=${card}`);
   await page.waitForURL(/\/(dashboard|select-school)/);
   if (page.url().includes('/select-school')) {

@@ -100,7 +100,7 @@ An **alert** is a to-do that the school's rules create by themselves. For exampl
 
    → At the top it says **Your to-do and past alerts in one place.** Below is the list: **Type**, **About**, **Student / section**, **When**, **Status**, **Actions**.
 
-<!-- image pending: Alerts & notifications page, To-do tab, 1 tab 2 filters 3 one row 4 action button marked, admin, desktop -->
+![Alerts & notifications page, To-do tab](img/dashboard-alerts-01-todo.png)
 
 2. Look at the **Urgent** rows first. Read **About** to understand what has to be done. What each alert means is in [What each alert means](#task-kinds) below.
 3. Press the first button in the row's **Actions** cell (if there is one).
@@ -168,7 +168,7 @@ Teachers mostly see alerts on a phone. On a phone:
 2. Each row of the list becomes a card, with the level (**Urgent**, **Warning** or **Reminder**) at the top.
 3. Press the card's action button, or **Remind me later** / **Close**.
 
-<img src="img/dashboard-alerts-01-todo.png" alt="Alerts & notifications page on a phone, to-do cards, teacher" width="300">
+<img src="img/dashboard-alerts-01-todo-phone.png" alt="Alerts & notifications page on a phone, to-do cards, teacher" width="300">
 
 ### Morning summary <a href="#task-digest" id="task-digest"></a>
 
