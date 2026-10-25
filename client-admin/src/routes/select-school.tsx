@@ -20,6 +20,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { useSignOutToLogin } from '../features/demo/use-sign-out-to-login';
+import { runtimeConfig } from '../runtime-config';
 import { isSameAppRedirect } from '../same-app-redirect';
 
 /**
@@ -93,7 +94,7 @@ function SelectSchoolPage() {
   }
 
   if (memberships.length === 0) {
-    const supportUrl = import.meta.env.VITE_SUPPORT_URL;
+    const supportUrl = runtimeConfig().supportUrl;
     return (
       <AuthLayout>
         <SchoolInvitesCard {...invites.cardProps} />

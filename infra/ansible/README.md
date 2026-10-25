@@ -1,71 +1,61 @@
-# Ansible: provision the host
+# Ansible
 
-One command turns a fresh Ubuntu LTS VM into the hardened Docker host.
+The full, step-by-step setup (accounts, keys, provision, secrets, first deploy,
+switching VM) is one page:
+**[docs/architecture/28-platform-runbook.md](../../docs/architecture/28-platform-runbook.md)**.
+Start there. This file only lists what is in this folder.
 
 ```mermaid
 flowchart LR
-  A[fresh VM] -->|provision.yml| P{deploy key + sudo work?}
-  P -- no --> X[play stops; root login still open]
-  P -- yes --> B[key-only SSH, checked with sshd -T]
-  B --> C[ufw 22/80/443 + fail2ban + auto-updates + chrony]
-  C --> D[Docker, log rotation, weekly prune]
-  D --> E[/opt/biddaloy: prod demo staging ops certs/]
+  L["Your laptop"] -->|"provision.yml<br/>(once per VM)"| VM["VM: hardened Docker host"]
+  L -->|"scripts/deploy.sh STACK SHA<br/>or GitHub: Deploy"| CLI["VM: biddaloy-deploy"]
+  CLI -->|"ansible-playbook -c local"| D["deploy.yml"]
 ```
 
+| File | Run where | What it does |
+| --- | --- | --- |
+| `provision.yml` | your laptop, against the VM | Hardens a fresh Ubuntu LTS VM (key-only SSH, ufw, fail2ban, auto-updates), installs Docker, makes `/opt/biddaloy`, the host age key and the repo deploy key, installs the `biddaloy-*` commands and the nightly timers. Safe to re-run; the second run ends `changed=0`. |
+| `deploy.yml` | **on the VM**, started by `biddaloy-deploy` | Deploys one stack (`prod`, `staging`, `demo`, `edge` or `ops`) at one 40-hex sha. Never run from the laptop. |
+| `inventory/prod.yml` | both | The host, `edge_mode` (`tunnel` or `direct`), the seven hostnames, `github_deploy_pubkey_pinned`. |
+| `group_vars/all.yml` | both | Non-secret settings: pinned tool versions, nightly job times, ports, locks. |
+| `requirements.yml` | laptop and VM | Pinned Galaxy roles (by commit) and collections. |
+| `tasks/`, `templates/` | included | Pre-flight, env files, smoke test, failure report, the cloudflared config and the nightly systemd units. |
+
+## The two commands you need
+
 ```bash
-pip install ansible                      # or: brew install ansible
-cd infra/ansible
-ansible-galaxy install -r requirements.yml   # installs the roles and the collections
-export BIDDALOY_PROD_HOST=203.0.113.10   # the VM's public IP
-# first run on a fresh VM, as the image's admin user:
+# once per VM (from this folder). First run on a fresh VM:
+export BIDDALOY_HOST=203.0.113.10
+ansible-galaxy install -r requirements.yml
 ansible-playbook provision.yml -e ansible_user=root
-# re-run as deploy; must end with changed=0:
-ansible-playbook provision.yml | tail -3
+ansible-playbook provision.yml            # second run, as deploy: must end changed=0
+
+# every release (from the repo root)
+BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh staging 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+BIDDALOY_HOST=203.0.113.10 scripts/deploy.sh prod    3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
 ```
 
-Needs `~/.ssh/id_ed25519` and its `.pub`. Another key pair:
-`-e operator_ssh_privkey=~/.ssh/other` (the `.pub` next to it is read). A second
-operator: put every public key, one per line, in one value, for example
-`-e operator_ssh_pubkey="$(cat ~/.ssh/id_ed25519.pub teammate.pub)"`. The deploy
-user keeps exactly the keys in that value, so never swap it for just the new key.
+On the VM the same thing is `biddaloy-deploy <prod|staging|demo|edge|ops|all> <sha> [--hotfix "reason"] [--skip-backup]`.
 
-**First run: keep a root SSH session open until the second run succeeds.** The
-play turns off root and password login. Before it does, it adds your key to
-`deploy` next to any key already there, runs
-`ssh -o BatchMode=yes -o IdentitiesOnly=yes -i <operator_ssh_privkey> deploy@<host> sudo -n true`
-from your laptop, and stops if that fails. Only after that probe passes does it
-remove every other key from `deploy`, so a wrong key on a later run cannot lock
-you out either. A lockout on a BDIX VM means the provider's VNC console, so keep the
-open session as a fallback anyway.
+## Things worth knowing before you edit
 
-What the play sets up, and what it costs:
-
-- **SSH.** `/etc/ssh/sshd_config.d/00-biddaloy.conf` turns off password,
-  keyboard-interactive and root login. Ubuntu cloud images ship a
-  `50-cloud-init.conf` that can turn password login back on; `00-` is read
-  first, and the play checks `sshd -T` to prove the effective values.
-- **sudo.** `deploy` has `NOPASSWD:ALL`. The `docker` group is root-equivalent
-  anyway, so a password on sudo would add no real second factor. Accepted:
-  the operator's SSH key is the one thing that guards root.
-- **ufw.** The SSH port (`ansible_port`, default 22) is `limit` (6 new connections in 30 s per IP). A script that
-  opens many SSH sessions without connection sharing (`ControlMaster`) can hit it.
-- **Public-port check.** Docker bypasses ufw, so compose binds everything but
-  nginx to `127.0.0.1`, and the play fails if any other TCP or UDP port listens
-  publicly (`ss -H -tuln`; DHCP client ports 68 and 546 are allowed). On a fresh
-  VM nothing is deployed yet, so the check only means something on runs after
-  `deploy.yml` (61.1).
-- **Weekly prune.** Third-party images unused for 7 days go. Our own images
-  (`ghcr.io/tareq89/*`) keep the newest 4 per repo, so a rollback does not need GHCR.
-  Untagged (dangling) images go every week.
-
-Secrets are not here: see `infra/secrets`. Local `.vault*` files are ignored and
-the CI guard (`scripts/check-tracked-files.mjs`) fails if one is committed.
-Lint: `ansible-lint infra/ansible`.
-
-## Deploy a version
-
-```bash
-ansible-playbook deploy.yml -e env=prod -e version=$(git rev-parse HEAD)   # full 40-hex sha; add --check to see the plan
-```
-
-Pulls, backs up (prod), migrates, restarts, waits for ready, smoke-tests, and logs to `/opt/biddaloy/<env>/deploys.log`. On failure it redeploys the last good version (migrations are not reverted). Before deploying: check out that sha with no uncommitted changes to `docker-compose*.yml` or `nginx/` (files are copied from your checkout) and export `SMOKE_{ADMIN,TEACHER,SUPER_ADMIN}_{EMAIL,PASSWORD}` for the smoke test. Staging (`-e env=staging`) runs `config:check --env staging` first and skips the smoke test (Cloudflare Access). Full flow and rollback: `docs/architecture/07-deployment.md`.
+- **Keep a root SSH session open** during the first `provision.yml` run until the second
+  run succeeds. The play turns off root and password login, but first tests that
+  `deploy@<host>` can log in with your key and use `sudo`, and stops if not.
+- **Your SSH key.** Default `~/.ssh/id_ed25519` (+ `.pub`). Another key:
+  `-e operator_ssh_privkey=~/.ssh/other`. More than one operator: put every public key,
+  one per line, in one value, e.g.
+  `-e operator_ssh_pubkey="$(cat ~/.ssh/id_ed25519.pub teammate.pub)"`. The `deploy` user
+  keeps exactly the keys in that value, so never pass only the new one.
+- **GitHub's key** (can run only `biddaloy-deploy`): paste its public line into
+  `github_deploy_pubkey_pinned` in `inventory/prod.yml` (it is a placeholder starting with
+  `UNSET` until you do), or set `BIDDALOY_GITHUB_DEPLOY_PUBKEY` for one run.
+- **The hotfix reason** reaches `deploy.yml` in the environment variable
+  `BIDDALOY_HOTFIX_REASON`, never as `-e`: Ansible templates extra vars, so a `{{ }}` in one
+  would run as root.
+- Staging and ops stay closed without an `access_confirmed` switch: cloudflared checks the Access token (tunnel mode) or nginx basic auth does (direct mode). The Access setup is part 4d of the guide, done by hand.
+- Secrets are not here: see [`infra/secrets/README.md`](../secrets/README.md). The CI guard
+  (`scripts/check-tracked-files.mjs`) fails if a `.vault*` file or a decrypted `.env` is
+  committed.
+- Lint: `ansible-lint infra/ansible`. Syntax check of the deploy playbook:
+  `ansible-playbook -c local -i localhost, infra/ansible/deploy.yml -e stack=prod -e version=<40-hex> --syntax-check`.

@@ -40,6 +40,17 @@ describe('buildHelmetOptions', () => {
     });
   });
 
+  it('lets the browser reach only the Sentry DSN origin, and only when one is set', () => {
+    const csp = (dsn?: string) =>
+      (buildHelmetOptions('production', dsn) as any).contentSecurityPolicy.directives;
+    expect(csp('https://key@o1.ingest.sentry.io/42').connectSrc).toEqual([
+      "'self'",
+      'https://o1.ingest.sentry.io',
+    ]);
+    expect(csp('').connectSrc).toBeUndefined();
+    expect(csp('not a url').connectSrc).toBeUndefined();
+  });
+
   it('sets referrerPolicy to no-referrer and frameguard to deny', () => {
     const options = buildHelmetOptions('production');
 
