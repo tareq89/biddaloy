@@ -42,6 +42,16 @@ function frame(file: string): void {
   renameSync(tmp, file);
 }
 
+/** A 256-colour palette: a busy screen drops to well under the limit and still reads clearly. */
+function shrink(file: string): void {
+  const tmp = `${file}.tmp.png`;
+  execFileSync('ffmpeg', [
+    '-y', '-loglevel', 'error', '-i', file, '-vf',
+    'split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=none', tmp,
+  ]);
+  renameSync(tmp, file);
+}
+
 /** Language, light mode, no demo ribbon, visible pointer. Call before the first `goto`. */
 export async function prepare(page: Page, opts: { pointer?: boolean } = {}): Promise<void> {
   const lang = guideLang();
@@ -109,10 +119,12 @@ export async function shoot(
     callouts.map((c) => c.target),
     file,
   );
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur?.());
   // Let toasts and focus rings settle so the shot matches what a reader sees.
   await page.waitForTimeout(250);
   await page.screenshot({ path: file, animations: 'disabled', caret: 'hide', clip: opts.region });
   frame(file);
+  if (statSync(file).size / 1024 > MAX_PNG_KB) shrink(file);
   const kb = statSync(file).size / 1024;
   if (kb > MAX_PNG_KB)
     throw new Error(`${file} is ${kb.toFixed(0)} KB; the limit is ${MAX_PNG_KB} KB`);
