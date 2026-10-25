@@ -120,7 +120,7 @@ knownIssues: []
 - আকার বদলানো যায় না; আকার শুধু কম্পিউটারে।
 - উইজেটের ছোট বর্ণনা দেখায় না, শুধু নাম।
 
-<!-- image pending: ফোনে নিচের পাতা হয়ে সাজানোর প্যানেল, শিক্ষক, phone -->
+<img src="img/dashboard-02-customise-phone.png" alt="ফোনে নিচের পাতা হয়ে সাজানোর প্যানেল, শিক্ষক" width="300">
 
 ### শুধু কি-বোর্ড দিয়ে <a href="#task-keyboard" id="task-keyboard"></a>
 

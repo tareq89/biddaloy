@@ -74,7 +74,7 @@ Your **layout** is which widgets show, in what order and how big. One layout is 
 
    → **Customising** appears at the top, and the **Widgets** panel opens. The panel has two lists: **Shown** and **Hidden**. Beside it is a preview: **Preview: this is how it will look after saving**.
 
-<!-- image pending: the customise panel open, with the Shown and Hidden lists and the preview marked, admin, desktop -->
+<img src="img/dashboard-02-customise.png" alt="the customise panel open, with the Shown and Hidden lists and the preview marked, admin">
 
 2. To hide a widget, untick the box on its row. To show it, tick the box.
 
@@ -120,7 +120,7 @@ On a phone, **Customise** opens the panel as a page that rises from the bottom, 
 - You cannot change the size; size is only on a computer.
 - A widget's short description is not shown, only its name.
 
-<!-- image pending: the customise panel as a bottom sheet on a phone, teacher, phone -->
+<img src="img/dashboard-02-customise-phone.png" alt="the customise panel as a bottom sheet on a phone, teacher" width="300">
 
 ### With the keyboard only <a href="#task-keyboard" id="task-keyboard"></a>
 
