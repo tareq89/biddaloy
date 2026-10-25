@@ -89,7 +89,7 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
 
    → The heading **Admission rounds** appears, and under it "Which class, how many seats, and when guardians can apply online." The list columns are **Title**, **Class / Section**, **Seats**, **Application window**, **Status**. With no rounds, it says **No admission rounds yet**.
 
-<!-- image pending: img/people-admission-intakes-01.png — the admission rounds list, with the Add admission round button and the columns marked, admin, desktop -->
+![the admission rounds list, with the Add admission round button and the columns](img/admission-intakes-01.png)
 
 2. At the top press **Add admission round**.
 
@@ -115,7 +115,7 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
 
    → Every ticked document must be uploaded by the guardian with the form.
 
-<!-- image pending: img/people-admission-intakes-02.png — the Add admission round dialog, the six fields and the Create button marked, admin, desktop -->
+![the Add admission round dialog, the six fields and the Create button](img/admission-intakes-02.png)
 
 8. Press **Create**. The button stays disabled until every required field is filled in correctly.
 
@@ -287,7 +287,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 2. **Add admission round** — the button at the top of the page.
 3. **The list** — **Title**, **Class / Section**, **Seats**, **Application window**, **Status**; at the end of each row, **View applicants** and **Edit**.
 
-<!-- image pending: img/people-admission-intakes-06.png — the three parts of the admission rounds list marked with numbers, admin, desktop -->
+![the three parts of the admission rounds list](img/admission-intakes-06.png)
 
 </details>
 

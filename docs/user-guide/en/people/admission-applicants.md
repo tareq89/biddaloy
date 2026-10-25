@@ -95,7 +95,7 @@ Every application has a **Status**: **Awaiting review** (new), **Shortlisted**, 
 
    → The heading **Admission applicants** appears, and under it "Applications sent through the online form — open one to review and decide." The list columns are **Reference #**, **Applicant**, **Admission round**, **Guardian phone**, **Applied on**, **Status**. New applications are at the top.
 
-<!-- image pending: img/people-admission-applicants-01.png — the applicants list, the two filters and the columns marked, office staff, desktop -->
+![the applicants list, the two filters and the columns](img/admission-applicants-01.png)
 
 2. At the end of the row of the application you want, press **View**.
 

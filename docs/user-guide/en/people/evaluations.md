@@ -94,7 +94,7 @@ One ACR per staff member per academic year. Whoever starts it is its assessor.
 
    → At the top is the title **Evaluations** and under it "ACRs, teacher surveys and incidents in one place." Three tabs: **ACR**, **Surveys**, **Incidents**. The first tab shows the **ACR register**.
 
-<!-- image pending: Evaluations page, three tabs, Start ACR button and list columns marked, admin, desktop -->
+![Evaluations page, three tabs, Start ACR button and list columns](img/evaluations-01.png)
 
 2. Press **Start ACR** at the top of the page.
 
@@ -325,7 +325,7 @@ Checked in the code on version 0.1.0, 2026-10-24. Not tried in the app.
 3. **The tabs** — **ACR**, **Surveys**, **Incidents**.
 4. **The list** — ACR: **Staff member**, **Academic year**, **Status**, **Total score**, **Completed**; surveys: **Title**, **Who answers**, **Status**, **Closes**; incidents: **Staff member**, **Type**, **Severity**, **Date**, **Details**.
 
-<!-- image pending: the four parts of the Evaluations page marked with numbers, admin, desktop -->
+![the four parts of the Evaluations page](img/evaluations-04.png)
 
 </details>
 

@@ -108,7 +108,7 @@ Do this after you add students, so that guardians can sign in to the app. You se
 
    → The **Guardians** title at the top. Below it is the list of guardians: **Name**, **Relationship**, **Phone**, **Preferred channel**, **Linked students**, **Primary contact**.
 
-<!-- image pending: guardian list, with the Invite guardians button, the filter row and the list columns marked, admin, desktop -->
+![guardian list, with the Invite guardians button, the filter row and the list columns](img/guardians-01.png)
 
 2. Press **Invite guardians** at the top of the page. (Only an Admin sees this button.)
 
@@ -327,7 +327,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 3. **The filter row** — **Search**, **Relationship**, **Preferred channel**, **Primary contacts only**, **Records**.
 4. **The list** — **Name**, **Relationship**, **Phone**, **Preferred channel**, **Linked students**, **Primary contact**; **View** at the end of each row. The **Linked students** box shows the first two names, and a count for the rest ("+2 more").
 
-<!-- image pending: the four parts of the guardian list marked with numbers, admin, desktop -->
+![the four parts of the guardian list](img/guardians-04.png)
 
 </details>
 

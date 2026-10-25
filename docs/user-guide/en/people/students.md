@@ -144,7 +144,7 @@ Every student has a **profile**. The profile is their own page: at the top their
 
    → The **Add student** form opens. It has four parts: **Identity**, **Placement**, **Guardians**, **Preferences**.
 
-<!-- image pending: img/students-01-add-form.png — Add student form: 1 Identity, 2 Placement, 3 Guardians, 4 Preferences, 5 the Add student button -->
+![Add student form: 1 Identity, 2 Placement, 3 Guardians, 4 Preferences, 5 the Add student button](img/students-01.png)
 
 3. In **Identity**, type the **Full name**. This is the only required name. If you like, also fill in **Name (Bangla)**, **Blood group**, **Date of birth** and **Gender**.
 
@@ -475,7 +475,7 @@ Only an admin can do this. For a student who has left the school, [record leavin
 <details>
 <summary><strong>Parts of the profile page</strong> — what is where</summary>
 
-<!-- image pending: img/students-02-profile.png — Student profile: 1 name and status badge, 2 facts strip, 3 action buttons, 4 tab row, 5 tab content -->
+![Student profile: 1 name and status badge, 2 facts strip, 3 action buttons, 4 tab row, 5 tab content](img/students-02.png)
 
 1. **Name and status** — the student's name, and next to it **Active** / **Inactive** / **Transferred** / **Graduated**.
 2. **Facts strip** — **Registration no.**, **Class**, **Roll**, **Primary guardian**.
