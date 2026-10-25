@@ -102,7 +102,7 @@ knownIssues: []
 
    → সঙ্গে সঙ্গে লেখা সেই ভাষায় বদলে যায়।
 
-<!-- image pending: img/language-phone-01-menu.png (width 300) — ফোনে অ্যাকাউন্ট মেনু: ১ ভাষা, ২ বাংলা ও English -->
+<img src="img/language-phone-01-menu.png" alt="ফোনে অ্যাকাউন্ট মেনু: ১ ভাষা, ২ বাংলা ও English" width="300">
 
 ### সাইন ইন পাতায় <a href="#task-signin" id="task-signin"></a>
 

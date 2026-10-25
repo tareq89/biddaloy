@@ -89,7 +89,7 @@ This page is your own **day's routine**: one card for each of today's periods, a
 
    → **My routine** at the top: "Your periods today and over the next 6 days." Below it is the **Today, {weekday}** card: how many periods, **Report by {time}**, and how many are left, reported, cancelled and without a study plan.
 
-<!-- image pending: My routine on a phone, today's card, one period card and three buttons marked, teacher, phone -->
+<img src="img/my-routine-01.png" alt="My routine on a phone, today's card, one period card and three buttons" width="300">
 
 2. Look at each period's card: at the top **Period {number} · {time}**, on the right its state (**Not reported yet**, **Reported** and so on). Below it is section · subject · room, and if there is a study plan, **Today's lesson**: "Lesson {number}: {title}".
 
@@ -226,7 +226,7 @@ Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. 
 3. The card for each period — section, subject, room, today's lesson, **Taught** / **Partly** / **Not taught**.
 4. **Next days**.
 
-<!-- image pending: the four parts of My routine marked with numbers, teacher, phone -->
+<img src="img/my-routine-03.png" alt="the four parts of My routine" width="300">
 
 </details>
 
