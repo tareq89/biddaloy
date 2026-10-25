@@ -30,7 +30,7 @@ flowchart TD
 | `yarn guide:gif`                     | Turns a recording into a guide GIF (960 px wide, at most 20 s and 2 MB).                               | `ffmpeg`, `ffprobe`            |
 | `yarn guide:card [role]`             | Prints the one-page desk card of a role as a PDF, in bn and en.                                        | Playwright's Chromium          |
 
-CI runs `guide:check` and `guide:impact` on every pull request (`.github/workflows/ci.yml`, job
+CI runs `guide:check` on every pull request and every push to main, and `guide:impact` on every pull request (`.github/workflows/ci.yml`, job
 **User guide checks**). The `guide:gen` golden test runs with the normal unit tests.
 
 ## Job 1: add a page for a new feature (Recipe R1)
@@ -61,7 +61,7 @@ flowchart LR
 5. Add the page to `docs/user-guide/bn/SUMMARY.md` and `docs/user-guide/en/SUMMARY.md`.
 6. Add the page to the **Related pages** list of every page it should point to, and add the link back
    (rule `(p)`: a related link must link back).
-7. Run `yarn guide:gen`, then `yarn guide:check`. It must print nothing and exit 0.
+7. Run `yarn guide:gen`, then `yarn guide:check`. It must exit 0 and print no problem lines (warnings on stderr are fine).
 
 A route that needs no customer page (a redirect, a platform-only screen) gets an
 `"internal: <reason>"` line in `docs/user-guide/route-map.json` instead of a page.
@@ -139,7 +139,7 @@ flowchart LR
 5. Run `yarn guide:check`. It fails on a PNG over 300 KB, a GIF over 2 MB, and an image without alt text.
 
 **Known problem, not solved.** In this repository's docs environment the capture crashes with
-`Invalid hook call` in `PopperContent` when a tour opens a menu or a dialog. Pages that need those
+`Invalid hook call` (seen in `PopperContent`) when a tour opens a menu or a dialog. Pages that need those
 screenshots still carry `<!-- image pending: ... -->` comments describing the picture that is missing.
 The `dashboard` tour says the same at its top. Until someone fixes it, do not fake a picture: leave the
 comment, and capture the screens that do not open a menu. When it is fixed, run each tour and delete the
@@ -202,7 +202,7 @@ The role pages (`docs/user-guide/<lang>/roles/`) list "All features" from `ROLE_
 
 ## The checks, in one place
 
-`yarn guide:check` prints one JSON line per problem and exits 1. The letter in brackets says which rule failed.
+`yarn guide:check` prints one JSON line per problem and exits 1 (warnings go to stderr and never change the exit code). The letter in brackets says which rule failed.
 
 | Rule  | What it means                                                                   |
 | ----- | ------------------------------------------------------------------------------- |
@@ -212,7 +212,7 @@ The role pages (`docs/user-guide/<lang>/roles/`) list "All features" from `ROLE_
 | `(d)` | a relative link or image does not exist                                         |
 | `(e)` | a `labels` pattern matches no i18n key                                          |
 | `(f)` | a page has no diagram                                                           |
-| `(g)` | an `.svg` is older than its `.mmd`                                              |
+| `(g)` | an `.svg` is missing, or its stamped hash no longer matches its `.mmd`          |
 | `(h)` | a PNG is over 300 KB or a GIF over 2 MB                                         |
 | `(i)` | a video file is under `docs/` (not allowed, D48)                                |
 | `(j)` | a page is not listed in `features.json`                                         |
@@ -222,12 +222,14 @@ The role pages (`docs/user-guide/<lang>/roles/`) list "All features" from `ROLE_
 | `(n)` | `entry` and `#arrive` do not agree                                              |
 | `(o)` | a page bolds another page's title without linking it                            |
 | `(p)` | a related link does not link back                                               |
+| `(q)` | warning only: a `knownIssues` entry is over 30 days old or has no issue number  |
 | `(r)` | a page still has `---` frontmatter                                              |
 | `(s)` | an image has no meaningful alt text                                             |
 | `(t)` | an id in `coverage.json` is still `planned`                                     |
 
-Two ids are skipped on purpose: portal pages are not checked by `(o)` (their titles are the app's own
-menu words), and three ids with no page yet only warn (see `PLANNED_EXCEPTIONS` in `check.mjs`).
+Two exceptions on purpose: portal pages are not checked by `(o)` (their titles are the app's own menu
+words), and three ids with no page yet (`communications.sendAlert`, `reports.alertsReport`,
+`portal.homework`) only warn (see `PLANNED_EXCEPTIONS` in `check.mjs`).
 
 ## What is not in this runbook
 
