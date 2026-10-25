@@ -482,7 +482,7 @@ Press **Keep forever** and that backup is not deleted by itself. But 30 days lat
 
 **While it runs:** the school is view-only; nobody can save anything. Only one restore runs at a time.
 
-**Users:** existing users keep their passwords. But each user's role in this school becomes the one in the file, and people who are not in the file are removed from this school (the account that first set up the school is kept). **What does not change:** payments, invoices, student fees and marks/results are only added; earlier rows are not changed or deleted. A backup of another school cannot be restored here.
+**Users:** existing users keep their passwords. But each user's role in this school becomes the one in the file, and people who are not in the file are removed from this school (the account that first set up the school is kept). **What does not change:** payments, invoices, student fees, exams, marks/results, exam parts and grading scales are only added; earlier rows are not changed or deleted. To correct those, use the app itself. A backup of another school cannot be restored here; only platform support can do that.
 
 **If it stops halfway:** it shows "The restore stopped at …". The kinds before that were already put in. To go back, press **Download the copy taken before the restore**, then restore that file the same way. There is no separate "go back" button.
 
