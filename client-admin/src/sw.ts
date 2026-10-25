@@ -19,7 +19,7 @@ import { clientsClaim, type WorkboxPlugin } from 'workbox-core';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { CacheFirst, NetworkFirst } from 'workbox-strategies';
+import { CacheFirst, NetworkFirst, NetworkOnly } from 'workbox-strategies';
 
 import {
   API_CACHE_NAME,
@@ -69,6 +69,10 @@ registerRoute(
 // router instead of showing the browser's dinosaur. `/api/**` is excluded
 // so an API call never gets an HTML document back — a JSON parse error is
 // a far worse failure mode than a network error the app already handles.
+// `/runtime-config.js` is per-deploy config the server renders at boot. It is
+// never precached (not in `globPatterns`) and never runtime-cached: always the network.
+registerRoute(({ url }) => url.pathname === '/runtime-config.js', new NetworkOnly());
+
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL('/index.html'), {
     denylist: [/^\/api\//],
