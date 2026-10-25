@@ -1,0 +1,289 @@
+---
+# Everything that can be checked before the first change. Included by deploy.yml inside its
+# block, so a failure here also goes through report.yml (FAILED block, deploys.log, Telegram).
+# Each check is preceded by a `fail_ctx` fact: the step name and the `Next:` command the
+# rescue prints. The `Why:` line is the failing task's own message. Read-only: runs under
+# --check too (check_mode: false on the commands).
+# Secrets: every task that holds a decrypted value has no_log; nothing here prints one.
+- name: Step is the inputs
+  ansible.builtin.set_fact:
+    fail_ctx:
+      {
+        step: inputs,
+        next: 'biddaloy-deploy <prod|staging|demo|edge|ops> <full 40-hex sha> [--hotfix "<reason>"]',
+      }
+- name: Check the inputs
+  ansible.builtin.assert:
+    that:
+      - stack in stacks
+      # CI tags images with the full commit SHA (publish-image.yml); a short one never exists.
+      - version is match('^[0-9a-f]{40}$')
+      # The reason goes into deploys.log and Telegram: one line, no control characters.
+      - hotfix_note | length <= 200
+      - not (hotfix_note is search('[\x00-\x1f\x7f]'))
+    fail_msg: >-
+      need stack in {{ stacks | join("/") }}, version a full 40-hex sha, and
+      BIDDALOY_HOTFIX_REASON one line of at most 200 characters
+    quiet: true
+
+- name: Step is the checkout
+  ansible.builtin.set_fact:
+    fail_ctx:
+      {
+        step: checkout,
+        next: 'cd {{ repo_root }} && git status; biddaloy-deploy checks out the sha itself,
+          so only a hand edit in the checkout causes this',
+      }
+- name: Read the repo HEAD and tree state
+  ansible.builtin.shell: | # noqa command-instead-of-module
+    set -o pipefail
+    git -c safe.directory={{ repo_root }} -C {{ repo_root }} rev-parse HEAD
+    git -c safe.directory={{ repo_root }} -C {{ repo_root }} status --porcelain | wc -l
+  args:
+    executable: /bin/bash
+  register: repo_state
+  changed_when: false
+  check_mode: false
+- name: Check the checkout is the version, with a clean tree
+  ansible.builtin.assert:
+    that:
+      - repo_state.stdout_lines[0] == version
+      - repo_state.stdout_lines[1] | int == 0
+    fail_msg: '{{ repo_root }} is not a clean checkout of {{ version[:12] }}'
+    quiet: true
+
+- name: Step is decrypt
+  ansible.builtin.set_fact:
+    fail_ctx:
+      {
+        step: decrypt,
+        next: 'add the host public key to .sops.yaml, sops updatekeys infra/secrets/*.enc.env, commit, deploy that commit',
+      }
+    secret_files: "{{ [stack] if stack == 'edge' else [stack, 'edge'] }}"
+- name: Decrypt the secrets with the host key (as text, for .env)
+  ansible.builtin.command: sops -d --input-type dotenv --output-type dotenv {{ repo_root }}/infra/secrets/{{ item }}.enc.env
+  environment:
+    SOPS_AGE_KEY_FILE: '{{ host_age_key }}'
+  loop: '{{ secret_files }}'
+  register: sops_text
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  no_log: true
+- name: Decrypt the secrets with the host key (as a dict, for reading)
+  ansible.builtin.command: sops -d --input-type dotenv --output-type json {{ repo_root }}/infra/secrets/{{ item }}.enc.env
+  environment:
+    SOPS_AGE_KEY_FILE: '{{ host_age_key }}'
+  loop: '{{ secret_files }}'
+  register: sops_json
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  no_log: true
+- name: Check every file decrypted
+  ansible.builtin.assert:
+    that:
+      - (sops_text.results + sops_json.results) | map(attribute='rc') | unique | list == [0]
+    fail_msg: 'the host key cannot decrypt infra/secrets/{{ secret_files | join(".enc.env or infra/secrets/") }}.enc.env'
+    quiet: true
+- name: Keep the decrypted values for this run only (never written to a log)
+  ansible.builtin.set_fact:
+    secret_text: "{{ dict(secret_files | zip(sops_text.results | map(attribute='stdout') | list)) }}"
+    secret_env: "{{ dict(secret_files | zip(sops_json.results | map(attribute='stdout') | map('from_json') | list)) }}"
+  no_log: true
+
+- name: Step is the settings of this stack
+  ansible.builtin.set_fact:
+    fail_ctx:
+      {
+        step: settings,
+        next: 'sops infra/secrets/{{ stack }}.enc.env (or edge.enc.env), set the named keys, commit, deploy that commit',
+      }
+    required_keys: '{{ required_by_stack[stack] }}'
+  vars:
+    smoke_keys:
+      - SMOKE_ADMIN_EMAIL
+      - SMOKE_ADMIN_PASSWORD
+      - SMOKE_TEACHER_EMAIL
+      - SMOKE_TEACHER_PASSWORD
+      - SMOKE_SUPER_ADMIN_EMAIL
+      - SMOKE_SUPER_ADMIN_PASSWORD
+      - HEALTH_TOKEN
+    required_by_stack:
+      prod: '{{ smoke_keys }}'
+      staging: "{{ smoke_keys + ['BACKUP_AGE_PRIVATE_KEY'] }}"
+      demo: [HEALTH_TOKEN]
+      edge: []
+      ops: [DOZZLE_USERS_YML]
+- name: Check the keys this stack needs are set
+  ansible.builtin.assert:
+    that: (secret_env[stack][item] | default('')) | length > 0
+    fail_msg: '{{ item }} is empty in infra/secrets/{{ stack }}.enc.env'
+    quiet: true
+  loop: '{{ required_keys }}'
+- name: Check the edge mode is known
+  ansible.builtin.assert:
+    that: edge_mode in ['tunnel', 'direct']
+    fail_msg: 'EDGE_MODE in edge.enc.env must be tunnel or direct'
+    quiet: true
+  when: stack == 'edge'
+- name: Check the edge settings
+  ansible.builtin.assert:
+    that: (secret_env.edge[item] | default('')) | length > 0
+    fail_msg: '{{ item }} is empty in infra/secrets/edge.enc.env ({{ edge_mode }} mode)'
+    quiet: true
+  loop: "{{ edge_domain_keys + (edge_tunnel_keys if edge_mode == 'tunnel' else ['BASIC_AUTH_HTPASSWD', 'LETSENCRYPT_EMAIL']) }}"
+  vars:
+    edge_domain_keys:
+      [
+        APP_DOMAIN,
+        STAGING_DOMAIN,
+        DEMO_DOMAIN,
+        LANDING_DOMAIN,
+        KUMA_DOMAIN,
+        BESZEL_DOMAIN,
+        LOGS_DOMAIN,
+      ]
+    edge_tunnel_keys:
+      [
+        CLOUDFLARE_TUNNEL_ID,
+        CLOUDFLARE_TUNNEL_CREDENTIALS_JSON,
+        CF_ACCESS_TEAM,
+        CF_ACCESS_AUD_STAGING,
+        CF_ACCESS_AUD_OPS,
+      ]
+  when: stack == 'edge'
+
+# Staging gate (D10): prod runs only a sha that staging has passed, unless --hotfix says why.
+# The log line is `<UTC ISO> staging <sha> ok`, written by report.yml.
+- name: Step is the staging gate
+  ansible.builtin.set_fact:
+    fail_ctx:
+      {
+        step: staging-gate,
+        next: 'biddaloy-deploy staging {{ version }}, or add --hotfix "<reason>"',
+      }
+  when: stack == 'prod'
+- name: Has staging passed this sha?
+  ansible.builtin.command: grep -Eq ' staging {{ version }} ok' {{ biddaloy_root }}/staging/deploys.log
+  register: staging_ok
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  when: stack == 'prod'
+- name: Refuse an un-staged sha unless it is a hotfix
+  ansible.builtin.assert:
+    that: staging_ok.rc == 0 or hotfix_note | trim | length > 0
+    fail_msg: '{{ version[:12] }} has no "staging ok" in {{ biddaloy_root }}/staging/deploys.log and no hotfix reason was given'
+    quiet: true
+  when: stack == 'prod'
+
+- name: Step is the disk check
+  ansible.builtin.set_fact:
+    fail_ctx:
+      {
+        step: disk,
+        next: 'docker system df; /usr/local/sbin/biddaloy-image-prune; df -h /var/lib/docker',
+      }
+- name: Free space on /var/lib/docker (GB)
+  ansible.builtin.shell: set -o pipefail; df --output=avail -BG /var/lib/docker | tail -n1 | tr -dc 0-9
+  args:
+    executable: /bin/bash
+  register: free_gb
+  changed_when: false
+  check_mode: false
+- name: At least 10 GB free
+  ansible.builtin.assert:
+    that: free_gb.stdout | int >= 10
+    fail_msg: 'only {{ free_gb.stdout }} GB free on /var/lib/docker (need 10)'
+    quiet: true
+
+# The repo is private (P16): the pull token lives in edge.enc.env.
+- name: Step is the registry
+  ansible.builtin.set_fact:
+    fail_ctx:
+      {
+        step: registry,
+        next: 'check GHCR_PULL_USER and GHCR_PULL_TOKEN in infra/secrets/edge.enc.env (token needs read:packages)',
+      }
+- name: Log in to ghcr.io
+  ansible.builtin.command: docker login ghcr.io -u {{ secret_env.edge.GHCR_PULL_USER }} --password-stdin
+  args:
+    stdin: '{{ secret_env.edge.GHCR_PULL_TOKEN }}'
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Step is the image
+  ansible.builtin.set_fact:
+    fail_ctx:
+      {
+        step: image,
+        next: 'check the Publish image run for {{ version[:12] }}: gh run list -w publish-image.yml',
+      }
+- name: Check the images exist in the registry
+  ansible.builtin.command: docker manifest inspect ghcr.io/tareq89/{{ item }}:{{ version }}
+  loop: '{{ images }}'
+  changed_when: false
+  check_mode: false
+
+# The app image runs the same checks the server runs at boot. APP_VERSION is derived (write-env
+# adds it), so it is added here to judge the env the container will really get.
+- name: Step is the config check
+  ansible.builtin.set_fact:
+    fail_ctx:
+      {
+        step: config-check,
+        next: 'fix the variables named above in infra/secrets/{{ stack }}.enc.env (sops), commit, deploy that commit',
+      }
+  when: stack in app_stacks
+- name: Config check from the app image
+  ansible.builtin.command: >-
+    docker run --rm -i ghcr.io/tareq89/biddaloy-app:{{ version }}
+    node server/dist/scripts/config-check.js --env {{ stack }} --file /dev/stdin
+  args:
+    stdin: "{{ secret_text[stack] }}\nAPP_VERSION={{ version }}\n"
+  register: config_check
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  no_log: true
+  when: stack in app_stacks
+# The task above is no_log (its stdin is the secrets); config:check names variables, never values.
+- name: Stop when the config check failed
+  ansible.builtin.fail:
+    msg: "{{ ((config_check.stderr | default('')) ~ (config_check.stdout | default(''))) | trim | replace('\n', '; ') }}"
+  when: stack in app_stacks and config_check.rc | default(0) != 0
+
+# Rollback target: the last `ok` line of this stack's deploys.log. When there is none (log
+# deleted, stack started by hand, first deploy), the tag of the running app container.
+# Only a full commit SHA counts. ops has no version, so no rollback.
+- name: Find the previous version
+  ansible.builtin.shell: |
+    set -o pipefail
+    f={{ project_dir }}/deploys.log
+    v=$([ -f "$f" ] && awk '$2=="{{ stack }}" && $4=="ok" {v=$3} END {print v}' "$f")
+    [ -n "$v" ] || v=$(docker ps --filter label=com.docker.compose.project={{ project_name }} \
+      --filter label=com.docker.compose.service={{ 'landing' if stack == 'edge' else 'app' }} \
+      --format '{% raw %}{{.Image}}{% endraw %}' | head -n1 | sed 's/.*://')
+    echo "$v" | grep -E '^[0-9a-f]{40}$' || true
+  args:
+    executable: /bin/bash
+  register: prev
+  changed_when: false
+  check_mode: false
+  when: stack != 'ops'
+
+# The pre-migrate backup keys off the data, not the log: if the database volume exists,
+# there may be data, so the backup must run (and must succeed).
+- name: Does the prod database volume exist?
+  ansible.builtin.command: docker volume inspect {{ project_name }}_pgdata
+  register: pgdata
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: stack == 'prod'
+- name: Remember the previous version and whether prod has a database volume
+  ansible.builtin.set_fact:
+    previous_version: "{{ (prev.stdout | default('')) | trim }}"
+    db_volume_exists: "{{ stack == 'prod' and pgdata.rc | default(1) == 0 }}"

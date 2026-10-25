@@ -1,0 +1,278 @@
+#!/usr/bin/env bash
+# One read-only health table for the single VM (Epic 79.0, decision D21, P15).
+#
+#   biddaloy-doctor [--json] [prod|staging|demo|edge]
+#
+# No argument: host, edge, prod, staging, demo, backups and nightly jobs. With a stack name: only
+# that group (prod also covers the backup age).
+#
+# Every check prints `CHECK  STATUS  DETAIL` and, when not OK, an indented `Next: <command>`.
+# Exit codes: 0 all OK, 1 any WARN, 2 any FAIL, 64 bad usage.
+#
+# Read-only: nothing is started, stopped, restarted or written. A check whose tool is missing is a
+# WARN with the reason, never a crash. Secrets: HEALTH_TOKEN is read from the stack's .env only to
+# see that it is set; the ready call runs inside the app container, which holds the token itself,
+# so the value is never on a command line and never printed. No `set -x`, no `.env` value is echoed.
+set -uo pipefail
+export LC_ALL=C
+
+ROOT="${BIDDALOY_ROOT:-/opt/biddaloy}"
+REPO="${BIDDALOY_REPO:-$ROOT/repo}"
+JSON=0
+ONLY=""
+for a in "$@"; do
+  case "$a" in
+    --json) JSON=1 ;;
+    prod | staging | demo | edge) ONLY="$a" ;;
+    *) echo "usage: biddaloy-doctor [--json] [prod|staging|demo|edge]" >&2; exit 64 ;;
+  esac
+done
+
+WORST=0
+ROWS=()       # name<TAB>status<TAB>detail<TAB>next
+rank() { case "$1" in OK) echo 0 ;; WARN) echo 1 ;; *) echo 2 ;; esac; }
+
+# emit <check> <OK|WARN|FAIL> <detail> [next]
+emit() {
+  local r; r="$(rank "$2")"
+  ((r > WORST)) && WORST=$r
+  ROWS+=("$1"$'\t'"$2"$'\t'"$3"$'\t'"${4:-}")
+}
+
+have() { command -v "$1" >/dev/null 2>&1; }
+# need <check> <tool>: WARN and return 1 when the tool is missing.
+need() { have "$2" && return 0; emit "$1" WARN "$2 not found, check skipped" "install $2 on this host"; return 1; }
+tmo() { if have timeout; then timeout 15 "$@" </dev/null; else "$@" </dev/null; fi; }
+
+envval() { # envval <file> <KEY>: value without quotes; no `source` (values hold $ and quotes)
+  local v
+  v="$(sed -n "s/^$2=//p" "$1" 2>/dev/null | tail -1)" || true
+  v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
+  printf '%s' "$v"
+}
+
+# shellcheck source=deploy/bin/lib.sh
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib.sh"
+# The compose file the stack's last ok deploy kept (lib.sh). dcs prints the same command for a
+# `Next:` hint, so the hint runs as printed.
+dcs() { echo "docker compose -p $1 --project-directory $ROOT/$1 -f $(kept_file "$1" stack.yml deploy/stack.yml)"; }
+dc() { local s="$1"; shift; tmo docker compose -p "$s" --project-directory "$ROOT/$s" -f "$(kept_file "$s" stack.yml deploy/stack.yml)" "$@"; }
+
+# --- host ---------------------------------------------------------------------------------------
+check_disk() { # <path>
+  local use free
+  use="$(df -P "$1" 2>/dev/null | awk 'NR==2 { gsub("%", "", $5); print $5 }')"
+  if ! [[ "$use" =~ ^[0-9]+$ ]]; then emit "disk $1" WARN "cannot read df for $1" "df -h $1"; return; fi
+  free=$((100 - use))
+  if ((free < 10)); then emit "disk $1" FAIL "${free}% free" "docker system df; docker image prune -a --filter until=168h"
+  elif ((free < 20)); then emit "disk $1" WARN "${free}% free" "docker system df; docker image prune -a --filter until=168h"
+  else emit "disk $1" OK "${free}% free"; fi
+}
+
+check_memory() {
+  need memory free || return
+  local mt ma st su mpct spct s=OK
+  read -r mt ma < <(free -m | awk '/^Mem:/ { print $2, $7 }')
+  read -r st su < <(free -m | awk '/^Swap:/ { print $2, $3 }')
+  if ! [[ "${mt:-}" =~ ^[0-9]+$ && "${ma:-}" =~ ^[0-9]+$ && "$mt" -gt 0 ]]; then
+    emit memory WARN "cannot read free -m" "free -m"; return
+  fi
+  mpct=$((ma * 100 / mt)); spct=0
+  [[ "${st:-0}" =~ ^[0-9]+$ && "${su:-0}" =~ ^[0-9]+$ ]] && ((st > 0)) && spct=$((su * 100 / st))
+  ((mpct < 10 || spct > 50)) && s=WARN
+  ((mpct < 5)) && s=FAIL
+  if [[ $s == OK ]]; then emit memory OK "${mpct}% available, swap ${spct}% used"
+  else emit memory "$s" "${mpct}% available, swap ${spct}% used" "docker stats --no-stream"; fi
+}
+
+check_failed_units() {
+  need "nightly units" systemctl || return
+  local f
+  f="$(systemctl list-units 'biddaloy-nightly@*' --state=failed --no-legend --plain 2>/dev/null | awk '{ print $1 }' | tr '\n' ' ')"
+  if [[ -n "${f// /}" ]]; then emit "nightly units" FAIL "failed: $f" "journalctl -u 'biddaloy-nightly@*' -n 50 --no-pager"
+  else emit "nightly units" OK "none failed"; fi
+}
+
+check_time() {
+  need "time sync" timedatectl || return
+  local v; v="$(timedatectl show -p NTPSynchronized --value 2>/dev/null)"
+  if [[ "$v" == yes ]]; then emit "time sync" OK "NTP synchronized"
+  else emit "time sync" WARN "NTP not synchronized" "timedatectl set-ntp true"; fi
+}
+
+host_checks() { check_disk /; check_disk /var/lib/docker; check_memory; check_failed_units; check_time; }
+
+# --- edge ---------------------------------------------------------------------------------------
+DOCKER_PS=""
+check_container() { # <name>
+  local line st
+  line="$(printf '%s\n' "$DOCKER_PS" | grep "^$1|" | head -1)"
+  st="${line#*|}"
+  if [[ -z "$line" ]]; then emit "container $1" FAIL "not found" "docker ps -a --filter label=com.docker.compose.project=edge"
+  elif [[ "$st" == *unhealthy* ]]; then emit "container $1" FAIL "unhealthy" "docker logs --tail 50 $1"
+  elif [[ "$st" == *"health: starting"* ]]; then emit "container $1" WARN "still starting" "docker logs --tail 50 $1"
+  elif [[ "$st" == Up* ]]; then emit "container $1" OK "${st%% (*}"
+  else emit "container $1" FAIL "$st" "docker logs --tail 50 $1"; fi
+}
+
+edge_checks() {
+  local envf="$ROOT/edge/.env" mode domain cert n
+  if [[ ! -f "$envf" ]]; then emit "edge" WARN "$envf missing" "provision the edge stack: biddaloy-deploy edge <sha>"; return; fi
+  mode="$(envval "$envf" EDGE_MODE)"; domain="$(envval "$envf" APP_DOMAIN)"
+  if need "edge containers" docker; then
+    DOCKER_PS="$(tmo docker ps -a --format '{{.Names}}|{{.Status}}' 2>/dev/null)"
+    check_container edge-nginx-1
+    check_container edge-landing-1
+    if [[ "$mode" == tunnel ]]; then
+      check_container edge-cloudflared-1
+      n="$(tmo docker logs --since 10m edge-cloudflared-1 2>&1 | grep -c 'Registered tunnel connection')"
+      if [[ "${n:-0}" -ge 1 ]]; then emit "tunnel connections" OK "$n registered in the last 10 min"
+      else emit "tunnel connections" FAIL "no 'Registered tunnel connection' in 10 min" "docker logs --since 10m edge-cloudflared-1"; fi
+    fi
+  fi
+  # The certificate nginx really serves, fetched over 443: certbot's live/ is root-only (0700), so
+  # deploy cannot read the file, and the served one is what users see anyway.
+  if [[ "$mode" == direct ]]; then
+    need "cert expiry" openssl || return
+    if [[ -n "$domain" ]]; then
+      cert="$(tmo openssl s_client -connect 127.0.0.1:443 -servername "$domain" </dev/null 2>/dev/null)"
+    fi
+    if [[ -z "$domain" || "$cert" != *"BEGIN CERTIFICATE"* ]]; then
+      emit "cert expiry" WARN "no certificate served on 127.0.0.1:443 for ${domain:-APP_DOMAIN (unset)}" "docker logs --tail 50 edge-nginx-1"; return
+    fi
+    if ! printf '%s\n' "$cert" | openssl x509 -noout -checkend 0 >/dev/null 2>&1; then
+      emit "cert expiry" FAIL "$domain certificate expired" "docker logs --tail 50 edge-certbot-1"
+    elif ! printf '%s\n' "$cert" | openssl x509 -noout -checkend $((20 * 86400)) >/dev/null 2>&1; then
+      emit "cert expiry" WARN "$domain expires in under 20 days ($(printf '%s\n' "$cert" | openssl x509 -noout -enddate 2>/dev/null))" "docker logs --tail 50 edge-certbot-1"
+    else emit "cert expiry" OK "$domain valid for 20+ days"; fi
+  fi
+}
+
+# --- per stack ----------------------------------------------------------------------------------
+last_ok() { # <stack>: last ok sha in deploys.log
+  [[ -f "$ROOT/$1/deploys.log" ]] || return 0
+  # No regex interval: Ubuntu's mawk has none. Same test as biddaloy-deploy's last_ok.
+  awk -v s="$1" '$2 == s && $4 == "ok" && length($3) == 40 && $3 !~ /[^0-9a-f]/ { v = $3 } END { if (v != "") print v }' "$ROOT/$1/deploys.log"
+}
+
+stack_checks() { # <stack>
+  local s="$1" envf="$ROOT/$1/.env" log="$ROOT/$1/deploys.log" ps rows bad="" warn="" svc st h tag sha code tok
+  local conns max pct out
+  if [[ ! -f "$envf" ]]; then emit "$s" WARN "$envf missing" "provision the stack: biddaloy-deploy $s <sha>"; return; fi
+  need "$s services" docker || return
+  need "$s services" jq || return
+  # --all: a stopped container must show up. jobs and demo-reset are one-shots that exit by design.
+  ps="$(dc "$s" ps --all --format json 2>/dev/null)"
+  rows="$(printf '%s\n' "$ps" | jq -r 'if type=="array" then .[] else . end | select(.Service != "jobs" and .Service != "demo-reset") | [.Service, .State, (.Health // ""), .Image] | @tsv' 2>/dev/null)"
+  if [[ -z "$rows" ]]; then
+    emit "$s services" FAIL "no services running" "biddaloy-deploy $s \$(biddaloy-deploy --last-ok $s)"
+  else
+    while IFS=$'\t' read -r svc st h _; do
+      if [[ "$st" != running || "$h" == unhealthy ]]; then bad+="$svc($st${h:+/$h}) "
+      elif [[ "$h" == starting ]]; then warn+="$svc "; fi
+    done <<<"$rows"
+    if [[ -n "$bad" ]]; then emit "$s services" FAIL "not healthy: $bad" "$(dcs "$s") logs --tail 50"
+    elif [[ -n "$warn" ]]; then emit "$s services" WARN "still starting: $warn" "$(dcs "$s") ps"
+    else emit "$s services" OK "$(printf '%s\n' "$rows" | wc -l | tr -d ' ') running, none unhealthy"; fi
+  fi
+
+  # ready endpoint: the app container holds HEALTH_TOKEN itself; only the status code comes back.
+  tok="$(envval "$envf" HEALTH_TOKEN)"
+  if [[ -z "$tok" ]]; then
+    emit "$s ready" WARN "HEALTH_TOKEN not set in .env, /api/health/ready is off" "set HEALTH_TOKEN in $envf, then redeploy"
+  else
+    code="$(dc "$s" exec -T app node -e "fetch('http://127.0.0.1:3000/api/health/ready',{headers:{'x-health-token':process.env.HEALTH_TOKEN}}).then(r=>process.stdout.write(String(r.status))).catch(()=>process.stdout.write('0'))" 2>/dev/null)"
+    if [[ "$code" == 200 ]]; then emit "$s ready" OK "ready (200)"
+    else emit "$s ready" FAIL "ready answered ${code:-nothing}" "$(dcs "$s") logs --tail 50 app"; fi
+  fi
+
+  # running tag vs last ok deploy
+  sha="$(last_ok "$s")"
+  tag="$(printf '%s\n' "$rows" | awk -F'\t' '$1 ~ /^app[0-9]*$/ { n = split($4, p, ":"); print p[n]; exit }')"
+  if [[ -z "$sha" ]]; then emit "$s version" WARN "no ok line in deploys.log" "biddaloy-deploy $s <sha>"
+  elif [[ -z "$tag" ]]; then emit "$s version" WARN "no app container found" "biddaloy-deploy $s $sha"
+  elif [[ "$sha" == "$tag"* ]]; then emit "$s version" OK "running ${tag:0:12}, matches the last ok deploy"
+  else emit "$s version" WARN "running ${tag:0:12}, last ok deploy ${sha:0:12}" "biddaloy-deploy $s $sha"; fi
+
+  if [[ -f "$log" ]]; then emit "$s deploys" OK "$(tail -n 3 "$log" | tr '\n' '|')"
+  else emit "$s deploys" OK "no deploys.log yet"; fi
+
+  # shellcheck disable=SC2016  # $POSTGRES_* expand inside the container, on purpose
+  out="$(dc "$s" exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from pg_stat_activity"; psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "show max_connections"' 2>/dev/null)"
+  conns="$(printf '%s\n' "$out" | sed -n 1p | tr -d ' ')"; max="$(printf '%s\n' "$out" | sed -n 2p | tr -d ' ')"
+  if ! [[ "$conns" =~ ^[0-9]+$ && "$max" =~ ^[0-9]+$ && "$max" -gt 0 ]]; then
+    emit "$s db connections" WARN "cannot read pg_stat_activity" "$(dcs "$s") ps db"
+  else
+    pct=$((conns * 100 / max))
+    if ((pct >= 95)); then emit "$s db connections" FAIL "$conns of $max (${pct}%)" "$(dcs "$s") exec db sh -c 'psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"select state, count(*) from pg_stat_activity group by 1\"'"
+    elif ((pct >= 80)); then emit "$s db connections" WARN "$conns of $max (${pct}%)" "$(dcs "$s") exec db sh -c 'psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"select state, count(*) from pg_stat_activity group by 1\"'"
+    else emit "$s db connections" OK "$conns of $max (${pct}%)"; fi
+  fi
+}
+
+# --- backups (prod) -----------------------------------------------------------------------------
+# Runs aws inside the running prod `backup` container, whose env already holds the R2 keys.
+backup_check() {
+  need "backup age" docker || return
+  local out newest ts ep now age
+  # shellcheck disable=SC2016  # the keys expand inside the container, on purpose
+  out="$(dc prod exec -T backup sh -c 'AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto aws s3 ls --endpoint-url "$BACKUP_S3_ENDPOINT" "s3://$BACKUP_S3_BUCKET/db/hourly/"' 2>/dev/null)"
+  newest="$(printf '%s\n' "$out" | awk '{ print $NF }' | grep -E '^[0-9]{8}T[0-9]{6}Z' | sort | tail -1)"
+  if [[ -z "$newest" ]]; then emit "backup age" FAIL "no db/hourly backup found" "$(dcs prod) logs --tail 50 backup"; return; fi
+  ts="${newest:0:4}-${newest:4:2}-${newest:6:2} ${newest:9:2}:${newest:11:2}:${newest:13:2}"
+  ep="$(date -u -d "$ts" +%s 2>/dev/null || date -u -j -f '%Y-%m-%d %H:%M:%S' "$ts" +%s 2>/dev/null)"
+  now="$(date -u +%s)"
+  if ! [[ "$ep" =~ ^[0-9]+$ ]]; then emit "backup age" WARN "cannot read the time in $newest" "aws s3 ls the db/hourly/ prefix by hand"; return; fi
+  age=$(((now - ep) / 60))
+  if ((age > 130)); then emit "backup age" FAIL "newest hourly backup is ${age} min old" "$(dcs prod) logs --tail 50 backup"
+  elif ((age > 70)); then emit "backup age" WARN "newest hourly backup is ${age} min old" "$(dcs prod) logs --tail 50 backup"
+  else emit "backup age" OK "newest hourly backup is ${age} min old"; fi
+}
+
+# --- nightly ------------------------------------------------------------------------------------
+nightly_checks() {
+  need "nightly jobs" systemctl || return
+  local j out res ts ls
+  for j in staging-refresh demo-rebuild log-archive; do
+    out="$(systemctl show "biddaloy-nightly@$j.service" -p LoadState,Result,ExecMainExitTimestamp 2>/dev/null)"
+    # systemctl show exits 0 for a missing unit (Result=success, LoadState=not-found)
+    ls="$(printf '%s\n' "$out" | sed -n 's/^LoadState=//p')"
+    res="$(printf '%s\n' "$out" | sed -n 's/^Result=//p')"
+    ts="$(printf '%s\n' "$out" | sed -n 's/^ExecMainExitTimestamp=//p')"
+    if [[ "$ls" != loaded ]]; then emit "nightly $j" WARN "unit not found" "systemctl list-timers 'biddaloy-nightly@*'"
+    elif [[ -z "$ts" ]]; then emit "nightly $j" OK "has not run yet"
+    elif [[ "$res" == success ]]; then emit "nightly $j" OK "last run ok ($ts)"
+    else emit "nightly $j" FAIL "last result $res ($ts)" "journalctl -u biddaloy-nightly@$j.service -n 50 --no-pager"; fi
+  done
+}
+
+# --- run ----------------------------------------------------------------------------------------
+if [[ -z "$ONLY" ]]; then host_checks; fi
+if [[ -z "$ONLY" || "$ONLY" == edge ]]; then edge_checks; fi
+for s in prod staging demo; do
+  if [[ -z "$ONLY" || "$ONLY" == "$s" ]]; then stack_checks "$s"; fi
+done
+if [[ -z "$ONLY" || "$ONLY" == prod ]]; then backup_check; fi
+if [[ -z "$ONLY" ]]; then nightly_checks; fi
+
+jesc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n\t' '  ' | tr -d '\000-\037'; }
+
+OVERALL=OK; ((WORST == 1)) && OVERALL=WARN; ((WORST == 2)) && OVERALL=FAIL
+if ((JSON)); then
+  printf '{"status":"%s","checks":[' "$OVERALL"
+  sep=""
+  for r in "${ROWS[@]}"; do
+    IFS=$'\t' read -r n st d nx <<<"$r"
+    printf '%s{"check":"%s","status":"%s","detail":"%s","next":"%s"}' "$sep" "$(jesc "$n")" "$st" "$(jesc "$d")" "$(jesc "$nx")"
+    sep=","
+  done
+  printf ']}\n'
+else
+  for r in "${ROWS[@]}"; do
+    IFS=$'\t' read -r n st d nx <<<"$r"
+    printf '%-26s %-5s %s\n' "$n" "$st" "$d"
+    [[ "$st" != OK && -n "$nx" ]] && printf '  Next: %s\n' "$nx"
+  done
+  printf 'overall: %s\n' "$OVERALL"
+fi
+exit "$WORST"

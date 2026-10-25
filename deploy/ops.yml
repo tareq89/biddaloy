@@ -1,0 +1,66 @@
+# Ops stack (Epic 79.0): Beszel (host + container metrics), Uptime Kuma (uptime monitors +
+# alerts), Dozzle (live logs, behind its own login). Nothing is published on the host;
+# edge nginx reaches the three UIs over `biddaloy-ops-edge`.
+#
+#   OPS_DIR=/opt/biddaloy/ops docker compose -p ops -f deploy/ops.yml --env-file /opt/biddaloy/ops/.env up -d
+#
+# First-run steps done by hand in the UIs: docs/architecture/12-operations.md section 1.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '20m'
+    max-file: '5'
+
+services:
+  beszel:
+    logging: *logging
+    image: henrygd/beszel:0.21.0@sha256:6b39a8b64f9b15d00a25e7683e31a93c46161182a54f62713525107064e10599
+    restart: unless-stopped
+    volumes:
+      - beszel_data:/beszel_data
+      # The edge beszel-agent's unix socket (deploy/edge.yml); same host only.
+      - /run/beszel:/beszel_socket
+    networks: [default, ops-edge]
+    deploy:
+      resources:
+        limits:
+          memory: ${BESZEL_MEM:-256m}
+
+  uptime-kuma:
+    logging: *logging
+    image: louislam/uptime-kuma:1@sha256:70233f4acb5163fd2a59a49909cf01e44415cecff13dba69e3a86647a2919f83
+    restart: unless-stopped
+    volumes:
+      - kuma_data:/app/data
+    networks: [default, ops-edge]
+    deploy:
+      resources:
+        limits:
+          memory: ${KUMA_MEM:-384m}
+
+  dozzle:
+    logging: *logging
+    image: amir20/dozzle:v11.3.3@sha256:6d9e194587c20660f73967ee8567ce8e2e9e2e17046b0c95586a37a970b1d5ed
+    restart: unless-stopped
+    environment:
+      DOZZLE_NO_ANALYTICS: 'true'
+      # Own login (D14): users.yml is rendered by the deploy from ops.enc.env.
+      DOZZLE_AUTH_PROVIDER: simple
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${OPS_DIR:?OPS_DIR must be set}/dozzle/users.yml:/data/users.yml:ro
+    networks: [default, ops-edge]
+    deploy:
+      resources:
+        limits:
+          memory: ${DOZZLE_MEM:-128m}
+
+volumes:
+  beszel_data:
+  kuma_data:
+
+networks:
+  # Created by the deploy (W3.01). Edge nginx on this host joins it too.
+  ops-edge:
+    name: biddaloy-ops-edge
+    external: true
