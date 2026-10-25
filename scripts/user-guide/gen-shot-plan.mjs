@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 const features = JSON.parse(readFileSync('docs/user-guide/_generated/features.json', 'utf8'));
 const CARD = {
   admin: 'admin', Admin: 'admin', teacher: 'class-teacher-8a', 'office staff': 'office-staff',
-  committee: 'committee', 'academic coordinator': 'admin', 'অ্যাডমিন': 'admin', 'শিক্ষক': 'class-teacher-8a',
+  committee: 'committee', parent: 'guardian', student: 'student-9b', 'academic coordinator': 'admin', 'অ্যাডমিন': 'admin', 'শিক্ষক': 'class-teacher-8a',
 };
 const plan = {};
 for (const sec of process.argv.slice(2)) {
@@ -24,7 +24,10 @@ for (const sec of process.argv.slice(2)) {
       const t = m[1].replace(/^img\/\S+ (\(width \d+\) )?— /, '');
       const parts = t.split(',').map((s) => s.trim());
       const device = parts.at(-1);
-      const role = parts.at(-2) ?? '';
+      let role = parts.at(-2) ?? '';
+      // portal pages: "...; parent, phone" / "...; student, desktop" / "... on a phone"
+      const pr = /;\s*([^;,]*?),\s*(phone|desktop)$/.exec(t.replace(/\s+(?=[^;]*$)/, ' '));
+      if (page.startsWith('portal/')) role = pr ? pr[1].trim() : 'parent';
       const bangla = /[ঀ-৿]/.test(t);
       let kind = 'page';
       if (/GIF/.test(t) || /guest/.test(role)) kind = 'skip';
@@ -37,7 +40,7 @@ for (const sec of process.argv.slice(2)) {
       if (page === 'academics/routine-builder') kind = /Assign a period/.test(t) ? 'skip' : 'row';
       if (route === '/academics/syllabus') kind = 'skip'; // demo class 10 has no topics: pending
       if (kind === 'page' && ['/attendance/register'].includes(route)) kind = 'pick';
-      out.push({ idx: i, kind, login: CARD[role] ?? 'admin', phone: device === 'phone', text: parts.slice(0, -2).join(', ') || t, route });
+      out.push({ idx: i, kind, login: CARD[role] ?? 'admin', phone: page.startsWith('portal/') ? !/desktop$/.test(t) : device === 'phone', text: parts.slice(0, -2).join(', ') || t, route });
     }
     if (out.length) plan[page] = out;
   }

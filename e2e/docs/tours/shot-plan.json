@@ -751,7 +751,7 @@
    "kind": "pick",
    "login": "class-teacher-8a",
    "phone": false,
-   "text": "মাসের খাতা, শ্রেণি-শাখা-মাস ঘর, অক্ষরের ব্যাখ্যা আর মোট কলাম চিহ্নিত",
+   "text": "\u09ae\u09be\u09b8\u09c7\u09b0 \u0996\u09be\u09a4\u09be, \u09b6\u09cd\u09b0\u09c7\u09a3\u09bf-\u09b6\u09be\u0996\u09be-\u09ae\u09be\u09b8 \u0998\u09b0, \u0985\u0995\u09cd\u09b7\u09b0\u09c7\u09b0 \u09ac\u09cd\u09af\u09be\u0996\u09cd\u09af\u09be \u0986\u09b0 \u09ae\u09cb\u099f \u0995\u09b2\u09be\u09ae \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
    "route": "/attendance/register"
   },
   {
@@ -759,7 +759,7 @@
    "kind": "skip",
    "login": "admin",
    "phone": false,
-   "text": "সম্পাদনা চলছে, বদলানো ঘর, সংশোধনের কারণ ঘর আর সংরক্ষণ করুন বোতাম চিহ্নিত",
+   "text": "\u09b8\u09ae\u09cd\u09aa\u09be\u09a6\u09a8\u09be \u099a\u09b2\u099b\u09c7, \u09ac\u09a6\u09b2\u09be\u09a8\u09cb \u0998\u09b0, \u09b8\u0982\u09b6\u09cb\u09a7\u09a8\u09c7\u09b0 \u0995\u09be\u09b0\u09a3 \u0998\u09b0 \u0986\u09b0 \u09b8\u0982\u09b0\u0995\u09cd\u09b7\u09a3 \u0995\u09b0\u09c1\u09a8 \u09ac\u09cb\u09a4\u09be\u09ae \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
    "route": "/attendance/register"
   },
   {
@@ -767,7 +767,7 @@
    "kind": "pick",
    "login": "admin",
    "phone": false,
-   "text": "খাতা পাতার চারটি অংশ নম্বর দিয়ে চিহ্নিত",
+   "text": "\u0996\u09be\u09a4\u09be \u09aa\u09be\u09a4\u09be\u09b0 \u099a\u09be\u09b0\u099f\u09bf \u0985\u0982\u09b6 \u09a8\u09ae\u09cd\u09ac\u09b0 \u09a6\u09bf\u09af\u09bc\u09c7 \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
    "route": "/attendance/register"
   }
  ],
@@ -777,7 +777,7 @@
    "kind": "page",
    "login": "admin",
    "phone": false,
-   "text": "মাসের হিসাব ট্যাব, মাস-শ্রেণি-শাখা ঘর আর শিক্ষার্থীর সারি চিহ্নিত",
+   "text": "\u09ae\u09be\u09b8\u09c7\u09b0 \u09b9\u09bf\u09b8\u09be\u09ac \u099f\u09cd\u09af\u09be\u09ac, \u09ae\u09be\u09b8-\u09b6\u09cd\u09b0\u09c7\u09a3\u09bf-\u09b6\u09be\u0996\u09be \u0998\u09b0 \u0986\u09b0 \u09b6\u09bf\u0995\u09cd\u09b7\u09be\u09b0\u09cd\u09a5\u09c0\u09b0 \u09b8\u09be\u09b0\u09bf \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
    "route": "/attendance/reports"
   },
   {
@@ -785,7 +785,7 @@
    "kind": "page",
    "login": "admin",
    "phone": false,
-   "text": "কম উপস্থিতি ট্যাব, সর্বনিম্ন উপস্থিতি ঘর আর কম চিহ্ন দেওয়া সারি",
+   "text": "\u0995\u09ae \u0989\u09aa\u09b8\u09cd\u09a5\u09bf\u09a4\u09bf \u099f\u09cd\u09af\u09be\u09ac, \u09b8\u09b0\u09cd\u09ac\u09a8\u09bf\u09ae\u09cd\u09a8 \u0989\u09aa\u09b8\u09cd\u09a5\u09bf\u09a4\u09bf \u0998\u09b0 \u0986\u09b0 \u0995\u09ae \u099a\u09bf\u09b9\u09cd\u09a8 \u09a6\u09c7\u0993\u09af\u09bc\u09be \u09b8\u09be\u09b0\u09bf",
    "route": "/attendance/reports"
   },
   {
@@ -793,7 +793,7 @@
    "kind": "page",
    "login": "admin",
    "phone": false,
-   "text": "প্রতিবেদন পাতার চারটি অংশ নম্বর দিয়ে চিহ্নিত",
+   "text": "\u09aa\u09cd\u09b0\u09a4\u09bf\u09ac\u09c7\u09a6\u09a8 \u09aa\u09be\u09a4\u09be\u09b0 \u099a\u09be\u09b0\u099f\u09bf \u0985\u0982\u09b6 \u09a8\u09ae\u09cd\u09ac\u09b0 \u09a6\u09bf\u09af\u09bc\u09c7 \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
    "route": "/attendance/reports"
   }
  ],
@@ -803,7 +803,7 @@
    "kind": "page",
    "login": "admin",
    "phone": false,
-   "text": "কর্মীর উপস্থিতি তালিকা, তারিখ ঘর, উপরের হিসাব, একজনের অবস্থার বোতাম আর উপস্থিতি সংরক্ষণ করুন বোতাম চিহ্নিত",
+   "text": "\u0995\u09b0\u09cd\u09ae\u09c0\u09b0 \u0989\u09aa\u09b8\u09cd\u09a5\u09bf\u09a4\u09bf \u09a4\u09be\u09b2\u09bf\u0995\u09be, \u09a4\u09be\u09b0\u09bf\u0996 \u0998\u09b0, \u0989\u09aa\u09b0\u09c7\u09b0 \u09b9\u09bf\u09b8\u09be\u09ac, \u098f\u0995\u099c\u09a8\u09c7\u09b0 \u0985\u09ac\u09b8\u09cd\u09a5\u09be\u09b0 \u09ac\u09cb\u09a4\u09be\u09ae \u0986\u09b0 \u0989\u09aa\u09b8\u09cd\u09a5\u09bf\u09a4\u09bf \u09b8\u0982\u09b0\u0995\u09cd\u09b7\u09a3 \u0995\u09b0\u09c1\u09a8 \u09ac\u09cb\u09a4\u09be\u09ae \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
    "route": "/attendance/staff"
   },
   {
@@ -811,7 +811,7 @@
    "kind": "page",
    "login": "admin",
    "phone": false,
-   "text": "ছুটি পাতা, আমার ছুটি তালিকা, ছুটির আবেদন করুন বোতাম আর অপেক্ষমাণ ছুটির আবেদন লিংক চিহ্নিত",
+   "text": "\u099b\u09c1\u099f\u09bf \u09aa\u09be\u09a4\u09be, \u0986\u09ae\u09be\u09b0 \u099b\u09c1\u099f\u09bf \u09a4\u09be\u09b2\u09bf\u0995\u09be, \u099b\u09c1\u099f\u09bf\u09b0 \u0986\u09ac\u09c7\u09a6\u09a8 \u0995\u09b0\u09c1\u09a8 \u09ac\u09cb\u09a4\u09be\u09ae \u0986\u09b0 \u0985\u09aa\u09c7\u0995\u09cd\u09b7\u09ae\u09be\u09a3 \u099b\u09c1\u099f\u09bf\u09b0 \u0986\u09ac\u09c7\u09a6\u09a8 \u09b2\u09bf\u0982\u0995 \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
    "route": "/attendance/staff"
   },
   {
@@ -819,8 +819,242 @@
    "kind": "page",
    "login": "admin",
    "phone": false,
-   "text": "কর্মীর উপস্থিতি পাতার ছয়টি অংশ নম্বর দিয়ে চিহ্নিত",
+   "text": "\u0995\u09b0\u09cd\u09ae\u09c0\u09b0 \u0989\u09aa\u09b8\u09cd\u09a5\u09bf\u09a4\u09bf \u09aa\u09be\u09a4\u09be\u09b0 \u099b\u09af\u09bc\u099f\u09bf \u0985\u0982\u09b6 \u09a8\u09ae\u09cd\u09ac\u09b0 \u09a6\u09bf\u09af\u09bc\u09c7 \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
    "route": "/attendance/staff"
+  }
+ ],
+ "portal/account": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "The Devices card on a phone: 1 This device",
+   "route": "/portal/account"
+  },
+  {
+   "idx": 1,
+   "kind": "change2",
+   "login": "guardian",
+   "phone": true,
+   "text": "Change phone number on a phone: 1 new phone number",
+   "route": "/portal/account"
+  }
+ ],
+ "portal/applications": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "The application list on a phone: 1 New application button, 2 one application card and its state",
+   "route": "/portal/applications"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "guardian",
+   "phone": true,
+   "text": "The last step on a phone: 1 the draft letter",
+   "route": "/portal/applications"
+  },
+  {
+   "idx": 2,
+   "kind": "row",
+   "login": "guardian",
+   "phone": true,
+   "text": "An application's page on a phone: 1 state, 2 step",
+   "route": "/portal/applications"
+  }
+ ],
+ "portal/attendance": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Attendance",
+   "route": "/portal/attendance"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": false,
+   "text": "Attendance, four parts numbered",
+   "route": "/portal/attendance"
+  }
+ ],
+ "portal/calendar": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Calendar, current month",
+   "route": "/portal/calendar"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": true,
+   "text": "Calendar, three parts numbered",
+   "route": "/portal/calendar"
+  }
+ ],
+ "portal/exam-schedule": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Exam schedule",
+   "route": "/portal/exam-schedule"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": true,
+   "text": "Exam schedule",
+   "route": "/portal/exam-schedule"
+  },
+  {
+   "idx": 2,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Exam schedule, three parts numbered",
+   "route": "/portal/exam-schedule"
+  }
+ ],
+ "portal/fees": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Fees and invoices",
+   "route": "/portal/fees"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "guardian",
+   "phone": false,
+   "text": "Fees and invoices, two children",
+   "route": "/portal/fees"
+  }
+ ],
+ "portal/notifications": [
+  {
+   "idx": 0,
+   "kind": "bell",
+   "login": "guardian",
+   "phone": true,
+   "text": "The bell's panel on a phone: 1 the number on the bell",
+   "route": "/portal/notifications"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "The to-do list on a phone: 1 the To-do and History tabs",
+   "route": "/portal/notifications"
+  }
+ ],
+ "portal/overview": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Overview",
+   "route": "/portal"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": true,
+   "text": "Overview, one child",
+   "route": "/portal"
+  }
+ ],
+ "portal/programs": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "A program card on a phone: 1 name and state",
+   "route": "/portal/programs"
+  }
+ ],
+ "portal/results": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Results, two exams",
+   "route": "/portal/results"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": false,
+   "text": "Results",
+   "route": "/portal/results"
+  }
+ ],
+ "portal/routine": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Routine",
+   "route": "/portal/routine"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": true,
+   "text": "Routine, three parts numbered",
+   "route": "/portal/routine"
+  }
+ ],
+ "portal/surveys": [
+  {
+   "idx": 0,
+   "kind": "skip",
+   "login": "guardian",
+   "phone": true,
+   "text": "Survey cards on a phone: 1 the privacy line",
+   "route": "/portal/surveys"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "guardian",
+   "phone": true,
+   "text": "An open form on a phone: 1 stars",
+   "route": "/portal/surveys"
+  }
+ ],
+ "portal/syllabus": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "The Syllabus page on a phone: 1 the exam card",
+   "route": "/portal/syllabus"
   }
  ]
 }

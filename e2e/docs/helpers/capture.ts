@@ -200,10 +200,10 @@ export async function loginAs(page: Page, card: string): Promise<void> {
   // /auth/login and /auth/refresh allow 5 a minute per IP; a tour that signs in often must pace itself.
   await page.waitForTimeout(13_000);
   await page.goto(`/login?role=${card}`);
-  await page.waitForURL(/\/(dashboard|select-school)/);
+  await page.waitForURL(/\/(dashboard|portal|select-school)/);
   if (page.url().includes('/select-school')) {
     await page.getByRole('button', { name: /Continue|চালিয়ে যান/ }).click();
-    await page.waitForURL(/\/dashboard/);
+    await page.waitForURL(/\/(dashboard|portal)/);
   }
-  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page).toHaveURL(/\/(dashboard|portal)/);
 }

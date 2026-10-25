@@ -102,8 +102,16 @@ for (const [key, items] of groups) {
           await settle(page);
         }
         if (e.kind === 'row') {
-          await page.locator(`main a[href^="${e.route}/"]`).first().click({ timeout: 8000 });
+          await page.locator(`main a[href^="${e.route}/"]:not([href*="/new"])`).first().click({ timeout: 8000 });
           await settle(page);
+        }
+        if (e.kind === 'change2') {
+          await page.locator('main button').filter({ hasText: /^(Change|পরিবর্তন করুন)$/ }).nth(1).click({ timeout: 8000 });
+          await page.waitForTimeout(1200);
+        }
+        if (e.kind === 'bell') {
+          await page.locator('button[aria-haspopup="dialog"][aria-label^="Notifications"], button[aria-haspopup="dialog"][aria-label^="বিজ্ঞপ্তি"]').first().click({ timeout: 8000 });
+          await page.waitForTimeout(1200);
         }
         if (e.kind === 'dialog') {
           // the page's main action: the last button in the page header row (the primary one) (not the alert banner above it)
@@ -114,7 +122,7 @@ for (const [key, items] of groups) {
         }
         await shoot(page, file, []);
         done.set(sig, file);
-        if (e.kind === 'dialog') await page.keyboard.press('Escape');
+        if (e.kind === 'dialog' || e.kind === 'bell') await page.keyboard.press('Escape');
       } catch (err) {
         console.log(`FAILED ${file}: ${String(err).split('\n')[0]}`);
       }

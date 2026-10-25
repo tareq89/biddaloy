@@ -89,7 +89,7 @@ Every application has a **type**. The type decides who at the school gets it. A 
 
    → The **New application** page opens. The top says **Step 1 of 4**.
 
-<!-- image pending: img/portal-applications-01-list.png (width 300) — The application list on a phone: 1 New application button, 2 one application card and its state -->
+<img src="img/applications-01.png" alt="The application list on a phone" width="300">
 
 2. Under **What do you want to apply for?**, tap a type, then **Next**.
 
@@ -144,7 +144,7 @@ The **Applications** page has a child picker at the top. Pick the child you are 
 
 To put the letter on paper, tap **Print** on the page.
 
-<!-- image pending: img/portal-applications-03-detail.png (width 300) — An application's page on a phone: 1 state, 2 step, 3 activity, 4 Withdraw -->
+<img src="img/applications-03.png" alt="An application's page on a phone" width="300">
 
 ### Withdraw an application <a href="#task-withdraw" id="task-withdraw"></a>
 

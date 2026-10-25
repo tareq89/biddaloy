@@ -62,7 +62,7 @@ A program has a few milestones. For example, a hifz program has "Para 1", "Para 
 
    → For example **4 of 10 milestones achieved**.
 
-<!-- image pending: img/portal-programs-01-card.png (width 300) — A program card on a phone: 1 name and state, 2 the progress bar, 3 the "Next" tag -->
+<img src="img/programs-01.png" alt="A program card on a phone" width="300">
 
 3. Look at the list below.
 
