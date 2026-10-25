@@ -150,7 +150,7 @@ A section has only one **Class teacher**. If you make someone new the **Class te
 
 2. Press **Remove**.
 
-   → The dialog closes and the row leaves the list. That section no longer appears in that teacher's own list.
+   → The dialog closes and the row leaves the list. If the teacher has no other duty in that section, it no longer appears in their own list and they lose access to it. To cut access, remove every duty they hold in that section.
 
 | You press  | What happens                                             | Saved? |
 | ---------- | -------------------------------------------------------- | ------ |
