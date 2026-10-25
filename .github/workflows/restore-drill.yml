@@ -3,8 +3,8 @@ name: Restore drill
 # Proves the backup/restore path end-to-end on a disposable environment:
 # seed a database, back it up (encrypted), restore it into a second empty
 # database, and diff integrity counts between the two. Runs on pull requests
-# that touch the backup scripts, and on demand. The real weekly drill against
-# R2 runs in the backup container (docs/architecture/13-backup-restore.md).
+# that touch the backup scripts, and on demand. A restore from the real R2
+# backups is biddaloy-restore-prod on a fresh VM (docs/architecture/13-backup-restore.md).
 on:
   pull_request:
     paths:
