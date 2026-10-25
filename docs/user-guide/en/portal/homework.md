@@ -36,6 +36,7 @@ This page is view only. Homework is not handed in here.
 
 - [How to get to this page](#arrive)
 - [See it at a glance](#task-main)
+- [How to know you are looking at the right thing](#confirm)
 - [Other situations](#other)
   - [More than one child](#task-child)
   - [From the first page](#task-card)

@@ -75,7 +75,7 @@ The page opens over the whole screen. **Cancel** or the close button takes you b
 
    → A grey box shows the total, for example **48 people in total**, and **Someone in two groups gets it once.**
 
-5. Under **Show until**, pick the last day. It starts on tomorrow. You can pick today up to 30 days from today.
+5. Under **Show until**, pick the last day. It is set to tomorrow at first. You can pick today up to 30 days from today.
 
 6. Look at **How people will see it**. It is a copy of the bar with your title.
 
