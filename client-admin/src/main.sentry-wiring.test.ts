@@ -56,10 +56,7 @@ describe('client-admin entry point', () => {
     expect(typeof (options?.router as { subscribe?: unknown } | undefined)?.subscribe).toBe(
       'function',
     );
-    // With `VITE_SENTRY_TRACES_SAMPLE_RATE` unset (as it is in CI), the
-    // key is absent rather than a `NaN` from `parseFloat(undefined)` —
-    // otherwise the entry point would silently override the default.
-    expect(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE).toBeUndefined();
-    expect(options).not.toHaveProperty('tracesSampleRate');
+    // No runtime config in tests: the 0.1 default flows through.
+    expect(options?.tracesSampleRate).toBe(0.1);
   });
 });

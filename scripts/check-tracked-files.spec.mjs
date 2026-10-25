@@ -1,7 +1,12 @@
 // [75.28] Pure-function cases plus one check against the real tracked tree.
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { findBadContent, findForbidden, readText } from './check-tracked-files.mjs';
+import {
+  findBadContent,
+  findComposeDrift,
+  findForbidden,
+  readText,
+} from './check-tracked-files.mjs';
 
 describe('findForbidden', () => {
   it.each([['.env'], ['server/.env'], ['.env.production']])('flags %s', (p) => {
@@ -161,6 +166,9 @@ describe('findBadContent', () => {
     expect(run('infra/secrets/prod.example.env', '# Never put a value here.\nA=\n')).toEqual([]);
     expect(run('infra/secrets/staging.example.env', TEST_KEY)).toEqual([]);
     expect(run('infra/secrets/prod.example.env', TEST_KEY)).toHaveLength(1);
+    // A one-off runner profile would make `up -d` start it (PR #2813): never an example value.
+    expect(run('infra/secrets/staging.example.env', 'COMPOSE_PROFILES=jobs\n')).toHaveLength(1);
+    expect(run('infra/secrets/demo.example.env', 'COMPOSE_PROFILES=demo-jobs\n')).toHaveLength(1);
     expect(run('infra/secrets/prod.example.env', '#POSTGRES_PASSWORD=hunter2\n')).toHaveLength(1);
     expect(run('infra/secrets/prod.example.env', '# KEY=value pairs, empty here.\n')).toHaveLength(
       1,
@@ -191,5 +199,65 @@ describe('findBadContent', () => {
       run('scripts/backup/README.md', '# Private key: AGE-SECRET-KEY-1... stored offline'),
     ).toEqual([]);
     expect(run('img.png', null)).toEqual([]);
+  });
+});
+
+describe('findComposeDrift', () => {
+  const files = {
+    'deploy/ops.yml': 'memory: ${KUMA_MEM:-384m}\nx: ${OPS_DIR:?set}/y\n',
+    'infra/secrets/ops.example.env': 'KUMA_MEM=\n',
+  };
+  // The other mapped compose files read no variables here; an unlisted example is just empty.
+  const read = (f) => files[f] ?? (f.startsWith('deploy/') ? '' : null);
+
+  it('passes when the example lists the var (OPS_DIR is set by the deploy)', () => {
+    expect(findComposeDrift(read)).toEqual([]);
+  });
+
+  it('names a compose var its example does not list', () => {
+    const drift = findComposeDrift((f) =>
+      f === 'infra/secrets/ops.example.env' ? '# none\n' : read(f),
+    );
+    expect(drift).toHaveLength(1);
+    expect(drift[0]).toContain('KUMA_MEM');
+  });
+
+  it('also catches a bare $VAR and a lowercase name, but not an escaped $$VAR', () => {
+    const drift = findComposeDrift((f) =>
+      f === 'deploy/ops.yml' ? 'a: $PLAIN_VAR\nb: ${lower_var}\nc: $$ESCAPED\n' : read(f),
+    );
+    expect(drift.join('\n')).toMatch(/PLAIN_VAR[\s\S]*lower_var|lower_var[\s\S]*PLAIN_VAR/);
+    expect(drift.join('\n')).not.toContain('ESCAPED');
+  });
+
+  it('reports a mapped compose file it cannot read', () => {
+    const drift = findComposeDrift((f) => (f === 'deploy/ops.yml' ? null : read(f)));
+    expect(drift).toHaveLength(1);
+    expect(drift[0]).toContain('deploy/ops.yml');
+  });
+
+  it('ignores a ${VAR} that only appears in a YAML comment', () => {
+    const drift = findComposeDrift((f) =>
+      f === 'deploy/ops.yml'
+        ? '# set ${EXAMPLE_VAR} here\nmemory: ${KUMA_MEM:-384m} # or ${OTHER_VAR}\n'
+        : read(f),
+    );
+    expect(drift).toEqual([]);
+  });
+
+  it('needs a required ${VAR:?} in every mapped example, an optional one in any', () => {
+    const stack = {
+      'deploy/stack.yml': 'a: ${NEED:?set}\nb: ${OPT:-x}\n',
+      'infra/secrets/prod.example.env': 'NEED=\nOPT=\n',
+      'infra/secrets/staging.example.env': 'NEED=\n',
+      'infra/secrets/demo.example.env': '# none\n',
+    };
+    const drift = findComposeDrift((f) => stack[f] ?? (f.startsWith('deploy/') ? '' : null));
+    expect(drift).toHaveLength(1);
+    expect(drift[0]).toContain('NEED');
+  });
+
+  it('holds for the real deploy files', () => {
+    expect(findComposeDrift(readText)).toEqual([]);
   });
 });

@@ -67,7 +67,7 @@ jobs:
               - 'e2e/landing/**'
               - 'nginx/templates/landing.conf.template'
               - 'nginx/test/landing.infra.test.sh'
-              - 'infra/ansible/landing.yml'
+              - 'deploy/edge.yml'
               - 'ui/src/styles/globals.css'
               - 'yarn.lock'
               - 'package.json'
@@ -118,11 +118,10 @@ jobs:
               - 'nginx/**'
               - 'docker-compose.yml'
               - 'Dockerfile'
+              - 'deploy/**'
               - 'scripts/backup/**'
               - 'scripts/demo/**'
-              - 'docker-compose.demo.yml'
               - 'docker-compose.build.yml'
-              - 'docker-compose.demo.build.yml'
               - '**/*.infra.test.sh'
               - '.github/workflows/ci.yml'
 
@@ -144,7 +143,7 @@ jobs:
       # `${VAR:?...}`), so a deploy with a forgotten .env fails loudly.
       - name: Compose refuses an empty env
         run: |
-          out=$(env -i PATH="$PATH" HOME="$HOME" docker compose config -q 2>&1) && {
+          out=$(env -i PATH="$PATH" HOME="$HOME" docker compose -f deploy/stack.yml config -q 2>&1) && {
             echo "docker compose accepted an empty environment" >&2
             exit 1
           }
@@ -1240,9 +1239,23 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           ansible-galaxy install -r requirements.yml
           ansible-playbook -i inventory/prod.yml --syntax-check provision.yml
-          ansible-playbook -i inventory/prod.yml --syntax-check ops.yml
-          ansible-playbook -i inventory/prod.yml --syntax-check deploy.yml -e env=prod -e version=0000000000000000000000000000000000000000
-          ansible-playbook -i inventory/prod.yml --syntax-check deploy.yml -e env=staging -e version=0000000000000000000000000000000000000000
+          # deploy.yml runs on the VM with -c local (Epic 79 W3.01); one syntax check per stack.
+          for stack in prod staging demo edge ops; do
+            ansible-playbook -c local -i localhost, --syntax-check deploy.yml -e stack=$stack -e version=0000000000000000000000000000000000000000
+          done
+          # Here, not only in the infra job: that job has no ansible-playbook, so it skips this one.
+          bash test/report.infra.test.sh
+          # The VM-side CLIs (Epic 79 W3). Docker-free shims; ansible-playbook is on PATH here, so
+          # the deploy test also proves a Jinja hotfix reason stays text in deploy.yml.
+          # *.infra.test.sh files already run in the infra job.
+          failed=""
+          for t in ../../deploy/bin/test/*.test.sh; do
+            case "$t" in *.infra.test.sh) continue ;; esac
+            echo "::group::$t"
+            bash "$t" || failed="$failed $t"
+            echo "::endgroup::"
+          done
+          [ -z "$failed" ] || { echo "::error::failed:$failed"; exit 1; }
 
   # [15.1] "tests got slower" needs to be a graph, not a feeling — this
   # publishes wall/work/gap, a per-job budget verdict, and the top-10
