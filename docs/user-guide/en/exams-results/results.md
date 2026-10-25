@@ -110,7 +110,7 @@ This page is about an exam's **results**. The results of every exam are in one o
 
    → The state appears beside it, for example **Draft**, with **Work out the results once every marks list is submitted.** Below it is **No results yet**.
 
-<!-- image pending: Results page, exam chosen, Draft badge and the next-step line, Process result on the right; 1 · Exam box 2 · state 3 · main button; admin, desktop -->
+![Results page with an exam chosen: the Draft badge, the line saying to work out the results once every marks list is submitted, and the Process result button on the right](img/results-02-draft.png)
 
 3. On the right press **Process result**.
 
