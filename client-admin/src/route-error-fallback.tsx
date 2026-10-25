@@ -3,6 +3,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import type { ErrorComponentProps } from '@tanstack/react-router';
 
 import { reloadForUpdate } from './pwa/register';
+import { runtimeConfig } from './runtime-config';
 
 /**
  * The router's `defaultErrorComponent` (`main.tsx`). In its own module so a
@@ -41,7 +42,7 @@ export function RouteErrorFallbackWithUpdate(props: ErrorComponentProps) {
       // [13.5] Build-time, not the onboarding status's `support_url`: once the
       // trial has ended every school-scoped request 403s, so a status fetched
       // now would fail too, and a cold reload has nothing cached.
-      supportUrl={import.meta.env.VITE_SUPPORT_URL ?? null}
+      supportUrl={runtimeConfig().supportUrl || null}
     />
   );
 }

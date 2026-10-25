@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 NET=hardening-test
-VOL=hardening-test-certs
+VOL=hardening-test-le
 NGINX_IMG=nginx:1.31-alpine
 CURL_IMG=curlimages/curl
 EDGE_IP=172.30.97.10
@@ -28,20 +28,21 @@ docker network create --subnet 172.30.97.0/24 "$NET" >/dev/null
 docker volume create "$VOL" >/dev/null
 
 UP_CONF='server { listen 3000; location / { default_type text/plain; return 200 "ok"; } }'
-docker run -d --name hardening-upstream --network "$NET" --network-alias app \
+docker run -d --name hardening-upstream --network "$NET" --network-alias prod-app \
   --entrypoint sh "$NGINX_IMG" \
   -c "echo '$UP_CONF' > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'" >/dev/null
 
-docker run --rm -e APP_DOMAIN=example.test -v "$VOL:/certs" \
-  -v "$PWD/nginx/generate-dummy-cert.sh:/scripts/generate-dummy-cert.sh:ro" \
-  --entrypoint sh certbot/certbot /scripts/generate-dummy-cert.sh >/dev/null
+# Direct mode serves TLS from where certbot would put the certificate.
+docker run --rm -v "$VOL:/le" --entrypoint sh alpine/openssl -c \
+  'mkdir -p /le/live/example.test && openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+    -keyout /le/live/example.test/privkey.pem -out /le/live/example.test/fullchain.pem -subj /CN=example.test' >/dev/null 2>&1
 
 docker run -d --name hardening-edge --network "$NET" --ip "$EDGE_IP" \
-  -e APP_DOMAIN=example.test -e TRUSTED_PROXY_CIDRS= \
+  -e EDGE_MODE=direct -e APP_DOMAIN=example.test -e OPS_UPSTREAM_HOST= \
   -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
   -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
-  -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
-  -v "$VOL:/etc/nginx/certs:ro" "$NGINX_IMG" >/dev/null
+  -v "$PWD/nginx/edge-mode.sh:/docker-entrypoint.d/15-edge-mode.sh:ro" \
+  -v "$VOL:/etc/letsencrypt:ro" "$NGINX_IMG" >/dev/null
 for _ in $(seq 20); do
   docker exec hardening-edge nc -z 127.0.0.1 443 >/dev/null 2>&1 && break
   sleep 1
@@ -71,17 +72,10 @@ else
   fail "slow header" "${elapsed:-no result}s"
 fi
 
-# [58.4.01] The demo host mounts nginx/demo into the template's demo-extra include (robots.txt);
-# the config must still load with it. One-shot `nginx -T` on the same network (it resolves `app`):
-# it tests the config and prints it, and the grep proves robots.conf was really included (an
-# include glob that matches nothing is still valid config).
-demo_conf=$(docker run --rm --network "$NET" -e APP_DOMAIN=example.test -e TRUSTED_PROXY_CIDRS= \
-  -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
-  -v "$PWD/nginx/trusted-proxies.sh:/docker-entrypoint.d/15-trusted-proxies.sh:ro" \
-  -v "$PWD/nginx/demo:/etc/nginx/demo-extra:ro" \
-  -v "$VOL:/etc/nginx/certs:ro" "$NGINX_IMG" nginx -T 2>/dev/null) \
-  && grep -q 'alias /etc/nginx/demo-extra/robots.txt' <<<"$demo_conf" \
-  && pass "nginx -T includes the demo robots.conf" || fail "nginx -T with the demo robots.conf" "failed or robots.conf not included"
+# The demo host serves its own robots.txt (Disallow all) and never gets indexed.
+conf=$(docker exec hardening-edge nginx -T 2>/dev/null | tr -s ' ')
+[[ "$conf" == *'Disallow: /'* && "$conf" == *'X-Robots-Tag "noindex, nofollow"'* ]] \
+  && pass "demo block: robots.txt Disallow and noindex" || fail "demo block: robots.txt / noindex" "missing"
 
 [ "$FAILS" = 0 ] || { echo "$FAILS check(s) failed"; exit 1; }
 echo "all checks passed"
