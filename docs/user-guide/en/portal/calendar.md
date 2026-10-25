@@ -67,7 +67,7 @@ This page is for looking only. You cannot add or change anything here.
 2. A day with something on it has a small dot on a phone; on a computer the item's name is written in the box. If a day has more items, it says, for example, **+2 more**.
 3. Below the calendar, see what is on today.
 
-<img src="img/calendar-01.png" alt="Calendar, current month, two holidays and an exam" width="300">
+<img src="img/calendar-01.png" alt="Calendar, November 2026, dots on days with events" width="300">
 
 > **Remember:** the school's weekly off days, and which day the week starts on, follow your school's own rules.
 

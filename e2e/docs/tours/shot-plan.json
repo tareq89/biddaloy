@@ -892,15 +892,15 @@
    "login": "guardian",
    "phone": true,
    "text": "Calendar, current month",
-   "route": "/portal/calendar"
+   "route": "/portal/calendar?month=2026-11"
   },
   {
    "idx": 1,
-   "kind": "page",
+   "kind": "day1",
    "login": "student-9b",
    "phone": true,
    "text": "Calendar, three parts numbered",
-   "route": "/portal/calendar"
+   "route": "/portal/calendar?month=2026-11"
   }
  ],
  "portal/exam-schedule": [

@@ -97,7 +97,7 @@ The schedule is for looking only. You can print the admit card from here.
 
 3. If nothing opens, look for the message **Allow pop-ups for this site, then try again.** at the top. Allow pop-ups for this site in your browser and tap again.
 
-<img src="img/exam-schedule-02.png" alt="Exam schedule, admit card ready part and the Print admit card button" width="300">
+<img src="img/exam-schedule-02.png" alt="Exam schedule on a phone, the next exam" width="300">
 
 > **Remember:** each time you tap print, the school's records note a copy. Do not tap again and again without need; if you tap very often you may have to wait a while.
 

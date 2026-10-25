@@ -87,7 +87,7 @@ With one child (or if you are the student), the page shows their name and class 
 
    → The [**Fees and invoices**](fees.md) page opens with that child already chosen.
 
-<img src="img/overview-01.png" alt="Overview, parent of two children" width="300">
+<img src="img/overview-01.png" alt="Overview for a guardian" width="300">
 
 > **Remember:** with more than one child, **Total outstanding** adds up only the children who owe something. A line under it says so, for example **Across 2 of 3 children**. A child who owes nothing still has a card that says **Nothing due**.
 

@@ -105,6 +105,10 @@ for (const [key, items] of groups) {
           await page.locator(`main a[href^="${e.route}/"]:not([href*="/new"])`).first().click({ timeout: 8000 });
           await settle(page);
         }
+        if (e.kind === 'day1') {
+          await page.locator('main').getByText(/^(24|২৪)$/).first().click({ timeout: 8000 });
+          await page.waitForTimeout(1200);
+        }
         if (e.kind === 'change2') {
           await page.locator('main button').filter({ hasText: /^(Change|পরিবর্তন করুন)$/ }).nth(1).click({ timeout: 8000 });
           await page.waitForTimeout(1200);
