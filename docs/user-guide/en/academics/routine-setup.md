@@ -45,8 +45,8 @@ appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: period-times-locked-by-history, checked: 2026-10-24, issue: null }
-  - { id: no-edit-shift-room, checked: 2026-10-24, issue: null }
+  - { id: period-times-locked-by-history, checked: 2026-10-24, issue: 2893 }
+  - { id: no-edit-shift-room, checked: 2026-10-24, issue: 2894 }
 -->
 
 # Setting up shifts, period times, rooms and rules for the routine

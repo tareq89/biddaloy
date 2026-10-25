@@ -51,8 +51,8 @@ appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: sms-credit-per-segment, checked: 2026-10-25, issue: null }
-  - { id: report-card-other-roles, checked: 2026-10-25, issue: null }
+  - { id: sms-credit-per-segment, checked: 2026-10-25, issue: 2921 }
+  - { id: report-card-other-roles, checked: 2026-10-25, issue: 2922 }
 -->
 
 # ফলাফল প্রক্রিয়া ও প্রকাশ

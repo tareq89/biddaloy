@@ -44,9 +44,9 @@ appVersion: 0.1.0 (e424f8fc4)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: homework-no-grading-screen, checked: 2026-10-24, issue: null }
-  - { id: homework-no-deactivate-reassign, checked: 2026-10-24, issue: null }
-  - { id: homework-import-errors-english, checked: 2026-10-24, issue: null }
+  - { id: homework-no-grading-screen, checked: 2026-10-24, issue: 2899 }
+  - { id: homework-no-deactivate-reassign, checked: 2026-10-24, issue: 2900 }
+  - { id: homework-import-errors-english, checked: 2026-10-24, issue: 2901 }
 -->
 
 # Giving homework

@@ -64,8 +64,8 @@ appVersion: 0.1.0 (5f7194a2e)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: gov-holidays-past-date, checked: 2026-10-24, issue: null }
-  - { id: upcoming-panel-range, checked: 2026-10-24, issue: null }
+  - { id: gov-holidays-past-date, checked: 2026-10-24, issue: 2871 }
+  - { id: upcoming-panel-range, checked: 2026-10-24, issue: 2872 }
 -->
 
 # Seeing, adding and subscribing to holidays and events in the calendar

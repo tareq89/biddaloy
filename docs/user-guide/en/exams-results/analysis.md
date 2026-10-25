@@ -42,7 +42,7 @@ appVersion: 0.1.0 (a25ab3344)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: overall-row-absent-zero, checked: 2026-10-25, issue: null }
+  - { id: overall-row-absent-zero, checked: 2026-10-25, issue: 2923 }
 -->
 
 # Merit list and result analysis

@@ -41,7 +41,7 @@ appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: non-teacher-roles-empty, checked: 2026-10-24, issue: null }
+  - { id: non-teacher-roles-empty, checked: 2026-10-24, issue: 2898 }
 -->
 
 # আমার রুটিন দেখা ও পিরিয়ড জানানো

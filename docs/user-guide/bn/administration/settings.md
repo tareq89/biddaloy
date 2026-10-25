@@ -55,7 +55,7 @@ appVersion: 0.1.0 (94db6def4)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: kept-backup-expires-30-days, checked: 2026-10-25, issue: null } # a backup kept forever still cannot be downloaded 30 days after it finishes
+  - { id: kept-backup-expires-30-days, checked: 2026-10-25, issue: 2946 } # a backup kept forever still cannot be downloaded 30 days after it finishes
 -->
 
 # স্কুলের সেটিংস ঠিক করা

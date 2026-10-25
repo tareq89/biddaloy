@@ -58,10 +58,10 @@ appVersion: 0.1.0 (6b36c2549)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: collection-by-month-calendar-year, checked: 2026-10-24, issue: null }
-  - { id: sms-links-open-reminder-history, checked: 2026-10-24, issue: null }
-  - { id: homework-rate-last-7-days, checked: 2026-10-24, issue: null }
-  - { id: streaks-fixed-3-days, checked: 2026-10-24, issue: null }
+  - { id: collection-by-month-calendar-year, checked: 2026-10-24, issue: 2941 }
+  - { id: sms-links-open-reminder-history, checked: 2026-10-24, issue: 2942 }
+  - { id: homework-rate-last-7-days, checked: 2026-10-24, issue: 2943 }
+  - { id: streaks-fixed-3-days, checked: 2026-10-24, issue: 2944 }
 -->
 
 # উইজেটগুলোর মানে বোঝা

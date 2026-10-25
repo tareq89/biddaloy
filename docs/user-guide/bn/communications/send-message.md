@@ -45,7 +45,7 @@ appVersion: 0.1.0 (3f7e424fc)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: no-credit-error-is-generic, checked: 2026-10-25, issue: null }
+  - { id: no-credit-error-is-generic, checked: 2026-10-25, issue: 2939 }
 -->
 
 # বার্তা পাঠান

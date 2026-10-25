@@ -49,7 +49,7 @@ appVersion: 0.1.0 (5f7194a2e)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: invite-all-over-1000, checked: 2026-10-24, issue: null }
+  - { id: invite-all-over-1000, checked: 2026-10-24, issue: 2870 }
 -->
 
 # Viewing guardians, fixing their details and sending invitations

@@ -29,7 +29,7 @@ appVersion: 0.1.0 (e424f8fc4)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: my-class-dues-capped-100, checked: 2026-10-24, issue: null }
+  - { id: my-class-dues-capped-100, checked: 2026-10-24, issue: 2903 }
 -->
 
 # নিজের শ্রেণির খবর এক পাতায় দেখা

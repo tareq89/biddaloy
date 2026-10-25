@@ -50,9 +50,9 @@ appVersion: 0.1.0 (fb8af6c63)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: no-public-link-in-app, checked: 2026-10-24, issue: null }
-  - { id: no-close-button, checked: 2026-10-24, issue: null }
-  - { id: duplicate-shows-generic-error, checked: 2026-10-24, issue: null }
+  - { id: no-public-link-in-app, checked: 2026-10-24, issue: 2877 }
+  - { id: no-close-button, checked: 2026-10-24, issue: 2878 }
+  - { id: duplicate-shows-generic-error, checked: 2026-10-24, issue: 2879 }
 -->
 
 # Admission rounds and the online admission form

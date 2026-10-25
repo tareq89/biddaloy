@@ -29,7 +29,7 @@ appVersion: 0.1.0 (3f7e424fc)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: year-default-counts-all, checked: 2026-10-25, issue: null }
+  - { id: year-default-counts-all, checked: 2026-10-25, issue: 2945 }
 -->
 
 # Application reports

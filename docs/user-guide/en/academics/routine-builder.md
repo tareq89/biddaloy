@@ -47,10 +47,10 @@ appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: no-create-routine-button, checked: 2026-10-24, issue: null }
-  - { id: edit-cell-same-day-fails, checked: 2026-10-24, issue: null }
-  - { id: no-room-in-cell-picker, checked: 2026-10-24, issue: null }
-  - { id: clear-cell-silent, checked: 2026-10-24, issue: null }
+  - { id: no-create-routine-button, checked: 2026-10-24, issue: 2887 }
+  - { id: edit-cell-same-day-fails, checked: 2026-10-24, issue: 2888 }
+  - { id: no-room-in-cell-picker, checked: 2026-10-24, issue: 2889 }
+  - { id: clear-cell-silent, checked: 2026-10-24, issue: 2890 }
 -->
 
 # Arranging a class's weekly routine

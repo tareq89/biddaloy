@@ -44,7 +44,7 @@ appVersion: 0.1.0 (1798f8b1f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: year-delete-reason-incomplete, checked: 2026-10-24, issue: null }
+  - { id: year-delete-reason-incomplete, checked: 2026-10-24, issue: 2883 }
 -->
 
 # শিক্ষাবর্ষ তৈরি ও পরিচালনা

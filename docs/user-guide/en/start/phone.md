@@ -20,7 +20,7 @@ appVersion: 0.1.0 (c08a9eb19)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: ios-sheet-old-name, checked: 2026-10-24, issue: null }
+  - { id: ios-sheet-old-name, checked: 2026-10-24, issue: 2950 }
 -->
 
 # Open on your phone and install as an app

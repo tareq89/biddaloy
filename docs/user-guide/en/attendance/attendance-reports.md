@@ -28,7 +28,7 @@ appVersion: 0.1.0 (a5fdbd4ba)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: teacher-low-attendance-tab-error, checked: 2026-10-25, issue: null }
+  - { id: teacher-low-attendance-tab-error, checked: 2026-10-25, issue: 2908 }
 -->
 
 # Attendance reports

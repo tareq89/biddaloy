@@ -58,9 +58,9 @@ appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: seat-plan-claimed-sitting-generic-error, checked: 2026-10-25, issue: null }
-  - { id: seat-plan-publish-conflict-generic-error, checked: 2026-10-25, issue: null }
-  - { id: seat-plan-invigilator-busy-generic-error, checked: 2026-10-25, issue: null }
+  - { id: seat-plan-claimed-sitting-generic-error, checked: 2026-10-25, issue: 2918 }
+  - { id: seat-plan-publish-conflict-generic-error, checked: 2026-10-25, issue: 2919 }
+  - { id: seat-plan-invigilator-busy-generic-error, checked: 2026-10-25, issue: 2920 }
 -->
 
 # Making and publishing seat plans

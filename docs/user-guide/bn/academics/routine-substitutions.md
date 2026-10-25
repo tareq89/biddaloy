@@ -34,9 +34,9 @@ appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: substitution-no-delete, checked: 2026-10-24, issue: null }
-  - { id: substitute-busy-generic-error, checked: 2026-10-24, issue: null }
-  - { id: old-year-rows-dash, checked: 2026-10-24, issue: null }
+  - { id: substitution-no-delete, checked: 2026-10-24, issue: 2895 }
+  - { id: substitute-busy-generic-error, checked: 2026-10-24, issue: 2896 }
+  - { id: old-year-rows-dash, checked: 2026-10-24, issue: 2897 }
 -->
 
 # বদলি শিক্ষক রেকর্ড করা

@@ -44,8 +44,8 @@ appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: submitted-list-hidden, checked: 2026-10-25, issue: null }
-  - { id: exempt-two-words, checked: 2026-10-25, issue: null }
+  - { id: submitted-list-hidden, checked: 2026-10-25, issue: 2916 }
+  - { id: exempt-two-words, checked: 2026-10-25, issue: 2917 }
 -->
 
 # Entering and submitting exam marks

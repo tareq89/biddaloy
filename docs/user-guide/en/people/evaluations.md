@@ -39,9 +39,9 @@ appVersion: 0.1.0 (5f7194a2e)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: acr-start-no-criteria-wrong-message, checked: 2026-10-25, issue: null }
-  - { id: survey-open-shows-waiting, checked: 2026-10-25, issue: null }
-  - { id: survey-named-results-show-no-names, checked: 2026-10-25, issue: null }
+  - { id: acr-start-no-criteria-wrong-message, checked: 2026-10-25, issue: 2874 }
+  - { id: survey-open-shows-waiting, checked: 2026-10-25, issue: 2875 }
+  - { id: survey-named-results-show-no-names, checked: 2026-10-25, issue: 2876 }
 -->
 
 # Evaluations: ACR, teacher surveys and incidents

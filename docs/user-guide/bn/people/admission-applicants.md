@@ -45,7 +45,7 @@ appVersion: 0.1.0 (fb8af6c63)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: list-no-search, checked: 2026-10-24, issue: null }
+  - { id: list-no-search, checked: 2026-10-24, issue: 2880 }
 -->
 
 # ভর্তির আবেদন যাচাই ও ভর্তি করা

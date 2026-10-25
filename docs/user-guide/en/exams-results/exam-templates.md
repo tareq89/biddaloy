@@ -52,7 +52,7 @@ appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: template-unsaved-no-warning, checked: 2026-10-25, issue: null }
+  - { id: template-unsaved-no-warning, checked: 2026-10-25, issue: 2915 }
 -->
 
 # Building an exam structure

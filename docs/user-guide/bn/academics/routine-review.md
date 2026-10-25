@@ -44,9 +44,9 @@ appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: teacher-sees-draft-periods, checked: 2026-10-24, issue: null }
-  - { id: coordinator-no-full-view, checked: 2026-10-24, issue: null }
-  - { id: request-outcome-not-shown, checked: 2026-10-24, issue: null }
+  - { id: teacher-sees-draft-periods, checked: 2026-10-24, issue: 2860 }
+  - { id: coordinator-no-full-view, checked: 2026-10-24, issue: 2891 }
+  - { id: request-outcome-not-shown, checked: 2026-10-24, issue: 2892 }
 -->
 
 # রুটিন পর্যালোচনা ও প্রকাশ করা

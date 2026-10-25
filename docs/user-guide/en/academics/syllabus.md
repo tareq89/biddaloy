@@ -56,7 +56,7 @@ appVersion: 0.1.0 (e424f8fc4)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: syllabus-topic-buttons-out-of-scope, checked: 2026-10-24, issue: null }
+  - { id: syllabus-topic-buttons-out-of-scope, checked: 2026-10-24, issue: 2902 }
 -->
 
 # Syllabus and study plans

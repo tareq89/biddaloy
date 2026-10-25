@@ -58,8 +58,8 @@ appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: add-staff-no-contact, checked: 2026-10-24, issue: null }
-  - { id: promote-member-list-100, checked: 2026-10-24, issue: null }
+  - { id: add-staff-no-contact, checked: 2026-10-24, issue: 2864 }
+  - { id: promote-member-list-100, checked: 2026-10-24, issue: 2865 }
 -->
 
 # Adding and managing staff

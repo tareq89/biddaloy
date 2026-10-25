@@ -40,9 +40,9 @@ appVersion: 0.1.0 (a5fdbd4ba)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: staff-roster-admin-only, checked: 2026-10-25, issue: null }
-  - { id: staff-saved-marks-not-shown, checked: 2026-10-25, issue: null }
-  - { id: staff-old-day-no-reason-field, checked: 2026-10-25, issue: null }
+  - { id: staff-roster-admin-only, checked: 2026-10-25, issue: 2909 }
+  - { id: staff-saved-marks-not-shown, checked: 2026-10-25, issue: 2910 }
+  - { id: staff-old-day-no-reason-field, checked: 2026-10-25, issue: 2911 }
 -->
 
 # Staff attendance and leave

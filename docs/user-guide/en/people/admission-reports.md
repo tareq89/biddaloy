@@ -29,8 +29,8 @@ appVersion: 0.1.0 (fb8af6c63)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: admitted-online-only, checked: 2026-10-24, issue: null }
-  - { id: filters-not-in-url, checked: 2026-10-24, issue: null }
+  - { id: admitted-online-only, checked: 2026-10-24, issue: 2881 }
+  - { id: filters-not-in-url, checked: 2026-10-24, issue: 2882 }
 -->
 
 # Admission reports

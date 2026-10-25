@@ -65,9 +65,9 @@ appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: exam-delete-no-button, checked: 2026-10-25, issue: null }
-  - { id: exam-edit-published-kind-message, checked: 2026-10-25, issue: null }
-  - { id: exam-template-no-grade-message, checked: 2026-10-25, issue: null }
+  - { id: exam-delete-no-button, checked: 2026-10-25, issue: 2912 }
+  - { id: exam-edit-published-kind-message, checked: 2026-10-25, issue: 2913 }
+  - { id: exam-template-no-grade-message, checked: 2026-10-25, issue: 2914 }
 -->
 
 # Creating and setting up exams

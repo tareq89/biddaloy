@@ -34,7 +34,7 @@ appVersion: 0.1.0 (c08a9eb19)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: cannot-change-existing-password, checked: 2026-10-24, issue: null }
+  - { id: cannot-change-existing-password, checked: 2026-10-24, issue: 2949 }
 -->
 
 # Your account

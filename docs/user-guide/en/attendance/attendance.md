@@ -35,9 +35,9 @@ appVersion: 0.1.0 (7b776974b)
 owner: tareq89
 lastVerified: 2026-10-23
 knownIssues:
-  - { id: submit-stays-draft, checked: 2026-10-23, issue: null }
-  - { id: admin-old-register-save, checked: 2026-10-23, issue: null }
-  - { id: bn-cancel-button-cut, checked: 2026-10-23, issue: null }
+  - { id: submit-stays-draft, checked: 2026-10-23, issue: 2904 }
+  - { id: admin-old-register-save, checked: 2026-10-23, issue: 2905 }
+  - { id: bn-cancel-button-cut, checked: 2026-10-23, issue: 2906 }
 -->
 
 # Taking attendance

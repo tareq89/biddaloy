@@ -67,8 +67,8 @@ appVersion: 0.1.0 (1798f8b1f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: class-delete-blocked-message, checked: 2026-10-24, issue: null }
-  - { id: class-name-reuse-after-delete, checked: 2026-10-24, issue: null }
+  - { id: class-delete-blocked-message, checked: 2026-10-24, issue: 2884 }
+  - { id: class-name-reuse-after-delete, checked: 2026-10-24, issue: 2885 }
 -->
 
 # শ্রেণি, শাখা ও বিষয় সাজানো

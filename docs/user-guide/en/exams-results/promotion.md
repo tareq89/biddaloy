@@ -47,9 +47,9 @@ appVersion: 0.1.0 (a25ab3344)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: retain-class-always-required, checked: 2026-10-25, issue: null }
-  - { id: graduate-selectable-in-normal-run, checked: 2026-10-25, issue: null }
-  - { id: override-placement-error-hidden, checked: 2026-10-25, issue: null }
+  - { id: retain-class-always-required, checked: 2026-10-25, issue: 2924 }
+  - { id: graduate-selectable-in-normal-run, checked: 2026-10-25, issue: 2925 }
+  - { id: override-placement-error-hidden, checked: 2026-10-25, issue: 2926 }
 -->
 
 # Promoting students

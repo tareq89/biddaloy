@@ -40,8 +40,8 @@ appVersion: 0.1.0 (a25ab3344)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: delete-blocked-wrong-reason, checked: 2026-10-25, issue: null } # delete-blocked red text names payments, but a fine rule or automatic billing rule is the real cause
-  - { id: window-text-says-monthly-fees, checked: 2026-10-25, issue: null } # window text says fees are generated monthly; bills are created only by Create bills or an automatic billing rule
+  - { id: delete-blocked-wrong-reason, checked: 2026-10-25, issue: 2930 } # delete-blocked red text names payments, but a fine rule or automatic billing rule is the real cause
+  - { id: window-text-says-monthly-fees, checked: 2026-10-25, issue: 2931 } # window text says fees are generated monthly; bills are created only by Create bills or an automatic billing rule
 -->
 
 # Setting up fee structures
