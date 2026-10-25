@@ -11,10 +11,42 @@ const landingCss = readFileSync(resolve(root, 'landing/src/styles/tokens.css'), 
 const appCss = readFileSync(resolve(root, 'ui/src/styles/globals.css'), 'utf8');
 
 const LANDING_ONLY = new Set([
-  '--bg', '--surface', '--surface-2', '--fg', '--muted', '--line', '--ink', '--ink-fg',
-  '--indigo', '--indigo-t', '--teal', '--teal-t', '--amber', '--amber-t', '--coral', '--coral-t',
-  '--brand', '--shot', '--shot-ink', '--font', '--hue', '--hue-ink', '--tint',
-  '--teal-ink', '--amber-ink', '--coral-ink',
+  // the landing logo's colours; the app logo uses its own --brand-mark-* variables
+  '--logo-ink',
+  '--logo-roof',
+  '--logo-erp-via',
+  '--logo-erp-to',
+  '--bg',
+  '--surface',
+  '--surface-2',
+  '--fg',
+  '--muted',
+  '--line',
+  '--ink',
+  '--ink-fg',
+  '--indigo',
+  '--indigo-t',
+  '--teal',
+  '--teal-t',
+  '--amber',
+  '--amber-t',
+  '--coral',
+  '--coral-t',
+  '--brand',
+  '--shot',
+  '--shot-ink',
+  '--font',
+  '--hue',
+  '--hue-ink',
+  '--tint',
+  '--teal-ink',
+  '--amber-ink',
+  '--coral-ink',
+  // Logo.astro recolours the SchoolManagERP mark per theme; the app draws its own mark.
+  '--logo-ink',
+  '--logo-roof',
+  '--logo-erp-via',
+  '--logo-erp-to',
 ]);
 
 const decls = (css) => {
@@ -31,7 +63,9 @@ const errors = [];
 for (const [name, value] of landing) {
   if (LANDING_ONLY.has(name)) continue;
   if (!app.has(name)) {
-    errors.push(`${name} is not in ui/src/styles/globals.css (add to LANDING_ONLY if landing-only)`);
+    errors.push(
+      `${name} is not in ui/src/styles/globals.css (add to LANDING_ONLY if landing-only)`,
+    );
   } else if (app.get(name) !== value) {
     errors.push(`${name}: landing "${value}" != app "${app.get(name)}"`);
   }
