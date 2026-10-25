@@ -15,8 +15,21 @@ import type { HelmetOptions } from 'helmet';
  */
 const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
 
-export function buildHelmetOptions(nodeEnv: string | undefined): HelmetOptions {
+/** The browser Sentry SDK posts to its DSN's origin; empty or unparseable = nothing added. */
+function sentryOrigin(dsn: string | undefined): string[] {
+  try {
+    return dsn ? [new URL(dsn).origin] : [];
+  } catch {
+    return [];
+  }
+}
+
+export function buildHelmetOptions(
+  nodeEnv: string | undefined,
+  sentryDsnWeb?: string,
+): HelmetOptions {
   const isProduction = nodeEnv === 'production';
+  const sentry = sentryOrigin(sentryDsnWeb);
 
   return {
     contentSecurityPolicy: {
@@ -32,6 +45,8 @@ export function buildHelmetOptions(nodeEnv: string | undefined): HelmetOptions {
         objectSrc: ["'none'"],
         scriptSrc: ["'self'", TURNSTILE_ORIGIN],
         styleSrc: ["'self'"],
+        // Only when SENTRY_DSN_WEB is set (runtime-config.ts); otherwise default-src 'self'.
+        ...(sentry.length ? { connectSrc: ["'self'", ...sentry] } : {}),
         // Forcing http->https upgrades makes sense once TLS is real
         // (production, behind the nginx from #32) but actively breaks local
         // dev, where the app is served over plain http://localhost.
