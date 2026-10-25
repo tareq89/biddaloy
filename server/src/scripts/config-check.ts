@@ -13,6 +13,7 @@ import {
 import { resolveAppBaseUrl } from '../modules/account-access/app-base-url.util';
 import { resolvePublicAppUrl } from '../modules/invoices/public-app-url.util';
 import { requireDocsCredentials } from '../swagger';
+import { verifyPassword } from '../modules/auth/password-hash';
 
 /**
  * `yarn config:check` — runs the boot-time config checks without starting
@@ -20,7 +21,10 @@ import { requireDocsCredentials } from '../swagger';
  * DB_SSL (db-ssl.ts), the SETTINGS_ENCRYPTION_KEY(_PREVIOUS) shape (encryption-key.ts),
  * the APP_BASE_URL / PUBLIC_APP_URL https checks the link builders run, and
  * the ENABLE_API_DOCS credentials check (main.ts).
- * `--env staging` adds the no-real-provider rules (runStagingConfigCheck).
+ * `--env prod|staging|demo` adds that stack's rules (runStackConfigCheck): required vars, ENV_NAME,
+ * no prod database or bucket outside prod, DEMO_MODE, the Turnstile key pair, no one-off runner
+ * profile, and on staging what the nightly refresh needs. From the app image:
+ * `node server/dist/scripts/config-check.js --env <e> --file /dev/stdin`.
  * Every failing check is listed. Error text names variables only, never
  * their values.
  */
@@ -67,47 +71,179 @@ export const TURNSTILE_TEST_SECRET = '1x0000000000000000000000000000000AA';
 
 // Every variable that can reach a real SMS / WhatsApp / email / push provider (.env.example).
 const PROVIDER_VAR = /^(SMS_|MIMSMS_|GREENWEB_|WHATSAPP_|SMTP_|VAPID_|PLATFORM_SMS_)/;
+// Also refused on staging: real alert phones and social sign-in (real accounts) credentials.
+const EXTRA_REFUSED = /^(PLATFORM_ALERT_PHONES|GOOGLE_OAUTH_|FACEBOOK_OAUTH_)/;
+export const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA';
+
+export type Stack = 'prod' | 'staging' | 'demo';
 
 /**
- * What docker-compose.staging.yml sets for `app`, whatever the host `.env` says. The host
- * `.env` is a compose-side file: these never come from it. config-check.spec.ts keeps this
- * equal to the overlay, so the check judges the env the container really gets.
+ * What deploy/stack.yml hands the app that the host `.env` does not hold: the database URL is
+ * built from POSTGRES_*, and the bucket falls back to the prod default. The check judges the
+ * env the container really gets.
  */
-export function stagingAppEnv(env: Record<string, unknown>): Record<string, string> {
+export function composeAppEnv(env: Record<string, unknown>): Record<string, unknown> {
+  const str = (k: string) => String(env[k] ?? '');
   return {
-    DEMO_MODE: 'true',
-    DATABASE_URL: `postgres://${String(env.POSTGRES_USER ?? '')}:${String(env.POSTGRES_PASSWORD ?? '')}@db:5432/biddaloy_staging`,
-    S3_BUCKET: 'biddaloy-staging',
-    PLATFORM_SMS_API_KEY: '',
-    PLATFORM_ALERT_PHONES: '',
+    ...env,
+    // Same defaults and fixed values as the x-app block of deploy/stack.yml.
+    S3_BUCKET: str('S3_BUCKET') || 'biddaloy',
+    SENTRY_TRACES_SAMPLE_RATE: str('SENTRY_TRACES_SAMPLE_RATE') || '0.1',
+    DB_SSL: 'true',
+    // After ...env: compose builds it, a DATABASE_URL in the host file is never used.
+    DATABASE_URL: `postgres://${str('POSTGRES_USER')}:${str('POSTGRES_PASSWORD')}@db:5432/${str('POSTGRES_DB')}?sslmode=require`,
   };
 }
 
+// The `:?` variables of deploy/stack.yml for every stack, plus what each stack adds
+// (a spec keeps the common part equal to the compose file).
+export const COMMON_REQUIRED = [
+  'ENV_NAME',
+  'APP_VERSION',
+  'POSTGRES_USER',
+  'POSTGRES_DB',
+  'POSTGRES_PASSWORD',
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
+];
+const EXTRA_REQUIRED: Record<Stack, string[]> = {
+  prod: ['BACKUP_AGE_PUBLIC_KEY'],
+  // What scripts/backup/staging-refresh.sh refuses to run without, plus the login itself.
+  staging: [
+    'STAGING_PASSWORD',
+    'STAGING_PASSWORD_HASH_B64',
+    'PLATFORM_TENANT_ID',
+    'SMOKE_SCHOOL_SLUG',
+    'BACKUP_S3_ENDPOINT',
+    'BACKUP_S3_BUCKET',
+    'BACKUP_S3_ACCESS_KEY_ID',
+    'BACKUP_S3_SECRET_ACCESS_KEY',
+  ],
+  demo: ['DEMO_PASSWORD'],
+};
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// The shape staging-refresh.sh accepts: bcrypt, cost 12 (Rule 9).
+const BCRYPT_12 = /^\$2[aby]\$12\$[./A-Za-z0-9]{53}$/;
+
 /**
- * `--env staging` (D25): the production checks on the env the staging container gets (the
- * host file plus the overlay's own values, so DEMO_MODE=true and the staging bucket are a
- * given), plus staging must not be able to message anyone.
- * Provider variables are judged on the host file itself: a key there is refused even where
- * the overlay would blank it. Names variables only, never values.
+ * Staging: the same shape checks staging-refresh.sh runs, so a bad value fails at deploy and not
+ * at 02:00. The hash travels base64-encoded (compose expands every `$` of a raw bcrypt hash) and
+ * must be the hash of STAGING_PASSWORD, or the smoke login breaks after the first refresh.
+ * Prod's rclone crypt password never goes to staging: it reads db/ dumps only.
  */
-export function runStagingConfigCheck(env: Record<string, unknown>): {
-  ok: boolean;
-  output: string;
-} {
-  const container: Record<string, unknown> = { ...env, ...stagingAppEnv(env) };
-  const prod = runProductionConfigCheck(container);
-  const set = (k: string) => typeof env[k] === 'string' && env[k] !== '';
-  const errors = [
-    ...Object.keys(env)
-      .filter((k) => (PROVIDER_VAR.test(k) || k === 'PLATFORM_ALERT_PHONES') && set(k))
-      .map((k) => `${k} must be empty on staging (no real SMS / WhatsApp / email / push provider)`),
-    // The db container creates POSTGRES_DB; the app connects to biddaloy_staging.
-    ...(env.POSTGRES_DB === 'biddaloy_staging' ? [] : ['POSTGRES_DB must be biddaloy_staging']),
-    ...(env.TURNSTILE_SECRET_KEY === TURNSTILE_TEST_SECRET
-      ? []
-      : ["TURNSTILE_SECRET_KEY must be Cloudflare's always-pass test secret on staging"]),
+async function stagingRefreshErrors(val: (k: string) => string): Promise<string[]> {
+  const errors: string[] = [];
+  if (val('PLATFORM_TENANT_ID') && !UUID.test(val('PLATFORM_TENANT_ID'))) {
+    errors.push('PLATFORM_TENANT_ID must be a uuid on staging');
+  }
+  if (val('SMOKE_SCHOOL_SLUG') && !/^[a-z0-9-]+$/.test(val('SMOKE_SCHOOL_SLUG'))) {
+    errors.push('SMOKE_SCHOOL_SLUG must be lowercase letters, digits and dashes');
+  }
+  if (val('BACKUP_S3_ENDPOINT') && !val('BACKUP_S3_ENDPOINT').startsWith('https://')) {
+    errors.push('BACKUP_S3_ENDPOINT must start with https://');
+  }
+  for (const k of ['BACKUP_RCLONE_CRYPT_PASSWORD', 'BACKUP_RCLONE_CRYPT_SALT']) {
+    if (val(k)) errors.push(`${k} must be empty on staging (prod's file backup key)`);
+  }
+  if (val('STAGING_PASSWORD_HASH_B64')) {
+    const b64 = val('STAGING_PASSWORD_HASH_B64');
+    // Strict alphabet: Node skips stray characters that busybox `base64 -d` would choke on.
+    const hash = /^[A-Za-z0-9+/]+={0,2}$/.test(b64) ? Buffer.from(b64, 'base64').toString() : '';
+    if (!BCRYPT_12.test(hash)) {
+      errors.push('STAGING_PASSWORD_HASH_B64 must be the base64 of a bcrypt cost-12 hash');
+    } else if (val('STAGING_PASSWORD') && !(await verifyPassword(val('STAGING_PASSWORD'), hash))) {
+      errors.push('STAGING_PASSWORD_HASH_B64 is not the hash of STAGING_PASSWORD');
+    }
+  }
+  return errors;
+}
+
+/**
+ * `--env prod|staging|demo`: the production checks on the env the container gets, plus the
+ * rules of that stack. Provider variables are judged on the host file itself. Names variables
+ * only, never values.
+ */
+export async function runStackConfigCheck(
+  stack: Stack,
+  env: Record<string, unknown>,
+): Promise<{ ok: boolean; output: string }> {
+  const base = runProductionConfigCheck(composeAppEnv(env));
+  const val = (k: string) => (typeof env[k] === 'string' ? (env[k] as string) : '');
+  const set = (k: string) => val(k) !== '';
+  const errors: string[] = [
+    ...[...COMMON_REQUIRED, ...EXTRA_REQUIRED[stack]]
+      .filter((k) => !set(k))
+      .map((k) => `${k} must be set`),
+    ...(set('ENV_NAME') && val('ENV_NAME') !== stack ? [`ENV_NAME must be ${stack}`] : []),
+    // Both Turnstile keys or neither: a lone key breaks or silently disables the public forms.
+    ...(set('TURNSTILE_SITE_KEY') !== set('TURNSTILE_SECRET_KEY')
+      ? ['TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together']
+      : []),
   ];
-  const all = [...(prod.ok ? [] : [prod.output]), ...errors];
+  // One-off runners: `docker compose run <service>` turns their profile on by itself. Set here,
+  // `up -d` would start them too (entrypoint [] and no command).
+  const profiles = val('COMPOSE_PROFILES')
+    .split(',')
+    .map((p) => p.trim());
+  for (const p of ['jobs', 'demo-jobs']) {
+    if (profiles.includes(p)) errors.push(`COMPOSE_PROFILES must not contain ${p}`);
+  }
+  if (stack === 'prod' && val('DEMO_MODE') === 'true') {
+    errors.push('DEMO_MODE must not be true on prod');
+  }
+  if (
+    stack === 'prod' &&
+    (val('TURNSTILE_SITE_KEY') === TURNSTILE_TEST_SITE_KEY ||
+      val('TURNSTILE_SECRET_KEY') === TURNSTILE_TEST_SECRET)
+  ) {
+    errors.push("TURNSTILE_* must not be Cloudflare's always-pass test keys on prod");
+  }
+  if (stack !== 'prod') {
+    // A non-prod stack must not touch a prod resource: it has its own database and bucket.
+    if (set('POSTGRES_DB') && val('POSTGRES_DB') !== `biddaloy_${stack}`) {
+      errors.push(`POSTGRES_DB must be biddaloy_${stack}`);
+    }
+    if (val('S3_BUCKET') !== `biddaloy-${stack}`) {
+      errors.push(`S3_BUCKET must be biddaloy-${stack} (never the prod bucket)`);
+    }
+    // The backup and replica profiles of prod must not start on another stack.
+    for (const p of ['backup', 'replica']) {
+      if (profiles.includes(p)) errors.push(`COMPOSE_PROFILES must not contain ${p} on ${stack}`);
+    }
+    // No offsite backup target on a non-prod stack (it could overwrite prod's backups).
+    if (stack === 'demo') {
+      errors.push(
+        ...Object.keys(env)
+          .filter((k) => k.startsWith('BACKUP_S3_') && set(k))
+          .map((k) => `${k} must be empty on demo`),
+      );
+    }
+  }
+  if (stack === 'staging') {
+    // Prod data is refused under demo mode (demo-boot-check.ts), so staging runs with it off.
+    if (val('DEMO_MODE') !== 'false') errors.push('DEMO_MODE must be false on staging');
+    if (set('STAGING_PASSWORD') && val('STAGING_PASSWORD').length < 12) {
+      errors.push('STAGING_PASSWORD must be at least 12 characters');
+    }
+    errors.push(
+      ...Object.keys(env)
+        .filter((k) => (PROVIDER_VAR.test(k) || EXTRA_REFUSED.test(k)) && set(k))
+        .map(
+          (k) => `${k} must be empty on staging (no real SMS / WhatsApp / email / push provider)`,
+        ),
+    );
+    if (val('TURNSTILE_SITE_KEY') !== TURNSTILE_TEST_SITE_KEY) {
+      errors.push("TURNSTILE_SITE_KEY must be Cloudflare's always-pass test key on staging");
+    }
+    if (set('TURNSTILE_SECRET_KEY') && val('TURNSTILE_SECRET_KEY') !== TURNSTILE_TEST_SECRET) {
+      errors.push("TURNSTILE_SECRET_KEY must be Cloudflare's always-pass test secret on staging");
+    }
+    errors.push(...(await stagingRefreshErrors(val)));
+  }
+  if (stack === 'demo' && val('DEMO_MODE') !== 'true')
+    errors.push('DEMO_MODE must be true on demo');
+  const all = [...(base.ok ? [] : [base.output]), ...errors];
   return all.length === 0
     ? { ok: true, output: 'config ok' }
     : { ok: false, output: all.join('\n') };
@@ -131,13 +267,12 @@ if (require.main === module) {
   const file = arg('--file');
   if (!file) config({ path: resolve(__dirname, '..', '..', '..', '.env') });
   const target = arg('--env') ?? 'prod';
-  if (target !== 'prod' && target !== 'staging') {
-    console.error('Usage: config:check [--env prod|staging]');
+  if (target !== 'prod' && target !== 'staging' && target !== 'demo') {
+    console.error('Usage: config:check [--env prod|staging|demo] [--file <path>]');
     process.exit(2);
   }
-  const { ok, output } = (target === 'staging' ? runStagingConfigCheck : runProductionConfigCheck)(
-    loadEnvFile(file, process.env),
-  );
-  (ok ? console.log : console.error)(output);
-  process.exit(ok ? 0 : 1);
+  void runStackConfigCheck(target, loadEnvFile(file, process.env)).then(({ ok, output }) => {
+    (ok ? console.log : console.error)(output);
+    process.exit(ok ? 0 : 1);
+  });
 }
