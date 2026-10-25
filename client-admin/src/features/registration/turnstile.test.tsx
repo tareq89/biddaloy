@@ -4,14 +4,14 @@ import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(async () => {
-  vi.unstubAllEnvs();
+  delete window.__BIDDALOY_CONFIG__;
   vi.resetModules();
   document.head.querySelectorAll('script[src*="turnstile"]').forEach((s) => s.remove());
   await cleanupTestState();
 });
 
 async function renderTurnstile(siteKey: string) {
-  vi.stubEnv('VITE_TURNSTILE_SITE_KEY', siteKey);
+  window.__BIDDALOY_CONFIG__ = { turnstileSiteKey: siteKey };
   vi.resetModules();
   const { Turnstile } = await import('./turnstile');
   const onToken = vi.fn();

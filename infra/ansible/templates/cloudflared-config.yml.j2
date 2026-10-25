@@ -1,0 +1,29 @@
+# cloudflared config, rendered by tasks/write-env.yml into /opt/biddaloy/edge/cloudflared/config.yml.
+# The one cloudflared template (D17). One thing to know: staging and the ops
+# hosts sit behind different Cloudflare Access apps (D14), so each group gets its own audience
+# tag (CF_ACCESS_AUD_STAGING, CF_ACCESS_AUD_OPS). The credentials file sits beside this one.
+tunnel: {{ tunnel_id }}
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # Kuma push monitors reach Kuma without Access (D14); Kuma checks the push token itself.
+  - hostname: {{ secret_env.edge.KUMA_DOMAIN }}
+    path: ^/api/push/
+    service: http://nginx:80
+{# www.<landing> too: nginx/templates/landing.conf.template redirects it to the apex. #}
+{% for host in [secret_env.edge.APP_DOMAIN, secret_env.edge.LANDING_DOMAIN, 'www.' ~ secret_env.edge.LANDING_DOMAIN, secret_env.edge.DEMO_DOMAIN] %}
+  - hostname: {{ host }}
+    service: http://nginx:80
+{% endfor %}
+{% for group in [[[secret_env.edge.STAGING_DOMAIN], aud_staging], [[secret_env.edge.KUMA_DOMAIN, secret_env.edge.BESZEL_DOMAIN, secret_env.edge.LOGS_DOMAIN], aud_ops]] %}
+{% for host in group[0] %}
+  - hostname: {{ host }}
+    service: http://nginx:80
+    originRequest:
+      access:
+        required: true
+        teamName: "{{ cf_access_team }}"
+        audTag: ["{{ group[1] }}"]
+{% endfor %}
+{% endfor %}
+  - service: http_status:404

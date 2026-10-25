@@ -384,6 +384,8 @@ export interface InitSentryOptions {
   /** No-ops when unset — see this module's header comment. */
   dsn: string | undefined;
   environment: string;
+  /** Build version, shown on Sentry issues. Empty or unset sends none. */
+  release?: string;
   /** [8.12.7]: the app's TanStack Router instance. Passing it turns on
    * browser tracing, which is what collects real-user LCP/CLS/INP and
    * names transactions after the *route id* rather than the resolved
@@ -400,6 +402,7 @@ export interface InitSentryOptions {
 export function initSentry({
   dsn,
   environment,
+  release,
   router,
   tracesSampleRate,
 }: InitSentryOptions): void {
@@ -408,6 +411,7 @@ export function initSentry({
   Sentry.init({
     dsn,
     environment,
+    release: release || undefined,
     tracesSampleRate: resolveTracesSampleRate(tracesSampleRate),
     // Only when a router was supplied: the integration instruments
     // navigations off that exact instance, and registering browser
