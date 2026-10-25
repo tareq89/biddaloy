@@ -1,0 +1,12 @@
+---
+# The login-smoke skip rule, alone so test/report.infra.test.sh can run it without Docker.
+# Inputs: stack, db_users_before (count before the migration, deploy.yml), db_users_after (now).
+# Skips only when the database had no user before AND has none now: a fresh VM. A count that
+# is missing or not a number never skips (unknown is not empty).
+- name: Skip the login checks only on a database that never had a user
+  ansible.builtin.set_fact:
+    smoke_login_skipped: >-
+      {{ stack in ['prod', 'staging']
+         and (db_users_before | default('') | string) is match('^[0-9]+$')
+         and (db_users_after | default('') | string) is match('^[0-9]+$')
+         and (db_users_before | int) == 0 and (db_users_after | int) == 0 }}

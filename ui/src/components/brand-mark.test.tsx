@@ -35,7 +35,7 @@ describe('BrandMark', () => {
     expect(text?.getAttribute('style')).toContain('var(--brand-mark-ink)');
   });
 
-  it('"ERP" is filled by a gradient whose id is unique per logo', async () => {
+  it('"ERP" is filled by a gradient whose id is unique per logo', () => {
     const { container } = renderWithProviders(
       <>
         <Wordmark decorative />

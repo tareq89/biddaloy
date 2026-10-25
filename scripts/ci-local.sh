@@ -167,11 +167,10 @@ CI_PATHS_INFRA=(
   'nginx/**'
   'docker-compose.yml'
   'Dockerfile'
+  'deploy/**'
   'scripts/backup/**'
   'scripts/demo/**'
-  'docker-compose.demo.yml'
   'docker-compose.build.yml'
-  'docker-compose.demo.build.yml'
   '**/*.infra.test.sh'
   '.github/workflows/ci.yml'
 )
