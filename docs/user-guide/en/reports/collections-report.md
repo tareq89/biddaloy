@@ -209,6 +209,7 @@ For the other roles, **Fee collection report** is not in the left menu.
 - [**Payments**](../finance/payments.md) — payments, receipts and reversals
 - [**Record payment**](../finance/record-payment.md) — take a payment
 - [**Student dues**](../finance/dues.md) — see who owes what
+- [**Alerts report**](alerts-report.md) — alerts raised by the school's rules each month
 
 ---
 

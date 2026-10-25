@@ -186,6 +186,7 @@ Closing an alert hides it only from your own list. It stays on another parent's 
 - [**Seeing and settling alerts**](../dashboard/alerts.md) — the alerts page for school staff.
 - [**Account (parent and student)**](account.md) — turn alerts on or off for your account.
 - [**Overview**](overview.md) — the first page, with the bell.
+- [**Send an alert**](../communications/send-alert.md) — how the school sends an alert by hand.
 
 ---
 

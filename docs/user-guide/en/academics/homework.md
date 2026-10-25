@@ -399,6 +399,7 @@ Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part 
 - [**Teacher assignments**](../people/teaching-assignments.md) — which teacher has which section and subject.
 - [**My class**](my-class.md) — a summary of the class teacher's section.
 - [**Syllabus and study plans**](syllabus.md) — a class-subject's topics and each section's study plan.
+- [**Homework (parent and student)**](../portal/homework.md) — what parents and students see.
 
 ---
 
