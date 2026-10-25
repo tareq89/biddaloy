@@ -2,7 +2,7 @@ import { authHandlers, cleanupTestState, renderWithRouter, server } from '@bidda
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
 
@@ -94,8 +94,8 @@ describe('/select-school', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
   });
 
-  it('zero memberships: links "Contact us" to VITE_SUPPORT_URL when it is set', async () => {
-    vi.stubEnv('VITE_SUPPORT_URL', 'https://example.com/help');
+  it('zero memberships: links "Contact us" to the runtime-config supportUrl when it is set', async () => {
+    window.__BIDDALOY_CONFIG__ = { supportUrl: 'https://example.com/help' };
     server.use(http.post('/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })));
     try {
       renderWithRouter(routeTree, {
@@ -104,11 +104,11 @@ describe('/select-school', () => {
         locale: 'en',
       });
 
-      expect(
-        (await screen.findByRole('link', { name: 'Contact us' })).getAttribute('href'),
-      ).toBe('https://example.com/help');
+      expect((await screen.findByRole('link', { name: 'Contact us' })).getAttribute('href')).toBe(
+        'https://example.com/help',
+      );
     } finally {
-      vi.unstubAllEnvs();
+      delete window.__BIDDALOY_CONFIG__;
     }
   });
 
