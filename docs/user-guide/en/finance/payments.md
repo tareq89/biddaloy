@@ -135,7 +135,7 @@ If it was recorded for the wrong student, with the wrong amount or the wrong met
 
 There is no time limit: an older payment can be reversed too, as long as none of the above applies.
 
-> **Remember:** if the school has another active admin who can approve, or the school's settings have a second approver switched on, you cannot approve your own reversal. Ask another admin to enter their code. If the school has only one admin, they can approve it themselves.
+> **Remember:** if the school has another active admin who can approve, or the school's settings have a second approver switched on, you cannot approve your own reversal. Ask another admin to enter their code. If the school has only one admin and no second approver is switched on, that admin can approve it themselves.
 
 ### When it asks you to reverse later payments first <a href="#task-later" id="task-later"></a>
 

@@ -73,14 +73,14 @@ You never make an invoice by hand. When you take money with [**Record payment**]
 
    → The list opens, newest first: **Invoice no.**, **Student**, **Amount**, **Status**, **Issue date**, **Due date**.
 
-2. In the **Search invoices** box type the invoice number or the student's name. If needed, filter by **Status**, **Issue date** (**Issue from**, **Issue to**) and **Amount (৳)** (**Minimum**, **Maximum**).
+2. In the **Search invoices** box type the invoice number or the student's name. If needed, filter by **Status**, **Issue date** (**Issued from**, **Issued to**) and **Amount (৳)** (**Minimum**, **Maximum**).
 3. Press **View** on the row.
 
    → The invoice page opens: **Student**, **Issue date**, **Due date**, **Total**, **Payment**. Below, for each bill, the **Fee**, **Period**, **Bill**, **Discount**, **Paid now**, **Left to pay**; then **Total billed**, **Discount**, **From wallet**, **Paid**, **Change given**.
 
 An invoice number looks like this: `INV-2026-00042`. Each school counts from 1 again every year; the year means the calendar year in Bangladesh time.
 
-<img src="img/invoices-01-detail.png" alt="one invoice's page; 1 · Invoice details 2 · List of bills 3 · Totals 4 · Print 5 · Send to guardian 6 · Share link; accountant">
+<img src="img/invoices-01-detail.png" alt="one invoice's page, top part; 1 · Invoice number and status 2 · List of bills; accountant">
 
 ---
 
@@ -165,7 +165,7 @@ If the link is turned off, expired or wrong, the guardian sees **This link isn't
 | What you see                                                                    | What to do                                                                         | Who can help |
 | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------ |
 | **No invoices found**                                                           | No payment has been made, or a filter is hiding them all. Clear the filters.       | —            |
-| **The invoice list could not be loaded**                                        | Reload the page.                                                                   | Admin        |
+| **Failed to load invoices**                                                     | Reload the page.                                                                   | Admin        |
 | **Couldn't load this invoice.**                                                 | Press **Retry**.                                                                   | Admin        |
 | **Couldn't open the printable invoice. Try again.**                             | Check whether pop-ups are allowed in the browser, then press again.                | —            |
 | The **Print** part is missing                                                   | Only an admin and an accountant print.                                             | Admin        |
