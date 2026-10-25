@@ -78,7 +78,9 @@ export function analyze({ base = 'origin/main', head = 'HEAD', prBody = '', cwd 
     throw new Error('path.matchesGlob is unavailable; guide:impact needs Node >= 22');
   }
   const mergeBase = git(cwd, 'merge-base', base, head).trim();
-  const changed = git(cwd, 'diff', '--name-only', mergeBase, head).split('\n').filter(Boolean);
+  // --no-renames: a moved source lists both its old and new path, so a page
+  // whose `sources` still names the old path is caught.
+  const changed = git(cwd, 'diff', '--name-only', '--no-renames', mergeBase, head).split('\n').filter(Boolean);
   const changedSet = new Set(changed);
 
   // Changed i18n keys as `ns:key` per language.
