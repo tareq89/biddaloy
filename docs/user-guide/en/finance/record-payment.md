@@ -188,7 +188,7 @@ After that, **Record another** opens an empty page; **View invoice** opens the i
 | **Approval was cancelled.**                                           | Nothing was recorded. Bring the admin and press again, or remove the discount.                                                                | Admin        |
 | **Recording payment failed.**                                         | Do not change the page; press again — the money is not counted twice. If someone else took money on the same bill meanwhile, reload the page. | Admin        |
 | **Record …** cannot be pressed                                        | Check that a student is chosen, at least one bill has a Pay or Discount, and the bills have finished loading.                                 | —            |
-| There is no guardian to send this student's receipt to                | Add a phone number on the [**Guardians**](../people/guardians.md) page, or print it and hand it over.                                         | Admin        |
+| This student has no guardian to send a receipt to.                    | Add a phone number on the [**Guardians**](../people/guardians.md) page, or print it and hand it over.                                         | Admin        |
 | Sending the receipt by SMS fails                                      | The school's SMS credit may have run out. Send by WhatsApp or print. Ask the admin to buy SMS credit.                                                                                   | Admin        |
 
 If the school's system refuses the payment for any reason, the screen shows only **Recording payment failed.**; it does not say which rule was broken.
