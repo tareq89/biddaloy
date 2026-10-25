@@ -5,11 +5,22 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MAX_BYTES, makeGif } from './gif.mjs';
 
+// CI runners have no ffmpeg; the clip-based cases need it to make input video.
+const hasFfmpeg = (() => {
+  try {
+    execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
 let dir;
 const video = () => path.join(dir, 'in.mp4');
 
 beforeAll(() => {
   dir = mkdtempSync(path.join(tmpdir(), 'gif-spec-'));
+  if (!hasFfmpeg) return;
   const make = (name, seconds) =>
     execFileSync('ffmpeg', [
       '-y',
@@ -29,14 +40,14 @@ beforeAll(() => {
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('gif.mjs', () => {
-  it('makes a GIF under budget from a 3 s clip', () => {
+  it.skipIf(!hasFfmpeg)('makes a GIF under budget from a 3 s clip', () => {
     const out = path.join(dir, 'out.gif');
     const { bytes } = makeGif({ input: video(), out });
     expect(existsSync(out)).toBe(true);
     expect(bytes).toBeLessThanOrEqual(MAX_BYTES);
   });
 
-  it('rejects input longer than 20 s', () => {
+  it.skipIf(!hasFfmpeg)('rejects input longer than 20 s', () => {
     expect(() =>
       makeGif({ input: path.join(dir, 'long.mp4'), out: path.join(dir, 'x.gif') }),
     ).toThrow(/limit is 20s/);
