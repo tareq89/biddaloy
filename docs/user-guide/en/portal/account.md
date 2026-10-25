@@ -41,12 +41,12 @@ Your name, contact details, password and signed-in devices, on one page.
 **Go to:** On a phone, the bottom bar's **More** → **Account**. Or the **Account menu** at the top right → **Security**.
 **Before you start:** To change a phone or email you need your current password.
 
-[Sign out a lost phone](#task-devices) · [Change phone or email](#task-contact) · [Problems and fixes](#trouble)
+[Sign out a lost phone](#task-main) · [Change phone or email](#task-contact) · [Problems and fixes](#trouble)
 
 **On this page**
 
 - [How to get to this page](#arrive)
-- [Sign out a lost phone](#task-devices)
+- [Sign out a lost phone](#task-main)
 - [Change phone or email](#task-contact)
 - [Other situations](#other)
   - [Change your name](#task-profile)
@@ -71,7 +71,7 @@ The cards on the page, from top to bottom: **Profile**, **Email & phone**, **Con
 
 ---
 
-## Sign out a lost phone <a href="#task-devices" id="task-devices"></a>
+## Sign out a lost phone <a href="#task-main" id="task-main"></a>
 
 If you lose your phone, sign it out from another phone or a computer.
 
@@ -118,6 +118,12 @@ You sign in with this phone or email, and you get a code on it if you forget you
 | Time ran out                         | The **old** one stays                           | Tap **Change** again                    |
 
 If you type the new number wrong, do not worry. If you do not give the code, nothing changes.
+
+---
+
+## How to know you are looking at the right thing <a href="#confirm" id="confirm"></a>
+
+You are on the right page when the cards run from top to bottom as **Profile**, **Email & phone**, **Contact numbers** (parents only), **Change password**, **Sign-in methods**, **Push notifications**, notification preferences, **Devices**, **Subscribe to the calendar**, and the **Sign out** button last. After you change a phone or email, the old one stays until the new one is verified.
 
 ---
 

@@ -17,7 +17,7 @@ flowchart LR
   A["Read the code<br/>and the i18n files"] --> B["Write bn page<br/>from the template"]
   B --> C["Check the<br/>checklist below"]
   C --> D["Mirror to en"]
-  D --> E["guide:check<br/>(planned, #2518)"]
+  D --> E["guide:check"]
 ```
 
 ## Who the reader is
@@ -508,10 +508,12 @@ flowchart LR
 
 ## Checks to run before the PR
 
-`yarn guide:check` and `yarn guide:impact` are planned (#2518 and the W1
-tickets that follow); until they exist, tick the template's own list ("Before
-you open the PR" at the end of [`page-template.md`](page-template.md)) by hand
-and run `yarn prettier --check` on your files.
+Run `yarn guide:check` (is the guide itself right?) and `yarn guide:impact`
+(did my change make a page wrong?). `guide:check` includes the alt-text rule
+`(s)`: every image needs alt text that says what is in the picture. Then tick
+the template's own list ("Before you open the PR" at the end of
+[`page-template.md`](page-template.md)) and run `yarn prettier --check` on your
+files. [`update-runbook.md`](update-runbook.md) has the full routine.
 
 - [ ] Every item of the first-time teacher test passes.
 - [ ] Every one of the 15 points is met, or you wrote why not in the PR.

@@ -43,7 +43,7 @@ test('empty, missing, generic and file-name alt text are reported', () => {
     'bn/a.md': '![ছবি](h.png)\n![স্ক্রিনশট](i.png)\n',
   });
   assert.equal(problems.length, 9);
-  assert.ok(problems.every((p) => p.problem.startsWith('(l) image ')));
+  assert.ok(problems.every((p) => p.problem.startsWith('(s) image ')));
   assert.ok(problems.some((p) => p.file.endsWith('bn/a.md') && p.problem.includes('h.png')));
 });
 

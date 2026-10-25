@@ -70,6 +70,12 @@ A program has a few milestones. For example, a hifz program has "Para 1", "Para 
 
 ---
 
+## How to know you are looking at the right thing <a href="#confirm" id="confirm"></a>
+
+Each program has its own card with the program name and its state, a progress bar such as **4 of 10 milestones achieved**, and the milestone list below. An achieved milestone has a green tick; the first one not yet done has **Next** beside it. If you see these, you are on the right page.
+
+---
+
 ## Other situations <a href="#other" id="other"></a>
 
 ### More than one child <a href="#task-child" id="task-child"></a>
