@@ -288,7 +288,7 @@ Use an Excel or CSV file to put many events on the calendar at once. (Admin only
 
 <!-- image pending: the import preview, with the four counts at the top, the list of rows and the two options at the bottom marked, admin, desktop -->
 
-5. If there are rows with errors, the **Problem** box of each says "Column: {column name} — this cell is not valid. Fix it in the file and upload again." There are two ways: (a) press **Choose a different file**, fix the file and give it again, or (b) in the **Import options** part, tick **Import the valid rows anyway**. Then the good rows come in and the rows with errors are left out.
+5. If there are rows with errors, the **Problem** box of each says "Column: {column name} — this cell is not valid. Fix it in the file and upload again." Press **Choose a different file**, fix the file and give it again. Do not rely on **Import the valid rows anyway** in **Import options**: the school's system still refuses a file with any error row, and you see **Import failed**.
 
 6. In the **Import options** part, decide on **Publish immediately**. If you do not tick it, all the events stay as **Draft** ("Off imports these as drafts — publish them later from the calendar.").
 
