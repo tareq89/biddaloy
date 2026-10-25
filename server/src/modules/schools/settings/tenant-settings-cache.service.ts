@@ -23,7 +23,9 @@ interface CacheEntry {
  * deployment `invalidate()` only clears the copy held by *this* process.
  * The TTL — not `invalidate()` — is the real staleness bound any other
  * replica is subject to; a credential rotated on one instance can still
- * be served by another for up to `ttlMs`. If that bound ever needs to be
+ * be served by another for up to `ttlMs`. Prod runs two app containers (D25,
+ * `docs/architecture/30-deployment-target.md`), so this is real there: accepted.
+ * If that bound ever needs to be
  * tightened across replicas, invalidation would need to be published
  * (e.g. over the Redis connection BullMQ already requires) rather than
  * just widening this comment's claim.

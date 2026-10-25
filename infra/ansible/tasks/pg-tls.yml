@@ -1,0 +1,33 @@
+---
+# Self-signed Postgres TLS for one app stack (D3): a CA and a server certificate for
+# `DNS:db`, 10 years, made once. The app trusts ca.crt (NODE_EXTRA_CA_CERTS) and keeps
+# verification on; postgres (uid 70) reads server.crt and server.key.
+# Made in a temp dir and moved in only when complete; the CA key is thrown away after signing
+# (ponytail: no rotation story. To reissue, delete {{ project_dir }}/pg-tls and deploy again;
+# the app and db pick the new files up on their restart).
+# The directory is 0755: the db container's uid 70 must be able to enter it, and only
+# server.key (0600, owner 70) is secret. provision.yml creates it root 0755 too; this task
+# keeps it that way if someone tightens it by hand (a 0700 dir stops postgres from booting).
+- name: Postgres TLS directory
+  ansible.builtin.file:
+    path: '{{ project_dir }}/pg-tls'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+- name: Self-signed Postgres CA and server certificate (once)
+  ansible.builtin.shell: |
+    set -eu
+    d={{ project_dir }}/pg-tls
+    if [ -s $d/ca.crt ] && [ -s $d/server.crt ] && [ -s $d/server.key ]; then exit 0; fi
+    t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout $t/ca.key -out $t/ca.crt -days 3650 -subj "/CN=biddaloy-{{ stack }}-postgres-ca"
+    openssl req -newkey rsa:2048 -nodes -keyout $t/server.key -out $t/server.csr -subj "/CN=db"
+    printf 'subjectAltName=DNS:db\nbasicConstraints=CA:FALSE\n' > $t/ext
+    openssl x509 -req -in $t/server.csr -CA $t/ca.crt -CAkey $t/ca.key -CAcreateserial -out $t/server.crt -days 3650 -extfile $t/ext
+    chown 70:70 $t/server.key; chmod 0600 $t/server.key
+    chmod 0644 $t/ca.crt $t/server.crt
+    mv $t/server.key $t/server.crt $t/ca.crt $d/
+    echo created
+  register: pg_tls
+  changed_when: pg_tls.stdout == 'created'
