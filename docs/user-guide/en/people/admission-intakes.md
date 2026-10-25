@@ -203,7 +203,7 @@ This part is written from the guardian's side, so the office can talk them throu
 
 ### How a guardian checks the application status <a href="#task-status" id="task-status"></a>
 
-1. The guardian presses **Check application status** on the submitted page, or the **Applied before? Check your status** link under the form.
+1. The guardian presses **Check application status** on the submitted page, or the **Applied before? Check your status** link under the form. When no round is open the form and that link are hidden; give the guardian the direct address `https://<your school's address>/admission/<school>/status`.
 
    → The **Check your application status** page opens. If they came from the submitted page, the reference number is already filled in.
 
