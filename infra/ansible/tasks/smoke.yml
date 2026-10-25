@@ -1,0 +1,77 @@
+---
+# Post-deploy checks, run from the app image on the biddaloy-edge network, so staging and
+# prod are tested the way nginx reaches them (no Cloudflare Access in the way, D20).
+# The script is not in the image (it holds server/dist and the SPA only); the checkout's copy
+# (at this deploy's sha) is mounted read-only. Credentials are passed by name (-e NAME) with the values in the task
+# environment, so they never appear in the process list. Demo runs health only.
+#
+# First deploy: a database that had no user before this deploy's migration (deploy.yml,
+# db_users_before: a fresh VM, before restore-prod or the first staging refresh) and still has
+# none cannot pass the login checks, so prod and staging then run health only and say so loudly
+# (report.yml): a WARNING line, `note: smoke-login-skipped` on the deploys.log line and in the
+# Telegram message. Ready was already checked per container (rolling-restart.yml). A database
+# that HAD users keeps the full login smoke, so a migration that empties `users` still fails it.
+# A user count that cannot be read fails the deploy (unknown is not empty).
+- name: How many users does the database have now?
+  ansible.builtin.command:
+    argv: "{{ dc.split() + ['exec', '-T', 'db', 'sh', '-c', psql_users_sh, 'sh', users_sql] }}"
+  register: user_count
+  changed_when: false
+  failed_when: user_count.rc != 0 or not (user_count.stdout | trim is match('^[0-9]+$'))
+  when: stack in ['prod', 'staging']
+- name: Decide whether the login checks run
+  ansible.builtin.include_tasks: smoke-gate.yml
+  vars:
+    db_users_after: "{{ user_count.stdout | default('') | trim }}"
+
+- name: Smoke test the app over the edge network
+  ansible.builtin.command: >-
+    docker run --rm --network biddaloy-edge
+    {% for k in smoke_env.keys() %}-e {{ k }} {% endfor %}
+    -v {{ repo_root }}/scripts/smoke-post-deploy.mjs:/smoke.mjs:ro
+    ghcr.io/tareq89/biddaloy-app:{{ version }}
+    node /smoke.mjs --base-url http://{{ stack }}-app:3000
+  environment: '{{ smoke_env }}'
+  vars:
+    smoke_pairs: "{{ secret_env[stack] | dict2items | selectattr('key', 'match', '^SMOKE_') | list }}"
+    smoke_env: "{{ smoke_pairs | items2dict | combine({'SMOKE_HEALTH_TOKEN': secret_env[stack].HEALTH_TOKEN}) }}"
+  changed_when: false
+  no_log: true
+  register: smoke
+  failed_when: false
+  when: stack in ['prod', 'staging'] and not smoke_login_skipped | bool
+# no_log hides the output (it sits next to the credentials), so print the script's own last
+# verdict line. smoke-post-deploy.mjs prints PASS/FAIL lines and never a credential.
+- name: Stop when the smoke test failed
+  ansible.builtin.fail:
+    msg: >-
+      {{ (smoke.stdout_lines | default([]) | select('search', 'FAIL|usage|smoke:') | list | last)
+         | default('the smoke test failed') }}
+  when: stack in ['prod', 'staging'] and not smoke_login_skipped | bool and smoke.rc | default(0) != 0
+
+- name: Health over the edge network (demo, and a first deploy)
+  ansible.builtin.command: >-
+    docker run --rm --network biddaloy-edge --entrypoint wget
+    ghcr.io/tareq89/biddaloy-app:{{ version }} -T 5 -qO- http://{{ stack }}-app:3000/api/health
+  changed_when: false
+  when: stack == 'demo' or smoke_login_skipped | bool
+
+# Prod is also checked the way users reach it (Cloudflare or direct). Direct mode's first deploy
+# still serves cert-bootstrap's self-signed placeholder; certbot writes renewal/<domain>.conf once
+# a real certificate exists, so until then (and only then) the certificate is not verified.
+- name: Is there a real certificate yet? (direct mode)
+  ansible.builtin.stat:
+    path: '{{ biddaloy_root }}/edge/letsencrypt/renewal/{{ secret_env.edge.APP_DOMAIN }}.conf'
+  register: real_cert
+  when: stack == 'prod' and edge_mode == 'direct'
+- name: Public health of prod
+  ansible.builtin.uri:
+    url: 'https://{{ secret_env.edge.APP_DOMAIN }}/api/health'
+    validate_certs: "{{ edge_mode != 'direct' or real_cert.stat.exists }}"
+    timeout: 20
+  register: public_health
+  until: public_health.status == 200
+  retries: 6
+  delay: 5
+  changed_when: false
+  when: stack == 'prod'
