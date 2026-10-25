@@ -82,7 +82,7 @@ Daily attendance is taken on the [Taking attendance](attendance.md) page, one re
 
    → The whole month's grid appears. Each cell holds one letter: **P** = present, **A** = absent, **L** = late, **V** = leave. **—** means school closed, and **·** means not marked. On the right are each student's totals: **Present**, **Absent**, **Late**, **Leave** and **Attendance %**.
 
-<!-- image pending: মাসের খাতা, শ্রেণি-শাখা-মাস ঘর, অক্ষরের ব্যাখ্যা আর মোট কলাম চিহ্নিত, শিক্ষক, desktop -->
+![মাসের খাতা, শ্রেণি-শাখা-মাস ঘর, অক্ষরের ব্যাখ্যা আর মোট কলাম](img/attendance-register-01.png)
 
 > **Keep in mind:** **—** where the percentage should be means not one day was marked for that student this month. It is not 0%.
 
@@ -206,7 +206,7 @@ Checked in the code for version 0.1.0 on 2026-10-25. There are no known issues o
 3. **Register title and letter key** — for example "Class 6 – A · October 2026".
 4. **The grid** — **Roll**, **Student**, every day of the month, then the totals.
 
-<!-- image pending: খাতা পাতার চারটি অংশ নম্বর দিয়ে চিহ্নিত, অ্যাডমিন, desktop -->
+![খাতা পাতার চারটি অংশ](img/attendance-register-03.png)
 
 </details>
 
