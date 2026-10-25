@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Test for reset.sh against a real Postgres, with the app-level steps replaced by tiny fakes
 # (migrate = nothing, seed = a few rows, validator = true/false). It proves the parts that
-# destroy things: the swap, the failure path, and the refusals.
+# destroy things: the swap (the real scripts/backup/db-swap.sh), the failure path, and the
+# refusals. The run is one-shot: it ends with "demo rebuild ok — restart the app" and never calls
+# docker (the host restarts the app, D11).
 #
 #   bash scripts/demo/reset.infra.test.sh
 #
@@ -147,17 +149,16 @@ run_reset() {
     DEMO_STATE_DIR="$WORK/state" S3_BUCKET=biddaloy-demo-test S3_ENDPOINT=http://s3.invalid S3_ALLOW_INSECURE_HTTP=true \
     S3_REGION=us-east-1 S3_ACCESS_KEY_ID=k S3_SECRET_ACCESS_KEY=s SENTRY_CRONS_URL=http://sentry.invalid/cron \
     DEMO_RESET_PUSH_URL='http://kuma.invalid/api/push/TOKEN?status=up&msg=OK' \
+    DEMO_SWAP_CMD="$HERE/../backup/db-swap.sh" \
     DEMO_PSQL="$WORK/bin/psql" DEMO_REDIS_CLI="$WORK/bin/redis-cli" DEMO_SKIP_SWEEP=true \
     DEMO_MIGRATE_CMD=true DEMO_SEED_CMD="$FAKE_SEED" DEMO_VALIDATE_CMD=true \
-    DEMO_RESTART_CMD="touch $WORK/restarted" RUN_MARK=new "$@" \
+    RUN_MARK=new "$@" \
     bash "$HERE/reset.sh" --now > "$WORK/out" 2> "$WORK/err"
 }
 
 # ---- 1. a good run swaps -------------------------------------------------------------------
 make_live old
-rm -f "$WORK/restarted"
 run_reset RUN_MARK=night1 DEMO_SKIP_SWEEP= DEMO_SWEEP_CMD='test "$DEMO_SWEEP_URL" = http://127.0.0.1:3999' \
-  DEMO_RESET_PUSH_ACCESS_CLIENT_ID=cid DEMO_RESET_PUSH_ACCESS_CLIENT_SECRET=csecret \
   DEMO_APP_CMD='exec sleep 300' || { cat "$WORK/out" "$WORK/err" >&2; fail "good run exited non-zero"; }
 expect "$(marker "$LIVE")" night1 "live holds the new database after the swap"
 expect "$(marker "${LIVE}_prev")" old "yesterday's database is kept as _prev"
@@ -168,14 +169,15 @@ grep -q "redis.invalid:6379 FLUSHDB" "$LOG/redis.log" || fail "the live Redis db
 expect "$(cat "$WORK/state/seed-redis-url")" redis://redis.invalid:6379/1 "the seed runs on the sweep's Redis db, not the live app's"
 grep -q "redis.invalid:6379/1 FLUSHDB" "$LOG/redis.log" || fail "the sweep's Redis db was not flushed"
 expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file holds default-school's id"
-[[ -e "$WORK/restarted" ]] || fail "app was not restarted"
+grep -q "demo rebuild ok — restart the app" "$WORK/out" || fail "the restart-the-app line is missing"
+grep -E '^[^#]*docker (restart|exec|run)' "$HERE/reset.sh" && fail "reset.sh must not call docker"
 grep -q "status=in_progress" "$LOG/curl.log" && grep -q "status=ok" "$LOG/curl.log" || fail "Sentry check-ins in_progress/ok missing"
 grep -qF "http://kuma.invalid/api/push/TOKEN?status=up&msg=ok" "$LOG/curl.log" || fail "Kuma push up missing"
-grep -qF "CF-Access-Client-Secret: csecret" "$LOG/curl-stdin.log" || fail "Access service token headers not sent"
-grep -q csecret "$LOG/curl.log" && fail "the Access secret must not be on curl's command line"
+grep -q -e "-H" "$LOG/curl.log" && fail "Kuma push must carry no Access headers (D14)"
+[[ ! -s "$LOG/curl-stdin.log" ]] || fail "nothing may be sent on curl's stdin"
 grep -q "Kuma push got HTTP" "$WORK/out" && fail "a 200 push must not be logged as a failure"
 grep -q "downtime" "$WORK/out" || fail "swap downtime was not logged"
-pass "a good run swaps, keeps _prev and its objects, seeds on its own Redis db, flushes Redis, restarts, checks in"
+pass "a good run swaps, keeps _prev and its objects, seeds on its own Redis db, flushes Redis, says restart the app, checks in"
 
 # ---- 2. a second run keeps exactly one previous database --------------------------------------
 : > "$LOG/aws.log"
@@ -210,26 +212,29 @@ expect "$(marker "$LIVE")" night2 "live database untouched after a sweep failure
 pass "sweep failure: no swap"
 
 # ---- 6. a failure after the swap still brings the app back on the new database ----------------
-: > "$LOG/curl.log"; rm -f "$WORK/restarted"
-if run_reset RUN_MARK=night3 AWS_FAIL=1 REDIS_FAIL_ON='6379 FLUSHDB'; then fail "post-swap failures should exit 1"; fi
+: > "$LOG/curl.log"
+rc=0; run_reset RUN_MARK=night3 AWS_FAIL=1 REDIS_FAIL_ON='6379 FLUSHDB' || rc=$?
+expect "$rc" 3 "swapped but cleanup failed must exit 3, not 1"
+grep -q "demo rebuild swapped, cleanup failed — restart the app" "$WORK/out" || fail "exit 3 must still say restart the app"
 expect "$(marker "$LIVE")" night3 "the new database stays live"
 expect "$(marker "${LIVE}_prev")" night2 "_prev is the previous night"
 expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file still written"
-[[ -e "$WORK/restarted" ]] || fail "app was not restarted after a post-swap failure"
-grep -q "these steps failed: redis-flush purge-${LIVE}_prev_old" "$WORK/err" || { cat "$WORK/err" >&2; fail "partial failure not reported"; }
+grep -q "these steps failed: redis-flush purge-${LIVE}_prev_old" "$WORK/out" || { cat "$WORK/err" >&2; fail "partial failure not reported"; }
 grep -q "status=error" "$LOG/curl.log" || fail "error check-in missing"
-pass "post-swap S3/Redis failure: state file written, app restarted, error reported"
+pass "post-swap S3/Redis failure: state file written, exit 3 with the restart line, error reported"
 
 # ---- 7. a failed rename mid-swap rolls back to yesterday's database ----------------------------
 if run_reset RUN_MARK=bad PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}_next\" RENAME TO"; then fail "failed swap should exit 1"; fi
 expect "$(marker "$LIVE")" night3 "yesterday's database is live again"
 expect "$(pg "SELECT datallowconn FROM pg_database WHERE datname = '$LIVE'")" t "rolled-back live accepts connections"
 db_exists "${LIVE}_next" && { cat "$WORK/out" "$WORK/err" >&2; fail "_next should be dropped after a rollback"; }
-grep -q "rolled back: yesterday's database is ${LIVE} again" "$WORK/out" || { cat "$WORK/out" "$WORK/err" >&2; fail "rollback not logged"; }
+grep -q "swap FAILED at next-to-live: " "$WORK/err" || { cat "$WORK/out" "$WORK/err" >&2; fail "FAILED at <step> not printed"; }
+grep -q "rolled back: the previous database is ${LIVE} again" "$WORK/err" || { cat "$WORK/out" "$WORK/err" >&2; fail "rollback not logged"; }
 grep -q "untouched" "$WORK/out" && fail "must not claim the live database was untouched"
 pass "rename _next -> live fails: rolled back, live accepts connections, honest log"
 
 if run_reset RUN_MARK=bad PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}\" RENAME TO"; then fail "failed live rename should exit 1"; fi
+grep -q "swap FAILED at live-to-prev: " "$WORK/err" || { cat "$WORK/err" >&2; fail "FAILED at live-to-prev not printed"; }
 expect "$(marker "$LIVE")" night3 "live kept when it cannot be moved aside"
 expect "$(pg "SELECT datallowconn FROM pg_database WHERE datname = '$LIVE'")" t "live accepts connections again"
 pass "rename live -> _prev fails: live re-enabled"
@@ -289,36 +294,41 @@ helper_refuses "rename_db biddaloy \"$LIVE\""
 db_exists "$LIVE" || fail "live throwaway database disappeared"
 pass "drop_db / rename_db refuse non-demo names"
 
-# ---- 11. re-opening the new live database fails once: the app still comes back ---------------
-: > "$LOG/redis.log"; : > "$LOG/curl.log"; rm -f "$WORK/restarted"
-if run_reset RUN_MARK=night4 PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}\" WITH ALLOW_CONNECTIONS true" PSQL_FAIL_ONCE=1; then
-  fail "a failed live re-open should exit 1"
-fi
+# ---- 11. re-opening the new live database fails once: the post-swap steps still run -----------
+: > "$LOG/redis.log"; : > "$LOG/curl.log"
+# db-swap.sh fails at reopen-live, its own recover() re-opens live; reset.sh sees the new live open.
+run_reset RUN_MARK=night4 PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}\" WITH ALLOW_CONNECTIONS true" PSQL_FAIL_ONCE=1 \
+  || { cat "$WORK/out" "$WORK/err" >&2; fail "a swap that committed and was re-opened must carry on"; }
+grep -q "swap FAILED at reopen-live" "$WORK/err" || fail "reopen-live failure not printed"
+grep -q "swap reported exit 1, but ${LIVE}_next is now ${LIVE}" "$WORK/out" || fail "committed swap not recognised"
 expect "$(marker "$LIVE")" night4 "the new database stays live"
 expect "$(pg "SELECT datallowconn FROM pg_database WHERE datname = '$LIVE'")" t "recovery re-opened live"
 expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file written"
 grep -q "redis.invalid:6379 FLUSHDB" "$LOG/redis.log" || fail "the live Redis db was not flushed"
-[[ -e "$WORK/restarted" ]] || fail "app was not restarted"
-grep -q "these steps failed: live-connections" "$WORK/err" || { cat "$WORK/err" >&2; fail "live-connections not reported"; }
-grep -q "status=error" "$LOG/curl.log" || fail "error check-in missing"
-pass "re-opening live fails: state file written, Redis flushed, app restarted, exit 1"
+pass "re-opening live fails once: committed swap recognised, state file written, Redis flushed"
+
+# ---- 11b. re-opening stays broken: exit 3, the app is still told to restart --------------------
+: > "$LOG/curl.log"
+rc=0; run_reset RUN_MARK=night4b PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}\" WITH ALLOW_CONNECTIONS true" || rc=$?
+[[ "$rc" == 1 || "$rc" == 3 ]] || fail "a live that cannot be re-opened must fail (got $rc)"
+if [[ "$rc" == 3 ]]; then grep -q "restart the app" "$WORK/out" || fail "exit 3 without the restart line"; fi
+pg "ALTER DATABASE \"$LIVE\" WITH ALLOW_CONNECTIONS true"
+pass "re-open keeps failing: reported, never exit 0"
 
 # ---- 12. a rename that commits but reports an error is judged by the catalog -------------------
-rm -f "$WORK/restarted"
 run_reset RUN_MARK=night5 PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}_next\" RENAME TO" PSQL_FAIL_ONCE=1 PSQL_FAIL_AFTER=1 \
   || { cat "$WORK/out" "$WORK/err" >&2; fail "a committed _next -> live rename should carry on"; }
 expect "$(marker "$LIVE")" night5 "the committed rename is live"
 expect "$(cat "$WORK/state/platform-tenant-id")" "$(pg "SELECT id FROM schools WHERE slug = 'default-school'" "$LIVE")" "state file written"
-[[ -e "$WORK/restarted" ]] || fail "app was not restarted"
-grep -q "psql reported an error, but ${LIVE}_next is now ${LIVE}" "$WORK/out" || fail "committed rename not logged"
-pass "_next -> live commits but reports an error: carries on to the restart"
+grep -q "psql reported an error, but ${LIVE}_next is now ${LIVE}" "$WORK/err" || fail "committed rename not logged"
+pass "_next -> live commits but reports an error: carries on to the end"
 
 if run_reset RUN_MARK=bad PSQL_FAIL_ON="ALTER DATABASE \"${LIVE}\" RENAME TO" PSQL_FAIL_ONCE=1 PSQL_FAIL_AFTER=1; then
   fail "a live -> _prev rename that reports an error should exit 1"
 fi
 expect "$(marker "$LIVE")" night5 "yesterday's database is live again"
 expect "$(pg "SELECT datallowconn FROM pg_database WHERE datname = '$LIVE'")" t "rolled-back live accepts connections"
-grep -q "rolled back: yesterday's database is ${LIVE} again" "$WORK/out" || { cat "$WORK/out" >&2; fail "rollback not logged"; }
+grep -q "rolled back: the previous database is ${LIVE} again" "$WORK/err" || { cat "$WORK/err" >&2; fail "rollback not logged"; }
 db_exists "${LIVE}_next" && { cat "$WORK/out" "$WORK/err" >&2; fail "_next should be dropped after a rollback"; }
 pass "live -> _prev commits but reports an error: rolled back, honest log"
 
@@ -327,25 +337,30 @@ LEFT_TENANT="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"; PREV_TENANT="cccccccc-cccc-4
 make_db "${LIVE}_prev_old" leftover "$LEFT_TENANT"
 make_db "${LIVE}_prev" twoago "$PREV_TENANT"
 : > "$LOG/aws.log"
-if run_reset RUN_MARK=night6 AWS_FAIL_ON="$LEFT_TENANT"; then fail "the failed leftover purge should still be reported"; fi
+rc=0; run_reset RUN_MARK=night6 AWS_FAIL_ON="$LEFT_TENANT" || rc=$?
+expect "$rc" 3 "a failed leftover purge after a committed swap exits 3"
 expect "$(marker "$LIVE")" night6 "the swap happened"
 expect "$(marker "${LIVE}_prev")" night5 "_prev is the previous night"
 expect "$(marker "${LIVE}_prev_old")" leftover "the leftover stays, with its ids, for the next night"
 grep -q "tenants/$PREV_TENANT/ --recursive" "$LOG/aws.log" || fail "the old _prev's objects were not deleted"
 grep -q "could not purge leftover ${LIVE}_prev_old; continuing" "$WORK/out" || fail "leftover failure not logged"
-grep -q "these steps failed: purge-${LIVE}_prev_old" "$WORK/err" || { cat "$WORK/err" >&2; fail "leftover failure not reported"; }
+grep -q "these steps failed: purge-${LIVE}_prev_old" "$WORK/out" || { cat "$WORK/err" >&2; fail "leftover failure not reported"; }
 pass "leftover _prev_old S3 failure: logged, kept for the next night, swap still happens"
 
-# ---- 14. a missing app container is excused only on the first run ------------------------------
+# ---- 13b. db-swap.sh refuses (exit 2, e.g. lock held): nothing moved, plain failure ----------------
+printf '#!/usr/bin/env bash\necho "db-swap.sh: refused" >&2\nexit 2\n' > "$WORK/bin/swap-refuses"; chmod +x "$WORK/bin/swap-refuses"
+rc=0; run_reset RUN_MARK=night6b DEMO_SWAP_CMD="$WORK/bin/swap-refuses" || rc=$?
+expect "$rc" 1 "a refused swap is a plain failure, not exit 3"
+grep -q "restart the app" "$WORK/out" && fail "a refused swap must not tell the host to restart"
+expect "$(marker "$LIVE")" night6 "live untouched by a refused swap"
+db_exists "${LIVE}_next" && fail "_next should be dropped after a refused swap"
+pass "swap refused (exit 2): live untouched, no restart line, exit 1"
+
+# ---- 14. the run is one-shot: a good run prints the restart line and exits 0, with no docker call
 rm -f "$WORK/state/platform-tenant-id"
-run_reset RUN_MARK=night7 DEMO_RESTART_CMD='echo "Error response from daemon: No such container: biddaloy-demo-app" >&2; exit 1' \
-  || { cat "$WORK/err" >&2; fail "first run without an app container should pass"; }
-grep -q "app not restarted: first run" "$WORK/out" || fail "first run not logged"
-rm -f "$WORK/state/platform-tenant-id"
-if run_reset RUN_MARK=night8 DEMO_RESTART_CMD='echo "Cannot connect to the Docker daemon" >&2; exit 1'; then
-  fail "a real restart failure must not pass as a first run"
-fi
-grep -q "these steps failed: app-restart" "$WORK/err" || { cat "$WORK/err" >&2; fail "app-restart not reported"; }
-pass "restart: 'No such container' on the first run is fine, any other failure is reported"
+run_reset RUN_MARK=night7 || { cat "$WORK/err" >&2; fail "first run should pass without any app container"; }
+grep -q "^demo rebuild ok — restart the app$" "$WORK/out" || fail "restart line missing"
+[[ -s "$WORK/state/platform-tenant-id" ]] || fail "state file not written"
+pass "one-shot: exit 0 with the restart-the-app line, no docker restart"
 
 echo "reset.infra.test.sh: all passed"

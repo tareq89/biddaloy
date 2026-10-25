@@ -143,17 +143,32 @@ The layers diagram above shows where most of these rules sit on a request's way 
 
 ### Rule 11: Client IP comes only from req.ip
 
-- **Rule.** Code reads the client IP only from `req.ip` (via `requestContext()`). nginx sets it from `CF-Connecting-IP` for peers in `TRUSTED_PROXY_CIDRS`, and Express trusts exactly one hop. Never read `X-Forwarded-For` yourself.
-- **Why.** A client can write any `X-Forwarded-For`; rate limits and audit rows would trust it (75.4, D1).
+- **Rule.** Code reads the client IP only from `req.ip` (via `requestContext()`). Express trusts exactly one hop: nginx. nginx decides the address by edge mode (`EDGE_MODE`, written by `nginx/edge-mode.sh`):
+  - **tunnel:** from `CF-Connecting-IP`, but only when the TCP peer is on the `biddaloy-edge` network (where `cloudflared` lives).
+  - **direct:** the TCP peer. There are no `real_ip` lines, so the header is ignored.
+  Never read `X-Forwarded-For` yourself.
+- **Why.** A client can write any `X-Forwarded-For` or `CF-Connecting-IP`; rate limits and audit rows would trust it (75.4, D1, Epic 79.0 D8).
 - **Example.** `requestContext(request).ip` in the Turnstile check.
-- **Test.** `nginx/test/real-ip.infra.test.sh`, `server/src/trust-proxy.e2e-spec.ts`.
 
-### Rule 12: The origin accepts only Cloudflare
+```mermaid
+flowchart LR
+  V["visitor"] -->|"tunnel"| CF["cloudflared<br/>(edge network)"] -->|"CF-Connecting-IP: 203.0.113.9"| N["nginx<br/>trusts that header from the edge network only"]
+  V -->|"direct: header ignored,<br/>peer IP used"| N
+  N -->|"X-Real-IP: 203.0.113.9"| A["app: req.ip"]
+```
 
-- **Rule.** nginx serves the app only for the real `Host` and, when `TRUSTED_PROXY_CIDRS` is set, only to Cloudflare peers. Anything else gets `444`. Only `/api/health` and the ACME path stay open.
-- **Why.** A direct hit on the origin IP skips Cloudflare's WAF and rate limits (D17, 75.5).
-- **Example.** `curl --resolve <domain>:443:<origin-ip> https://<domain>/` → empty reply. See [07-deployment](07-deployment.md#who-can-reach-the-origin).
-- **Test.** `nginx/test/origin-lockdown.infra.test.sh`.
+- **Test.** `nginx/test/real-ip.infra.test.sh` (both modes), `server/src/trust-proxy.e2e-spec.ts`.
+
+### Rule 12: The origin is reachable only through the edge
+
+- **Rule.** The origin accepts traffic only through the edge it is deployed with, and serves only known `Host` names (anything else gets `444`, or a rejected TLS handshake). By mode:
+  - **tunnel:** no web port is published. `cloudflared` dials out and reaches nginx on the private `biddaloy-edge` network, plain HTTP on :80.
+  - **direct:** nginx publishes 80 and 443. :80 only answers the Let's Encrypt challenge and redirects to HTTPS. This is deliberately public, so protected hosts carry their own login.
+  - **Protected hosts** (`staging.`, `kuma.`, `beszel.`, `logs.`) carry two auth layers (D14). Outer: Cloudflare Access in tunnel mode, nginx basic auth in direct mode. Inner: the tool's own login. Kuma's `/api/push/` skips the outer layer only; its URL token is the login.
+  - Readiness (`/api/health/ready`) is a bare `404` at the edge, in both modes.
+- **Why.** A direct hit on the origin IP skips Cloudflare's WAF and rate limits when Cloudflare is in front, and exposes internal tools when it is not (D14, D17, 75.5, Epic 79.0 D8).
+- **Example.** `curl -H 'Host: evil.test' http://<origin-ip>/` → empty reply. `curl https://kuma.<domain>/` in direct mode → `401`. See [30-deployment-target](30-deployment-target.md#edge-two-modes-same-nginx).
+- **Test.** `nginx/test/edge-mode.infra.test.sh` (both modes, bad `EDGE_MODE`, unknown host, auth layers, two app upstreams), `nginx/test/landing.infra.test.sh`.
 
 ### Rule 13: Logs never carry secrets
 

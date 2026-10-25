@@ -1,0 +1,15 @@
+# Managed by Ansible (provision.yml). One job per instance: biddaloy-nightly@<job>.service
+[Unit]
+Description=biddaloy nightly job %i
+Wants=network-online.target
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User={{ deploy_user }}
+# No flock wrapper here: the script takes /opt/biddaloy/deploy.lock and then {{ swap_lock_file }}
+# itself. A wrapper holding the swap lock first would invert that order against
+# biddaloy-restore-prod (deploy lock, then swap lock) and the two could wait on each other forever.
+ExecStart=/usr/local/bin/biddaloy-nightly %i
+TimeoutStartSec=3h

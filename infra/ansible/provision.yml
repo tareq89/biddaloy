@@ -5,11 +5,28 @@
   become: true
   # deploy must exist before docker_users is applied by the docker role
   pre_tasks:
+    - name: Supported inputs
+      ansible.builtin.assert:
+        that:
+          - edge_mode in ['tunnel', 'direct']
+          - ansible_facts.distribution == 'Ubuntu'
+          # ansible-core 2.18 (pinned for the VM) needs Python 3.11+
+          - ansible_facts.distribution_version is version('24.04', '>=')
+          # One plain key line: no options (command=, from=), no newline, no quotes. A
+          # smuggled option would otherwise ride along in front of the forced command.
+          - >-
+            not github_key_active
+            or (github_deploy_pubkey | trim) is match('^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( [A-Za-z0-9@._-]+)?$')
+        fail_msg: >-
+          edge_mode must be tunnel or direct, the host Ubuntu 24.04 or newer, and
+          github_deploy_pubkey a single "ssh-ed25519 <base64> [comment]" line with no options
+      tags: always
+    # systemd-journal: the nightly log-archive job (runs as deploy) exports host logs with journalctl.
     - name: Deploy user
       ansible.builtin.user:
         name: '{{ deploy_user }}'
         shell: /bin/bash
-        groups: sudo
+        groups: [sudo, systemd-journal]
         append: true
     # Add first (not exclusive), prove it, only then drop every other key. On a
     # re-run as deploy, a wrong operator_ssh_pubkey then stops at the probe while
@@ -18,6 +35,10 @@
       ansible.posix.authorized_key:
         user: '{{ deploy_user }}'
         key: '{{ operator_ssh_pubkey }}'
+    # Full sudo stays: this play (run by the operator key over SSH) and deploy.yml
+    # (become: root, run on the VM by biddaloy-deploy) both need root, and a
+    # command-list rule around ansible-playbook would be root-equivalent anyway.
+    # The GitHub key never gets a shell: it is a forced command (D12, group_vars).
     - name: Passwordless sudo for deploy (key-only login)
       ansible.builtin.copy:
         dest: /etc/sudoers.d/90-deploy
@@ -39,20 +60,25 @@
       delegate_to: localhost
       become: false
       changed_when: false
-    - name: Only the operator key on deploy user
+    # One write of the whole list: operator key(s) plus, when set, the GitHub
+    # forced-command line (group_vars). Anything else is removed.
+    - name: Only the operator keys and the GitHub forced-command key on deploy user
       ansible.posix.authorized_key:
         user: '{{ deploy_user }}'
-        key: '{{ operator_ssh_pubkey }}'
+        key: "{{ deploy_authorized_keys | join('\n') }}"
         exclusive: true
+  # docker before security: the docker role ends with a reset_connection, and on a
+  # first run (as root) that reconnect fails once security has turned root login off.
+  # After security, the play keeps its open connection until it ends.
   roles:
-    - geerlingguy.security
     - geerlingguy.docker
+    - geerlingguy.security
   tasks:
     # Ubuntu's sshd_config includes sshd_config.d/*.conf first and sshd keeps the
     # first value it reads. Cloud images ship 50-cloud-init.conf with
     # PasswordAuthentication yes, which beats the role's sshd_config edits.
     # 00- sorts first; sshd -T then proves the effective values.
-    - name: sshd drop-in that wins over cloud-init's
+    - name: Sshd drop-in that wins over cloud-init's
       ansible.builtin.copy:
         dest: /etc/ssh/sshd_config.d/00-biddaloy.conf
         content: |
@@ -82,32 +108,35 @@
     # Docker publishes ports straight through iptables, past ufw. Compose binds
     # everything except nginx to 127.0.0.1 (docker-compose.yml); the check at the
     # end of this play fails if anything else listens publicly.
-    - name: ufw default deny incoming
+    - name: UFW default deny incoming
       community.general.ufw:
         default: deny
         direction: incoming
-    - name: ufw SSH (rate limited)
+    - name: UFW SSH (rate limited)
       community.general.ufw:
         rule: limit
         port: '{{ ssh_port }}'
         proto: tcp
-    - name: ufw HTTP/HTTPS
+    # Tunnel mode opens nothing but SSH (cloudflared dials out); direct mode serves 80/443.
+    # Switching back to tunnel removes the rules again.
+    - name: UFW HTTP/HTTPS (direct mode only)
       community.general.ufw:
         rule: allow
         port: '{{ item }}'
         proto: tcp
+        delete: '{{ edge_mode == "tunnel" }}'
       loop: [80, 443]
-    - name: ufw on
+    - name: UFW on
       community.general.ufw:
         state: enabled
 
-    - name: chrony installed
+    - name: Chrony installed
       ansible.builtin.apt:
         name: chrony
         state: present
         update_cache: true
         cache_valid_time: 3600
-    - name: chrony running and enabled
+    - name: Chrony running and enabled
       ansible.builtin.service:
         name: chrony
         state: started
@@ -116,14 +145,159 @@
       community.general.timezone:
         name: '{{ host_timezone }}'
 
+    # 4 GB swap (W4). The file is judged by what it is (type and size), not by
+    # whether it exists, so a half-made or wrong-sized file is repaired.
+    - name: Swapfile status
+      ansible.builtin.stat:
+        path: /swapfile
+      register: swapfile
+    - name: Swapfile type
+      ansible.builtin.command: blkid -o value -s TYPE /swapfile
+      register: swapfile_type
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      when: swapfile.stat.exists
+    - name: Swap in use now
+      ansible.builtin.command: swapon --show=NAME --noheadings
+      register: swap_before
+      changed_when: false
+      check_mode: false
+    - name: Swapfile needs to be (re)made
+      ansible.builtin.set_fact:
+        swap_recreate: '{{ not swapfile.stat.exists or swapfile.stat.size != swap_bytes | int }}'
+    - name: Swap off before resizing
+      ansible.builtin.command: swapoff /swapfile
+      changed_when: true
+      when: swap_recreate and '/swapfile' in swap_before.stdout
+    - name: Remove the wrong-sized swapfile
+      ansible.builtin.file:
+        path: /swapfile
+        state: absent
+      when: swap_recreate
+    - name: Allocate swapfile
+      ansible.builtin.command: fallocate -l {{ swap_bytes }} /swapfile
+      changed_when: true
+      when: swap_recreate
+    - name: Swapfile root-only
+      ansible.builtin.file:
+        path: /swapfile
+        owner: root
+        group: root
+        mode: '0600'
+    - name: Format swapfile
+      ansible.builtin.command: mkswap /swapfile
+      changed_when: true
+      when: swap_recreate or (swapfile_type.stdout | default('')) != 'swap'
+    - name: Swapfile in fstab
+      ansible.posix.mount:
+        path: none
+        src: /swapfile
+        fstype: swap
+        opts: sw
+        state: present
+    - name: Swap in use after
+      ansible.builtin.command: swapon --show=NAME --noheadings
+      register: active_swap
+      changed_when: false
+      check_mode: false
+    - name: Swap on
+      ansible.builtin.command: swapon /swapfile
+      changed_when: true
+      when: "'/swapfile' not in active_swap.stdout"
+    - name: Low swappiness
+      ansible.posix.sysctl:
+        name: vm.swappiness
+        value: '10'
+        sysctl_set: true
+        state: present
+
+    # Tools for deploy on the VM (D1). ansible-core lives in a venv, so apt's
+    # externally-managed Python is untouched.
+    - name: Packages for deploy on the VM
+      ansible.builtin.apt:
+        name: [git, age, python3-venv]
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+    - name: Layout root
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}'
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Ansible directory (venv, collections)
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/ansible'
+        state: directory
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '0755'
+    - name: Pins for the venv's dependencies
+      ansible.builtin.copy:
+        dest: '{{ biddaloy_root }}/ansible/constraints.txt'
+        content: "{{ venv_constraints | join('\n') }}\n"
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '0644'
+    - name: Ansible-core in a venv (pinned)
+      ansible.builtin.pip:
+        name: ansible-core=={{ ansible_core_version }}
+        extra_args: -c {{ biddaloy_root }}/ansible/constraints.txt
+        virtualenv: '{{ biddaloy_root }}/ansible/venv'
+        virtualenv_command: python3 -m venv
+      become: true
+      become_user: '{{ deploy_user }}'
+    - name: Ansible binaries on PATH
+      ansible.builtin.file:
+        src: '{{ biddaloy_root }}/ansible/venv/bin/{{ item }}'
+        dest: /usr/local/bin/{{ item }}
+        state: link
+      loop: [ansible, ansible-playbook, ansible-galaxy]
+    - name: Collections list for the VM
+      ansible.builtin.copy:
+        src: requirements.yml
+        dest: '{{ biddaloy_root }}/ansible/requirements.yml'
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '0644'
+    - name: Collections from requirements.yml
+      ansible.builtin.command: >-
+        {{ biddaloy_root }}/ansible/venv/bin/ansible-galaxy collection install
+        -r {{ biddaloy_root }}/ansible/requirements.yml
+        -p {{ biddaloy_root }}/ansible/collections
+      become: true
+      become_user: '{{ deploy_user }}'
+      register: galaxy_install
+      changed_when: '"Installing ''" in galaxy_install.stdout'
+    # sops: release binary, checksum from the release's published checksums file.
+    - name: Sops (pinned, checksum verified)
+      ansible.builtin.get_url:
+        url: 'https://github.com/getsops/sops/releases/download/v{{ sops_version }}/sops-v{{ sops_version }}.linux.{{ sops_arch[ansible_facts.architecture] }}'
+        checksum: 'sha256:{{ sops_sha256[sops_arch[ansible_facts.architecture]] }}'
+        dest: /usr/local/bin/sops
+        owner: root
+        group: root
+        mode: '0755'
+
     # The one owner model for /opt/biddaloy (tasks/write-env.yml writes into these
     # and creates no directories). root writes; deploy reads, because
     # `docker compose` reads <env>/.env on the client side, even for `exec`.
-    #   <env>/       root:deploy 0750      <env>/.env  root:deploy 0640
-    #   certs/       root:root   0700      certs/*     root:root   0600
-    #   <env>/drill/ 10001 0500  key.txt inside: 10001 0400, copied in by hand
-    #                (the backup container's uid; restore drill, mounted at /run/age)
-    - name: App directories
+    #   <env>/           root:deploy 0750   <env>/.env  root:deploy 0640
+    #   <env>/pg-tls/    root:root 0755 (prod, staging, demo; self-signed Postgres TLS, D3)
+    #                    The containers must enter it: Postgres runs as uid 70, the app as 1001.
+    #                    Files (W3 deploy, pg-tls.yml): server.key 0600 70:70, server.crt and
+    #                    ca.crt 0644 (the app reads ca.crt through NODE_EXTRA_CA_CERTS).
+    #   staging/restore/ 10001 0500 (the backup container's uid)
+    #   prod/restore/    root:root 0755, empty: the jobs container mounts it (BACKUP_AGE_KEY_DIR),
+    #                    and biddaloy-restore-prod reads a key put there by hand (10001 0400)
+    #   host-groups      root 0644, this host's inventory groups, one per line (biddaloy-deploy
+    #                    all reads it: ops is deployed only where the ops group points)
+    #   repo/ logs-export/ deploy 0755      keys/  deploy 0700
+    #   logs/  deploy 0775 (biddaloy-deploy writes <stack>-last-deploy.log here)
+    #   deploy.lock  deploy 0664 (one deploy at a time; nightly and restore-prod take it first)
+    - name: Env directories
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/{{ item }}'
         state: directory
@@ -131,28 +305,239 @@
         group: '{{ deploy_user }}'
         mode: '0750'
       loop: '{{ biddaloy_envs }}'
-    # Always present, so a missing key fails only the drill, never `compose up`.
-    - name: Drill key directories (backup uid only)
+    - name: Deploy-owned directories
       ansible.builtin.file:
-        path: '{{ biddaloy_root }}/{{ item }}/drill'
+        path: '{{ biddaloy_root }}/{{ item.name }}'
+        state: directory
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '{{ item.mode }}'
+      loop:
+        - { name: repo, mode: '0755' }
+        - { name: keys, mode: '0700' }
+        - { name: logs-export, mode: '0755' }
+        - { name: logs, mode: '0775' }
+    # /opt/biddaloy is root's, so deploy cannot create the lock itself. preserve keeps re-runs at changed=0.
+    - name: Deploy lock file
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/deploy.lock'
+        state: touch
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '0664'
+        modification_time: preserve
+        access_time: preserve
+    - name: Postgres TLS directories
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/{{ item }}/pg-tls'
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop: '{{ biddaloy_app_envs }}'
+    # deploy as the operator must list and stat the key here; the key file itself is 10001 0400.
+    - name: Restore directory (prod, empty until a restore)
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/prod/restore'
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: This host's inventory groups (biddaloy-deploy all reads it)
+      ansible.builtin.copy:
+        dest: '{{ biddaloy_root }}/host-groups'
+        content: "{{ group_names | sort | join('\n') }}\n"
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Restore directory (staging, backup uid only)
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/staging/restore'
         state: directory
         owner: '10001'
         group: '10001'
         mode: '0500'
-      loop: "{{ biddaloy_envs | difference(['ops']) }}"
-    - name: Certs directory (root only)
+    # Targets arrive with the deploy scripts (W3), so dangling links are fine.
+    - name: Command links
       ansible.builtin.file:
-        path: '{{ biddaloy_root }}/certs'
+        src: '{{ biddaloy_root }}/repo/deploy/bin/{{ item }}'
+        dest: /usr/local/bin/{{ item }}
+        state: link
+        force: true
+      loop: [biddaloy-deploy, biddaloy-doctor, biddaloy-nightly, biddaloy-restore-prod]
+
+    # Host age key (D1): sops decrypts with it. Read-only for deploy.
+    - name: Host age key (made once)
+      ansible.builtin.command: age-keygen -o {{ host_age_key }}
+      args:
+        creates: '{{ host_age_key }}'
+      no_log: true
+    - name: Host age key file mode
+      ansible.builtin.file:
+        path: '{{ host_age_key }}'
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '0400'
+    - name: Host age public key
+      ansible.builtin.command: age-keygen -y {{ host_age_key }}
+      register: host_age_pub
+      changed_when: false
+      check_mode: false
+
+    # Repo deploy key (P16): read-only deploy key on the private repo.
+    - name: SSH directory for deploy
+      ansible.builtin.file:
+        path: '/home/{{ deploy_user }}/.ssh'
         state: directory
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '0700'
+    - name: Repo deploy key (made once)
+      ansible.builtin.command: ssh-keygen -t ed25519 -N '' -C biddaloy-repo-deploy -f /home/{{ deploy_user }}/.ssh/github_repo
+      args:
+        creates: '/home/{{ deploy_user }}/.ssh/github_repo'
+      become: true
+      become_user: '{{ deploy_user }}'
+      no_log: true
+    - name: SSH config for github.com
+      ansible.builtin.copy:
+        dest: '/home/{{ deploy_user }}/.ssh/config'
+        content: |
+          Host github.com
+            IdentityFile ~/.ssh/github_repo
+            IdentitiesOnly yes
+        owner: '{{ deploy_user }}'
+        group: '{{ deploy_user }}'
+        mode: '0600'
+    - name: GitHub host key (pinned)
+      ansible.builtin.known_hosts:
+        path: '/home/{{ deploy_user }}/.ssh/known_hosts'
+        name: github.com
+        key: 'github.com {{ github_ssh_host_key }}'
+        state: present
+      become: true
+      become_user: '{{ deploy_user }}'
+    - name: Repo deploy public key
+      ansible.builtin.slurp:
+        src: '/home/{{ deploy_user }}/.ssh/github_repo.pub'
+      register: repo_deploy_pub
+    # biddaloy-deploy lives in the repo (/usr/local/bin links into it), so it cannot clone the
+    # repo itself the first time. Provision does, once the repo deploy key is on GitHub; until
+    # then this fails softly and "Keys to register" says to re-run. Same URL as biddaloy-deploy.
+    # The branch must contain deploy/bin: main once Epic 79 is merged; before that, pass
+    # -e repo_bootstrap_ref=<branch>. Later deploys check out their own sha.
+    - name: Is the repo cloned?
+      ansible.builtin.stat:
+        path: '{{ biddaloy_root }}/repo/.git'
+      register: repo_git
+    - name: First clone of the repo
+      ansible.builtin.command: git clone --quiet --branch {{ repo_bootstrap_ref | default('main') }} git@github.com:tareq89/biddaloy.git {{ biddaloy_root }}/repo
+      become: true
+      become_user: '{{ deploy_user }}'
+      register: repo_clone
+      changed_when: repo_clone.rc == 0
+      failed_when: false
+      when: not repo_git.stat.exists
+    # A clone of a branch without deploy/bin (main, before Epic 79 is merged) leaves .git behind
+    # but no command. Do not treat that as done: pointing repo_bootstrap_ref at the right branch
+    # fetches and checks it out. Only when the command is missing and a ref was passed, so a
+    # normal re-run (and any later deploy checkout) is never touched.
+    - name: Is biddaloy-deploy in the checkout?
+      ansible.builtin.stat:
+        path: '{{ biddaloy_root }}/repo/deploy/bin/biddaloy-deploy'
+      register: repo_cmd_before
+    - name: Recover a clone that lacks biddaloy-deploy
+      ansible.builtin.shell: |
+        set -e
+        git -C {{ biddaloy_root }}/repo fetch --quiet origin {{ repo_bootstrap_ref | quote }}
+        git -C {{ biddaloy_root }}/repo checkout --quiet --detach FETCH_HEAD
+      become: true
+      become_user: '{{ deploy_user }}'
+      register: repo_recover
+      changed_when: repo_recover.rc == 0
+      failed_when: false
+      when:
+        - repo_bootstrap_ref is defined
+        - repo_git.stat.exists
+        - not repo_cmd_before.stat.exists
+    - name: Is biddaloy-deploy ready now?
+      ansible.builtin.stat:
+        path: '{{ biddaloy_root }}/repo/deploy/bin/biddaloy-deploy'
+      register: repo_cmd
+
+    # Nightly jobs (D11): host systemd timers. biddaloy-nightly takes deploy.lock, then the
+    # host swap lock, itself (same order as biddaloy-restore-prod), so a job never overlaps a
+    # deploy or another swap. Persistent=false: a missed night is not replayed at boot.
+    # Created up front, owned by root with group deploy. fs.protected_regular refuses an
+    # O_CREAT open (flock does one) of a file in /run/lock whose owner is neither the opener
+    # nor the directory owner, and root is not exempt. A root-owned file passes for everyone,
+    # and the deploy group keeps write access.
+    - name: Lock file rule (systemd-tmpfiles)
+      ansible.builtin.template:
+        src: biddaloy-nightly-lock.conf.j2
+        dest: /etc/tmpfiles.d/biddaloy-nightly-lock.conf
         owner: root
         group: root
-        mode: '0700'
+        mode: '0644'
+      notify: Create tmpfiles
+    - name: Nightly service
+      ansible.builtin.template:
+        src: biddaloy-nightly@.service.j2
+        dest: /etc/systemd/system/biddaloy-nightly@.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Systemd reload
+    - name: Nightly timers (only for envs on this host)
+      ansible.builtin.template:
+        src: biddaloy-nightly@.timer.j2
+        dest: '/etc/systemd/system/biddaloy-nightly@{{ item.job }}.timer'
+        owner: root
+        group: root
+        mode: '0644'
+      loop: '{{ nightly_jobs }}'
+      when: inventory_hostname == env_hosts[item.env]
+      notify: Systemd reload
+    - name: Nightly timer files present
+      ansible.builtin.stat:
+        path: '/etc/systemd/system/biddaloy-nightly@{{ item.job }}.timer'
+      loop: '{{ nightly_jobs }}'
+      loop_control:
+        label: '{{ item.job }}'
+      register: timer_files
+    - name: Nightly timers off (env moved to another host)
+      ansible.builtin.systemd_service:
+        name: 'biddaloy-nightly@{{ item.item.job }}.timer'
+        enabled: false
+        state: stopped
+      loop: '{{ timer_files.results }}'
+      loop_control:
+        label: '{{ item.item.job }}'
+      when: item.stat.exists and inventory_hostname != env_hosts[item.item.env]
+    - name: Nightly timer files removed (env moved to another host)
+      ansible.builtin.file:
+        path: '/etc/systemd/system/biddaloy-nightly@{{ item.job }}.timer'
+        state: absent
+      loop: '{{ nightly_jobs }}'
+      loop_control:
+        label: '{{ item.job }}'
+      when: inventory_hostname != env_hosts[item.env]
+      notify: Systemd reload
+    - name: Apply unit changes now
+      ansible.builtin.meta: flush_handlers
+    - name: Nightly timers enabled
+      ansible.builtin.systemd_service:
+        name: 'biddaloy-nightly@{{ item.job }}.timer'
+        enabled: true
+        state: started
+      loop: '{{ nightly_jobs }}'
+      when: inventory_hostname == env_hosts[item.env]
 
     # A plain `prune -af --filter until=168h` would also delete the previous
     # release, and a rollback (61.1) would then need GHCR. Our images carry
     # org.opencontainers.image.revision (publish-image.yml), so the age prune
-    # skips them; the loop keeps the newest 4 per repo (in-use ones refuse rm).
-    # ponytail: "newest 4" by build time, not "the previous prod release"; pin that in deploy.yml (61.1) if 4 is not enough.
+    # skips them; the loop keeps the newest 6 per repo (W7) (in-use ones refuse rm).
+    # ponytail: "newest 6" by build time, not "the previous prod release"; pin that in the deploy script if 6 is not enough.
     - name: Image prune script
       ansible.builtin.copy:
         dest: /usr/local/sbin/biddaloy-image-prune
@@ -162,7 +547,7 @@
         content: |
           #!/bin/sh
           for r in $(docker image ls --filter 'reference=ghcr.io/tareq89/*' --format '{% raw %}{{.Repository}}{% endraw %}' | sort -u); do
-            docker image ls "$r" --format '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}' | tail -n +5 | xargs -r docker image rm >/dev/null 2>&1
+            docker image ls "$r" --format '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}' | tail -n +7 | xargs -r docker image rm >/dev/null 2>&1
           done
           docker image prune -af --filter until=168h --filter label!=org.opencontainers.image.revision
           docker image prune -f
@@ -198,3 +583,25 @@
         fail_msg: 'Unexpected public listener: {{ item.split()[0] }} {{ item.split()[4] }}'
         quiet: true
       loop: '{{ listening.stdout_lines }}'
+
+    # For the setup guide: paste each into the place named.
+    - name: Keys to register
+      ansible.builtin.debug:
+        msg:
+          - 'HOST AGE PUBLIC KEY: {{ host_age_pub.stdout }}'
+          - 'Add it to .sops.yaml, run `sops updatekeys infra/secrets/*.enc.env`, and commit.'
+          - 'REPO DEPLOY KEY: {{ repo_deploy_pub.content | b64decode | trim }}'
+          - 'Add it as a read-only deploy key on the GitHub repo (Settings > Deploy keys).'
+          - >-
+            {{ 'Repo cloned: biddaloy-deploy is ready.' if repo_cmd.stat.exists
+            else 'Repo cloned but deploy/bin/biddaloy-deploy is missing: that branch lacks it. Re-run with -e repo_bootstrap_ref=<branch that has deploy/bin>.'
+            if repo_git.stat.exists or (repo_clone.rc | default(1)) == 0
+            else 'Repo NOT cloned yet: add the deploy key above on GitHub, then re-run provision.' }}
+
+  handlers:
+    - name: Create tmpfiles
+      ansible.builtin.command: systemd-tmpfiles --create /etc/tmpfiles.d/biddaloy-nightly-lock.conf
+      changed_when: true
+    - name: Systemd reload
+      ansible.builtin.systemd_service:
+        daemon_reload: true

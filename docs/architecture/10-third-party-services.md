@@ -24,8 +24,10 @@ flowchart LR
 
 ## Self-hosted infrastructure
 
-Runs as containers in [`docker-compose.yml`](../../docker-compose.yml) — not
-managed cloud services, but still "third party" software the app depends on.
+Runs as containers on the one VM, from `deploy/stack.yml` (one copy per
+environment), `deploy/edge.yml` and `deploy/ops.yml` — not managed cloud
+services, but still "third party" software the app depends on. Layout:
+[07-deployment.md](07-deployment.md).
 
 ```mermaid
 flowchart LR
@@ -33,17 +35,20 @@ flowchart LR
     app --> redis[(Redis 8)]
     app --> seaweedfs[(SeaweedFS / S3)]
     redis --> bullmq[BullMQ queue]
-    nginx[nginx] --> app
-    origin[Origin CA cert] -.mounted into.-> nginx
+    cfd[cloudflared] --> nginx[nginx]
+    nginx --> app
+    le[Let's Encrypt] -.direct mode only.-> nginx
 ```
 
-| Service    | Image                 | Role                                                    |
-| ---------- | --------------------- | ------------------------------------------------------- |
-| PostgreSQL | `postgres:18-alpine`  | Primary database, all tenant data                       |
-| Redis      | `redis:8-alpine`      | BullMQ queue backend + distributed rate-limit storage   |
-| SeaweedFS  | `chrislusf/seaweedfs` | S3-compatible object storage — tenant uploads + backups |
-| nginx      | `nginx:1.31-alpine`   | TLS termination, reverse proxy                          |
-| Origin CA  | Cloudflare (no image) | TLS cert pair mounted into nginx from `TLS_CERT_DIR`    |
+| Service                     | Image                                | Role                                                                                      |
+| --------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| PostgreSQL                  | `postgres:18-alpine`                 | Primary database, all tenant data; one per environment, self-signed TLS (`DB_SSL=true`)   |
+| Redis                       | `redis:8-alpine`                     | BullMQ queue backend + distributed rate-limit storage                                     |
+| SeaweedFS                   | `chrislusf/seaweedfs`                | S3-compatible object storage — tenant uploads                                             |
+| nginx                       | `nginx:1.31-alpine`                  | Reverse proxy at the edge; TLS only in direct mode                                        |
+| cloudflared                 | `cloudflare/cloudflared`             | Tunnel mode: dials out to Cloudflare, so no public web port; checks Access tokens         |
+| Let's Encrypt               | `certbot/certbot` (direct mode only) | Certificate for the public hostnames, HTTP-01, renewed by the `certbot` container         |
+| Uptime Kuma, Beszel, Dozzle | `ops.yml`                            | Uptime and push monitors, host metrics, log viewer ([12-operations.md](12-operations.md)) |
 
 Server libraries that talk to these (see
 [`server/package.json`](../../server/package.json)):
@@ -65,13 +70,13 @@ Server libraries that talk to these (see
 All optional — every one no-ops or is simply unavailable if its env vars are
 unset. None are required to boot the app.
 
-| Provider                     | Host                   | Purpose                              | Config                                                              |
-| ---------------------------- | ---------------------- | ------------------------------------ | ------------------------------------------------------------------- |
-| GreenWeb                     | `api.greenweb.com.bd`  | SMS (Bangladesh)                     | `GREENWEB_API_KEY`                                                  |
-| MiM SMS                      | `api.mimsms.com`       | SMS (Bangladesh)                     | `MIMSMS_API_KEY`, `MIMSMS_SENDER_ID`                                |
-| Meta WhatsApp Business Cloud | `graph.facebook.com`   | WhatsApp messages                    | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`                 |
-| SMTP (any provider)          | operator-supplied host | Email, via `nodemailer`              | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` |
-| Sentry                       | `*.ingest.sentry.io`   | Frontend error tracking + Web Vitals | `VITE_SENTRY_DSN` (see [`07-deployment.md`](07-deployment.md))      |
+| Provider                     | Host                   | Purpose                              | Config                                                                           |
+| ---------------------------- | ---------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
+| GreenWeb                     | `api.greenweb.com.bd`  | SMS (Bangladesh)                     | `GREENWEB_API_KEY`                                                               |
+| MiM SMS                      | `api.mimsms.com`       | SMS (Bangladesh)                     | `MIMSMS_API_KEY`, `MIMSMS_SENDER_ID`                                             |
+| Meta WhatsApp Business Cloud | `graph.facebook.com`   | WhatsApp messages                    | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`                              |
+| SMTP (any provider)          | operator-supplied host | Email, via `nodemailer`              | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`              |
+| Sentry                       | `*.ingest.sentry.io`   | Frontend error tracking + Web Vitals | `SENTRY_DSN_WEB`, served at runtime (see [`07-deployment.md`](07-deployment.md)) |
 
 `SMS_PROVIDER` selects `greenweb` or `mimsms`. All calls go through `undici`
 directly — no vendor SDK is installed for any of these. See
@@ -82,6 +87,24 @@ module dispatches to them.
 credentials instead of the platform-wide ones above. Those are encrypted at
 rest with AES-256-GCM (`SETTINGS_ENCRYPTION_KEY`), in
 [`server/src/modules/schools/settings`](../../server/src/modules/schools/settings).
+
+## Services the platform itself uses (not the app)
+
+Called by the deploy, the timers and the containers around the app, never by
+tenant code. All are fixed hosts or operator-owned.
+
+| Service                               | Host                                     | Used by                                                                                              | Config                                                                                                |
+| ------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Cloudflare (DNS, Access, tunnel, WAF) | `*.cloudflare.com`                       | every request in tunnel mode; `cloudflared` keeps one outbound connection                            | `CLOUDFLARE_TUNNEL_*`, `CF_ACCESS_*` in `edge.enc.env`; [25-cloudflare.md](25-cloudflare.md)          |
+| Cloudflare R2                         | `<acct>.r2.cloudflarestorage.com`        | hourly backup, files sync, log archive (prod, read-write); nightly staging refresh (read-only token) | `BACKUP_S3_*`, `LOG_ARCHIVE_*`; [13-backup-restore.md](13-backup-restore.md)                          |
+| Cloudflare Turnstile                  | `challenges.cloudflare.com`              | public forms (browser and server check)                                                              | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`                                                          |
+| Let's Encrypt (direct mode only)      | `acme-v02.api.letsencrypt.org`           | `certbot`, HTTP-01 on port 80                                                                        | none read by the compose files today (`LETSENCRYPT_EMAIL` is listed in `edge.example.env` but unused) |
+| GitHub Container Registry             | `ghcr.io`                                | every deploy pulls the images with a read-only token                                                 | `GHCR_PULL_USER`, `GHCR_PULL_TOKEN` (`read:packages`) in `edge.enc.env`                               |
+| GitHub (git over SSH)                 | `github.com`                             | `biddaloy-deploy` fetches the repo; Actions runs the Deploy workflow over SSH                        | the VM's repo deploy key; the `production` Environment secrets                                        |
+| Telegram Bot API                      | `api.telegram.org`                       | one message per deploy result (fails open)                                                           | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` in `edge.enc.env`                                            |
+| Uptime Kuma push (self-hosted)        | `https://<KUMA_DOMAIN>/api/push/<token>` | backup and nightly jobs report ok / failed                                                           | `BACKUP_PUSH_URL`, `STAGING_REFRESH_PUSH_URL`, `DEMO_RESET_PUSH_URL`, `LOG_ARCHIVE_PUSH_URL`          |
+
+Kuma's own Telegram and SMS notifiers are set in Kuma's UI, not in the repo.
 
 ## Outbound HTTP rule ([75.24])
 
