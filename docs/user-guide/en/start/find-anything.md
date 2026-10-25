@@ -65,7 +65,7 @@ The **search window** is one place from which you can reach any page without dig
 
 **On a phone:** tap the search button at the top right; the rest of the steps are the same.
 
-<!-- image pending: img/find-anything-phone-01-search.png (width 300) — Top row on a phone: 1 search button, 2 notification bell -->
+<img src="img/find-anything-phone-01-search.png" alt="Top row on a phone: 1 search button, 2 notification bell" width="300">
 
 > **Remember:** Searching changes nothing; it only opens a page. A page you are not allowed to open does not appear in the results either.
 

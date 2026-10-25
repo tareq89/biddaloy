@@ -102,7 +102,7 @@ The top row on a phone has no separate language button.
 
    → The text changes to that language at once.
 
-<!-- image pending: img/language-phone-01-menu.png (width 300) — Account menu on a phone: 1 Language, 2 বাংলা and English -->
+<img src="img/language-phone-01-menu.png" alt="Account menu on a phone: 1 Language, 2 বাংলা and English" width="300">
 
 ### On the sign-in page <a href="#task-signin" id="task-signin"></a>
 
