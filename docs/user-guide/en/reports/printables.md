@@ -209,12 +209,12 @@ An Accountant may have permission to print but not to view the history, so **Pri
 ## Learn more <a href="#more" id="more"></a>
 
 <details>
-<summary><strong>Parts of the page</strong> — the Print history tab</summary>
+<summary><strong>Parts of the page, top to bottom</strong> — the Print history tab</summary>
 
-1. The **Print & documents** title and the **Print ID cards** button.
-2. Three tabs: **Print history**, **Certificate register**, **To print**.
-3. Filters: **Search by name**, **Document type**, **Design**, **Printed by**, **Date**, **Result**, **Status**.
-4. The list: **View**, **Reprint**, **Revoke** on each row.
+- The **Print & documents** title and the **Print ID cards** button.
+- Three tabs: **Print history**, **Certificate register**, **To print**.
+- Filters: **Search by name**, **Document type**, **Design**, **Printed by**, **Date**, **Result**, **Status**.
+- The list: **View**, **Reprint**, **Revoke** on each row.
 
 ![Print & documents, Print history tab, with the filters, the list, and one row showing Revoked](img/printables-02-revoked.png)
 

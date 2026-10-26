@@ -157,14 +157,14 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 ## Learn more <a href="#more" id="more"></a>
 
 <details>
-<summary><strong>Parts of the page</strong></summary>
+<summary><strong>Parts of the page, top to bottom</strong></summary>
 
-1. The title and **Academic year … · all applications**.
-2. Filters: **Academic year**, **Submitted on** (**From**, **To**).
-3. Four boxes: **Submitted**, **Approved**, **Rejected**, **Average time to decide**.
-4. **Waiting more than 3 days**.
-5. **By type and status** (**Pending**, **Approved**, **Rejected**, **Other**) and **By month** (**Submitted**, **Approved**, **Rejected**).
-6. **On leave today** and **Staff leave days**.
+- The title and **Academic year … · all applications**.
+- Filters: **Academic year**, **Submitted on** (**From**, **To**).
+- Four boxes: **Submitted**, **Approved**, **Rejected**, **Average time to decide**.
+- **Waiting more than 3 days**.
+- **By type and status** (**Pending**, **Approved**, **Rejected**, **Other**) and **By month** (**Submitted**, **Approved**, **Rejected**).
+- **On leave today** and **Staff leave days**.
 
 ![Application reports with the Academic year and Submitted on filters, four summary boxes, and the By type and status and By month sections](img/applications-02-reports.png)
 

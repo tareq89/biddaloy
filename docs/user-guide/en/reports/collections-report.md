@@ -158,13 +158,13 @@ For the other roles, **Fee collection report** is not in the left menu.
 ## Learn more <a href="#more" id="more"></a>
 
 <details>
-<summary><strong>Parts of the page</strong></summary>
+<summary><strong>Parts of the page, top to bottom</strong></summary>
 
-1. The title, the date-method-collector line, **Download CSV** and **Print**.
-2. The filters: **Date range**, **Custom range** (Custom only), **Method**, **Collector**.
-3. The three boxes: **Total collected**, **Reversed**, **Net collected**.
-4. **Discounts and credit**: **Standing discount**, **One-off discount**, **Credit used**, **Credit added**, **Change returned**, **Cash paid out from wallets**.
-5. Four tables: **By payment method**, **By collector**, **By fee type**, **By day** (oldest first).
+- The title, the date-method-collector line, **Download CSV** and **Print**.
+- The filters: **Date range**, **Custom range** (Custom only), **Method**, **Collector**.
+- The three boxes: **Total collected**, **Reversed**, **Net collected**.
+- **Discounts and credit**: **Standing discount**, **One-off discount**, **Credit used**, **Credit added**, **Change returned**, **Cash paid out from wallets**.
+- Four tables: **By payment method**, **By collector**, **By fee type**, **By day** (oldest first).
 
 ![Fee collection report with the date range, the Total collected, Reversed and Net collected boxes, discounts and credit, and the By payment method and By collector tables](img/collections-report-02-month.png)
 

@@ -93,7 +93,7 @@ knownIssues: []
 
    → পাতার নাম বদলে **আমরা যে কোড পাঠিয়েছি তা লিখুন** হয়। আপনার নম্বরে ৬ অঙ্কের একটি কোড যায়।
 
-![img/create-school-01-details.png — Create your school form: 1 the school name box, 2 the terms tick box, 3 the Continue button](img/create-school-01-details.png)
+![à¦¸à§à¦à§à¦² à¦¤à§à¦°à¦¿à¦° à¦«à¦°à§à¦®: à¦¸à§à¦à§à¦²à§à¦° à¦¨à¦¾à¦®à§à¦° à¦à¦°, à¦¶à¦°à§à¦¤à§ à¦à¦¿à¦ à¦¦à§à¦à¦¯à¦¼à¦¾à¦° à¦à¦° à¦ à¦à¦à¦¿à¦¯à¦¼à§ à¦¯à¦¾à¦¨ à¦¬à§à¦¤à¦¾à¦®](img/create-school-01-details.png)
 
 6. কোডটি লিখে **যাচাই করুন** চাপুন।
 

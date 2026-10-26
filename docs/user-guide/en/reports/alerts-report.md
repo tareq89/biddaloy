@@ -119,12 +119,12 @@ For other roles, **Alerts report** is not in the left menu.
 ## Learn more <a href="#more" id="more"></a>
 
 <details>
-<summary><strong>Parts of the page</strong></summary>
+<summary><strong>Parts of the page, top to bottom</strong></summary>
 
-1. The title and **Download CSV**.
-2. The filters: **Month**, **Rule**, **Section**.
-3. The four boxes: **Total alerts**, **Fixed**, **Average time to fix**, **Still open**.
-4. **By rule and section**: **Rule**, **Type**, one column per section, **Total**.
+- The title and **Download CSV**.
+- The filters: **Month**, **Rule**, **Section**.
+- The four boxes: **Total alerts**, **Fixed**, **Average time to fix**, **Still open**.
+- **By rule and section**: **Rule**, **Type**, one column per section, **Total**.
 
 ![Alerts report for one month, with four boxes (Total alerts, Fixed, Average time to fix, Still open) and the By rule and section table](img/alerts-report-02-month.png)
 
