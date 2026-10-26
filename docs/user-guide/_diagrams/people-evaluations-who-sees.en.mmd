@@ -1,0 +1,12 @@
+%% title: Who sees and changes evaluations
+%% desc: The Admin sees and writes evaluations. A governing committee member only sees. Teachers and other staff do not get the page. Students and guardians answer surveys in the portal, and a teacher who is the subject of a survey cannot see their own results.
+flowchart LR
+  AD["Admin"]:::admin -->|"see and write"| EV["Evaluations<br/>ACR, surveys, incidents"]:::note
+  CO["Committee member"]:::guardian -->|"see only"| EV
+  TE["Teachers and other staff"]:::teacher -. "no page" .-> EV
+  PO["Students and guardians<br/>portal"]:::guardian -->|"answer surveys"| EV
+  EV -. "own survey results<br/>are hidden" .-> TE
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

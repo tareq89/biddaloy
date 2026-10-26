@@ -86,14 +86,14 @@ It is easiest to follow the order, because each task stands on the one before it
 
 A Bangla name or a logo, either one, is enough to make the row **Done**.
 
-<!-- image pending: img/setup-01-school-profile.png — Settings, School section: 1 the school profile fields, 2 the logo upload, 3 Save -->
+![Settings, School section: the school profile fields, the logo upload and Save](img/setup-order-01.png)
 
 ### Step 2: Academic year <a href="#step-2" id="step-2"></a>
 
 A class sits inside an academic year, so you need the academic year first. It is not one of the eight rows on the card.
 
 - **If you use the ready-made curriculum in step 3:** the academic year is created by itself. You do not need to do anything in this step.
-- **If you make the classes yourself:** in the left menu open **Academics → Academic years** (→ `../academics/academic-years.md`) and make an academic year first.
+- **If you make the classes yourself:** in the left menu open **Academics → Academic years** (→ [Creating and managing academic years](../academics/academic-years.md)) and make an academic year first.
 
 ### Step 3: A ready-made curriculum, or your own classes <a href="#step-3" id="step-3"></a>
 
@@ -115,9 +115,9 @@ The row on the card is called **Classes**. It is **Done** as soon as there is on
 
 > **Remember:** A ready-made curriculum can be applied only to a brand new school, that is, a school with no classes or students yet. Some curricula have **Not verified** beside them. In that case, check the subjects and marks yourself.
 
-**To make your own classes:** in the left menu open **Academics → Classes** (→ `../academics/classes.md`) and press **Add class**. If you need a shift or version, first see [Academic year, class, section](how-it-works.md#task-structure).
+**To make your own classes:** in the left menu open **Academics → Classes** (→ [Arranging classes, sections and subjects](../academics/classes.md)) and press **Add class**. If you need a shift or version, first see [Academic year, class, section](how-it-works.md#task-structure).
 
-<!-- image pending: img/setup-03-curriculum-preset.png — Ready-made curriculum page: 1 the three steps, 2 a curriculum card, 3 the Use this curriculum button -->
+<img src="img/setup-03-curriculum-preset.png" alt="Ready-made curriculum page: 1 the Choose a curriculum step, 2 a curriculum card, 3 its Choose button; Use this curriculum comes on the Confirm step">
 
 ### Step 4: Sections <a href="#step-4" id="step-4"></a>
 
@@ -139,11 +139,11 @@ The row on the card is called **Sections**. It is **Done** as soon as there is o
 
 The row on the card is called **Students**. It is **Done** as soon as there is one student.
 
-1. In the left menu, press **People → Students** (→ `../people/students.md`).
+1. In the left menu, press **People → Students** (→ [Adding students and viewing their details](../people/students.md)).
 
    → The list of students opens.
 
-2. To add many students at once, press **Import students**. See the rules for making the Excel file and the sample (→ `scenarios.md`). Upload the file.
+2. To add many students at once, press **Import students**. See the rules for making the Excel file and the sample (→ [Sample schools: which one is yours?](scenarios.md)). Upload the file.
 
    → The file is checked first.
 
@@ -153,21 +153,23 @@ The row on the card is called **Students**. It is **Done** as soon as there is o
 
 Sending the invitation to guardians is in step 9.
 
-<!-- image pending: img/setup-05-import-students.png — Students page: 1 the Import students button, 2 the check result before confirming -->
+<img src="img/setup-05-import-students.png" alt="the Students page: 1 the Import students button, admin">
+
+<img src="img/setup-05b-import-check.png" alt="the Import students page after the file is checked: 1 No problems and the number of students that will be created, above the preview rows, admin">
 
 ### Step 6: Staff and roles <a href="#step-6" id="step-6"></a>
 
 The row on the card is called **Staff**. It is **Done** when two different people are staff. A person who is both admin and teacher counts as one. Members of the governing committee are not counted here.
 
-1. In the left menu, press **People → Staff** (→ `../people/staff.md`).
+1. In the left menu, press **People → Staff** (→ [Adding and managing staff](../people/staff.md)).
 
    → The list of staff opens.
 
-2. Add them one by one. Set each person's role (Admin, Teacher, Accountant and so on). To add many at once, see **Import from Excel** (→ `../people/staff-import.md`). In that file, the Role column is used to tell teachers and other staff apart.
+2. Add them one by one. Set each person's role (Admin, Teacher, Accountant and so on). To add many at once, see **Import from Excel** (→ [Adding staff from Excel](../people/staff-import.md)). In that file, the Role column is used to tell teachers and other staff apart.
 
    → The staff appear in the list.
 
-3. Give the teacher sections. On the **People → Teacher assignments** page (→ `../people/teaching-assignments.md`), a teacher who has no assignment sees no section.
+3. Give the teacher sections. On the **People → Teacher assignments** page (→ [Giving teachers class and section duties](../people/teaching-assignments.md)), a teacher who has no assignment sees no section.
 
 > **Remember:** Adding staff is not the end of the job. Without an assignment, a teacher cannot take attendance.
 
@@ -185,13 +187,13 @@ The row on the card is called **Fees**. It is **Done** as soon as there is one f
 
 Creating the fee bills and taking payments are not on this page. They come later on the path of a fee (→ [the fourth of the five pictures](how-it-works.md#task-money)).
 
-<!-- image pending: img/setup-07-fee-structures.png — Fee structures page: 1 the list of structures, 2 the add button -->
+![Fee structures page with the list of structures and the add button](img/setup-order-04.png)
 
 ### Step 8: Routine <a href="#step-8" id="step-8"></a>
 
 This is not one of the rows on the card. Set it up only after the classes, sections and staff exist.
 
-In the left menu, press **Academics → Routine setup** (→ `../academics/routine-setup.md`). The steps for making a routine are on that page.
+In the left menu, press **Academics → Routine setup** (→ [Setting up shifts, period times, rooms and rules for the routine](../academics/routine-setup.md)). The steps for making a routine are on that page.
 
 ### Step 9: Go live <a href="#step-9" id="step-9"></a>
 
@@ -288,6 +290,10 @@ Only the admin sees the **Finish setting up your school** card.
 
 - [**Creating your school and the setup wizard**](create-school.md): opening a school and the wizard.
 - [**How everything in your school fits together**](how-it-works.md): the structure of a school in five pictures.
+- [**Creating and managing academic years**](../academics/academic-years.md): step 2: make the academic year first.
+- [**Arranging classes, sections and subjects**](../academics/classes.md): step 3: make classes, sections and subjects by hand.
+- [**Adding students and viewing their details**](../people/students.md): step 5: add or import students.
+- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects.
 
 ---
 

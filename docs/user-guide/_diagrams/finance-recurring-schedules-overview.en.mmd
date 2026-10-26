@@ -1,0 +1,11 @@
+%% title: How automatic billing runs
+%% desc: Every day at 12:30 a.m. (Dhaka time) the app looks at the active rules. If the rule's day has come and no bill for this period was made earlier, active students in scope get bills; excluded students are left out. It runs only once per period.
+flowchart LR
+  T["Every day at<br/>12:30 a.m. (Dhaka)"]:::note --> R{"Rule active,<br/>within its dates,<br/>day has come?"}:::note
+  R -->|"No"| X["Nothing happens"]
+  R -->|"Yes"| O{"Already billed<br/>for this period?"}:::note
+  O -->|"Yes"| X
+  O -->|"No"| B["Bills for active students in scope<br/>except excluded ones"]:::admin
+  B --> D["Student's dues"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

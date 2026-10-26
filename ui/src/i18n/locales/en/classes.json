@@ -214,5 +214,41 @@
   },
   "assignDialog": {
     "replaceWarning": "{{name}} will be replaced as class teacher"
+  },
+  "fields": {
+    "nameClass": "Name (class)",
+    "grade": "Grade",
+    "academicYear": "Academic year",
+    "shift": "Shift",
+    "version": "Version",
+    "sectionName": "Section name",
+    "capacity": "Capacity",
+    "group": "Group",
+    "subject": "Subject",
+    "optionalSubject": "Optional subject",
+    "teacher": "Teacher",
+    "assignmentType": "Assignment type"
+  },
+  "help": {
+    "nameClass": "The name of the class, for example Class 6.",
+    "grade": "The class number, for example 6; a positive whole number. Used to put classes in order.",
+    "academicYear": "Which year the class belongs to. You can pick it only when adding; it does not change later.",
+    "shift": "For example Morning or Day. It shows only if the school has two or more shifts.",
+    "version": "For example Bangla or English. It shows only if there are two or more versions.",
+    "sectionName": "For example A.",
+    "capacity": "How many can sit in the section, for example 40. Only for display; it does not stop extra enrolments.",
+    "group": "For example Science. It shows only if there are two or more groups.",
+    "subject": "One of the school's active subjects.",
+    "optionalSubject": "Tick it if not everyone studies it.",
+    "teacher": "Someone who has a teacher profile.",
+    "assignmentType": "Class teacher, Assistant class teacher or Subject teacher."
+  },
+  "helpRequired": {
+    "nameClass": "Yes",
+    "academicYear": "Yes",
+    "sectionName": "Yes",
+    "subject": "Yes",
+    "teacher": "Yes",
+    "assignmentType": "Yes"
   }
 }

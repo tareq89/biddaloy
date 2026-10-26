@@ -1,0 +1,9 @@
+%% title: From staff to teacher duties
+%% desc: The Admin gives a staff member a teacher profile, then gives duties in sections. Once given a duty, the teacher sees their own sections' attendance, student list and marks.
+flowchart LR
+  P["Teacher<br/>profile"]:::admin --> D["Section<br/>duty"]:::admin
+  D --> A["Attendance"]:::teacher
+  D --> S["Student<br/>list"]:::teacher
+  D --> M["Marks"]:::teacher
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05

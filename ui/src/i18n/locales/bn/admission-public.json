@@ -105,5 +105,36 @@
       "ADMITTED": "ভর্তির বাকি কাজের জন্য স্কুলে যোগাযোগ করুন।",
       "REJECTED": "কোনো প্রশ্ন থাকলে স্কুলে যোগাযোগ করুন।"
     }
+  },
+  "fields": {
+    "whichAdmissionAreYouApplyingFor": "আপনি কোন ভর্তির জন্য আবেদন করছেন?",
+    "studentSFullName": "শিক্ষার্থীর পুরো নাম",
+    "studentSDateOfBirth": "শিক্ষার্থীর জন্ম তারিখ",
+    "studentSGender": "শিক্ষার্থীর লিঙ্গ",
+    "parentGuardianSName": "অভিভাবকের নাম",
+    "parentGuardianSPhoneNumber": "অভিভাবকের মোবাইল নম্বর",
+    "parentGuardianSEmailOptional": "অভিভাবকের ইমেইল (না দিলেও চলবে)",
+    "homeAddressOptional": "বাসার ঠিকানা (না দিলেও চলবে)",
+    "papers": "কাগজপত্র"
+  },
+  "help": {
+    "whichAdmissionAreYouApplyingFor": "যে পর্বে আবেদন। একটিই চলমান থাকলে নিজে থেকে বাছা থাকে।",
+    "studentSFullName": "শিশুর পুরো নাম।",
+    "studentSDateOfBirth": "শিশুর জন্ম তারিখ।",
+    "studentSGender": "ছেলে, মেয়ে বা অন্যান্য।",
+    "parentGuardianSName": "যিনি আবেদন করছেন।",
+    "parentGuardianSPhoneNumber": "সঠিক মোবাইল নম্বর। এসএমএস আর অবস্থা দেখা দুটোই এই নম্বরে।",
+    "parentGuardianSEmailOptional": "সঠিক ইমেইল ঠিকানা।",
+    "homeAddressOptional": "বাসার ঠিকানা। ভর্তি হলে শিক্ষার্থীর ঠিকানায় যায়।",
+    "papers": "পর্বে চাওয়া প্রতিটি নথির জন্য একটি ছবি (JPG, PNG) বা PDF, সর্বোচ্চ ৫ MB।"
+  },
+  "helpRequired": {
+    "whichAdmissionAreYouApplyingFor": "হ্যাঁ",
+    "studentSFullName": "হ্যাঁ",
+    "studentSDateOfBirth": "হ্যাঁ",
+    "studentSGender": "হ্যাঁ",
+    "parentGuardianSName": "হ্যাঁ",
+    "parentGuardianSPhoneNumber": "হ্যাঁ",
+    "papers": "পর্বে চাওয়া থাকলে"
   }
 }
