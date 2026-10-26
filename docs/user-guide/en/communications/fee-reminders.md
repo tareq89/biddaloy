@@ -106,7 +106,7 @@ If you put **{Student name}**, **{Guardian name}**, **{Amount due}** and **{Due 
 
    → **Reminder sent** appears: **Sent (…)** and **Skipped (…)**.
 
-<!-- image pending: Fee Reminders, one student, with the preview; 1 · Student, balance, last reminder 2 · Who will be reminded 3 · Message and Insert into message 4 · Send by 5 · Preview 6 · Send reminder to … people; accountant, desktop -->
+![Fee Reminders, one student, with the preview](img/fee-reminders-01.png)
 
 > **Remember:** if you change anything after the preview, even one letter, the preview hides: **Inputs changed since the last preview — preview again before sending.** A sent message cannot be recalled.
 
@@ -220,7 +220,7 @@ For the other roles, **Fee Reminders** is not in the left menu.
 3. **Message**: **Message**, **Insert into message**, **Send by**, the WhatsApp template boxes.
 4. **Preview recipients**, then **Preview** and **Send reminder to … people**.
 
-<!-- image pending: Bulk Fee Reminders, the Check and send step, the SMS projection visible; admin, desktop -->
+![Bulk Fee Reminders, the Check and send step, the SMS projection visible](img/fee-reminders-02.png)
 
 </details>
 

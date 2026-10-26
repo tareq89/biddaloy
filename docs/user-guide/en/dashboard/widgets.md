@@ -106,7 +106,7 @@ A **widget** is one card on the dashboard. Each card has a name at the top, a bi
 
    → The page where that work is done opens.
 
-<!-- image pending: one widget card, 1 name 2 number 3 sentence 4 link marked, admin, desktop -->
+![one widget card, 1 name 2 number 3 sentence 4 link](img/widgets-01.png)
 
 In the list below, each widget has three lines:
 

@@ -131,7 +131,7 @@ Only admins and teachers can do this, and only on a computer.
 
    → The message "Saved 2 days." appears and the register returns to its normal view.
 
-<!-- image pending: সম্পাদনা চলছে, বদলানো ঘর, সংশোধনের কারণ ঘর আর সংরক্ষণ করুন বোতাম চিহ্নিত, অ্যাডমিন, desktop -->
+![Editing mode: the Editing line, three changed cells, the Reason for correction box and the Save button](img/attendance-register-02.png)
 
 **Which days can be changed:**
 

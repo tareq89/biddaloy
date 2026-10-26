@@ -79,7 +79,7 @@ One submit makes one payment and one invoice (the receipt). The bills the money 
 
    → The **Record a payment** page opens. It has three parts: **1. Student**, **2. Bills due**, **3. Take the money**.
 
-2. In the **Search for a student** box type a name or roll number, then press the student in the list.
+2. In the **Search for student** box type a name or roll number, then press the student in the list.
 
    → The **2. Bills due** part shows each of their open bills: **Fee**, **Period**, **Due date**, **Balance**, **Pay**, **Discount**. If the due date has passed it says **Overdue**.
 
@@ -223,7 +223,7 @@ For other roles, **Record payment** is not in the left menu.
 3. **3. Take the money** — **Payment method**, **Cash handed over** and **Change** for cash, **Transaction reference** for other methods, **Remarks**.
 4. At the bottom, **Cancel** and **Record …**.
 
-<!-- image pending: Record payment with two siblings chosen, a discount on one bill, change in cash; the four parts numbered; accountant, desktop -->
+![Record payment with two siblings chosen, the amount received split across both bills, and change worked out for cash handed over; the three cards numbered](img/record-payment-02-siblings.png)
 
 </details>
 

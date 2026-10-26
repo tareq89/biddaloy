@@ -198,7 +198,7 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 2. The filters — **Search**, **Payment method**, **Payment date**, **Show reversed too**.
 3. The list — press **View** on a row to open the payment's page.
 
-<!-- image pending: payments list with Show reversed too ticked, one "Reversed" and one "Reversal entry"; the three parts numbered; accountant, desktop -->
+![payments list with Show reversed too ticked, one &quot;Reversed&quot; and one &quot;Reversal entry&quot;; the three parts numbered](img/payments-02-reversed.png)
 
 </details>
 

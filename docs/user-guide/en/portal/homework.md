@@ -74,7 +74,7 @@ This page is view only. Homework is not handed in here.
 
 4. Scroll down for the later due days. Each day has its own card.
 
-<!-- image pending: Homework page on a phone, a Due today card and a Due tomorrow card; parent, phone -->
+<img src="img/homework-01.png" alt="The Homework page on a phone, with the Due today card" width="300">
 
 > **Remember:** "Today" is the school's day, not your phone's. Homework leaves this page once its due day has passed.
 
