@@ -56,7 +56,7 @@ When someone creates, changes or deletes a record in the app, or signs in, the s
 
    → At first a page has 25 rows. You can change how many rows show per page from the bottom, up to 100.
 
-<!-- image pending: Activity log page; 1 · title and the "view only" line 2 · filters 3 · list columns 4 · the field changes of one open row 5 · page controls; admin, desktop -->
+![Activity log filtered to Updated actions, with one row open to show its Field changes](img/audit-logs-02-rows.png)
 
 **How to read the rows**
 
@@ -150,7 +150,7 @@ Only the Admin sees the list for the whole school. A few roles can see the histo
 4. An open row — **Field changes**: **Field**, **Before**, **After**.
 5. Page controls and the number of rows per page.
 
-<!-- image pending: Activity log, the five parts marked with numbers, one "Updated" row open; admin, desktop -->
+![Activity log filtered to Updated actions, with one row open to show its Field changes](img/audit-logs-02-rows.png)
 
 </details>
 

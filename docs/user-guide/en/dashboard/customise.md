@@ -105,7 +105,7 @@ This work is not kept on the device while offline; so there is no "saved on this
 
 **To check it:** sign in on another computer or phone, with the same account and the same role. You will see the same layout.
 
-<!-- image pending: the dashboard in the new layout after saving, with the Dashboard saved message, admin, desktop -->
+<img src="img/dashboard-04-saved.png" alt="the dashboard back in its new layout after saving, with the Dashboard saved message marked, admin">
 
 **If no message appears:** see [Problems and fixes](#trouble). If the panel is still open, you can press **Save** again.
 
@@ -185,7 +185,7 @@ A one-page report of totals for this month, up to today, for the committee meeti
 
 3. To go back, press **Back to dashboard**.
 
-<!-- image pending: the monthly meeting report page, committee member, desktop -->
+<img src="img/dashboard-05-meeting-report.png" alt="the monthly meeting report page, with the Print and Back to dashboard buttons, the key numbers and the enrollment and attendance tables, committee member">
 
 The numbers in the report always match the committee widgets on the dashboard, because both come from the same figures. Where there is no data, "—" is printed. The report is not emailed by itself and is not made on any fixed day; print it from here when you need it.
 

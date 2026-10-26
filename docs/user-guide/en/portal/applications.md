@@ -107,7 +107,7 @@ Every application has a **type**. The type decides who at the school gets it. A 
 
    → A message like **Application submitted · 2026/12** appears, and the application's page opens. The state is **Pending**.
 
-<!-- image pending: img/portal-applications-02-preview.png (width 300) — The last step on a phone: 1 the draft letter, 2 the summary, 3 Submit application -->
+<img src="img/portal-applications-02-preview.png" alt="The last step on a phone: the draft letter, the summary and the Submit application button" width="300">
 
 > **Remember:** After you submit, the text cannot be changed. If it is wrong, [withdraw it](#task-withdraw) and submit a new one.
 

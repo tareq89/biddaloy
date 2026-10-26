@@ -247,7 +247,7 @@ The guardian's app has no dashboard. Instead it has an **Overview** page with a 
 - **Latest result**
 - **Next holiday**
 
-<!-- image pending: the guardian's Overview page, guardian, phone -->
+<img src="img/dashboard-phone-02-guardian.png" alt="the guardian's Overview page, guardian" width="300">
 
 ---
 
