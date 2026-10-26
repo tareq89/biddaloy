@@ -1,0 +1,12 @@
+%% title: Where the money goes in the report
+%% desc: Every payment of this school is checked. Pending, failed or deleted payments are left out. A successful payment goes into total collected, a reversal goes into reversed. Net collected is the total minus reversed. Cash paid out from wallets is shown on the side and is not taken off the net.
+flowchart TD
+  P["This school's payments<br/>on the chosen dates, Bangladesh time"]:::admin --> Q{"Payment status?"}:::note
+  Q -->|"Pending · failed · deleted"| X["Not counted"]
+  Q -->|"Successful"| C["Total collected"]
+  Q -->|"Reversal"| R["Reversed"]
+  C --> N["Net collected<br/>= total − reversed"]
+  R --> N
+  W["Cash paid out from wallets"]:::note -.->|"shown on the side, not taken off"| N
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

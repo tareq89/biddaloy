@@ -32,5 +32,17 @@
   },
   "detailTab": {
     "label": "Attendance & Leave"
+  },
+  "fields": {
+    "date": "Date",
+    "statusEachPerson": "Status (each person)"
+  },
+  "help": {
+    "date": "Which day's attendance. Today is filled in. On a future day, only Leave.",
+    "statusEachPerson": "Present, Absent, Late or Leave."
+  },
+  "helpRequired": {
+    "date": "Yes",
+    "statusEachPerson": "No — nothing is sent for unmarked people"
   }
 }

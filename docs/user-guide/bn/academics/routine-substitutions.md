@@ -34,9 +34,9 @@ appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: substitution-no-delete, checked: 2026-10-24, issue: null }
-  - { id: substitute-busy-generic-error, checked: 2026-10-24, issue: null }
-  - { id: old-year-rows-dash, checked: 2026-10-24, issue: null }
+  - { id: substitution-no-delete, checked: 2026-10-24, issue: 2895 }
+  - { id: substitute-busy-generic-error, checked: 2026-10-24, issue: 2896 }
+  - { id: old-year-rows-dash, checked: 2026-10-24, issue: 2897 }
 -->
 
 # বদলি শিক্ষক রেকর্ড করা
@@ -71,7 +71,7 @@ knownIssues:
 
    → উপরে **বদলি শিক্ষক**, নিচে "কোন দিন কে কার পিরিয়ড নিলেন, আর কোন পিরিয়ড বাতিল হলো।" তার নিচে ছাঁকনি আর তালিকা।
 
-<!-- image pending: বদলি শিক্ষক পাতা, বদলি শিক্ষক যোগ করুন বোতাম, ছাঁকনি ও তালিকা চিহ্নিত, অ্যাডমিন, desktop -->
+![বদলি শিক্ষক পাতা, বদলি শিক্ষক যোগ করুন বোতাম, ছাঁকনি ও তালিকা](img/routine-substitutions-01.png)
 
 2. উপরে **বদলি শিক্ষক যোগ করুন** চাপুন।
 
@@ -93,7 +93,7 @@ knownIssues:
 
 7. চাইলে **কারণ (ঐচ্ছিক)** লিখুন, যেমন `অসুস্থতার ছুটি` (২৮০ অক্ষর পর্যন্ত)।
 
-<!-- image pending: বদলি শিক্ষক রেকর্ড করুন ঘর, তারিখ, শ্রেণি ও শাখা, পিরিয়ড, বদলি শিক্ষক চিহ্নিত, অ্যাডমিন, desktop -->
+![বদলি শিক্ষক রেকর্ড করুন ঘর, তারিখ, শ্রেণি ও শাখা, পিরিয়ড, বদলি শিক্ষক](img/routine-substitutions-02.png)
 
 8. **সংরক্ষণ করুন** চাপুন।
 
@@ -218,6 +218,7 @@ knownIssues:
 
 - [**শ্রেণির সাপ্তাহিক রুটিন সাজানো**](routine-builder.md) — স্থায়ী বদল সেখানে; এখানে শুধু একদিনের।
 - [**আমার রুটিন দেখা ও পিরিয়ড জানানো**](my-routine.md) — বদলি শিক্ষক সেদিনের পিরিয়ড সেখানে দেখেন।
+- [**কর্মীর উপস্থিতি ও ছুটি**](../attendance/staff-attendance.md) — শিক্ষক ছুটিতে থাকলে বদলি লাগে।
 
 ---
 

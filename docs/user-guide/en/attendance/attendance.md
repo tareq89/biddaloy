@@ -29,14 +29,15 @@ helpIds:
   ]
 devices: [desktop, phone]
 entry: [sidebar, palette, dashboard:my-pending-sections]
-keywords: [হাজিরা, উপস্থিতি, রোল কল, অনুপস্থিত, attendance, roll call, absent]
+keywords:
+  [হাজিরা, উপস্থিতি, রোল কল, অনুপস্থিত, attendance, roll call, absent, routine, timetable]
 appVersion: 0.1.0 (7b776974b)
 owner: tareq89
 lastVerified: 2026-10-23
 knownIssues:
-  - { id: submit-stays-draft, checked: 2026-10-23, issue: null }
-  - { id: admin-old-register-save, checked: 2026-10-23, issue: null }
-  - { id: bn-cancel-button-cut, checked: 2026-10-23, issue: null }
+  - { id: submit-stays-draft, checked: 2026-10-23, issue: 2904 }
+  - { id: admin-old-register-save, checked: 2026-10-23, issue: 2905 }
+  - { id: bn-cancel-button-cut, checked: 2026-10-23, issue: 2906 }
 -->
 
 # Taking attendance
@@ -217,6 +218,8 @@ Without internet, the submit button says **Save on device**. When you press it:
 - **This changed elsewhere while waiting** — someone else has already submitted this register. Choose which version to keep from the panel.
 - **This could not be sent after several attempts** — open the register again, check the marks, and press **Submit attendance**. If that fails too, tell an admin.
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#offline).
+
 ---
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
@@ -348,7 +351,7 @@ After you press one name:
 </figure>
 
 - Every section has one register per day.
-- The **Attendance reports** and the monthly **Attendance register** are built from it.
+- The [**Attendance reports**](attendance-reports.md) and the monthly [**Attendance register**](attendance-register.md) are built from it.
 - If attendance is not taken on time, the teacher gets a reminder; if it is very late, the headmaster and the admin too.
 
 </details>
@@ -370,10 +373,15 @@ After you press one name:
 
 **Related pages**
 
-- **Teacher assignments** — where an admin assigns sections.
-- **Class routine** — needed for per-period attendance.
-- **Attendance reports** and **Attendance register** — built from the attendance taken here.
+- [**Giving teachers class and section duties**](../people/teaching-assignments.md) — where an admin assigns sections.
+- [**Arranging a class's weekly routine**](../academics/routine-builder.md) — needed for per-period attendance.
+- [**Attendance reports**](attendance-reports.md) and [**Attendance register**](attendance-register.md) — built from the attendance taken here.
+- [**Staff attendance and leave**](staff-attendance.md) — teachers' and staff's own attendance and leave.
 - **Settings › Attendance policy** (admin) — weekly off days, the correction window, per-period attendance, leave in advance.
+- [**Seeing your own class on one page**](../academics/my-class.md) — your section on one page, with today's attendance.
+- [**Adding students and viewing their details**](../people/students.md) — students whose attendance is taken here.
+- [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
+- [**Attendance**](../portal/attendance.md) — what the guardian sees of the attendance you take.
 
 ---
 

@@ -1,0 +1,16 @@
+%% title: The steps of recording a payment
+%% desc: Pick the student and type the amount received. The money is split across the oldest bills first. A discount needs admin approval. Extra cash becomes change or credit balance. In the end one payment and one invoice are made.
+flowchart TD
+  S["Pick the student<br/>(up to 10 siblings)"]:::admin --> A["Type the amount received"]:::admin
+  A --> SP["Money is split across bills<br/>oldest due date first"]
+  SP --> D{"Is there a discount?"}:::note
+  D -->|"Yes"| AP["Admin approves"]
+  D -->|"No"| M["Choose payment method"]:::admin
+  AP --> M
+  M --> C{"More cash than due?"}:::note
+  C -->|"Yes"| CH["Return change<br/>or keep as credit balance"]
+  C -->|"No"| R["Press Record"]:::admin
+  CH --> R
+  R --> OUT["One payment and one invoice<br/>print or send the receipt"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

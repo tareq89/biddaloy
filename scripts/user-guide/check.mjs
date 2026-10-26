@@ -19,6 +19,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { checkAltText } from './alt-text.mjs';
 import { listPages, readPage } from './frontmatter.mjs';
 
 const LANGS = ['bn', 'en'];
@@ -95,6 +96,13 @@ export function check(root = '.', { today = new Date() } = {}) {
         fail(rel(path.join(guide, 'coverage.json')), `(b) "${id}" is done but has no ${lang} page`);
   }
 
+  // ---- (t) a `planned` id (strict coverage, D16) ---------------------------
+  // D16: every coverage id is `done`; there are no exceptions.
+  for (const [id, status] of Object.entries(coverage)) {
+    if (status !== 'planned') continue;
+    fail(rel(path.join(guide, 'coverage.json')), `(t) "${id}" is still planned; every id must be done (D16)`);
+  }
+
   // ---- (c) bn/en pair differs -------------------------------------------
   for (const [p, bn] of pages.bn) {
     const en = pages.en.get(p);
@@ -111,7 +119,9 @@ export function check(root = '.', { today = new Date() } = {}) {
     if (!pages.bn.has(p)) fail(rel(pages.en.get(p).file), `(c) no bn page at the same path (${p})`);
 
   for (const lang of LANGS) {
-    const titles = [...pages[lang]].filter(([, pg]) => done(pg)).map(([p, pg]) => ({ p, title: pg.fm.title }));
+    // Portal pages are named after the app's own menu labels ("Attendance", "Results"), so
+    // their titles cannot be told apart from a bold UI word: (o) leaves them out both ways.
+    const titles = [...pages[lang]].filter(([p, pg]) => done(pg) && !p.startsWith('portal/')).map(([p, pg]) => ({ p, title: pg.fm.title }));
     for (const [p, pg] of pages[lang]) {
       const file = rel(pg.file);
       const text = stripCode(pg.body);
@@ -177,7 +187,7 @@ export function check(root = '.', { today = new Date() } = {}) {
       if (hasArrive && entry.length === 0) fail(file, '(n) #arrive exists but entry is missing in guide:meta');
 
       // ---- (o) bolded page title without a link (D46) -------------------
-      if (done(pg))
+      if (done(pg) && !p.startsWith('portal/'))
         for (const m of text.matchAll(/(\[\s*)?\*\*([^*\n]+)\*\*/g)) {
           const hit = titles.find((t) => t.p !== p && t.title === m[2].trim());
           if (hit && !m[1]) fail(file, `(o) bolds the title of page "${hit.title}" without linking it`);
@@ -203,12 +213,19 @@ export function check(root = '.', { today = new Date() } = {}) {
     }
   }
 
+  // the longest existing section folder that prefixes the diagram name ("exams-results-x" → exams-results/)
+  const sectionOf = (lang, name) =>
+    readdirSync(path.join(guide, lang), { withFileTypes: true })
+      .filter((d) => d.isDirectory() && (name === d.name || name.startsWith(`${d.name}-`)))
+      .map((d) => d.name)
+      .sort((a, b) => b.length - a.length)[0] ?? name.split('-')[0];
+
   // ---- (g) diagram sources vs svg hash -----------------------------------
   const srcDir = path.join(guide, '_diagrams');
   for (const f of existsSync(srcDir) ? readdirSync(srcDir) : []) {
     const m = f.match(/^(.+)\.(bn|en)\.mmd$/);
     if (!m) continue;
-    const svg = path.join(guide, m[2], m[1].split('-')[0], 'diagrams', `${m[1]}.svg`);
+    const svg = path.join(guide, m[2], sectionOf(m[2], m[1]), 'diagrams', `${m[1]}.svg`);
     const want = sha1(readFileSync(path.join(srcDir, f), 'utf8'));
     if (!existsSync(svg)) fail(rel(path.join(srcDir, f)), `(g) no rendered svg at ${rel(svg)}`);
     else if (readFileSync(svg, 'utf8').match(/<!-- src:([0-9a-f]+) -->/)?.[1] !== want) fail(rel(svg), '(g) svg is stale: its .mmd source changed; run render-diagrams');
@@ -222,6 +239,9 @@ export function check(root = '.', { today = new Date() } = {}) {
     if (inGuide && /\.gif$/i.test(f) && size > 2 * 1024 * 1024) fail(rel(f), `(h) gif is ${Math.round(size / 1024)} KB, limit 2048 KB`);
     if (/\.(mp4|mov|webm)$/i.test(f)) fail(rel(f), '(i) video files are not allowed under docs/');
   }
+
+  // ---- (s) every image has meaningful alt text ------------------------------
+  for (const p of checkAltText(root)) fail(p.file, p.problem);
 
   // ---- (l) every manifest route maps to a feature or an internal reason ----
   const manifestFile = path.join(root, 'e2e/route-manifest.json');
