@@ -1,0 +1,10 @@
+%% title: Two shifts, two versions
+%% desc: Each level from Class 6 to Class 10 is split into four classes: Morning or Day shift, Bangla or English version. Each has section "A".
+flowchart LR
+  L["Class level<br/>Class 6–10"] --> M["Morning<br/>shift"]
+  L --> D["Day<br/>shift"]
+  M --> V1["Bangla and<br/>English"]:::label
+  D --> V2["Bangla and<br/>English"]:::label
+  V1 --> S["Section A<br/>each"]
+  V2 --> S
+  classDef label fill:#f1f3f5,stroke:#868e96,color:#343a40

@@ -11,7 +11,8 @@
  *   every <!-- guide:generated:<kind>:<id> --> block inside docs/user-guide/<lang>/**.md
  *   the `appVersion:` line of every page's <!-- guide:meta --> comment
  *
- * Block kinds: `fields:<i18n namespace>`, `roles:<role-kebab>` (`roles:exam-controller`).
+ * Block kinds: `fields:<i18n namespace>`, `roles:<role-kebab>` (`roles:exam-controller`),
+ * `widgets:roles` (each role's default widgets) and `widgets:sections` (one section per widget).
  * Any other kind throws: the generator for it does not exist yet (video is out, D48).
  */
 import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -20,6 +21,7 @@ import path from 'node:path';
 import { UserRole } from '@biddaloy/shared';
 import { format, resolveConfig } from 'prettier';
 
+import { buildRoleDashboards, buildWidgetSections } from './dashboard';
 import { buildFeatures, type Feature } from './features';
 import { buildFieldTable, type GuideLang } from './field-table';
 import { buildRoleIndex } from './role-index';
@@ -106,7 +108,14 @@ export async function generate(root: string, env: { GUIDE_SHA?: string } = {}): 
             common: locale(lang, 'common'),
             summaries,
           });
-        else
+        else if (kind === 'widgets' && (id === 'roles' || id === 'sections')) {
+          const deps = {
+            dashboard: locale(lang, 'dashboard'),
+            staff: locale(lang, 'staff'),
+            sectionsPage: 'widgets.md',
+          };
+          want = id === 'roles' ? buildRoleDashboards(lang, deps) : buildWidgetSections(lang, deps);
+        } else
           throw new Error(
             `${path.relative(root, file)}: no generator for guide:generated:${kind}:${id}`,
           );

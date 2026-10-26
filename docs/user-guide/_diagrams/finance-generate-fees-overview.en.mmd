@@ -1,0 +1,12 @@
+%% title: The steps of creating bills
+%% desc: After you pick the period, students and fees and press Create bills, the app checks first. If no bills exist for the period and no student is inactive, bills are created straight away. Otherwise you decide what happens. Skipping needs no approval; creating a second bill or deleting a bill with money paid needs approval.
+flowchart TD
+  P["Pick period · students · fees"]:::admin --> G["Create bills"]:::admin
+  G --> Q{"Do bills for this period<br/>already exist?"}:::note
+  Q -->|"No"| OK["Bills are created"]
+  Q -->|"Yes"| C{"Your decision"}:::note
+  C -->|"Skip duplicates"| SK["Only students with no bill<br/>no approval needed"]
+  C -->|"Delete old, create new"| RO["Approval needed if the<br/>old bill has money paid"]
+  C -->|"Create anyway"| CA["A second bill is made<br/>always needs approval"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

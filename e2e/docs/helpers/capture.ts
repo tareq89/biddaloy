@@ -9,7 +9,7 @@
  * - `loginAs()`: signs in through a demo-school login card.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, renameSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { expect, test } from '@playwright/test';
@@ -42,8 +42,42 @@ function frame(file: string): void {
   renameSync(tmp, file);
 }
 
+/** A 256-colour palette: a busy screen drops to well under the limit and still reads clearly. */
+function shrink(file: string): void {
+  const tmp = `${file}.tmp.png`;
+  execFileSync('ffmpeg', [
+    '-y',
+    '-loglevel',
+    'error',
+    '-i',
+    file,
+    '-vf',
+    'split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=none',
+    tmp,
+  ]);
+  renameSync(tmp, file);
+}
+
 /** Language, light mode, no demo ribbon, visible pointer. Call before the first `goto`. */
+/** An env var a tour cannot guess; fail with its name when missing (checked at run time, not import). */
+export function requireEnv(name: string, what: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Set ${name}: ${what}`);
+  return v;
+}
+
+/** Tours sign in and write data; refuse a non-local GUIDE_BASE_URL unless GUIDE_ALLOW_REMOTE=1. */
+function assertLocalTarget(): void {
+  const host = new URL(process.env.GUIDE_BASE_URL ?? 'http://localhost:5174').hostname;
+  if (['localhost', '127.0.0.1', '[::1]'].includes(host) || process.env.GUIDE_ALLOW_REMOTE === '1')
+    return;
+  throw new Error(
+    `GUIDE_BASE_URL points at ${host}, not localhost. Tours sign in and create data there; set GUIDE_ALLOW_REMOTE=1 only if you mean it.`,
+  );
+}
+
 export async function prepare(page: Page, opts: { pointer?: boolean } = {}): Promise<void> {
+  assertLocalTarget();
   const lang = guideLang();
   // The tour's strings and folders come from GUIDE_LANG; a project of another
   // language would write its shots into the wrong folder.
@@ -89,6 +123,17 @@ export async function shoot(
     region?: { x: number; y: number; width: number; height: number };
   } = {},
 ): Promise<void> {
+  // Wait for data: no loading skeleton left on the page (the demo API is slower than prod).
+  await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => undefined);
+  await page
+    .waitForFunction(
+      () => !document.querySelector('main .animate-pulse, main [aria-busy="true"]'),
+      undefined,
+      {
+        timeout: 30_000,
+      },
+    )
+    .catch(() => undefined);
   // A leftover "saved" toast would cover the part the shot is about.
   if (!opts.keepToasts) {
     await page.evaluate(() =>
@@ -102,10 +147,12 @@ export async function shoot(
     callouts.map((c) => c.target),
     file,
   );
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur?.());
   // Let toasts and focus rings settle so the shot matches what a reader sees.
   await page.waitForTimeout(250);
   await page.screenshot({ path: file, animations: 'disabled', caret: 'hide', clip: opts.region });
   frame(file);
+  if (statSync(file).size / 1024 > MAX_PNG_KB) shrink(file);
   const kb = statSync(file).size / 1024;
   if (kb > MAX_PNG_KB)
     throw new Error(`${file} is ${kb.toFixed(0)} KB; the limit is ${MAX_PNG_KB} KB`);
@@ -152,22 +199,54 @@ export async function recordGif(
   opts: { trimStartSec?: number; width?: number } = {},
 ): Promise<void> {
   const viewport = contextOptions.viewport ?? { width: 1440, height: 900 };
-  const videoDir = path.join('test-results', 'guide', 'video', path.basename(file, '.gif'));
-  rmSync(videoDir, { recursive: true, force: true });
-  const context = await browser.newContext({
-    ...contextOptions,
-    recordVideo: { dir: videoDir, size: viewport },
-  });
+  const dir = path.join('test-results', 'guide', 'video', path.basename(file, '.gif'));
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
   await prepare(page, { pointer: true });
-  await workflow(page);
-  await beat(page, 1200);
-  const video = page.video();
-  await context.close();
-  const webm = await video!.path();
+  // Lossless PNG frames, one per repaint, through CDP. Playwright's `recordVideo` (VP8) puts
+  // encoder noise on every frame, so even a still screen costs the GIF a full frame and a
+  // 12 s workflow over a dense table passes 2 MB. A still screen here costs nothing.
+  const name = (i: number) => `${String(i).padStart(5, '0')}.png`;
+  const cdp = await context.newCDPSession(page);
+  const stamps: number[] = [];
+  cdp.on('Page.screencastFrame', (f) => {
+    writeFileSync(path.join(dir, name(stamps.length)), Buffer.from(f.data, 'base64'));
+    stamps.push(f.metadata.timestamp ?? Date.now() / 1000);
+    cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => undefined);
+  });
+  await cdp.send('Page.startScreencast', {
+    format: 'png',
+    maxWidth: viewport.width,
+    maxHeight: viewport.height,
+  });
+  try {
+    await workflow(page);
+    await beat(page, 1200);
+    await cdp.send('Page.stopScreencast');
+  } finally {
+    await context.close();
+  }
+  if (stamps.length === 0) throw new Error(`no frames recorded for ${file}`);
+  // Each frame holds until the next one; the last holds one second.
+  const list = stamps
+    .map((t, i) => {
+      const next = stamps[i + 1];
+      const hold = next === undefined ? 1 : Math.max(next - t, 0.001);
+      return `file '${name(i)}'\nduration ${hold.toFixed(3)}`;
+    })
+    .concat(`file '${name(stamps.length - 1)}'`);
+  writeFileSync(path.join(dir, 'frames.txt'), `${list.join('\n')}\n`);
+  const mov = path.join(dir, 'frames.mov');
+  execFileSync('ffmpeg', [
+    ...['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0'],
+    // -fps_mode needs ffmpeg >= 5.1 (older builds call it -vsync).
+    ...['-i', path.join(dir, 'frames.txt'), '-fps_mode', 'vfr', '-c:v', 'png', mov],
+  ]);
   execFileSync('node', [
     'scripts/user-guide/gif.mjs',
-    webm,
+    mov,
     file,
     '--start',
     String(opts.trimStartSec ?? 0),
@@ -178,11 +257,24 @@ export async function recordGif(
 
 /** Sign in through a demo-school login card (`/login?role=<card>`), picking the school if asked. */
 export async function loginAs(page: Page, card: string): Promise<void> {
-  await page.goto(`/login?role=${card}`);
-  await page.waitForURL(/\/(dashboard|select-school)/);
+  // /auth/login and /auth/refresh allow 5 a minute per IP; a tour that signs in often must pace itself.
+  await page.waitForTimeout(13_000);
+  if (process.env.GUIDE_PASSWORD) {
+    // A server without DEMO_MODE (needed for the upload GIFs) shows no login cards: use the form.
+    await page.goto('/login');
+    const only = process.env.GUIDE_LOGIN_CARD;
+    const pinned = !only || only === card ? process.env.GUIDE_LOGIN_EMAIL : undefined;
+    const email = pinned ?? `${card}@bmsc.example`;
+    await page.getByLabel(/Email or phone number|ইমেইল/).fill(email);
+    await page.locator('#sign-in-password').fill(process.env.GUIDE_PASSWORD);
+    await page.getByRole('button', { name: /^Sign in|সাইন ইন/ }).click();
+  } else {
+    await page.goto(`/login?role=${card}`);
+  }
+  await page.waitForURL(/\/(dashboard|portal|select-school)/);
   if (page.url().includes('/select-school')) {
     await page.getByRole('button', { name: /Continue|চালিয়ে যান/ }).click();
-    await page.waitForURL(/\/dashboard/);
+    await page.waitForURL(/\/(dashboard|portal)/);
   }
-  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page).toHaveURL(/\/(dashboard|portal)/);
 }

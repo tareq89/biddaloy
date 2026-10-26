@@ -35,5 +35,26 @@
     "cancel": "Cancel",
     "unassigning": "Removing…",
     "errorMessage": "Couldn't remove. Try again."
+  },
+  "fields": {
+    "class": "Class",
+    "section": "Section",
+    "teacher": "Teacher",
+    "assignmentType": "Assignment type",
+    "subject": "Subject"
+  },
+  "help": {
+    "class": "Which class's sections you will look at. You also choose it when giving from the teacher's page.",
+    "section": "Which section, when giving from the teacher's page. You can choose it after choosing the class.",
+    "teacher": "The person you will give the duty to. The employee ID is beside the name. Only staff who have a teacher profile.",
+    "assignmentType": "**Class teacher** (only one per section; a new one replaces the earlier), **Assistant class teacher**, or **Subject teacher** (for one subject).",
+    "subject": "Only for a **Subject teacher**: which subject. From the active subjects."
+  },
+  "helpRequired": {
+    "class": "Yes (when giving from the teacher's page)",
+    "section": "Yes (when giving from the teacher's page)",
+    "teacher": "Yes",
+    "assignmentType": "Yes, **Class teacher** is chosen to begin with",
+    "subject": "Yes, for **Subject teacher**"
   }
 }

@@ -495,7 +495,7 @@
     "path": "portal/overview",
     "route": "/portal",
     "roles": ["PARENT", "STUDENT"],
-    "routes": ["/portal", "/portal/notifications"]
+    "routes": ["/portal"]
   },
   {
     "id": "portal.fees",
@@ -725,6 +725,38 @@
     "routes": ["/register", "/welcome"]
   },
   {
+    "id": "dashboard.widgets",
+    "kind": "dashboard",
+    "path": "dashboard/widgets",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "dashboard.customise",
+    "kind": "dashboard",
+    "path": "dashboard/customise",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
     "id": "dashboard.alerts",
     "kind": "dashboard",
     "path": "dashboard/alerts",
@@ -739,6 +771,46 @@
       "COMMITTEE"
     ],
     "routes": ["/notifications"]
+  },
+  {
+    "id": "administration.printDesignerGuide",
+    "kind": "administration",
+    "path": "administration/print-templates/designer-guide",
+    "route": null,
+    "roles": ["ADMIN"],
+    "routes": []
+  },
+  {
+    "id": "administration.printPrinters",
+    "kind": "administration",
+    "path": "administration/print-templates/printers-and-calibration",
+    "route": null,
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": []
+  },
+  {
+    "id": "administration.printIdCards",
+    "kind": "administration",
+    "path": "administration/print-templates/id-cards",
+    "route": null,
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": []
+  },
+  {
+    "id": "administration.printExamDocuments",
+    "kind": "administration",
+    "path": "administration/print-templates/exam-documents",
+    "route": null,
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": []
+  },
+  {
+    "id": "administration.printCertificates",
+    "kind": "administration",
+    "path": "administration/print-templates/certificates",
+    "route": null,
+    "roles": ["ADMIN", "EXECUTIVE", "OFFICE_STAFF"],
+    "routes": []
   },
   {
     "id": "help.glossary",
@@ -775,5 +847,49 @@
       "COMMITTEE"
     ],
     "routes": []
+  },
+  {
+    "id": "help.cantSeeThis",
+    "kind": "help",
+    "path": "help/cant-see-this",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "help.whatsNew",
+    "kind": "help",
+    "path": "help/whats-new",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "portal.notifications",
+    "kind": "portal",
+    "path": "portal/notifications",
+    "route": "/portal/notifications",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/notifications"]
   }
 ]

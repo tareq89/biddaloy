@@ -245,5 +245,19 @@
     "noRoutineHint": "Periods appear here once the routine is published.",
     "openRoutines": "Open routines",
     "prefilledNotice": "Students absent or on leave today are already filled in."
+  },
+  "fields": {
+    "date": "Date",
+    "statusEachStudent": "Status (each student)",
+    "minutesLate": "Minutes late"
+  },
+  "help": {
+    "date": "Which day you are marking. Today is filled in. A future date cannot be chosen from the list.",
+    "statusEachStudent": "Present, Absent, Late or Leave. On a future day (when leave-in-advance is on), only Leave.",
+    "minutesLate": "How many minutes late, only with **Late**. Latin digits, 0 to 1440."
+  },
+  "helpRequired": {
+    "date": "Yes",
+    "statusEachStudent": "No — the app asks if any are left"
   }
 }
