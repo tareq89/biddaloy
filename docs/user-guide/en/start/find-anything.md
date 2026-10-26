@@ -53,7 +53,7 @@ The **search window** is one place from which you can reach any page without dig
 
    → The **Search** window opens in the middle, with a box to type in. If you opened pages before, a **Recent** list shows below.
 
-<!-- image pending: img/find-anything-01-palette.png — Search window: 1 text box, 2 People / Page / Action tabs, 3 results, 4 shortcut hint at the bottom -->
+![Search window: 1 text box, 2 People / Page / Action tabs, 3 results, 4 shortcut hint at the bottom](img/find-anything-01-palette.png)
 
 2. Go to the **Page** tab (tap it, or press the right arrow). Type part of a page name, for example `Attendance`.
 

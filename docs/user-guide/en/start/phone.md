@@ -72,7 +72,7 @@ SchoolManager runs in the browser. You do not download it from the Play Store or
 
    → The menu opens. **Install app** is near the bottom.
 
-<!-- image pending: img/phone-01-install-menu.png (width 300) — Account menu open on a phone: 1 Account menu, 2 Install app. Source: e2e/docs/tours/start-phone.tour.ts at 390 px -->
+<img src="img/phone-01-install-menu.png" alt="Account menu open on a phone: 1 Account menu, 2 Install app. Source: e2e/docs/tours/start-phone.tour.ts at 390 px" width="300">
 
 4. Tap **Install app**.
 

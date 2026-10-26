@@ -93,7 +93,7 @@ Every section has a **list of duties**. Each row of the list is one teacher and 
 
    → The list has only active subjects, with the code beside each name. If you open the page in Bangla, the names are in Bangla.
 
-<!-- image pending: the Assign teacher dialog with Subject teacher chosen, four parts marked, admin, desktop -->
+![the Assign teacher dialog with Subject teacher chosen, four parts](img/teaching-assignments-02.png)
 
 7. Press **Assign** at the bottom of the dialog.
 
@@ -116,7 +116,7 @@ This work does not run without internet. So there is no **Saved on this device**
 
 **To check:** reload the page, choose the same **Class**, and look for the row on the section's card. Or open that teacher's page from [Adding and managing staff](staff.md) and look in the **Teacher assignments** tab.
 
-<!-- image pending: the section card, three kinds of row, three parts marked, admin, desktop -->
+![the section card, three kinds of row, three parts](img/teaching-assignments-03.png)
 
 **If no message appears:** see [Problems and fixes](#trouble). What you chose in the dialog stays; nothing is lost.
 

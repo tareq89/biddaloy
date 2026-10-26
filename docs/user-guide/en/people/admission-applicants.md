@@ -107,7 +107,7 @@ Every application has a **Status**: **Awaiting review** (new), **Shortlisted**, 
 
    → The document opens in a new tab. With none, it says **No documents uploaded**.
 
-<!-- image pending: img/people-admission-applicants-02.png — the application page, the top details, the three cards and the action buttons marked, office staff, desktop -->
+![the application page, the top details, the three cards and the action buttons](img/admission-applicants-02.png)
 
 5. At the top press **Admit**.
 
@@ -297,7 +297,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 4. **Documents** — the uploaded documents, **Open** beside each.
 5. **Evaluation history** — "Newest first"; every decision and note with date and time. With nothing, it says **No evaluations recorded yet**.
 
-<!-- image pending: img/people-admission-applicants-03.png — the five parts of the application page marked with numbers, office staff, desktop -->
+![the five parts of the application page](img/admission-applicants-03.png)
 
 </details>
 

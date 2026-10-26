@@ -118,7 +118,7 @@ Do this after you add students, so that guardians can sign in to the app. You se
 
    → The dialog moves to the second step, **Preview**. It says "{number} guardian(s) will be invited — {number} skipped." Below that are the names of the guardians who will get an invitation, and next to each name the channel it will go by (email or SMS). To see who was skipped, press the "skipped" text; the list opens with the reason next to each person.
 
-<!-- image pending: the invitation preview step, with the count of guardians to be invited and the list of skipped guardians marked, admin, desktop -->
+![the invitation preview step, with the count of guardians to be invited and the list of skipped guardians](img/guardians-02.png)
 
 4. Check the list. If someone was skipped, see [Why guardians are skipped](#skip-reasons) to understand why.
 
@@ -202,7 +202,7 @@ A guardian's details count as incomplete if the name or relationship is empty, o
 
    → The **Edit guardian** page opens, with eight boxes.
 
-<!-- image pending: the Edit guardian page, with the eight boxes and the buttons at the bottom marked, admin, desktop -->
+![the Edit guardian page, with the eight boxes and the buttons at the bottom](img/guardians-03.png)
 
 3. Change the box you want to change: **Full name**, **Relationship**, **Phone**, **Email**, **Alternate phone**, **Occupation**, **Preferred channel**, **Address**. Write the phone number in English digits.
 

@@ -72,7 +72,7 @@ SchoolManager ব্রাউজারে চলে; প্লে স্টো�
 
    → মেনু খোলে। নিচের দিকে **অ্যাপ ইনস্টল করুন** থাকে।
 
-<!-- image pending: img/phone-01-install-menu.png (width 300) — ফোনে অ্যাকাউন্ট মেনু খোলা: ১ অ্যাকাউন্ট মেনু, ২ অ্যাপ ইনস্টল করুন. Source: e2e/docs/tours/start-phone.tour.ts at 390 px -->
+<img src="img/phone-01-install-menu.png" alt="ফোনে অ্যাকাউন্ট মেনু খোলা: ১ অ্যাকাউন্ট মেনু, ২ অ্যাপ ইনস্টল করুন. Source: e2e/docs/tours/start-phone.tour.ts at 390 px" width="300">
 
 4. **অ্যাপ ইনস্টল করুন** চাপুন।
 

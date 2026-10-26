@@ -165,7 +165,7 @@ Staff details are saved only when you are online. You cannot save this work on a
 
 **To check:** reload the page, then type the name in **Search**. If it appears in the list, it is in the system. Press the person's name to see their **Invitation** state on their page.
 
-<!-- image pending: the new staff member's row in the list, three parts marked, admin, desktop -->
+![the new staff member's row in the list, three parts](img/staff-03.png)
 
 **If no message appears:** see [Problems and fixes](#trouble). What you typed stays in the dialog; nothing is lost.
 
