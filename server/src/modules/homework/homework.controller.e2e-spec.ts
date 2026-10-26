@@ -374,6 +374,45 @@ describe('Homework E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
     });
+
+    it('a teacher of section A does not list homework assigned only to section B of the same class', async () => {
+      const [{ id: otherSectionId }] = await dataSource.query(
+        `INSERT INTO class_sections (id, section_name, class_id, tenant_id, created_at, updated_at)
+         VALUES (gen_random_uuid(), 'HW-B', $1, $2, NOW(), NOW()) RETURNING id`,
+        [SEED_CLASS_1_ID, TENANT_ID],
+      );
+      const admin = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      const asAdmin = (req: supertest.Test) =>
+        req.set('Authorization', `Bearer ${admin.body.access_token}`).set('X-Tenant-ID', TENANT_ID);
+      const mkAssigned = async (title: string, sectionId: string) => {
+        const created = await asAdmin(supertest(app.getHttpServer()).post('/api/v1/homework'))
+          .send({
+            subject_id: subjectId,
+            class_id: SEED_CLASS_1_ID,
+            title,
+            grading_mode: HomeworkGradingMode.TICK,
+          })
+          .expect(201);
+        await asAdmin(
+          supertest(app.getHttpServer()).post(`/api/v1/homework/${created.body.id}/assign`),
+        )
+          .send({ section_id: sectionId, assigned_date: '2026-01-01', due_date: '2026-01-08' })
+          .expect(201);
+        return created.body.id as string;
+      };
+      const x = await mkAssigned('Only B', otherSectionId);
+      const y = await mkAssigned('Mine A', MAPPED_SECTION_ID);
+
+      const list = await asTeacher(supertest(app.getHttpServer()).get('/api/v1/homework')).expect(
+        200,
+      );
+      const ids = list.body.map((h: { id: string }) => h.id);
+      expect(ids).toContain(y);
+      expect(ids).not.toContain(x);
+    });
   });
 
   // [TIME-11] Guardian SMS on assign is off until the school turns it on.
