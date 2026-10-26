@@ -115,11 +115,6 @@ test('(s) image without meaningful alt text', () =>
   expectProblem('s', (w) => w(`${G}/en/demo/one.md`, (s) => s + '\n![](img/dot.png)\n')));
 test('(t) a planned id fails (strict coverage, D16)', () =>
   expectProblem('t', (w) => json(`${G}/coverage.json`, (c) => ({ ...c, 'demo.three': 'planned' }))(w)));
-test('a planned id on the documented exception list only warns', () => {
-  const r = run((w) => json(`${G}/coverage.json`, (c) => ({ ...c, 'portal.homework': 'planned' }))(w));
-  assert.deepEqual(r.problems, []);
-  assert.equal(r.warnings.length, 1);
-});
 test('deleting a page fails the check (the epic-close experiment)', () => {
   const r = run((w, root) => rmSync(path.join(root, G, 'en/demo/two.md')));
   assert.ok(r.problems.some((p) => p.problem.startsWith('(b)')), JSON.stringify(r.problems));

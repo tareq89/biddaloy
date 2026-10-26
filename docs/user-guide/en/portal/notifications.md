@@ -61,7 +61,7 @@ This page is not in the left menu or the bottom bar.
 
    → A small panel opens: **Needs your attention**, with the first few alerts below.
 
-<!-- image pending: img/portal-notifications-01-bell.png (width 300) — The bell's panel on a phone: 1 the number on the bell, 2 one alert, 3 See all to-do -->
+<img src="img/notifications-01.png" alt="The bell's panel on a phone" width="300">
 
 2. Tap **See all to-do**.
 
@@ -71,7 +71,7 @@ This page is not in the left menu or the bottom bar.
 
    → The page where the work is done opens. When the work is finished, the alert goes away by itself.
 
-<!-- image pending: img/portal-notifications-02-list.png (width 300) — The to-do list on a phone: 1 the To-do and History tabs, 2 the child picker, 3 one alert's card and action button -->
+<img src="img/notifications-02.png" alt="The to-do list on a phone" width="300">
 
 ---
 
@@ -186,6 +186,7 @@ Closing an alert hides it only from your own list. It stays on another parent's 
 - [**Seeing and settling alerts**](../dashboard/alerts.md) — the alerts page for school staff.
 - [**Account (parent and student)**](account.md) — turn alerts on or off for your account.
 - [**Overview**](overview.md) — the first page, with the bell.
+- [**Send an alert**](../communications/send-alert.md) — how the school sends an alert by hand.
 
 ---
 

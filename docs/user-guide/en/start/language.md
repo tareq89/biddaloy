@@ -64,7 +64,7 @@ The app has two languages: **বাংলা** and **English**. When you change 
 
    → A small list opens: **বাংলা** and **English**. The current language has a tick beside it.
 
-<!-- image pending: img/language-01-topbar.png — Top bar: 1 the Change language button, 2 the open list with বাংলা and English -->
+![Top bar: 1 the Change language button, 2 the open list with বাংলা and English](img/language-01-topbar.png)
 
 2. Press the language you want.
 
@@ -102,7 +102,7 @@ The top row on a phone has no separate language button.
 
    → The text changes to that language at once.
 
-<!-- image pending: img/language-phone-01-menu.png (width 300) — Account menu on a phone: 1 Language, 2 বাংলা and English -->
+<img src="img/language-phone-01-menu.png" alt="Account menu on a phone: 1 Language, 2 বাংলা and English" width="300">
 
 ### On the sign-in page <a href="#task-signin" id="task-signin"></a>
 

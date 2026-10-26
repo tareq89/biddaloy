@@ -80,7 +80,7 @@ Sign out from the account menu, sign out a lost phone, manage your password and 
 
    → The menu opens. At the very top is your name, and below it your role and the school's name.
 
-<!-- image pending: img/account-01-menu.png — Account menu open: 1 name and role, 2 language, 3 theme, 4 security, 5 sign out -->
+![Account menu open: 1 name and role, 2 language, 3 theme, 4 security, 5 sign out](img/account-01-menu.png)
 
 2. At the very bottom of the menu, tap **Sign out**.
 
@@ -113,7 +113,7 @@ Signing out reaches the school's system at once; there is no state kept only on 
 
    → The **Security** page opens. At the top is **Active sessions**: the devices you are signed in on, each with its browser and phone or computer type, when you signed in and when it was last used. The one you are on now has **This device** next to it.
 
-<!-- image pending: img/account-02-sessions.png — Security page: 1 Active sessions, 2 This device, 3 sign out one device, 4 sign out everywhere -->
+![Security page: 1 Active sessions, 2 This device, 3 sign out one device, 4 sign out everywhere](img/account-02-sessions.png)
 
 2. On the row of the device you want to close (for example the lost phone's browser), tap **Sign out**.
 

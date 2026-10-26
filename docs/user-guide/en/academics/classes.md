@@ -119,7 +119,7 @@ A class lives inside one academic year, for example **Class 6** in the year **20
 
    → At the top is the title **Classes**. The list has the columns **Class**, **Grade**, **Sections**, **Students**. At first it shows only the classes of the current academic year.
 
-<!-- image pending: the class list, with the Add class button and the academic year filter marked, Admin, desktop -->
+![the class list, with the Add class button and the academic year filter](img/classes-01.png)
 
 2. At the top of the page, press **Add class**.
 
@@ -139,7 +139,7 @@ A class lives inside one academic year, for example **Class 6** in the year **20
 
 6. If your school has more than one shift or version, the **Shift** and **Version** fields also show. Pick them if needed; if not, leave **Not set**. What they are: [What shift, version and group are](#task-labels).
 
-<!-- image pending: the Add class dialog, with the name, grade, academic year, shift and version marked, Admin, desktop -->
+![the Add class dialog, with the name, grade, academic year, shift and version](img/classes-02.png)
 
 7. Press **Save**.
 
@@ -188,7 +188,7 @@ Class details are saved only when you are online; they cannot be kept on the dev
 
    → The section appears in the list: **Section**, (**Group** if there are groups), **Capacity**, **Enrolled**. If you gave no capacity, it shows **—**.
 
-<!-- image pending: the Sections tab, with the Add section button and the Enrolled column marked, Admin, desktop -->
+![the Sections tab, with the Add section button and the Enrolled column](img/classes-03.png)
 
 To change a section, press **Edit** at the end of its row; the dialog's title is **Edit section**.
 
@@ -351,7 +351,7 @@ Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It
 3. **Filter row** — **Academic year**, and if present, **Shift** and **Version**.
 4. **List** — **Class**, **Grade**, **Sections**, **Students**; at the end of each row, **View**, **Edit**, **Delete**.
 
-<!-- image pending: the four parts of the class list, numbered, Admin, desktop -->
+![the four parts of the class list](img/classes-04.png)
 
 </details>
 

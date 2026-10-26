@@ -63,7 +63,7 @@ This page is view only. Nothing can be changed here.
 
    → The exam name, then **From 20 November · how much of the syllabus is taught**. Under each subject is a bar, such as **6/10 lessons**.
 
-<!-- image pending: img/portal-syllabus-01-overview.png (width 300) — The Syllabus page on a phone: 1 the exam card, 2 the subject that is most behind, 3 the list of other subjects -->
+<img src="img/syllabus-01.png" alt="The Syllabus page on a phone" width="300">
 
 3. Look at the open card below.
 
@@ -149,6 +149,7 @@ Teachers and the school add study plans and topics on the [**Syllabus and study 
 - [**Syllabus and study plans**](../academics/syllabus.md) — study plans and topics on the school side.
 - [**Routine**](routine.md) — which subject has class on which day.
 - [**Exam schedule**](exam-schedule.md) — exam dates.
+- [**Homework (parent and student)**](homework.md) — homework due today and later.
 - [**Overview**](overview.md) — the first page.
 
 ---

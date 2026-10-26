@@ -68,7 +68,7 @@ Each row in the list is one student who has at least one bill that is not fully 
 
    → Under the row, each open bill opens: the fee name, the period, the **due date**, the amount still owed, and **Total … · discount … · paid …**. A bill added for lateness is marked **Late fee**.
 
-<!-- image pending: Student dues list with one row open; 1 · Search and filters 2 · Due and status 3 · Bills in the open row 4 · Row actions; accountant, desktop -->
+<img src="img/dues-01.png" alt="Student dues list with one row open; 1 · Search and filters 2 · Due and status 3 · Bills in the open row 4 · Row actions; accountant">
 
 > **Remember:** **Due** means what is still owed, not the total bill. To see the total bill and the amount paid, press **Columns** and turn on the **Total** and **Paid** columns; both are hidden at first.
 
@@ -162,7 +162,7 @@ For other roles, **Student dues** is not in the left menu.
 3. The list: press the arrow to open the bills; the row menu has **View**, **Collect fee**, **Remind**.
 4. When you tick rows, **Send reminder**, **Export CSV** and **Clear selection** appear at the top.
 
-<!-- image pending: Student dues list with the four parts numbered, two rows ticked; accountant, desktop -->
+<img src="img/dues-02.png" alt="Student dues list with the four parts numbered, two rows ticked; accountant">
 
 </details>
 

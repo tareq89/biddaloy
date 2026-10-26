@@ -108,7 +108,7 @@ Do this after you add students, so that guardians can sign in to the app. You se
 
    → The **Guardians** title at the top. Below it is the list of guardians: **Name**, **Relationship**, **Phone**, **Preferred channel**, **Linked students**, **Primary contact**.
 
-<!-- image pending: guardian list, with the Invite guardians button, the filter row and the list columns marked, admin, desktop -->
+![guardian list, with the Invite guardians button, the filter row and the list columns](img/guardians-01.png)
 
 2. Press **Invite guardians** at the top of the page. (Only an Admin sees this button.)
 
@@ -118,7 +118,7 @@ Do this after you add students, so that guardians can sign in to the app. You se
 
    → The dialog moves to the second step, **Preview**. It says "{number} guardian(s) will be invited — {number} skipped." Below that are the names of the guardians who will get an invitation, and next to each name the channel it will go by (email or SMS). To see who was skipped, press the "skipped" text; the list opens with the reason next to each person.
 
-<!-- image pending: the invitation preview step, with the count of guardians to be invited and the list of skipped guardians marked, admin, desktop -->
+![the invitation preview step, with the count of guardians to be invited and the list of skipped guardians](img/guardians-02.png)
 
 4. Check the list. If someone was skipped, see [Why guardians are skipped](#skip-reasons) to understand why.
 
@@ -134,13 +134,13 @@ Do this after you add students, so that guardians can sign in to the app. You se
 
 ### Why guardians are skipped <a href="#skip-reasons" id="skip-reasons"></a>
 
-| What the preview says                                                           | What it means                                              | What to do                                                                                           |
-| ------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **No phone or email on file**                                                   | There is no address to send the invitation to              | Give a phone or email with [Fix a guardian's details](#task-edit)                                    |
-| **Already has an active account**                                               | They can already sign in to the app                        | Nothing to do                                                                                        |
-| **Already has a pending invitation**                                            | The link from the earlier invitation has not expired yet   | Wait for the earlier one                                                                             |
-| **Phone or email belongs to another account that is not verified**              | That address is on someone else's account and not verified | Check the address is right, then use [Fix a guardian's details](#task-edit)                          |
-| **Opted out of notifications**                                                  | The guardian has said they do not want messages            | No invitation goes without their permission                                                          |
+| What the preview says                                              | What it means                                              | What to do                                                                  |
+| ------------------------------------------------------------------ | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **No phone or email on file**                                      | There is no address to send the invitation to              | Give a phone or email with [Fix a guardian's details](#task-edit)           |
+| **Already has an active account**                                  | They can already sign in to the app                        | Nothing to do                                                               |
+| **Already has a pending invitation**                               | The link from the earlier invitation has not expired yet   | Wait for the earlier one                                                    |
+| **Phone or email belongs to another account that is not verified** | That address is on someone else's account and not verified | Check the address is right, then use [Fix a guardian's details](#task-edit) |
+| **Opted out of notifications**                                     | The guardian has said they do not want messages            | No invitation goes without their permission                                 |
 
 ---
 
@@ -148,10 +148,10 @@ Do this after you add students, so that guardians can sign in to the app. You se
 
 Sending invitations needs the internet. You cannot save this work on a phone or computer and send it later. So there is no **Saved on this device** state here.
 
-| State                           | How you can tell                                                  | What next                                                |
-| ------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
-| **Changed on screen only**      | You can see the preview, but you have not pressed **Send invitations** | Press **Send invitations**                          |
-| **Reached the school's system** | You see "Sending…" or "Done — …"                                  | Wait until it says "Done", then press **Close**          |
+| State                           | How you can tell                                                       | What next                                       |
+| ------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
+| **Changed on screen only**      | You can see the preview, but you have not pressed **Send invitations** | Press **Send invitations**                      |
+| **Reached the school's system** | You see "Sending…" or "Done — …"                                       | Wait until it says "Done", then press **Close** |
 
 **To check:** press the guardian's name, then open the **Communication History** tab. The row for the message sent shows there: **Date**, **Medium**, **Recipient**, **Status**. The row can take a little while to appear.
 
@@ -169,12 +169,12 @@ Sending invitations needs the internet. You cannot save this work on a phone or 
 
 2. To narrow the list more, use the boxes:
 
-   | Box                         | What to choose                                                                                                  |
-   | --------------------------- | --------------------------------------------------------------------------------------------------------------- |
-   | **Relationship**            | One relationship, for example **Father**. If you choose none, it says **All relationships**                     |
-   | **Preferred channel**       | **SMS**, **WhatsApp**, **Email**, **Phone call** or **Messenger**. If you choose none, it says **All channels** |
-   | **Primary contacts only**   | Tick it to see only guardians marked **Primary**                                                                |
-   | **Records**                 | Choose **Incomplete records only** to see only guardians with incomplete details. If you choose none, it says **All records** |
+   | Box                       | What to choose                                                                                                                |
+   | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+   | **Relationship**          | One relationship, for example **Father**. If you choose none, it says **All relationships**                                   |
+   | **Preferred channel**     | **SMS**, **WhatsApp**, **Email**, **Phone call** or **Messenger**. If you choose none, it says **All channels**               |
+   | **Primary contacts only** | Tick it to see only guardians marked **Primary**                                                                              |
+   | **Records**               | Choose **Incomplete records only** to see only guardians with incomplete details. If you choose none, it says **All records** |
 
 3. Press a column name (**Name**) to sort by name.
 
@@ -202,7 +202,7 @@ A guardian's details count as incomplete if the name or relationship is empty, o
 
    → The **Edit guardian** page opens, with eight boxes.
 
-<!-- image pending: the Edit guardian page, with the eight boxes and the buttons at the bottom marked, admin, desktop -->
+![the Edit guardian page, with the eight boxes and the buttons at the bottom](img/guardians-03.png)
 
 3. Change the box you want to change: **Full name**, **Relationship**, **Phone**, **Email**, **Alternate phone**, **Occupation**, **Preferred channel**, **Address**. Write the phone number in English digits.
 
@@ -212,11 +212,11 @@ A guardian's details count as incomplete if the name or relationship is empty, o
 
    → The page closes, and the guardian's page shows the new details.
 
-| You pressed                                 | What happens                                                                                                                                                  | Saved? |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| **Save changes**                            | The new details are saved and the page closes                                                                                                                 | Yes    |
-| **Cancel** (when nothing was changed)       | Nothing changes and the page closes                                                                                                                           | No     |
-| **Cancel** (when something was changed)     | **Discard your changes?** opens. Press **Discard changes** and the edits are deleted. Press **Keep editing** and you go back to the page                       | No     |
+| You pressed                             | What happens                                                                                                                             | Saved? |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **Save changes**                        | The new details are saved and the page closes                                                                                            | Yes    |
+| **Cancel** (when nothing was changed)   | Nothing changes and the page closes                                                                                                      | No     |
+| **Cancel** (when something was changed) | **Discard your changes?** opens. Press **Discard changes** and the edits are deleted. Press **Keep editing** and you go back to the page | No     |
 
 **A guardian who signs in on their own:** if they have an account, the **Phone** and **Email** boxes cannot be changed. The boxes only show the details, with the note: "This guardian signs in with this phone and email. The parent changes them from their own account, or an admin edits their user." To change a staff member's phone as an Admin, see [Adding and managing staff](staff.md).
 
@@ -242,10 +242,10 @@ A guardian can have more than one child. Here you decide which student is linked
 
    → The dialog closes, and the list changes to show the new students.
 
-| You pressed   | What happens                                                                              | Saved? |
-| ------------- | ----------------------------------------------------------------------------------------- | ------ |
-| **Save**      | Exactly the students in the list are now linked; anyone you removed is no longer linked   | Yes    |
-| **Cancel**    | Nothing changes                                                                           | No     |
+| You pressed | What happens                                                                            | Saved? |
+| ----------- | --------------------------------------------------------------------------------------- | ------ |
+| **Save**    | Exactly the students in the list are now linked; anyone you removed is no longer linked | Yes    |
+| **Cancel**  | Nothing changes                                                                         | No     |
 
 > **Remember:** **Save** replaces the whole list, not only the changes. So check who you are keeping before you remove anyone. Removing a student does not delete the student or the guardian's details. Only the link goes.
 
@@ -265,12 +265,12 @@ When a guardian pays, you can start recording the payment from the guardian's pa
 
 At the top of the guardian's page are the name, a **Primary** or **Secondary** mark, and four facts. Below are four tabs:
 
-| Tab                       | What is in it                                                                                                                                         |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Information**           | **Contact details**: phone, alternate phone, email, occupation, preferred channel, address. An empty box shows "—"                                    |
-| **Linked Students**       | The list of children. You change it from here: [Change the linked students](#task-students)                                                           |
-| **Communication History** | Messages sent directly to this guardian: **Date**, **Medium**, **Recipient**, **Status**. For viewing only                                            |
-| **Payment History**       | Payments for any of this guardian's children: **Date**, **Student**, **Amount**, **Method**, **Reference**. Each row has **View payment**             |
+| Tab                       | What is in it                                                                                                                             |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Information**           | **Contact details**: phone, alternate phone, email, occupation, preferred channel, address. An empty box shows "—"                        |
+| **Linked Students**       | The list of children. You change it from here: [Change the linked students](#task-students)                                               |
+| **Communication History** | Messages sent directly to this guardian: **Date**, **Medium**, **Recipient**, **Status**. For viewing only                                |
+| **Payment History**       | Payments for any of this guardian's children: **Date**, **Student**, **Amount**, **Method**, **Reference**. Each row has **View payment** |
 
 The tab is part of the page's address, so you can send someone straight to the "Linked Students" tab.
 
@@ -278,30 +278,30 @@ The tab is part of the page's address, so you can send someone straight to the "
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                      | What to do                                                                                                                                                                                         | Who can help                             |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| **Failed to load guardians**                                      | Check your internet and reload the page.                                                                                                                                                           | Admin                                    |
-| **Couldn't load this guardian.** (on the guardian's page)         | Press **Try again**.                                                                                                                                                                               | Admin                                    |
-| **You don't have permission to view this.**                       | Your role is not allowed to see this. For example, office staff cannot see the **Payment History** tab. ([Who can do what](#roles))                                                                | Admin                                    |
-| **We could not find this record**                                 | The guardian may have been deleted, or the link may be wrong. Press **Go back**. If you are a teacher, a guardian with no child in your section also shows this message.                          | Admin                                    |
-| **Full name is required.**                                        | Write the name in the **Full name** box.                                                                                                                                                           | Admin, Accountant, Office staff          |
-| **Couldn't update the guardian. Try again.**                      | Check your internet and press **Save changes** again. What you typed stays in the boxes. This also shows if you try to change a phone or email that the guardian uses to sign in.                 | Admin                                    |
-| **Couldn't update linked students. Try again.**                   | Check your internet and press **Save** again.                                                                                                                                                      | Admin                                    |
-| **Could not preview invitations. Please try again.**              | Check your internet and press **Preview invitations** again. If it keeps coming, see [Known issues](#known-issues).                                                                               | Admin                                    |
-| **Could not send invitations. Please try again.**                 | Check your internet and press **Send invitations** again. Guardians whose invitation already went will not get it twice.                                                                          | Admin                                    |
-| **No guardians found**                                            | Clear the filters. If the list is really empty, first [add students](students.md). If you are a teacher, you see only the guardians of students in your section.                                   | Admin                                    |
+| What you see                                              | What to do                                                                                                                                                                        | Who can help                    |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| **Failed to load guardians**                              | Check your internet and reload the page.                                                                                                                                          | Admin                           |
+| **Couldn't load this guardian.** (on the guardian's page) | Press **Try again**.                                                                                                                                                              | Admin                           |
+| **You don't have permission to view this.**               | Your role is not allowed to see this. For example, office staff cannot see the **Payment History** tab. ([Who can do what](#roles))                                               | Admin                           |
+| **We could not find this record**                         | The guardian may have been deleted, or the link may be wrong. Press **Go back**. If you are a teacher, a guardian with no child in your section also shows this message.          | Admin                           |
+| **Full name is required.**                                | Write the name in the **Full name** box.                                                                                                                                          | Admin, Accountant, Office staff |
+| **Couldn't update the guardian. Try again.**              | Check your internet and press **Save changes** again. What you typed stays in the boxes. This also shows if you try to change a phone or email that the guardian uses to sign in. | Admin                           |
+| **Couldn't update linked students. Try again.**           | Check your internet and press **Save** again.                                                                                                                                     | Admin                           |
+| **Could not preview invitations. Please try again.**      | Check your internet and press **Preview invitations** again. If it keeps coming, see [Known issues](#known-issues).                                                               | Admin                           |
+| **Could not send invitations. Please try again.**         | Check your internet and press **Send invitations** again. Guardians whose invitation already went will not get it twice.                                                          | Admin                           |
+| **No guardians found**                                    | Clear the filters. If the list is really empty, first [add students](students.md). If you are a teacher, you see only the guardians of students in your section.                  | Admin                           |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role           | See the list and a guardian's page                                                                                                                             | Change details and linked students | Send invitations | Record a payment | See the **Payment History** tab                      |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| Admin          | Yes, all guardians                                                                                                                                             | Yes                                | Yes              | Yes              | Yes                                                  |
-| Accountant     | Yes, all guardians                                                                                                                                             | Yes                                | No               | Yes              | Yes                                                  |
-| Office staff   | Yes, all guardians                                                                                                                                             | Yes                                | No               | No               | No ("You don't have permission to view this.")       |
-| Teacher        | Only guardians of students in their own section; opening anyone else's page shows **We could not find this record**. A guardian's page shows only the children in their section | No                                 | No               | No               | Yes, only for children in their own section          |
-| All other roles | **Guardians** is not in their menu                                                                                                                            | No                                 | No               | No               | No                                                   |
+| Role            | See the list and a guardian's page                                                                                                                                              | Change details and linked students | Send invitations | Record a payment | See the **Payment History** tab                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ---------------- | ---------------- | ---------------------------------------------- |
+| Admin           | Yes, all guardians                                                                                                                                                              | Yes                                | Yes              | Yes              | Yes                                            |
+| Accountant      | Yes, all guardians                                                                                                                                                              | Yes                                | No               | Yes              | Yes                                            |
+| Office staff    | Yes, all guardians                                                                                                                                                              | Yes                                | No               | No               | No ("You don't have permission to view this.") |
+| Teacher         | Only guardians of students in their own section; opening anyone else's page shows **We could not find this record**. A guardian's page shows only the children in their section | No                                 | No               | No               | Yes, only for children in their own section    |
+| All other roles | **Guardians** is not in their menu                                                                                                                                              | No                                 | No               | No               | No                                             |
 
 A button that your role is not allowed to use does not show on the page.
 
@@ -311,9 +311,9 @@ A button that your role is not allowed to use does not show on the page.
 
 Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
 
-| Issue                                                                                                                                                                                                  | Who, when                                                    | Data saved?               | What to do for now                                                                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| If the school has more than 1000 guardians in all, pressing **Preview invitations** shows **Could not preview invitations. Please try again.**, and you cannot pick a few guardians in this dialog   | Admin, in a school with more than 1000 guardians             | Yes, nothing was sent     | Tell support. Meanwhile you can ask guardians to start their own account using their address ([Your account](../start/account.md))                            |
+| Issue                                                                                                                                                                                              | Who, when                                        | Data saved?           | What to do for now                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| If the school has more than 1000 guardians in all, pressing **Preview invitations** shows **Could not preview invitations. Please try again.**, and you cannot pick a few guardians in this dialog | Admin, in a school with more than 1000 guardians | Yes, nothing was sent | Tell support. Meanwhile you can ask guardians to start their own account using their address ([Your account](../start/account.md)) |
 
 ---
 
@@ -327,7 +327,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 3. **The filter row** — **Search**, **Relationship**, **Preferred channel**, **Primary contacts only**, **Records**.
 4. **The list** — **Name**, **Relationship**, **Phone**, **Preferred channel**, **Linked students**, **Primary contact**; **View** at the end of each row. The **Linked students** box shows the first two names, and a count for the rest ("+2 more").
 
-<!-- image pending: the four parts of the guardian list marked with numbers, admin, desktop -->
+![the four parts of the guardian list](img/guardians-04.png)
 
 </details>
 
@@ -368,7 +368,10 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 <details>
 <summary><strong>The whole task together</strong></summary>
 
-<!-- image pending: GIF from the invitation preview to sending, admin, desktop -->
+<figure>
+  <img src="img/guardians-invite.gif" alt="The whole job on a computer: Invite guardians, Preview invitations, the preview lists who will be invited by SMS or email and who is skipped, then Send invitations and the progress count">
+  <figcaption><em>From the preview to sending</em></figcaption>
+</figure>
 
 </details>
 

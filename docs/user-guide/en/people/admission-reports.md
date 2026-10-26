@@ -66,7 +66,7 @@ The report combines two sources: students who are **Admitted** on the [Admission
 
    → The heading **Admission reports** appears, and under it, for example, "Academic year 2026 · All classes — who joined, who left". The current academic year and all classes are already chosen.
 
-<!-- image pending: img/people-admission-reports-01.png — the admission report, the two filters, the four number cards and the events list marked, admin, desktop -->
+![the admission report, the two filters, the four number cards and the events list](img/admission-reports-01.png)
 
 2. Read the four number cards:
 
@@ -165,7 +165,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 3. **Totals** — four cards: **Admitted**, **Left**, **Graduated**, **Readmitted**.
 4. **The list** — one row per event; **View student** at the end.
 
-<!-- image pending: img/people-admission-reports-02.png — the four parts of the admission report marked with numbers, academic coordinator, desktop -->
+![the four parts of the admission report](img/admission-reports-02.png)
 
 </details>
 
