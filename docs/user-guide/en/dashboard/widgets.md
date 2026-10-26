@@ -58,10 +58,10 @@ appVersion: 0.1.0 (6b36c2549)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: collection-by-month-calendar-year, checked: 2026-10-24, issue: null }
-  - { id: sms-links-open-reminder-history, checked: 2026-10-24, issue: null }
-  - { id: homework-rate-last-7-days, checked: 2026-10-24, issue: null }
-  - { id: streaks-fixed-3-days, checked: 2026-10-24, issue: null }
+  - { id: collection-by-month-calendar-year, checked: 2026-10-24, issue: 2941 }
+  - { id: sms-links-open-reminder-history, checked: 2026-10-24, issue: 2942 }
+  - { id: homework-rate-last-7-days, checked: 2026-10-24, issue: 2943 }
+  - { id: streaks-fixed-3-days, checked: 2026-10-24, issue: 2944 }
 -->
 
 # What the widgets mean
@@ -106,7 +106,7 @@ A **widget** is one card on the dashboard. Each card has a name at the top, a bi
 
    → The page where that work is done opens.
 
-<!-- image pending: one widget card, 1 name 2 number 3 sentence 4 link marked, admin, desktop -->
+![one widget card, 1 name 2 number 3 sentence 4 link](img/widgets-01.png)
 
 In the list below, each widget has three lines:
 

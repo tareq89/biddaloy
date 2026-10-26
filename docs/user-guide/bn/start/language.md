@@ -64,7 +64,7 @@ knownIssues: []
 
    → ছোট তালিকা খোলে: **বাংলা** আর **English**। এখনকার ভাষার পাশে টিক থাকে।
 
-<!-- image pending: img/language-01-topbar.png — উপরের বার: ১ ভাষা পরিবর্তন করুন বোতাম, ২ খোলা তালিকায় বাংলা ও English -->
+![উপরের বার: ১ ভাষা পরিবর্তন করুন বোতাম, ২ খোলা তালিকায় বাংলা ও English](img/language-01-topbar.png)
 
 2. যে ভাষা চান, সেটি চাপুন।
 
@@ -102,7 +102,7 @@ knownIssues: []
 
    → সঙ্গে সঙ্গে লেখা সেই ভাষায় বদলে যায়।
 
-<!-- image pending: img/language-phone-01-menu.png (width 300) — ফোনে অ্যাকাউন্ট মেনু: ১ ভাষা, ২ বাংলা ও English -->
+<img src="img/language-phone-01-menu.png" alt="ফোনে অ্যাকাউন্ট মেনু: ১ ভাষা, ২ বাংলা ও English" width="300">
 
 ### সাইন ইন পাতায় <a href="#task-signin" id="task-signin"></a>
 

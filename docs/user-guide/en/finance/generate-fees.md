@@ -110,7 +110,7 @@ Each time you create bills you get one **billing round**. A round records the pe
 
    → The **Check this before generating** part shows **… bills will be created** and **… students × … fees**.
 
-<!-- image pending: Create fee bills page with everything filled; 1 · Period 2 · Students 3 · Fees 4 · Check this before generating and the bill count 5 · Notify families when bills are created 6 · Create bills; accountant, desktop -->
+<img src="img/generate-fees-01.png" alt="Create fee bills page, top part; 1 · Period 2 · Students; accountant">
 
 8. If you do not want to tell families, untick **Notify families when bills are created**. It is ticked at the start.
 9. Press **Create bills**.
@@ -219,7 +219,7 @@ More help with this: [What to do when something goes wrong](../help/troubleshoot
 2. The filters — **Period** (**From**, **To**), **Fee type**, **How created** (**Manual**, **Automatic billing**, **Fine rule**), **Created by**, **Collection status**.
 3. The list of rounds — press a row to open its bills; the **Billing round actions** menu is at the end.
 
-<!-- image pending: Fee bills created list, the three parts marked with numbers, one round showing "Partly collected"; accountant, desktop -->
+<img src="img/generate-fees-02-list.png" alt="Fee bills created list, the three parts marked with numbers, one round showing &quot;Partly collected&quot;; accountant">
 
 </details>
 

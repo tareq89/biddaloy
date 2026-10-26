@@ -86,7 +86,7 @@ The work on this page centres on a **sample file**. You download the sample file
 
    → A file named `staff-import-template.csv` downloads. It has five columns: **Name**, **Mobile**, **Email**, **Role**, **Designation**, and two example rows. (If you open the page in Bangla, the column names come in Bangla; the app understands both Bangla and English names.)
 
-<!-- image pending: top of the import page, with the Download sample file button and the column guide marked, admin, desktop -->
+![top of the import page, with the Download sample file button and the column guide](img/staff-import-01.png)
 
 3. Press **What goes in each column** to open the rules for each column; at the end it lists which roles you can give. Read them.
 
@@ -110,7 +110,7 @@ The work on this page centres on a **sample file**. You download the sample file
 
    → At the top are three numbers: **5 will be added**, **0 will be brought back**, **0 will be skipped** (the numbers follow your file). Below that is the **Send invitations now** tick box (already ticked), and the **People in this file** list: **Name**, **Mobile / email**, **Role**, **What happens** (**Added**, **Brought back**, **Skipped**). It shows the first 20 people; if there are more, it says "Showing 20 of {total}". At the bottom is the time count: **Save within {time} or upload again**.
 
-<!-- image pending: the import preview, four parts marked, admin, desktop -->
+<img src="img/staff-import-02.png" alt="the check before saving: 1 the three counts, 2 the Send invitations now tick box, 3 the People in this file list, 4 the Save within time count, admin">
 
 7. If everything is right, press **Confirm** at the bottom.
 
@@ -226,7 +226,7 @@ Someone without permission who opens the page sees **You don't have access to th
 2. **Sample file** — the **Download sample file** button and the **What goes in each column** list.
 3. **Upload your file** — choose the file, then the preview, the list of problems and **Confirm**.
 
-<!-- image pending: the three parts of the import page marked with numbers, admin, desktop -->
+![the three parts of the import page](img/staff-import-03.png)
 
 </details>
 
@@ -265,7 +265,10 @@ Someone without permission who opens the page sees **You don't have access to th
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: GIF from uploading the file to Import finished, admin, desktop -->
+<figure>
+  <img src="img/staff-import-run.gif" alt="The whole job on a computer: the uploaded file is checked and shows 3 will be added, Send invitations now is left unticked, Confirm is pressed, and Import finished shows 3 added">
+  <figcaption><em>From the uploaded file to Import finished</em></figcaption>
+</figure>
 
 </details>
 

@@ -97,8 +97,6 @@ Every page is laid out the same way, so once you have read one, the rest feel ea
 
 If you can't find a page, see [Finding any page](start/find-anything.md).
 
-<!-- image pending: img/welcome-01-dashboard-admin.png, img/welcome-02-dashboard-teacher.png, img/welcome-phone-01-teacher.png (screenshot capture currently crashes; shot by e2e/docs/tours/welcome.tour.ts) -->
-
 <details>
 <summary><strong>SchoolManager at a glance</strong></summary>
 

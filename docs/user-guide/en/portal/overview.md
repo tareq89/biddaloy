@@ -87,7 +87,7 @@ With one child (or if you are the student), the page shows their name and class 
 
    → The [**Fees and invoices**](fees.md) page opens with that child already chosen.
 
-<!-- image pending: Overview, parent of two children; 1 · Total outstanding 2 · Today at school 3 · Your children cards 4 · This month's attendance; parent, phone -->
+<img src="img/overview-01.png" alt="Overview for a guardian" width="300">
 
 > **Remember:** with more than one child, **Total outstanding** adds up only the children who owe something. A line under it says so, for example **Across 2 of 3 children**. A child who owes nothing still has a card that says **Nothing due**.
 
@@ -189,7 +189,7 @@ Staff do not see this page; they have a separate [**Seeing today's work on the d
 4. **This month's attendance**.
 5. **Today's homework**, **Latest result**, **Next holiday**.
 
-<!-- image pending: Overview, one child, five parts numbered; student, phone -->
+<img src="img/overview-02.png" alt="Overview for one child" width="300">
 
 </details>
 
@@ -215,6 +215,7 @@ Staff do not see this page; they have a separate [**Seeing today's work on the d
 
 
 - [**Syllabus (parent and student)**](syllabus.md) — what is being taught, subject by subject.
+- [**Homework (parent and student)**](homework.md) — all homework due, from the **Today's homework** card.
 
 
 
