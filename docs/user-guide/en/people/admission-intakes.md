@@ -173,7 +173,7 @@ This part is written from the guardian's side, so the office can talk them throu
    - If no round is open, or every seat is taken: **This school isn't accepting new applications right now.** and "Please check back later or contact the school."
    - If the link is wrong: **We couldn't find this school. Please check the link and try again.**
 
-<!-- image pending: img/people-admission-intakes-03.png — the top of the admission form on a guardian's phone, the round details box marked, guest, phone -->
+<img src="img/admission-intakes-03.png" alt="the top of the admission form on a guardian's phone, with the round details box marked, guest" width="300">
 
 2. If more than one round is open, they choose one under **Which admission are you applying for?**. If only one is open, it is already chosen.
 
@@ -197,7 +197,7 @@ This part is written from the guardian's side, so the office can talk them throu
 
    → "Please save this reference number." **Copy number** shows **Copied!** when pressed. Below is the **Check application status** link.
 
-<!-- image pending: img/people-admission-intakes-04.png — the submitted page on a guardian's phone, the reference number and the copy button marked, guest, phone -->
+<img src="img/admission-intakes-04.png" alt="the submitted page on a guardian's phone: 1 the reference number, 2 the Copy number button, guest" width="300">
 
 > **Remember:** if the same child (same round, same mobile number, same name and date of birth) is submitted a second time, no new application is created; the form shows only **We couldn't submit your form. Please check your answers and try again.** ([Known issues](#known-issues)). Ask the guardian to contact the school with their earlier reference number.
 
@@ -220,7 +220,7 @@ This part is written from the guardian's side, so the office can talk them throu
 
    If the number or phone does not match: **We couldn't find an application with this reference number and phone number. Please check both and try again.** It does not say which one is wrong; this is on purpose, so nobody can guess numbers and search.
 
-<!-- image pending: img/people-admission-intakes-05.png — the status card on a guardian's phone, the badge and the what-next text marked, guest, phone -->
+<img src="img/admission-intakes-05.png" alt="the status card on a guardian's phone: 1 the Being reviewed badge, 2 the what-to-do-next text, guest" width="300">
 
 Guardians do not see staff notes or the reason for a rejection on this page.
 
