@@ -45,7 +45,7 @@ appVersion: 0.1.0 (3f7e424fc)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: no-credit-error-is-generic, checked: 2026-10-25, issue: null }
+  - { id: no-credit-error-is-generic, checked: 2026-10-25, issue: 2939 }
 -->
 
 # Send a message
@@ -53,8 +53,7 @@ knownIssues:
 Send one message that you write to one guardian: by SMS, WhatsApp or email.
 
 **Where to go:** in the left menu, **Communications → Send Message**. Do the work on this page on a computer.
-**Before you start:** be an Admin, Accountant or Office staff ([who can do what](#roles)). The guardian's phone number or email must be in their details ([Guardians](../people/guardians.md)). The school must have SMS sending turned on.
-<!-- link pending: administration/settings.md — Settings › Communication (other lane) -->
+**Before you start:** be an Admin, Accountant or Office staff ([who can do what](#roles)). The guardian's phone number or email must be in their details ([Guardians](../people/guardians.md)). The school must have [SMS sending](../administration/settings.md) turned on.
 
 You can send to only one person at a time. To remind many guardians about dues together, use [**Fee reminders**](fee-reminders.md).
 
@@ -102,7 +101,7 @@ You can send to only one person at a time. To remind many guardians about dues t
 
    → **Message on its way** appears, with the **Delivery status**. If you keep the page open, the status updates by itself.
 
-<!-- image pending: Send Message page, all fields filled; 1 · Student 2 · Which guardian to send to 3 · Mobile number 4 · Send by 5 · Message and the character-SMS count 6 · Review and send; office staff, desktop -->
+![Send Message page, all fields filled](img/send-message-01.png)
 
 > **Remember:** even if a guardian turned notifications off, a message from this page still reaches them. This is the way for urgent things; dues reminders do not reach them.
 
@@ -110,18 +109,17 @@ You can send to only one person at a time. To remind many guardians about dues t
 
 ## How to know the message arrived <a href="#confirm" id="confirm"></a>
 
-| State                         | How you know                                                                   | What next                                  |
-| ----------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------ |
-| **Only written on screen**    | The form is open; if you try to leave, a warning appears                       | Press **Review and send**                  |
-| **Queued**                    | **Message on its way**, status **Queued**                                      | Wait; the school's system is sending it    |
-| **Sent**                      | Status **Sent**: the SMS or email service has taken the message                | Nothing more to do                         |
-| **Delivered** or **Read**     | Not reported yet: the app does not record delivery reports, so **Sent** is the last status you see | Nothing more to do                         |
-| **Failed**                    | The heading **Message not sent**, with the reason below                        | See [Problems and fixes](#trouble)         |
-
+| State                      | How you know                                                                                       | What next                               |
+| -------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **Only written on screen** | The form is open; if you try to leave, a warning appears                                           | Press **Review and send**               |
+| **Queued**                 | **Message on its way**, status **Queued**                                                          | Wait; the school's system is sending it |
+| **Sent**                   | Status **Sent**: the SMS or email service has taken the message                                    | Nothing more to do                      |
+| **Delivered** or **Read**  | Not reported yet: the app does not record delivery reports, so **Sent** is the last status you see | Nothing more to do                      |
+| **Failed**                 | The heading **Message not sent**, with the reason below                                            | See [Problems and fixes](#trouble)      |
 
 This page does not keep anything on your phone or computer, so there is no "saved on this device" state.
 
-**If you are not sure, pressing again is safe:** you cannot close the window while sending. If no answer comes and you press **Send message** again with the same message, the school's system returns the earlier result within 24 hours; the message does not go twice. If even one letter is changed, it is a new message.
+**If you are not sure, pressing again is safe:** you cannot close the window while sending. If no answer comes and you press **Send message** again with the same message, without leaving or reloading the page, the school's system returns the earlier result (it remembers it for 24 hours); the message does not go twice. If even one letter is changed, or the first send already showed as done, it is a new message.
 
 ---
 
@@ -131,10 +129,10 @@ This page does not keep anything on your phone or computer, so there is no "save
 
 One long message becomes several SMS, and each one is charged separately. The line under the **Message** box, for example **95 characters · 2 SMS**, tells you how many. It is counted like this:
 
-| What the message has                                              | Characters in one SMS | Characters in each, if more than one |
-| ----------------------------------------------------------------- | --------------------- | ------------------------------------ |
-| Only English letters, numbers and signs                           | 160                   | 153                                  |
-| Even one Bangla letter, emoji or sign outside the English set     | 70                    | 67                                   |
+| What the message has                                          | Characters in one SMS | Characters in each, if more than one |
+| ------------------------------------------------------------- | --------------------- | ------------------------------------ |
+| Only English letters, numbers and signs                       | 160                   | 153                                  |
+| Even one Bangla letter, emoji or sign outside the English set | 70                    | 67                                   |
 
 **Examples:**
 
@@ -162,29 +160,31 @@ If the guardian has not replied to the school on WhatsApp in the last 24 hours, 
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                | What to do                                                                                                            | Who can help |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------ |
-| You cannot press **Review and send**                                        | Pick one guardian who has a number or email for this channel.                                                         | —            |
-| **no address for this channel**                                             | Pick another channel or guardian, or add a number on the [Guardians](../people/guardians.md) page.                    | Office staff |
-| **This guardian has no number or email for this channel. …**                | Same as above.                                                                                                        | Office staff |
-| **This guardian is not linked to the chosen student.**                      | Pick the student again, then the guardian.                                                                            | —            |
-| **Something in the number, email or message isn't right. …**                | Check that the message is not empty and the WhatsApp template details are right.                                      | —            |
-| **SMS is not set up for this school, …**                                    | An Admin turns it on in **Settings › Communication**; for now pick another channel.                                   | Admin        |
-| **This school has no SMS credit left, …**                                   | Ask the Admin to add credit; for now pick another channel.                                                            | Admin        |
-| **The message could not be sent.** in the window                            | The credit may be low ([Known issues](#known-issues)). Shorten the message or tell the Admin.                         | Admin        |
-| **Message not sent** — **Sending by … is not set up for this school. …**    | Press **Open Settings › Communication** (Admin).                                                                      | Admin        |
-| **Message not sent** — **Could not be sent.**                               | Press **Send another message** and try again.                                                                         | Admin        |
+| What you see                                                             | What to do                                                                                         | Who can help |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ------------ |
+| You cannot press **Review and send**                                     | Pick one guardian who has a number or email for this channel.                                      | —            |
+| **no address for this channel**                                          | Pick another channel or guardian, or add a number on the [Guardians](../people/guardians.md) page. | Office staff |
+| **This guardian has no number or email for this channel. …**             | Same as above.                                                                                     | Office staff |
+| **This guardian is not linked to the chosen student.**                   | Pick the student again, then the guardian.                                                         | —            |
+| **Something in the number, email or message isn't right. …**             | Check that the message is not empty and the WhatsApp template details are right.                   | —            |
+| **SMS is not set up for this school, …**                                 | An Admin turns it on in **Settings › Communication**; for now pick another channel.                | Admin        |
+| **This school has no SMS credit left, …**                                | Ask the Admin to add credit; for now pick another channel.                                         | Admin        |
+| **The message could not be sent.** in the window                         | The credit may be low ([Known issues](#known-issues)). Shorten the message or tell the Admin.      | Admin        |
+| **Message not sent** — **Sending by … is not set up for this school. …** | Press **Open Settings › Communication** (Admin).                                                   | Admin        |
+| **Message not sent** — **Could not be sent.**                            | Press **Send another message** and try again.                                                      | Admin        |
+
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                    | Send a message |
-| ----------------------------------------------------------------------- | -------------- |
-| Admin                                                                   | Yes            |
-| Accountant                                                              | Yes            |
-| Office staff                                                            | Yes            |
-| Academic coordinator, Teacher, Exam controller, Committee member        | No             |
+| Role                                                             | Send a message |
+| ---------------------------------------------------------------- | -------------- |
+| Admin                                                            | Yes            |
+| Accountant                                                       | Yes            |
+| Office staff                                                     | Yes            |
+| Academic coordinator, Teacher, Exam controller, Committee member | No             |
 
 **Admin, Accountant and Office staff:** all three get the same page; there is no difference in the code. You can send only to a guardian of a student of this school. Turning SMS on and seeing the credit is the Admin's job.
 
@@ -196,9 +196,9 @@ For the other roles, **Send Message** is not in the left menu.
 
 Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app. When it is fixed, this part will be removed.
 
-| Issue                                                                                                                                   | Who, when                                    | Is data saved? | What to do for now                                           |
-| --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------- | ------------------------------------------------------------ |
-| If SMS credit is low, the window only says **The message could not be sent.**; it does not say how much credit is needed or left      | Schools that count credit, when sending SMS  | —              | Shorten the message, or ask the Admin to add credit          |
+| Issue                                                                                                                            | Who, when                                   | Is data saved? | What to do for now                                  |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | -------------- | --------------------------------------------------- |
+| If SMS credit is low, the window only says **The message could not be sent.**; it does not say how much credit is needed or left | Schools that count credit, when sending SMS | —              | Shorten the message, or ask the Admin to add credit |
 
 ---
 
@@ -212,7 +212,7 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 3. **Message**: **Send by**, **Subject** (for email), **Message**, the character-SMS line, the WhatsApp template boxes.
 4. **Review and send**.
 
-<!-- image pending: Send this message? window showing the recipient, channel and message; accountant, desktop -->
+![Send this message? window showing the recipient, channel and message](img/send-message-02.png)
 
 </details>
 
@@ -220,6 +220,18 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 <summary><strong>What each field means</strong></summary>
 
 <!-- guide:generated:fields:communications -->
+
+| Field                      | What to enter                                                                                                 | Required?         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Which guardian to send to  | One guardian of the chosen student. Their phone or email shows below; without one you cannot send.            | Yes               |
+| How to send (Send message) | SMS, WhatsApp or Email. SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. | No                |
+| Message (Send message)     | What to send. For SMS, the characters and the number of SMS it uses show below.                               | Yes               |
+| Who to remind              | Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.      | Yes, at least one |
+| Message (Fee reminder)     | Use the buttons below to put in the name, due amount or month; each guardian gets their real details.         | Yes               |
+| How to send (Fee reminder) | Starts on each guardian’s preferred channel. Pick one to send everyone on that channel this time.             | No                |
+| Batch name                 | A name for this batch; you find it by this name in Reminder history later.                                    | Yes               |
+| Channels (bulk reminder)   | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                     | Yes, at least one |
+
 <!-- /guide:generated -->
 
 </details>
@@ -235,7 +247,7 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 - **Where the number comes from:** the guardian's details. For SMS and WhatsApp, the phone number, or the alternate number if there is none; for email, the email.
 - **The queue:** when you press **Send message**, the message goes into a queue; the school's system sends it in the background. So the status is **Queued** at first.
 - **Credit:** only at a school that counts SMS credit. One SMS = one credit. Held before sending, deducted when sent, returned if not. If the result is unclear, the credit stays held and is matched by hand later.
-- **Never twice:** if you press the same message again within 24 hours, the earlier result is returned.
+- **Never twice:** if a send got no answer and you press again with the same message on the same open page, the earlier result is returned (kept for 24 hours). After a send that showed as done, pressing again sends a new message.
 
 </details>
 
@@ -245,8 +257,8 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 - [**Reminder history**](reminder-history.md) — the rounds of reminders sent together.
 - [**Viewing, fixing and inviting guardians**](../people/guardians.md) — numbers and emails are fixed here.
 
-<!-- link pending: communications/send-alert.md — urgent alerts (other lane) -->
-<!-- link pending: administration/settings.md — Settings › Communication, SMS and credit (other lane) -->
+- [**Send an alert**](send-alert.md) — a short notice to many people at once, in their app.
+- [**Changing the school's settings**](../administration/settings.md) — the school settings
 
 ---
 

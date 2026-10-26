@@ -1,0 +1,17 @@
+%% title: The categories and parts of Settings
+%% desc: The Settings page has nine categories. Pressing one opens its parts, and every part saves on its own. Printing and Backup need a separate permission, which the Admin has. Seats & billing is not shown to the platform's super admin.
+flowchart TD
+  P["Settings<br/>Admin only"]:::admin --> C["Nine categories<br/>press one to open its parts"]:::note
+  C --> A1["School"]
+  C --> A2["Academics"]
+  C --> A3["Finance"]
+  C --> A4["Communication"]
+  C --> A5["Alerts & reminders"]
+  C --> A6["Sign-in & security"]
+  C --> B["Seats & billing<br/>not shown to the platform's super admin"]:::gate
+  C --> PR["Printing<br/>needs the permission to manage print templates"]:::gate
+  C --> BK["Backup<br/>needs the permission to manage backups"]:::gate
+  A1 --> S["Every part has its own Save<br/>one part never changes another"]:::note
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef gate fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d6b
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

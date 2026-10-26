@@ -1,0 +1,12 @@
+%% title: The path of attendance
+%% desc: The teacher takes attendance each day. When a parent opens the page, the server first checks that they are linked to this child. Then it sends each day's status for the month and the rate worked out by the school's rules.
+flowchart TD
+  T["Teacher takes attendance<br/>each day"]:::admin --> R["Day's status is saved"]
+  R --> O["Parent opens Attendance"]
+  O --> L{"Linked to this child?"}:::note
+  L -->|"No"| X["Nothing is sent"]
+  L -->|"Yes"| S["Server sends each day's status<br/>for the month"]:::admin
+  S --> Q["Rate worked out by<br/>the school's rules"]
+  Q --> V["Rate, four boxes and<br/>month calendar"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

@@ -49,7 +49,7 @@ helpIds:
 devices: [desktop]
 entry: [sidebar, palette]
 keywords:
-  [আবেদন, আবেদনপত্র, ছুটির আবেদন, ফি মওকুফ, ছাড়পত্র, টিসি, প্রশংসাপত্র, অনুমোদন, নামঞ্জুর, application, leave, approve, reject, waiver]
+  [আবেদন, আবেদনপত্র, ছুটির আবেদন, ফি মওকুফ, ছাড়পত্র, টিসি, প্রশংসাপত্র, অনুমোদন, নামঞ্জুর, application, leave, approve, reject, waiver, testimonial, ছুটি, মওকুফ]
 appVersion: 0.1.0 (63bfc7884)
 owner: tareq89
 lastVerified: 2026-10-25
@@ -112,7 +112,7 @@ Example: a teacher wants two days of casual leave.
 
    → A green message appears, **Application submitted · …**, with the application number. Press **View the application** to open the application's page.
 
-<!-- image pending: New application, staff leave details step; 1 · the row of steps 2 · leave type and days left 3 · From and To dates 4 · Reason 5 · Next; teacher, desktop -->
+![New application, staff leave details step; 1 · the row of steps 2 · leave type and days left 3 · From and To dates 4 · Reason 5 · Next](img/applications-leave-step.png)
 
 > **Remember:** you can never decide on your own application, not even if you are the Admin. Your application does not come to your **Awaiting decision** tab.
 
@@ -283,9 +283,9 @@ Everyone sees the applications they submitted, the ones they are tagged on, and 
 3. The filters — **Search** (name or application number), **Type**, **Status**, **Class**, **Submitted on**.
 4. The list — **Number**, **Applicant**, **Type**, **For**, **Step**, **Status**; on the **Awaiting decision** tab the tick boxes and **Approve selected**.
 
-<!-- image pending: Applications list, Awaiting decision tab, four parts marked with numbers, two rows ticked; admin, desktop -->
+![Applications list, Awaiting decision tab, four parts, two rows ticked](img/applications-inbox.png)
 
-<!-- image pending: one application's page — letter, application details, activity, Approve / Reject / Keep under consideration; teacher (class teacher), desktop -->
+![one application's page — letter, application details, activity, Approve / Reject / Keep under consideration](img/applications-detail.png)
 
 </details>
 
@@ -293,6 +293,17 @@ Everyone sees the applications they submitted, the ones they are tagged on, and 
 <summary><strong>What the fields mean</strong> — New application</summary>
 
 <!-- guide:generated:fields:applicationsNew -->
+
+| Field                   | What to enter                                                                                                                                                                    | Required?                                     |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Type of application     | What the application is for. A type that is not open to you is greyed out, with the reason beside it.                                                                            | Yes                                           |
+| Applicant               | For a student paper application, the person applying: the student or a guardian. Shown only when you write an application for someone else.                                      | Yes when writing for someone else (or a name) |
+| Applicant's name        | If the applicant has no login, type their name, up to 150 characters. Pick from the list or type a name, not both.                                                               | Yes if no applicant is picked                 |
+| Addressed to            | Chosen only for a general application: class teacher, headmaster, office or a specific staff member. For every other type the app decides who it goes to and only shows it here. | Yes for a general application                 |
+| A specific staff member | When you choose a specific staff member, pick the person the letter goes to.                                                                                                     | Yes when a specific staff member is chosen    |
+| Tags (optional)         | Staff or roles you want to keep informed. Tagged people can view and comment, but cannot decide.                                                                                 | No                                            |
+| Attachments (optional)  | Up to 3 files, 5 MB each; PDF, JPG or PNG only.                                                                                                                                  | No                                            |
+
 <!-- /guide:generated -->
 
 **The details step of each type**
@@ -336,6 +347,7 @@ A writing field needs at least 3 characters; **Reason** and **Details** are with
 - [**Teacher assignments**](../people/teaching-assignments.md) — who is the class teacher of which section.
 - [**Students**](../people/students.md) — the student an application is for.
 - [**Roles and permissions**](../administration/roles.md) — what each role can do.
+- [**Applications (parent and student)**](../portal/applications.md) — where a guardian or student sends an application.
 
 ---
 

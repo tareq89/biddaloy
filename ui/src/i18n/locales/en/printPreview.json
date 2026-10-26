@@ -93,5 +93,19 @@
     "step": "Round {{n}} · {{count}}",
     "listLabel": "Rounds"
   },
-  "previewLabel": "Card preview"
+  "previewLabel": "Card preview",
+  "fields": {
+    "template": "Design",
+    "printer": "Printer",
+    "batchSize": "Cards per round"
+  },
+  "help": {
+    "template": "Which published design the cards use. The default design is chosen at first. It cannot change once printing starts.",
+    "printer": "The printer these cards go to. Its saved settings (card or office printer, position fix) decide the page size and where things land on the paper. Choose the same printer in the browser print window.",
+    "batchSize": "How many cards print in one round. Print and confirm a round to unlock the next."
+  },
+  "helpRequired": {
+    "template": "Yes",
+    "printer": "Yes"
+  }
 }
