@@ -82,7 +82,7 @@ Daily attendance is taken on the [Taking attendance](attendance.md) page, one re
 
    → The whole month's grid appears. Each cell holds one letter: **P** = present, **A** = absent, **L** = late, **V** = leave. **—** means school closed, and **·** means not marked. On the right are each student's totals: **Present**, **Absent**, **Late**, **Leave** and **Attendance %**.
 
-<!-- image pending: মাসের খাতা, শ্রেণি-শাখা-মাস ঘর, অক্ষরের ব্যাখ্যা আর মোট কলাম চিহ্নিত, শিক্ষক, desktop -->
+![Monthly register, the class, section and month boxes, the letter key and the totals columns](img/attendance-register-01.png)
 
 > **Keep in mind:** **—** where the percentage should be means not one day was marked for that student this month. It is not 0%.
 
@@ -131,7 +131,7 @@ Only admins and teachers can do this, and only on a computer.
 
    → The message "Saved 2 days." appears and the register returns to its normal view.
 
-<!-- image pending: সম্পাদনা চলছে, বদলানো ঘর, সংশোধনের কারণ ঘর আর সংরক্ষণ করুন বোতাম চিহ্নিত, অ্যাডমিন, desktop -->
+![Editing mode: the Editing line, three changed cells, the Reason for correction box and the Save button](img/attendance-register-02.png)
 
 **Which days can be changed:**
 
@@ -206,7 +206,7 @@ Checked in the code for version 0.1.0 on 2026-10-25. There are no known issues o
 3. **Register title and letter key** — for example "Class 6 – A · October 2026".
 4. **The grid** — **Roll**, **Student**, every day of the month, then the totals.
 
-<!-- image pending: খাতা পাতার চারটি অংশ নম্বর দিয়ে চিহ্নিত, অ্যাডমিন, desktop -->
+![The four parts of the register page](img/attendance-register-03.png)
 
 </details>
 
@@ -232,11 +232,11 @@ Checked in the code for version 0.1.0 on 2026-10-25. There are no known issues o
 
 <!-- guide:generated:fields:attendanceRegister -->
 
-| Field                 | What to enter                                                                                  | Required?                               |
-| --------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Class                 | Which class. Changing it empties the section.                                                  | Yes                                     |
-| Section               | Which section.                                                                                 | Yes                                     |
-| Month                 | Which month's register. The current month is filled in.                                        | Yes                                     |
+| Field                 | What to enter                                                                                   | Required?                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Class                 | Which class. Changing it empties the section.                                                   | Yes                                         |
+| Section               | Which section.                                                                                  | Yes                                         |
+| Month                 | Which month's register. The current month is filled in.                                         | Yes                                         |
 | Reason for correction | Why you are changing it. At least 3 letters. The same reason is kept in every change's history. | Only when changing a day outside the window |
 
 <!-- /guide:generated -->

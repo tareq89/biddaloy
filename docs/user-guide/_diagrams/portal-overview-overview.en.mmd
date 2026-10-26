@@ -1,0 +1,13 @@
+%% title: The path of the overview
+%% desc: A parent opens the portal. The server finds only their linked children. Each child's unpaid bills give the total outstanding and the amount due this month. Today's attendance, homework, result and holiday show alongside. A card leads to the Fees and invoices page.
+flowchart TD
+  O["Parent opens the portal"] --> S["Server finds only<br/>their linked children"]:::admin
+  S --> B["Each child's unpaid bills"]
+  B --> T["Total outstanding<br/>and Due this month"]
+  S --> E["Today's attendance, homework,<br/>latest result, next holiday"]
+  T --> V["Overview page"]
+  E --> V
+  V --> A{"View fee breakdown"}:::note
+  A --> F["Fees and invoices page"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

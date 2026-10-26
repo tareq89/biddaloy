@@ -1,0 +1,15 @@
+%% title: ID cards: print, reprint, revoke
+%% desc: Pick one person, several people or a whole section, open the preview and choose a printer. Cards are split into batches of at most 200. Print a batch and confirm it: if all are fine you are done, otherwise reprint only the ones that failed. Every copy has its own QR. Printing again makes the next copy with a new QR. Revoking copy N makes only its QR show revoked; the other copies stay valid.
+flowchart TD
+  A["One · several · whole section<br/>preview and printer"]:::admin --> B["Batches<br/>at most 200"]
+  B --> C["Print a batch"]:::admin
+  C --> Q{"All OK?"}:::note
+  Q -->|"No"| F["Reprint only<br/>the failed ones"]:::admin
+  F --> C
+  Q -->|"Yes"| N["Copy N<br/>its own QR"]
+  N -.-> R["Reprint"]:::admin
+  R --> N2["Copy N+1<br/>new QR"]
+  N -.-> V["Revoke copy N"]:::admin
+  V --> X["Copy N shows revoked<br/>other copies stay valid"]:::note
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

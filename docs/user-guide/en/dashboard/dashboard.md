@@ -89,7 +89,7 @@ The **dashboard** ([glossary](../help/glossary.md#dashboard)) is a page of **wid
 
    → For example **2 urgent · 3 warnings**, with **most urgent: …** below. If there is nothing, it says **Nothing needs you right now.**
 
-<!-- image pending: top of the dashboard, with the summary row and the See all to-do button marked, admin, desktop -->
+<img src="img/dashboard-01-admin.png" alt="top of the dashboard, with the summary row and the See all to-do button marked, admin">
 
 3. To see the full list, press **See all to-do (n)** on the summary.
 
@@ -99,7 +99,7 @@ The **dashboard** ([glossary](../help/glossary.md#dashboard)) is a page of **wid
 
    → The page for that work opens. What each widget means: [What the widgets mean](widgets.md).
 
-<!-- image pending: the whole dashboard, the grid of widgets, admin, desktop -->
+<img src="img/dashboard-01-admin.png" alt="the whole dashboard, the grid of widgets, admin">
 
 > **Keep in mind:** the dashboard only shows. Pressing something here changes no data; the work happens on the page the link opens.
 
@@ -203,10 +203,10 @@ Every role has its own starting layout. The list below is generated from the app
 
 <!-- /guide:generated -->
 
-<!-- image pending: the teacher's dashboard, teacher, desktop -->
-<!-- image pending: the accountant's dashboard, accountant, desktop -->
-<!-- image pending: the office staff's dashboard, office staff, desktop -->
-<!-- image pending: the exam controller's dashboard, exam controller, desktop -->
+<img src="img/dashboard-01-teacher.png" alt="the teacher's dashboard, teacher">
+<img src="img/dashboard-01-accountant.png" alt="the accountant's dashboard, accountant">
+<img src="img/dashboard-01-office.png" alt="the office staff's dashboard, office staff">
+<img src="img/dashboard-01-exam.png" alt="the exam controller's dashboard, exam controller">
 
 If you have more than one role, you see the dashboard of the role you are in now.
 
@@ -220,7 +220,9 @@ A committee member does not see today's summary like the others. On their page:
 - A line just under the title: **For the committee: totals only, no personal details**.
 - At the top, a **Print monthly meeting report** button. How to print the report: [Customising the dashboard → Monthly meeting report](customise.md#task-committee-report).
 
-<!-- image pending: the committee member's dashboard, with the Print monthly meeting report button, committee member, desktop -->
+<img src="img/dashboard-01-committee.png" alt="the committee member's dashboard, with the Print monthly meeting report button, committee member">
+
+The whole role in one place: [Committee member](../roles/committee.md).
 
 ### The dashboard on a phone <a href="#task-phone" id="task-phone"></a>
 
@@ -232,7 +234,7 @@ On a phone the widgets are the same, just laid out differently:
 
 Which widgets become tiles on a phone is written next to each name in the role list above.
 
-<!-- image pending: the teacher's dashboard, the key-number tiles, teacher, phone -->
+<img src="img/dashboard-phone-01-teacher.png" alt="the teacher's dashboard, the key-number tiles, teacher" width="300">
 
 ### The guardian's Overview page <a href="#task-portal" id="task-portal"></a>
 
@@ -245,7 +247,7 @@ The guardian's app has no dashboard. Instead it has an **Overview** page with a 
 - **Latest result**
 - **Next holiday**
 
-<!-- image pending: the guardian's Overview page, guardian, phone -->
+<img src="img/dashboard-phone-02-guardian.png" alt="the guardian's Overview page, guardian" width="300">
 
 ---
 

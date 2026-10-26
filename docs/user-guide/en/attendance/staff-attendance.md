@@ -40,9 +40,9 @@ appVersion: 0.1.0 (a5fdbd4ba)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: staff-roster-admin-only, checked: 2026-10-25, issue: null }
-  - { id: staff-saved-marks-not-shown, checked: 2026-10-25, issue: null }
-  - { id: staff-old-day-no-reason-field, checked: 2026-10-25, issue: null }
+  - { id: staff-roster-admin-only, checked: 2026-10-25, issue: 2909 }
+  - { id: staff-saved-marks-not-shown, checked: 2026-10-25, issue: 2910 }
+  - { id: staff-old-day-no-reason-field, checked: 2026-10-25, issue: 2911 }
 -->
 
 # Staff attendance and leave
@@ -93,7 +93,7 @@ Right now only admins can do this ([Known issues](#known-issues)).
 2. Press the **name** of everyone who came. → They become **Present**. Press again and they become **Absent**.
 3. For someone late or on leave, press the **status button** at the right of the row and choose **Late** or **Leave**.
 
-<!-- image pending: কর্মীর উপস্থিতি তালিকা, তারিখ ঘর, উপরের হিসাব, একজনের অবস্থার বোতাম আর উপস্থিতি সংরক্ষণ করুন বোতাম চিহ্নিত, অ্যাডমিন, desktop -->
+![Staff attendance list, the date box, the counts at the top, a status button for each person and the Save attendance button](img/staff-attendance-01.png)
 
 4. At the bottom left see how many are left, for example "2 unmarked". Then press **Save attendance**.
 
@@ -141,7 +141,7 @@ Changing the date throws away marks you had not saved for the previous date.
 
 If there is no quota it shows **No limit**. Only approved leave counts as **Used**, and only on school days.
 
-<!-- image pending: ছুটি পাতা, আমার ছুটি তালিকা, ছুটির আবেদন করুন বোতাম আর অপেক্ষমাণ ছুটির আবেদন লিংক চিহ্নিত, অ্যাডমিন, desktop -->
+![Leave page, the My leave list and the Request leave button](img/staff-attendance-02.png)
 
 ### Request leave <a href="#task-request" id="task-request"></a>
 
@@ -233,7 +233,7 @@ Checked in the code for version 0.1.0 on 2026-10-25. Not run in the app. Each li
 5. **Staff list** — name, role, status button.
 6. **Save attendance** — with how many are unmarked at the left.
 
-<!-- image pending: কর্মীর উপস্থিতি পাতার ছয়টি অংশ নম্বর দিয়ে চিহ্নিত, অ্যাডমিন, desktop -->
+![The parts of the staff attendance page, with some people marked](img/staff-attendance-03.png)
 
 </details>
 
@@ -256,10 +256,10 @@ While on a name:
 
 <!-- guide:generated:fields:staffAttendance -->
 
-| Field                 | What to enter                                                                        | Required?                                   |
-| --------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------- |
-| Date                  | Which day's attendance. Today is filled in. On a future day, only Leave.             | Yes                                         |
-| Status (each person)  | Present, Absent, Late or Leave.                                                      | No — nothing is sent for unmarked people    |
+| Field                | What to enter                                                            | Required?                                |
+| -------------------- | ------------------------------------------------------------------------ | ---------------------------------------- |
+| Date                 | Which day's attendance. Today is filled in. On a future day, only Leave. | Yes                                      |
+| Status (each person) | Present, Absent, Late or Leave.                                          | No — nothing is sent for unmarked people |
 
 <!-- /guide:generated -->
 
@@ -284,6 +284,8 @@ While on a name:
 - [**Taking attendance**](attendance.md) — students' daily attendance.
 - [**Substitute teachers**](../academics/routine-substitutions.md) — who takes the class of a teacher on leave.
 - [**Dashboard**](../dashboard/dashboard.md) — today's summary.
+- [**Applications**](../applications/applications.md) — Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper.
+- [**Application reports**](../reports/applications.md) — application reports, including staff leave counts
 
 ---
 

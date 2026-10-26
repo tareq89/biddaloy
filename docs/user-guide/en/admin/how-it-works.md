@@ -115,7 +115,7 @@ The colours in the pictures show who does what. Orange boxes are the admin or ac
 
 - First the admin or accountant sets a fee structure: which class pays how much for which item.
 - Then, when you create the fee bills, the dues are created in each student's name.
-- When money is received, the accountant records the payment. A receipt is then created. In the app, the receipt is in the **Invoices** list.
+- When money is received, the accountant records the payment. A receipt is then created. In the app, the receipt is in the [**Invoices**](../finance/invoices.md) list.
 - The parent opens **Fees and invoices** in their own portal to see the dues and the receipt.
 - The path starts at the fee structure. Without a structure, no bill is created.
 
@@ -128,7 +128,7 @@ The colours in the pictures show who does what. Orange boxes are the admin or ac
 </figure>
 
 - Every section has one attendance sheet for each day. The teacher fills it in and submits it.
-- From the submitted sheets, the **Attendance reports** and the monthly **Attendance register** are created.
+- From the submitted sheets, the [**Attendance reports**](../attendance/attendance-reports.md) and the monthly [**Attendance register**](../attendance/attendance-register.md) are created.
 - If attendance is not taken on time, an alert goes to the teacher.
 - A teacher can take attendance only when they have been given that section. So set up classes, sections and teacher assignments first.
 
@@ -186,6 +186,8 @@ The first picture is not for you. You will also not need the **Switch school or 
 | The shift or version I want is not in the list when I add a class                          | First add the name at **Settings** → **School** → **Shift, version & group**. Then add the class.                           | Admin                                    |
 | The students of one school do not show in my other school                                  | That is correct. Every branch is a separate school. Use the **Switch school or role** menu at the top to go to that school. | Admin                                    |
 | A teacher sees no section at all                                                           | The teacher has not been given a section. See [Teacher assignment](../help/glossary.md#teacher-assignment).                 | Admin (the **Teacher assignments** page) |
+
+What's newo see what is new, read [T](../help/whats-new.md).
 
 ---
 

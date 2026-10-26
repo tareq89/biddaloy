@@ -44,7 +44,7 @@ appVersion: 0.1.0 (1798f8b1f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: year-delete-reason-incomplete, checked: 2026-10-24, issue: null }
+  - { id: year-delete-reason-incomplete, checked: 2026-10-24, issue: 2883 }
 -->
 
 # Creating and managing academic years
@@ -90,7 +90,7 @@ Almost everything in the school lives inside an academic year: [classes](classes
 
    → At the top is the title **Academic Years**, and below it "One year is current at a time." The list columns are: **Academic year**, **Period**, **Status**, **Classes**, **Students**. If there is no year yet, it says **No academic years yet**, with an **Add the first academic year** button.
 
-<!-- image pending: the academic years list, with the Add academic year button and the Status column marked, Admin, desktop -->
+![the academic years list, with the Add academic year button and the Status column](img/academic-years-01.png)
 
 2. At the top of the page, press **Add academic year**.
 
@@ -108,7 +108,7 @@ Almost everything in the school lives inside an academic year: [classes](classes
 
    → A warning appears under the box: whichever year is current now will no longer be current. Press **Yes, set as current** and the tick is set; press **Cancel** and the tick is not set.
 
-<!-- image pending: the Add academic year dialog, with the name, the two dates and the current tick box marked, Admin, desktop -->
+![the Add academic year dialog, with the name, the two dates and the current tick box](img/academic-years-02.png)
 
 6. Press **Save**.
 
@@ -235,6 +235,8 @@ Press the year's name in the list, or **View**, to open its page. At the top are
 | **Could not change the order**                                                           | Reload the page and press the arrow again.                                                               | Admin        |
 | A new class or a list shows the old year                                                 | [Set the new year as current](#task-current).                                                            | Admin        |
 
+If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
@@ -267,14 +269,14 @@ Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It
 2. **Add academic year** — the button at the top of the page.
 3. **List** — **Academic year**, **Period**, **Status**, **Classes**, **Students**; at the end of each row, **View**, **Edit**, **Delete**.
 
-<!-- image pending: the three parts of the academic years list, numbered, Admin, desktop -->
+![the three parts of the academic years list](img/academic-years-03.png)
 
 </details>
 
 <details>
 <summary><strong>What the fields mean</strong></summary>
 
-<!-- guide:generated:fields:academic-years -->
+<!-- guide:generated:fields:academicYears -->
 
 | Field                            | What to enter                                                                                                  | Required? |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------- |
@@ -309,6 +311,9 @@ Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It
 - [**Steps to set up the school**](../admin/setup-order.md) — which job comes after which.
 - [**How everything in the school fits together**](../admin/how-it-works.md) — a picture of year, class and section.
 - [**Syllabus and study plans**](syllabus.md) — study plans run inside an academic year.
+- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects.
+- [**Setting up grading scales**](../exams-results/grading-scales.md) — Set which percentage of marks gives which grade and GPA for each academic year.
+- [**Setting up fee structures**](../finance/fee-structures.md) — Write down which fee costs how much for each academic year.
 
 ---
 

@@ -70,5 +70,17 @@
     "entries": "Entries"
   },
   "subtitleAllMethods": "All methods",
-  "subtitleAllCollectors": "All collectors"
+  "subtitleAllCollectors": "All collectors",
+  "fields": {
+    "preset": "Date range",
+    "method": "Method",
+    "collector": "Collector",
+    "customRange": "Custom range"
+  },
+  "help": {
+    "preset": "Which days to show. Starts on Today. This week starts on Monday. Days are counted in Bangladesh time.",
+    "customRange": "Shows only when Date range is Custom. Both the From and To days are included.",
+    "method": "Show money that came one way only, such as Cash or bKash. Leave empty for all methods.",
+    "collector": "Show money taken by one staff member only. The list holds only people who took money in this range."
+  }
 }
