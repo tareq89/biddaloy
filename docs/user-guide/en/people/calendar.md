@@ -523,7 +523,10 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
   <figcaption><em>From a new event to everyone seeing it</em></figcaption>
 </figure>
 
-<!-- image pending: GIF of importing from a file, from the preview to confirming, admin, desktop -->
+<figure>
+  <img src="img/calendar-import-run.gif" alt="Importing from a file on a computer: Choose file, Check file, the review step lists each row as New, then Confirm import and Import complete">
+  <figcaption><em>From the chosen file to Import complete</em></figcaption>
+</figure>
 
 </details>
 

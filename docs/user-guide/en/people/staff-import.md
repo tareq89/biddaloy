@@ -265,7 +265,10 @@ Someone without permission who opens the page sees **You don't have access to th
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: GIF from uploading the file to Import finished, admin, desktop -->
+<figure>
+  <img src="img/staff-import-run.gif" alt="The whole job on a computer: the uploaded file is checked and shows 3 will be added, Send invitations now is left unticked, Confirm is pressed, and Import finished shows 3 added">
+  <figcaption><em>From the uploaded file to Import finished</em></figcaption>
+</figure>
 
 </details>
 
