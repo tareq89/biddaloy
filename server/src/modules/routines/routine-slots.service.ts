@@ -20,7 +20,14 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
 import { SchoolsService } from '../schools/schools.service';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
-import { AuditAction, RoutineState, SlotRecurrence } from '@biddaloy/shared';
+import {
+  AuditAction,
+  isGuardianRole,
+  Permission,
+  roleHasPermission,
+  RoutineState,
+  SlotRecurrence,
+} from '@biddaloy/shared';
 import { UpsertRoutineSlotDto } from './dto/routine-slots.dto';
 import { checkSlot, SlotLike, Violation, Warning } from './constraint-check';
 import { actorIsStaffIn } from './teacher-busy.service';
@@ -60,6 +67,7 @@ export class RoutineSlotsService {
     private readonly dataSource: DataSource,
     private readonly schoolsService: SchoolsService,
     private readonly auditService: AuditService,
+    @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
   ) {}
 
   private async today(tenantId: string): Promise<string> {
@@ -67,8 +75,27 @@ export class RoutineSlotsService {
     return localToday(settings.region?.timezone ?? 'UTC');
   }
 
-  async findForRoutine(routineId: string, tenantId: string): Promise<RoutineSlotWithWarnings[]> {
-    await this.getRoutine(routineId, tenantId);
+  async findForRoutine(
+    routineId: string,
+    tenantId: string,
+    caller: { role: string; userId: string },
+  ): Promise<RoutineSlotWithWarnings[]> {
+    const routine = await this.getRoutine(routineId, tenantId);
+    // Same visibility rule as ResolveRoutineService: DRAFT is manager-only;
+    // REVIEW shows a teacher-profile caller only their own slots.
+    const isManager = roleHasPermission(caller.role, Permission.ROUTINE_MANAGE);
+    let ownTeacherId: string | null = null;
+    if (!isManager) {
+      if (routine.state === RoutineState.DRAFT) return [];
+      if (routine.state === RoutineState.REVIEW) {
+        if (isGuardianRole(caller.role) || !caller.userId) return [];
+        const teacher = await this.teacherRepo.findOne({
+          where: { user_id: caller.userId, tenant_id: tenantId },
+        });
+        if (!teacher) return [];
+        ownTeacherId = teacher.id;
+      }
+    }
     const slots = await this.slotRepo.find({
       where: { routine_id: routineId, tenant_id: tenantId },
       order: { weekday: 'ASC' },
@@ -77,11 +104,13 @@ export class RoutineSlotsService {
       slots.map((s) => s.id),
       tenantId,
     );
-    return slots.map((slot) => ({
-      slot,
-      teacher_ids: teacherRows.get(slot.id) ?? [],
-      warnings: [],
-    }));
+    return slots
+      .filter((slot) => !ownTeacherId || (teacherRows.get(slot.id) ?? []).includes(ownTeacherId))
+      .map((slot) => ({
+        slot,
+        teacher_ids: teacherRows.get(slot.id) ?? [],
+        warnings: [],
+      }));
   }
 
   async create(
