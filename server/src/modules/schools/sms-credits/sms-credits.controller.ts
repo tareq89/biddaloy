@@ -13,6 +13,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtPayload, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { PlatformSuperAdminGuard } from '../../auth/guards/platform-super-admin.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -28,7 +29,8 @@ import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.deco
 /**
  * [15.6.7/#550] SUPER_ADMIN top-up/correction console for a school's SMS
  * credit balance. Mirrors `SchoolAdminsController`'s shape: platform-only,
- * `@Roles(SUPER_ADMIN)` alone (no `@RequirePermissions` — same convention
+ * `@Roles(SUPER_ADMIN)` plus `PlatformSuperAdminGuard` (a tenant-local
+ * SUPER_ADMIN must get 403; no `@RequirePermissions` — same convention
  * as every other SUPER_ADMIN-only route on `SchoolsController`, where
  * `ROLE_PERMISSIONS[SUPER_ADMIN]` already grants everything and the role
  * check is the whole gate).
@@ -36,7 +38,13 @@ import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.deco
 @ApiTags('schools')
 @ApiTenantAuth()
 @Controller('schools/:id/sms-credits')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@UseGuards(
+  AuthGuard('jwt'),
+  ContextGuard,
+  RolesGuard,
+  PermissionsGuard,
+  PlatformSuperAdminGuard,
+)
 @Roles(UserRole.SUPER_ADMIN)
 export class SchoolSmsCreditsController {
   constructor(
