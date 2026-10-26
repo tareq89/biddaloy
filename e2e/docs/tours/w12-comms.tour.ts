@@ -26,9 +26,15 @@ test('comms W12: send message', async ({ browser }, info) => {
     await page.waitForTimeout(2000);
     await page.setViewportSize({ width: 1440, height: 1250 });
     await pickStudent(page, 'communications', 'send.studentSearchPlaceholder', 'a');
-    await page.getByRole('radio').first().check({ force: true }).catch(() => undefined);
+    await page
+      .getByRole('radio')
+      .first()
+      .check({ force: true })
+      .catch(() => undefined);
     await page.waitForTimeout(500);
-    await page.locator('#send-message').fill('Tomorrow is a half day. School closes at 12 noon. Please send the child with lunch.');
+    await page
+      .locator('#send-message')
+      .fill('Tomorrow is a half day. School closes at 12 noon. Please send the child with lunch.');
     await page.waitForTimeout(800);
     await snap(page, f('send-message-01'), []);
   });
@@ -54,14 +60,29 @@ test('comms W12: fee reminders', async ({ browser }, info) => {
       await page.waitForTimeout(1800);
       await page.locator('main li button, main [role="option"]').nth(i).click();
       await page.waitForTimeout(1800);
-      const bal = (await page.getByText(tr('communications', 'reminders.balanceLabel')).locator('xpath=following-sibling::*[1]').first().textContent()) ?? '';
+      const bal =
+        (await page
+          .getByText(tr('communications', 'reminders.balanceLabel'))
+          .locator('xpath=following-sibling::*[1]')
+          .first()
+          .textContent()) ?? '';
       if (/[1-9]/.test(bal.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))))) break;
-      await page.locator('main').getByRole('button', { name: /Change|বদলান/ }).click();
+      await page
+        .locator('main')
+        .getByRole('button', { name: /Change|বদলান/ })
+        .click();
       await page.waitForTimeout(800);
     }
-    await page.locator('textarea').first().fill('Dear parent, {{student_name}} has {{due_amount}} due for {{due_month}}. Please pay at the school office.');
+    await page
+      .locator('textarea')
+      .first()
+      .fill(
+        'Dear parent, {{student_name}} has {{due_amount}} due for {{due_month}}. Please pay at the school office.',
+      );
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: tr('communications', 'reminders.previewAction') }).click();
+    await page
+      .getByRole('button', { name: tr('communications', 'reminders.previewAction') })
+      .click();
     await page.waitForTimeout(3500);
     await snap(page, f('fee-reminders-01'), []);
   });
@@ -72,12 +93,20 @@ test('comms W12: fee reminders', async ({ browser }, info) => {
     for (const i of [1, 2, 3]) await page.getByRole('checkbox').nth(i).check();
     await page.getByRole('button', { name: tr('communications', 'bulk.nextToMessage') }).click();
     await page.waitForTimeout(1500);
-    await page.getByLabel(tr('communications', 'bulk.message.batchNameLabel')).fill('October fee reminder');
-    await page.getByLabel(tr('communications', 'bulk.message.messageLabel')).fill('Dear parent, {{student_name}} has {{due_amount}} due for {{due_month}}. Please pay at the school office.');
+    await page
+      .getByLabel(tr('communications', 'bulk.message.batchNameLabel'))
+      .fill('October fee reminder');
+    await page
+      .getByLabel(tr('communications', 'bulk.message.messageLabel'))
+      .fill(
+        'Dear parent, {{student_name}} has {{due_amount}} due for {{due_month}}. Please pay at the school office.',
+      );
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: tr('communications', 'bulk.nextToReview') }).click();
     await page.waitForTimeout(1500);
-    await page.getByRole('button', { name: tr('communications', 'reminders.previewAction') }).click();
+    await page
+      .getByRole('button', { name: tr('communications', 'reminders.previewAction') })
+      .click();
     await page.waitForTimeout(4000);
     await page.setViewportSize({ width: 1440, height: 760 });
     await page.waitForTimeout(500);

@@ -10,14 +10,20 @@ const dir = imgDir('administration');
 const f = (name: string) => `${dir}/${name}.png`;
 
 async function revokeFirst(page: Page, reason: string) {
-  const btn = page.locator('main tbody tr').first().getByRole('button', { name: /Revoke|বাতিল/ });
+  const btn = page
+    .locator('main tbody tr')
+    .first()
+    .getByRole('button', { name: /Revoke|বাতিল/ });
   if ((await btn.count()) === 0) return; // already revoked by the other language's run
   await btn.click();
   await page.waitForTimeout(1200);
   const dlg = page.getByRole('dialog');
   await dlg.locator('textarea, input[type="text"]').first().fill(reason);
   await page.waitForTimeout(500);
-  await dlg.getByRole('button', { name: /Revoke|বাতিল/ }).last().click();
+  await dlg
+    .getByRole('button', { name: /Revoke|বাতিল/ })
+    .last()
+    .click();
   await page.waitForTimeout(2500);
 }
 
@@ -59,23 +65,40 @@ test('admin W12: certificate and ID card', async ({ browser }, info) => {
     await page.getByRole('button', { name: tr('certificates', 'documentsTab.issue') }).click();
     await page.waitForTimeout(1500);
     const dlg = page.getByRole('dialog');
-    await dlg.getByText(/^(Testimonial|প্রশংসাপত্র)$/).first().click();
+    await dlg
+      .getByText(/^(Testimonial|প্রশংসাপত্র)$/)
+      .first()
+      .click();
     await page.waitForTimeout(500);
     await dlg.getByRole('button', { name: tr('certificates', 'actions.next') }).click();
     await page.waitForTimeout(2000);
-    await dlg.getByRole('textbox').first().fill('Good').catch(() => undefined);
+    await dlg
+      .getByRole('textbox')
+      .first()
+      .fill('Good')
+      .catch(() => undefined);
     await page.waitForTimeout(500);
     await snap(page, f('certificates-01'), []);
   });
   await step('id-cards-01', async () => {
     await openStudent(page);
-    await page.getByRole('button', { name: /more|আরও|অন্যান্য/i }).first().click();
+    await page
+      .getByRole('button', { name: /more|আরও|অন্যান্য/i })
+      .first()
+      .click();
     await page.waitForTimeout(600);
-    await page.getByRole('menuitem', { name: /Print ID card|আইডি কার্ড/ }).first().click();
+    await page
+      .getByRole('menuitem', { name: /Print ID card|আইডি কার্ড/ })
+      .first()
+      .click();
     await page.waitForTimeout(4000);
     await page.getByRole('combobox').first().click();
     await page.waitForTimeout(700);
-    await page.getByRole('option').first().click().catch(() => undefined);
+    await page
+      .getByRole('option')
+      .first()
+      .click()
+      .catch(() => undefined);
     await page.waitForTimeout(2500);
     await snap(page, f('id-cards-01'), []);
   });
@@ -101,10 +124,16 @@ test('admin W12: exam documents', async ({ browser }, info) => {
   });
   await step('exam-documents-02', async () => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.getByRole('button', { name: tr('examDocuments', 'meritCertificate.action') }).last().click();
+    await page
+      .getByRole('button', { name: tr('examDocuments', 'meritCertificate.action') })
+      .last()
+      .click();
     await page.waitForTimeout(2000);
     const dlg = page.getByRole('dialog');
-    await dlg.getByLabel(tr('examDocuments', 'merit.topLabel')).fill('3').catch(() => undefined);
+    await dlg
+      .getByLabel(tr('examDocuments', 'merit.topLabel'))
+      .fill('3')
+      .catch(() => undefined);
     await page.waitForTimeout(5000);
     await snap(page, f('exam-documents-02'), []);
   });

@@ -203,10 +203,13 @@ export async function recordGif(
     maxWidth: viewport.width,
     maxHeight: viewport.height,
   });
-  await workflow(page);
-  await beat(page, 1200);
-  await cdp.send('Page.stopScreencast');
-  await context.close();
+  try {
+    await workflow(page);
+    await beat(page, 1200);
+    await cdp.send('Page.stopScreencast');
+  } finally {
+    await context.close();
+  }
   if (stamps.length === 0) throw new Error(`no frames recorded for ${file}`);
   // Each frame holds until the next one; the last holds one second.
   const list = stamps
@@ -220,6 +223,7 @@ export async function recordGif(
   const mov = path.join(dir, 'frames.mov');
   execFileSync('ffmpeg', [
     ...['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0'],
+    // -fps_mode needs ffmpeg >= 5.1 (older builds call it -vsync).
     ...['-i', path.join(dir, 'frames.txt'), '-fps_mode', 'vfr', '-c:v', 'png', mov],
   ]);
   execFileSync('node', [
@@ -240,7 +244,9 @@ export async function loginAs(page: Page, card: string): Promise<void> {
   if (process.env.GUIDE_PASSWORD) {
     // A server without DEMO_MODE (needed for the upload GIFs) shows no login cards: use the form.
     await page.goto('/login');
-    const email = process.env.GUIDE_LOGIN_EMAIL ?? `${card}@bmsc.example`;
+    const only = process.env.GUIDE_LOGIN_CARD;
+    const pinned = !only || only === card ? process.env.GUIDE_LOGIN_EMAIL : undefined;
+    const email = pinned ?? `${card}@bmsc.example`;
     await page.getByLabel(/Email or phone number|ইমেইল/).fill(email);
     await page.locator('#sign-in-password').fill(process.env.GUIDE_PASSWORD);
     await page.getByRole('button', { name: /^Sign in|সাইন ইন/ }).click();

@@ -22,7 +22,10 @@ test('reports W11', async ({ browser }, info) => {
     await go(page, '/audit-logs');
     await page.waitForTimeout(1500);
     await main.getByRole('combobox').first().click();
-    await page.getByRole('option', { name: /Updated|হালনাগাদ|আপডেট|পরিবর্তন/ }).first().click();
+    await page
+      .getByRole('option', { name: /Updated|হালনাগাদ|আপডেট|পরিবর্তন/ })
+      .first()
+      .click();
     await page.waitForTimeout(1500);
     await main.locator('tbody tr').first().getByRole('button').first().click();
     await page.waitForTimeout(1000);
@@ -55,7 +58,10 @@ test('reports W11', async ({ browser }, info) => {
       await page.waitForTimeout(800);
       await page.getByRole('dialog').getByRole('textbox').fill('Printed for the wrong student');
       await page.waitForTimeout(500);
-      await page.getByRole('dialog').getByRole('button', { name: tr('printHistory', 'revoke.confirm') }).click();
+      await page
+        .getByRole('dialog')
+        .getByRole('button', { name: tr('printHistory', 'revoke.confirm') })
+        .click();
       await page.waitForTimeout(2000);
     }
     await snap(page, `${dir}/printables-02-revoked.png`, []);

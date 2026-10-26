@@ -20,7 +20,6 @@ test('phone W11: marks list', async ({ browser }, info) => {
       .first()
       .click();
     await page.waitForTimeout(2500);
-    await page.screenshot({ path: '/private/tmp/claude-501/shots-c/phone-marks-list.png' });
     const row = page
       .getByRole('main')
       .locator('tbody tr, li, article')

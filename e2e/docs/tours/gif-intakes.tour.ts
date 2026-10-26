@@ -6,7 +6,7 @@ import { gifTour } from '../helpers/gif';
 import { tr } from '../helpers/nav';
 
 const ns = 'admission-staff-intakes';
-/** Same title as gif-intakes-phone.tour.ts picks on the public form. */
+/** Same title as gif-intakes-zphone.tour.ts picks on the public form. */
 const TITLE = process.env.GUIDE_INTAKE_TITLE ?? 'Admission 2027: Class 7';
 const OPEN = process.env.GUIDE_INTAKE_OPEN ?? '2026-10-20';
 const CLOSE = process.env.GUIDE_INTAKE_CLOSE ?? '2026-12-15';

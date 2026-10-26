@@ -13,10 +13,16 @@ async function pickClassSubject(page: Page) {
   const cls = page.getByRole('combobox', { name: tr('syllabus', 'list.classLabel') });
   const sub = page.getByRole('combobox', { name: tr('syllabus', 'list.subjectLabel') });
   await cls.click();
-  await page.getByRole('option', { name: /Class 10|দশম|১০|10/ }).first().click();
+  await page
+    .getByRole('option', { name: /Class 10|দশম|১০|10/ })
+    .first()
+    .click();
   await page.waitForTimeout(1500);
   await sub.click();
-  await page.getByRole('option', { name: /Agricultural Education|কৃষি/ }).first().click();
+  await page
+    .getByRole('option', { name: /Agricultural Education|কৃষি/ })
+    .first()
+    .click();
   await page.waitForTimeout(2500);
 }
 
