@@ -354,7 +354,10 @@ On the program page: at the top **Name**, **Status** and three facts; buttons **
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: GIF from adding a program to recording an achievement, admin, desktop -->
+<figure>
+  <img src="img/programs-add-achieve.gif" alt="The whole job on a computer: Add program, name it and save, add a milestone, enrol a student from the Students tab, then tick the milestone to record the achievement">
+  <figcaption><em>From a new program to its first recorded achievement</em></figcaption>
+</figure>
 
 </details>
 

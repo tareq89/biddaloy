@@ -378,7 +378,10 @@ Checked in the code on version 0.1.0, 2026-10-24. Not tried in the app.
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: GIF from starting an ACR to completing it, admin, desktop -->
+<figure>
+  <img src="img/evaluations-acr.gif" alt="The whole job on a computer: Start ACR, pick the staff member and year, go to Criteria and score each one with the 4, 3, 2 and 1 keys, then Complete ACR; the report shows Completed with its total score">
+  <figcaption><em>From starting an ACR to completing it</em></figcaption>
+</figure>
 
 </details>
 

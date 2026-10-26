@@ -278,7 +278,10 @@ Someone without permission who opens the page sees **You don't have access to th
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: GIF from choosing a class to assigning and removing a teacher, admin, desktop -->
+<figure>
+  <img src="img/teaching-assignments-assign.gif" alt="The whole job on a computer: choose a class, press Add teacher on a section, pick the teacher and assign them as class teacher, then remove that teacher from the section and confirm">
+  <figcaption><em>Choosing a class, giving a duty, taking it back</em></figcaption>
+</figure>
 
 </details>
 

@@ -9,7 +9,7 @@
  * - `loginAs()`: signs in through a demo-school login card.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, renameSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { expect, test } from '@playwright/test';
@@ -46,8 +46,14 @@ function frame(file: string): void {
 function shrink(file: string): void {
   const tmp = `${file}.tmp.png`;
   execFileSync('ffmpeg', [
-    '-y', '-loglevel', 'error', '-i', file, '-vf',
-    'split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=none', tmp,
+    '-y',
+    '-loglevel',
+    'error',
+    '-i',
+    file,
+    '-vf',
+    'split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=none',
+    tmp,
   ]);
   renameSync(tmp, file);
 }
@@ -102,9 +108,13 @@ export async function shoot(
   // Wait for data: no loading skeleton left on the page (the demo API is slower than prod).
   await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => undefined);
   await page
-    .waitForFunction(() => !document.querySelector('main .animate-pulse, main [aria-busy="true"]'), undefined, {
-      timeout: 30_000,
-    })
+    .waitForFunction(
+      () => !document.querySelector('main .animate-pulse, main [aria-busy="true"]'),
+      undefined,
+      {
+        timeout: 30_000,
+      },
+    )
     .catch(() => undefined);
   // A leftover "saved" toast would cover the part the shot is about.
   if (!opts.keepToasts) {
@@ -171,22 +181,67 @@ export async function recordGif(
   opts: { trimStartSec?: number; width?: number } = {},
 ): Promise<void> {
   const viewport = contextOptions.viewport ?? { width: 1440, height: 900 };
-  const videoDir = path.join('test-results', 'guide', 'video', path.basename(file, '.gif'));
-  rmSync(videoDir, { recursive: true, force: true });
-  const context = await browser.newContext({
-    ...contextOptions,
-    recordVideo: { dir: videoDir, size: viewport },
-  });
+  const dir = path.join('test-results', 'guide', 'video', path.basename(file, '.gif'));
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
   await prepare(page, { pointer: true });
+  // Lossless PNG frames, one per repaint, through CDP. Playwright's `recordVideo` (VP8) puts
+  // encoder noise on every frame, so even a still screen costs the GIF a full frame and a
+  // 12 s workflow over a dense table passes 2 MB. A still screen here costs nothing.
+  const name = (i: number) => `${String(i).padStart(5, '0')}.png`;
+  const cdp = await context.newCDPSession(page);
+  const stamps: number[] = [];
+  cdp.on('Page.screencastFrame', (f) => {
+    writeFileSync(path.join(dir, name(stamps.length)), Buffer.from(f.data, 'base64'));
+    stamps.push(f.metadata.timestamp ?? Date.now() / 1000);
+    cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => undefined);
+  });
+  await cdp.send('Page.startScreencast', {
+    format: 'png',
+    maxWidth: viewport.width,
+    maxHeight: viewport.height,
+  });
   await workflow(page);
   await beat(page, 1200);
-  const video = page.video();
+  await cdp.send('Page.stopScreencast');
   await context.close();
-  const webm = await video!.path();
+  if (stamps.length === 0) throw new Error(`no frames recorded for ${file}`);
+  // Each frame holds until the next one; the last holds one second.
+  const list = stamps
+    .map((t, i) => {
+      const next = stamps[i + 1];
+      const hold = next === undefined ? 1 : Math.max(next - t, 0.001);
+      return `file '${name(i)}'\nduration ${hold.toFixed(3)}`;
+    })
+    .concat(`file '${name(stamps.length - 1)}'`);
+  writeFileSync(path.join(dir, 'frames.txt'), `${list.join('\n')}\n`);
+  // A workflow may resize the viewport (desktop admin, then a guest on a phone): every frame is
+  // centred on a canvas of the starting viewport, so the GIF keeps one size.
+  const { width: w, height: h } = viewport;
+  const mov = path.join(dir, 'frames.mov');
+  execFileSync('ffmpeg', [
+    ...[
+      '-y',
+      '-loglevel',
+      'error',
+      '-f',
+      'concat',
+      '-safe',
+      '0',
+      '-i',
+      path.join(dir, 'frames.txt'),
+    ],
+    ...[
+      '-vf',
+      `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:-1:-1:color=#e9ecef`,
+    ],
+    ...['-fps_mode', 'vfr', '-c:v', 'png', mov],
+  ]);
   execFileSync('node', [
     'scripts/user-guide/gif.mjs',
-    webm,
+    mov,
     file,
     '--start',
     String(opts.trimStartSec ?? 0),
