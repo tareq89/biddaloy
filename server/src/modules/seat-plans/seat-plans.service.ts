@@ -422,6 +422,12 @@ export class SeatPlansService {
 
     return {
       ...plan,
+      room_count: byRoom.size,
+      student_count: new Set(allocations.map((a) => a.student_id)).size,
+      // ponytail: counts sittings that have seated students; `findAll` counts
+      // `seat_plan_schedules` rows. They differ only for a sitting with nobody
+      // seated. Pass the `seat_plan_schedules` count in if that ever matters.
+      schedule_count: new Set(allocations.map((a) => a.exam_schedule_id)).size,
       rooms: [...byRoom.entries()].map(([room_id, roomAllocations]) => {
         const room = roomAllocations[0]?.room ?? null;
         // `updateInvigilator` writes the same `invigilator_user_id` to every
