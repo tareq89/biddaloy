@@ -93,7 +93,7 @@ knownIssues: []
 
    → পাতার নাম বদলে **আমরা যে কোড পাঠিয়েছি তা লিখুন** হয়। আপনার নম্বরে ৬ অঙ্কের একটি কোড যায়।
 
-<!-- image pending: img/create-school-01-details.png — Create your school form: 1 name, school name, country, address and phone fields, 2 the terms tick box, 3 the Continue button -->
+![img/create-school-01-details.png — Create your school form: 1 the school name box, 2 the terms tick box, 3 the Continue button](img/create-school-01-details.png)
 
 6. কোডটি লিখে **যাচাই করুন** চাপুন।
 

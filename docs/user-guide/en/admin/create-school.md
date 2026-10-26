@@ -93,7 +93,7 @@ If you are already signed in, this page will not open. You go straight to the ap
 
    → The page title changes to **Enter the code we sent**. A 6-digit code goes to your number.
 
-<!-- image pending: img/create-school-01-details.png — Create your school form: 1 name, school name, country, address and phone fields, 2 the terms tick box, 3 the Continue button -->
+![img/create-school-01-details.png — Create your school form: 1 the school name box, 2 the terms tick box, 3 the Continue button](img/create-school-01-details.png)
 
 6. Type the code and press **Verify**.
 
