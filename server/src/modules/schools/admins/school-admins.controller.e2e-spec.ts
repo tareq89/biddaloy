@@ -104,6 +104,25 @@ describe('POST /schools/:id/admins (e2e) [68.1.14]', () => {
     await app.close();
   });
 
+  it('refuses a school-local SUPER_ADMIN with 403 (PlatformSuperAdminGuard)', async () => {
+    const email = `tenant-sa-${run}@school-admins-e2e.example`;
+    const userId = await insertUser(email, { verified: true, password: true });
+    await ds.query(`INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, $3)`, [
+      userId,
+      schoolId,
+      UserRole.SUPER_ADMIN,
+    ]);
+    const login = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    await supertest(app.getHttpServer())
+      .get(`/api/v1/schools/${schoolId}/admins`)
+      .set('Authorization', `Bearer ${login.body.access_token}`)
+      .set('X-Tenant-ID', schoolId)
+      .expect(403);
+  });
+
   it('refuses a contact held by an unverified account: 409 CONTACT_IN_USE, no membership', async () => {
     const email = `unverified-${run}@school-admins-e2e.example`;
     const holderId = await insertUser(email, { verified: false, password: false });
