@@ -53,7 +53,7 @@ The **search window** is one place from which you can reach any page without dig
 
    → The **Search** window opens in the middle, with a box to type in. If you opened pages before, a **Recent** list shows below.
 
-<!-- image pending: img/find-anything-01-palette.png — Search window: 1 text box, 2 People / Page / Action tabs, 3 results, 4 shortcut hint at the bottom -->
+![Search window: 1 text box, 2 People / Page / Action tabs, 3 results, 4 shortcut hint at the bottom](img/find-anything-01-palette.png)
 
 2. Go to the **Page** tab (tap it, or press the right arrow). Type part of a page name, for example `Attendance`.
 
@@ -65,7 +65,7 @@ The **search window** is one place from which you can reach any page without dig
 
 **On a phone:** tap the search button at the top right; the rest of the steps are the same.
 
-<!-- image pending: img/find-anything-phone-01-search.png (width 300) — Top row on a phone: 1 search button, 2 notification bell -->
+<img src="img/find-anything-phone-01-search.png" alt="Top row on a phone: 1 search button, 2 notification bell" width="300">
 
 > **Remember:** Searching changes nothing; it only opens a page. A page you are not allowed to open does not appear in the results either.
 
@@ -123,6 +123,12 @@ To see the whole list, tap **See all to-do** in the panel. Tapping the coloured 
 | The **People** tab is missing             | Your role is not allowed to search student information. Use the **Page** tab.                                                      | School admin |
 | Nothing happens when you press **Ctrl+K** | The window may have opened and closed again (pressing a second time closes it). Press once, or tap the **Search…** box at the top. | —            |
 | **Could not load alerts.**                | Tap **Try again** in the panel.                                                                                                    | —            |
+
+If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
+
+If a word is not clear, see the [Glossary](../help/glossary.md).
+
+What's newo see what is new, read [T](../help/whats-new.md).
 
 ---
 

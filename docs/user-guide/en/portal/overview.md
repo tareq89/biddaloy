@@ -87,7 +87,7 @@ With one child (or if you are the student), the page shows their name and class 
 
    → The [**Fees and invoices**](fees.md) page opens with that child already chosen.
 
-<!-- image pending: Overview, parent of two children; 1 · Total outstanding 2 · Today at school 3 · Your children cards 4 · This month's attendance; parent, phone -->
+<img src="img/overview-01.png" alt="Overview for a guardian" width="300">
 
 > **Remember:** with more than one child, **Total outstanding** adds up only the children who owe something. A line under it says so, for example **Across 2 of 3 children**. A child who owes nothing still has a card that says **Nothing due**.
 
@@ -131,22 +131,22 @@ Below it you see when attendance was taken (**Attendance was taken at …**), or
 1. If today's status is **Absent today** or **Attendance not taken yet**, a **Tell the school** button appears beside it.
 2. Tap **Tell the school**.
 
-   → The leave application form opens with that child already chosen. <!-- link pending: portal/applications -->
+   → The leave application form opens with that child already chosen. See [**Applications (parent and student)**](applications.md).
 
 The button only appears if your account is allowed to submit applications. It does not appear on a day the school is closed.
 
 ### This month's attendance, homework, result and holiday <a href="#task-cards" id="task-cards"></a>
 
 - **This month's attendance** — how many days present this month and which days missed. With more than one child, tap a name at the top to switch child. For the full record tap **Full attendance**; the [**Attendance**](attendance.md) page opens.
-- **Today's homework** — homework to hand in, with the due date. Tap **All homework** to open the homework page. <!-- link pending: portal/homework -->
+- **Today's homework** — homework to hand in, with the due date. Tap **All homework** to open the homework page.
 - **Latest result** — the GPA of the latest published exam for the child chosen in **This month's attendance**, and whether it is better or lower than the exam before. Tap **Full result** to open the [**Results**](results.md) page.
 - **Next holiday** — the name of the next holiday and how many days away. If there is none in the next 60 days, it says so. Tap **Open calendar** to open the [**Calendar**](calendar.md).
 
-If a form asking for feedback about teachers is waiting, a survey card also appears at the top. <!-- link pending: portal/surveys -->
+If a form asking for feedback about teachers is waiting, a survey card also appears at the top. See [**Surveys (parent and student)**](surveys.md).
 
 ### Go to another page <a href="#task-nav" id="task-nav"></a>
 
-On a phone, the bottom bar has four pages: **Overview**, **Fees**, **Attendance** and **Results**. For the rest (**Routine**, **Calendar**, **Exam schedule** and others) tap **More**. The bell at the top shows notifications. <!-- link pending: portal/notifications -->
+On a phone, the bottom bar has four pages: **Overview**, **Fees**, **Attendance** and **Results**. For the rest (**Routine**, **Calendar**, **Exam schedule** and others) tap **More**. The bell at the top shows notifications. See [**Alerts and notifications (parent and student)**](notifications.md).
 
 ---
 
@@ -189,7 +189,7 @@ Staff do not see this page; they have a separate [**Seeing today's work on the d
 4. **This month's attendance**.
 5. **Today's homework**, **Latest result**, **Next holiday**.
 
-<!-- image pending: Overview, one child, five parts numbered; student, phone -->
+<img src="img/overview-02.png" alt="Overview for one child" width="300">
 
 </details>
 
@@ -210,6 +210,28 @@ Staff do not see this page; they have a separate [**Seeing today's work on the d
 
 **Related pages**
 
+- [**Alerts and notifications (parent and student)**](notifications.md) — alerts and notifications.
+
+
+
+- [**Syllabus (parent and student)**](syllabus.md) — what is being taught, subject by subject.
+- [**Homework (parent and student)**](homework.md) — all homework due, from the **Today's homework** card.
+
+
+
+- [**Programs (parent and student)**](programs.md) — your child's programs and progress.
+
+
+
+- [**Surveys (parent and student)**](surveys.md) — fill in a survey about teachers.
+
+
+
+- [**Applications (parent and student)**](applications.md) — send a leave or other application.
+
+
+
+- **Roles** — the guardian's and the student's own pages: [Guardian](../roles/guardian.md), [Student](../roles/student.md).
 - [**Fees and invoices**](fees.md) — month-by-month account, invoices and printing.
 - [**Attendance**](attendance.md) — every day of the month.
 - [**Routine**](routine.md) — classes today and over the coming days.

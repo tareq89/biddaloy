@@ -63,7 +63,7 @@ This page is view only. Nothing can be changed here.
 
    → The exam name, then **From 20 November · how much of the syllabus is taught**. Under each subject is a bar, such as **6/10 lessons**.
 
-<!-- image pending: img/portal-syllabus-01-overview.png (width 300) — The Syllabus page on a phone: 1 the exam card, 2 the subject that is most behind, 3 the list of other subjects -->
+<img src="img/syllabus-01.png" alt="The Syllabus page on a phone" width="300">
 
 3. Look at the open card below.
 
@@ -74,6 +74,12 @@ This page is view only. Nothing can be changed here.
    → The subject opens and shows the same details. Tap again to close it.
 
 > **Remember:** The dates of the next lessons are estimates. They move later when a class is cancelled or a holiday falls.
+
+---
+
+## How to know you are looking at the right thing <a href="#confirm" id="confirm"></a>
+
+At the top you see the student's name, class, roll and the name of the current term, then the exam card, then one subject open and the other subjects listed below it, each with a bar such as **6/10 lessons**. If the name at the top is your child, you are on the right page. With more than one child, check the name before reading the bars.
 
 ---
 
@@ -141,9 +147,10 @@ Teachers and the school add study plans and topics on the [**Syllabus and study 
 **Related pages**
 
 - [**Syllabus and study plans**](../academics/syllabus.md) — study plans and topics on the school side.
-- <!-- link pending: portal/routine.md --> **Routine** — which subject has class on which day.
-- <!-- link pending: portal/exam-schedule.md --> **Exam schedule** — exam dates.
-- <!-- link pending: portal/overview.md --> **Overview** — the first page.
+- [**Routine**](routine.md) — which subject has class on which day.
+- [**Exam schedule**](exam-schedule.md) — exam dates.
+- [**Homework (parent and student)**](homework.md) — homework due today and later.
+- [**Overview**](overview.md) — the first page.
 
 ---
 

@@ -60,7 +60,7 @@ Here a **printer** is a name plus a few measurements: what kind of printer it is
 
    → The **Printers** section appears. If there is no printer, it says **Add your first printer**.
 
-<!-- image pending: Settings → Printing, printer list, two printers; admin, desktop -->
+<img src="../img/settings-printing.png" alt="Settings → Printing, printer list, two printers; admin">
 
 2. Press **Add printer**.
 
@@ -186,6 +186,8 @@ If the school buys blank cards that already have the design printed on them, onl
 | The print is still shifted                                                 | Check that you chose the same printer in the preview and in the print window, then fix the measurements again | Admin |
 | A thin white border around the card                                        | An office printer does not print to the edge; use a card printer, or add [bleed](designer-guide.md#safe-bleed) in the design | Admin |
 | The whole print is a little small or big                                   | Check that **Scale** is 100%, then fix **Size**                            | Admin        |
+
+More help with this: [What to do when something goes wrong](../../help/troubleshooting.md#print).
 
 ---
 
