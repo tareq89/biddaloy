@@ -245,8 +245,11 @@ describe('SyllabusService', () => {
     const a = topic({ id: 'a' });
     const { service } = await buildService([a]);
 
-    await expect(
-      service.reorder([{ id: 'not-mine', sequence: 1 }], TENANT_ID, ADMIN, USER),
-    ).rejects.toThrow(NotFoundException);
+    const err = await service
+      .reorder([{ id: 'not-mine', sequence: 1 }], TENANT_ID, ADMIN, USER)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NotFoundException);
+    expect((err as Error).message).toBe('Syllabus topic not found');
+    expect((err as Error).message).not.toContain('not-mine');
   });
 });
