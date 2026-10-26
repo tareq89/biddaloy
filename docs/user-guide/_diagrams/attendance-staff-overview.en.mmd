@@ -1,0 +1,12 @@
+%% title: Staff attendance and leave
+%% desc: An admin saves staff attendance every day. Staff request leave; when an admin or academic coordinator approves, those days become Leave in staff attendance.
+flowchart LR
+  K["Staff member"] --> L["Request<br/>leave"]
+  L --> A{"Approve?"}:::admin
+  A -->|Approve| S["Leave in staff<br/>attendance"]:::done
+  A -->|Reject| N["No leave"]:::note
+  AD["Admin"]:::admin --> D["Daily staff<br/>attendance"]
+  D --> S
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef done fill:#ebfbee,stroke:#2f9e44,color:#1b4d26
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

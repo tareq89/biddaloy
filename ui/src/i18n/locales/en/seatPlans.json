@@ -58,5 +58,25 @@
   },
   "errors": {
     "unknown": "Something went wrong. Please try again."
+  },
+  "fields": {
+    "planName": "Plan name",
+    "exam": "Exam",
+    "schedules": "Exam subjects",
+    "rooms": "Rooms",
+    "seatOrder": "Seat order"
+  },
+  "help": {
+    "planName": "E.g. Half-yearly, first week.",
+    "exam": "The exam whose subjects you are seating.",
+    "schedules": "Subjects on the exam schedule; at least one.",
+    "rooms": "At least one room. Rooms fill in the order you pick them.",
+    "seatOrder": "In order: one after another by class, section and roll. Random: seats in random order."
+  },
+  "helpRequired": {
+    "planName": "Yes",
+    "exam": "Yes",
+    "schedules": "Yes",
+    "rooms": "Yes"
   }
 }

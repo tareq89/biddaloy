@@ -164,5 +164,20 @@
     "invigilator": "পরিদর্শক"
   },
   "sectionLabel": "শাখা",
-  "sectionPlaceholder": "শাখা বাছুন"
+  "sectionPlaceholder": "শাখা বাছুন",
+  "fields": {
+    "admitGroup": "কোন প্রবেশপত্র",
+    "meritScope": "কিসের ভিত্তিতে",
+    "meritTop": "সেরা কত জন (১–৫০)"
+  },
+  "help": {
+    "admitGroup": "সবার, শুধু যাদের প্রবেশপত্র এখনো ছাপা হয়নি তাদের, নয়তো একটি শাখার।",
+    "meritScope": "শ্রেণির মেধাস্থান নাকি শাখার মেধাস্থান দেখে মেধা সনদ দেওয়া হবে।",
+    "meritTop": "ওপর থেকে কত জন সনদ পাবে, ১ থেকে ৫০ জন।"
+  },
+  "helpRequired": {
+    "admitGroup": "হ্যাঁ",
+    "meritScope": "হ্যাঁ",
+    "meritTop": "হ্যাঁ"
+  }
 }

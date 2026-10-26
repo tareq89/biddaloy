@@ -1,0 +1,17 @@
+%% title: Why can't I see this?
+%% desc: Five questions in order: right role, permission, section duty for teachers, right school, right academic year. If all are yes, check whether the dashboard widget is hidden, then tell your admin.
+flowchart TD
+  S(["Can't see what you want"]) --> Q1{"Right role selected?"}
+  Q1 -- "No" --> L1("Switch role<br/>(school or role menu)"):::leaf
+  Q1 -- "Yes" --> Q2{"Does your role have<br/>the permission?"}
+  Q2 -- "No" --> L2("Ask your admin"):::leaf
+  Q2 -- "Yes" --> Q3{"Teacher with<br/>an empty list?"}
+  Q3 -- "Yes" --> L3("Admin assigns a section<br/>in the current year"):::leaf
+  Q3 -- "No" --> Q4{"Right school (branch)<br/>selected?"}
+  Q4 -- "No" --> L4("Switch school"):::leaf
+  Q4 -- "Yes" --> Q5{"Right academic year?"}
+  Q5 -- "No" --> L5("Pick the year, or admin<br/>sets the current year"):::leaf
+  Q5 -- "Yes" --> Q6{"Missing dashboard<br/>widget?"}
+  Q6 -- "Yes" --> L6("Customise: tick it in the<br/>hidden list, Save"):::leaf
+  Q6 -- "No" --> L7("Tell your admin"):::leaf
+  classDef leaf fill:#ebfbee,stroke:#2b8a3e,color:#14411d

@@ -29,5 +29,16 @@
   "subtitle": "Academic year {{year}} · {{class}} — who joined, who left",
   "countLeftDetail": "Withdrawn {{withdrawn}} · Transferred {{transferred}}",
   "viewStudent": "View student",
-  "emptyExplanation": "Admissions, leavers and graduations recorded in this year show up here."
+  "emptyExplanation": "Admissions, leavers and graduations recorded in this year show up here.",
+  "fields": {
+    "academicYear": "Academic year",
+    "class": "Class"
+  },
+  "help": {
+    "academicYear": "The year whose totals you want to see. If you choose none, it is the current year.",
+    "class": "One class; if you choose none, all classes. It is cleared when you change the academic year."
+  },
+  "helpRequired": {
+    "academicYear": "No, the current year is chosen for you"
+  }
 }

@@ -1,0 +1,11 @@
+%% title: The three states of a routine and who sees it
+%% desc: A draft is seen only by the people who build the routine. In review, teachers see only their own periods, and the routine can go back to draft. Once published, teachers, students and guardians all see it, and it can no longer go back.
+flowchart LR
+  D["Draft<br/>only the people who build the routine"]:::note -- "Submit for review" --> R["In review<br/>teachers, own periods only"]:::teacher
+  R -- "Withdraw to draft" --> D
+  R -- "Publish" --> P["Published<br/>everyone sees it"]:::guardian
+  P -. "teacher: Request a change" .-> Q["Change request<br/>Admin accepts or rejects"]:::admin
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

@@ -1,0 +1,12 @@
+%% title: From a student to a guardian's account
+%% desc: A guardian is added when a student is added. Office staff fix the guardian's details in the guardian list. The Admin sends invitations. The guardian starts an account and sees their child's attendance, fees and messages.
+flowchart LR
+  S["Add student<br/>with guardian"]:::admin --> L["Guardian list"]
+  L --> E["Fix details<br/>phone, relationship"]:::note
+  L --> I["Admin<br/>sends invitations"]:::admin
+  I --> A["Guardian<br/>starts account"]:::guardian
+  A --> V["Child's attendance,<br/>fees and messages"]:::guardian
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

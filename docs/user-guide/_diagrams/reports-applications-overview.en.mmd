@@ -1,0 +1,11 @@
+%% title: The report's two sources
+%% desc: This school's applications are filtered by academic year and submitted date. From them come the four boxes, by type and status, by month, and waiting more than 3 days. Staff on leave today and staff leave days come from the staff approved-leave record. Students on leave today come from approved student-leave applications.
+flowchart LR
+  A["This school's applications"]:::admin --> F["Filters<br/>academic year · submitted on"]:::note
+  F --> T["Four boxes<br/>by type and status · by month"]
+  F --> S["Waiting more than 3 days<br/>at most 50"]
+  A -->|"approved student leave"| LS["On leave today: students"]
+  L["Staff approved-leave record"]:::admin --> LT["On leave today: staff"]
+  L -->|"filtered by submitted date"| LD["Staff leave days"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

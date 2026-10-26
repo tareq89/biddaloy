@@ -148,5 +148,42 @@
     "add": "Add program",
     "enrol": "Enrol students",
     "record": "Record achievement"
+  },
+  "fields": {
+    "name": "Name",
+    "description": "Description",
+    "showOnReportCard": "Show on report card",
+    "newMilestoneName": "New milestone name",
+    "class": "Class",
+    "section": "Section",
+    "startedOn": "Started on",
+    "students": "Students",
+    "milestone": "Milestone",
+    "achievedOn": "Achieved on",
+    "score": "Score",
+    "grade": "Grade",
+    "remark": "Remark"
+  },
+  "help": {
+    "name": "The program's name, at most 200 characters. A school cannot have two programs with the same name.",
+    "description": "A line or two about the program. Milestones can have a description too.",
+    "showOnReportCard": "Tick it and the program's progress appears on the report card.",
+    "newMilestoneName": "The name of one step of the program, for example \"Surah Baqarah\".",
+    "class": "The class whose students you will enrol.",
+    "section": "One section of the class; leave empty to list the whole class.",
+    "startedOn": "When the student joins the program. Today's date is filled in.",
+    "students": "Tick the students to enrol, or the students whose achievement you are recording.",
+    "milestone": "Which step's achievement is being recorded.",
+    "achievedOn": "When the step was passed. Today's date is filled in.",
+    "score": "A number, at most two digits after the decimal point, no more than 9999.99.",
+    "grade": "For example A+ or \"Good\". Free text.",
+    "remark": "A short teacher's note. Free text."
+  },
+  "helpRequired": {
+    "name": "Yes",
+    "newMilestoneName": "Yes",
+    "class": "Yes",
+    "students": "Yes, at least one",
+    "milestone": "Yes"
   }
 }

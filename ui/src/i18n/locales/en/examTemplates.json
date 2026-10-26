@@ -90,5 +90,33 @@
     "addSubjectTitle": "Add a subject to class {{grade}}",
     "subjectLabel": "Subject",
     "gradeHasErrors": "Class {{grade}} has errors"
+  },
+  "fields": {
+    "templateName": "Name (structure)",
+    "templateKind": "Type (structure)",
+    "grade": "Class number",
+    "subject": "Subject",
+    "partName": "Part name",
+    "partKind": "Type (part)",
+    "fullMarks": "Full marks",
+    "passMarks": "Pass marks"
+  },
+  "help": {
+    "templateName": "E.g. Half-yearly; at most 200 characters. Two structures cannot share a name.",
+    "templateKind": "Term, monthly, model or other.",
+    "grade": "1 to 99, e.g. 9. The structure is matched to the class grade.",
+    "subject": "One of the school subjects. Exams match it by subject code.",
+    "partName": "E.g. Written; two parts of one subject cannot share a name.",
+    "partKind": "Written, MCQ, viva and so on. Only one attendance part per subject.",
+    "fullMarks": "More than 0, at most 9999.99, up to 2 decimal places.",
+    "passMarks": "From 0 to the full marks, up to 2 decimal places."
+  },
+  "helpRequired": {
+    "templateName": "Yes",
+    "grade": "Yes",
+    "subject": "Yes",
+    "partName": "Yes",
+    "fullMarks": "Yes",
+    "passMarks": "Yes"
   }
 }
