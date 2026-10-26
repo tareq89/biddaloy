@@ -159,7 +159,7 @@ Staff cannot print admit cards from this page; they do it from the exam pages. S
 2. The **Next exam** card (on the right on a computer).
 3. A card for each exam: name, range of days, the admit card part (while the exam is still to come) and subject rows.
 
-<img src="img/exam-schedule-03.png" alt="Exam schedule, one row Finished" width="300">
+<img src="img/exam-schedule-03.png" alt="Exam schedule, the three parts of the page" width="300">
 
 </details>
 

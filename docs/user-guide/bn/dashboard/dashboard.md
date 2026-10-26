@@ -234,7 +234,7 @@ knownIssues: []
 
 কোন উইজেট ফোনে ছোট ঘর হয়, তা উপরের ভূমিকার তালিকায় প্রতিটি নামের পাশে লেখা আছে।
 
-<!-- image pending: শিক্ষকের ড্যাশবোর্ড, মূল সংখ্যার ছোট ঘর, শিক্ষক, phone -->
+<img src="img/dashboard-phone-01-teacher.png" alt="শিক্ষকের ড্যাশবোর্ড, মূল সংখ্যার ছোট ঘর" width="300">
 
 ### অভিভাবকের সারসংক্ষেপ পাতা <a href="#task-portal" id="task-portal"></a>
 
@@ -247,7 +247,7 @@ knownIssues: []
 - **সর্বশেষ ফল**
 - **পরের ছুটি**
 
-<!-- image pending: অভিভাবকের সারসংক্ষেপ পাতা, অভিভাবক, phone -->
+<img src="img/dashboard-phone-02-guardian.png" alt="অভিভাবকের সারসংক্ষেপ পাতা, অভিভাবক" width="300">
 
 ---
 
