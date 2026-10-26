@@ -79,7 +79,7 @@ One submit makes one payment and one invoice (the receipt). The bills the money 
 
    → The **Record a payment** page opens. It has three parts: **1. Student**, **2. Bills due**, **3. Take the money**.
 
-2. In the **Search for a student** box type a name or roll number, then press the student in the list.
+2. In the **Search for student** box type a name or roll number, then press the student in the list.
 
    → The **2. Bills due** part shows each of their open bills: **Fee**, **Period**, **Due date**, **Balance**, **Pay**, **Discount**. If the due date has passed it says **Overdue**.
 
