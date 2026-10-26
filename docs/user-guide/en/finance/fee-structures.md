@@ -40,8 +40,8 @@ appVersion: 0.1.0 (a25ab3344)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: delete-blocked-wrong-reason, checked: 2026-10-25, issue: null } # delete-blocked red text names payments, but a fine rule or automatic billing rule is the real cause
-  - { id: window-text-says-monthly-fees, checked: 2026-10-25, issue: null } # window text says fees are generated monthly; bills are created only by Create bills or an automatic billing rule
+  - { id: delete-blocked-wrong-reason, checked: 2026-10-25, issue: 2930 } # delete-blocked red text names payments, but a fine rule or automatic billing rule is the real cause
+  - { id: window-text-says-monthly-fees, checked: 2026-10-25, issue: 2931 } # window text says fees are generated monthly; bills are created only by Create bills or an automatic billing rule
 -->
 
 # Setting up fee structures
@@ -86,7 +86,7 @@ A **fee structure** is a price label: a name, a fee type and an amount, for exam
 7. If you leave the **Class** box as it is, the structure is for the **Whole school**. To set it for one class, choose that class.
 8. If you chose a class, keep **All sections in the class** in the **Section** box, or choose one section.
 
-<!-- image pending: Add fee structure window with the boxes filled; 1 · Name 2 · Fee type 3 · Amount 4 · Academic year 5 · Class 6 · Section 7 · Save; admin, desktop -->
+<img src="img/fee-structures-01-dialog.png" alt="Add fee structure window with the boxes filled; 1 · Name 2 · Fee type 3 · Amount 4 · Academic year 5 · Class 6 · Section 7 · Close button; admin">
 
 9. Press **Save**.
 
@@ -188,7 +188,7 @@ In the **Search** box above the list, type a name. You can also filter by **Acad
 2. The filters — **Search**, **Academic year**, **Class**, **Section**, **Fee type**.
 3. The list — **Name**, **Type**, **Academic year**, **Class · Section**, **Amount**; **Edit** and **Delete** at the end of each row.
 
-<!-- image pending: Fee structures list, the three parts marked with numbers; one row showing "Whole school", one row showing Class · Section; admin, desktop -->
+<img src="img/fee-structures-02-list.png" alt="Fee structures list, the three parts marked with numbers; one row showing &quot;Whole school&quot;, one row showing Class · Section; admin">
 
 </details>
 

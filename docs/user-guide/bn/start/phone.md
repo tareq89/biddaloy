@@ -20,7 +20,7 @@ appVersion: 0.1.0 (c08a9eb19)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: ios-sheet-old-name, checked: 2026-10-24, issue: null }
+  - { id: ios-sheet-old-name, checked: 2026-10-24, issue: 2950 }
 -->
 
 # ফোনে খোলা ও অ্যাপ হিসেবে ইনস্টল
@@ -72,7 +72,7 @@ SchoolManager ব্রাউজারে চলে; প্লে স্টো�
 
    → মেনু খোলে। নিচের দিকে **অ্যাপ ইনস্টল করুন** থাকে।
 
-<!-- image pending: img/phone-01-install-menu.png (width 300) — ফোনে অ্যাকাউন্ট মেনু খোলা: ১ অ্যাকাউন্ট মেনু, ২ অ্যাপ ইনস্টল করুন. Source: e2e/docs/tours/start-phone.tour.ts at 390 px -->
+<img src="img/phone-01-install-menu.png" alt="ফোনে অ্যাকাউন্ট মেনু খোলা: ১ অ্যাকাউন্ট মেনু, ২ অ্যাপ ইনস্টল করুন" width="300">
 
 4. **অ্যাপ ইনস্টল করুন** চাপুন।
 

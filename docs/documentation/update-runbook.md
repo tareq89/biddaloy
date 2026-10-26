@@ -227,9 +227,8 @@ The role pages (`docs/user-guide/<lang>/roles/`) list "All features" from `ROLE_
 | `(s)` | an image has no meaningful alt text                                             |
 | `(t)` | an id in `coverage.json` is still `planned`                                     |
 
-Two exceptions on purpose: portal pages are not checked by `(o)` (their titles are the app's own menu
-words), and three ids with no page yet (`communications.sendAlert`, `reports.alertsReport`,
-`portal.homework`) only warn (see `PLANNED_EXCEPTIONS` in `check.mjs`).
+One exception on purpose: portal pages are not checked by `(o)` (their titles are the app's own menu
+words). Every id in `coverage.json` is `done`; a `planned` id always fails `(t)`.
 
 ## What is not in this runbook
 

@@ -39,9 +39,9 @@ appVersion: 0.1.0 (5f7194a2e)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: acr-start-no-criteria-wrong-message, checked: 2026-10-25, issue: null }
-  - { id: survey-open-shows-waiting, checked: 2026-10-25, issue: null }
-  - { id: survey-named-results-show-no-names, checked: 2026-10-25, issue: null }
+  - { id: acr-start-no-criteria-wrong-message, checked: 2026-10-25, issue: 2874 }
+  - { id: survey-open-shows-waiting, checked: 2026-10-25, issue: 2875 }
+  - { id: survey-named-results-show-no-names, checked: 2026-10-25, issue: 2876 }
 -->
 
 # Evaluations: ACR, teacher surveys and incidents
@@ -94,7 +94,7 @@ One ACR per staff member per academic year. Whoever starts it is its assessor.
 
    → At the top is the title **Evaluations** and under it "ACRs, teacher surveys and incidents in one place." Three tabs: **ACR**, **Surveys**, **Incidents**. The first tab shows the **ACR register**.
 
-<!-- image pending: Evaluations page, three tabs, Start ACR button and list columns marked, admin, desktop -->
+![Evaluations page, three tabs, Start ACR button and list columns](img/evaluations-01.png)
 
 2. Press **Start ACR** at the top of the page.
 
@@ -120,7 +120,7 @@ One ACR per staff member per academic year. Whoever starts it is its assessor.
 
    → Press a score button, or press 4, 3, 2 or 1 on the keyboard: the score is set and you move to the next criterion. **Previous criterion** and **Next criterion** move you back and forward. The criteria are in two blocks: **Block 2: Performance** and **Block 3: Personal qualities**.
 
-<!-- image pending: ACR criteria step, score buttons and progress marked, admin, desktop -->
+![ACR criteria step, the score buttons and the count of criteria scored, admin](img/evaluations-02.png)
 
 8. On **Step 3: Closing remarks**, fill in **Special qualification**, **Honesty and reputation**, **Eligible for promotion** (**Yes** or **No**), **Training needed** and **Recommendations**.
 
@@ -210,7 +210,7 @@ In a survey, students or guardians give their opinion of teachers in the portal.
 
    → A draft appears in the survey list as **Draft**, and nobody can answer it. Publishing makes it **Open** and respondents see it in the portal. If some fields are wrong you see **Not saved: fix {n} field(s).**
 
-<!-- image pending: New survey form, teacher-subject, questions, privacy, dates and minimum answers marked, admin, desktop -->
+![New teacher survey form with title, who answers, privacy, teachers and subjects, questions, dates and minimum answers, admin](img/evaluations-03.png)
 
 > **Remember:** to publish a draft survey, open it from the list and press **Publish**. A button to change an open survey's questions or teachers was not found in the code.
 
@@ -325,7 +325,7 @@ Checked in the code on version 0.1.0, 2026-10-24. Not tried in the app.
 3. **The tabs** — **ACR**, **Surveys**, **Incidents**.
 4. **The list** — ACR: **Staff member**, **Academic year**, **Status**, **Total score**, **Completed**; surveys: **Title**, **Who answers**, **Status**, **Closes**; incidents: **Staff member**, **Type**, **Severity**, **Date**, **Details**.
 
-<!-- image pending: the four parts of the Evaluations page marked with numbers, admin, desktop -->
+![the four parts of the Evaluations page](img/evaluations-04.png)
 
 </details>
 
@@ -378,7 +378,10 @@ Checked in the code on version 0.1.0, 2026-10-24. Not tried in the app.
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: GIF from starting an ACR to completing it, admin, desktop -->
+<figure>
+  <img src="img/evaluations-acr.gif" alt="The whole job on a computer: Start ACR, pick the staff member and year, go to Criteria and score each one with the 4, 3, 2 and 1 keys, then Complete ACR; the report shows Completed with its total score">
+  <figcaption><em>From starting an ACR to completing it</em></figcaption>
+</figure>
 
 </details>
 

@@ -77,7 +77,7 @@ Each payment is one row in the list, newest first. To take new money, see [**Rec
 
    → The payment's page opens: **Amount**, **Date**, **Method**, **Transaction reference**, **Collected by**, **Discount approved by**, **Invoice**. Below is **Where the money went** — how much money and how much discount landed on which bill.
 
-<!-- image pending: one payment's page; 1 · Amount and details 2 · Where the money went 3 · Print receipt 4 · Reverse payment; admin, desktop -->
+<img src="img/payments-01-detail.png" alt="one payment's page; 1 · Amount and details 2 · Where the money went 3 · Print receipt 4 · Reverse payment; admin">
 
 ---
 
@@ -135,7 +135,7 @@ If it was recorded for the wrong student, with the wrong amount or the wrong met
 
 There is no time limit: an older payment can be reversed too, as long as none of the above applies.
 
-> **Remember:** if the school has another active admin who can approve, or the school's settings have a second approver switched on, you cannot approve your own reversal. Ask another admin to enter their code. If the school has only one admin, they can approve it themselves.
+> **Remember:** if the school has another active admin who can approve, or the school's settings have a second approver switched on, you cannot approve your own reversal. Ask another admin to enter their code. If the school has only one admin and no second approver is switched on, that admin can approve it themselves.
 
 ### When it asks you to reverse later payments first <a href="#task-later" id="task-later"></a>
 
@@ -198,7 +198,7 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 2. The filters — **Search**, **Payment method**, **Payment date**, **Show reversed too**.
 3. The list — press **View** on a row to open the payment's page.
 
-<!-- image pending: payments list with Show reversed too ticked, one "Reversed" and one "Reversal entry"; the three parts numbered; accountant, desktop -->
+![payments list with Show reversed too ticked, one &quot;Reversed&quot; and one &quot;Reversal entry&quot;; the three parts numbered](img/payments-02-reversed.png)
 
 </details>
 

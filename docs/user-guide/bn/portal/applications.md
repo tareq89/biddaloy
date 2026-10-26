@@ -89,7 +89,7 @@ knownIssues: []
 
    → **নতুন আবেদন** পাতা খোলে। উপরে লেখা থাকে **ধাপ ১ / ৪**।
 
-<!-- image pending: img/portal-applications-01-list.png (width 300) — ফোনে আবেদনের তালিকা: ১ নতুন আবেদন বোতাম, ২ একটি আবেদনের কার্ড ও তার অবস্থা -->
+<img src="img/applications-01.png" alt="ফোনে আবেদনের তালিকা" width="300">
 
 2. **কিসের জন্য আবেদন করতে চান?** থেকে একটি ধরন চাপুন, তারপর **পরবর্তী**।
 
@@ -107,7 +107,7 @@ knownIssues: []
 
    → **আবেদন জমা হয়েছে · ২০২৬/১২** ধরনের বার্তা আসে, আর আবেদনটির পাতা খোলে। অবস্থা **অপেক্ষমাণ**।
 
-<!-- image pending: img/portal-applications-02-preview.png (width 300) — ফোনে শেষ ধাপ: ১ চিঠির খসড়া, ২ সারসংক্ষেপ, ৩ আবেদন জমা দিন -->
+<img src="img/portal-applications-02-preview.png" alt="ফোনে শেষ ধাপ: খসড়া চিঠি, সারসংক্ষেপ আর আবেদন জমা দিন বোতাম" width="300">
 
 > **মনে রাখুন:** জমার পর আবেদনের লেখা আর বদলানো যায় না। ভুল হলে [তুলে নিন](#task-withdraw), তারপর নতুন করে জমা দিন।
 
@@ -144,7 +144,7 @@ knownIssues: []
 
 চিঠি কাগজে লাগলে পাতার **প্রিন্ট** চাপুন।
 
-<!-- image pending: img/portal-applications-03-detail.png (width 300) — ফোনে আবেদনের পাতা: ১ অবস্থা, ২ ধাপ, ৩ কার্যক্রম, ৪ তুলে নিন -->
+<img src="img/applications-03.png" alt="ফোনে আবেদনের পাতা" width="300">
 
 ### আবেদন তুলে নিন <a href="#task-withdraw" id="task-withdraw"></a>
 

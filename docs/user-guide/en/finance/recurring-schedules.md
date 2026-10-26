@@ -86,7 +86,7 @@ A **rule** says: which academic year, for whom, which fee, and on which day. Whe
 9. Check the **Starts on** and **Ends on** dates. The end date cannot be after the last day of the academic year.
 10. If you do not want to tell families, untick **Notify families when bills are created**.
 
-<!-- image pending: New automatic billing rule page; 1 · Rule name and Academic year 2 · Fees 3 · Who is billed 4 · When bills are created 5 · Days to pay 6 · Starts on and Ends on 7 · Save; accountant, desktop -->
+<img src="img/recurring-schedules-01-new.png" alt="New automatic billing rule page; 1 · Name and year 2 · Fees 3 · Who is billed 4 · When bills are created, with Days to pay, Starts on and Ends on; accountant">
 
 11. Press **Save**.
 
@@ -204,7 +204,7 @@ Before you copy, have classes with the same names and fee structures with the sa
 3. **Excluded students** — the search box, **Reason**, **Exclude**; the list below.
 4. **Billing history** — every round made by this rule, with **View bills** beside it.
 
-<!-- image pending: the rule's page, four parts marked with numbers, one student on the excluded list; admin, desktop -->
+<img src="img/recurring-schedules-02-rule.png" alt="the rule's page, four parts marked with numbers, one student on the excluded list; admin">
 
 </details>
 
