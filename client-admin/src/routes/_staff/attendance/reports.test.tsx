@@ -135,6 +135,18 @@ describe('/attendance/reports', () => {
     expect(screen.queryByText(/Page \d+ of/)).toBeNull();
   });
 
+  it('drops an unknown query param instead of showing a raw filter chip', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports?date=2026-10-22'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('Pick a section to see its attendance report.');
+    expect(screen.queryByText(/^date\b/i)).toBeNull();
+    expect(screen.queryByText(/2026-10-22/)).toBeNull();
+  });
+
   it('points the selected tab at a panel that exists', async () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/attendance/reports'],
