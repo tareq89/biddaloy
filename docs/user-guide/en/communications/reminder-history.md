@@ -182,7 +182,7 @@ For the other roles, **Reminder History** is not in the left menu.
 2. Filters: **Search**, **Status**, **Created** (**Created from**, **Created to**).
 3. The list: **Name**, **Created**, **Status**, **Recipients**, **Delivered**, **Failed**; **View** on a row.
 
-<!-- image pending: Reminder History list, one round "Partially failed"; office staff, desktop -->
+![The Reminder History list with one round marked Partially failed](img/reminder-history-02.png)
 
 </details>
 
