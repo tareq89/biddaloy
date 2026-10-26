@@ -65,9 +65,9 @@ appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: exam-delete-no-button, checked: 2026-10-25, issue: null }
-  - { id: exam-edit-published-kind-message, checked: 2026-10-25, issue: null }
-  - { id: exam-template-no-grade-message, checked: 2026-10-25, issue: null }
+  - { id: exam-delete-no-button, checked: 2026-10-25, issue: 2912 }
+  - { id: exam-edit-published-kind-message, checked: 2026-10-25, issue: 2913 }
+  - { id: exam-template-no-grade-message, checked: 2026-10-25, issue: 2914 }
 -->
 
 # Creating and setting up exams
@@ -116,7 +116,7 @@ Every exam belongs to one class and one academic year, for example the **Half Ye
 
    → At the top is the title **Exams**, with the line "Every exam belongs to one class and one academic year." The list has the columns **Name**, **Class**, **Academic year**, **Kind**, **Status**. At first it shows the exams of all years.
 
-<!-- image pending: the exam list, with the Add exam button and the academic year and class filters marked, Admin, desktop -->
+<img src="img/exams-01-list.png" alt="the exam list, with the Add exam button and the academic year and class filters marked, Admin">
 
 2. At the top of the page, press **Add exam**.
 
@@ -138,7 +138,7 @@ Every exam belongs to one class and one academic year, for example the **Half Ye
 
 7. If the school has [exam structures](exam-templates.md), the **Start from an exam structure (optional)** field shows. If you pick a structure, the parts are made for you; if you do not want that, keep **No exam structure**.
 
-<!-- image pending: the Add exam dialog, with the name, kind, mark entry deadline, academic year, class and exam structure marked, Admin, desktop -->
+<img src="img/exams-02-dialog.png" alt="the Add exam dialog, with the name, kind, mark entry deadline, academic year, class and exam structure marked, Admin">
 
 8. Press **Save**.
 
@@ -183,7 +183,7 @@ Exam details are saved only when you are online; they cannot be kept on the devi
 
    → The part appears in the list. The full marks of an attendance part shows **Derived**.
 
-<!-- image pending: the Marks breakdown tab, with the subject picker, the list of parts and the Add a part section marked, Admin, desktop -->
+<img src="img/exams-04-tab1.png" alt="the Marks breakdown tab, with the subject picker, the list of parts and the Add a part section marked, Admin">
 
 **To delete a part:** press **Delete** on its row, then press **Delete** in the **Delete this part?** dialog. There is no button to change a part here; if it is wrong, delete it and add it again.
 
@@ -252,7 +252,7 @@ The state is written at the top of the exam page, and beside it are only the but
 | **Processed** | Results worked out from the submitted marks, not yet published | **Result analysis**, **Process again**, **Publish**      |
 | **Published** | Results are published; parts are locked                 | **Result analysis**, **Send result SMS**, **Reopen**            |
 
-Pressing **Reopen** makes the exam **Processed** again. The full rules for processing, publishing and reopening will be on the results page. <!-- link pending: exams-results/results.md, results page owns process/publish/reopen -->
+Pressing **Reopen** makes the exam **Processed** again. The full rules for processing, publishing and reopening will be on [the results page](results.md).
 
 ### Delete an exam <a href="#task-delete" id="task-delete"></a>
 
@@ -277,7 +277,7 @@ Press the exam name in the list, or **View**, to open its page. At the top are t
 | **Marks breakdown** | The parts of a subject; [Set the parts](#task-components)                                                                                                          |
 | **Schedule**       | The date and time of each subject; [Give a schedule](#task-schedule)                                                                                                |
 | **Results**        | Result by student: **Position**, **Roll · Name**, **Total**, **GPA**, **Grade**, **Status**                                                                         |
-| **Print**          | Admit cards, seat lists, mark sheets and so on; [Exam documents](../printing/exam-documents.md). The tab shows only if you have the print permission                |
+| **Print**          | Admit cards, seat lists, mark sheets and so on; [Exam documents](../administration/print-templates/exam-documents.md). The tab shows only if you have the print permission                |
 
 ---
 
@@ -307,7 +307,7 @@ Press the exam name in the list, or **View**, to open its page. At the top are t
 | Exam controller                                                                            | Yes                        | Yes                           | Yes                              | Yes       |
 | Academic coordinator, teacher, accountant, office assistant, governing board member        | No                         | No                            | No                               | No        |
 
-For other roles, **Exams** is not in the left menu; if they open the page, they see **You don't have access to this page.** A teacher and an academic coordinator see the exam name only in the exam picker on the marks entry and result analysis pages. <!-- link pending: exams-results/marks-entry.md, exams-results/analysis.md, other lanes -->
+For other roles, **Exams** is not in the left menu; if they open the page, they see **You don't have access to this page.** A teacher and an academic coordinator see the exam name only in the exam picker on the [marks entry](marks-entry.md) and [result analysis](analysis.md) pages.
 
 ---
 
@@ -333,7 +333,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 3. **Filter row** — **Academic year** and **Class**.
 4. **List** — **Name**, **Class**, **Academic year**, **Kind**, **Status**; at the end of each row, **View** and **Edit**.
 
-<!-- image pending: the four parts of the exam list, numbered, Admin, desktop -->
+<img src="img/exams-01-list.png" alt="the four parts of the exam list, numbered, Admin">
 
 </details>
 
@@ -342,18 +342,18 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 
 <!-- guide:generated:fields:exams -->
 
-| Field | What to enter | Required? |
-| --- | --- | --- |
-| Name (exam) | The exam name, e.g. Half Yearly 2026. Two exams of the same class and year cannot share a name. | Yes |
-| Kind (exam) | Term, monthly, model or other. Cannot change once results are published. | No |
-| Mark entry deadline | Teachers see the days left on their dashboard. Leave empty if there is none. | No |
-| Academic year | The year the exam belongs to. Chosen only when you add the exam. | Yes |
-| Class | The class that sits the exam. Pick the year first; it cannot change later. | Yes |
-| Start from an exam structure (optional) | Pick an exam structure and the parts for the class subjects are made for you. Hidden when there is no structure. | No |
-| Name (part) | The part name, e.g. Written. Two parts of one subject cannot share a name. | Yes |
-| Kind (part) | Written, MCQ, viva, practical and so on. Attendance is counted for you. | No |
-| Full marks | The full marks of the part, e.g. 70; a positive number. Not shown for an attendance part. | Yes, except attendance parts |
-| Pass marks | The pass mark of the part, e.g. 23. Not more than the full marks. Leave empty if not needed. | No |
+| Field                                   | What to enter                                                                                                    | Required?                    |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Name (exam)                             | The exam name, e.g. Half Yearly 2026. Two exams of the same class and year cannot share a name.                  | Yes                          |
+| Kind (exam)                             | Term, monthly, model or other. Cannot change once results are published.                                         | No                           |
+| Mark entry deadline                     | Teachers see the days left on their dashboard. Leave empty if there is none.                                     | No                           |
+| Academic year                           | The year the exam belongs to. Chosen only when you add the exam.                                                 | Yes                          |
+| Class                                   | The class that sits the exam. Pick the year first; it cannot change later.                                       | Yes                          |
+| Start from an exam structure (optional) | Pick an exam structure and the parts for the class subjects are made for you. Hidden when there is no structure. | No                           |
+| Name (part)                             | The part name, e.g. Written. Two parts of one subject cannot share a name.                                       | Yes                          |
+| Kind (part)                             | Written, MCQ, viva, practical and so on. Attendance is counted for you.                                          | No                           |
+| Full marks                              | The full marks of the part, e.g. 70; a positive number. Not shown for an attendance part.                        | Yes, except attendance parts |
+| Pass marks                              | The pass mark of the part, e.g. 23. Not more than the full marks. Leave empty if not needed.                     | No                           |
 
 <!-- /guide:generated -->
 
@@ -372,8 +372,8 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
   <figcaption><em>From exam to promotion</em></figcaption>
 </figure>
 
-- Teachers enter marks by section and subject, using the exam's parts. <!-- link pending: exams-results/marks-entry.md, other lane -->
-- Grade and GPA come from the school's grading scale. <!-- link pending: exams-results/grading-scales.md, other lane -->
+- Teachers enter [marks](marks-entry.md) by section and subject, using the exam's parts.
+- Grade and GPA come from the school's [grading scale](grading-scales.md).
 - If the same parts are needed again and again, make an [exam structure](exam-templates.md).
 
 </details>
@@ -383,8 +383,12 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 - [**Exam structures**](exam-templates.md) — set parts and marks once and use them in every exam.
 - [**Seat plans**](seat-plans.md) — who sits in which room and seat, by exam subject.
 - [**Classes, sections and subjects**](../academics/classes.md) — where the exam's class and subjects are set.
-
-<!-- link pending: exams-results/marks-entry.md, exams-results/results.md, exams-results/analysis.md, exams-results/promotion.md, exams-results/grading-scales.md, other lanes -->
+- [**Printing exam documents**](../administration/print-templates/exam-documents.md) — Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
+- [**Entering and submitting exam marks**](marks-entry.md) — Teachers submit the marks lists before the results.
+- [**Processing and publishing results**](results.md) — process, publish and reopen the results.
+- [**Merit list and result analysis**](analysis.md) — merit list and pass/fail after the results.
+- [**Promoting students**](promotion.md) — moving students up to the next class.
+- [**Setting up grading scales**](grading-scales.md) — which percentage gets which grade and GPA.
 
 ---
 

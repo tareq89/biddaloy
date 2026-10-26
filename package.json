@@ -45,6 +45,7 @@
     "guide:impact": "node scripts/user-guide/impact.mjs",
     "guide:shoot": "playwright test -c playwright.docs.config.ts",
     "guide:gif": "node scripts/user-guide/gif.mjs",
+    "guide:card": "node scripts/user-guide/quick-card.mjs",
     "test:timings": "rm -rf ci-timings && (CI_TIMINGS_OUT=ci-timings/raw-local.json vitest run; ec=$?; node scripts/ci-timings.mjs collect --runner vitest --suite local --job local --in ci-timings/raw-local.json --out ci-timings/local.json && node scripts/ci-timings.mjs report ci-timings/local.json; exit $ec)",
     "coverage": "yarn test:frontend:coverage && node scripts/open-coverage-report.mjs",
     "test:cov": "yarn workspace @biddaloy/server test:cov",

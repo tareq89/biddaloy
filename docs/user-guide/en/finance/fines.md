@@ -94,9 +94,9 @@ For example: someone lost a library book, or broke something.
 
    → A message like "**2 fines logged**" appears. A separate bill is made for each student.
 
-<!-- image pending: Log fine window; 1 · Students 2 · Fine type 3 · Amount 4 · Incident date 5 · Reason 6 · Notify guardian; accountant, desktop -->
+<img src="img/fines-01-log.png" alt="Log fine window; 1 · Students 2 · Fine type 3 · Amount 4 · Incident date 5 · Reason 6 · Notify guardian; accountant">
 
-> **Remember:** if you add a fine for the same student again in the same month, the earlier one does not change; another new bill is made. A fine's due date is some days from today; 7 days unless the school's settings change it.
+> **Remember:** if you add a fine for the same student again in the same month, the earlier one does not change; another new bill is made. A fine's due date is 7 days after the day you add it (not after the incident date).
 
 ---
 
@@ -146,12 +146,13 @@ The rule: absent days, fine type 50 taka, **Free per month** 2, **Cap per month*
 | 5 days              | 3                                  | 3 × 50 = 150 | 150 taka                      |
 | 9 days              | 7                                  | 7 × 50 = 350 | 200 taka (stopped by the cap) |
 
+- The due date of these fines is 7 days after the day they are made.
 - Fines for a month can only be made after that month has ended; if you pick the current month, the app stops you.
 - Holidays, closed days and days on leave (LEAVE) are not counted.
 - Only whole-day attendance is counted; if a student is absent in a class period but present for the day, it does not count.
 - For a lateness rule, a day counts only if the student was at least **Minimum minutes late** late. If no minutes are set, it always counts.
 
-> **Remember:** the app also makes the previous month's fines by itself every day, but only after the time allowed for fixing attendance after month end has passed (2 days unless the settings change it). This automatic run always skips fines that already exist, and notifies families.
+> **Remember:** the app also makes the previous month's fines by itself every day, but only after the time allowed for fixing attendance after month end has passed (2 days unless the attendance settings change it). With 2 days, the 1st and 2nd of the month are for fixing attendance, and the fines are made from the 3rd. This automatic run always skips fines that already exist, and notifies families.
 
 The same options exist for fee bills; see [**Creating fee bills**](generate-fees.md) for details.
 
@@ -193,7 +194,7 @@ If an active rule already exists for the same academic year, trigger and class, 
 
 From the row's menu you can **Edit**, **Deactivate** / **Activate**, and **Delete**. When you delete, a window asks first; a deleted rule cannot be brought back. An inactive rule makes no new fines.
 
-<!-- image pending: the fine rules list, one absence rule and one lateness rule; the Add rule button marked; admin, desktop -->
+<img src="img/fines-02-rules.png" alt="the fine rules list, one absence rule and one lateness rule; the Add rule button marked; admin">
 
 ### Copy last year's rules <a href="#task-copy" id="task-copy"></a>
 
@@ -220,6 +221,8 @@ From the row's menu you can **Edit**, **Deactivate** / **Activate**, and **Delet
 | **Waive fine** is missing                                        | Only an admin sees it; it does not appear on a paid or waived fine.                                                       | Admin        |
 | An active fine rule already exists for this year, trigger and class | Change the old rule, or deactivate it first.                                                                              | Accountant   |
 | The fine rules cannot be loaded                                  | If you are a teacher, academic coordinator or office assistant, the rules page does not open for you. For others: reload. | Admin        |
+
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#fees).
 
 ---
 
@@ -265,7 +268,7 @@ Only sees all fines, for example when a guardian asks. Cannot make any change.
 3. The filters — **Month**, **Class**, **Section**, **Source**, **Fine type**, **Status**.
 4. The list — the row menu has **Open student** and **Waive fine**.
 
-<!-- image pending: fines list, the four totals boxes and one "Rule" and one "Manual" row; the four parts numbered; admin, desktop -->
+<img src="img/fines-03-list.png" alt="fines list, the four totals boxes and one &quot;Rule&quot; and one &quot;Manual&quot; row; the four parts numbered; admin">
 
 </details>
 
@@ -273,6 +276,25 @@ Only sees all fines, for example when a guardian asks. Cannot make any change.
 <summary><strong>What the boxes mean</strong></summary>
 
 <!-- guide:generated:fields:fines -->
+
+| Field                | What to enter                                                                                                                         | Required? |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Trigger              | Whether to count absent days or late arrivals. This cannot be changed after the rule is made.                                         | Required. |
+| Fine type            | Which fine type applies; its own amount is used each time. Only fees of the fine type appear here.                                    | Required. |
+| Class                | For one class, or for the whole school.                                                                                               | No        |
+| Free per month       | The first this-many times in a month are not fined; every time after that is. 0 means fined from the very first time.                 | No        |
+| Cap per month        | A student's total fine under this rule in one month will not go above this. Leave empty for no limit.                                 | No        |
+| Minimum minutes late | Late-arrival rules only: counts only if at least this many minutes late, 0 to 240. If no late minutes are recorded, it always counts. | No        |
+| Students             | One or more students, up to 200 at a time. A separate bill is made for each.                                                          | Required. |
+| Fine type            | Which fine type; only fees of the fine type appear here.                                                                              | Required. |
+| Amount               | If left empty, the fine type's own amount is used. More than zero, up to two decimals.                                                | No        |
+| Incident date        | When it happened. It cannot be a date after today, and it must be inside the fine type's academic year.                               | Required. |
+| Reason               | Why the fine; 3 to 280 characters. The bill carries this reason.                                                                      | Required. |
+| Notify guardian      | When on, the guardian is told about the fine.                                                                                         | No        |
+| In full or part      | Whether to waive everything that is left, or only part of it.                                                                         | No        |
+| Amount to waive      | How much, when waiving part. It cannot be more than what is left.                                                                     | No        |
+| Reason               | Why you are waiving it; 3 to 280 characters.                                                                                          | Required. |
+
 <!-- /guide:generated -->
 
 </details>
@@ -293,6 +315,10 @@ Only sees all fines, for example when a guardian asks. Cannot make any change.
 </details>
 
 **Related pages**
+
+- [**Fees and invoices**](../portal/fees.md) — how a guardian sees fines.
+
+
 
 - [**Student dues**](dues.md) — fine bills show as owed here.
 - [**Record payment**](record-payment.md) — taking the fine money.

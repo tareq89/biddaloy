@@ -58,9 +58,9 @@ appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: seat-plan-claimed-sitting-generic-error, checked: 2026-10-25, issue: null }
-  - { id: seat-plan-publish-conflict-generic-error, checked: 2026-10-25, issue: null }
-  - { id: seat-plan-invigilator-busy-generic-error, checked: 2026-10-25, issue: null }
+  - { id: seat-plan-claimed-sitting-generic-error, checked: 2026-10-25, issue: 2918 }
+  - { id: seat-plan-publish-conflict-generic-error, checked: 2026-10-25, issue: 2919 }
+  - { id: seat-plan-invigilator-busy-generic-error, checked: 2026-10-25, issue: 2920 }
 -->
 
 # Making and publishing seat plans
@@ -109,7 +109,7 @@ A seat plan is made by exam **subject**, for example the **Bangla 1st Paper** of
 
    → At the top is the title **Seat plans**. The list has the columns **Name**, **Status**, **Exam subjects**, **Rooms**, **Students**. If there are none, it says **No seat plans yet**.
 
-<!-- image pending: the seat plan list, with the Generate seat plan button marked, Admin, desktop -->
+<img src="img/seat-plans-01-list.png" alt="the seat plan list, with the Generate seat plan button marked, Admin">
 
 2. At the top of the page, press **Generate seat plan**.
 
@@ -129,7 +129,7 @@ A seat plan is made by exam **subject**, for example the **Bangla 1st Paper** of
 
    → At the top it says, for example, **3 selected · 120 seats in total**. If there is no room, it says **No rooms are set up yet.**
 
-<!-- image pending: the Generate seat plan dialog, with the plan name, exam, seat order, exam subjects and rooms marked, Admin, desktop -->
+<img src="img/seat-plans-02-dialog.png" alt="the Generate seat plan dialog, with the plan name, exam, seat order, exam subjects and rooms marked, Admin">
 
 8. Press **Generate**. The button cannot be pressed until you give a name, at least one subject and one room.
 
@@ -143,11 +143,11 @@ A seat plan is made by exam **subject**, for example the **Bangla 1st Paper** of
 
 Seat plans are saved only when you are online; they cannot be kept on the device and sent later. So there is no **Saved on this device** state here.
 
-| State                           | How to tell                                                                     | What next                                                               |
-| ------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Changed on screen only**      | The dialog is open with subjects and rooms picked, but the plan page has not opened | Press **Generate**                                                  |
-| **Reached the school's system** | The plan page has opened, the state is **Draft**, and the room cards list students | Check the seats, then [publish](#task-publish)                       |
-| **Published**                   | The state is **Published**; it says the plan can no longer be changed           | [Print admit cards and seat lists](../printing/exam-documents.md)       |
+| State                           | How to tell                                                                         | What next                                                                               |
+| ------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Changed on screen only**      | The dialog is open with subjects and rooms picked, but the plan page has not opened | Press **Generate**                                                                      |
+| **Reached the school's system** | The plan page has opened, the state is **Draft**, and the room cards list students  | Check the seats, then [publish](#task-publish)                                          |
+| **Published**                   | The state is **Published**; it says the plan can no longer be changed               | [Print admit cards and seat lists](../administration/print-templates/exam-documents.md) |
 
 **To check:** go back to the list and see whether the plan is there, and whether the number in the **Students** column is right.
 
@@ -235,10 +235,10 @@ Only a **Draft** plan can be deleted. To delete a published plan, first [unpubli
 
 2. Press **Delete**.
 
-| You pressed | What happens                                                    | Saved? |
-| ----------- | --------------------------------------------------------------- | ------ |
-| **Delete**  | The plan goes and you return to the list; it cannot be brought back | Yes |
-| **Cancel**  | Nothing changes                                                 | No     |
+| You pressed | What happens                                                        | Saved? |
+| ----------- | ------------------------------------------------------------------- | ------ |
+| **Delete**  | The plan goes and you return to the list; it cannot be brought back | Yes    |
+| **Cancel**  | Nothing changes                                                     | No     |
 
 ### The plan page <a href="#task-detail" id="task-detail"></a>
 
@@ -248,19 +248,19 @@ Press the plan's name in the list, or **View**, to open its page. At the top are
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                  | What to do                                                                                                                                                              | Who can help |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **You don't have access to this page.**                                       | Only the Admin and the exam controller see this page. Press **Back to dashboard**.                                                                                      | Admin        |
-| **Could not load seat plans.** or **Could not load this seat plan.**          | Check the internet and reload the page.                                                                                                                                 | Admin        |
-| **This exam has no schedule yet.**                                            | First [give a schedule](exams.md#task-schedule) to the exam.                                                                                                            | Admin        |
-| **No rooms are set up yet.**                                                  | First [add rooms](../academics/routine-setup.md#task-rooms), with their capacity.                                                                                       | Admin        |
-| **Not enough seats: …**                                                       | See [When there are not enough seats](#task-shortfall).                                                                                                                 | Admin        |
-| **Something went wrong. Please try again.** (while generating)                | A picked subject may already be in another published plan; look at the list and leave that subject out ([Known issues](#known-issues)). If not, check the internet.      | Admin        |
-| **Couldn't publish the seat plan.**                                           | See whether a room is in another published plan at the same time; if so, move those students to another room ([Change one student's seat](#task-reseat)).                | Admin        |
-| **Couldn't change the invigilator.**                                          | They may be busy with other work at that time; pick someone else.                                                                                                       | Admin        |
-| **Someone already sits in this seat.** or **This room has no free seat.**     | Give another seat number or another room.                                                                                                                               | Admin        |
-| **The first exam of this plan has started, so it can no longer be changed.**  | Once the exam has started, the plan cannot be changed. If needed, write the change by hand at the centre.                                                               | Admin        |
-| **Couldn't delete the seat plan.**                                            | See whether the plan is a draft, then check the internet and try again.                                                                                                 | Admin        |
+| What you see                                                                 | What to do                                                                                                                                                          | Who can help |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **You don't have access to this page.**                                      | Only the Admin and the exam controller see this page. Press **Back to dashboard**.                                                                                  | Admin        |
+| **Could not load seat plans.** or **Could not load this seat plan.**         | Check the internet and reload the page.                                                                                                                             | Admin        |
+| **This exam has no schedule yet.**                                           | First [give a schedule](exams.md#task-schedule) to the exam.                                                                                                        | Admin        |
+| **No rooms are set up yet.**                                                 | First [add rooms](../academics/routine-setup.md#task-rooms), with their capacity.                                                                                   | Admin        |
+| **Not enough seats: …**                                                      | See [When there are not enough seats](#task-shortfall).                                                                                                             | Admin        |
+| **Something went wrong. Please try again.** (while generating)               | A picked subject may already be in another published plan; look at the list and leave that subject out ([Known issues](#known-issues)). If not, check the internet. | Admin        |
+| **Couldn't publish the seat plan.**                                          | See whether a room is in another published plan at the same time; if so, move those students to another room ([Change one student's seat](#task-reseat)).           | Admin        |
+| **Couldn't change the invigilator.**                                         | They may be busy with other work at that time; pick someone else.                                                                                                   | Admin        |
+| **Someone already sits in this seat.** or **This room has no free seat.**    | Give another seat number or another room.                                                                                                                           | Admin        |
+| **The first exam of this plan has started, so it can no longer be changed.** | Once the exam has started, the plan cannot be changed. If needed, write the change by hand at the centre.                                                           | Admin        |
+| **Couldn't delete the seat plan.**                                           | See whether the plan is a draft, then check the internet and try again.                                                                                             | Admin        |
 
 ---
 
@@ -272,7 +272,7 @@ Press the plan's name in the list, or **View**, to open its page. At the top are
 | Exam controller                                                                     | Yes                    | Yes                                          | Yes                   |
 | Academic coordinator, teacher, accountant, office assistant, governing board member | No                     | No                                           | No                    |
 
-For other roles, **Seat plans** is not in the left menu; if they open the page, they see **You don't have access to this page.** There is no separate view-only permission. Seat lists and invigilator sheets are printed from the exam's **Print** tab ([Exam documents](../printing/exam-documents.md)).
+For other roles, **Seat plans** is not in the left menu; if they open the page, they see **You don't have access to this page.** There is no separate view-only permission. Seat lists and invigilator sheets are printed from the exam's **Print** tab ([Exam documents](../administration/print-templates/exam-documents.md)).
 
 ---
 
@@ -280,11 +280,11 @@ For other roles, **Seat plans** is not in the left menu; if they open the page, 
 
 Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It will be removed from this section once fixed.
 
-| Problem                                                                                                                                                | Whose, when                         | Data saved?                 | What to do for now                                                                         |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------ |
-| Generating with a subject already in another published plan shows only **Something went wrong. Please try again.**; it does not say which subject      | Whoever generates a seat plan       | No, the plan is not made    | Open the published plans in the list, see which subject is there, and leave it out         |
-| When a room is in another published plan at the same time, publishing shows only **Couldn't publish the seat plan.**; it does not say which room       | Whoever publishes                   | No, the plan stays a draft  | Remember the **Time clash** list from generating; empty that room                          |
-| Picking a busy person as invigilator shows only **Couldn't change the invigilator.**; it does not say why                                              | Whoever gives an invigilator        | No, the old invigilator stays | Pick someone else                                                                        |
+| Problem                                                                                                                                           | Whose, when                   | Data saved?                   | What to do for now                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------- | ---------------------------------------------------------------------------------- |
+| Generating with a subject already in another published plan shows only **Something went wrong. Please try again.**; it does not say which subject | Whoever generates a seat plan | No, the plan is not made      | Open the published plans in the list, see which subject is there, and leave it out |
+| When a room is in another published plan at the same time, publishing shows only **Couldn't publish the seat plan.**; it does not say which room  | Whoever publishes             | No, the plan stays a draft    | Remember the **Time clash** list from generating; empty that room                  |
+| Picking a busy person as invigilator shows only **Couldn't change the invigilator.**; it does not say why                                         | Whoever gives an invigilator  | No, the old invigilator stays | Pick someone else                                                                  |
 
 ---
 
@@ -299,7 +299,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 4. **Show seats for** — when the plan has more than one subject.
 5. **Room cards** — the invigilator, **Reseat this room**, the list of students.
 
-<!-- image pending: the five parts of a draft plan page, numbered, Admin, desktop -->
+![A draft seat plan page: 1 the name and Draft badge, 2 the facts row, 3 Delete plan and Publish seat plan, 4 Show seats for, 5 a room card with its seat list](img/seat-plans-03-draft.png)
 
 </details>
 
@@ -308,23 +308,23 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 
 <!-- guide:generated:fields:seatPlans -->
 
-| Field | What to enter | Required? |
-| --- | --- | --- |
-| Plan name | E.g. Half-yearly, first week. | Yes |
-| Exam | The exam whose subjects you are seating. | Yes |
-| Exam subjects | Subjects on the exam schedule; at least one. | Yes |
-| Rooms | At least one room. Rooms fill in the order you pick them. | Yes |
-| Seat order | In order: one after another by class, section and roll. Random: seats in random order. | No |
+| Field         | What to enter                                                                          | Required? |
+| ------------- | -------------------------------------------------------------------------------------- | --------- |
+| Plan name     | E.g. Half-yearly, first week.                                                          | Yes       |
+| Exam          | The exam whose subjects you are seating.                                               | Yes       |
+| Exam subjects | Subjects on the exam schedule; at least one.                                           | Yes       |
+| Rooms         | At least one room. Rooms fill in the order you pick them.                              | Yes       |
+| Seat order    | In order: one after another by class, section and roll. Random: seats in random order. | No        |
 
 <!-- /guide:generated -->
 
 <!-- guide:generated:fields:seatPlansDetail -->
 
-| Field | What to enter | Required? |
-| --- | --- | --- |
-| Invigilator | A staff member who watches the room. Cannot be someone busy at that time. | No |
-| Room | The room you move the student to when changing a seat. | Yes |
-| Seat number | The number of a free seat in that room. | Yes |
+| Field       | What to enter                                                             | Required? |
+| ----------- | ------------------------------------------------------------------------- | --------- |
+| Invigilator | A staff member who watches the room. Cannot be someone busy at that time. | No        |
+| Room        | The room you move the student to when changing a seat.                    | Yes       |
+| Seat number | The number of a free seat in that room.                                   | Yes       |
 
 <!-- /guide:generated -->
 
@@ -344,7 +344,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 </figure>
 
 - A seat plan goes by subject, not by whole exam. Subjects of one week can go in one plan, and subjects of the next week in another.
-- After publishing, print the seat list, invigilator sheet and seat stickers: [Exam documents](../printing/exam-documents.md).
+- After publishing, print the seat list, invigilator sheet and seat stickers: [Exam documents](../administration/print-templates/exam-documents.md).
 
 </details>
 
@@ -353,6 +353,8 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 - [**Exams**](exams.md) — the exam schedule, which the plan's subjects come from.
 - [**Exam structures**](exam-templates.md) — set exam parts once.
 - [**Routine setup**](../academics/routine-setup.md) — add rooms and their capacity.
+- [**Printing exam documents**](../administration/print-templates/exam-documents.md) — Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
+- [**Exam schedule**](../portal/exam-schedule.md) — where guardians and students see exam dates and the seat.
 
 ---
 

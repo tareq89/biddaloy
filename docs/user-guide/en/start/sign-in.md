@@ -89,7 +89,7 @@ The phone number or email the school used to add you is your **account**. The sa
 
    → The **Sign in** page appears. There are two tabs at the top: **With password** and **With a code**. **With password** is already selected.
 
-<!-- image pending: img/sign-in-01-form.png — Sign in page: 1 language, 2 the two tabs, 3 email or phone number, 4 password, 5 Sign in, 6 Forgot password? -->
+![Sign in page: 1 language, 2 the two tabs, 3 email or phone number, 4 password, 5 Sign in, 6 Forgot password?](img/sign-in-01-form.png)
 
 2. In the **Email or phone number** box, type your phone number (for example `01712345678`) or your email.
 3. In the **Password** box, type your password. To check what you typed, tap **Show password** next to the box.
@@ -99,7 +99,7 @@ The phone number or email the school used to add you is your **account**. The sa
 
 **On a phone** the four steps are the same. The page fills the whole screen; the language button is at the top right.
 
-<!-- image pending: img/sign-in-phone-01-form.png (width 300) — Sign in page on a phone -->
+<img src="img/sign-in-phone-01-form.png" alt="Sign in page on a phone" width="300">
 
 > **Remember:** When you finish on a school computer or someone else's, tap **Sign out** in the account menu. If you do not, the next person may stay in your account.
 
@@ -212,11 +212,13 @@ These buttons work only when the Google or Facebook account is already connected
 | **You are not in any school yet**                                      | Same reason. Ask the admin to add you.                                                                                                  | School admin |
 | **That number, email or code is incorrect.**                           | Check the code and type it again. If it still does not match, tap **Resend code** to get a new one.                                     | —            |
 | The code does not come                                                 | Check that the number is right. If it still does not come after a few tries, try again after an hour. For email, check the spam folder. | School admin |
-| **This account has been suspended.**                                   | The school has put your account on hold. Contact the school office.                                                                     | School admin |
+| **This account has been suspended.** (only on the page an invitation link opens) | The school has put your account on hold, so the invitation cannot be used. Contact the school office. At the sign-in page itself this message does not appear. | School admin |
 | **This link has expired.**                                             | For an invitation link, see [If you got an invitation link](#task-invite); for a reset link, see [Forgot your password](#task-forgot).  | School admin |
 | **Set password** cannot be tapped                                      | Not all the rules under the box are met, or the two passwords differ (**Passwords do not match.**).                                     | —            |
 | **Use a shorter password — at most 72 letters, or 24 Bangla letters.** | Make the password shorter.                                                                                                              | —            |
 | **Something went wrong. Please try again.**                            | Check your internet and try again. If it keeps happening, tell the admin.                                                               | School admin |
+
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#signin).
 
 ---
 

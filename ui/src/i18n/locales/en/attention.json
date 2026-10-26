@@ -632,5 +632,29 @@
   },
   "platformAlert": {
     "REDIS_DOWN": "Redis is down since {{time}}. Sign-in and password reset are closed for everyone until it recovers. You get an SMS every hour."
+  },
+  "fields": {
+    "attendanceGraceMinutes": "Grace time after the first period starts",
+    "classStartingLeadMinutes": "Remind teachers this long before a period",
+    "smsCreditLowThreshold": "Warn when SMS credit falls below",
+    "failedMessagesThreshold": "Warn when failed messages in 24 hours reach",
+    "guardianSmsFallback": "Send an SMS when the app can't reach a guardian",
+    "guardianSmsDailyCap": "Most SMS per guardian per day"
+  },
+  "help": {
+    "attendanceGraceMinutes": "0 to 120 minutes. 15 at the start.",
+    "classStartingLeadMinutes": "0 to 60 minutes. 10 at the start.",
+    "smsCreditLowThreshold": "0 to 100,000 SMS. 200 at the start.",
+    "failedMessagesThreshold": "1 to 1000 messages. 10 at the start.",
+    "guardianSmsFallback": "When on, a guardian who has no app or no push gets an SMS. Off at the start. This SMS does not go during quiet hours.",
+    "guardianSmsDailyCap": "Shows only when the SMS switch is on. 0 to 10. 2 at the start."
+  },
+  "helpRequired": {
+    "attendanceGraceMinutes": "No, it has a starting value",
+    "classStartingLeadMinutes": "No, it has a starting value",
+    "smsCreditLowThreshold": "No, it has a starting value",
+    "failedMessagesThreshold": "No, it has a starting value",
+    "guardianSmsFallback": "No, it is off at the start",
+    "guardianSmsDailyCap": "No, it has a starting value"
   }
 }

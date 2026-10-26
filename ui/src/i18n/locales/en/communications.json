@@ -272,5 +272,33 @@
     "notConfigured": "Sending by {{medium}} is not set up for this school. Turn it on in Settings › Communication.",
     "noProvider": "{{medium}} cannot be sent automatically.",
     "generic": "Could not be sent."
+  },
+  "fields": {
+    "sendGuardian": "Which guardian to send to",
+    "sendMedium": "How to send (Send message)",
+    "sendMessage": "Message (Send message)",
+    "reminderGuardians": "Who to remind",
+    "reminderMessage": "Message (Fee reminder)",
+    "reminderMedium": "How to send (Fee reminder)",
+    "bulkBatchName": "Batch name",
+    "bulkMediums": "Channels (bulk reminder)"
+  },
+  "help": {
+    "sendGuardian": "One guardian of the chosen student. Their phone or email shows below; without one you cannot send.",
+    "sendMedium": "SMS, WhatsApp or Email. SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none.",
+    "sendMessage": "What to send. For SMS, the characters and the number of SMS it uses show below.",
+    "reminderGuardians": "Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.",
+    "reminderMessage": "Use the buttons below to put in the name, due amount or month; each guardian gets their real details.",
+    "reminderMedium": "Starts on each guardian’s preferred channel. Pick one to send everyone on that channel this time.",
+    "bulkBatchName": "A name for this batch; you find it by this name in Reminder history later.",
+    "bulkMediums": "A guardian whose preferred channel is not ticked here is skipped. All three start ticked."
+  },
+  "helpRequired": {
+    "sendGuardian": "Yes",
+    "sendMessage": "Yes",
+    "reminderGuardians": "Yes, at least one",
+    "reminderMessage": "Yes",
+    "bulkBatchName": "Yes",
+    "bulkMediums": "Yes, at least one"
   }
 }

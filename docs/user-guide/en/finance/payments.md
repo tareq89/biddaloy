@@ -77,7 +77,7 @@ Each payment is one row in the list, newest first. To take new money, see [**Rec
 
    → The payment's page opens: **Amount**, **Date**, **Method**, **Transaction reference**, **Collected by**, **Discount approved by**, **Invoice**. Below is **Where the money went** — how much money and how much discount landed on which bill.
 
-<!-- image pending: one payment's page; 1 · Amount and details 2 · Where the money went 3 · Print receipt 4 · Reverse payment; admin, desktop -->
+<img src="img/payments-01-detail.png" alt="one payment's page; 1 · Amount and details 2 · Where the money went 3 · Print receipt 4 · Reverse payment; admin">
 
 ---
 
@@ -99,7 +99,7 @@ A reversal never deletes the original payment. A new **Reversal entry** is added
 
 On the payment's page press **Print receipt**. The invoice opens in a new place for printing; print from there.
 
-If the payment has no invoice (**No invoice**), this button does not appear. To see the full invoice, press [**View invoice**](invoices.md#task-main) — from there you can also send it to a guardian and give a [share link](invoices.md#task-share); to go to the student's page, press **Student page**. To fix the printer, see [**Setting up printers and sizes**](../printing/printers-and-calibration.md).
+If the payment has no invoice (**No invoice**), this button does not appear. To see the full invoice, press [**View invoice**](invoices.md#task-main) — from there you can also send it to a guardian and give a [share link](invoices.md#task-share); to go to the student's page, press **Student page**. To fix the printer, see [**Setting up printers and sizes**](../administration/print-templates/printers-and-calibration.md).
 
 ### Reverse a payment <a href="#task-reverse" id="task-reverse"></a>
 
@@ -133,7 +133,9 @@ If it was recorded for the wrong student, with the wrong amount or the wrong met
 - A **Reversal entry** cannot itself be reversed. If you reversed by mistake, record the payment again as new.
 - A payment that did not complete successfully cannot be reversed.
 
-> **Remember:** if the school has another active admin who can approve, or the school's settings have a second approver switched on, you cannot approve your own reversal. Ask another admin to enter their code. If the school has only one admin, they can approve it themselves.
+There is no time limit: an older payment can be reversed too, as long as none of the above applies.
+
+> **Remember:** if the school has another active admin who can approve, or the school's settings have a second approver switched on, you cannot approve your own reversal. Ask another admin to enter their code. If the school has only one admin and no second approver is switched on, that admin can approve it themselves.
 
 ### When it asks you to reverse later payments first <a href="#task-later" id="task-later"></a>
 
@@ -167,6 +169,7 @@ A **Reversal entry** shows the same amount as the original payment, not a minus 
 | **The receipt could not be opened for printing.**                           | Allow pop-ups for this site and check the connection, then press again.                             | —            |
 | **Deleted student**                                                         | The student has been deleted; the payment stays in the books.                                       | Admin        |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#fees).
 
 ---
 
@@ -191,11 +194,11 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 <details>
 <summary><strong>Parts of the page</strong> — the payments list</summary>
 
-1. The **Payments** heading and the **Record payment** button.
+1. The **Payments** heading and the [**Record payment**](record-payment.md) button.
 2. The filters — **Search**, **Payment method**, **Payment date**, **Show reversed too**.
 3. The list — press **View** on a row to open the payment's page.
 
-<!-- image pending: payments list with Show reversed too ticked, one "Reversed" and one "Reversal entry"; the three parts numbered; accountant, desktop -->
+![payments list with Show reversed too ticked, one &quot;Reversed&quot; and one &quot;Reversal entry&quot;; the three parts numbered](img/payments-02-reversed.png)
 
 </details>
 
@@ -203,6 +206,20 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 <summary><strong>What the boxes mean</strong></summary>
 
 <!-- guide:generated:fields:payments -->
+
+| Field                 | What to enter                                                                                                                                                                                      | Required? |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Amount received       | How much money you received in total. When you type it, the money is split across the bills with the oldest due dates first and fills the Pay boxes; or leave it empty and fill each box yourself. | No        |
+| Pay                   | How much money goes on this bill. Pay and discount together cannot be more than what is due on the bill.                                                                                           | No        |
+| Discount              | A one-off discount on this bill. Any discount needs an admin's approval when you submit.                                                                                                           | No        |
+| Use credit balance    | Tick to deduct from the student's earlier credit balance: the smaller of the credit balance and the subtotal comes off; credit balance cannot be used when paying for several students.            | No        |
+| Payment method        | How you received the money. Only with cash can you take more than the amount due and give change.                                                                                                  | No        |
+| Transaction reference | The transaction number for bKash, Nagad, Rocket, bank, cheque or card; this box is not shown for cash.                                                                                             | No        |
+| Cash handed over      | Cash only: how much the payer handed over. Used to work out the change; you can leave it empty. If it falls short of the amount due after credit balance, you cannot submit.                       | No        |
+| Change                | Whether to give the change back in hand or keep it as the student's credit balance. It can be kept as credit only when the payment is for one student.                                             | No        |
+| Remarks               | A note for yourselves, for example who dropped off the money.                                                                                                                                      | No        |
+| Reason                | Why you are reversing the payment; 3 to 500 characters. The reversal entry and the credit note carry this reason.                                                                                  | Required. |
+
 <!-- /guide:generated -->
 
 </details>
@@ -227,6 +244,8 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 - [**Record payment**](record-payment.md) — taking new money.
 - [**Student dues**](dues.md) — after a reversal the bills come back here.
 - [**Creating fee bills**](generate-fees.md) — where bills come from.
-- [**Setting up printers and sizes**](../printing/printers-and-calibration.md) — fixing the receipt printer.
+- [**Setting up printers and sizes**](../administration/print-templates/printers-and-calibration.md) — fixing the receipt printer.
 - [**Invoices**](invoices.md) — see invoices and credit notes, share links.
 - [**Fines**](fines.md) — waiving a fine.
+- [**Adding students and viewing their details**](../people/students.md) — Add a new student, import many at once, and use each student's profile to handle class, guardians, fees, notes and leaving the school.
+- [**Fee collection report**](../reports/collections-report.md) — the collection report built from payments
