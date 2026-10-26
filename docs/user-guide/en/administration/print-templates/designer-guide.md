@@ -1,3 +1,33 @@
+<!-- guide:meta
+feature: administration.printDesignerGuide
+title: Designer's guide
+summary: Get the design kit, send it to a designer, import the drawn SVG, check the fields and publish.
+roles: [ADMIN]
+sources:
+  - client-admin/src/routes/_staff/print-templates/$templateId.edit.tsx
+  - server/src/modules/print/templates/
+labels:
+  [
+    printEditor:publish.*,
+    printEditor:topbar.*,
+    printEditor:fields.*,
+    printEditor:help.*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.publish,
+    administration.printTemplates.action.makeDefault,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [designer, SVG, kit, import, fields, placeholder, publish]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # Designer's guide
 
 Draw the card's background in Illustrator, Inkscape, Affinity or Figma, hand over one SVG file, and the school turns it into a design in one step.
@@ -38,7 +68,7 @@ The **background** is the colours, logo, border and fixed text. Where the name, 
 
    → A list appears: **Field**, **Position**, **Font**, **Status**. If all is well, **Status** says **OK**.
 
-<!-- image pending: Import from Illustrator / SVG window, three fields, one with a font warning; admin, desktop -->
+<img src="img/designer-guide-01.png" alt="the Import from Illustrator / SVG window: 1 the Field, Position, Font and Status list with three fields, 2 the font warning on one field, 3 the Import button, admin">
 
 7. Press **Import**.
 
@@ -53,11 +83,11 @@ The **background** is the colours, logo, border and fixed text. Where the name, 
 
 ## How to know the import worked <a href="#confirm" id="confirm"></a>
 
-| State                           | How you know                                                              | What next                  |
-| ------------------------------- | ------------------------------------------------------------------------- | -------------------------- |
-| **Only changed on screen**      | After the import the top says **Saving…**                                 | Wait                       |
-| **Reached the school's system** | The top says **Saved**; the **Layers** panel shows each field separately  | Publish                    |
-| **Ready to print**              | The message **Published v…**                                              | Check one card in the preview |
+| State                           | How you know                                                             | What next                     |
+| ------------------------------- | ------------------------------------------------------------------------ | ----------------------------- |
+| **Only changed on screen**      | After the import the top says **Saving…**                                | Wait                          |
+| **Reached the school's system** | The top says **Saved**; the **Layers** panel shows each field separately | Publish                       |
+| **Ready to print**              | The message **Published v…**                                             | Check one card in the preview |
 
 **To check:** open the print preview for one student and see whether the real name and photo land in the right places.
 
@@ -69,10 +99,10 @@ The **background** is the colours, logo, border and fixed text. Where the name, 
 
 Sizes are in millimetres. The design kit always comes at the size set in the design's **Page setup**.
 
-| **Paper**                | Width × height              |
-| ------------------------ | --------------------------- |
-| **CR80 card, portrait**  | 54 × 85.6 mm                |
-| **CR80 card, landscape** | 85.6 × 54 mm                |
+| **Paper**                | Width × height                |
+| ------------------------ | ----------------------------- |
+| **CR80 card, portrait**  | 54 × 85.6 mm                  |
+| **CR80 card, landscape** | 85.6 × 54 mm                  |
 | **Custom size**          | whatever is set in Page setup |
 
 - **Safe zone 3 mm:** keep names, photos and logos at least 3 mm inside every edge. A printer may trim the edge a little.
@@ -89,12 +119,12 @@ Sizes are in millimetres. The design kit always comes at the size set in the des
 
 First delete the **guides** layer.
 
-| Program               | How to export                                                                                                                      |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Program               | How to export                                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | **Illustrator**       | File → Save As → SVG; SVG Profiles: SVG 1.1, Styling: Internal CSS, Fonts: SVG, Images: Embed, Decimal places: 3, Responsive: off |
-| **Inkscape**          | Save as **Plain SVG**                                                                                                              |
-| **Affinity Designer** | Export → SVG; use "Export text as curves" only for fixed text                                                                      |
-| **Figma**             | Export as SVG; outline the fixed text, keep the `{{…}}` layers as text                                                             |
+| **Inkscape**          | Save as **Plain SVG**                                                                                                             |
+| **Affinity Designer** | Export → SVG; use "Export text as curves" only for fixed text                                                                     |
+| **Figma**             | Export as SVG; outline the fixed text, keep the `{{…}}` layers as text                                                            |
 
 ### Upload fonts and images (signature, seal) <a href="#assets" id="assets"></a>
 
@@ -108,24 +138,24 @@ In the **Files** panel:
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                              | What to do                                                                       | Who can help |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------ |
-| **… is not a field of this document. It was left in the artwork.**        | The name is wrong for this document; check the spelling against the kit's **fields** layer | Designer |
-| **Font not available, using Biddaloy Sans**                               | [Upload the font](#assets), or ask the designer to use the school's font         | Admin        |
-| **Your artboard is … mm. This template is … mm.**                         | The artboard is not the paper size; export again at the right size               | Designer     |
-| **"…" mixes a field with other words. …**                                 | Put each `{{…}}` in its own text box                                             | Designer     |
-| **No … texts were found. The file will be used as the background only.**  | The placeholders were outlined; export again with live text                      | Designer     |
-| **This file could not be read as an SVG.**                                | Export as SVG again with the settings above                                      | Designer     |
-| Text at the edge is cut off in print                                      | Move things inside the 3 mm safe zone, then [fix the alignment](printers-and-calibration.md#calibrate) | Admin |
+| What you see                                                             | What to do                                                                                             | Who can help |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------ |
+| **… is not a field of this document. It was left in the artwork.**       | The name is wrong for this document; check the spelling against the kit's **fields** layer             | Designer     |
+| **Font not available, using Biddaloy Sans**                              | [Upload the font](#assets), or ask the designer to use the school's font                               | Admin        |
+| **Your artboard is … mm. This template is … mm.**                        | The artboard is not the paper size; export again at the right size                                     | Designer     |
+| **"…" mixes a field with other words. …**                                | Put each `{{…}}` in its own text box                                                                   | Designer     |
+| **No … texts were found. The file will be used as the background only.** | The placeholders were outlined; export again with live text                                            | Designer     |
+| **This file could not be read as an SVG.**                               | Export as SVG again with the settings above                                                            | Designer     |
+| Text at the edge is cut off in print                                     | Move things inside the 3 mm safe zone, then [fix the alignment](printers-and-calibration.md#calibrate) | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role        | Download the kit, import, change a design and publish |
-| ----------- | ------------------------------------------------------ |
-| Admin       | Yes                                                    |
-| All others  | No                                                     |
+| Role       | Download the kit, import, change a design and publish |
+| ---------- | ----------------------------------------------------- |
+| Admin      | Yes                                                   |
+| All others | No                                                    |
 
 An outside designer does not need to sign in to the app: the Admin sends the kit, the designer sends back the SVG, the Admin imports it.
 

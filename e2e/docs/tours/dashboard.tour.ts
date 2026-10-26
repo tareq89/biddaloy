@@ -48,7 +48,7 @@ test('customise mode: shot and GIF', async ({ browser, page }, info) => {
   const phone = info.project.metadata.device === 'phone';
   await prepare(page);
   await loginAs(page, 'admin');
-  const customise = page.getByRole('button', { name: t.page.customiseAria });
+  const customise = page.getByRole('button', { name: t.page.customise, exact: true });
   await customise.click();
   await expect(page.getByText(t.customise.badge)).toBeVisible();
   await shoot(page, `${dir}/dashboard-02-customise${phone ? '-phone' : ''}.png`);

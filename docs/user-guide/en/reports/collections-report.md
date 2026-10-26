@@ -39,8 +39,7 @@ See on one page how much money came in, who took it and how it came. Use it at t
 **Where to go:** in the left menu, **Reports → Fee collection report**. It works on a computer or a phone.
 **Before you start:** be an Admin, Accountant or Academic coordinator ([who can do what](#roles)). This page is view-only; nothing here changes any money.
 
-The report's money comes from the payments taken. When a payment is reversed, it goes into **Reversed** and is taken off the net.
-<!-- link pending: finance/payments.md — payments (other lane) -->
+The report's money comes from the [payments](../finance/payments.md) taken. When a payment is reversed, it goes into **Reversed** and is taken off the net.
 
 [See today's collection](#task-main) · [Other dates](#task-range) · [One collector](#task-collector) · [Problems and fixes](#trouble)
 
@@ -74,7 +73,7 @@ The report's money comes from the payments taken. When a payment is reversed, it
 
 4. Look at the other tables: **By payment method** (cash, bKash and so on), **By fee type** and **By day**.
 
-<!-- image pending: Fee collection report, Today; 1 · Date range 2 · Total collected, Reversed, Net collected 3 · Discounts and credit 4 · By collector table 5 · Print; accountant, desktop -->
+![Fee collection report with the date range, the Total collected, Reversed and Net collected boxes, discounts and credit, and the By payment method and By collector tables](img/collections-report-02-month.png)
 
 > **Remember:** only successful payments are counted. Pending or failed payments are not. A reversed payment shows twice: the original money in **Total collected**, and the refund in **Reversed**.
 
@@ -159,15 +158,15 @@ For the other roles, **Fee collection report** is not in the left menu.
 ## Learn more <a href="#more" id="more"></a>
 
 <details>
-<summary><strong>Parts of the page</strong></summary>
+<summary><strong>Parts of the page, top to bottom</strong></summary>
 
-1. The title, the date-method-collector line, **Download CSV** and **Print**.
-2. The filters: **Date range**, **Custom range** (Custom only), **Method**, **Collector**.
-3. The three boxes: **Total collected**, **Reversed**, **Net collected**.
-4. **Discounts and credit**: **Standing discount**, **One-off discount**, **Credit used**, **Credit added**, **Change returned**, **Cash paid out from wallets**.
-5. Four tables: **By payment method**, **By collector**, **By fee type**, **By day** (oldest first).
+- The title, the date-method-collector line, **Download CSV** and **Print**.
+- The filters: **Date range**, **Custom range** (Custom only), **Method**, **Collector**.
+- The three boxes: **Total collected**, **Reversed**, **Net collected**.
+- **Discounts and credit**: **Standing discount**, **One-off discount**, **Credit used**, **Credit added**, **Change returned**, **Cash paid out from wallets**.
+- Four tables: **By payment method**, **By collector**, **By fee type**, **By day** (oldest first).
 
-<!-- image pending: Fee collection report, This month, five parts marked with numbers; admin, desktop -->
+![Fee collection report with the date range, the Total collected, Reversed and Net collected boxes, discounts and credit, and the By payment method and By collector tables](img/collections-report-02-month.png)
 
 </details>
 
@@ -175,6 +174,14 @@ For the other roles, **Fee collection report** is not in the left menu.
 <summary><strong>What each field means</strong></summary>
 
 <!-- guide:generated:fields:reports -->
+
+| Field        | What to enter                                                                                         | Required? |
+| ------------ | ----------------------------------------------------------------------------------------------------- | --------- |
+| Date range   | Which days to show. Starts on Today. This week starts on Monday. Days are counted in Bangladesh time. | No        |
+| Custom range | Shows only when Date range is Custom. Both the From and To days are included.                         | No        |
+| Method       | Show money that came one way only, such as Cash or bKash. Leave empty for all methods.                | No        |
+| Collector    | Show money taken by one staff member only. The list holds only people who took money in this range.   | No        |
+
 <!-- /guide:generated -->
 
 </details>
@@ -199,9 +206,10 @@ For the other roles, **Fee collection report** is not in the left menu.
 
 **Related pages**
 
-<!-- link pending: finance/payments.md — payments and reversals (other lane) -->
-<!-- link pending: finance/record-payment.md — take a payment (other lane) -->
-<!-- link pending: finance/dues.md — student dues (other lane) -->
+- [**Payments**](../finance/payments.md) — payments, receipts and reversals
+- [**Record payment**](../finance/record-payment.md) — take a payment
+- [**Student dues**](../finance/dues.md) — see who owes what
+- [**Alerts report**](alerts-report.md) — alerts raised by the school's rules each month
 
 ---
 

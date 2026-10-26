@@ -51,8 +51,8 @@ appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: sms-credit-per-segment, checked: 2026-10-25, issue: null }
-  - { id: report-card-other-roles, checked: 2026-10-25, issue: null }
+  - { id: sms-credit-per-segment, checked: 2026-10-25, issue: 2921 }
+  - { id: report-card-other-roles, checked: 2026-10-25, issue: 2922 }
 -->
 
 # Processing and publishing results
@@ -96,7 +96,7 @@ This page is about an exam's **results**. The results of every exam are in one o
 
 **From the exam's page**
 
-1. The results tab of the exam's page has the same list and the same buttons <!-- link pending: ../exams-results/exams.md -->. The steps there follow this page.
+1. The results tab of [the exam's page](exams.md) has the same list and the same buttons. The steps there follow this page.
 
 ---
 
@@ -110,7 +110,7 @@ This page is about an exam's **results**. The results of every exam are in one o
 
    → The state appears beside it, for example **Draft**, with **Work out the results once every marks list is submitted.** Below it is **No results yet**.
 
-<!-- image pending: Results page, exam chosen, Draft badge and the next-step line, Process result on the right; 1 · Exam box 2 · state 3 · main button; admin, desktop -->
+![Results page with an exam chosen: the Draft badge, the line saying to work out the results once every marks list is submitted, and the Process result button on the right](img/results-02-draft.png)
 
 3. On the right press **Process result**.
 
@@ -217,9 +217,9 @@ After reopening, the submitted marks lists do not open by themselves; the Admin 
 
    → The app first records the print, then opens the print window. If the record cannot be made, nothing is printed.
 
-<!-- image pending: one student's report card, GPA and position at the top, Print on the right, subject marks and the grade legend below; admin, desktop -->
+<img src="img/results-02-card.png" alt="one student's report card, GPA and position at the top, Print on the right, subject marks and the grade legend below; admin">
 
-To print many report cards or certificates at once, see [Certificates](../printing/certificates.md) and [Exam documents](../printing/exam-documents.md).
+To print many report cards or certificates at once, see [Certificates](../administration/print-templates/certificates.md) and [Exam documents](../administration/print-templates/exam-documents.md).
 
 ### Process again after marks change <a href="#task-reprocess" id="task-reprocess"></a>
 
@@ -231,20 +231,22 @@ In the **Processed** state there is a **Process again** button (on a phone, insi
 
 | What you see                                                                                                | What to do                                                                                                                                                                                                                                                                              | Who can help                                        |
 | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| **No exams yet**                                                                                            | Create an exam first <!-- link pending: ../exams-results/exams.md -->.                                                                                                                                                                                                                  | Admin                                               |
+| **No exams yet**                                                                                            | [Create an exam](exams.md) first.                                                                                                                                                                                                                  | Admin                                               |
 | **Couldn't load exams.** or **Couldn't load results.**                                                      | Check your internet and try again.                                                                                                                                                                                                                                                      | Admin                                               |
 | **Submitted, but has blank cells — reopen this sheet**                                                      | The list is submitted but some cells are blank. The Admin [reopens](marks-entry.md#task-reopen) the list, and the Teacher fills the cells and submits again.                                                                                                                            | Teacher, Admin                                      |
 | **Couldn't process this exam.**                                                                             | It appears for a few reasons: the exam's academic year has no [grading scale](grading-scales.md); a student has not chosen a subject from an optional subject group; a section of a class with group-based subjects has no group set; or an internet problem. Check one by one and fix. | Admin                                               |
 | **Couldn't publish these results.**                                                                         | Check your internet. Results cannot be published unless the exam is **Processed**; reload the page to see the state.                                                                                                                                                                    | Admin                                               |
 | **Couldn't reopen this exam.**                                                                              | Check whether the approval was finished, and whether the exam is **Published**.                                                                                                                                                                                                         | Admin                                               |
-| **The results are reopened, but these could not be revoked: …. Try again or use the certificate register.** | The results are already reopened. Pressing the red button again only tries to cancel the remaining certificates.                                                                                                                                                                        | Admin ([Certificates](../printing/certificates.md)) |
-| **Couldn't load the certificates issued for this exam. Check the certificate register after reopening.**    | After reopening, go to the certificate register and check the old certificates.                                                                                                                                                                                                         | Admin ([Certificates](../printing/certificates.md)) |
+| **The results are reopened, but these could not be revoked: …. Try again or use the certificate register.** | The results are already reopened. Pressing the red button again only tries to cancel the remaining certificates.                                                                                                                                                                        | Admin ([Certificates](../administration/print-templates/certificates.md)) |
+| **Couldn't load the certificates issued for this exam. Check the certificate register after reopening.**    | After reopening, go to the certificate register and check the old certificates.                                                                                                                                                                                                         | Admin ([Certificates](../administration/print-templates/certificates.md)) |
 | **Results must be published before an SMS can be sent.**                                                    | [Publish](#task-publish) first.                                                                                                                                                                                                                                                         | Admin                                               |
 | **Couldn't send the result SMS.**                                                                           | Check that there are enough SMS credits, then try again. If credits are low, no message goes at all.                                                                                                                                                                                    | Admin                                               |
 | **Couldn't load this report card.**                                                                         | Try again. It also appears if this student's result for this exam is not built yet.                                                                                                                                                                                                     | Admin                                               |
 | **The print could not be recorded, so it was not printed. Try again.**                                      | Check your internet and press **Print** again.                                                                                                                                                                                                                                          | —                                                   |
 | Some students have no **Position** in the list                                                              | This is normal: a student who failed has no position.                                                                                                                                                                                                                                   | —                                                   |
 | You do not see the **Process result** or **Publish** button                                                 | See [Who can do what](#roles).                                                                                                                                                                                                                                                          | Admin                                               |
+
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
 
 ---
 
@@ -283,7 +285,7 @@ Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. 
 4. The action buttons — **Result analysis**, **Process again**, the main button, and **⋯**. On a phone you see the main button, and the rest are inside **⋯**.
 5. **The list** — **Position**, **Roll · Name**, **Total**, **GPA**, **Grade**, **Status**. Press a column name to sort by that column; it starts with 25 students per page.
 
-<!-- image pending: the five parts of the Results page of a processed exam marked with numbers, admin, desktop -->
+<img src="img/results-01-processed.png" alt="the five parts of the Results page of a processed exam marked with numbers, admin">
 
 </details>
 
@@ -317,9 +319,12 @@ Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. 
 - [**Entering and submitting exam marks**](marks-entry.md) — Teachers submit the marks lists before the results.
 - [**Setting up grading scales**](grading-scales.md) — which percentage gets which grade and GPA.
 - [**Students**](../people/students.md) — a student's page shows the results of all their exams.
-- Creating an exam and the exam page <!-- link pending: ../exams-results/exams.md --> — the same results tab is on the exam's page too.
-- Result analysis <!-- link pending: ../exams-results/analysis.md --> — merit list and pass/fail from the **Result analysis** button.
-- Promotion <!-- link pending: ../exams-results/promotion.md --> — moving students up to the next class after the results.
+- [**Creating and setting up exams**](exams.md) — the same results tab is on the exam's page too.
+- [**Promoting students**](promotion.md) — moving students up to the next class after the results.
+- [**Printing exam documents**](../administration/print-templates/exam-documents.md) — Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
+- [**Merit list and result analysis**](analysis.md) — See an exam's merit list, the students who failed or were absent and the pass/fail by subject, filter by section, print or download a CSV.
+- [**Promoting students**](promotion.md) — Using published results, move a class's students up to the next class in the new academic year, keep them in the same class or graduate them.
+- [**Results**](../portal/results.md) — where guardians and students see published results.
 
 ---
 

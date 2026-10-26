@@ -55,7 +55,7 @@ appVersion: 0.1.0 (94db6def4)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - A backup that is kept forever can also no longer be downloaded 30 days after it finishes.
+  - { id: kept-backup-expires-30-days, checked: 2026-10-25, issue: 2946 } # a backup kept forever still cannot be downloaded 30 days after it finishes
 -->
 
 # Changing the school's settings
@@ -105,7 +105,7 @@ The **Settings** page is split into **categories**, such as **School** or **Fina
 
    → **Saved** shows next to the button.
 
-<!-- image pending: Settings page; 1 · category list on the left 2 · title and description of one part 3 · Advanced settings 4 · Save button and "Saved"; admin, desktop -->
+<img src="img/settings-school.png" alt="Settings page; 1 · category list on the left 2 · title and description of one part 3 · Advanced settings 4 · Save button and &quot;Saved&quot;; admin">
 
 > **Remember:** nothing goes to the school's system until you press **Save**. Only the logo is different: it is saved as soon as you pick the image.
 
@@ -169,7 +169,7 @@ Press **Advanced settings** for more fields: **Timezone**, **Currency code**, th
 
 Holidays and events are added on the [**Calendar**](../people/calendar.md) page.
 
-<!-- image pending: School category; 1 · School profile and logo 2 · Shift, version & group 3 · Language, numbers and dates, Advanced settings closed 4 · Calendar; admin, desktop -->
+<img src="img/settings-school.png" alt="School category; 1 · School profile and logo 2 · Shift, version & group 3 · Language, numbers and dates, Advanced settings closed 4 · Calendar; admin">
 
 ### Academics: attendance, evaluations, dashboard and more <a href="#task-academics" id="task-academics"></a>
 
@@ -205,7 +205,7 @@ To add a **special timing**, press **Add special timing**. Give a name (up to 60
 
 See: [**Dashboard**](../dashboard/dashboard.md).
 
-**Study plans.** Who is told, and when, if a teacher does not report the status of every period.
+[**Study plans.**](../academics/syllabus.md) Who is told, and when, if a teacher does not report the status of every period.
 
 - **Status deadline** — on the same school day; reporting after this still counts, but late.
 - **Teacher reminder** — on the next school day, only if something is still open.
@@ -213,7 +213,7 @@ See: [**Dashboard**](../dashboard/dashboard.md).
 - **Weekly summary time** — on the last working day of the week, to guardians and the committee.
 - **Also send the guardians' weekly summary by SMS** — push is always sent, at no cost. If you turn SMS on, it uses credit every week.
 
-The box **What happens with these settings** at the top shows the current rules in plain words. <!-- link pending: study plans page -->
+The box **What happens with these settings** at the top shows the current rules in plain words.
 
 **Homework.** Two checkboxes; both are off until you turn them on: **Text guardians when homework is assigned** and **Text guardians when homework is not submitted**. See: [**Homework**](../academics/homework.md).
 
@@ -228,7 +228,7 @@ The SMS for evaluations, study plans, homework and applications go only when an 
 
 **Ready-made curriculum.** Here there is only a card and its link. A ready-made curriculum is added on the [**Ready-made curriculum**](curriculum-preset.md) page.
 
-<!-- image pending: Academics category; 1 · Attendance policy 2 · confirmation question for the automatic absence message 3 · at-risk signs on the dashboard 4 · ACR criteria; admin, desktop -->
+<img src="img/settings-academics.png" alt="Academics category; 1 · Attendance policy 2 · confirmation question for the automatic absence message 3 · at-risk signs on the dashboard 4 · ACR criteria; admin">
 
 ### Finance: fee rules <a href="#task-finance" id="task-finance"></a>
 
@@ -256,7 +256,7 @@ This category has one part: **Fee rules**. "Approval, telling families and late 
 
 > **Remember:** late fees and the approval method involve money. Talk to the accountant before you change them.
 
-<!-- image pending: Finance category, Fee rules; 1 · Approval method 2 · second admin checkbox 3 · Notify families 4 · late fee table; admin, desktop -->
+<img src="img/settings-finance.png" alt="Finance category, Fee rules; 1 · Approval method 2 · second admin checkbox 3 · Notify families 4 · late fee table; admin">
 
 ### Seats & billing <a href="#task-billing" id="task-billing"></a>
 
@@ -292,7 +292,7 @@ The **Orders** list shows the last 20 orders: **Date**, **Seats**, **Months**, *
 
 > **Remember:** this part uses real money. If money was taken but the order does not show as paid, wait a little; do not pay twice.
 
-<!-- image pending: Seats & billing; 1 · three boxes 2 · Buy seats button 3 · total in the buy dialog 4 · Orders list; admin, desktop -->
+<img src="img/settings-billing.png" alt="Seats & billing; 1 · three boxes 2 · Buy seats button 3 · total in the buy dialog 4 · Orders list; admin">
 
 ### Communication <a href="#task-communication" id="task-communication"></a>
 
@@ -350,7 +350,7 @@ Below is the **Credit history**, newest first, 25 to a page: **Added**, **Held**
 | **Server password**     | The server's password.                                      |
 | **Port**                | In the **Advanced settings** part; 1 to 65535. Usually 587. |
 
-<!-- image pending: Communication category; 1 · SMS company 2 · Test connection 3 · the two boxes of SMS credit 4 · Credit history; admin, desktop -->
+<img src="img/settings-communication.png" alt="Communication category; 1 · SMS company 2 · Test connection 3 · the two boxes of SMS credit 4 · Credit history; admin">
 
 ### Alerts & reminders <a href="#task-alerts" id="task-alerts"></a>
 
@@ -385,7 +385,7 @@ This category has one part: **Alerts & reminders**. "Who is told about what, and
 
 > **Remember:** this SMS uses credit. If there is no credit, the SMS does not go ([SMS credit](#task-communication)).
 
-<!-- image pending: Alerts & reminders; 1 · rule switches 2 · "Can't be switched off" mark 3 · reminder times 4 · guardian SMS; admin, desktop -->
+<img src="img/settings-alerts.png" alt="Alerts & reminders; 1 · rule switches 2 · &quot;Can't be switched off&quot; mark 3 · reminder times 4 · guardian SMS; admin">
 
 ### Printing <a href="#task-printing" id="task-printing"></a>
 
@@ -402,7 +402,7 @@ This category has two parts: **Printers** and **Documents and certificates**. To
 | **Shift left–right (mm)** / **Shift up–down (mm)** | In the **Measurements (advanced)** part; −10 to 10.                       |
 | **Size**                                           | In the **Measurements (advanced)** part; 0.90 to 1.10, 1 = actual size.   |
 
-**Print measuring page** prints a test page and shows steps in three parts: measure from the corner of the paper to the first cross (it should be exactly 20 mm), enter the difference in **Change the shift**, then print again. This page does not go into any print record. When you archive a printer, the records of past prints stay. More: [**Setting up printers and sizes**](../printing/printers-and-calibration.md).
+**Print measuring page** prints a test page and shows steps in three parts: measure from the corner of the paper to the first cross (it should be exactly 20 mm), enter the difference in **Change the shift**, then print again. This page does not go into any print record. When you archive a printer, the records of past prints stay. More: [**Setting up printers and sizes**](print-templates/printers-and-calibration.md).
 
 **Documents and certificates** — "Rules for admit cards and certificate serial numbers."
 
@@ -411,9 +411,9 @@ This category has two parts: **Printers** and **Documents and certificates**. To
 | **Withhold admit cards when fees are due** | When on, a family cannot print the admit card of a student with dues from the portal; staff can, with a warning. Off at the start. |
 | **School short code (optional)**           | 2 to 8 capital letters or digits; it is printed before every serial number. An example number shows below.                         |
 
-See: [**Exam documents**](../printing/exam-documents.md), [**Certificates**](../printing/certificates.md).
+See: [**Exam documents**](print-templates/exam-documents.md), [**Certificates**](print-templates/certificates.md).
 
-<!-- image pending: Printing category; 1 · printer list 2 · Print measuring page 3 · Documents and certificates; admin, desktop -->
+<img src="img/settings-printing.png" alt="Printing category; 1 · printer list 2 · Print measuring page 3 · Documents and certificates; admin">
 
 ### Sign-in & security <a href="#task-security" id="task-security"></a>
 
@@ -428,7 +428,7 @@ This category has one part: **Ways to sign in**. "How teachers, staff and guardi
 - **More than one school:** if someone is in several schools, sign-in with a code is off for them as soon as the switch is off in any one school. Then, to add a new school, they must first sign in with a password.
 - **What is not here:** each person sees their own password, connecting Google or Facebook, and their own devices on the **Security** page of their own account ([**Your account**](../start/account.md#task-methods)). There, to remove the last way in, a password must be set first. Each person also turns on their own push notifications ([**Seeing and settling alerts**](../dashboard/alerts.md)); the school's quiet hours are in [**Alerts & reminders**](#task-alerts).
 
-<!-- image pending: Sign-in & security; 1 · switch for sign-in with a code sent to the phone 2 · Save; admin, desktop -->
+<img src="img/settings-security.png" alt="Sign-in & security; 1 · switch for sign-in with a code sent to the phone 2 · Save; admin">
 
 ### Backup <a href="#task-backup" id="task-backup"></a>
 
@@ -482,13 +482,13 @@ Press **Keep forever** and that backup is not deleted by itself. But 30 days lat
 
 **While it runs:** the school is view-only; nobody can save anything. Only one restore runs at a time.
 
-**Users:** existing users keep their passwords. But each user's role in this school becomes the one in the file, and people who are not in the file are removed from this school (the account that first set up the school is kept). **What does not change:** payments, invoices, student fees and marks/results are only added; earlier rows are not changed or deleted. A backup of another school cannot be restored here.
+**Users:** existing users keep their passwords. But each user's role in this school becomes the one in the file, and people who are not in the file are removed from this school (the account that first set up the school is kept). **What does not change:** payments, invoices, student fees, exams, marks/results, exam parts and grading scales are only added; earlier rows are not changed or deleted. To correct those, use the app itself. A backup of another school cannot be restored here; only platform support can do that.
 
 **If it stops halfway:** it shows "The restore stopped at …". The kinds before that were already put in. To go back, press **Download the copy taken before the restore**, then restore that file the same way. There is no separate "go back" button.
 
 **First data in a new school:** **Download starter file** gives a small file with only academic years, classes, sections, subjects and fee structures. To bring a whole school from another system, use **Download blank template**. An empty template deletes nothing.
 
-<!-- image pending: Backup category; 1 · Create a new backup 2 · Automatic backup 3 · Past backups list and Keep forever 4 · What will change table 5 · box to type the school's name; admin, desktop -->
+<img src="img/settings-backup.png" alt="Backup category; 1 · Create a new backup 2 · Automatic backup 3 · Past backups list and Keep forever 4 · What will change table 5 · box to type the school's name; admin">
 
 ---
 
@@ -542,9 +542,50 @@ See: [**Roles & access**](roles.md).
 <summary><strong>What the fields mean</strong></summary>
 
 <!-- guide:generated:fields:settings -->
+
+| Field                                           | What to enter                                                                                                                                                                                   | Required? |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Name                                            | The school's name. It shows on receipts, invoices and printouts. It cannot be left empty.                                                                                                       | Yes       |
+| Logo                                            | PNG, JPEG or WebP, up to 512 KB and 2048 pixels per side. It saves as soon as you pick the image.                                                                                               | No        |
+| Shift, version & group                          | Names used to arrange classes and sections. A value that a class or section still uses cannot be removed; rename it instead.                                                                    | No        |
+| Academic year start month                       | The month the academic year starts, 1 to 12.                                                                                                                                                    | No        |
+| What do you call a grading period?              | What a grading period is called in exams and results: Term, Semester or Trimester.                                                                                                              | No        |
+| Country                                         | Public holidays come from this country.                                                                                                                                                         | No        |
+| Late after                                      | A student who arrives after this time is marked late.                                                                                                                                           | Yes       |
+| Absent after                                    | A student who arrives after this time is marked absent.                                                                                                                                         | Yes       |
+| Correction window (days)                        | Past attendance can be corrected for this many days; 0 to 365.                                                                                                                                  | Yes       |
+| Low attendance threshold (%)                    | A student below this is shown as low attendance; 0 to 100.                                                                                                                                      | Yes       |
+| Automatic absence message                       | When on, the guardian of every absent student gets a message automatically, every day. You confirm once before it turns on.                                                                     | No        |
+| Tell the head teacher and admin after           | If a status is not reported for this many school days, the head teacher and admin are told; 1 to 10, holidays are not counted.                                                                  | No        |
+| Approval method                                 | How an admin confirms once more before a sensitive action: OTP only, or OTP or password.                                                                                                        | No        |
+| Always need a second admin to reverse a payment | When on, cancelling a payment always needs a second person. When off, the only admin can approve it themselves.                                                                                 | No        |
+| Grace days                                      | No late fee is charged for this many days after the bill's due date; 0 to 60.                                                                                                                   | No        |
+| Value                                           | For a percentage, 0 to 100. For a flat amount, zero or more taka.                                                                                                                               | No        |
+| SMS company                                     | The company all of this school's SMS go through: Greenweb or MimSMS. Test the connection before you change it.                                                                                  | No        |
+| Sender name (Sender ID)                         | Only for MimSMS, and then it is required. Use the name the company approved.                                                                                                                    | Yes       |
+| Phone number ID                                 | The long number in Meta's WhatsApp Manager, not a phone number. It cannot be left empty.                                                                                                        | Yes       |
+| Facebook Page ID                                | The ID of the school's Facebook page. Find it under the page's About section. It cannot be left empty.                                                                                          | Yes       |
+| Send emails from                                | The address the recipient sees. Enter a valid email address.                                                                                                                                    | Yes       |
+| Port                                            | 1 to 65535; usually 587. Do not change it unless your email server says so.                                                                                                                     | No        |
+| Withhold admit cards when fees are due          | When on, a family cannot print the admit card of a student with dues from the portal. Staff can still print it, with a warning. Off at the start.                                               | No        |
+| School short code (optional)                    | 2 to 8 capital English letters or digits. It goes before every certificate serial number. It can be left empty.                                                                                 | No        |
+| Name                                            | 1 to 80 characters. You pick the printer by this name when you print.                                                                                                                           | Yes       |
+| Shift left–right (mm)                           | Enter how many mm the measuring page printed off; −10 to 10. The up–down field has the same limit.                                                                                              | No        |
+| Size                                            | 1 means actual size; 0.90 to 1.10.                                                                                                                                                              | No        |
+| Cutting gap between cards (mm)                  | Office printers only; 0 to 20 mm.                                                                                                                                                               | No        |
+| Allow sign-in with a code sent to the phone     | When off, everyone in this school must sign in with a password. If someone is in several schools, sign-in with a code is off for them as soon as it is off in any one of them. On at the start. | No        |
+
 <!-- /guide:generated -->
 
 <!-- guide:generated:fields:backup -->
+
+| Field                              | What to enter                                                                                                                                                                                | Required? |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Automatic backup                   | Off, weekly or daily. It saves as soon as you choose; a change can take up to an hour to start. No email is sent when an automatic backup succeeds; if one fails, every admin gets an email. | No        |
+| Choose file                        | An .xlsx backup taken from this app, up to 64 MB. It is only checked; nothing changes before you press Confirm.                                                                              | No        |
+| Type the school's name to confirm  | Type the school's name exactly. If it does not match, the restore does not start.                                                                                                            | Yes       |
+| Send invitations to restored users | Restored users come back without passwords. Tick this to email them an invitation. Not ticked at the start.                                                                                  | No        |
+
 <!-- /guide:generated -->
 
 </details>
@@ -569,9 +610,12 @@ See: [**Roles & access**](roles.md).
 - [**Taking attendance**](../attendance/attendance.md) — where the attendance policy applies.
 - [**Creating fee bills**](../finance/generate-fees.md) — where the fee rules apply.
 - [**Ready-made curriculum**](curriculum-preset.md) — put the subjects and classes of a new school in at once.
-- [**Setting up printers and sizes**](../printing/printers-and-calibration.md) — add a printer and fix its measurements.
+- [**Setting up printers and sizes**](print-templates/printers-and-calibration.md) — add a printer and fix its measurements.
 - [**Your account**](../start/account.md) — your own ways to sign in and your devices.
 - [**Seeing and settling alerts**](../dashboard/alerts.md) — your own push notifications.
+- [**Printing ID cards, certificates and exam papers**](print-templates.md) — print designs; printer settings are here
+- [**Send a message**](../communications/send-message.md) — sending a message to one guardian
+- [**Activity log**](audit-logs.md) — who changed what, and when
 
 ---
 

@@ -1,0 +1,14 @@
+%% title: The path of fees
+%% desc: The school charges bills each month. Discounts and payments lower what is outstanding. The server first checks that you are linked to this child, then adds up all bills and sends charged, discount, paid and outstanding. Invoices can be printed.
+flowchart TD
+  C["School charges a bill each month"]:::admin --> D["Charged goes up"]
+  D --> P["Discount or payment is applied"]
+  P --> O["Outstanding = charged - discount - paid"]
+  O --> L{"Linked to this child?"}:::note
+  L -->|"No"| X["Nothing is sent"]
+  L -->|"Yes"| S["Server adds up all bills<br/>charged, discount, paid, outstanding"]:::admin
+  S --> V["Fees and invoices page"]
+  V --> I["Invoices list"]
+  I --> R["Print opens a printable invoice"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

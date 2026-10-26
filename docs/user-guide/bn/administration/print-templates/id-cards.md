@@ -1,3 +1,38 @@
+<!-- guide:meta
+feature: administration.printIdCards
+title: আইডি কার্ড ছাপা
+summary: একজন, কয়েকজন বা পুরো শাখার আইডি কার্ড ছাপুন; হারানো কার্ড বাতিল করলে তার কিউআর আর বৈধ দেখায় না।
+roles: [ADMIN, ACCOUNTANT, OFFICE_STAFF, EXAM_CONTROLLER]
+sources:
+  - client-admin/src/routes/_staff/print/document.tsx
+  - client-admin/src/routes/_staff/print/preview.tsx
+  - client-admin/src/components/print/preview/print-preview.tsx
+  - server/src/modules/print/jobs/
+  - server/src/modules/print/verify/
+labels:
+  [
+    printPreview:*,
+    printHistory:actions.*,
+    printHistory:revoke.*,
+    verify:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.print,
+    administration.printTemplates.action.confirmRound,
+    administration.printTemplates.action.revoke,
+    administration.printTemplates.field.batchSize,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [আইডি কার্ড, ছাপা, কিউআর, বাতিল, ব্যাচ, ID card, print, QR, revoke]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # আইডি কার্ড ছাপা
 
 একজন, কয়েকজন বা পুরো শাখার শিক্ষার্থী বা কর্মীর আইডি কার্ড ছাপুন, আর দরকারে আবার ছাপুন বা হারানো কার্ড বাতিল করুন।
@@ -32,7 +67,7 @@
 
    → **প্রিন্ট প্রিভিউ** খোলে, আসল নাম আর ছবিসহ কার্ড দেখায়। ডিফল্ট নকশা বাছাই থাকে।
 
-<!-- image pending: প্রিন্ট প্রিভিউ, একটি শিক্ষার্থীর কার্ড সামনে ও পেছনে, প্রিন্টার বাছাই করা; অ্যাডমিন, desktop -->
+![প্রিন্ট প্রিভিউ, একটি শিক্ষার্থীর কার্ড সামনে ও পেছনে, প্রিন্টার বাছাই করা](../img/id-cards-01.png)
 
 3. **প্রিন্টার** থেকে **একটি প্রিন্টার বেছে নিন** ([কেন নিজে বাছতে হয়](printers-and-calibration.md#why-printer))।
 4. **প্রিন্ট করুন** চাপুন।
@@ -106,13 +141,13 @@
 
 ### ছাপার ইতিহাস দেখুন <a href="#history" id="history"></a>
 
-**প্রতিবেদন → প্রিন্ট ও ডকুমেন্ট** → **ছাপার ইতিহাস** ট্যাব। <!-- link pending: reports/printables.md — প্রিন্ট ও ডকুমেন্ট পাতা এখনো লেখা হয়নি -->
+[**প্রতিবেদন → প্রিন্ট ও ডকুমেন্ট**](../../reports/printables.md) → **ছাপার ইতিহাস** ট্যাব।
 
 - কলাম: **ছাপার সময়**, **যিনি ছেপেছেন**, **নথি**, **ব্যক্তি**, **কপি**, **অবস্থা**।
 - ছাঁকনি: **নথির ধরন**, **নকশা**, **যিনি ছেপেছেন**, **তারিখ**, **ফলাফল**, **অবস্থা** (**শুধু বৈধ** / **শুধু বাতিল**), আর **নাম দিয়ে খুঁজুন**।
 - **দেখুন** চাপলে ঠিক কী ছাপা হয়েছিল তা দেখায়, সামনে ও পেছনে। কিউআর কোড সংরক্ষিত থাকে না, তাই সেখানে দেখায় না।
 
-<!-- image pending: প্রিন্ট ও ডকুমেন্ট, ছাপার ইতিহাস ট্যাব, একটি সারি বাতিল করা; অ্যাডমিন, desktop -->
+![প্রিন্ট ও ডকুমেন্ট, ছাপার ইতিহাস ট্যাব, প্রবেশপত্র ছাপার তালিকা, একটি সারি বাতিল করা](../img/id-cards-02.png)
 
 ### হারানো কার্ড বাতিল করুন <a href="#revoke" id="revoke"></a>
 
@@ -145,6 +180,8 @@
 | **আবার ছাপুন** কাজ করছে না, কার্ডটি বাতিল করা                      | বাতিল কার্ড আবার ছাপা যায় না; শিক্ষার্থীর পাতা থেকে নতুন করে ছাপুন                 | নিজে                  |
 | **কার্ডটি বাতিল করা যায়নি।**                                       | আবার চেষ্টা করুন                                                                  | অ্যাডমিন              |
 | ছাপা কাগজে সরে গেছে বা কেটে গেছে                                 | **Scale 100%**, **Margins None** দিন, তারপর [মাপ ঠিক করুন](printers-and-calibration.md#calibrate) | অ্যাডমিন              |
+
+এ নিয়ে আরও সাহায্য: [সমস্যা হলে কী করবেন](../../help/troubleshooting.md#print)।
 
 ---
 
@@ -185,7 +222,7 @@
 - [**সনদ**](certificates.md) — ছাড়পত্র, প্রশংসাপত্র; ক্রমিক নম্বর ও রেজিস্টার।
 - [**শিক্ষার্থী**](../../people/students.md) — শিক্ষার্থীর পাতা আর **কাগজপত্র** ট্যাব।
 - [**কর্মী**](../../people/staff.md) — কর্মীর পাতা।
-<!-- link pending: reports/printables.md — প্রিন্ট ও ডকুমেন্ট (ইতিহাস, আবার ছাপা, বাতিল); পাতা এখনো নেই -->
+- [**প্রিন্ট ও ডকুমেন্ট**](../../reports/printables.md) — ছাপার ইতিহাস, আবার ছাপা ও বাতিল
 
 ---
 

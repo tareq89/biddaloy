@@ -1,0 +1,15 @@
+%% title: The path of results
+%% desc: The teacher enters marks. The school works out the result and publishes it. When a parent opens the page, the server first checks that they are linked to this child. Then it sends only the GPA, grade, total marks and position of published exams. Opening a card brings the subject-by-subject marks.
+flowchart TD
+  T["Teacher enters marks"] --> W["School works out the result"]:::admin
+  W --> P{"Published?"}:::note
+  P -->|"No"| X["Not sent to families"]
+  P -->|"Yes"| R["Result is available"]
+  R --> O["Parent opens Results"]
+  O --> L{"Linked to this child?"}:::note
+  L -->|"No"| N["Nothing is sent"]
+  L -->|"Yes"| S["GPA, grade, total marks, position<br/>of published exams"]:::admin
+  S --> C["Open a card"]
+  C --> M["Marks by subject"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

@@ -29,7 +29,7 @@ appVersion: 0.1.0 (3f7e424fc)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: year-default-counts-all, checked: 2026-10-25, issue: null }
+  - { id: year-default-counts-all, checked: 2026-10-25, issue: 2945 }
 -->
 
 # Application reports
@@ -39,8 +39,7 @@ See the count of all the school's applications, and who is on leave today, on on
 **Where to go:** in the left menu, **Reports → Application reports**. View this page on a computer.
 **Before you start:** be an Admin, Academic coordinator or Office staff ([who can do what](#roles)). This page is view-only; you cannot decide on an application from here.
 
-The numbers come from the school's applications, such as leave applications. Staff leave counts come from the record of approved leave.
-<!-- link pending: applications/applications.md — applications (other lane) -->
+The numbers come from the school's [applications](../applications/applications.md), such as leave applications. Staff leave counts come from the record of approved leave.
 
 [See the count](#task-main) · [Open old applications](#task-stale) · [Change the time](#task-filter) · [Problems and fixes](#trouble)
 
@@ -72,7 +71,7 @@ The numbers come from the school's applications, such as leave applications. Sta
 3. Below, look at the **Waiting more than 3 days** list. These are still waiting for someone's decision.
 4. Look at the **By type and status** and **By month** tables.
 
-<!-- image pending: Application reports; 1 · Academic year and Submitted on 2 · four boxes 3 · Waiting more than 3 days 4 · By type and status, By month 5 · On leave today 6 · Staff leave days; admin, desktop -->
+![Application reports with the Academic year and Submitted on filters, four summary boxes, and the By type and status and By month sections](img/applications-02-reports.png)
 
 > **Remember:** if you do not choose an **Academic year**, applications of all years are counted for now, even though it says "Current year". To see only this year, choose the year yourself from **Academic year** ([Known issues](#known-issues)).
 
@@ -158,16 +157,16 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 ## Learn more <a href="#more" id="more"></a>
 
 <details>
-<summary><strong>Parts of the page</strong></summary>
+<summary><strong>Parts of the page, top to bottom</strong></summary>
 
-1. The title and **Academic year … · all applications**.
-2. Filters: **Academic year**, **Submitted on** (**From**, **To**).
-3. Four boxes: **Submitted**, **Approved**, **Rejected**, **Average time to decide**.
-4. **Waiting more than 3 days**.
-5. **By type and status** (**Pending**, **Approved**, **Rejected**, **Other**) and **By month** (**Submitted**, **Approved**, **Rejected**).
-6. **On leave today** and **Staff leave days**.
+- The title and **Academic year … · all applications**.
+- Filters: **Academic year**, **Submitted on** (**From**, **To**).
+- Four boxes: **Submitted**, **Approved**, **Rejected**, **Average time to decide**.
+- **Waiting more than 3 days**.
+- **By type and status** (**Pending**, **Approved**, **Rejected**, **Other**) and **By month** (**Submitted**, **Approved**, **Rejected**).
+- **On leave today** and **Staff leave days**.
 
-<!-- image pending: Application reports, six parts marked with numbers; office staff, desktop -->
+![Application reports with the Academic year and Submitted on filters, four summary boxes, and the By type and status and By month sections](img/applications-02-reports.png)
 
 </details>
 
@@ -175,6 +174,12 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 <summary><strong>What each field means</strong></summary>
 
 <!-- guide:generated:fields:applicationsReports -->
+
+| Field         | What to enter                                                                                                                                         | Required? |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Academic year | Which academic year to count. When chosen, only that year’s applications are counted.                                                                 | No        |
+| Submitted     | Filters by the day an application was submitted; both the start and end days count. Staff leave days use the same dates, by the day the leave starts. | No        |
+
 <!-- /guide:generated -->
 
 </details>
@@ -198,8 +203,8 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 
 **Related pages**
 
-<!-- link pending: applications/applications.md — applications (other lane) -->
-<!-- link pending: people/staff-leave — staff leave (other lane) -->
+- [**Applications**](../applications/applications.md) — Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper.
+- [**Staff attendance and leave**](../attendance/staff-attendance.md) — staff leave
 
 ---
 

@@ -1,8 +1,37 @@
+<!-- guide:meta
+feature: administration.printPrinters
+title: Printers and calibration
+summary: Add a printer and its paper size, print the measuring page and fix the offset so the print lands exactly on the card.
+roles: [ADMIN, ACCOUNTANT, OFFICE_STAFF, EXAM_CONTROLLER]
+sources:
+  - client-admin/src/routes/_staff/print/preview.tsx
+  - client-admin/src/components/print/preview/print-preview.tsx
+  - client-admin/src/components/print/preview/run-print.ts
+  - server/src/modules/print/printers/
+labels:
+  [
+    printPreview:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.field.printer,
+    administration.printTemplates.field.batchSize,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [printer, calibration, paper, offset, measuring page, alignment]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # Printers and calibration
 
 Add each of the school's printers once and fix its measurements, so that cards print in the right place.
 
-**Where to go:** **Settings → Printing → Printers**. <!-- link pending: administration/settings.md — the Settings page is not written yet -->
+**Where to go:** [**Settings → Printing → Printers**](../settings.md).
 **Before you start:** to add a printer and fix its measurements you must be an Admin. Keep a ruler at hand.
 
 Here a **printer** is a name plus a few measurements: what kind of printer it is, how much blank space it leaves at the paper's edge, and how many millimetres the print must be shifted. When you choose a printer from this list while printing, the app applies those measurements to the page.
@@ -31,7 +60,7 @@ Here a **printer** is a name plus a few measurements: what kind of printer it is
 
    → The **Printers** section appears. If there is no printer, it says **Add your first printer**.
 
-<!-- image pending: Settings → Printing, printer list, two printers; admin, desktop -->
+<img src="../img/settings-printing.png" alt="Settings → Printing, printer list, two printers; admin">
 
 2. Press **Add printer**.
 
@@ -158,6 +187,8 @@ If the school buys blank cards that already have the design printed on them, onl
 | A thin white border around the card                                        | An office printer does not print to the edge; use a card printer, or add [bleed](designer-guide.md#safe-bleed) in the design | Admin |
 | The whole print is a little small or big                                   | Check that **Scale** is 100%, then fix **Size**                            | Admin        |
 
+More help with this: [What to do when something goes wrong](../../help/troubleshooting.md#print).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
@@ -193,7 +224,10 @@ If the school buys blank cards that already have the design printed on them, onl
 - [**Printing ID cards**](id-cards.md) — one person, a few people or a whole section.
 - [**Exam documents**](exam-documents.md) — admit cards, seat lists, marks sheets, result certificates.
 - [**Certificates**](certificates.md) — transfer certificates, testimonials; serial numbers and the register.
-<!-- link pending: administration/settings.md — Settings → Printing; page not there yet -->
+- [**Changing the school's settings**](../settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
+- [**Invoices**](../../finance/invoices.md) — Find the invoice and credit note of every payment, print them, send them to a guardian by WhatsApp or SMS, and give a 30-day share link.
+- [**Payments**](../../finance/payments.md) — Find every payment taken at the school, open one to see which bills the money went to, print the receipt again, and reverse a wrong payment.
+- [**Record payment**](../../finance/record-payment.md) — Take money against the open bills of one or more students — the money is split across the oldest bills, give a discount if needed, work out.
 
 ---
 

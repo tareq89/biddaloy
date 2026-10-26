@@ -23,7 +23,7 @@ helpIds: [administration.roles]
 devices: [desktop]
 entry: [sidebar, palette]
 keywords:
-  [ভূমিকা, অনুমতি, কে কী দেখে, শিক্ষক, হিসাবরক্ষক, অফিস সহকারী, পরীক্ষা নিয়ন্ত্রক, roles, permissions, access]
+  [ভূমিকা, অনুমতি, কে কী দেখে, শিক্ষক, হিসাবরক্ষক, অফিস সহকারী, পরীক্ষা নিয়ন্ত্রক, roles, permissions, access, role, permission, রোল]
 appVersion: 0.1.0 (63bfc7884)
 owner: tareq89
 lastVerified: 2026-10-25
@@ -44,7 +44,9 @@ Every staff member has one **role**, such as Teacher or Accountant. The role dec
 **On this page**
 
 - [See the permissions of one role](#task-main)
+- [How to know you are on the right card](#confirm)
 - [Who can do what, in short](#matrix)
+- [Other situations](#other)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
 - [Learn more](#more)
@@ -65,11 +67,17 @@ Every staff member has one **role**, such as Teacher or Accountant. The role dec
 
    → The group opens and every permission in it is shown in plain words. Press it again to close it.
 
-<!-- image pending: Roles & access page; 1 · title and the "Read-only" line 2 · one role card 3 · data access 4 · permission count 5 · one open permission group; admin, desktop -->
+<img src="img/roles-01-list.png" alt="Roles & access page; 1 · title and the &quot;Read-only&quot; line 2 · one role card 3 · data access 4 · permission count 5 · one open permission group; admin">
 
 > **Remember:** these cards come from the same list the school's system uses to check every action. So what the card says matches what the app allows. A Teacher's permissions still work only inside their own sections.
 
 This page does not save anything, so there is no "was it saved" state to check.
+
+---
+
+## How to know you are on the right card <a href="#confirm" id="confirm"></a>
+
+The card has the role's name at the top and a number such as **18 permissions**. When you open a group, the number in brackets after its name equals the number of permissions listed inside it. This page never saves anything, so there is no "saved" message to look for.
 
 ---
 
@@ -92,13 +100,20 @@ A teacher sees the students, attendance and marks of only the sections given to 
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Admin                 | Everything in the school: staff, students, guardians, fees, payments, exams, results, routines, printing, settings, backups, the activity log. Only the Admin can approve money-risk actions and cancel payments.                                                              | —                                                                                    |
 | Accountant            | Create and change fee structures, generate fee bills, take payments, invoices, discount rules, automatic billing, finance reports, send messages. Add and edit students and guardians, import students from a file, print ID cards.                                          | Approve fee actions, cancel payments, delete students or fee structures, exams, settings |
-| Academic coordinator  | View students, results, marks and reports; approve staff leave; view applications and decide on them; run programs; change a student's status (for example left school); issue certificates; send alerts.                                                                    | Take money or generate bills, enter marks, settings                                  |
+| Academic coordinator  | View students, results, marks and reports; import students from a file; approve staff leave; view applications and decide on them; run programs; change a student's status (for example left school); issue certificates; send alerts.                                                                    | Take money or generate bills, enter marks, settings                                  |
 | Teacher               | In their own sections: take attendance, enter marks, give and view homework, arrange the syllabus, write student notes, write program progress. View their sections' students, guardians and fees.                                                                           | Anything outside their sections, take money, publish results                         |
 | Exam controller       | Arrange exams for the whole school, seat plans, view marks, generate and publish results, print documents.                                                                                                                                                                  | Enter marks, money, add students                                                     |
 | Office staff          | View admission applicants, add and edit students and guardians, import from a file, student records, send messages, printing and certificates, view applications and decide at their own step. Only view fees and invoices.                                                  | Take money, delete students, settings                                                |
 | Committee member      | View only: dashboard, committee reports, staff evaluations, calendar.                                                                                                                                                                                                        | See student details, change anything                                                 |
 
 Every staff role except Committee member can mark and view their own attendance, and can apply for themselves ([**Applications**](../applications/applications.md)).
+
+---
+
+## Other situations <a href="#other" id="other"></a>
+
+- **A role you expected is missing:** the school has seven fixed roles. There is no way to add one here.
+- **A permission seems missing from a group:** groups only show permissions the role has. A permission the role does not have is not listed.
 
 ---
 
@@ -111,6 +126,8 @@ Every staff role except Committee member can mark and view their own attendance,
 | You want to change someone's role                 | You cannot do it from this page. See the [**Staff**](../people/staff.md) page.                                 | Admin        |
 | A teacher says their list is empty                | Check whether any section is given to them: [**Teacher assignments**](../people/teaching-assignments.md).      | Admin        |
 | You want a new role or permissions of your own    | Not possible. The school has these seven roles, and the permissions of each are fixed.                         | —            |
+
+If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
 
 ---
 
@@ -134,9 +151,9 @@ Opening this page needs the permission to view the staff list, which only the Ad
 2. The role card — name and a one-line description.
 3. Data access — **Whole school** or **Assigned sections only**.
 4. The number of permissions.
-5. The permission groups — for example **Fees**, **Attendance & leave**, **Applications**; press one to open it.
+5. The permission groups — for example **Fees**, **Attendance & leave**, [**Applications**](../applications/applications.md); press one to open it.
 
-<!-- image pending: Roles & access page, the five parts marked with numbers; admin, desktop -->
+<img src="img/roles-01-list.png" alt="Roles & access page, the five parts marked with numbers; admin">
 
 </details>
 
@@ -151,16 +168,18 @@ Opening this page needs the permission to view the staff list, which only the Ad
 - **One person, one role:** in one school a staff member has one role.
 - **Permissions are checked twice:** the menu shows only the pages you have permission for. If someone opens an address directly, the school's system checks again and blocks the action.
 - **Super admin:** this is a platform role that no school can give. So it is not on the cards.
-- **Parents and students:** they are not staff. They have their own apps, and they see only their own family or their own information.
+- **Parents and students:** they are not staff. They use the same app, but after sign-in they land on their own **portal** pages ([**Overview**](../portal/overview.md)), and they see only their own family or their own information.
 
 </details>
 
 **Related pages**
 
+- **Role pages** — one page for each role, with its first day and common tasks: [Admin](../roles/admin.md), [Accountant](../roles/accountant.md), [Academic coordinator](../roles/headmaster.md), [Teacher](../roles/teacher.md), [Exam controller](../roles/exam-controller.md), [Office staff](../roles/office-staff.md), [Committee member](../roles/committee.md), [Guardian](../roles/guardian.md), [Student](../roles/student.md).
 - [**Staff**](../people/staff.md) — add staff and choose the role.
 - [**Teacher assignments**](../people/teaching-assignments.md) — which teacher sees which section.
 - [**Activity log**](audit-logs.md) — who changed what, and when.
 - [**Applications**](../applications/applications.md) — which role decides which application.
+- [**Changing the school's settings**](settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
 
 ---
 

@@ -1,3 +1,33 @@
+<!-- guide:meta
+feature: administration.printExamDocuments
+title: Printing exam documents
+summary: Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.
+roles: [ADMIN, ACCOUNTANT, OFFICE_STAFF, EXAM_CONTROLLER]
+sources:
+  - client-admin/src/routes/_staff/print/document.tsx
+  - server/src/modules/print/jobs/
+labels:
+  [
+    examDocuments:fields.*,
+    examDocuments:help.*,
+    printPreview:*,
+  ]
+helpIds:
+  [
+    administration.printTemplates.action.print,
+    administration.printTemplates.field.kind,
+    administration.printTemplates.field.design,
+  ]
+devices: [desktop]
+entry: []
+keywords:
+  [exam, admit card, seat slip, mark sheet, result, print]
+appVersion: 0.1.0 (f3b2a529e)
+owner: tareq89
+lastVerified: 2026-10-25
+knownIssues: []
+-->
+
 # Printing exam documents
 
 Print all the papers of one exam from one place: admit cards, the routine notice, seat lists, invigilator sheets, seat stickers, blank marks sheets, mark sheets, tabulation, result certificates and merit certificates.
@@ -32,7 +62,7 @@ On the **Print** tab the papers are arranged in three parts, in the order you ne
 
    → **Print preview** opens.
 
-<!-- image pending: exam Print tab, cards in three parts, numbers on the Admit cards card; admin, desktop -->
+![exam Print tab, cards in three parts, numbers on the Admit cards card](../img/exam-documents-01.png)
 
 3. Under **Which admit cards?** choose **Everyone**, **Not printed yet** (those not printed so far), or **One section**. If you choose a section, pick it under **Choose a section**.
 4. Press **Preview** and look through the cards. Each A4 page holds 2 admit cards, with the seat, room and the timetable of the sittings.
@@ -98,7 +128,7 @@ In the merit certificate window:
 
 Result certificates and merit certificates get a serial number too (`RES-2026-00001`, `MRT-2026-00001`), one per student; a reprint keeps the same number ([Certificates](certificates.md#serial)).
 
-<!-- image pending: merit certificate window, Class position and top 3 chosen; exam controller, desktop -->
+![merit certificate window, Class position and top 3 chosen](../img/exam-documents-02.png)
 
 ### Why a card is grey <a href="#unavailable" id="unavailable"></a>
 
@@ -133,6 +163,8 @@ In the guardian portal, on the **Exam schedule** page, the guardian presses **Pr
 | **The print could not be recorded, so it was not printed. Try again.**        | Press **Print** again                                                   | You             |
 | **Nothing to print.**                                                         | Open it again from the exam's **Print** tab                             | You             |
 | The print is shifted or cut on the paper                                      | [Fix the measurements](printers-and-calibration.md#calibrate)           | Admin           |
+
+More help with this: [What to do when something goes wrong](../../help/troubleshooting.md#print).
 
 ---
 
@@ -172,6 +204,7 @@ To see the **Print** tab you need both the permission to manage exams and the pr
 - [**Exams**](../../exams-results/exams.md) — exams, schedules, marks parts.
 - [**Seat plans**](../../exams-results/seat-plans.md) — make and publish a seat plan.
 - [**Results**](../../exams-results/results.md) — process and publish results.
+- [**Designer's guide**](designer-guide.md) — Get the design kit, send it to a designer, import the drawn SVG, check the fields and publish.
 
 ---
 

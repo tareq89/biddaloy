@@ -96,7 +96,7 @@ This is the whole path up to the first ID card. If no printer is added yet, firs
 
    → The **Print designs** list opens. If it is empty, it says **Start from a design**.
 
-<!-- image pending: Print designs list, two designs, one marked "Default"; admin, desktop -->
+<img src="img/print-templates-01-list.png" alt="Print designs list, two designs, one marked &quot;Default&quot;; admin">
 
 2. Press **New design**.
 
@@ -210,7 +210,7 @@ Every printed card has its own QR code. Anyone can scan it with a phone and the 
 
 **Revoke a lost card** (Admin only):
 
-1. In the left menu open **Reports → Print & documents**. <!-- link pending: reports/printables.md — the Print & documents page is not written yet -->
+1. In the left menu open [**Reports → Print & documents**](../reports/printables.md).
 2. In the card's row press **Revoke**.
 3. Write a **Reason** (required, up to 280 characters; staff see it, the public does not).
 4. Press **Revoke card**.
@@ -237,6 +237,8 @@ Every printed card has its own QR code. Anyone can scan it with a phone and the 
 | Printing a staff card says you have no permission                             | A staff card also needs permission to see staff HR details; ask an Admin     | Admin        |
 | When scanning a QR code: **Too many checks — try again in a minute.**         | Wait a minute and scan again                                                 | You          |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#print).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
@@ -262,7 +264,7 @@ The QR check page is open to everyone, no sign-in needed.
 2. The **Document type** filter (**All documents**).
 3. The list — **Name**, **Type**, **Status** (**Published** / **Draft only**), **Cards per round**, **Last updated**, and **Actions**: **Edit design**, **Make default**, **Archive**.
 
-<!-- image pending: Print designs list, the three parts marked with numbers; admin, desktop -->
+<img src="img/print-templates-01-list.png" alt="Print designs list, the three parts marked with numbers; admin">
 
 </details>
 
@@ -272,26 +274,65 @@ The QR check page is open to everyone, no sign-in needed.
 **New design window**
 
 <!-- guide:generated:fields:printTemplates -->
+
+| Field           | What to enter                                                                                                                     | Required? |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Document type   | What the design is for, for example Student ID card or Transfer certificate (TC). It cannot be changed later.                     | Yes       |
+| Choose a design | A ready-made design to start from. You can change everything in the editor afterwards.                                            | Yes       |
+| Name            | A name only your school sees in this list, for example Student ID 2027. Two designs cannot share a name. You can rename it later. | Yes       |
+
 <!-- /guide:generated -->
 
 **Editor: page and text**
 
 <!-- guide:generated:fields:printEditor -->
+
+| Field                   | What to enter                                                                                                                                        | Required? |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Paper                   | The size of one card or page: CR80 card portrait, CR80 card landscape, or your own size in mm.                                                       | No        |
+| Sides                   | Front only, or front and back.                                                                                                                       | No        |
+| Cards per round         | How many cards print in one round before the app asks if they all came out right. Up to 200. Heavy designs print more reliably in smaller rounds.    | No        |
+| Text on reprints        | Printed from the 2nd copy on, for example "Copy {n}" or "Duplicate". Leave empty if you do not want it.                                              | No        |
+| If the text is too long | What happens when a name or other text does not fit its box: shrink it, wrap it to more lines, cut it off, or print it and warn you before printing. | No        |
+| Smallest size (pt)      | Text shrinks down to this size and no further. Leave empty for the default.                                                                          | No        |
+
 <!-- /guide:generated -->
 
 **Print preview**
 
 <!-- guide:generated:fields:printPreview -->
+
+| Field           | What to enter                                                                                                                                                                                          | Required? |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| Design          | Which published design the cards use. The default design is chosen at first. It cannot change once printing starts.                                                                                    | Yes       |
+| Printer         | The printer these cards go to. Its saved settings (card or office printer, position fix) decide the page size and where things land on the paper. Choose the same printer in the browser print window. | Yes       |
+| Cards per round | How many cards print in one round. Print and confirm a round to unlock the next.                                                                                                                       | No        |
+
 <!-- /guide:generated -->
 
-**Issuing certificates**
+[**Issuing certificates**](print-templates/certificates.md)
 
 <!-- guide:generated:fields:certificates -->
+
+| Field                | What to enter                                                                                                                                      | Required? |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Which certificate?   | The certificate to issue. A transfer certificate needs a recorded transfer or withdrawal first.                                                    | Yes       |
+| Certificate language | The whole certificate prints in this one language. At first it is the school default.                                                              | No        |
+| Serial number        | Shown for you to check; you do not type it. The number belongs to this certificate as soon as you press Print. Closing before that uses no number. | No        |
+| Printer              | The printer the certificate goes to. Add one in printing settings first.                                                                           | Yes       |
+
 <!-- /guide:generated -->
 
 **Exam papers**
 
 <!-- guide:generated:fields:examDocuments -->
+
+| Field                        | What to enter                                                            | Required? |
+| ---------------------------- | ------------------------------------------------------------------------ | --------- |
+| Which admit cards            | Everyone, only those whose card is not printed yet, or one section.      | Yes       |
+| Rank by                      | Class position or section position decides who gets a merit certificate. | Yes       |
+| How many top students (1–50) | How many students from the top get a certificate, from 1 to 50.          | Yes       |
+
 <!-- /guide:generated -->
 
 </details>
@@ -319,8 +360,8 @@ The QR check page is open to everyone, no sign-in needed.
 - [**Certificates**](print-templates/certificates.md) — transfer certificates, testimonials; serial numbers and the register.
 - [**Students**](../people/students.md) — ID card printing starts from the student's page.
 - [**Staff**](../people/staff.md) — the staff card from the staff member's page.
-<!-- link pending: reports/printables.md — Print & documents (history, reprint, revoke); page not there yet -->
-<!-- link pending: administration/settings.md — Settings → Printing; page not there yet -->
+- [**Print & documents**](../reports/printables.md) — print history, reprint and revoke
+- [**Changing the school's settings**](settings.md) — the school settings
 
 ---
 

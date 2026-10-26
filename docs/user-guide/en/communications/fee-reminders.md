@@ -106,7 +106,7 @@ If you put **{Student name}**, **{Guardian name}**, **{Amount due}** and **{Due 
 
    → **Reminder sent** appears: **Sent (…)** and **Skipped (…)**.
 
-<!-- image pending: Fee Reminders, one student, with the preview; 1 · Student, balance, last reminder 2 · Who will be reminded 3 · Message and Insert into message 4 · Send by 5 · Preview 6 · Send reminder to … people; accountant, desktop -->
+![Fee Reminders, one student, with the preview](img/fee-reminders-01.png)
 
 > **Remember:** if you change anything after the preview, even one letter, the preview hides: **Inputs changed since the last preview — preview again before sending.** A sent message cannot be recalled.
 
@@ -122,7 +122,7 @@ If you put **{Student name}**, **{Guardian name}**, **{Amount due}** and **{Due 
 
 This page does not keep anything on your phone or computer, so there is no "saved on this device" state.
 
-**If you are not sure, pressing again is safe:** if you press the same button again after the same preview, the school's system returns the earlier result within 24 hours; the message does not go twice.
+**If you are not sure, pressing again is safe:** if no answer came and you press the same button again after the same preview, without leaving or reloading the page, the school's system returns the earlier result (it remembers it for 24 hours); the message does not go twice. Once a send has shown as done, pressing again sends a new reminder.
 
 > **Remember:** the app does not stop you from sending another reminder to the same student on the same day. Check **Last reminder** before you send.
 
@@ -172,7 +172,7 @@ How many characters one SMS holds is on the [**Send a message**](send-message.md
 | **Preferred channel cannot be sent automatically**               | The preferred channel is phone call or Messenger                              |
 | **No phone or email on file for the preferred channel**          | There is no number or email for that channel                                  |
 
-**Which guardian gets it, when sending to many:** each student's main contact guardian. If there is no main one, or the main one turned notifications off, all the other guardians. **For one student**, everyone who is ticked gets it.
+**Which guardian gets it, when sending to many:** each student's main contact guardian. If there is no main one, or the main one turned notifications off, all the other guardians. **For one student**, everyone who is ticked gets it. A guardian of two picked students gets one message for each student.
 
 ---
 
@@ -190,6 +190,8 @@ How many characters one SMS holds is on the [**Send a message**](send-message.md
 | **The reminder could not be sent.**                                            | This also appears for one student when credit is low. Preview again and send, or tell the Admin.         | Admin        |
 | **Select at most 500 students — remove … to continue.**                        | Untick some; send the rest in another round.                                                              | —            |
 | **The student list could not be loaded.**                                      | Reload the page.                                                                                          | Admin        |
+
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
 
 ---
 
@@ -218,7 +220,7 @@ For the other roles, **Fee Reminders** is not in the left menu.
 3. **Message**: **Message**, **Insert into message**, **Send by**, the WhatsApp template boxes.
 4. **Preview recipients**, then **Preview** and **Send reminder to … people**.
 
-<!-- image pending: Bulk Fee Reminders, the Check and send step, the SMS projection visible; admin, desktop -->
+![Bulk Fee Reminders, the Check and send step, the SMS projection visible](img/fee-reminders-02.png)
 
 </details>
 
@@ -226,6 +228,18 @@ For the other roles, **Fee Reminders** is not in the left menu.
 <summary><strong>What each field means</strong></summary>
 
 <!-- guide:generated:fields:communications -->
+
+| Field                      | What to enter                                                                                                 | Required?         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Which guardian to send to  | One guardian of the chosen student. Their phone or email shows below; without one you cannot send.            | Yes               |
+| How to send (Send message) | SMS, WhatsApp or Email. SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. | No                |
+| Message (Send message)     | What to send. For SMS, the characters and the number of SMS it uses show below.                               | Yes               |
+| Who to remind              | Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.      | Yes, at least one |
+| Message (Fee reminder)     | Use the buttons below to put in the name, due amount or month; each guardian gets their real details.         | Yes               |
+| How to send (Fee reminder) | Starts on each guardian’s preferred channel. Pick one to send everyone on that channel this time.             | No                |
+| Batch name                 | A name for this batch; you find it by this name in Reminder history later.                                    | Yes               |
+| Channels (bulk reminder)   | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                     | Yes, at least one |
+
 <!-- /guide:generated -->
 
 </details>
@@ -253,7 +267,7 @@ For the other roles, **Fee Reminders** is not in the left menu.
 - [**Creating fee bills**](../finance/generate-fees.md) — the dues come from these bills.
 - [**Viewing, fixing and inviting guardians**](../people/guardians.md) — numbers, preferred channel and main contact.
 
-<!-- link pending: finance/dues.md — student dues (other lane) -->
+- [**Student dues**](../finance/dues.md) — see who owes what
 
 ---
 
