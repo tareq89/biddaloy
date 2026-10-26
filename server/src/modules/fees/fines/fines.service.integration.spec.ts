@@ -403,6 +403,36 @@ describe('FinesService (integration)', () => {
       expect(second.amount).toBe(0.01);
     });
 
+    it('refuses a waive 0.01 over the balance and leaves the bill unchanged', async () => {
+      const { bill } = await makeFineBill();
+      const token = await issueApprovalToken('jti-waive-over');
+
+      await expect(
+        service.waiveBill(
+          bill.id,
+          { amount: 100.01, reason: 'Too much' },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(token),
+        ),
+      ).rejects.toThrow(BadRequestException);
+      const row = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+      expect(Number(row.discount_amount)).toBe(0);
+      expect(row.status).toBe(FeeStatus.PENDING);
+    });
+
+    it('waives exactly the full balance when amount equals it', async () => {
+      const { bill } = await makeFineBill();
+      const result = await service.waiveBill(
+        bill.id,
+        { amount: 100, reason: 'Exact' },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(await issueApprovalToken('jti-waive-exact')),
+      );
+      expect(result.status).toBe(FeeStatus.WAIVED);
+    });
+
     it('rejects waiving a fully paid fine with 409', async () => {
       const { bill } = await makeFineBill({ paid_amount: 100, status: FeeStatus.PAID });
       const token = await issueApprovalToken('jti-waive-paid');

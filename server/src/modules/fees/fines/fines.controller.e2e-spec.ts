@@ -469,7 +469,8 @@ describe('Fines E2E (38.2.5)', () => {
         .set('X-Approval-Token', approvalToken)
         .send({ reason: 'Wrong tenant' })
         .expect(404);
-      expect(res.body.message).toBe(`Bill "${billId}" not found`);
+      expect(res.body.message).toBe('Bill not found');
+      expect(res.body.message).not.toContain(billId);
     });
   });
 
