@@ -31,7 +31,11 @@
     "required": "{{field}} is required",
     "tooLong": "At most {{max}} characters",
     "count": "{{n}} / {{max}}",
-    "none": "This template asks for nothing extra."
+    "none": "This template asks for nothing extra.",
+    "certKind": "Which certificate?",
+    "language": "Certificate language",
+    "serialNumber": "Serial number",
+    "printer": "Printer"
   },
   "profile": {
     "title": "From the profile",
@@ -94,5 +98,15 @@
   },
   "header": {
     "line": "{{class}} · Section {{section}} · Roll {{roll}} · {{reg}}"
+  },
+  "help": {
+    "certKind": "The certificate to issue. A transfer certificate needs a recorded transfer or withdrawal first.",
+    "language": "The whole certificate prints in this one language. At first it is the school default.",
+    "serialNumber": "Shown for you to check; you do not type it. The number belongs to this certificate as soon as you press Print. Closing before that uses no number.",
+    "printer": "The printer the certificate goes to. Add one in printing settings first."
+  },
+  "helpRequired": {
+    "certKind": "Yes",
+    "printer": "Yes"
   }
 }

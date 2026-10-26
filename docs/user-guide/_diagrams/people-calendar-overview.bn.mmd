@@ -1,0 +1,14 @@
+%% title: ইভেন্ট যোগ থেকে সবার দেখা পর্যন্ত
+%% desc: অ্যাডমিন একটি ইভেন্ট যোগ করেন, অথবা সরকারি ছুটি, ফাইল বা আগের বছর থেকে আনেন। ইভেন্ট খসড়া থাকে বা প্রকাশিত হয়। প্রকাশিত ইভেন্ট সবাই ভূমিকা অনুযায়ী দেখেন এবং ফোনে সাবস্ক্রাইব করতে পারেন।
+flowchart LR
+  A["একটি করে<br/>যোগ"]:::admin --> D["খসড়া"]:::note
+  G["সরকারি ছুটি"]:::admin --> D
+  F["ফাইল থেকে"]:::admin --> D
+  C["আগের বছর<br/>থেকে কপি"]:::admin --> D
+  D -->|প্রকাশ| P["প্রকাশিত"]
+  P --> V["সবাই ভূমিকা<br/>অনুযায়ী দেখেন"]:::guardian
+  P --> M["ফোনের<br/>ক্যালেন্ডার অ্যাপ"]:::teacher
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

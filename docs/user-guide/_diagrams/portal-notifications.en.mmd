@@ -1,0 +1,9 @@
+%% title: Where alerts come from and where they go
+%% desc: The school's system creates alerts by itself. They show in the bell and in the to-do list. When the work is done, an alert becomes fixed by itself and moves to history. History keeps it for 12 months.
+flowchart LR
+  R["School system<br/>such as unpaid fees, absence"] --> B["Bell and<br/>to-do"]
+  B --> H["Closed for now<br/>(you hid it)"]
+  B --> F["Fixed /<br/>Expired"]:::done
+  H --> F
+  F --> I["History<br/>12 months"]
+  classDef done fill:#ebfbee,stroke:#2b8a3e,color:#14411d
