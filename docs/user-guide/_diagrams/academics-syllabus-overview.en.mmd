@@ -1,0 +1,13 @@
+%% title: From the syllabus to study plans
+%% desc: A class and subject's syllabus holds the topics. Each subject of each section gets one study plan, with its lessons in order. The published routine gives each lesson an expected date. When the teacher reports periods, progress goes up; when they do not, the plan shows as behind.
+flowchart LR
+  T["Syllabus topics<br/>class + subject"]:::teacher --> P["Study plan<br/>section + subject + term"]:::teacher
+  L["Template<br/>library"]:::admin -. copy .-> P
+  P --> D["Expected lesson<br/>dates"]:::note
+  R["Published<br/>routine"]:::admin --> D
+  D --> G["Teacher reports<br/>periods"]:::teacher
+  G --> S["Progress or<br/>behind"]:::note
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

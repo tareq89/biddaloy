@@ -4,14 +4,16 @@
 //
 //   node scripts/user-guide/render-diagrams.mjs [name-prefix]
 //
-// The section is the part of <name> before the first "-" ("attendance-daily" → attendance/).
+// The section is the longest existing section folder that prefixes <name>
+// ("attendance-daily" → attendance/, "exams-results-marks" → exams-results/); else the part before the first "-".
 // Each svg gets <title>/<desc> from the `%% title:` / `%% desc:` lines and a
 // `<!-- src:<sha1> -->` stamp of its source, so a check can tell a stale svg.
-// Needs mmdc: `MMDC` env (a path) or `npx -p @mermaid-js/mermaid-cli mmdc`.
+// Needs mmdc: `MMDC` env (a path), else the devDependency's node_modules/.bin/mmdc,
+// else `npx -p @mermaid-js/mermaid-cli mmdc`.
 // `PUPPETEER_CONFIG` may point mmdc at an installed Chrome.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const SRC = 'docs/user-guide/_diagrams';
@@ -23,8 +25,9 @@ const escapeXml = (s) =>
 
 function mmdc(args) {
   const extra = process.env.PUPPETEER_CONFIG ? ['-p', process.env.PUPPETEER_CONFIG] : [];
-  if (process.env.MMDC)
-    return execFileSync(process.env.MMDC, [...args, ...extra], { stdio: 'inherit' });
+  const local =
+    process.env.MMDC ?? (existsSync('node_modules/.bin/mmdc') ? 'node_modules/.bin/mmdc' : '');
+  if (local) return execFileSync(local, [...args, ...extra], { stdio: 'inherit' });
   return execFileSync(
     'npx',
     ['-y', '-p', '@mermaid-js/mermaid-cli@11', 'mmdc', ...args, ...extra],
@@ -35,12 +38,20 @@ function mmdc(args) {
 }
 
 const files = readdirSync(SRC).filter((f) => /\.(bn|en)\.mmd$/.test(f) && f.startsWith(prefix));
+function sectionOf(lang, name) {
+  const dirs = readdirSync(path.join('docs/user-guide', lang), { withFileTypes: true })
+    .filter((d) => d.isDirectory() && (name === d.name || name.startsWith(`${d.name}-`)))
+    .map((d) => d.name)
+    .sort((a, b) => b.length - a.length);
+  return dirs[0] ?? name.split('-')[0];
+}
+
 for (const file of files) {
   const [, name, lang] = file.match(/^(.+)\.(bn|en)\.mmd$/);
   const source = readFileSync(path.join(SRC, file), 'utf8');
   const title = source.match(/^%% title: (.+)$/m)?.[1] ?? name;
   const desc = source.match(/^%% desc: (.+)$/m)?.[1] ?? '';
-  const outDir = path.join('docs/user-guide', lang, name.split('-')[0], 'diagrams');
+  const outDir = path.join('docs/user-guide', lang, sectionOf(lang, name), 'diagrams');
   mkdirSync(outDir, { recursive: true });
   const out = path.join(outDir, `${name}.svg`);
   mmdc(['-i', path.join(SRC, file), '-o', out, '-c', THEME, '-b', 'transparent', '-q']);
