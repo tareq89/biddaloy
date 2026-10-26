@@ -71,6 +71,9 @@ describe('HomeworkService', () => {
       assertCanManageStudent: vi.fn(async () => undefined),
       assertClassAndSubjectInTenant: vi.fn(async () => undefined),
       assertTargetInClass: vi.fn(async () => undefined),
+      // Skips findOne's section-scope query; that gate is covered against a real
+      // DB in homework.controller.e2e-spec.ts (section A vs section B).
+      canManageTenantWide: vi.fn(() => true),
     };
     notice = { notifyAssignment: vi.fn(async () => undefined) };
     service = new HomeworkService(

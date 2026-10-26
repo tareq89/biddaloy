@@ -83,6 +83,7 @@ describe('SeatPlansService', () => {
     seatPlanScheduleRepo = {
       createQueryBuilder: vi.fn(() => qb([])),
       query: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
     };
     allocationRepo = {
       find: vi.fn(async () => []),
@@ -580,6 +581,8 @@ describe('SeatPlansService', () => {
   describe('findOne counts', () => {
     it('returns room_count, student_count and schedule_count for the facts row [2977]', async () => {
       seatPlanRepo.findOne.mockResolvedValue({ id: 'plan-1', status: SeatPlanStatus.DRAFT });
+      // 3 sittings on the plan, one with nobody seated: the count still matches the list's.
+      seatPlanScheduleRepo.count.mockResolvedValue(3);
       // 3 allocations: 2 rooms, 3 distinct students, 2 distinct sittings.
       allocationRepo.find.mockResolvedValue([
         { id: 'a1', exam_schedule_id: SCHEDULE_A, student_id: 's1', room_id: ROOM_1 },
@@ -591,7 +594,7 @@ describe('SeatPlansService', () => {
 
       expect(result.room_count).toBe(2);
       expect(result.student_count).toBe(3);
-      expect(result.schedule_count).toBe(2);
+      expect(result.schedule_count).toBe(3);
     });
   });
 

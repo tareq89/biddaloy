@@ -412,6 +412,9 @@ describe('Homework E2E', () => {
       const ids = list.body.map((h: { id: string }) => h.id);
       expect(ids).toContain(y);
       expect(ids).not.toContain(x);
+      // Rule 2: what the list hides is 404 by id too, not just missing from the list.
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${x}`)).expect(404);
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${y}`)).expect(200);
     });
   });
 

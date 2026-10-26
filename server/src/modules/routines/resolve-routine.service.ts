@@ -16,14 +16,8 @@ import { occursOn } from './recurrence';
 import { SchoolsService } from '../schools/schools.service';
 import { periodTimesOn, resolveAttendancePolicy } from '../attendance/attendance-policy.util';
 import { ResolveRoutineQueryDto, ResolvedSlot } from './dto/resolve.dto';
-import {
-  EnrollmentStatus,
-  Permission,
-  PeriodSlotKind,
-  RoutineState,
-  UserRole,
-  roleHasPermission,
-} from '@biddaloy/shared';
+import { EnrollmentStatus, PeriodSlotKind, RoutineState } from '@biddaloy/shared';
+import { routineSlotScope } from './routine-visibility';
 
 /** Who is asking, for the DRAFT/REVIEW visibility rule below (D11 step 2). */
 export interface ResolveRoutineCaller {
@@ -98,28 +92,17 @@ export class ResolveRoutineService {
     });
     if (!routine) return [];
 
-    const isManager = roleHasPermission(caller.role, Permission.ROUTINE_MANAGE);
+    // Draft is builder-only; in review a teacher sees only their own slots.
+    const scope = await routineSlotScope(this.teacherRepo, routine, caller, tenantId);
+    if (scope === 'none') return [];
     let effectiveQuery = query;
-
-    if (routine.state === RoutineState.DRAFT) {
-      // Draft is builder-only.
-      if (!isManager) return [];
-    } else if (routine.state === RoutineState.REVIEW) {
-      if (!isManager) {
-        // A teacher sees only their own slots while in review; anyone
-        // else (guardian, student, executive) sees nothing yet.
-        if (caller.role !== UserRole.TEACHER) return [];
-        const teacher = await this.teacherRepo.findOne({
-          where: { user_id: caller.userId, tenant_id: tenantId },
-        });
-        if (!teacher) return [];
-        // Force to the caller's own teacher id — never trust a
-        // caller-supplied teacher_id/section_id/student_id for this
-        // restriction, even if the request asked for a section or
-        // another student's section.
-        effectiveQuery = { ...query, teacher_id: teacher.id };
-        sectionId = null;
-      }
+    if (scope !== 'all') {
+      // Force to the caller's own teacher id — never trust a
+      // caller-supplied teacher_id/section_id/student_id for this
+      // restriction, even if the request asked for a section or
+      // another student's section.
+      effectiveQuery = { ...query, teacher_id: scope.teacherId };
+      sectionId = null;
     }
     // PUBLISHED: any ROUTINE_READ holder may read; family callers are
     // linkage-checked in `ResolveRoutineController` before reaching here.

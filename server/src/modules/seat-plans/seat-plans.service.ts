@@ -403,7 +403,10 @@ export class SeatPlansService {
       order: { room_id: 'ASC', seat_number: 'ASC' },
     });
 
-    return this.mapPlanDetail(plan, allocations);
+    const scheduleCount = await this.seatPlanScheduleRepo.count({
+      where: { tenant_id: tenantId, seat_plan_id: id },
+    });
+    return this.mapPlanDetail(plan, allocations, scheduleCount);
   }
 
   /** Shared by `findOne` and `publish` — both need the same display shape
@@ -412,7 +415,7 @@ export class SeatPlansService {
    * See #1059 review: `publish` used to build its response from bare
    * `SeatAllocation` rows without these relations, leaving the client's
    * post-publish cache write with blank labels until the next refetch. */
-  private mapPlanDetail(plan: SeatPlan, allocations: SeatAllocation[]) {
+  private mapPlanDetail(plan: SeatPlan, allocations: SeatAllocation[], scheduleCount: number) {
     const byRoom = new Map<string, SeatAllocation[]>();
     for (const allocation of allocations) {
       const list = byRoom.get(allocation.room_id) ?? [];
@@ -424,10 +427,8 @@ export class SeatPlansService {
       ...plan,
       room_count: byRoom.size,
       student_count: new Set(allocations.map((a) => a.student_id)).size,
-      // ponytail: counts sittings that have seated students; `findAll` counts
-      // `seat_plan_schedules` rows. They differ only for a sitting with nobody
-      // seated. Pass the `seat_plan_schedules` count in if that ever matters.
-      schedule_count: new Set(allocations.map((a) => a.exam_schedule_id)).size,
+      // `seat_plan_schedules` rows, the same count `findAll` shows on the list.
+      schedule_count: scheduleCount,
       rooms: [...byRoom.entries()].map(([room_id, roomAllocations]) => {
         const room = roomAllocations[0]?.room ?? null;
         // `updateInvigilator` writes the same `invigilator_user_id` to every
@@ -806,7 +807,7 @@ export class SeatPlansService {
         },
         order: { room_id: 'ASC', seat_number: 'ASC' },
       });
-      return this.mapPlanDetail(publishedPlan, detailAllocations);
+      return this.mapPlanDetail(publishedPlan, detailAllocations, planSchedules.length);
     });
   }
 
@@ -855,7 +856,7 @@ export class SeatPlansService {
         },
         order: { room_id: 'ASC', seat_number: 'ASC' },
       });
-      return this.mapPlanDetail(saved, detailAllocations);
+      return this.mapPlanDetail(saved, detailAllocations, planSchedules.length);
     });
   }
 

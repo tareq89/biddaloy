@@ -20,14 +20,8 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
 import { SchoolsService } from '../schools/schools.service';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
-import {
-  AuditAction,
-  isGuardianRole,
-  Permission,
-  roleHasPermission,
-  RoutineState,
-  SlotRecurrence,
-} from '@biddaloy/shared';
+import { AuditAction, RoutineState, SlotRecurrence } from '@biddaloy/shared';
+import { routineSlotScope } from './routine-visibility';
 import { UpsertRoutineSlotDto } from './dto/routine-slots.dto';
 import { checkSlot, SlotLike, Violation, Warning } from './constraint-check';
 import { actorIsStaffIn } from './teacher-busy.service';
@@ -81,21 +75,10 @@ export class RoutineSlotsService {
     caller: { role: string; userId: string },
   ): Promise<RoutineSlotWithWarnings[]> {
     const routine = await this.getRoutine(routineId, tenantId);
-    // Same visibility rule as ResolveRoutineService: DRAFT is manager-only;
-    // REVIEW shows a teacher-profile caller only their own slots.
-    const isManager = roleHasPermission(caller.role, Permission.ROUTINE_MANAGE);
-    let ownTeacherId: string | null = null;
-    if (!isManager) {
-      if (routine.state === RoutineState.DRAFT) return [];
-      if (routine.state === RoutineState.REVIEW) {
-        if (isGuardianRole(caller.role) || !caller.userId) return [];
-        const teacher = await this.teacherRepo.findOne({
-          where: { user_id: caller.userId, tenant_id: tenantId },
-        });
-        if (!teacher) return [];
-        ownTeacherId = teacher.id;
-      }
-    }
+    // Same visibility rule as ResolveRoutineService (one helper, D14).
+    const scope = await routineSlotScope(this.teacherRepo, routine, caller, tenantId);
+    if (scope === 'none') return [];
+    const ownTeacherId = scope === 'all' ? null : scope.teacherId;
     const slots = await this.slotRepo.find({
       where: { routine_id: routineId, tenant_id: tenantId },
       order: { weekday: 'ASC' },
@@ -163,7 +146,7 @@ export class RoutineSlotsService {
     return this.dataSource.transaction(async (manager) => {
       const oldSlot = await manager.findOne(RoutineSlot, { where: { id, tenant_id: tenantId } });
       if (!oldSlot) {
-        throw new NotFoundException(`Routine slot with ID "${id}" not found`);
+        throw new NotFoundException('Routine slot not found');
       }
 
       const routine = await manager.findOne(Routine, {
@@ -240,10 +223,10 @@ export class RoutineSlotsService {
       manager.find(Teacher, { where: { id: In(dto.teacher_ids), tenant_id: tenantId } }),
     ]);
 
-    if (!section) throw new NotFoundException(`Section with ID "${dto.section_id}" not found`);
-    if (!subject) throw new NotFoundException(`Subject with ID "${dto.subject_id}" not found`);
+    if (!section) throw new NotFoundException('Section not found');
+    if (!subject) throw new NotFoundException('Subject not found');
     if (dto.room_id && !room) {
-      throw new NotFoundException(`Room with ID "${dto.room_id}" not found`);
+      throw new NotFoundException('Room not found');
     }
 
     const teacherIds = new Set(teachers.map((teacher) => teacher.id));
@@ -263,7 +246,7 @@ export class RoutineSlotsService {
     await this.dataSource.transaction(async (manager) => {
       const slot = await manager.findOne(RoutineSlot, { where: { id, tenant_id: tenantId } });
       if (!slot) {
-        throw new NotFoundException(`Routine slot with ID "${id}" not found`);
+        throw new NotFoundException('Routine slot not found');
       }
       const routine = await this.getRoutine(slot.routine_id, tenantId);
       const today = await this.today(tenantId);
@@ -335,7 +318,7 @@ export class RoutineSlotsService {
       where: { id: routineId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!routine) {
-      throw new NotFoundException(`Routine with ID "${routineId}" not found`);
+      throw new NotFoundException('Routine not found');
     }
     return routine;
   }
@@ -356,7 +339,7 @@ export class RoutineSlotsService {
       ...(manager ? { lock: { mode: 'pessimistic_read' as const } } : {}),
     });
     if (!periodSlot) {
-      throw new NotFoundException(`Period slot with ID "${periodSlotId}" not found`);
+      throw new NotFoundException('Period slot not found');
     }
     return periodSlot;
   }

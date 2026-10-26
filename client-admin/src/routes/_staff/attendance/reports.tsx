@@ -128,9 +128,6 @@ const reportsSearchSchema = z.object({
   // coerce: the router parses `?threshold=5` to a number first.
   threshold: z.coerce.string().optional().catch(undefined),
   view: z.enum(['summary', 'flags', 'subjects']).optional().catch(undefined),
-  // Reserved key `use-list-shell-state.ts` stores row selection under — it
-  // must be declared here or `validateSearch` strips it on every navigation.
-  selected: z.string().optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/_staff/attendance/reports')({

@@ -317,6 +317,13 @@ describe('RoutineSlotsService.findForRoutine visibility [86.1]', () => {
       [],
     );
   });
+  it('REVIEW + non-TEACHER staff returns [] (same rule as resolve)', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.OFFICE_STAFF)),
+    ).toEqual([]);
+  });
   it('PUBLISHED + TEACHER returns all slots', async () => {
     const ctx = buildService();
     seed(ctx, RoutineState.PUBLISHED);
