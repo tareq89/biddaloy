@@ -65,7 +65,7 @@ The routine comes by itself from your child's class and section; you do not have
 
    → Each period shows the subject name, the start time and **until …**, then **Period …** and the room (if the school gave one).
 
-<!-- image pending: Routine, today's tab; 1 · Day tabs 2 · Period count 3 · A substitute teacher period; parent, phone -->
+<img src="img/routine-01.png" alt="Routine, today's tab, on a phone" width="300">
 
 > **Remember:** subject names come in the language you are viewing the portal in; if a subject has no name in that language, its name in the other language shows.
 
@@ -132,7 +132,7 @@ The school makes the routine, from the [**Arranging a class's weekly routine**](
 2. Seven day tabs, from today.
 3. The period count and the list of periods for the chosen day.
 
-<!-- image pending: Routine, three parts numbered, one cancelled period; student, phone -->
+<img src="img/routine-02.png" alt="Routine, one cancelled period" width="300">
 
 </details>
 
@@ -151,6 +151,10 @@ The school makes the routine, from the [**Arranging a class's weekly routine**](
 </details>
 
 **Related pages**
+
+- [**Syllabus (parent and student)**](syllabus.md) — what is taught in each subject.
+
+
 
 - [**Overview**](overview.md) — whether your child is at school today, at a glance.
 - [**Fees and invoices**](fees.md) — the month-by-month fee account.

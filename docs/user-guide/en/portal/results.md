@@ -69,7 +69,7 @@ This page is for looking only. If a mark looks wrong, tell the school.
 2. At the top of a card is the exam name, with **Pass** or **Fail** beside it, and under it the exam type (**Term**, **Monthly**, **Model** or **Other**).
 3. Below that are four figures: **GPA**, **Grade**, **Total marks**, **Position**.
 
-<!-- image pending: Results, two exams, subject marks open on the top one; 1 · Pass 2 · GPA Grade Total marks Position 3 · Subject list; parent, phone -->
+<img src="img/results-01.png" alt="Results, two exams, subject marks open on the top one" width="300">
 
 > **Remember:** an exam does not show here until the school **publishes** the result, even if the marks have been entered. The card appears only after publishing.
 
@@ -154,7 +154,7 @@ The school works out and publishes results from the [**Processing and publishing
 3. The **Show subject marks** and **Print** buttons.
 4. The subject list, when open.
 
-<!-- image pending: Results, four parts numbered; student, desktop -->
+![Results](img/results-02.png)
 
 </details>
 
@@ -173,6 +173,10 @@ The school works out and publishes results from the [**Processing and publishing
 </details>
 
 **Related pages**
+
+- [**Programs (parent and student)**](programs.md) — programs and their progress.
+
+
 
 - [**Overview**](overview.md) — the latest result's GPA, at a glance.
 - [**Fees and invoices**](fees.md) — the month-by-month fee account.

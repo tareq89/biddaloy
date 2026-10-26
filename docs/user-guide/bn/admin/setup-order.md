@@ -86,7 +86,7 @@ knownIssues: []
 
 বাংলা নাম বা লোগো, দুটির একটি থাকলেই সারিটি **শেষ** হয়।
 
-<!-- image pending: img/setup-01-school-profile.png — Settings, School section: 1 the school profile fields, 2 the logo upload, 3 Save -->
+![à¦¸à§à¦à¦¿à¦à¦¸, à¦¸à§à¦à§à¦² à¦à¦à¦¶: à¦¸à§à¦à§à¦² à¦ªà§à¦°à§à¦«à¦¾à¦à¦²à§à¦° à¦à¦°, à¦²à§à¦à§ à¦à¦ªà¦²à§à¦¡ à¦ à¦¸à¦à¦°à¦à§à¦·à¦£](img/setup-order-01.png)
 
 ### ধাপ ২: শিক্ষাবর্ষ <a href="#step-2" id="step-2"></a>
 
@@ -117,7 +117,7 @@ knownIssues: []
 
 **নিজে শ্রেণি বানাতে চাইলে:** বাম মেনুতে **একাডেমিক → শ্রেণি** (→ [শ্রেণি, শাখা ও বিষয় সাজানো](../academics/classes.md)) খুলে **শ্রেণি যোগ করুন** চাপুন। শিফট বা ভার্সন লাগলে আগে [স্কুলের গঠন](how-it-works.md#task-structure) দেখুন।
 
-<!-- image pending: img/setup-03-curriculum-preset.png — Ready-made curriculum page: 1 the three steps, 2 a curriculum card, 3 the Use this curriculum button -->
+<img src="img/setup-03-curriculum-preset.png" alt="তৈরি শিক্ষাক্রম পাতা: ১ শিক্ষাক্রম বাছুন ধাপ, ২ একটি শিক্ষাক্রমের কার্ড, ৩ তার বাছুন বোতাম; এই শিক্ষাক্রম ব্যবহার করুন আসে নিশ্চিত করুন ধাপে">
 
 ### ধাপ ৪: শাখা <a href="#step-4" id="step-4"></a>
 
@@ -153,7 +153,9 @@ knownIssues: []
 
 অভিভাবকদের আমন্ত্রণ পাঠানো ধাপ ৯-এ।
 
-<!-- image pending: img/setup-05-import-students.png — Students page: 1 the Import students button, 2 the check result before confirming -->
+<img src="img/setup-05-import-students.png" alt="শিক্ষার্থী পাতা: ১ শিক্ষার্থী আমদানি বোতাম, অ্যাডমিন">
+
+<img src="img/setup-05b-import-check.png" alt="ফাইল যাচাইয়ের পর শিক্ষার্থী আমদানি পাতা: ১ কোনো সমস্যা নেই আর কতজন শিক্ষার্থী তৈরি হবে, প্রিভিউ সারির উপরে, অ্যাডমিন">
 
 ### ধাপ ৬: কর্মী ও ভূমিকা <a href="#step-6" id="step-6"></a>
 
@@ -185,7 +187,7 @@ knownIssues: []
 
 ফির বিল তৈরি আর পেমেন্ট নেওয়ার ধাপ এই পাতায় নেই। সেগুলো ফির পথের (→ [পাঁচটি ছবির চতুর্থটি](how-it-works.md#task-money)) পরের অংশ।
 
-<!-- image pending: img/setup-07-fee-structures.png — Fee structures page: 1 the list of structures, 2 the add button -->
+![à¦«à¦¿ à¦à¦¾à¦ à¦¾à¦®à§ à¦ªà¦¾à¦¤à¦¾: à¦à¦¾à¦ à¦¾à¦®à§à¦° à¦¤à¦¾à¦²à¦¿à¦à¦¾ à¦ à¦¯à§à¦ à¦à¦°à¦¾à¦° à¦¬à§à¦¤à¦¾à¦®](img/setup-order-04.png)
 
 ### ধাপ ৮: রুটিন <a href="#step-8" id="step-8"></a>
 

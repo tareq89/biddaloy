@@ -70,7 +70,7 @@ The schedule is for looking only. You can print the admit card from here.
 2. Scroll down. Each exam has its own card, with the exam name and its first and last day at the top.
 3. Each row in a card shows **Date**, **Time**, **Subject**, **Venue**. Rows are sorted by date and start time.
 
-<!-- image pending: Exam schedule, one upcoming exam; 1 · Next exam 2 · Admit card part 3 · Subject rows; parent, phone -->
+<img src="img/exam-schedule-01.png" alt="Exam schedule, one upcoming exam" width="300">
 
 > **Remember:** an exam only shows here once the school has set the day and time of all its subjects. A half-finished schedule does not show, so what you see is the full schedule.
 
@@ -97,7 +97,7 @@ The schedule is for looking only. You can print the admit card from here.
 
 3. If nothing opens, look for the message **Allow pop-ups for this site, then try again.** at the top. Allow pop-ups for this site in your browser and tap again.
 
-<!-- image pending: Exam schedule, admit card ready part and the Print admit card button; student, phone -->
+<img src="img/exam-schedule-02.png" alt="Exam schedule on a phone, the next exam" width="300">
 
 > **Remember:** each time you tap print, the school's records note a copy. Do not tap again and again without need; if you tap very often you may have to wait a while.
 
@@ -159,7 +159,7 @@ Staff cannot print admit cards from this page; they do it from the exam pages. S
 2. The **Next exam** card (on the right on a computer).
 3. A card for each exam: name, range of days, the admit card part (while the exam is still to come) and subject rows.
 
-<!-- image pending: Exam schedule, three parts numbered, one row marked Finished; parent, phone -->
+<img src="img/exam-schedule-03.png" alt="Exam schedule, the three parts of the page" width="300">
 
 </details>
 
@@ -178,6 +178,10 @@ Staff cannot print admit cards from this page; they do it from the exam pages. S
 </details>
 
 **Related pages**
+
+- [**Syllabus (parent and student)**](syllabus.md) — what is being taught, subject by subject.
+
+
 
 - [**Overview**](overview.md) — dues and today's news, at a glance.
 - [**Fees and invoices**](fees.md) — see dues and news of payment.

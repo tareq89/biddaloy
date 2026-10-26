@@ -35,9 +35,9 @@ appVersion: 0.1.0 (7b776974b)
 owner: tareq89
 lastVerified: 2026-10-23
 knownIssues:
-  - { id: submit-stays-draft, checked: 2026-10-23, issue: null }
-  - { id: admin-old-register-save, checked: 2026-10-23, issue: null }
-  - { id: bn-cancel-button-cut, checked: 2026-10-23, issue: null }
+  - { id: submit-stays-draft, checked: 2026-10-23, issue: 2904 }
+  - { id: admin-old-register-save, checked: 2026-10-23, issue: 2905 }
+  - { id: bn-cancel-button-cut, checked: 2026-10-23, issue: 2906 }
 -->
 
 # Taking attendance
@@ -218,6 +218,8 @@ Without internet, the submit button says **Save on device**. When you press it:
 - **This changed elsewhere while waiting** — someone else has already submitted this register. Choose which version to keep from the panel.
 - **This could not be sent after several attempts** — open the register again, check the marks, and press **Submit attendance**. If that fails too, tell an admin.
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#offline).
+
 ---
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
@@ -379,6 +381,7 @@ After you press one name:
 - [**Seeing your own class on one page**](../academics/my-class.md) — your section on one page, with today's attendance.
 - [**Adding students and viewing their details**](../people/students.md) — students whose attendance is taken here.
 - [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
+- [**Attendance**](../portal/attendance.md) — what the guardian sees of the attendance you take.
 
 ---
 

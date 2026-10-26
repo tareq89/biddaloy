@@ -97,8 +97,6 @@ SchoolManager বাংলা ও ইংরেজি, দুই ভাষাত�
 
 কোনো পাতা খুঁজে না পেলে [যেকোনো পাতা খুঁজে পাওয়া](start/find-anything.md) দেখুন।
 
-<!-- image pending: img/welcome-01-dashboard-admin.png, img/welcome-02-dashboard-teacher.png, img/welcome-phone-01-teacher.png (screenshot capture currently crashes; shot by e2e/docs/tours/welcome.tour.ts) -->
-
 <details>
 <summary><strong>SchoolManager এক নজরে</strong></summary>
 

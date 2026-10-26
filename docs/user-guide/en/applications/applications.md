@@ -112,7 +112,7 @@ Example: a teacher wants two days of casual leave.
 
    → A green message appears, **Application submitted · …**, with the application number. Press **View the application** to open the application's page.
 
-<!-- image pending: New application, staff leave details step; 1 · the row of steps 2 · leave type and days left 3 · From and To dates 4 · Reason 5 · Next; teacher, desktop -->
+![New application, staff leave details step; 1 · the row of steps 2 · leave type and days left 3 · From and To dates 4 · Reason 5 · Next](img/applications-leave-step.png)
 
 > **Remember:** you can never decide on your own application, not even if you are the Admin. Your application does not come to your **Awaiting decision** tab.
 
@@ -283,9 +283,9 @@ Everyone sees the applications they submitted, the ones they are tagged on, and 
 3. The filters — **Search** (name or application number), **Type**, **Status**, **Class**, **Submitted on**.
 4. The list — **Number**, **Applicant**, **Type**, **For**, **Step**, **Status**; on the **Awaiting decision** tab the tick boxes and **Approve selected**.
 
-<!-- image pending: Applications list, Awaiting decision tab, four parts marked with numbers, two rows ticked; admin, desktop -->
+![Applications list, Awaiting decision tab, four parts, two rows ticked](img/applications-inbox.png)
 
-<!-- image pending: one application's page — letter, application details, activity, Approve / Reject / Keep under consideration; teacher (class teacher), desktop -->
+![one application's page — letter, application details, activity, Approve / Reject / Keep under consideration](img/applications-detail.png)
 
 </details>
 
@@ -347,6 +347,7 @@ A writing field needs at least 3 characters; **Reason** and **Details** are with
 - [**Teacher assignments**](../people/teaching-assignments.md) — who is the class teacher of which section.
 - [**Students**](../people/students.md) — the student an application is for.
 - [**Roles and permissions**](../administration/roles.md) — what each role can do.
+- [**Applications (parent and student)**](../portal/applications.md) — where a guardian or student sends an application.
 
 ---
 

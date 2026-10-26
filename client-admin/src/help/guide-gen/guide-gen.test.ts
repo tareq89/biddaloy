@@ -94,7 +94,7 @@ describe('route coverage', () => {
   });
 
   it('covers every nav and portal item, with the spec examples', () => {
-    expect(features.filter((f) => f.kind === 'portal')).toHaveLength(13);
+    expect(features.filter((f) => f.kind === 'portal')).toHaveLength(14);
     expect(features.filter((f) => f.kind === 'nav' || f.id === 'dashboard').length).toBeGreaterThan(
       50,
     );
@@ -103,6 +103,7 @@ describe('route coverage', () => {
     expect(owner('/attendance/staff/leave')).toBe('attendance.staffAttendance');
     expect(owner('/staff/$userId/acr/$assessmentId')).toBe('people.evaluations');
     expect(owner('/login')).toBe('start.signIn');
+    expect(owner('/portal/notifications')).toBe('portal.notifications');
     expect(new Set(features.map((f) => f.id)).size).toBe(features.length);
     expect(new Set(features.map((f) => f.path)).size).toBe(features.length);
   });

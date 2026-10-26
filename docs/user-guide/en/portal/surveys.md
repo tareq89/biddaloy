@@ -66,7 +66,7 @@ A survey has a few questions. There is a separate form for each teacher and subj
 
    → A card appears for each survey. The card says whether answers are anonymous, the closing date, and a line like **3 forms left to fill in**.
 
-<!-- image pending: img/portal-surveys-01-list.png (width 300) — Survey cards on a phone: 1 the privacy line, 2 the closing date, 3 the teacher and subject rows -->
+<img src="img/surveys-01.png" alt="Survey card on a phone: the privacy line and the teacher and subject rows" width="300">
 
 2. Tap the row of the teacher you want.
 
@@ -78,7 +78,7 @@ A survey has a few questions. There is a separate form for each teacher and subj
 
    → **Thank you. Your answers were sent.** The row leaves the list.
 
-<!-- image pending: img/portal-surveys-02-form.png (width 300) — An open form on a phone: 1 stars, 2 the writing box, 3 Send answers -->
+<img src="img/surveys-02.png" alt="An open survey form on a phone: stars, the writing box and the questions" width="300">
 
 > **Remember:** After you send, the answers cannot be changed or taken back. Each person can answer only once for each teacher and subject.
 
@@ -162,7 +162,7 @@ Surveys are made and results are seen on the [**Evaluations: ACR, teacher survey
 
 - [**Evaluations: ACR, teacher surveys and incidents**](../people/evaluations.md) — making surveys and seeing results on the school side.
 - [**Alerts and notifications**](notifications.md) — the "Survey answer pending" reminder.
-- <!-- link pending: portal/overview.md --> **Overview** — the Surveys card.
+- [**Overview**](overview.md) — the Surveys card.
 
 ---
 
