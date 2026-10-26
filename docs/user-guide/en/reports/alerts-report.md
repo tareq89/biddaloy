@@ -65,7 +65,7 @@ The alerts themselves are on [**Seeing and settling alerts**](../dashboard/alert
 
    → One row per rule, with its **Type**, one column per section, and **Total**. An alert with no section counts under **No section**.
 
-<!-- image pending: Alerts report, current month, four boxes and the By rule and section table; admin, desktop -->
+![Alerts report for one month, with four boxes (Total alerts, Fixed, Average time to fix, Still open) and the By rule and section table](img/alerts-report-02-month.png)
 
 > **Remember:** an alert counts in the month it was raised, even if it was fixed later.
 
@@ -119,14 +119,14 @@ For other roles, **Alerts report** is not in the left menu.
 ## Learn more <a href="#more" id="more"></a>
 
 <details>
-<summary><strong>Parts of the page</strong></summary>
+<summary><strong>Parts of the page, top to bottom</strong></summary>
 
-1. The title and **Download CSV**.
-2. The filters: **Month**, **Rule**, **Section**.
-3. The four boxes: **Total alerts**, **Fixed**, **Average time to fix**, **Still open**.
-4. **By rule and section**: **Rule**, **Type**, one column per section, **Total**.
+- The title and **Download CSV**.
+- The filters: **Month**, **Rule**, **Section**.
+- The four boxes: **Total alerts**, **Fixed**, **Average time to fix**, **Still open**.
+- **By rule and section**: **Rule**, **Type**, one column per section, **Total**.
 
-<!-- image pending: Alerts report, four parts marked with numbers; admin, desktop -->
+![Alerts report for one month, with four boxes (Total alerts, Fixed, Average time to fix, Still open) and the By rule and section table](img/alerts-report-02-month.png)
 
 </details>
 

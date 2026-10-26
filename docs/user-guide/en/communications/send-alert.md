@@ -75,7 +75,7 @@ The page opens over the whole screen. **Cancel** or the close button takes you b
 
    → A grey box shows the total, for example **48 people in total**, and **Someone in two groups gets it once.**
 
-5. Under **Show until**, pick the last day. It starts on tomorrow. You can pick today up to 30 days from today.
+5. Under **Show until**, pick the last day. It is set to tomorrow at first. You can pick today up to 30 days from today.
 
 6. Look at **How people will see it**. It is a copy of the bar with your title.
 
@@ -83,7 +83,7 @@ The page opens over the whole screen. **Cancel** or the close button takes you b
 
    → A message says **Sent to 48 people** and the page closes.
 
-<!-- image pending: Send an alert page with Warning picked, a title, Guardians of sections with one section, the count box and the preview bar; admin, desktop -->
+![Send an alert page with Warning picked, a title and message, Guardians of sections ticked with Class 8 – A added, the count box and the preview bar](img/send-alert-02-filled.png)
 
 > **Remember:** **Send** stays grey until there is a title, a message and at least one person. The line above the list says what is still missing, such as **Write a title first.**
 
@@ -182,7 +182,7 @@ For other roles, **Send an alert** is not in the left menu. They only receive al
 4. **How people will see it**: a copy of the bar.
 5. **Sent alerts**: **Title**, **Type**, **Sent**, **Until**, **Seen**, **Status** and **Withdraw**.
 
-<!-- image pending: Send an alert page, five parts marked with numbers; admin, desktop -->
+![The Send an alert page with five parts marked: 1 What to send, 2 Who gets it, 3 How long to show it, 4 How people will see it, 5 Sent alerts](img/send-alert-03-parts.png)
 
 </details>
 

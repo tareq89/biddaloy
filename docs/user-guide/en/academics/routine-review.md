@@ -178,7 +178,9 @@ On this page a teacher sees only **My periods** ("Your weekly periods."). Once t
 
    → The **Sent** message appears and the dialog closes.
 
-<!-- image pending: the teacher's My periods list and the Request a change dialog, teacher, phone -->
+![the teacher's My periods list on a phone, with a Request a change button on each period](img/routine-review-04-phone.png)
+
+![the Request a change dialog on a phone, with the note box, Send and Cancel](img/routine-review-05-phone.png)
 
 | You press  | What happens                                                                                    | Saved? |
 | ---------- | ----------------------------------------------------------------------------------------------- | ------ |

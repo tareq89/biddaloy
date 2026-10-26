@@ -115,7 +115,7 @@ On this page you work on one **routine table** per section. The table's columns 
 
 7. Under **Recurrence**, keep **Weekly** in most cases. (For the others, see [A period every two weeks or once a month](#task-recurrence).)
 
-<!-- image pending: the Assign a period dialog, with Subject, Teacher(s), Recurrence and Save marked, admin, desktop -->
+![the Assign a period dialog, with Subject, Teacher(s), Recurrence and Save](img/routine-builder-02.png)
 
 8. Press **Save**.
 
