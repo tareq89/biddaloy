@@ -57,7 +57,7 @@ export class StudentPublicExamsService {
         },
       });
       if (dup) {
-        throw new ConflictException(`A ${dto.exam_type} result already exists for this student`);
+        throw new ConflictException('A result of this exam type already exists for this student');
       }
       const saved = await repo.save(
         repo.create({
@@ -124,14 +124,14 @@ export class StudentPublicExamsService {
       where: { id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
       ...(lock ? { lock: { mode: 'pessimistic_write' as const } } : {}),
     });
-    if (!student) throw new NotFoundException(`Student "${studentId}" not found`);
+    if (!student) throw new NotFoundException('Student not found');
   }
 
   private async findRow(tx: EntityManager, studentId: string, examId: string, tenantId: string) {
     const row = await tx.getRepository(StudentPublicExam).findOne({
       where: { id: examId, student_id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (!row) throw new NotFoundException(`Public exam "${examId}" not found`);
+    if (!row) throw new NotFoundException('Public exam not found');
     return row;
   }
 

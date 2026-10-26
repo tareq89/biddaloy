@@ -217,10 +217,10 @@ export class SyllabusService {
       this.subjectRepo.findOne({ where: { id: subjectId, tenant_id: tenantId } }),
     ]);
     if (!klass) {
-      throw new BadRequestException(`Class "${classId}" not found for this tenant.`);
+      throw new BadRequestException('Class not found');
     }
     if (!subject) {
-      throw new BadRequestException(`Subject "${subjectId}" not found for this tenant.`);
+      throw new BadRequestException('Subject not found');
     }
   }
 
@@ -307,7 +307,7 @@ export class SyllabusService {
   async findOne(id: string, tenantId: string): Promise<SyllabusTopic> {
     const entity = await this.repo.findOne({ where: { id, tenant_id: tenantId } });
     if (!entity) {
-      throw new NotFoundException(`Syllabus topic with ID "${id}" not found`);
+      throw new NotFoundException('Syllabus topic not found');
     }
     return entity;
   }
@@ -408,9 +408,7 @@ export class SyllabusService {
       const tenantIds = new Set(topics.map((t) => t.id));
       const missing = ids.filter((id) => !tenantIds.has(id));
       if (missing.length > 0) {
-        throw new NotFoundException(
-          `Syllabus topic(s) not found for this tenant: ${missing.join(', ')}`,
-        );
+        throw new NotFoundException('Syllabus topic not found');
       }
 
       // All-or-nothing: check every distinct class x subject before any update.
