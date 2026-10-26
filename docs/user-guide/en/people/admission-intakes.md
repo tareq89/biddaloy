@@ -50,9 +50,9 @@ appVersion: 0.1.0 (fb8af6c63)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: no-public-link-in-app, checked: 2026-10-24, issue: null }
-  - { id: no-close-button, checked: 2026-10-24, issue: null }
-  - { id: duplicate-shows-generic-error, checked: 2026-10-24, issue: null }
+  - { id: no-public-link-in-app, checked: 2026-10-24, issue: 2877 }
+  - { id: no-close-button, checked: 2026-10-24, issue: 2878 }
+  - { id: duplicate-shows-generic-error, checked: 2026-10-24, issue: 2879 }
 -->
 
 # Admission rounds and the online admission form
@@ -89,7 +89,7 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
 
    → The heading **Admission rounds** appears, and under it "Which class, how many seats, and when guardians can apply online." The list columns are **Title**, **Class / Section**, **Seats**, **Application window**, **Status**. With no rounds, it says **No admission rounds yet**.
 
-<!-- image pending: img/people-admission-intakes-01.png — the admission rounds list, with the Add admission round button and the columns marked, admin, desktop -->
+![the admission rounds list, with the Add admission round button and the columns](img/admission-intakes-01.png)
 
 2. At the top press **Add admission round**.
 
@@ -115,7 +115,7 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
 
    → Every ticked document must be uploaded by the guardian with the form.
 
-<!-- image pending: img/people-admission-intakes-02.png — the Add admission round dialog, the six fields and the Create button marked, admin, desktop -->
+![the Add admission round dialog, the six fields and the Create button](img/admission-intakes-02.png)
 
 8. Press **Create**. The button stays disabled until every required field is filled in correctly.
 
@@ -173,7 +173,7 @@ This part is written from the guardian's side, so the office can talk them throu
    - If no round is open, or every seat is taken: **This school isn't accepting new applications right now.** and "Please check back later or contact the school."
    - If the link is wrong: **We couldn't find this school. Please check the link and try again.**
 
-<!-- image pending: img/people-admission-intakes-03.png — the top of the admission form on a guardian's phone, the round details box marked, guest, phone -->
+<img src="img/admission-intakes-03.png" alt="the top of the admission form on a guardian's phone, with the round details box marked, guest" width="300">
 
 2. If more than one round is open, they choose one under **Which admission are you applying for?**. If only one is open, it is already chosen.
 
@@ -197,7 +197,7 @@ This part is written from the guardian's side, so the office can talk them throu
 
    → "Please save this reference number." **Copy number** shows **Copied!** when pressed. Below is the **Check application status** link.
 
-<!-- image pending: img/people-admission-intakes-04.png — the submitted page on a guardian's phone, the reference number and the copy button marked, guest, phone -->
+<img src="img/admission-intakes-04.png" alt="the submitted page on a guardian's phone: 1 the reference number, 2 the Copy number button, guest" width="300">
 
 > **Remember:** if the same child (same round, same mobile number, same name and date of birth) is submitted a second time, no new application is created; the form shows only **We couldn't submit your form. Please check your answers and try again.** ([Known issues](#known-issues)). Ask the guardian to contact the school with their earlier reference number.
 
@@ -220,7 +220,7 @@ This part is written from the guardian's side, so the office can talk them throu
 
    If the number or phone does not match: **We couldn't find an application with this reference number and phone number. Please check both and try again.** It does not say which one is wrong; this is on purpose, so nobody can guess numbers and search.
 
-<!-- image pending: img/people-admission-intakes-05.png — the status card on a guardian's phone, the badge and the what-next text marked, guest, phone -->
+<img src="img/admission-intakes-05.png" alt="the status card on a guardian's phone: 1 the Being reviewed badge, 2 the what-to-do-next text, guest" width="300">
 
 Guardians do not see staff notes or the reason for a rejection on this page.
 
@@ -249,7 +249,7 @@ Guardians do not see staff notes or the reason for a rejection on this page.
 | A guardian says **We couldn't submit your form. Please check your answers and try again.**                 | Ask whether they already applied once; if so, look for them in the applicants list. If not, check whether the round's last day or the seats have run out.           | Office staff |
 | A guardian says **The robot check didn't go through. Please complete the check below again, then submit.** | They complete the check box again and press **Submit application**. What they typed is not lost.                                                                    | —            |
 | A guardian says **Applications can't be sent right now. Please try again in a little while.**              | The site's check service is not running right now; changing the form will not help. Tell support.                                                                   | Support team |
-| A guardian says **We couldn't find an application with this reference number and phone number.**          | Ask them to use the phone number they gave on the form. Compare the reference number with the applicants list.                                                      | Office staff |
+| A guardian says **We couldn't find an application with this reference number and phone number.**           | Ask them to use the phone number they gave on the form. Compare the reference number with the applicants list.                                                      | Office staff |
 
 ---
 
@@ -270,10 +270,10 @@ Guardians do not see staff notes or the reason for a rejection on this page.
 
 Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
 
-| Issue                                                                                                                                                                                              | Who, when                                              | Data saved?                                                 | What to do for now                                                            |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Nowhere in the app can you see or copy the school's admission link                                                                                                                                 | Whoever gives guardians the link after opening a round | Yes, the round is fine                                      | Ask support for the school's link name; the link is `…/admission/<link-name>` |
-| There is no button to close a round right away                                                                                                                                                     | When you want to stop a round early                    | Yes                                                         | [Change the dates to close it](#task-edit)                                    |
+| Issue                                                                                                                                                                                            | Who, when                                              | Data saved?                                                 | What to do for now                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Nowhere in the app can you see or copy the school's admission link                                                                                                                               | Whoever gives guardians the link after opening a round | Yes, the round is fine                                      | Ask support for the school's link name; the link is `…/admission/<link-name>` |
+| There is no button to close a round right away                                                                                                                                                   | When you want to stop a round early                    | Yes                                                         | [Change the dates to close it](#task-edit)                                    |
 | When the same child is submitted again, or the seats or time run out at the moment of submitting, the guardian sees only "Please check your answers and try again"; the real reason is not given | A guardian, on a second submission                     | The earlier application stays; the new one is not submitted | Ask the guardian to contact the school with the reference number              |
 
 ---
@@ -287,14 +287,14 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 2. **Add admission round** — the button at the top of the page.
 3. **The list** — **Title**, **Class / Section**, **Seats**, **Application window**, **Status**; at the end of each row, **View applicants** and **Edit**.
 
-<!-- image pending: img/people-admission-intakes-06.png — the three parts of the admission rounds list marked with numbers, admin, desktop -->
+![the three parts of the admission rounds list](img/admission-intakes-06.png)
 
 </details>
 
 <details>
 <summary><strong>What the fields mean</strong></summary>
 
-<!-- guide:generated:fields:admission-intakes -->
+<!-- guide:generated:fields:admission-staff-intakes -->
 
 | Field              | What to enter                                                                                                                   | Required? |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------- |
@@ -311,17 +311,17 @@ Fields on the guardian's form:
 
 <!-- guide:generated:fields:admission-public -->
 
-| Field                              | What to enter                                                                    | Required?         |
-| ---------------------------------- | -------------------------------------------------------------------------------- | ----------------- |
-| Which admission are you applying for? | The round you are applying to. Chosen for you when only one is open.          | Yes               |
-| Student's full name                | The child's full name.                                                           | Yes               |
-| Student's date of birth            | The child's date of birth.                                                       | Yes               |
-| Student's gender                   | Boy, Girl or Other.                                                              | Yes               |
-| Parent/guardian's name             | The person applying.                                                             | Yes               |
-| Parent/guardian's phone number     | A correct mobile number. SMS messages and the status check both use this number. | Yes               |
-| Parent/guardian's email (optional) | A correct email address.                                                         | No                |
-| Home address (optional)            | The home address. When admitted, it goes to the student's address.               | No                |
-| Papers                             | One photo (JPG, PNG) or PDF for each document the round asks for, at most 5 MB.  | If the round asks |
+| Field                                 | What to enter                                                                    | Required?         |
+| ------------------------------------- | -------------------------------------------------------------------------------- | ----------------- |
+| Which admission are you applying for? | The round you are applying to. Chosen for you when only one is open.             | Yes               |
+| Student's full name                   | The child's full name.                                                           | Yes               |
+| Student's date of birth               | The child's date of birth.                                                       | Yes               |
+| Student's gender                      | Boy, Girl or Other.                                                              | Yes               |
+| Parent/guardian's name                | The person applying.                                                             | Yes               |
+| Parent/guardian's phone number        | A correct mobile number. SMS messages and the status check both use this number. | Yes               |
+| Parent/guardian's email (optional)    | A correct email address.                                                         | No                |
+| Home address (optional)               | The home address. When admitted, it goes to the student's address.               | No                |
+| Papers                                | One photo (JPG, PNG) or PDF for each document the round asks for, at most 5 MB.  | If the round asks |
 
 <!-- /guide:generated -->
 
@@ -344,7 +344,15 @@ Fields on the guardian's form:
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: img/people-admission-intakes-flow.gif — GIF from adding a round to a guardian submitting on a phone, admin and guest -->
+<figure>
+  <img src="img/people-admission-intakes-flow.gif" alt="The admin's half on a computer: Add admission round, give it a title, class and section, seat count, open and close dates, untick the papers and press Create; the new round shows as Open">
+  <figcaption><em>The office opens a round</em></figcaption>
+</figure>
+
+<figure>
+  <img src="img/people-admission-intakes-flow-phone.gif" alt="The guardian's half on a phone, no sign-in: choose the round, type the student's name, pick the date of birth and gender, type the guardian's name and phone number, Submit application, and the reference number appears" width="300">
+  <figcaption><em>A guardian applies on a phone</em></figcaption>
+</figure>
 
 </details>
 

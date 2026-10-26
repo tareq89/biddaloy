@@ -1,0 +1,11 @@
+%% title: Reports built from the attendance register
+%% desc: Three reports are built from a section's daily attendance register: month summary, low attendance, and, when periods are on, by subject. From the lists you can open the student's page or send a reminder.
+flowchart LR
+  R["Daily<br/>attendance register"]:::teacher --> S["Month summary<br/>one section"]
+  R --> F["Low attendance<br/>all sections"]:::admin
+  R --> J["By subject<br/>if periods are on"]:::note
+  S --> P["Student's<br/>page"]
+  F --> M["Send<br/>reminder"]:::admin
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

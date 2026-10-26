@@ -1,0 +1,13 @@
+%% title: পরীক্ষা থেকে প্রমোশন পর্যন্ত
+%% desc: আগে পরীক্ষা তৈরি হয়, তারপর সিট প্ল্যান। পরীক্ষার পর শিক্ষকরা নম্বর দেন। সব নম্বর জমা হলে ফলাফল প্রক্রিয়া ও প্রকাশ হয়। তারপর ফলাফল বিশ্লেষণ, আর বছর শেষে প্রমোশন।
+flowchart LR
+  EX["পরীক্ষা<br/>অংশ ও সময়সূচি"]:::admin --> SP["সিট প্ল্যান<br/>কে কোথায় বসবে"]:::admin
+  SP --> MK["নম্বর দেওয়া"]:::teacher
+  MK --> RS["ফলাফল<br/>প্রক্রিয়া ও প্রকাশ"]:::admin
+  RS --> AN["ফলাফল বিশ্লেষণ"]:::teacher
+  AN --> PR["প্রমোশন"]:::admin
+  TPL["পরীক্ষার কাঠামো"]:::note -.-> EX
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

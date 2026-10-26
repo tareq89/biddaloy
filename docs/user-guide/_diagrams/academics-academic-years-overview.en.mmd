@@ -1,0 +1,13 @@
+%% title: What is inside an academic year
+%% desc: A school has several academic years, and one of them is current. Inside each year are terms, classes and fee structures. Inside a class are sections.
+flowchart LR
+  S["School"]:::note --> Y1["Academic year<br/>current"]:::admin
+  S --> Y2["Other academic year"]:::note
+  Y1 --> T["Terms"]
+  Y1 --> K["Classes"]:::teacher
+  Y1 --> F["Fee structures"]
+  K --> SE["Sections"]:::guardian
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

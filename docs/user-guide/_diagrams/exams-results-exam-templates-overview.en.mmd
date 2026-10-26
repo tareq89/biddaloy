@@ -1,0 +1,12 @@
+%% title: Exam parts from a structure
+%% desc: An exam structure holds subjects and their parts for each class number. When you pick a structure while adding an exam, only the parts of subjects that the class actually teaches are copied into the exam.
+flowchart LR
+  T["Exam structure"]:::admin --> G["Class 9"]:::note
+  G --> S["Subject<br/>e.g. Maths"]
+  S --> C["Parts<br/>Written 70, MCQ 30"]
+  T -->|"pick when adding an exam"| E["Class 9 exam"]:::teacher
+  C -.->|"parts of subjects the class teaches are copied"| E
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

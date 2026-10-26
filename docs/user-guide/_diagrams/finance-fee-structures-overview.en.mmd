@@ -1,0 +1,12 @@
+%% title: What a fee structure is made of
+%% desc: A fee structure has a name, a fee type, an amount and an academic year. With no class it is for the whole school; with a class it is for all sections of that class; with a section too it is for that section only. When bills are created the amount is copied into the bill.
+flowchart LR
+  Y["Academic year"]:::admin --> F["Fee structure<br/>name · type · amount"]:::admin
+  F --> W["No class:<br/>whole school"]
+  F --> C["Class given:<br/>all sections of the class"]
+  F --> N["Section given too:<br/>that section only"]
+  W --> B["When bills are created<br/>the amount is copied into the bill"]:::note
+  C --> B
+  N --> B
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

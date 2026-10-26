@@ -1,0 +1,13 @@
+%% title: Monthly register: view, print, edit
+%% desc: Choosing class, section and month opens the whole month's register. You can print it. On a computer you can edit and save; a day outside the correction window can only be changed by an admin, with a reason.
+flowchart LR
+  A["Pick class, section,<br/>month"] --> B["Month<br/>register"]:::teacher
+  B --> C["Print"]
+  B --> D["Edit<br/>on a computer"]
+  D --> E{"Within the<br/>window?"}
+  E -->|Yes| G["Save"]:::done
+  E -->|No| H["Admin only,<br/>with a reason"]:::admin
+  H --> G
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef done fill:#ebfbee,stroke:#2f9e44,color:#1b4d26

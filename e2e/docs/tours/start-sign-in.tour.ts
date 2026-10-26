@@ -21,6 +21,8 @@ const dir = imgDir('start');
 test('sign-in form', async ({ page }, info) => {
   const phone = info.project.metadata.device === 'phone';
   await prepare(page);
+  // Tall enough on desktop that the whole form shows; on a phone the form is scrolled to the top.
+  if (!phone) await page.setViewportSize({ width: 1440, height: 1250 });
   await page.goto('/login');
   // Demo school: the own-account form starts folded under the role cards.
   await page.getByRole('button', { name: demo.ownAccount }).click();
@@ -29,6 +31,7 @@ test('sign-in form', async ({ page }, info) => {
   const password = page.getByLabel(auth.password.label, { exact: true });
   const submit = page.getByRole('button', { name: auth.submit.action, exact: true });
   const language = page.getByRole('button', { name: new RegExp(nav.language.label) });
+  if (phone) await page.evaluate(() => document.querySelector('[role="tablist"]')?.scrollIntoView({ block: 'start' }));
   const file = `${dir}/sign-in-${phone ? 'phone-' : ''}01-form.png`;
   await shoot(
     page,

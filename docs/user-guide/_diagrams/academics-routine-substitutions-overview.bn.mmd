@@ -1,0 +1,13 @@
+%% title: বদলি শিক্ষক শুধু একটি দিনের জন্য
+%% desc: অ্যাডমিন তারিখ, শাখা আর পিরিয়ড বাছেন। তারপর হয় একজন বদলি শিক্ষক দেন, নয় পিরিয়ডটি বাতিল করেন। সাপ্তাহিক রুটিন বদলায় না। বদলি শিক্ষক সেদিন আমার রুটিনে পিরিয়ডটি দেখেন।
+flowchart LR
+  A["তারিখ → শাখা → পিরিয়ড"]:::admin --> Q{"কী হবে?"}:::note
+  Q -- "অন্য কেউ পড়াবেন" --> S["বদলি শিক্ষক বাছুন"]:::admin
+  Q -- "কেউ পড়াবেন না" --> X["পিরিয়ডটি বাতিল"]:::admin
+  S --> T["বদলি শিক্ষকের<br/>আমার রুটিনে সেদিন"]:::teacher
+  S -.-> W["সাপ্তাহিক রুটিন<br/>যেমন ছিল তেমন"]:::note
+  X -.-> W
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

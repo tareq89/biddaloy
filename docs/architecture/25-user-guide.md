@@ -124,7 +124,7 @@ required are in the [writing guide](../documentation/writing-guide.md#1-order-an
 ### Coverage
 
 `docs/user-guide/coverage.json` holds `{ "<feature id>": "planned" | "done" }`.
-`guide:check` _(planned, #2518)_ hard-fails when:
+`guide:check` hard-fails when:
 
 - a `features.json` id is missing from `coverage.json`;
 - a `done` id lacks a bn or an en page;
@@ -132,10 +132,11 @@ required are in the [writing guide](../documentation/writing-guide.md#1-order-an
 - a `done` page lacks a required anchor id, or lacks `#arrive` while `entry` has more than `sidebar`/`palette` (D44, D45);
 - a page bolds another page's title without a link, or a **সম্পর্কিত পাতা** link has no link back (D46);
 - a page has a `guide:generated:video` marker (D48);
-- a link or a helpId points at a missing page.
+- a link or a helpId points at a missing page;
+- an image has no meaningful alt text (rule `(s)`);
+- an id is still `planned` (rule `(t)`, strict coverage, D16). A new feature ships its page as `done`; it is not added as `planned`. There are no exceptions: every id has its page.
 
-It warns when a `knownIssues` entry was `checked` more than 30 days ago.
-42.6.06 flips every entry to `done`.
+It warns when a `knownIssues` entry was `checked` more than 30 days ago, or has no issue number.
 
 ### Media files
 
@@ -158,8 +159,8 @@ Every content ticket runs this per feature.
 3. **Write the diagrams** ([style](../documentation/diagram-style.md), D23). One overview diagram with who-sees-what; one per cross-feature flow. Each as `.bn.mmd` and `.en.mmd`.
 4. **Write the tour** `e2e/docs/tours/<feature>.tour.ts` _(capture toolkit: planned, W1)_. Sign in as the demo-school login card for the role. It makes an overview shot, numbered callouts on every component, and one GIF per workflow. Desktop, plus phone for `devices: [phone]`.
 5. **Write the page.** Copy [`page-template.md`](../documentation/page-template.md), write **bn first**, then en, following the [writing guide](../documentation/writing-guide.md). Verify every behaviour claim in code first.
-6. **Generate and check.** `guide:gen`, `guide:shoot`, `guide:diagrams` and `guide:check` _(planned; until they land, run `node scripts/user-guide/render-diagrams.mjs` and `yarn prettier --check`)_.
-7. **Files you do not touch.** Never edit `coverage.json` or `SUMMARY.md`; the wave close does. Need a reciprocal link in a page another ticket of the same wave owns? List it in the PR notes. Demo data missing? Open a follow-up on Epic 58; never fake data in a tour.
+6. **Generate and check.** `yarn guide:gen`, `yarn guide:shoot`, `yarn guide:diagrams` and `yarn guide:check`. The full routine is in the [update runbook](../documentation/update-runbook.md).
+7. **Files you do not touch.** During Epic 42 the wave close edited `coverage.json` and `SUMMARY.md`. After the epic, the author of a new page edits both (`done`, and the page in `SUMMARY.md` for bn and en). Need a reciprocal link in a page another ticket of the same wave owns? List it in the PR notes. Demo data missing? Open a follow-up on Epic 58; never fake data in a tour.
 
 ```mermaid
 flowchart TD
@@ -187,8 +188,7 @@ freshness _(planned, #2518)_.
 
 ## CI checks: guide:check and guide:impact
 
-Both are **planned**. `guide:check` is built by #2518; `guide:impact` by a later
-W1 ticket in the same epic.
+Both exist (`scripts/user-guide/check.mjs` and `impact.mjs`).
 
 ```mermaid
 flowchart LR
@@ -225,8 +225,8 @@ flowchart LR
 ```
 
 1. Add the screen as usual (route, nav item, i18n keys, `help.*` keys).
-2. `guide:check` _(planned)_ will fail until the route maps to a page. Run **R1** above and write the bn page, then en.
-3. Add the page's id to `coverage.json` as `planned`; the wave close flips it to `done`.
+2. `guide:check` fails until the route maps to a page. Run **R1** above and write the bn page, then en.
+3. Add the page's id to `coverage.json` as `done`, in the same PR as the page. A `planned` id fails `guide:check` (rule `(t)`, D16), so never add one.
 4. If the route needs no customer page, add an `internal:` entry with a reason to `route-map.json` instead (for example `internal: redirect`).
 5. In the PR body, either list the new pages or write `User guide: not affected — <reason>`.
 
@@ -236,8 +236,8 @@ Screenshots, GIFs and diagrams only. There is no video and no narration (D48).
 
 | What                 | Command                                                                                                                   | Needs                                                                                                    |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Diagrams             | `node scripts/user-guide/render-diagrams.mjs [name-prefix]` (exists). `yarn guide:diagrams` is planned                    | `mmdc` (`MMDC` env) or `npx -p @mermaid-js/mermaid-cli mmdc`; `PUPPETEER_CONFIG` for an installed Chrome |
-| Screenshots and GIFs | `yarn guide:shoot <feature>` _(planned, W1)_: runs `e2e/docs/tours/<feature>.tour.ts` through `playwright.docs.config.ts` | the demo school (Epic 58), Playwright                                                                    |
+| Diagrams             | `yarn guide:diagrams [name-prefix]`                    | `mmdc` (`MMDC` env) or `npx -p @mermaid-js/mermaid-cli mmdc`; `PUPPETEER_CONFIG` for an installed Chrome |
+| Screenshots and GIFs | `yarn guide:shoot <feature>`: runs `e2e/docs/tours/<feature>.tour.ts` through `playwright.docs.config.ts` | the demo school (Epic 58), Playwright                                                                    |
 
 A tour never uses fake data. If the demo school lacks what a tour needs, open a
 follow-up on Epic 58.

@@ -64,8 +64,8 @@ appVersion: 0.1.0 (5f7194a2e)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: gov-holidays-past-date, checked: 2026-10-24, issue: null }
-  - { id: upcoming-panel-range, checked: 2026-10-24, issue: null }
+  - { id: gov-holidays-past-date, checked: 2026-10-24, issue: 2871 }
+  - { id: upcoming-panel-range, checked: 2026-10-24, issue: 2872 }
 -->
 
 # Seeing, adding and subscribing to holidays and events in the calendar
@@ -108,7 +108,7 @@ Do this to put a holiday, exam, meeting or event on the calendar. (Only an Admin
 
    → The **Calendar** title at the top, and below it this month's calendar. On the right are the events of the chosen day and the **Upcoming** list.
 
-<!-- image pending: calendar page, with the buttons at the top, the month grid and the two lists on the right marked, admin, desktop -->
+![calendar page, with the buttons at the top, the month grid and the two lists on the right](img/calendar-01.png)
 
 2. Press **Add event** at the top of the page.
 
@@ -126,18 +126,18 @@ Do this to put a holiday, exam, meeting or event on the calendar. (Only an Admin
 
    → You cannot choose an end date before the start date. If the start date has already passed, see [Add a holiday for a day that has passed](#task-past).
 
-<!-- image pending: the Add event page, with the two parts, the type and date boxes and the buttons at the bottom marked, admin, desktop -->
+![the Add event page, with the two parts, the type and date boxes and the buttons at the bottom](img/calendar-02.png)
 
 6. If you need to, write a **Description**. People see it when they open the event.
 
 7. Look at the **Publishing and notifications** part:
 
-   | Box                                | When to tick it                                                                                                              |
-   | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-   | **Counts as a working day**        | School runs on that day. If you remove the tick, the day is a closed day and attendance cannot be taken                      |
+   | Box                                | When to tick it                                                                                                               |
+   | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+   | **Counts as a working day**        | School runs on that day. If you remove the tick, the day is a closed day and attendance cannot be taken                       |
    | **Publish immediately**            | It is ticked to start with. If you remove the tick, the event stays a **Draft**. Nobody sees it, and you can publish it later |
-   | **Notify affected families/staff** | A notice goes to everyone who can see the event                                                                              |
-   | **Also notify by SMS**             | You can choose it only if the box above is ticked. An SMS goes to the guardians' phones                                      |
+   | **Notify affected families/staff** | A notice goes to everyone who can see the event                                                                               |
+   | **Also notify by SMS**             | You can choose it only if the box above is ticked. An SMS goes to the guardians' phones                                       |
 
 8. Press **Save**.
 
@@ -153,10 +153,10 @@ Do this to put a holiday, exam, meeting or event on the calendar. (Only an Admin
 
 Calendar details are saved only when you are online. You cannot save this work on a phone or computer and send it later. So there is no **Saved on this device** state here.
 
-| State                           | How you can tell                                                        | What next                                                   |
-| ------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **Changed on screen only**      | The page is open and filled in, but has not closed                      | Press **Save**                                              |
-| **Reached the school's system** | The page has closed and the event shows on the calendar on that day     | Done. If a **Draft** mark shows, [publish it](#task-edit)   |
+| State                           | How you can tell                                                    | What next                                                 |
+| ------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Changed on screen only**      | The page is open and filled in, but has not closed                  | Press **Save**                                            |
+| **Reached the school's system** | The page has closed and the event shows on the calendar on that day | Done. If a **Draft** mark shows, [publish it](#task-edit) |
 
 **To check:** go to that month in the calendar and press the day. If the name shows in the list of the day's events on the right, it is in the system. Press the name to see the event's details.
 
@@ -188,9 +188,9 @@ Everyone can do this.
 
 5. To filter, use the boxes at the top:
 
-   | Box            | What to choose                                                                                                          |
-   | -------------- | ----------------------------------------------------------------------------------------------------------------------- |
-   | **Event type** | One type, for example **Holiday**. If you choose none, it says **All types**                                            |
+   | Box            | What to choose                                                                                                            |
+   | -------------- | ------------------------------------------------------------------------------------------------------------------------- |
+   | **Event type** | One type, for example **Holiday**. If you choose none, it says **All types**                                              |
    | **Class**      | One class. If you choose none, it says **All classes**. (You see events set for only that class, and events for everyone) |
 
 **The Upcoming list on the right:** the **Upcoming** card has at most five published events. At the top it says "Next holiday: {name} · in {number} days" (or "today" if it is today). For the limit of this card, see [Known issues](#known-issues).
@@ -213,10 +213,10 @@ Do this to put the list of government holidays on the calendar in one go. (Admin
 
    → The page closes, and the holidays show on the calendar.
 
-| You pressed                          | What happens                                                                                                                                 | Saved? |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| **Add {number} holidays**            | The holidays you picked become events of the type Holiday, not a working day, and are published right away. Nobody gets a notice              | Yes    |
-| **Cancel** (when something is picked) | **Discard your changes?** opens                                                                                                              | No     |
+| You pressed                           | What happens                                                                                                                     | Saved? |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **Add {number} holidays**             | The holidays you picked become events of the type Holiday, not a working day, and are published right away. Nobody gets a notice | Yes    |
+| **Cancel** (when something is picked) | **Discard your changes?** opens                                                                                                  | No     |
 
 > **Remember:** if you tick a holiday whose date is before today, the whole adding stops and nothing is added. See [Known issues](#known-issues).
 
@@ -286,7 +286,7 @@ Use an Excel or CSV file to put many events on the calendar at once. (Admin only
 
    → "Checking your file…" shows, then the page goes to "Step 2 of 2": **Review before importing**. At the top, coloured marks give the count: **{number} new**, **{number} updated**, **{number} unchanged**, **{number} with errors**. Below it, each row's **Row**, **Status** and **Problem** show. Rows with errors come first.
 
-<!-- image pending: the import preview, with the four counts at the top, the list of rows and the two options at the bottom marked, admin, desktop -->
+<img src="img/calendar-03.png" alt="the import review: 1 the counts at the top, 2 the list of rows with Row, Status and Problem, 3 the two import options at the bottom, admin">
 
 5. If there are rows with errors, the **Problem** box of each says "Column: {column name} — this cell is not valid. Fix it in the file and upload again." Press **Choose a different file**, fix the file and give it again. Do not rely on **Import the valid rows anyway** in **Import options**: the school's system still refuses a file with any error row, and you see **Import failed**.
 
@@ -296,11 +296,11 @@ Use an Excel or CSV file to put many events on the calendar at once. (Admin only
 
    → **Import complete** shows, and below it "{number} event(s) were published." or "{number} event(s) were saved as drafts." Then press **View on calendar**, or press **Import another file** to give another file.
 
-| You pressed                | What happens                                                                                        | Saved? |
-| -------------------------- | --------------------------------------------------------------------------------------------------- | ------ |
-| **Confirm import**         | New events are made, events that match are updated, and unchanged events are not touched            | Yes    |
-| **Choose a different file** | The preview goes away and you go back to the first step. Nothing was written                        | No     |
-| **Close** at the top of the dialog | You go back to the calendar. Nothing is written                                              | No     |
+| You pressed                        | What happens                                                                             | Saved? |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- | ------ |
+| **Confirm import**                 | New events are made, events that match are updated, and unchanged events are not touched | Yes    |
+| **Choose a different file**        | The preview goes away and you go back to the first step. Nothing was written             | No     |
+| **Close** at the top of the dialog | You go back to the calendar. Nothing is written                                          | No     |
 
 **How new, updated and unchanged are decided:** if an event with the same **Name** and the same **Start date** already exists, the row matches it. Then if anything changed, it is **updated**. If nothing changed, it is **unchanged**. If there is no match, it is **new**. So if you give the same file a second time, the events are not doubled.
 
@@ -310,17 +310,17 @@ Use an Excel or CSV file to put many events on the calendar at once. (Admin only
 
 <!-- verified from server/src/modules/calendar/import/calendar-import-rows.util.ts -->
 
-| Column                   | What to write                                                                                         | Required? |
-| ------------------------ | ----------------------------------------------------------------------------------------------------- | --------- |
-| `type`                   | `HOLIDAY`, `EXAM`, `EVENT`, `MEETING`, `DEADLINE` or `MAKEUP_DAY` (in English)                        | Yes       |
-| `name`                   | The event's name, at most 120 characters                                                              | Yes       |
-| `start_date`             | The start date, in the form `2026-03-26` (year-month-day)                                             | Yes       |
-| `end_date`               | The end date, in the same form. If it is before the start date, it is an error                        | Yes       |
-| `start_time`, `end_time` | The time, in the form `09:00`                                                                         | No        |
+| Column                   | What to write                                                                                                              | Required? |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `type`                   | `HOLIDAY`, `EXAM`, `EVENT`, `MEETING`, `DEADLINE` or `MAKEUP_DAY` (in English)                                             | Yes       |
+| `name`                   | The event's name, at most 120 characters                                                                                   | Yes       |
+| `start_date`             | The start date, in the form `2026-03-26` (year-month-day)                                                                  | Yes       |
+| `end_date`               | The end date, in the same form. If it is before the start date, it is an error                                             | Yes       |
+| `start_time`, `end_time` | The time, in the form `09:00`                                                                                              | No        |
 | `counts_as_working_day`  | `TRUE` or `FALSE` (`YES`/`NO` and `1`/`0` also work). If you leave it empty, it is taken as `FALSE`, which is a closed day | No        |
-| `audience`               | `ALL` (for everyone) or `STAFF` (for staff only). If you leave it empty, it is `ALL`                  | No        |
-| `classes`                | Class names separated by commas, for example `Class 8, Class 9`. If you leave it empty, all classes   | No        |
-| `description`            | The description                                                                                       | No        |
+| `audience`               | `ALL` (for everyone) or `STAFF` (for staff only). If you leave it empty, it is `ALL`                                       | No        |
+| `classes`                | Class names separated by commas, for example `Class 8, Class 9`. If you leave it empty, all classes                        | No        |
+| `description`            | The description                                                                                                            | No        |
 
 > **Careful:** in the import file, if you leave `counts_as_working_day` empty, the row is taken as a closed day. This is the opposite of the add-event page (where only the Holiday type is a closed day). For an exam or meeting row, write `TRUE` in this column, or attendance cannot be taken on that day.
 
@@ -376,10 +376,10 @@ Do this if you want the school's holidays and events to update by themselves in 
 
    → **Regenerate subscribe link?** opens. It says "Your old link stops working right away. Any calendar app still using it will need the new link below."
 
-| You pressed      | What happens                                                                                          | Saved? |
-| ---------------- | ----------------------------------------------------------------------------------------------------- | ------ |
-| **Regenerate**   | A new link is set, and the old one stops at once. Give the new link to all your calendar apps         | Yes    |
-| **Cancel**       | Nothing changes                                                                                       | No     |
+| You pressed    | What happens                                                                                  | Saved? |
+| -------------- | --------------------------------------------------------------------------------------------- | ------ |
+| **Regenerate** | A new link is set, and the old one stops at once. Give the new link to all your calendar apps | Yes    |
+| **Cancel**     | Nothing changes                                                                               | No     |
 
 **What comes through the link:** your calendar gets the published events you can see, from 90 days before today to 400 days after (exactly what you see in the calendar), and the academic year's terms. **Draft** events do not come through.
 
@@ -397,45 +397,45 @@ A holiday or closed day on the calendar takes effect in several places by itself
 - **Attendance:** on a closed day, attendance cannot be taken in the attendance book ([Taking attendance](../attendance/attendance.md)). The page says "School is closed on this day".
 - **Attendance percentages:** in attendance percentages, closed days are not counted in the total working days.
 - **Absence messages:** on a closed day, absence notices do not go to guardians.
-- **Routine:** on a closed day, <!-- link pending: academics/routine-builder.md -->the routine holds no classes.
+- **Routine:** on a closed day, [the routine holds no classes](../academics/routine-builder.md).
 - **The other way round:** you cannot make a day a closed day if any class or staff member has attendance marked for it ([Problems and fixes](#trouble)). So put the holiday on the calendar first, and then attendance will start.
 
 ---
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                       | What to do                                                                                                                                                       | Who can help |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Couldn't load the calendar. Try again.**                         | Check your internet, then try again or reload the page.                                                                                                          | Admin        |
-| **Name is required.**                                              | Write the event's name in the **Name** box.                                                                                                                      | Admin        |
-| **The end date must be on or after the start date.**               | Fix both dates and press **Save** again. This also shows if you have not chosen a date.                                                                          | Admin        |
-| **These dates fall outside the current academic year.**            | Give dates that are inside the academic year. If there is a new academic year, create it first.                                                                  | Admin        |
-| **This event is in the past and can no longer be changed.**        | You cannot add or change an ordinary event for a day that has passed. You can add only a closed day ([a holiday for a day that has passed](#task-past)).         | Admin        |
-| **Give a reason of at least 3 characters.**                        | Write a reason in the **Why is this being added late?** box.                                                                                                     | Admin        |
-| **Attendance has already been taken on one of these days.**        | Attendance is saved for a class or staff member on that date, so the day cannot be made a closed day. Change the date, or fix the attendance first.              | Admin        |
-| **One of the selected classes is not valid.**                      | The event is tied to a class from another academic year. Choose the classes again.                                                                               | Admin        |
-| **A make-up school day always counts as a working day.**           | For this type, the **Counts as a working day** tick cannot be removed. If you want a closed day, choose another type.                                            | Admin        |
-| **Couldn't save this event. Try again.**                           | Check your internet and press **Save** again. What you typed stays on the page.                                                                                  | Admin        |
-| **Couldn't complete that. Try again.** (in the event panel)        | It came up when deleting or publishing. Check your internet and try again. A draft whose date has passed cannot be published.                                    | Admin        |
-| **Couldn't add the holidays. Try again.**                          | See whether any holiday you picked has a date that has passed ([Known issues](#known-issues)); if not, check your internet.                                      | Admin        |
-| **No suggested holidays**                                          | The national holiday list for that year has not been published yet. Add them yourself with **Add event**.                                                        | Admin        |
-| **Upload failed**                                                  | Check the file is `.xlsx` or `.csv`, and the column names are the same as the template. Check your internet too.                                                 | Admin        |
-| **Import failed**                                                  | Check your internet. If the preview is more than 30 minutes old, check the file again.                                                                           | Admin        |
-| **Clone failed**                                                   | Check you chose two different years, and check your internet.                                                                                                    | Admin        |
-| **Couldn't load your subscribe link.**                             | Press **Retry** on the card.                                                                                                                                     | Anyone       |
-| **Couldn't regenerate the link. Try again.**                       | Check your internet and press again.                                                                                                                             | Anyone       |
+| What you see                                                | What to do                                                                                                                                               | Who can help |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Couldn't load the calendar. Try again.**                  | Check your internet, then try again or reload the page.                                                                                                  | Admin        |
+| **Name is required.**                                       | Write the event's name in the **Name** box.                                                                                                              | Admin        |
+| **The end date must be on or after the start date.**        | Fix both dates and press **Save** again. This also shows if you have not chosen a date.                                                                  | Admin        |
+| **These dates fall outside the current academic year.**     | Give dates that are inside the academic year. If there is a new academic year, create it first.                                                          | Admin        |
+| **This event is in the past and can no longer be changed.** | You cannot add or change an ordinary event for a day that has passed. You can add only a closed day ([a holiday for a day that has passed](#task-past)). | Admin        |
+| **Give a reason of at least 3 characters.**                 | Write a reason in the **Why is this being added late?** box.                                                                                             | Admin        |
+| **Attendance has already been taken on one of these days.** | Attendance is saved for a class or staff member on that date, so the day cannot be made a closed day. Change the date, or fix the attendance first.      | Admin        |
+| **One of the selected classes is not valid.**               | The event is tied to a class from another academic year. Choose the classes again.                                                                       | Admin        |
+| **A make-up school day always counts as a working day.**    | For this type, the **Counts as a working day** tick cannot be removed. If you want a closed day, choose another type.                                    | Admin        |
+| **Couldn't save this event. Try again.**                    | Check your internet and press **Save** again. What you typed stays on the page.                                                                          | Admin        |
+| **Couldn't complete that. Try again.** (in the event panel) | It came up when deleting or publishing. Check your internet and try again. A draft whose date has passed cannot be published.                            | Admin        |
+| **Couldn't add the holidays. Try again.**                   | See whether any holiday you picked has a date that has passed ([Known issues](#known-issues)); if not, check your internet.                              | Admin        |
+| **No suggested holidays**                                   | The national holiday list for that year has not been published yet. Add them yourself with **Add event**.                                                | Admin        |
+| **Upload failed**                                           | Check the file is `.xlsx` or `.csv`, and the column names are the same as the template. Check your internet too.                                         | Admin        |
+| **Import failed**                                           | Check your internet. If the preview is more than 30 minutes old, check the file again.                                                                   | Admin        |
+| **Clone failed**                                            | Check you chose two different years, and check your internet.                                                                                            | Admin        |
+| **Couldn't load your subscribe link.**                      | Press **Retry** on the card.                                                                                                                             | Anyone       |
+| **Couldn't regenerate the link. Try again.**                | Check your internet and press again.                                                                                                                     | Anyone       |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                                    | See the calendar                                                                                | Add, change, delete, import, export, copy | Subscribe on their phone |
-| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------ |
-| Admin                                                                                   | Yes, everything including **Draft**                                                             | Yes                                       | Yes                      |
-| Teacher                                                                                 | Yes, events for everyone and for staff, and events for the classes they teach                   | No                                        | Yes                      |
-| Accountant, Executive, Office staff, Exam controller, Committee member                  | Yes, published events only                                                                      | No                                        | Yes                      |
+| Role                                                                   | See the calendar                                                              | Add, change, delete, import, export, copy | Subscribe on their phone |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------- | ------------------------ |
+| Admin                                                                  | Yes, everything including **Draft**                                           | Yes                                       | Yes                      |
+| Teacher                                                                | Yes, events for everyone and for staff, and events for the classes they teach | No                                        | Yes                      |
+| Accountant, Executive, Office staff, Exam controller, Committee member | Yes, published events only                                                    | No                                        | Yes                      |
 
-If your role is not allowed to change events, the **Government holidays**, **Import**, **Add event** and other buttons do not show on the page. Guardians and students see the calendar in their own portal; <!-- link pending: portal/calendar.md -->that page is separate.
+If your role is not allowed to change events, the **Government holidays**, **Import**, **Add event** and other buttons do not show on the page. Guardians and students see the calendar in their own portal; that page is separate: [**Calendar**](../portal/calendar.md).
 
 ---
 
@@ -443,10 +443,10 @@ If your role is not allowed to change events, the **Government holidays**, **Imp
 
 Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
 
-| Issue                                                                                                                                                                                                                            | Who, when                                                       | Data saved?                    | What to do for now                                                                                                                                                               |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| On the **Government holidays** page, if you tick a holiday whose date has passed, **Couldn't add the holidays. Try again.** shows, and the other ticked holidays are not added either (everything is cancelled)                    | Admin, when adding government holidays in the middle of a year  | No, nothing was added          | Remove the tick on the dates that have passed and add the rest. Add the holiday that has passed separately with [Add a holiday for a day that has passed](#task-past)           |
-| When the **Upcoming** card has no events it says "Nothing scheduled in the next 60 days." But the card does not really look 60 days ahead. It looks only at the month you are viewing (and a week before and after it)            | Everyone, late in a month or when viewing another month         | Yes, the events are fine       | Go to the next month and look; the events are in the month's boxes                                                                                                               |
+| Issue                                                                                                                                                                                                                  | Who, when                                                      | Data saved?              | What to do for now                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| On the **Government holidays** page, if you tick a holiday whose date has passed, **Couldn't add the holidays. Try again.** shows, and the other ticked holidays are not added either (everything is cancelled)        | Admin, when adding government holidays in the middle of a year | No, nothing was added    | Remove the tick on the dates that have passed and add the rest. Add the holiday that has passed separately with [Add a holiday for a day that has passed](#task-past) |
+| When the **Upcoming** card has no events it says "Nothing scheduled in the next 60 days." But the card does not really look 60 days ahead. It looks only at the month you are viewing (and a week before and after it) | Everyone, late in a month or when viewing another month        | Yes, the events are fine | Go to the next month and look; the events are in the month's boxes                                                                                                    |
 
 ---
 
@@ -461,21 +461,21 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 4. **The chosen day's list** — all the events of that day.
 5. **Upcoming** — the next five events and the date of the next holiday.
 
-<!-- image pending: the five parts of the calendar marked with numbers, admin, desktop -->
+![the five parts of the calendar](img/calendar-04.png)
 
 </details>
 
 <details>
 <summary><strong>Event types</strong></summary>
 
-| Type                    | Working day? (to start with)       | When to choose it                                                      |
-| ----------------------- | ---------------------------------- | ---------------------------------------------------------------------- |
-| **Holiday**             | No, a closed day                   | National holiday, Eid holiday, sudden closure                          |
-| **Exam**                | Yes                                | Exam day; school runs                                                  |
-| **Event**               | Yes                                | Sports, annual function                                                |
-| **Meeting**             | Yes                                | Parents' meeting, staff meeting                                        |
-| **Deadline**            | Yes                                | Last date for fees, forms or results                                   |
-| **Make-up school day**  | Always yes, cannot be changed      | An extra school day held to make up for a closure                      |
+| Type                   | Working day? (to start with)  | When to choose it                                 |
+| ---------------------- | ----------------------------- | ------------------------------------------------- |
+| **Holiday**            | No, a closed day              | National holiday, Eid holiday, sudden closure     |
+| **Exam**               | Yes                           | Exam day; school runs                             |
+| **Event**              | Yes                           | Sports, annual function                           |
+| **Meeting**            | Yes                           | Parents' meeting, staff meeting                   |
+| **Deadline**           | Yes                           | Last date for fees, forms or results              |
+| **Make-up school day** | Always yes, cannot be changed | An extra school day held to make up for a closure |
 
 </details>
 
@@ -484,18 +484,18 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 
 <!-- guide:generated:fields:calendar -->
 
-| Field                              | What to enter                                                                                                                                                  | Required?                         |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| Type                               | Holiday, Exam, Event, Meeting, Deadline or Make-up school day. Event to start with. When you change the type, the working-day tick changes too, unless you already touched the tick yourself. | Yes                               |
-| Name                               | The event's name, for example "Eid-ul-Fitr holiday".                                                                                                           | Yes                               |
-| Start date                         | The day the event starts. It must be inside the current academic year.                                                                                         | Yes                               |
-| End date                           | The day the event ends. For a one-day event, the same as the start date.                                                                                       | Yes                               |
-| Why is this being added late?      | Shows when the start date has passed and the day is a closed day. At least 3 characters, at most 500.                                                          | Yes, then                         |
-| Description                        | A short description of the event. Free text.                                                                                                                   | No                                |
-| Counts as a working day            | If ticked, school runs that day. If not ticked, it is a closed day and attendance cannot be taken. For the Holiday type it starts unticked; for other types it is ticked. | No                                |
-| Publish immediately                | Only when adding. If ticked, everyone sees it. If not, it is a draft.                                                                                          | No, ticked to start with          |
-| Notify affected families/staff     | If ticked, a notice goes to the people who can see the event.                                                                                                  | No                                |
-| Also notify by SMS                 | An SMS goes to the guardians' phones too. It stays off unless the box above is ticked.                                                                         | No                                |
+| Field                          | What to enter                                                                                                                                                                                 | Required?                |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Type                           | Holiday, Exam, Event, Meeting, Deadline or Make-up school day. Event to start with. When you change the type, the working-day tick changes too, unless you already touched the tick yourself. | Yes                      |
+| Name                           | The event's name, for example "Eid-ul-Fitr holiday".                                                                                                                                          | Yes                      |
+| Start date                     | The day the event starts. It must be inside the current academic year.                                                                                                                        | Yes                      |
+| End date                       | The day the event ends. For a one-day event, the same as the start date.                                                                                                                      | Yes                      |
+| Why is this being added late?  | Shows when the start date has passed and the day is a closed day. At least 3 characters, at most 500.                                                                                         | Yes, then                |
+| Description                    | A short description of the event. Free text.                                                                                                                                                  | No                       |
+| Counts as a working day        | If ticked, school runs that day. If not ticked, it is a closed day and attendance cannot be taken. For the Holiday type it starts unticked; for other types it is ticked.                     | No                       |
+| Publish immediately            | Only when adding. If ticked, everyone sees it. If not, it is a draft.                                                                                                                         | No, ticked to start with |
+| Notify affected families/staff | If ticked, a notice goes to the people who can see the event.                                                                                                                                 | No                       |
+| Also notify by SMS             | An SMS goes to the guardians' phones too. It stays off unless the box above is ticked.                                                                                                        | No                       |
 
 <!-- /guide:generated -->
 
@@ -518,11 +518,21 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 <details>
 <summary><strong>The whole task together</strong></summary>
 
-<!-- image pending: GIF from adding an event to publishing it and seeing it on the calendar, admin, desktop -->
+<figure>
+  <img src="img/calendar-add-publish.gif" alt="The whole job on a computer: Add event, name it and pick its dates, save it as a draft, open it on the month grid and press Publish; it then appears in the Upcoming list">
+  <figcaption><em>From a new event to everyone seeing it</em></figcaption>
+</figure>
 
-<!-- image pending: GIF of importing from a file, from the preview to confirming, admin, desktop -->
+<figure>
+  <img src="img/calendar-import-run.gif" alt="Importing from a file on a computer: Choose file, Check file, the review step lists each row as New, then Confirm import and Import complete">
+  <figcaption><em>From the chosen file to Import complete</em></figcaption>
+</figure>
 
 </details>
+
+**Related pages**
+
+- [**Calendar**](../portal/calendar.md) — the calendar as guardians and students see it.
 
 ---
 

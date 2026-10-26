@@ -144,7 +144,7 @@ Every student has a **profile**. The profile is their own page: at the top their
 
    → The **Add student** form opens. It has four parts: **Identity**, **Placement**, **Guardians**, **Preferences**.
 
-<!-- image pending: img/students-01-add-form.png — Add student form: 1 Identity, 2 Placement, 3 Guardians, 4 Preferences, 5 the Add student button -->
+![Add student form: 1 Identity, 2 Placement, 3 Guardians, 4 Preferences, 5 the Add student button](img/students-01.png)
 
 3. In **Identity**, type the **Full name**. This is the only required name. If you like, also fill in **Name (Bangla)**, **Blood group**, **Date of birth** and **Gender**.
 
@@ -242,20 +242,18 @@ The tabs come in this order:
 | **Programs**             | The program the student is enrolled in, with progress and milestones.                                                  |
 | **Performance**          | A summary built from marks. Only people who may see marks get this tab.                                                |
 | **Fees**                 | Total billed, total paid, dues; **Open bills**, **Credit balance**, **History** and **Discounts**.                     |
-| **Fines**                | All of this student's [fines](../help/glossary.md#fine).                                                               |
+| [**Fines**](../finance/fines.md)                | All of this student's [fines](../help/glossary.md#fine).                                                               |
 | **Automatic billing**    | Which recurring bills the student is on, and which they are left out of.                                               |
-| **Payments**             | All money received, with date and method.                                                                              |
-| **Invoices**             | Invoices issued; you can **Print** them.                                                                               |
+| [**Payments**](../finance/payments.md)             | All money received, with date and method.                                                                              |
+| [**Invoices**](../finance/invoices.md)             | Invoices issued; you can **Print** them.                                                                               |
 | **Communication**        | Messages and reminders sent to the guardian.                                                                           |
 | **Notes**                | Staff-only notes ([see](#task-notes)). The tab is missing if you may not see notes.                                    |
 | **Records**              | Family, health and public exam details ([see](#task-records)). Missing if you may not see records.                     |
 | **Documents**            | Photo, ID card, certificates and the list of printed papers ([see](#task-documents)). Needs print, certificate or print-history permission. |
-| **Applications**         | Applications submitted for this student. Missing if you may not handle applications.                                   |
+| [**Applications**](../applications/applications.md)         | Applications submitted for this student. Missing if you may not handle applications.                                   |
 | **Activity**             | Who changed what in this student's details, and when.                                                                  |
 
 ### Add a guardian <a href="#task-guardians" id="task-guardians"></a>
-
-<!-- link pending: people/guardians.md -->
 
 1. In the add or edit form, go to **Guardians**.
 2. Type a name or phone number in **Search guardians**. Choose the person from the list.
@@ -271,10 +269,8 @@ The guardian's own page (**Guardians**) is not written in this guide yet.
 
 ### Collect fees and send reminders <a href="#task-fees" id="task-fees"></a>
 
-<!-- link pending: finance/dues.md, finance/payments.md -->
-
-- **Collect fees:** press **Collect fees** on a row in the list or at the top of the profile. → The page for taking money opens, with this student already chosen. The rest happens on the **Payments** page (not written in this guide yet).
-- **How much is [due](../help/glossary.md#dues):** look at the profile's **Fees** tab.
+- **Collect fees:** press **Collect fees** on a row in the list or at the top of the profile. → The page for taking money opens, with this student already chosen. The rest happens on the [**Payments**](../finance/payments.md) page.
+- **How much is [due](../help/glossary.md#dues):** look at the profile's **Fees** tab (the [**Student dues**](../finance/dues.md) page shows all students).
 - **Send reminder:** on the profile, or choose several students in the list and press **Send reminder**. Type a **Message** and press **Send**. → **Reminder sent to N guardians.** The message goes out. There is a limit on how many students one reminder can go to; if you choose more, the dialog says so.
 
 ### Move to another class or section <a href="#task-move" id="task-move"></a>
@@ -290,7 +286,7 @@ Only for **Active** students, and only for people who may edit students.
 
    → The new class · section shows in the **Enrolment history**.
 
-Moving a whole class up at the end of the year is done on the **Class promotion** page (not written in this guide yet). <!-- link pending: exams-results/promotion.md -->
+Moving a whole class up at the end of the year is done on the [**Class promotion**](../exams-results/promotion.md) page.
 
 ### Record that a student is leaving <a href="#task-leave" id="task-leave"></a>
 
@@ -365,7 +361,7 @@ If you may not write, you can only read, and you see no buttons.
 In the profile's **Documents** tab:
 
 - **Photo:** **Upload photo** (or **Replace photo**). Use a clear passport-style photo with the face in the middle. → **Photo saved**. Only people who may edit students see this button.
-- **Print ID card:** a preview page opens before printing. More: [Printing ID cards](../printing/printing-id-cards.md). The **Print ID card** button at the top of the profile does the same.
+- **Print ID card:** a preview page opens before printing. More: [Printing ID cards](../administration/print-templates/id-cards.md). The **Print ID card** button at the top of the profile does the same.
 - **Issue certificate** and **Printed documents**: the list of papers already printed for this student.
 
 ### Upload many photos at once <a href="#task-photos" id="task-photos"></a>
@@ -479,7 +475,7 @@ Only an admin can do this. For a student who has left the school, [record leavin
 <details>
 <summary><strong>Parts of the profile page</strong> — what is where</summary>
 
-<!-- image pending: img/students-02-profile.png — Student profile: 1 name and status badge, 2 facts strip, 3 action buttons, 4 tab row, 5 tab content -->
+![Student profile: 1 name and status badge, 2 facts strip, 3 action buttons, 4 tab row, 5 tab content](img/students-02.png)
 
 1. **Name and status** — the student's name, and next to it **Active** / **Inactive** / **Transferred** / **Graduated**.
 2. **Facts strip** — **Registration no.**, **Class**, **Roll**, **Primary guardian**.
@@ -575,14 +571,28 @@ Only an admin can do this. For a student who has left the school, [record leavin
 
 **Related pages**
 
-<!-- link pending: people/guardians.md, finance/dues.md, finance/payments.md, exams-results/promotion.md -->
-
+- [**Student dues**](../finance/dues.md) — see who owes what.
+- [**Payments**](../finance/payments.md) — payments, receipts and reversals.
+- [**Promoting students**](../exams-results/promotion.md) — moving a whole class up at the end of the year.
 - [**School setup order**](../admin/setup-order.md) — students are added or imported at step 5.
-- [**Printing ID cards**](../printing/printing-id-cards.md) — ID cards from the list or a profile.
+- [**Printing ID cards**](../administration/print-templates/id-cards.md) — ID cards from the list or a profile.
 - [**Taking attendance**](../attendance/attendance.md) — students added here appear in the attendance register by roll number.
-- **Guardians** — the page for guardians linked to a student.
-- **Student dues** and **Payments** — the pages for collecting fees.
+- [**Viewing guardians, fixing their details and sending invitations**](guardians.md) — the page for guardians linked to a student.
+- [**Student dues**](../finance/dues.md) and [**Payments**](../finance/payments.md) — the pages for collecting fees.
 - **Promotion** — moving classes at the end of the year.
+- [**Arranging classes, sections and subjects**](../academics/classes.md) — make the class and section a student joins.
+- [**Seeing your own class on one page**](../academics/my-class.md) — a teacher sees the section's students on one page.
+- [**Attendance register**](../attendance/attendance-register.md) — a month of attendance for the students of a section.
+- [**Attendance reports**](../attendance/attendance-reports.md) — attendance numbers for students.
+- [**Programs and milestones**](programs.md) — put students into a program and track milestones.
+- [**Printing ID cards, certificates and exam papers**](../administration/print-templates.md) — Make a print design from a ready-made one, publish it and make it the default.
+- [**Issuing certificates**](../administration/print-templates/certificates.md) — Issue a student certificate with its own serial number, reprint it as a duplicate, and revoke it so the QR check shows revoked.
+- [**Applications**](../applications/applications.md) — Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper.
+- [**Promoting students**](../exams-results/promotion.md) — Using published results, move a class's students up to the next class in the new academic year, keep them in the same class or graduate them.
+- [**Processing and publishing results**](../exams-results/results.md) — Build an exam's results from the submitted marks, check them and publish, send guardians an SMS, reopen when needed.
+- [**Student dues**](../finance/dues.md) — See in one list how much each student still owes, set the overdue ones apart, then collect the fee.
+- [**Creating fee bills**](../finance/generate-fees.md) — Create fee bills for chosen students for one month or week in one go.
+- [**Print & documents**](../reports/printables.md) — See what was printed, which certificates were issued and what is still waiting to be printed, in three tabs.
 
 ---
 

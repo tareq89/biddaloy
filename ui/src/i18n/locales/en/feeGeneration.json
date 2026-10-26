@@ -125,5 +125,41 @@
     "periodTitle": "Period",
     "periodDescription": "Which period to bill, and when it is due.",
     "studentsDescription": "Choose who gets a bill."
+  },
+  "fields": {
+    "academicYear": "Academic year",
+    "periodType": "Period type",
+    "month": "Month",
+    "weekStart": "Week start",
+    "dueDate": "Due date",
+    "class": "Class",
+    "section": "Section",
+    "program": "Program",
+    "includeInactive": "Show inactive students too",
+    "students": "Students",
+    "fees": "Fees",
+    "duplicateDecision": "What to do with existing bills",
+    "notifyFamilies": "Notify families when bills are created"
+  },
+  "help": {
+    "academicYear": "The academic year whose fee structures are billed. The period must fall inside this year.",
+    "periodType": "Bill for a month or for a week.",
+    "month": "The month and year being billed. It must fall inside the academic year.",
+    "weekStart": "First day of the week for a weekly bill.",
+    "dueDate": "The date payment is due. Defaults to 9 days after the period starts; change it if needed.",
+    "class": "Filters the student list by class. It selects nobody by itself.",
+    "section": "Filters the student list by section.",
+    "program": "Picking a program bills every active student in it, even without ticking each one.",
+    "includeInactive": "When ticked, inactive students appear in the list and are billed if picked.",
+    "students": "Who gets billed. Up to 5,000 at a time.",
+    "fees": "Which fee structures to bill; one bill per picked student per fee. Up to 20 at a time. The class is not checked.",
+    "duplicateDecision": "When a bill for the same fee and period exists: skip (no approval), remove the older one and create new (approval if money was paid), or create a second bill anyway (always needs approval).",
+    "notifyFamilies": "When ticked, families get a message once bills are created. Ticked by default."
+  },
+  "helpRequired": {
+    "academicYear": "Required.",
+    "month": "Required.",
+    "dueDate": "Required.",
+    "fees": "At least one."
   }
 }
