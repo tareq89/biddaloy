@@ -183,8 +183,10 @@ export class HomeworkService {
     }
 
     // Same object-level gate as mutations: tenant-wide managers see everything in the
-    // tenant; a TEACHER only homework for their current-year assignments (a homeroom row
-    // covers any subject of its class, a subject row only that subject). No rows = nothing.
+    // tenant. A TEACHER sees a homework if (A) it has an assignment in one of their
+    // current-year sections (a homeroom row covers any subject, a subject row only that
+    // subject), or (B) it has no assignment yet and sits in their class/subject scope, so a
+    // just-created homework stays visible to the teacher who will assign it. No rows = nothing.
     if (!this.access.canManageTenantWide(ctx.role)) {
       const rows = await teacherAssignments(this.homeworkRepo.manager, {
         userId: ctx.userId,
@@ -196,20 +198,51 @@ export class HomeworkService {
       ];
       qb.andWhere(
         new Brackets((w) => {
-          // `1 = 0` keeps the OR chain valid when there is no homeroom row.
-          if (homeroomClassIds.length)
-            w.where('h.class_id IN (:...homeroomClassIds)', { homeroomClassIds });
-          else w.where('1 = 0');
-          // One term per distinct (class, subject), skipping classes the homeroom already covers.
-          const subjectTerms = new Map(
-            rows
-              .filter((r) => r.subject_id !== null && !homeroomClassIds.includes(r.class_id))
-              .map((r) => [`${r.class_id}:${r.subject_id}`, r] as const),
+          // A: assigned in one of my sections (section from the row, else the student's).
+          w.where(
+            `EXISTS (
+               SELECT 1 FROM homework_assignments hax
+               LEFT JOIN students stx ON stx.id = hax.student_id AND stx.tenant_id = :scopeTenant
+               JOIN unnest(CAST(:scopeSections AS uuid[]), CAST(:scopeSubjects AS uuid[]))
+                    AS sc(section_id, subject_id)
+                 ON sc.section_id = COALESCE(hax.section_id, stx.class_section_id)
+              WHERE hax.homework_id = h.id AND hax.tenant_id = :scopeTenant
+                AND (sc.subject_id IS NULL OR sc.subject_id = h.subject_id))`,
+            {
+              scopeTenant: ctx.tenantId,
+              scopeSections: rows.map((r) => r.section_id),
+              scopeSubjects: rows.map((r) => r.subject_id),
+            },
           );
-          [...subjectTerms.values()].forEach((r, i) =>
-            w.orWhere(`(h.class_id = :c${i} AND h.subject_id = :s${i})`, {
-              [`c${i}`]: r.class_id,
-              [`s${i}`]: r.subject_id,
+          // B: not assigned yet AND in my class/subject scope.
+          w.orWhere(
+            new Brackets((u) => {
+              u.where(
+                `NOT EXISTS (SELECT 1 FROM homework_assignments han
+                  WHERE han.homework_id = h.id AND han.tenant_id = :scopeTenant)`,
+              );
+              u.andWhere(
+                new Brackets((c) => {
+                  // `1 = 0` keeps the OR chain valid when there is no homeroom row.
+                  if (homeroomClassIds.length)
+                    c.where('h.class_id IN (:...homeroomClassIds)', { homeroomClassIds });
+                  else c.where('1 = 0');
+                  // One term per distinct (class, subject), skipping homeroom-covered classes.
+                  const subjectTerms = new Map(
+                    rows
+                      .filter(
+                        (r) => r.subject_id !== null && !homeroomClassIds.includes(r.class_id),
+                      )
+                      .map((r) => [`${r.class_id}:${r.subject_id}`, r] as const),
+                  );
+                  [...subjectTerms.values()].forEach((r, i) =>
+                    c.orWhere(`(h.class_id = :c${i} AND h.subject_id = :s${i})`, {
+                      [`c${i}`]: r.class_id,
+                      [`s${i}`]: r.subject_id,
+                    }),
+                  );
+                }),
+              );
             }),
           );
         }),
