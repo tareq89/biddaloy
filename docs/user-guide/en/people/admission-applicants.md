@@ -45,7 +45,7 @@ appVersion: 0.1.0 (fb8af6c63)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: list-no-search, checked: 2026-10-24, issue: null }
+  - { id: list-no-search, checked: 2026-10-24, issue: 2880 }
 -->
 
 # Reviewing admission applications and admitting students
@@ -95,7 +95,7 @@ Every application has a **Status**: **Awaiting review** (new), **Shortlisted**, 
 
    → The heading **Admission applicants** appears, and under it "Applications sent through the online form — open one to review and decide." The list columns are **Reference #**, **Applicant**, **Admission round**, **Guardian phone**, **Applied on**, **Status**. New applications are at the top.
 
-<!-- image pending: img/people-admission-applicants-01.png — the applicants list, the two filters and the columns marked, office staff, desktop -->
+![the applicants list, the two filters and the columns](img/admission-applicants-01.png)
 
 2. At the end of the row of the application you want, press **View**.
 
@@ -107,7 +107,7 @@ Every application has a **Status**: **Awaiting review** (new), **Shortlisted**, 
 
    → The document opens in a new tab. With none, it says **No documents uploaded**.
 
-<!-- image pending: img/people-admission-applicants-02.png — the application page, the top details, the three cards and the action buttons marked, office staff, desktop -->
+![the application page, the top details, the three cards and the action buttons](img/admission-applicants-02.png)
 
 5. At the top press **Admit**.
 
@@ -122,10 +122,10 @@ Every application has a **Status**: **Awaiting review** (new), **Shortlisted**, 
 
    → The dialog shows **{name} has been admitted.** Press **Close**. The page status becomes **Admitted** and the action buttons go away.
 
-| You pressed | What happens                                                                                                                                                                  | Can you undo it? |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| You pressed | What happens                                                                                                                                                                   | Can you undo it? |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
 | **Admit**   | A new student is created in the round's section; the registration and roll numbers are filled in automatically; the guardian is linked or created; an SMS goes to the guardian | No               |
-| **Cancel**  | Nothing changes                                                                                                                                                               | —                |
+| **Cancel**  | Nothing changes                                                                                                                                                                | —                |
 
 > **Remember:** an admission cannot be undone. If you admitted by mistake, deal with it from the student's profile: [Students](students.md). When the seats are full, nobody else can be admitted; raise **Seat count** on the [Admission round](admission-intakes.md#task-edit). You can admit an application that is still **Awaiting review**; shortlisting first is not required.
 
@@ -135,9 +135,9 @@ Every application has a **Status**: **Awaiting review** (new), **Shortlisted**, 
 
 A decision is saved only while you are online; it cannot be kept on the device and sent later.
 
-| State                           | How you know                                                                          | What next                                         |
-| ------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| **Changed only on the screen**  | The **Admit applicant** dialog is open and **{name} has been admitted.** has not come | Press **Admit** in the dialog                     |
+| State                           | How you know                                                                          | What next                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **Changed only on the screen**  | The **Admit applicant** dialog is open and **{name} has been admitted.** has not come | Press **Admit** in the dialog                          |
 | **Reached the school's system** | **{name} has been admitted.** appeared and the page status is **Admitted**            | Find the name in the students list and check the class |
 
 **To check:** go to [Students](students.md) and search for the child's name; the child will be in the round's section. The **Evaluation history** also shows **Admitted**.
@@ -152,10 +152,10 @@ A decision is saved only while you are online; it cannot be kept on the device a
 
 Two fields above the list:
 
-| Field                | What to choose                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Admission round**  | One round. If you choose none, it says **All admission rounds**                                               |
-| **Status**           | **Awaiting review**, **Shortlisted**, **Admitted** or **Rejected**. If you choose none, it says **All statuses** |
+| Field               | What to choose                                                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Admission round** | One round. If you choose none, it says **All admission rounds**                                                  |
+| **Status**          | **Awaiting review**, **Shortlisted**, **Admitted** or **Rejected**. If you choose none, it says **All statuses** |
 
 Before you start work, choose **Awaiting review** under **Status** to see only the applications nobody has looked at yet. There is no search box for names ([Known issues](#known-issues)). With no applications at all, it says **No applications yet**.
 
@@ -167,10 +167,10 @@ This often happens when a brother or sister already studies at the school. The a
 
 2. Under **This phone number already belongs to a guardian** choose one:
 
-   | Choice                                      | When to choose it                                                 | What happens                                                              |
-   | ------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
-   | **Link this child to this family**          | The name in the box and the children belong to this child's family | The new student is linked to that guardian                                |
-   | **Create a new guardian for this child**    | Same number but a different family (for example a relative's phone) | A separate new guardian is created from the application's name and phone |
+   | Choice                                   | When to choose it                                                   | What happens                                                             |
+   | ---------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+   | **Link this child to this family**       | The name in the box and the children belong to this child's family  | The new student is linked to that guardian                               |
+   | **Create a new guardian for this child** | Same number but a different family (for example a relative's phone) | A separate new guardian is created from the application's name and phone |
 
    → **Admit** cannot be pressed until you choose one.
 
@@ -213,10 +213,10 @@ A note can be added only while the status is **Awaiting review** or **Shortliste
 
 3. In the dialog press **Reject**.
 
-| You pressed | What happens                                                                                                  | Can you undo it? |
-| ----------- | ------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **Reject**  | Status becomes **Rejected**; the history shows **Rejected**; an SMS goes to the guardian's mobile             | No               |
-| **Cancel**  | Nothing changes                                                                                               | —                |
+| You pressed | What happens                                                                                      | Can you undo it? |
+| ----------- | ------------------------------------------------------------------------------------------------- | ---------------- |
+| **Reject**  | Status becomes **Rejected**; the history shows **Rejected**; an SMS goes to the guardian's mobile | No               |
+| **Cancel**  | Nothing changes                                                                                   | —                |
 
 ### Delete the documents of a rejected application <a href="#task-delete-docs" id="task-delete-docs"></a>
 
@@ -232,13 +232,13 @@ You should not keep a child's birth certificate or photo you no longer need. Whe
 
 ### What the guardian can learn <a href="#task-notify" id="task-notify"></a>
 
-| Your decision                | SMS to the guardian                                                                     | What the guardian sees on the status page |
-| ---------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Nothing (new application)    | None                                                                                    | **Being reviewed**                        |
-| **Add to shortlist**         | The application is provisionally selected; the next step will be told                   | **Shortlisted**                           |
-| **Admit**                    | Selected for admission; asked to contact the school office to complete the admission    | **Admitted**                              |
-| **Reject**                   | The application was not successful this time                                            | **Not accepted**                          |
-| **Add note**                 | None                                                                                    | No change                                 |
+| Your decision             | SMS to the guardian                                                                  | What the guardian sees on the status page |
+| ------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------- |
+| Nothing (new application) | None                                                                                 | **Being reviewed**                        |
+| **Add to shortlist**      | The application is provisionally selected; the next step will be told                | **Shortlisted**                           |
+| **Admit**                 | Selected for admission; asked to contact the school office to complete the admission | **Admitted**                              |
+| **Reject**                | The application was not successful this time                                         | **Not accepted**                          |
+| **Add note**              | None                                                                                 | No change                                 |
 
 If the school has no SMS balance, the message does not go, but the decision is still saved. How a guardian checks their status: [How a guardian checks the application status](admission-intakes.md#task-status).
 
@@ -248,19 +248,19 @@ If the school has no SMS balance, the message does not go, but the decision is s
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                    | What to do                                                                                                                                                                                                                                                  | Who can help |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **You don't have access to this page.**                         | Only Admin and Office staff see applicants. Press **Back to dashboard**.                                                                                                                                                                                    | Admin        |
-| **Failed to load admission applicants**                         | Check your internet and reload the page.                                                                                                                                                                                                                    | Admin        |
-| **Failed to load applicant**                                    | Press **Try again**. If it keeps coming, go back to the list and open it again.                                                                                                                                                                             | Admin        |
-| **Failed to admit applicant**                                   | Check whether the round's seats are full (raise **Seat count** on the [Admission round](admission-intakes.md#task-edit)). Reload the page to see whether someone else decided at the same time. If the guardian choice changed, close the dialog and reopen it. | Admin        |
-| **Could not check for an existing guardian. Try again before admitting.** | Press **Retry** next to it.                                                                                                                                                                                                       | Admin        |
-| **Failed to record evaluation**                                 | Reload the page and look at the status: someone may have admitted or rejected in the meantime. If not, press **Save** again.                                                                                                                                | Admin        |
-| **Failed to reject applicant**                                  | Reload the page and look at the status, then try again.                                                                                                                                                                                                     | Admin        |
-| **Could not open the document. Try again.**                     | Press **Open** again. Check whether your browser is blocking the new tab.                                                                                                                                                                                   | Admin        |
-| **Could not delete the documents. Try again.**                  | Check your internet and press **Delete documents** again.                                                                                                                                                                                                   | Admin        |
-| There is no **Add to shortlist** button                         | The application is no longer **Awaiting review**. A shortlisted application is admitted directly with **Admit**.                                                                                                                                            | —            |
-| There are no action buttons at all                              | The application is **Admitted** or **Rejected**; both are final.                                                                                                                                                                                            | —            |
+| What you see                                                              | What to do                                                                                                                                                                                                                                                      | Who can help |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **You don't have access to this page.**                                   | Only Admin and Office staff see applicants. Press **Back to dashboard**.                                                                                                                                                                                        | Admin        |
+| **Failed to load admission applicants**                                   | Check your internet and reload the page.                                                                                                                                                                                                                        | Admin        |
+| **Failed to load applicant**                                              | Press **Try again**. If it keeps coming, go back to the list and open it again.                                                                                                                                                                                 | Admin        |
+| **Failed to admit applicant**                                             | Check whether the round's seats are full (raise **Seat count** on the [Admission round](admission-intakes.md#task-edit)). Reload the page to see whether someone else decided at the same time. If the guardian choice changed, close the dialog and reopen it. | Admin        |
+| **Could not check for an existing guardian. Try again before admitting.** | Press **Retry** next to it.                                                                                                                                                                                                                                     | Admin        |
+| **Failed to record evaluation**                                           | Reload the page and look at the status: someone may have admitted or rejected in the meantime. If not, press **Save** again.                                                                                                                                    | Admin        |
+| **Failed to reject applicant**                                            | Reload the page and look at the status, then try again.                                                                                                                                                                                                         | Admin        |
+| **Could not open the document. Try again.**                               | Press **Open** again. Check whether your browser is blocking the new tab.                                                                                                                                                                                       | Admin        |
+| **Could not delete the documents. Try again.**                            | Check your internet and press **Delete documents** again.                                                                                                                                                                                                       | Admin        |
+| There is no **Add to shortlist** button                                   | The application is no longer **Awaiting review**. A shortlisted application is admitted directly with **Admit**.                                                                                                                                                | —            |
+| There are no action buttons at all                                        | The application is **Admitted** or **Rejected**; both are final.                                                                                                                                                                                                | —            |
 
 ---
 
@@ -280,8 +280,8 @@ If the school has no SMS balance, the message does not go, but the decision is s
 
 Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
 
-| Issue                                                         | Who, when                                           | Data saved? | What to do for now                                                                                    |
-| ------------------------------------------------------------- | --------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------- |
+| Issue                                                            | Who, when                                                  | Data saved? | What to do for now                                                                                      |
+| ---------------------------------------------------------------- | ---------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
 | The list has no box to search by name, reference number or phone | A guardian who tells you the reference number on the phone | Yes         | Narrow the list with **Admission round** and **Status**, then search the page with the browser's Ctrl+F |
 
 ---
@@ -297,7 +297,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 4. **Documents** — the uploaded documents, **Open** beside each.
 5. **Evaluation history** — "Newest first"; every decision and note with date and time. With nothing, it says **No evaluations recorded yet**.
 
-<!-- image pending: img/people-admission-applicants-03.png — the five parts of the application page marked with numbers, office staff, desktop -->
+![the five parts of the application page](img/admission-applicants-03.png)
 
 </details>
 
@@ -333,7 +333,10 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: img/people-admission-applicants-flow.gif — GIF from opening an application and checking documents to shortlisting and admitting, office staff, desktop -->
+<figure>
+  <img src="img/people-admission-applicants-flow.gif" alt="The whole job on a computer: open an application awaiting review, look at the applicant's details and papers, Add to shortlist with a note, then Admit and see the confirmation">
+  <figcaption><em>From opening an application to admitting the student</em></figcaption>
+</figure>
 
 </details>
 

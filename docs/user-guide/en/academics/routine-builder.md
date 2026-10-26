@@ -47,10 +47,10 @@ appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: no-create-routine-button, checked: 2026-10-24, issue: null }
-  - { id: edit-cell-same-day-fails, checked: 2026-10-24, issue: null }
-  - { id: no-room-in-cell-picker, checked: 2026-10-24, issue: null }
-  - { id: clear-cell-silent, checked: 2026-10-24, issue: null }
+  - { id: no-create-routine-button, checked: 2026-10-24, issue: 2887 }
+  - { id: edit-cell-same-day-fails, checked: 2026-10-24, issue: 2888 }
+  - { id: no-room-in-cell-picker, checked: 2026-10-24, issue: 2889 }
+  - { id: clear-cell-silent, checked: 2026-10-24, issue: 2890 }
 -->
 
 # Arranging a class's weekly routine
@@ -101,7 +101,7 @@ On this page you work on one **routine table** per section. The table's columns 
 
    → At the top: **{class} – {section}**, the routine's state, **Students** and **Filled** ("… of … periods"). Below it is the **Weekly routine table**. An empty cell says **Empty**, and a break row says **Break**.
 
-<!-- image pending: the class routine table, with the facts at the top, an empty cell and two buttons marked, admin, desktop -->
+![the class routine table, with the facts at the top, an empty cell and two buttons](img/routine-builder-01.png)
 
 4. Press the empty cell for the day and period you want to fill. (You can also move with the arrow keys and press Enter.)
 
@@ -115,7 +115,7 @@ On this page you work on one **routine table** per section. The table's columns 
 
 7. Under **Recurrence**, keep **Weekly** in most cases. (For the others, see [A period every two weeks or once a month](#task-recurrence).)
 
-<!-- image pending: the Assign a period dialog, with Subject, Teacher(s), Recurrence and Save marked, admin, desktop -->
+![the Assign a period dialog, with Subject, Teacher(s), Recurrence and Save](img/routine-builder-02.png)
 
 8. Press **Save**.
 
@@ -277,7 +277,7 @@ Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. 
 3. **Weekly routine table** — day × period.
 4. **Teacher workload** — the period count for each teacher.
 
-<!-- image pending: the four parts of the section routine page marked with numbers, admin, desktop -->
+![the four parts of the section routine page](img/routine-builder-03.png)
 
 </details>
 
@@ -321,6 +321,7 @@ Arrow keys: move from cell to cell · Enter: open a cell · Delete: clear a cell
 - [**Recording a substitute teacher**](routine-substitutions.md) — for a one-day absence, give a substitute instead of changing the routine.
 - [**Giving teachers class and section duties**](../people/teaching-assignments.md) — which teacher teaches which subject in which section; Fill empty periods picks teachers from here.
 - [**Taking attendance**](../attendance/attendance.md) — per-period attendance needs the routine.
+- [**Routine**](../portal/routine.md) — how guardians and students see the routine.
 
 ---
 

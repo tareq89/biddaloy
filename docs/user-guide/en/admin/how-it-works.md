@@ -187,6 +187,8 @@ The first picture is not for you. You will also not need the **Switch school or 
 | The students of one school do not show in my other school                                  | That is correct. Every branch is a separate school. Use the **Switch school or role** menu at the top to go to that school. | Admin                                    |
 | A teacher sees no section at all                                                           | The teacher has not been given a section. See [Teacher assignment](../help/glossary.md#teacher-assignment).                 | Admin (the **Teacher assignments** page) |
 
+What's newo see what is new, read [T](../help/whats-new.md).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>

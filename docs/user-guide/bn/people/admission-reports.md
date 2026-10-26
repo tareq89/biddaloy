@@ -29,8 +29,8 @@ appVersion: 0.1.0 (fb8af6c63)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: admitted-online-only, checked: 2026-10-24, issue: null }
-  - { id: filters-not-in-url, checked: 2026-10-24, issue: null }
+  - { id: admitted-online-only, checked: 2026-10-24, issue: 2881 }
+  - { id: filters-not-in-url, checked: 2026-10-24, issue: 2882 }
 -->
 
 # ভর্তি প্রতিবেদন
@@ -66,7 +66,7 @@ knownIssues:
 
    → উপরে **ভর্তি প্রতিবেদন**, নিচে যেমন "শিক্ষাবর্ষ ২০২৬ · সব শ্রেণি — কে ভর্তি হলো, কে চলে গেল"। চলতি শিক্ষাবর্ষ আর সব শ্রেণি আগে থেকেই বাছা থাকে।
 
-<!-- image pending: img/people-admission-reports-01.png — ভর্তি প্রতিবেদন, দুটি ছাঁকনি, চারটি সংখ্যার কার্ড ও ঘটনার তালিকা চিহ্নিত, অ্যাডমিন, desktop -->
+![ভর্তি প্রতিবেদন, দুটি ছাঁকনি, চারটি সংখ্যার কার্ড ও ঘটনার তালিকা](img/admission-reports-01.png)
 
 2. চারটি সংখ্যার কার্ড পড়ুন:
 
@@ -165,7 +165,7 @@ knownIssues:
 3. **মোট সংখ্যা** — চারটি কার্ড: **ভর্তি হয়েছে**, **চলে গেছে**, **পাশ করেছে**, **আবার ভর্তি হয়েছে**।
 4. **তালিকা** — প্রতি ঘটনার এক সারি; শেষে **শিক্ষার্থী দেখুন**।
 
-<!-- image pending: img/people-admission-reports-02.png — ভর্তি প্রতিবেদনের চারটি অংশ নম্বর দিয়ে চিহ্নিত, একাডেমিক কো-অর্ডিনেটর, desktop -->
+![ভর্তি প্রতিবেদনের চারটি অংশ, একাডেমিক কো-অর্ডিনেটর](img/admission-reports-02.png)
 
 </details>
 

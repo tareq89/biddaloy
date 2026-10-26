@@ -35,7 +35,7 @@ helpIds:
 devices: [desktop]
 entry: [sidebar, palette]
 keywords:
-  [print, printed, print history, certificate, certificate register, admit card, id card, reprint, revoke, QR]
+  [print, printed, print history, certificate, certificate register, admit card, id card, reprint, revoke, QR, history]
 appVersion: 0.1.0 (3f7e424fc)
 owner: tareq89
 lastVerified: 2026-10-25
@@ -83,7 +83,7 @@ The page has three tabs: **Print history**, **Certificate register** and **To pr
 
    → **Printed copy** opens: the front and back picture, who printed it and when, the copy number and the status. If it was revoked, the reason is shown too.
 
-<!-- image pending: Print & documents, Print history tab; 1 · three tabs 2 · Search by name and filters 3 · list 4 · View / Reprint / Revoke on a row 5 · Print ID cards; admin, desktop -->
+![Print & documents, Print history tab, with the filters, the list, and one row showing Revoked](img/printables-02-revoked.png)
 
 > **Remember:** **Printed copy** does not show the QR code, because the QR code is not stored. Reprint to get a new one.
 
@@ -209,14 +209,14 @@ An Accountant may have permission to print but not to view the history, so **Pri
 ## Learn more <a href="#more" id="more"></a>
 
 <details>
-<summary><strong>Parts of the page</strong> — the Print history tab</summary>
+<summary><strong>Parts of the page, top to bottom</strong> — the Print history tab</summary>
 
-1. The **Print & documents** title and the **Print ID cards** button.
-2. Three tabs: **Print history**, **Certificate register**, **To print**.
-3. Filters: **Search by name**, **Document type**, **Design**, **Printed by**, **Date**, **Result**, **Status**.
-4. The list: **View**, **Reprint**, **Revoke** on each row.
+- The **Print & documents** title and the **Print ID cards** button.
+- Three tabs: **Print history**, **Certificate register**, **To print**.
+- Filters: **Search by name**, **Document type**, **Design**, **Printed by**, **Date**, **Result**, **Status**.
+- The list: **View**, **Reprint**, **Revoke** on each row.
 
-<!-- image pending: Print history tab, four parts marked with numbers, one row "Revoked"; admin, desktop -->
+![Print & documents, Print history tab, with the filters, the list, and one row showing Revoked](img/printables-02-revoked.png)
 
 </details>
 

@@ -1,0 +1,20 @@
+%% title: অ্যাডমিন: কে কী করে
+%% desc: অ্যাডমিন কর্মী যোগ করেন, শিক্ষককে শাখা দেন, সেটিংস ঠিক করেন; হিসাবরক্ষক অনুমোদনের জন্য তাঁর কাছে আসেন।
+flowchart LR
+  admin["অ্যাডমিন"]:::me
+  staff["সব কর্মী"]
+  tea["শিক্ষক"]
+  por["পোর্টাল<br/>(অভিভাবক,<br/>শিক্ষার্থী)"]:::view
+  acc["হিসাবরক্ষক"]
+  gua["অভিভাবক"]
+  school["স্কুল"]
+  exam["পরীক্ষা<br/>নিয়ন্ত্রক"]
+  admin -->|"কর্মী, ভূমিকা"| staff
+  admin -->|"শ্রেণি-শাখা"| tea
+  admin -->|"রুটিন"| por
+  acc -->|"অনুমোদন, বাতিল"| admin
+  admin -->|"আমন্ত্রণ"| gua
+  admin -->|"সেটিংস, ব্যাকআপ"| school
+  admin -->|"গ্রেডিং পদ্ধতি"| exam
+  classDef me fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef view fill:#ebfbee,stroke:#2b8a3e,color:#14411d

@@ -74,7 +74,7 @@ Your **layout** is which widgets show, in what order and how big. One layout is 
 
    → **Customising** appears at the top, and the **Widgets** panel opens. The panel has two lists: **Shown** and **Hidden**. Beside it is a preview: **Preview: this is how it will look after saving**.
 
-<!-- image pending: the customise panel open, with the Shown and Hidden lists and the preview marked, admin, desktop -->
+<img src="img/dashboard-02-customise.png" alt="the customise panel open, with the Shown and Hidden lists and the preview marked, admin">
 
 2. To hide a widget, untick the box on its row. To show it, tick the box.
 
@@ -105,7 +105,7 @@ This work is not kept on the device while offline; so there is no "saved on this
 
 **To check it:** sign in on another computer or phone, with the same account and the same role. You will see the same layout.
 
-<!-- image pending: the dashboard in the new layout after saving, with the Dashboard saved message, admin, desktop -->
+<img src="img/dashboard-04-saved.png" alt="the dashboard back in its new layout after saving, with the Dashboard saved message marked, admin">
 
 **If no message appears:** see [Problems and fixes](#trouble). If the panel is still open, you can press **Save** again.
 
@@ -120,7 +120,7 @@ On a phone, **Customise** opens the panel as a page that rises from the bottom, 
 - You cannot change the size; size is only on a computer.
 - A widget's short description is not shown, only its name.
 
-<!-- image pending: the customise panel as a bottom sheet on a phone, teacher, phone -->
+<img src="img/dashboard-02-customise-phone.png" alt="the customise panel as a bottom sheet on a phone, teacher" width="300">
 
 ### With the keyboard only <a href="#task-keyboard" id="task-keyboard"></a>
 
@@ -185,7 +185,7 @@ A one-page report of totals for this month, up to today, for the committee meeti
 
 3. To go back, press **Back to dashboard**.
 
-<!-- image pending: the monthly meeting report page, committee member, desktop -->
+<img src="img/dashboard-05-meeting-report.png" alt="the monthly meeting report page, with the Print and Back to dashboard buttons, the key numbers and the enrollment and attendance tables, committee member">
 
 The numbers in the report always match the committee widgets on the dashboard, because both come from the same figures. Where there is no data, "—" is printed. The report is not emailed by itself and is not made on any fixed day; print it from here when you need it.
 
@@ -202,6 +202,8 @@ The numbers in the report always match the committee widgets on the dashboard, b
 | **Enter a whole number from 1 to 30.**              | Type a whole number within the limits in the box, then press **Save** again. | Admin        |
 | **The report could not load.**                      | Reload the page.                                                             | Admin        |
 | There is no **Print monthly meeting report** button | The button only appears on the committee member's dashboard.                 | Admin        |
+
+If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
 
 ---
 

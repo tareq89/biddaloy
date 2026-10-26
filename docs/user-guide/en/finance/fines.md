@@ -94,7 +94,7 @@ For example: someone lost a library book, or broke something.
 
    → A message like "**2 fines logged**" appears. A separate bill is made for each student.
 
-<!-- image pending: Log fine window; 1 · Students 2 · Fine type 3 · Amount 4 · Incident date 5 · Reason 6 · Notify guardian; accountant, desktop -->
+<img src="img/fines-01-log.png" alt="Log fine window; 1 · Students 2 · Fine type 3 · Amount 4 · Incident date 5 · Reason 6 · Notify guardian; accountant">
 
 > **Remember:** if you add a fine for the same student again in the same month, the earlier one does not change; another new bill is made. A fine's due date is 7 days after the day you add it (not after the incident date).
 
@@ -194,7 +194,7 @@ If an active rule already exists for the same academic year, trigger and class, 
 
 From the row's menu you can **Edit**, **Deactivate** / **Activate**, and **Delete**. When you delete, a window asks first; a deleted rule cannot be brought back. An inactive rule makes no new fines.
 
-<!-- image pending: the fine rules list, one absence rule and one lateness rule; the Add rule button marked; admin, desktop -->
+<img src="img/fines-02-rules.png" alt="the fine rules list, one absence rule and one lateness rule; the Add rule button marked; admin">
 
 ### Copy last year's rules <a href="#task-copy" id="task-copy"></a>
 
@@ -221,6 +221,8 @@ From the row's menu you can **Edit**, **Deactivate** / **Activate**, and **Delet
 | **Waive fine** is missing                                        | Only an admin sees it; it does not appear on a paid or waived fine.                                                       | Admin        |
 | An active fine rule already exists for this year, trigger and class | Change the old rule, or deactivate it first.                                                                              | Accountant   |
 | The fine rules cannot be loaded                                  | If you are a teacher, academic coordinator or office assistant, the rules page does not open for you. For others: reload. | Admin        |
+
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#fees).
 
 ---
 
@@ -266,7 +268,7 @@ Only sees all fines, for example when a guardian asks. Cannot make any change.
 3. The filters — **Month**, **Class**, **Section**, **Source**, **Fine type**, **Status**.
 4. The list — the row menu has **Open student** and **Waive fine**.
 
-<!-- image pending: fines list, the four totals boxes and one "Rule" and one "Manual" row; the four parts numbered; admin, desktop -->
+<img src="img/fines-03-list.png" alt="fines list, the four totals boxes and one &quot;Rule&quot; and one &quot;Manual&quot; row; the four parts numbered; admin">
 
 </details>
 
@@ -313,6 +315,10 @@ Only sees all fines, for example when a guardian asks. Cannot make any change.
 </details>
 
 **Related pages**
+
+- [**Fees and invoices**](../portal/fees.md) — how a guardian sees fines.
+
+
 
 - [**Student dues**](dues.md) — fine bills show as owed here.
 - [**Record payment**](record-payment.md) — taking the fine money.
