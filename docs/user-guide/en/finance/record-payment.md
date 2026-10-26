@@ -79,7 +79,7 @@ One submit makes one payment and one invoice (the receipt). The bills the money 
 
    → The **Record a payment** page opens. It has three parts: **1. Student**, **2. Bills due**, **3. Take the money**.
 
-2. In the **Search for a student** box type a name or roll number, then press the student in the list.
+2. In the **Search for student** box type a name or roll number, then press the student in the list.
 
    → The **2. Bills due** part shows each of their open bills: **Fee**, **Period**, **Due date**, **Balance**, **Pay**, **Discount**. If the due date has passed it says **Overdue**.
 
@@ -94,7 +94,7 @@ One submit makes one payment and one invoice (the receipt). The bills the money 
 
    → The **Payment recorded** page appears: the **Invoice** number, the **Amount paid**, and the **Change due** if there is change.
 
-<img src="img/record-payment-01.png" alt="Record payment page with one student chosen; 1 · Student 2 · Amount received 3 · Bills due and Pay boxes 4 · Payment method 5 · Record button; accountant">
+<img src="img/record-payment-01.png" alt="Record payment page with one student chosen; 1 · Student 2 · Amount received 3 · Bills due and Pay boxes 4 · Take the money; accountant">
 
 > **Remember:** on one bill, **Pay** and **Discount** together cannot be more than that bill's **Balance**. If you got more money than the bills, [give change or keep it as credit](#task-change).
 
@@ -109,7 +109,7 @@ One submit makes one payment and one invoice (the receipt). The bills the money 
 
 This page does not hold anything on a phone or computer by itself, so there is no "saved on this device" state.
 
-**If no message comes, or the connection drops:** do not change the page; press **Record …** again. Every filled-in page carries a marker; pressing a second time with the same marker does not make a new payment, it brings back the earlier one. So the money is not counted twice. If you are unsure, check the [**Payments**](payments.md) list first.
+**If no message comes, or the connection drops:** do not close, reload or change the page. First look in the [**Payments**](payments.md) list (in a new tab) to see whether the payment is already there. If it is not, press **Record …** once more. The filled-in page carries a marker; pressing again with the same marker does not make a new payment, it brings back the earlier one. A reloaded or new page gets a new marker, so it could take the money twice.
 
 ---
 
@@ -186,7 +186,7 @@ After that, **Record another** opens an empty page; **View invoice** opens the i
 | **Change can go to credit only when the payment is for one student.** | Give the change back in hand, or take each student's money separately.                                                                        | —            |
 | **Up to 10 students can be paid for in one checkout.**                | Take the first 10 now, the rest next time.                                                                                                    | —            |
 | **Approval was cancelled.**                                           | Nothing was recorded. Bring the admin and press again, or remove the discount.                                                                | Admin        |
-| **Recording payment failed.**                                         | Do not change the page; press again — the money is not counted twice. If someone else took money on the same bill meanwhile, reload the page. | Admin        |
+| **Recording payment failed.**                                         | Do not close or change the page. First check the [**Payments**](payments.md) list; if the payment is not there, press again once. If someone else took money on the same bill meanwhile, reload the page. | Admin        |
 | **Record …** cannot be pressed                                        | Check that a student is chosen, at least one bill has a Pay or Discount, and the bills have finished loading.                                 | —            |
 | This student has no guardian to send a receipt to.                    | Add a phone number on the [**Guardians**](../people/guardians.md) page, or print it and hand it over.                                         | Admin        |
 | Sending the receipt by SMS fails                                      | The school's SMS credit may have run out. Send by WhatsApp or print. Ask the admin to buy SMS credit.                                                                                   | Admin        |
@@ -223,7 +223,7 @@ For other roles, **Record payment** is not in the left menu.
 3. **3. Take the money** — **Payment method**, **Cash handed over** and **Change** for cash, **Transaction reference** for other methods, **Remarks**.
 4. At the bottom, **Cancel** and **Record …**.
 
-<!-- image pending: Record payment with two siblings chosen, a discount on one bill, change in cash; the four parts numbered; accountant, desktop -->
+![Record payment with two siblings chosen, the amount received split across both bills, and change worked out for cash handed over; the three cards numbered](img/record-payment-02-siblings.png)
 
 </details>
 

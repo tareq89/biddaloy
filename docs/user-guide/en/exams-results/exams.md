@@ -116,7 +116,7 @@ Every exam belongs to one class and one academic year, for example the **Half Ye
 
    → At the top is the title **Exams**, with the line "Every exam belongs to one class and one academic year." The list has the columns **Name**, **Class**, **Academic year**, **Kind**, **Status**. At first it shows the exams of all years.
 
-<!-- image pending: the exam list, with the Add exam button and the academic year and class filters marked, Admin, desktop -->
+<img src="img/exams-01-list.png" alt="the exam list, with the Add exam button and the academic year and class filters marked, Admin">
 
 2. At the top of the page, press **Add exam**.
 
@@ -138,7 +138,7 @@ Every exam belongs to one class and one academic year, for example the **Half Ye
 
 7. If the school has [exam structures](exam-templates.md), the **Start from an exam structure (optional)** field shows. If you pick a structure, the parts are made for you; if you do not want that, keep **No exam structure**.
 
-<!-- image pending: the Add exam dialog, with the name, kind, mark entry deadline, academic year, class and exam structure marked, Admin, desktop -->
+<img src="img/exams-02-dialog.png" alt="the Add exam dialog, with the name, kind, mark entry deadline, academic year, class and exam structure marked, Admin">
 
 8. Press **Save**.
 
@@ -183,7 +183,7 @@ Exam details are saved only when you are online; they cannot be kept on the devi
 
    → The part appears in the list. The full marks of an attendance part shows **Derived**.
 
-<!-- image pending: the Marks breakdown tab, with the subject picker, the list of parts and the Add a part section marked, Admin, desktop -->
+<img src="img/exams-04-tab1.png" alt="the Marks breakdown tab, with the subject picker, the list of parts and the Add a part section marked, Admin">
 
 **To delete a part:** press **Delete** on its row, then press **Delete** in the **Delete this part?** dialog. There is no button to change a part here; if it is wrong, delete it and add it again.
 
@@ -333,7 +333,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 3. **Filter row** — **Academic year** and **Class**.
 4. **List** — **Name**, **Class**, **Academic year**, **Kind**, **Status**; at the end of each row, **View** and **Edit**.
 
-<!-- image pending: the four parts of the exam list, numbered, Admin, desktop -->
+<img src="img/exams-01-list.png" alt="the four parts of the exam list, numbered, Admin">
 
 </details>
 

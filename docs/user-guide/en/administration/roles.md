@@ -67,7 +67,7 @@ Every staff member has one **role**, such as Teacher or Accountant. The role dec
 
    → The group opens and every permission in it is shown in plain words. Press it again to close it.
 
-<!-- image pending: Roles & access page; 1 · title and the "Read-only" line 2 · one role card 3 · data access 4 · permission count 5 · one open permission group; admin, desktop -->
+<img src="img/roles-01-list.png" alt="Roles & access page; 1 · title and the &quot;Read-only&quot; line 2 · one role card 3 · data access 4 · permission count 5 · one open permission group; admin">
 
 > **Remember:** these cards come from the same list the school's system uses to check every action. So what the card says matches what the app allows. A Teacher's permissions still work only inside their own sections.
 
@@ -153,7 +153,7 @@ Opening this page needs the permission to view the staff list, which only the Ad
 4. The number of permissions.
 5. The permission groups — for example **Fees**, **Attendance & leave**, [**Applications**](../applications/applications.md); press one to open it.
 
-<!-- image pending: Roles & access page, the five parts marked with numbers; admin, desktop -->
+<img src="img/roles-01-list.png" alt="Roles & access page, the five parts marked with numbers; admin">
 
 </details>
 

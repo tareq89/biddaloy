@@ -146,7 +146,7 @@ The teacher takes attendance from the [**Taking attendance**](../attendance/atte
 3. The month's calendar, with arrows at the top to change month.
 4. The details of the chosen day.
 
-![Attendance, a late day chosen](img/attendance-02.png)
+![Attendance, the details of the chosen day](img/attendance-02.png)
 
 </details>
 

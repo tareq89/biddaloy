@@ -37,6 +37,16 @@ async function tall<T>(page: Page, fn: () => Promise<T>, size = TALL): Promise<T
   }
 }
 
+/** `snap` clipped to the callout targets (plus a margin), so text stays legible at page width. */
+async function snapTight(page: Page, file: string, callouts: { target: Locator }[], skipLast = false): Promise<void> {
+  const boxes = (await Promise.all((skipLast ? callouts.slice(0, -1) : callouts).map((c) => c.target.boundingBox()))).filter((b) => b !== null);
+  const x0 = Math.max(0, Math.min(...boxes.map((b) => b.x)) - 36);
+  const y0 = Math.max(0, Math.min(...boxes.map((b) => b.y)) - 36);
+  const x1 = Math.max(...boxes.map((b) => b.x + b.width)) + 36;
+  const y1 = Math.max(...boxes.map((b) => b.y + b.height)) + 36;
+  await snap(page, file, callouts, { region: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } });
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test('finance: setup, then accountant pages', async ({ browser }, info) => {
@@ -67,7 +77,7 @@ test('finance: setup, then accountant pages', async ({ browser }, info) => {
       await dlg.getByRole('textbox').nth(1).fill('1500');
       await pick(page, dlg.getByRole('combobox').nth(1), 0);
       await pick(page, dlg.getByRole('combobox').nth(2), 0);
-      await snap(page, f('fee-structures-01-dialog'), [
+      await snapTight(page, f('fee-structures-01-dialog'), [
         { target: dlg.getByRole('textbox').first() },
         { target: dlg.getByRole('combobox').first() },
         { target: dlg.getByRole('textbox').nth(1) },
@@ -155,7 +165,7 @@ test('finance: setup, then accountant pages', async ({ browser }, info) => {
     await rows(page).first().getByRole('link').first().click();
     await page.waitForTimeout(1500);
     await tall(page, () =>
-      snap(page, f('invoices-01-detail'), [
+      snapTight(page, f('invoices-01-detail'), [
         { target: h1(page) },
         { target: main.locator('table').first() },
       ]),
@@ -172,13 +182,13 @@ test('finance: setup, then accountant pages', async ({ browser }, info) => {
       const amount = page.getByRole('textbox').nth(1);
       await amount.fill('1000');
       await page.waitForTimeout(800);
-      await snap(page, f('record-payment-01'), [
+      await snapTight(page, f('record-payment-01'), [
         { target: page.locator('h2').nth(0) },
         { target: amount },
         { target: page.locator('h2').nth(1) },
         { target: page.locator('h2').nth(2) },
         { target: page.getByRole('button').last() },
-      ]);
+      ], true);
     }, XTALL);
   });
 
@@ -190,7 +200,7 @@ test('finance: setup, then accountant pages', async ({ browser }, info) => {
   await step('generate-01', async () => {
     await go(page, '/fees/generate?generate=1');
     await page.waitForTimeout(1000);
-    await tall(page, () => snap(page, f('generate-fees-01'), [{ target: cards(page).first() }, { target: cards(page).nth(1) }]));
+    await tall(page, () => snapTight(page, f('generate-fees-01'), [{ target: cards(page).first() }, { target: cards(page).nth(1) }]));
   });
 
   await step('fines-list', async () => {
@@ -209,7 +219,7 @@ test('finance: setup, then accountant pages', async ({ browser }, info) => {
   await step('schedule-new', async () => {
     await go(page, '/fees/schedules?new=1');
     await page.waitForTimeout(800);
-    await tall(page, () => snap(page, f('recurring-schedules-01-new'), [{ target: cards(page).first() }, { target: cards(page).nth(1) }, { target: cards(page).nth(2) }, { target: cards(page).nth(3) }]));
+    await tall(page, () => snapTight(page, f('recurring-schedules-01-new'), [{ target: cards(page).first() }, { target: cards(page).nth(1) }, { target: cards(page).nth(2) }, { target: cards(page).nth(3) }]));
   });
   void saveBar;
 });
