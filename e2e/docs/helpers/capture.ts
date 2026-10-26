@@ -217,27 +217,10 @@ export async function recordGif(
     })
     .concat(`file '${name(stamps.length - 1)}'`);
   writeFileSync(path.join(dir, 'frames.txt'), `${list.join('\n')}\n`);
-  // A workflow may resize the viewport (desktop admin, then a guest on a phone): every frame is
-  // centred on a canvas of the starting viewport, so the GIF keeps one size.
-  const { width: w, height: h } = viewport;
   const mov = path.join(dir, 'frames.mov');
   execFileSync('ffmpeg', [
-    ...[
-      '-y',
-      '-loglevel',
-      'error',
-      '-f',
-      'concat',
-      '-safe',
-      '0',
-      '-i',
-      path.join(dir, 'frames.txt'),
-    ],
-    ...[
-      '-vf',
-      `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:-1:-1:color=#e9ecef`,
-    ],
-    ...['-fps_mode', 'vfr', '-c:v', 'png', mov],
+    ...['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0'],
+    ...['-i', path.join(dir, 'frames.txt'), '-fps_mode', 'vfr', '-c:v', 'png', mov],
   ]);
   execFileSync('node', [
     'scripts/user-guide/gif.mjs',
@@ -254,7 +237,16 @@ export async function recordGif(
 export async function loginAs(page: Page, card: string): Promise<void> {
   // /auth/login and /auth/refresh allow 5 a minute per IP; a tour that signs in often must pace itself.
   await page.waitForTimeout(13_000);
-  await page.goto(`/login?role=${card}`);
+  if (process.env.GUIDE_PASSWORD) {
+    // A server without DEMO_MODE (needed for the upload GIFs) shows no login cards: use the form.
+    await page.goto('/login');
+    const email = process.env.GUIDE_LOGIN_EMAIL ?? `${card}@bmsc.example`;
+    await page.getByLabel(/Email or phone number|ইমেইল/).fill(email);
+    await page.getByLabel(/^Password|পাসওয়ার্ড/).fill(process.env.GUIDE_PASSWORD);
+    await page.getByRole('button', { name: /^Sign in|সাইন ইন/ }).click();
+  } else {
+    await page.goto(`/login?role=${card}`);
+  }
   await page.waitForURL(/\/(dashboard|portal|select-school)/);
   if (page.url().includes('/select-school')) {
     await page.getByRole('button', { name: /Continue|চালিয়ে যান/ }).click();

@@ -249,7 +249,7 @@ Guardians do not see staff notes or the reason for a rejection on this page.
 | A guardian says **We couldn't submit your form. Please check your answers and try again.**                 | Ask whether they already applied once; if so, look for them in the applicants list. If not, check whether the round's last day or the seats have run out.           | Office staff |
 | A guardian says **The robot check didn't go through. Please complete the check below again, then submit.** | They complete the check box again and press **Submit application**. What they typed is not lost.                                                                    | —            |
 | A guardian says **Applications can't be sent right now. Please try again in a little while.**              | The site's check service is not running right now; changing the form will not help. Tell support.                                                                   | Support team |
-| A guardian says **We couldn't find an application with this reference number and phone number.**          | Ask them to use the phone number they gave on the form. Compare the reference number with the applicants list.                                                      | Office staff |
+| A guardian says **We couldn't find an application with this reference number and phone number.**           | Ask them to use the phone number they gave on the form. Compare the reference number with the applicants list.                                                      | Office staff |
 
 ---
 
@@ -270,10 +270,10 @@ Guardians do not see staff notes or the reason for a rejection on this page.
 
 Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
 
-| Issue                                                                                                                                                                                              | Who, when                                              | Data saved?                                                 | What to do for now                                                            |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Nowhere in the app can you see or copy the school's admission link                                                                                                                                 | Whoever gives guardians the link after opening a round | Yes, the round is fine                                      | Ask support for the school's link name; the link is `…/admission/<link-name>` |
-| There is no button to close a round right away                                                                                                                                                     | When you want to stop a round early                    | Yes                                                         | [Change the dates to close it](#task-edit)                                    |
+| Issue                                                                                                                                                                                            | Who, when                                              | Data saved?                                                 | What to do for now                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Nowhere in the app can you see or copy the school's admission link                                                                                                                               | Whoever gives guardians the link after opening a round | Yes, the round is fine                                      | Ask support for the school's link name; the link is `…/admission/<link-name>` |
+| There is no button to close a round right away                                                                                                                                                   | When you want to stop a round early                    | Yes                                                         | [Change the dates to close it](#task-edit)                                    |
 | When the same child is submitted again, or the seats or time run out at the moment of submitting, the guardian sees only "Please check your answers and try again"; the real reason is not given | A guardian, on a second submission                     | The earlier application stays; the new one is not submitted | Ask the guardian to contact the school with the reference number              |
 
 ---
@@ -344,7 +344,15 @@ Fields on the guardian's form:
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: img/people-admission-intakes-flow.gif — GIF from adding a round to a guardian submitting on a phone, admin and guest -->
+<figure>
+  <img src="img/people-admission-intakes-flow.gif" alt="The admin's half on a computer: Add admission round, give it a title, class and section, seat count, open and close dates, untick the papers and press Create; the new round shows as Open">
+  <figcaption><em>The office opens a round</em></figcaption>
+</figure>
+
+<figure>
+  <img src="img/people-admission-intakes-flow-phone.gif" alt="The guardian's half on a phone, no sign-in: choose the round, type the student's name, pick the date of birth and gender, type the guardian's name and phone number, Submit application, and the reference number appears" width="300">
+  <figcaption><em>A guardian applies on a phone</em></figcaption>
+</figure>
 
 </details>
 

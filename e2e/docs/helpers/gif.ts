@@ -11,7 +11,8 @@ import { devices, test, type BrowserContextOptions, type Page } from '@playwrigh
 import { imgDir, loginAs, prepare, recordGif } from './capture';
 
 export interface GifTourOptions {
-  card: string;
+  /** Demo login card; none for a signed-out visitor (the public admission form). */
+  card?: string;
   /** `<section>/img/<file>` under the language folder. */
   file: string;
   section?: string;
@@ -30,7 +31,7 @@ export function gifTour(
     test.skip(info.project.metadata.device !== 'desktop');
     test.setTimeout(400_000);
     await prepare(page);
-    await loginAs(page, opts.card);
+    if (opts.card) await loginAs(page, opts.card);
     const storageState = await page.context().storageState();
     const phone = devices['Pixel 7'];
     const context: BrowserContextOptions = opts.phone
