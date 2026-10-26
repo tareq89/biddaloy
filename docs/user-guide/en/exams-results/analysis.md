@@ -42,7 +42,7 @@ appVersion: 0.1.0 (a25ab3344)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: overall-row-absent-zero, checked: 2026-10-25, issue: null }
+  - { id: overall-row-absent-zero, checked: 2026-10-25, issue: 2923 }
 -->
 
 # Merit list and result analysis
@@ -98,7 +98,7 @@ This page is for viewing only. Nothing you press here changes any marks or resul
 
    → The list shows each student's **Position**, **Roll**, **Name**, **Total marks**, **GPA**, **Grade** and **Result** (**Pass** or **Fail**). When you see all sections, there is also a **Section** column. When you choose one section, the first column is **Section position**.
 
-<!-- image pending: Result analysis page with the Merit list tab open; 1 · Exam box 2 · Section box 3 · the three tabs 4 · the list 5 · Print and Download CSV; Admin, desktop -->
+<img src="img/analysis-01-merit.png" alt="Result analysis page with the Merit list tab open; 1 · Exam box 2 · Section box 3 · the three tabs 4 · the list 5 · Print and Download CSV; Admin">
 
 Example: for the Class 8 half-yearly exam, **All sections** shows the position in the whole class, such as 1, 2, 3. If you choose section "A" in the **Section** box, only the students of section A appear, and **Section position** is the order inside that section.
 
@@ -219,7 +219,7 @@ Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. 
 3. The three tabs — **Merit list**, **Failed or absent**, **Pass/fail by subject**.
 4. The list. The **Merit list** starts with 25 students per page; the other two tabs show all rows together.
 
-<!-- image pending: the four parts of the Result analysis page, numbered, with the Pass/fail by subject tab open and the By part tick visible; Admin, desktop -->
+<img src="img/analysis-02-passfail.png" alt="the four parts of the Result analysis page, numbered, with the Pass/fail by subject tab open and the By part tick visible; Admin">
 
 </details>
 

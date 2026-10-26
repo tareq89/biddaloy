@@ -76,7 +76,7 @@ This page is for looking only. You cannot pay here; payment is made at the schoo
 
    → Each month is separate, newest first. For each month: **Charged**, **Discount**, **Paid**, **Outstanding** and **Status**, with **Due …** underneath.
 
-<!-- image pending: Fees and invoices, one child; 1 · Outstanding and Charged/Discount/Paid 2 · Month by month 3 · Invoices and Print; parent, phone -->
+<img src="img/fees-01.png" alt="Fees and invoices, one child" width="300">
 
 > **Remember:** a month that is fully paid stays in the list, with 0 under outstanding. It is kept so you can see how much was charged.
 
@@ -179,7 +179,7 @@ The school's internal details (for example who took a payment) do not appear on 
 5. **Invoices**, with **Print** beside each.
 6. Beside or below, **Credit balance** and **Recurring fees** (if any).
 
-<!-- image pending: Fees and invoices, two children, six parts numbered; parent, desktop -->
+![Fees and invoices on a desktop](img/fees-02.png)
 
 </details>
 
@@ -199,6 +199,10 @@ The school's internal details (for example who took a payment) do not appear on 
 </details>
 
 **Related pages**
+
+- [**Alerts and notifications (parent and student)**](notifications.md) — the unpaid fees alert.
+
+
 
 - [**Overview**](overview.md) — total outstanding and what is due this month.
 - [**Attendance**](attendance.md) — every day of the month.

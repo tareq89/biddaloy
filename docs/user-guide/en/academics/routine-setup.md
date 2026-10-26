@@ -45,8 +45,8 @@ appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: period-times-locked-by-history, checked: 2026-10-24, issue: null }
-  - { id: no-edit-shift-room, checked: 2026-10-24, issue: null }
+  - { id: period-times-locked-by-history, checked: 2026-10-24, issue: 2893 }
+  - { id: no-edit-shift-room, checked: 2026-10-24, issue: 2894 }
 -->
 
 # Setting up shifts, period times, rooms and rules for the routine
@@ -82,7 +82,7 @@ This page has three tabs: **Shifts and periods**, **Rooms** and **Routine rules*
 
    → The title **Routine setup** at the top, and below it "Set shifts, period times, rooms and rules before building a routine." The **Shifts and periods** tab is open.
 
-<!-- image pending: Routine setup page, with the three tabs and the Add shift button marked, admin, desktop -->
+![Routine setup page, with the three tabs and the Add shift button](img/routine-setup-01.png)
 
 2. In the **Shifts** section, press **Add shift**.
 
@@ -143,7 +143,7 @@ Nothing on this page can be kept on a phone or computer and sent later. It is sa
 
 > **Remember:** nothing reaches the system until you press **Save**. If you try to leave without saving, the app warns you. You cannot place a period of the class routine in a **Break** row.
 
-<!-- image pending: Period times section, with the timeline, one Break row and the Save button marked, admin, desktop -->
+![Period times section, with the timeline, one Break row and the Save button](img/routine-setup-02.png)
 
 Once any period of a shift has been placed in a class routine, its times can no longer be changed: **Periods of this shift are already placed in a routine, so their times can't be replaced. Remove those periods from the class routine first.** So check the times carefully before you build routines. More: [Known issues](#known-issues).
 
@@ -246,7 +246,7 @@ Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. 
 2. **Rooms** — the **Rooms** list (**Room no.**, **Building**, **Capacity**) and **Add room**.
 3. **Routine rules** — three number fields and **Save**.
 
-<!-- image pending: the three tabs marked with numbers, admin, desktop -->
+![the three tabs](img/routine-setup-03.png)
 
 </details>
 

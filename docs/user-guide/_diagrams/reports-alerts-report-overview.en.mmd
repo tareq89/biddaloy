@@ -1,0 +1,9 @@
+%% title: What the alerts report counts
+%% desc: Only alerts that came from the school's rules and were raised in the chosen month are counted. Alerts sent by hand are left out. Each one is counted under its rule and its section, or under No section. The four boxes come from the same alerts.
+flowchart LR
+  A["Alerts raised<br/>in the month"] --> R{"From a rule?"}
+  R -- "No, sent by hand" --> X["Not counted"]
+  R -- "Yes" --> C["Count under rule<br/>and section"]
+  C --> T["By rule and<br/>section table"]
+  C --> F["Total · Fixed ·<br/>Average time to fix ·<br/>Still open"]:::done
+  classDef done fill:#ebfbee,stroke:#2b8a3e,color:#14411d

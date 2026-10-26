@@ -41,12 +41,12 @@ Your name, contact details, password and signed-in devices, on one page.
 **Go to:** On a phone, the bottom bar's **More** → **Account**. Or the **Account menu** at the top right → **Security**.
 **Before you start:** To change a phone or email you need your current password.
 
-[Sign out a lost phone](#task-devices) · [Change phone or email](#task-contact) · [Problems and fixes](#trouble)
+[Sign out a lost phone](#task-main) · [Change phone or email](#task-contact) · [Problems and fixes](#trouble)
 
 **On this page**
 
 - [How to get to this page](#arrive)
-- [Sign out a lost phone](#task-devices)
+- [Sign out a lost phone](#task-main)
 - [Change phone or email](#task-contact)
 - [Other situations](#other)
   - [Change your name](#task-profile)
@@ -71,7 +71,7 @@ The cards on the page, from top to bottom: **Profile**, **Email & phone**, **Con
 
 ---
 
-## Sign out a lost phone <a href="#task-devices" id="task-devices"></a>
+## Sign out a lost phone <a href="#task-main" id="task-main"></a>
 
 If you lose your phone, sign it out from another phone or a computer.
 
@@ -81,7 +81,7 @@ If you lose your phone, sign it out from another phone or a computer.
 
    → A list of the devices you are signed in on. The current one says **This device**, then the most recent ones. The first 5 show; if there are more, tap **Show all 8 devices**.
 
-<!-- image pending: img/portal-account-01-devices.png (width 300) — The Devices card on a phone: 1 This device, 2 sign out another device, 3 sign out everywhere -->
+<img src="img/account-01.png" alt="The Devices card on a phone" width="300">
 
 3. On the lost phone's row, tap **Sign out**.
 
@@ -101,7 +101,7 @@ You sign in with this phone or email, and you get a code on it if you forget you
 
 2. Type the new number or email. Type your **Current password**. Tap **Continue**.
 
-<!-- image pending: img/portal-account-02-contact.png (width 300) — Change phone number on a phone: 1 new phone number, 2 current password, 3 Continue -->
+<img src="img/account-02.png" alt="Change phone number on a phone" width="300">
 
 3. **For a phone:** A 6-digit code goes to the new number. Type it in the **Verification code** box and tap **Confirm**.
 
@@ -118,6 +118,12 @@ You sign in with this phone or email, and you get a code on it if you forget you
 | Time ran out                         | The **old** one stays                           | Tap **Change** again                    |
 
 If you type the new number wrong, do not worry. If you do not give the code, nothing changes.
+
+---
+
+## How to know you are looking at the right thing <a href="#confirm" id="confirm"></a>
+
+You are on the right page when the cards run from top to bottom as **Profile**, **Email & phone**, **Contact numbers** (parents only), **Change password**, **Sign-in methods**, **Push notifications**, notification preferences, **Devices**, **Subscribe to the calendar**, and the **Sign out** button last. After you change a phone or email, the old one stays until the new one is verified.
 
 ---
 

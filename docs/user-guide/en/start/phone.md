@@ -20,7 +20,7 @@ appVersion: 0.1.0 (c08a9eb19)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: ios-sheet-old-name, checked: 2026-10-24, issue: null }
+  - { id: ios-sheet-old-name, checked: 2026-10-24, issue: 2950 }
 -->
 
 # Open on your phone and install as an app
@@ -72,7 +72,7 @@ SchoolManager runs in the browser. You do not download it from the Play Store or
 
    → The menu opens. **Install app** is near the bottom.
 
-<!-- image pending: img/phone-01-install-menu.png (width 300) — Account menu open on a phone: 1 Account menu, 2 Install app. Source: e2e/docs/tours/start-phone.tour.ts at 390 px -->
+<img src="img/phone-01-install-menu.png" alt="Account menu open on a phone: 1 Account menu, 2 Install app" width="300">
 
 4. Tap **Install app**.
 
@@ -157,6 +157,8 @@ On a phone, the menu on the left is hidden. Where to find things:
 | On an iPhone, **Install app** is not in the menu | You are in Chrome or another browser. [Use the Share button](#task-iphone), or open it in Safari.                      | —            |
 | Opening from the icon asks you to sign in again  | The installed app may open separately from the browser. [Sign in](sign-in.md) once more.                               | —            |
 | The address does not open                        | Compare the address with the one the admin sent, and check your internet.                                              | School admin |
+
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#phone).
 
 ---
 
