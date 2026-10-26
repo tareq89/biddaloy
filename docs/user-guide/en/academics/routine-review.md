@@ -44,9 +44,9 @@ appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: teacher-sees-draft-periods, checked: 2026-10-24, issue: null }
-  - { id: coordinator-no-full-view, checked: 2026-10-24, issue: null }
-  - { id: request-outcome-not-shown, checked: 2026-10-24, issue: null }
+  - { id: teacher-sees-draft-periods, checked: 2026-10-24, issue: 2860 }
+  - { id: coordinator-no-full-view, checked: 2026-10-24, issue: 2891 }
+  - { id: request-outcome-not-shown, checked: 2026-10-24, issue: 2892 }
 -->
 
 # Reviewing and publishing the routine
@@ -100,7 +100,7 @@ This page works on the current academic year's **routine**. A routine has three 
 
    → **Routine review** at the top, with the state next to it (for example **Draft**). The facts: **Academic year**, **Periods**, **Who can see it**. Below is the **All periods** list.
 
-<!-- image pending: Routine review page, Draft state, the Submit for review button and the facts marked, admin, desktop -->
+![Routine review page, Published state, the facts and the Copy to another year button](img/routine-review-01.png)
 
 2. Look through the **All periods** list to check that every section is filled ([See the list of all periods](#task-list)).
 
@@ -178,7 +178,9 @@ On this page a teacher sees only **My periods** ("Your weekly periods."). Once t
 
    → The **Sent** message appears and the dialog closes.
 
-<!-- image pending: the teacher's My periods list and the Request a change dialog, teacher, phone -->
+![the teacher's My periods list on a phone, with a Request a change button on each period](img/routine-review-04-phone.png)
+
+![the Request a change dialog on a phone, with the note box, Send and Cancel](img/routine-review-05-phone.png)
 
 | You press  | What happens                                                                                    | Saved? |
 | ---------- | ----------------------------------------------------------------------------------------------- | ------ |
@@ -289,7 +291,7 @@ Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. 
 3. **Change requests** — only on a published routine.
 4. **All periods** — the list, with the **Class and section** filter.
 
-<!-- image pending: the Admin's page on a published routine, the four parts marked with numbers, admin, desktop -->
+![the Admin's page on a published routine, the four parts](img/routine-review-03.png)
 
 </details>
 

@@ -71,7 +71,7 @@ Every section has a **list of duties**. Each row of the list is one teacher and 
 
    → The title **Teacher assignments** at the top, with "Who is class teacher and who teaches what, section by section" below it. Under that is the **Class** field, and a card for each section of that class: **Section A**, **Section B** and so on. The first class is already chosen.
 
-<!-- image pending: the Teacher assignments page, with the Class field, section cards, Add teacher button and duty list marked, admin, desktop -->
+![the Teacher assignments page, with the Class field, section cards, Add teacher button and duty list](img/teaching-assignments-01.png)
 
 2. In **Class**, choose the class whose section you will give a duty in.
 
@@ -93,7 +93,7 @@ Every section has a **list of duties**. Each row of the list is one teacher and 
 
    → The list has only active subjects, with the code beside each name. If you open the page in Bangla, the names are in Bangla.
 
-<!-- image pending: the Assign teacher dialog with Subject teacher chosen, four parts marked, admin, desktop -->
+![the Assign teacher dialog with Subject teacher chosen, four parts](img/teaching-assignments-02.png)
 
 7. Press **Assign** at the bottom of the dialog.
 
@@ -116,7 +116,7 @@ This work does not run without internet. So there is no **Saved on this device**
 
 **To check:** reload the page, choose the same **Class**, and look for the row on the section's card. Or open that teacher's page from [Adding and managing staff](staff.md) and look in the **Teacher assignments** tab.
 
-<!-- image pending: the section card, three kinds of row, three parts marked, admin, desktop -->
+![the section card, three kinds of row, three parts](img/teaching-assignments-03.png)
 
 **If no message appears:** see [Problems and fixes](#trouble). What you chose in the dialog stays; nothing is lost.
 
@@ -215,6 +215,8 @@ An Admin gets past all these rules and can see and work on every section.
 | You cannot find a teacher in the **Teacher** field                                     | They have no teacher profile. [Give a teacher profile](staff.md#task-teacher).                                                                                                                       | Admin        |
 | A teacher says they see no section                                                     | Check whether their row is in the **Teacher assignments** tab, and whether the class is of the current academic year ([the condition](#after)).                                                      | Admin        |
 
+If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
@@ -238,7 +240,7 @@ Someone without permission who opens the page sees **You don't have access to th
 3. **The section card** — each section's name (for example **Section A**) and the **Add teacher** button.
 4. **The duty list** — **Teacher** (name and employee ID), **Duty**, **Subject**; at the end of each row, **Remove from section**.
 
-<!-- image pending: the four parts of the Teacher assignments page marked with numbers, admin, desktop -->
+![the four parts of the Teacher assignments page](img/teaching-assignments-04.png)
 
 </details>
 
@@ -276,7 +278,10 @@ Someone without permission who opens the page sees **You don't have access to th
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: GIF from choosing a class to assigning and removing a teacher, admin, desktop -->
+<figure>
+  <img src="img/teaching-assignments-assign.gif" alt="The whole job on a computer: choose a class, press Add teacher on a section, pick the teacher and assign them as class teacher, then remove that teacher from the section and confirm">
+  <figcaption><em>Choosing a class, giving a duty, taking it back</em></figcaption>
+</figure>
 
 </details>
 
@@ -293,7 +298,7 @@ Someone without permission who opens the page sees **You don't have access to th
 - [**Taking attendance**](../attendance/attendance.md) — attendance is taken for the sections assigned here.
 - [**Roles and permissions**](../administration/roles.md) — See side by side what each staff role in the school can see and do, on one page. The page is view-only.
 - [**Applications**](../applications/applications.md) — Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper.
-- [**Entering and submitting exam marks**](../exams-results/marks-entry.md) — Pick an exam, open the marks list for your section and subject, type each student's marks or mark them absent or exempt, then submit the.
+- [**Entering and submitting exam marks**](../exams-results/marks-entry.md) — Pick an exam, open the marks list for your section and subject, type each student's marks or mark them absent or exempt.
 
 ---
 

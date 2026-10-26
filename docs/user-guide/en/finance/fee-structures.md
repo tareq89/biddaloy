@@ -40,8 +40,8 @@ appVersion: 0.1.0 (a25ab3344)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - When a delete is blocked, the red text in the window says "payments have already been recorded", but the server actually blocks it when a fine rule or an automatic billing rule uses the structure.
-  - The text at the bottom of the window says fees are generated every month for matching classes; in fact bills are created only when you run "Create bills" or an automatic billing rule runs.
+  - { id: delete-blocked-wrong-reason, checked: 2026-10-25, issue: 2930 } # delete-blocked red text names payments, but a fine rule or automatic billing rule is the real cause
+  - { id: window-text-says-monthly-fees, checked: 2026-10-25, issue: 2931 } # window text says fees are generated monthly; bills are created only by Create bills or an automatic billing rule
 -->
 
 # Setting up fee structures
@@ -86,7 +86,7 @@ A **fee structure** is a price label: a name, a fee type and an amount, for exam
 7. If you leave the **Class** box as it is, the structure is for the **Whole school**. To set it for one class, choose that class.
 8. If you chose a class, keep **All sections in the class** in the **Section** box, or choose one section.
 
-<!-- image pending: Add fee structure window with the boxes filled; 1 · Name 2 · Fee type 3 · Amount 4 · Academic year 5 · Class 6 · Section 7 · Save; admin, desktop -->
+<img src="img/fee-structures-01-dialog.png" alt="Add fee structure window with the boxes filled; 1 · Name 2 · Fee type 3 · Amount 4 · Academic year 5 · Class 6 · Section 7 · Close button; admin">
 
 9. Press **Save**.
 
@@ -188,7 +188,7 @@ In the **Search** box above the list, type a name. You can also filter by **Acad
 2. The filters — **Search**, **Academic year**, **Class**, **Section**, **Fee type**.
 3. The list — **Name**, **Type**, **Academic year**, **Class · Section**, **Amount**; **Edit** and **Delete** at the end of each row.
 
-<!-- image pending: Fee structures list, the three parts marked with numbers; one row showing "Whole school", one row showing Class · Section; admin, desktop -->
+<img src="img/fee-structures-02-list.png" alt="Fee structures list, the three parts marked with numbers; one row showing &quot;Whole school&quot;, one row showing Class · Section; admin">
 
 </details>
 
@@ -221,7 +221,7 @@ In the **Search** box above the list, type a name. You can also filter by **Acad
 - **Money limits:** the amount is above 0, has up to two digits after the decimal point, and is at most ৳9,99,99,999.99.
 - **When the money goes into a bill:** at the moment a bill is created, the structure's amount is copied into the bill. Changing or deleting the structure later does not change that bill.
 - **Discounts:** if a student has a discount rule, it is taken off this amount when the bill is created.
-- **Fine rules:** a fine rule also uses a fee structure. <!-- link pending: finance/fines.md (fines page owned by another lane) -->
+- **[Fine rules](fines.md):** a fine rule also uses a fee structure.
 
 </details>
 
@@ -231,8 +231,8 @@ In the **Search** box above the list, type a name. You can also filter by **Acad
 - [**Automatic billing**](recurring-schedules.md) — bills from this structure every month or week, on their own.
 - [**Academic years**](../academics/academic-years.md) — every structure belongs to one academic year.
 - [**Classes**](../academics/classes.md) — a structure can be set for a class or section.
-- [**Fines**](fines.md) — Add a student's fine by hand, make the month's fines at month end from absence or lateness rules, set the fine rules, and waive a fine in.
-<!-- link pending: finance/student-dues.md — student dues (other lane) -->
+- [**Fines**](fines.md) — Add a student's fine by hand, make the month's fines at month end from absence or lateness rules, set the fine rules.
+- [**Student dues**](dues.md) — see who owes what
 
 ---
 

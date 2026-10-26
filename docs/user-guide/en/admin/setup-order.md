@@ -86,7 +86,7 @@ It is easiest to follow the order, because each task stands on the one before it
 
 A Bangla name or a logo, either one, is enough to make the row **Done**.
 
-<!-- image pending: img/setup-01-school-profile.png — Settings, School section: 1 the school profile fields, 2 the logo upload, 3 Save -->
+![Settings, School section: the school profile fields, the logo upload and Save](img/setup-order-01.png)
 
 ### Step 2: Academic year <a href="#step-2" id="step-2"></a>
 
@@ -117,7 +117,7 @@ The row on the card is called **Classes**. It is **Done** as soon as there is on
 
 **To make your own classes:** in the left menu open **Academics → Classes** (→ [Arranging classes, sections and subjects](../academics/classes.md)) and press **Add class**. If you need a shift or version, first see [Academic year, class, section](how-it-works.md#task-structure).
 
-<!-- image pending: img/setup-03-curriculum-preset.png — Ready-made curriculum page: 1 the three steps, 2 a curriculum card, 3 the Use this curriculum button -->
+<img src="img/setup-03-curriculum-preset.png" alt="Ready-made curriculum page: 1 the Choose a curriculum step, 2 a curriculum card, 3 its Choose button; Use this curriculum comes on the Confirm step">
 
 ### Step 4: Sections <a href="#step-4" id="step-4"></a>
 
@@ -153,7 +153,9 @@ The row on the card is called **Students**. It is **Done** as soon as there is o
 
 Sending the invitation to guardians is in step 9.
 
-<!-- image pending: img/setup-05-import-students.png — Students page: 1 the Import students button, 2 the check result before confirming -->
+<img src="img/setup-05-import-students.png" alt="the Students page: 1 the Import students button, admin">
+
+<img src="img/setup-05b-import-check.png" alt="the Import students page after the file is checked: 1 No problems and the number of students that will be created, above the preview rows, admin">
 
 ### Step 6: Staff and roles <a href="#step-6" id="step-6"></a>
 
@@ -185,7 +187,7 @@ The row on the card is called **Fees**. It is **Done** as soon as there is one f
 
 Creating the fee bills and taking payments are not on this page. They come later on the path of a fee (→ [the fourth of the five pictures](how-it-works.md#task-money)).
 
-<!-- image pending: img/setup-07-fee-structures.png — Fee structures page: 1 the list of structures, 2 the add button -->
+![Fee structures page with the list of structures and the add button](img/setup-order-04.png)
 
 ### Step 8: Routine <a href="#step-8" id="step-8"></a>
 
@@ -291,7 +293,7 @@ Only the admin sees the **Finish setting up your school** card.
 - [**Creating and managing academic years**](../academics/academic-years.md): step 2: make the academic year first.
 - [**Arranging classes, sections and subjects**](../academics/classes.md): step 3: make classes, sections and subjects by hand.
 - [**Adding students and viewing their details**](../people/students.md): step 5: add or import students.
-- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects, grading scale and exam templates in.
+- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects.
 
 ---
 

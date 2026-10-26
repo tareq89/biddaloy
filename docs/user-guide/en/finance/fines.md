@@ -94,9 +94,9 @@ For example: someone lost a library book, or broke something.
 
    → A message like "**2 fines logged**" appears. A separate bill is made for each student.
 
-<!-- image pending: Log fine window; 1 · Students 2 · Fine type 3 · Amount 4 · Incident date 5 · Reason 6 · Notify guardian; accountant, desktop -->
+<img src="img/fines-01-log.png" alt="Log fine window; 1 · Students 2 · Fine type 3 · Amount 4 · Incident date 5 · Reason 6 · Notify guardian; accountant">
 
-> **Remember:** if you add a fine for the same student again in the same month, the earlier one does not change; another new bill is made. A fine's due date is some days from today; 7 days unless the school's settings change it.
+> **Remember:** if you add a fine for the same student again in the same month, the earlier one does not change; another new bill is made. A fine's due date is 7 days after the day you add it (not after the incident date).
 
 ---
 
@@ -146,12 +146,13 @@ The rule: absent days, fine type 50 taka, **Free per month** 2, **Cap per month*
 | 5 days              | 3                                  | 3 × 50 = 150 | 150 taka                      |
 | 9 days              | 7                                  | 7 × 50 = 350 | 200 taka (stopped by the cap) |
 
+- The due date of these fines is 7 days after the day they are made.
 - Fines for a month can only be made after that month has ended; if you pick the current month, the app stops you.
 - Holidays, closed days and days on leave (LEAVE) are not counted.
 - Only whole-day attendance is counted; if a student is absent in a class period but present for the day, it does not count.
 - For a lateness rule, a day counts only if the student was at least **Minimum minutes late** late. If no minutes are set, it always counts.
 
-> **Remember:** the app also makes the previous month's fines by itself every day, but only after the time allowed for fixing attendance after month end has passed (2 days unless the settings change it). This automatic run always skips fines that already exist, and notifies families.
+> **Remember:** the app also makes the previous month's fines by itself every day, but only after the time allowed for fixing attendance after month end has passed (2 days unless the attendance settings change it). With 2 days, the 1st and 2nd of the month are for fixing attendance, and the fines are made from the 3rd. This automatic run always skips fines that already exist, and notifies families.
 
 The same options exist for fee bills; see [**Creating fee bills**](generate-fees.md) for details.
 
@@ -193,7 +194,7 @@ If an active rule already exists for the same academic year, trigger and class, 
 
 From the row's menu you can **Edit**, **Deactivate** / **Activate**, and **Delete**. When you delete, a window asks first; a deleted rule cannot be brought back. An inactive rule makes no new fines.
 
-<!-- image pending: the fine rules list, one absence rule and one lateness rule; the Add rule button marked; admin, desktop -->
+<img src="img/fines-02-rules.png" alt="the fine rules list, one absence rule and one lateness rule; the Add rule button marked; admin">
 
 ### Copy last year's rules <a href="#task-copy" id="task-copy"></a>
 
@@ -220,6 +221,8 @@ From the row's menu you can **Edit**, **Deactivate** / **Activate**, and **Delet
 | **Waive fine** is missing                                        | Only an admin sees it; it does not appear on a paid or waived fine.                                                       | Admin        |
 | An active fine rule already exists for this year, trigger and class | Change the old rule, or deactivate it first.                                                                              | Accountant   |
 | The fine rules cannot be loaded                                  | If you are a teacher, academic coordinator or office assistant, the rules page does not open for you. For others: reload. | Admin        |
+
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#fees).
 
 ---
 
@@ -265,7 +268,7 @@ Only sees all fines, for example when a guardian asks. Cannot make any change.
 3. The filters — **Month**, **Class**, **Section**, **Source**, **Fine type**, **Status**.
 4. The list — the row menu has **Open student** and **Waive fine**.
 
-<!-- image pending: fines list, the four totals boxes and one "Rule" and one "Manual" row; the four parts numbered; admin, desktop -->
+<img src="img/fines-03-list.png" alt="fines list, the four totals boxes and one &quot;Rule&quot; and one &quot;Manual&quot; row; the four parts numbered; admin">
 
 </details>
 
@@ -312,6 +315,10 @@ Only sees all fines, for example when a guardian asks. Cannot make any change.
 </details>
 
 **Related pages**
+
+- [**Fees and invoices**](../portal/fees.md) — how a guardian sees fines.
+
+
 
 - [**Student dues**](dues.md) — fine bills show as owed here.
 - [**Record payment**](record-payment.md) — taking the fine money.

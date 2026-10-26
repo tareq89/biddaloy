@@ -97,7 +97,7 @@ This page is about **grading scales**. A scale is a set of **grade rows**. Each 
 
    → Seven rows appear: 80–100 A+ (5), 70–79 A (4), 60–69 A- (3.5), 50–59 B (3), 40–49 C (2), 33–39 D (1), and 0–32 F, which is a **Fail grade** and has no GPA. They are not saved yet.
 
-<!-- image pending: scale page after using the NCTB grades: the 0–100% bar completely filled at the top, seven rows below; 1 · bar 2 · list of rows 3 · Save; admin, desktop -->
+<img src="img/grading-scales-02-detail.png" alt="scale page after using the NCTB grades: the 0–100% bar completely filled at the top, seven rows below; 1 · bar 2 · list of rows 3 · Save; admin">
 
 8. If needed, change a row's **From (%)**, **To (%)**, **Grade**, **GPA** or **Comment (optional)**. To add a new row press **Add row**; the new row starts from the number after the **To (%)** of the last row and ends at 100, and its grade is blank; fix the range and the grade. To remove a row press **Delete row**.
 
@@ -226,7 +226,7 @@ If an exam's results have been **Published** with this scale, the grades cannot 
 3. **0 to 100% — which marks get which grade** — the coloured bar; below it one line saying whether it is completely filled.
 4. **Grade rows** — **Row**, **From (%)**, **To (%)**, **Grade**, **GPA**, **Fail grade**, **Comment (optional)**, **Actions**; below that **Add row**.
 
-<!-- image pending: the four parts of the scale page marked with numbers, with one red gap shown in the bar, admin, desktop -->
+<img src="img/grading-scales-02-detail.png" alt="the four parts of the scale page marked with numbers, with one red gap shown in the bar, admin">
 
 </details>
 
@@ -283,8 +283,9 @@ If an exam's results have been **Published** with this scale, the grades cannot 
 - [**Entering and submitting exam marks**](marks-entry.md) — the marks the percentage is worked out from.
 - [**Academic years**](../academics/academic-years.md) — each scale belongs to one academic year.
 - [**Classes**](../academics/classes.md) — a class can be given a separate scale.
-- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects, grading scale and exam templates in.
+- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects.
 - [**Merit list and result analysis**](analysis.md) — See an exam's merit list, the students who failed or were absent and the pass/fail by subject, filter by section, print or download a CSV.
+- [**Creating and setting up exams**](exams.md) — creating and setting up exams
 
 ---
 

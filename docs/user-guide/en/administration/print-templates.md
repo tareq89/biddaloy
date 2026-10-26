@@ -96,7 +96,7 @@ This is the whole path up to the first ID card. If no printer is added yet, firs
 
    → The **Print designs** list opens. If it is empty, it says **Start from a design**.
 
-<!-- image pending: Print designs list, two designs, one marked "Default"; admin, desktop -->
+<img src="img/print-templates-01-list.png" alt="Print designs list, two designs, one marked &quot;Default&quot;; admin">
 
 2. Press **New design**.
 
@@ -210,7 +210,7 @@ Every printed card has its own QR code. Anyone can scan it with a phone and the 
 
 **Revoke a lost card** (Admin only):
 
-1. In the left menu open **Reports → Print & documents**. <!-- link pending: reports/printables.md — the Print & documents page is not written yet -->
+1. In the left menu open [**Reports → Print & documents**](../reports/printables.md).
 2. In the card's row press **Revoke**.
 3. Write a **Reason** (required, up to 280 characters; staff see it, the public does not).
 4. Press **Revoke card**.
@@ -237,6 +237,8 @@ Every printed card has its own QR code. Anyone can scan it with a phone and the 
 | Printing a staff card says you have no permission                             | A staff card also needs permission to see staff HR details; ask an Admin     | Admin        |
 | When scanning a QR code: **Too many checks — try again in a minute.**         | Wait a minute and scan again                                                 | You          |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#print).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
@@ -262,7 +264,7 @@ The QR check page is open to everyone, no sign-in needed.
 2. The **Document type** filter (**All documents**).
 3. The list — **Name**, **Type**, **Status** (**Published** / **Draft only**), **Cards per round**, **Last updated**, and **Actions**: **Edit design**, **Make default**, **Archive**.
 
-<!-- image pending: Print designs list, the three parts marked with numbers; admin, desktop -->
+<img src="img/print-templates-01-list.png" alt="Print designs list, the three parts marked with numbers; admin">
 
 </details>
 
@@ -358,8 +360,8 @@ The QR check page is open to everyone, no sign-in needed.
 - [**Certificates**](print-templates/certificates.md) — transfer certificates, testimonials; serial numbers and the register.
 - [**Students**](../people/students.md) — ID card printing starts from the student's page.
 - [**Staff**](../people/staff.md) — the staff card from the staff member's page.
-<!-- link pending: reports/printables.md — Print & documents (history, reprint, revoke); page not there yet -->
-<!-- link pending: administration/settings.md — Settings → Printing; page not there yet -->
+- [**Print & documents**](../reports/printables.md) — print history, reprint and revoke
+- [**Changing the school's settings**](settings.md) — the school settings
 
 ---
 
