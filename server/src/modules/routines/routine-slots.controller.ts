@@ -81,8 +81,9 @@ export class RoutineSlotsController {
   findSlots(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.slotsService.findForRoutine(id, tenant.id);
+    return this.slotsService.findForRoutine(id, tenant.id, { role: tenant.role, userId: user.sub });
   }
 
   @Post(':id/slots')
