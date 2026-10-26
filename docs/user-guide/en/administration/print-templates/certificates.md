@@ -72,7 +72,7 @@ The window has four steps: **Kind**, **Details**, **Preview**, **Print**.
    - Under **From the profile** check the name and class. If something is wrong, press **Fix it in the student's profile**, correct it, then come back here.
    - Under **Serial number** check the **Next** number. You do not type it.
 
-![Issue certificate window, Details step, language, the detail boxes and the next serial number](../img/certificates-01.png)
+![Issue certificate page, Details step, language, the detail boxes and the next serial number](../img/certificates-01.png)
 
 4. Press **See preview**. See the certificate as it will print, then **Next**.
 5. **Print:** choose a **Printer** and press **Print** ([why you choose it yourself](printers-and-calibration.md#why-printer)).

@@ -128,7 +128,7 @@ Program details are saved only when you are online. Work on this page cannot be 
 
 **To check:** reload the page. If the name comes up in the program list, it is in the system. On the program page, match the number under **Milestones**.
 
-<!-- image pending: program page, facts, tabs and milestone list marked, admin, desktop -->
+![Cricket Team program page with the facts, the Milestones and Students tabs and the milestone list, admin](img/programs-03.png)
 
 **If no message appears:** see [Problems and fixes](#trouble). What you typed stays in the dialog; nothing is lost.
 

@@ -13,24 +13,11 @@ async function pickClassSubject(page: Page) {
   const cls = page.getByRole('combobox', { name: tr('syllabus', 'list.classLabel') });
   const sub = page.getByRole('combobox', { name: tr('syllabus', 'list.subjectLabel') });
   await cls.click();
-  const nc = await page.getByRole('option').count();
-  await page.keyboard.press('Escape');
-  for (let ci = 0; ci < nc; ci += 1) {
-    await cls.click();
-    await page.waitForTimeout(500);
-    await page.getByRole('option').nth(ci).click();
-    await page.waitForTimeout(1200);
-    await sub.click();
-    const ns = await page.getByRole('option').count();
-    await page.keyboard.press('Escape');
-    for (let si = 0; si < ns; si += 1) {
-      await sub.click();
-      await page.waitForTimeout(400);
-      await page.getByRole('option').nth(si).click();
-      await page.waitForTimeout(2200);
-      if ((await page.locator('main tbody tr, main [role="listitem"]').count()) > 1) return;
-    }
-  }
+  await page.getByRole('option', { name: /Class 10|দশম|১০|10/ }).first().click();
+  await page.waitForTimeout(1500);
+  await sub.click();
+  await page.getByRole('option', { name: /Agricultural Education|কৃষি/ }).first().click();
+  await page.waitForTimeout(2500);
 }
 
 test('academics W12: syllabus desktop', async ({ browser }, info) => {

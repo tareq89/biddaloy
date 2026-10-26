@@ -147,7 +147,7 @@ The old copy stays valid. For a lost card, first [revoke it](#revoke), then prin
 - Filters: **Document type**, **Design**, **Printed by**, **Date**, **Result**, **Status** (**Valid only** / **Revoked only**), and **Search by name**.
 - Press **View** to see exactly what was printed, front and back. The QR code is not stored, so it does not show there.
 
-![Print & documents, Print history tab, one row revoked](../img/id-cards-02.png)
+![Print & documents, Print history tab, a list of Admit card prints with one cancelled row](../img/id-cards-02.png)
 
 ### Revoke a lost card <a href="#revoke" id="revoke"></a>
 
