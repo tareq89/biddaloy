@@ -86,7 +86,7 @@ A **rule** says: which academic year, for whom, which fee, and on which day. Whe
 9. Check the **Starts on** and **Ends on** dates. The end date cannot be after the last day of the academic year.
 10. If you do not want to tell families, untick **Notify families when bills are created**.
 
-<img src="img/recurring-schedules-01-new.png" alt="New automatic billing rule page; 1 · Rule name and Academic year 2 · Fees 3 · Who is billed 4 · When bills are created 5 · Days to pay 6 · Starts on and Ends on 7 · Save; accountant">
+<img src="img/recurring-schedules-01-new.png" alt="New automatic billing rule page; 1 · Name and year 2 · Fees 3 · Who is billed 4 · When bills are created, with Days to pay, Starts on and Ends on; accountant">
 
 11. Press **Save**.
 

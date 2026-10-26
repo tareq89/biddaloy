@@ -143,7 +143,7 @@ Nothing on this page can be kept on a phone or computer and sent later. It is sa
 
 > **Remember:** nothing reaches the system until you press **Save**. If you try to leave without saving, the app warns you. You cannot place a period of the class routine in a **Break** row.
 
-<!-- image pending: Period times section, with the timeline, one Break row and the Save button marked, admin, desktop -->
+![Period times section, with the timeline, one Break row and the Save button](img/routine-setup-02.png)
 
 Once any period of a shift has been placed in a class routine, its times can no longer be changed: **Periods of this shift are already placed in a routine, so their times can't be replaced. Remove those periods from the class routine first.** So check the times carefully before you build routines. More: [Known issues](#known-issues).
 

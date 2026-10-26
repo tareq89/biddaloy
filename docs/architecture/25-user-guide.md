@@ -134,7 +134,7 @@ required are in the [writing guide](../documentation/writing-guide.md#1-order-an
 - a page has a `guide:generated:video` marker (D48);
 - a link or a helpId points at a missing page;
 - an image has no meaningful alt text (rule `(s)`);
-- an id is still `planned` (rule `(t)`, strict coverage, D16). A new feature ships its page as `done`; it is not added as `planned`. Three ids have no page yet and only warn: `communications.sendAlert`, `reports.alertsReport`, `portal.homework` (the `PLANNED_EXCEPTIONS` list in `check.mjs`).
+- an id is still `planned` (rule `(t)`, strict coverage, D16). A new feature ships its page as `done`; it is not added as `planned`. There are no exceptions: every id has its page.
 
 It warns when a `knownIssues` entry was `checked` more than 30 days ago, or has no issue number.
 

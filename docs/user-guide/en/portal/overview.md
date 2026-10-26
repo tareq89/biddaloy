@@ -215,6 +215,7 @@ Staff do not see this page; they have a separate [**Seeing today's work on the d
 
 
 - [**Syllabus (parent and student)**](syllabus.md) — what is being taught, subject by subject.
+- [**Homework (parent and student)**](homework.md) — all homework due, from the **Today's homework** card.
 
 
 

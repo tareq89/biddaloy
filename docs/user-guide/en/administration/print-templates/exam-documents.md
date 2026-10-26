@@ -62,7 +62,7 @@ On the **Print** tab the papers are arranged in three parts, in the order you ne
 
    → **Print preview** opens.
 
-<!-- image pending: exam Print tab, cards in three parts, numbers on the Admit cards card; admin, desktop -->
+![exam Print tab, cards in three parts, numbers on the Admit cards card](../img/exam-documents-01.png)
 
 3. Under **Which admit cards?** choose **Everyone**, **Not printed yet** (those not printed so far), or **One section**. If you choose a section, pick it under **Choose a section**.
 4. Press **Preview** and look through the cards. Each A4 page holds 2 admit cards, with the seat, room and the timetable of the sittings.
@@ -128,7 +128,7 @@ In the merit certificate window:
 
 Result certificates and merit certificates get a serial number too (`RES-2026-00001`, `MRT-2026-00001`), one per student; a reprint keeps the same number ([Certificates](certificates.md#serial)).
 
-<!-- image pending: merit certificate window, Class position and top 3 chosen; exam controller, desktop -->
+![merit certificate window, Class position and top 3 chosen](../img/exam-documents-02.png)
 
 ### Why a card is grey <a href="#unavailable" id="unavailable"></a>
 
