@@ -110,7 +110,7 @@ The work on this page centres on a **sample file**. You download the sample file
 
    → At the top are three numbers: **5 will be added**, **0 will be brought back**, **0 will be skipped** (the numbers follow your file). Below that is the **Send invitations now** tick box (already ticked), and the **People in this file** list: **Name**, **Mobile / email**, **Role**, **What happens** (**Added**, **Brought back**, **Skipped**). It shows the first 20 people; if there are more, it says "Showing 20 of {total}". At the bottom is the time count: **Save within {time} or upload again**.
 
-<!-- image pending: the import preview, four parts marked, admin, desktop -->
+<img src="img/staff-import-02.png" alt="the check before saving: 1 the three counts, 2 the Send invitations now tick box, 3 the People in this file list, 4 the Save within time count, admin">
 
 7. If everything is right, press **Confirm** at the bottom.
 

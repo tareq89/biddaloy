@@ -242,7 +242,7 @@ export async function loginAs(page: Page, card: string): Promise<void> {
     await page.goto('/login');
     const email = process.env.GUIDE_LOGIN_EMAIL ?? `${card}@bmsc.example`;
     await page.getByLabel(/Email or phone number|ইমেইল/).fill(email);
-    await page.getByLabel(/^Password|পাসওয়ার্ড/).fill(process.env.GUIDE_PASSWORD);
+    await page.locator('#sign-in-password').fill(process.env.GUIDE_PASSWORD);
     await page.getByRole('button', { name: /^Sign in|সাইন ইন/ }).click();
   } else {
     await page.goto(`/login?role=${card}`);

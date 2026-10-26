@@ -105,7 +105,7 @@ If you are already signed in, this page will not open. You go straight to the ap
 
    → The setup wizard opens, with the title **Set up your school**.
 
-<!-- image pending: img/create-school-02-code.png — The code step: 1 the 6-digit code boxes, 2 Verify, 3 Send the code again -->
+<img src="img/create-school-02-code.png" alt="The code step: 1 the 6-digit code box, 2 Verify, 3 Send the code again, with its countdown">
 
 > **Remember:** The school is not opened until you press **Verify**. If you close the page, you must start again from step 1.
 
@@ -159,7 +159,7 @@ If there is a **Want us to set it up for you? Talk to us** link at the bottom of
 
 > **Remember:** With **Step by step**, the name, logo and curriculum are saved as you go, and sections are created when you press **Create sections**. With Excel, nothing is created until you press **Create these**. An Excel file only adds new things. It does not change or delete anything you already have.
 
-<!-- image pending: img/create-school-03-wizard-doors.png — The setup wizard: 1 the three ways, 2 the step bar at the top -->
+<img src="img/create-school-03-wizard-doors.png" alt="The setup wizard: 1 the three ways to set up, 2 the step bar at the top">
 
 The order to do the tasks in is on the [Setup order](setup-order.md) page.
 

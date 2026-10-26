@@ -117,7 +117,7 @@ The row on the card is called **Classes**. It is **Done** as soon as there is on
 
 **To make your own classes:** in the left menu open **Academics → Classes** (→ [Arranging classes, sections and subjects](../academics/classes.md)) and press **Add class**. If you need a shift or version, first see [Academic year, class, section](how-it-works.md#task-structure).
 
-<!-- image pending: img/setup-03-curriculum-preset.png — Ready-made curriculum page: 1 the three steps, 2 a curriculum card, 3 the Use this curriculum button -->
+<img src="img/setup-03-curriculum-preset.png" alt="Ready-made curriculum page: 1 the Choose a curriculum step, 2 a curriculum card, 3 its Choose button; Use this curriculum comes on the Confirm step">
 
 ### Step 4: Sections <a href="#step-4" id="step-4"></a>
 
@@ -153,7 +153,9 @@ The row on the card is called **Students**. It is **Done** as soon as there is o
 
 Sending the invitation to guardians is in step 9.
 
-<!-- image pending: img/setup-05-import-students.png — Students page: 1 the Import students button, 2 the check result before confirming -->
+<img src="img/setup-05-import-students.png" alt="the Students page: 1 the Import students button, admin">
+
+<img src="img/setup-05b-import-check.png" alt="the Import students page after the file is checked: 1 No problems and the number of students that will be created, above the preview rows, admin">
 
 ### Step 6: Staff and roles <a href="#step-6" id="step-6"></a>
 

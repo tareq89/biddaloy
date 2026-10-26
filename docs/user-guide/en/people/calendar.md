@@ -286,7 +286,7 @@ Use an Excel or CSV file to put many events on the calendar at once. (Admin only
 
    → "Checking your file…" shows, then the page goes to "Step 2 of 2": **Review before importing**. At the top, coloured marks give the count: **{number} new**, **{number} updated**, **{number} unchanged**, **{number} with errors**. Below it, each row's **Row**, **Status** and **Problem** show. Rows with errors come first.
 
-<!-- image pending: the import preview, with the four counts at the top, the list of rows and the two options at the bottom marked, admin, desktop -->
+<img src="img/calendar-03.png" alt="the import review: 1 the counts at the top, 2 the list of rows with Row, Status and Problem, 3 the two import options at the bottom, admin">
 
 5. If there are rows with errors, the **Problem** box of each says "Column: {column name} — this cell is not valid. Fix it in the file and upload again." Press **Choose a different file**, fix the file and give it again. Do not rely on **Import the valid rows anyway** in **Import options**: the school's system still refuses a file with any error row, and you see **Import failed**.
 
