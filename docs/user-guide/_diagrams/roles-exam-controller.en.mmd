@@ -1,0 +1,17 @@
+%% title: Exam controller: who does what
+%% desc: Teachers send marks and the Admin sets the grading scale; the Exam controller publishes results, which reach the portal.
+flowchart LR
+  exam["Exam<br/>controller"]:::me
+  tea["Teacher"]
+  admin["Admin"]
+  por["Portal<br/>(guardian,<br/>student)"]:::view
+  stu["Student"]
+  exec["Academic<br/>coordinator"]
+  tea -->|"Marks"| exam
+  admin -->|"Grading scale"| exam
+  exam -->|"Results"| por
+  exam -->|"Seat plans, papers"| stu
+  exam -->|"Results, analysis"| exec
+  exam -->|"Promotion data"| admin
+  classDef me fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef view fill:#ebfbee,stroke:#2b8a3e,color:#14411d

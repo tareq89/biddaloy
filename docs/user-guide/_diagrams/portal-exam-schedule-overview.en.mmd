@@ -1,0 +1,16 @@
+%% title: From the schedule to the admit card
+%% desc: The school sets the day and time of each exam subject. Only when all subjects are set does the exam reach families. When you tap the admit card, the server checks that the parent is linked to this child, that the child has a seat in a published seat plan, and whether the school's rule holds it back for dues. If all is well, the admit card print page opens.
+flowchart TD
+  A["School sets day and time<br/>of each subject"]:::admin --> B{"All subjects set?"}:::note
+  B -->|"No"| X["Exam not shown to families"]
+  B -->|"Yes"| E["Exam shows in the schedule"]
+  E --> P["Parent taps Print admit card"]
+  P --> C1{"Linked to this child?"}:::note
+  C1 -->|"No"| N["Nothing is sent"]
+  C1 -->|"Yes"| C2{"Seat in a published<br/>seat plan?"}:::note
+  C2 -->|"No"| M1["Admit card is not ready yet"]
+  C2 -->|"Yes"| C3{"Dues rule on and<br/>dues above zero?"}:::note
+  C3 -->|"Yes"| M2["Admit card cannot be printed now<br/>See dues and pay"]
+  C3 -->|"No"| G["Print page opens, A4"]:::admin
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
