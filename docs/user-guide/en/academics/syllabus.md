@@ -109,7 +109,7 @@ The page has three tabs. The **Topics** tab holds the syllabus of a class and su
 
    → The topic list of that class and subject appears below: **No.**, **Topic**, **Status**. At the top is the progress, for example **5 of 12 topics done**. If there is nothing, you see **No topics yet**.
 
-<!-- image pending: Syllabus, Topics tab, class and subject picked, topic list and Add topic button marked, teacher, desktop -->
+![Syllabus, Topics tab, class and subject picked, topic list and Add topic button marked, teacher](img/syllabus-01.png)
 
 3. At the top, press **Add topic**. The button does not appear until both class and subject are picked.
 
@@ -179,7 +179,7 @@ Filter with **Search** (section or subject name), **Class**, **Subject** and **T
 
 When a lesson counts as "done": the teacher reports whether they taught in a period of their routine. If a teacher is on leave and there is no substitute, or a period is cancelled, the app records that period itself as "not taught". If a period is not reported, the teacher is reminded, and if it is very late the academic coordinator and the admin are told. How often and when depends on the school's settings; this has not been run in the app.
 
-<!-- image pending: Study plans tab, Behind column and Behind only tick marked, academic coordinator, desktop -->
+![Study plans tab, Behind column and Behind only tick marked, academic coordinator](img/syllabus-03.png)
 
 ### Make a new study plan <a href="#task-plan-create" id="task-plan-create"></a>
 
@@ -221,7 +221,7 @@ The app works out the dates itself, from the routine, leaving out holidays and c
 
 A plan can hold at most 400 lessons.
 
-<!-- image pending: study plan page, lessons list, Date (expected) and Status columns marked, teacher, desktop -->
+![study plan page, lessons list, Date (expected) and Status columns marked, teacher](img/syllabus-04.png)
 
 ### Extra class, copy to another section, exam marker <a href="#task-plan-actions" id="task-plan-actions"></a>
 
@@ -314,7 +314,7 @@ Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part 
 3. **Tabs** — **Topics**, **Study plans**, **Template library**.
 4. **Inside a tab** — a picker or filters, then the list.
 
-<!-- image pending: the four parts of the Syllabus page numbered, admin, desktop -->
+![the four parts of the Syllabus page numbered, admin](img/syllabus-05.png)
 
 </details>
 
