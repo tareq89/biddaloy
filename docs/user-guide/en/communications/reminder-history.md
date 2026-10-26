@@ -78,7 +78,7 @@ A reminder sent for one student, and a message from [**Send a message**](send-me
 
    → While the round is **Processing**, the page refreshes by itself again and again. When it ends, a message appears, for example **Reminder round finished: … sent.**
 
-<!-- image pending: a round's page; 1 · Created, Recipients, Delivered, Failed 2 · status 3 · Message that was sent 4 · Who received it 5 · Skipped before sending 6 · Retry failed; accountant, desktop -->
+![One reminder round's page: counts, the message that was sent, who received it and who was skipped](img/reminder-history-01.png)
 
 ---
 

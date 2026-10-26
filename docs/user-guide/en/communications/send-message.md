@@ -101,7 +101,7 @@ You can send to only one person at a time. To remind many guardians about dues t
 
    → **Message on its way** appears, with the **Delivery status**. If you keep the page open, the status updates by itself.
 
-<!-- image pending: Send Message page, all fields filled; 1 · Student 2 · Which guardian to send to 3 · Mobile number 4 · Send by 5 · Message and the character-SMS count 6 · Review and send; office staff, desktop -->
+![Send Message page, all fields filled](img/send-message-01.png)
 
 > **Remember:** even if a guardian turned notifications off, a message from this page still reaches them. This is the way for urgent things; dues reminders do not reach them.
 
@@ -212,7 +212,7 @@ Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app
 3. **Message**: **Send by**, **Subject** (for email), **Message**, the character-SMS line, the WhatsApp template boxes.
 4. **Review and send**.
 
-<!-- image pending: Send this message? window showing the recipient, channel and message; accountant, desktop -->
+![Send this message? window showing the recipient, channel and message](img/send-message-02.png)
 
 </details>
 
