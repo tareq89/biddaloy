@@ -39,7 +39,7 @@ test('admin: four import previews', async ({ page }, info) => {
         [
           'name,mobile,email,role,designation',
           `Rokeya Sultana,,rokeya.${n}@example.com,Teacher,Assistant Teacher`,
-          `Imran Hossain,0171${n}0,imran.${n}@example.com,Accountant,`,
+          `Imran Hossain,01700000${n.slice(-2)}0,imran.${n}@example.com,Accountant,`,
           `Shirin Akhter,,shirin.${n}@example.com,Office staff,`,
         ].join('\n'),
       ),
@@ -125,8 +125,8 @@ test('admin: four import previews', async ({ page }, info) => {
         'students.csv',
         [
           'student_name,class,section,roll,registration_number,guardian1_name,guardian1_phone,guardian1_email,guardian2_name,guardian2_phone,guardian2_email,home_address,preferred_communication',
-          `Arifa Khatun,Class 6,A,61,2026-06${n.slice(-3)},Abdul Karim,0171${n}1,,,,,Mirpur,SMS`,
-          `Sakib Hasan,Class 6,A,62,2026-07${n.slice(-3)},Rahima Begum,0171${n}2,,,,,Uttara,SMS`,
+          `Arifa Khatun,Class 6,A,61,2026-06${n.slice(-3)},Abdul Karim,01700000${n.slice(-2)}1,,,,,Mirpur,SMS`,
+          `Sakib Hasan,Class 6,A,62,2026-07${n.slice(-3)},Rahima Begum,01700000${n.slice(-2)}2,,,,,Uttara,SMS`,
         ].join('\n'),
       ),
     );
@@ -152,7 +152,7 @@ test('a new school: code step, wizard doors, ready-made curriculum', async ({ br
   await page
     .getByLabel(tr(reg, 'fields.adminName'))
     .fill(lang === 'bn' ? 'ফারহানা হক' : 'Farhana Haque');
-  await page.locator('#register-phone').fill(`0171${n}9`);
+  await page.locator('#register-phone').fill(`01700000${n.slice(-2)}9`);
   await page
     .getByLabel(tr(reg, 'fields.schoolName'))
     .fill(lang === 'bn' ? 'সবুজ পাতা বিদ্যালয়' : 'Green Leaf School');

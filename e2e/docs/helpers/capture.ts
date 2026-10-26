@@ -59,7 +59,25 @@ function shrink(file: string): void {
 }
 
 /** Language, light mode, no demo ribbon, visible pointer. Call before the first `goto`. */
+/** An env var a tour cannot guess; fail with its name when missing (checked at run time, not import). */
+export function requireEnv(name: string, what: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Set ${name}: ${what}`);
+  return v;
+}
+
+/** Tours sign in and write data; refuse a non-local GUIDE_BASE_URL unless GUIDE_ALLOW_REMOTE=1. */
+function assertLocalTarget(): void {
+  const host = new URL(process.env.GUIDE_BASE_URL ?? 'http://localhost:5174').hostname;
+  if (['localhost', '127.0.0.1', '[::1]'].includes(host) || process.env.GUIDE_ALLOW_REMOTE === '1')
+    return;
+  throw new Error(
+    `GUIDE_BASE_URL points at ${host}, not localhost. Tours sign in and create data there; set GUIDE_ALLOW_REMOTE=1 only if you mean it.`,
+  );
+}
+
 export async function prepare(page: Page, opts: { pointer?: boolean } = {}): Promise<void> {
+  assertLocalTarget();
   const lang = guideLang();
   // The tour's strings and folders come from GUIDE_LANG; a project of another
   // language would write its shots into the wrong folder.

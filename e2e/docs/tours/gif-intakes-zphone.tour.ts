@@ -63,7 +63,7 @@ gifTour(
       .pressSequentially('Mizanur Rahman', { delay: 40 });
     await p
       .getByLabel(tr(ns, 'form.fields.guardianPhone'))
-      .pressSequentially('01712345678', { delay: 50 });
+      .pressSequentially('01700000123', { delay: 50 });
     await beat(p, 600);
     const submit = p.getByRole('button', { name: tr(ns, 'form.submit') });
     await submit.scrollIntoViewIfNeeded();

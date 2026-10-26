@@ -13,7 +13,7 @@ const n = Date.now().toString().slice(-5);
 const csv = [
   'name,mobile,email,role,designation',
   `Rokeya Sultana,,rokeya.sultana${n}@example.com,Teacher,Assistant Teacher`,
-  `Imran Hossain,0171${n}00,imran.hossain${n}@example.com,Accountant,`,
+  `Imran Hossain,01700000${n.slice(-3)},imran.hossain${n}@example.com,Accountant,`,
   `Shirin Akhter,,shirin.akhter${n}@example.com,Office staff,`,
 ].join('\n');
 

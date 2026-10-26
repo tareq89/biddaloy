@@ -10,11 +10,10 @@
  */
 import { devices, expect, test, type Page } from '@playwright/test';
 
-import { guideLang, imgDir, loginAs, prepare, shoot } from '../helpers/capture';
+import { guideLang, imgDir, loginAs, prepare, requireEnv, shoot } from '../helpers/capture';
 import { re, tr } from '../helpers/nav';
 
 const lang = guideLang();
-const TEMPLATE_ID = process.env.GUIDE_TEMPLATE_ID ?? 'b6792181-8b26-41f9-bb02-f26ec8093da5';
 const SLUG = process.env.GUIDE_SCHOOL_SLUG ?? 'bmsc-high';
 
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="86mm" height="54mm" viewBox="0 0 86 54">
@@ -43,7 +42,9 @@ test('admin: dashboard saved, SVG import window', async ({ page }, info) => {
   await expect(saved).toBeVisible();
   await shoot(page, `${dir}/dashboard-04-saved.png`, [{ target: saved }], { keepToasts: true });
 
-  await page.goto(`/print-templates/${TEMPLATE_ID}/edit`);
+  await page.goto(
+    `/print-templates/${requireEnv('GUIDE_TEMPLATE_ID', 'the id of the demo ID-card template')}/edit`,
+  );
   await page.getByRole('button', { name: tr('printEditor', 'tabs.assets'), exact: true }).click();
   await page.getByRole('button', { name: tr('printEditor', 'svgImport.open') }).click();
   const dialog = page.getByRole('dialog', { name: tr('printEditor', 'svgImport.title') });
@@ -122,7 +123,7 @@ test('guest on a phone: form top, submitted page, status card', async ({ browser
   const ns = 'admission-public';
   const dir = imgDir('people');
   const name = lang === 'bn' ? 'তানিশা রহমান' : 'Tanisha Rahman';
-  const phone = '01712345678';
+  const phone = '01700000123';
 
   await page.goto(`/admission/${SLUG}`);
   await expect(page.getByRole('heading', { level: 1, name: tr(ns, 'form.title') })).toBeVisible();

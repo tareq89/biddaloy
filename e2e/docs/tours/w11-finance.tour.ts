@@ -6,12 +6,11 @@
  */
 import { devices, test, type Locator, type Page } from '@playwright/test';
 
-import { imgDir, prepare } from '../helpers/capture';
+import { imgDir, prepare, requireEnv } from '../helpers/capture';
 import { asRole, go, snap, step, tr } from '../helpers/nav';
 
 const dir = imgDir('finance');
 const f = (name: string) => `${dir}/${name}.png`;
-const PASSWORD = process.env.DEMO_PASSWORD ?? 'Demo-pass-1234';
 
 /** Headers the app itself sent on an API call, to replay a request with the same sign-in. */
 function captureHeaders(page: Page): () => Record<string, string> {
@@ -72,24 +71,18 @@ test('finance W11: reversal list', async ({ browser }, info) => {
       data: {
         identifier: 'admin@bmsc.example',
         method: 'PASSWORD',
-        password: PASSWORD,
+        password: requireEnv('DEMO_PASSWORD', 'the demo school password'),
         scope: 'payments.reverse',
       },
     });
     const suBody = (await su.json()) as { approval_token: string };
-    console.log('SHOT_OK STEPUP', su.status(), JSON.stringify(suBody).slice(0, 150));
+    console.log('SHOT_OK STEPUP', su.status());
     const token = suBody.approval_token;
     const rev = await page.request.post(`/api/v1/payments/${target.id}/reverse`, {
       headers: { ...h, 'x-approval-token': token },
       data: { reason: 'Paid twice by mistake' },
     });
-    console.log(
-      'SHOT_OK REVERSE',
-      rev.status(),
-      (await rev.text()).slice(0, 200),
-      target.id,
-      JSON.stringify(rows[0]).slice(0, 200),
-    );
+    console.log('SHOT_OK REVERSE', rev.status());
   });
 
   await step('payments-list-reversed', async () => {
