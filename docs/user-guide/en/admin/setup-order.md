@@ -86,7 +86,7 @@ It is easiest to follow the order, because each task stands on the one before it
 
 A Bangla name or a logo, either one, is enough to make the row **Done**.
 
-<!-- image pending: img/setup-01-school-profile.png — Settings, School section: 1 the school profile fields, 2 the logo upload, 3 Save -->
+![img/setup-01-school-profile.png — Settings, School section: 1 the school profile fields, 2 the logo upload, 3 Save](img/setup-order-01.png)
 
 ### Step 2: Academic year <a href="#step-2" id="step-2"></a>
 
@@ -185,7 +185,7 @@ The row on the card is called **Fees**. It is **Done** as soon as there is one f
 
 Creating the fee bills and taking payments are not on this page. They come later on the path of a fee (→ [the fourth of the five pictures](how-it-works.md#task-money)).
 
-<!-- image pending: img/setup-07-fee-structures.png — Fee structures page: 1 the list of structures, 2 the add button -->
+![img/setup-07-fee-structures.png — Fee structures page: 1 the list of structures, 2 the add button](img/setup-order-04.png)
 
 ### Step 8: Routine <a href="#step-8" id="step-8"></a>
 

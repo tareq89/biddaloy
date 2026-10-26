@@ -86,7 +86,7 @@ knownIssues: []
 
 বাংলা নাম বা লোগো, দুটির একটি থাকলেই সারিটি **শেষ** হয়।
 
-<!-- image pending: img/setup-01-school-profile.png — Settings, School section: 1 the school profile fields, 2 the logo upload, 3 Save -->
+![img/setup-01-school-profile.png — Settings, School section: 1 the school profile fields, 2 the logo upload, 3 Save](img/setup-order-01.png)
 
 ### ধাপ ২: শিক্ষাবর্ষ <a href="#step-2" id="step-2"></a>
 
@@ -185,7 +185,7 @@ knownIssues: []
 
 ফির বিল তৈরি আর পেমেন্ট নেওয়ার ধাপ এই পাতায় নেই। সেগুলো ফির পথের (→ [পাঁচটি ছবির চতুর্থটি](how-it-works.md#task-money)) পরের অংশ।
 
-<!-- image pending: img/setup-07-fee-structures.png — Fee structures page: 1 the list of structures, 2 the add button -->
+![img/setup-07-fee-structures.png — Fee structures page: 1 the list of structures, 2 the add button](img/setup-order-04.png)
 
 ### ধাপ ৮: রুটিন <a href="#step-8" id="step-8"></a>
 
