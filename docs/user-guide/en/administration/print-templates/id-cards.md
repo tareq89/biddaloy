@@ -67,7 +67,7 @@ Every printed card is a **copy**: copy 1 the first time, copy 2 when you print a
 
    → **Print preview** opens and shows the card with the real name and photo. The default design is chosen.
 
-<!-- image pending: Print preview, one student's card front and back, printer chosen; admin, desktop -->
+![Print preview, one student's card front and back, printer chosen](../img/id-cards-01.png)
 
 3. Under **Printer** choose **Choose a printer** ([why you choose it yourself](printers-and-calibration.md#why-printer)).
 4. Press **Print**.
@@ -147,7 +147,7 @@ The old copy stays valid. For a lost card, first [revoke it](#revoke), then prin
 - Filters: **Document type**, **Design**, **Printed by**, **Date**, **Result**, **Status** (**Valid only** / **Revoked only**), and **Search by name**.
 - Press **View** to see exactly what was printed, front and back. The QR code is not stored, so it does not show there.
 
-<!-- image pending: Print & documents, Print history tab, one row revoked; admin, desktop -->
+![Print & documents, Print history tab, one row revoked](../img/id-cards-02.png)
 
 ### Revoke a lost card <a href="#revoke" id="revoke"></a>
 
