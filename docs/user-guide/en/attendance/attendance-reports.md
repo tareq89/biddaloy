@@ -77,7 +77,7 @@ A report never writes anything itself. Teachers take attendance every day, and t
 
    → One row per student in that section: **Roll**, **Student**, **Present**, **Absent**, **Late**, **Leave**, **Working days**, **Attendance** (a percentage).
 
-<!-- image pending: মাসের হিসাব ট্যাব, মাস-শ্রেণি-শাখা ঘর আর শিক্ষার্থীর সারি চিহ্নিত, অ্যাডমিন, desktop -->
+![Month summary tab, the month, class and section boxes and one row per student](img/attendance-reports-01.png)
 
 4. To see one student in detail, press **View** at the end of the row. → The [student's page](../people/students.md) opens.
 
@@ -110,7 +110,7 @@ To cross-check the numbers, open the same section and month in the [Attendance r
 
 Students with no marked day this month do not appear in this list. If nobody is below the limit it says **Nobody is below the minimum this month**.
 
-<!-- image pending: কম উপস্থিতি ট্যাব, সর্বনিম্ন উপস্থিতি ঘর আর কম চিহ্ন দেওয়া সারি, অ্যাডমিন, desktop -->
+![Low attendance tab, the minimum attendance box and the rows marked Low](img/attendance-reports-02.png)
 
 ### Send a reminder <a href="#task-reminder" id="task-reminder"></a>
 
@@ -174,7 +174,7 @@ Checked in the code for version 0.1.0 on 2026-10-25. Not run in the app. Each li
 3. **Filter row** — **Month**, **Class**, **Section**, **Minimum attendance (%)**.
 4. **The list** — at the end of each row, **View** and (if you are allowed) **Send reminder**.
 
-<!-- image pending: প্রতিবেদন পাতার চারটি অংশ নম্বর দিয়ে চিহ্নিত, অ্যাডমিন, desktop -->
+![The four parts of the reports page](img/attendance-reports-03.png)
 
 </details>
 

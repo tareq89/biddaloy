@@ -89,7 +89,7 @@ The phone number or email the school used to add you is your **account**. The sa
 
    → The **Sign in** page appears. There are two tabs at the top: **With password** and **With a code**. **With password** is already selected.
 
-<!-- image pending: img/sign-in-01-form.png — Sign in page: 1 language, 2 the two tabs, 3 email or phone number, 4 password, 5 Sign in, 6 Forgot password? -->
+![Sign in page: 1 language, 2 the two tabs, 3 email or phone number, 4 password, 5 Sign in, 6 Forgot password?](img/sign-in-01-form.png)
 
 2. In the **Email or phone number** box, type your phone number (for example `01712345678`) or your email.
 3. In the **Password** box, type your password. To check what you typed, tap **Show password** next to the box.
@@ -99,7 +99,7 @@ The phone number or email the school used to add you is your **account**. The sa
 
 **On a phone** the four steps are the same. The page fills the whole screen; the language button is at the top right.
 
-<!-- image pending: img/sign-in-phone-01-form.png (width 300) — Sign in page on a phone -->
+<img src="img/sign-in-phone-01-form.png" alt="Sign in page on a phone" width="300">
 
 > **Remember:** When you finish on a school computer or someone else's, tap **Sign out** in the account menu. If you do not, the next person may stay in your account.
 
