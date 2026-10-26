@@ -124,6 +124,10 @@ const FIXED: Fixed[] = [
   },
   { id: 'help.glossary', roles: EVERYONE, routes: [] },
   { id: 'help.troubleshooting', roles: EVERYONE, routes: [] },
+  { id: 'help.cantSeeThis', roles: EVERYONE, routes: [] },
+  { id: 'help.whatsNew', roles: EVERYONE, routes: [] },
+  // The bell in the portal header opens it; it has no portal menu item of its own.
+  { id: 'portal.notifications', roles: GUARDIAN_ROLES, routes: ['/portal/notifications'] },
 ];
 
 // Routes that belong to a feature that already has a sidebar item.

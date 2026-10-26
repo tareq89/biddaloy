@@ -99,7 +99,7 @@ A **ready-made curriculum** is a package set up in advance: academic year, class
 
    → The page changes: **Curriculum applied**, and under it the **What was created** list.
 
-<!-- image pending: Ready-made curriculum page; 1 · the three steps 2 · one curriculum card and the preview 3 · the Not verified mark 4 · Stages to set up 5 · Start year 6 · Use this curriculum; admin, desktop -->
+<img src="img/curriculum-preset-01.png" alt="the Ready-made curriculum page on a new school: 1 the Choose a curriculum step, 2 the NCTB curriculum card, 3 its Not verified mark, 4 the Choose button, 5 the Preview button, admin">
 
 > **Warning:** <a id="unverified"></a>A curriculum marked **Not verified** has not been checked against the official curriculum. Its subjects, marks or grading scale may be wrong. Look at the [preview](#task-preview) before you apply, and afterwards check the [**Grading scales**](../exams-results/grading-scales.md) and the [**Exam structures**](../exams-results/exam-templates.md). At present only **Blank / custom setup** is verified.
 
@@ -107,9 +107,9 @@ A **ready-made curriculum** is a package set up in advance: academic year, class
 
 ## How to know it was added <a href="#confirm" id="confirm"></a>
 
-| State                           | How you can tell                                                                                                             | What next                                           |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| **Chosen only on the screen**   | The steps are open, or the confirm window is open                                                                            | Type the name and press **Apply**                   |
+| State                           | How you can tell                                                                                                                 | What next                                            |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| **Chosen only on the screen**   | The steps are open, or the confirm window is open                                                                                | Type the name and press **Apply**                    |
 | **Reached the school's system** | **Curriculum applied**; the curriculum's name, version, **Applied on …** and the number of each thing under **What was created** | Open [**Classes**](../academics/classes.md) and look |
 
 This page does not keep anything separately on a phone or computer, so there is no "saved on this device" state. Everything happens together or not at all: if it stops halfway, nothing is left half-created.
@@ -146,25 +146,25 @@ On the pages for class subjects, exam structures or grading scales, a warning li
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                        | What to do                                                                                                            | Who can help |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **A ready-made curriculum can no longer be added to this school**   | The school already has data. See [If the school already has data](#task-blocked).                                     | Admin        |
-| You cannot press **Apply**                                          | Type the English name shown in the window exactly, with capital and small letters.                                    | —            |
-| You cannot press **Next**                                           | Choose at least one stage; if there are versions, at least one version; and a **Start year** between 2000 and 2100.   | —            |
-| **Choose at least one stage.**                                      | Tick one under **Stages to set up**.                                                                                  | —            |
-| **Choose at least one version.**                                    | Tick one under **Versions to set up**.                                                                                | —            |
-| **Could not load the ready-made curricula.**                        | Press **Try again**.                                                                                                  | —            |
-| **Could not apply the curriculum. Please try again.**               | Reload the page and see whether it was added; if not, try again.                                                      | Admin        |
-| Someone else created a class or subject while you were applying     | The window may close and show **A ready-made curriculum can no longer be added to this school**. Then carry on in your own way. | Admin   |
+| What you see                                                      | What to do                                                                                                                      | Who can help |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **A ready-made curriculum can no longer be added to this school** | The school already has data. See [If the school already has data](#task-blocked).                                               | Admin        |
+| You cannot press **Apply**                                        | Type the English name shown in the window exactly, with capital and small letters.                                              | —            |
+| You cannot press **Next**                                         | Choose at least one stage; if there are versions, at least one version; and a **Start year** between 2000 and 2100.             | —            |
+| **Choose at least one stage.**                                    | Tick one under **Stages to set up**.                                                                                            | —            |
+| **Choose at least one version.**                                  | Tick one under **Versions to set up**.                                                                                          | —            |
+| **Could not load the ready-made curricula.**                      | Press **Try again**.                                                                                                            | —            |
+| **Could not apply the curriculum. Please try again.**             | Reload the page and see whether it was added; if not, try again.                                                                | Admin        |
+| Someone else created a class or subject while you were applying   | The window may close and show **A ready-made curriculum can no longer be added to this school**. Then carry on in your own way. | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                                                       | See the page and add a curriculum | Undo an added curriculum |
-| ---------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------ |
-| Admin                                                                                                      | Yes, once, in a new school        | No                       |
-| Accountant, Academic coordinator, Teacher, Exam controller, Office staff, Committee member                 | No                                | No                       |
+| Role                                                                                       | See the page and add a curriculum | Undo an added curriculum |
+| ------------------------------------------------------------------------------------------ | --------------------------------- | ------------------------ |
+| Admin                                                                                      | Yes, once, in a new school        | No                       |
+| Accountant, Academic coordinator, Teacher, Exam controller, Office staff, Committee member | No                                | No                       |
 
 Only the platform administrator, who is not a staff member of any school, can undo it. The menu of other roles does not have **Ready-made curriculum**.
 
@@ -181,7 +181,7 @@ Only the platform administrator, who is not a staff member of any school, can un
 4. **Options** — **Stages to set up**, **Versions to set up**, **Start year**.
 5. The **Use this curriculum** button, then the window where you type the name to confirm.
 
-<!-- image pending: Ready-made curriculum, the five parts marked with numbers, the NCTB card chosen; admin, desktop -->
+<img src="img/curriculum-preset-02.png" alt="the Confirm step with the NCTB curriculum chosen: 1 the title, 2 the Confirm step, 3 the summary of stages and start year, 4 the Not verified warning, 5 the Use this curriculum button, admin">
 
 </details>
 
@@ -222,6 +222,7 @@ Only the platform administrator, who is not a staff member of any school, can un
 - [**Academic years**](../academics/academic-years.md) and [**Classes**](../academics/classes.md) — what is created from here.
 - [**Grading scales**](../exams-results/grading-scales.md) and [**Exam structures**](../exams-results/exam-templates.md) — check them after applying.
 - [**Activity log**](audit-logs.md) — who did what, and when.
+- [**Changing the school's settings**](settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
 
 ---
 

@@ -52,7 +52,7 @@ appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: template-unsaved-no-warning, checked: 2026-10-25, issue: null }
+  - { id: template-unsaved-no-warning, checked: 2026-10-25, issue: 2915 }
 -->
 
 # Building an exam structure
@@ -97,7 +97,7 @@ Say every year the **Half Yearly** exam has **Written 70** and **MCQ 30** in Cla
 
    → At the top is the title **Exam structures**. The list has the columns **Name**, **Type**, **Classes**, **Subjects**. If there are none, it says **No exam structures yet**.
 
-<!-- image pending: the exam structure list, with the Add exam structure button marked, Admin, desktop -->
+<img src="img/exam-templates-01-list.png" alt="the exam structure list, with the Add exam structure button marked, Admin">
 
 2. At the top of the page, press **Add exam structure**.
 
@@ -158,7 +158,7 @@ Structure details are saved only when you are online; they cannot be kept on the
 
    → The **Not saved** mark goes away.
 
-<!-- image pending: the structure page, with the Class 9 tab, a subject card, a part row and the Save button marked, Admin, desktop -->
+<img src="img/exam-templates-02-detail.png" alt="the structure page, with the Class 9 tab, a subject card, a part row and the Save button marked, Admin">
 
 **To take away:** press **Remove part** on a row, or **Remove subject** for a whole subject. To drop all changes, press **Discard changes** at the top. A removal becomes final only when you press **Save**.
 
@@ -257,7 +257,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 4. **Class tabs** — **Class 9**, **Class 10** …, with **Add class** beside them.
 5. **Subject cards** — each with part rows: **Part name**, **Type**, **Full marks**, **Pass marks**, **Actions**.
 
-<!-- image pending: the five parts of the structure page, numbered, Admin, desktop -->
+<img src="img/exam-templates-02-detail.png" alt="the five parts of the structure page, numbered, Admin">
 
 </details>
 
@@ -303,6 +303,7 @@ Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It
 
 - [**Exams**](exams.md) — add an exam by picking a structure, change parts later.
 - [**Seat plans**](seat-plans.md) — arrange seating by exam subject.
+- [**Ready-made curriculum**](../administration/curriculum-preset.md) — In a brand-new school, choose a ready-made curriculum and create the academic year, classes, subjects.
 
 ---
 

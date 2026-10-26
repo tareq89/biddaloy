@@ -110,7 +110,7 @@ Each time you create bills you get one **billing round**. A round records the pe
 
    → The **Check this before generating** part shows **… bills will be created** and **… students × … fees**.
 
-<!-- image pending: Create fee bills page with everything filled; 1 · Period 2 · Students 3 · Fees 4 · Check this before generating and the bill count 5 · Notify families when bills are created 6 · Create bills; accountant, desktop -->
+<img src="img/generate-fees-01.png" alt="Create fee bills page, top part; 1 · Period 2 · Students; accountant">
 
 8. If you do not want to tell families, untick **Notify families when bills are created**. It is ticked at the start.
 9. Press **Create bills**.
@@ -192,6 +192,8 @@ When approval is needed, the window says so first, for example **… of … bill
 | **Failed to load the generated fees log**                                                                                         | Reload the page.                                                                                                                 | Admin        |
 | One student has two bills for the same fee in one month                                                                           | Someone chose **Create anyway**. If it was a mistake and no money has been paid on the second round, press **Remove uncollected**. | Admin        |
 
+More help with this: [What to do when something goes wrong](../help/troubleshooting.md#fees).
+
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
@@ -217,7 +219,7 @@ When approval is needed, the window says so first, for example **… of … bill
 2. The filters — **Period** (**From**, **To**), **Fee type**, **How created** (**Manual**, **Automatic billing**, **Fine rule**), **Created by**, **Collection status**.
 3. The list of rounds — press a row to open its bills; the **Billing round actions** menu is at the end.
 
-<!-- image pending: Fee bills created list, the three parts marked with numbers, one round showing "Partly collected"; accountant, desktop -->
+<img src="img/generate-fees-02-list.png" alt="Fee bills created list, the three parts marked with numbers, one round showing &quot;Partly collected&quot;; accountant">
 
 </details>
 
@@ -272,9 +274,12 @@ When approval is needed, the window says so first, for example **… of … bill
 - [**Fee structures**](fee-structures.md) — which fee costs how much is set here.
 - [**Automatic billing**](recurring-schedules.md) — bills every month or week, on their own.
 - [**Students**](../people/students.md) — the people who get the bills.
-<!-- link pending: finance/student-dues.md — student dues (other lane) -->
-<!-- link pending: finance/payments.md — record a payment and the receipt (other lane) -->
-<!-- link pending: finance/fee-reminders.md — fee reminders (other lane) -->
+- [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
+- [**Fee reminders**](../communications/fee-reminders.md) — Remind the guardians of one student, or of up to 500 students at once, about unpaid fees.
+- [**Student dues**](dues.md) — See in one list how much each student still owes, set the overdue ones apart, then collect the fee.
+- [**Fines**](fines.md) — Add a student's fine by hand, make the month's fines at month end from absence or lateness rules, set the fine rules.
+- [**Payments**](payments.md) — Find every payment taken at the school, open one to see which bills the money went to, print the receipt again, and reverse a wrong payment.
+- [**Record payment**](record-payment.md) — Take money against the open bills of one or more students — the money is split across the oldest bills, give a discount if needed, work out.
 
 ---
 

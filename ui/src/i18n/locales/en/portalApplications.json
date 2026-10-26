@@ -20,7 +20,10 @@
     "other": "{{name}} submitted this",
     "paper": "Submitted on paper at school"
   },
-  "pager": { "previous": "Previous", "next": "Next" },
+  "pager": {
+    "previous": "Previous",
+    "next": "Next"
+  },
   "back": "Applications",
   "detail": {
     "notFound": "This application could not be found.",
@@ -64,5 +67,60 @@
     "success": "Application submitted · {{serial}}",
     "partial": "Your application was submitted, but a file did not upload.",
     "view": "Open the application"
+  },
+  "fields": {
+    "type": "Application type",
+    "addressee": "Who is the letter to?",
+    "reasonKind": "Reason for leave",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "details": "Details",
+    "waiverKind": "Waiver type",
+    "waiverValue": "Percent (1 to 100) / Amount",
+    "feeTypes": "Fees it applies to",
+    "waiverStart": "From (optional)",
+    "waiverEnd": "Until (optional)",
+    "purpose": "Purpose",
+    "leavingDate": "Leaving date",
+    "destination": "Where to (optional)",
+    "reason": "Reason",
+    "subjectLine": "Subject",
+    "body": "Letter",
+    "attachments": "Attachments (optional)"
+  },
+  "help": {
+    "type": "What the application is for. Only the six student types appear here: leave, fee waiver, testimonial, transfer certificate, ID card and general.",
+    "addressee": "General applications only: class teacher, headmaster or office. A named staff member cannot be picked.",
+    "reasonKind": "Student leave: sick, family or other.",
+    "startDate": "First day of leave. Past dates are allowed.",
+    "endDate": "Last day of leave. Same as or after the start date.",
+    "details": "Explain the reason for the leave, 3 to 1000 characters.",
+    "waiverKind": "Percent or a fixed amount.",
+    "waiverValue": "Percent: 1 to 100. Amount: more than zero, at most 2 decimals.",
+    "feeTypes": "Which fees the waiver is for. Leave empty for all fees.",
+    "waiverStart": "When the waiver should start. Can be left empty.",
+    "waiverEnd": "When the waiver should end. Same as or after the start.",
+    "purpose": "What the testimonial is for, such as college admission; 3 to 300 characters.",
+    "leavingDate": "The day the student leaves the school.",
+    "destination": "Name or place of the new school, up to 200 characters.",
+    "reason": "Reason for a fee waiver, transfer certificate or ID card, 3 to 1000 characters.",
+    "subjectLine": "One-line subject of a general application, 3 to 200 characters.",
+    "body": "The main text of a general application, 3 to 5000 characters.",
+    "attachments": "Up to 3 files, 5 MB each. PDF, JPG or PNG."
+  },
+  "helpRequired": {
+    "type": "Yes",
+    "addressee": "Yes, for a general application",
+    "reasonKind": "Yes",
+    "startDate": "Yes",
+    "endDate": "Yes",
+    "details": "Yes",
+    "waiverKind": "Yes",
+    "waiverValue": "Yes",
+    "purpose": "Yes",
+    "leavingDate": "Yes",
+    "reason": "Yes",
+    "subjectLine": "Yes",
+    "body": "Yes"
   }
 }

@@ -67,7 +67,7 @@ Every printed card is a **copy**: copy 1 the first time, copy 2 when you print a
 
    → **Print preview** opens and shows the card with the real name and photo. The default design is chosen.
 
-<!-- image pending: Print preview, one student's card front and back, printer chosen; admin, desktop -->
+![Print preview, one student's card front and back, printer chosen](../img/id-cards-01.png)
 
 3. Under **Printer** choose **Choose a printer** ([why you choose it yourself](printers-and-calibration.md#why-printer)).
 4. Press **Print**.
@@ -141,13 +141,13 @@ The old copy stays valid. For a lost card, first [revoke it](#revoke), then prin
 
 ### See the print history <a href="#history" id="history"></a>
 
-**Reports → Print & documents** → **Print history** tab. <!-- link pending: reports/printables.md — the Print & documents page is not written yet -->
+[**Reports → Print & documents**](../../reports/printables.md) → **Print history** tab.
 
 - Columns: **Printed**, **Printed by**, **Document**, **Person**, **Copy**, **Status**.
 - Filters: **Document type**, **Design**, **Printed by**, **Date**, **Result**, **Status** (**Valid only** / **Revoked only**), and **Search by name**.
 - Press **View** to see exactly what was printed, front and back. The QR code is not stored, so it does not show there.
 
-<!-- image pending: Print & documents, Print history tab, one row revoked; admin, desktop -->
+![Print & documents, Print history tab, a list of Admit card prints with one cancelled row](../img/id-cards-02.png)
 
 ### Revoke a lost card <a href="#revoke" id="revoke"></a>
 
@@ -180,6 +180,8 @@ Only an Admin can do this.
 | **Reprint** does not work because the card is revoked           | A revoked card cannot be reprinted; print a new one from the student's page             | You          |
 | **Could not revoke this card.**                                 | Try again                                                                               | Admin        |
 | The print is shifted or cut on the paper                        | Set **Scale 100%**, **Margins None**, then [fix the measurements](printers-and-calibration.md#calibrate) | Admin |
+
+More help with this: [What to do when something goes wrong](../../help/troubleshooting.md#print).
 
 ---
 
@@ -220,7 +222,7 @@ To print a staff card you need the print permission and also the permission to s
 - [**Certificates**](certificates.md) — transfer certificates, testimonials; serial numbers and the register.
 - [**Students**](../../people/students.md) — the student's page and its **Documents** tab.
 - [**Staff**](../../people/staff.md) — the staff member's page.
-<!-- link pending: reports/printables.md — Print & documents (history, reprint, revoke); page not there yet -->
+- [**Print & documents**](../../reports/printables.md) — print history, reprint and revoke
 
 ---
 

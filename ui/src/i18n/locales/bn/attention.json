@@ -632,5 +632,29 @@
   },
   "platformAlert": {
     "REDIS_DOWN": "{{time}} থেকে Redis বন্ধ। ঠিক না হওয়া পর্যন্ত সবার লগইন ও পাসওয়ার্ড রিসেট বন্ধ থাকবে। প্রতি ঘণ্টায় আপনাকে SMS পাঠানো হবে।"
+  },
+  "fields": {
+    "attendanceGraceMinutes": "প্রথম পিরিয়ড শুরুর পর কত সময় দেওয়া হবে",
+    "classStartingLeadMinutes": "পিরিয়ড শুরুর কত আগে শিক্ষককে মনে করাবে",
+    "smsCreditLowThreshold": "এসএমএস ক্রেডিট এর নিচে নামলে জানান",
+    "failedMessagesThreshold": "২৪ ঘণ্টায় এতগুলো বার্তা ব্যর্থ হলে জানান",
+    "guardianSmsFallback": "অ্যাপে না পৌঁছালে এসএমএস পাঠান",
+    "guardianSmsDailyCap": "একজন অভিভাবককে দিনে সর্বোচ্চ এসএমএস"
+  },
+  "help": {
+    "attendanceGraceMinutes": "০ থেকে ১২০ মিনিট। শুরুতে ১৫।",
+    "classStartingLeadMinutes": "০ থেকে ৬০ মিনিট। শুরুতে ১০।",
+    "smsCreditLowThreshold": "০ থেকে ১,০০,০০০ এসএমএস। শুরুতে ২০০।",
+    "failedMessagesThreshold": "১ থেকে ১০০০টি বার্তা। শুরুতে ১০।",
+    "guardianSmsFallback": "চালু থাকলে যে অভিভাবকের অ্যাপ বা পুশ নেই তিনি এসএমএস পাবেন। শুরুতে বন্ধ। নীরব সময়ে এই এসএমএস যায় না।",
+    "guardianSmsDailyCap": "এসএমএস-এর সুইচ চালু থাকলেই দেখা যায়। ০ থেকে ১০। শুরুতে ২।"
+  },
+  "helpRequired": {
+    "attendanceGraceMinutes": "না, শুরুতে একটি মান দেওয়া থাকে",
+    "classStartingLeadMinutes": "না, শুরুতে একটি মান দেওয়া থাকে",
+    "smsCreditLowThreshold": "না, শুরুতে একটি মান দেওয়া থাকে",
+    "failedMessagesThreshold": "না, শুরুতে একটি মান দেওয়া থাকে",
+    "guardianSmsFallback": "না, শুরুতে বন্ধ থাকে",
+    "guardianSmsDailyCap": "না, শুরুতে একটি মান দেওয়া থাকে"
   }
 }

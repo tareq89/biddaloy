@@ -44,8 +44,8 @@ appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
 knownIssues:
-  - { id: submitted-list-hidden, checked: 2026-10-25, issue: null }
-  - { id: exempt-two-words, checked: 2026-10-25, issue: null }
+  - { id: submitted-list-hidden, checked: 2026-10-25, issue: 2916 }
+  - { id: exempt-two-words, checked: 2026-10-25, issue: 2917 }
 -->
 
 # Entering and submitting exam marks
@@ -53,7 +53,7 @@ knownIssues:
 Enter the marks for your section and subject in an exam, and submit the marks list when you are done.
 
 **Where to go:** in the left menu, **Exams & Results → Enter marks**. On a phone, press **☰** at the top left to open the menu, then follow the same path. It is not in the row of buttons at the bottom.
-**Before you start:** the Admin must have created the exam and set its subjects and mark parts <!-- link pending: ../exams-results/exams.md -->. If you are a Teacher, you must be assigned as the **Subject teacher** for that subject in that section ([Teaching assignments](../people/teaching-assignments.md)).
+**Before you start:** the Admin must have [created the exam](exams.md) and set its subjects and mark parts. If you are a Teacher, you must be assigned as the **Subject teacher** for that subject in that section ([Teaching assignments](../people/teaching-assignments.md)).
 
 This page is about the **marks list**. There is one marks list for each subject in each section of an exam, for example "Section A · Mathematics". Each row is a student, and each column is a mark part of the subject (for example written, multiple choice). A marks list is in one of two states: **Not submitted** (you can type marks) or **Submitted** (view only).
 
@@ -85,7 +85,7 @@ This page is about the **marks list**. There is one marks list for each subject 
 
    → The marks lists appear below: **Section**, **Subject**, **Status**. The lists that are **Not submitted** come first. A Teacher sees only the lists where they can enter marks.
 
-<!-- image pending: Marks entry page, exam chosen, three marks lists below in the Not submitted state; 1 · Exam box 2 · Status filter 3 · Enter marks; teacher, desktop -->
+<img src="img/marks-entry-01-list.png" alt="Marks entry page, exam chosen, three marks lists below in the Not submitted state; 1 · Exam box 2 · Status filter 3 · Enter marks; teacher">
 
 3. At the end of the row for the list you want, press **Enter marks**.
 
@@ -115,7 +115,7 @@ This page is about the **marks list**. There is one marks list for each subject 
 
    → The app first saves any remaining changes, then submits the list. The window closes, and next to the **Submitted** badge at the top it says **Submitted on <time>. Only an admin can reopen it.** The cells can no longer be changed.
 
-<!-- image pending: marks list after submitting: Submitted badge and time at the top, cells grey; teacher, desktop -->
+![A marks list after submitting: 1 the Submitted badge with the time and the line that only an admin can reopen it, 2 the marks cells](img/marks-entry-04-submitted.png)
 
 | What you press in the window | What happens                                                                                   | Submitted? |
 | ---------------------------- | ---------------------------------------------------------------------------------------------- | ---------- |
@@ -158,7 +158,7 @@ On a small screen like a phone, the marks list shows one student at a time.
 
    → The **Submitted** badge appears, as on a computer.
 
-<!-- image pending: marks list on a phone, one student, Absent and Exempt buttons, Previous/Next at the top; teacher, phone, width 300 -->
+<img src="img/marks-entry-05-phone.png" alt="The marks list on a phone: one student, Absent and Exempt buttons beside the cell, Previous and Next above the card" width="300">
 
 On a phone, **A**, **E** and **Ctrl+Enter** do not work; use the buttons.
 
@@ -166,7 +166,7 @@ On a phone, **A**, **E** and **Ctrl+Enter** do not work; use the buttons.
 
 If a mistake is found after a Teacher has submitted, only an Admin can reopen the list.
 
-1. As the Admin, open the submitted marks list (from the exam's page <!-- link pending: ../exams-results/exams.md -->, or press **View marks** if it is in the **Enter marks** list).
+1. As the Admin, open the submitted marks list (from [the exam's page](exams.md), or press **View marks** if it is in the **Enter marks** list).
 2. In the row with the **Submitted** badge, press **Reopen**.
 
    → No window appears. The list goes back to **Not submitted**, and the cells can be typed in again.
@@ -194,7 +194,7 @@ The Academic coordinator and the Exam controller can view marks but cannot type 
 
 | What you see                                                                                                  | What to do                                                                                                                                       | Who can help                                                      |
 | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| **No exams yet**                                                                                              | They will appear here once the Admin creates an exam.                                                                                            | Admin <!-- link pending: ../exams-results/exams.md -->            |
+| **No exams yet**                                                                                              | They will appear here once the Admin [creates an exam](exams.md).                                                                                | Admin                                                             |
 | **No marks lists yet**                                                                                        | The exam's subjects and mark parts are not set, or you are not assigned to any subject in this exam.                                             | Admin ([Teaching assignments](../people/teaching-assignments.md)) |
 | A section or subject is missing from your list                                                                | A Teacher sees only the lists where they are the **Subject teacher** for that subject. Being the class teacher is not enough to enter marks.     | Admin ([Teaching assignments](../people/teaching-assignments.md)) |
 | A submitted list no longer shows in the list                                                                  | This is normal, see [Known issues](#known-issues). Check the submitted count at the top.                                                         | —                                                                 |
@@ -245,7 +245,7 @@ Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. 
 4. **Keyboard help line** — just above the list.
 5. **The list** — **Roll · Name**, then each mark part. Grey columns are worked out by the app (for example from attendance); you cannot type in them.
 
-<!-- image pending: the five parts of the marks list marked with numbers, teacher, desktop -->
+<img src="img/marks-entry-01-list.png" alt="the five parts of the marks list marked with numbers, teacher">
 
 </details>
 
@@ -287,7 +287,7 @@ On a Mac you can press **⌘** instead of **Ctrl**.
   <figcaption><em>A marks list from submission to results</em></figcaption>
 </figure>
 
-- Every section and subject of every exam has one marks list. The columns come from the exam's mark parts <!-- link pending: ../exams-results/exams.md -->.
+- Every section and subject of every exam has one marks list. The columns come from the [exam's mark parts](exams.md).
 - Almost as soon as you type (in under a second), the app sends the marks together; if that fails, it tries again every little while.
 - When every list is submitted, the Admin or the Exam controller processes the [results](results.md). The [grading scale](grading-scales.md) decides which grade the results get.
 
@@ -298,8 +298,8 @@ On a Mac you can press **⌘** instead of **Ctrl**.
 - [**Processing and publishing results**](results.md) — the results are built from the submitted marks.
 - [**Setting up grading scales**](grading-scales.md) — which percentage gets which grade is set here.
 - [**Teaching assignments**](../people/teaching-assignments.md) — which Teacher enters marks for which subject in which section.
-- Creating an exam and mark parts <!-- link pending: ../exams-results/exams.md --> — the lists and their columns come from here.
-- Result analysis <!-- link pending: ../exams-results/analysis.md --> — merit list and pass/fail from the marks.
+- [**Creating and setting up exams**](exams.md) — the lists and their columns come from here.
+- [**Merit list and result analysis**](analysis.md) — See an exam's merit list, the students who failed or were absent and the pass/fail by subject, filter by section, print or download a CSV.
 
 ---
 

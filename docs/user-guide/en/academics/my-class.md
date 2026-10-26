@@ -29,7 +29,7 @@ appVersion: 0.1.0 (e424f8fc4)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: my-class-dues-capped-100, checked: 2026-10-24, issue: null }
+  - { id: my-class-dues-capped-100, checked: 2026-10-24, issue: 2903 }
 -->
 
 # Seeing your own class on one page
@@ -76,7 +76,7 @@ See everything you need today for the section you are class teacher of, on one p
 
    → With only one section, its page opens directly; go to step 3. With two or more, under the **My class** heading you see **Pick a section to open.** and one card per section. With none, you see **No section yet**.
 
-<!-- image pending: My class, two section cards to pick from, marked Class teacher and Assistant class teacher, teacher, desktop -->
+<img src="img/my-class-01.png" alt="My class with two section cards to pick from: 1 Class teacher under one section, 2 Assistant class teacher under the other, teacher">
 
 2. Press the card of the section you want. The card shows the class and section name (for example **Class 6 – A**) and your duty below it, **Class teacher** or **Assistant class teacher**.
 
@@ -90,11 +90,11 @@ See everything you need today for the section you are class teacher of, on one p
 
    → Three columns on a computer, one column on a phone.
 
-<!-- image pending: section page, Take today's attendance button and the six cards numbered, teacher, desktop -->
+![section page, Take today's attendance button and the six cards](img/my-class-02.png)
 
 **On a phone** the cards come one below the other in the same order, and the **Take today's attendance** button is full width.
 
-<!-- image pending: section page on a phone, full-width Take today's attendance button at the top, teacher, phone -->
+<img src="img/my-class-03.png" alt="section page on a phone, full-width Take today's attendance button at the top" width="300">
 
 > **Remember:** this page is view-only. Pressing something here saves nothing; the work happens on the page it takes you to.
 
@@ -132,14 +132,14 @@ Nothing is saved on this page, so there is no three-state table here. Just check
 
 Each card loads on its own. If one fails, it shows **Could not load this card.** with a **Try again** button; the other cards still show.
 
-| Card                 | What it shows                                                                                                                                                                                                                                | When empty                       |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Card                 | What it shows                                                                                                                                                                                                                                           | When empty                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | **Absent today**     | Who is absent today, with name and roll, the first 5. The total is beside it. With more than 5, **See all** opens today's attendance sheet. If nobody has marked anything today, a **Not taken** badge shows and the text **Attendance not taken yet.** | **No one is absent today.**      |
-| **Attendance flags** | Students in three groups: **Absent 3 or more days in a row**, **Late 3 or more days in a row**, **Present 15 days in a row**. Beside each, the number of days, for example **4 days**                                                        | **No flags right now.**          |
-| **Dues**             | The **Total due** amount and how many **Students** owe. Below, the 5 who owe the most                                                                                                                                                        | **No dues.**                     |
-| **Homework**         | Three counts for this section's homework: **Total**, **Completed**, **Defaulters**. Shown in red when defaulters is more than zero                                                                                                           | **No homework yet.**             |
-| **Results**          | The class's latest published exam: its name, **Average marks** and **Pass rate**. If anyone failed, a **Failed students** list, the first 5                                                                                                  | **No results yet.**              |
-| **Students**         | The first 5 by name, with roll and the main guardian's phone. With more than 5, **See all** opens the [students](../people/students.md) list filtered to this section                                                                        | **No students in this section.** |
+| **Attendance flags** | Students in three groups: **Absent 3 or more days in a row**, **Late 3 or more days in a row**, **Present 15 days in a row**. Beside each, the number of days, for example **4 days**                                                                   | **No flags right now.**          |
+| **Dues**             | The **Total due** amount and how many **Students** owe. Below, the 5 who owe the most                                                                                                                                                                   | **No dues.**                     |
+| **Homework**         | Three counts for this section's homework: **Total**, **Completed**, **Defaulters**. Shown in red when defaulters is more than zero                                                                                                                      | **No homework yet.**             |
+| **Results**          | The class's latest published exam: its name, **Average marks** and **Pass rate**. If anyone failed, a **Failed students** list, the first 5                                                                                                             | **No results yet.**              |
+| **Students**         | The first 5 by name, with roll and the main guardian's phone. With more than 5, **See all** opens the [students](../people/students.md) list filtered to this section                                                                                   | **No students in this section.** |
 
 Homework in detail: [Homework](homework.md). **See all** on the **Dues** card appears only for someone with permission to collect fees; a teacher does not have it, so a teacher sees only the first 5 there.
 
@@ -161,23 +161,23 @@ Only sections of the current academic year appear. Last year's sections are not 
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                               | What to do                                                                                                                                                                                                  | Who can help |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| What you see                                                                              | What to do                                                                                                                                                                                                 | Who can help |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | **No section yet** and **You are not a class teacher of any section yet — ask an admin.** | Ask an admin to make you **Class teacher** or **Assistant class teacher** of a section in the current year ([give a section its teachers](classes.md#task-teachers)). A subject teacher gets nothing here. | Admin        |
-| **Could not load your sections.**                                                          | Check your internet and press **Try again**.                                                                                                                                                                | Admin        |
-| **Could not load this section.**                                                           | Check your internet and press **Try again**.                                                                                                                                                                | Admin        |
-| **Could not load this card.**                                                              | Press **Try again** on that card. The other cards are fine.                                                                                                                                                 | Admin        |
-| A "not found" style page for a section                                                     | The link is for a section you are not class teacher of, or one that does not exist. Open **My class** from the left menu.                                                                                   | Admin        |
-| **Not taken** on the **Absent today** card                                                 | Nobody has marked today's sheet yet. [Take today's attendance](#task-attendance).                                                                                                                           | —            |
-| **You don't have access to this page.**                                                    | This page is for teachers only. Press **Back to dashboard**.                                                                                                                                                | Admin        |
+| **Could not load your sections.**                                                         | Check your internet and press **Try again**.                                                                                                                                                               | Admin        |
+| **Could not load this section.**                                                          | Check your internet and press **Try again**.                                                                                                                                                               | Admin        |
+| **Could not load this card.**                                                             | Press **Try again** on that card. The other cards are fine.                                                                                                                                                | Admin        |
+| A "not found" style page for a section                                                    | The link is for a section you are not class teacher of, or one that does not exist. Open **My class** from the left menu.                                                                                  | Admin        |
+| **Not taken** on the **Absent today** card                                                | Nobody has marked today's sheet yet. [Take today's attendance](#task-attendance).                                                                                                                          | —            |
+| **You don't have access to this page.**                                                   | This page is for teachers only. Press **Back to dashboard**.                                                                                                                                               | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                                    | Can see this page | Which sections they see                                                         |
-| --------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------- |
-| Teacher                                                                                 | Yes               | Only sections where they are class teacher or assistant class teacher this year |
+| Role                                                                                     | Can see this page | Which sections they see                                                         |
+| ---------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------- |
+| Teacher                                                                                  | Yes               | Only sections where they are class teacher or assistant class teacher this year |
 | Admin, Academic coordinator, Accountant, Office assistant, Exam controller, Board member | No                | —                                                                               |
 
 **A teacher** sees **My class** in the left menu. They see only the sections where they are **Class teacher** or **Assistant class teacher**, and only of the current academic year. They do not see sections where they are only a subject teacher, another teacher's sections, or last year's sections; opening a link to another section shows a "not found" page. On the **Dues** card they see the figures, but cannot use **See all** to reach the full dues list.
@@ -206,7 +206,7 @@ Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part 
 3. **Absent today**, **Attendance flags**, **Dues** — the first row of cards.
 4. **Homework**, **Results**, **Students** — the second row of cards.
 
-<!-- image pending: the four parts of the section page numbered, teacher, desktop -->
+![the four parts of the section page](img/my-class-04.png)
 
 </details>
 
