@@ -139,10 +139,10 @@ Create homework for one subject of one class, then give it to a whole section or
 
 Homework is saved only when you are online; it cannot be kept on the device and sent later. So the **Saved on this device** state does not exist here.
 
-| State                          | How to tell                                                          | What next                  |
-| ------------------------------ | -------------------------------------------------------------------- | -------------------------- |
-| **Changed on screen only**     | The **Create homework** page is open and the fields are filled in    | Press **Give homework**    |
-| **Reached the school's system** | The homework's own page has opened, with your title as its heading   | Done                       |
+| State                           | How to tell                                                        | What next               |
+| ------------------------------- | ------------------------------------------------------------------ | ----------------------- |
+| **Changed on screen only**      | The **Create homework** page is open and the fields are filled in  | Press **Give homework** |
+| **Reached the school's system** | The homework's own page has opened, with your title as its heading | Done                    |
 
 **To double-check:** go back to the **Homework** list. The new homework is at the top. If you pick the section in the **Section** filter, it shows there too.
 
@@ -179,10 +179,10 @@ To give the same homework to another section of the same class, or to another st
 
    → The form closes and you see **Assigned. Due {date}.**
 
-| You press  | What happens                                            | Saved? |
-| ---------- | ------------------------------------------------------- | ------ |
-| **Assign** | The homework is given to the new section or student     | Yes    |
-| **Cancel** | The form closes, nothing changes                        | No     |
+| You press  | What happens                                        | Saved? |
+| ---------- | --------------------------------------------------- | ------ |
+| **Assign** | The homework is given to the new section or student | Yes    |
+| **Cancel** | The form closes, nothing changes                    | No     |
 
 ### Import homework from an Excel or CSV file <a href="#task-import" id="task-import"></a>
 
@@ -205,16 +205,16 @@ To give many homework to many sections at once, such as a whole week's, import t
 3. Open the file in Excel or Google Sheets. Do not change the first-row headers, and delete the example row.
 4. Write one homework per row. What goes in each column is also shown in the page's **Column reference**.
 
-| Column header   | What to write                                                                                | Required? |
-| --------------- | -------------------------------------------------------------------------------------------- | --------- |
+| Column header   | What to write                                                                                  | Required? |
+| --------------- | ---------------------------------------------------------------------------------------------- | --------- |
 | `class`         | The name of a class of the current academic year, as written in the app, for example `Class 5` | Yes       |
-| `section`       | A section of that class, for example `A`                                                     | Yes       |
-| `subject`       | The name of one of the school's subjects, for example `Mathematics`                          | Yes       |
-| `assigned_date` | The date given, in year-month-day order, for example `2026-10-01`                            | Yes       |
-| `due_date`      | The due date, in the same order, for example `2026-10-05`; it cannot be before the date given | Yes       |
-| `description`   | A short note about the task, for example `Exercise 3.2`; may be left empty                   | No        |
+| `section`       | A section of that class, for example `A`                                                       | Yes       |
+| `subject`       | The name of one of the school's subjects, for example `Mathematics`                            | Yes       |
+| `assigned_date` | The date given, in year-month-day order, for example `2026-10-01`                              | Yes       |
+| `due_date`      | The due date, in the same order, for example `2026-10-05`; it cannot be before the date given  | Yes       |
+| `description`   | A short note about the task, for example `Exercise 3.2`; may be left empty                     | No        |
 
-   The file has no column for the title or the grading mode. For every imported homework the app makes the title itself from the subject and the assigned date, for example **Mathematics — 2026-10-01**, and the grading mode is **Tick (done / not done)**.
+The file has no column for the title or the grading mode. For every imported homework the app makes the title itself from the subject and the assigned date, for example **Mathematics — 2026-10-01**, and the grading mode is **Tick (done / not done)**.
 
 5. Save the file as CSV or XLSX. The file must not be over 5 MB, and may have at most 2000 rows besides the header row.
 
@@ -230,7 +230,7 @@ To give many homework to many sections at once, such as a whole week's, import t
 
    → If any row has a problem, a **Rows with problems** table appears: **Row** (which row of the file), **Column**, **Value in your file**, **Problem**, **Type**. The import button below stays disabled.
 
-<!-- image pending: import Rows with problems table, Row, Column and Problem columns and the CSV download button marked, admin, desktop -->
+<img src="img/homework-05.png" alt="the Rows with problems table after an import check: 1 the table with Row, Column, Value in your file and Problem, 2 the Download problem rows (CSV) button, admin">
 
 **4. Fix the problem rows**
 
@@ -251,17 +251,17 @@ To give many homework to many sections at once, such as a whole week's, import t
 
 11. If there are no problems, press **Import {number} homework** at the bottom. After the check, a time shows beside it, such as **Save within 29:40 or upload again**; after 30 minutes you must upload again.
 
-   → In the **3. Result** part you see a **Done** mark and a line such as **12 homework created.** A message also appears at the top.
+→ In the **3. Result** part you see a **Done** mark and a line such as **12 homework created.** A message also appears at the top.
 
 12. Press **Back to homework**.
 
-   → The new homework appears in the list.
+→ The new homework appears in the list.
 
-| You press                  | What happens                                              | Saved? |
-| -------------------------- | --------------------------------------------------------- | ------ |
+| You press                    | What happens                                                  | Saved? |
+| ---------------------------- | ------------------------------------------------------------- | ------ |
 | **Import {number} homework** | All the homework in the file is created and given to sections | Yes    |
-| **Import another file**    | This file is dropped, and you can pick a new file         | No     |
-| **Cancel**                 | The app asks, then returns to the list                    | No     |
+| **Import another file**      | This file is dropped, and you can pick a new file             | No     |
+| **Cancel**                   | The app asks, then returns to the list                        | No     |
 
 <figure>
   <img src="diagrams/academics-homework-import.svg" alt="Download the template, fill in rows, upload the file; if not every row is fine, fix the problem rows and upload again; once fine, confirming the import creates all the homework" width="720">
@@ -270,22 +270,22 @@ To give many homework to many sections at once, such as a whole week's, import t
 
 ### Which grading mode to pick <a href="#task-grading" id="task-grading"></a>
 
-| Mode                         | When to pick it                                                       |
-| ---------------------------- | --------------------------------------------------------------------- |
-| **Tick (done / not done)**   | You will mark each student only done or not done.                     |
-| **Partial completion**       | You will mark each student not done, partly done or done.             |
-| **Marks**                    | You will give each student a mark.                                    |
+| Mode                       | When to pick it                                           |
+| -------------------------- | --------------------------------------------------------- |
+| **Tick (done / not done)** | You will mark each student only done or not done.         |
+| **Partial completion**     | You will mark each student not done, partly done or done. |
+| **Marks**                  | You will give each student a mark.                        |
 
 The mode cannot be changed after the homework is created. A screen to give marks or ticks student by student does not exist in this app yet: [Known issues](#known-issues).
 
 ### Filter the list <a href="#task-find" id="task-find"></a>
 
-| Field        | What to pick                                                                                               |
-| ------------ | ---------------------------------------------------------------------------------------------------------- |
-| **Class**    | One class, or **All classes**                                                                              |
-| **Section**  | One section of the chosen class, or **All sections**. Changing the class clears the section                |
-| **Subject**  | One subject, or **All subjects**                                                                           |
-| **Status**   | **Active**, **Deactivated** or **Superseded**, or **All statuses**                                         |
+| Field       | What to pick                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| **Class**   | One class, or **All classes**                                                               |
+| **Section** | One section of the chosen class, or **All sections**. Changing the class clears the section |
+| **Subject** | One subject, or **All subjects**                                                            |
+| **Status**  | **Active**, **Deactivated** or **Superseded**, or **All statuses**                          |
 
 Filters are for viewing only; they change nothing.
 
@@ -299,30 +299,30 @@ The list of sections this homework has been given to cannot be seen on this page
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                                   | What to do                                                                                                                                                                                                                                                            | Who can help |
-| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Couldn't load homework.**                                                                    | Check your internet and reload the page.                                                                                                                                                                                                                              | Admin        |
-| **Something went wrong. Please try again.**                                                    | Check your internet and press again. If you are a teacher: check that you have a duty for the class-subject or section you picked ([teacher assignments](../people/teaching-assignments.md)). The class list shows every class, but saving works only for classes you have a duty in. | Admin        |
-| **Homework was created, but assigning it failed. Try again from its detail page:**             | The homework exists; it just did not reach the section. Press **Go to homework**, then [assign it to a section or student](#task-assign-again). Do not create it again, or there will be two.                                                                          | Admin        |
-| **Homework not found.** or a "not found" page                                                  | The link is old, or the homework is outside your duties. Open it from the list.                                                                                                                                                                                       | Admin        |
-| The list is empty, as a teacher                                                                | You have no section duty in the current academic year. Tell an admin.                                                                                                                                                                                                 | Admin        |
-| The **Subject** list is empty                                                                  | No subject is attached to the class. [Attach a subject](classes.md#task-subjects).                                                                                                                                                                                    | Admin        |
-| **This file type isn't supported — choose a .csv or .xlsx file**                               | Save the file as CSV or XLSX.                                                                                                                                                                                                                                         | —            |
-| **This file is too large — choose a smaller file**                                             | It is over 5 MB. Split the file in two.                                                                                                                                                                                                                               | —            |
-| **Import failed.**                                                                             | Check your internet and upload again. Check that the first-row headers are as in the template, and that there are not more than 2000 rows.                                                                                                                            | Admin        |
-| **This check expired — upload the file again**                                                 | 30 minutes have passed since the check. Upload the same file again and confirm.                                                                                                                                                                                       | —            |
-| English messages in the **Rows with problems** table                                           | The messages still come in English ([Known issues](#known-issues)). Look at **Column** and **Value in your file** and [fix the problem rows](#task-import).                                                                                                           | Admin        |
-| **You don't have access to this page.**                                                        | This page is only for admins and teachers. Press **Back to dashboard**.                                                                                                                                                                                               | Admin        |
+| What you see                                                                       | What to do                                                                                                                                                                                                                                                                            | Who can help |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Couldn't load homework.**                                                        | Check your internet and reload the page.                                                                                                                                                                                                                                              | Admin        |
+| **Something went wrong. Please try again.**                                        | Check your internet and press again. If you are a teacher: check that you have a duty for the class-subject or section you picked ([teacher assignments](../people/teaching-assignments.md)). The class list shows every class, but saving works only for classes you have a duty in. | Admin        |
+| **Homework was created, but assigning it failed. Try again from its detail page:** | The homework exists; it just did not reach the section. Press **Go to homework**, then [assign it to a section or student](#task-assign-again). Do not create it again, or there will be two.                                                                                         | Admin        |
+| **Homework not found.** or a "not found" page                                      | The link is old, or the homework is outside your duties. Open it from the list.                                                                                                                                                                                                       | Admin        |
+| The list is empty, as a teacher                                                    | You have no section duty in the current academic year. Tell an admin.                                                                                                                                                                                                                 | Admin        |
+| The **Subject** list is empty                                                      | No subject is attached to the class. [Attach a subject](classes.md#task-subjects).                                                                                                                                                                                                    | Admin        |
+| **This file type isn't supported — choose a .csv or .xlsx file**                   | Save the file as CSV or XLSX.                                                                                                                                                                                                                                                         | —            |
+| **This file is too large — choose a smaller file**                                 | It is over 5 MB. Split the file in two.                                                                                                                                                                                                                                               | —            |
+| **Import failed.**                                                                 | Check your internet and upload again. Check that the first-row headers are as in the template, and that there are not more than 2000 rows.                                                                                                                                            | Admin        |
+| **This check expired — upload the file again**                                     | 30 minutes have passed since the check. Upload the same file again and confirm.                                                                                                                                                                                                       | —            |
+| English messages in the **Rows with problems** table                               | The messages still come in English ([Known issues](#known-issues)). Look at **Column** and **Value in your file** and [fix the problem rows](#task-import).                                                                                                                           | Admin        |
+| **You don't have access to this page.**                                            | This page is only for admins and teachers. Press **Back to dashboard**.                                                                                                                                                                                                               | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                                | List and homework page                           | Create and give homework                              | Import from a file                                   |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------- | ---------------------------------------------------- |
-| Admin                                                                               | Yes, all of the school's homework                | Yes, to any class and section                         | Yes, to any section                                  |
-| Teacher                                                                             | Only homework of class-subjects they have duties in | Only to sections and subjects they have duties in  | Only to sections and subjects they have duties in    |
-| Academic coordinator, Accountant, Office assistant, Exam controller, Board member   | No                                               | No                                                    | No                                                   |
+| Role                                                                              | List and homework page                              | Create and give homework                          | Import from a file                                |
+| --------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------- |
+| Admin                                                                             | Yes, all of the school's homework                   | Yes, to any class and section                     | Yes, to any section                               |
+| Teacher                                                                           | Only homework of class-subjects they have duties in | Only to sections and subjects they have duties in | Only to sections and subjects they have duties in |
+| Academic coordinator, Accountant, Office assistant, Exam controller, Board member | No                                                  | No                                                | No                                                |
 
 **An admin** sees all of the school's homework, and can give homework to, and import it for, any class, section or student.
 
@@ -336,11 +336,11 @@ The list of sections this homework has been given to cannot be seen on this page
 
 Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part is removed once fixed.
 
-| Issue                                                                                                                                                                                                  | Who, when                                   | Data saved?                         | What to do for now                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | ----------------------------------- | ------------------------------------------------------------- |
-| There is no screen on the homework's page to give done, partial or marks student by student. The **Homework to check** card opens the homework's page, but you cannot see submissions or mark there | A teacher, wanting to see submissions       | Yes, submissions are not lost       | For now, keep a note on paper                                 |
-| There is no way to see which sections a homework was given to, change its due date, or deactivate it; so the **Deactivated** and **Superseded** options of the **Status** filter are usually empty    | Whoever gave wrong homework or a wrong date | Yes, given homework stays           | Tell students in person; tell support                         |
-| In the import's **Rows with problems** table, the text in the **Problem** column is in English                                                                                                         | Whoever imports, if there are problems      | No, nothing was imported            | Look at **Column** and **Value in your file** and fix the row |
+| Issue                                                                                                                                                                                               | Who, when                                   | Data saved?                   | What to do for now                                            |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------------------------- | ------------------------------------------------------------- |
+| There is no screen on the homework's page to give done, partial or marks student by student. The **Homework to check** card opens the homework's page, but you cannot see submissions or mark there | A teacher, wanting to see submissions       | Yes, submissions are not lost | For now, keep a note on paper                                 |
+| There is no way to see which sections a homework was given to, change its due date, or deactivate it; so the **Deactivated** and **Superseded** options of the **Status** filter are usually empty  | Whoever gave wrong homework or a wrong date | Yes, given homework stays     | Tell students in person; tell support                         |
+| In the import's **Rows with problems** table, the text in the **Problem** column is in English                                                                                                      | Whoever imports, if there are problems      | No, nothing was imported      | Look at **Column** and **Value in your file** and fix the row |
 
 ---
 
@@ -399,6 +399,7 @@ Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part 
 - [**Teacher assignments**](../people/teaching-assignments.md) — which teacher has which section and subject.
 - [**My class**](my-class.md) — a summary of the class teacher's section.
 - [**Syllabus and study plans**](syllabus.md) — a class-subject's topics and each section's study plan.
+- [**Homework (parent and student)**](../portal/homework.md) — what parents and students see.
 
 ---
 

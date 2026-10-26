@@ -67,7 +67,7 @@ This page is for looking only. You cannot add or change anything here.
 2. A day with something on it has a small dot on a phone; on a computer the item's name is written in the box. If a day has more items, it says, for example, **+2 more**.
 3. Below the calendar, see what is on today.
 
-<!-- image pending: Calendar, current month, two holidays and an exam; 1 · Month name and arrows 2 · Days with dots 3 · Day's items; parent, phone -->
+<img src="img/calendar-01.png" alt="Calendar, November 2026, dots on days with events" width="300">
 
 > **Remember:** the school's weekly off days, and which day the week starts on, follow your school's own rules.
 
@@ -149,7 +149,7 @@ The school adds and publishes items from the [**Seeing, adding and subscribing t
 2. The month calendar, with arrows at the top to change month.
 3. The chosen day's items.
 
-<!-- image pending: Calendar, three parts numbered, an exam day chosen; student, phone -->
+<img src="img/calendar-02.png" alt="Calendar, an exam day chosen" width="300">
 
 </details>
 

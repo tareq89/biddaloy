@@ -165,7 +165,7 @@ Staff details are saved only when you are online. You cannot save this work on a
 
 **To check:** reload the page, then type the name in **Search**. If it appears in the list, it is in the system. Press the person's name to see their **Invitation** state on their page.
 
-<!-- image pending: the new staff member's row in the list, three parts marked, admin, desktop -->
+![the new staff member's row in the list, three parts](img/staff-03.png)
 
 **If no message appears:** see [Problems and fixes](#trouble). What you typed stays in the dialog; nothing is lost.
 
@@ -328,17 +328,17 @@ You cannot remove yourself: it shows **You cannot remove your own account from t
 
 Press a person's name in the list, or **View**, to open their page. At the top are their name, status, role, the date they joined this school and their last sign-in (**Not yet** if they have never signed in). The tabs are below:
 
-| Tab                                     | What it holds                                                                                                                            |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Profile**                             | Contact (email, phone, whether verified), the account creation date, the **Teacher profile** card for a teacher, and the invitation card |
-| **Permissions**                         | What their role can do, in groups. For viewing only; you cannot change it person by person                                               |
-| **Teacher assignments**                 | Only with a teacher profile. Which duty in which class and section, and **Assign** / **Remove assignment**                               |
-| **HR record**                           | The person's personal and job details                                                                                                    |
-| **ACR**, **Incidents**, **Performance** | Staff evaluation                                                                                                                         |
-| **Documents**                           | The staff photo, ID card printing and the list of earlier prints                                                                         |
-| **Attendance & Leave**                  | The person's attendance and leave balance                                                                                                |
-| [**Applications**](../applications/applications.md)                        | Applications filed in the person's name                                                                                                  |
-| **Login history**                       | When, and from which IP address and device, they signed in                                                                               |
+| Tab                                                 | What it holds                                                                                                                            |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Profile**                                         | Contact (email, phone, whether verified), the account creation date, the **Teacher profile** card for a teacher, and the invitation card |
+| **Permissions**                                     | What their role can do, in groups. For viewing only; you cannot change it person by person                                               |
+| **Teacher assignments**                             | Only with a teacher profile. Which duty in which class and section, and **Assign** / **Remove assignment**                               |
+| **HR record**                                       | The person's personal and job details                                                                                                    |
+| **ACR**, **Incidents**, **Performance**             | Staff evaluation                                                                                                                         |
+| **Documents**                                       | The staff photo, ID card printing and the list of earlier prints                                                                         |
+| **Attendance & Leave**                              | The person's attendance and leave balance                                                                                                |
+| [**Applications**](../applications/applications.md) | Applications filed in the person's name                                                                                                  |
+| **Login history**                                   | When, and from which IP address and device, they signed in                                                                               |
 
 Which tabs you see depends on your permissions. To see and change the assignments of every teacher in one place, see the [Teacher assignments](teaching-assignments.md) page.
 
@@ -441,7 +441,10 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 <details>
 <summary><strong>The whole task in one go</strong></summary>
 
-<!-- image pending: GIF from adding a staff member to giving a teacher profile, admin, desktop -->
+<figure>
+  <img src="img/staff-add-teacher.gif" alt="The whole job on a computer: Add staff member with name, email and the Teacher role, then Give teacher profile with the member, an employee ID and a designation">
+  <figcaption><em>From a new staff member to their teacher profile</em></figcaption>
+</figure>
 
 </details>
 

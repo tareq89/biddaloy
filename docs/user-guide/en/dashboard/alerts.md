@@ -100,7 +100,7 @@ An **alert** is a to-do that the school's rules create by themselves. For exampl
 
    → At the top it says **Your to-do and past alerts in one place.** Below is the list: **Type**, **About**, **Student / section**, **When**, **Status**, **Actions**.
 
-<!-- image pending: Alerts & notifications page, To-do tab, 1 tab 2 filters 3 one row 4 action button marked, admin, desktop -->
+![Alerts & notifications page, To-do tab](img/dashboard-alerts-01-todo.png)
 
 2. Look at the **Urgent** rows first. Read **About** to understand what has to be done. What each alert means is in [What each alert means](#task-kinds) below.
 3. Press the first button in the row's **Actions** cell (if there is one).
@@ -168,7 +168,7 @@ Teachers mostly see alerts on a phone. On a phone:
 2. Each row of the list becomes a card, with the level (**Urgent**, **Warning** or **Reminder**) at the top.
 3. Press the card's action button, or **Remind me later** / **Close**.
 
-<!-- image pending: Alerts & notifications page on a phone, to-do cards, teacher, phone -->
+<img src="img/dashboard-alerts-01-todo-phone.png" alt="Alerts & notifications page on a phone, to-do cards, teacher" width="300">
 
 ### Morning summary <a href="#task-digest" id="task-digest"></a>
 
@@ -196,7 +196,7 @@ If notifications are off on this device, the card says **Turn on notifications o
 
 Some rules cannot be switched off; they say **Can't be switched off**. It is not only the urgent ones: some **Warning** level rules are like this too (see the last column of the lists below). In this section you can also set the time of the morning and evening reminders and the quiet hours for push.
 
-<!-- image pending: Settings, the Alerts & reminders section, a switch marked Can't be switched off, admin, desktop -->
+<img src="img/dashboard-03-settings.png" alt="Settings, the Alerts & reminders section, a switch marked Can't be switched off, admin">
 
 ### What each alert means <a href="#task-kinds" id="task-kinds"></a>
 
@@ -368,6 +368,8 @@ Everyone sees only their own alerts. Parents see **Alerts & notifications** in t
 - [**Customising your dashboard**](customise.md) — where the morning summary time is set.
 - [**Changing the school's settings**](../administration/settings.md) — Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.
 - [**Alerts and notifications (parent and student)**](../portal/notifications.md) — the alerts a guardian or student gets.
+- [**Send an alert**](../communications/send-alert.md) — send your own alert by hand.
+- [**Alerts report**](../reports/alerts-report.md) — how many alerts each rule raised in a month.
 
 ---
 

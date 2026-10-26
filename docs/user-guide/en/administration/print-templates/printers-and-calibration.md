@@ -60,7 +60,7 @@ Here a **printer** is a name plus a few measurements: what kind of printer it is
 
    → The **Printers** section appears. If there is no printer, it says **Add your first printer**.
 
-<!-- image pending: Settings → Printing, printer list, two printers; admin, desktop -->
+<img src="../img/settings-printing.png" alt="Settings → Printing, printer list, two printers; admin">
 
 2. Press **Add printer**.
 

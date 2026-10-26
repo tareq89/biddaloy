@@ -97,7 +97,7 @@ This page is your own **day's routine**: one card for each of today's periods, a
 
    → Pressing **Taught** or **Partly** saves at once; the card shows **Reported** and below it "Reported at {time}. You can change it for 7 days." If you chose **Partly**, it says **Same lesson continues**. Pressing **Not taught** asks for a reason: [Report a period as not taught](#task-not-taught).
 
-<!-- image pending: a period card in the Reported state, teacher, desktop -->
+<img src="img/my-routine-02.png" alt="a period card in the Reported state, with Taught pressed and the reported time below it, teacher">
 
 > **Remember:** there is no separate submit button; pressing the button reports it. If you get it wrong, press another button within 7 days to change it. A period without a study plan needs no report.
 

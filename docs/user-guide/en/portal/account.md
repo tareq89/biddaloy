@@ -81,7 +81,7 @@ If you lose your phone, sign it out from another phone or a computer.
 
    → A list of the devices you are signed in on. The current one says **This device**, then the most recent ones. The first 5 show; if there are more, tap **Show all 8 devices**.
 
-<!-- image pending: img/portal-account-01-devices.png (width 300) — The Devices card on a phone: 1 This device, 2 sign out another device, 3 sign out everywhere -->
+<img src="img/account-01.png" alt="The Devices card on a phone" width="300">
 
 3. On the lost phone's row, tap **Sign out**.
 
@@ -101,7 +101,7 @@ You sign in with this phone or email, and you get a code on it if you forget you
 
 2. Type the new number or email. Type your **Current password**. Tap **Continue**.
 
-<!-- image pending: img/portal-account-02-contact.png (width 300) — Change phone number on a phone: 1 new phone number, 2 current password, 3 Continue -->
+<img src="img/account-02.png" alt="Change phone number on a phone" width="300">
 
 3. **For a phone:** A 6-digit code goes to the new number. Type it in the **Verification code** box and tap **Confirm**.
 
