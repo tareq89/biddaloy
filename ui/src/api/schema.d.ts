@@ -5777,6 +5777,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/homework/{id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One homework's assignment rows (teacher: own sections only). */
+        get: operations["HomeworkController_findAssignments_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/homework/{id}/assign": {
         parameters: {
             query?: never;
@@ -5824,7 +5841,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Deactivate or reactivate an assignment (Q10 D22). */
+        /** Deactivate or reactivate an assignment, or move its due date in place (Q10 D22, #2900). */
         patch: operations["HomeworkController_updateAssignment_v1"];
         trace?: never;
     };
@@ -5835,7 +5852,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List submissions for an assignment (teacher grid view). */
+        /** One row per student on this assignment, with their submission (teacher check-work view, #2899). */
         get: operations["HomeworkSubmissionController_findAll_v1"];
         put?: never;
         /** Upload (or resubmit) a homework submission — up to 10 files, 5MB each, PDF/JPG/PNG/WebP (D27). Blocked once due_date has passed. */
@@ -5843,7 +5860,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Tick, done/partial or marks for many students of one assignment, in one transaction (#2899). */
+        patch: operations["HomeworkSubmissionController_grade_v1"];
         trace?: never;
     };
     "/api/v1/homework-submissions/{id}": {
@@ -14168,6 +14186,19 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        HomeworkAssignmentListItemDto: {
+            id: string;
+            homework_id: string;
+            section_id: string | null;
+            student_id: string | null;
+            assigned_date: string;
+            due_date: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "DEACTIVATED" | "SUPERSEDED";
+            target_section_id: string;
+            section_name: string;
+            student_name: string | null;
+        };
         AssignHomeworkDto: {
             /** Format: uuid */
             section_id?: string;
@@ -14188,7 +14219,8 @@ export interface components {
         };
         UpdateHomeworkAssignmentDto: {
             /** @enum {string} */
-            status: "ACTIVE" | "DEACTIVATED";
+            status?: "ACTIVE" | "DEACTIVATED";
+            due_date?: string;
         };
         HomeworkSubmissionResponseDto: {
             id: string;
@@ -14207,6 +14239,26 @@ export interface components {
             /** @enum {string} */
             status?: "PARTIAL" | "DONE";
             marks?: number;
+        };
+        GradeSubmissionItemDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** @enum {string} */
+            status?: "NOT_SUBMITTED" | "PARTIAL" | "DONE";
+            marks?: number | null;
+        };
+        GradeSubmissionsDto: {
+            items: components["schemas"]["GradeSubmissionItemDto"][];
+        };
+        HomeworkSubmissionRosterRowDto: {
+            student_id: string;
+            student_name: string;
+            roll_number: number;
+            submission_id: string | null;
+            /** @enum {string} */
+            status: "NOT_SUBMITTED" | "SUBMITTED" | "PARTIAL" | "DONE";
+            marks: number | null;
+            attachment_count: number;
         };
         HomeworkBulkUploadPreviewRowDto: {
             row: number;
@@ -31434,6 +31486,39 @@ export interface operations {
             };
         };
     };
+    HomeworkController_findAssignments_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeworkAssignmentListItemDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     HomeworkController_assign_v1: {
         parameters: {
             query?: never;
@@ -31566,7 +31651,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HomeworkSubmissionResponseDto"][];
+                    "application/json": components["schemas"]["HomeworkSubmissionRosterRowDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -31608,6 +31693,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HomeworkSubmissionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HomeworkSubmissionController_grade_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GradeSubmissionsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeworkSubmissionRosterRowDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
