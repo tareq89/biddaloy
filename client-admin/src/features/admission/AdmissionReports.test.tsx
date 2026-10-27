@@ -92,7 +92,9 @@ describe('AdmissionReports', () => {
     expect(within(counts).getByText('Left').nextSibling?.textContent).toBe('3');
     // the Left tile says what it adds up
     expect(within(counts).getByText('Withdrawn 1 · Transferred 2')).toBeTruthy();
-    expect(within(counts).getByText('Admitted').nextSibling?.textContent).toBe('3');
+    expect(
+      within(counts).getByText('Admitted from online applications').nextSibling?.textContent,
+    ).toBe('3');
     expect(within(counts).getByText('Graduated').nextSibling?.textContent).toBe('4');
     expect(within(counts).getByText('Readmitted').nextSibling?.textContent).toBe('5');
     expect(await screen.findByText('Nadia Akter')).toBeTruthy();
