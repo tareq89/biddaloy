@@ -296,6 +296,7 @@ function RoutineBuilderPage() {
       teacher_ids: value.teacherIds,
       recurrence: value.recurrence,
       recurrence_offset: value.recurrenceOffset,
+      room_id: value.roomId,
       // An edit replaces the row from today on (the server closes the old one the day before and
       // refuses a date at or before the old row's start); a new slot starts today.
       valid_from: today,
@@ -452,6 +453,7 @@ function RoutineBuilderPage() {
                     teacherIds: activeCellSlot()!.teacher_ids,
                     recurrence: activeCellSlot()!.slot.recurrence,
                     recurrenceOffset: activeCellSlot()!.slot.recurrence_offset,
+                    roomId: activeCellSlot()!.slot.room_id ?? null,
                   }
                 : undefined
             }

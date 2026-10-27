@@ -24,6 +24,18 @@ function mockLookups() {
         totalPages: 1,
       }),
     ),
+    http.get('/api/v1/routines/rooms', () =>
+      HttpResponse.json({
+        data: [
+          { id: 'room-1', room_no: '101', building: 'Main', capacity: 30 },
+          { id: 'room-2', room_no: '102', building: null, capacity: 30 },
+        ],
+        total: 2,
+        page: 1,
+        limit: 100,
+        totalPages: 1,
+      }),
+    ),
     http.get('/api/v1/teachers', () =>
       HttpResponse.json({
         data: [
@@ -63,7 +75,25 @@ describe('CellPicker', () => {
       teacherIds: ['teacher-1', 'teacher-2'],
       recurrence: 'WEEKLY',
       recurrenceOffset: 0,
+      roomId: null,
     });
+  });
+
+  it('saves the picked room, and null when "No room" is left', async () => {
+    mockLookups();
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<CellPicker open onOpenChange={vi.fn()} onSave={onSave} />, {
+      tenantId: 'tenant-1',
+      locale: 'en',
+    });
+    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    await user.click(screen.getByText('Math'));
+    await user.click(screen.getByLabelText('Ms Nahar'));
+    await user.click(screen.getByRole('combobox', { name: 'Room (optional)' }));
+    await user.click(await screen.findByRole('option', { name: 'Room 101 · Main' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ roomId: 'room-1' }));
   });
 
   it('pre-filters the subject list from a type-ahead character', async () => {
@@ -143,7 +173,7 @@ describe('CellPicker', () => {
     expect(screen.getByRole('button', { name: 'Cancel' }).getAttribute('data-variant')).toBe(
       'outline',
     );
-    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Which week' })).toBeNull();
 
     await user.click(screen.getByRole('radio', { name: 'Biweekly' }));
     expect(screen.getByRole('combobox', { name: 'Which week' })).toBeTruthy();

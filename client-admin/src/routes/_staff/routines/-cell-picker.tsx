@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import {
+  useRooms,
   useSubjects,
   useTeachers,
   type ConstraintViolation,
@@ -48,6 +49,8 @@ export interface CellPickerValue {
   teacherIds: string[];
   recurrence: SlotRecurrenceValue;
   recurrenceOffset: number;
+  /** Optional room; `null` means none. */
+  roomId: string | null;
 }
 
 export interface CellPickerProps {
@@ -97,6 +100,7 @@ export function CellPicker({
   const config = useRegionConfig();
   const subjectsQuery = useSubjects({});
   const teachersQuery = useTeachers({});
+  const roomsQuery = useRooms();
 
   const [subjectFilter, setSubjectFilter] = React.useState(initialFilter ?? '');
   const [subjectId, setSubjectId] = React.useState(initialValue?.subjectId ?? '');
@@ -108,6 +112,7 @@ export function CellPicker({
   const [recurrenceOffset, setRecurrenceOffset] = React.useState(
     initialValue?.recurrenceOffset ?? 0,
   );
+  const [roomId, setRoomId] = React.useState<string | null>(initialValue?.roomId ?? null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -117,6 +122,7 @@ export function CellPicker({
     setTeacherIds(initialValue?.teacherIds ?? []);
     setRecurrence(initialValue?.recurrence ?? 'WEEKLY');
     setRecurrenceOffset(initialValue?.recurrenceOffset ?? 0);
+    setRoomId(initialValue?.roomId ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reseed only on open, not every keystroke
   }, [open]);
 
@@ -140,7 +146,7 @@ export function CellPicker({
 
   function handleSave() {
     if (!subjectId || teacherIds.length === 0) return;
-    onSave({ subjectId, teacherIds, recurrence, recurrenceOffset });
+    onSave({ subjectId, teacherIds, recurrence, recurrenceOffset, roomId });
   }
 
   const canSave = subjectId !== '' && teacherIds.length > 0;
@@ -228,6 +234,28 @@ export function CellPicker({
                 <li className="px-3 py-2 text-text-secondary">{t('cellPicker.noResults')}</li>
               )}
             </ul>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="cell-picker-room">{t('cellPicker.roomLabel')}</Label>
+            {/* Radix forbids an empty item value, so 'none' stands for no room. */}
+            <Select
+              value={roomId ?? 'none'}
+              onValueChange={(value) => setRoomId(value === 'none' ? null : value)}
+            >
+              <SelectTrigger id="cell-picker-room" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t('cellPicker.noRoom')}</SelectItem>
+                {(roomsQuery.data?.data ?? []).map((room) => (
+                  <SelectItem key={room.id} value={room.id}>
+                    {t('roomsPanel.roomName', { roomNo: room.room_no })}
+                    {room.building ? ` · ${room.building}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-1">

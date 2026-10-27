@@ -177,6 +177,8 @@
     "loading": "Loading the routine"
   },
   "cellPicker": {
+    "roomLabel": "Room (optional)",
+    "noRoom": "No room",
     "title": "Assign a period",
     "description": "Pick a subject, one or more teachers, and how often this repeats.",
     "subjectLabel": "Subject",

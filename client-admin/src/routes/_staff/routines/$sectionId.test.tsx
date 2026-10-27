@@ -297,6 +297,7 @@ describe('/routines/$sectionId', () => {
 
   it('opens the cell picker prefilled when editing an existing slot, and shows a generic error on a non-conflict failure', async () => {
     mockCommonRoutes();
+    let patchBody: Record<string, unknown> | null = null;
     server.use(
       http.get('/api/v1/routines/routine-1/slots', () =>
         HttpResponse.json([
@@ -307,6 +308,7 @@ describe('/routines/$sectionId', () => {
               weekday: 0,
               period_slot_id: 'p1',
               subject_id: 'subject-math',
+              room_id: 'room-1',
               recurrence: 'WEEKLY',
               recurrence_offset: 0,
               valid_from: '2026-01-01',
@@ -317,9 +319,19 @@ describe('/routines/$sectionId', () => {
           },
         ]),
       ),
-      http.patch('/api/v1/routines/slots/slot-1', () =>
-        HttpResponse.json({ statusCode: 500, message: 'boom' }, { status: 500 }),
+      http.get('/api/v1/routines/rooms', () =>
+        HttpResponse.json({
+          data: [{ id: 'room-1', room_no: '101', building: null, capacity: 30 }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
       ),
+      http.patch('/api/v1/routines/slots/slot-1', async ({ request }) => {
+        patchBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ statusCode: 500, message: 'boom' }, { status: 500 });
+      }),
     );
 
     renderWithRouter(routeTree, {
@@ -336,8 +348,11 @@ describe('/routines/$sectionId', () => {
     // Prefilled from the existing slot: the subject picker already shows Math selected.
     await waitFor(() => expect(screen.getByLabelText('Subject')).toBeTruthy());
 
+    // The slot's room is shown again, and the save keeps it.
+    expect(await screen.findByText('Room 101')).toBeTruthy();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patchBody).toMatchObject({ room_id: 'room-1' }));
 
     // A non-conflict failure leaves the picker open (no violations to show, no close).
     await waitFor(() => expect(screen.getByLabelText('Subject')).toBeTruthy());
