@@ -37,6 +37,11 @@ import { AttendanceSeriesScheduler, ATTENDANCE_SERIES_QUEUE } from './attendance
 import { AbsenceNoticeService } from './absence-notice.service';
 import { AbsenceNoticeController } from './absence-notice.controller';
 import { AbsenceNoticeScheduler, ABSENCE_NOTICE_SWEEP_QUEUE } from './absence-notice.scheduler';
+import { ArrivalSubscriptionsService } from './arrival-subscriptions.service';
+import {
+  ArrivalSubscriptionsController,
+  PortalArrivalSubscriptionsController,
+} from './arrival-subscriptions.controller';
 import { DeviceService } from './devices/device.service';
 import { DeviceEventsService } from './devices/device-events.service';
 import { DeviceAuthGuard } from './devices/device-auth.guard';
@@ -112,6 +117,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     AbsenceNoticeScheduler,
     AttendanceDashboardService,
     AttendanceSeriesScheduler,
+    ArrivalSubscriptionsService,
     DeviceService,
     DeviceEventsService,
     DeviceAuthGuard,
@@ -121,6 +127,8 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     AttendanceSummaryController,
     AbsenceNoticeController,
     AttendanceDashboardController,
+    ArrivalSubscriptionsController,
+    PortalArrivalSubscriptionsController,
     DevicesController,
     DeviceIngestController,
   ],
