@@ -4,7 +4,13 @@
  * behind ACR_READ by `$userId.tsx`.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, DataTable, HelpHint, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import {
+  Button,
+  DataTable,
+  HelpHint,
+  StatusBadge,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
 import {
   useAcademicYears,
   useAcrStaffHistory,

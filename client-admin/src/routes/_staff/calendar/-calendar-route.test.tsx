@@ -114,7 +114,9 @@ describe('/calendar', () => {
     renderCalendar();
     await screen.findByTestId('day-cell-2026-10-05');
     await screen.findAllByRole('button', { name: /^Help:/ });
-    expect(document.querySelector('[data-help-id="people.calendar.action.addEvent"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-help-id="people.calendar.action.addEvent"]'),
+    ).not.toBeNull();
     vi.unstubAllEnvs();
   });
 

@@ -581,18 +581,21 @@ function SectionRegisterPage() {
           </p>
           {editable && (
             <div className="flex items-center gap-2">
-              <span className="inline-flex flex-1 items-center gap-1 md:flex-none"><Button
-                type="button"
-                variant="outline"
-                className="flex-1 md:flex-none"
-                onClick={handleAllPresent}
-                disabled={Boolean(
-                  allowedStatuses && !allowedStatuses.includes(AttendanceStatus.PRESENT),
-                )}
-              >
-                <CheckCheck aria-hidden="true" />
-                {t('mark.allPresent')}
-              </Button><HelpHint helpId="attendance.attendance.action.allPresent" /></span>
+              <span className="inline-flex flex-1 items-center gap-1 md:flex-none">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 md:flex-none"
+                  onClick={handleAllPresent}
+                  disabled={Boolean(
+                    allowedStatuses && !allowedStatuses.includes(AttendanceStatus.PRESENT),
+                  )}
+                >
+                  <CheckCheck aria-hidden="true" />
+                  {t('mark.allPresent')}
+                </Button>
+                <HelpHint helpId="attendance.attendance.action.allPresent" />
+              </span>
               <Button type="button" variant="ghost" onClick={handleReset}>
                 <RotateCcw aria-hidden="true" />
                 {t('mark.reset')}
@@ -623,19 +626,22 @@ function SectionRegisterPage() {
           <span className="shrink-0 text-text-secondary">
             {t('mark.unmarkedRemaining', { n: counts.unmarked })}
           </span>
-          <><Button
-            type="button"
-            className="flex-1 md:ms-auto md:flex-none"
-            loading={submitRegister.isPending}
-            onClick={handleSubmit}
-          >
-            <Send aria-hidden="true" />
-            {submitRegister.isPending
-              ? t('mark.submitting')
-              : online
-                ? t('mark.submitOnline')
-                : t('mark.submitOffline')}
-          </Button><HelpHint helpId="attendance.attendance.action.submit" /></>
+          <>
+            <Button
+              type="button"
+              className="flex-1 md:ms-auto md:flex-none"
+              loading={submitRegister.isPending}
+              onClick={handleSubmit}
+            >
+              <Send aria-hidden="true" />
+              {submitRegister.isPending
+                ? t('mark.submitting')
+                : online
+                  ? t('mark.submitOnline')
+                  : t('mark.submitOffline')}
+            </Button>
+            <HelpHint helpId="attendance.attendance.action.submit" />
+          </>
         </div>
       )}
 

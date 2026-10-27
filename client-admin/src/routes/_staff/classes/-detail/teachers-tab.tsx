@@ -136,15 +136,18 @@ function SectionTeachersPanel({
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-h3">{section.section_name}</h3>
         {canManage && (
-          <span className="inline-flex items-center gap-1"><Button
-            type="button"
-            variant="outline"
-            onClick={onAssign}
-            aria-label={t('detail.teachers.assignAria', { section: section.section_name })}
-          >
-            <UserPlusIcon aria-hidden="true" />
-            {t('detail.teachers.assign')}
-          </Button><HelpHint helpId="academics.classes.action.assignTeacher" /></span>
+          <span className="inline-flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onAssign}
+              aria-label={t('detail.teachers.assignAria', { section: section.section_name })}
+            >
+              <UserPlusIcon aria-hidden="true" />
+              {t('detail.teachers.assign')}
+            </Button>
+            <HelpHint helpId="academics.classes.action.assignTeacher" />
+          </span>
         )}
       </div>
 

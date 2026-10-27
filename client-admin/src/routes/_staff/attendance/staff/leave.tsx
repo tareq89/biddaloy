@@ -156,11 +156,14 @@ function LeavePage() {
       </section>
 
       {canApprove && (
-        <span className="inline-flex items-center gap-1 self-start"><Button asChild variant="outline" className="self-start">
-          <Link to="/applications" search={{ view: 'inbox', type: ApplicationType.STAFF_LEAVE }}>
-            {t('myLeave.pendingLink')}
-          </Link>
-        </Button><HelpHint helpId="attendance.staffAttendance.action.approveLeave" /></span>
+        <span className="inline-flex items-center gap-1 self-start">
+          <Button asChild variant="outline" className="self-start">
+            <Link to="/applications" search={{ view: 'inbox', type: ApplicationType.STAFF_LEAVE }}>
+              {t('myLeave.pendingLink')}
+            </Link>
+          </Button>
+          <HelpHint helpId="attendance.staffAttendance.action.approveLeave" />
+        </span>
       )}
     </PageContainer>
   );

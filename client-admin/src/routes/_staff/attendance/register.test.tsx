@@ -70,7 +70,9 @@ describe('/attendance/register', () => {
     });
     await screen.findByRole('heading', { name: 'No section picked yet' });
     await screen.findAllByRole('button', { name: /^Help:/ });
-    expect(document.querySelector('[data-help-id="attendance.attendanceRegister.action.print"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-help-id="attendance.attendanceRegister.action.print"]'),
+    ).not.toBeNull();
     vi.unstubAllEnvs();
   });
 

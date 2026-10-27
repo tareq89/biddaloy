@@ -39,7 +39,9 @@ describe('/academic-years', () => {
     });
     await screen.findByRole('heading', { name: 'Academic Years' });
     await screen.findAllByRole('button', { name: /^Help:/ });
-    expect(document.querySelector('[data-help-id="academics.academicYears.action.add"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-help-id="academics.academicYears.action.add"]'),
+    ).not.toBeNull();
     vi.unstubAllEnvs();
   });
 

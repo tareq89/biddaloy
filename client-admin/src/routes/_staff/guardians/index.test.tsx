@@ -67,7 +67,9 @@ describe('/guardians', () => {
       locale: 'en',
     });
     await screen.findAllByRole('button', { name: /^Help:/ });
-    expect(document.querySelector('[data-help-id="people.guardians.action.invite"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-help-id="people.guardians.action.invite"]'),
+    ).not.toBeNull();
     vi.unstubAllEnvs();
   });
 

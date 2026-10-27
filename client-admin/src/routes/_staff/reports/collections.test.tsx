@@ -65,7 +65,9 @@ describe('/reports/collections', () => {
     renderReport();
     await screen.findAllByText('Karim Rahman');
     await screen.findAllByRole('button', { name: /^Help:/ });
-    expect(document.querySelector('[data-help-id="reports.collectionsReport.action.downloadCsv"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-help-id="reports.collectionsReport.action.downloadCsv"]'),
+    ).not.toBeNull();
     vi.unstubAllEnvs();
   });
 

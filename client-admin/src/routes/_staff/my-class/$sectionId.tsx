@@ -87,17 +87,20 @@ function MyClassSectionPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="inline-flex flex-1 items-center gap-1 md:flex-none"><Button asChild className="flex-1 md:flex-none">
-            <Link
-              ref={attendanceRef}
-              to="/attendance/$sectionId"
-              params={{ sectionId }}
-              search={{ date: todayIso() }}
-            >
-              <ClipboardCheckIcon aria-hidden="true" />
-              {t('takeAttendance')}
-            </Link>
-          </Button><HelpHint helpId="academics.myClass.action.takeAttendance" /></span>
+          <span className="inline-flex flex-1 items-center gap-1 md:flex-none">
+            <Button asChild className="flex-1 md:flex-none">
+              <Link
+                ref={attendanceRef}
+                to="/attendance/$sectionId"
+                params={{ sectionId }}
+                search={{ date: todayIso() }}
+              >
+                <ClipboardCheckIcon aria-hidden="true" />
+                {t('takeAttendance')}
+              </Link>
+            </Button>
+            <HelpHint helpId="academics.myClass.action.takeAttendance" />
+          </span>
         </div>
       </header>
       <div className="grid items-start gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">

@@ -44,15 +44,18 @@ export function DueBanner({ due, today, onReport }: DueBannerProps) {
           <p className="text-body">{body}</p>
         </div>
       </div>
-      <span className="inline-flex items-center gap-1"><Button
-        variant="outline"
-        className="h-14 w-full bg-surface text-text-primary md:h-11 md:w-fit"
-        onClick={() => onReport(oldest)}
-      >
-        {yesterday
-          ? t('marking.due.action')
-          : t('marking.due.actionDay', { weekday: formatWeekday(oldest, config) })}
-      </Button><HelpHint helpId="academics.myRoutine.action.reportPast" /></span>
+      <span className="inline-flex items-center gap-1">
+        <Button
+          variant="outline"
+          className="h-14 w-full bg-surface text-text-primary md:h-11 md:w-fit"
+          onClick={() => onReport(oldest)}
+        >
+          {yesterday
+            ? t('marking.due.action')
+            : t('marking.due.actionDay', { weekday: formatWeekday(oldest, config) })}
+        </Button>
+        <HelpHint helpId="academics.myRoutine.action.reportPast" />
+      </span>
     </div>
   );
 }

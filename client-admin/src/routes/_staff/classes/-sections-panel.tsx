@@ -116,10 +116,13 @@ export function SectionsPanel({ classId }: SectionsPanelProps) {
           <p className="mt-0.5 text-text-secondary">{t('sectionForm.description')}</p>
         </div>
         {canManage && (
-          <span className="inline-flex items-center gap-1"><Button type="button" className="w-full md:w-auto" onClick={() => setCreateOpen(true)}>
-            <PlusIcon aria-hidden="true" />
-            {t('sections.addSection')}
-          </Button><HelpHint helpId="academics.classes.action.addSection" /></span>
+          <span className="inline-flex items-center gap-1">
+            <Button type="button" className="w-full md:w-auto" onClick={() => setCreateOpen(true)}>
+              <PlusIcon aria-hidden="true" />
+              {t('sections.addSection')}
+            </Button>
+            <HelpHint helpId="academics.classes.action.addSection" />
+          </span>
         )}
       </div>
 

@@ -201,16 +201,19 @@ function StaffAttendancePage() {
                   {t('grid.unmarkedRemaining', { n: unmarked })}
                 </span>
               )}
-              <><Button
-                type="button"
-                className="flex-1 md:ms-auto md:flex-none"
-                loading={markAttendance.isPending}
-                disabled={Object.keys(draft).length === 0}
-                onClick={handleSubmit}
-              >
-                <Save aria-hidden="true" />
-                {markAttendance.isPending ? t('grid.saving') : t('grid.submit')}
-              </Button><HelpHint helpId="attendance.staffAttendance.action.submit" /></>
+              <>
+                <Button
+                  type="button"
+                  className="flex-1 md:ms-auto md:flex-none"
+                  loading={markAttendance.isPending}
+                  disabled={Object.keys(draft).length === 0}
+                  onClick={handleSubmit}
+                >
+                  <Save aria-hidden="true" />
+                  {markAttendance.isPending ? t('grid.saving') : t('grid.submit')}
+                </Button>
+                <HelpHint helpId="attendance.staffAttendance.action.submit" />
+              </>
             </div>
           )}
         </>

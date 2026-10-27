@@ -36,7 +36,9 @@ describe('/academics/homework', () => {
       locale: 'en',
     });
     await screen.findAllByRole('button', { name: /^Help:/ });
-    expect(document.querySelector('[data-help-id="academics.homework.action.assign"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-help-id="academics.homework.action.assign"]'),
+    ).not.toBeNull();
     vi.unstubAllEnvs();
   });
 

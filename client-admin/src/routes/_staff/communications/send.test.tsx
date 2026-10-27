@@ -144,7 +144,9 @@ describe('/communications/send', () => {
     render();
     await screen.findByRole('heading', { name: 'Send Message' });
     await screen.findAllByRole('button', { name: /^Help:/ });
-    expect(document.querySelector('[data-help-id="communications.sendMessage.action.send"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-help-id="communications.sendMessage.action.send"]'),
+    ).not.toBeNull();
     vi.unstubAllEnvs();
   });
 
