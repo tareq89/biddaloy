@@ -25,9 +25,16 @@ export interface TemplateDetailProps {
   templateId: string;
   selectedGrade?: number | undefined;
   onGradeChange?: (grade: number) => void;
+  /** Lets the route block in-app navigation while the grid has unsaved changes. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function TemplateDetail({ templateId, selectedGrade, onGradeChange }: TemplateDetailProps) {
+export function TemplateDetail({
+  templateId,
+  selectedGrade,
+  onGradeChange,
+  onDirtyChange,
+}: TemplateDetailProps) {
   const { t, i18n } = useTranslation('examTemplates');
   const { t: tExams } = useTranslation('exams');
   const config = useRegionConfig();
@@ -79,7 +86,9 @@ export function TemplateDetail({ templateId, selectedGrade, onGradeChange }: Tem
     <>
       <DetailShell
         name={template.name}
-        {...(dirty ? { statusBadge: <StatusBadge tone="warning" label={t('detail.unsaved')} /> } : {})}
+        {...(dirty
+          ? { statusBadge: <StatusBadge tone="warning" label={t('detail.unsaved')} /> }
+          : {})}
         facts={[
           { label: t('detail.facts.kind'), value: tExams(`kind.${template.kind}`) },
           {
@@ -134,7 +143,10 @@ export function TemplateDetail({ templateId, selectedGrade, onGradeChange }: Tem
           subjects={subjects}
           selectedGrade={selectedGrade}
           {...(onGradeChange ? { onGradeChange } : {})}
-          onStateChange={({ dirty: next }) => setDirty(next)}
+          onStateChange={({ dirty: next }) => {
+            setDirty(next);
+            onDirtyChange?.(next);
+          }}
           onSave={(rows) => update.mutate({ rows })}
         />
       </DetailShell>
