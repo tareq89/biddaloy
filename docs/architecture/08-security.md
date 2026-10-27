@@ -255,6 +255,7 @@ flowchart LR
 
 - **Rule.** An error on an identity field (email, phone, employee ID) names the kind of field, never the value. Within one operation, every failure path uses the same text, and no message echoes the submitted value.
 - **Known exception.** `UserService.update()` and `contact-change.service.ts` say "That email address is already in use" or "That phone number is already in use" on the pre-check, and "That email address or phone number is already in use" on the unique-index race path. The caller chose which field to change, so the field name tells them nothing new; left as is.
+- **Known exception (#3000).** Validation messages the caller authored themselves (a date range, a template placeholder, a vocabulary value they just typed) still quote that input so they can fix it; they are not record ids. Record ids never appear in any message.
 - **Why.** An echoed address, or two different texts, tells a caller which accounts exist (75.19, #2327).
 - **Example.** `POST /users` with a taken email or phone → `409 This person already has an account. Send them a join request instead.` (`details.code: ACCOUNT_EXISTS`), the same text on the pre-check and the unique-index race; `409 That employee ID is already in use`.
 - **Test.** `users.e2e-spec.ts` (create), `users.service.integration.spec.ts` and `staff-profiles.service.spec.ts` (employee ID).
@@ -270,7 +271,7 @@ flowchart LR
   E["DB or parser error<br/>23505, 22001, 22003, 413, multer"] --> K["known-errors.ts"] --> R["fixed 4xx sentence<br/>no value, no constraint name"]
 ```
 
-- **Test.** `server/src/common/filters/known-errors.spec.ts`, `known-errors.e2e-spec.ts` (the cases of #2634, #2612, #2616).
+- **Test.** `server/src/common/filters/known-errors.spec.ts`, `known-errors.e2e-spec.ts` (the cases of #2634, #2612, #2616), `server/src/not-found-echo.contract.spec.ts` (no NotFound message interpolates, #3000).
 
 ### Rule 25: Writes never auto-retry, and sending and billing routes carry an Idempotency-Key
 

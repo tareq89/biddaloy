@@ -105,7 +105,7 @@ export class PaymentReversalService {
       relations: ['allocations', 'allocations.student_fee', 'invoice'],
     });
     if (!payment) {
-      throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
+      throw new NotFoundException('Payment not found');
     }
     this.assertReversible(payment);
 
@@ -141,7 +141,7 @@ export class PaymentReversalService {
         .setLock('pessimistic_write')
         .getOne();
       if (!locked) {
-        throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
+        throw new NotFoundException('Payment not found');
       }
       this.assertReversible(locked);
 
@@ -504,7 +504,7 @@ export class PaymentReversalService {
     if (payment.reversed_by_payment_id) {
       throw new ConflictException({
         code: 'PAYMENT_ALREADY_REVERSED',
-        message: `Payment "${payment.id}" was already reversed`,
+        message: 'This payment was already reversed',
       });
     }
     // Only a SUCCESS payment actually moved money and incremented
@@ -518,7 +518,7 @@ export class PaymentReversalService {
     if (payment.payment_status !== PaymentStatus.SUCCESS) {
       throw new BadRequestException({
         code: 'PAYMENT_NOT_REVERSIBLE',
-        message: `Payment "${payment.id}" has status "${payment.payment_status}" — only a SUCCESS payment can be reversed`,
+        message: `This payment has status "${payment.payment_status}" — only a SUCCESS payment can be reversed`,
       });
     }
   }

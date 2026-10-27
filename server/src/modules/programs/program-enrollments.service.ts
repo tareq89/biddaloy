@@ -59,7 +59,7 @@ export class ProgramEnrollmentsService {
     const program = await this.programRepo.findOne({
       where: { id: programId, tenant_id: tenantId },
     });
-    if (!program) throw new NotFoundException(`Program "${programId}" not found`);
+    if (!program) throw new NotFoundException('Program not found');
     return program;
   }
 
@@ -140,7 +140,7 @@ export class ProgramEnrollmentsService {
     if (students.length !== studentIds.length) {
       const foundIds = new Set(students.map((s) => s.id));
       const missing = studentIds.filter((id) => !foundIds.has(id));
-      throw new NotFoundException(`Student(s) not found in this tenant: ${missing.join(', ')}`);
+      throw new NotFoundException('One or more student IDs not found');
     }
 
     const startedOn = dto.started_on ?? localToday();
@@ -195,7 +195,7 @@ export class ProgramEnrollmentsService {
     const existing = await this.enrollmentRepo.findOne({
       where: { id: enrollmentId, tenant_id: tenantId },
     });
-    if (!existing) throw new NotFoundException(`Enrollment "${enrollmentId}" not found`);
+    if (!existing) throw new NotFoundException('Enrollment not found');
 
     const endedOn =
       dto.status === ProgramEnrollmentStatus.ACTIVE ? null : (dto.ended_on ?? localToday());
@@ -251,7 +251,7 @@ export class ProgramEnrollmentsService {
     const milestone = await this.milestoneRepo.findOne({
       where: { id: dto.milestone_id, program_id: programId, tenant_id: tenantId },
     });
-    if (!milestone) throw new NotFoundException(`Milestone "${dto.milestone_id}" not found`);
+    if (!milestone) throw new NotFoundException('Milestone not found');
 
     const enrollmentIds = [...new Set(dto.enrollment_ids)];
     const enrollments = await this.enrollmentRepo.find({
@@ -260,7 +260,7 @@ export class ProgramEnrollmentsService {
     if (enrollments.length !== enrollmentIds.length) {
       const foundIds = new Set(enrollments.map((e) => e.id));
       const missing = enrollmentIds.filter((id) => !foundIds.has(id));
-      throw new NotFoundException(`Enrollment(s) not found in this program: ${missing.join(', ')}`);
+      throw new NotFoundException('One or more enrollments not found in this program');
     }
 
     const achievedOn = dto.achieved_on ?? localToday();
@@ -358,7 +358,7 @@ export class ProgramEnrollmentsService {
     const existing = await this.achievementRepo.findOne({
       where: { id: achievementId, tenant_id: tenantId },
     });
-    if (!existing) throw new NotFoundException(`Achievement "${achievementId}" not found`);
+    if (!existing) throw new NotFoundException('Achievement not found');
 
     await this.dataSource.transaction(async (manager) => {
       await manager

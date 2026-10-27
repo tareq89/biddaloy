@@ -271,7 +271,7 @@ export class RecoveryService {
       where: { user_id: user.id, tenant_id: tenantId },
     });
     if (!membership) {
-      throw new NotFoundException(`User with ID "${user.id}" not found`);
+      throw new NotFoundException('User not found');
     }
 
     // A shared login belongs to every school the person is in: no one school

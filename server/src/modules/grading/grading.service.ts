@@ -131,7 +131,7 @@ export class GradingService {
     const scale = await this.scaleRepo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (!scale) throw new NotFoundException(`Grading scale "${id}" not found`);
+    if (!scale) throw new NotFoundException('Grading scale not found');
     return scale;
   }
 
@@ -238,11 +238,11 @@ export class GradingService {
 
     if (targetBands.length > 0) {
       throw new ConflictException(
-        `Target scale "${targetId}" already has bands — copy refused to avoid overwriting them`,
+        'Target scale already has bands — copy refused to avoid overwriting them',
       );
     }
     if (sourceBands.length === 0) {
-      throw new BadRequestException(`Source scale "${sourceId}" has no bands to copy`);
+      throw new BadRequestException('Source scale has no bands to copy');
     }
 
     return this.dataSource.transaction(async (manager) => {

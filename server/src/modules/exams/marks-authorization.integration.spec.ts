@@ -215,7 +215,7 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
     await assign(TeacherAssignmentType.SUBJECT_TEACHER, oldSection, liveSubjectId);
 
     await expect(authz.assertCanWrite(call(oldSection, liveSubjectId))).rejects.toThrow(
-      `Section with ID "${oldSection}" not found`,
+      'Section not found',
     );
   });
 });

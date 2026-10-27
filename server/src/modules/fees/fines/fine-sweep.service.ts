@@ -145,7 +145,7 @@ export class FineSweepService {
       .andWhere('ay.end_date >= :periodStart', { periodStart })
       .getOne();
     if (!containingYear) {
-      throw new NotFoundException(`No academic year covers "${month}" for this tenant`);
+      throw new NotFoundException('No academic year covers this month for this tenant');
     }
 
     const rules = await this.fineRuleRepo.find({
@@ -181,7 +181,7 @@ export class FineSweepService {
     for (const [trigger, triggerRules] of rulesByTrigger) {
       const evaluator = FINE_TRIGGERS[trigger];
       if (!evaluator) {
-        throw new NotFoundException(`No trigger evaluator registered for "${trigger}"`);
+        throw new NotFoundException('No trigger evaluator registered for this trigger');
       }
       const defaultRule = triggerRules.find((r) => r.class_id === null);
       const classRules = triggerRules.filter((r) => r.class_id !== null);
@@ -394,7 +394,7 @@ export class FineSweepService {
       .andWhere('ay.end_date >= :periodStart', { periodStart: `${month}-01` })
       .getOne();
     if (!containingYear) {
-      throw new NotFoundException(`No academic year covers "${month}" for this tenant`);
+      throw new NotFoundException('No academic year covers this month for this tenant');
     }
 
     const fineDueDays = settings.fees?.fineDueDays ?? 7;

@@ -58,7 +58,7 @@ export class StaffProfilesService {
       where: { user_id: userId, tenant_id: tenantId },
     });
     if (existingForUser) {
-      throw new ConflictException(`User "${userId}" already has a staff profile`);
+      throw new ConflictException('This user already has a staff profile');
     }
 
     if (opts?.employeeId) {

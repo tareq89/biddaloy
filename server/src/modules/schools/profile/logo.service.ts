@@ -78,7 +78,7 @@ export class SchoolLogoService {
         .setLock('pessimistic_write')
         .getOne();
       if (!school) {
-        throw new NotFoundException(`School with ID "${schoolId}" not found`);
+        throw new NotFoundException('School not found');
       }
 
       const previousKey = school.logo_key;
@@ -118,13 +118,13 @@ export class SchoolLogoService {
     if (version !== undefined) {
       key = logoKeyForVersion(schoolId, version);
       if (!key) {
-        throw new NotFoundException(`School "${schoolId}" has no logo version "${version}"`);
+        throw new NotFoundException('This school has no logo of that version');
       }
     } else {
       const school = await this.repo.findOne({ where: { id: schoolId } });
       key = school?.logo_key ?? null;
       if (!key) {
-        throw new NotFoundException(`School "${schoolId}" has no logo`);
+        throw new NotFoundException('This school has no logo');
       }
     }
 
@@ -133,7 +133,7 @@ export class SchoolLogoService {
       object = await this.storage.get(key);
     } catch (error: unknown) {
       if (isMissingObjectError(error)) {
-        throw new NotFoundException(`School "${schoolId}" has no logo version "${version}"`);
+        throw new NotFoundException('This school has no logo of that version');
       }
       throw error;
     }
@@ -153,7 +153,7 @@ export class SchoolLogoService {
         .setLock('pessimistic_write')
         .getOne();
       if (!school) {
-        throw new NotFoundException(`School with ID "${schoolId}" not found`);
+        throw new NotFoundException('School not found');
       }
 
       const previousKey = school.logo_key;

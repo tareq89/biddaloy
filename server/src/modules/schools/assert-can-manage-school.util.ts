@@ -25,5 +25,5 @@ export function assertCanManageSchool(
 ): void {
   if (tenant.role === UserRole.SUPER_ADMIN) return;
   if (tenant.id === schoolId) return;
-  throw new ForbiddenException(`Not permitted to manage settings for school "${schoolId}".`);
+  throw new ForbiddenException('Not permitted to manage settings for this school.');
 }

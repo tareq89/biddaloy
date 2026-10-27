@@ -56,13 +56,13 @@ export class InvitationService {
   private async loadMember(userId: string, tenantId: string): Promise<User> {
     const user = await this.userRepo.findOne({ where: { id: userId, deleted_at: IsNull() } });
     if (!user) {
-      throw new NotFoundException(`User with ID "${userId}" not found`);
+      throw new NotFoundException('User not found');
     }
     const membership = await this.userTenantRepo.findOne({
       where: { user_id: userId, tenant_id: tenantId },
     });
     if (!membership) {
-      throw new NotFoundException(`User with ID "${userId}" not found`);
+      throw new NotFoundException('User not found');
     }
     return user;
   }

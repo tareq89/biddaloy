@@ -190,7 +190,7 @@ export class PaymentsQueryService {
       .getOne();
 
     if (!payment) {
-      throw new NotFoundException(`Payment with ID "${id}" not found`);
+      throw new NotFoundException('Payment not found');
     }
 
     return this.toDetailDto(payment);
