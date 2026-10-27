@@ -13,6 +13,10 @@ function hashBody(json: string): string {
 
 const slot = (json: string) => `idempotency-key:${hashBody(json)}`;
 
+/** A stored key older than this is a new attempt, not a reload of a lost one: a deliberate
+ * identical send hours later must not replay (the server keeps answers 24 h). */
+const RELOAD_WINDOW_MS = 30 * 60 * 1000;
+
 /**
  * [2594] One `Idempotency-Key` per submit attempt. `keyFor(body)` returns the same key while
  * the body is unchanged (a re-send of the same attempt) and a fresh one when it differs, so a
@@ -33,18 +37,21 @@ export function useIdempotencyKey(): { keyFor: (body: unknown) => string; rotate
   return React.useMemo(
     () => ({
       keyFor(body: unknown) {
-        const json = JSON.stringify(body);
+        // `?? ''`: JSON.stringify(undefined) is undefined, which would break `slot()`.
+        const json = JSON.stringify(body) ?? '';
         if (held.current?.json !== json) {
           let key: string | null = null;
           try {
-            key = sessionStorage.getItem(slot(json));
+            // Stored as "<key> <saved-at ms>".
+            const [k, at] = (sessionStorage.getItem(slot(json)) ?? '').split(' ');
+            if (k && Date.now() - Number(at) < RELOAD_WINDOW_MS) key = k;
           } catch {
             // storage blocked: ref-only
           }
           if (!key) {
             key = crypto.randomUUID();
             try {
-              sessionStorage.setItem(slot(json), key);
+              sessionStorage.setItem(slot(json), `${key} ${Date.now()}`);
             } catch {
               // storage blocked: ref-only
             }

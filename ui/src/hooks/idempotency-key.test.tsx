@@ -45,6 +45,16 @@ describe('useIdempotencyKey survives a reload [2951]', () => {
     expect(second.result.current.keyFor({ a: 1 })).not.toBe(key);
   });
 
+  it('a fresh mount after the reload window gets a new key for the same body', () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    const first = renderHook(() => useIdempotencyKey());
+    const key = first.result.current.keyFor({ a: 1 });
+    first.unmount();
+    now.mockReturnValue(1_000_000 + 31 * 60 * 1000);
+    const second = renderHook(() => useIdempotencyKey());
+    expect(second.result.current.keyFor({ a: 1 })).not.toBe(key);
+  });
+
   it('does not store the body itself', () => {
     const { result } = renderHook(() => useIdempotencyKey());
     result.current.keyFor({ name: 'Rahima Begum' });

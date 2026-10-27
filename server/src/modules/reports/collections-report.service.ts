@@ -204,20 +204,25 @@ export class CollectionsReportService {
     }));
   }
 
-  /** Bounds (YYYY-MM-DD) of the school's current academic year, or the
-   * calendar year `fallbackYear` when it has none. */
+  /** Bounds (YYYY-MM-DD) of the school's current academic year, widened to
+   * whole months. The calendar year of `today` when there is no current year,
+   * or when it does not contain `today` (not rolled over yet, or next year
+   * marked current early): otherwise "this month" would have no slot. */
   private async currentYearBounds(
     tenantId: string,
-    fallbackYear: number,
+    today: string,
   ): Promise<{ start: string; end: string }> {
     const rows = await this.paymentRepo.manager.query<Array<{ start: string; end: string }>>(
-      `SELECT to_char(start_date,'YYYY-MM-DD') AS start, to_char(end_date,'YYYY-MM-DD') AS "end"
+      `SELECT to_char(date_trunc('month', start_date),'YYYY-MM-DD') AS start,
+              to_char(date_trunc('month', end_date) + interval '1 month - 1 day','YYYY-MM-DD') AS "end"
        FROM academic_years
        WHERE tenant_id = $1 AND is_current = true AND deleted_at IS NULL
+         AND start_date <= $2::date AND end_date >= $2::date
        LIMIT 1`,
-      [tenantId],
+      [tenantId, today],
     );
-    return rows[0] ?? { start: `${fallbackYear}-01-01`, end: `${fallbackYear}-12-31` };
+    const y = today.slice(0, 4);
+    return rows[0] ?? { start: `${y}-01-01`, end: `${y}-12-31` };
   }
 
   /** Net per school-local month from `start` to `end` (YYYY-MM-DD), one slot
@@ -298,9 +303,10 @@ export class CollectionsReportService {
   ): Promise<CollectionByMonthWidgetDto> {
     const [y, m, d] = today.split('-').map(Number);
     const prev = monthRange(m === 1 ? y - 1 : y, m === 1 ? 12 : m - 1, d);
-    const { start, end } = await this.currentYearBounds(tenantId, y);
     const [slots, previous] = await Promise.all([
-      this.getNetByMonthRange(tenantId, start, end),
+      this.currentYearBounds(tenantId, today).then(({ start, end }) =>
+        this.getNetByMonthRange(tenantId, start, end),
+      ),
       this.getReceived(tenantId, prev.from, prev.to),
     ]);
     const key = (s: { year: number; month: number }) => s.year * 12 + s.month;
