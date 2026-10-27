@@ -14,15 +14,15 @@
   },
   "roles": {
     "SUPER_ADMIN": "সুপার অ্যাডমিন",
-    "ADMIN": "প্রধান শিক্ষক",
+    "ADMIN": "অ্যাডমিন",
     "ACCOUNTANT": "হিসাবরক্ষক",
     "TEACHER": "শিক্ষক",
     "PARENT": "অভিভাবক",
     "STUDENT": "শিক্ষার্থী",
-    "EXECUTIVE": "নির্বাহী",
-    "OFFICE_STAFF": "অফিস কর্মী",
+    "EXECUTIVE": "একাডেমিক কো-অর্ডিনেটর",
+    "OFFICE_STAFF": "অফিস সহকারী",
     "EXAM_CONTROLLER": "পরীক্ষা নিয়ন্ত্রক",
-    "COMMITTEE": "কমিটি"
+    "COMMITTEE": "পরিচালনা পর্ষদ সদস্য"
   },
   "actions": {
     "approve": "অনুমোদন করুন",
