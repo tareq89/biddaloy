@@ -38,7 +38,13 @@
     "tableCaption": "Students seated in room {{room}}",
     "empty": "Nobody sits in this room for this subject.",
     "seated": "{{n}} seated · {{capacity}}",
-    "invigilatorError": "Couldn't change the invigilator."
+    "invigilatorError": "Couldn't change the invigilator.",
+    "invigilatorBusy": {
+      "TEACHING": "This person is teaching a class at {{from}}–{{to}}.",
+      "INVIGILATING": "This person is already invigilating at {{from}}–{{to}}.",
+      "ON_LEAVE": "This person is on leave at that time.",
+      "other": "This person is not free at that time."
+    }
   },
   "reseat": {
     "title": "Change seat",
@@ -53,7 +59,8 @@
     "title": "Publish seat plan",
     "description": "Once published this plan becomes read-only: seats, rooms, and invigilators can no longer be changed.",
     "confirm": "Publish",
-    "errorMessage": "Couldn't publish the seat plan."
+    "errorMessage": "Couldn't publish the seat plan.",
+    "errorRoomConflict": "Can't publish: {{rooms}} is already used at the same time by another published seat plan."
   },
   "reshuffle": {
     "title": "Reseat this room?",

@@ -327,6 +327,67 @@ describe('SeatPlanDetail', () => {
     expect(screen.queryByText(/db exploded/)).toBeNull();
   });
 
+  it('a 409 ROOM_CONFLICT on publish names the clashing room, not the server text', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    server.use(
+      http.post('/api/v1/seat-plans/:id/publish', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'Raw server text', '/api/v1/seat-plans/plan-1/publish'),
+            details: {
+              code: 'ROOM_CONFLICT',
+              conflicts: [{ room_id: ROOM_B.id }, { room_id: ROOM_B.id }],
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: 'Publish seat plan' }));
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Publish' }));
+
+    expect(await within(confirm).findByText(/Main — 102 is already used/)).toBeTruthy();
+    expect(screen.queryByText(/Raw server text/)).toBeNull();
+  });
+
+  it('a 409 TEACHER_BUSY on the invigilator select says the person is teaching, with times', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    server.use(
+      http.get('/api/v1/users', () =>
+        HttpResponse.json({
+          data: [{ id: 'user-9', full_name: 'Hasan Ali', role: 'TEACHER' }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.patch('/api/v1/seat-plans/:id/rooms/:roomId/invigilator', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'Raw server text', '/api/v1/seat-plans/plan-1'),
+            details: { code: 'TEACHER_BUSY', kind: 'TEACHING', from: '10:00', to: '11:30' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderDetail();
+
+    const pickers = await screen.findAllByRole('combobox', { name: 'Invigilator' });
+    await user.click(pickers[0]!);
+    await user.click(await screen.findByRole('option', { name: 'Hasan Ali' }));
+
+    const alert = await screen.findByText(/This person is teaching a class at/);
+    expect(alert.textContent).toMatch(/–/);
+    expect(screen.queryByText(/Raw server text/)).toBeNull();
+  });
+
   it('a PUBLISHED plan shows Unpublish, a DRAFT plan shows Delete plan [68.3.12]', async () => {
     mockBaseline(plan({ status: 'PUBLISHED' }));
     renderDetail();
