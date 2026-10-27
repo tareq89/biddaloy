@@ -345,6 +345,29 @@ describe('/attendance/reports', () => {
     expect(screen.queryByText('Nobody is below the minimum this month')).toBeNull();
   });
 
+  it('hides the Low attendance tab from a teacher and never calls the flags route', async () => {
+    let flagCalls = 0;
+    server.use(
+      http.get('/api/v1/attendance/flags/low', () => {
+        flagCalls += 1;
+        return HttpResponse.json({ message: 'Forbidden' }, { status: 403 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports?view=flags'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    // ?view=flags falls back to the summary view; no tab, no error.
+    expect(await screen.findByRole('tab', { name: 'Month summary' })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Low attendance' })).toBeNull();
+    expect(screen.queryByText('Could not load the attendance report.')).toBeNull();
+    expect(flagCalls).toBe(0);
+  });
+
   it('shows the bare roll number in the table cell, "Roll N" only for the card', async () => {
     server.use(
       http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
