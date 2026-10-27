@@ -192,6 +192,8 @@ test.describe.serial('calendar: create -> grid, past-lock, teacher read-only, fe
       await page.locator('#event-form-name').fill(name);
       await page.getByRole('combobox', { name: t('calendar.eventForm.type') }).click();
       await page.getByRole('option', { name: t('calendar.types.HOLIDAY') }).click();
+      // Wait for the Select to close: its focus return would dismiss a date popover opened early.
+      await expect(page.getByRole('listbox')).toHaveCount(0);
       await pickDate(page, t('calendar.eventForm.startDate'), pastDay);
       await pickDate(page, t('calendar.eventForm.endDate'), pastDay);
       await page
