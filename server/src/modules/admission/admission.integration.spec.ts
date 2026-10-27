@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ADMIN_USER_ID } from '@test/constants';
@@ -154,7 +154,7 @@ describe('Admission flow (integration)', () => {
           },
           [],
         ),
-      ).rejects.toThrow(new BadRequestException('This admission intake is closed'));
+      ).rejects.toMatchObject({ message: 'This admission intake is closed' });
       // Control: three hours earlier (23:00 Dhaka on the 15th) it is open.
       vi.setSystemTime(new Date('2026-03-15T17:00:00Z')); // 15 Mar 23:00 Dhaka
       const stillOpen = await applicantService.listOpenIntakes(SEED_SLUG);
@@ -162,6 +162,74 @@ describe('Admission flow (integration)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe('[2879] public refusals carry a fixed details.code', () => {
+    const applicant = (intakeId: string, name: string, phone: string) => ({
+      intake_id: intakeId,
+      applicant_name: name,
+      date_of_birth: '2018-05-01',
+      gender: 'MALE' as const,
+      guardian_name: 'Guardian',
+      guardian_phone: phone,
+    });
+    const codeOf = async (p: Promise<unknown>) => {
+      const err = (await p.then(
+        () => null,
+        (e: unknown) => e,
+      )) as {
+        getResponse(): { details?: { code?: string }; message: string };
+        getStatus(): number;
+      };
+      return { status: err.getStatus(), ...err.getResponse() };
+    };
+
+    it('a closed intake gives INTAKE_CLOSED, a future one INTAKE_NOT_OPEN', async () => {
+      const closed = await createIntake({ open_date: '2020-01-01', close_date: '2020-02-01' });
+      const future = await createIntake({ open_date: '2098-01-01', close_date: '2099-01-01' });
+      const a = await codeOf(
+        applicantService.submit(SEED_SLUG, applicant(closed, 'Closed Kid', '01700000811'), []),
+      );
+      const b = await codeOf(
+        applicantService.submit(SEED_SLUG, applicant(future, 'Early Kid', '01700000812'), []),
+      );
+      expect(a).toMatchObject({ status: 400, details: { code: 'INTAKE_CLOSED' } });
+      expect(b).toMatchObject({ status: 400, details: { code: 'INTAKE_NOT_OPEN' } });
+    });
+
+    it('a full intake gives INTAKE_FULL', async () => {
+      const intakeId = await createIntake({ seat_count: 1 });
+      const first = await applicantService.submit(
+        SEED_SLUG,
+        applicant(intakeId, 'First Kid', '01700000821'),
+        [],
+      );
+      // Seats count ADMITTED applicants only; admit the first directly.
+      await dataSource.query(
+        `UPDATE admission_applicants SET status = 'ADMITTED' WHERE reference_number = $1`,
+        [first.reference_number],
+      );
+      const full = await codeOf(
+        applicantService.submit(SEED_SLUG, applicant(intakeId, 'Second Kid', '01700000822'), []),
+      );
+      expect(full).toMatchObject({ status: 400, details: { code: 'INTAKE_FULL' } });
+    });
+
+    it('pending and reviewed repeats give the identical DUPLICATE_APPLICATION response', async () => {
+      const intakeId = await createIntake({ seat_count: 5 });
+      const pendingDto = applicant(intakeId, 'Pending Kid', '01700000831');
+      const reviewedDto = applicant(intakeId, 'Reviewed Kid', '01700000832');
+      await applicantService.submit(SEED_SLUG, pendingDto, []);
+      const reviewed = await applicantService.submit(SEED_SLUG, reviewedDto, []);
+      await dataSource.query(
+        `UPDATE admission_applicants SET status = 'REJECTED' WHERE reference_number = $1`,
+        [reviewed.reference_number],
+      );
+      const p = await codeOf(applicantService.submit(SEED_SLUG, pendingDto, []));
+      const r = await codeOf(applicantService.submit(SEED_SLUG, reviewedDto, []));
+      expect(p).toMatchObject({ status: 409, details: { code: 'DUPLICATE_APPLICATION' } });
+      expect(r).toEqual(p);
+    });
   });
 
   it('[1829] reference number year follows the tenant date: 00:30 Dhaka on 1 Jan 2027 is ADM-2027', async () => {
