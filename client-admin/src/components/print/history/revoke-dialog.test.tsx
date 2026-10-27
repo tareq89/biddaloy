@@ -26,7 +26,7 @@ describe('RevokeDialog', () => {
     );
 
     await user.type(await screen.findByLabelText('Reason'), 'Lost card');
-    await user.click(screen.getByRole('button', { name: 'Revoke card' }));
+    await user.click(screen.getByRole('button', { name: 'Revoke' }));
 
     await waitFor(() =>
       expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel' }).disabled).toBe(true),
@@ -36,5 +36,16 @@ describe('RevokeDialog', () => {
 
     // Once the request finishes the dialog closes normally.
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+
+  it('reads correctly for any document: no "card" in the text, confirm is "Revoke"', async () => {
+    renderWithProviders(
+      <RevokeDialog open onOpenChange={vi.fn()} itemId="i-1" subjectLabel="Rahim" />,
+      { locale: 'en', role: 'ADMIN', tenantId: 'school-1' },
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).not.toMatch(/card/i);
+    expect(screen.getByRole('button', { name: 'Revoke' })).toBeTruthy();
   });
 });

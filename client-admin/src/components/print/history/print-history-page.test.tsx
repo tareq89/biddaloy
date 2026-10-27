@@ -270,12 +270,12 @@ describe('PrintHistoryPage', () => {
     expect(within(dialog).getByText(/no longer valid/)).toBeTruthy(); // says what will happen
 
     // Without a reason nothing is sent.
-    await user.click(within(dialog).getByRole('button', { name: 'Revoke card' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Revoke' }));
     expect(await within(dialog).findByText('Enter a reason.')).toBeTruthy();
     expect(body).toBeUndefined();
 
     await user.type(within(dialog).getByLabelText('Reason'), 'Lost card');
-    await user.click(within(dialog).getByRole('button', { name: 'Revoke card' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Revoke' }));
 
     await waitFor(() => expect(body).toEqual({ reason: 'Lost card' }));
     expect((await screen.findAllByText('Revoked')).length).toBeGreaterThan(0);
