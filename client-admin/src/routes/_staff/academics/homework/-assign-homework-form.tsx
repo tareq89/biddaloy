@@ -45,6 +45,8 @@ export interface AssignHomeworkFormInitial {
   subjectId?: string;
   /** reassign: the row's student, if it targets one. */
   studentId?: string;
+  /** reassign: the held student's name, shown if they are not in the loaded page. */
+  studentName?: string;
   /** reassign: ISO `YYYY-MM-DD` dates of the row being changed. */
   assignedDate?: string;
   dueDate?: string;
@@ -183,6 +185,16 @@ export function AssignHomeworkForm({
     { enabled: target === 'student' && sectionId !== '' },
   );
 
+  // reassign: a student who moved to another class has a section this class does not list.
+  // Clear it (and the student) so "Pick a section." asks for a new pick instead of a 400.
+  React.useEffect(() => {
+    if (mode !== 'reassign' || !sectionsQuery.data || sectionId === '') return;
+    if (!sectionsQuery.data.some((s) => s.id === sectionId)) {
+      setSectionId('');
+      setStudentId('');
+    }
+  }, [mode, sectionsQuery.data, sectionId]);
+
   function handleClassChange(value: string) {
     setClassId(value);
     setSubjectId('');
@@ -310,6 +322,13 @@ export function AssignHomeworkForm({
               <SelectValue placeholder={tCommon('form.selectPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
+              {mode === 'reassign' &&
+                studentId !== '' &&
+                studentId === initial?.studentId &&
+                initial.studentName &&
+                !(studentsQuery.data?.data ?? []).some((s) => s.id === studentId) && (
+                  <SelectItem value={studentId}>{initial.studentName}</SelectItem>
+                )}
               {(studentsQuery.data?.data ?? []).map((student) => (
                 <SelectItem key={student.id} value={student.id}>
                   {student.full_name} · {student.registration_number}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { HomeworkAssignmentStatus, HomeworkGradingMode, UserRole } from '@biddaloy/shared';
 import { HomeworkService } from './homework.service';
 
@@ -270,6 +270,66 @@ describe('HomeworkService', () => {
         ctx,
       );
       expect(result.status).toBe(HomeworkAssignmentStatus.DEACTIVATED);
+    });
+
+    const activeRow = () => ({
+      id: 'assign-1',
+      homework_id: 'hw-1',
+      section_id: 'section-1',
+      student_id: null,
+      assigned_date: '2026-01-01',
+      due_date: '2026-01-10',
+      status: HomeworkAssignmentStatus.ACTIVE,
+      tenant_id: TENANT_ID,
+    });
+
+    it('moves the due date in place and keeps the status', async () => {
+      assignmentRepo.findOne.mockResolvedValue(activeRow());
+      const result = await service.updateAssignment('assign-1', { due_date: '2026-01-15' }, ctx);
+      expect(result.id).toBe('assign-1');
+      expect(result.due_date).toBe('2026-01-15');
+      expect(result.status).toBe(HomeworkAssignmentStatus.ACTIVE);
+    });
+
+    it('rejects a due date before the assigned date and saves nothing', async () => {
+      assignmentRepo.findOne.mockResolvedValue(activeRow());
+      await expect(
+        service.updateAssignment('assign-1', { due_date: '2025-12-31' }, ctx),
+      ).rejects.toThrow('due_date must be on or after assigned_date');
+      expect(assignmentRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('loses a race with reassign: 0 rows updated gives the superseded 400', async () => {
+      assignmentRepo.findOne.mockResolvedValue(activeRow());
+      assignmentRepo.update.mockResolvedValueOnce({ affected: 0 });
+      await expect(
+        service.updateAssignment('assign-1', { status: HomeworkAssignmentStatus.DEACTIVATED }, ctx),
+      ).rejects.toThrow('A superseded assignment cannot be changed');
+    });
+
+    it('rejects an empty body before any lookup', async () => {
+      await expect(service.updateAssignment('assign-1', {}, ctx)).rejects.toThrow(
+        'Nothing to change',
+      );
+      expect(assignmentRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('maps an out-of-scope 404 to the one fixed text (Rule 23)', async () => {
+      assignmentRepo.findOne.mockResolvedValue(activeRow());
+      access.assertCanManageSection.mockRejectedValueOnce(
+        new NotFoundException('You do not have access to this section'),
+      );
+      await expect(
+        service.updateAssignment('assign-1', { due_date: '2026-01-15' }, ctx),
+      ).rejects.toThrow('Homework assignment not found');
+    });
+
+    it('lets a ForbiddenException through as 403', async () => {
+      assignmentRepo.findOne.mockResolvedValue(activeRow());
+      access.assertCanManageSection.mockRejectedValueOnce(new ForbiddenException('no'));
+      await expect(
+        service.updateAssignment('assign-1', { due_date: '2026-01-15' }, ctx),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('throws NotFoundException for an unknown assignment', async () => {

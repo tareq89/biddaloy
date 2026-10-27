@@ -11,6 +11,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { HomeworkAssignmentStatus, HomeworkGradingMode } from '@biddaloy/shared';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 /** `POST /homework` — create one Homework. Attachments are uploaded through
@@ -78,13 +79,17 @@ export class AssignHomeworkDto {
   due_date: string;
 }
 
-/** `PATCH /homework-assignments/:id` — deactivate/reactivate only (Q10 D22). */
-/** Only ACTIVE/DEACTIVATED are settable via this route (Q10 D22) — SUPERSEDED
- * is set only internally by `HomeworkService.reassign`, so it's excluded
- * from `@IsIn` even though it's a member of the full `HomeworkAssignmentStatus` enum. */
+/** `PATCH /homework-assignments/:id`: deactivate/reactivate (Q10 D22) and/or move the due
+ * date in place (#2900), so handed-in work stays on the same row. SUPERSEDED is set only by
+ * `reassign`, so it is not in `@IsIn`. `ValidateIf` (not `IsOptional`) so `null` is a 400. */
 export class UpdateHomeworkAssignmentDto {
+  @ValidateIf((o: UpdateHomeworkAssignmentDto) => o.status !== undefined)
   @IsIn([HomeworkAssignmentStatus.ACTIVE, HomeworkAssignmentStatus.DEACTIVATED])
-  status: typeof HomeworkAssignmentStatus.ACTIVE | typeof HomeworkAssignmentStatus.DEACTIVATED;
+  status?: typeof HomeworkAssignmentStatus.ACTIVE | typeof HomeworkAssignmentStatus.DEACTIVATED;
+
+  @ValidateIf((o: UpdateHomeworkAssignmentDto) => o.due_date !== undefined)
+  @IsRealDate()
+  due_date?: string;
 }
 
 export class HomeworkResponseDto {
