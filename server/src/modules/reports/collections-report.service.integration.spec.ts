@@ -605,6 +605,24 @@ describe('CollectionsReportService', () => {
       expect(w.month_to_date_net).toBe(300);
     });
 
+    it('current year does not contain today: falls back to the calendar year', async () => {
+      // School has not rolled over yet: the current year is last year.
+      await setCurrentYear('2025-01-01', '2025-12-31');
+      await paid(300, '2026-10-03T05:00:00Z');
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      expect(w.months[0]).toMatchObject({ year: 2026, month: 1 });
+      expect(w.months[9]).toMatchObject({ year: 2026, month: 10, is_current: true });
+      expect(w.month_to_date_net).toBe(300);
+    });
+
+    it('mid-month year bounds still count the whole first and last month', async () => {
+      await setCurrentYear('2026-01-10', '2026-12-20');
+      await paid(70, '2026-01-03T05:00:00Z'); // before the 10th: still January
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      expect(w.months).toHaveLength(12);
+      expect(w.months[0]).toEqual({ year: 2026, month: 1, net: 70, is_current: false });
+    });
+
     it('no current year: falls back to January-December', async () => {
       await setCurrentYear('2026-01-01', null);
       await paid(40, '2026-02-10T05:00:00Z');

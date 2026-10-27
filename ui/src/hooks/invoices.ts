@@ -8,7 +8,6 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
-
 import { apiClient, getPublicInvoice as apiGetPublicInvoice } from '../api/client';
 import type { components } from '../api/schema';
 import { toast } from '../components/toast';
