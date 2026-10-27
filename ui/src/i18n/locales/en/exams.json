@@ -56,7 +56,9 @@
     "deadlineLabel": "Mark entry deadline",
     "deadlinePlaceholder": "Pick a date",
     "deadlineHelp": "Teachers see the days left on their dashboard. Leave empty if there is none.",
-    "deadlineClear": "Clear date"
+    "deadlineClear": "Clear date",
+    "errorPublished": "This exam's results are published. Reopen the results before changing its type.",
+    "errorClassNoGrade": "This class has no grade set, so an exam structure can't be used. Set the class grade first, or create the exam without a structure."
   },
   "detail": {
     "loadError": "Couldn't load this exam.",
