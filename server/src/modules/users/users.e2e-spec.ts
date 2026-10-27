@@ -538,6 +538,19 @@ describe('Users & Teachers E2E [8.11.8]', () => {
       expect(JSON.stringify(res.body)).not.toContain(MEMBER_A_ID);
     });
 
+    it("[Rule 23] promoting another school's member answers exactly like an unknown id", async () => {
+      const promote = (user_id: string) =>
+        request()
+          .post('/api/v1/teachers')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_A)
+          .send({ user_id, employee_id: 'E2E-R23' });
+      // MEMBER_B is a real account, but only in school B.
+      const otherSchool = await promote(MEMBER_B_ID).expect(404);
+      const unknown = await promote('00000000-0000-4000-8000-0000000009ff').expect(404);
+      expect(otherSchool.body.message).toBe(unknown.body.message);
+    });
+
     describe('[68.2.02] POST /users/join-requests', () => {
       const send = (token: string, body: object, tenant: string | null = TENANT_A) => {
         const r = request()

@@ -124,8 +124,10 @@ export function useCloseIntake(id: string) {
       const res = await apiClient.patch<AdmissionIntake>(`/admission-intakes/${id}/close`);
       return res.data;
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: intakeKeys.detail(id) });
+    onSuccess: (closed) => {
+      // Write the closed intake into the cache now: the detail page re-seeds its form
+      // from it right after, and a stale (open) `close_date` would reopen the round on Save.
+      queryClient.setQueryData(intakeKeys.detail(id), closed);
       void queryClient.invalidateQueries({ queryKey: intakeKeys.lists() });
     },
   });

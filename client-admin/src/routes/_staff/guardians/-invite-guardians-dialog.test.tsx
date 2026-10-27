@@ -106,6 +106,13 @@ describe('InviteGuardiansDialog', () => {
           skipped: [],
         });
       }),
+      // The "Next 1000" cursor comes from what dispatch sent, not from the preview.
+      http.post('/api/v1/users/invitations/batch', () =>
+        HttpResponse.json(
+          { batch_id: 'batch-1', queued: 1, next_after: 'cursor-sent', skipped: [] },
+          { status: 202 },
+        ),
+      ),
     );
     const user = userEvent.setup();
     const { localeReady } = renderWithProviders(
@@ -129,6 +136,6 @@ describe('InviteGuardiansDialog', () => {
 
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(bodies[0]).toEqual({ all: true });
-    expect(bodies[1]).toEqual({ all: true, after: 'cursor-1' });
+    expect(bodies[1]).toEqual({ all: true, after: 'cursor-sent' });
   });
 });

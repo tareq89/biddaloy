@@ -252,7 +252,9 @@ export class GuardianProvisioningService {
     actorUserId: string;
     selection: BatchInviteSelection;
   }): Promise<InviteDispatchResponseDto> {
-    const { to_invite, skipped } = await this.preview(input.tenantId, input.selection);
+    // `next_after` comes from the slice dispatched here, not an earlier preview, so a guardian
+    // added or removed in between is neither skipped nor invited twice by the next slice.
+    const { to_invite, skipped, next_after } = await this.preview(input.tenantId, input.selection);
     const batchId = randomUUID();
     // Join requests are filed by the processor too, but write no log row, so batchStatus
     // could never count them as sent: only real invites are the batch's `queued` total.
@@ -289,7 +291,7 @@ export class GuardianProvisioningService {
       },
     });
 
-    return { batch_id: batchId, queued: invites, skipped };
+    return { batch_id: batchId, queued: invites, next_after, skipped };
   }
 
   async batchStatus(tenantId: string, batchId: string): Promise<InviteBatchStatusResponseDto> {

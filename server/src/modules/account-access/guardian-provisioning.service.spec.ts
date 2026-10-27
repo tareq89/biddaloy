@@ -4,6 +4,7 @@ import { AuditAction, CommunicationStatus } from '@biddaloy/shared';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Guardian } from '../students/entities/guardian.entity';
 import { GuardianProvisioningService } from './guardian-provisioning.service';
+import { MAX_BATCH_INVITE_SELECTION } from './invitation-batch.constants';
 
 /** A minimal fluent stub matching the subset of TypeORM's QueryBuilder this
  * service chains — every method returns `this` except the terminal ones. */
@@ -456,6 +457,25 @@ describe('GuardianProvisioningService', () => {
       );
       expect(result.queued).toBe(2);
       expect(result.skipped).toEqual([]);
+      expect(result.next_after).toBeNull();
+    });
+
+    it('[2870] `all` over the cap sends one slice and returns the cursor after it', async () => {
+      // One more than the cap: dispatch must say more remain, never look complete.
+      const guardians = Array.from({ length: MAX_BATCH_INVITE_SELECTION + 1 }, (_, i) =>
+        makeGuardian({ id: `g${String(i).padStart(4, '0')}`, phone: null, email: null }),
+      );
+      guardianRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ many: guardians }));
+      userRepo.createQueryBuilder.mockReturnValue(fakeQueryBuilder({ one: null }));
+
+      const result = await service.dispatch({
+        tenantId: TENANT,
+        actorUserId: 'admin-1',
+        selection: { all: true },
+      });
+
+      expect(result.skipped).toHaveLength(MAX_BATCH_INVITE_SELECTION);
+      expect(result.next_after).toBe(guardians[MAX_BATCH_INVITE_SELECTION - 1].id);
     });
   });
 

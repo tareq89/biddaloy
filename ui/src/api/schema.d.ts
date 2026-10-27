@@ -12130,6 +12130,7 @@ export interface components {
         InviteDispatchResponseDto: {
             batch_id: string;
             queued: number;
+            next_after: string | null;
             skipped: components["schemas"]["InviteSkippedEntryDto"][];
         };
         InviteBatchStatusResponseDto: {
