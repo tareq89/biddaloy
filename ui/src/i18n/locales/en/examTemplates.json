@@ -37,6 +37,10 @@
     "errorMessage": "Couldn't delete the exam structure."
   },
   "detail": {
+    "leaveTitle": "Leave without saving?",
+    "leaveText": "Your changes to this exam structure are not saved yet and will be lost.",
+    "stay": "Stay",
+    "leave": "Leave anyway",
     "loadError": "Couldn't load this exam structure.",
     "saveError": "Couldn't save the changes.",
     "unsaved": "Not saved",
