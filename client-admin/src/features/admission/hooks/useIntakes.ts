@@ -115,6 +115,22 @@ export function useUpdateIntake(id: string) {
   });
 }
 
+/** Closes the round now (server moves `close_date` to yesterday). */
+export function useCloseIntake(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    retry: false,
+    mutationFn: async () => {
+      const res = await apiClient.patch<AdmissionIntake>(`/admission-intakes/${id}/close`);
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: intakeKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: intakeKeys.lists() });
+    },
+  });
+}
+
 /** All required-document checkboxes the form/list can offer — the enum's
  * three values, in a stable order. */
 export const ALL_DOCUMENT_TYPES: AdmissionDocumentType[] = [
