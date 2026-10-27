@@ -51,7 +51,8 @@ describe('survey form dialog', () => {
     const dialog = await screen.findByRole('dialog', { name: 'New teacher survey' });
     expect(dialog.textContent?.toLowerCase()).not.toContain('untraceable');
     await userEvent.setup().click(screen.getByRole('checkbox', { name: /Anonymous/ }));
-    expect(dialog.textContent).toContain("Management will see each person's name");
+    expect(dialog.textContent).toContain('Management still sees only totals and comments.');
+    expect(dialog.textContent).not.toMatch(/person's name/);
     expect(dialog.textContent?.toLowerCase()).not.toContain('untraceable');
   });
 
@@ -128,6 +129,29 @@ describe('survey list and results', () => {
     ).toBeTruthy();
     expect(screen.getByText('After closing')).toBeTruthy();
     expect(screen.queryByText(/Waiting for more responses/)).toBeNull();
+  });
+
+  it('a non-anonymous survey never promises names', async () => {
+    server.use(
+      http.get('/api/v1/surveys/s1', () =>
+        HttpResponse.json(
+          surveyDetailFactory({
+            id: 's1',
+            title: 'Term 2 survey',
+            status: 'OPEN',
+            anonymous: false,
+          }),
+        ),
+      ),
+      http.get('/api/v1/surveys/s1/results', () =>
+        HttpResponse.json(surveyResultsFactory({ surveyId: 's1', minResponses: 5, results: [] })),
+      ),
+    );
+    render('/staff/evaluations/surveys/s1');
+    expect(
+      await screen.findByText('Not marked anonymous', undefined, { timeout: 4000 }),
+    ).toBeTruthy();
+    expect(screen.queryByText('Names shown')).toBeNull();
   });
 
   it('closing an open survey asks first; only the confirm calls the API', async () => {
