@@ -5,6 +5,7 @@
     "submit": "Save attendance",
     "saving": "Saving…",
     "saved": "Attendance saved",
+    "loadError": "Couldn't load staff for this day.",
     "errorMessage": "Couldn't save attendance. Try again.",
     "loading": "Loading staff…",
     "emptyTitle": "No staff yet",

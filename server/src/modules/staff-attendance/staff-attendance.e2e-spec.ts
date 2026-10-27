@@ -259,6 +259,90 @@ describe('Staff Attendance E2E', () => {
     });
   });
 
+  describe('GET /staff-attendance/register (roster)', () => {
+    let ownProfileId: string;
+    let otherProfileId: string;
+    const get = (role: UserRole, date: string) =>
+      supertest(app.getHttpServer())
+        .get('/api/v1/staff-attendance/register')
+        .query({ date })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', role);
+
+    beforeEach(async () => {
+      // The roster only lists users with a live non-guardian membership.
+      const other = await dataSource.query(`SELECT user_id, id FROM staff_profiles WHERE id = $1`, [
+        staffProfileId,
+      ]);
+      otherProfileId = other[0].id;
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [other[0].user_id, TENANT_ID, UserRole.ACCOUNTANT],
+      );
+      for (const r of [UserRole.TEACHER, UserRole.EXECUTIVE, UserRole.PARENT]) {
+        await dataSource.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [SEED_ADMIN_USER_ID, TENANT_ID, r],
+        );
+      }
+      const res = await dataSource.query(
+        `INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW()) RETURNING id`,
+        [SEED_ADMIN_USER_ID, TENANT_ID, `EMP-ROSTER-${Date.now()}`],
+      );
+      ownProfileId = res[0].id;
+      // Log in after the memberships exist, as the self-mark describe does.
+      const login = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      adminToken = login.body.access_token;
+    });
+
+    it('gives an EXECUTIVE every staff row', async () => {
+      const res = await get(UserRole.EXECUTIVE, addDays(0)).expect(200);
+      const ids = res.body.staff.map((s: { staff_profile_id: string }) => s.staff_profile_id);
+      expect(ids).toEqual(expect.arrayContaining([ownProfileId, otherProfileId]));
+    });
+
+    it('gives a TEACHER only their own row', async () => {
+      const res = await get(UserRole.TEACHER, addDays(0)).expect(200);
+      expect(res.body.staff).toHaveLength(1);
+      expect(res.body.staff[0].staff_profile_id).toBe(ownProfileId);
+    });
+
+    it('403s a PARENT', async () => {
+      await get(UserRole.PARENT, addDays(0)).expect(403);
+    });
+
+    it('returns the saved status and reason_required for a marked old day', async () => {
+      const date = OUTSIDE_WINDOW();
+      await supertest(app.getHttpServer())
+        .put('/api/v1/staff-attendance/register')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({
+          date,
+          entries: [{ staff_profile_id: otherProfileId, status: AttendanceStatus.LATE }],
+        })
+        .expect(200);
+      const res = await get(UserRole.ADMIN, date).expect(200);
+      const row = res.body.staff.find(
+        (s: { staff_profile_id: string }) => s.staff_profile_id === otherProfileId,
+      );
+      expect(row.status).toBe(AttendanceStatus.LATE);
+      expect(res.body.reason_required).toBe(true);
+      const unmarked = res.body.staff.find(
+        (s: { staff_profile_id: string }) => s.staff_profile_id === ownProfileId,
+      );
+      expect(unmarked.status).toBeNull();
+    });
+  });
+
   it('rejects an unauthenticated request', async () => {
     await supertest(app.getHttpServer())
       .get('/api/v1/staff-attendance/summary')

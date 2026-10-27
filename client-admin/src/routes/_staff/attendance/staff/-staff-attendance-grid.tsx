@@ -9,23 +9,26 @@
  */
 import { AttendanceStatus } from '@biddaloy/shared';
 import { AttendanceStatusControl, StatusBadge } from '@biddaloy/ui/components';
-import type { StaffUser } from '@biddaloy/ui/hooks';
+import type { StaffAttendanceRosterRow } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type * as React from 'react';
 
 export type StaffAttendanceDraft = Record<string, AttendanceStatus | null>;
 
 export interface StaffAttendanceGridProps {
-  staff: readonly StaffUser[];
+  staff: readonly StaffAttendanceRosterRow[];
   draft: StaffAttendanceDraft;
   onStatusChange: (staffProfileId: string, status: AttendanceStatus) => void;
   disabled?: boolean;
 }
 
-export function countStaffDraft(staff: readonly StaffUser[], draft: StaffAttendanceDraft) {
+export function countStaffDraft(
+  staff: readonly StaffAttendanceRosterRow[],
+  draft: StaffAttendanceDraft,
+) {
   const counts = { present: 0, absent: 0, late: 0, leave: 0, unmarked: 0 };
   for (const user of staff) {
-    const status = draft[user.staff_profile_id ?? ''] ?? null;
+    const status = draft[user.staff_profile_id] ?? null;
     if (status === AttendanceStatus.PRESENT) counts.present += 1;
     else if (status === AttendanceStatus.ABSENT) counts.absent += 1;
     else if (status === AttendanceStatus.LATE) counts.late += 1;
@@ -79,12 +82,11 @@ export function StaffAttendanceGrid({
       </p>
       <ul className="divide-y divide-border-subtle" aria-label={t('grid.title')}>
         {staff.map((user, index) => {
-          const status = draft[user.staff_profile_id ?? ''] ?? null;
-          if (user.staff_profile_id == null) return null;
+          const status = draft[user.staff_profile_id] ?? null;
           const staffProfileId = user.staff_profile_id;
           return (
             <li
-              key={user.id}
+              key={user.staff_profile_id}
               className="flex min-h-14 items-center gap-3 px-4 py-1.5 md:px-5"
               data-testid={`staff-attendance-row-${index}`}
             >
