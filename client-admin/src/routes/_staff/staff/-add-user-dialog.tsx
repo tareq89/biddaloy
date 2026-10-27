@@ -199,6 +199,13 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
             <FormField
               control={form.control}
               name="email"
+              rules={{
+                // The invitation goes by email or SMS, so one of the two is needed.
+                validate: (v) =>
+                  v.trim() !== '' ||
+                  form.getValues('phone').trim() !== '' ||
+                  t('addUser.errorContactRequired'),
+              }}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel htmlFor="add-user-email">{t('addUser.emailLabel')}</FormLabel>
