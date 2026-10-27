@@ -1,3 +1,4 @@
+import { Permission, UserRole } from '@biddaloy/shared';
 import {
   keepPreviousData,
   queryOptions,
@@ -7,14 +8,17 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
+
 import { apiClient, getPublicInvoice as apiGetPublicInvoice } from '../api/client';
 import type { components } from '../api/schema';
 import { toast } from '../components/toast';
 import { useTranslation } from '../i18n';
 import type { InvoicePrintFormat } from '../utils/invoice-print-format';
 
+import { useActiveRole } from './auth-state';
 import type { Guardian } from './guardians';
 import { useIdempotencyKey } from './idempotency-key';
+import { useHasPermission } from './permissions';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 import { studentQueryOptions } from './students';
@@ -307,8 +311,21 @@ export function invoiceSharesQueryOptions(id: string) {
   });
 }
 
-export function useInvoiceShares(id: string) {
-  return useQuery(invoiceSharesQueryOptions(id));
+export function useInvoiceShares(id: string, enabled = true) {
+  return useQuery({ ...invoiceSharesQueryOptions(id), enabled });
+}
+
+/** Whether the viewer may use the invoice Send / Share cards. The role list
+ * mirrors `@Roles(ADMIN, ACCOUNTANT)` on the send/share routes in
+ * `invoices.controller.ts` (SUPER_ADMIN passes every role gate); OFFICE_STAFF
+ * holds `INVOICE_READ` but gets 403 there, so the cards stay hidden. */
+export function useCanSendInvoice(): boolean {
+  const canRead = useHasPermission(Permission.INVOICE_READ);
+  const role = useActiveRole();
+  return (
+    canRead &&
+    (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN || role === UserRole.ACCOUNTANT)
+  );
 }
 
 /** #666 `DELETE /invoices/:id/share/:tokenId` — revokes a live share
