@@ -8,7 +8,7 @@
  */
 import type { UserRole } from '@biddaloy/shared';
 import { decodeAccessTokenMemberships } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, SessionList, toast } from '@biddaloy/ui/components';
+import { ErrorState, HelpHint, RoutePending, SessionList, toast } from '@biddaloy/ui/components';
 import {
   logoutAll,
   sessionsQueryOptions,
@@ -101,9 +101,12 @@ function SecurityPage() {
       <PageHeader title={tNav('items.security')} subtitle={tNav('security.pageDescription')} />
       <section aria-labelledby="sessions-title" className="space-y-3">
         <div>
-          <h2 id="sessions-title" className="text-h2">
-            {t('sessions.title')}
-          </h2>
+          <div className="flex items-center gap-1">
+            <h2 id="sessions-title" className="text-h2">
+              {t('sessions.title')}
+            </h2>
+            <HelpHint helpId="start.account.action.signOutAll" />
+          </div>
           <p className="mt-1 text-text-secondary">{t('sessions.description')}</p>
         </div>
         {sessionsQuery.isError ? (
