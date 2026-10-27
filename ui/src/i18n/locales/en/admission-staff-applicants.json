@@ -1,6 +1,8 @@
 {
   "list": {
     "title": "Admission applicants",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Name, reference number or phone",
     "caption": "Admission applicants",
     "columnReferenceNumber": "Reference #",
     "columnApplicantName": "Applicant",

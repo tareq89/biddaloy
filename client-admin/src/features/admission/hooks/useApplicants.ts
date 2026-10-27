@@ -16,6 +16,8 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 export interface ApplicantFilters {
   intakeId?: string;
   status?: AdmissionApplicantStatus;
+  /** Matches applicant name, reference number or guardian phone (server-side). */
+  search?: string;
 }
 
 export interface ApplicantWithHistory {
