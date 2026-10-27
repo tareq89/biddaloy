@@ -66,7 +66,7 @@ export class GreedyFillService {
       where: { id: routineId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!routine) {
-      throw new NotFoundException(`Routine with ID "${routineId}" not found`);
+      throw new NotFoundException('Routine not found');
     }
     const weekdays = (
       dto.weekdays && dto.weekdays.length > 0 ? dto.weekdays : [0, 1, 2, 3, 4, 5, 6]

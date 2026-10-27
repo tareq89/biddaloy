@@ -34,7 +34,8 @@ import {
   GreedyFillQueryDto,
 } from './dto/routine-slots.dto';
 import { CopyRoutineDto } from './dto/workflow.dto';
-import { JwtPayload, Permission } from '@biddaloy/shared';
+import { FamilyAccessService } from '../students/family-access.service';
+import { JwtPayload, Permission, isGuardianRole } from '@biddaloy/shared';
 
 /** [21.4.1] Routine document + its slots, plus the greedy-fill proposer. */
 @ApiTags('routines')
@@ -49,6 +50,7 @@ export class RoutineSlotsController {
     @Inject(RoutineStateService) private readonly stateService: RoutineStateService,
     @Inject(CopyRoutineService) private readonly copyRoutineService: CopyRoutineService,
     @Inject(WorkloadService) private readonly workloadService: WorkloadService,
+    @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
   ) {}
 
   @Post()
@@ -77,13 +79,23 @@ export class RoutineSlotsController {
 
   @Get(':id/slots')
   @RequirePermissions(Permission.ROUTINE_READ)
-  @ApiOperation({ summary: "List a routine's slots." })
-  findSlots(
+  @ApiOperation({
+    summary:
+      "List a routine's slots. A PARENT or STUDENT sees only the sections of students they are linked to.",
+  })
+  async findSlots(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.slotsService.findForRoutine(id, tenant.id, { role: tenant.role, userId: user.sub });
+    const familyStudentIds = isGuardianRole(tenant.role)
+      ? await this.familyAccess.getLinkedStudentIds(tenant.role, user.sub, tenant.id)
+      : undefined;
+    return this.slotsService.findForRoutine(id, tenant.id, {
+      role: tenant.role,
+      userId: user.sub,
+      familyStudentIds,
+    });
   }
 
   @Post(':id/slots')

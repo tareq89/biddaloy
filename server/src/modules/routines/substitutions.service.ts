@@ -73,7 +73,7 @@ export class SubstitutionsService {
       where: { id: dto.routine_slot_id, tenant_id: tenantId },
     });
     if (!slot) {
-      throw new NotFoundException(`Routine slot with ID "${dto.routine_slot_id}" not found`);
+      throw new NotFoundException('Routine slot not found');
     }
 
     // IDOR guard: `dto.substitute_teacher_id` is caller-controlled and
@@ -85,7 +85,7 @@ export class SubstitutionsService {
         where: { id: dto.substitute_teacher_id, tenant_id: tenantId },
       });
       if (!teacher) {
-        throw new NotFoundException(`Teacher with ID "${dto.substitute_teacher_id}" not found`);
+        throw new NotFoundException('Teacher not found');
       }
       substituteUserId = teacher.user_id;
     }

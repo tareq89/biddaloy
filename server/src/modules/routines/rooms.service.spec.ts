@@ -54,6 +54,10 @@ describe('RoomsService [21.3.1]', () => {
     await expect(ctx.service.findOne('missing', TENANT_ID)).rejects.toThrow(NotFoundException);
   });
 
+  it('findOne 404 text is fixed and never echoes the id [Rule 24]', async () => {
+    await expect(ctx.service.findOne('room-x', TENANT_ID)).rejects.toThrow(/^Room not found$/);
+  });
+
   it('rejects a request scoped to a tenant the room does not belong to', async () => {
     ctx.repo.findOne = vi.fn(async (opts: any) => {
       expect(opts.where.tenant_id).toBe(TENANT_ID);
