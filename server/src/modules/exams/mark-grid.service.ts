@@ -522,6 +522,15 @@ export class MarkGridService {
       subject_name_bn: string | null;
       state: MarkGridState;
     }>;
+    /** Every grid the caller may open (submitted or not), for the marks-entry list. */
+    grids: Array<{
+      section_id: string;
+      section_name: string;
+      subject_id: string;
+      subject_name: string | null;
+      subject_name_bn: string | null;
+      state: MarkGridState;
+    }>;
   }> {
     const exam = await this.findExam(examId, tenantId);
 
@@ -573,6 +582,14 @@ export class MarkGridService {
       subject_name_bn: string | null;
       state: MarkGridState;
     }> = [];
+    const gridRows: Array<{
+      section_id: string;
+      section_name: string;
+      subject_id: string;
+      subject_name: string | null;
+      subject_name_bn: string | null;
+      state: MarkGridState;
+    }> = [];
 
     // One batch for every SUBMITTED grid, not a query set per grid.
     const sectionIdSet = new Set(classSections.map((s) => s.id));
@@ -601,19 +618,19 @@ export class MarkGridService {
         const hasBlanks =
           state === MarkGridState.SUBMITTED &&
           (blanks.get(`${section.id}:${subjectId}`)?.length ?? 0) > 0;
-        if (state !== MarkGridState.SUBMITTED || hasBlanks) {
-          outstanding.push({
-            section_id: section.id,
-            section_name: section.section_name,
-            subject_id: subjectId,
-            subject_name: subjectById.get(subjectId)?.name_en ?? null,
-            subject_name_bn: subjectById.get(subjectId)?.name_bn ?? null,
-            state,
-          });
-        }
+        const entry = {
+          section_id: section.id,
+          section_name: section.section_name,
+          subject_id: subjectId,
+          subject_name: subjectById.get(subjectId)?.name_en ?? null,
+          subject_name_bn: subjectById.get(subjectId)?.name_bn ?? null,
+          state,
+        };
+        gridRows.push(entry);
+        if (state !== MarkGridState.SUBMITTED || hasBlanks) outstanding.push(entry);
       }
     }
 
-    return { counts, outstanding };
+    return { counts, outstanding, grids: gridRows };
   }
 }

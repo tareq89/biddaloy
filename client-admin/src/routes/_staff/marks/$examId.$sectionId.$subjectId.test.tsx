@@ -431,6 +431,52 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     await screen.findByRole('button', { name: 'Reopen' });
   });
 
+  const mathDraft = {
+    section_id: 'sec-1',
+    section_name: 'Six - A',
+    subject_id: 'subj-1',
+    subject_name: 'Math',
+    subject_name_bn: null,
+    state: 'DRAFT',
+  };
+  const englishDraft = { ...mathDraft, subject_id: 'subj-other', subject_name: 'English' };
+
+  it('a submitted grid listed only in grids names its subject and section, with no save line', async () => {
+    const exam = examFactory({ id: 'exam-1', name: 'Half Yearly 2026' });
+    server.use(
+      http.get(GRID_URL, () =>
+        HttpResponse.json({
+          ...baseGrid,
+          state: 'SUBMITTED',
+          submitted_by: 'user-1',
+          submitted_at: '2026-01-01T00:00:00.000Z',
+        }),
+      ),
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [exam], total: 1, page: 1, limit: 50, totalPages: 1 }),
+      ),
+      http.get('/api/v1/exams/exam-1/marks/progress', () =>
+        HttpResponse.json({
+          counts: { DRAFT: 0, SUBMITTED: 1 },
+          outstanding: [],
+          grids: [{ ...mathDraft, state: 'SUBMITTED' }],
+        }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText(
+      `Math · Section Six - A · Half Yearly 2026 · ${formatNumber(1, REGION_BD_BN)} student`,
+    );
+    expect(screen.queryByText('No changes yet')).toBeNull();
+    expect(screen.queryByTestId('save-state-line')).toBeNull();
+  });
+
   it('names the subject, section and exam in the subtitle', async () => {
     const exam = examFactory({ id: 'exam-1', name: 'Half Yearly 2026' });
     server.use(
@@ -441,16 +487,8 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
       http.get('/api/v1/exams/exam-1/marks/progress', () =>
         HttpResponse.json({
           counts: { DRAFT: 1, SUBMITTED: 0 },
-          outstanding: [
-            {
-              section_id: 'sec-1',
-              section_name: 'Six - A',
-              subject_id: 'subj-1',
-              subject_name: 'Math',
-              subject_name_bn: null,
-              state: 'DRAFT',
-            },
-          ],
+          outstanding: [mathDraft],
+          grids: [mathDraft],
         }),
       ),
     );
@@ -480,16 +518,8 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
       http.get('/api/v1/exams/exam-1/marks/progress', () =>
         HttpResponse.json({
           counts: { DRAFT: 1, SUBMITTED: 1 },
-          outstanding: [
-            {
-              section_id: 'sec-1',
-              section_name: 'Six - A',
-              subject_id: 'subj-other',
-              subject_name: 'English',
-              subject_name_bn: null,
-              state: 'DRAFT',
-            },
-          ],
+          outstanding: [englishDraft],
+          grids: [englishDraft],
         }),
       ),
     );

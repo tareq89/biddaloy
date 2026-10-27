@@ -224,14 +224,19 @@ export function useCopyExamComponents(examId: string) {
 
 export interface ExamProgress {
   counts: Record<'DRAFT' | 'SUBMITTED', number>;
-  outstanding: Array<{
-    section_id: string;
-    section_name: string;
-    subject_id: string;
-    subject_name: string | null;
-    subject_name_bn: string | null;
-    state: 'DRAFT' | 'SUBMITTED';
-  }>;
+  /** Grids not ready to process (draft, or submitted with blanks). */
+  outstanding: ExamProgressGrid[];
+  /** Every grid the caller may open, whatever its state. */
+  grids: ExamProgressGrid[];
+}
+
+export interface ExamProgressGrid {
+  section_id: string;
+  section_name: string;
+  subject_id: string;
+  subject_name: string | null;
+  subject_name_bn: string | null;
+  state: 'DRAFT' | 'SUBMITTED';
 }
 
 export function examProgressQueryOptions(examId: string | undefined) {

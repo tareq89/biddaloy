@@ -50,7 +50,7 @@ export const Route = createFileRoute('/_staff/marks/')({
   component: MarksListPage,
 });
 
-type Row = NonNullable<ReturnType<typeof useExamProgress>['data']>['outstanding'][number];
+type Row = NonNullable<ReturnType<typeof useExamProgress>['data']>['grids'][number];
 
 const NO_SORT = () => undefined;
 
@@ -76,7 +76,7 @@ function MarksListPage() {
 
   const q = (filters.q ?? '').trim().toLowerCase();
   const status = filters.status;
-  const all = progress?.outstanding ?? [];
+  const all = progress?.grids ?? [];
   const matches = all.filter(
     (row) =>
       (status === undefined || row.state === status) &&
