@@ -284,7 +284,7 @@ function ResultCard({
             <Button
               type="button"
               variant="ghost"
-              className="h-11 md:h-8"
+              className="h-11 flex-1 md:h-8 md:flex-none"
               aria-expanded={open}
               aria-controls={subjectsId}
               onClick={() => setOpen((value) => !value)}
@@ -298,7 +298,7 @@ function ResultCard({
             <Button
               type="button"
               variant="outline"
-              className="h-11 md:h-8"
+              className="h-11 flex-1 md:h-8 md:flex-none"
               aria-label={t('results.printLabel', { name: row.exam_name })}
               loading={printing}
               onClick={onPrint}

@@ -38,9 +38,12 @@ describe('/invoices/$invoiceId', () => {
         ),
       );
       renderDetail();
-      expect(
-        (await screen.findAllByRole('button', { name: 'Help: Invoices' })).length,
-      ).toBeGreaterThan(0);
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.invoices.action.print"]'),
+        ).not.toBeNull(),
+      );
     } finally {
       vi.unstubAllEnvs();
     }

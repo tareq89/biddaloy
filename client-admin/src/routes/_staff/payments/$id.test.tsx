@@ -54,9 +54,12 @@ describe('/payments/$id', () => {
         http.get('/api/v1/payments/:id', () => HttpResponse.json(paymentDetail({ invoice }))),
       );
       renderDetail();
-      expect(
-        (await screen.findAllByRole('button', { name: 'Help: Payments' })).length,
-      ).toBeGreaterThan(0);
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.payments.action.printReceipt"]'),
+        ).not.toBeNull(),
+      );
     } finally {
       vi.unstubAllEnvs();
     }

@@ -144,9 +144,12 @@ describe('/analysis', () => {
     vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
     const exam = mockExam();
     render(`/analysis?examId=${exam.id}&tab=pass-fail`);
-    expect(
-      await screen.findAllByRole('button', { name: 'Help: Merit list and result analysis' }),
-    ).not.toHaveLength(0);
+    // By id: the page-level (?) carries the same "Help: <page title>" name.
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-help-id="examsResults.analysis.action.print"]'),
+      ).not.toBeNull(),
+    );
   });
 
   it('switching tabs updates the URL', async () => {

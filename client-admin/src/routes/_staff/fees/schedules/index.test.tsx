@@ -62,9 +62,12 @@ describe('/fees/schedules', () => {
     try {
       server.use(listHandler([]));
       render();
-      expect(
-        (await screen.findAllByRole('button', { name: 'Help: Automatic billing rules' })).length,
-      ).toBeGreaterThan(0);
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.recurringSchedules.action.add"]'),
+        ).not.toBeNull(),
+      );
     } finally {
       vi.unstubAllEnvs();
     }

@@ -47,9 +47,12 @@ describe('/security', () => {
     try {
       server.use(http.get('/api/v1/auth/sessions', () => HttpResponse.json(SESSIONS_RESPONSE)));
       renderSecurityPage();
-      expect(
-        (await screen.findAllByRole('button', { name: 'Help: Your account' })).length,
-      ).toBeGreaterThan(0);
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="start.account.action.signOutAll"]'),
+        ).not.toBeNull(),
+      );
     } finally {
       vi.unstubAllEnvs();
     }

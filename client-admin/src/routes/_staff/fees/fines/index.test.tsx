@@ -67,9 +67,12 @@ describe('/fees/fines', () => {
     try {
       server.use(finesHandler([]), ...referenceHandlers());
       render();
-      expect(
-        (await screen.findAllByRole('button', { name: 'Help: Fines' })).length,
-      ).toBeGreaterThan(0);
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.fines.action.generate"]'),
+        ).not.toBeNull(),
+      );
     } finally {
       vi.unstubAllEnvs();
     }

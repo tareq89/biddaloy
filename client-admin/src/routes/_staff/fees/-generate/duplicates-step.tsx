@@ -47,7 +47,6 @@ export function DuplicatesStep({
         <p className="flex items-center gap-2 font-medium">
           <ClockIcon className="size-4" aria-hidden="true" />
           {t('duplicates.heading')}
-          <HelpHint helpId="finance.generateFees.field.duplicateDecision" />
         </p>
         {preview.duplicates.length > 0 && (
           <ul className="mt-2 list-disc space-y-1 ps-5">
@@ -74,11 +73,15 @@ export function DuplicatesStep({
         )}
       </div>
 
+      {/* Each (?) sits beside, never inside, the status region and the radio labels,
+          so it stays out of their accessible names. */}
+      <div className="mt-3 flex items-center justify-end">
+        <HelpHint helpId="finance.generateFees.field.duplicateDecision" />
+      </div>
       <RadioGroup
         value={action}
         onValueChange={(value) => onActionChange(value as typeof action)}
         aria-label={t('duplicates.decisionLabel')}
-        className="mt-3"
       >
         <label className="flex min-h-11 items-start gap-3 py-2">
           <RadioGroupItem value="SKIP" className="mt-0.5" />
@@ -89,30 +92,30 @@ export function DuplicatesStep({
             </span>
           </span>
         </label>
-        <label className="flex min-h-11 items-start gap-3 py-2">
-          <RadioGroupItem value="REMOVE_OLDER" className="mt-0.5" />
-          <span>
-            <span className="flex items-center gap-1 font-medium">
-              {t('duplicates.removeOlderLabel')}
-              <HelpHint helpId="finance.generateFees.action.removeOlder" />
-            </span>{' '}
-            <span className="block text-caption text-text-secondary">
-              {t('duplicates.removeOlderHint')}
+        <div className="flex items-start gap-1">
+          <label className="flex min-h-11 flex-1 items-start gap-3 py-2">
+            <RadioGroupItem value="REMOVE_OLDER" className="mt-0.5" />
+            <span>
+              <span className="block font-medium">{t('duplicates.removeOlderLabel')}</span>{' '}
+              <span className="block text-caption text-text-secondary">
+                {t('duplicates.removeOlderHint')}
+              </span>
             </span>
-          </span>
-        </label>
-        <label className="flex min-h-11 items-start gap-3 py-2">
-          <RadioGroupItem value="CREATE_ANYWAY" className="mt-0.5" />
-          <span>
-            <span className="flex items-center gap-1 font-medium">
-              {t('duplicates.createAnywayLabel')}
-              <HelpHint helpId="finance.generateFees.action.createAnyway" />
-            </span>{' '}
-            <span className="block text-caption text-text-secondary">
-              {t('duplicates.createAnywayHint')}
+          </label>
+          <HelpHint helpId="finance.generateFees.action.removeOlder" className="mt-1" />
+        </div>
+        <div className="flex items-start gap-1">
+          <label className="flex min-h-11 flex-1 items-start gap-3 py-2">
+            <RadioGroupItem value="CREATE_ANYWAY" className="mt-0.5" />
+            <span>
+              <span className="block font-medium">{t('duplicates.createAnywayLabel')}</span>{' '}
+              <span className="block text-caption text-text-secondary">
+                {t('duplicates.createAnywayHint')}
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+          <HelpHint helpId="finance.generateFees.action.createAnyway" className="mt-1" />
+        </div>
       </RadioGroup>
     </div>
   );

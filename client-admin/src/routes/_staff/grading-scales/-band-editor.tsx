@@ -296,7 +296,8 @@ export function BandEditor({ bands, onChange, readOnly = false }: BandEditorProp
                 <TableHead className="text-end">{t('bandEditor.columnTo')}</TableHead>
                 <TableHead>{t('bandEditor.columnGrade')}</TableHead>
                 <TableHead className="text-end">{t('bandEditor.columnGpa')}</TableHead>
-                <TableHead>
+                {/* aria-label keeps the (?) out of the column name read on every cell. */}
+                <TableHead aria-label={t('bandEditor.columnFail')}>
                   <span className="inline-flex items-center gap-1">
                     {t('bandEditor.columnFail')}
                     <HelpHint helpId="examsResults.gradingScales.field.failGrade" />

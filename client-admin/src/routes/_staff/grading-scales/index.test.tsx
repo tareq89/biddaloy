@@ -76,9 +76,12 @@ describe('/grading-scales', () => {
       http.get('/api/v1/classes', () => HttpResponse.json(paginated([]))),
     );
     render();
-    expect(
-      await screen.findAllByRole('button', { name: 'Help: Setting up grading scales' }),
-    ).not.toHaveLength(0);
+    // By id: the page-level (?) carries the same "Help: <page title>" name.
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-help-id="examsResults.gradingScales.action.add"]'),
+      ).not.toBeNull(),
+    );
   });
 
   it('shows year and class names (even the 12th year), never an id, and asks for limit=100', async () => {

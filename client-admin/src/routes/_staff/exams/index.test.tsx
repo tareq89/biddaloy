@@ -39,9 +39,12 @@ describe('/exams', () => {
       locale: 'en',
     });
     await screen.findByRole('heading', { name: 'Exams' });
-    expect(
-      await screen.findAllByRole('button', { name: 'Help: Creating and setting up exams' }),
-    ).not.toHaveLength(0);
+    // By id: the page-level (?) carries the same "Help: <page title>" name.
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-help-id="examsResults.exams.action.add"]'),
+      ).not.toBeNull(),
+    );
   });
 
   it('lists exams with class, year, kind and a status badge, plus view/edit actions', async () => {

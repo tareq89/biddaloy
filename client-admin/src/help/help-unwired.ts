@@ -71,6 +71,7 @@ export const HELP_UNWIRED: Record<string, string> = {
   'people.students.action.sendReminder': MENU_ITEM,
 
   // 44.3.07-44.3.11
+  'examsResults.exams.action.edit': MENU_ITEM,
   'examsResults.examTemplates.action.delete': '#3046: page fix pending',
   'finance.feeStructures.action.delete': '#3057: page fix pending',
   'finance.recurringSchedules.action.deactivate': '#3058: page fix pending',

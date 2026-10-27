@@ -1,7 +1,7 @@
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, examFactory, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -50,9 +50,12 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
       locale: 'en',
     });
     await screen.findByLabelText('Rafi Ahmed — Written');
-    expect(
-      await screen.findByRole('button', { name: 'Help: Entering and submitting exam marks' }),
-    ).toBeTruthy();
+    // By id: the page-level (?) carries the same "Help: <page title>" name.
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-help-id="examsResults.marksEntry.action.submit"]'),
+      ).not.toBeNull(),
+    );
   });
 
   it('shows the save-state header and moves saving -> saved after a batch commits', async () => {

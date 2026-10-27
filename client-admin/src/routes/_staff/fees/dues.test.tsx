@@ -44,9 +44,12 @@ describe('/fees/dues', () => {
         role: 'ACCOUNTANT',
         locale: 'en',
       });
-      expect(
-        (await screen.findAllByRole('button', { name: 'Help: Student dues' })).length,
-      ).toBeGreaterThan(0);
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.dues.action.collect"]'),
+        ).not.toBeNull(),
+      );
     } finally {
       vi.unstubAllEnvs();
     }

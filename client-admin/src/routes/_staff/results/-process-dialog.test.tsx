@@ -48,9 +48,12 @@ describe('ProcessDialog', () => {
       ),
     );
     await renderDialog();
-    expect(
-      await screen.findByRole('button', { name: 'Help: Processing and publishing results' }),
-    ).toBeTruthy();
+    // By id: the page-level (?) carries the same "Help: <page title>" name.
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-help-id="examsResults.results.action.process"]'),
+      ).not.toBeNull(),
+    );
   });
 
   it('lists outstanding DRAFT grids and shows the force-audit warning', async () => {

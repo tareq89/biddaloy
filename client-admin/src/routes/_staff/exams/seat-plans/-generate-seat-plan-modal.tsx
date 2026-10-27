@@ -294,12 +294,12 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
             </div>
 
             <fieldset className="md:col-span-2">
-              <legend className="text-label">
-                <span className="inline-flex items-center gap-1">
-                  {t('generate.seatOrderLabel')}
-                  <HelpHint helpId="examsResults.seatPlans.field.seatOrder" />
-                </span>
-              </legend>
+              {/* The (?) sits outside the legend so it stays out of the group's name. */}
+              <legend className="sr-only">{t('generate.seatOrderLabel')}</legend>
+              <div className="flex items-center gap-1 text-label">
+                <span aria-hidden="true">{t('generate.seatOrderLabel')}</span>
+                <HelpHint helpId="examsResults.seatPlans.field.seatOrder" />
+              </div>
               <RadioGroup
                 value={seatOrderMode}
                 onValueChange={(value) => setSeatOrderMode(value as 'SEQUENTIAL' | 'RANDOM')}

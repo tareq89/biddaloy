@@ -1,5 +1,5 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,9 +24,12 @@ describe('/exams/seat-plans', () => {
       locale: 'en',
     });
     await screen.findByRole('heading', { name: 'Seat plans' });
-    expect(
-      await screen.findAllByRole('button', { name: 'Help: Making and publishing seat plans' }),
-    ).not.toHaveLength(0);
+    // By id: the page-level (?) carries the same "Help: <page title>" name.
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-help-id="examsResults.seatPlans.action.generate"]'),
+      ).not.toBeNull(),
+    );
   });
 
   it('lists seat plans with status/count columns', async () => {

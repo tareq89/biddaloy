@@ -88,9 +88,12 @@ describe('/portal/account', () => {
         ),
       );
       renderAccount('STUDENT');
-      expect(
-        (await screen.findAllByRole('button', { name: 'Help: Your account' })).length,
-      ).toBeGreaterThan(0);
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="start.account.action.signOutDevice"]'),
+        ).not.toBeNull(),
+      );
     } finally {
       vi.unstubAllEnvs();
     }

@@ -477,7 +477,8 @@ export function CommandPaletteLauncher({
             {t('commandPalette.shortcutHint')}
           </span>
         </Button>
-        <HelpHint helpId="start.findAnything.action.open" />
+        {/* Desktop only: the phone header row holds exactly menu, search, bell, account (D12). */}
+        <HelpHint helpId="start.findAnything.action.open" className="hidden md:inline-flex" />
       </span>
       <CommandPalette
         open={open}

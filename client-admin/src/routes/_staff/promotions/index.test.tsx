@@ -5,7 +5,7 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -31,9 +31,12 @@ describe('/promotions', () => {
       role: 'ADMIN',
       locale: 'en',
     });
-    expect(
-      await screen.findAllByRole('button', { name: 'Help: Promoting students' }),
-    ).not.toHaveLength(0);
+    // By id: the page-level (?) carries the same "Help: <page title>" name.
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-help-id="examsResults.promotion.action.create"]'),
+      ).not.toBeNull(),
+    );
   });
 
   it('lists runs with source/target, year, status, override count and algorithm', async () => {
