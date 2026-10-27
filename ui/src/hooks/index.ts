@@ -26,6 +26,10 @@ export {
 export {
   useMarkStaffAttendance,
   useStaffAttendanceSummary,
+  useStaffAttendanceDay,
+  staffAttendanceDayQueryOptions,
+  type StaffAttendanceDay,
+  type StaffAttendanceRosterRow,
   staffAttendanceSummaryQueryOptions,
   type PutStaffAttendanceRegisterInput,
   type StaffAttendanceEntry,

@@ -1,11 +1,24 @@
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
-import { cleanupTestState, paginate, renderWithRouter, server } from '@biddaloy/ui/test';
+import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
+
+function day(
+  rows: { user_id: string; full_name: string; role: string; staff_profile_id: string }[],
+) {
+  return http.get('/api/v1/staff-attendance/register', ({ request }) =>
+    HttpResponse.json({
+      date: new URL(request.url).searchParams.get('date'),
+      reason_required: false,
+      non_working_day: false,
+      staff: rows.map((r) => ({ ...r, status: null })),
+    }),
+  );
+}
 
 describe('/attendance/staff', () => {
   afterEach(async () => {
@@ -14,24 +27,11 @@ describe('/attendance/staff', () => {
 
   it('renders a row per staff member with a staff profile, no console error', async () => {
     server.use(
-      http.get('/api/v1/users', ({ request }) =>
-        HttpResponse.json(
-          paginate(
-            [
-              {
-                id: 'user-1',
-                full_name: 'Karim',
-                email: 'karim@example.com',
-                phone: null,
-                role: 'TEACHER',
-                status: 'ACTIVE',
-                staff_profile_id: 'profile-1',
-              },
-            ],
-            request.url,
-          ),
-        ),
-      ),
+      day([
+        { user_id: 'user-1', full_name: 'Karim', role: 'TEACHER', staff_profile_id: 'profile-1' },
+      ]),
+      // The page must not touch the admin-only users list (403 for non-admins).
+      http.get('/api/v1/users', () => HttpResponse.json({}, { status: 403 })),
     );
 
     renderWithRouter(routeTree, {
@@ -45,9 +45,7 @@ describe('/attendance/staff', () => {
   });
 
   it('shows an empty state when there is no staff with a profile yet', async () => {
-    server.use(
-      http.get('/api/v1/users', ({ request }) => HttpResponse.json(paginate([], request.url))),
-    );
+    server.use(day([]));
 
     renderWithRouter(routeTree, {
       initialEntries: ['/attendance/staff'],
@@ -61,21 +59,13 @@ describe('/attendance/staff', () => {
 
   describe('page chrome', () => {
     function twoStaff() {
-      return http.get('/api/v1/users', ({ request }) =>
-        HttpResponse.json(
-          paginate(
-            [1, 2].map((n) => ({
-              id: `user-${n}`,
-              full_name: n === 1 ? 'Karim' : 'Rahima',
-              email: `u${n}@example.com`,
-              phone: null,
-              role: 'TEACHER',
-              status: 'ACTIVE',
-              staff_profile_id: `profile-${n}`,
-            })),
-            request.url,
-          ),
-        ),
+      return day(
+        [1, 2].map((n) => ({
+          user_id: `user-${n}`,
+          full_name: n === 1 ? 'Karim' : 'Rahima',
+          role: 'TEACHER',
+          staff_profile_id: `profile-${n}`,
+        })),
       );
     }
 

@@ -13,7 +13,11 @@ import {
   Label,
   Skeleton,
 } from '@biddaloy/ui/components';
-import { useHasPermission, useMarkStaffAttendance, useUsers } from '@biddaloy/ui/hooks';
+import {
+  useHasPermission,
+  useMarkStaffAttendance,
+  useStaffAttendanceDay,
+} from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
 import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
@@ -70,21 +74,11 @@ function StaffAttendancePage() {
   const date = search.date ?? todayIso();
 
   const canMark = useHasPermission(Permission.STAFF_ATTENDANCE_MARK);
-  // [36.4] `useUsers` (`GET /users`) now returns `staff_profile_id` per
-  // row (see this ticket's plan comment) — reused rather than a second
-  // staff-list hook. A generous limit stands in for pagination: staff
-  // rosters are small enough (dozens, not thousands) that one page over
-  // every school this ships to is the lazy-correct call; revisit with
-  // real pagination if a tenant's staff count ever approaches it. 100 is
-  // `QueryUserDto`'s own server-side cap (`users.dto.ts`'s `@Max(100)`) —
-  // 200 here 400s every request, which is why this whole screen was
-  // silently broken (permanent error state) until the first real e2e run
-  // caught it; MSW-mocked component tests never exercise real validation.
-  const usersQuery = useUsers({ limit: 100 });
-  const staff = React.useMemo(
-    () => (usersQuery.data?.data ?? []).filter((user) => user.staff_profile_id != null),
-    [usersQuery.data],
-  );
+  // The roster comes from `GET /staff-attendance/register`, which returns every
+  // staff member for an admin-level caller and only the caller's own row otherwise
+  // (`GET /users` is admin-only, so it broke this page for every other role).
+  const dayQuery = useStaffAttendanceDay(date);
+  const staff = React.useMemo(() => dayQuery.data?.staff ?? [], [dayQuery.data]);
 
   const [draft, setDraft] = React.useState<StaffAttendanceDraft>({});
   const markAttendance = useMarkStaffAttendance();
@@ -123,7 +117,7 @@ function StaffAttendancePage() {
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
         <div className="min-w-0">
           <h1 className="text-h1">{t('grid.title')}</h1>
-          {!usersQuery.isPending && !usersQuery.isError && (
+          {!dayQuery.isPending && !dayQuery.isError && (
             <p className="mt-0.5 text-text-secondary">
               {t('grid.staffCount', { count: staff.length })}
             </p>
@@ -151,7 +145,7 @@ function StaffAttendancePage() {
         </div>
       </header>
 
-      {usersQuery.isPending ? (
+      {dayQuery.isPending ? (
         <div aria-busy="true" aria-live="polite" className="space-y-6">
           <span className="sr-only">{t('grid.loading')}</span>
           <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
@@ -161,11 +155,11 @@ function StaffAttendancePage() {
             ))}
           </div>
         </div>
-      ) : usersQuery.isError ? (
+      ) : dayQuery.isError ? (
         <ErrorState
-          message={t('grid.errorMessage')}
+          message={t('grid.loadError')}
           retryLabel={t('actions.retry', { ns: 'common' })}
-          onRetry={() => void usersQuery.refetch()}
+          onRetry={() => void dayQuery.refetch()}
         />
       ) : staff.length === 0 ? (
         <EmptyState
