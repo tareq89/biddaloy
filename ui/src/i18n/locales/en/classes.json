@@ -71,7 +71,19 @@
     "errorMessage": "Failed to delete class",
     "moveStudents": "Move students",
     "close": "Close",
-    "blockedMessage": "This class still has students or sections, so it can't be deleted. Move the students and delete the sections first."
+    "blockedStudents": "This class still has students. Move them to another class first.",
+    "blockedSections": "This class still has sections. Delete the sections first.",
+    "blockedKinds": "This class is still used by {{kinds}}. Remove or move them first.",
+    "kinds": {
+      "exams": "exams",
+      "fee_structures": "fee structures",
+      "homework": "homework",
+      "syllabus_topics": "syllabus topics",
+      "fine_rules": "fine rules",
+      "promotion_runs": "promotions",
+      "grading_scales": "grading scales",
+      "other": "other records"
+    }
   },
   "deleteSectionDialog": {
     "title": "Delete section",
