@@ -257,3 +257,10 @@ Wave 0 (#2979): five security fixes found while writing the user guide.
 - 2026-10-27 — #2922: stopping the page from loading the exam detail query broke the breadcrumb, which was keyed on that query. The fix moved the resolver key. Rule candidate: before removing a query from a page, grep the breadcrumb resolver for its key.
 - 2026-10-27 — #2916: `progress()` gained a `grids` array instead of widening `outstanding`, so the results-processing gate keeps its meaning.
 - 2026-10-27 — #2913 also closed #2914, #2918 also closed #2919 and #2920, #2916 also closed #2978: those issues were duplicates of one cause.
+
+### Wave 5 — finance and communications (#2984)
+
+- 2026-10-27 — All nine wave 5 tickets were client-side (copy, buttons, role gates). The server already enforced each rule, so no route snapshot changed.
+- 2026-10-27 — #2932: the body asked for a "role without SCHEDULE_MANAGE sees no Delete" test. The whole route is gated on that permission, so no such role can reach the page; the test was dropped and the guard kept as defence in depth.
+- 2026-10-27 — #2939: the body said to use `regionConfig`, but that variable belongs to the parent component; `useRegionConfig()` in the same component is the sibling pattern.
+- 2026-10-27 — #2936 fix is client-only: the server already refuses a wallet pick across siblings (`checkout.service.ts`), the UI just summed them.
