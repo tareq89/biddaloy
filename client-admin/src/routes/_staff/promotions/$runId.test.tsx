@@ -276,13 +276,12 @@ describe('/promotions/$runId', () => {
     );
     renderRun();
 
-    const outcomeCell = await screen.findByLabelText('Final decision');
-    outcomeCell.focus();
-    await user.keyboard('g');
+    await user.click(await screen.findByRole('combobox', { name: 'Final decision' }));
+    await user.click(await screen.findByRole('option', { name: 'Promote on condition' }));
 
     await waitFor(() =>
       expect(record.patches).toEqual([
-        [{ student_id: 's1', final_outcome: 'GRADUATE', override_note: 'old' }],
+        [{ student_id: 's1', final_outcome: 'CONDITIONAL', override_note: 'old' }],
       ]),
     );
   });
@@ -568,6 +567,21 @@ describe('/promotions/$runId', () => {
     expect(within(summary).getByText('Graduated ০')).toBeTruthy();
   });
 
+  it('a normal run has no Graduate option, and the G key does nothing', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    const record = statefulRun();
+    renderRun();
+
+    const cell = await screen.findByRole('combobox', { name: 'Final decision' });
+    cell.focus();
+    await user.keyboard('g');
+    expect(record.patches).toEqual([]);
+    await user.click(cell);
+    expect(await screen.findByRole('option', { name: 'Retain' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Graduate' })).toBeNull();
+  });
+
   it('a graduation run does not offer Promote on condition', async () => {
     const user = userEvent.setup();
     stubCommon();
@@ -648,7 +662,7 @@ describe('/promotions/$runId', () => {
       renderRun();
 
       const group = await screen.findByRole('radiogroup', { name: 'Final decision' });
-      expect(within(group).getAllByRole('radio')).toHaveLength(4);
+      expect(within(group).getAllByRole('radio')).toHaveLength(3);
       expect(screen.getByRole('button', { name: 'Previous student' })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Next student' })).toBeTruthy();
     } finally {
@@ -731,7 +745,7 @@ describe('/promotions/$runId', () => {
     renderRun();
 
     await user.click(await screen.findByRole('combobox', { name: 'Final decision' }));
-    await user.click(await screen.findByRole('option', { name: 'Graduate' }));
+    await user.click(await screen.findByRole('option', { name: 'Retain' }));
     const note = await screen.findByRole('textbox', { name: 'Why changed' });
     await waitFor(() => expect(document.activeElement).toBe(note));
   });
