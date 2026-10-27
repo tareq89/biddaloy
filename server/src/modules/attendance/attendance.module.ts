@@ -35,6 +35,7 @@ import { AttendanceDashboardService } from './attendance-dashboard.service';
 import { AttendanceDashboardController } from './attendance-dashboard.controller';
 import { AttendanceSeriesScheduler, ATTENDANCE_SERIES_QUEUE } from './attendance-series.scheduler';
 import { AbsenceNoticeService } from './absence-notice.service';
+import { ArrivalNoticeService } from './arrival-notice.service';
 import { AbsenceNoticeController } from './absence-notice.controller';
 import { AbsenceNoticeScheduler, ABSENCE_NOTICE_SWEEP_QUEUE } from './absence-notice.scheduler';
 import { ArrivalSubscriptionsService } from './arrival-subscriptions.service';
@@ -114,6 +115,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     AttendanceAccessService,
     AttendanceSummaryService,
     AbsenceNoticeService,
+    ArrivalNoticeService,
     AbsenceNoticeScheduler,
     AttendanceDashboardService,
     AttendanceSeriesScheduler,
