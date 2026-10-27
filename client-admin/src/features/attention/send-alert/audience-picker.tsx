@@ -5,7 +5,7 @@
  */
 import { UserRole } from '@biddaloy/shared';
 import { Checkbox, Combobox, type ComboboxOption } from '@biddaloy/ui/components';
-import { useUsers, type ManualAudience } from '@biddaloy/ui/hooks';
+import { useDebouncedValue, useUsers, type ManualAudience } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { XIcon } from 'lucide-react';
 import * as React from 'react';
@@ -25,8 +25,12 @@ export function AudiencePicker({ value, onChange }: AudiencePickerProps) {
   const { t } = useTranslation('attention');
   const [opened, setOpened] = React.useState<Partial<Record<GroupKey, boolean>>>({});
   const sectionOptions = useSectionOptions();
-  // ponytail: first 100 staff, filtered in the combobox; add server search past that.
-  const users = useUsers({ limit: 100 });
+  // The "Named people" box asks the server (name, email or phone) as you type.
+  const [userQuery, setUserQuery] = React.useState('');
+  const q = useDebouncedValue(userQuery, 300).trim();
+  const users = useUsers({ limit: 100, ...(q ? { search: q } : {}) });
+  // A new search replaces the options, so remember each picked person's label.
+  const [pickedLabels, setPickedLabels] = React.useState<Record<string, string>>({});
   const userOptions: ComboboxOption[] = (users.data?.data ?? []).map((u) => ({
     value: u.id,
     label: u.role ? `${u.full_name} · ${t(`roles.${u.role}`)}` : u.full_name,
@@ -98,7 +102,10 @@ export function AudiencePicker({ value, onChange }: AudiencePickerProps) {
                 {ids.length > 0 && (
                   <ul className="flex flex-wrap gap-2" aria-label={title}>
                     {ids.map((id) => {
-                      const label = options.find((o) => o.value === id)?.label ?? id;
+                      const label =
+                        (key === 'userIds' ? pickedLabels[id] : undefined) ??
+                        options.find((o) => o.value === id)?.label ??
+                        id;
                       return (
                         <li key={id}>
                           <button
@@ -125,8 +132,14 @@ export function AudiencePicker({ value, onChange }: AudiencePickerProps) {
                   placeholder={addLabel}
                   options={options.filter((o) => !ids.includes(o.value))}
                   value={null}
+                  {...(key === 'userIds' ? { onQueryChange: setUserQuery } : {})}
                   onValueChange={(next) => {
-                    if (next) set(key, [...ids, next]);
+                    if (!next) return;
+                    if (key === 'userIds') {
+                      const picked = options.find((o) => o.value === next)?.label;
+                      if (picked) setPickedLabels((prev) => ({ ...prev, [next]: picked }));
+                    }
+                    set(key, [...ids, next]);
                   }}
                 />
               </div>
