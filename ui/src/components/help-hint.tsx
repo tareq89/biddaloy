@@ -155,7 +155,12 @@ function HelpButton({
   size: 'sm' | 'md';
   className: string | undefined;
 }) {
-  const { t } = useTranslation(help.fieldNs ? ['helpHint', help.fieldNs] : 'helpHint');
+  const { t } = useTranslation('helpHint');
+  // Separate call (not `useTranslation(['helpHint', fieldNs])`): check-i18n-keys.mjs
+  // reads this file's namespace from the first single-quoted `useTranslation('...')`
+  // and an array or ternary argument does not match. This one only loads the field's
+  // namespace so the summary resolved in `useHelp` renders.
+  useTranslation(help.fieldNs ?? 'helpHint');
   const titleId = React.useId();
   const [open, setOpen] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
