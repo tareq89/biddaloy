@@ -74,6 +74,14 @@
       "academicYear": "Academic year",
       "kind": "Type",
       "publishedAt": "Results published"
+    },
+    "delete": {
+      "button": "Delete exam",
+      "title": "Delete this exam?",
+      "description": "The exam, its marks breakdown, schedule and any marks entered are removed. This can't be undone from the app.",
+      "confirm": "Delete",
+      "errorHasResults": "This exam has results. Reopen and correct them instead of deleting the exam.",
+      "errorMessage": "Couldn't delete the exam. Please try again."
     }
   },
   "schedulePanel": {
