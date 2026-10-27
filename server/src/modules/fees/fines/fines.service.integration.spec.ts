@@ -448,6 +448,25 @@ describe('FinesService (integration)', () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    it('refuses a non-open (ADVANCE) bill that has a balance with 409 and keeps the token (#3001)', async () => {
+      // The DB forbids WAIVED/PAID with a balance, so ADVANCE stands in for "not open".
+      const { bill } = await makeFineBill({ status: FeeStatus.ADVANCE });
+      const token = await issueApprovalToken('jti-waive-advance');
+
+      await expect(
+        service.waiveBill(
+          bill.id,
+          { reason: 'Again' },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(token),
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(await redis.exists('approval:jti-waive-advance')).toBe(1);
+      const after = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+      expect(Number(after.discount_amount)).toBe(0);
+    });
+
     it('rejects waiving without an approval token with 403 APPROVAL_REQUIRED', async () => {
       const { bill } = await makeFineBill();
 
