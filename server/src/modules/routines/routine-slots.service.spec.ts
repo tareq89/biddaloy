@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PeriodSlotKind, RoutineState, SlotRecurrence, UserRole } from '@biddaloy/shared';
 import { RoutineSlotsService } from './routine-slots.service';
 import { Routine } from './entities/routine.entity';
@@ -87,6 +87,7 @@ function buildService() {
     query: vi.fn(async () => []), // [58.0.03] cross-branch lookup: no other branch
     getRepository: (entity: unknown) => reposByEntity.get(entity),
     findOne: (entity: unknown, opts: any) => reposByEntity.get(entity).findOne(opts),
+    findOneOrFail: (entity: unknown, opts: any) => reposByEntity.get(entity).findOne(opts),
     find: (entity: unknown, opts: any) => reposByEntity.get(entity).find(opts),
     update: (entity: unknown, where: any, patch: any) =>
       reposByEntity.get(entity).update(where, patch),
@@ -244,16 +245,19 @@ describe('RoutineSlotsService [21.4.1]', () => {
     expect(newRow.valid_from).toBe('2026-06-01');
   });
 
-  it("update() rejects a valid_from at or before the old row's valid_from", async () => {
+  it('update() with a valid_from at or before the old row replaces it in place', async () => {
     const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
-    await expect(
-      ctx.service.update(
-        created.slot.id,
-        { ...baseDto, valid_from: baseDto.valid_from } as any,
-        TENANT_ID,
-        'user-1',
-      ),
-    ).rejects.toThrow(BadRequestException);
+    const result = await ctx.service.update(
+      created.slot.id,
+      { ...baseDto, subject_id: 'subject-2' } as any,
+      TENANT_ID,
+      'user-1',
+    );
+    // Same id, one row only, new subject, valid_to unchanged.
+    expect(result.slot.id).toBe(created.slot.id);
+    expect(ctx.slots).toHaveLength(1);
+    expect(ctx.slots[0].subject_id).toBe('subject-2');
+    expect(ctx.slots[0].valid_to).toBe(created.slot.valid_to);
   });
 
   it('update() rejects re-editing a row that was already superseded by a later edit', async () => {
