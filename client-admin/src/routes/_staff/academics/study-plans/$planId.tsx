@@ -221,6 +221,7 @@ function StudyPlanDetailPage() {
     },
     {
       id: 'copy',
+      helpId: 'academics.syllabus.action.copyToSection',
       label: t('actions.copyToSection'),
       icon: <Copy />,
       onClick: () => open('copy'),
@@ -256,6 +257,7 @@ function StudyPlanDetailPage() {
     },
     {
       id: 'delete-plan',
+      helpId: 'academics.syllabus.action.deletePlan',
       label: t('actions.deletePlan'),
       icon: <Trash2 />,
       onClick: () => open('delete'),
