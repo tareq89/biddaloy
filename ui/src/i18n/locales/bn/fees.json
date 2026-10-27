@@ -338,6 +338,10 @@
     "activateConfirmTitle": "এই নিয়মটি আবার সক্রিয় করবেন?",
     "activateConfirmDescription": "পরের নির্ধারিত দিন থেকে আবার বিল তৈরি হবে।",
     "toggleErrorMessage": "নিয়মটির অবস্থা বদলানো যায়নি। আবার চেষ্টা করুন।",
+    "delete": "মুছুন",
+    "deleteConfirmTitle": "এই নিয়মটি মুছবেন?",
+    "deleteConfirmDescription": "এটি আর নতুন বিল তৈরি করবে না। আগে তৈরি হওয়া বিল যেমন আছে তেমনই থাকবে।",
+    "deleteErrorMessage": "নিয়মটি মোছা যায়নি। আবার চেষ্টা করুন।",
     "editNotFound": "এই নিয়মটি আর পাওয়া যায়নি।"
   },
   "recurringFeesTab": {
