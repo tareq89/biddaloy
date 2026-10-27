@@ -34,6 +34,7 @@ function baseSchool() {
   return {
     id: 'school-1',
     name: 'Old Name',
+    slug: 'old-school',
     name_bn: null,
     address: null,
     phone: null,
@@ -59,6 +60,7 @@ describe('SchoolProfileService', () => {
 
       expect(result).toEqual({
         name: 'Old Name',
+        slug: 'old-school',
         name_bn: null,
         address: null,
         phone: null,
