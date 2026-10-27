@@ -166,6 +166,7 @@ describe('AnalysisService', () => {
       appeared: '5',
       passed: '4',
       failed: '1',
+      absent: '2',
       highest: '480.00',
       average: '400.00',
     };
@@ -182,6 +183,8 @@ describe('AnalysisService', () => {
     // 3 passed / 4 appeared (the absent one is excluded from the denominator)
     expect(result.subjects[0].pass_pct).toBe(75);
     expect(result.subjects[0].appeared).toBe(4);
+    // Overall absent = students absent in at least one subject (#2923)
+    expect(result.overall.absent).toBe(2);
     // grade distribution sums to `appeared`
     const distSum = Object.values(result.subjects[0].grade_distribution).reduce((a, b) => a + b, 0);
     expect(distSum).toBe(result.subjects[0].appeared);
