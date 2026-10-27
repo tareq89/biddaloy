@@ -57,6 +57,7 @@
     "close": "Close"
   },
   "errors": {
-    "unknown": "Something went wrong. Please try again."
+    "unknown": "Something went wrong. Please try again.",
+    "scheduleClaimed": "These subjects are already in a published seat plan: {{subjects}}. Unpublish that plan or leave them out."
   }
 }
