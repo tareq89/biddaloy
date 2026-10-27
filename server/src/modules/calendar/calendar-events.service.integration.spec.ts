@@ -709,6 +709,23 @@ describe('CalendarEventsService (integration)', () => {
   });
 
   it('filters the list by class_id against the real calendar_event_classes table', async () => {
+    const otherClass = await dataSource.getRepository(Class).save({
+      name: 'Calendar Events Other Class',
+      academic_year_id: yearId,
+      tenant_id: TENANT_ID,
+    });
+    await service.create(
+      {
+        type: CalendarEventType.EVENT,
+        name: 'Other class only',
+        start_date: '2030-08-10',
+        end_date: '2030-08-10',
+        audience: CalendarAudience.ALL,
+        class_ids: [otherClass.id],
+      } as any,
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+    );
     const scoped = await service.create(
       {
         type: CalendarEventType.EVENT,
@@ -721,7 +738,7 @@ describe('CalendarEventsService (integration)', () => {
       TENANT_ID,
       SEED_ADMIN_USER_ID,
     );
-    await service.create(
+    const unscoped = await service.create(
       {
         type: CalendarEventType.EVENT,
         name: 'Unscoped event same day',
@@ -741,7 +758,8 @@ describe('CalendarEventsService (integration)', () => {
       TENANT_ID,
       ADMIN_VIEWER,
     );
-    expect(filtered.data.map((e) => e.id)).toEqual([scoped.id]);
+    // Class-linked event plus the school-wide one; the other class's event is out.
+    expect(filtered.data.map((e) => e.id).sort()).toEqual([scoped.id, unscoped.id].sort());
   });
 
   it('TEACHER and PARENT/STUDENT visibility is scoped by class via the real EXISTS subquery', async () => {
