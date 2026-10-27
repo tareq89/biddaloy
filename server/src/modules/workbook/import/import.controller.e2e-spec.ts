@@ -117,6 +117,8 @@ describe('POST /backup/validate E2E', () => {
       .attach('file', Buffer.alloc(21 * 1024 * 1024), 'big.xlsx');
     expect(res.status).not.toBe(413);
     expect(res.status).toBe(400); // not a real workbook
+    // #3042: the code reaches clients as details.code, like the other import screens.
+    expect(res.body.details).toEqual({ code: 'NOT_XLSX' });
   });
 
   it('accepts a valid workbook, stages it, and returns a preview with zero errors', async () => {

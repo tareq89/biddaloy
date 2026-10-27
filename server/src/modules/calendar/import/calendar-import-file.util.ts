@@ -6,14 +6,8 @@ import {
 } from '../../../common/utils/xlsx-guard.util';
 import { cellText } from '../../workbook/codec/cell-format';
 import { CALENDAR_IMPORT_COLUMNS, RawCalendarImportRow } from './calendar-import-rows.util';
-import { CalendarEventType, toCsvContent } from '@biddaloy/shared';
-
-export class CalendarImportFileError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'CalendarImportFileError';
-  }
-}
+import { CalendarEventType, ImportFileErrorCode, toCsvContent } from '@biddaloy/shared';
+import { ImportFileError } from '../../../common/errors/import-file.error';
 
 /** Two example rows the template ships with, so an admin sees the expected
  * shape rather than an empty header row. */
@@ -155,7 +149,7 @@ function cellsToRawRow(cells: string[]): RawCalendarImportRow {
 /** Parses an uploaded `.xlsx` or `.csv` buffer's first sheet into raw rows,
  * keyed by `CALENDAR_IMPORT_COLUMNS` (matched by header text, not
  * position — a re-ordered template still parses correctly). Throws
- * `CalendarImportFileError` on anything that isn't a readable sheet with a
+ * `ImportFileError` on anything that isn't a readable sheet with a
  * recognisable header row. */
 export async function parseCalendarImportFile(
   buffer: Buffer,
@@ -164,7 +158,10 @@ export async function parseCalendarImportFile(
   const isCsv = filename.toLowerCase().endsWith('.csv');
   const isXlsx = filename.toLowerCase().endsWith('.xlsx');
   if (!isCsv && !isXlsx) {
-    throw new CalendarImportFileError('Only .xlsx or .csv files are accepted.');
+    throw new ImportFileError(
+      ImportFileErrorCode.UNSUPPORTED_TYPE,
+      'Only .xlsx or .csv files are accepted.',
+    );
   }
 
   let rows: string[][];
@@ -179,15 +176,19 @@ export async function parseCalendarImportFile(
       // `workbook-codec.ts` applies for this exact call.
       await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
     } catch (e) {
-      throw new CalendarImportFileError(
-        e instanceof XlsxTooLargeError
-          ? XLSX_TOO_LARGE_MESSAGE
-          : 'The uploaded file is not a valid .xlsx workbook.',
-      );
+      throw e instanceof XlsxTooLargeError
+        ? new ImportFileError(ImportFileErrorCode.TOO_LARGE, XLSX_TOO_LARGE_MESSAGE)
+        : new ImportFileError(
+            ImportFileErrorCode.UNREADABLE,
+            'The uploaded file is not a valid .xlsx workbook.',
+          );
     }
     const sheet = workbook.worksheets[0];
     if (!sheet) {
-      throw new CalendarImportFileError('The uploaded workbook has no sheets.');
+      throw new ImportFileError(
+        ImportFileErrorCode.NO_ROWS,
+        'The uploaded workbook has no sheets.',
+      );
     }
     rows = [];
     sheet.eachRow((sheetRow) => {
@@ -203,13 +204,14 @@ export async function parseCalendarImportFile(
   }
 
   if (rows.length === 0) {
-    throw new CalendarImportFileError('The uploaded file has no rows.');
+    throw new ImportFileError(ImportFileErrorCode.NO_ROWS, 'The uploaded file has no rows.');
   }
 
   const header = rows[0].map((h) => h.trim().toLowerCase());
   const columnIndex = CALENDAR_IMPORT_COLUMNS.map((column) => header.indexOf(column));
   if (columnIndex.some((index) => index === -1)) {
-    throw new CalendarImportFileError(
+    throw new ImportFileError(
+      ImportFileErrorCode.MISSING_COLUMNS,
       `Header row must contain columns: ${CALENDAR_IMPORT_COLUMNS.join(', ')}`,
     );
   }

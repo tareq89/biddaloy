@@ -24,7 +24,7 @@ import {
   useTranslation,
 } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
-import { formatPhone } from '@biddaloy/ui/utils';
+import { formatPhone, importFileErrorKey } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronDownIcon, DownloadIcon } from 'lucide-react';
 import * as React from 'react';
@@ -86,6 +86,7 @@ function ImportStudentsContent() {
   const { mutateAsync: commitAsync } = commitMutation;
 
   const { t: tTrial } = useTranslation('trial');
+  const { t: tCommon } = useTranslation('common');
   const validate = React.useCallback(
     (file: File, onProgress: (percent: number) => void) =>
       validateAsync({ file, onProgress }).then(
@@ -116,10 +117,11 @@ function ImportStudentsContent() {
             variant: 'error',
             message: t('notifications.failed'),
           });
-          throw err;
+          const fileKey = importFileErrorKey(err);
+          throw fileKey ? new Error(tCommon(`importFileErrors.${fileKey}`), { cause: err }) : err;
         },
       ),
-    [validateAsync, t, tTrial],
+    [validateAsync, t, tTrial, tCommon],
   );
 
   const commit = React.useCallback(
