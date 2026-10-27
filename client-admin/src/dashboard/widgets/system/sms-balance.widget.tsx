@@ -2,7 +2,7 @@
  * [169.3-1876] `sms-balance` widget (ADMIN, D8 — visibility is the registry's
  * job). `metering: OFF` shows "not metered", never 0.
  */
-import { DashboardWidgetKey } from '@biddaloy/shared';
+import { CommunicationMedium, DashboardWidgetKey } from '@biddaloy/shared';
 import { apiClient, type components } from '@biddaloy/ui/api';
 import { WidgetCard } from '@biddaloy/ui/components';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -71,7 +71,7 @@ export function SmsBalanceView({
         data ? (
           <Link
             to="/communications/message-log"
-            search={{ medium: 'SMS' }}
+            search={{ medium: CommunicationMedium.SMS }}
             className="text-primary underline"
           >
             {tw('link')}

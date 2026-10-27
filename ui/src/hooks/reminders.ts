@@ -176,7 +176,7 @@ export interface CommunicationLogListFilters {
   limit?: number;
 }
 
-export const messageLogKeys = createEntityKeys<CommunicationLogListFilters>('communication-logs');
+export const messageLogKeys = createEntityKeys<CommunicationLogListFilters>('message-log');
 
 /** `GET /communications/logs` — the tenant-wide message log. */
 export function communicationLogsQueryOptions(filters: CommunicationLogListFilters = {}) {

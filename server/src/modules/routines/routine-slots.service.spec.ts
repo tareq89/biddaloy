@@ -93,11 +93,16 @@ function buildService() {
     [Teacher, teacherRepo],
   ]);
   // #3022: how many substitutions / open change requests reference the slot.
-  const refs = { substitutions: 0, openRequests: 0 };
+  // `substitutionsFrom` answers a count bounded by date (the split path).
+  const refs = { substitutions: 0, substitutionsFrom: 0, openRequests: 0 };
   const manager: any = {
-    count: vi.fn(async (entity: unknown) =>
-      entity === RoutineSubstitution ? refs.substitutions : refs.openRequests,
-    ),
+    count: vi.fn(async (entity: unknown, opts: any) => {
+      if (entity === RoutineSubstitution) {
+        return opts.where.date ? refs.substitutionsFrom : refs.substitutions;
+      }
+      // Only OPEN change requests block an edit.
+      return opts.where.state === 'OPEN' ? refs.openRequests : 0;
+    }),
     query: vi.fn(async () => []), // [58.0.03] cross-branch lookup: no other branch
     getRepository: (entity: unknown) => reposByEntity.get(entity),
     findOne: (entity: unknown, opts: any) => reposByEntity.get(entity).findOne(opts),
@@ -311,6 +316,18 @@ describe('RoutineSlotsService [21.4.1]', () => {
       'u',
     );
     expect(ctx.slots).toHaveLength(2);
+  });
+
+  it('update() with a later valid_from is refused (409) when a substitution falls on or after it', async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    ctx.refs.substitutionsFrom = 1;
+    const err: any = await ctx.service
+      .update(created.slot.id, { ...baseDto, valid_from: '2026-06-01' } as any, TENANT_ID, 'u')
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS');
+    // Nothing split: the old row stays open and no successor was inserted.
+    expect(ctx.slots).toHaveLength(1);
   });
 
   it('update() in place never reopens a row an earlier edit already closed', async () => {

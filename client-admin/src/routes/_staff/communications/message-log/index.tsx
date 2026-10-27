@@ -37,8 +37,9 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loa
 const logsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
   limit: z.number().int().positive().max(100).optional().catch(undefined),
-  status: z.string().optional().catch(undefined),
-  medium: z.string().optional().catch(undefined),
+  // A hand-edited value the API would 400 on is dropped instead.
+  status: z.enum(CommunicationStatus).optional().catch(undefined),
+  medium: z.enum(CommunicationMedium).optional().catch(undefined),
   from_date: z.string().optional().catch(undefined),
   to_date: z.string().optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores selection under.
@@ -62,8 +63,8 @@ export const Route = createFileRoute('/_staff/communications/message-log/')({
           communicationLogsQueryOptions({
             page: deps.page,
             limit: deps.limit,
-            ...(deps.status ? { status: deps.status as CommunicationStatus } : {}),
-            ...(deps.medium ? { medium: deps.medium as CommunicationMedium } : {}),
+            ...(deps.status ? { status: deps.status } : {}),
+            ...(deps.medium ? { medium: deps.medium } : {}),
             ...(deps.fromDate ? { from_date: deps.fromDate } : {}),
             ...(deps.toDate ? { to_date: deps.toDate } : {}),
           }),

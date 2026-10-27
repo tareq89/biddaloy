@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { RoutineState, SlotRecurrence } from '@biddaloy/shared';
+import { QueryFailedError } from 'typeorm';
 import { SubstitutionsService } from './substitutions.service';
 import { attentionEvents } from '../attention/attention.constants';
 import { ATTENTION_RECHECK } from '../attention/engine/attention-events';
@@ -58,7 +59,11 @@ function buildService() {
   };
   const busy: any = { busyAt: vi.fn(async () => null) };
   const settings: any = { attendance: { specialTimings: [] } };
-  const schools: any = { getResolvedSettings: vi.fn(async () => settings) };
+  // The school's today (#3022): rows before it are history.
+  const schools: any = {
+    getResolvedSettings: vi.fn(async () => settings),
+    todayFor: vi.fn(async () => '2026-01-01'),
+  };
   const audit: any = { record: vi.fn(async () => undefined) };
   const service = new SubstitutionsService(
     substitutionRepo,
@@ -77,6 +82,7 @@ function buildService() {
   return {
     service,
     audit,
+    schools,
     sectionRepo,
     subjectRepo,
     periodSlotRepo,
@@ -200,6 +206,24 @@ describe('SubstitutionsService [21.5.1]', () => {
         'user-1',
       ),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('refuses (409) to overwrite an existing past-dated substitution (#3022)', async () => {
+    // The unique index says a row for (slot, date) exists: an update would rewrite history.
+    ctx.substitutionRepo.save = vi.fn(async () => {
+      throw Object.assign(new QueryFailedError('INSERT', [], new Error('dup')), { code: '23505' });
+    });
+    ctx.schools.todayFor = vi.fn(async () => '2026-02-01');
+    const err: any = await ctx.service
+      .record(
+        { routine_slot_id: 'slot-1', date: '2026-01-05', is_cancelled: true } as any,
+        TENANT_ID,
+        'u',
+      )
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('SUBSTITUTION_IN_PAST');
+    expect(ctx.substitutionRepo.update).not.toHaveBeenCalled();
   });
 
   it('records a cover for an occurring date', async () => {

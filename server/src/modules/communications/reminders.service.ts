@@ -9,7 +9,7 @@ import { deliveryErrorCode } from './delivery-error-code';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { And, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { And, In, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { ReminderBatch } from './entities/reminder-batch.entity';
 import { StudentService } from '../students/students.service';
@@ -57,7 +57,7 @@ import { SmsCreditService } from './credits/sms-credit.service';
 import { INSUFFICIENT_SMS_CREDIT } from './credits/insufficient-sms-credit.constants';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { localToday } from '../../common/time';
+import { endOfLocalDay, localToday, startOfLocalDay } from '../../common/time';
 import {
   AuditAction,
   CommunicationMedium,
@@ -494,13 +494,10 @@ export class BulkReminderService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
 
-    const from = query.from_date ? new Date(query.from_date) : undefined;
-    let to: Date | undefined;
-    if (query.to_date) {
-      to = new Date(query.to_date);
-      // A date-only value includes the whole day, as findBatches does.
-      if (/^\d{4}-\d{2}-\d{2}$/.test(query.to_date)) to.setUTCHours(23, 59, 59, 999);
-    }
+    // School-local days (IsRealDate: always YYYY-MM-DD), the same days the
+    // Failed messages widget counts with, so its link lands on the same rows.
+    const from = query.from_date ? startOfLocalDay(query.from_date) : undefined;
+    const to = query.to_date ? endOfLocalDay(query.to_date) : undefined;
     const created =
       from && to
         ? And(MoreThanOrEqual(from), LessThanOrEqual(to))
@@ -514,7 +511,8 @@ export class BulkReminderService {
       where: {
         tenant_id: tenantId,
         ...(query.status ? { status: query.status } : {}),
-        ...(query.medium ? { medium: query.medium } : {}),
+        // PUSH rows are app notifications ('push:<user id>'), not messages a school sent.
+        medium: query.medium ?? In(Object.values(CommunicationMedium)),
         ...(created ? { created_at: created } : {}),
       },
       order: { created_at: 'DESC', id: 'DESC' },

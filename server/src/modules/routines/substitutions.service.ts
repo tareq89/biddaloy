@@ -15,11 +15,7 @@ import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
 import { PeriodSlot } from './entities/period-slot.entity';
 import { TeacherBusyService } from './teacher-busy.service';
 import { SchoolsService } from '../schools/schools.service';
-import {
-  localToday,
-  periodTimesOn,
-  resolveAttendancePolicy,
-} from '../attendance/attendance-policy.util';
+import { periodTimesOn, resolveAttendancePolicy } from '../attendance/attendance-policy.util';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -118,6 +114,8 @@ export class SubstitutionsService {
       saved = await this.substitutionRepo.save(this.substitutionRepo.create(values));
     } catch (err) {
       if (!this.isUniqueViolation(err)) throw err;
+      // #3022: a row already exists; rewriting a past one is the same history edit remove() refuses.
+      await this.assertNotPast(dto.date, tenantId);
       await this.substitutionRepo.update(
         { routine_slot_id: dto.routine_slot_id, date: dto.date, tenant_id: tenantId },
         values,
@@ -154,15 +152,7 @@ export class SubstitutionsService {
         throw new NotFoundException('Substitution not found');
       }
       // #3022: a past date's cover is history; deleting it would rewrite who covered a period.
-      const today = localToday(
-        (await this.schools.getResolvedSettings(tenantId)).region?.timezone ?? 'UTC',
-      );
-      if (row.date < today) {
-        throw new ConflictException({
-          message: 'A past substitution cannot be deleted.',
-          details: { code: 'SUBSTITUTION_IN_PAST' },
-        });
-      }
+      await this.assertNotPast(row.date, tenantId);
       await repo.delete({ id, tenant_id: tenantId });
       await this.auditService.record(
         {
@@ -241,6 +231,16 @@ export class SubstitutionsService {
           from: clash.from,
           to: clash.to,
         },
+      });
+    }
+  }
+
+  /** #3022: a substitution dated before the school's today is history. */
+  private async assertNotPast(date: string, tenantId: string): Promise<void> {
+    if (date < (await this.schools.todayFor(tenantId))) {
+      throw new ConflictException({
+        message: 'A past substitution cannot be changed or deleted.',
+        details: { code: 'SUBSTITUTION_IN_PAST' },
       });
     }
   }

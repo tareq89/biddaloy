@@ -1525,6 +1525,25 @@ describe('BulkReminderService', () => {
       expect(where.created_at).toBeDefined();
       expect(where.status).toBeUndefined();
     });
+
+    it('bounds dates by the school day (Asia/Dhaka), not the UTC day', async () => {
+      logRepo.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findLogs({ from_date: '2026-03-01' }, TENANT);
+
+      // 00:00 in Dhaka (UTC+6) is 18:00 UTC the day before — what the widget's window counts from.
+      const where = logRepo.findAndCount.mock.calls.at(-1)![0].where;
+      expect(where.created_at.value).toEqual(new Date('2026-02-28T18:00:00.000Z'));
+    });
+
+    it('leaves PUSH rows out when no channel is chosen', async () => {
+      logRepo.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findLogs({}, TENANT);
+
+      const where = logRepo.findAndCount.mock.calls.at(-1)![0].where;
+      expect(where.medium.value).toEqual(Object.values(CommunicationMedium));
+    });
   });
 
   describe('findBatchLogs', () => {

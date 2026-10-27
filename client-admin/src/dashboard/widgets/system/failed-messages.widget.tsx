@@ -2,7 +2,7 @@
  * [169.3-1876] `failed-messages` widget (ADMIN, D8 — visibility is the
  * registry's job). 0 is a value, not an empty state.
  */
-import { DashboardWidgetKey } from '@biddaloy/shared';
+import { CommunicationMedium, CommunicationStatus, DashboardWidgetKey } from '@biddaloy/shared';
 import { apiClient, type components } from '@biddaloy/ui/api';
 import { StatusBadge, WidgetCard } from '@biddaloy/ui/components';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -66,7 +66,12 @@ export function FailedMessagesView({
         data ? (
           <Link
             to="/communications/message-log"
-            search={{ medium: 'SMS', status: 'FAILED' }}
+            // The window the count covers, so the list shows the same messages.
+            search={{
+              medium: CommunicationMedium.SMS,
+              status: CommunicationStatus.FAILED,
+              from_date: data.window.from,
+            }}
             className="text-primary underline"
           >
             {tw('link')}

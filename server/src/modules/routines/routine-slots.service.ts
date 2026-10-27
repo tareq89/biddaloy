@@ -5,7 +5,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { Routine } from './entities/routine.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
@@ -184,7 +184,13 @@ export class RoutineSlotsService {
     userId: string | null,
   ): Promise<RoutineSlotWithWarnings> {
     return this.dataSource.transaction(async (manager) => {
-      const oldSlot = await manager.findOne(RoutineSlot, { where: { id, tenant_id: tenantId } });
+      // FOR UPDATE (#3022): a substitution or change-request insert takes FOR KEY SHARE on
+      // this row through its FK, so it waits for this edit instead of slipping past the
+      // reference check below.
+      const oldSlot = await manager.findOne(RoutineSlot, {
+        where: { id, tenant_id: tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!oldSlot) {
         throw new NotFoundException('Routine slot not found');
       }
@@ -213,6 +219,8 @@ export class RoutineSlotsService {
       if (dto.valid_from <= oldSlot.valid_from) {
         return this.updateInPlace(manager, oldSlot, dto, periodSlot, tenantId, userId);
       }
+      // #3022: substitutions from the new date on would stay on the closed row and stop applying.
+      await this.assertNoSlotRefs(manager, oldSlot.id, tenantId, dto.valid_from);
       const closeDate = dayBefore(dto.valid_from);
 
       // Close the old row first so the overlap check below sees it as
@@ -251,6 +259,40 @@ export class RoutineSlotsService {
     });
   }
 
+  /**
+   * #3022: refuse an edit while substitutions (from `fromDate` on, when given) or open
+   * change requests reference the slot. In place: all of them. Split: only substitutions
+   * on or after the new row's start; earlier ones stay true history on the closed row.
+   */
+  private async assertNoSlotRefs(
+    manager: EntityManager,
+    slotId: string,
+    tenantId: string,
+    fromDate?: string,
+  ): Promise<void> {
+    const [subs, openRequests] = await Promise.all([
+      manager.count(RoutineSubstitution, {
+        where: {
+          routine_slot_id: slotId,
+          tenant_id: tenantId,
+          ...(fromDate ? { date: MoreThanOrEqual(fromDate) } : {}),
+        },
+      }),
+      fromDate
+        ? 0
+        : manager.count(RoutineChangeRequest, {
+            where: { routine_slot_id: slotId, tenant_id: tenantId, state: ChangeRequestState.OPEN },
+          }),
+    ]);
+    if (subs > 0 || openRequests > 0) {
+      throw new ConflictException({
+        message:
+          'This period has substitutions or open change requests; resolve them before editing it.',
+        details: { code: 'SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS' },
+      });
+    }
+  }
+
   private async updateInPlace(
     manager: EntityManager,
     oldSlot: RoutineSlot,
@@ -262,19 +304,7 @@ export class RoutineSlotsService {
     const id = oldSlot.id;
     // #3022: the in-place edit keeps the slot id, so substitutions and open change
     // requests would silently point at the changed lesson. Refuse instead.
-    const [subs, openRequests] = await Promise.all([
-      manager.count(RoutineSubstitution, { where: { routine_slot_id: id, tenant_id: tenantId } }),
-      manager.count(RoutineChangeRequest, {
-        where: { routine_slot_id: id, tenant_id: tenantId, state: ChangeRequestState.OPEN },
-      }),
-    ]);
-    if (subs > 0 || openRequests > 0) {
-      throw new ConflictException({
-        message:
-          'This period has substitutions or open change requests; resolve them before editing it.',
-        details: { code: 'SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS' },
-      });
-    }
+    await this.assertNoSlotRefs(manager, id, tenantId);
     // Exclude the row itself so it does not clash with itself.
     const existing = (
       await this.loadExisting(oldSlot.routine_id, tenantId, manager, dto, userId)

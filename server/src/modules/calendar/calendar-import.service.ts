@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CalendarEvent } from './entities/calendar-event.entity';
@@ -21,7 +21,8 @@ import {
   StagedCalendarImport,
   StagedCalendarImportRow,
 } from './dto/calendar-import.dto';
-import { CalendarImportRowStatus } from '@biddaloy/shared';
+import { CalendarImportRowStatus, ImportFileErrorCode } from '@biddaloy/shared';
+import { ImportFileError } from '../../common/errors/import-file.error';
 import { localToday } from '../attendance/attendance-policy.util';
 
 export interface CalendarImportValidateResult {
@@ -192,8 +193,9 @@ export class CalendarImportService {
     // Checked here, not just at the dropzone, so this stays provably bounded
     // no matter what calls validate() directly.
     if (rawRows.length > MAX_IMPORT_ROWS) {
-      throw new BadRequestException(
-        `File has ${rawRows.length} rows; the maximum is ${MAX_IMPORT_ROWS}`,
+      throw new ImportFileError(
+        ImportFileErrorCode.TOO_MANY_ROWS,
+        `The file has more than ${MAX_IMPORT_ROWS} rows.`,
       );
     }
 
