@@ -229,3 +229,10 @@ Wave 0 (#2979): five security fixes found while writing the user guide.
 - 2026-10-27 — #2863's planned `rg` for echoed ids missed messages whose template literal sits on the line after `new NotFoundException(`. The reviewer found three more. Rule candidate: grep with `-U` (multiline) for Rule 23 sweeps.
 - 2026-10-27 — #2859: two existing e2e specs treated a tenant-local SUPER_ADMIN as the platform admin and broke once the guard landed. Fix: move their SA onto the platform tenant, as `platform-alerts.controller.e2e-spec.ts` does.
 - 2026-10-27 — Sandbox refused `git commit` inside worktree agents (once). The orchestrator committed the staged files from the parent.
+
+### Wave 1 — people, staff and admissions (#2980)
+
+- 2026-10-27 — #2878: the body said the form re-seeds after a close; it seeds once, so the fix resets the form. #2882: component tests need a `RegionConfigProvider` or numbers print as Bangla digits.
+- 2026-10-27 — #2995 and #2880 share files, so they were committed as two commits from one tree. Rule candidate: give tickets that share a file one lane and one commit order from the start.
+- 2026-10-27 — #2864: a new "needs a contact" guard broke every fixture that created a user with only a name. Rule candidate: grep fixtures for the factory before tightening a service guard.
+- 2026-10-27 — workers cannot `git commit` through the rtk-wrapped git; `/usr/bin/git -C <worktree>` works.
