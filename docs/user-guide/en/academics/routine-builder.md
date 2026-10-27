@@ -200,6 +200,13 @@ Weeks are counted from the start date of the academic year. Whether two periods 
 
 **To change:** press a filled cell. The dialog opens with the earlier subject and teachers picked. Change them and press **Save**. The change takes effect from today; for earlier days the old period stays.
 
+A change is refused, with **This period has substitutions or open change requests. Resolve them first, or edit from a later date.**, when:
+
+- the period has a [substitute teacher](routine-substitutions.md) recorded for today or a later day, or
+- the period was placed today and a teacher's change request about it is still open.
+
+Delete those substitutions first ([remove a substitution](routine-substitutions.md#task-correct)), or settle the request ([accept or reject a change request](routine-review.md#task-resolve)). Then change the cell again.
+
 **To clear:** move to the cell with the keyboard and press Delete.
 
 → The cell becomes **Empty** with no question asked, and the **Period cleared** message appears. If **Could not clear this period — try again.** appears, the period stays; check your internet and press Delete again.
@@ -232,6 +239,7 @@ Below the table is the **Teacher workload** section: each teacher's **Periods / 
 | **Section not found.**                                                          | The section may have been removed. Press **Class routine** and pick it again.                                                   | Admin          |
 | **Couldn't load the classes. Check your connection and try again.**             | Check your internet and try again.                                                                                              | Admin          |
 | **Could not save — try again.**                                                 | Check your internet and press **Save** again. | Admin          |
+| **This period has substitutions or open change requests. Resolve them first, or edit from a later date.** | Delete the period's substitutions for today and later, or settle the open change request. See [Change or clear a cell](#task-clear). | Admin          |
 | **This can't be saved**                                                         | See the reason written below it: [Clashes and warnings](#task-conflicts).                                                       | Admin          |
 | **Couldn't work out the periods to fill. Close this and try again.**            | Close the dialog and press **Fill empty periods** again.                                                                        | Admin          |
 | **This routine table needs a wider screen — try landscape or a bigger window.** | Open it on a computer, or make the window bigger.                                                                               | —              |

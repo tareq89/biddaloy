@@ -152,7 +152,7 @@ To add a logo, press **Upload logo** and pick an image. It is saved as soon as y
 
 | Field                          | What to choose                                                                                                                           |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Language and number format** | **Bangla (Bangladesh)** or **English (Bangladesh)**                                                                                      |
+| **Language of messages the school sends** | **Bangla (Bangladesh)** or **English (Bangladesh)**. SMS, emails, letters and alerts from this school use this language. It does not change anyone's screen: each person picks their own ([Changing the language](../start/language.md)). |
 | **Numeral system**             | **Bengali (০-৯)** or **Latin (0-9)**                                                                                                     |
 | **First day of week**          | The day the week starts                                                                                                                  |
 | **Academic year start month**  | A month from 1 to 12                                                                                                                     |

@@ -57,8 +57,7 @@ keywords: [widget, card, what the numbers mean, dashboard, dashboard numbers]
 appVersion: 0.1.0 (6b36c2549)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: sms-links-open-reminder-history, checked: 2026-10-24, issue: 2942 }
+knownIssues: []
 -->
 
 # What the widgets mean
@@ -70,7 +69,7 @@ What each dashboard widget says, where its number comes from, and what to do aft
 
 A **widget** is one card on the dashboard. Each card has a name at the top, a big number or a short list in the middle, and below it a one-line sentence and a link. What the dashboard itself is: [Seeing today's work on the dashboard](dashboard.md).
 
-[Read a widget](#task-main) · [All the widgets](#task-list) · [Known issues](#known-issues) · [Problems and fixes](#trouble)
+[Read a widget](#task-main) · [All the widgets](#task-list) · [Problems and fixes](#trouble)
 
 **On this page**
 
@@ -81,7 +80,6 @@ A **widget** is one card on the dashboard. Each card has a name at the top, a bi
   - [All the widgets, one by one](#task-list)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -177,13 +175,13 @@ This list is generated from the app's own text, so it matches the app. Widgets t
 
 - **What it means:** How many more SMS your school can send, and how many are held for messages being sent right now. Some schools are not metered.
 - **Where the number comes from:** It comes from your school's SMS credit, which goes down as messages are sent.
-- **What to do:** If the balance is low, top up before sending reminders. View sent messages opens Reminder history.
+- **What to do:** If the balance is low, top up before sending reminders. View sent messages opens the Message log, showing only SMS.
 
 ### Failed messages <a href="#widget.failed-messages" id="widget.failed-messages"></a>
 
 - **What it means:** How many SMS could not be sent in the last 7 days, counting today.
 - **Where the number comes from:** It comes from the record of every SMS the school sent, such as fee reminders and alerts.
-- **What to do:** Check the phone numbers and the SMS balance, then send again. See which ones opens Reminder history.
+- **What to do:** Check the phone numbers and the SMS balance, then send again. See which ones opens the Message log, showing the failed SMS of the same 7 days.
 
 ### What's coming up <a href="#widget.upcoming" id="widget.upcoming"></a>
 
@@ -225,7 +223,7 @@ This list is generated from the app's own text, so it matches the app. Widgets t
 
 - **What it means:** How many homework submissions are waiting for your check, and in how many homework they are.
 - **Where the number comes from:** It comes from homework that students handed in for your sections and subjects.
-- **What to do:** Check the work and give feedback. See submissions opens that homework's page.
+- **What to do:** Check the work and give feedback. See submissions opens the Check work list of the first homework on the card.
 
 ### My class streaks <a href="#widget.class-teacher-streaks" id="widget.class-teacher-streaks"></a>
 
@@ -380,7 +378,7 @@ This list is generated from the app's own text, so it matches the app. Widgets t
 | What you see                                  | What to do                                                                                      | Who can help |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------ |
 | **This widget could not load.**               | Press **Try again**. If it keeps happening, reload the page.                                    | Admin        |
-| The number does not match the linked page     | First look at [Known issues](#known-issues): some widgets show figures for a different period.  | Admin        |
+| The number does not match the linked page     | Read the widget's **What it means** line above: it says which days the number counts. The linked page may show a longer time. | Admin        |
 | A widget in the list is not on your dashboard | Either it is not for your role, or it is hidden. See [Customising the dashboard](customise.md). | Yourself     |
 
 ---
@@ -393,16 +391,6 @@ This list is generated from the app's own text, so it matches the app. Widgets t
 | Committee member                                                                | Only the totals widgets; no student's name appears                    |
 
 Which role starts with which widgets: [Dashboard by role](dashboard.md#task-roles).
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked in version 0.1.0, 2026-10-24. Once fixed, an item is removed from this section.
-
-| Issue                                                                                                                                                  | Whose, when                                                          | Data saved? | What to do for now                                                                  |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------- |
-| The links of **Failed messages** and **SMS balance** open the [**Reminder history**](../communications/reminder-history.md) page, not a separate list of SMS.                                   | Admin, when pressing the link                                        | Yes         | In [**Reminder history**](../communications/reminder-history.md), open each **Reminder round** to see which messages failed. |
 
 ---
 

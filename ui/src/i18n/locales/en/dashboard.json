@@ -677,12 +677,12 @@
       "sms-balance": {
         "means": "How many more SMS your school can send, and how many are held for messages being sent right now. Some schools are not metered.",
         "source": "It comes from your school's SMS credit, which goes down as messages are sent.",
-        "action": "If the balance is low, top up before sending reminders. View sent messages opens Reminder history."
+        "action": "If the balance is low, top up before sending reminders. View sent messages opens the Message log, showing only SMS."
       },
       "failed-messages": {
         "means": "How many SMS could not be sent in the last 7 days, counting today.",
         "source": "It comes from the record of every SMS the school sent, such as fee reminders and alerts.",
-        "action": "Check the phone numbers and the SMS balance, then send again. See which ones opens Reminder history."
+        "action": "Check the phone numbers and the SMS balance, then send again. See which ones opens the Message log, showing the failed SMS of the same 7 days."
       },
       "upcoming": {
         "means": "The next holiday and up to five published events in the next 60 days.",
@@ -717,7 +717,7 @@
       "homework-to-check": {
         "means": "How many homework submissions are waiting for your check, and in how many homework they are.",
         "source": "It comes from homework that students handed in for your sections and subjects.",
-        "action": "Check the work and give feedback. See submissions opens that homework's page."
+        "action": "Check the work and give feedback. See submissions opens the Check work list of the first homework on the card."
       },
       "class-teacher-streaks": {
         "means": "Students of your own section who have been absent several school days in a row, up to the last register. How many days comes from the Absent in a row (days) setting, 3 unless changed.",

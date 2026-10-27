@@ -1,7 +1,7 @@
 <!-- guide:meta
 feature: academics.homework
 title: Giving homework
-summary: Create homework for a class and subject, give it to a section or one student, give the same homework to more sections, and import many homework from a file at once.
+summary: Create homework for a class and subject, give it to a section or one student, give the same homework to more sections, change or deactivate what was given, check each student's work, and import many homework from a file at once.
 roles: [ADMIN, TEACHER]
 sources:
   - client-admin/src/routes/_staff/academics/homework/index.tsx
@@ -9,9 +9,11 @@ sources:
   - client-admin/src/routes/_staff/academics/homework/$homeworkId.tsx
   - client-admin/src/routes/_staff/academics/homework/import.tsx
   - client-admin/src/routes/_staff/academics/homework/-assign-homework-form.tsx
+  - client-admin/src/routes/_staff/academics/homework/-submission-grid.tsx
   - server/src/modules/homework/homework.controller.ts
   - server/src/modules/homework/homework.service.ts
   - server/src/modules/homework/homework-access.service.ts
+  - server/src/modules/homework/homework-submission.service.ts
   - server/src/modules/homework/homework-bulk-upload.controller.ts
   - server/src/modules/homework/homework-bulk-upload.service.ts
   - server/src/modules/homework/homework-bulk-upload.parser.ts
@@ -43,9 +45,7 @@ keywords:
 appVersion: 0.1.0 (e424f8fc4)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: homework-no-grading-screen, checked: 2026-10-24, issue: 2899 }
-  - { id: homework-no-deactivate-reassign, checked: 2026-10-24, issue: 2900 }
+knownIssues: []
 -->
 
 # Giving homework
@@ -57,7 +57,7 @@ Create homework for one subject of one class, then give it to a whole section or
 
 **Homework** works in two steps. First the homework itself: which class, which subject, what to write, and how it is graded. Then **giving it**: which section or student gets it, the date it is given and the due date. One homework can be given to several sections, each time with its own dates.
 
-[Give homework](#task-main) · [Give it to more sections](#task-assign-again) · [Import from a file](#task-import) · [Problems and fixes](#trouble)
+[Give homework](#task-main) · [Give it to more sections](#task-assign-again) · [Check work](#task-check) · [Import from a file](#task-import) · [Problems and fixes](#trouble)
 
 **On this page**
 
@@ -71,9 +71,10 @@ Create homework for one subject of one class, then give it to a whole section or
   - [Which grading mode to pick](#task-grading)
   - [Filter the list](#task-find)
   - [See a homework's page](#task-detail)
+  - [Change, move the due date or deactivate](#task-change)
+  - [Check students' work](#task-check)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -84,7 +85,7 @@ Create homework for one subject of one class, then give it to a whole section or
 
 **From the search box:** in the search box at the top (Ctrl+K), type **Homework** and pick it. Search rules: [Finding any page](../start/find-anything.md).
 
-**From the dashboard:** on a teacher's **Homework to check** card, pressing a homework opens that homework's page ([see a homework's page](#task-detail)). An admin's homework submission rate card opens this list. About the cards: [Dashboard cards](../dashboard/widgets.md).
+**From the dashboard:** on a teacher's **Homework to check** card, **See submissions** opens the **Check work** list of the first homework on the card ([check students' work](#task-check)). An admin's homework submission rate card opens this list. About the cards: [Dashboard cards](../dashboard/widgets.md).
 
 **From My class:** a class teacher sees the section's total, completed and defaulter counts on the **Homework** card of [My class](my-class.md#task-cards). To give homework, come to this page.
 
@@ -275,7 +276,7 @@ The file has no column for the title or the grading mode. For every imported hom
 | **Partial completion**     | You will mark each student not done, partly done or done. |
 | **Marks**                  | You will give each student a mark.                        |
 
-The mode cannot be changed after the homework is created. A screen to give marks or ticks student by student does not exist in this app yet: [Known issues](#known-issues).
+The mode cannot be changed after the homework is created. You give the tick, completion or marks student by student in [Check work](#task-check).
 
 ### Filter the list <a href="#task-find" id="task-find"></a>
 
@@ -292,7 +293,65 @@ Filters are for viewing only; they change nothing.
 
 Pressing **View** in the list opens the homework's page. At the top is the title, with **Subject**, **Class**, **Grading mode** and **Created**. Below is the **Description**; if there is none, **No description.** At the top is the **Assign to section or student** button ([give the same homework to more sections](#task-assign-again)).
 
-The list of sections this homework has been given to cannot be seen on this page yet.
+Below the description is the **Who has this homework** card. Each row is one section (**Section A**) or one student (**Rahima Akter · Section B**), with **Assigned date**, **Due date** and **Status** (**Active**, **Deactivated** or **Superseded**). Active rows come first. If it was given to nobody yet, it shows **Not given to anyone yet**.
+
+The buttons on a row depend on its status:
+
+| Row status      | Buttons on the row                                     |
+| --------------- | ------------------------------------------------------ |
+| **Active**      | **Check work**, **Due date**, **Change**, **Deactivate** |
+| **Deactivated** | **Check work**, **Reactivate**                         |
+| **Superseded**  | **Check work** only                                    |
+
+A teacher sees only the rows of their own sections.
+
+### Change, move the due date or deactivate <a href="#task-change" id="task-change"></a>
+
+All three work on one row of the **Who has this homework** card.
+
+**Move the due date:** press **Due date** on the row. The **Change the due date** box opens. Pick the new date and press **Save**. You see **Due date is now {date}.** Work already handed in stays. The due date cannot be before the assigned date (**Due date must be on or after the assigned date.**).
+
+**Give it to someone else:** press **Change** on the row. The **Change this assignment** box opens with the row's section or student and dates filled in. Pick the new section or student and dates, then press **Save**. You see **Changed. Due {date}.**
+
+> **Remember:** **Change** does not edit the old row. The old row stays in the list as **Superseded**, and a new **Active** row is made. Work already handed in stays with the old row; the students of the new row start from nothing.
+
+**Deactivate:** press **Deactivate** on the row, then **Deactivate** again in the question box. Students and parents stop seeing the homework, and no one can hand it in. Work already handed in is kept. You see **Deactivated.**
+
+**Reactivate:** on a **Deactivated** row, press **Reactivate**, then **Reactivate** in the question box. Students and parents see it again and can hand it in until the due date. You see **Active again.**
+
+| You press                       | What happens                                                | Saved? |
+| ------------------------------- | ----------------------------------------------------------- | ------ |
+| **Save** (Due date)             | Only the due date of that row changes                       | Yes    |
+| **Save** (Change)               | The old row becomes **Superseded**, a new **Active** row is made | Yes    |
+| **Deactivate** / **Reactivate** | The row's status changes; handed-in work stays              | Yes    |
+| **Cancel** or closing the box   | Nothing changes                                             | No     |
+
+### Check students' work <a href="#task-check" id="task-check"></a>
+
+Here you give each student the tick, the completion or the marks, depending on the homework's [grading mode](#task-grading).
+
+1. On the homework's page, in the **Who has this homework** card, press **Check work** on a row.
+
+   → A full-page list opens, titled **Check work · Section A** (or the student's name). It has every student of that row: each active student of the section, and anyone who already handed in work. Each student shows the roll number, the name and a badge: **Not submitted**, **Submitted**, **Partial** or **Done**.
+
+2. Mark each student:
+
+   | Grading mode               | What you do on each row                                       |
+   | -------------------------- | ------------------------------------------------------------- |
+   | **Tick (done / not done)** | Tick the box of each student who did it                       |
+   | **Partial completion**     | Pick **Done**, **Partial** or **Not done**                    |
+   | **Marks**                  | Type a whole number from 0 to 9999; leave it empty if no marks yet. Typing marks also makes the row **Done** |
+
+3. Press **Save** at the bottom. One **Save** sends every row you changed.
+
+   → You see **Saved.** The badges show the new state.
+
+- **Save** stays disabled until you change something.
+- If a student uploaded work and you untick them or pick **Not done**, the row goes back to **Submitted**, not **Not submitted**: their upload stays.
+- If you close the list with unsaved changes, the app asks first.
+- A teacher can open only the rows of their own sections and subjects.
+
+---
 
 ---
 
@@ -309,35 +368,32 @@ The list of sections this homework has been given to cannot be seen on this page
 | **This file type isn't supported — choose a .csv or .xlsx file**                   | Save the file as CSV or XLSX.                                                                                                                                                                                                                                                         | —            |
 | **This file is too large — choose a smaller file**                                 | It is over 5 MB. Split the file in two.                                                                                                                                                                                                                                               | —            |
 | **Import failed.**                                                                 | Check your internet and upload again. Check that the first-row headers are as in the template, and that there are not more than 2000 rows.                                                                                                                                            | Admin        |
+| **We could not read this file. …**, **Some columns are missing. Use the sample file's columns.**, **This file has too many rows. …** or **This file has no rows in it. …** | The whole file could not be checked. Do what the sentence says: save it again as .xlsx or .csv, keep the template's first-row headers, or split it into smaller files. Then upload again. | — |
 | **This check expired — upload the file again**                                     | 30 minutes have passed since the check. Upload the same file again and confirm.                                                                                                                                                                                                       | —            |
 | **You don't have access to this page.**                                            | This page is only for admins and teachers. Press **Back to dashboard**.                                                                                                                                                                                                               | Admin        |
+| **Could not load who has this homework.**                                          | Press **Retry**. Check your internet.                                                                                                                                                                                                                                                 | Admin        |
+| **This row was already changed. The list is up to date now.**                      | Someone changed or moved this row a moment ago. Look at the list again; the old row is now **Superseded**.                                                                                                                                                                            | —            |
+| **Could not load the students' work.**                                             | Press **Retry**. Check your internet.                                                                                                                                                                                                                                                 | Admin        |
+| **This list cannot be opened. It may be for a section you do not teach.**          | The link is old, or the row is outside your duties. Press **Close** and open **Check work** from the homework's page.                                                                                                                                                                 | Admin        |
+| **This list changed while you were working. It is up to date now; check it and save again.** | Your marks were not saved. Look at the list, mark again and press **Save**.                                                                                                                                                                                                  | —            |
+| **Marks must be a whole number from 0 to 9999.**                                   | Fix the marks on that row. Nothing was saved.                                                                                                                                                                                                                                         | —            |
+| **No students here yet**                                                           | The section has no active student, and nobody handed in work. Add students to the section first.                                                                                                                                                                                      | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                              | List and homework page                              | Create and give homework                          | Import from a file                                |
-| --------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------- |
-| Admin                                                                             | Yes, all of the school's homework                   | Yes, to any class and section                     | Yes, to any section                               |
-| Teacher                                                                           | Only homework of class-subjects they have duties in | Only to sections and subjects they have duties in | Only to sections and subjects they have duties in |
-| Academic coordinator, Accountant, Office assistant, Exam controller, Board member | No                                                  | No                                                | No                                                |
+| Role                                                                              | List and homework page                              | Create and give homework                          | Change, deactivate, check work                    | Import from a file                                |
+| --------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------- |
+| Admin                                                                             | Yes, all of the school's homework                   | Yes, to any class and section                     | Yes, every row                                    | Yes, to any section                               |
+| Teacher                                                                           | Only homework of class-subjects they have duties in | Only to sections and subjects they have duties in | Only rows of sections and subjects they have duties in | Only to sections and subjects they have duties in |
+| Academic coordinator, Accountant, Office assistant, Exam controller, Board member | No                                                  | No                                                | No                                                | No                                                |
 
 **An admin** sees all of the school's homework, and can give homework to, and import it for, any class, section or student.
 
 **A teacher** sees and gives only according to their own duties in the current academic year. A **class teacher** or **assistant class teacher** can give homework of any subject to their own section; a **subject teacher** only of their own subject, to their own section. Giving to another section is not saved, and in an import that row shows up as a problem. In the list they do not see homework of class-subjects that other teachers have the duty for.
 
 **Every other role** does not see **Homework** in the left menu. Opening the page shows **You don't have access to this page.** Students and guardians see their own homework in their own apps, not on this page.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part is removed once fixed.
-
-| Issue                                                                                                                                                                                               | Who, when                                   | Data saved?                   | What to do for now                                            |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------------------------- | ------------------------------------------------------------- |
-| There is no screen on the homework's page to give done, partial or marks student by student. The **Homework to check** card opens the homework's page, but you cannot see submissions or mark there | A teacher, wanting to see submissions       | Yes, submissions are not lost | For now, keep a note on paper                                 |
-| There is no way to see which sections a homework was given to, change its due date, or deactivate it; so the **Deactivated** and **Superseded** options of the **Status** filter are usually empty  | Whoever gave wrong homework or a wrong date | Yes, given homework stays     | Tell students in person; tell support                         |
 
 ---
 

@@ -101,7 +101,13 @@ If there is nothing, it says **No application has been waiting more than 3 days.
 1. From **Academic year** choose a year.
 2. If needed, enter the **From** and **To** days under **Submitted on**.
 
-   → The dates are added under the title too. If no application matches, it says **No applications in this period**; press **Clear all filters** to remove the filters.
+   → The dates are added under the title too; with only one date it says **From {date}** or **Up to {date}**. If no application matches, it says **No applications in this period**; press **Clear all filters** to remove the filters.
+
+| You pick                     | Which applications are counted                                                      | The **Academic year** box says |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ------------------------------ |
+| Nothing                      | The current year, plus applications that have no year                               | **Current year (…)**           |
+| A year                       | Only that year                                                                      | The year's name                |
+| Only dates, no year          | Every year, within the dates; the year is not shown under the title                 | **All years**                  |
 
 ### Who is on leave today, and how many days each took <a href="#task-leave" id="task-leave"></a>
 
