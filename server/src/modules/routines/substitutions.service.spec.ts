@@ -166,7 +166,8 @@ describe('SubstitutionsService [21.5.1]', () => {
       expect(ctx.audit.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'DELETE',
-          entity_id: 'slot-1',
+          entity_type: 'RoutineSubstitution',
+          entity_id: 'sub-1',
           old_values: expect.objectContaining({ routine_slot_id: 'slot-1', date: '2026-02-02' }),
         }),
         expect.anything(), // the transaction manager: delete and audit commit together
