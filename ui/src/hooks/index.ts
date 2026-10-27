@@ -1368,6 +1368,7 @@ export {
 } from './surveys';
 export {
   classHomeworkRollupQueryOptions,
+  homeworkAssignmentsQueryOptions,
   homeworkKeys,
   homeworkListQueryOptions,
   homeworkQueryOptions,
@@ -1378,7 +1379,9 @@ export {
   useCommitHomeworkUpload,
   useCreateHomework,
   useHomework,
+  useHomeworkAssignments,
   useHomeworkList,
+  useReassignHomeworkAssignment,
   useSectionHomeworkRollup,
   useStudentHomeworkRollup,
   useValidateHomeworkUpload,
@@ -1386,6 +1389,7 @@ export {
   type CreateHomeworkInput,
   type Homework,
   type HomeworkAssignment,
+  type HomeworkAssignmentListItem,
   type HomeworkClassRollup,
   type HomeworkCompletionRollup,
   type HomeworkListFilters,

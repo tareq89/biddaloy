@@ -1,9 +1,8 @@
 /**
- * [22.4.1] Homework detail. No assignments table, no Reassign/Deactivate
- * button, no submission grid — those are blocked on the follow-up server
- * ticket drafted in the plan (`GET /homework/:id/assignments` doesn't
- * exist yet). This page shows the Homework row and lets a staff member
- * assign it to another section or student via `POST /homework/:id/assign`.
+ * [22.4.1] Homework detail. Assignment rows come from `GET /homework/:id/assignments`
+ * (#1013). "Assign to section or student" only adds a row (`POST /homework/:id/assign`);
+ * "Change" on a row reassigns it through `POST /homework-assignments/:id/reassign`.
+ * No Deactivate and no submission grid yet (#2900, #2899).
  */
 import { Permission } from '@biddaloy/shared';
 import {
@@ -23,14 +22,18 @@ import {
   RecordNotFoundState,
   RoutePending,
   Skeleton,
+  type RowAction,
 } from '@biddaloy/ui/components';
 import {
   useAssignHomework,
   useClass,
   useHasPermission,
   useHomework,
+  useHomeworkAssignments,
   homeworkQueryOptions,
+  useReassignHomeworkAssignment,
   useSubjects,
+  type HomeworkAssignmentListItem,
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell } from '@biddaloy/ui/shells';
@@ -42,6 +45,7 @@ import * as React from 'react';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
 import { AssignHomeworkForm, type AssignHomeworkFormSubmitPayload } from './-assign-homework-form';
+import { AssignmentsCard, assignmentTargetLabel } from './-assignments-card';
 import { subjectName } from './-subject-name';
 
 export const Route = createFileRoute('/_staff/academics/homework/$homeworkId')({
@@ -72,6 +76,11 @@ function HomeworkDetailPage() {
 
   const [assignOpen, setAssignOpen] = React.useState(false);
   const assignHomework = useAssignHomework();
+  const assignmentsQuery = useHomeworkAssignments(homeworkId);
+  const reassign = useReassignHomeworkAssignment();
+  const [reassignRow, setReassignRow] = React.useState<HomeworkAssignmentListItem | null>(null);
+  // Double-click guard: `isPending` flips a render late, a ref does not.
+  const inFlight = React.useRef(false);
 
   if (homeworkQuery.isPending) {
     return (
@@ -110,6 +119,45 @@ function HomeworkDetailPage() {
             tenantId: captureNotificationTenant(),
             variant: 'success',
             message: t('detail.assigned', {
+              date: formatDate(parseServerDate(assignment.due_date), regionConfig),
+            }),
+          });
+        },
+      },
+    );
+  }
+
+  function actionsFor(row: HomeworkAssignmentListItem): RowAction[] {
+    if (!canAssign || row.status === 'SUPERSEDED') return [];
+    return [
+      {
+        intent: 'edit',
+        label: t('detail.assignments.reassign', { target: assignmentTargetLabel(row, t) }),
+        shortLabel: t('detail.assignments.reassignShort'),
+        busy: reassign.isPending && reassignRow?.id === row.id,
+        onClick: () => {
+          reassign.reset();
+          setReassignRow(row);
+        },
+      },
+    ];
+  }
+
+  function handleReassign(payload: AssignHomeworkFormSubmitPayload) {
+    if (!reassignRow || inFlight.current) return;
+    inFlight.current = true;
+    reassign.mutate(
+      { assignmentId: reassignRow.id, input: payload.assignment },
+      {
+        onSettled: () => {
+          inFlight.current = false;
+        },
+        onSuccess: (assignment) => {
+          setReassignRow(null);
+          notifyOutcome({
+            tenantId: captureNotificationTenant(),
+            variant: 'success',
+            message: t('detail.assignments.reassigned', {
               date: formatDate(parseServerDate(assignment.due_date), regionConfig),
             }),
           });
@@ -163,6 +211,22 @@ function HomeworkDetailPage() {
           </p>
         </Card>
 
+        <AssignmentsCard
+          assignments={assignmentsQuery.data}
+          loading={assignmentsQuery.isPending}
+          error={assignmentsQuery.isError}
+          onRetry={() => void assignmentsQuery.refetch()}
+          actionsFor={actionsFor}
+          {...(canAssign
+            ? {
+                onAssign: () => {
+                  assignHomework.reset();
+                  setAssignOpen(true);
+                },
+              }
+            : {})}
+        />
+
         {canAssign && (
           <Dialog
             open={assignOpen}
@@ -189,6 +253,40 @@ function HomeworkDetailPage() {
                 {...(assignHomework.isError ? { error: t('form.genericError') } : {})}
                 onSubmit={handleAssign}
               />
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {canAssign && (
+          <Dialog
+            open={reassignRow !== null}
+            onOpenChange={(open) => {
+              if (reassign.isPending) return;
+              reassign.reset();
+              if (!open) setReassignRow(null);
+            }}
+          >
+            <DialogContent size="md" closeLabel={tCommon('actions.close')}>
+              <DialogHeader>
+                <DialogTitle>{t('detail.assignments.reassignTitle')}</DialogTitle>
+                <DialogDescription>{t('detail.assignments.reassignDescription')}</DialogDescription>
+              </DialogHeader>
+              {reassignRow && (
+                <AssignHomeworkForm
+                  key={reassignRow.id}
+                  mode="reassign"
+                  initial={{
+                    classId: homework.class_id,
+                    sectionId: reassignRow.target_section_id,
+                    ...(reassignRow.student_id ? { studentId: reassignRow.student_id } : {}),
+                    assignedDate: reassignRow.assigned_date,
+                    dueDate: reassignRow.due_date,
+                  }}
+                  isPending={reassign.isPending}
+                  {...(reassign.isError ? { error: t('form.genericError') } : {})}
+                  onSubmit={handleReassign}
+                />
+              )}
             </DialogContent>
           </Dialog>
         )}

@@ -12,6 +12,7 @@ import {
   AssignHomeworkDto,
   CreateHomeworkDto,
   FamilyHomeworkListDto,
+  HomeworkAssignmentListItemDto,
   QueryHomeworkDto,
   UpdateHomeworkAssignmentDto,
 } from './dto/homework.dto';
@@ -339,6 +340,72 @@ export class HomeworkService {
       }
     }
     return homework;
+  }
+
+  /**
+   * Every assignment row of one homework, with its target as names. `findOne` is the
+   * 404/tenant/scope gate. A teacher sees only rows passing the same section + subject
+   * rule as `assertCanManageSection`, so every listed row can be reassigned.
+   */
+  async findAssignments(
+    homeworkId: string,
+    ctx: CallerContext,
+  ): Promise<HomeworkAssignmentListItemDto[]> {
+    const homework = await this.findOne(homeworkId, ctx);
+    const qb = this.assignmentRepo
+      .createQueryBuilder('ha')
+      .leftJoin(
+        'students',
+        'st',
+        'st.id = ha.student_id AND st.tenant_id = :tenantId AND st.deleted_at IS NULL',
+      )
+      .innerJoin(
+        'class_sections',
+        'cs',
+        'cs.id = COALESCE(ha.section_id, st.class_section_id) AND cs.tenant_id = :tenantId AND cs.deleted_at IS NULL',
+      )
+      .select([
+        'ha.id AS id',
+        'ha.homework_id AS homework_id',
+        'ha.section_id AS section_id',
+        'ha.student_id AS student_id',
+        'ha.status AS status',
+        'cs.id AS target_section_id',
+        'cs.section_name AS section_name',
+        'st.full_name AS student_name',
+      ])
+      // Raw `date` columns would come back as shifted JS Dates; see findForStudent.
+      .addSelect("to_char(ha.assigned_date, 'YYYY-MM-DD')", 'assigned_date')
+      .addSelect("to_char(ha.due_date, 'YYYY-MM-DD')", 'due_date')
+      .where('ha.homework_id = :homeworkId AND ha.tenant_id = :tenantId', {
+        homeworkId: homework.id,
+        tenantId: ctx.tenantId,
+      });
+    if (!this.access.canManageTenantWide(ctx.role)) {
+      const rows = await teacherAssignments(this.homeworkRepo.manager, {
+        userId: ctx.userId,
+        tenantId: ctx.tenantId,
+      });
+      if (rows.length === 0) return [];
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM unnest(CAST(:scopeSections AS uuid[]), CAST(:scopeSubjects AS uuid[]))
+                   AS sc(section_id, subject_id)
+                 WHERE sc.section_id = cs.id
+                   AND (sc.subject_id IS NULL OR sc.subject_id = :hwSubject))`,
+        {
+          scopeSections: rows.map((r) => r.section_id),
+          scopeSubjects: rows.map((r) => r.subject_id),
+          hwSubject: homework.subject_id,
+        },
+      );
+    }
+    return qb
+      .orderBy("CASE ha.status WHEN 'ACTIVE' THEN 0 WHEN 'DEACTIVATED' THEN 1 ELSE 2 END", 'ASC')
+      .addOrderBy('ha.due_date', 'DESC')
+      .addOrderBy('ha.created_at', 'DESC')
+      .addOrderBy('ha.id', 'ASC')
+      .limit(100)
+      .getRawMany<HomeworkAssignmentListItemDto>();
   }
 
   async assign(
