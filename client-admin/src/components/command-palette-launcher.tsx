@@ -265,7 +265,8 @@ export function CommandPaletteLauncher({
       // help ride along as pages. `handleSelect` intercepts both ids before navigating.
       const locale = i18n.language.startsWith('bn') ? 'bn' : 'en';
       const helpLabel = ACTIONS.find((action) => action.id === HELP_ACTION_ID)?.label[locale];
-      const listed = [
+      // The help row has no `to`: its URL would show as a long, unbreakable description.
+      const listed: (Omit<PaletteLauncherPage, 'to'> & { to?: string })[] = [
         ...pages,
         ...(demo.enabled
           ? [
@@ -276,9 +277,7 @@ export function CommandPaletteLauncher({
               },
             ]
           : []),
-        ...(helpHref !== null && helpLabel
-          ? [{ id: HELP_ACTION_ID, label: helpLabel, to: helpHref }]
-          : []),
+        ...(helpHref !== null && helpLabel ? [{ id: HELP_ACTION_ID, label: helpLabel }] : []),
       ];
       return [
         {
@@ -287,7 +286,11 @@ export function CommandPaletteLauncher({
           results: rankByMatch(
             listed
               .filter((page) => matchesNavSearch(page.label, page.synonyms, trimmedQuery))
-              .map((page) => ({ id: page.id, label: page.label, description: page.to })),
+              .map((page) => ({
+                id: page.id,
+                label: page.label,
+                ...(page.to !== undefined && { description: page.to }),
+              })),
             trimmedQuery,
           ),
         },
@@ -429,8 +432,8 @@ export function CommandPaletteLauncher({
       void signOutToLogin();
       return;
     }
-    // A portal page row or a staff action; either way an external tab, never a navigate.
-    if (resultId === HELP_ACTION_ID) {
+    // The portal page row: an external tab, never a navigate. The staff action opens via its `run`.
+    if (tabId === 'page' && resultId === HELP_ACTION_ID) {
       if (helpHref !== null) window.open(helpHref, '_blank', 'noopener');
       return;
     }

@@ -1,7 +1,7 @@
 import { HelpProvider } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -475,6 +475,12 @@ describe('CommandPaletteLauncher', () => {
       expect(open).not.toHaveBeenCalled();
     });
 
+    it('a held F1 (key repeat) opens nothing', async () => {
+      const { open } = await setup('/students');
+      fireEvent.keyDown(window, { key: 'F1', repeat: true });
+      expect(open).not.toHaveBeenCalled();
+    });
+
     it('the shortcuts sheet lists F1 only when the page has a guide', async () => {
       const { user } = await setup('/students');
       await user.keyboard('?');
@@ -524,7 +530,8 @@ describe('CommandPaletteLauncher', () => {
       });
       const user = userEvent.setup();
       await user.click(await screen.findByRole('button', { name: 'Search (Ctrl+K)' }));
-      await user.click(await screen.findByRole('option', { name: /Help for this page/ }));
+      // Exact name: the row has no description, so the guide URL is not part of it.
+      await user.click(await screen.findByRole('option', { name: 'Help for this page' }));
       expect(open).toHaveBeenCalledWith(
         'https://guide.example/docs/en/portal/fees',
         '_blank',
@@ -541,10 +548,15 @@ describe('CommandPaletteLauncher', () => {
     });
 
     it('the palette offers Help for this page on a page with a guide', async () => {
-      const { user } = await setup('/students');
+      const { open, user } = await setup('/students');
       await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
       await user.type(await screen.findByRole('combobox', { name: 'Search' }), '>help for');
-      expect(await screen.findByRole('option', { name: 'Help for this page' })).toBeTruthy();
+      await user.click(await screen.findByRole('option', { name: 'Help for this page' }));
+      expect(open).toHaveBeenCalledWith(
+        expect.stringMatching(/^https:\/\/guide\.example\//),
+        '_blank',
+        'noopener',
+      );
     });
   });
 });
