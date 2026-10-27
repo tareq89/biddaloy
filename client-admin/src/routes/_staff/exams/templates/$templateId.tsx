@@ -1,4 +1,3 @@
-
 import { ConfirmDialog, RoutePending } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useBlocker } from '@tanstack/react-router';

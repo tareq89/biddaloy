@@ -50,7 +50,8 @@ export function InvigilatorPicker({
   // TEACHER_BUSY: say why from fixed sentences; never the server text or tenant name.
   const details =
     updateInvigilator.error instanceof ApiError ? updateInvigilator.error.details : undefined;
-  const hhmm = (value: unknown) => formatTime(String(value).slice(0, 5), config);
+  const hhmm = (value: unknown) =>
+    typeof value === 'string' && value !== '' ? formatTime(value.slice(0, 5), config) : '';
   const errorLine =
     details?.code === 'TEACHER_BUSY'
       ? t(

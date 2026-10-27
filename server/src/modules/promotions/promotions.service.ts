@@ -458,8 +458,10 @@ export class PromotionsService {
       );
 
       // A retain class is needed only when someone would be retained. Throwing
-      // here rolls back the run row.
+      // here rolls back the run row. A null-grade class never has one (M1), so
+      // its run still starts and staff override RETAIN; commit refuses the rest.
       if (
+        sourceClass.numeric_grade !== null &&
         suggestion.retain_class === null &&
         entries.some((e) => e.final_outcome === PromotionOutcome.RETAIN)
       ) {
@@ -561,7 +563,9 @@ export class PromotionsService {
               details: { code: 'CONDITIONAL_NOT_FOR_GRADUATION' },
             });
           }
-          if (finalOutcome === PromotionOutcome.GRADUATE && run.target_class_id !== null) {
+          // Checks the patched value only: a group-only edit on an old GRADUATE
+          // row still saves, and commit() refuses that row instead.
+          if (patch.final_outcome === PromotionOutcome.GRADUATE && run.target_class_id !== null) {
             throw new UnprocessableEntityException({
               message: 'Only a graduation run can graduate students.',
               details: { code: 'GRADUATE_ONLY_IN_GRADUATION_RUN' },
@@ -876,6 +880,17 @@ export class PromotionsService {
       );
 
       const entries = await entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
+      // A draft saved before patchEntries refused it (#2925) may still hold
+      // GRADUATE in a normal run; never mark those students GRADUATED.
+      if (
+        run.target_class_id !== null &&
+        entries.some((e) => e.final_outcome === PromotionOutcome.GRADUATE)
+      ) {
+        throw new UnprocessableEntityException({
+          message: 'Only a graduation run can graduate students.',
+          details: { code: 'GRADUATE_ONLY_IN_GRADUATION_RUN' },
+        });
+      }
       if (entries.some((e) => movesUp(e.final_outcome) && e.placement_error)) {
         throw new UnprocessableEntityException(
           'Cannot commit: one or more students moving up has a placement error',

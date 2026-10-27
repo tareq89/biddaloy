@@ -727,6 +727,37 @@ describe('PromotionsService (integration)', () => {
       expect(current?.class_id).toBe(TARGET_CLASS_ID);
     });
 
+    it('refuses a GRADUATE entry saved on a normal run and changes no student (#2925)', async () => {
+      const student = await buildStudent();
+      await enrollActive(student.id);
+      await addResult(student.id, { isFail: false, gpa: 4.0, total: 400 });
+      const run = await service.create(
+        {
+          source_class_id: SOURCE_CLASS_ID,
+          target_academic_year_id: TARGET_YEAR_ID,
+          exam_ids: [examId],
+          algorithm: PlacementAlgorithm.BLOCK,
+        },
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+      // A draft written before patchEntries refused GRADUATE on a normal run.
+      await entryRepo.update(
+        { run_id: run.id, student_id: student.id },
+        { final_outcome: PromotionOutcome.GRADUATE },
+      );
+
+      const err = await service
+        .commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} })
+        .catch((e) => e);
+      expect(err.getResponse?.().details?.code).toBe('GRADUATE_ONLY_IN_GRADUATION_RUN');
+      const after = await studentRepo.findOneOrFail({ where: { id: student.id } });
+      expect(after.enrollment_status).toBe(EnrollmentStatus.ACTIVE);
+      expect((await runRepo.findOneOrFail({ where: { id: run.id } })).status).toBe(
+        PromotionRunStatus.DRAFT,
+      );
+    });
+
     it('renumbers a pre-existing occupant of the target section to n+1 (D19)', async () => {
       const occupant = await buildStudent({
         registration_number: 'REG-OCC',
@@ -1618,20 +1649,28 @@ describe('PromotionsService (integration)', () => {
         }),
       );
 
-      // A would-be RETAIN with no real retain class is refused at create
-      // (#2924) — not silently retained into the unrelated Nursery class.
+      // A null-grade class can never have a retain class, so create still
+      // goes ahead (staff may override RETAIN to PROMOTE); only the create
+      // check for graded classes moved in #2924.
+      const run = await service.create(
+        {
+          source_class_id: playgroupId,
+          target_academic_year_id: TARGET_YEAR_ID,
+          target_class_id: targetForPlaygroupId,
+          exam_ids: [playgroupExam.id],
+          algorithm: PlacementAlgorithm.BLOCK,
+        },
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+
+      const entry = await entryRepo.findOne({ where: { run_id: run.id, student_id: student.id } });
+      expect(entry?.suggested_outcome).toBe(PromotionOutcome.RETAIN);
+
+      // commit() must refuse — not silently retain the student into the
+      // unrelated Nursery class.
       await expect(
-        service.create(
-          {
-            source_class_id: playgroupId,
-            target_academic_year_id: TARGET_YEAR_ID,
-            target_class_id: targetForPlaygroupId,
-            exam_ids: [playgroupExam.id],
-            algorithm: PlacementAlgorithm.BLOCK,
-          },
-          TENANT_ID,
-          ADMIN_USER_ID,
-        ),
+        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
       ).rejects.toThrow(UnprocessableEntityException);
 
       // Confirm the student was never enrolled into Nursery.

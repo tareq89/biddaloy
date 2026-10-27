@@ -339,7 +339,9 @@ describe('/promotions/$runId', () => {
 
   // Only the commit endpoint returns these codes — so drive a real commit
   // (Ctrl+Enter → confirm) rather than faking them on the entries PATCH.
-  async function commitAndGetConflict(code: 'STALE_RESULTS' | 'COHORT_CHANGED') {
+  async function commitAndGetConflict(
+    code: 'STALE_RESULTS' | 'COHORT_CHANGED' | 'RETAIN_CLASS_MISSING',
+  ) {
     const user = userEvent.setup();
     stubCommon();
     server.use(
@@ -399,6 +401,14 @@ describe('/promotions/$runId', () => {
     // The toolbar button plus the one the banner now carries.
     expect(screen.getAllByRole('button', { name: 'Update from results' })).toHaveLength(2);
     expect(screen.queryByText('Results changed since this preview — refresh')).toBeNull();
+  });
+
+  it('says a retain class is needed when commit returns RETAIN_CLASS_MISSING (#2924)', async () => {
+    const toastError = vi.spyOn(toast, 'error');
+    await commitAndGetConflict('RETAIN_CLASS_MISSING');
+    expect(toastError).toHaveBeenCalledWith(
+      "No class is set up to retain students who didn't pass — add one first.",
+    );
   });
 
   it('renders a committed run read-only', async () => {
