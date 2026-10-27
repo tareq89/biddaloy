@@ -67,7 +67,12 @@ export function Combobox({
   const [activeIndex, setActiveIndex] = React.useState(-1);
   const listboxId = React.useId();
 
-  const selectedOption = options.find((option) => option.value === value) ?? null;
+  // A server-searching caller may drop the picked option from `options` once the
+  // query clears, so remember the last pick to keep its label in the closed input.
+  const lastPicked = React.useRef<ComboboxOption | null>(null);
+  const selectedOption =
+    options.find((option) => option.value === value) ??
+    (lastPicked.current?.value === value ? lastPicked.current : null);
   // Latin digits on both sides: `৮` typed on a Latin keyboard is `8`.
   const trimmed = toLatinDigits(query.trim().toLowerCase());
   const filtered =
@@ -81,6 +86,7 @@ export function Combobox({
   }
 
   function selectOption(option: ComboboxOption) {
+    lastPicked.current = option;
     onValueChange(option.value);
     setQuery('');
     onQueryChange?.('');

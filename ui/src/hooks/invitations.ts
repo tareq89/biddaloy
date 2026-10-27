@@ -57,6 +57,8 @@ export interface InvitePreviewResult {
 export interface InviteDispatchResult {
   batch_id: string;
   queued: number;
+  /** Id to send as `after` for the slice after the one just sent; null when none remain. */
+  next_after: string | null;
   skipped: InviteSkippedEntry[];
 }
 

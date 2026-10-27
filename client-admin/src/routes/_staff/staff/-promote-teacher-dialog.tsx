@@ -104,8 +104,14 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
     userId && selectedUser.data && !found.some((user) => user.id === userId)
       ? [selectedUser.data, ...found]
       : found;
+  // While the server answer for the typed text is still on its way (debounce or
+  // fetch), narrow the previous results by name, so Enter never picks a member
+  // the typed text does not match.
+  const needle = term.trim().toLowerCase();
+  const stale = term.trim() !== search || usersQuery.isFetching;
   const memberOptions = members
     .filter((user) => !existingTeacherUserIds.has(user.id))
+    .filter((user) => !stale || user.full_name.toLowerCase().includes(needle))
     .map((user) => ({ value: user.id, label: user.full_name }));
 
   function toggleDesignation(designation: TeacherDesignation, checked: boolean) {

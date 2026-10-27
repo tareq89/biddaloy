@@ -59,6 +59,8 @@ export function InviteGuardiansDialog({
 
   // Keyset cursor for "Next 1000" (only meaningful for the `all` selection).
   const [after, setAfter] = React.useState<string | undefined>(undefined);
+  // The cursor after the slice actually sent (from dispatch, not the earlier preview).
+  const [sentNextAfter, setSentNextAfter] = React.useState<string | null>(null);
 
   const selection =
     studentIds !== undefined
@@ -79,6 +81,7 @@ export function InviteGuardiansDialog({
       setPreview(null);
       setBatchId(null);
       setAfter(undefined);
+      setSentNextAfter(null);
       previewMutation.reset();
       dispatchMutation.reset();
     }
@@ -86,7 +89,8 @@ export function InviteGuardiansDialog({
   }, [open]);
 
   function handleNext() {
-    setAfter(preview?.next_after ?? undefined);
+    setAfter(sentNextAfter ?? undefined);
+    setSentNextAfter(null);
     setPreview(null);
     setBatchId(null);
     setStepId('select');
@@ -103,7 +107,10 @@ export function InviteGuardiansDialog({
   function handleSubmit() {
     if (preview === null) return;
     dispatchMutation.mutate(selection, {
-      onSuccess: (result) => setBatchId(result.batch_id),
+      onSuccess: (result) => {
+        setBatchId(result.batch_id);
+        setSentNextAfter(result.next_after);
+      },
     });
   }
 
@@ -230,7 +237,7 @@ export function InviteGuardiansDialog({
                         total: batch?.total ?? 0,
                       })}
                 </p>
-                {done && preview?.next_after && (
+                {done && sentNextAfter && (
                   <Button type="button" onClick={handleNext}>
                     {t('invite.done.next')}
                   </Button>

@@ -1102,7 +1102,9 @@ export class TeacherService {
       where: { user_id: dto.user_id, tenant_id: tenantId },
     });
     if (!membership) {
-      throw new BadRequestException('User is not a member of this tenant');
+      // Same 404 and text as "no such user" (Rule 23): a different answer would tell
+      // the caller that this id is an account in another school.
+      throw new NotFoundException('User not found');
     }
 
     // A user can hold at most one teacher profile per school (unique index on

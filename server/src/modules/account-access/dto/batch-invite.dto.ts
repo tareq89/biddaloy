@@ -73,6 +73,8 @@ export class InvitePreviewResponseDto {
 export class InviteDispatchResponseDto {
   @ApiProperty() batch_id: string;
   @ApiProperty() queued: number;
+  /** For `all`: id to send as `after` for the next slice, from the slice this call sent; null when none remain. */
+  @ApiProperty({ type: String, nullable: true }) next_after: string | null;
   @ApiProperty({ type: [InviteSkippedEntryDto] }) skipped: InviteSkippedEntryDto[];
 }
 

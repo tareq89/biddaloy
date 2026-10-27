@@ -120,9 +120,10 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
   const onlyOpenIntakeId = intakes.length === 1 ? intakes[0]?.id : undefined;
 
   // A single open intake is the common case — pick it automatically so a
-  // guardian never has to make a meaningless one-item choice.
+  // guardian never has to make a meaningless one-item choice. Also when the
+  // picked round closed or filled and only one is left (no picker is shown then).
   React.useEffect(() => {
-    if (!intakeId && onlyOpenIntakeId) setIntakeId(onlyOpenIntakeId);
+    if (onlyOpenIntakeId && intakeId !== onlyOpenIntakeId) setIntakeId(onlyOpenIntakeId);
   }, [intakeId, onlyOpenIntakeId]);
 
   function clearError(id: string) {
