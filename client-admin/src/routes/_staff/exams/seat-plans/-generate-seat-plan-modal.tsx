@@ -25,6 +25,7 @@ import {
   Button,
   Checkbox,
   ConfirmDialog,
+  HelpHint,
   Input,
   Label,
   RadioGroup,
@@ -191,7 +192,10 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
         <section className={CARD}>
           <StatusBadge tone="warning" label={t('generate.conflictBadge')} />
           <p role="alert" className="mt-2">
-            {t('generate.conflictsNotice', { count: result.conflicts.length, n: formatNumber(result.conflicts.length, config) })}
+            {t('generate.conflictsNotice', {
+              count: result.conflicts.length,
+              n: formatNumber(result.conflicts.length, config),
+            })}
           </p>
           <ul className="mt-3 divide-y divide-border-subtle">
             {result.conflicts.map((conflict, index) => (
@@ -290,7 +294,12 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
             </div>
 
             <fieldset className="md:col-span-2">
-              <legend className="text-label">{t('generate.seatOrderLabel')}</legend>
+              <legend className="text-label">
+                <span className="inline-flex items-center gap-1">
+                  {t('generate.seatOrderLabel')}
+                  <HelpHint helpId="examsResults.seatPlans.field.seatOrder" />
+                </span>
+              </legend>
               <RadioGroup
                 value={seatOrderMode}
                 onValueChange={(value) => setSeatOrderMode(value as 'SEQUENTIAL' | 'RANDOM')}
@@ -399,7 +408,10 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
         <section className={CARD} data-testid="room-picker">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className={`text-h2 ${REQUIRED}`}>{t('generate.roomsLabel')}</h2>
+              <div className="flex items-center gap-1">
+                <h2 className={`text-h2 ${REQUIRED}`}>{t('generate.roomsLabel')}</h2>
+                <HelpHint helpId="examsResults.seatPlans.field.rooms" />
+              </div>
               <p className="mt-1 text-text-secondary">
                 {t('generate.roomsSummary', {
                   n: formatNumber(selectedRooms.size, config),
@@ -455,10 +467,7 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
         </section>
 
         {shortfall && (
-          <div
-            role="alert"
-            className="rounded-lg border border-destructive bg-surface p-4 md:p-5"
-          >
+          <div role="alert" className="rounded-lg border border-destructive bg-surface p-4 md:p-5">
             <p>
               {t('generate.shortfallMessage', {
                 needed: formatNumber(shortfall.seats_needed, config),
