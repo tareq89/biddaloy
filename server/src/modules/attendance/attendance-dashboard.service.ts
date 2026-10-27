@@ -82,7 +82,7 @@ export class AttendanceDashboardService {
   ) {}
 
   seriesKey(tenantId: string, to: string): string {
-    return `tenant:${tenantId}:dash:v1:${DashboardWidgetKey.ATTENDANCE_TODAY}:series:${to}`;
+    return this.cache.key(tenantId, DashboardWidgetKey.ATTENDANCE_TODAY, `series:${to}`);
   }
 
   getToday(tenantId: string, role: string, userId: string): Promise<AttendanceTodayWidgetDto> {
@@ -319,7 +319,11 @@ export class AttendanceDashboardService {
   }
 
   committeeDailyKey(tenantId: string, yearId: string, to: string): string {
-    return `tenant:${tenantId}:dash:v1:${DashboardWidgetKey.COMMITTEE_ATTENDANCE}:daily:${yearId}:${to}`;
+    return this.cache.key(
+      tenantId,
+      DashboardWidgetKey.COMMITTEE_ATTENDANCE,
+      `daily:${yearId}:${to}`,
+    );
   }
 
   /** One grouped query: the finalized whole-day tally of every date in [from, to] of that year. */
