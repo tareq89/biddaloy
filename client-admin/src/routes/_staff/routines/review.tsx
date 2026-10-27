@@ -207,7 +207,8 @@ function RoutineReviewPage() {
             ? {
                 action: {
                   label: t('review.createRoutineAction'),
-                  onClick: () =>
+                  onClick: () => {
+                    if (createRoutine.isPending) return; // a double click must not POST twice
                     createRoutine.mutate(
                       {
                         academic_year_id: currentYear.id,
@@ -217,7 +218,8 @@ function RoutineReviewPage() {
                         onSuccess: () => toast.success(t('builder.createRoutineToast')),
                         onError: () => toast.error(t('builder.createRoutineError')),
                       },
-                    ),
+                    );
+                  },
                 },
               }
             : {})}

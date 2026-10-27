@@ -444,7 +444,7 @@ describe('ResolveRoutineService [21.5.1]', () => {
       expect(result).toHaveLength(1);
     });
 
-    it('REVIEW: a guardian/student/executive sees nothing', async () => {
+    it('REVIEW: a guardian sees nothing', async () => {
       const ctx2 = buildService({ routine: { ...ROUTINE, state: RoutineState.REVIEW } });
       const result = await ctx2.service.resolveRoutine(
         { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
@@ -497,10 +497,34 @@ describe('ResolveRoutineService [21.5.1]', () => {
       const result = await ctx2.service.resolveRoutine(
         { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
         TENANT_ID,
-        { role: 'EXECUTIVE', userId: 'exec-user-1' },
+        { role: 'OFFICE_STAFF', userId: 'staff-user-1' },
       );
       expect(result).toHaveLength(1);
       expect(result[0].routine_slot_id).toBe('slot-1');
+    });
+
+    it('REVIEW: the academic coordinator (EXECUTIVE) reads the whole routine, same as the slots path [2891]', async () => {
+      const ctx2 = buildService({
+        routine: { ...ROUTINE, state: RoutineState.REVIEW },
+        teacher: null,
+      });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'EXECUTIVE', userId: 'exec-user-1' },
+      );
+      expect(result).toHaveLength(1);
+      expect(ctx2.teacherRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('DRAFT: the academic coordinator (EXECUTIVE) sees nothing', async () => {
+      const ctx2 = buildService({ routine: { ...ROUTINE, state: RoutineState.DRAFT } });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'EXECUTIVE', userId: 'exec-user-1' },
+      );
+      expect(result).toEqual([]);
     });
 
     it('REVIEW: OFFICE_STAFF with no Teacher row sees nothing', async () => {

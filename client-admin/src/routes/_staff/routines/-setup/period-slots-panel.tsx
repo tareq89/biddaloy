@@ -39,6 +39,7 @@ import {
 import {
   useReplacePeriodSlots,
   usePeriodSlots,
+  type PeriodSlot,
   type PeriodSlotItem,
   type PeriodSlotKind,
   type Shift,
@@ -62,6 +63,22 @@ function minutesToTime(minutes: number): string {
 }
 
 type RowError = 'endBeforeStart' | 'outsideShift' | 'overlapsPrevious';
+
+/** Server rows → editor rows, keeping each id. Numbered 1..n by order, so every
+ * screen (this editor, the routine table, the phone list) shows the same
+ * period numbers. */
+function toRows(slots: PeriodSlot[]): PeriodSlotItem[] {
+  return [...slots]
+    .sort((a, b) => a.sequence - b.sequence)
+    .map((slot, index) => ({
+      id: slot.id,
+      sequence: index + 1,
+      kind: slot.kind,
+      name: slot.name,
+      starts_at: slot.starts_at,
+      ends_at: slot.ends_at,
+    }));
+}
 
 export interface PeriodSlotsPanelProps {
   shifts: Shift[];
@@ -98,18 +115,7 @@ export function PeriodSlotsPanel({
     }
     if (slotsQuery.data === undefined || loadedShiftId.current === shift.id) return;
     loadedShiftId.current = shift.id;
-    // Numbered 1..n by order, so every screen (this editor, the routine
-    // table, the phone list) shows the same period numbers.
-    const loaded = [...slotsQuery.data]
-      .sort((a, b) => a.sequence - b.sequence)
-      .map((slot, index) => ({
-        id: slot.id,
-        sequence: index + 1,
-        kind: slot.kind,
-        name: slot.name,
-        starts_at: slot.starts_at,
-        ends_at: slot.ends_at,
-      }));
+    const loaded = toRows(slotsQuery.data);
     loadedRows.current = loaded;
     setRows(loaded);
   }, [shift, slotsQuery.data]);
@@ -151,10 +157,13 @@ export function PeriodSlotsPanel({
 
   function handleSave() {
     if (!ready) return;
-    const saved = rows;
     replaceSlots.mutate(rows, {
-      onSuccess: () => {
-        loadedRows.current = saved;
+      // Reseed from the server's rows: a period added here has no id until
+      // saved, and the next save must send that id or the server removes it.
+      onSuccess: (saved) => {
+        const fresh = toRows(saved);
+        loadedRows.current = fresh;
+        setRows(fresh);
         toast.success(t('save.success'));
       },
       onError: (error) =>

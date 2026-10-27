@@ -27,6 +27,10 @@ function buildService() {
     save: vi.fn(async (v: any) => ({ id: 'sub-1', ...v })),
     createQueryBuilder: vi.fn(() => qb),
   };
+  // `remove()` runs in a transaction; its manager hands back the same mock.
+  substitutionRepo.manager = {
+    transaction: (cb: any) => cb({ getRepository: () => substitutionRepo }),
+  };
   const qb: any = {
     innerJoin: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
@@ -165,6 +169,7 @@ describe('SubstitutionsService [21.5.1]', () => {
           entity_id: 'slot-1',
           old_values: expect.objectContaining({ routine_slot_id: 'slot-1', date: '2026-02-02' }),
         }),
+        expect.anything(), // the transaction manager: delete and audit commit together
       );
     });
 

@@ -18,7 +18,7 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
 import { PeriodSlotKind } from '@biddaloy/shared';
 import { LessonDelivery } from '../study-plans/entities/lesson-delivery.entity';
 
-function timeToMinutes(time: string): number {
+export function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
 }

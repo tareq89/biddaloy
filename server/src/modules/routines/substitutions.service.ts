@@ -138,27 +138,38 @@ export class SubstitutionsService {
   /** Delete one substitution row: the slot goes back to its usual teacher on
    * that date. `routine_substitutions` has no child FKs. */
   async remove(id: string, tenantId: string, userId: string): Promise<void> {
-    const row = await this.substitutionRepo.findOne({ where: { id, tenant_id: tenantId } });
-    if (!row) {
-      throw new NotFoundException('Substitution not found');
-    }
-    await this.substitutionRepo.delete({ id, tenant_id: tenantId });
-    await this.auditService.record({
-      action: AuditAction.DELETE,
-      // `RoutineSubstitution` is not in the shared audit catalog (outside this
-      // lane), so the row is logged against the slot it overlays.
-      entity_type: 'RoutineSlot',
-      entity_id: row.routine_slot_id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      old_values: {
-        substitution_id: id,
-        routine_slot_id: row.routine_slot_id,
-        date: row.date,
-        substitute_teacher_id: row.substitute_teacher_id,
-        is_cancelled: row.is_cancelled,
-      },
-      new_values: null,
+    // One transaction, row locked: the delete and its audit row commit together,
+    // and a concurrent second delete waits, then gets the same 404.
+    await this.substitutionRepo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(RoutineSubstitution);
+      const row = await repo.findOne({
+        where: { id, tenant_id: tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!row) {
+        throw new NotFoundException('Substitution not found');
+      }
+      await repo.delete({ id, tenant_id: tenantId });
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          // `RoutineSubstitution` is not in the shared audit catalog (outside this
+          // lane), so the row is logged against the slot it overlays.
+          entity_type: 'RoutineSlot',
+          entity_id: row.routine_slot_id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          old_values: {
+            substitution_id: id,
+            routine_slot_id: row.routine_slot_id,
+            date: row.date,
+            substitute_teacher_id: row.substitute_teacher_id,
+            is_cancelled: row.is_cancelled,
+          },
+          new_values: null,
+        },
+        manager,
+      );
     });
     emitRecheck(attentionEvents, {
       tenantId,
@@ -286,6 +297,12 @@ export class SubstitutionsService {
     const periodById = new Map(periods.map((p) => [p.id, p]));
     const sectionById = new Map(sections.map((sec) => [sec.id, sec]));
     const subjectById = new Map(subjects.map((subj) => [subj.id, subj]));
+    const teacherIdsBySlot = new Map<string, string[]>();
+    for (const st of slotTeachers) {
+      const ids = teacherIdsBySlot.get(st.routine_slot_id) ?? [];
+      ids.push(st.teacher_id);
+      teacherIdsBySlot.set(st.routine_slot_id, ids);
+    }
 
     return rows.map((row) => {
       const slot = slotById.get(row.routine_slot_id);
@@ -302,9 +319,7 @@ export class SubstitutionsService {
           starts_at: period.starts_at,
           subject_name_en: subject.name_en,
           subject_name_bn: subject.name_bn,
-          teacher_ids: slotTeachers
-            .filter((st) => st.routine_slot_id === slot.id)
-            .map((st) => st.teacher_id),
+          teacher_ids: teacherIdsBySlot.get(slot.id) ?? [],
         },
       });
     });

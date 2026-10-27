@@ -96,7 +96,7 @@
     "timelineAria": "{{start}} to {{end}}: {{lessons}} periods, {{breaks}} breaks",
     "noRows": "This shift has no periods yet. Press Add period.",
     "noShiftTitle": "Add a shift first",
-    "inUseError": "A period you removed or made a break is used in a routine or in lesson records. Put it back, or clear it from the class routine first.",
+    "inUseError": "A period you removed or made a break is used in a routine or in lesson records. Put it back. If only the class routine uses it, you can clear it from the routine first.",
     "invalidError": "Some rows have a time problem. Fix the red notes and save again.",
     "saveError": "Couldn't save the period times. Try again."
   },

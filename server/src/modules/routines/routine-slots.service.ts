@@ -19,7 +19,7 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
 import { SchoolsService } from '../schools/schools.service';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
-import { AuditAction, RoutineState, SlotRecurrence, UserRole } from '@biddaloy/shared';
+import { AuditAction, RoutineState, SlotRecurrence } from '@biddaloy/shared';
 import { routineSlotScope } from './routine-visibility';
 import { UpsertRoutineSlotDto } from './dto/routine-slots.dto';
 import { checkSlot, SlotLike, Violation, Warning } from './constraint-check';
@@ -76,13 +76,7 @@ export class RoutineSlotsService {
   ): Promise<RoutineSlotWithWarnings[]> {
     const routine = await this.getRoutine(routineId, tenantId);
     // Same visibility rule as ResolveRoutineService (one helper, D14).
-    // The academic coordinator (EXECUTIVE) reviews the whole routine before it is
-    // published, so a REVIEW routine is read in full. DRAFT stays managers-only.
-    const coordinatorReview =
-      caller.role === UserRole.EXECUTIVE && routine.state === RoutineState.REVIEW;
-    const scope = coordinatorReview
-      ? 'all'
-      : await routineSlotScope(this.teacherRepo, routine, caller, tenantId);
+    const scope = await routineSlotScope(this.teacherRepo, routine, caller, tenantId);
     if (scope === 'none') return [];
     const ownTeacherId = scope === 'all' ? null : scope.teacherId;
     const slots = await this.slotRepo.find({
@@ -255,10 +249,17 @@ export class RoutineSlotsService {
         recurrence: dto.recurrence,
         recurrence_offset: dto.recurrence_offset ?? 0,
         valid_from: dto.valid_from,
-        valid_to: dto.valid_to ?? null,
+        // A row an earlier edit already closed stays closed: never reopen it
+        // next to its successor; only an earlier end is taken from the dto.
+        valid_to: earliestEnd(oldSlot.valid_to, dto.valid_to ?? null),
       },
     );
     // D16: explicit child-row writes, never a collection.
+    const oldTeacherIds = (
+      await manager.find(RoutineSlotTeacher, {
+        where: { routine_slot_id: id, tenant_id: tenantId },
+      })
+    ).map((row) => row.teacher_id);
     await manager.delete(RoutineSlotTeacher, { routine_slot_id: id, tenant_id: tenantId });
     const slotTeacherRepo = manager.getRepository(RoutineSlotTeacher);
     await slotTeacherRepo.save(
@@ -266,6 +267,7 @@ export class RoutineSlotsService {
         slotTeacherRepo.create({ routine_slot_id: id, tenant_id: tenantId, teacher_id: teacherId }),
       ),
     );
+    const slot = await manager.findOneOrFail(RoutineSlot, { where: { id, tenant_id: tenantId } });
     await this.auditService.record(
       {
         action: AuditAction.UPDATE,
@@ -273,12 +275,11 @@ export class RoutineSlotsService {
         entity_id: id,
         tenant_id: tenantId,
         performed_by_user_id: userId,
-        old_values: slotAuditValues(oldSlot),
-        new_values: { valid_from: dto.valid_from, in_place: true },
+        old_values: { ...slotAuditValues(oldSlot), teacher_ids: oldTeacherIds },
+        new_values: { ...slotAuditValues(slot), teacher_ids: dto.teacher_ids, in_place: true },
       },
       manager,
     );
-    const slot = await manager.findOneOrFail(RoutineSlot, { where: { id, tenant_id: tenantId } });
     return { slot, teacher_ids: dto.teacher_ids, warnings };
   }
 
@@ -678,6 +679,13 @@ function dayBefore(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
+}
+
+/** The earlier of two optional end dates (`null` = open-ended). */
+function earliestEnd(a: string | null, b: string | null): string | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return a < b ? a : b;
 }
 
 function slotAuditValues(slot: RoutineSlot): Record<string, unknown> {
