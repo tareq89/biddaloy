@@ -405,7 +405,14 @@
     "sectionName": "{{className}} – {{sectionName}}",
     "statusCovered": "বদলি হয়েছে",
     "error": "বদলি শিক্ষকের তালিকা আনা যায়নি। সংযোগ দেখে আবার চেষ্টা করুন।",
-    "clearFilters": "ফিল্টার মুছুন"
+    "clearFilters": "ফিল্টার মুছুন",
+    "deleteAction": "মুছুন",
+    "deleteTitle": "{{date}} তারিখের বদলি মুছবেন?",
+    "deleteDescription": "সেই তারিখে পিরিয়ডটি আবার নিয়মিত শিক্ষকের কাছে ফিরে যাবে।",
+    "deleteConfirm": "মুছুন",
+    "cancel": "বাতিল",
+    "deletedToast": "মুছে ফেলা হয়েছে",
+    "deleteError": "মোছা যায়নি — আবার চেষ্টা করুন।"
   },
   "agenda": {
     "daySwitcherLabel": "একটি দিন নির্বাচন করুন",

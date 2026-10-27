@@ -814,6 +814,7 @@ export {
   useResolveChangeRequest,
   useSubstitutions,
   useRecordSubstitution,
+  useDeleteSubstitution,
   type ChangeRequestStateValue,
   type RoutineChangeRequest,
   type CreateChangeRequestInput,

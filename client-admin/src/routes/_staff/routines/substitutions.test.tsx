@@ -1,10 +1,11 @@
+import { toast } from '@biddaloy/ui/components';
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatDate } from '@biddaloy/ui/utils';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -224,5 +225,47 @@ describe('/routines/substitutions', () => {
     await user.click(screen.getAllByRole('button', { name: /add substitute teacher/i })[0]!);
 
     expect(screen.getByRole('dialog', { name: /record a substitute teacher/i })).toBeTruthy();
+  });
+
+  it('Delete asks first, then sends DELETE /routines/substitutions/<id>', async () => {
+    mockBaseData();
+    let deletedId: string | null = null;
+    server.use(
+      http.get('/api/v1/routines/substitutions', () => HttpResponse.json([COVERED])),
+      http.delete('/api/v1/routines/substitutions/:id', ({ params }) => {
+        deletedId = String(params['id']);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(deletedId).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deletedId).toBe('sub-1'));
+  });
+
+  it('a failing DELETE shows "Could not delete"', async () => {
+    mockBaseData();
+    server.use(
+      http.get('/api/v1/routines/substitutions', () => HttpResponse.json([COVERED])),
+      http.delete('/api/v1/routines/substitutions/:id', () =>
+        HttpResponse.json({ statusCode: 500, message: 'x' }, { status: 500 }),
+      ),
+    );
+    const errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    try {
+      render();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Delete' }));
+      const dialog = await screen.findByRole('alertdialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+      await waitFor(() => expect(errorSpy).toHaveBeenCalledWith('Could not delete — try again.'));
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

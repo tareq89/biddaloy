@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
+import { AuditAction } from '@biddaloy/shared';
+import { AuditService } from '../audit/audit.service';
 import { RoutineSubstitution } from './entities/routine-substitution.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { Routine } from './entities/routine.entity';
@@ -42,6 +44,7 @@ export class SubstitutionsService {
     @InjectRepository(PeriodSlot) private readonly periodSlotRepo: Repository<PeriodSlot>,
     private readonly teacherBusy: TeacherBusyService,
     private readonly schools: SchoolsService,
+    private readonly auditService: AuditService,
   ) {}
 
   async record(
@@ -113,6 +116,43 @@ export class SubstitutionsService {
       actorUserId: userId,
     });
     return saved;
+  }
+
+  /** Delete one substitution row: the slot goes back to its usual teacher on
+   * that date. `routine_substitutions` has no child FKs. */
+  async remove(id: string, tenantId: string, userId: string): Promise<void> {
+    const row = await this.substitutionRepo.findOne({ where: { id, tenant_id: tenantId } });
+    if (!row) {
+      throw new NotFoundException('Substitution not found');
+    }
+    await this.substitutionRepo.delete({ id, tenant_id: tenantId });
+    await this.auditService.record({
+      action: AuditAction.DELETE,
+      // `RoutineSubstitution` is not in the shared audit catalog (outside this
+      // lane), so the row is logged against the slot it overlays.
+      entity_type: 'RoutineSlot',
+      entity_id: row.routine_slot_id,
+      tenant_id: tenantId,
+      performed_by_user_id: userId,
+      old_values: {
+        substitution_id: id,
+        routine_slot_id: row.routine_slot_id,
+        date: row.date,
+        substitute_teacher_id: row.substitute_teacher_id,
+        is_cancelled: row.is_cancelled,
+      },
+      new_values: null,
+    });
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'routine.substitution_today',
+      actorUserId: userId,
+    });
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'routine.changed_today',
+      actorUserId: userId,
+    });
   }
 
   /** TEN-07: the cover must not be the slot's own teacher, nor busy then. */
