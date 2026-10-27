@@ -161,8 +161,11 @@ export class CalendarEventsService {
       qb.andWhere('event.audience = :audience', { audience: query.audience });
     }
     if (query.class_id) {
+      // An event with no class link belongs to every class (same rule as
+      // calendar-visibility.util.ts), so it matches any class filter too.
       qb.andWhere(
-        `EXISTS (SELECT 1 FROM calendar_event_classes cec WHERE cec.event_id = event.id AND cec.class_id = :classId)`,
+        `(EXISTS (SELECT 1 FROM calendar_event_classes cec WHERE cec.event_id = event.id AND cec.class_id = :classId)
+          OR NOT EXISTS (SELECT 1 FROM calendar_event_classes cec3 WHERE cec3.event_id = event.id))`,
         { classId: query.class_id },
       );
     }
