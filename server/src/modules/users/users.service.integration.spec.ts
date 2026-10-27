@@ -2243,7 +2243,7 @@ describe('TeacherService (integration)', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw BadRequestException when user is not a member of the tenant', async () => {
+    it('should throw the same 404 as a missing user when user is not a member of the tenant (Rule 23)', async () => {
       // Create a user but DON'T add them to the tenant
       const user = await userRepo.save(
         userRepo.create({
@@ -2254,7 +2254,7 @@ describe('TeacherService (integration)', () => {
 
       await expect(
         teacherService.create({ user_id: user.id, employee_id: 'EMP-002' }, TENANT_ID),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(new NotFoundException('User not found'));
     });
 
     it('should throw ConflictException when employee_id already exists', async () => {
