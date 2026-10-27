@@ -169,13 +169,13 @@
     },
     "homework-submission-rate": {
       "title": "Homework submission rate",
-      "description": "Share of homework handed in this week",
-      "value": "handed in this week",
+      "description": "Share of homework handed in over the last 7 days",
+      "value": "handed in, last 7 days",
       "sentence": "{{submitted}} of {{expected}} expected submissions came in.",
       "lowest": "Lowest: class {{class}} ({{percent}}).",
       "colClass": "Class",
       "colRate": "Handed in",
-      "emptyReason": "No homework was due this week.",
+      "emptyReason": "No homework was due in the last 7 days.",
       "link": "See homework",
       "compactTitle": "Homework handed in"
     },

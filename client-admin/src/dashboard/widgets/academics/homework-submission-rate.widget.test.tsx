@@ -80,7 +80,7 @@ describe('homework-submission-rate widget', () => {
   it('nothing due → emptyReason', async () => {
     serve({ ...BASE, overall: { submitted: 0, assigned: 0, percentage: 0 }, classes: [] });
     renderWidget('full');
-    expect(await screen.findByText('No homework was due this week.')).toBeTruthy();
+    expect(await screen.findByText('No homework was due in the last 7 days.')).toBeTruthy();
   });
 
   it('error: Retry fires a second request', async () => {
