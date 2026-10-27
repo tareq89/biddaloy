@@ -67,9 +67,7 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
     }
   }
 
-  throw new BulkUploadParseError(
-    `Unsupported file type: ${ext || '(none)'} — upload .xlsx or .csv`,
-  );
+  throw new BulkUploadParseError('Unsupported file type — upload .xlsx or .csv');
 }
 
 /** Excel stores an entered date (e.g. `2026-01-01`) as a date cell, and
