@@ -57,7 +57,7 @@
     "sideEffect": "Fees already generated from this structure stay exactly as they are — nothing is removed or refunded. The structure just stops applying to future fee generation.",
     "confirm": "Delete",
     "errorMessage": "Failed to delete fee structure",
-    "conflictMessage": "This fee structure can't be deleted because payments have already been recorded against the fees generated from it."
+    "conflictMessage": "This fee structure is still used by a fine rule or an automatic billing rule. Remove it from them first, then delete it."
   },
   "feeTypes": {
     "MONTHLY_TUITION": "Monthly tuition",
