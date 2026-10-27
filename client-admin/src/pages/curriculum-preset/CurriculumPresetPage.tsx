@@ -255,7 +255,8 @@ export function CurriculumPresetForm({
       <ConfirmApplyDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        presetName={selected?.name.en ?? ''}
+        presetName={selected ? pick(selected.name) : ''}
+        alsoAccept={selected?.name.en}
         onConfirm={handleConfirm}
         pending={apply.isPending}
         error={apply.isError}

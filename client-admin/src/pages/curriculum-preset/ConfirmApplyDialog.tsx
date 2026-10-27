@@ -1,4 +1,4 @@
-/** [35.4.3] D13: apply stays disabled until the admin types the preset's English name exactly. */
+/** [35.4.3] D13: apply stays disabled until the admin types the preset's name (UI language, or English) exactly. */
 import {
   Button,
   Dialog,
@@ -17,8 +17,10 @@ import * as React from 'react';
 export interface ConfirmApplyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The preset's English name — the phrase to type, case-sensitive. */
+  /** The preset's name as shown in the UI language — the phrase to type, case-sensitive. */
   presetName: string;
+  /** The English name, also accepted. */
+  alsoAccept?: string;
   onConfirm: () => void;
   pending?: boolean;
   error?: boolean;
@@ -28,6 +30,7 @@ export function ConfirmApplyDialog({
   open,
   onOpenChange,
   presetName,
+  alsoAccept,
   onConfirm,
   pending = false,
   error = false,
@@ -39,7 +42,8 @@ export function ConfirmApplyDialog({
     if (open) setTyped('');
   }, [open]);
 
-  const matches = typed === presetName;
+  const t1 = typed.trim();
+  const matches = t1 === presetName || (alsoAccept !== undefined && t1 === alsoAccept);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

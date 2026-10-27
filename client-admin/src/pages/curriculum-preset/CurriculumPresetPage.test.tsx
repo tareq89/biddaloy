@@ -159,6 +159,43 @@ describe('CurriculumPresetPage', () => {
     await waitFor(() => expect(seen).toHaveBeenCalledWith('/api/v1/presets/bd%2Fnctb'));
   });
 
+  describe('in Bangla', () => {
+    async function openConfirmBn() {
+      mockApi({ state: 'AVAILABLE' });
+      const root = createRootRoute({
+        component: () => <CurriculumPresetPage schoolId={SCHOOL_ID} />,
+      });
+      const user = userEvent.setup();
+      renderWithRouter(root, { locale: 'bn', role: 'ADMIN', tenantId: SCHOOL_ID });
+      await user.click((await screen.findAllByRole('button', { name: 'বেছে নিন' }))[0]!);
+      await user.click(screen.getByRole('button', { name: 'পরবর্তী' }));
+      await user.click(screen.getByLabelText('বাংলা'));
+      await user.click(screen.getByRole('button', { name: 'পরবর্তী' }));
+      await user.click(screen.getByRole('button', { name: 'এই শিক্ষাক্রম ব্যবহার করুন' }));
+      return user;
+    }
+
+    it('accepts the Bangla pack name to confirm', async () => {
+      const user = await openConfirmBn();
+      const box = await screen.findByLabelText(/এনসিটিবি জাতীয় কারিকুলাম.*লিখুন/);
+      await user.type(box, 'এনসিটিবি জাতীয় কারিকুলাম');
+      expect(screen.getByRole('button', { name: 'প্রয়োগ করুন' }).hasAttribute('disabled')).toBe(
+        false,
+      );
+    });
+
+    it('also accepts the English pack name, but not a lower-cased one', async () => {
+      const user = await openConfirmBn();
+      const box = await screen.findByLabelText(/লিখুন/);
+      const apply = screen.getByRole('button', { name: 'প্রয়োগ করুন' });
+      await user.type(box, 'nctb national curriculum');
+      expect(apply.hasAttribute('disabled')).toBe(true);
+      await user.clear(box);
+      await user.type(box, 'NCTB National Curriculum');
+      expect(apply.hasAttribute('disabled')).toBe(false);
+    });
+  });
+
   it('needs at least one version for a pack with versions, and the exact name to apply', async () => {
     mockApi({ state: 'AVAILABLE' });
     const user = renderPage();
