@@ -784,6 +784,9 @@ jobs:
       # Keeps playwright.config.ts's projects list consistent with the
       # --project flag this matrix entry passes.
       E2E_BROWSERS: ${{ matrix.browser }}
+      # [44.2.03] `yarn e2e:serve:client` builds client-admin; Vite inlines this at build
+      # time, and without it every in-app help (?) and F1 stay hidden (E4, E12).
+      VITE_HANDBOOK_URL: https://schoolmanagerp.gitbook.io/schoolmanagerp-docs
       # [15.5] See the "integration" job's identical block — `yarn ...
       # server seed` below boots `AppModule`, which needs `StorageModule`
       # env to construct. Since [14.11.4] these also have to point at a
