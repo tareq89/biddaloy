@@ -1,9 +1,10 @@
+import { toast } from '@biddaloy/ui/components';
 import type { CheckoutResult } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CheckoutSuccess } from './checkout-success';
 
@@ -109,6 +110,52 @@ describe('CheckoutSuccess', () => {
     await waitFor(() => expect(sendButton.disabled).toBe(false));
     await user.click(sendButton);
     expect(screen.queryByText('Choose a guardian')).toBeNull();
+  });
+
+  it('shows the out-of-credit toast on a 409 INSUFFICIENT_SMS_CREDIT send', async () => {
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json({
+          guardians: [
+            {
+              id: 'guardian-1',
+              full_name: 'Fatima Begum',
+              is_primary_contact: true,
+              notifications_enabled: true,
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/invoices/:id/send', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'Insufficient SMS credit to send this invoice.',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/invoices/invoice-1/send',
+            requestId: 'req-1',
+            details: { code: 'INSUFFICIENT_SMS_CREDIT', required: 1, available: 0 },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const { localeReady } = renderWithProviders(
+      <CheckoutSuccess result={RESULT} studentIds={['student-with-one-guardian']} />,
+      { locale: 'en', role: 'ACCOUNTANT', tenantId: 'tenant-1' },
+    );
+    await localeReady;
+
+    const sendButton = await screen.findByRole<HTMLButtonElement>('button', {
+      name: 'Send via WhatsApp',
+    });
+    await waitFor(() => expect(sendButton.disabled).toBe(false));
+    await user.click(sendButton);
+    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith('This school is out of SMS credit.'));
+    toastSpy.mockRestore();
   });
 
   it('opens a guardian picker when there is more than one send candidate', async () => {
