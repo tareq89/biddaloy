@@ -75,6 +75,8 @@ export interface FeeDueRow {
 export interface PaginatedFeeDues {
   data: FeeDueRow[];
   total: number;
+  /** Sum of `total_due` over every matched student, all pages. */
+  total_due_sum: number;
   page: number;
   limit: number;
   totalPages: number;
