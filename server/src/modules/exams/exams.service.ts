@@ -120,7 +120,10 @@ export class ExamsService {
         where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (cls?.numeric_grade == null) {
-        throw new BadRequestException('Class has no numeric grade; templates need one');
+        throw new BadRequestException({
+          message: 'This class has no grade set, so an exam structure cannot be used.',
+          details: { code: 'CLASS_HAS_NO_GRADE' },
+        });
       }
       numericGrade = cls.numeric_grade;
     }
@@ -176,9 +179,10 @@ export class ExamsService {
       });
     } catch (err) {
       if (isUniqueViolation(err)) {
-        throw new ConflictException(
-          `An exam named "${dto.name}" already exists for this class and academic year.`,
-        );
+        throw new ConflictException({
+          message: 'An exam with this name already exists for this class and academic year.',
+          details: { code: 'EXAM_NAME_TAKEN' },
+        });
       }
       throw err;
     }
@@ -386,9 +390,10 @@ export class ExamsService {
         });
       } catch (err) {
         if (isUniqueViolation(err)) {
-          throw new ConflictException(
-            `An exam with this name already exists for this class and academic year.`,
-          );
+          throw new ConflictException({
+            message: 'An exam with this name already exists for this class and academic year.',
+            details: { code: 'EXAM_NAME_TAKEN' },
+          });
         }
         throw err;
       }
