@@ -86,8 +86,8 @@ export function StaffImportView() {
       try {
         result = await validateAsync({ file, onProgress });
       } catch (err) {
-        // Whole-file failures arrive as English text; show ours. The shared
-        // hook (also used by the student import) is left as it is.
+        // Whole-file failures carry `details.code`; show our text for it, never
+        // the server's English.
         const key =
           // The hook rethrows as `Error` with the HTTP code in `status`.
           (err as { status?: number }).status === 429 ? 'rateLimited' : fileErrorKey(err);
