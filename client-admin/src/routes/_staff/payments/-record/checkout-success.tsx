@@ -86,7 +86,9 @@ export function CheckoutSuccess({ result, studentIds }: CheckoutSuccessProps) {
         },
         onError: (error) => {
           const message =
-            error instanceof ApiError && error.message.includes('SMS_NO_CREDIT')
+            error instanceof ApiError &&
+            error.statusCode === 409 &&
+            error.details?.code === 'INSUFFICIENT_SMS_CREDIT'
               ? tFees('invoiceDetail.send.smsNoCredit')
               : tFees('invoiceDetail.send.failed');
           toast.error(message);
