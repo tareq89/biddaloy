@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { PeriodSlotKind, RoutineState, SlotRecurrence, UserRole } from '@biddaloy/shared';
+import {
+  EnrollmentStatus,
+  PeriodSlotKind,
+  RoutineState,
+  SlotRecurrence,
+  UserRole,
+} from '@biddaloy/shared';
 import { RoutineSlotsService } from './routine-slots.service';
 import { Routine } from './entities/routine.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
@@ -73,6 +79,8 @@ function buildService() {
     find: vi.fn(async () => [{ id: 'teacher-1', tenant_id: TENANT_ID }]),
   };
 
+  const enrollmentRepo: any = { find: vi.fn(async () => []) };
+
   const reposByEntity = new Map<unknown, any>([
     [RoutineSlot, slotRepo],
     [Routine, routineRepo],
@@ -108,6 +116,7 @@ function buildService() {
     schoolsService,
     auditService,
     teacherRepo,
+    enrollmentRepo,
   );
   return {
     schoolsService,
@@ -123,6 +132,7 @@ function buildService() {
     subjectRepo,
     roomRepo,
     teacherRepo,
+    enrollmentRepo,
     slots,
   };
 }
@@ -303,8 +313,13 @@ describe('RoutineSlotsService [21.4.1]', () => {
 
 describe('RoutineSlotsService.findForRoutine visibility [86.1]', () => {
   const seed = (ctx: ReturnType<typeof buildService>, state: RoutineState) => {
-    ctx.routineRepo.findOne = vi.fn(async () => ({ id: ROUTINE_ID, tenant_id: TENANT_ID, state }));
-    ctx.slots.push({ id: 's1' }, { id: 's2' });
+    ctx.routineRepo.findOne = vi.fn(async () => ({
+      id: ROUTINE_ID,
+      tenant_id: TENANT_ID,
+      state,
+      academic_year_id: 'ay-1',
+    }));
+    ctx.slots.push({ id: 's1', section_id: 'sec-A' }, { id: 's2', section_id: 'sec-B' });
     ctx.slotTeacherRepo.find = vi.fn(async () => [
       { routine_slot_id: 's1', teacher_id: 'teacher-1' },
       { routine_slot_id: 's2', teacher_id: 'teacher-2' },
@@ -373,5 +388,88 @@ describe('RoutineSlotsService.findForRoutine visibility [86.1]', () => {
     expect(
       await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.TEACHER)),
     ).toHaveLength(2);
+  });
+  it('PUBLISHED + ADMIN returns all slots and never reads enrollments', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.PUBLISHED);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.ADMIN)),
+    ).toHaveLength(2);
+    // Staff path must stay untouched by the family filter.
+    expect(ctx.enrollmentRepo.find).not.toHaveBeenCalled();
+  });
+  it('REVIEW + TEACHER role with no teacher row returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    // No teacher profile means no "own" slots; must not fall through to all.
+    ctx.teacherRepo.findOne = vi.fn(async () => null);
+    expect(await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.TEACHER))).toEqual(
+      [],
+    );
+  });
+  it('REVIEW + empty userId returns [] without looking up a teacher', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    ctx.teacherRepo.findOne = vi.fn(async () => null);
+    const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, {
+      role: UserRole.OFFICE_STAFF,
+      userId: '',
+    });
+    expect(r).toEqual([]);
+    expect(ctx.teacherRepo.findOne).not.toHaveBeenCalled();
+  });
+  it.each([UserRole.PARENT, UserRole.STUDENT])(
+    'PUBLISHED + %s sees only linked students sections',
+    async (role) => {
+      const ctx = buildService();
+      seed(ctx, RoutineState.PUBLISHED);
+      ctx.enrollmentRepo.find = vi.fn(async () => [{ section_id: 'sec-A' }]);
+      const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, {
+        role,
+        userId: 'u1',
+        familyStudentIds: ['stu-1'],
+      });
+      expect(r.map((x) => x.slot.id)).toEqual(['s1']);
+      // Tenant, the routine's year and ACTIVE status bound the lookup.
+      expect(ctx.enrollmentRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            academic_year_id: 'ay-1',
+            enrollment_status: EnrollmentStatus.ACTIVE,
+          }),
+        }),
+      );
+    },
+  );
+  it('PUBLISHED + PARENT with no linked students returns [] and never reads slots', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.PUBLISHED);
+    const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, {
+      role: UserRole.PARENT,
+      userId: 'u1',
+      familyStudentIds: [],
+    });
+    expect(r).toEqual([]);
+    expect(ctx.enrollmentRepo.find).not.toHaveBeenCalled();
+    expect(ctx.slotRepo.find).not.toHaveBeenCalled();
+  });
+  it('PUBLISHED + PARENT without familyStudentIds fails closed', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.PUBLISHED);
+    expect(await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.PARENT))).toEqual(
+      [],
+    );
+  });
+  it('PUBLISHED + PARENT whose child has no enrollment this year returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.PUBLISHED);
+    ctx.enrollmentRepo.find = vi.fn(async () => [{ section_id: null }]);
+    const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, {
+      role: UserRole.PARENT,
+      userId: 'u1',
+      familyStudentIds: ['stu-1'],
+    });
+    expect(r).toEqual([]);
   });
 });
