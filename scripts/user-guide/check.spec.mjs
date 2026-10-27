@@ -167,6 +167,12 @@ test('(u) a helpIds #anchor that is not on the page fails (E20), exit 1 from the
     rmSync(root, { recursive: true, force: true });
   }
 });
+test('(u) a data-id="x" is not an anchor', () =>
+  expectProblem('u', (w) => {
+    setHelpIds(w, 'demo.one#only-data');
+    for (const l of ['bn', 'en'])
+      w(`${G}/${l}/demo/one.md`, (s) => s + '\n<p data-id="only-data"></p>\n');
+  }));
 test('(u) a helpIds #anchor that exists passes', () => {
   assert.deepEqual(run((w) => setHelpIds(w, 'demo.one#more')).problems, []);
 });

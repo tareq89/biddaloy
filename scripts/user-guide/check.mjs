@@ -119,7 +119,8 @@ export function check(root = '.', { today = new Date() } = {}) {
   // `attendance.attendance.action.fix#task-fix` links the (?) to a section; bn and en share anchors.
   for (const lang of LANGS)
     for (const pg of pages[lang].values()) {
-      const ids = new Set([...pg.body.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
+      // Any `id="…"` (glossary rows carry inline anchors), but not `data-id="…"`.
+      const ids = new Set([...pg.body.matchAll(/(?<![\w-])id="([^"]+)"/g)].map((m) => m[1]));
       for (const entry of pg.fm.helpIds ?? []) {
         const anchor = String(entry).split('#')[1];
         if (anchor === undefined) continue;

@@ -68,44 +68,39 @@ export function HelpProvider({
 
 export interface ResolvedHelp {
   title: string;
+  /** Empty for a field entry: its text is `<field.ns>:help.<field.key>`, read in the card. */
   summary: string;
-  /** Namespace to load for a field entry's `help.<key>` text. */
-  fieldNs?: string;
+  field?: { ns: string; key: string };
   href: string;
   knownIssuesHref?: string;
   video?: { href: string; durationSec: number };
 }
 
-/** Just the page id, for callers (PageHeader) that need no resolver. */
-export function usePageHelpId() {
-  return React.useContext(HelpContext).pageId;
-}
-
 export function useHelp() {
   const { index, lang, baseUrl, pageId } = React.useContext(HelpContext);
-  const { t } = useTranslation();
+  const base = baseUrl.replace(/\/+$/, '');
 
   const resolve = React.useCallback(
     (id: string | null | undefined): ResolvedHelp | null => {
       const entry = id ? index[id] : undefined;
-      if (!entry || baseUrl === '') return null;
-      const pageUrl = `${baseUrl}/${lang}/${entry.path}`;
+      if (!entry || base === '') return null;
+      const pageUrl = `${base}/${lang}/${entry.path}`;
       const video = entry.video?.[lang];
       return {
         title: entry.title[lang],
-        summary: entry.field ? t(`${entry.field.ns}:help.${entry.field.key}`) : entry.summary[lang],
-        ...(entry.field && { fieldNs: entry.field.ns }),
-        href: `${pageUrl}#${entry.anchor}`,
+        summary: entry.summary[lang],
+        ...(entry.field && { field: entry.field }),
+        href: entry.anchor ? `${pageUrl}#${entry.anchor}` : pageUrl,
         ...(entry.knownIssues > 0 && { knownIssuesHref: `${pageUrl}#known-issues` }),
         ...(video && {
           video: {
-            href: `https://www.youtube.com/watch?v=${video.id}`,
+            href: `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`,
             durationSec: video.durationSec,
           },
         }),
       };
     },
-    [index, lang, baseUrl, t],
+    [index, lang, base],
   );
 
   return { resolve, pageHref: resolve(pageId)?.href ?? null, pageId, lang };
@@ -156,11 +151,13 @@ function HelpButton({
   className: string | undefined;
 }) {
   const { t } = useTranslation('helpHint');
-  // Separate call (not `useTranslation(['helpHint', fieldNs])`): check-i18n-keys.mjs
+  // Separate call (not `useTranslation(['helpHint', field.ns])`): check-i18n-keys.mjs
   // reads this file's namespace from the first single-quoted `useTranslation('...')`
-  // and an array or ternary argument does not match. This one only loads the field's
-  // namespace so the summary resolved in `useHelp` renders.
-  useTranslation(help.fieldNs ?? 'helpHint');
+  // and an array or ternary argument does not match. This one reads a field entry's text
+  // from its own namespace, suspending until it loads, so the card never shows a raw
+  // `help.<key>`.
+  const { t: tField } = useTranslation(help.field?.ns ?? 'helpHint');
+  const summary = help.field ? tField(`help.${help.field.key}`) : help.summary;
   const titleId = React.useId();
   const [open, setOpen] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -235,6 +232,17 @@ function HelpButton({
           if (source.current === 'mouse') e.preventDefault();
           source.current = null;
         }}
+        // The card is portaled to the end of <body>, so after a keyboard open Tab past the last
+        // link (or Shift+Tab before the first) would leave the page order. Close instead; Radix
+        // then returns focus to the (?) and the next Tab continues from there.
+        onKeyDown={(e) => {
+          if (e.key !== 'Tab' || source.current !== 'key') return;
+          const links = content.current?.querySelectorAll<HTMLElement>('a[href]');
+          const edge = e.shiftKey ? links?.[0] : links?.[links.length - 1];
+          if (!edge || document.activeElement !== edge) return;
+          e.preventDefault();
+          setOpen(false);
+        }}
         onPointerEnter={(e) => {
           if (e.pointerType === 'mouse') clearTimeout(timer.current);
         }}
@@ -244,7 +252,7 @@ function HelpButton({
         <p id={titleId} className="text-h3">
           {help.title}
         </p>
-        <p className="text-text-secondary">{help.summary}</p>
+        <p className="text-text-secondary">{summary}</p>
         {help.knownIssuesHref && (
           <p className="text-text-secondary">
             <a

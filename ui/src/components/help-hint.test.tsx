@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { I18nProvider, i18n, whenReady } from '../i18n';
+import finesEn from '../i18n/locales/en/fines.json';
 
 import { HelpHint, HelpProvider, type HelpEntry, type HelpIndex } from './help-hint';
 
@@ -65,7 +66,7 @@ describe('HelpHint', () => {
     await waitFor(() => expect(screen.queryByText('Take attendance')).toBeNull());
   });
 
-  it('Tab alone does not open; Enter opens and Tab/Enter reach the guide link', async () => {
+  it('Tab alone does not open; Enter opens and focuses the guide link', async () => {
     const user = userEvent.setup();
     renderHint({ a: entry() });
     await button();
@@ -74,6 +75,38 @@ describe('HelpHint', () => {
     await user.keyboard('{Enter}');
     const guide = await screen.findByRole('link', { name: 'Open the guide' });
     await waitFor(() => expect(document.activeElement).toBe(guide));
+  });
+
+  it('after a keyboard open, Tab past the last link or Shift+Tab before the first closes and refocuses the (?)', async () => {
+    const user = userEvent.setup();
+    rtlRender(
+      <HelpProvider index={{ a: entry({ knownIssues: 1 }) }} lang="en" baseUrl={BASE}>
+        <HelpHint helpId="a" />
+        <button type="button">next</button>
+      </HelpProvider>,
+      { wrapper: I18nProvider },
+    );
+    const btn = await button();
+    await user.tab();
+    await user.keyboard('{Enter}');
+    const guide = await screen.findByRole('link', { name: 'Open the guide' });
+    await waitFor(() => expect(document.activeElement).toBe(guide));
+    await user.tab();
+    await waitFor(() => expect(screen.queryByText('Take attendance')).toBeNull());
+    expect(document.activeElement).toBe(btn);
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'next' }));
+
+    await user.tab({ shift: true });
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Open the guide' })),
+    );
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Known issues →' }));
+    await user.tab({ shift: true });
+    await waitFor(() => expect(screen.queryByText('Take attendance')).toBeNull());
+    expect(document.activeElement).toBe(btn);
   });
 
   it('Esc closes, then Tab away and back works again', async () => {
@@ -164,6 +197,32 @@ describe('HelpHint', () => {
     expect(link.getAttribute('rel')).toContain('noopener');
   });
 
+  it('a page entry (no anchor) links to the page with no bare #', async () => {
+    const user = userEvent.setup();
+    renderHint({ a: entry({ anchor: '' }) });
+    await user.click(await button());
+    const guide = await screen.findByRole('link', { name: 'Open the guide' });
+    expect(guide.getAttribute('href')).toBe(`${BASE}/en/attendance/register`);
+  });
+
+  it('trims a trailing slash off the base URL and encodes the video id', async () => {
+    const user = userEvent.setup();
+    renderHint(
+      {
+        a: entry({
+          video: { bn: { id: 'b', durationSec: 1 }, en: { id: 'a&b=c', durationSec: 1 } },
+        }),
+      },
+      { baseUrl: `${BASE}//` },
+    );
+    await user.click(await button());
+    const guide = await screen.findByRole('link', { name: 'Open the guide' });
+    expect(guide.getAttribute('href')).toBe(`${BASE}/en/attendance/register#task-main`);
+    expect(screen.getByRole('link', { name: /Watch the video/ }).getAttribute('href')).toBe(
+      'https://www.youtube.com/watch?v=a%26b%3Dc',
+    );
+  });
+
   it('shows the known-issue line only when knownIssues > 0', async () => {
     const user = userEvent.setup();
     const none = renderHint({ a: entry() });
@@ -204,6 +263,17 @@ describe('HelpHint', () => {
     });
     await user.click(await button());
     expect(await screen.findByText('Roll number help text')).toBeTruthy();
+  });
+
+  it('a field summary from a namespace not loaded yet shows the text, never help.<key>', async () => {
+    const user = userEvent.setup();
+    expect(i18n.hasLoadedNamespace('fines')).toBe(false);
+    renderHint({
+      a: entry({ field: { ns: 'fines', key: 'ruleTrigger' }, summary: { bn: '', en: '' } }),
+    });
+    await user.click(await button());
+    expect(await screen.findByText(finesEn.help.ruleTrigger)).toBeTruthy();
+    expect(screen.queryByText('help.ruleTrigger')).toBeNull();
   });
 
   it('is axe clean closed and open', async () => {

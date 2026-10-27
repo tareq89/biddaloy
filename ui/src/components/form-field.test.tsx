@@ -108,6 +108,13 @@ describe('FormField', () => {
     expect(document.activeElement).toBe(screen.getByRole('textbox', { name: /Student name/ }));
   });
 
+  it('with helpId but no provider (no (?)), the label keeps its DOM: no wrapper span', () => {
+    render(<NameForm onSubmit={vi.fn()} helpId="x.field.name" />);
+    const label = screen.getByText('Student name');
+    expect(label.tagName).toBe('LABEL');
+    expect(label.parentElement!.tagName).not.toBe('SPAN');
+  });
+
   it('has no star when not required', () => {
     render(<NameForm onSubmit={vi.fn()} />);
     expect(screen.queryByText('*')).toBeNull();

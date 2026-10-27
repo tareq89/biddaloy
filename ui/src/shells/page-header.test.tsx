@@ -229,6 +229,15 @@ describe('PageHeader help (?)', () => {
     expect(screen.queryByRole('button', { name: /Help/ })).toBeNull();
   });
 
+  it('without a (?) the h1 keeps its DOM: no flex row (no provider, unknown id)', async () => {
+    const parentOfH1 = () => screen.getByRole('heading', { level: 1 }).parentElement!.className;
+    const none = await renderInEnglish(<PageHeader title="Students" />);
+    expect(parentOfH1()).toBe('min-w-0 md:min-w-48');
+    none.unmount();
+    await renderInEnglish(withHelp(<PageHeader title="Students" />, 'not.in.index'));
+    expect(parentOfH1()).toBe('min-w-0 md:min-w-48');
+  });
+
   it('helpId overrides the page id', async () => {
     await renderInEnglish(withHelp(<PageHeader title="Students" helpId="other" />));
     expect(screen.getByRole('button', { name: 'Help: Other' })).toBeTruthy();

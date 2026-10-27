@@ -107,6 +107,44 @@ describe('buildHelpIndex', () => {
     );
   });
 
+  it('throws when two features claim the same route', () => {
+    writeAll();
+    const two = [...FEATURES, { id: 'demo.two', path: 'demo/two', routes: ['/demo'] }];
+    expect(() => buildHelpIndex(root, two)).toThrow(
+      'HELP_ROUTES: route "/demo" is claimed by demo.one and demo.two',
+    );
+  });
+
+  it('throws on a helpId with more than one #', () => {
+    writeAll('demo.one#task-main#task-fix');
+    expect(() => buildHelpIndex(root, FEATURES)).toThrow(/more than one #/);
+  });
+
+  it('a data-id="x" is not an anchor', () => {
+    writeAll('demo.one#only-data');
+    put(
+      'docs/user-guide/bn/demo/one.md',
+      page('bn', 'demo.one#only-data', '<p data-id="only-data"></p>'),
+    );
+    put(
+      'docs/user-guide/en/demo/one.md',
+      page('en', 'demo.one#only-data', '<p data-id="only-data"></p>'),
+    );
+    expect(() => buildHelpIndex(root, FEATURES)).toThrow(/no id="only-data"/);
+  });
+
+  it('an id rejected for a bad #anchor on one page still indexes from a later page', () => {
+    writeAll('demo.one, demo.x.action.go#nope');
+    for (const l of ['bn', 'en'] as const)
+      put(`docs/user-guide/${l}/demo/two.md`, page(l, 'demo.two, demo.x.action.go'));
+    const two = [...FEATURES, { id: 'demo.two', path: 'demo/two', routes: ['/two'] }];
+    const r = buildHelpIndex(root, two, { strict: false });
+    expect(r.index['demo.x.action.go']).toMatchObject({ path: 'demo/two', anchor: 'task-main' });
+    expect(r.gaps).toEqual([
+      'bn/demo/one: helpId "demo.x.action.go#nope" has no id="nope" on the page',
+    ]);
+  });
+
   it('throws on an id declared twice', () => {
     writeAll('demo.one, demo.one');
     expect(() => buildHelpIndex(root, FEATURES)).toThrow(/declared twice/);

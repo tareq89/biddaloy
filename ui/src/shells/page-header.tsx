@@ -11,7 +11,7 @@ import { Fragment } from 'react';
 import type * as React from 'react';
 
 import { Button } from '../components/button';
-import { HelpHint, usePageHelpId } from '../components/help-hint';
+import { HelpHint, useHelp } from '../components/help-hint';
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../components/menu';
 import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
@@ -53,14 +53,21 @@ export interface PageHeaderProps {
 }
 
 export function PageHeader({ title, subtitle, actions, helpId }: PageHeaderProps) {
-  const pageId = usePageHelpId();
+  const { resolve, pageId } = useHelp();
+  const id = helpId ?? pageId;
+  const h1 = <h1 className="text-h1">{title}</h1>;
   return (
     <header className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:justify-between md:gap-x-6 md:gap-y-3">
       <div className="min-w-0 md:min-w-48">
-        <div className="flex items-center gap-2">
-          <h1 className="text-h1">{title}</h1>
-          <HelpHint size="md" helpId={helpId ?? pageId} />
-        </div>
+        {/* The flex row only when a (?) renders, so a page without help keeps its DOM. */}
+        {resolve(id) ? (
+          <div className="flex items-center gap-2">
+            {h1}
+            <HelpHint size="md" helpId={id} />
+          </div>
+        ) : (
+          h1
+        )}
         {subtitle && <p className="mt-0.5 truncate text-text-secondary">{subtitle}</p>}
       </div>
       <PageHeaderActions actions={actions} />

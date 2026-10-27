@@ -29,7 +29,7 @@ import {
 import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
 
-import { HelpHint } from './help-hint';
+import { HelpHint, useHelp } from './help-hint';
 import { Label } from './label';
 
 const Form = FormProvider;
@@ -113,6 +113,7 @@ function FormLabel({
 }) {
   const { error, formItemId } = useFormField();
   const { t } = useTranslation();
+  const { resolve } = useHelp();
   const label = (
     <Label
       {...props}
@@ -149,7 +150,8 @@ function FormLabel({
       )}
     </Label>
   );
-  if (!helpId) return label;
+  // No wrapper when no (?) renders, so the label keeps its DOM.
+  if (!resolve(helpId)) return label;
   return (
     <span className="inline-flex items-center gap-1">
       {label}

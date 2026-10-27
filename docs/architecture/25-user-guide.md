@@ -257,12 +257,14 @@ flowchart LR
 
 Learning from wave 1 (surprise, cost, fix, rule candidate):
 
-- **2026-10-27 — the guide's real data did not match the ticket.** About 51
-  `.field.` ids have no `help.<key>` in the page's `fields:<ns>` namespace, and 6
-  ids are declared on two pages (all under `administration.printTemplates.*`).
-  Cost: a strict generator would have made `yarn guide:gen` unusable. Fix: the
-  generator skips the offender, lists it in `HELP_GAPS`, and a checked-in
-  `KNOWN_GAPS` baseline (63 ids) fails on any new gap or stale entry. Rule
+- **2026-10-27 — the guide's real data did not match the ticket.** 54
+  `.field.` ids have no `help.<key>` in the page's `fields:<ns>` namespace, and 9
+  ids are declared on more than one page (all under
+  `administration.printTemplates.*`, 14 extra declarations). Cost: a strict
+  generator would have made `yarn guide:gen` unusable. Fix: the generator skips
+  the offender, lists it in `HELP_GAPS` (68 messages), and a checked-in
+  `KNOWN_GAPS` baseline of those whole messages fails on any new gap, fixed gap,
+  or added or removed duplicate declaration. Rule
   candidate: check a new generator against the real tree before making it strict;
   44.3.12 flips it to strict once the gaps close.
 - **2026-10-27 — focus-open broke keyboard use.** Opening the card on focus

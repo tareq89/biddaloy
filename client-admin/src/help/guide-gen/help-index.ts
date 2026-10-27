@@ -51,7 +51,7 @@ function listOf(yaml: string, key: string): string[] {
     .filter(Boolean);
 }
 
-function readMeta(file: string): PageMeta {
+export function readMeta(file: string): PageMeta {
   const text = readFileSync(file, 'utf8');
   const yaml = text.match(META)?.[1];
   if (yaml === undefined) throw new Error(`${file}: no <!-- guide:meta --> comment`);
@@ -61,7 +61,8 @@ function readMeta(file: string): PageMeta {
     summary: scalar(yaml, 'summary'),
     helpIds: listOf(yaml, 'helpIds'),
     knownIssues: issues.split('\n').filter((l) => /^\s+-\s/.test(l)).length,
-    anchors: new Set([...text.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]!)),
+    // Not `data-id="…"`: the char before `id` must not be a word char or `-`.
+    anchors: new Set([...text.matchAll(/(?<![\w-])id="([^"]+)"/g)].map((m) => m[1]!)),
     fieldNs: [...text.matchAll(/<!-- guide:generated:fields:(\S+) -->/g)].map((m) => m[1]!),
   };
 }
@@ -99,10 +100,14 @@ export function buildHelpIndex(
   const index: Record<string, HelpIndexEntry> = {};
   const routes: Record<string, string> = {};
   const problems: string[] = [];
-  const seen = new Set<string>(); // declared ids, even ones rejected below
+  const seen = new Set<string>(); // declared ids, even ones rejected below (bar a bad #anchor)
 
   for (const f of features) {
-    for (const r of f.routes ?? []) routes[r] = f.id;
+    for (const r of f.routes ?? []) {
+      if (routes[r] && routes[r] !== f.id)
+        throw new Error(`HELP_ROUTES: route "${r}" is claimed by ${routes[r]} and ${f.id}`);
+      routes[r] = f.id;
+    }
     const pagePath = f.path.replace(/\.md$/, '');
     const bnFile = path.join(guide, 'bn', `${pagePath}.md`);
     if (!existsSync(bnFile)) continue; // no page yet: guide:check owns that
@@ -116,20 +121,24 @@ export function buildHelpIndex(
     };
 
     for (const raw of meta.bn.helpIds) {
+      if (raw.split('#').length > 2) {
+        problems.push(`${pagePath}: helpId "${raw}" has more than one #`);
+        continue;
+      }
       const [id, suffix] = raw.split('#') as [string, string | undefined];
       if (seen.has(id)) {
         problems.push(`helpId "${id}" is declared twice (${pagePath})`);
         continue;
       }
-      seen.add(id);
       const badAnchor =
         suffix !== undefined && LANGS.find((lang) => !meta[lang].anchors.has(suffix));
       if (badAnchor) {
         problems.push(
           `${badAnchor}/${pagePath}: helpId "${raw}" has no id="${suffix}" on the page`,
         );
-        continue;
+        continue; // not `seen`: a valid declaration on a later page still indexes it
       }
+      seen.add(id);
       const entry: HelpIndexEntry = {
         title: { bn: meta.bn.title, en: meta.en.title },
         summary: { bn: meta.bn.summary, en: meta.en.summary },
@@ -153,7 +162,7 @@ export function buildHelpIndex(
       index[id] = entry;
     }
   }
-  // ponytail: real guide pages still hold ~57 unindexable ids (field help missing, ids declared
+  // ponytail: real guide pages still hold unindexable ids (field help missing, ids declared
   // twice). `generate` runs non-strict and lists them in HELP_GAPS (feeds #3017); strict = throw.
   if (strict && problems.length) throw new Error(`help index:\n${problems.join('\n')}`);
   return { index, routes, gaps: problems };

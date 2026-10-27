@@ -137,8 +137,11 @@ export async function generate(root: string, env: { GUIDE_SHA?: string } = {}): 
   const gen = path.join(guide, '_generated');
   files.set(path.join(gen, 'features.json'), await json(features));
   files.set(path.join(gen, 'blocks.json'), await json({ ...blocks, roleAnchors }));
-  // The index reads the pages as they are on disk; it needs only helpIds, title, summary and
-  // anchors, none of which this run rewrites.
+  // The index reads the pages as they are on disk, before this run's rewrites. helpIds, title
+  // and summary are never rewritten, but anchors inside generated blocks are (widgets:sections
+  // writes the `id="widget.<key>"` headings). ponytail: a helpIds `#suffix` pointing at an anchor
+  // that a generated block adds in this same run is a gap on the first run and settles on the
+  // second; read the rewritten text from `files` if that ever bites.
   files.set(
     path.join(root, 'client-admin/src/help/help-index.gen.ts'),
     await format(renderHelpIndexModule(buildHelpIndex(root, features, { strict: false })), {
