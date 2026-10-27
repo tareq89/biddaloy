@@ -120,8 +120,8 @@ export function ApplicantList() {
       columns={columns}
       data={applicantsQuery.data?.data ?? []}
       getRowId={(row) => row.id}
-      sorting={state.sorting}
-      onSortingChange={actions.setSorting}
+      sorting={null}
+      onSortingChange={() => {}}
       page={state.page}
       pageSize={state.limit}
       totalCount={applicantsQuery.data?.total ?? 0}
