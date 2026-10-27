@@ -32,9 +32,19 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 import { ClassFormDialog } from './-class-form-dialog';
 import { DeleteClassDialog } from './-delete-class-dialog';
 
-// `z.looseObject`, not `z.object`: a plain object would strip the list-state params.
+// `z.object`, not `z.looseObject`: a param not listed here is stripped, so a stray
+// `?foo=1` is not a filter chip. Declare every key the page reads.
 export const Route = createFileRoute('/_staff/classes/')({
-  validateSearch: z.looseObject({ new: z.coerce.string().optional().catch(undefined) }),
+  validateSearch: z.object({
+    page: z.number().int().positive().optional().catch(undefined),
+    limit: z.number().int().positive().max(100).optional().catch(undefined),
+    sort: z.string().optional().catch(undefined),
+    order: z.enum(['asc', 'desc']).optional().catch(undefined),
+    academic_year_id: z.string().optional().catch(undefined),
+    shift: z.string().optional().catch(undefined),
+    version: z.string().optional().catch(undefined),
+    new: z.coerce.string().optional().catch(undefined),
+  }),
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
