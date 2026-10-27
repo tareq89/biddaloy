@@ -434,7 +434,7 @@ describe('/fee-structures', () => {
     // The dialog closes (ConfirmDialog has no error slot) and the message shows as a toast.
     await waitFor(() =>
       expect(toastSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/payments have already been recorded/i),
+        expect.stringMatching(/fine rule or an automatic billing rule/i),
       ),
     );
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
