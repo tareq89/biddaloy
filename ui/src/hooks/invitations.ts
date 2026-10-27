@@ -25,6 +25,8 @@ export interface BatchInviteSelection {
   guardian_ids?: string[];
   student_ids?: string[];
   all?: boolean;
+  /** Only with `all`: continue after this guardian id. */
+  after?: string;
 }
 
 export type InviteChannel = 'SMS' | 'EMAIL';
@@ -46,6 +48,8 @@ export interface InviteSkippedEntry {
 
 export interface InvitePreviewResult {
   total: number;
+  /** Id to send as `after` for the next 1000 guardians; null when none remain. */
+  next_after: string | null;
   to_invite: InvitePreviewEntry[];
   skipped: InviteSkippedEntry[];
 }
