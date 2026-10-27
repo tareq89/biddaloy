@@ -1,4 +1,6 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -179,5 +181,66 @@ describe('CellPicker', () => {
     expect(screen.getByRole('combobox', { name: 'Which week' })).toBeTruthy();
     expect(document.querySelector('select')).toBeNull();
     expect(document.querySelector('input[type="radio"]')).toBeNull();
+  });
+
+  describe('repeat offsets [2996]', () => {
+    async function open(onSave = vi.fn()) {
+      mockLookups();
+      const user = userEvent.setup();
+      renderWithProviders(<CellPicker open onOpenChange={vi.fn()} onSave={onSave} />, {
+        tenantId: 'tenant-1',
+        locale: 'en',
+      });
+      await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+      await user.click(screen.getByText('Math'));
+      await user.click(screen.getByLabelText('Ms Nahar'));
+      return user;
+    }
+
+    it('MONTHLY defaults to the 1st occurrence and sends 1, never 0', async () => {
+      const onSave = vi.fn();
+      const user = await open(onSave);
+      await user.click(screen.getByLabelText('Monthly'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ recurrence: 'MONTHLY', recurrenceOffset: 1 }),
+      );
+    });
+
+    it('MONTHLY "Last" sends -1', async () => {
+      const onSave = vi.fn();
+      const user = await open(onSave);
+      await user.click(screen.getByLabelText('Monthly'));
+      await user.click(screen.getByRole('combobox', { name: /which/i }));
+      await user.click(await screen.findByRole('option', { name: 'Last' }));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ recurrenceOffset: -1 }));
+    });
+
+    it('MONTHLY offers 1-5 and Last', async () => {
+      const user = await open();
+      await user.click(screen.getByLabelText('Monthly'));
+      await user.click(screen.getByRole('combobox', { name: /which/i }));
+      expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+        ...[1, 2, 3, 4, 5].map((n) => `Occurrence ${formatNumber(n, REGION_BD_BN)}`),
+        'Last',
+      ]);
+    });
+
+    it('BIWEEKLY still offers Week 1 / Week 2 and sends 0 / 1', async () => {
+      const onSave = vi.fn();
+      const user = await open(onSave);
+      await user.click(screen.getByLabelText('Biweekly'));
+      await user.click(screen.getByRole('combobox', { name: /which/i }));
+      expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+        'Week 1',
+        'Week 2',
+      ]);
+      await user.click(screen.getByRole('option', { name: 'Week 2' }));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ recurrence: 'BIWEEKLY', recurrenceOffset: 1 }),
+      );
+    });
   });
 });

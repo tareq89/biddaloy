@@ -204,7 +204,8 @@
     "recurrenceOccurrence": "সংস্করণ {{n}}",
     "cancel": "বাতিল",
     "save": "সংরক্ষণ করুন",
-    "cellLabel": "{{day}} · {{period}} · {{time}}"
+    "cellLabel": "{{day}} · {{period}} · {{time}}",
+    "recurrenceLast": "শেষ"
   },
   "conflictList": {
     "violationsTitle": "এটি সংরক্ষণ করা যাবে না",
