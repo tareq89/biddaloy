@@ -13545,6 +13545,11 @@ export interface components {
             current_month: components["schemas"]["CollectionMonthWidgetDto"];
         };
         CollectionMonthFigure: {
+            /**
+             * @description Calendar year of this slot.
+             * @example 2026
+             */
+            year: number;
             month: number;
             /** @description Amount applied to bills that school-local month (net of reversals, not physical cash); null for months after the current one. */
             net: number | null;
@@ -13552,7 +13557,7 @@ export interface components {
         };
         CollectionByMonthWidgetDto: {
             /**
-             * @description School-local year.
+             * @description School-local start year of the range.
              * @example 2026
              */
             year: number;
@@ -13562,7 +13567,7 @@ export interface components {
             month_to_date_net: number;
             /** @description Net received in the previous month from day 1 to the same day-of-month (clamped to its last day). */
             previous_month_same_days_net: number;
-            /** @description Twelve slots, January to December. */
+            /** @description One slot per month of the current academic year (calendar year if none). */
             months: components["schemas"]["CollectionMonthFigure"][];
         };
         AtRiskThresholdsDto: {
