@@ -20,7 +20,7 @@ export interface ConfirmApplyDialogProps {
   /** The preset's name as shown in the UI language — the phrase to type, case-sensitive. */
   presetName: string;
   /** The English name, also accepted. */
-  alsoAccept?: string;
+  alsoAccept?: string | undefined;
   onConfirm: () => void;
   pending?: boolean;
   error?: boolean;
