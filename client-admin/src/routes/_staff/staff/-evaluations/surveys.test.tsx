@@ -103,6 +103,33 @@ describe('survey list and results', () => {
     await waitFor(() => expect(screen.queryByText(/Average/)).toBeNull());
   });
 
+  it('open survey seals each card until closed, never "Waiting for more responses"', async () => {
+    server.use(
+      http.get('/api/v1/surveys/s1', () =>
+        HttpResponse.json(
+          surveyDetailFactory({ id: 's1', title: 'Term 2 survey', status: 'OPEN' }),
+        ),
+      ),
+      http.get('/api/v1/surveys/s1/results', () =>
+        HttpResponse.json(
+          surveyResultsFactory({
+            surveyId: 's1',
+            minResponses: 5,
+            results: [hiddenPairResultFactory(6)],
+          }),
+        ),
+      ),
+    );
+    render('/staff/evaluations/surveys/s1');
+    expect(
+      await screen.findByText('Results appear once the survey is closed.', undefined, {
+        timeout: 4000,
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText('After closing')).toBeTruthy();
+    expect(screen.queryByText(/Waiting for more responses/)).toBeNull();
+  });
+
   it('closing an open survey asks first; only the confirm calls the API', async () => {
     let closed = 0;
     server.use(

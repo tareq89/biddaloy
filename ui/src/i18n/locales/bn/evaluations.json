@@ -288,6 +288,7 @@
       "noDate": "নির্ধারিত নেই",
       "resultsTitle": "ফলাফল",
       "resultsLoadError": "ফলাফল লোড করা যায়নি।",
+      "sealedBadge": "বন্ধ হওয়ার পরে",
       "sealedOpen": "জরিপ বন্ধ হলে ফলাফল দেখা যাবে।",
       "waiting": "আরও উত্তরের অপেক্ষায় ({{min}}টির মধ্যে {{count}}টি)।",
       "responses": "{{count}}টি উত্তর",

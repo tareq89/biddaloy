@@ -288,6 +288,7 @@
       "noDate": "Not set",
       "resultsTitle": "Results",
       "resultsLoadError": "Couldn't load results.",
+      "sealedBadge": "After closing",
       "sealedOpen": "Results appear once the survey is closed.",
       "waiting": "Waiting for more responses ({{count}} of {{min}}).",
       "responses": "{{count}} responses",
