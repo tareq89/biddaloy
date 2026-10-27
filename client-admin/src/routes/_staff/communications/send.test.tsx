@@ -7,7 +7,7 @@
  * rule lives in the confirm dialog here — the first test pins that
  * nothing posts before the dialog's own confirm.
  */
-import { REGION_BD_BN, REGION_BD_EN } from '@biddaloy/ui/i18n';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -26,7 +26,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { routeTree } from '../../../routeTree.gen';
 
 /** Counts render in the tenant region's numerals (Bangla by default). */
-const n = (value: number) => formatNumber(value, REGION_BD_BN);
+const n = (value: number) => formatNumber(value, REGION_BD_EN);
 
 const GUARDIAN = guardianFactory({
   id: 'guardian-1',

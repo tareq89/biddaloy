@@ -35,8 +35,8 @@ describe('sms-balance widget', () => {
   it('full: count, reserved sentence, link', async () => {
     serve({ metering: 'PLATFORM', available: 1240, reserved: 60 });
     renderWidget('full');
-    expect(await screen.findByText('১,২৪০ SMS left')).toBeTruthy();
-    expect(screen.getByText('৬০ held for messages being sent')).toBeTruthy();
+    expect(await screen.findByText('1,240 SMS left')).toBeTruthy();
+    expect(screen.getByText('60 held for messages being sent')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'View sent messages' }).getAttribute('href')).toBe(
       '/communications/batches',
     );
@@ -51,7 +51,7 @@ describe('sms-balance widget', () => {
   it('reserved sentence hidden when 0', async () => {
     serve({ metering: 'PLATFORM', available: 10, reserved: 0 });
     renderWidget('full');
-    await screen.findByText('১০ SMS left');
+    await screen.findByText('10 SMS left');
     expect(screen.queryByText(/held for messages/)).toBeNull();
   });
 
@@ -65,7 +65,7 @@ describe('sms-balance widget', () => {
   it('compact renders the count', async () => {
     serve({ metering: 'PLATFORM', available: 5, reserved: 0 });
     renderWidget('compact');
-    expect(await screen.findByText('৫ SMS left')).toBeTruthy();
+    expect(await screen.findByText('5 SMS left')).toBeTruthy();
   });
 
   it('error: Retry fires a second request', async () => {

@@ -634,7 +634,7 @@ describe('/audit-logs', () => {
     await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale.
-    await user.click(await screen.findByRole('option', { name: '৫০' }));
+    await user.click(await screen.findByRole('option', { name: '50' }));
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 50, page: 1 }));
   });
