@@ -64,6 +64,7 @@ export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Per
       Permission.INVOICE_CREATE,
       Permission.INVOICE_READ,
       Permission.INVOICE_PRINT,
+      Permission.INVOICE_SEND,
       Permission.INVOICE_DELETE,
       Permission.PAYMENT_RECORD,
       Permission.PAYMENT_READ,
