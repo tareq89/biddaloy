@@ -1,6 +1,7 @@
 import { FeeStatus, FeeType, Permission, PeriodType } from '@biddaloy/shared';
 import {
   Button,
+  HelpHint,
   RoutePending,
   StatusBadge,
   statusLabelKey,
@@ -550,6 +551,7 @@ function DuesQueuePage() {
         actions={[
           {
             id: 'record',
+            helpId: 'finance.dues.action.collect',
             label: t('dues.recordPayment'),
             icon: <BanknoteIcon />,
             priority: 'primary',
@@ -624,10 +626,12 @@ function DuesQueuePage() {
                 {t('dues.sendReminder')}
               </Button>
             )}
+            {canSendReminder && <HelpHint helpId="finance.dues.action.sendReminder" />}
             <Button type="button" variant="outline" onClick={exportSelectedToCsv}>
               <DownloadIcon aria-hidden="true" />
               {t('dues.exportCsv')}
             </Button>
+            <HelpHint helpId="finance.dues.action.exportCsv" />
             <Button type="button" variant="ghost" onClick={() => actions.setSelectedIds(new Set())}>
               <XIcon aria-hidden="true" />
               {t('dues.clearSelection')}

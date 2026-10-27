@@ -25,6 +25,7 @@ import {
   Checkbox,
   ConfirmDialog,
   DatePicker,
+  HelpHint,
   Label,
   MonthPicker,
   Select,
@@ -507,10 +508,13 @@ function GenerateFeesFullPage({
             )}
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="generate-due-date">
-                {t('period.dueDateLabel')}
-                {requiredMark}
-              </Label>
+              <span className="inline-flex items-center gap-1">
+                <Label htmlFor="generate-due-date">
+                  {t('period.dueDateLabel')}
+                  {requiredMark}
+                </Label>
+                <HelpHint helpId="finance.generateFees.field.dueDate" />
+              </span>
               <DatePicker
                 id="generate-due-date"
                 aria-label={t('period.dueDateLabel')}

@@ -63,6 +63,24 @@ describe('/fees/generate', () => {
     await cleanupTestState();
   });
 
+  // [44.4 / #3014] The (?) beside the header generate action (finance.generateFees.action.generate).
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(
+        http.get('/api/v1/fees/generations', () =>
+          HttpResponse.json({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 }),
+        ),
+      );
+      render();
+      expect(
+        (await screen.findAllByRole('button', { name: 'Help: Creating fee bills' })).length,
+      ).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('renders a row per batch from the mocked API', async () => {
     server.use(
       http.get('/api/v1/fees/generations', () =>

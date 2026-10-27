@@ -12,7 +12,7 @@
  * (`useApprovedMutation`) exists specifically to put a second person in
  * the loop for that case.
  */
-import { RadioGroup, RadioGroupItem } from '@biddaloy/ui/components';
+import { HelpHint, RadioGroup, RadioGroupItem } from '@biddaloy/ui/components';
 import type { GenerateFeesPreviewResult } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
@@ -47,6 +47,7 @@ export function DuplicatesStep({
         <p className="flex items-center gap-2 font-medium">
           <ClockIcon className="size-4" aria-hidden="true" />
           {t('duplicates.heading')}
+          <HelpHint helpId="finance.generateFees.field.duplicateDecision" />
         </p>
         {preview.duplicates.length > 0 && (
           <ul className="mt-2 list-disc space-y-1 ps-5">
@@ -91,7 +92,10 @@ export function DuplicatesStep({
         <label className="flex min-h-11 items-start gap-3 py-2">
           <RadioGroupItem value="REMOVE_OLDER" className="mt-0.5" />
           <span>
-            <span className="block font-medium">{t('duplicates.removeOlderLabel')}</span>{' '}
+            <span className="flex items-center gap-1 font-medium">
+              {t('duplicates.removeOlderLabel')}
+              <HelpHint helpId="finance.generateFees.action.removeOlder" />
+            </span>{' '}
             <span className="block text-caption text-text-secondary">
               {t('duplicates.removeOlderHint')}
             </span>
@@ -100,7 +104,10 @@ export function DuplicatesStep({
         <label className="flex min-h-11 items-start gap-3 py-2">
           <RadioGroupItem value="CREATE_ANYWAY" className="mt-0.5" />
           <span>
-            <span className="block font-medium">{t('duplicates.createAnywayLabel')}</span>{' '}
+            <span className="flex items-center gap-1 font-medium">
+              {t('duplicates.createAnywayLabel')}
+              <HelpHint helpId="finance.generateFees.action.createAnyway" />
+            </span>{' '}
             <span className="block text-caption text-text-secondary">
               {t('duplicates.createAnywayHint')}
             </span>

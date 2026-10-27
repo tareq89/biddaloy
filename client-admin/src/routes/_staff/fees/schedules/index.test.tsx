@@ -56,6 +56,20 @@ describe('/fees/schedules', () => {
     await cleanupTestState();
   });
 
+  // [44.4 / #3014] The (?) beside "Add rule" (finance.recurringSchedules.action.add).
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(listHandler([]));
+      render();
+      expect(
+        (await screen.findAllByRole('button', { name: 'Help: Automatic billing rules' })).length,
+      ).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('shows plain-language rows: when, last billed month, status badge, a never-billed muted label', async () => {
     server.use(
       listHandler([

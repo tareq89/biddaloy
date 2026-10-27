@@ -207,6 +207,7 @@ function FinesListPage() {
   const headerActions: PageAction[] = [
     {
       id: 'rules',
+      helpId: 'finance.fines.action.rules',
       label: t('tabs.rules'),
       priority: 'secondary',
       icon: <ListChecks />,
@@ -214,6 +215,7 @@ function FinesListPage() {
     },
     {
       id: 'log',
+      helpId: 'finance.fines.action.log',
       label: t('logForm.title'),
       priority: 'secondary',
       icon: <Plus />,
@@ -222,6 +224,7 @@ function FinesListPage() {
     },
     {
       id: 'generate',
+      helpId: 'finance.fines.action.generate',
       label: t('generate.title'),
       priority: 'primary',
       icon: <FilePlus2 />,
