@@ -44,6 +44,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   useAcademicYears,
+  useCreateRoutine,
   useChangeRequests,
   useCopyRoutineYear,
   useCurrentUserId,
@@ -120,6 +121,7 @@ function RoutineReviewPage() {
   const currentYear = academicYearsQuery.data?.data.find((year) => year.is_current);
   const currentYearId = currentYear?.id;
   const routinesQuery = useRoutines();
+  const createRoutine = useCreateRoutine();
   const routine = routinesQuery.data?.find(
     (candidate) => candidate.academic_year_id === currentYearId,
   );
@@ -189,6 +191,24 @@ function RoutineReviewPage() {
           icon={<CalendarX2Icon aria-hidden="true" />}
           title={t('review.noRoutineTitle')}
           explanation={t('review.noRoutineExplanation')}
+          {...(canManage && currentYear
+            ? {
+                action: {
+                  label: t('review.createRoutineAction'),
+                  onClick: () =>
+                    createRoutine.mutate(
+                      {
+                        academic_year_id: currentYear.id,
+                        name: t('builder.createRoutineName', { year: currentYear.name }),
+                      },
+                      {
+                        onSuccess: () => toast.success(t('builder.createRoutineToast')),
+                        onError: () => toast.error(t('builder.createRoutineError')),
+                      },
+                    ),
+                },
+              }
+            : {})}
         />
       </PageContainer>
     );

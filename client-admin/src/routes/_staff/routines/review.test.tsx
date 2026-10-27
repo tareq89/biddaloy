@@ -232,6 +232,29 @@ describe('/routines/review', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Routine review' })).toBeTruthy();
   });
 
+  it('an admin can create the routine for the current year; a teacher sees no button', async () => {
+    mockLookups();
+    const created: string[] = [];
+    server.use(
+      http.get('/api/v1/routines', () => HttpResponse.json([])),
+      http.post('/api/v1/routines', async ({ request }) => {
+        created.push(((await request.json()) as { academic_year_id: string }).academic_year_id);
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    renderReview();
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Create routine' }));
+    await waitFor(() => expect(created).toEqual(['year-1']));
+  });
+
+  it('a teacher gets no Create routine button on the no-routine state', async () => {
+    mockLookups();
+    server.use(http.get('/api/v1/routines', () => HttpResponse.json([])));
+    renderReview('TEACHER');
+    expect(await screen.findByRole('heading', { name: 'No routine yet' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Create routine' })).toBeNull();
+  });
+
   it('a REVIEW routine offers withdraw (outline) and publish (primary), and an empty period list shows its empty state', async () => {
     mockLookups();
     mockRoutine('REVIEW', []);

@@ -426,6 +426,7 @@ export type ResolveChangeRequestInput = components['schemas']['ResolveChangeRequ
 export type RoutineSubstitution = components['schemas']['RoutineSubstitution'];
 export type UpsertSubstitutionInput = components['schemas']['UpsertSubstitutionDto'];
 export type CopyRoutineInput = components['schemas']['CopyRoutineDto'];
+export type CreateRoutineInput = components['schemas']['CreateRoutineDto'];
 
 export interface UnmappedSection {
   source_section_id: string;
@@ -476,6 +477,18 @@ export function usePublishRoutine(routineId: string) {
   return useMutation({
     mutationFn: async () => {
       const res = await apiClient.post<Routine>(`/routines/${routineId}/publish`);
+      return res.data;
+    },
+    onSuccess: () => invalidateRoutines(queryClient),
+  });
+}
+
+/** Creates the DRAFT routine for an academic year (the first routine of a school). */
+export function useCreateRoutine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateRoutineInput) => {
+      const res = await apiClient.post<Routine>('/routines', input);
       return res.data;
     },
     onSuccess: () => invalidateRoutines(queryClient),

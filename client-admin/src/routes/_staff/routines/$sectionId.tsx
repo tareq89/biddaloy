@@ -12,9 +12,8 @@
  * year, not a section — every section on that year shares one document,
  * and a slot's own `section_id` is what narrows it down. This page picks
  * the section's academic year's `PUBLISHED` routine if one exists,
- * otherwise its most-recently-created `DRAFT` (no routine-creation UI
- * exists yet in this codebase, out of this ticket's `## Files` list —
- * flagged in the PR description).
+ * otherwise its most-recently-created `DRAFT`. With neither, the empty state
+ * offers to create the year's draft routine.
  */
 import { getActiveTenant } from '@biddaloy/ui/api';
 import {
@@ -28,8 +27,10 @@ import {
   type RoutineGridCell,
 } from '@biddaloy/ui/components';
 import {
+  useAcademicYears,
   useClassSections,
   useCalendarSettings,
+  useCreateRoutine,
   useCreateRoutineSlot,
   useDeleteRoutineSlot,
   usePeriodSlots,
@@ -110,6 +111,8 @@ function RoutineBuilderPage() {
   const teachersQuery = useTeachers({});
   useWorkload(routine?.id); // warms the cache `WorkloadPanel` reads
 
+  const academicYearsQuery = useAcademicYears({});
+  const createRoutine = useCreateRoutine();
   const createSlot = useCreateRoutineSlot(routine?.id ?? '');
   const updateSlot = useUpdateRoutineSlot(routine?.id ?? '');
   const deleteSlot = useDeleteRoutineSlot(routine?.id ?? '');
@@ -203,7 +206,24 @@ function RoutineBuilderPage() {
     return problem(
       t('builder.noRoutineTitle'),
       t('builder.noRoutineExplanation'),
-      { label: t('builder.openReview'), onClick: () => void navigate({ to: '/routines/review' }) },
+      {
+        label: t('builder.createRoutineAction'),
+        onClick: () => {
+          const year =
+            academicYearsQuery.data?.data.find((y) => y.id === section.class.academic_year_id)
+              ?.name ?? '';
+          createRoutine.mutate(
+            {
+              academic_year_id: section.class.academic_year_id,
+              name: t('builder.createRoutineName', { year }),
+            },
+            {
+              onSuccess: () => toast.success(t('builder.createRoutineToast')),
+              onError: () => toast.error(t('builder.createRoutineError')),
+            },
+          );
+        },
+      },
       { name: sectionTitle },
     );
   }
