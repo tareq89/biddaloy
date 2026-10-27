@@ -23,6 +23,7 @@ import {
   toast,
 } from '@biddaloy/ui/components';
 import {
+  useCanSendInvoice,
   useHasPermission,
   useInvoiceSendCandidates,
   usePrintInvoice,
@@ -64,7 +65,7 @@ export function CheckoutSuccess({ result, studentIds }: CheckoutSuccessProps) {
   const formatLegendId = React.useId();
   const printInvoice = usePrintInvoice();
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
-  const canSend = useHasPermission(Permission.INVOICE_READ);
+  const canSend = useCanSendInvoice();
 
   const sendInvoice = useSendInvoice(result.invoice_id);
   const [pendingMedium, setPendingMedium] = React.useState<SendInvoiceMedium | null>(null);

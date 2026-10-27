@@ -112,6 +112,17 @@ describe('CheckoutSuccess', () => {
     expect(screen.queryByText('Choose a guardian')).toBeNull();
   });
 
+  it('shows no send section for OFFICE_STAFF', async () => {
+    const { localeReady } = renderWithProviders(
+      <CheckoutSuccess result={RESULT} studentIds={['student-1']} />,
+      { locale: 'en', role: 'OFFICE_STAFF', tenantId: 'tenant-1' },
+    );
+    await localeReady;
+    await screen.findByText('INV-2026-000123');
+    expect(screen.queryByRole('button', { name: 'Send via WhatsApp' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send via SMS' })).toBeNull();
+  });
+
   it('shows the out-of-credit toast on a 409 INSUFFICIENT_SMS_CREDIT send', async () => {
     const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     server.use(

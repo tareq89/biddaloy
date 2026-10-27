@@ -26,6 +26,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   invoiceQueryOptions,
+  useCanSendInvoice,
   useHasPermission,
   useInvoice,
   useInvoiceSendCandidates,
@@ -93,7 +94,7 @@ function InvoiceDetailPage() {
   const regionConfig = useRegionConfig();
   const invoiceQuery = useInvoice(invoiceId);
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
-  const canShare = useHasPermission(Permission.INVOICE_READ);
+  const canShare = useCanSendInvoice();
   const formatLegendId = React.useId();
 
   const [format, setFormat] = React.useState<InvoicePrintFormat>(
@@ -101,7 +102,7 @@ function InvoiceDetailPage() {
   );
   const printInvoice = usePrintInvoice();
 
-  const sharesQuery = useInvoiceShares(invoiceId);
+  const sharesQuery = useInvoiceShares(invoiceId, canShare);
   const shareInvoice = useShareInvoice();
   const revokeShare = useRevokeShare(invoiceId);
   const [revokeTargetId, setRevokeTargetId] = React.useState<string | null>(null);
