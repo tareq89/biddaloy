@@ -472,6 +472,7 @@ describe('/routines/$sectionId', () => {
   });
 
   it('shows the noRoutine explanation when no routine exists for the year', async () => {
+    const created: string[] = [];
     server.use(
       http.get('/api/v1/classes/11111111-1111-4111-8111-111111111111/sections', () =>
         HttpResponse.json([{ ...SECTION, enrolled_count: 40 }]),
@@ -480,6 +481,10 @@ describe('/routines/$sectionId', () => {
         HttpResponse.json({ weeklyOffDays: [5, 6], termLabel: null }),
       ),
       http.get('/api/v1/routines', () => HttpResponse.json([])),
+      http.post('/api/v1/routines', async ({ request }) => {
+        created.push(((await request.json()) as { academic_year_id: string }).academic_year_id);
+        return HttpResponse.json({}, { status: 201 });
+      }),
     );
     renderWithRouter(routeTree, {
       initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
@@ -489,7 +494,9 @@ describe('/routines/$sectionId', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'No routine yet' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open routine review' })).toBeTruthy();
+    // The one action creates the draft routine for the section's academic year.
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Create routine' }));
+    await waitFor(() => expect(created).toEqual([SECTION.class.academic_year_id]));
   });
 
   it('clears an existing cell on Delete/Backspace', async () => {

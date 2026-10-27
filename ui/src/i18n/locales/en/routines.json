@@ -152,7 +152,11 @@
     "noClassIdExplanation": "Open this page from the class routine list so we know which section it is.",
     "sectionNotFound": "Section not found.",
     "noShiftExplanation": "This class has no shift assigned yet — set one on the class before building its routine.",
-    "noRoutineExplanation": "No routine exists yet for this academic year.",
+    "noRoutineExplanation": "No routine exists yet for this academic year. Create one to start placing periods.",
+    "createRoutineAction": "Create routine",
+    "createRoutineName": "Routine {{year}}",
+    "createRoutineToast": "Routine created as a draft",
+    "createRoutineError": "Could not create the routine — try again.",
     "fillAssistAction": "Fill empty periods",
     "savedToast": "Saved",
     "saveErrorToast": "Could not save — try again.",
@@ -235,6 +239,7 @@
   "review": {
     "title": "Routine review",
     "noRoutineExplanation": "No routine exists yet for this academic year.",
+    "createRoutineAction": "Create routine",
     "notATeacherExplanation": "Your account isn't linked to a teacher, so there are no periods of yours to show.",
     "emptyExplanation": "No periods have been placed in this routine yet.",
     "error": {

@@ -152,7 +152,11 @@
     "noClassIdExplanation": "শ্রেণির রুটিনের তালিকা থেকে শাখাটি খুলুন, তাহলে বোঝা যাবে কোন শাখার রুটিন।",
     "sectionNotFound": "শাখা পাওয়া যায়নি।",
     "noShiftExplanation": "এই শ্রেণিতে এখনও কোনো শিফট নির্ধারিত নেই — রুটিন তৈরির আগে শ্রেণিতে একটি শিফট সেট করুন।",
-    "noRoutineExplanation": "এই শিক্ষাবর্ষের জন্য এখনও কোনো রুটিন নেই।",
+    "noRoutineExplanation": "এই শিক্ষাবর্ষের জন্য এখনও কোনো রুটিন নেই। পিরিয়ড বসাতে একটি তৈরি করুন।",
+    "createRoutineAction": "রুটিন তৈরি করুন",
+    "createRoutineName": "রুটিন {{year}}",
+    "createRoutineToast": "খসড়া রুটিন তৈরি হয়েছে",
+    "createRoutineError": "রুটিন তৈরি করা যায়নি — আবার চেষ্টা করুন।",
     "fillAssistAction": "খালি ঘর পূরণ করুন",
     "savedToast": "সংরক্ষিত হয়েছে",
     "saveErrorToast": "সংরক্ষণ করা যায়নি — আবার চেষ্টা করুন।",
@@ -235,6 +239,7 @@
   "review": {
     "title": "রুটিন পর্যালোচনা",
     "noRoutineExplanation": "এই শিক্ষাবর্ষের জন্য এখনও কোনো রুটিন নেই।",
+    "createRoutineAction": "রুটিন তৈরি করুন",
     "notATeacherExplanation": "আপনার অ্যাকাউন্ট কোনো শিক্ষকের সাথে যুক্ত নয়, তাই আপনার কোনো পিরিয়ড দেখানোর নেই।",
     "emptyExplanation": "এই রুটিনে এখনো কোনো পিরিয়ড বসানো হয়নি।",
     "error": {
