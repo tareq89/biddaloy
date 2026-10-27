@@ -1,4 +1,4 @@
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import {
   keepPreviousData,
   queryOptions,
@@ -14,7 +14,6 @@ import { toast } from '../components/toast';
 import { useTranslation } from '../i18n';
 import type { InvoicePrintFormat } from '../utils/invoice-print-format';
 
-import { useActiveRole } from './auth-state';
 import type { Guardian } from './guardians';
 import { useIdempotencyKey } from './idempotency-key';
 import { useHasPermission } from './permissions';
@@ -314,17 +313,10 @@ export function useInvoiceShares(id: string, enabled = true) {
   return useQuery({ ...invoiceSharesQueryOptions(id), enabled });
 }
 
-/** Whether the viewer may use the invoice Send / Share cards. The role list
- * mirrors `@Roles(ADMIN, ACCOUNTANT)` on the send/share routes in
- * `invoices.controller.ts` (SUPER_ADMIN passes every role gate); OFFICE_STAFF
- * holds `INVOICE_READ` but gets 403 there, so the cards stay hidden. */
+/** Whether the viewer may use the invoice Send / Share cards. Same
+ * `INVOICE_SEND` permission the send/share routes require server-side. */
 export function useCanSendInvoice(): boolean {
-  const canRead = useHasPermission(Permission.INVOICE_READ);
-  const role = useActiveRole();
-  return (
-    canRead &&
-    (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN || role === UserRole.ACCOUNTANT)
-  );
+  return useHasPermission(Permission.INVOICE_SEND);
 }
 
 /** #666 `DELETE /invoices/:id/share/:tokenId` — revokes a live share

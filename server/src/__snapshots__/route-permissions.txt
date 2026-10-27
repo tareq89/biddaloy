@@ -25,7 +25,7 @@ DELETE /fees/schedules/:id | RecurringSchedulesController | perm: SCHEDULE_MANAG
 DELETE /fees/schedules/:id/exclusions/:studentId | RecurringSchedulesController | perm: SCHEDULE_MANAGE
 DELETE /grading/scales/:id | GradingController | perm: GRADING_SCALE_MANAGE
 DELETE /guardians/:id | StudentController | perm: GUARDIAN_DELETE
-DELETE /invoices/:id/share/:tokenId | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
+DELETE /invoices/:id/share/:tokenId | InvoicesController | perm: INVOICE_SEND
 DELETE /me/push/subscriptions | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 DELETE /me/push/subscriptions/:id | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 DELETE /milestone-achievements/:id | MilestoneAchievementsController | perm: PROGRAM_RECORD
@@ -227,7 +227,7 @@ GET /incidents/:id | IncidentsController | perm: ACR_READ
 GET /invoices | InvoicesController | perm: INVOICE_READ
 GET /invoices/:id | InvoicesController | perm: INVOICE_READ
 GET /invoices/:id/print | InvoicesController | perm: INVOICE_READ
-GET /invoices/:id/share | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
+GET /invoices/:id/share | InvoicesController | perm: INVOICE_SEND
 GET /leave/balance | LeaveController | identity | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,SUPER_ADMIN,TEACHER
 GET /leave/policies | LeaveController | identity | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,SUPER_ADMIN,TEACHER
 GET /lesson-deliveries | LessonDeliveriesController | perm: SYLLABUS_READ
@@ -555,9 +555,9 @@ POST /homework/bulk/validate | HomeworkBulkUploadController | perm: HOMEWORK_IMP
 POST /incidents | IncidentsController | perm: ACR_WRITE
 POST /incidents/:id/withdraw | IncidentsController | perm: ACR_WRITE
 POST /invoices | InvoicesController | perm: INVOICE_CREATE
-POST /invoices/:id/send | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
-POST /invoices/:id/share | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
-POST /invoices/:id/share/regenerate | InvoicesController | perm: INVOICE_READ | roles: ACCOUNTANT,ADMIN
+POST /invoices/:id/send | InvoicesController | perm: INVOICE_SEND
+POST /invoices/:id/share | InvoicesController | perm: INVOICE_SEND
+POST /invoices/:id/share/regenerate | InvoicesController | perm: INVOICE_SEND
 POST /lesson-deliveries/extra | LessonDeliveriesController | perm: SYLLABUS_MANAGE
 POST /lesson-deliveries/today-all-taught | LessonDeliveriesController | perm: SYLLABUS_MANAGE
 POST /me/push/subscriptions | PushSubscriptionsController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER

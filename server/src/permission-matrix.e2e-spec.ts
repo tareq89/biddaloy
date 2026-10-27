@@ -566,45 +566,6 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
       ' #1364 new roles excluded on purpose: OFFICE_STAFF holds FEE_READ but billing-automation and run history are accountant/admin work (no money-moving); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
-    controller: 'InvoicesController',
-    method: 'POST',
-    path: '/invoices/:id/share',
-    reason:
-      '[#666] minting/listing/revoking a public share link is staff-only, although every role (incl. SUPER_ADMIN/PARENT/STUDENT) holds INVOICE_READ — a guardian who can read their own invoice has no business publishing an unauthenticated link to it' +
-      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'GET',
-    path: '/invoices/:id/share',
-    reason:
-      '[#666] same narrowing as POST /invoices/:id/share' +
-      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'POST',
-    path: '/invoices/:id/share/regenerate',
-    reason:
-      '[75.19-b, D9] same narrowing as POST /invoices/:id/share: regenerating kills every older link of the invoice and mints a new public one, so it is accountant/admin work.',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'DELETE',
-    path: '/invoices/:id/share/:tokenId',
-    reason:
-      '[#666] same narrowing as POST /invoices/:id/share' +
-      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'POST',
-    path: '/invoices/:id/send',
-    reason:
-      '[16.5.4] sending the receipt out (WhatsApp/SMS, spends SMS credit) is staff-only, although every role (incl. SUPER_ADMIN/PARENT/STUDENT) holds INVOICE_READ — a guardian who can read their own invoice has no business sending it to another guardian, same narrowing as POST /invoices/:id/share' +
-      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
-  },
-  {
     controller: 'StudentController',
     method: 'GET',
     path: '/students',
@@ -1332,6 +1293,7 @@ describe('Permission matrix (regression)', () => {
       Permission.INVOICE_CREATE,
       Permission.INVOICE_READ,
       Permission.INVOICE_PRINT,
+      Permission.INVOICE_SEND,
       Permission.INVOICE_DELETE,
       Permission.REPORT_COLLECTIONS_READ,
       Permission.SCHEDULE_MANAGE,
@@ -1363,6 +1325,7 @@ describe('Permission matrix (regression)', () => {
         Permission.INVOICE_CREATE,
         Permission.INVOICE_READ,
         Permission.INVOICE_PRINT,
+        Permission.INVOICE_SEND,
         Permission.REPORT_COLLECTIONS_READ,
         Permission.SCHEDULE_MANAGE,
         Permission.DISCOUNT_RULE_MANAGE,
