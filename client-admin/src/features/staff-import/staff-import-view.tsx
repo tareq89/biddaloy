@@ -41,6 +41,22 @@ export function rowErrorKey(error: { column: string | null; message: string }): 
 }
 
 /**
+ * Maps the server's English whole-file problems (the parser rejected the file)
+ * to `staffImport:fileErrors.*`, by message start like `rowErrorKey`. Anything
+ * unrecognised becomes `other`, so no server English reaches the screen.
+ * Exported for the test.
+ */
+export function fileErrorKey(message: string): string {
+  if (message.startsWith('Could not read file')) return 'unreadable';
+  if (message.startsWith('Unsupported file type')) return 'unsupportedType';
+  if (message.startsWith('Missing required columns')) return 'missingColumns';
+  if (message.startsWith('File has too many rows')) return 'tooManyRows';
+  if (message.startsWith('File contains no data rows')) return 'noRows';
+  if (message.startsWith('This file is too large')) return 'tooLarge';
+  return 'other';
+}
+
+/**
  * The staff version of the student import: sample file, column guide, upload,
  * problems, preview, "send invitations now", confirm. A component only —
  * `/staff/import` mounts it. Nothing is written until the person confirms.
@@ -60,7 +76,16 @@ export function StaffImportView() {
 
   const validate = React.useCallback(
     async (file: File, onProgress: (percent: number) => void): Promise<Result> => {
-      const result = await validateAsync({ file, onProgress });
+      let result;
+      try {
+        result = await validateAsync({ file, onProgress });
+      } catch (err) {
+        // Whole-file failures arrive as English text; show ours. The shared
+        // hook (also used by the student import) is left as it is.
+        throw new Error(t(`fileErrors.${fileErrorKey(err instanceof Error ? err.message : '')}`), {
+          cause: err,
+        });
+      }
       return {
         ...result,
         errors: result.errors.map((error) => ({
