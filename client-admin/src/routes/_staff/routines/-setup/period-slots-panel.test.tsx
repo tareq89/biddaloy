@@ -178,8 +178,9 @@ describe('PeriodSlotsPanel', () => {
     await user.click(saveButton());
 
     await waitFor(() => expect(body).not.toBeNull());
-    expect(body!.slots[0]).toMatchObject({ kind: 'BREAK', name: 'Math' });
-    expect(body!.slots[1]).toMatchObject({ kind: 'BREAK', name: 'Tiffin' });
+    // [2893] each loaded row's id goes back so the server updates in place.
+    expect(body!.slots[0]).toMatchObject({ id: 's1', kind: 'BREAK', name: 'Math' });
+    expect(body!.slots[1]).toMatchObject({ id: 's2', kind: 'BREAK', name: 'Tiffin' });
   });
 
   it.each([
@@ -232,7 +233,7 @@ describe('PeriodSlotsPanel', () => {
 
       await waitFor(() =>
         expect(errorSpy).toHaveBeenCalledWith(
-          "Periods of this shift are already placed in a routine, so their times can't be replaced. Remove those periods from the class routine first.",
+          'A period you removed or made a break is used in a routine or in lesson records. Put it back, or clear it from the class routine first.',
         ),
       );
     } finally {

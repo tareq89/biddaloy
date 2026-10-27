@@ -12,6 +12,7 @@ import {
   ArrayMinSize,
   ValidateNested,
   ValidateIf,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PeriodSlotKind } from '@biddaloy/shared';
@@ -140,6 +141,11 @@ export class QueryRoomDto {
  * `PUT .../period-slots` — the whole set is replaced in one transaction
  * (see `PeriodSlotsService.replaceForShift`), not edited row by row. */
 export class PeriodSlotItemDto {
+  /** An existing row's id: it is updated in place. No id = a new row. */
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @IsInt()
   @Min(0)
   @Max(SMALLINT_MAX)
