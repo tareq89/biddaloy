@@ -48,7 +48,10 @@ Key ideas:
 ```
 tenant:7c1e…:dash:v1:collection-month:school
 tenant:7c1e…:dash:v1:my-mark-deadlines:user:3f9a…
+tenant:7c1e…:dash:v2:collection-by-month:school
 ```
+
+The `v1` part is a per-widget version (`WIDGET_CACHE_VERSION`). When a cached payload changes shape, bump that widget's number, e.g. `collection-by-month` is `v2` since #2941.
 
 | Scope        | Used when                                                 | Example widgets               |
 | ------------ | --------------------------------------------------------- | ----------------------------- |

@@ -9,6 +9,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { ensureFeeStructure } from '@test/helpers/fee-fixture.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
+import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { TENANT_STATUS_REDIS } from '../schools/tenant-status.service';
 import {
   SEED_TENANT_ID,
@@ -146,7 +147,8 @@ describe('GET /dashboard/widgets/collection-month', () => {
         .set('X-Role', role);
       return tenantId === null ? req : req.set('X-Tenant-ID', tenantId);
     };
-    const clear = () => redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${key}:school`);
+    const clear = () =>
+      redis.del(app.get(DashboardCacheService).key(SEED_TENANT_ID, key, 'school'));
 
     afterAll(clear);
 
@@ -219,7 +221,7 @@ describe('GET /dashboard/widgets/collection-month', () => {
       const clearBoth = () =>
         Promise.all(
           [DashboardWidgetKey.COLLECTION_TODAY, DashboardWidgetKey.COLLECTION_BY_MONTH].map((k) =>
-            redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${k}:school`),
+            redis.del(app.get(DashboardCacheService).key(SEED_TENANT_ID, k, 'school')),
           ),
         );
       const setYear = (a: string, b: string) =>

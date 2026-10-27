@@ -24,6 +24,21 @@ describe('DashboardCacheService', () => {
     );
   });
 
+  it('collection-by-month is cached under v2 since its shape changed (#2941)', () => {
+    expect(service.key('t1', DashboardWidgetKey.COLLECTION_BY_MONTH, 'school')).toBe(
+      'tenant:t1:dash:v2:collection-by-month:school',
+    );
+  });
+
+  it('a miss on collection-by-month reads and writes the v2 key, never v1', async () => {
+    const k = 'tenant:t1:dash:v2:collection-by-month:school';
+    await service.getOrLoad('t1', DashboardWidgetKey.COLLECTION_BY_MONTH, 'school', async () => ({
+      n: 1,
+    }));
+    expect(redis.get).toHaveBeenCalledWith(k);
+    expect(redis.set).toHaveBeenCalledWith(k, JSON.stringify({ n: 1 }), 'EX', 60);
+  });
+
   it('hit: returns the parsed value without calling the loader', async () => {
     redis.get.mockResolvedValue(JSON.stringify({ n: 2 }));
     const load = vi.fn();
