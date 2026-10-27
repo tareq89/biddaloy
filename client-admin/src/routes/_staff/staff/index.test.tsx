@@ -417,6 +417,7 @@ describe('/staff', () => {
     await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText(/^Full name/), 'New Person');
+    await user.type(within(dialog).getByLabelText(/^Email/), 'dup@example.com');
     await user.click(within(dialog).getByRole('combobox', { name: /^Role/ }));
     await user.click(await screen.findByRole('option', { name: /^Accountant/ }));
     await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
@@ -797,7 +798,40 @@ describe('/staff', () => {
     expect(
       within(dialog).getByRole('combobox', { name: /^Role/ }).getAttribute('aria-invalid'),
     ).toBe('true');
-    expect(within(dialog).getAllByRole('alert')).toHaveLength(2);
+    // Name, role and (with no email or phone) the contact.
+    expect(within(dialog).getAllByRole('alert')).toHaveLength(3);
+  });
+
+  it('[#2864] add-user dialog asks for an email or phone and sends no request without one', async () => {
+    let posts = 0;
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+      http.post('/api/v1/users', () => {
+        posts += 1;
+        return HttpResponse.json(userResponseFactory(), { status: 201 });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^Full name/), 'New Person');
+    await user.click(within(dialog).getByRole('combobox', { name: /^Role/ }));
+    await user.click(await screen.findByRole('option', { name: /^Accountant/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
+
+    expect(
+      await within(dialog).findByText(
+        'Enter an email or a phone number so we can send the invitation.',
+      ),
+    ).toBeTruthy();
+    expect(posts).toBe(0);
   });
 
   // [13.5.9] Former members.

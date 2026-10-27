@@ -151,6 +151,11 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   );
 }
 
+// `UserService.create` refuses a passwordless user with no contact (#2864), so
+// fixtures that only care about name + role get a unique email.
+let emailCounter = 0;
+const uniqEmail = () => `fixture-${++emailCounter}-${Date.now()}@example.com`;
+
 describe('UserService (integration)', () => {
   let service: UserService;
   let userRepo: Repository<User>;
@@ -529,8 +534,14 @@ describe('UserService (integration)', () => {
   // ────────────────────────
   describe('findAll', () => {
     it('should return paginated users for a tenant', async () => {
-      await service.create({ full_name: 'User 1', role: UserRole.TEACHER }, TENANT_ID);
-      await service.create({ full_name: 'User 2', role: UserRole.ADMIN }, TENANT_ID);
+      await service.create(
+        { email: uniqEmail(), full_name: 'User 1', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await service.create(
+        { email: uniqEmail(), full_name: 'User 2', role: UserRole.ADMIN },
+        TENANT_ID,
+      );
 
       const result = await service.findAll({ page: 1, limit: 10 }, TENANT_ID);
 
@@ -539,8 +550,14 @@ describe('UserService (integration)', () => {
     });
 
     it('should filter by role', async () => {
-      await service.create({ full_name: 'Teacher A', role: UserRole.TEACHER }, TENANT_ID);
-      await service.create({ full_name: 'Admin A', role: UserRole.ADMIN }, TENANT_ID);
+      await service.create(
+        { email: uniqEmail(), full_name: 'Teacher A', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await service.create(
+        { email: uniqEmail(), full_name: 'Admin A', role: UserRole.ADMIN },
+        TENANT_ID,
+      );
 
       const result = await service.findAll(
         { role: UserRole.TEACHER, page: 1, limit: 10 },
@@ -552,8 +569,14 @@ describe('UserService (integration)', () => {
     });
 
     it('should search by full_name (case-insensitive, partial match)', async () => {
-      await service.create({ full_name: 'Rahim Uddin', role: UserRole.TEACHER }, TENANT_ID);
-      await service.create({ full_name: 'Karim Mia', role: UserRole.TEACHER }, TENANT_ID);
+      await service.create(
+        { email: uniqEmail(), full_name: 'Rahim Uddin', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await service.create(
+        { email: uniqEmail(), full_name: 'Karim Mia', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
 
       const result = await service.findAll({ search: 'rahim', page: 1, limit: 10 }, TENANT_ID);
 
@@ -562,8 +585,14 @@ describe('UserService (integration)', () => {
     });
 
     it('should treat % and _ in search as literal text, not wildcards', async () => {
-      await service.create({ full_name: 'Rahim Uddin', role: UserRole.TEACHER }, TENANT_ID);
-      await service.create({ full_name: '100% Attendance', role: UserRole.TEACHER }, TENANT_ID);
+      await service.create(
+        { email: uniqEmail(), full_name: 'Rahim Uddin', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await service.create(
+        { email: uniqEmail(), full_name: '100% Attendance', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
 
       // A bare % would match every user if unescaped.
       const percent = await service.findAll({ search: '100%', page: 1, limit: 10 }, TENANT_ID);
@@ -595,8 +624,14 @@ describe('UserService (integration)', () => {
     });
 
     it('should combine role and search filters', async () => {
-      await service.create({ full_name: 'Rahim Teacher', role: UserRole.TEACHER }, TENANT_ID);
-      await service.create({ full_name: 'Rahim Admin', role: UserRole.ADMIN }, TENANT_ID);
+      await service.create(
+        { email: uniqEmail(), full_name: 'Rahim Teacher', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await service.create(
+        { email: uniqEmail(), full_name: 'Rahim Admin', role: UserRole.ADMIN },
+        TENANT_ID,
+      );
 
       const result = await service.findAll(
         { role: UserRole.ADMIN, search: 'Rahim', page: 1, limit: 10 },
@@ -610,7 +645,10 @@ describe('UserService (integration)', () => {
     // Tenant isolation: a member of tenant A must never surface through
     // tenant B's search, even on an exact name match.
     it("should not find another tenant's member via search", async () => {
-      await service.create({ full_name: 'Hidden Member', role: UserRole.TEACHER }, OTHER_TENANT);
+      await service.create(
+        { email: uniqEmail(), full_name: 'Hidden Member', role: UserRole.TEACHER },
+        OTHER_TENANT,
+      );
 
       const result = await service.findAll({ search: 'Hidden', page: 1, limit: 10 }, TENANT_ID);
 
@@ -619,8 +657,14 @@ describe('UserService (integration)', () => {
     });
 
     it('should enforce tenant isolation', async () => {
-      await service.create({ full_name: 'Tenant 1 User', role: UserRole.TEACHER }, TENANT_ID);
-      await service.create({ full_name: 'Tenant 2 User', role: UserRole.ADMIN }, OTHER_TENANT);
+      await service.create(
+        { email: uniqEmail(), full_name: 'Tenant 1 User', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await service.create(
+        { email: uniqEmail(), full_name: 'Tenant 2 User', role: UserRole.ADMIN },
+        OTHER_TENANT,
+      );
 
       const result = await service.findAll({ page: 1, limit: 10 }, TENANT_ID);
 
@@ -658,11 +702,11 @@ describe('UserService (integration)', () => {
     // [8.14.9] status filter.
     it('should filter by status', async () => {
       const { user: active } = await service.create(
-        { full_name: 'Active User', role: UserRole.TEACHER },
+        { email: uniqEmail(), full_name: 'Active User', role: UserRole.TEACHER },
         TENANT_ID,
       );
       const { user: inactive } = await service.create(
-        { full_name: 'Inactive User', role: UserRole.TEACHER },
+        { email: uniqEmail(), full_name: 'Inactive User', role: UserRole.TEACHER },
         TENANT_ID,
       );
       await userRepo.update(inactive.id, { status: UserStatus.INACTIVE });
@@ -683,18 +727,18 @@ describe('UserService (integration)', () => {
         const authTokenRepo = dataSource.getRepository(AuthToken);
 
         const { user: activated } = await service.create(
-          { full_name: 'Activated User', role: UserRole.TEACHER },
+          { email: uniqEmail(), full_name: 'Activated User', role: UserRole.TEACHER },
           TENANT_ID,
         );
         await userRepo.update(activated.id, { password_hash: 'hash' });
 
         const { user: none } = await service.create(
-          { full_name: 'No Invite User', role: UserRole.TEACHER },
+          { email: uniqEmail(), full_name: 'No Invite User', role: UserRole.TEACHER },
           TENANT_ID,
         );
 
         const { user: pending } = await service.create(
-          { full_name: 'Pending User', role: UserRole.TEACHER },
+          { email: uniqEmail(), full_name: 'Pending User', role: UserRole.TEACHER },
           TENANT_ID,
         );
         await authTokenRepo.save(
@@ -708,7 +752,7 @@ describe('UserService (integration)', () => {
         );
 
         const { user: expired } = await service.create(
-          { full_name: 'Expired User', role: UserRole.TEACHER },
+          { email: uniqEmail(), full_name: 'Expired User', role: UserRole.TEACHER },
           TENANT_ID,
         );
         await authTokenRepo.save(
@@ -722,7 +766,7 @@ describe('UserService (integration)', () => {
         );
 
         const { user: revoked } = await service.create(
-          { full_name: 'Revoked User', role: UserRole.TEACHER },
+          { email: uniqEmail(), full_name: 'Revoked User', role: UserRole.TEACHER },
           TENANT_ID,
         );
         await authTokenRepo.save(
@@ -761,7 +805,7 @@ describe('UserService (integration)', () => {
       const authTokenRepo = dataSource.getRepository(AuthToken);
 
       const { user: shared } = await service.create(
-        { full_name: 'Shared User', role: UserRole.TEACHER },
+        { email: uniqEmail(), full_name: 'Shared User', role: UserRole.TEACHER },
         TENANT_ID,
       );
       await userTenantRepo.save(
@@ -799,11 +843,11 @@ describe('UserService (integration)', () => {
     // the "tenant-scoped staff directory" correction — not User.created_at.
     it('should filter by joined_from/joined_to over UserTenant.created_at', async () => {
       const { user: earlyJoiner } = await service.create(
-        { full_name: 'Early Joiner', role: UserRole.TEACHER },
+        { email: uniqEmail(), full_name: 'Early Joiner', role: UserRole.TEACHER },
         TENANT_ID,
       );
       const { user: lateJoiner } = await service.create(
-        { full_name: 'Late Joiner', role: UserRole.TEACHER },
+        { email: uniqEmail(), full_name: 'Late Joiner', role: UserRole.TEACHER },
         TENANT_ID,
       );
       await userTenantRepo.update(
@@ -830,7 +874,7 @@ describe('UserService (integration)', () => {
     // later that same day.
     it('includes a user who joined earlier on the joined_to date, not just before midnight', async () => {
       const { user: sameDayJoiner } = await service.create(
-        { full_name: 'Same Day Joiner', role: UserRole.TEACHER },
+        { email: uniqEmail(), full_name: 'Same Day Joiner', role: UserRole.TEACHER },
         TENANT_ID,
       );
       await userTenantRepo.update(
@@ -852,7 +896,7 @@ describe('UserService (integration)', () => {
     // global (not tenant-scoped).
     it('should not leak a user who joined another tenant via joined_from/joined_to', async () => {
       const { user: otherTenantUser } = await service.create(
-        { full_name: 'Other Tenant User', role: UserRole.TEACHER },
+        { email: uniqEmail(), full_name: 'Other Tenant User', role: UserRole.TEACHER },
         OTHER_TENANT,
       );
       await userTenantRepo.update(
@@ -870,8 +914,14 @@ describe('UserService (integration)', () => {
     });
 
     it('should sort by full_name using the Bengali collation', async () => {
-      await service.create({ full_name: 'Zebra User', role: UserRole.TEACHER }, TENANT_ID);
-      await service.create({ full_name: 'Apple User', role: UserRole.TEACHER }, TENANT_ID);
+      await service.create(
+        { email: uniqEmail(), full_name: 'Zebra User', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
+      await service.create(
+        { email: uniqEmail(), full_name: 'Apple User', role: UserRole.TEACHER },
+        TENANT_ID,
+      );
 
       const result = await service.findAll(
         { sort: 'full_name', order: 'asc', page: 1, limit: 10 },
@@ -895,7 +945,12 @@ describe('UserService (integration)', () => {
     const readPrefs = async (id: string) =>
       (await dataSource.query(`SELECT preferences FROM users WHERE id = $1`, [id]))[0].preferences;
     const mkUser = async (name: string) =>
-      (await service.create({ full_name: name, role: UserRole.TEACHER }, TENANT_ID)).user;
+      (
+        await service.create(
+          { email: uniqEmail(), full_name: name, role: UserRole.TEACHER },
+          TENANT_ID,
+        )
+      ).user;
 
     it('PATCH keeps sibling preference keys and sets mutedCategories', async () => {
       const user = await mkUser('P One');
@@ -983,7 +1038,7 @@ describe('UserService (integration)', () => {
 
     it('should throw NotFoundException when user is soft-deleted', async () => {
       const { user } = await service.create(
-        { full_name: 'Delete Me', role: UserRole.TEACHER },
+        { email: uniqEmail(), full_name: 'Delete Me', role: UserRole.TEACHER },
         TENANT_ID,
       );
 
@@ -1218,7 +1273,7 @@ describe('UserService (integration)', () => {
 
     it('should update user full_name', async () => {
       const { user } = await service.create(
-        { full_name: 'Original Name', role: UserRole.ADMIN },
+        { email: uniqEmail(), full_name: 'Original Name', role: UserRole.ADMIN },
         TENANT_ID,
       );
 
@@ -1811,7 +1866,7 @@ describe('UserService (integration)', () => {
   describe('remove', () => {
     it('should remove the tenant membership without soft-deleting the global user', async () => {
       const { user } = await service.create(
-        { full_name: 'Delete Me', role: UserRole.TEACHER },
+        { email: uniqEmail(), full_name: 'Delete Me', role: UserRole.TEACHER },
         TENANT_ID,
       );
 
@@ -1836,7 +1891,7 @@ describe('UserService (integration)', () => {
     // school, even if the UI check is bypassed.
     it('should reject self-removal even when the route id is uppercased', async () => {
       const { user } = await service.create(
-        { full_name: 'Case Insensitive Self', role: UserRole.ADMIN },
+        { email: uniqEmail(), full_name: 'Case Insensitive Self', role: UserRole.ADMIN },
         TENANT_ID,
       );
 
@@ -1847,7 +1902,7 @@ describe('UserService (integration)', () => {
 
     it('should reject self-removal with BadRequestException and keep the membership', async () => {
       const { user } = await service.create(
-        { full_name: 'Self Admin', role: UserRole.ADMIN },
+        { email: uniqEmail(), full_name: 'Self Admin', role: UserRole.ADMIN },
         TENANT_ID,
       );
 
@@ -1876,7 +1931,12 @@ describe('UserService (integration)', () => {
     const readPrefs = async (id: string) =>
       (await dataSource.query(`SELECT preferences FROM users WHERE id = $1`, [id]))[0].preferences;
     const mkUser = async (name: string) =>
-      (await service.create({ full_name: name, role: UserRole.TEACHER }, TENANT_ID)).user;
+      (
+        await service.create(
+          { email: uniqEmail(), full_name: name, role: UserRole.TEACHER },
+          TENANT_ID,
+        )
+      ).user;
 
     it('saves into empty (NULL) preferences', async () => {
       const user = await mkUser('Dash One');
@@ -1983,7 +2043,12 @@ describe('UserService (integration)', () => {
     const readPrefs = async (id: string) =>
       (await dataSource.query(`SELECT preferences FROM users WHERE id = $1`, [id]))[0].preferences;
     const mkUser = async (name: string) =>
-      (await service.create({ full_name: name, role: UserRole.TEACHER }, TENANT_ID)).user;
+      (
+        await service.create(
+          { email: uniqEmail(), full_name: name, role: UserRole.TEACHER },
+          TENANT_ID,
+        )
+      ).user;
 
     it('saves into NULL preferences', async () => {
       const user = await mkUser('Digest One');
