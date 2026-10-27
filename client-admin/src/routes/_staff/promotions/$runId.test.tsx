@@ -486,6 +486,38 @@ describe('/promotions/$runId', () => {
     expect(screen.queryByText(/OVER_CAPACITY/)).toBeNull();
   });
 
+  it('shows and blocks on a placement problem of a saved Promote override (#2926)', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    server.use(
+      http.get(RUN_URL, () =>
+        HttpResponse.json(
+          baseRun({
+            entries: [
+              entry({
+                suggested_outcome: 'RETAIN',
+                final_outcome: 'PROMOTE',
+                is_override: true,
+                override_note: 'Parents asked',
+                placement_error: 'OVER_CAPACITY',
+                target_section_id: null,
+              }),
+            ],
+          }),
+        ),
+      ),
+    );
+    renderRun();
+
+    expect(await screen.findByText('No room in any section')).toBeTruthy();
+    await user.click(await screen.findByRole('button', { name: /Finalise/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Fix every placement error before finalising.')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Finalise' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+  });
+
   it('the Finalise button carries no shortcut text and Delete asks before deleting', async () => {
     const user = userEvent.setup();
     stubCommon();
