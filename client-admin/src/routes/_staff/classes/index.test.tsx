@@ -10,7 +10,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -22,6 +22,29 @@ import { routeTree } from '../../../routeTree.gen';
 describe('/classes', () => {
   afterEach(async () => {
     await cleanupTestState();
+  });
+
+  it('shows a (?) after the Add header action [44.3.04]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(
+      classHandlers.vocabularyPopulated,
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Classes' });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(document.querySelector('[data-help-id="academics.classes.action.add"]')).not.toBeNull();
+    vi.unstubAllEnvs();
   });
 
   it('lists classes, with grade/sections/students columns', async () => {

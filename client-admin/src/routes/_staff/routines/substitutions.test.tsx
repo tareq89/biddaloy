@@ -4,7 +4,7 @@ import { formatDate } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -140,6 +140,18 @@ function render(entry = '/routines/substitutions') {
 }
 
 describe('/routines/substitutions', () => {
+  it('shows a (?) after the Add header action [44.3.04]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    mockBaseData();
+    server.use(http.get('/api/v1/routines/substitutions', () => HttpResponse.json([])));
+    render();
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(
+      document.querySelector('[data-help-id="academics.routineSubstitutions.action.add"]'),
+    ).not.toBeNull();
+    vi.unstubAllEnvs();
+  });
+
   it('joins each record to its period, shows a status badge, and has no native select or date input', async () => {
     mockBaseData();
     server.use(

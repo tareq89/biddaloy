@@ -1,6 +1,7 @@
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  HelpHint,
   ConfirmDialog,
   EmptyState,
   ErrorState,
@@ -135,7 +136,7 @@ function SectionTeachersPanel({
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-h3">{section.section_name}</h3>
         {canManage && (
-          <Button
+          <span className="inline-flex items-center gap-1"><Button
             type="button"
             variant="outline"
             onClick={onAssign}
@@ -143,7 +144,7 @@ function SectionTeachersPanel({
           >
             <UserPlusIcon aria-hidden="true" />
             {t('detail.teachers.assign')}
-          </Button>
+          </Button><HelpHint helpId="academics.classes.action.assignTeacher" /></span>
         )}
       </div>
 

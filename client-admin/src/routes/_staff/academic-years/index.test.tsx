@@ -8,7 +8,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 import { pickDate } from '../../../test/pick-date';
@@ -22,6 +22,25 @@ import { pickDate } from '../../../test/pick-date';
 describe('/academic-years', () => {
   afterEach(async () => {
     await cleanupTestState();
+  });
+
+  it('shows a (?) after the Add header action [44.3.04]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academic-years'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Academic Years' });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(document.querySelector('[data-help-id="academics.academicYears.action.add"]')).not.toBeNull();
+    vi.unstubAllEnvs();
   });
 
   it('lists academic years with a Current badge on the one marked current', async () => {

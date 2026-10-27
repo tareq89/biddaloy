@@ -124,6 +124,7 @@ function ClassDetailPage() {
           },
           {
             id: 'delete',
+            helpId: 'academics.classes.action.delete',
             label: t('list.delete'),
             icon: <Trash2Icon aria-hidden="true" />,
             onClick: () => setDeleteOpen(true),

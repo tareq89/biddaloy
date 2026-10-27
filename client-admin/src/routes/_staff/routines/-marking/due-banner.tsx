@@ -1,5 +1,5 @@
 /** [66.3.01] D34: warns about earlier days still unreported, before escalation. */
-import { Button } from '@biddaloy/ui/components';
+import { Button, HelpHint } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, formatWeekday } from '@biddaloy/ui/utils';
 import { TriangleAlertIcon } from 'lucide-react';
@@ -44,7 +44,7 @@ export function DueBanner({ due, today, onReport }: DueBannerProps) {
           <p className="text-body">{body}</p>
         </div>
       </div>
-      <Button
+      <span className="inline-flex items-center gap-1"><Button
         variant="outline"
         className="h-14 w-full bg-surface text-text-primary md:h-11 md:w-fit"
         onClick={() => onReport(oldest)}
@@ -52,7 +52,7 @@ export function DueBanner({ due, today, onReport }: DueBannerProps) {
         {yesterday
           ? t('marking.due.action')
           : t('marking.due.actionDay', { weekday: formatWeekday(oldest, config) })}
-      </Button>
+      </Button><HelpHint helpId="academics.myRoutine.action.reportPast" /></span>
     </div>
   );
 }

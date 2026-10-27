@@ -16,6 +16,7 @@ import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  HelpHint,
   ConfirmDialog,
   DatePicker,
   Dialog,
@@ -132,7 +133,7 @@ export function TermsTab({ academicYearId }: TermsTabProps) {
               <p className="mt-0.5 text-text-secondary">{t('detail.terms.subtitle')}</p>
             </div>
             {canManage && (
-              <Button
+              <span className="inline-flex items-center gap-1"><Button
                 type="button"
                 variant="outline"
                 className="w-full md:w-auto"
@@ -140,7 +141,7 @@ export function TermsTab({ academicYearId }: TermsTabProps) {
               >
                 <PlusIcon aria-hidden="true" />
                 {t('detail.terms.addTerm')}
-              </Button>
+              </Button><HelpHint helpId="academics.academicYears.action.addTerm" /></span>
             )}
           </div>
 
