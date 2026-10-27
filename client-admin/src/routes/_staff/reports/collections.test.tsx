@@ -15,6 +15,7 @@ import { resolvePresetRange } from './collections';
  * `attendance/reports.test.tsx` documents for itself. */
 describe('/reports/collections', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -68,7 +69,6 @@ describe('/reports/collections', () => {
     expect(
       document.querySelector('[data-help-id="reports.collectionsReport.action.downloadCsv"]'),
     ).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('renders with a payment present', async () => {

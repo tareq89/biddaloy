@@ -21,6 +21,7 @@ import { routeTree } from '../../../routeTree.gen';
  */
 describe('/classes', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -44,7 +45,6 @@ describe('/classes', () => {
     await screen.findByRole('heading', { name: 'Classes' });
     await screen.findAllByRole('button', { name: /^Help:/ });
     expect(document.querySelector('[data-help-id="academics.classes.action.add"]')).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('lists classes, with grade/sections/students columns', async () => {

@@ -18,6 +18,7 @@ import { routeTree } from '../../../routeTree.gen';
  */
 describe('/guardians', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -70,7 +71,6 @@ describe('/guardians', () => {
     expect(
       document.querySelector('[data-help-id="people.guardians.action.invite"]'),
     ).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('shows a placeholder for a guardian with no students linked yet', async () => {

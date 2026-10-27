@@ -85,6 +85,7 @@ async function fillBasicSmsMessage(user: ReturnType<typeof userEvent.setup>) {
 
 describe('/communications/send', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -147,7 +148,6 @@ describe('/communications/send', () => {
     expect(
       document.querySelector('[data-help-id="communications.sendMessage.action.send"]'),
     ).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('keeps Send disabled until a guardian is picked', async () => {

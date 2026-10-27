@@ -387,7 +387,6 @@ function StudentDetailPage() {
               },
               {
                 id: 'send-reminder',
-                helpId: 'people.students.action.sendReminder',
                 label: t('detail.actions.sendReminder'),
                 icon: <SendIcon />,
                 allowed: canSendReminder,
@@ -396,7 +395,6 @@ function StudentDetailPage() {
               },
               {
                 id: 'print-id-card',
-                helpId: 'people.students.action.printIdCard',
                 label: t('detail.actions.printIdCard'),
                 icon: <IdCardIcon />,
                 allowed: canPrint,
@@ -414,7 +412,6 @@ function StudentDetailPage() {
               },
               {
                 id: 'delete',
-                helpId: 'people.students.action.delete',
                 label: t('detail.actions.delete'),
                 icon: <Trash2Icon />,
                 allowed: canDelete,

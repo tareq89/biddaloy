@@ -291,7 +291,6 @@ function RoutineReviewPage() {
     ? [
         {
           id: 'copy',
-          helpId: 'academics.routineReview.action.copyYear',
           label: t('review.copyYearAction'),
           icon: <CopyIcon />,
           priority: published ? 'secondary' : 'tertiary',

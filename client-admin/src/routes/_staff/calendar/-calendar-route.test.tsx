@@ -94,6 +94,7 @@ describe('/calendar', () => {
     mockCalendar();
   });
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -117,7 +118,6 @@ describe('/calendar', () => {
     expect(
       document.querySelector('[data-help-id="people.calendar.action.addEvent"]'),
     ).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('labels the month with the month name and year, not "2026-10"', async () => {

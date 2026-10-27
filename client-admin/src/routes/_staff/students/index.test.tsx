@@ -26,6 +26,7 @@ import { routeTree } from '../../../routeTree.gen';
  */
 describe('/students', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -427,7 +428,6 @@ describe('/students', () => {
     await screen.findByRole('region', { name: 'Students' });
     await screen.findAllByRole('button', { name: /^Help:/ });
     expect(document.querySelector('[data-help-id="people.students.action.add"]')).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('merges class and section into one column, with view/edit/pay row actions and one primary header button', async () => {

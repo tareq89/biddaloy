@@ -41,6 +41,7 @@ describe('/staff', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -55,7 +56,6 @@ describe('/staff', () => {
     });
     await screen.findAllByRole('button', { name: /^Help:/ });
     expect(document.querySelector('[data-help-id="people.staff.action.add"]')).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('lists users with name, email, phone, role, status, and joined date', async () => {

@@ -593,6 +593,7 @@ function SingleReminderForm() {
                 <Button
                   type="button"
                   variant={previewMatchesInputs ? 'outline' : 'default'}
+                  className="flex-1 md:flex-none"
                   disabled={!canPreview}
                   loading={preview.isPending}
                   onClick={handlePreview}
@@ -638,6 +639,7 @@ function SingleReminderForm() {
                   <span className="inline-flex items-center gap-1">
                     <Button
                       type="button"
+                      className="flex-1 md:flex-none"
                       disabled={!canSend}
                       loading={send.isPending}
                       onClick={handleSend}

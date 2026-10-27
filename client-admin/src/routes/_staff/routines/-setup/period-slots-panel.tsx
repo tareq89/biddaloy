@@ -501,6 +501,7 @@ export function PeriodSlotsPanel({
                 <span className="inline-flex items-center gap-1">
                   <Button
                     type="button"
+                    className="flex-1 md:flex-none"
                     onClick={handleSave}
                     disabled={!ready || hasErrors}
                     loading={replaceSlots.isPending}

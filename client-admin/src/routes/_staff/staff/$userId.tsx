@@ -320,7 +320,6 @@ function StaffDetailPage() {
               },
               {
                 id: 'remove',
-                helpId: 'people.staff.action.remove',
                 label: t('detail.actions.remove'),
                 icon: <CircleMinusIcon />,
                 allowed: canRemove,

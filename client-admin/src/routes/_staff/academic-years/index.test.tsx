@@ -21,6 +21,7 @@ import { pickDate } from '../../../test/pick-date';
  */
 describe('/academic-years', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -42,7 +43,6 @@ describe('/academic-years', () => {
     expect(
       document.querySelector('[data-help-id="academics.academicYears.action.add"]'),
     ).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('lists academic years with a Current badge on the one marked current', async () => {

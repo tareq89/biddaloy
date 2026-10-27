@@ -187,7 +187,6 @@ function ProgramDetailPage() {
           },
           {
             id: 'archive',
-            helpId: 'people.programs.action.archive',
             label: program.is_active ? t('formDialog.archive') : t('formDialog.unarchive'),
             icon: program.is_active ? <ArchiveIcon /> : <ArchiveRestoreIcon />,
             priority: 'tertiary',
@@ -197,7 +196,6 @@ function ProgramDetailPage() {
           },
           {
             id: 'delete',
-            helpId: 'people.programs.action.delete',
             label: t('formDialog.delete'),
             icon: <Trash2Icon />,
             priority: 'destructive',

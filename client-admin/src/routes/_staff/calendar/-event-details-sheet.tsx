@@ -111,7 +111,7 @@ export function EventDetailsSheet({
                   <Button
                     type="button"
                     variant="outline"
-                    className="text-destructive"
+                    className="flex-1 text-destructive md:flex-none"
                     onClick={() => setConfirmOpen(true)}
                   >
                     <Trash2Icon aria-hidden="true" />
@@ -122,7 +122,12 @@ export function EventDetailsSheet({
               )}
               {!event.published && (
                 <span className="inline-flex items-center gap-1">
-                  <Button type="button" variant="outline" onClick={onPublish}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 md:flex-none"
+                    onClick={onPublish}
+                  >
                     {t('eventDetails.publish')}
                   </Button>
                   <HelpHint helpId="people.calendar.action.publish" />

@@ -420,7 +420,7 @@ function SendMessageBody() {
 
           <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:justify-end">
             <span className="inline-flex items-center gap-1">
-              <Button type="submit" disabled={!canSend}>
+              <Button type="submit" className="flex-1 md:flex-none" disabled={!canSend}>
                 <SendIcon aria-hidden />
                 {t('send.submit')}
               </Button>

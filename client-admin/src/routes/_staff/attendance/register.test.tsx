@@ -57,6 +57,7 @@ const pinEnglishRegion = http.get('/api/v1/schools/:schoolId/settings', () =>
 
 describe('/attendance/register', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -73,7 +74,6 @@ describe('/attendance/register', () => {
     expect(
       document.querySelector('[data-help-id="attendance.attendanceRegister.action.print"]'),
     ).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('prompts for a section instead of fetching anything when none is selected', async () => {

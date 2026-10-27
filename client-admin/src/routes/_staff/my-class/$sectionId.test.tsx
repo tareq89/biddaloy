@@ -121,6 +121,7 @@ function render(entry = '/my-class/section-1') {
 
 describe('/my-class/$sectionId', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -133,7 +134,6 @@ describe('/my-class/$sectionId', () => {
     expect(
       document.querySelector('[data-help-id="academics.myClass.action.takeAttendance"]'),
     ).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('renders all six cards and focuses the attendance button first', async () => {

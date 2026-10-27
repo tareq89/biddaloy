@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../../../routeTree.gen';
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await cleanupTestState();
 });
 
@@ -149,7 +150,6 @@ describe('/routines/substitutions', () => {
     expect(
       document.querySelector('[data-help-id="academics.routineSubstitutions.action.add"]'),
     ).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('joins each record to its period, shows a status badge, and has no native select or date input', async () => {

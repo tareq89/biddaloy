@@ -15,6 +15,7 @@ import { routeTree } from '../../../../routeTree.gen';
 
 describe('/academics/homework', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -39,7 +40,6 @@ describe('/academics/homework', () => {
     expect(
       document.querySelector('[data-help-id="academics.homework.action.assign"]'),
     ).not.toBeNull();
-    vi.unstubAllEnvs();
   });
 
   it('renders rows with subject/class names resolved from /classes and /subjects', async () => {
