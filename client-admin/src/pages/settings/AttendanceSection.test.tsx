@@ -78,6 +78,21 @@ describe('AttendanceSection', () => {
     expect(isChecked(screen.getByLabelText('Mon'))).toBe(false);
   });
 
+  it('falls back to the server defaults when there is no saved attendance slice', async () => {
+    renderWithProviders(
+      <WithTestRouter>
+        <AttendanceSection schoolId={SCHOOL_ID} attendance={undefined} />
+      </WithTestRouter>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    expect(inputValue(await screen.findByLabelText('Correction window (days)'))).toBe('2');
+    expect(inputValue(screen.getByLabelText('Late after'))).toBe('8:15 AM');
+    expect(isChecked(screen.getByLabelText('Fri'))).toBe(true);
+    expect(isChecked(screen.getByLabelText('Sun'))).toBe(false);
+    expect(isChecked(screen.getByLabelText('Sat'))).toBe(false);
+  });
+
   it('shows the off-day hint', async () => {
     renderWithProviders(
       <WithTestRouter>
