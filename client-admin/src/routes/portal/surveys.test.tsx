@@ -50,8 +50,8 @@ afterEach(async () => {
 
 describe('/portal/surveys', () => {
   it.each([
-    [true, 'Your answer is hidden from management.', 'Your name will be shown'],
-    [false, 'Your name will be shown with your answer.', 'hidden from management'],
+    [true, 'Your answer is hidden from management.', 'name will be shown'],
+    [false, 'Management sees answers only as totals and comments.', 'hidden from management'],
   ])('label matches the survey flag (anonymous=%s)', async (anonymous, shown, notShown) => {
     server.use(http.get('/api/v1/surveys/mine', () => HttpResponse.json([survey(anonymous)])));
     render();
