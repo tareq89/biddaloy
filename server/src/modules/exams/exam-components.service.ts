@@ -411,8 +411,6 @@ export class ExamComponentsService {
       where: { id: In(dto.target_subject_ids), tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (targetSubjects.length !== dto.target_subject_ids.length) {
-      const found = new Set(targetSubjects.map((s) => s.id));
-      const missing = dto.target_subject_ids.filter((id) => !found.has(id));
       throw new BadRequestException('One or more subjects not found for this tenant');
     }
 

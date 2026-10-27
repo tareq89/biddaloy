@@ -133,7 +133,7 @@ export class ProvisioningService {
     const owner = `${IN_PROGRESS_PREFIX}${randomUUID()}`;
     const reserved = await this.redis.set(key, owner, 'EX', RESERVATION_TTL_SECONDS, 'NX');
     if (reserved !== 'OK') {
-      return { result: await this.awaitStoredResult(key, dto.idempotency_key), replayed: true };
+      return { result: await this.awaitStoredResult(key), replayed: true };
     }
 
     // Keep the lease alive for as long as this request is actually working
@@ -282,7 +282,7 @@ export class ProvisioningService {
    * a result — replay it) or it is still inside its transaction (poll a
    * little, then give up with a 409 the client can simply retry).
    */
-  private async awaitStoredResult(key: string, idempotencyKey: string): Promise<ProvisionResult> {
+  private async awaitStoredResult(key: string): Promise<ProvisionResult> {
     for (let attempt = 0; attempt < IN_PROGRESS_POLL_ATTEMPTS; attempt += 1) {
       const stored = await this.redis.get(key);
       if (stored === null) {

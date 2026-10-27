@@ -899,8 +899,6 @@ export class FeeGenerationService {
       },
     });
     if (fetchedStructures.length !== new Set(dto.fee_structure_ids).size) {
-      const foundIds = new Set(fetchedStructures.map((s) => s.id));
-      const missing = dto.fee_structure_ids.filter((id) => !foundIds.has(id));
       throw new NotFoundException('One or more fee structures not found for this academic year');
     }
     // `find({ where: { id: In(...) } })` gives no ordering guarantee —
@@ -927,8 +925,6 @@ export class FeeGenerationService {
       ...(opts.lockStudents ? { lock: { mode: 'pessimistic_read' as const } } : {}),
     });
     if (students.length !== new Set(studentIds).size) {
-      const foundIds = new Set(students.map((s) => s.id));
-      const missing = studentIds.filter((id) => !foundIds.has(id));
       throw new NotFoundException('One or more student IDs not found');
     }
 

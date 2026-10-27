@@ -182,7 +182,7 @@ describe('SubstitutionDialog', () => {
         HttpResponse.json(
           {
             statusCode: 422,
-            message: 'Routine slot "slot-1" does not occur on 2026-02-02',
+            message: 'This routine slot does not occur on 2026-02-02',
             requestId: 'req-1',
             details: { code: 'SLOT_NOT_ON_DATE' },
           },

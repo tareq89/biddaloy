@@ -252,12 +252,12 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
       toast.success(t(andPublish ? 'surveys.form.published' : 'surveys.form.saved'));
       onDone();
     } catch (e) {
-      // ponytail: matches server message text (surveys.service.ts:96,103); switch to an error
+      // ponytail: matches server message text (surveys.service.ts, #3000 fixed text); switch to an error
       // code when the API sends one. Never render the raw message (it carries UUIDs).
       const msg = e instanceof ApiError ? (e.message ?? '') : '';
       if (msg.startsWith('Duplicate survey target')) {
         setTargetsServerError(t('surveys.form.errorDuplicateTarget'));
-      } else if (/is not assigned to subject/.test(msg)) {
+      } else if (msg.startsWith('A chosen teacher is not assigned')) {
         setTargetsServerError(t('surveys.form.errorNotAssigned'));
       } else {
         toast.error(t('surveys.form.errorMessage'));

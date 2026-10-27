@@ -276,8 +276,7 @@ describe('survey form page submit', () => {
         HttpResponse.json(
           {
             statusCode: 400,
-            message:
-              'Teacher 7c43a1de-0000-4000-8000-000000000000 is not assigned to subject 11111111-0000-4000-8000-000000000000',
+            message: 'A chosen teacher is not assigned to the chosen subject',
             timestamp: 't',
             path: '/',
             requestId: 'r',
