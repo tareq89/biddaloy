@@ -122,9 +122,11 @@ export interface HelpHintProps {
   size?: 'sm' | 'md';
   /** Extra classes on the (?) button (e.g. hide it with the button it follows). */
   className?: string | undefined;
+  /** Names the (?) instead of the guide page title, when several share one page (a widget's title). */
+  label?: string | undefined;
 }
 
-export function HelpHint({ helpId, size = 'sm', className }: HelpHintProps) {
+export function HelpHint({ helpId, size = 'sm', className, label }: HelpHintProps) {
   const { resolve } = useHelp();
   const help = resolve(helpId);
   if (!help) return null;
@@ -132,7 +134,13 @@ export function HelpHint({ helpId, size = 'sm', className }: HelpHintProps) {
   // and a slow load never blanks the page around it.
   return (
     <React.Suspense fallback={null}>
-      <HelpButton help={help} helpId={helpId} size={size} className={className} />
+      <HelpButton
+        help={help}
+        helpId={helpId}
+        size={size}
+        className={className}
+        label={label ?? help.title}
+      />
     </React.Suspense>
   );
 }
@@ -146,11 +154,13 @@ function HelpButton({
   helpId,
   size,
   className,
+  label,
 }: {
   help: ResolvedHelp;
   helpId: string | null | undefined;
   size: 'sm' | 'md';
   className: string | undefined;
+  label: string;
 }) {
   const { t } = useTranslation('helpHint');
   // Separate call (not `useTranslation(['helpHint', field.ns])`): check-i18n-keys.mjs
@@ -193,7 +203,7 @@ function HelpButton({
         <button
           type="button"
           data-help-id={helpId}
-          aria-label={t('ariaLabel', { title: help.title })}
+          aria-label={t('ariaLabel', { title: label })}
           className={cn(
             'inline-flex shrink-0 items-center justify-center rounded-full text-text-secondary outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
             size === 'md' ? 'size-11 md:size-8' : 'size-11 md:size-6',

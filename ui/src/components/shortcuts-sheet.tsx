@@ -21,6 +21,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 export interface ShortcutsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Lists F1 only when it opens something: this page has a guide (E4). */
+  showHelpShortcut?: boolean | undefined;
 }
 
 interface ShortcutRow {
@@ -43,14 +45,13 @@ const ROWS: readonly ShortcutRow[] = [
   { keys: ['Esc'], labelKey: 'close' },
 ];
 
-/** Own component so `helpHint` loads only while the sheet is open, never suspending the launcher. */
-function HelpRowLabel({ labelKey }: { labelKey: string }) {
-  const { t: tHelp } = useTranslation('helpHint');
-  return <>{tHelp(labelKey)}</>;
-}
-
-export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
+export function ShortcutsSheet({
+  open,
+  onOpenChange,
+  showHelpShortcut = false,
+}: ShortcutsSheetProps) {
   const { t } = useTranslation('common');
+  const rows = showHelpShortcut ? ROWS : ROWS.filter((row) => row.keys[0] !== 'F1');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -60,7 +61,7 @@ export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
           <DialogDescription>{t('shortcuts.description')}</DialogDescription>
         </DialogHeader>
         <dl className="flex flex-col gap-2">
-          {ROWS.map((row) => (
+          {rows.map((row) => (
             <div key={row.labelKey} className="flex items-center justify-between gap-4 text-sm">
               <dt className="text-muted-foreground">
                 {row.ns ? (
@@ -87,4 +88,10 @@ export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
       </DialogContent>
     </Dialog>
   );
+}
+
+/** Own component so `helpHint` loads only while the sheet is open, never suspending the launcher. */
+function HelpRowLabel({ labelKey }: { labelKey: string }) {
+  const { t: tHelp } = useTranslation('helpHint');
+  return <>{tHelp(labelKey)}</>;
 }

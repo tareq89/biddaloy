@@ -71,7 +71,8 @@ export function WidgetCard({
 }: WidgetCardProps) {
   const id = React.useId();
   const ctxHelpId = React.useContext(WidgetHelpContext);
-  const helpEl = <HelpHint size="sm" helpId={helpId ?? ctxHelpId} />;
+  // Labelled with the card title: every widget shares one guide page, so its title would repeat (WCAG 2.4.6).
+  const helpEl = <HelpHint size="sm" helpId={helpId ?? ctxHelpId} label={title} />;
   const [inner, setInner] = React.useState(defaultExpanded ?? false);
   const open = expanded ?? inner;
   const Heading: 'h2' | 'h3' = headingLevel === 3 ? 'h3' : 'h2';

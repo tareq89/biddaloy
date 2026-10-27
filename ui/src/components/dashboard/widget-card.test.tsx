@@ -181,7 +181,8 @@ describe('WidgetCard help (E23)', () => {
         <WidgetCard {...base} variant={variant} />
       </WidgetHelpContext.Provider>,
     );
-    const btn = await screen.findByRole('button', { name: 'Help: Attendance' });
+    // Named by the card title, not the shared guide page title (F10, WCAG 2.4.6).
+    const btn = await screen.findByRole('button', { name: 'Help: Student attendance' });
     expect(btn.getAttribute('data-help-id')).toBe('widget.x');
   });
 
@@ -200,7 +201,8 @@ describe('WidgetCard help (E23)', () => {
         <WidgetCard {...base} helpId="widget.y" />
       </WidgetHelpContext.Provider>,
     );
-    expect(await screen.findByRole('button', { name: 'Help: Other' })).toBeTruthy();
+    const btn = await screen.findByRole('button', { name: 'Help: Student attendance' });
+    expect(btn.getAttribute('data-help-id')).toBe('widget.y');
   });
 
   it('is axe clean with the (?)', async () => {
@@ -212,7 +214,7 @@ describe('WidgetCard help (E23)', () => {
         menu={<MenuItem>Export</MenuItem>}
       />,
     );
-    await screen.findByRole('button', { name: 'Help: Attendance' });
+    await screen.findByRole('button', { name: 'Help: Student attendance' });
     await expect(container).toHaveNoViolations();
   });
 });

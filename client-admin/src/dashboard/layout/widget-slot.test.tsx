@@ -172,7 +172,7 @@ describe('WidgetSlot', () => {
       </HelpProvider>,
       { locale: 'en' },
     );
-    const btn = await screen.findByRole('button', { name: 'Help: Upcoming' });
+    const btn = await screen.findByRole('button', { name: `Help: ${OK}` });
     expect(btn.getAttribute('data-help-id')).toBe('widget.upcoming');
   });
 });

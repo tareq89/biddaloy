@@ -65,6 +65,7 @@ import {
 } from '../nav-tree';
 
 const SEARCH_DEBOUNCE_MS = 300;
+const HELP_ACTION_ID = 'help.thisPage';
 
 /** [31.3.1] Page-only mode for the portal and platform shells: their own pages, no People/Action tab, no `/search` call. */
 export interface PaletteLauncherPage {
@@ -99,8 +100,6 @@ export function CommandPaletteLauncher({
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
   const peopleResults = usePaletteSearch(pages ? '' : debouncedQuery);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
-  const helpHrefRef = React.useRef(helpHref);
-  helpHrefRef.current = helpHref;
 
   // [30.1.3]'s `nav-tree.ts` uses `useEntityLabel` for the same fixed,
   // known-at-build-time set of entity nouns `_staff.tsx` resolves its
@@ -155,12 +154,26 @@ export function CommandPaletteLauncher({
       const target = event.target as HTMLElement | null;
       const isTypingTarget =
         target !== null &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
       // [44.2.01] F1 opens this page's guide in a new tab (E8, D21); inert without one.
-      if (event.key === 'F1' && !isTypingTarget) {
-        if (helpHrefRef.current === null) return;
+      // Plain F1 only: no modifier combos, and holding the key opens one tab, not one per repeat.
+      if (event.key === 'F1') {
+        if (
+          isTypingTarget ||
+          helpHref === null ||
+          event.repeat ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.altKey ||
+          event.shiftKey
+        ) {
+          return;
+        }
         event.preventDefault();
-        window.open(helpHrefRef.current, '_blank', 'noopener');
+        window.open(helpHref, '_blank', 'noopener');
         return;
       }
       if (
@@ -176,7 +189,7 @@ export function CommandPaletteLauncher({
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [helpHref]);
 
   // Closing always starts the next open on a blank query — same
   // reasoning as the old launcher.
@@ -248,11 +261,25 @@ export function CommandPaletteLauncher({
   const trimmedQuery = query.trim().toLowerCase();
   const pageGroups = React.useMemo<GlobalSearchGroup[]>(() => {
     if (pages) {
-      // Portal / platform palettes have no Action tab, so the demo switch rides along as a page.
-      const demoLabel = DEMO_SWITCH_ROLE_ACTION.label[i18n.language.startsWith('bn') ? 'bn' : 'en'];
-      const listed = demo.enabled
-        ? [...pages, { id: DEMO_SWITCH_ROLE_ACTION.id, label: demoLabel, to: '/login' }]
-        : pages;
+      // Portal / platform palettes have no Action tab, so the demo switch and this page's
+      // help ride along as pages. `handleSelect` intercepts both ids before navigating.
+      const locale = i18n.language.startsWith('bn') ? 'bn' : 'en';
+      const helpLabel = ACTIONS.find((action) => action.id === HELP_ACTION_ID)?.label[locale];
+      const listed = [
+        ...pages,
+        ...(demo.enabled
+          ? [
+              {
+                id: DEMO_SWITCH_ROLE_ACTION.id,
+                label: DEMO_SWITCH_ROLE_ACTION.label[locale],
+                to: '/login',
+              },
+            ]
+          : []),
+        ...(helpHref !== null && helpLabel
+          ? [{ id: HELP_ACTION_ID, label: helpLabel, to: helpHref }]
+          : []),
+      ];
       return [
         {
           id: 'pages',
@@ -286,7 +313,7 @@ export function CommandPaletteLauncher({
       })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery, activeRole, i18n.language, pages, demo.enabled]);
+  }, [trimmedQuery, activeRole, i18n.language, pages, demo.enabled, helpHref]);
 
   // Action tab — `ACTIONS` (30.4.2), one section per nav group. Hidden when
   // the role lacks the permission; *disabled with a reason* (not hidden) when
@@ -327,7 +354,7 @@ export function CommandPaletteLauncher({
             (action) =>
               action.group === 'top' &&
               (action.permission === null || hasPermission(activeRole, action.permission)) &&
-              (action.id !== 'help.thisPage' || helpHref !== null) &&
+              (action.id !== HELP_ACTION_ID || helpHref !== null) &&
               (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
               action.label[locale].toLowerCase().includes(trimmedQuery),
           )
@@ -402,6 +429,11 @@ export function CommandPaletteLauncher({
       void signOutToLogin();
       return;
     }
+    // A portal page row or a staff action; either way an external tab, never a navigate.
+    if (resultId === HELP_ACTION_ID) {
+      if (helpHref !== null) window.open(helpHref, '_blank', 'noopener');
+      return;
+    }
     if (tabId === 'page') {
       const item = pageGroups.flatMap((g) => g.results).find((result) => result.id === resultId);
       if (item?.description) void navigate({ to: item.description });
@@ -463,7 +495,11 @@ export function CommandPaletteLauncher({
             : t('commandPalette.resultCountPlural', { count })
         }
       />
-      <ShortcutsSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <ShortcutsSheet
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+        showHelpShortcut={helpHref !== null}
+      />
     </>
   );
 }

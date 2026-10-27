@@ -1,3 +1,4 @@
+import { HelpProvider } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -446,8 +447,8 @@ describe('CommandPaletteLauncher', () => {
       vi.unstubAllEnvs();
     });
 
-    async function setup(path: string) {
-      vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.example/docs');
+    async function setup(path: string, handbook = 'https://guide.example/docs') {
+      vi.stubEnv('VITE_HANDBOOK_URL', handbook);
       visibleLaunchers();
       const open = vi.spyOn(window, 'open').mockReturnValue(null);
       renderWithRouter(routeTree, {
@@ -466,6 +467,70 @@ describe('CommandPaletteLauncher', () => {
       expect(open).toHaveBeenCalledTimes(1);
       expect(String(open.mock.calls[0]?.[0]).startsWith(HREF)).toBe(true);
       expect(open.mock.calls[0]?.slice(1)).toEqual(['_blank', 'noopener']);
+    });
+
+    it('F1 with a modifier does nothing', async () => {
+      const { open, user } = await setup('/students');
+      await user.keyboard('{Shift>}{F1}{/Shift}{Control>}{F1}{/Control}');
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it('the shortcuts sheet lists F1 only when the page has a guide', async () => {
+      const { user } = await setup('/students');
+      await user.keyboard('?');
+      expect(await screen.findByText('Open help for this page')).toBeTruthy();
+    });
+
+    it('without a handbook URL, F1 does nothing and the sheet omits it', async () => {
+      const { open, user } = await setup('/students', '');
+      await user.keyboard('{F1}');
+      expect(open).not.toHaveBeenCalled();
+      await user.keyboard('?');
+      expect(await screen.findByText('Open command palette')).toBeTruthy();
+      expect(screen.queryByText('Open help for this page')).toBeNull();
+    });
+
+    it('the portal (page-only) palette lists Help for this page and opens the guide', async () => {
+      const open = vi.spyOn(window, 'open').mockReturnValue(null);
+      const rootRoute = createRootRoute();
+      const tree = rootRoute.addChildren([
+        createRoute({
+          getParentRoute: () => rootRoute,
+          path: '/',
+          component: () => (
+            <HelpProvider
+              lang="en"
+              baseUrl="https://guide.example/docs"
+              pageId="portal.fees"
+              index={{
+                'portal.fees': {
+                  title: { bn: 'ফি', en: 'Fees' },
+                  summary: { bn: 's', en: 's' },
+                  path: 'portal/fees',
+                  anchor: '',
+                  knownIssues: 0,
+                },
+              }}
+            >
+              <CommandPaletteLauncher pages={[{ id: 'fees', label: 'Fees page', to: '/fees' }]} />
+            </HelpProvider>
+          ),
+        }),
+      ]);
+      const { router } = renderWithRouter(tree, {
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Search (Ctrl+K)' }));
+      await user.click(await screen.findByRole('option', { name: /Help for this page/ }));
+      expect(open).toHaveBeenCalledWith(
+        'https://guide.example/docs/en/portal/fees',
+        '_blank',
+        'noopener',
+      );
+      expect(router.state.location.pathname).toBe('/');
     });
 
     it('F1 inside an input does nothing', async () => {

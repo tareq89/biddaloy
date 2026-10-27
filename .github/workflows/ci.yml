@@ -1000,6 +1000,8 @@ jobs:
       S3_ALLOW_INSECURE_HTTP: 'true'
       S3_FORCE_PATH_STYLE: 'true'
       E2E_BROWSERS: chromium
+      # [44.2.03] Build the sweeps' client-admin like the e2e job's, (?) included.
+      VITE_HANDBOOK_URL: https://schoolmanagerp.gitbook.io/schoolmanagerp-docs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
