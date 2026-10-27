@@ -865,3 +865,19 @@ knows it was a decision, not an oversight.
 **Staff attendance is a separate model, not an extension of this one** —
 no shared tables, no shared code, just the same status enum reused. See
 [18-staff-attendance-leave.md](18-staff-attendance-leave.md).
+
+## Learnings
+
+- **2026-10-28 · Epic 84 W1 — a new tenant setting is three edits, not one.**
+  Surprise: the ticket pointed at `attendance-policy.util.ts`, but that file only
+  reads `settings.attendance`; the default lives in
+  `schools/settings/tenant-settings-defaults.ts`, and a `PATCH /settings` body is
+  rejected unless `AttendancePolicyDto` knows the key. Cost: a setting that
+  resolved fine but could not be saved from the UI. Fix: default + DTO +
+  regenerated `schema.d.ts` together. Rule candidate: a settings ticket lists the
+  defaults file and the DTO, not the policy util.
+- **2026-10-28 · Epic 84 W1 — migration prefixes collide across open epics.**
+  Surprise: `1791900000500` was already taken by Epic 86/87 branches that had not
+  merged. Cost: two migrations with one timestamp would order unpredictably.
+  Fix: took the max prefix across `origin/main` and every open `epic/*` branch
+  (`1791900000700`). Rule candidate: check all remote branches, not just `main`.

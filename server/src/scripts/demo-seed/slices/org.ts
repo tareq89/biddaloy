@@ -293,7 +293,13 @@ export const slice: DemoSlice = {
           status: SchoolStatus.ACTIVE,
           trial_ends_at: null, // the trial job must never touch the demo
           onboarding: { finished_at: stamp.toISOString() },
-          settings: { attendance: { periodAttendance: { enabled: true } } },
+          settings: {
+            attendance: {
+              periodAttendance: { enabled: true },
+              // [84.1.4] D43: SMS arrival notices on in the first branch only.
+              arrivalNotice: { enabled: true, smsAllowed: i === 0 },
+            },
+          },
         }),
       ),
     );

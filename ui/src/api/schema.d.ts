@@ -11567,6 +11567,10 @@ export interface components {
         PeriodAttendanceDto: {
             enabled: boolean;
         };
+        ArrivalNoticeDto: {
+            enabled: boolean;
+            smsAllowed: boolean;
+        };
         AttendancePolicyDto: {
             readonly weeklyOffHistory?: {
                 /** Format: date */
@@ -11587,6 +11591,7 @@ export interface components {
             shiftTimes?: components["schemas"]["ShiftTimeDto"][];
             specialTimings?: components["schemas"]["SpecialTimingDto"][];
             periodAttendance?: components["schemas"]["PeriodAttendanceDto"];
+            arrivalNotice?: components["schemas"]["ArrivalNoticeDto"];
         };
         RoutineSettingsDto: {
             defaultChangeoverMinutes: number;
