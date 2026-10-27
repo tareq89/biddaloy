@@ -16,6 +16,9 @@ export const SUPPORTED_PLACEHOLDERS = [
   'date',
   'section_name',
   'school_name',
+  // [84.1.3] arrival-notice placeholders.
+  'time',
+  'taken_by',
 ] as const;
 
 export type SupportedPlaceholder = (typeof SUPPORTED_PLACEHOLDERS)[number];

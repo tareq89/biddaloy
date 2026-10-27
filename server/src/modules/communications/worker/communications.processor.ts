@@ -81,7 +81,19 @@ export class CommunicationsProcessor extends WorkerHost {
    * exactly as it did before this method existed.
    */
   private async tryPushFirst(job: Job<SendJobData>, log: CommunicationLog): Promise<boolean> {
-    if (log.trigger !== CommunicationTrigger.AUTOMATED || !log.guardian_id) {
+    if (log.trigger !== CommunicationTrigger.AUTOMATED) {
+      return false;
+    }
+    return this.pushToGuardian(job, log);
+  }
+
+  /**
+   * The push attempt itself, shared by `tryPushFirst` (AUTOMATED, falls
+   * through to SMS on false) and the [84.1.3] arrival branch (push only,
+   * false = FAILED). Same contract as `tryPushFirst`'s return value.
+   */
+  private async pushToGuardian(job: Job<SendJobData>, log: CommunicationLog): Promise<boolean> {
+    if (!log.guardian_id) {
       return false;
     }
 
@@ -333,7 +345,25 @@ export class CommunicationsProcessor extends WorkerHost {
       return;
     }
 
-    if (await this.tryPushFirst(job, log)) {
+    // [84.1.3] An arrival notice goes by exactly the channel its row says:
+    // PUSH = push only (no device = FAILED, never SMS), SMS = no push attempt.
+    if (log.trigger === CommunicationTrigger.ARRIVAL_NOTICE) {
+      if (log.medium === PUSH_MEDIUM) {
+        if (!(await this.pushToGuardian(job, log))) {
+          log.status = CommunicationStatus.FAILED;
+          log.metadata = { ...log.metadata, reason: 'NO_PUSH_DEVICE' };
+          await this.settle(log, 'failure');
+        }
+        return;
+      }
+      if (log.medium !== CommunicationMedium.SMS) {
+        log.status = CommunicationStatus.FAILED;
+        log.metadata = { ...log.metadata, reason: 'ARRIVAL_MEDIUM' };
+        await this.settle(log, 'failure');
+        return;
+      }
+      // SMS: fall through to the reservation backstop and provider dispatch.
+    } else if (await this.tryPushFirst(job, log)) {
       return;
     }
 
