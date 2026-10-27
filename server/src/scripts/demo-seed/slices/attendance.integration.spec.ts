@@ -262,4 +262,44 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
     );
     expect(Number(staffPct)).toBeGreaterThan(94);
   }, 120_000);
+
+  it('seeds 15 arrival-notice subscriptions over 3 branches (D43)', async () => {
+    const count = async (where: string) =>
+      Number(
+        (await q(`SELECT count(*) AS n FROM arrival_notice_subscriptions WHERE ${where}`))[0].n,
+      );
+    expect(await count('true')).toBe(15);
+    expect(await count(`mode = 'RECURRING' AND status = 'ACTIVE' AND lock = 'NONE'`)).toBe(6);
+    expect(await count(`mode = 'ONCE' AND status = 'ACTIVE'`)).toBe(2);
+    expect(await count(`mode = 'ONCE' AND status = 'OFF' AND consumed_at IS NOT NULL`)).toBe(2);
+    expect(await count(`status = 'REQUESTED'`)).toBe(2);
+    expect(
+      await count(`lock = 'ALWAYS' AND status = 'ACTIVE' AND locked_by_user_id IS NOT NULL`),
+    ).toBe(1);
+    expect(await count(`lock = 'NEVER' AND status = 'OFF' AND locked_by_user_id IS NOT NULL`)).toBe(
+      1,
+    );
+    expect(await count(`channel = 'PUSH'`)).toBe(10);
+    expect(await count(`channel = 'SMS'`)).toBe(5);
+    // SMS only in the smsAllowed branch.
+    const sms = await q(
+      `SELECT DISTINCT s.settings->'attendance'->'arrivalNotice'->>'smsAllowed' AS ok
+         FROM arrival_notice_subscriptions a JOIN schools s ON s.id = a.tenant_id
+        WHERE a.channel = 'SMS'`,
+    );
+    expect(sms).toEqual([{ ok: 'true' }]);
+    const branches = await q(`SELECT DISTINCT tenant_id FROM arrival_notice_subscriptions`);
+    expect(branches).toHaveLength(3);
+    // The class-teacher card's section owns exactly the 2 REQUESTED rows.
+    const card = DEMO_CARDS.find((c) => c.key === 'class-teacher-8a')!;
+    const own = await q(
+      `SELECT DISTINCT a.status FROM arrival_notice_subscriptions a
+         JOIN enrollments e ON e.student_id = a.student_id
+         JOIN teacher_class_sections tcs ON tcs.section_id = e.section_id AND tcs.assignment_type = 'CLASS_TEACHER'
+         JOIN teachers t ON t.id = tcs.teacher_id JOIN users u ON u.id = t.user_id
+        WHERE u.email = $1 AND a.status = 'REQUESTED'`,
+      [card.email],
+    );
+    expect(own).toHaveLength(1);
+  }, 120_000);
 });

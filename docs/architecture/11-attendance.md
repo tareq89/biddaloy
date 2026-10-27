@@ -881,3 +881,14 @@ no shared tables, no shared code, just the same status enum reused. See
   merged. Cost: two migrations with one timestamp would order unpredictably.
   Fix: took the max prefix across `origin/main` and every open `epic/*` branch
   (`1791900000700`). Rule candidate: check all remote branches, not just `main`.
+- **2026-10-28 · Epic 84 W2 — a new entity needs a demo-seed slice `covers` entry.**
+  Surprise: `arrival_notice_subscriptions` was in neither a slice's `covers` nor
+  `EXEMPT`, so the coverage spec's check (a) failed. Cost: a red W2 close for a
+  table nobody had seeded. Fix: seed it in `slices/attendance.ts` and add the
+  entity to that slice's `covers`. Rule candidate: a table ticket lists the slice
+  file, not just the migration.
+- **2026-10-28 · Epic 84 W2 — one write hook, one `Idempotency-Key` per attempt.**
+  Surprise: the ticket said "clone students.ts", but the key-per-attempt pattern
+  lives in `useIdempotencyKey` (see `reminders.ts`). Cost: a copied hook would
+  have replayed an old key for a different body. Fix: `keyFor(body)` per mutation
+  and `retry: false`. Rule candidate: new write hooks copy `reminders.ts`.
