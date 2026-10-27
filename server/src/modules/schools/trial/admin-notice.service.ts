@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { resolveTemplateLocale } from '../../account-access/account-access-templates';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import {
@@ -38,7 +39,7 @@ export class AdminNoticeService {
   ): Promise<void> {
     const school = await this.schools.findOne({ where: { id: schoolId } });
     if (!school) return;
-    const locale: NoticeLocale = school.settings?.region?.locale === 'bn' ? 'bn' : 'en';
+    const locale: NoticeLocale = resolveTemplateLocale(school.settings?.region?.locale);
     const { subject, body } = renderNotice(key, locale, { ...vars, school: school.name });
 
     const admins = await this.memberships.find({

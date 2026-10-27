@@ -85,4 +85,18 @@ describe('AdminNoticeService (integration)', () => {
     );
     expect(logs).toEqual([{ recipient_address: admin, status: 'SENT', tenant_id: a }]);
   });
+
+  it('renders bn for the stored region locale bn-BD, and en for en-BD (#3041)', async () => {
+    send.mockClear();
+    const bn = await school('bn-BD');
+    const en = await school('en-BD');
+    await member(bn, UserRole.ADMIN, UserStatus.ACTIVE, 'admin-bn');
+    await member(en, UserRole.ADMIN, UserStatus.ACTIVE, 'admin-en');
+
+    await svc.notifyAdmins(bn, 'welcome');
+    await svc.notifyAdmins(en, 'welcome');
+
+    expect(send.mock.calls[0][0].body).toContain('স্বাগতম');
+    expect(send.mock.calls[1][0].body).not.toContain('স্বাগতম');
+  });
 });
