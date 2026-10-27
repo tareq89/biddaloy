@@ -394,7 +394,7 @@ function PromotionRunPage() {
       setOutcome(entry, 'RETAIN');
       return;
     }
-    if (key === 'g' || key === 'G') {
+    if ((key === 'g' || key === 'G') && run?.target_class_id === null) {
       event.preventDefault();
       setOutcome(entry, 'GRADUATE');
       return;
@@ -750,9 +750,10 @@ function PromotionRunPage() {
                                   }}
                                 >
                                   {(Object.keys(OUTCOME_KEY) as PromotionOutcome[])
-                                    .filter(
-                                      (outcome) =>
-                                        outcome !== 'CONDITIONAL' || run.target_class_id !== null,
+                                    .filter((outcome) =>
+                                      outcome === 'CONDITIONAL'
+                                        ? run.target_class_id !== null
+                                        : outcome !== 'GRADUATE' || run.target_class_id === null,
                                     )
                                     .map((outcome) => (
                                       <SelectItem key={outcome} value={outcome}>

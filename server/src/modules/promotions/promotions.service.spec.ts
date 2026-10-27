@@ -217,6 +217,38 @@ describe('PromotionsService (unit)', () => {
       expect(err.getResponse().details.code).toBe('CONDITIONAL_NOT_FOR_GRADUATION');
     });
 
+    it('refuses GRADUATE on a run with a target class (GRADUATE_ONLY_IN_GRADUATION_RUN)', async () => {
+      patchWith(
+        {
+          id: 'run-1',
+          status: PromotionRunStatus.DRAFT,
+          tenant_id: TENANT_ID,
+          target_class_id: 'class-2',
+        },
+        {
+          student_id: 's1',
+          suggested_outcome: PromotionOutcome.PROMOTE,
+          final_outcome: PromotionOutcome.PROMOTE,
+        },
+      );
+      const err = await service
+        .patchEntries(
+          'run-1',
+          [
+            {
+              student_id: 's1',
+              final_outcome: PromotionOutcome.GRADUATE,
+              override_note: 'Leaving',
+            },
+          ],
+          TENANT_ID,
+          'user-1',
+        )
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(UnprocessableEntityException);
+      expect(err.getResponse().details.code).toBe('GRADUATE_ONLY_IN_GRADUATION_RUN');
+    });
+
     it('CONDITIONAL without a note -> 422', async () => {
       patchWith(
         {

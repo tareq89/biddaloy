@@ -561,6 +561,12 @@ export class PromotionsService {
               details: { code: 'CONDITIONAL_NOT_FOR_GRADUATION' },
             });
           }
+          if (finalOutcome === PromotionOutcome.GRADUATE && run.target_class_id !== null) {
+            throw new UnprocessableEntityException({
+              message: 'Only a graduation run can graduate students.',
+              details: { code: 'GRADUATE_ONLY_IN_GRADUATION_RUN' },
+            });
+          }
           const isOverride = finalOutcome !== entry.suggested_outcome;
           const overrideNote = patch.override_note ?? (isOverride ? entry.override_note : null);
           if (isOverride && (!overrideNote || overrideNote.trim().length === 0)) {
