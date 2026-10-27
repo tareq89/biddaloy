@@ -70,7 +70,7 @@ export function BulkImportErrorTable({
     {
       id: 'message',
       header: t('errors.columnMessage'),
-      accessorFn: (error) => error.message,
+      accessorFn: (error) => messageOf(error),
     },
     {
       id: 'severity',
@@ -78,6 +78,12 @@ export function BulkImportErrorTable({
       accessorFn: (error) => t(`errors.severity.${error.severity}`),
     },
   ];
+
+  function messageOf(error: BulkImportError): string {
+    return error.code
+      ? t(`errors.codes.${error.code}`, { defaultValue: error.message })
+      : error.message;
+  }
 
   function exportErrorsToCsv() {
     const header = [
@@ -95,7 +101,7 @@ export function BulkImportErrorTable({
         ...(showTab ? [error.tab ?? ''] : []),
         error.column ?? '',
         error.value ?? '',
-        error.message,
+        messageOf(error),
         t(`errors.severity.${error.severity}`),
       ]),
     ]);

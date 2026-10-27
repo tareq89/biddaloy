@@ -28,6 +28,18 @@
     "severity": {
       "error": "Error",
       "warning": "Warning"
+    },
+    "codes": {
+      "MISSING_FIELD": "This cell is empty but required.",
+      "INVALID_DATE": "This is not a valid date. Use YYYY-MM-DD.",
+      "SECTION_AMBIGUOUS": "This class and section match more than one section. Rename one of the classes.",
+      "CLASS_NOT_FOUND": "No class with this name.",
+      "SECTION_NOT_FOUND": "No section with this name in this class.",
+      "SUBJECT_AMBIGUOUS": "More than one subject has this name. Use a unique name.",
+      "SUBJECT_NOT_FOUND": "No subject with this name.",
+      "DUE_BEFORE_ASSIGNED": "The due date is before the assigned date.",
+      "NO_ACCESS": "You do not have access to this class, section and subject.",
+      "ROW_INVALID": "This row is not valid."
     }
   }
 }
