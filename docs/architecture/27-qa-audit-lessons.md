@@ -243,3 +243,10 @@ Wave 0 (#2979): five security fixes found while writing the user guide.
 - 2026-10-27 — #2871: `bulkAdd` ran outside one transaction; the audit record and notification still use their own connections, so a rollback does not undo them.
 - 2026-10-27 — #2872: the test went into `-calendar-route.test.tsx`, which already has the fixed-date route harness, not the file the ticket named.
 - 2026-10-27 — a worker-added prop (`today`) on `GovernmentHolidaysDialog` broke two existing renders; type-check, not tests, would have caught it. `tsc` is unusable in worktrees until the ui `.tsout` is built.
+
+### Wave 3 — routines (#2982)
+
+- 2026-10-27 — #2898 and #2891 both change who sees routine slots in REVIEW. #2898's body named `resolve-routine.service.ts`, but an earlier fix had moved the rule into `routine-visibility.ts`; it was changed there once so resolve and slots agree. Rule candidate: before a ticket edits a rule, grep for a shared helper that now owns it.
+- 2026-10-27 — #2892 added a route, so `ROLE_NARROWINGS` in `permission-matrix.e2e-spec.ts` also needed an entry; the ticket named only the two route snapshots.
+- 2026-10-27 — #2895 logs its audit entry under `RoutineSlot` because `RoutineSubstitution` is not in the shared audit entity catalog. Follow-up: add it.
+- 2026-10-27 — #2893 changed period slots to update in place; changing a time now also changes it on past days. Versioned period times are out of scope.
