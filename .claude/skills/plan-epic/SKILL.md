@@ -111,8 +111,18 @@ Invoke the `grilling` skill on the input. Constraints on top of it:
 
 Before Phase 1 ends, run one round on UX using
 `docs/architecture/15-ux-principles.md` and `docs/architecture/21-ui-patterns.md`
-(read both in Phase 0 whenever the epic has a screen). Ask, with a recommendation each:
+(read both in Phase 0 whenever the epic has a screen). **UX is the highest
+priority of every epic with a screen:** a school office worker or guardian must
+finish the main job without help, on the first try, in plain words. A design that
+is technically clean but needs training is not done. Ask, with a recommendation each:
 
+0. **Easiest path first** — name the main job in one sentence the user would say
+   ("see how many students by class"), then the shortest path to it (ideally: open
+   → answer already shown, or two clicks from a screen they already use). That path
+   is built in the earliest wave that has screens; power features (blank-page
+   builders, multi-step wizards, advanced options) come later, behind it. Prefer
+   starting from something ready (a template, a copy, the current list's filters)
+   over starting blank, and good defaults over questions.
 1. **Placement** — where does each screen live in the nav tree (§3), and which
    detail tabs / sub-items does it add? Nothing new is top-level without a job.
 2. **Keyboard path** — the primary task, mouse-free, from nav to done.
@@ -127,6 +137,13 @@ Before Phase 1 ends, run one round on UX using
 
 7. **User guide** — which guide pages (`docs/user-guide/{bn,en}`) change, and
    which fields need (?) help text (i18n `help.*` keys).
+8. **Plain words** — the Bangla-first glossary for the epic: every term a user
+   sees, with the Bangla word, the English word and the jargon it replaces. No
+   developer or BI terms on screen (entity, dimension, measure, payload, sync…).
+   Errors say what to do, next to the control that caused them.
+9. **Usability test** — 3–5 real tasks in the user's own words, who tests them
+   (2–3 real school staff or guardians, not developers), and the targets
+   (done unaided; a time per task). Mockups are fixed until they pass.
 
 Write the answers into `## UX requirements` (see Phase 5). Skip the round only
 for epics with no UI, and say so in the epic body.
@@ -200,7 +217,8 @@ exists? Push the answer into a decision (either "new, because `<X>`" or
 ## Decisions                                 ← D1–Dn, final, one line each
 ## Invariants
 ## Screens                                   ← only if UI; which shell / pattern each screen reuses
-## UX requirements       ← per screen: tree path, keyboard path, palette actions, breadcrumb, empty/error states, phone layout (15-ux-principles §8)
+## Usability test        ← tasks, participants, targets, the test ticket, which screen tickets wait for it
+## UX requirements       ← easiest path first, then per screen: tree path, keyboard path, palette actions, breadcrumb, empty/error states, phone layout (15-ux-principles §8)
 ## Backup & restore coverage ← entities added → workbook tab + round-trip test + seed rows, and the ticket that does it
 ## User guide coverage    ← feature → guide page (bn+en) → ticket; removed features → page removed (docs/architecture/25-user-guide.md)
 ## Demo seed coverage     ← every table/column added or changed → which demo-seed slice covers it (or DEMO_SEED_EXEMPT + reason), and the ticket (docs/architecture/22-demo-seed.md)
@@ -256,6 +274,13 @@ Slicing rules — these are what make `implement-epic` run without conflicts:
 - **Money-tier tickets** (migrations, fees/invoices/reports/auth internals,
   anything that deletes or bulk-mutates tenant data) get their own line in
   the epic's *Review tier overrides* so nobody has to infer it later.
+- **Every epic with a new or reworked screen carries a usability-test ticket**
+  in a wave before its first screen ticket: clickable mockups from the kit, the
+  UX-round tasks run with 2–3 real users, findings and glossary written to
+  `docs/ux-research/<epic>-*.md`, mockups fixed until every task passes unaided.
+  Every screen ticket depends on it and has an acceptance line naming the task it
+  must pass on the built screen. Tickets that render user-visible text also
+  assert that no glossary "never say" term appears.
 - **A ticket with a screen carries a mockup** built from the kit in
   `.claude/skills/redesign-page/` (steps 3–5 of that skill): desktop 1440 px and
   phone 390 px screenshots in the body, and steps that say "use `<X>` from
@@ -332,6 +357,10 @@ which is on GitHub.
 - Never plan a table or column without its demo-seed slice ticket (or a
   `DEMO_SEED_EXEMPT` reason) and its line in **Demo seed coverage**.
 - Never create issues before Phase 4 is done — editing forty bodies after a
+- Never plan a screen whose main job takes more than a few clicks when a shorter
+  path exists, and never build the power-user path before the easy one.
+- Never write an epic with a screen without the usability-test ticket and its
+  glossary.
 - Never write an epic with a screen without the UX round and the three UX/coverage
   sections; never add a route, entity or action without the registry guard that
   would catch it missing (`15-ux-principles.md` §2). A new screen may be wrong; it
