@@ -234,6 +234,35 @@ describe('/attendance/$sectionId', () => {
     expect(toastSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('sends finalize: true when the register is submitted', async () => {
+    let body: { finalize?: boolean } | null = null;
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(registerBody()),
+      ),
+      http.put('/api/v1/attendance/sections/section-1/register', async ({ request }) => {
+        body = (await request.json()) as { finalize?: boolean };
+        return HttpResponse.json({}, { status: 500 });
+      }),
+    );
+    vi.spyOn(toast, 'error').mockImplementation(() => '');
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByText('Rafi Ahmed'));
+    await user.click(screen.getByText('Nusrat Jahan'));
+    await user.click(screen.getByRole('button', { name: 'Submit attendance' }));
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body!.finalize).toBe(true);
+  });
+
   it('shows an error state with Retry when the register fails to load', async () => {
     server.use(
       http.get('/api/v1/attendance/sections/section-1/register', () =>
