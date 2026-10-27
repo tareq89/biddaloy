@@ -507,9 +507,9 @@
       "title_other": "{{count}} periods from yesterday not reported",
       "titleSince_one": "{{count}} period not reported since {{date}}",
       "titleSince_other": "{{count}} periods not reported since {{date}}",
-      "escalated": "The head teacher and admin have been told.",
-      "escalation_one": "If they are still not reported after {{count}} more school day, the head teacher and admin are told.",
-      "escalation_other": "If they are still not reported after {{count}} more school days, the head teacher and admin are told.",
+      "escalated": "The academic coordinator and admin have been told.",
+      "escalation_one": "If they are still not reported after {{count}} more school day, the academic coordinator and admin are told.",
+      "escalation_other": "If they are still not reported after {{count}} more school days, the academic coordinator and admin are told.",
       "action": "Report yesterday's periods",
       "actionDay": "Report {{weekday}}'s periods"
     },
