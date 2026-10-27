@@ -4,7 +4,7 @@
  * behind ACR_READ by `$userId.tsx`.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, DataTable, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import { Button, DataTable, HelpHint, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import {
   useAcademicYears,
   useAcrStaffHistory,
@@ -103,10 +103,13 @@ export function AcrTab({ userId }: AcrTabProps) {
       <div className="flex flex-wrap items-center justify-between gap-2 p-4 md:px-5">
         <h2 className="text-h2">{t('acr.history.title')}</h2>
         {canWrite && (
-          <Button type="button" variant="outline" onClick={() => setStartOpen(true)}>
-            <PlusIcon aria-hidden="true" />
-            {t('acr.start')}
-          </Button>
+          <span className="inline-flex items-center gap-1">
+            <Button type="button" variant="outline" onClick={() => setStartOpen(true)}>
+              <PlusIcon aria-hidden="true" />
+              {t('acr.start')}
+            </Button>
+            <HelpHint helpId="people.evaluations.action.startAcr" />
+          </span>
         )}
       </div>
       <TabQueryState
