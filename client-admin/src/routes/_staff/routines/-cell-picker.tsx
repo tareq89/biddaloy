@@ -78,6 +78,11 @@ export interface CellPickerProps {
   timeLabel?: string | undefined;
 }
 
+/** Exactly what the server accepts (`routine-slots.dto.ts`): BIWEEKLY 0|1,
+ * MONTHLY the 1st-5th occurrence or -1 for the last. */
+const BIWEEKLY_OFFSETS = [0, 1];
+const MONTHLY_OFFSETS = [1, 2, 3, 4, 5, -1];
+
 const RECURRENCE_LABEL = {
   WEEKLY: 'cellPicker.recurrenceWeekly',
   BIWEEKLY: 'cellPicker.recurrenceBiweekly',
@@ -265,7 +270,7 @@ export function CellPicker({
               value={recurrence}
               onValueChange={(value) => {
                 setRecurrence(value as SlotRecurrenceValue);
-                setRecurrenceOffset(0);
+                setRecurrenceOffset(value === 'MONTHLY' ? 1 : 0);
               }}
             >
               {(['WEEKLY', 'BIWEEKLY', 'MONTHLY'] as const).map((value) => (
@@ -291,19 +296,23 @@ export function CellPicker({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(recurrence === 'BIWEEKLY' ? [0, 1] : [0, 1, 2, 3]).map((offset) => (
-                      <SelectItem key={offset} value={String(offset)}>
-                        {recurrence === 'BIWEEKLY'
-                          ? t(
-                              offset === 0
-                                ? 'cellPicker.recurrenceWeekA'
-                                : 'cellPicker.recurrenceWeekB',
-                            )
-                          : t('cellPicker.recurrenceOccurrence', {
-                              n: formatNumber(offset + 1, config),
-                            })}
-                      </SelectItem>
-                    ))}
+                    {(recurrence === 'BIWEEKLY' ? BIWEEKLY_OFFSETS : MONTHLY_OFFSETS).map(
+                      (offset) => (
+                        <SelectItem key={offset} value={String(offset)}>
+                          {recurrence === 'BIWEEKLY'
+                            ? t(
+                                offset === 0
+                                  ? 'cellPicker.recurrenceWeekA'
+                                  : 'cellPicker.recurrenceWeekB',
+                              )
+                            : offset === -1
+                              ? t('cellPicker.recurrenceLast')
+                              : t('cellPicker.recurrenceOccurrence', {
+                                  n: formatNumber(offset, config),
+                                })}
+                        </SelectItem>
+                      ),
+                    )}
                   </SelectContent>
                 </Select>
               </div>

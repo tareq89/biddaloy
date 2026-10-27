@@ -204,7 +204,8 @@
     "recurrenceOccurrence": "Occurrence {{n}}",
     "cancel": "Cancel",
     "save": "Save",
-    "cellLabel": "{{day}} · {{period}} · {{time}}"
+    "cellLabel": "{{day}} · {{period}} · {{time}}",
+    "recurrenceLast": "Last"
   },
   "conflictList": {
     "violationsTitle": "This can't be saved",
