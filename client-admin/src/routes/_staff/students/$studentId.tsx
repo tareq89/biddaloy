@@ -138,6 +138,8 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'student-notes',
         'performance',
         'student-lifecycle',
+        // The readmit dialog's seat-limit 409 message (`MutationErrorMessage`) reads 'trial'.
+        'trial',
         'printHistory',
         // [48] The Documents tab reads 'certificates'; the issue-certificate
         // modal (`?issue=`) also reads 'printPreview' and 'printEditor'. Same

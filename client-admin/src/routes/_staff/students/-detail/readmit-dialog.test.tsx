@@ -1,8 +1,10 @@
-import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { loadRouteNamespaces } from '../../../../route-loaders';
 
 import { ReadmitDialog } from './readmit-dialog';
 
@@ -56,7 +58,8 @@ describe('ReadmitDialog', () => {
     await expect(document.body).toHaveNoViolations();
   });
 
-  it('shows a server 409 inline', async () => {
+  async function submitReadmitWith409(body: object) {
+    await loadRouteNamespaces('trial'); // the student route loader does this in the app
     server.use(
       http.get('/api/v1/academic-years', () =>
         HttpResponse.json({
@@ -79,12 +82,7 @@ describe('ReadmitDialog', () => {
       http.get('/api/v1/classes/c1/sections', () =>
         HttpResponse.json([{ id: 'sec1', section_name: 'A', capacity: 40, enrolled_count: 3 }]),
       ),
-      http.post('/api/v1/students/s1/readmit', () =>
-        HttpResponse.json(
-          { statusCode: 409, message: 'Student is already active' },
-          { status: 409 },
-        ),
-      ),
+      http.post('/api/v1/students/s1/readmit', () => HttpResponse.json(body, { status: 409 })),
     );
     const { user } = await renderDialog();
     await user.click(await screen.findByLabelText('Class'));
@@ -93,8 +91,22 @@ describe('ReadmitDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'A' }));
     await user.keyboard('{Control>}{Enter}{/Control}');
     await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0));
+  }
+
+  it('shows a server 409 inline', async () => {
+    await submitReadmitWith409({ statusCode: 409, message: 'Student is already active' });
     // Translated line only, never the server message; the dialog stays open.
     expect(screen.queryByText('Student is already active')).toBeNull();
     expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('shows the seat-limit message, not the generic error, on SEAT_LIMIT_REACHED', async () => {
+    await submitReadmitWith409({
+      ...apiErrorBody(409, 'Seat limit reached', '/api/v1/students/s1/readmit'),
+      details: { code: 'SEAT_LIMIT_REACHED', used: 50, limit: 50, requested: 1 },
+    });
+    expect(await screen.findByText('Student limit reached')).toBeTruthy();
+    expect(screen.getByText(/You have 50 of 50 students/)).toBeTruthy();
+    expect(screen.queryByText(/Could not save/)).toBeNull();
   });
 });
