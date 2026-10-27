@@ -12,6 +12,8 @@
  * component supplies its own translated copy rather than prop-drilling
  * English.
  */
+import * as React from 'react';
+
 import { useTranslation } from '../i18n';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './dialog';
@@ -24,11 +26,14 @@ export interface ShortcutsSheetProps {
 interface ShortcutRow {
   keys: readonly string[];
   labelKey: string;
+  /** Label lives outside `common:shortcuts.rows` (44.1.01's `helpHint`). */
+  ns?: 'helpHint';
 }
 
 const ROWS: readonly ShortcutRow[] = [
   { keys: ['Ctrl/⌘', 'K'], labelKey: 'openPalette' },
   { keys: ['?'], labelKey: 'openShortcuts' },
+  { keys: ['F1'], labelKey: 'shortcutF1', ns: 'helpHint' },
   { keys: ['←', '→'], labelKey: 'switchTab' },
   { keys: ['Ctrl', '1-3'], labelKey: 'jumpTab' },
   { keys: ['/'], labelKey: 'jumpPageTab' },
@@ -37,6 +42,12 @@ const ROWS: readonly ShortcutRow[] = [
   { keys: ['Enter'], labelKey: 'openSelection' },
   { keys: ['Esc'], labelKey: 'close' },
 ];
+
+/** Own component so `helpHint` loads only while the sheet is open, never suspending the launcher. */
+function HelpRowLabel({ labelKey }: { labelKey: string }) {
+  const { t: tHelp } = useTranslation('helpHint');
+  return <>{tHelp(labelKey)}</>;
+}
 
 export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
   const { t } = useTranslation('common');
@@ -51,7 +62,15 @@ export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
         <dl className="flex flex-col gap-2">
           {ROWS.map((row) => (
             <div key={row.labelKey} className="flex items-center justify-between gap-4 text-sm">
-              <dt className="text-muted-foreground">{t(`shortcuts.rows.${row.labelKey}`)}</dt>
+              <dt className="text-muted-foreground">
+                {row.ns ? (
+                  <React.Suspense fallback={null}>
+                    <HelpRowLabel labelKey={row.labelKey} />
+                  </React.Suspense>
+                ) : (
+                  t(`shortcuts.rows.${row.labelKey}`)
+                )}
+              </dt>
               <dd className="flex items-center gap-1">
                 {row.keys.map((key, index) => (
                   <kbd

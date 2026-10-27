@@ -3,7 +3,7 @@ import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
 
@@ -424,6 +424,62 @@ describe('CommandPaletteLauncher', () => {
       await openActions('/students', 'EXECUTIVE', '>print');
       expect(await screen.findByRole('option', { name: 'Print history' })).toBeTruthy();
       absent('To print');
+    });
+  });
+  describe('F1 and Help for this page [44.2.01]', () => {
+    const HREF = 'https://guide.example/docs/en/';
+
+    // jsdom has no layout, so `offsetParent` is always null and the launcher's
+    // "only the visible instance listens" guard would swallow every key. Make
+    // exactly one of the two mounted launchers (desktop/mobile) "visible".
+    let visible: Element | undefined;
+    function visibleLaunchers() {
+      vi.spyOn(HTMLElement.prototype, 'offsetParent', 'get').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return this === visible ? document.body : null;
+      });
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllEnvs();
+    });
+
+    async function setup(path: string) {
+      vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.example/docs');
+      visibleLaunchers();
+      const open = vi.spyOn(window, 'open').mockReturnValue(null);
+      renderWithRouter(routeTree, {
+        initialEntries: [path],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      visible = (await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0];
+      return { open, user: userEvent.setup() };
+    }
+
+    it('F1 outside inputs opens the page guide in a new tab', async () => {
+      const { open, user } = await setup('/students');
+      await user.keyboard('{F1}');
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(String(open.mock.calls[0]?.[0]).startsWith(HREF)).toBe(true);
+      expect(open.mock.calls[0]?.slice(1)).toEqual(['_blank', 'noopener']);
+    });
+
+    it('F1 inside an input does nothing', async () => {
+      const { open, user } = await setup('/students');
+      await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+      await user.type(await screen.findByRole('combobox', { name: 'Search' }), 'x{F1}');
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it('the palette offers Help for this page on a page with a guide', async () => {
+      const { user } = await setup('/students');
+      await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+      await user.type(await screen.findByRole('combobox', { name: 'Search' }), '>help for');
+      expect(await screen.findByRole('option', { name: 'Help for this page' })).toBeTruthy();
     });
   });
 });
