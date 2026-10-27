@@ -24,6 +24,8 @@ export interface GovernmentHolidaysDialogProps {
   /** The add request failed: show a translated alert. */
   error?: unknown;
   onAdd: (entryIds: string[]) => void;
+  /** Tenant-local today (`YYYY-MM-DD`): entries before it can't be added. */
+  today: string;
 }
 
 /** Matches the server's own dedupe rule for adding a suggestion twice —
@@ -43,6 +45,7 @@ export function GovernmentHolidaysDialog({
   isPending,
   error,
   onAdd,
+  today,
 }: GovernmentHolidaysDialogProps) {
   const { t } = useTranslation('calendar');
   const { t: tCommon } = useTranslation('common');
@@ -111,12 +114,13 @@ export function GovernmentHolidaysDialog({
             <ul className="divide-y divide-border-subtle">
               {suggestions.map((entry) => {
                 const alreadyAdded = isAlreadyAdded(entry, existingEvents);
+                const past = entry.date < today;
                 return (
                   <li key={entry.id} className="flex min-h-11 items-center gap-3 py-2">
                     <Checkbox
                       id={`gov-holiday-${entry.id}`}
                       checked={alreadyAdded || checked.has(entry.id)}
-                      disabled={alreadyAdded}
+                      disabled={alreadyAdded || past}
                       onCheckedChange={() => toggle(entry.id)}
                     />
                     <label htmlFor={`gov-holiday-${entry.id}`} className="min-w-0 flex-1">
@@ -130,6 +134,9 @@ export function GovernmentHolidaysDialog({
                         tone="neutral"
                         label={t('governmentHolidaysDialog.alreadyAdded')}
                       />
+                    )}
+                    {past && !alreadyAdded && (
+                      <StatusBadge tone="neutral" label={t('governmentHolidaysDialog.past')} />
                     )}
                   </li>
                 );

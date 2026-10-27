@@ -395,6 +395,7 @@ function CalendarPage() {
 
       {canManage && (
         <GovernmentHolidaysDialog
+          today={today}
           open={search.panel === 'holidays'}
           onOpenChange={(open) => {
             if (!open) {
