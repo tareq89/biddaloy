@@ -176,6 +176,7 @@ import { AttendanceSession } from './modules/attendance/entities/attendance-sess
 import { AttendanceRecord } from './modules/attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from './modules/attendance/entities/attendance-device.entity';
 import { AttendanceDeviceEvent } from './modules/attendance/entities/attendance-device-event.entity';
+import { ArrivalNoticeSubscription } from './modules/attendance/entities/arrival-notice-subscription.entity';
 import { Shift } from './modules/routines/entities/shift.entity';
 import { PeriodSlot } from './modules/routines/entities/period-slot.entity';
 import { Room } from './modules/routines/entities/room.entity';
@@ -285,6 +286,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             AttendanceRecord,
             AttendanceDevice,
             AttendanceDeviceEvent,
+            ArrivalNoticeSubscription,
             AuthToken,
             UserIdentity,
             WorkbookJob,
