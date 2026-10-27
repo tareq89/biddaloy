@@ -11,7 +11,7 @@ import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -135,7 +135,18 @@ const render = (url: string, role = 'ADMIN') =>
 
 describe('/analysis', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
+  });
+
+  // [44.4 / #3013] The (?) beside the print and CSV actions resolves the guide entry.
+  it('shows the (?) beside the print and CSV actions when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    const exam = mockExam();
+    render(`/analysis?examId=${exam.id}&tab=pass-fail`);
+    expect(
+      await screen.findAllByRole('button', { name: 'Help: Merit list and result analysis' }),
+    ).not.toHaveLength(0);
   });
 
   it('switching tabs updates the URL', async () => {

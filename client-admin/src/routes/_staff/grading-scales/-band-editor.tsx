@@ -18,6 +18,7 @@
 import {
   Button,
   Checkbox,
+  HelpHint,
   Input,
   Label,
   Table,
@@ -295,7 +296,12 @@ export function BandEditor({ bands, onChange, readOnly = false }: BandEditorProp
                 <TableHead className="text-end">{t('bandEditor.columnTo')}</TableHead>
                 <TableHead>{t('bandEditor.columnGrade')}</TableHead>
                 <TableHead className="text-end">{t('bandEditor.columnGpa')}</TableHead>
-                <TableHead>{t('bandEditor.columnFail')}</TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    {t('bandEditor.columnFail')}
+                    <HelpHint helpId="examsResults.gradingScales.field.failGrade" />
+                  </span>
+                </TableHead>
                 <TableHead>{t('bandEditor.columnComment')}</TableHead>
                 <TableHead>{t('bandEditor.columnActions')}</TableHead>
               </TableRow>
