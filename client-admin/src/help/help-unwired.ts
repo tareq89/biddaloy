@@ -69,4 +69,23 @@ export const HELP_UNWIRED: Record<string, string> = {
   'people.students.action.delete': MENU_ITEM,
   'people.students.action.printIdCard': MENU_ITEM,
   'people.students.action.sendReminder': MENU_ITEM,
+
+  // 44.3.07-44.3.11
+  'examsResults.examTemplates.action.delete': '#3046: page fix pending',
+  'finance.feeStructures.action.delete': '#3057: page fix pending',
+  'finance.recurringSchedules.action.deactivate': '#3058: page fix pending',
+  'administration.printTemplates.action.confirmRound': '#3061: page fix pending',
+  'administration.printTemplates.action.makeDefault': '#3061: page fix pending',
+  'administration.printTemplates.action.print': '#3061: page fix pending',
+  'administration.printTemplates.action.publish': '#3061: page fix pending',
+  'administration.printTemplates.action.revoke': '#3061: page fix pending',
+  'administration.printTemplates.field.batchSize': '#3061: page fix pending',
+  'administration.printTemplates.field.design': '#3061: page fix pending',
+  'administration.printTemplates.field.kind': '#3061: page fix pending',
+  'administration.printTemplates.field.printer': '#3061: page fix pending',
+  'administration.auditLogs.field.performedBy': '#3062: page fix pending',
+  'portal.notifications.action.close': '#3063: page fix pending',
+  'portal.notifications.action.snooze': '#3063: page fix pending',
+  'start.language.action.switch': '#3064: page fix pending',
+  'start.phone.action.install': '#3065: page fix pending',
 };
