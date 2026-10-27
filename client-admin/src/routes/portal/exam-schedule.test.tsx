@@ -511,6 +511,16 @@ describe('/portal/exam-schedule', () => {
       expect(await screen.findByText('The admit card is not ready yet.')).toBeTruthy();
     });
 
+    it('a 409 with no admit-card design says the card is not ready yet, with no error toast', async () => {
+      mockSchedule({ students: [fatima], schedule: { 'student-1': [upcoming] } });
+      reject(409, { code: 'NO_ADMIT_CARD_TEMPLATE' });
+      renderSchedule();
+      await userEvent.click(await screen.findByRole('button', { name: 'Print admit card' }));
+
+      expect(await screen.findByText('The admit card is not ready yet.')).toBeTruthy();
+      expect(screen.queryByText(/could not be printed/)).toBeNull();
+    });
+
     it('switching child resets the panel', async () => {
       mockSchedule({
         students: [fatima, imran],
