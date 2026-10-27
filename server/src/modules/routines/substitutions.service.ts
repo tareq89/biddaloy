@@ -153,10 +153,8 @@ export class SubstitutionsService {
       await this.auditService.record(
         {
           action: AuditAction.DELETE,
-          // `RoutineSubstitution` is not in the shared audit catalog (outside this
-          // lane), so the row is logged against the slot it overlays.
-          entity_type: 'RoutineSlot',
-          entity_id: row.routine_slot_id,
+          entity_type: 'RoutineSubstitution',
+          entity_id: id,
           tenant_id: tenantId,
           performed_by_user_id: userId,
           old_values: {
