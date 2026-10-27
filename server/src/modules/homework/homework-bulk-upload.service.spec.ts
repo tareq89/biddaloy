@@ -3,7 +3,12 @@ import ExcelJS from 'exceljs';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { HomeworkBulkUploadService } from './homework-bulk-upload.service';
 import { REQUIRED_HEADERS, BulkUploadHeader } from './homework-bulk-upload.parser';
-import { HomeworkGradingMode, HomeworkAssignmentStatus, UserRole } from '@biddaloy/shared';
+import {
+  HomeworkGradingMode,
+  HomeworkAssignmentStatus,
+  ImportFileErrorCode,
+  UserRole,
+} from '@biddaloy/shared';
 
 /**
  * Unit tests for HomeworkBulkUploadService, with every repository and
@@ -212,9 +217,9 @@ describe('HomeworkBulkUploadService', () => {
         [rowValues(headersMissingSubject as unknown as readonly BulkUploadHeader[])],
       );
 
-      await expect(service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN)).rejects.toThrow(
-        'Missing required columns: subject',
-      );
+      const result = service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN);
+      await expect(result).rejects.toThrow('Missing required columns: subject');
+      await expect(result).rejects.toMatchObject({ code: ImportFileErrorCode.MISSING_COLUMNS });
     });
 
     it('reports a malformed date as a row-level error', async () => {

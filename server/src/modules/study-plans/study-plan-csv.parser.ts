@@ -1,3 +1,5 @@
+import { ImportFileError } from '../../common/errors/import-file.error';
+import { ImportFileErrorCode } from '@biddaloy/shared';
 import {
   assertXlsxWithinLimits,
   XLSX_TOO_LARGE_MESSAGE,
@@ -12,7 +14,7 @@ import { STUDY_PLAN_CSV_COLUMNS, STUDY_PLAN_LIMITS } from '@biddaloy/shared';
 export const REQUIRED_HEADERS = ['title', 'periods'] as const;
 export type StudyPlanCsvHeader = (typeof STUDY_PLAN_CSV_COLUMNS)[number];
 
-export class StudyPlanParseError extends Error {}
+export class StudyPlanParseError extends ImportFileError {}
 
 export interface ParsedLessonRow {
   /** 1-based row in the sheet (header = 1). */
@@ -33,24 +35,35 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
       await assertXlsxWithinLimits(buffer);
       await workbook.xlsx.load(buffer as never);
     } catch (e) {
-      throw new StudyPlanParseError(
-        e instanceof XlsxTooLargeError
-          ? XLSX_TOO_LARGE_MESSAGE
-          : 'Could not read file — is it a valid Excel file?',
-      );
+      throw e instanceof XlsxTooLargeError
+        ? new StudyPlanParseError(ImportFileErrorCode.TOO_LARGE, XLSX_TOO_LARGE_MESSAGE)
+        : new StudyPlanParseError(
+            ImportFileErrorCode.UNREADABLE,
+            'Could not read file — is it a valid Excel file?',
+          );
     }
     const sheet = workbook.worksheets[0];
-    if (!sheet) throw new StudyPlanParseError('Could not read file — is it a valid Excel file?');
+    if (!sheet)
+      throw new StudyPlanParseError(
+        ImportFileErrorCode.UNREADABLE,
+        'Could not read file — is it a valid Excel file?',
+      );
     return sheet;
   }
   if (ext === '.csv') {
     try {
       return await workbook.csv.read(Readable.from(buffer), { map: (datum: string) => datum });
     } catch {
-      throw new StudyPlanParseError('Could not read file — is it a valid CSV file?');
+      throw new StudyPlanParseError(
+        ImportFileErrorCode.UNREADABLE,
+        'Could not read file — is it a valid CSV file?',
+      );
     }
   }
-  throw new StudyPlanParseError('Unsupported file type — upload .xlsx or .csv');
+  throw new StudyPlanParseError(
+    ImportFileErrorCode.UNSUPPORTED_TYPE,
+    'Unsupported file type — upload .xlsx or .csv',
+  );
 }
 
 function cellToString(value: ExcelJS.CellValue): string {
@@ -88,7 +101,10 @@ export async function parseLessonSheet(
   });
   const missing = REQUIRED_HEADERS.filter((h) => !columnIndex.has(h));
   if (missing.length > 0) {
-    throw new StudyPlanParseError(`Missing required columns: ${missing.join(', ')}`);
+    throw new StudyPlanParseError(
+      ImportFileErrorCode.MISSING_COLUMNS,
+      `Missing required columns: ${missing.join(', ')}`,
+    );
   }
 
   const rows: ParsedLessonRow[] = [];
@@ -106,11 +122,13 @@ export async function parseLessonSheet(
     // Stop at the cap: a sparse .xlsx can claim ~1M rows.
     if (rows.length > STUDY_PLAN_LIMITS.maxLessons) {
       throw new StudyPlanParseError(
+        ImportFileErrorCode.TOO_MANY_ROWS,
         `File has too many rows (max ${STUDY_PLAN_LIMITS.maxLessons} lessons)`,
       );
     }
   }
 
-  if (rows.length === 0) throw new StudyPlanParseError('File contains no data rows');
+  if (rows.length === 0)
+    throw new StudyPlanParseError(ImportFileErrorCode.NO_ROWS, 'File contains no data rows');
   return rows;
 }
