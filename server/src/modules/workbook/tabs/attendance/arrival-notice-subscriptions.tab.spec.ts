@@ -1,0 +1,52 @@
+import { describe, expect, it } from 'vitest';
+import { ArrivalNoticeSubscription } from '../../../attendance/entities/arrival-notice-subscription.entity';
+import { EXPECTED_TABS } from '../../codec/registry';
+import { roundTrip } from '../people/ref-child-tab.test-helper';
+import { arrivalNoticeSubscriptionsTab as tab } from './arrival-notice-subscriptions.tab';
+
+const ID = '11111111-1111-4111-8111-111111111111';
+const STUDENT = '22222222-2222-4222-8222-222222222222';
+const GUARDIAN = '33333333-3333-4333-8333-333333333333';
+const keys = { students: { [STUDENT]: 'REG-1' }, guardians: { [GUARDIAN]: '01711111111' } };
+const stamp = { student: 'REG-1', guardian: '01711111111' };
+
+describe('arrival_notice_subscriptions tab', () => {
+  it('round-trips a row, keeping lock and consumed_at', () => {
+    const entity = Object.assign(new ArrivalNoticeSubscription(), {
+      id: ID,
+      student_id: STUDENT,
+      guardian_id: GUARDIAN,
+      status: 'ACTIVE',
+      mode: 'ONCE',
+      channel: 'SMS',
+      lock: 'ALWAYS',
+      consumed_at: new Date('2026-05-01T09:00:00.000Z'),
+    });
+    const row = roundTrip(tab, entity, stamp, keys);
+    expect(row).toMatchObject({ student_id: STUDENT, guardian_id: GUARDIAN, lock: 'ALWAYS' });
+    expect(tab.keyOf(entity)).toBe('REG-1|01711111111');
+  });
+
+  it('rejects an unknown enum value with a row error', () => {
+    const res = tab.fromRow(
+      {
+        id: ID,
+        student: 'REG-1',
+        guardian: '01711111111',
+        status: 'BOGUS',
+        mode: 'ONCE',
+        channel: 'SMS',
+        lock: 'NONE',
+      },
+      2,
+      { tenantId: 't', ref: () => 'x', warn: () => undefined },
+    );
+    expect('errors' in res && res.errors[0].column).toBe('status');
+  });
+
+  it('is registered after its parents', () => {
+    const at = EXPECTED_TABS.indexOf('arrival_notice_subscriptions');
+    expect(at).toBeGreaterThan(EXPECTED_TABS.indexOf('students'));
+    expect(at).toBeGreaterThan(EXPECTED_TABS.indexOf('guardians'));
+  });
+});
