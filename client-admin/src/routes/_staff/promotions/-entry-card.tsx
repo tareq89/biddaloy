@@ -50,11 +50,7 @@ export interface PromotionEntryCardProps {
   isOverride: (entry: PromotionEntry) => boolean;
   noteErrors: ReadonlySet<string>;
   /** The route's placement rule (section · roll, a problem badge, or a dash). */
-  placement: (
-    entry: PromotionEntry,
-    finalOutcome: PromotionOutcome,
-    override: boolean,
-  ) => ReactNode;
+  placement: (entry: PromotionEntry, finalOutcome: PromotionOutcome) => ReactNode;
   config: RegionConfig;
   onOutcome: (entry: PromotionEntry, outcome: PromotionOutcome) => void;
   onGroup: (entry: PromotionEntry, group: string) => void;
@@ -156,9 +152,7 @@ export function PromotionEntryCard({
         </div>
         <div className="col-span-2">
           <dt className="text-caption text-text-secondary">{t('grid.columnPlacement')}</dt>
-          <dd className="font-medium">
-            {placement(entry, eff.final_outcome as PromotionOutcome, override)}
-          </dd>
+          <dd className="font-medium">{placement(entry, eff.final_outcome as PromotionOutcome)}</dd>
         </div>
       </dl>
 
