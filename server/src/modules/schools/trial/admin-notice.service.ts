@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { resolveTemplateLocale } from '../../account-access/account-access-templates';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import {
@@ -10,6 +9,8 @@ import {
   UserStatus,
 } from '@biddaloy/shared';
 import { School } from '../entities/school.entity';
+import { resolveTenantSettings } from '../settings/tenant-settings-resolver';
+import { resolveTemplateLocale } from '../../account-access/account-access-templates';
 import { UserTenant } from '../../auth/entities/user-tenant.entity';
 import { CommunicationLog } from '../../communications/entities/communication-log.entity';
 import { CommunicationProviderRegistryService } from '../../communications/providers/communication-provider.registry';
@@ -39,7 +40,11 @@ export class AdminNoticeService {
   ): Promise<void> {
     const school = await this.schools.findOne({ where: { id: schoolId } });
     if (!school) return;
-    const locale: NoticeLocale = resolveTemplateLocale(school.settings?.region?.locale);
+    // Resolved, not raw: a school with no stored `region` (every fresh self-registration) runs on
+    // the bn-BD default, so its welcome notice must be Bangla too (#3041).
+    const locale: NoticeLocale = resolveTemplateLocale(
+      resolveTenantSettings(school.settings).region?.locale,
+    );
     const { subject, body } = renderNotice(key, locale, { ...vars, school: school.name });
 
     const admins = await this.memberships.find({
