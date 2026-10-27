@@ -827,6 +827,7 @@ export {
   type UnmappedSubject,
   type CopyRoutineResult,
   type SubstitutionFilters,
+  type SubstitutionLogRow,
   resolveRoutineKeys,
   useResolveRoutine,
   usePeriodSlotLookup,

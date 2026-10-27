@@ -129,6 +129,33 @@ const COVERED = {
   created_by: 'user-2',
   created_at: '2026-10-01T00:00:00Z',
   updated_at: '2026-10-01T00:00:00Z',
+  // [2897] The server joins the slot's context; the page renders from this alone.
+  slot: {
+    section_id: SECTION_ID,
+    class_name: 'Class 6',
+    section_name: 'B',
+    period_sequence: 2,
+    starts_at: '08:45:00',
+    subject_name_en: 'Math',
+    subject_name_bn: null,
+    teacher_ids: [TEACHER_2_ID],
+  },
+};
+
+/** A row from an earlier year: its slot is in no current routine, yet it has a slot summary. */
+const OLD_YEAR = {
+  ...COVERED,
+  id: 'sub-old',
+  date: '2025-03-04',
+  routine_slot_id: 'slot-old-year',
+  slot: {
+    ...COVERED.slot,
+    class_name: 'Class 5',
+    section_name: 'A',
+    period_sequence: 4,
+    subject_name_en: 'Science',
+    teacher_ids: [TEACHER_1_ID],
+  },
 };
 
 function render(entry = '/routines/substitutions') {
@@ -141,7 +168,7 @@ function render(entry = '/routines/substitutions') {
 }
 
 describe('/routines/substitutions', () => {
-  it('joins each record to its period, shows a status badge, and has no native select or date input', async () => {
+  it('renders each record from the server slot summary, shows a status badge, and has no native select or date input', async () => {
     mockBaseData();
     server.use(
       http.get('/api/v1/routines/substitutions', () =>
@@ -155,7 +182,7 @@ describe('/routines/substitutions', () => {
             substitute_teacher_id: null,
             reason: null,
           },
-          { ...COVERED, id: 'sub-3', date: '2026-10-06', routine_slot_id: 'slot-not-current' },
+          OLD_YEAR,
         ]),
       ),
     );
@@ -167,7 +194,10 @@ describe('/routines/substitutions', () => {
     expect(screen.getAllByText('Covering for a workshop').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Covered').length).toBe(2);
     expect(screen.getByText('Period cancelled')).toBeTruthy();
-    expect(screen.queryByText('slot-not-current')).toBeNull();
+    // The earlier-year row shows its own section, subject and absent teacher, not dashes.
+    expect((await screen.findAllByText('Class 5 – A')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Science').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Ms Nahar').length).toBeGreaterThan(0);
     expect(container.querySelector('select')).toBeNull();
     expect(container.querySelector('input[type="date"]')).toBeNull();
   });

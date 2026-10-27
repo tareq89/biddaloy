@@ -424,6 +424,23 @@ export type RoutineChangeRequest = components['schemas']['RoutineChangeRequest']
 export type CreateChangeRequestInput = components['schemas']['CreateChangeRequestDto'];
 export type ResolveChangeRequestInput = components['schemas']['ResolveChangeRequestDto'];
 export type RoutineSubstitution = components['schemas']['RoutineSubstitution'];
+
+/** One log row as `GET /routines/substitutions` returns it: the substitution
+ * plus a summary of its slot from any year (hand-typed, like
+ * `CopyRoutineResult`, because the endpoint returns the entity in the schema).
+ * Mirrors `SubstitutionLogRow` in `substitutions.service.ts`. */
+export interface SubstitutionLogRow extends RoutineSubstitution {
+  slot: {
+    section_id: string;
+    class_name: string;
+    section_name: string;
+    period_sequence: number;
+    starts_at: string;
+    subject_name_en: string;
+    subject_name_bn: string | null;
+    teacher_ids: string[];
+  } | null;
+}
 export type UpsertSubstitutionInput = components['schemas']['UpsertSubstitutionDto'];
 export type CopyRoutineInput = components['schemas']['CopyRoutineDto'];
 export type CreateRoutineInput = components['schemas']['CreateRoutineDto'];
@@ -608,7 +625,7 @@ export function substitutionsQueryOptions(filters: SubstitutionFilters) {
   return queryOptions({
     queryKey: substitutionKeys.list({ ...filters }),
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<RoutineSubstitution[]>('/routines/substitutions', {
+      const res = await apiClient.get<SubstitutionLogRow[]>('/routines/substitutions', {
         params: filters,
         signal,
       });
