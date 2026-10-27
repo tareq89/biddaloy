@@ -503,27 +503,50 @@ export class HomeworkService {
     });
   }
 
-  /** `PATCH /homework-assignments/:id` — deactivate/reactivate only (Q10 D22). */
+  /** `PATCH /homework-assignments/:id`: status and/or due date, in place (#2900). Every miss
+   * (unknown id, homework or target out of the teacher's scope) is one 404 text (Rule 23). */
   async updateAssignment(
     assignmentId: string,
     dto: UpdateHomeworkAssignmentDto,
     ctx: CallerContext,
   ): Promise<HomeworkAssignment> {
+    if (dto.status === undefined && dto.due_date === undefined) {
+      throw new BadRequestException('Nothing to change');
+    }
+    const miss = () => new NotFoundException('Homework assignment not found');
     const assignment = await this.assignmentRepo.findOne({
       where: { id: assignmentId, tenant_id: ctx.tenantId },
     });
-    if (!assignment) {
-      throw new NotFoundException('Homework assignment not found');
+    if (!assignment) throw miss();
+    try {
+      const homework = await this.findOne(assignment.homework_id, ctx);
+      await this.assertCanManageTarget(assignment, homework, ctx);
+    } catch (e) {
+      throw e instanceof NotFoundException ? miss() : e;
     }
-    const homework = await this.findOne(assignment.homework_id, ctx);
-
-    await this.assertCanManageTarget(assignment, homework, ctx);
 
     if (assignment.status === HomeworkAssignmentStatus.SUPERSEDED) {
       throw new BadRequestException('A superseded assignment cannot be changed');
     }
-
-    assignment.status = dto.status;
-    return this.assignmentRepo.save(assignment);
+    if (dto.due_date !== undefined && dto.due_date < assignment.assigned_date) {
+      throw new BadRequestException('due_date must be on or after assigned_date');
+    }
+    const patch: Pick<Partial<HomeworkAssignment>, 'due_date' | 'status'> = {
+      ...(dto.due_date !== undefined ? { due_date: dto.due_date } : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+    };
+    // Conditional update: a reassign racing this PATCH must not be overwritten (0 rows = lost race).
+    const result = await this.assignmentRepo.update(
+      {
+        id: assignment.id,
+        tenant_id: ctx.tenantId,
+        status: Not(HomeworkAssignmentStatus.SUPERSEDED),
+      },
+      patch,
+    );
+    if (!result.affected) {
+      throw new BadRequestException('A superseded assignment cannot be changed');
+    }
+    return Object.assign(assignment, patch);
   }
 }

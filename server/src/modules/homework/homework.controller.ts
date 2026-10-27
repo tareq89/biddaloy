@@ -252,7 +252,10 @@ export class HomeworkController {
 
   @Patch('homework-assignments/:id')
   @RequirePermissions(Permission.HOMEWORK_ASSIGN)
-  @ApiOperation({ summary: 'Deactivate or reactivate an assignment (Q10 D22).' })
+  @ApiOperation({
+    summary:
+      'Deactivate or reactivate an assignment, or move its due date in place (Q10 D22, #2900).',
+  })
   @ApiOkResponse({ type: HomeworkAssignmentResponseDto })
   async updateAssignment(
     @Param('id', ParseUUIDPipe) id: string,

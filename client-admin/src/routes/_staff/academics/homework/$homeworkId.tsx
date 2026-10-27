@@ -2,7 +2,9 @@
  * [22.4.1] Homework detail. Assignment rows come from `GET /homework/:id/assignments`
  * (#1013). "Assign to section or student" only adds a row (`POST /homework/:id/assign`);
  * "Change" on a row reassigns it through `POST /homework-assignments/:id/reassign`.
- * No Deactivate and no submission grid yet (#2900, #2899).
+ * "Due date" moves the date in place and "Deactivate"/"Reactivate" flip the status, both through
+ * `PATCH /homework-assignments/:id` (#2900); submissions stay on the row. No submission grid
+ * yet (#2899).
  */
 import { Permission } from '@biddaloy/shared';
 import {
@@ -12,8 +14,12 @@ import {
   notifyOutcome,
 } from '@biddaloy/ui/api';
 import {
+  Button,
   Card,
+  ConfirmDialog,
+  DatePicker,
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -33,13 +39,19 @@ import {
   homeworkQueryOptions,
   useReassignHomeworkAssignment,
   useSubjects,
+  useUpdateHomeworkAssignment,
   type HomeworkAssignmentListItem,
 } from '@biddaloy/ui/hooks';
-import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import {
+  RegionConfigProvider,
+  useRegionConfig,
+  useTenantRegionConfig,
+  useTranslation,
+} from '@biddaloy/ui/i18n';
 import { DetailShell } from '@biddaloy/ui/shells';
-import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
+import { formatDate, parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { Send } from 'lucide-react';
+import { CalendarClock, Send } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
@@ -79,6 +91,9 @@ function HomeworkDetailPage() {
   const assignmentsQuery = useHomeworkAssignments(homeworkId);
   const reassign = useReassignHomeworkAssignment();
   const [reassignRow, setReassignRow] = React.useState<HomeworkAssignmentListItem | null>(null);
+  const update = useUpdateHomeworkAssignment();
+  const [statusRow, setStatusRow] = React.useState<HomeworkAssignmentListItem | null>(null);
+  const [dueRow, setDueRow] = React.useState<HomeworkAssignmentListItem | null>(null);
   // Double-click guard: `isPending` flips a render late, a ref does not.
   const inFlight = React.useRef(false);
 
@@ -127,12 +142,46 @@ function HomeworkDetailPage() {
     );
   }
 
+  function notifyError(message: string) {
+    notifyOutcome({ tenantId: captureNotificationTenant(), variant: 'error', message });
+  }
+
+  // D3: ACTIVE rows get Due date, Change, Deactivate; DEACTIVATED rows only Reactivate (Change
+  // there would silently create a new ACTIVE row); SUPERSEDED rows nothing.
   function actionsFor(row: HomeworkAssignmentListItem): RowAction[] {
     if (!canAssign || row.status === 'SUPERSEDED') return [];
+    const target = assignmentTargetLabel(row, t);
+    const statusBusy = update.isPending && statusRow?.id === row.id;
+    const openStatus = () => {
+      update.reset();
+      setStatusRow(row);
+    };
+    if (row.status === 'DEACTIVATED') {
+      return [
+        {
+          intent: 'restore',
+          label: t('detail.assignments.reactivate', { target }),
+          shortLabel: t('detail.assignments.reactivateShort'),
+          busy: statusBusy,
+          onClick: openStatus,
+        },
+      ];
+    }
     return [
       {
         intent: 'edit',
-        label: t('detail.assignments.reassign', { target: assignmentTargetLabel(row, t) }),
+        icon: <CalendarClock />,
+        label: t('detail.assignments.changeDue', { target }),
+        shortLabel: t('detail.assignments.changeDueShort'),
+        busy: update.isPending && dueRow?.id === row.id,
+        onClick: () => {
+          update.reset();
+          setDueRow(row);
+        },
+      },
+      {
+        intent: 'edit',
+        label: t('detail.assignments.reassign', { target }),
         shortLabel: t('detail.assignments.reassignShort'),
         busy: reassign.isPending && reassignRow?.id === row.id,
         onClick: () => {
@@ -140,7 +189,66 @@ function HomeworkDetailPage() {
           setReassignRow(row);
         },
       },
+      {
+        intent: 'archive',
+        label: t('detail.assignments.deactivate', { target }),
+        shortLabel: t('detail.assignments.deactivateShort'),
+        busy: statusBusy,
+        onClick: openStatus,
+      },
     ];
+  }
+
+  function handleDueDate(iso: string) {
+    if (!dueRow) return;
+    update.mutate(
+      { assignmentId: dueRow.id, input: { due_date: iso } },
+      {
+        onSuccess: () => {
+          setDueRow(null);
+          notifyOutcome({
+            tenantId: captureNotificationTenant(),
+            variant: 'success',
+            message: t('detail.assignments.dueChanged', {
+              date: formatDate(parseServerDate(iso), regionConfig),
+            }),
+          });
+        },
+        onError: (err) => {
+          if (rowGone(err)) {
+            setDueRow(null);
+            notifyError(t('detail.assignments.rowChanged'));
+          }
+        },
+      },
+    );
+  }
+
+  function handleStatusConfirm() {
+    if (!statusRow) return;
+    const next = statusRow.status === 'ACTIVE' ? 'DEACTIVATED' : 'ACTIVE';
+    update.mutate(
+      { assignmentId: statusRow.id, input: { status: next } },
+      {
+        onSuccess: () => {
+          setStatusRow(null);
+          notifyOutcome({
+            tenantId: captureNotificationTenant(),
+            variant: 'success',
+            message: t(
+              next === 'DEACTIVATED'
+                ? 'detail.assignments.deactivated'
+                : 'detail.assignments.reactivated',
+            ),
+          });
+        },
+        onError: (err) => {
+          // ConfirmDialog has no error slot: close it and toast a fixed text.
+          setStatusRow(null);
+          notifyError(rowGone(err) ? t('detail.assignments.rowChanged') : t('form.genericError'));
+        },
+      },
+    );
   }
 
   function handleReassign(payload: AssignHomeworkFormSubmitPayload) {
@@ -151,6 +259,13 @@ function HomeworkDetailPage() {
       {
         onSettled: () => {
           inFlight.current = false;
+        },
+        onError: (err) => {
+          // D4: 400/404 means the row was superseded or removed; don't leave the dialog on it.
+          if (rowGone(err)) {
+            setReassignRow(null);
+            notifyError(t('detail.assignments.rowChanged'));
+          }
         },
         onSuccess: (assignment) => {
           setReassignRow(null);
@@ -279,6 +394,7 @@ function HomeworkDetailPage() {
                     classId: homework.class_id,
                     sectionId: reassignRow.target_section_id,
                     ...(reassignRow.student_id ? { studentId: reassignRow.student_id } : {}),
+                    ...(reassignRow.student_name ? { studentName: reassignRow.student_name } : {}),
                     assignedDate: reassignRow.assigned_date,
                     dueDate: reassignRow.due_date,
                   }}
@@ -290,8 +406,147 @@ function HomeworkDetailPage() {
             </DialogContent>
           </Dialog>
         )}
+
+        {canAssign && (
+          <Dialog
+            open={dueRow !== null}
+            onOpenChange={(open) => {
+              if (update.isPending) return;
+              update.reset();
+              if (!open) setDueRow(null);
+            }}
+          >
+            <DialogContent size="sm" closeLabel={tCommon('actions.close')}>
+              <DialogHeader>
+                <DialogTitle>{t('detail.assignments.changeDueTitle')}</DialogTitle>
+                <DialogDescription>
+                  {dueRow
+                    ? t('detail.assignments.changeDueDescription', {
+                        target: assignmentTargetLabel(dueRow, t),
+                      })
+                    : ''}
+                </DialogDescription>
+              </DialogHeader>
+              {dueRow && (
+                <DueDateForm
+                  key={dueRow.id}
+                  row={dueRow}
+                  isPending={update.isPending}
+                  {...(update.isError ? { error: t('form.genericError') } : {})}
+                  onSubmit={handleDueDate}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {canAssign && statusRow && (
+          <ConfirmDialog
+            open
+            // A pending request must not be dismissed from under itself.
+            onOpenChange={(open) => {
+              if (!open && !update.isPending) setStatusRow(null);
+            }}
+            tone={statusRow.status === 'ACTIVE' ? 'danger' : 'default'}
+            title={t(
+              statusRow.status === 'ACTIVE'
+                ? 'detail.assignments.deactivateTitle'
+                : 'detail.assignments.reactivateTitle',
+              { target: assignmentTargetLabel(statusRow, t) },
+            )}
+            description={t(
+              statusRow.status === 'ACTIVE'
+                ? 'detail.assignments.deactivateDescription'
+                : 'detail.assignments.reactivateDescription',
+            )}
+            confirmLabel={t(
+              statusRow.status === 'ACTIVE'
+                ? 'detail.assignments.deactivateShort'
+                : 'detail.assignments.reactivateShort',
+            )}
+            busy={update.isPending}
+            onConfirm={handleStatusConfirm}
+          />
+        )}
       </div>
     </RegionConfigProvider>
+  );
+}
+
+/** 400/404 on a row action means the row was superseded, removed or taken out of scope. */
+const rowGone = (err: unknown) =>
+  err instanceof ApiError && (err.statusCode === 400 || err.statusCode === 404);
+
+function DueDateForm({
+  row,
+  isPending,
+  error,
+  onSubmit,
+}: {
+  row: HomeworkAssignmentListItem;
+  isPending: boolean;
+  error?: string;
+  onSubmit: (iso: string) => void;
+}) {
+  const { t } = useTranslation('homework');
+  const { t: tCommon } = useTranslation('common');
+  const regionConfig = useRegionConfig();
+  const [due, setDue] = React.useState<Date | undefined>(() => parseServerDate(row.due_date));
+  const [fieldError, setFieldError] = React.useState<string | undefined>();
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (isPending) return;
+    const message = !due
+      ? t('form.errorDate')
+      : toIsoDate(due) < row.assigned_date
+        ? t('form.dueBeforeAssigned')
+        : undefined;
+    setFieldError(message);
+    if (message || !due) {
+      document.getElementById('homework-due-only')?.focus();
+      return;
+    }
+    onSubmit(toIsoDate(due));
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="homework-due-only" className="text-label text-text-primary">
+          {t('form.dueDateLabel')}
+        </label>
+        <DatePicker
+          id="homework-due-only"
+          aria-label={t('form.dueDateLabel')}
+          config={regionConfig}
+          value={due}
+          onValueChange={setDue}
+          aria-invalid={fieldError ? true : undefined}
+          aria-describedby={fieldError ? 'homework-due-only-error' : undefined}
+        />
+        {fieldError && (
+          <p id="homework-due-only-error" className="text-caption text-destructive">
+            {fieldError}
+          </p>
+        )}
+      </div>
+      {error !== undefined && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
+        <DialogClose asChild>
+          <Button type="button" variant="outline" disabled={isPending}>
+            {tCommon('actions.cancel')}
+          </Button>
+        </DialogClose>
+        <Button type="submit" loading={isPending}>
+          {tCommon('actions.save')}
+        </Button>
+      </div>
+    </form>
   );
 }
 

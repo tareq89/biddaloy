@@ -1,10 +1,11 @@
 import { HomeworkAssignmentStatus } from '@biddaloy/shared';
 import type { HomeworkAssignmentListItem } from '@biddaloy/ui/hooks';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { CalendarClock } from 'lucide-react';
 
 import { AssignmentsCard } from './-assignments-card';
 
-/** #1013's "Who has this homework" card: a section row, a student row, a superseded row. */
+/** #1013's "Who has this homework" card: a section row, a student row, a superseded row, a deactivated row. */
 const row = (over: Partial<HomeworkAssignmentListItem>): HomeworkAssignmentListItem => ({
   id: '00000000-0000-4000-8000-000000000001',
   homework_id: '00000000-0000-4000-8000-0000000000aa',
@@ -26,10 +27,29 @@ const meta: Meta<typeof AssignmentsCard> = {
     error: false,
     onRetry: () => undefined,
     onAssign: () => undefined,
-    actionsFor: (r) =>
-      r.status === HomeworkAssignmentStatus.SUPERSEDED
-        ? []
-        : [{ intent: 'edit', label: `Change ${r.section_name}`, shortLabel: 'Change' }],
+    // #2900 D3: ACTIVE = Due date, Change, Deactivate; DEACTIVATED = Reactivate only.
+    actionsFor: (r) => {
+      if (r.status === HomeworkAssignmentStatus.SUPERSEDED) return [];
+      if (r.status === HomeworkAssignmentStatus.DEACTIVATED) {
+        return [
+          {
+            intent: 'restore',
+            label: `Reactivate ${r.section_name}`,
+            shortLabel: 'Reactivate',
+          },
+        ];
+      }
+      return [
+        {
+          intent: 'edit',
+          icon: <CalendarClock />,
+          label: `Change due date for ${r.section_name}`,
+          shortLabel: 'Due date',
+        },
+        { intent: 'edit', label: `Change ${r.section_name}`, shortLabel: 'Change' },
+        { intent: 'archive', label: `Deactivate ${r.section_name}`, shortLabel: 'Deactivate' },
+      ];
+    },
   },
 };
 export default meta;
@@ -52,6 +72,11 @@ export const Mixed: Story = {
         id: '00000000-0000-4000-8000-000000000003',
         status: HomeworkAssignmentStatus.SUPERSEDED,
         due_date: '2026-10-27',
+      }),
+      row({
+        id: '00000000-0000-4000-8000-000000000004',
+        section_name: 'C',
+        status: HomeworkAssignmentStatus.DEACTIVATED,
       }),
     ],
   },

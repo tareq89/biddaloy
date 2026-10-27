@@ -1381,6 +1381,7 @@ export {
   useReassignHomeworkAssignment,
   useSectionHomeworkRollup,
   useStudentHomeworkRollup,
+  useUpdateHomeworkAssignment,
   useValidateHomeworkUpload,
   type AssignHomeworkInput,
   type CreateHomeworkInput,
@@ -1393,6 +1394,7 @@ export {
   type HomeworkUploadPreviewRow,
   type HomeworkUploadResult,
   type HomeworkUploadSummary,
+  type UpdateHomeworkAssignmentInput,
 } from './homework';
 export {
   programKeys,

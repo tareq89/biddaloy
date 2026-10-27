@@ -688,6 +688,173 @@ describe('Homework E2E', () => {
         await list('not-a-uuid', 'admin', 400);
       });
     });
+
+    describe('PATCH /homework-assignments/:id (#2900)', () => {
+      // Assigns and returns the new assignment id (assignAsAdmin returns nothing).
+      const assignRow = async (
+        homeworkId: string,
+        target: { section_id?: string; student_id?: string },
+      ): Promise<string> =>
+        (
+          await withAdmin(
+            supertest(app.getHttpServer()).post(`/api/v1/homework/${homeworkId}/assign`),
+            await adminToken(),
+          )
+            .send({ ...target, assigned_date: '2026-01-01', due_date: '2026-01-08' })
+            .expect(201)
+        ).body.id as string;
+      const patch = async (id: string, body: object, as: 'admin' | 'teacher' = 'admin') => {
+        const req = supertest(app.getHttpServer()).patch(`/api/v1/homework-assignments/${id}`);
+        return as === 'teacher'
+          ? asTeacher(req).send(body)
+          : withAdmin(req, await adminToken()).send(body);
+      };
+      const rows = async (homeworkId: string): Promise<any[]> =>
+        (
+          await withAdmin(
+            supertest(app.getHttpServer()).get(`/api/v1/homework/${homeworkId}/assignments`),
+            await adminToken(),
+          ).expect(200)
+        ).body;
+      const listIdsByStatus = async (status: string): Promise<string[]> =>
+        (
+          await withAdmin(
+            supertest(app.getHttpServer()).get(`/api/v1/homework?status=${status}`),
+            await adminToken(),
+          ).expect(200)
+        ).body.map((h: { id: string }) => h.id);
+
+      it('deactivate shows up under the Deactivated filter, reactivate removes it', async () => {
+        const h = await mkHomework('Patch status');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        expect((await patch(a, { status: 'DEACTIVATED' })).status).toBe(200);
+        expect((await rows(h))[0].status).toBe('DEACTIVATED');
+        expect(await listIdsByStatus('DEACTIVATED')).toContain(h);
+        expect((await patch(a, { status: 'ACTIVE' })).status).toBe(200);
+        expect((await rows(h))[0].status).toBe('ACTIVE');
+        expect(await listIdsByStatus('DEACTIVATED')).not.toContain(h);
+      });
+
+      it('moves the due date in place and keeps the submissions on the same row', async () => {
+        const studentId = await mkStudent(MAPPED_SECTION_ID);
+        const h = await mkHomework('Patch due');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const [{ id: submissionId }] = await dataSource.query(
+          `INSERT INTO homework_submissions (id, assignment_id, student_id, tenant_id, status, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, 'SUBMITTED', NOW(), NOW()) RETURNING id`,
+          [a, studentId, TENANT_ID],
+        );
+        const res = await patch(a, { due_date: '2026-01-20' });
+        expect(res.status).toBe(200);
+        expect(res.body).toMatchObject({ id: a, due_date: '2026-01-20' });
+        const list = await rows(h);
+        expect(list).toHaveLength(1);
+        expect(list[0].id).toBe(a);
+        const [{ assignment_id }] = await dataSource.query(
+          `SELECT assignment_id FROM homework_submissions WHERE id = $1`,
+          [submissionId],
+        );
+        expect(assignment_id).toBe(a);
+      });
+
+      it('rejects bad bodies with 400 and leaves the row unchanged', async () => {
+        const h = await mkHomework('Patch validation');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const before = (await rows(h))[0];
+        const early = await patch(a, { due_date: '2025-12-31' });
+        expect(early.status).toBe(400);
+        expect(early.body.message).toBe('due_date must be on or after assigned_date');
+        const empty = await patch(a, {});
+        expect(empty.status).toBe(400);
+        expect(empty.body.message).toBe('Nothing to change');
+        for (const body of [
+          { status: null },
+          { due_date: null },
+          { status: 'SUPERSEDED' },
+          { due_date: 'not-a-date' },
+        ]) {
+          expect((await patch(a, body)).status).toBe(400);
+        }
+        expect((await rows(h))[0]).toEqual(before);
+      });
+
+      it('a SUPERSEDED row cannot be changed', async () => {
+        const h = await mkHomework('Patch superseded');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        await withAdmin(
+          supertest(app.getHttpServer()).post(`/api/v1/homework-assignments/${a}/reassign`),
+          await adminToken(),
+        )
+          .send({
+            section_id: MAPPED_SECTION_ID,
+            assigned_date: '2026-01-01',
+            due_date: '2026-01-15',
+          })
+          .expect(201);
+        const res = await patch(a, { due_date: '2026-01-20' });
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe('A superseded assignment cannot be changed');
+      });
+
+      it('Rules 2 and 23: every 404 has one text and teachers reach only own sections', async () => {
+        const sectionB = await mkSectionB();
+        const h = await mkHomework('Patch scope');
+        const mapped = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const other = await assignRow(h, { section_id: sectionB });
+
+        expect((await patch(mapped, { due_date: '2026-01-20' }, 'teacher')).status).toBe(200);
+        const hidden = await patch(other, { due_date: '2026-01-20' }, 'teacher');
+        const unknown = await patch(randomUUID(), { due_date: '2026-01-20' }, 'teacher');
+        expect(hidden.status).toBe(404);
+        expect(unknown.status).toBe(404);
+        expect(hidden.body.message).toBe('Homework assignment not found');
+        expect(unknown.body.message).toBe('Homework assignment not found');
+
+        await unassignTeacher();
+        const gone = await patch(mapped, { due_date: '2026-01-21' }, 'teacher');
+        expect(gone.status).toBe(404);
+        expect(gone.body.message).toBe('Homework assignment not found');
+      });
+
+      it('cross-tenant: other tenant 404, missing tenant header 401', async () => {
+        const h = await mkHomework('Patch tenant');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const OTHER_TENANT = '00000000-0000-4000-8000-000000000098';
+        await dataSource.query(
+          `INSERT INTO schools (id, name, slug, created_at, updated_at)
+           VALUES ($1, 'Other', 'other-hw-list', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [OTHER_TENANT],
+        );
+        await dataSource.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [SEED_ADMIN_USER_ID, OTHER_TENANT, UserRole.ADMIN],
+        );
+        try {
+          const token = await adminToken(); // re-login: token carries memberships
+          await supertest(app.getHttpServer())
+            .patch(`/api/v1/homework-assignments/${a}`)
+            .set('Authorization', `Bearer ${token}`)
+            .set('X-Tenant-ID', OTHER_TENANT)
+            .send({ status: 'DEACTIVATED' })
+            .expect(404);
+          await supertest(app.getHttpServer())
+            .patch(`/api/v1/homework-assignments/${a}`)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ status: 'DEACTIVATED' })
+            .expect(401);
+        } finally {
+          await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`, [
+            SEED_ADMIN_USER_ID,
+            OTHER_TENANT,
+          ]);
+        }
+      });
+
+      it('Rule 3: a non-UUID id is 400', async () => {
+        expect((await patch('not-a-uuid', { status: 'ACTIVE' })).status).toBe(400);
+      });
+    });
   });
 
   // [TIME-11] Guardian SMS on assign is off until the school turns it on.

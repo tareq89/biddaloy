@@ -258,6 +258,37 @@ export function useReassignHomeworkAssignment() {
   });
 }
 
+export interface UpdateHomeworkAssignmentInput {
+  status?: 'ACTIVE' | 'DEACTIVATED';
+  /** `YYYY-MM-DD`; edits the row in place, so submissions stay. */
+  due_date?: string;
+}
+
+/** `PATCH /homework-assignments/:id`. Refreshes on error too: a 400/404 means the row changed. */
+export function useUpdateHomeworkAssignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    retry: false,
+    mutationFn: async ({
+      assignmentId,
+      input,
+    }: {
+      assignmentId: string;
+      input: UpdateHomeworkAssignmentInput;
+    }) => {
+      const res = await apiClient.patch<HomeworkAssignment>(
+        `/homework-assignments/${assignmentId}`,
+        input,
+      );
+      return res.data;
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: homeworkAssignmentsKeyRoot });
+      void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
+    },
+  });
+}
+
 // TODO(schema): hand-declared to mirror `HomeworkBulkUploadPreviewRowDto` /
 // `HomeworkBulkUploadResultDto` at
 // `server/src/modules/homework/dto/homework-bulk-upload.dto.ts` — swap for
