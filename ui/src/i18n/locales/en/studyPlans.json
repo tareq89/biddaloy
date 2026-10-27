@@ -96,7 +96,7 @@
     }
   },
   "library": {
-    "info": "Teachers copy any template into their own plan. A copy is separate — changing the template never changes it. Admins and the head teacher add and edit templates.",
+    "info": "Teachers copy any template into their own plan. A copy is separate — changing the template never changes it. Admins and the academic coordinator add and edit templates.",
     "subtitle": "The school's plan templates, by class and subject code, reused every year",
     "searchPlaceholder": "Template name",
     "nameTaken": "A template with this name already exists.",
