@@ -9,6 +9,7 @@ import { Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  HelpHint,
   DataTable,
   ErrorState,
   Skeleton,
@@ -91,10 +92,10 @@ export function SubjectsTab({ classId, academicYearId }: SubjectsTabProps) {
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <h2 className="text-h2">{t('subjects.heading')}</h2>
         {canManage && (
-          <Button type="button" className="w-full md:w-auto" onClick={() => setAttachOpen(true)}>
+          <span className="inline-flex items-center gap-1"><Button type="button" className="w-full md:w-auto" onClick={() => setAttachOpen(true)}>
             <PlusIcon aria-hidden="true" />
             {t('subjects.addSubject')}
-          </Button>
+          </Button><HelpHint helpId="academics.classes.action.attachSubject" /></span>
         )}
       </div>
 

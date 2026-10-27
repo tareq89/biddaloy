@@ -1,5 +1,5 @@
 /** [66.3.01] D19/D34: the day's header, progress bar and the page's one filled button. */
-import { Button, StatusBadge } from '@biddaloy/ui/components';
+import { Button, HelpHint, StatusBadge } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, formatTime, formatWeekday } from '@biddaloy/ui/utils';
 import { CheckCheckIcon } from 'lucide-react';
@@ -82,7 +82,7 @@ export function DaySummaryCard({
       )}
       {isToday && left > 0 && (
         <div className="flex flex-col gap-2">
-          <Button
+          <span className="inline-flex items-center gap-1"><Button
             className="h-14 w-full md:h-11 md:w-fit"
             disabled={bulkPending}
             aria-busy={bulkPending}
@@ -90,7 +90,7 @@ export function DaySummaryCard({
           >
             <CheckCheckIcon aria-hidden="true" />
             {t('marking.allTaught')}
-          </Button>
+          </Button><HelpHint helpId="academics.myRoutine.action.allTaught" /></span>
           <p className="text-caption text-text-secondary">
             {t('marking.allTaughtHelp', { count: left })}
           </p>
