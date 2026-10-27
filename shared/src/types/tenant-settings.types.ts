@@ -111,6 +111,9 @@ export interface AttendancePolicySettings {
    * enforces this). */
   allowFutureDates: boolean;
   autoAbsentNotification: { enabled: boolean; cutoffTime: string };
+  /** [84.1.1] Arrival notices. The resolver default is set in 84.1.4
+   * (`attendance-policy.util.ts`). */
+  arrivalNotice?: { enabled: boolean; smsAllowed: boolean };
   /** Per-shift override of `lateAfter`/`absentAfter` (local 'HH:mm'). A
    * class whose shift has no entry uses the tenant pair above. */
   shiftTimes?: Array<{ shiftId: string; lateAfter: string; absentAfter: string }>;
