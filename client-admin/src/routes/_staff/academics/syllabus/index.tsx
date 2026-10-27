@@ -5,7 +5,7 @@
  */
 import { Permission } from '@biddaloy/shared';
 import { RoutePending, Tabs, TabsContent, TabsList, TabsTrigger } from '@biddaloy/ui/components';
-import { useHasPermission } from '@biddaloy/ui/hooks';
+import { useCanWriteSyllabus, useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader, type PageAction } from '@biddaloy/ui/shells';
 import { createFileRoute } from '@tanstack/react-router';
@@ -63,7 +63,8 @@ function SyllabusPage() {
   const tab: SyllabusTab = search.tab ?? 'topics';
   const canManage = useHasPermission(Permission.SYLLABUS_MANAGE);
   const [createOpen, setCreateOpen] = React.useState(false);
-  const { hasSelection } = useTopicsSelection(search);
+  const { hasSelection, classId, subjectId } = useTopicsSelection(search);
+  const canWriteTopics = useCanWriteSyllabus(classId, subjectId);
 
   const canManageTemplates = useHasPermission(Permission.STUDY_PLAN_TEMPLATE_MANAGE);
   const [libraryDialog, setLibraryDialog] = React.useState<LibraryDialog>(null);
@@ -96,7 +97,7 @@ function SyllabusPage() {
       label: t('list.addTopic'),
       icon: <Plus />,
       priority: 'primary',
-      allowed: canManage && hasSelection,
+      allowed: canWriteTopics && hasSelection,
       onClick: () => setCreateOpen(true),
     },
   ];
