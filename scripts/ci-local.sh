@@ -129,6 +129,8 @@ CI_PATHS_FRONTEND=(
   'scripts/ci-timings-trend.spec.mjs'
   'scripts/flake-report.mjs'
   'scripts/flake-report.spec.mjs'
+  'scripts/check-arch-docs.spec.mjs'
+  'docs/architecture/**'
   'ci-budgets.json'
   'quarantine.json'
   'package.json'

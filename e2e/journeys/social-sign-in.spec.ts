@@ -9,7 +9,7 @@ import { LoginPage } from '../pages/login-page';
  * the real provider (token exchange), with no test seam. So the provider
  * round trip (register / connect / sign in / disconnect) is NOT covered here;
  * it is covered by the server's `social-auth.controller.e2e-spec.ts` and the
- * manual owner checklist in docs/architecture/22-onboarding.md. What this
+ * manual owner checklist in docs/architecture/34-onboarding.md. What this
  * proves: the buttons appear for each configured provider, point at the
  * server's start URL, the "not connected" return path is explained, and
  * Meta's data-deletion status page is reachable without signing in.

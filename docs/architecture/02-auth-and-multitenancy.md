@@ -165,7 +165,7 @@ new number. She enters it (`POST /api/v1/users/me/contact-change/confirm-phone`)
 and only then does the phone change, for both schools at once.
 
 The full list of rules like these, per domain, is
-[25-domain-invariants.md](25-domain-invariants.md).
+[36-domain-invariants.md](36-domain-invariants.md).
 
 ## Login → request flow
 
@@ -373,7 +373,7 @@ Which status a refused request gets depends on which guard refuses it:
 | `ACTIVE`, over its seats (7-day grace, Epic 49 D9) | `POST/PUT/PATCH/DELETE`, unless the handler is marked | **403** `TENANT_READ_ONLY` with `details.until`; `GET/HEAD/OPTIONS` pass |
 | `ACTIVE`, a backup restore running                 | `POST/PUT/PATCH/DELETE`                               | **423** `TENANT_RESTORING`                                               |
 
-How the grace window and the suspension work: [22-onboarding](22-onboarding.md) "Over the seats".
+How the grace window and the suspension work: [34-onboarding](34-onboarding.md) "Over the seats".
 
 Example, with a PARENT token for the same school:
 
@@ -711,7 +711,7 @@ flowchart TD
   (no password + staff role + no linked social account). The gate is
   client-side, stored per account and cleared on logout or when a password is
   set. Server enforcement is open: #1697. See
-  [22-onboarding.md](22-onboarding.md).
+  [34-onboarding.md](34-onboarding.md).
 - **Password rules depend on the role**, checked only when a password is set
   or changed (never at sign-in). Strictest role across all memberships wins.
 

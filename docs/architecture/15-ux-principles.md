@@ -202,7 +202,7 @@ Not in the nav on purpose (reached by a redirect, a link or a button):
 People, as shown above.)
 The setup checklist is a card on the Dashboard. The attention bar sits under the
 top bar on every shell; the trial warning is one of its rules (`trial.ending`).
-See [22-onboarding.md](22-onboarding.md) and [23-attention.md](23-attention.md).
+See [34-onboarding.md](34-onboarding.md) and [23-attention.md](23-attention.md).
 
 ### 3.4 Placement decisions (final)
 

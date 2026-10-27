@@ -75,7 +75,7 @@ describe('BillingController marker', () => {
 /**
  * Epic 49 D9: @AllowWhenReadOnly keeps a user's own writes open while the school is read-only.
  * Pinned to exactly these handlers, so a new one is a deliberate edit (and a docs line in
- * 22-onboarding.md "Writes that stay open").
+ * 34-onboarding.md "Writes that stay open").
  */
 describe('@AllowWhenReadOnly allowlist', () => {
   const markedOn = (cls: { prototype: object }) => {

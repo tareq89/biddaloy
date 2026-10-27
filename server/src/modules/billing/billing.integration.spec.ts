@@ -468,7 +468,7 @@ describe('EntitlementService + OrdersService (integration)', () => {
       const ctx = { tenantId: 'platform' } as never;
       const [f] = await rule.evaluate(ctx);
       expect(f!.params).toMatchObject({ refs: expect.stringContaining('TRXLATE') });
-      // ... until it is stamped refunded (28-billing.md).
+      // ... until it is stamped refunded (38-billing.md).
       await ds.query(
         `UPDATE platform_payments SET raw = raw || jsonb_build_object('refunded_at', now())
           WHERE method = 'BKASH' AND gateway_ref = 'TRXLATE'`,
