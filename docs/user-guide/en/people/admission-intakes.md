@@ -117,7 +117,7 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
 
    → The dialog closes and the new round appears in the list. If today falls between the open and close dates, **Status** is **Open**; otherwise **Closed**.
 
-> **Remember:** an **Open** round can take applications, but you must still tell guardians the school's admission link. The link looks like `…/admission/<school-link-name>`.
+> **Remember:** an **Open** round can take applications, but you must still tell guardians the school's admission link. The link looks like `…/admission/<school-link-name>`. To copy it, press **Copy public link** at the top of the rounds list; the message **Public admission link copied.** appears.
 
 ---
 
@@ -148,7 +148,7 @@ A round is saved only while you are online; it cannot be kept on the device and 
 
    → The message **Saved** appears. Press **Cancel** to go back to the list without changing anything.
 
-**To close early:** there is no separate "Close" button. Set the **Close date** to yesterday. If the **Open date** is today or later, set it to yesterday too, because the close date cannot be before the open date. After you save, the status becomes **Closed** and the round leaves the guardian's form. If you set the close date to today, the round stays **Open** until the end of today.
+**To close early:** on the page of an **Open** round, press **Close now**. The **Close this admission round now?** dialog says: "The public form stops taking applications for this round today. Applications already sent are kept." Press **Close now** in the dialog. → The message **Admission round closed.** appears, the status becomes **Closed** and the round leaves the guardian's form. If **Could not close the round. Please try again.** appears, check your internet and press again.
 
 > **Remember:** there is no way to delete a round. If you change **Required documents**, it applies to later applications; applications already submitted stay as they are.
 
@@ -195,7 +195,7 @@ This part is written from the guardian's side, so the office can talk them throu
 
 <img src="img/admission-intakes-04.png" alt="the submitted page on a guardian's phone: 1 the reference number, 2 the Copy number button, guest" width="300">
 
-> **Remember:** if the same child (same round, same mobile number, same name and date of birth) is submitted a second time, no new application is created; the form shows only **We couldn't submit your form. Please check your answers and try again.**. Ask the guardian to contact the school with their earlier reference number.
+> **Remember:** if the same child (same round, same mobile number, same name and date of birth) is submitted a second time, no new application is created; the form shows **This application could not be accepted. If you already applied for this child, contact the school with your reference number.** Ask the guardian to contact the school with their earlier reference number.
 
 ### How a guardian checks the application status <a href="#task-status" id="task-status"></a>
 
@@ -242,7 +242,9 @@ Guardians do not see staff notes or the reason for a rejection on this page.
 | **Create** will not press                                                                                  | Fill in every starred field; **Seat count** must be 1 or more; the close date must not be before the open date.                                                     | —            |
 | A guardian says **This school isn't accepting new applications right now.**                                | Check whether the round's **Status** is **Open**. If it is, check whether the seats are full (**Admitted** count = **Seat count**); raise **Seat count** if needed. | Office staff |
 | A guardian says **We couldn't find this school. Please check the link and try again.**                     | The school name part of the link has a typo. Send the correct link again.                                                                                           | Admin        |
-| A guardian says **We couldn't submit your form. Please check your answers and try again.**                 | Ask whether they already applied once; if so, look for them in the applicants list. If not, check whether the round's last day or the seats have run out.           | Office staff |
+| A guardian says **This application could not be accepted. If you already applied for this child, …**      | They already applied for this child. Look for them in the applicants list by the reference number.                                                                  | Office staff |
+| A guardian says **This admission round is not taking applications now.** or **This admission round has no seats left.** | The round's last day or its seats have run out. Check the round's **Status** and **Seat count**.                                                       | Office staff |
+| A guardian says **We couldn't submit your form. Please check your answers and try again.**                 | Ask them to check what they typed and their internet, then submit again.                                                                                           | Office staff |
 | A guardian says **The robot check didn't go through. Please complete the check below again, then submit.** | They complete the check box again and press **Submit application**. What they typed is not lost.                                                                    | —            |
 | A guardian says **Applications can't be sent right now. Please try again in a little while.**              | The site's check service is not running right now; changing the form will not help. Tell support.                                                                   | Support team |
 | A guardian says **We couldn't find an application with this reference number and phone number.**           | Ask them to use the phone number they gave on the form. Compare the reference number with the applicants list.                                                      | Office staff |

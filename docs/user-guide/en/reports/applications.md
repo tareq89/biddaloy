@@ -71,7 +71,6 @@ The numbers come from the school's [applications](../applications/applications.m
 
 ![Application reports with the Academic year and Submitted on filters, four summary boxes, and the By type and status and By month sections](img/applications-02-reports.png)
 
-
 ---
 
 ## How to know the numbers are right <a href="#confirm" id="confirm"></a>

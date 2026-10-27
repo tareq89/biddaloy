@@ -196,7 +196,7 @@ In a survey, students or guardians give their opinion of teachers in the portal.
 
 6. Decide **Anonymous — hidden from management**. It is ticked already.
 
-   → If ticked, management sees only totals and comments, never who answered. If you untick it, the form says management will see each person's name.
+   → If ticked, management sees only totals and comments, never who answered. If you untick it, the form says: "Management still sees only totals and comments. Respondents are not told their answers are anonymous." Names are never shown.
 
 7. If you need to, set **Opens on** and **Closes on** (the closing date must be after the opening date), and set **Minimum answers before results show**.
 
@@ -222,7 +222,7 @@ In a survey, students or guardians give their opinion of teachers in the portal.
 
 3. On a closed survey, look at **Results**.
 
-   → For each teacher and subject you see the number of responses, and for each question the star average and the comments. If there are fewer responses than the minimum, you see a **Waiting** mark and "Waiting for more responses (2 of 3)." Results show only after closing.
+   → For each teacher and subject you see the number of responses, and for each question the star average and the comments. If there are fewer responses than the minimum, you see a **Waiting** mark and "Waiting for more responses (2 of 3)." While the survey is open, each card shows the **After closing** mark and "Results appear once the survey is closed."
 
 > **Careful:** a closed survey cannot be opened again. Results show only after closing, so nobody can guess who answered while it is open. This applies to Admins too. A teacher who is the subject of a survey cannot see its results. (Checked in the server code.)
 
@@ -267,7 +267,8 @@ A wrong incident cannot be deleted, only withdrawn. This is not on the Evaluatio
 | **You don't have access to this page.**                                                 | The page is only for Admins and committee members ([who can do what](#roles)). Press **Back to dashboard**.                                                     | Admin        |
 | **Couldn't load the ACR register.**                                                     | Check your internet and reload the page.                                                                                                                        | Admin        |
 | **No ACRs** / "No ACRs yet for this filter."                                            | Remove the **Academic year** and **Status** filters and look again.                                                                                             | Admin        |
-| **An ACR already exists for this staff member and year.**                               | Find that staff member and year in the list and press **Open**. You cannot start another. If there is no such ACR, save the ACR criteria in **Settings** first. | Admin        |
+| **Save the ACR criteria first, then start an ACR.**                                     | Save the criteria in **Settings** ("ACR criteria"), then press **Start ACR** again. | Admin        |
+| **An ACR already exists for this staff member and year.**                               | Find that staff member and year in the list and press **Open**. You cannot start another. | Admin        |
 | **Couldn't start the ACR.**                                                             | Check your internet and try again.                                                                                                                              | Admin        |
 | **Couldn't load this ACR.**                                                             | Check your internet and press **Retry**. This can also appear if you try to open your own ACR.                                                                  | Admin        |
 | **Score every criterion before completing.**                                            | Give 4, 3, 2 or 1 to every criterion marked **Not scored**.                                                                                                     | Admin        |

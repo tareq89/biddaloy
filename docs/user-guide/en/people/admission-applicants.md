@@ -155,7 +155,7 @@ Two fields above the list:
 | **Admission round** | One round. If you choose none, it says **All admission rounds**                                                  |
 | **Status**          | **Awaiting review**, **Shortlisted**, **Admitted** or **Rejected**. If you choose none, it says **All statuses** |
 
-Before you start work, choose **Awaiting review** under **Status** to see only the applications nobody has looked at yet. With no applications at all, it says **No applications yet**.
+Before you start work, choose **Awaiting review** under **Status** to see only the applications nobody has looked at yet. To find one application, type a name, reference number or phone in **Search**. With no applications at all, it says **No applications yet**.
 
 ### When the phone number matches an earlier guardian <a href="#task-guardian" id="task-guardian"></a>
 

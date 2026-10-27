@@ -197,7 +197,7 @@ You can report or change periods up to 7 days back from today. This page does no
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Teacher                                             | Yes, while the routine is in review or published                                            | Yes, up to 7 days back from today                              |
 | Admin                                               | If they have a teacher profile; if not, a **See class routines** button appears             | If they have a teacher profile, up to 7 days back on this page |
-| Academic coordinator, Office staff, Exam controller | If they have a teacher profile and the routine is published | If they have a teacher profile                                 |
+| Academic coordinator, Office staff, Exam controller | If they have a teacher profile, while the routine is in review or published | If they have a teacher profile                                 |
 | Accountant, Committee member                        | Do not see the page                                                                         | No                                                             |
 
 Students and guardians see the published routine in their own portal.

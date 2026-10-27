@@ -130,7 +130,7 @@ If your phone is stolen, or you think someone knows your password, also get a ne
 
 On the **Security** page, in the **Sign-in methods** section:
 
-- **Password** — If your account has no password yet, tap **Set or change password**, type the new password twice, and tap **Set a password**. → The message **Your password is set.** appears.
+- **Password** — If your account has no password yet, tap **Set or change password**, type the new password twice, and tap **Set a password**. → The message **Your password is set.** appears. If you already have a password, the dialog then says **You already have a password. Enter it, then choose a new one.** Type your current password and the new one, and confirm. → The message **Your password is changed.** appears. If the current password is wrong, it shows **That password is not correct.**
 - **A code by SMS or email** — **Always on**. You can also sign in with a code, without a password.
 - **Google** / **Facebook** — Shown when the school turns them on. Tap **Connect**, type your **Current password** and tap **Continue**, then sign in to Google or Facebook. → When you come back, the message **(Google/Facebook) is now connected.** appears. After that, **Continue with Google** or **Continue with Facebook** on the sign in page works.
 

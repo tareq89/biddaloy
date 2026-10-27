@@ -80,6 +80,8 @@ Student attendance is taken by section ([Taking attendance](attendance.md)). Sta
 
 ## Take today's staff attendance <a href="#task-main" id="task-main"></a>
 
+Admins and academic coordinators see all staff. Everyone else sees only their own row ([who can do what](#roles)).
+
 1. In the left menu press **Attendance**, then **Staff attendance**.
 
    → The top says **Staff attendance**, and below it "12 staff members". Each person shows their name, their role, and a status button on the right. The counts at the top read **Present 0**, **Absent 0**, **Late 0**, **Leave 0**, **Unmarked 12**.
@@ -119,6 +121,7 @@ Rules:
 
 - On a future day you can only give **Leave**.
 - Nothing saves on a day the school is closed.
+- To change a day that already has attendance and is older than the school's correction window (usually 2 days), a **Why are you changing this day?** box appears above **Save attendance**. Write a reason of at least 3 characters; other staff can see it.
 
 Changing the date throws away marks you had not saved for the previous date.
 
@@ -172,11 +175,13 @@ An admin or academic coordinator can open the request and press **Cancel leave**
 
 | What you see                                                         | What to do                                                                                                                    | Who can help |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Couldn't load staff for this day.**                                | Check your internet and reload the page.                                                                                       | Admin        |
+| **Write a reason of at least 3 characters.**                         | The day is older than the correction window. Write why you are changing it in the box, then save.                              | —            |
 | **No staff yet**                                                     | Press **Add staff**, or give people a staff profile ([Staff](../people/staff.md)).                                             | Admin        |
 | One staff member is missing from the list                            | They have no staff profile. Add one from the [Staff](../people/staff.md) page.                                                 | Admin        |
 | **You have no staff profile**                                        | Leave is tracked for staff only. Ask an admin to create your staff profile.                                                    | Admin        |
 | **No leave rules yet**                                               | The school has not set up leave types and quotas.                                                                              | Admin        |
-| **Couldn't save attendance. Try again.** when saving                 | Check your internet. It will not save for a day the school is closed, a mark other than Leave on a future day, or a day past the correction window. | Admin |
+| **Couldn't save attendance. Try again.** when saving                 | Check your internet. It will not save for a day the school is closed, or a mark other than Leave on a future day. | Admin |
 
 <!-- unverified: ছুটির কোটা কোন পাতা থেকে বদলায় (server PUT /leave/policies/:type আছে; UI পাতা খোঁজা হয়নি) -->
 
@@ -187,11 +192,11 @@ An admin or academic coordinator can open the request and press **Cancel leave**
 | Role                 | Take staff attendance                          | Own leave balance and requests | Approve and cancel leave |
 | -------------------- | ---------------------------------------------- | ------------------------------ | ------------------------ |
 | Admin                | Yes, all staff, any day                        | Yes                            | Yes, except their own    |
-| Academic coordinator | Yes by the rules, but the list does not open   | Yes                            | Yes, except their own    |
-| Teacher              | No (the list does not open)                    | Yes                            | No                       |
-| Accountant           | No (the list does not open)                    | Yes                            | No                       |
-| Office staff         | No (the list does not open)                    | Yes                            | No                       |
-| Exam controller      | No (the list does not open)                    | Yes                            | No                       |
+| Academic coordinator | Yes, all staff, any day                        | Yes                            | Yes, except their own    |
+| Teacher              | Only their own, only today                     | Yes                            | No                       |
+| Accountant           | Only their own, only today                     | Yes                            | No                       |
+| Office staff         | Only their own, only today                     | Yes                            | No                       |
+| Exam controller      | Only their own, only today                     | Yes                            | No                       |
 
 **Staff attendance** is in every role's menu. Teachers, accountants, office staff and exam controllers can give only their own attendance, only for today, and only once. The **Pending leave applications** link is seen only by admins and academic coordinators.
 

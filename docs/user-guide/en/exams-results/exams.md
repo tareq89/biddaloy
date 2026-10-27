@@ -89,6 +89,7 @@ Every exam belongs to one class and one academic year, for example the **Half Ye
   - [Give a schedule](#task-schedule)
   - [Edit an exam](#task-edit)
   - [Exam states: draft to published](#task-status)
+  - [Delete an exam](#task-delete)
   - [Filter the list](#task-find)
   - [The exam page: the tabs](#task-detail)
 - [Problems and fixes](#trouble)
@@ -235,7 +236,7 @@ You can change the date, time or venue by pressing the cell in the list. To take
 
 2. Make your changes and press **Save**.
 
-When the results are **Published**, only the name and deadline can be changed; if you change the **Kind**, it does not save.
+When the results are **Published**, only the name and deadline can be changed; if you change the **Kind**, it does not save and shows **This exam's results are published. Reopen the results before changing its type.**
 
 ### Exam states: draft to published <a href="#task-status" id="task-status"></a>
 
@@ -248,6 +249,20 @@ The state is written at the top of the exam page, and beside it are only the but
 | **Published** | Results are published; parts are locked                 | **Result analysis**, **Send result SMS**, **Reopen**            |
 
 Pressing **Reopen** makes the exam **Processed** again. The full rules for processing, publishing and reopening will be on [the results page](results.md).
+
+### Delete an exam <a href="#task-delete" id="task-delete"></a>
+
+Only a **Draft** exam can be deleted, for example one made by mistake. Once its results have been processed, the exam cannot be deleted; **Reopen** and correct the results instead.
+
+1. Open the exam's page and, at the top, press **Delete exam**.
+
+   → The **Delete this exam?** dialog opens: "The exam, its marks breakdown, schedule and any marks entered are removed. This can't be undone from the app."
+
+2. Press **Delete**.
+
+   → The exam is deleted and the exam list opens.
+
+If **This exam has results. Reopen and correct them instead of deleting the exam.** or **Couldn't delete the exam. Please try again.** appears in the dialog, the exam was not deleted.
 
 ### Filter the list <a href="#task-find" id="task-find"></a>
 
@@ -279,7 +294,9 @@ Press the exam name in the list, or **View**, to open its page. At the top are t
 | **You don't have access to this page.**                                                            | Only the Admin and the exam controller see this page. Press **Back to dashboard**.                                                                                          | Admin        |
 | **Couldn't load exams.** or **Couldn't load this exam.**                                           | Check the internet and reload the page.                                                                                                                                     | Admin        |
 | **An exam with this name already exists.**                                                         | An exam with this name already exists for the same class and year. Give another name. | Admin        |
-| **Couldn't save the exam.**                                                                        | Check the internet. If you picked a structure, see whether the class has a **grade** set ([Edit a class](../academics/classes.md#task-edit)).                                | Admin        |
+| **This exam's results are published. Reopen the results before changing its type.**              | Keep the **Kind** as it was, or first **Reopen** the results ([Exam states](#task-status)). | Admin        |
+| **This class has no grade set, so an exam structure can't be used. …**                             | Give the class a **grade** ([Edit a class](../academics/classes.md#task-edit)), or pick **No exam structure**. | Admin        |
+| **Couldn't save the exam.**                                                                        | Check the internet and press **Save** again.                                | Admin        |
 | The **Class** list is empty                                                                        | The picked year has no classes. First [add a class](../academics/classes.md#task-main).                                                                                     | Admin        |
 | **Exam created — the structure had nothing for this class's subjects. Add the parts yourself.**    | The structure has no grade or subjects for this class, or the subject codes did not match. [Set the parts](#task-components) yourself, or fix the [structure](exam-templates.md#task-grid). | Admin        |
 | **Couldn't save the part.**                                                                        | See whether a part with the same name or a second attendance part already exists in the subject, and whether pass marks are more than full marks.                          | Admin        |

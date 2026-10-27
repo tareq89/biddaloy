@@ -58,7 +58,7 @@ In each section's weekly routine, place which subject is taught in which period 
 
 - Shifts and their period times: [**Routine setup**](routine-setup.md).
 - Classes and sections, and a shift for the class (set on the class page).
-- A routine for the current academic year.
+- A routine for the current academic year. If there is none, opening a section shows **No routine yet**; press **Create routine** there, and a new **Draft** routine is made.
 - Teachers given duties for the section and subject: [**Giving teachers class and section duties**](../people/teaching-assignments.md). You can place a teacher without a duty, but a warning appears, and **Fill empty periods** picks only teachers who have the duty.
 
 On this page you work on one **routine table** per section. The table's columns are the days of the week (except the school's weekly off days) and its rows are periods. Each cell holds one subject and one or more teachers. The routines of all the school's sections together make one routine, and its state (**Draft**, **In review**, **Published**) is shown above the table.
@@ -107,6 +107,8 @@ On this page you work on one **routine table** per section. The table's columns 
 6. From the **Teacher(s)** list, pick one or more teachers.
 
    → **Save** stays off until you have picked a subject and at least one teacher.
+
+   If you want, pick a room under **Room (optional)**. Rooms come from [Routine setup](routine-setup.md#task-rooms); if you pick none, it stays **No room**.
 
 7. Under **Recurrence**, keep **Weekly** in most cases. (For the others, see [A period every two weeks or once a month](#task-recurrence).)
 
@@ -200,7 +202,7 @@ Weeks are counted from the start date of the academic year. Whether two periods 
 
 **To clear:** move to the cell with the keyboard and press Delete.
 
-→ The cell becomes **Empty** with no question asked.
+→ The cell becomes **Empty** with no question asked, and the **Period cleared** message appears. If **Could not clear this period — try again.** appears, the period stays; check your internet and press Delete again.
 
 > **Remember:** there is no undo after Delete. If you clear one by mistake, place it again. While the routine is a **Draft** or **In review**, the period is deleted completely. In a **Published** routine, a period that has already been running is not deleted; it ends as of yesterday, so that earlier days stay correct.
 
@@ -225,6 +227,7 @@ Below the table is the **Teacher workload** section: each teacher's **Periods / 
 | **No classes yet**                                                              | Press **Go to classes** and add a class and its sections first.                                                                 | Admin          |
 | **No sections**                                                                 | Press **Open class** and add sections to the class.                                                                             | Admin          |
 | **This class has no shift**                                                     | Press **Open class** and give the class a shift. If there is no shift, do [Routine setup](routine-setup.md) first.              | Admin          |
+| **No routine yet**                                                              | Press **Create routine**. A new **Draft** routine is made for the current academic year. If **Could not create the routine — try again.** appears, check your internet and press again. | Admin          |
 | **Which section?**                                                              | You came from an old link. Press **Class routine** and open the section from the list.                                          | Admin          |
 | **Section not found.**                                                          | The section may have been removed. Press **Class routine** and pick it again.                                                   | Admin          |
 | **Couldn't load the classes. Check your connection and try again.**             | Check your internet and try again.                                                                                              | Admin          |

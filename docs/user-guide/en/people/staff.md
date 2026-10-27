@@ -123,7 +123,7 @@ This page is about the **staff list**. The list holds everyone at the school: te
 
 4. Type an **Email** or a **Phone** (both is better). Type the phone number in English digits, for example `01712345678`.
 
-   → The invitation goes to this address.
+   → The invitation goes to this address. Give at least one; if both are empty, it shows **Enter an email or a phone number so we can send the invitation.** and nothing is added.
 
 5. In **Role**, press **Choose a role**, then pick one from the list.
 
@@ -350,6 +350,7 @@ Which tabs you see depends on your permissions. To see and change the assignment
 | **Could not add the user. Please try again.**                                                                                | Check your internet. See whether the name has already come into the list; if it has, do not add it again. | Admin        |
 | **A user with this email already exists.**                                                                                   | Check the spelling of the email. If it is right, the person already has an account; send a join request.                                                                    | Admin        |
 | **This person is already on your staff.**                                                                                    | Use **Search** to find the name in the list. There is nothing more to add.                                                                                                  | Admin        |
+| **Enter an email or a phone number so we can send the invitation.**                                                         | Type an **Email** or a **Phone**, then press **Add staff member** again.                                                                                                     | Admin        |
 | **Choose a role.**                                                                                                           | Pick one in **Role**.                                                                                                                                                       | Admin        |
 | **Could not save the changes. Please try again.**                                                                            | Check your internet and press **Save changes** again. What you typed stays.                                                                                                 | Admin        |
 | **This employee ID is already in use in this school.**                                                                       | Type a different **Employee ID**.                                                                                                                                           | Admin        |

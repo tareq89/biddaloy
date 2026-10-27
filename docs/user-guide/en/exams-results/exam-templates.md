@@ -124,7 +124,7 @@ Structure details are saved only when you are online; they cannot be kept on the
 
 **To check:** reload the page. If the parts are as before, it was saved.
 
-**If no message comes:** see [Problems and fixes](#trouble). If you do not leave the page, the changes stay on the screen.
+**If no message comes:** see [Problems and fixes](#trouble). If you do not leave the page, the changes stay on the screen. If you try to leave before saving, **Leave without saving?** asks first: press **Stay** to keep your changes, or **Leave anyway** to lose them.
 
 ---
 

@@ -139,6 +139,8 @@ If nobody will teach:
 
 Record it again with **Add substitute teacher** for the same date and the same period. The new one takes the place of the earlier one; you do not get two rows. You can turn a cancellation into a substitution, or a substitution into a cancellation, this way.
 
+To remove a row completely, press **Delete** at the end of the row in the list. The **Delete the substitution on {date}?** dialog says: "The period goes back to its usual teacher on that date." Press **Delete**; the **Deleted** message appears. If **Could not delete — try again.** appears, the row stays; check your internet and try again.
+
 ### Filter the list <a href="#task-filter" id="task-filter"></a>
 
 | Filter                 | What to pick                                                                                |
@@ -163,7 +165,9 @@ The columns of the list: **Date**, **Period**, **Class and section**, **Absent t
 | **Pick a date first.**                                                                                                  | Enter a date in the **Date** field.                                                                                                                        | Admin        |
 | **This section has no period on {weekday}.**                                                                            | Check the date; the section's routine has no period on that weekday.                                                                                       | Admin        |
 | **This period doesn't happen on the date you picked (it may run every other week or once a month). Pick another date.** | The period is biweekly or monthly; pick a date in a week when it happens.                                                                                  | Admin        |
-| **Could not save — try again.**                                                                                         | Check your internet. If that is fine, the substitute teacher is probably busy in another period then; pick another teacher. | Admin        |
+| **This teacher already teaches this period. Pick someone else.**                                                        | The teacher you picked is the period's own teacher. Pick another teacher. | Admin        |
+| **This teacher has another class from {from} to {to}. Pick someone else.** or **This teacher is not free at that time. Pick someone else.** | The substitute teacher is busy at that time. Pick another teacher. | Admin        |
+| **Could not save — try again.**                                                                                         | Check your internet and press **Save** again. | Admin        |
 | **Couldn't load substitute teachers. Check your connection and try again.**                                             | Check your internet and try again.                                                                                                                         | Admin        |
 | The section is not in the **Class and section** list                                                                    | No period of that section is running on that date. Check the date.                                                                                         | Admin        |
 

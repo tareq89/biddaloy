@@ -215,6 +215,7 @@ Do this to put the list of government holidays on the calendar in one go. (Admin
 | **Add {number} holidays**             | The holidays you picked become events of the type Holiday, not a working day, and are published right away. Nobody gets a notice | Yes    |
 | **Cancel** (when something is picked) | **Discard your changes?** opens                                                                                                  | No     |
 
+> **Remember:** a holiday whose date has already passed shows **Date has passed** and cannot be ticked. Add it separately with [Add a holiday for a day that has passed](#task-past).
 
 ### Change, publish or delete an event <a href="#task-edit" id="task-edit"></a>
 

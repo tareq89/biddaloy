@@ -720,7 +720,7 @@
         "action": "Check the work and give feedback. See submissions opens that homework's page."
       },
       "class-teacher-streaks": {
-        "means": "Students of your own section who have been absent 3 or more school days in a row, up to the last register.",
+        "means": "Students of your own section who have been absent several school days in a row, up to the last register. How many days comes from the Absent in a row (days) setting, 3 unless changed.",
         "source": "It comes from the whole-day attendance registers of the section where you are class teacher.",
         "action": "Call the guardian today. Tell guardian and the link both open your section page in My class."
       },
@@ -740,7 +740,7 @@
         "action": "Check the cash in hand against this total at day end. Collections report opens Fee collection report."
       },
       "collection-by-month": {
-        "means": "Money collected in each month of this calendar year, January onward. This month's figure is still running and is compared with the same days of last month.",
+        "means": "Money collected in each month of the current academic year, from its first month (the calendar year if no year is current). This month's figure is still running and is compared with the same days of last month.",
         "source": "It comes from recorded payments, minus reversed payments.",
         "action": "Look for months that fall behind. Open collections report opens Fee collection report."
       },

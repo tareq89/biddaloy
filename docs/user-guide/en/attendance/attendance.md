@@ -185,7 +185,7 @@ Within the school's correction window (usually 2 days) you can fix it yourself:
 3. Press the name or the **status button** of the student whose mark is wrong, and set it right.
 4. Press **Submit attendance**. When you see **Attendance saved**, the correction is in the system.
 
-After the window, the top of the register says "This register is older than 2 days. Ask an administrator to correct it." You can only look at it then; ask an admin to make the change. The **⋮** button on each row shows the **History**: who changed what, and when.
+After the window, the top of the register says "This register is older than 2 days. Ask an administrator to correct it." You can only look at it then; ask an admin to make the change. When an admin changes such a register, a **Why are you changing this register?** box appears; they write a reason of at least 3 characters, which other staff can see. The **⋮** button on each row shows the **History**: who changed what, and when.
 
 <figure>
   <img src="img/attendance-09-old-register.png" alt="A register past the correction window: 1 the message for teachers, 2 the ⋮ button on a row">

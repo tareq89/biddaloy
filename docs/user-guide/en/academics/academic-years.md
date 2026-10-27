@@ -203,7 +203,7 @@ Only a year made by mistake and still empty can be deleted. Do not delete old ye
 | **Delete**     | The year leaves the list and cannot be brought back. If you delete from the year page, you return to the list | Yes    |
 | **Cancel**     | Nothing changes                                                                                               | No     |
 
-**A year that cannot be deleted:** the current year, and a year that still has classes (even deleted ones), fee structures, student enrolments, exams, student bills, staff evaluations (ACR) or any other record linked to it. Its terms do not block a delete; they go with the year. Then the dialog shows **This year is current or still has classes or fee structures, so it can't be deleted.** If it is current, first [set another year as current](#task-current). If it has data inside, keep the year.
+**A year that cannot be deleted:** the current year, and a year that still has classes, fee structures, student enrolments, exams, student bills, staff evaluations (ACR) or any other record linked to it. Its terms do not block a delete; they go with the year. Then the dialog says why. For the current year: **This is the current year. Make another year current first.** For a year with data it names what is inside, for example **This year still has classes and exams. Remove them first.** For other records: **This year is still used by other records. Remove or move them first.** If it is current, first [set another year as current](#task-current). If it has data inside, keep the year.
 
 ### The year page: the tabs <a href="#task-detail" id="task-detail"></a>
 
@@ -225,7 +225,7 @@ Press the year's name in the list, or **View**, to open its page. At the top are
 | **Failed to load academic years**                                                        | Check the internet and reload the page.                                                                  | Admin        |
 | **Failed to save academic year**                                                         | Check the internet and press **Save** again. What you typed stays.                                       | Admin        |
 | **End date must be after the start date**                                                | Give an end date that is some day after the start.                                                       | Admin        |
-| **This year is current or still has classes or fee structures, so it can't be deleted.** | See [Delete an academic year](#task-delete). Usually it is right to keep the year.                       | Admin        |
+| **This is the current year. …**, **This year still has … Remove them first.** or **This year is still used by other records. …** | See [Delete an academic year](#task-delete). Usually it is right to keep the year.                       | Admin        |
 | **Failed to delete academic year**                                                       | Check the internet and press **Delete** again.                                                           | Admin        |
 | **Term dates must fall within the academic year (…)**                                    | Give term dates inside the year's dates in the brackets, or first [change the year's dates](#task-edit). | Admin        |
 | **"{name}" overlaps an existing term in this academic year**                             | Give dates that do not clash with the term named in the message.                                         | Admin        |

@@ -167,7 +167,8 @@ If the guardian has not replied to the school on WhatsApp in the last 24 hours, 
 | **Something in the number, email or message isn't right. …**             | Check that the message is not empty and the WhatsApp template details are right.                   | —            |
 | **SMS is not set up for this school, …**                                 | An Admin turns it on in **Settings › Communication**; for now pick another channel.                | Admin        |
 | **This school has no SMS credit left, …**                                | Ask the Admin to add credit; for now pick another channel.                                         | Admin        |
-| **The message could not be sent.** in the window                         | The credit may be low. Shorten the message or tell the Admin.      | Admin        |
+| **Not enough SMS credit to send: … needed, only … available.**           | Shorten the message, or ask the Admin to add credit; for now pick another channel.                | Admin        |
+| **The message could not be sent.** in the window                         | Check your internet and press **Send message** again.                                             | Admin        |
 | **Message not sent** — **Sending by … is not set up for this school. …** | Press **Open Settings › Communication** (Admin).                                                   | Admin        |
 | **Message not sent** — **Could not be sent.**                            | Press **Send another message** and try again.                                                      | Admin        |
 

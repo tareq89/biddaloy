@@ -229,7 +229,7 @@ This list is generated from the app's own text, so it matches the app. Widgets t
 
 ### My class streaks <a href="#widget.class-teacher-streaks" id="widget.class-teacher-streaks"></a>
 
-- **What it means:** Students of your own section who have been absent 3 or more school days in a row, up to the last register.
+- **What it means:** Students of your own section who have been absent several school days in a row, up to the last register. How many days comes from the Absent in a row (days) setting, 3 unless changed.
 - **Where the number comes from:** It comes from the whole-day attendance registers of the section where you are class teacher.
 - **What to do:** Call the guardian today. Tell guardian and the link both open your section page in My class.
 
@@ -253,7 +253,7 @@ This list is generated from the app's own text, so it matches the app. Widgets t
 
 ### Collection by month <a href="#widget.collection-by-month" id="widget.collection-by-month"></a>
 
-- **What it means:** Money collected in each month of this calendar year, January onward. This month's figure is still running and is compared with the same days of last month.
+- **What it means:** Money collected in each month of the current academic year, from its first month (the calendar year if no year is current). This month's figure is still running and is compared with the same days of last month.
 - **Where the number comes from:** It comes from recorded payments, minus reversed payments.
 - **What to do:** Look for months that fall behind. Open collections report opens Fee collection report.
 

@@ -146,7 +146,7 @@ While the routine is **In review**, press **Withdraw to draft** at the top.
 
 ### See the list of all periods <a href="#task-list" id="task-list"></a>
 
-The Admin sees the **All periods** list: **Class and section**, **Day**, **Period**, **Time**, **Subject**, **Teacher**. The list is sorted by class and section, then day, then period; it shows 25 on a page.
+The Admin sees the **All periods** list (the Academic coordinator sees it too, read-only): **Class and section**, **Day**, **Period**, **Time**, **Subject**, **Teacher**. The list is sorted by class and section, then day, then period; it shows 25 on a page.
 
 1. On the right, pick one section from the **Class and section** field.
 
@@ -183,7 +183,7 @@ On this page a teacher sees only **My periods** ("Your weekly periods."). Once t
 | **Send**   | The request goes to the Admin's **Change requests** list. The routine does not change by itself | Yes    |
 | **Cancel** | Nothing is sent                                                                                 | No     |
 
-> **Remember:** sending a request does not change the routine; the Admin decides.
+> **Remember:** sending a request does not change the routine; the Admin decides. Your requests are in the **My change requests** list on this page: **Status** (**Waiting**, **Accepted** or **Rejected**), the Admin's **Reply** and **Asked on**.
 
 ### Accept or reject a change request <a href="#task-resolve" id="task-resolve"></a>
 
@@ -238,7 +238,7 @@ A year that already has a routine cannot be copied into; **Could not copy — tr
 
 | What you see                                                             | What to do                                                                                                                                                                | Who can help   |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| **No routine yet**                                                       | The current academic year's routine has not been created. | Admin          |
+| **No routine yet**                                                       | The current academic year's routine has not been created. The Admin presses **Create routine**; a new **Draft** routine is made. | Admin          |
 | **No periods for you**                                                   | Your account has no teacher profile. If you are a teacher, ask the Admin to give you a [teacher profile](../people/staff.md#task-teacher).                                | Admin          |
 | **My periods** is empty                                                  | You have not been given any period yet, or the routine is a draft. Ask the Admin.                                                                                         | Admin          |
 | **Change requests can only be raised once the routine is published.**    | Come back after the routine is published.                                                                                                                                 | Admin          |
@@ -258,7 +258,8 @@ A year that already has a routine cannot be copied into; **Could not copy — tr
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------ |
 | Admin                                               | All periods of all sections                                                                         | Yes                                             | No (they can change it themselves)               |
 | Teacher                                             | Only their own periods                                                                              | No                                              | Yes, once the routine is published               |
-| Academic coordinator, Office staff, Exam controller | Their own periods if they have a teacher profile; otherwise nothing | No                                              | If they have a teacher profile, after publishing |
+| Academic coordinator                                | All periods of all sections, read-only, once the routine is in review or published; while it is a draft, **The routine is still a draft** | No                                              | No                                               |
+| Office staff, Exam controller                       | Their own periods if they have a teacher profile; otherwise **No periods for you**                  | No                                              | No                                               |
 | Accountant, Committee member                        | Do not see the page                                                                                 | No                                              | No                                               |
 
 People without permission do not have **Routine review** in their left menu.

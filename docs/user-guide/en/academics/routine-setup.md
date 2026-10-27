@@ -66,6 +66,7 @@ This page has three tabs: **Shifts and periods**, **Rooms** and **Routine rules*
   - [Set the period times of a shift](#task-periods)
   - [Add a room](#task-rooms)
   - [Set the routine rules](#task-rules)
+  - [Change a shift or a room](#task-edit)
   - [Delete a shift or a room](#task-delete)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
@@ -140,6 +141,8 @@ Nothing on this page can be kept on a phone or computer and sent later. It is sa
 
 > **Remember:** nothing reaches the system until you press **Save**. If you try to leave without saving, the app warns you. You cannot place a period of the class routine in a **Break** row.
 
+You can change the times later too, even after periods are placed in the class routine. Under the rows it says: **Changing a time also changes it on past days.** But if you remove a row, or turn a **Lesson** row into a **Break**, and that period is already used in a routine or in lesson records, it does not save: **A period you removed or made a break is used in a routine or in lesson records. Put it back. If only the class routine uses it, you can clear it from the routine first.**
+
 ![Period times section, with the timeline, one Break row and the Save button](img/routine-setup-02.png)
 
 ### Add a room <a href="#task-rooms" id="task-rooms"></a>
@@ -178,6 +181,18 @@ Nothing on this page can be kept on a phone or computer and sent later. It is sa
 
 > **Remember:** a new rule is checked only against periods you place or change from now on. Periods already placed do not move by themselves. (Read from the code; not tried in the app.)
 
+### Change a shift or a room <a href="#task-edit" id="task-edit"></a>
+
+1. In the **Shifts** list or the **Rooms** list, press **Edit** at the end of the row.
+
+   → The **Edit shift** or **Edit room** dialog opens, with the earlier details filled in.
+
+2. Change the name, the times, or the room's details, and press **Save**.
+
+   → The dialog closes and the list shows the change.
+
+A shift's day cannot be made shorter than its periods. If a period would fall outside the new times, it shows **Some periods of this shift fall outside these times. Change the period times first.**
+
 ### Delete a shift or a room <a href="#task-delete" id="task-delete"></a>
 
 1. In the **Shifts** list or the **Rooms** list, press **Delete** at the end of the row.
@@ -202,6 +217,8 @@ Nothing on this page can be kept on a phone or computer and sent later. It is sa
 | **Couldn't add the shift. Try again.**                                                                                                          | Check your internet and press **Add** again. What you typed stays in the dialog. | Admin        |
 | **This name isn't valid. Check it and try again.**                                                                                              | Type a different name.                                                           | Admin        |
 | **Some rows have a time problem. Fix the red notes and save again.**                                                                            | Fix the time of the rows with red notes, then press **Save**.                    | Admin        |
+| **A period you removed or made a break is used in a routine or in lesson records. …**                                                          | Put the row back as it was. If only the class routine uses it, clear it there first ([Class routine](routine-builder.md#task-clear)). | Admin        |
+| **Some periods of this shift fall outside these times. Change the period times first.**                                                        | Make the shift's day wider, or first change the [period times](#task-periods).  | Admin        |
 | **Couldn't save the period times. Try again.**                                                                                                  | Check your internet and press **Save** again. The rows stay on screen.           | Admin        |
 | **Couldn't add the room. Try again.**                                                                                                           | Check your internet and try again.                                               | Admin        |
 | **Couldn't save the rules. Check the numbers and try again.**                                                                                   | Check that the numbers are within the limits, then press **Save** again.         | Admin        |

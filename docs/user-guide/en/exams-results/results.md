@@ -166,7 +166,7 @@ After publishing, no mark or marks list of this exam can be changed, and neither
 1. Choose the **Published** exam.
 2. Press **Send result SMS**.
 
-   → The **Send result SMS** window says **Up to … guardian(s) will be sent their child's result by SMS. Each message uses one SMS credit.** The number is an estimate; you cannot see in advance exactly how many will get it.
+   → The **Send result SMS** window says **Up to … guardian(s) will be sent their child's result by SMS. Credits are taken per SMS part: a long message is split into parts, and each part uses one credit.** The number is an estimate; you cannot see in advance exactly how many will get it.
 
 3. Press **Send**.
 
