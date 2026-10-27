@@ -416,6 +416,20 @@ describe('/students', () => {
     expect(screen.queryByRole('option', { name: 'ACTIVE' })).toBeNull();
   });
 
+  it('shows a (?) after the Add student header action [44.3.01]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('region', { name: 'Students' });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(document.querySelector('[data-help-id="people.students.action.add"]')).not.toBeNull();
+    vi.unstubAllEnvs();
+  });
+
   it('merges class and section into one column, with view/edit/pay row actions and one primary header button', async () => {
     const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
     server.use(

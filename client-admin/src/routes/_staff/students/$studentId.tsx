@@ -353,6 +353,7 @@ function StudentDetailPage() {
               // buried in "More actions". Status changes only via these events.
               {
                 id: 'record-leaving',
+                helpId: 'people.students.action.recordLeaving',
                 label: t('detail.actions.recordLeaving'),
                 icon: <LogOutIcon />,
                 allowed: canManageLifecycle && isActive,
@@ -364,6 +365,7 @@ function StudentDetailPage() {
               },
               {
                 id: 'readmit',
+                helpId: 'people.students.action.readmit',
                 label: t('detail.actions.readmit'),
                 icon: <RotateCcwIcon />,
                 allowed: canManageLifecycle && !isActive,
@@ -375,6 +377,7 @@ function StudentDetailPage() {
               },
               {
                 id: 'collect-fees',
+                helpId: 'people.students.action.collectFees',
                 label: t('detail.actions.collectFees'),
                 icon: <HandCoinsIcon />,
                 allowed: canCollectFees,
@@ -384,6 +387,7 @@ function StudentDetailPage() {
               },
               {
                 id: 'send-reminder',
+                helpId: 'people.students.action.sendReminder',
                 label: t('detail.actions.sendReminder'),
                 icon: <SendIcon />,
                 allowed: canSendReminder,
@@ -392,6 +396,7 @@ function StudentDetailPage() {
               },
               {
                 id: 'print-id-card',
+                helpId: 'people.students.action.printIdCard',
                 label: t('detail.actions.printIdCard'),
                 icon: <IdCardIcon />,
                 allowed: canPrint,
@@ -409,6 +414,7 @@ function StudentDetailPage() {
               },
               {
                 id: 'delete',
+                helpId: 'people.students.action.delete',
                 label: t('detail.actions.delete'),
                 icon: <Trash2Icon />,
                 allowed: canDelete,
