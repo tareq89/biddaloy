@@ -1,4 +1,4 @@
-import { useSearch } from '@tanstack/react-router';
+import { useMatch, useRouter, useSearch } from '@tanstack/react-router';
 
 import { PAGE_SIZE_OPTIONS } from '../utils/page-size';
 
@@ -15,11 +15,12 @@ import { useSearchNavigate } from './navigate-search';
  * [8.9.1] ported this off react-router's `useSearchParams` onto
  * `@tanstack/react-router`'s `useSearch`/`useNavigate`, called with
  * `strict: false` since this hook has no fixed route id — any list page,
- * on any route, can use it. A route that declares its own Zod
- * `validateSearch` gets typed values here for free; a route that doesn't
- * still gets the same defensive fallback this hook always had, since
- * `useSearch({ strict: false })` can hand back an unvalidated, possibly
- * malformed value either way.
+ * on any route, can use it. `strict: false` is type-only: the value is
+ * always the raw query string with validated values laid over it.
+ * Reserved keys (page, limit, sort, order) come from that value through
+ * the defensive parsers below. Filters come from `match._strictSearch`
+ * when the route declares `validateSearch` (#2999), so a param the schema
+ * stripped is not a filter; else from `match.search`.
  */
 export interface ListUrlState {
   page: number;
@@ -86,6 +87,21 @@ export function useListUrlState(
   // it reads whatever the currently matched route(s) expose rather than
   // demanding a specific one be registered.
   const search = useSearch({ strict: false }) as unknown as Record<string, unknown>;
+  // Router types are not registered inside the ui package (same cast as full-page-shell.tsx).
+  const router = useRouter() as unknown as {
+    routesById: Record<string, { options: { validateSearch?: unknown } } | undefined>;
+  };
+  // #2999: `match.search` is the raw query string with the validated values laid
+  // over it, so a param the route's `validateSearch` stripped is still there. When
+  // the nearest route declares a schema, filters come from what it validated; a
+  // route without one has nothing to trust, so every non-reserved param stays a filter.
+  const filterSearch = useMatch({
+    strict: false,
+    select: (match): unknown =>
+      match.routeId !== undefined && router.routesById[match.routeId]?.options.validateSearch
+        ? match._strictSearch
+        : match.search,
+  }) as unknown as Record<string, unknown>;
   const navigateSearch = useSearchNavigate();
 
   const page = parsePositiveInt(search.page, defaults.page ?? 1);
@@ -105,7 +121,7 @@ export function useListUrlState(
   // the `Record<string, string>` contract regardless of how the URL codec
   // round-tripped it.
   const filters: Record<string, string> = {};
-  for (const [key, value] of Object.entries(search)) {
+  for (const [key, value] of Object.entries(filterSearch)) {
     if (RESERVED_KEYS.has(key) || value === undefined) continue;
     filters[key] =
       typeof value === 'string'
