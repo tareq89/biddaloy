@@ -652,9 +652,16 @@ function SingleReminderForm() {
                   className="mt-3 flex items-center gap-1 text-caption text-destructive"
                 >
                   <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
-                  {send.error instanceof ApiError && send.error.statusCode === 400
-                    ? t('reminders.sendInvalid')
-                    : t('reminders.errorMessage')}
+                  {send.error instanceof ApiError &&
+                  send.error.statusCode === 409 &&
+                  send.error.details?.['code'] === 'INSUFFICIENT_SMS_CREDIT'
+                    ? t('bulk.review.projection.insufficientCredit', {
+                        required: formatNumber(Number(send.error.details['required']), config),
+                        available: formatNumber(Number(send.error.details['available']), config),
+                      })
+                    : send.error instanceof ApiError && send.error.statusCode === 400
+                      ? t('reminders.sendInvalid')
+                      : t('reminders.errorMessage')}
                 </p>
               )}
             </Card>
