@@ -78,7 +78,9 @@ export interface ResolvedHelp {
 
 export function useHelp() {
   const { index, lang, baseUrl, pageId } = React.useContext(HelpContext);
-  const base = baseUrl.replace(/\/+$/, '');
+  // A loop, not `replace(/\/+$/, '')`: CodeQL flags that regex as polynomial ReDoS (js/polynomial-redos).
+  let base = baseUrl;
+  while (base.endsWith('/')) base = base.slice(0, -1);
 
   const resolve = React.useCallback(
     (id: string | null | undefined): ResolvedHelp | null => {
