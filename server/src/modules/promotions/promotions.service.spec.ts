@@ -249,6 +249,27 @@ describe('PromotionsService (unit)', () => {
       expect(err.getResponse().details.code).toBe('GRADUATE_ONLY_IN_GRADUATION_RUN');
     });
 
+    it('a group-only patch on an old GRADUATE row in a normal run is not refused (commit refuses it)', async () => {
+      patchWith(
+        {
+          id: 'run-1',
+          status: PromotionRunStatus.DRAFT,
+          tenant_id: TENANT_ID,
+          target_class_id: 'c2',
+        },
+        {
+          student_id: 's1',
+          suggested_outcome: PromotionOutcome.PROMOTE,
+          final_outcome: PromotionOutcome.GRADUATE,
+          override_note: 'Leaving',
+        },
+      );
+      const err = await service
+        .patchEntries('run-1', [{ student_id: 's1', group_name: 'Science' }], TENANT_ID, 'user-1')
+        .catch((e) => e);
+      expect(err?.getResponse?.()?.details?.code).not.toBe('GRADUATE_ONLY_IN_GRADUATION_RUN');
+    });
+
     it('CONDITIONAL without a note -> 422', async () => {
       patchWith(
         {

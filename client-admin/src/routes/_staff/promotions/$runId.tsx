@@ -449,6 +449,11 @@ function PromotionRunPage() {
           // the banner carries the Refresh button; then the user commits again.
           setCommitOpen(false);
           setCohortChangedBanner(true);
+        } else if (code === 'RETAIN_CLASS_MISSING') {
+          // Reachable since #2924: a run can start without a retain class and
+          // someone is overridden to Retain later.
+          setCommitOpen(false);
+          toast.error(t('blocking.retainClassMissing'));
         } else if (error instanceof ApiError && error.statusCode !== 403) {
           toast.error(t('grid.commitFailed'));
         }

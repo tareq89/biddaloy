@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { examKeys, useDeleteExam } from './exams';
+import { examKeys, studentResultCardKey, useDeleteExam, usePublishResults } from './exams';
 
 describe('useDeleteExam', () => {
   it('DELETEs the exam by id and invalidates the exams list', async () => {
@@ -28,5 +28,23 @@ describe('useDeleteExam', () => {
     expect(calledPath).toBe('e1');
     expect(queryClient.getQueryData(examKeys.detail('e1'))).toBeUndefined();
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: examKeys.lists() }));
+  });
+});
+
+describe('usePublishResults', () => {
+  it('marks the staff report card stale, so it never prints old results [#2922]', async () => {
+    server.use(
+      http.post('/api/v1/exams/:id/results/publish', () => new HttpResponse(null, { status: 204 })),
+    );
+    const { result, queryClient } = renderHookWithProviders(() => usePublishResults('e1'), {
+      tenantId: 'tenant-1',
+    });
+    queryClient.setQueryData(studentResultCardKey('s1', 'e1'), { exam_name: 'Old' });
+
+    await result.current.mutateAsync();
+
+    await waitFor(() =>
+      expect(queryClient.getQueryState(studentResultCardKey('s1', 'e1'))?.isInvalidated).toBe(true),
+    );
   });
 });
