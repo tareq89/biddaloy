@@ -317,9 +317,16 @@ describe('RoutineSlotsService.findForRoutine visibility [86.1]', () => {
       [],
     );
   });
-  it('REVIEW + non-TEACHER staff returns [] (same rule as resolve)', async () => {
+  it('REVIEW + non-TEACHER staff with a teacher profile returns own slots (same rule as resolve)', async () => {
     const ctx = buildService();
     seed(ctx, RoutineState.REVIEW);
+    const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.OFFICE_STAFF));
+    expect(r.map((x) => x.slot.id)).toEqual(['s1']);
+  });
+  it('REVIEW + non-TEACHER staff without a teacher profile returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    ctx.teacherRepo.findOne = vi.fn(async () => null);
     expect(
       await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.OFFICE_STAFF)),
     ).toEqual([]);
