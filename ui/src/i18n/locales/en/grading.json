@@ -166,7 +166,7 @@
     "outstandingHasBlanks": "Submitted, but has blank cells — reopen this sheet",
     "publishDescription": "{{n}} student result(s) become visible to guardians.",
     "reopenImpact": "{{n}} published result(s) will be unpublished and marks become editable again. This needs extra approval.",
-    "smsDescription": "Up to {{n}} guardian(s) will be sent their child's result by SMS. Each message uses one SMS credit.",
+    "smsDescription": "Up to {{n}} guardian(s) will be sent their child's result by SMS. Credits are taken per SMS part: a long message is split into parts, and each part uses one credit.",
     "smsQueued": "{{n}} message(s) queued."
   },
   "analysisPage": {
