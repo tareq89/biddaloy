@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { RoutineState, SlotRecurrence } from '@biddaloy/shared';
 import { SubstitutionsService } from './substitutions.service';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK } from '../attention/engine/attention-events';
 
 const TENANT_ID = 'tenant-1';
 const YEAR = { id: 'year-1', start_date: '2026-01-04' };
@@ -20,6 +22,7 @@ function buildService() {
   const substitutionRepo: any = {
     findOne: vi.fn(async () => null),
     update: vi.fn(async () => undefined),
+    delete: vi.fn(async () => undefined),
     create: vi.fn((v: any) => v),
     save: vi.fn(async (v: any) => ({ id: 'sub-1', ...v })),
     createQueryBuilder: vi.fn(() => qb),
@@ -49,6 +52,7 @@ function buildService() {
   const busy: any = { busyAt: vi.fn(async () => null) };
   const settings: any = { attendance: { specialTimings: [] } };
   const schools: any = { getResolvedSettings: vi.fn(async () => settings) };
+  const audit: any = { record: vi.fn(async () => undefined) };
   const service = new SubstitutionsService(
     substitutionRepo,
     slotRepo,
@@ -59,9 +63,11 @@ function buildService() {
     periodSlotRepo,
     busy,
     schools,
+    audit,
   );
   return {
     service,
+    audit,
     settings,
     slotTeacherRepo,
     busy,
@@ -79,6 +85,45 @@ describe('SubstitutionsService [21.5.1]', () => {
 
   beforeEach(() => {
     ctx = buildService();
+  });
+
+  describe('remove', () => {
+    const ROW = {
+      id: 'sub-1',
+      routine_slot_id: 'slot-1',
+      date: '2026-02-02',
+      substitute_teacher_id: 't-2',
+      is_cancelled: false,
+    };
+
+    it('deletes the row, writes a DELETE audit and emits the rechecks', async () => {
+      ctx.substitutionRepo.findOne = vi.fn(async () => ROW);
+      const seen: string[] = [];
+      const listener = (e: { ruleKey: string }) => seen.push(e.ruleKey);
+      attentionEvents.on(ATTENTION_RECHECK, listener);
+      await ctx.service.remove('sub-1', TENANT_ID, 'user-1');
+      attentionEvents.off(ATTENTION_RECHECK, listener);
+      expect(seen).toEqual(['routine.substitution_today', 'routine.changed_today']);
+      expect(ctx.substitutionRepo.delete).toHaveBeenCalledWith({
+        id: 'sub-1',
+        tenant_id: TENANT_ID,
+      });
+      expect(ctx.audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'DELETE',
+          entity_id: 'slot-1',
+          old_values: expect.objectContaining({ routine_slot_id: 'slot-1', date: '2026-02-02' }),
+        }),
+      );
+    });
+
+    it("another tenant's id is a 404 whose text carries no id", async () => {
+      ctx.substitutionRepo.findOne = vi.fn(async () => null);
+      const err: any = await ctx.service.remove('sub-9', TENANT_ID, 'user-1').catch((e) => e);
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect(err.message).not.toContain('sub-9');
+      expect(ctx.substitutionRepo.delete).not.toHaveBeenCalled();
+    });
   });
 
   it('throws NotFoundException for a slot outside the tenant', async () => {

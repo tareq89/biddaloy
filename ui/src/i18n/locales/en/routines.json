@@ -405,7 +405,14 @@
     "sectionName": "{{className}} – {{sectionName}}",
     "statusCovered": "Covered",
     "error": "Couldn't load substitute teachers. Check your connection and try again.",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "deleteAction": "Delete",
+    "deleteTitle": "Delete the substitution on {{date}}?",
+    "deleteDescription": "The period goes back to its usual teacher on that date.",
+    "deleteConfirm": "Delete",
+    "cancel": "Cancel",
+    "deletedToast": "Deleted",
+    "deleteError": "Could not delete — try again."
   },
   "agenda": {
     "daySwitcherLabel": "Choose a day",
