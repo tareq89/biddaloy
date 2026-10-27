@@ -1,3 +1,4 @@
+import { ImportFileErrorCode } from '@biddaloy/shared';
 import { BulkUploadPreview, Button, Card, Checkbox, StatusBadge } from '@biddaloy/ui/components';
 import {
   useCommitStaffUpload,
@@ -40,20 +41,25 @@ export function rowErrorKey(error: { column: string | null; message: string }): 
   return 'other';
 }
 
+const FILE_ERROR_KEY: Record<ImportFileErrorCode, string> = {
+  [ImportFileErrorCode.UNREADABLE]: 'unreadable',
+  [ImportFileErrorCode.UNSUPPORTED_TYPE]: 'unsupportedType',
+  [ImportFileErrorCode.MISSING_COLUMNS]: 'missingColumns',
+  [ImportFileErrorCode.TOO_MANY_ROWS]: 'tooManyRows',
+  [ImportFileErrorCode.NO_ROWS]: 'noRows',
+  [ImportFileErrorCode.TOO_LARGE]: 'tooLarge',
+};
+
 /**
- * Maps the server's English whole-file problems (the parser rejected the file)
- * to `staffImport:fileErrors.*`, by message start like `rowErrorKey`. Anything
- * unrecognised becomes `other`, so no server English reaches the screen.
+ * Maps the server's `details.code` on a whole-file 400 to `staffImport:fileErrors.*`.
+ * No code (or an unknown one) is `other`, so no server English reaches the screen.
  * Exported for the test.
  */
-export function fileErrorKey(message: string): string {
-  if (message.startsWith('Could not read file')) return 'unreadable';
-  if (message.startsWith('Unsupported file type')) return 'unsupportedType';
-  if (message.startsWith('Missing required columns')) return 'missingColumns';
-  if (message.startsWith('File has too many rows')) return 'tooManyRows';
-  if (message.startsWith('File contains no data rows')) return 'noRows';
-  if (message.startsWith('This file is too large')) return 'tooLarge';
-  return 'other';
+export function fileErrorKey(error: unknown): string {
+  const code = (error as { details?: { code?: unknown } } | null)?.details?.code;
+  return typeof code === 'string' && Object.hasOwn(FILE_ERROR_KEY, code)
+    ? FILE_ERROR_KEY[code as ImportFileErrorCode]
+    : 'other';
 }
 
 /**
@@ -82,7 +88,7 @@ export function StaffImportView() {
       } catch (err) {
         // Whole-file failures arrive as English text; show ours. The shared
         // hook (also used by the student import) is left as it is.
-        throw new Error(t(`fileErrors.${fileErrorKey(err instanceof Error ? err.message : '')}`), {
+        throw new Error(t(`fileErrors.${fileErrorKey(err)}`), {
           cause: err,
         });
       }

@@ -3,6 +3,7 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../app.module';
+import { AllExceptionsFilter } from '../../common/filters/http-exception.filter';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
@@ -105,6 +106,8 @@ describe('Bulk Student Upload E2E', () => {
     app = moduleFixture.createNestApplication();
     configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
+    // The real app registers this in main.ts; it turns a parser's ImportFileError into a 400.
+    app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
 
     dataSource = app.get(DataSource);
@@ -294,11 +297,13 @@ describe('Bulk Student Upload E2E', () => {
 
       const res = await validate(buffer).expect(400);
       expect(res.body.message).toContain('Missing required columns');
+      expect(res.body.details).toEqual({ code: 'IMPORT_FILE_MISSING_COLUMNS' });
     });
 
     it('returns 400 for an unsupported file type', async () => {
       const res = await validate(Buffer.from('hello'), { filename: 'students.pdf' }).expect(400);
       expect(res.body.message).toContain('Unsupported file type');
+      expect(res.body.details).toEqual({ code: 'IMPORT_FILE_UNSUPPORTED_TYPE' });
     });
 
     it('returns 400 when no file is attached', async () => {

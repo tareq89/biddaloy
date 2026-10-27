@@ -19,7 +19,7 @@ import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkAccessService } from './homework-access.service';
 import { ImportStagingService } from '../bulk-import/import-staging.service';
 import type { BulkImportErrorDto } from '../bulk-import/dto/bulk-import.dto';
-import { parseSpreadsheet, BulkUploadParseError, ParsedRow } from './homework-bulk-upload.parser';
+import { parseSpreadsheet, ParsedRow } from './homework-bulk-upload.parser';
 import {
   HomeworkBulkUploadResultDto,
   HomeworkBulkUploadRowDto,
@@ -127,15 +127,7 @@ export class HomeworkBulkUploadService {
       throw new BadRequestException('No file uploaded');
     }
 
-    let rows: ParsedRow[];
-    try {
-      rows = await parseSpreadsheet(file.buffer, file.originalname);
-    } catch (err) {
-      if (err instanceof BulkUploadParseError) {
-        throw new BadRequestException(err.message);
-      }
-      throw err;
-    }
+    const rows: ParsedRow[] = await parseSpreadsheet(file.buffer, file.originalname);
 
     const classLookup = await this.buildClassLookup(tenantId);
     const subjectLookup = await this.buildSubjectLookup(tenantId);

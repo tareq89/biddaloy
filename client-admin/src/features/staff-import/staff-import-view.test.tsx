@@ -97,22 +97,46 @@ describe('StaffImportView', () => {
   });
 
   it.each([
-    ['Could not read file — is it a valid Excel file?', 'unreadable'],
-    ['Could not read file — is it a valid CSV file?', 'unreadable'],
-    ['Unsupported file type: .pdf — upload .xlsx or .csv', 'unsupportedType'],
-    ['Missing required columns: name', 'missingColumns'],
-    ['File has too many rows (max 500)', 'tooManyRows'],
-    ['File contains no data rows', 'noRows'],
-    [
-      'This file is too large or has too many parts to read. Split it into smaller files and upload them one by one.',
-      'tooLarge',
-    ],
-    ['something the server never said', 'other'],
-  ])('[#2866] fileErrorKey maps "%s" to %s', (message, key) => {
-    expect(fileErrorKey(message)).toBe(key);
+    [{ details: { code: 'IMPORT_FILE_UNREADABLE' } }, 'unreadable'],
+    [{ details: { code: 'IMPORT_FILE_UNSUPPORTED_TYPE' } }, 'unsupportedType'],
+    [{ details: { code: 'IMPORT_FILE_MISSING_COLUMNS' } }, 'missingColumns'],
+    [{ details: { code: 'IMPORT_FILE_TOO_MANY_ROWS' } }, 'tooManyRows'],
+    [{ details: { code: 'IMPORT_FILE_NO_ROWS' } }, 'noRows'],
+    [{ details: { code: 'IMPORT_FILE_TOO_LARGE' } }, 'tooLarge'],
+    [{ details: { code: 'toString' } }, 'other'],
+    [{ message: 'Missing required columns: name' }, 'other'],
+    [null, 'other'],
+  ])('[#3020] fileErrorKey maps %j to %s', (error, key) => {
+    expect(fileErrorKey(error)).toBe(key);
   });
 
   it('[#2866] a whole-file 400 shows our text, not the server sentence', async () => {
+    server.use(
+      http.post('/api/v1/users/bulk-upload/validate', () =>
+        HttpResponse.json(
+          {
+            statusCode: 400,
+            requestId: 'req-1',
+            message: 'Missing required columns: name',
+            details: { code: 'IMPORT_FILE_MISSING_COLUMNS' },
+            error: 'Bad Request',
+            timestamp: '2026-01-01T00:00:00.000Z',
+            path: '/api/v1/users/bulk-upload/validate',
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    renderView();
+    await upload();
+    expect(
+      (await screen.findAllByText("Some columns are missing. Use the sample file's columns."))
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/Missing required columns/)).toBeNull();
+  });
+
+  it('[#3020] a whole-file 400 with no details.code shows the generic text, not a prefix match', async () => {
     server.use(
       http.post('/api/v1/users/bulk-upload/validate', () =>
         HttpResponse.json(
@@ -131,9 +155,8 @@ describe('StaffImportView', () => {
     renderView();
     await upload();
     expect(
-      (await screen.findAllByText("Some columns are missing. Use the sample file's columns."))
-        .length,
-    ).toBeGreaterThan(0);
+      screen.queryByText("Some columns are missing. Use the sample file's columns."),
+    ).toBeNull();
     expect(screen.queryByText(/Missing required columns/)).toBeNull();
   });
 

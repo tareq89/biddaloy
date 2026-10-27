@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { MulterError } from 'multer';
 import { QueryFailedError } from 'typeorm';
+import { ImportFileErrorCode } from '@biddaloy/shared';
+import { ImportFileError } from '../errors/import-file.error';
+import { StaffUploadParseError } from '../../modules/users/staff-bulk-upload.parser';
 import { mapKnownError } from './known-errors';
 
 /** Builds what body-parser / http-errors throw: a plain Error with status + type. */
@@ -184,5 +187,30 @@ describe('mapKnownError — multer errors', () => {
     expect(
       mapKnownError(Object.assign(new Error('x'), { code: 'LIMIT_UNEXPECTED_FILE' })),
     ).toBeNull();
+  });
+});
+
+describe('mapKnownError — import file errors (#3020)', () => {
+  it('maps an ImportFileError to 400 with details.code and the fixed message', () => {
+    const mapped = mapKnownError(
+      new ImportFileError(ImportFileErrorCode.NO_ROWS, 'File contains no data rows'),
+    );
+    expect(mapped?.getStatus()).toBe(400);
+    expect(mapped?.getResponse()).toEqual({
+      message: 'File contains no data rows',
+      details: { code: 'IMPORT_FILE_NO_ROWS' },
+    });
+  });
+
+  it('maps a parser subclass the same way', () => {
+    const mapped = mapKnownError(
+      new StaffUploadParseError(ImportFileErrorCode.UNREADABLE, 'Could not read file'),
+    );
+    expect(mapped?.getStatus()).toBe(400);
+    expect(mapped?.getResponse()).toMatchObject({ details: { code: 'IMPORT_FILE_UNREADABLE' } });
+  });
+
+  it('ignores a plain Error', () => {
+    expect(mapKnownError(new Error('x'))).toBeNull();
   });
 });
