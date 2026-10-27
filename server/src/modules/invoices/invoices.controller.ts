@@ -51,7 +51,6 @@ import { toFamilyInvoice, FamilyInvoiceDto } from '../fees/dto/family.dto';
 import { Invoice } from './entities/invoice.entity';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
 import {
-  UserRole,
   AuditAction,
   isGuardianRole,
   Permission,
@@ -291,8 +290,7 @@ export class InvoicesController {
 
   @Post(':id/share')
   // Staff only: sharing a receipt link outward is a step above merely
-  // reading it in-app, but the ticket names `INVOICE_READ` explicitly and
-  // there's no separate share-scoped permission in this codebase yet.
+  // reading it in-app, so it needs `INVOICE_SEND` (#3033), not `INVOICE_READ`.
   @RequirePermissions(Permission.INVOICE_SEND)
   @ApiOperation({
     summary:
@@ -344,9 +342,7 @@ export class InvoicesController {
 
   @Post(':id/send')
   @UseInterceptors(IdempotencyInterceptor)
-  // [16.5.4] Ticket names `INVOICE_READ` explicitly (same rationale as
-  // `createShareLink` above — no separate share/send-scoped permission
-  // exists yet).
+  // [16.5.4] Same `INVOICE_SEND` gate as `createShareLink` above (#3033).
   @RequirePermissions(Permission.INVOICE_SEND)
   @ApiOperation({
     summary:

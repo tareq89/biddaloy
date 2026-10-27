@@ -68,8 +68,8 @@ export enum Permission {
   INVOICE_CREATE = 'INVOICE_CREATE',
   INVOICE_READ = 'INVOICE_READ',
   INVOICE_PRINT = 'INVOICE_PRINT',
-  // [#3033] Send / share an invoice link. Server routes also keep
-  // @Roles(ADMIN, ACCOUNTANT); the client gate is this permission alone.
+  // [#3033] Send / share an invoice link. The send/share routes and the
+  // client gate both check this permission alone (no @Roles narrowing).
   INVOICE_SEND = 'INVOICE_SEND',
   INVOICE_DELETE = 'INVOICE_DELETE',
 
