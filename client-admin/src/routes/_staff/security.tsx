@@ -39,7 +39,15 @@ export const Route = createFileRoute('/_staff/security')({
   // `CalendarFeedCard` never suspends into a blank namespace on first
   // visit — same rule `loadRouteNamespaces`'s own docstring documents.
   loader: () =>
-    loadRouteNamespaces('auth', 'calendarFeed', 'nav', 'signInMethods', 'attention', 'dashboard'),
+    loadRouteNamespaces(
+      'auth',
+      'calendarFeed',
+      'nav',
+      'signInMethods',
+      'attention',
+      'dashboard',
+      'portal',
+    ),
   pendingComponent: SecurityPending,
   component: SecurityRoute,
 });
