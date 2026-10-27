@@ -40,8 +40,10 @@ import {
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
+  academicYearsQueryOptions,
   allClassesQueryOptions,
   sectionTeachersQueryOptions,
+  useAcademicYears,
   useAllClasses,
   useClassSections,
   useHasPermission,
@@ -64,7 +66,16 @@ export const Route = createFileRoute('/_staff/staff/teaching-assignments')({
   validateSearch: z.object({ classId: z.string().uuid().optional().catch(undefined) }),
   loader: ({ context: { queryClient } }) =>
     Promise.all([
-      queryClient.ensureQueryData(allClassesQueryOptions()).catch(swallowUnlessOffline),
+      // Classes are fetched for the current year only, so the years come first.
+      queryClient
+        .ensureQueryData(academicYearsQueryOptions())
+        .then((years) => {
+          const currentYearId = years.data.find((y) => y.is_current)?.id;
+          return queryClient.ensureQueryData(
+            allClassesQueryOptions(currentYearId ? { academic_year_id: currentYearId } : {}),
+          );
+        })
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('teacherAssignments', 'classes'),
     ]),
   pendingComponent: TeachingAssignmentsPending,
@@ -82,7 +93,12 @@ function TeachingAssignmentsPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
 
-  const classesQuery = useAllClasses();
+  const academicYearsQuery = useAcademicYears();
+  const currentYearId = academicYearsQuery.data?.data.find((y) => y.is_current)?.id;
+  const classesQuery = useAllClasses({
+    ...(currentYearId ? { academicYearId: currentYearId } : {}),
+    enabled: !academicYearsQuery.isPending,
+  });
   const classes = classesQuery.data ?? [];
   // No `classId` in the URL: show the first class without writing it.
   // ponytail: "first class with data" needs classes x sections x teachers queries (no API

@@ -132,14 +132,14 @@ export function useClasses(filters: ClassListFilters = {}, options: { enabled?: 
  * genuinely needs every class (the People bulk teaching-assignments view),
  * not a paged list screen; skips the offline cache `classesQueryOptions`
  * uses, since these all-pages callers only work online anyway. */
-export function allClassesQueryOptions() {
+export function allClassesQueryOptions(filters: { academic_year_id?: string } = {}) {
   return queryOptions({
-    queryKey: [...classKeys.lists(), 'all-pages'] as const,
+    queryKey: [...classKeys.lists(), 'all-pages', filters] as const,
     queryFn: ({ signal }) =>
       fetchAllPages((page) =>
         apiClient
           .get<PaginatedClasses>('/classes', {
-            params: { limit: CLASS_FILTER_LIMIT, page },
+            params: { ...filters, limit: CLASS_FILTER_LIMIT, page },
             signal,
           })
           .then((res) => res.data),
@@ -148,8 +148,12 @@ export function allClassesQueryOptions() {
   });
 }
 
-export function useAllClasses(options: { enabled?: boolean } = {}) {
-  return useQuery({ ...allClassesQueryOptions(), ...options });
+export function useAllClasses(options: { enabled?: boolean; academicYearId?: string } = {}) {
+  const { academicYearId, ...rest } = options;
+  return useQuery({
+    ...allClassesQueryOptions(academicYearId ? { academic_year_id: academicYearId } : {}),
+    ...rest,
+  });
 }
 
 export function classQueryOptions(id: string) {
