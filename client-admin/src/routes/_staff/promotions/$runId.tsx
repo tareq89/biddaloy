@@ -234,6 +234,15 @@ function PromotionRunPage() {
     return effective(entry).final_outcome !== entry.suggested_outcome;
   }
 
+  // The server re-places the saved FINAL outcomes after every PATCH, so its
+  // placement_error is for the saved outcome. It applies only while that is
+  // still what is on screen: an unsaved local change has no fresh placement.
+  function placementProblem(entry: PromotionEntry) {
+    const saved = entry.final_outcome;
+    if (saved !== 'PROMOTE' && saved !== 'CONDITIONAL') return null;
+    return saved === effective(entry).final_outcome ? entry.placement_error : null;
+  }
+
   const counts = entries.reduce(
     (acc, entry) => {
       const outcome = effective(entry).final_outcome;
@@ -242,13 +251,7 @@ function PromotionRunPage() {
       else acc.graduated += 1;
       const override = isOverride(entry);
       if (override) acc.overrides += 1;
-      // placement_error reflects the server's SUGGESTED outcome. Once a
-      // human overrides the outcome, that stale error no longer applies —
-      // gate on suggested_outcome, not the effective one, and skip entirely
-      // for overridden rows.
-      if (!override && entry.suggested_outcome === 'PROMOTE' && entry.placement_error) {
-        acc.errors += 1;
-      }
+      if (placementProblem(entry)) acc.errors += 1;
       return acc;
     },
     { promoted: 0, retained: 0, graduated: 0, overrides: 0, errors: 0 },
@@ -562,13 +565,14 @@ function PromotionRunPage() {
   );
 
   // Placement result of one row: the section and roll, a danger badge for a problem, or a dash.
-  function placement(entry: PromotionEntry, finalOutcome: PromotionOutcome, override: boolean) {
+  function placement(entry: PromotionEntry, finalOutcome: PromotionOutcome) {
     if (finalOutcome !== 'PROMOTE' && finalOutcome !== 'CONDITIONAL') return dash;
-    if (!override && entry.placement_error) {
+    const problem = placementProblem(entry);
+    if (problem) {
       return (
         <StatusBadge
           tone="danger"
-          label={t(PLACEMENT_ERROR_KEY[entry.placement_error] ?? 'grid.placementError.unknown')}
+          label={t(PLACEMENT_ERROR_KEY[problem] ?? 'grid.placementError.unknown')}
         />
       );
     }
@@ -808,9 +812,7 @@ function PromotionRunPage() {
                             </Select>
                           </td>
                         )}
-                        <td className="px-4 py-1.5">
-                          {placement(entry, eff.final_outcome, override)}
-                        </td>
+                        <td className="px-4 py-1.5">{placement(entry, eff.final_outcome)}</td>
                         <td className="px-4 py-1.5">
                           {readOnly ? (
                             (eff.override_note ?? dash)
