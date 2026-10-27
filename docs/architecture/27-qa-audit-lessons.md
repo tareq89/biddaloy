@@ -280,3 +280,11 @@ Wave 0 (#2979): five security fixes found while writing the user guide.
 - 2026-10-27 — #3032: a per-widget cache version (only collection-by-month at 2) avoids emptying every widget's cache on deploy.
 - 2026-10-27 — #3033: dropping `@Roles` when it equals the permission holders also requires deleting the matching `ROLE_NARROWINGS` entries, or the "still narrows a live route" test fails.
 - 2026-10-27 — #3020: `withHttpStatusShape` dropped `details`, so a server-only code change would never have reached the staff import screen.
+
+### Epic 87 part 2 — follow-ups and unfinished features
+
+- 2026-10-28 — #2942 said "fix the link", but the dashboard widgets count every failed SMS, while the page they linked to lists bulk-reminder rounds only. A new tenant-wide message log (`GET /communications/logs`, permission `COMMUNICATION_BULK_SEND`, not log-read, because teachers hold log-read) was needed. Rule candidate: check what a link target lists before retargeting a link.
+- 2026-10-28 — #2940 (delivery reports) was skipped: no provider adapter has a status or callback API and the gateways' formats cannot be checked offline. A product/ops decision comes first.
+- 2026-10-28 — #3022 was decided under the recommended mode: a same-day in-place slot edit is refused while substitutions or open change requests reference the slot; past-dated substitutions cannot be deleted.
+- 2026-10-28 — #3043: switching four routes from `z.looseObject` to `z.object` broke the types of two unrelated routes that had relied on the index signature (`login.tsx`, `trial-details-landing.tsx`).
+- 2026-10-28 — #3082: the flake was cold vite-node transforms counted inside the first `findBy*`; the timeout is 15 s now. Warming route imports once per worker would be the real fix.
