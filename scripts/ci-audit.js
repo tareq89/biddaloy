@@ -71,6 +71,20 @@ const ALLOWLIST = {
       'required. Re-check after any exceljs or @lhci/cli upgrade.',
     recheckBy: '2027-01-24',
   },
+  1243066: {
+    module: 'zod',
+    reason:
+      'Memory exhaustion validating oversized constrained collections. ' +
+      'Only the zod 3.25.76 copy is flagged; the app (shared/ui/' +
+      'client-admin) already resolves zod 4.6.7, which is patched. The ' +
+      '3.x copy is pulled only by chromium-bidi>zod (^3.24.1) via ' +
+      'puppeteer and @lhci/cli (devDependencies, #149), which validate ' +
+      'protocol messages from a local Chrome, not user input. No 3.x fix ' +
+      'exists (patched is >=4.6.6) and forcing zod 4 under chromium-bidi ' +
+      'risks breaking it. Re-check for a chromium-bidi release on zod 4. ' +
+      'Added 2026-10-27.',
+    recheckBy: '2027-01-24',
+  },
 };
 
 const SEVERITY_ORDER = ['info', 'low', 'moderate', 'high', 'critical'];
