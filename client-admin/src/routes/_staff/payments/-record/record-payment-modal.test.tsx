@@ -609,6 +609,60 @@ describe('RecordPaymentModal', () => {
     expect(checkoutCalls).toBe(0);
   });
 
+  it('offers no wallet credit for a sibling checkout (server refuses it)', async () => {
+    const students = ['student-1', 'student-2'].map((id, i) => ({
+      id,
+      full_name: id,
+      registration_number: id,
+      class_name: 'Six',
+      section_name: 'A',
+      wallet_balance: '100.00',
+      bills: [bill({ student_fee_id: `${id}-fee`, fee_name: `Tuition — ${i + 1}` })],
+    }));
+    server.use(
+      http.get('/api/v1/guardians/:id', () =>
+        HttpResponse.json({
+          id: 'g-1',
+          full_name: 'Karim Ahmed',
+          students: students.map(({ id, full_name }) => ({ id, full_name })),
+        }),
+      ),
+      http.get('/api/v1/payments/cart', () =>
+        HttpResponse.json(
+          cartResponse({
+            students,
+            suggested: {
+              allocations: students.map((s) => ({ student_fee_id: `${s.id}-fee`, amount: 5000 })),
+              wallet_used: 0,
+              remaining: 0,
+              to_wallet: 0,
+            },
+          }),
+        ),
+      ),
+    );
+
+    await renderModal({ guardianId: 'g-1' });
+    await screen.findByText('Tuition — 2');
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '10000' } });
+    await waitFor(() =>
+      expect(screen.getAllByLabelText<HTMLInputElement>(/^Pay — /)[1]?.value).toMatch(/[1-9১-৯]/),
+    );
+    expect(screen.queryByText(/credit/i)).toBeNull();
+  });
+
+  it('offers a single student only their own wallet balance', async () => {
+    const base = cartResponse();
+    const student = { ...(base.students as object[])[0], wallet_balance: '100.00' };
+    server.use(
+      http.get('/api/v1/payments/cart', () => HttpResponse.json({ ...base, students: [student] })),
+    );
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+    expect(await screen.findByText(/credit/i)).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: /credit/i })).toBeTruthy();
+  });
+
   it('[16.5.5] a successful checkout shows the success view, not a navigate-away', async () => {
     server.use(
       http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())),
