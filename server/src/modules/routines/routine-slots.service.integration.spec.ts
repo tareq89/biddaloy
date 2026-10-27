@@ -21,6 +21,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { SchoolsService } from '../schools/schools.service';
 import { RoutineSlot } from './entities/routine-slot.entity';
+import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from './entities/routine-substitution.entity';
 import { localToday } from '../attendance/attendance-policy.util';
 import { PeriodSlotKind, RoutineState, SlotRecurrence } from '@biddaloy/shared';
@@ -336,6 +337,49 @@ describe('RoutineSlotsService — tenant isolation (D16)', () => {
         tid,
       ),
     ).rejects.toMatchObject({ response: { details: { code: 'ROUTINE_SLOT_BACKDATED' } } });
+  });
+
+  it('update a published slot placed today with the same valid_from replaces it in place', async () => {
+    const tid = await freshTenant();
+    const today = localToday('UTC');
+    const p = await publishedSlot(tid, 'g7', today);
+    const subject2 = await dataSource
+      .getRepository(Subject)
+      .save({ tenant_id: tid, name_en: 'Subject-g7b', code: 'SUB-g7b' });
+    const res = await service.update(
+      p.slot.id,
+      {
+        section_id: p.section.id,
+        period_slot_id: p.periodSlot.id,
+        weekday: 1,
+        subject_id: subject2.id,
+        room_id: null,
+        recurrence: SlotRecurrence.WEEKLY,
+        recurrence_offset: 0,
+        valid_from: today,
+        valid_to: null,
+        teacher_ids: [p.teacher.id],
+      } as any,
+      tid,
+      null,
+    );
+    expect(res.slot.id).toBe(p.slot.id);
+    const rows = await dataSource.getRepository(RoutineSlot).find({ where: { tenant_id: tid } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.subject_id).toBe(subject2.id);
+    const teacherRows = await dataSource
+      .getRepository(RoutineSlotTeacher)
+      .find({ where: { routine_slot_id: p.slot.id } });
+    expect(teacherRows.map((r) => r.teacher_id)).toEqual([p.teacher.id]);
+  });
+
+  it('a missing routine 404 does not echo the id', async () => {
+    const tid = await freshTenant();
+    const missing = '00000000-0000-4000-8000-0000000000aa';
+    const err = await service
+      .findForRoutine(missing, tid, { role: 'ADMIN', userId: '' })
+      .catch((e: Error) => e);
+    expect((err as Error).message).not.toContain(missing);
   });
 
   it('update a draft slot with a past valid_from still works', async () => {
