@@ -3,8 +3,8 @@ import {
   myClassSectionsQueryOptions,
   paymentKeys,
   publicHolidaySetQueryOptions,
-  resultDetailKey,
   schoolsKeys,
+  studentResultCardKey,
   surveyKeys,
 } from '@biddaloy/ui/hooks';
 import { REGION_BD_EN } from '@biddaloy/ui/i18n';
@@ -175,9 +175,9 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
       expect(nameFor(queryClient, 'section', { sectionId: 'sec-1' })).toBe('Class 6 – A');
     });
 
-    it('report card: keyed by (examId, studentId) and named from the result detail', () => {
+    it('report card: keyed by (studentId, examId) and named from the result card', () => {
       const queryClient = createTestQueryClient();
-      queryClient.setQueryData(resultDetailKey('e1', 's1'), {
+      queryClient.setQueryData(studentResultCardKey('s1', 'e1'), {
         student: { full_name: 'Rafi Ahmed' },
       });
       expect(nameFor(queryClient, 'reportCard', { examId: 'e1', studentId: 's1' })).toBe(
