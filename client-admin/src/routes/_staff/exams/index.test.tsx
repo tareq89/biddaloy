@@ -9,7 +9,7 @@ import {
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -17,7 +17,31 @@ import { routeTree } from '../../../routeTree.gen';
  * pattern `classes/index.test.tsx` uses. */
 describe('/exams', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
+  });
+
+  // [44.4 / #3012] The (?) beside "Add exam" resolves the generated guide entry.
+  it('shows the (?) for the Add exam action when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/exams'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Exams' });
+    expect(
+      await screen.findAllByRole('button', { name: 'Help: Creating and setting up exams' }),
+    ).not.toHaveLength(0);
   });
 
   it('lists exams with class, year, kind and a status badge, plus view/edit actions', async () => {
@@ -58,9 +82,9 @@ describe('/exams', () => {
     expect(within(row).getByText('Term')).toBeTruthy();
     expect(within(row).getByText('Draft')).toBeTruthy();
     expect(within(row).queryByText('DRAFT')).toBeNull();
-    expect(
-      within(row).getByRole('link', { name: 'View' }).getAttribute('href'),
-    ).toBe('/exams/exam-1');
+    expect(within(row).getByRole('link', { name: 'View' }).getAttribute('href')).toBe(
+      '/exams/exam-1',
+    );
     expect(examParams.at(-1)?.get('limit')).toBe('25');
 
     await user.click(within(row).getByRole('button', { name: 'Edit' }));
@@ -128,9 +152,7 @@ describe('/exams', () => {
       locale: 'en',
     });
     await screen.findByText('No exams yet');
-    await act(() =>
-      view.router.navigate({ to: '/exams', search: { academic_year_id: 'year-1' } }),
-    );
+    await act(() => view.router.navigate({ to: '/exams', search: { academic_year_id: 'year-1' } }));
     await screen.findByText('No exams match these filters');
   });
 

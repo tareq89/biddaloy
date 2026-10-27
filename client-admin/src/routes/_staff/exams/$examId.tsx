@@ -115,6 +115,7 @@ function ExamDetailPage() {
           ),
           {
             id: 'edit',
+            helpId: 'examsResults.exams.action.edit',
             label: t('detail.edit'),
             icon: <Pencil aria-hidden className="size-4" />,
             priority: 'tertiary',
