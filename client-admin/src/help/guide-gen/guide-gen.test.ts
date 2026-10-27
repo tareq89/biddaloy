@@ -154,6 +154,12 @@ describe('buildFieldTable', () => {
     );
   });
 
+  it('escapes pipes and backslashes so a cell cannot break the table', () => {
+    // A backslash in front of a pipe must not swallow the pipe's escape.
+    const row = buildFieldTable({ code: 'A\\|B', help: { code: 'one | two' } }, 'en')!.split('\n')[2];
+    expect(row).toBe('| A\\\\\\|B | one \\| two | No |');
+  });
+
   it('is null without help keys and throws on a help key with no label', () => {
     expect(buildFieldTable({ date: 'Date' }, 'bn')).toBeNull();
     expect(() => buildFieldTable({ help: { ghost: 'x' } }, 'en', 'demo')).toThrow(/help\.ghost/);

@@ -22,8 +22,10 @@ const HEADERS: Record<GuideLang, [string, string, string]> = {
 };
 const NO: Record<GuideLang, string> = { bn: 'না', en: 'No' };
 
+// Backslash first, so a `\|` in the source stays a literal backslash followed by an escaped pipe.
 const cell = (s: string) =>
   s
+    .replace(/\\/g, '\\\\')
     .replace(/\|/g, '\\|')
     .replace(/\s*\n\s*/g, ' ')
     .trim();
