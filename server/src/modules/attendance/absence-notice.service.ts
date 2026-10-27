@@ -597,7 +597,14 @@ export class AbsenceNoticeService {
       ],
     )) as { last_told: string | null; batches: number }[];
     // No absence notice was ever sent and no arrival notice either: nothing to correct.
-    if (!session.notified_at && last_told !== 'ARRIVAL_NOTICE') return;
+    // An arrival notice only counts on a FINALIZED register: on a DRAFT, finalize itself sends
+    // the absence notice, so correcting here too would message the guardian twice.
+    if (
+      !session.notified_at &&
+      (last_told !== 'ARRIVAL_NOTICE' || session.state !== AttendanceSessionState.FINALIZED)
+    ) {
+      return;
+    }
     if ((last_told === 'ABSENCE_NOTICE') === isAbsent) return;
 
     // One key per message in this child's thread (FAILED ones included, so a

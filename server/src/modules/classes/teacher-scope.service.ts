@@ -348,6 +348,7 @@ export class TeacherScopeService {
       `SELECT st.class_section_id AS section_id, count(*) AS n
          FROM arrival_notice_subscriptions ans
          JOIN students st ON st.id = ans.student_id AND st.tenant_id = $1 AND st.deleted_at IS NULL
+         JOIN student_guardians sg ON sg.student_id = ans.student_id AND sg.guardian_id = ans.guardian_id
         WHERE ans.tenant_id = $1 AND ans.status = 'REQUESTED'
           AND st.class_section_id = ANY($2::uuid[])
         GROUP BY st.class_section_id`,

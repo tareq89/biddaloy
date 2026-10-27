@@ -100,8 +100,19 @@ describe('ArrivalSubscriptionsService.update', () => {
       service.update(teacher, 'sub-1', { status: ArrivalNoticeStatus.OFF }),
     ).rejects.toThrow(ARRIVAL_ERRORS.lockedForTeacher);
     await expect(
-      service.update(admin, 'sub-1', { mode: ArrivalNoticeMode.ONCE }),
+      service.update(admin, 'sub-1', { mode: ArrivalNoticeMode.RECURRING }),
     ).resolves.toBeDefined();
+  });
+
+  // D35: ALWAYS is ACTIVE + RECURRING; ONCE or OFF would make the row stop by itself.
+  it('ALWAYS lock refuses ONCE and OFF even for an admin with the lock permission', async () => {
+    const { service } = build({ existing: row({ lock: ArrivalNoticeLock.ALWAYS }) });
+    await expect(service.update(admin, 'sub-1', { mode: ArrivalNoticeMode.ONCE })).rejects.toThrow(
+      ARRIVAL_ERRORS.lockedAlways,
+    );
+    await expect(
+      service.update(admin, 'sub-1', { status: ArrivalNoticeStatus.OFF }),
+    ).rejects.toThrow(ARRIVAL_ERRORS.lockedAlways);
   });
 
   it('is 404 for a row whose student sits outside the teacher homeroom', async () => {

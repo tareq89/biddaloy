@@ -25,6 +25,7 @@ import { SchoolsService } from '../schools/schools.service';
 import { School } from '../schools/entities/school.entity';
 import { Student } from '../students/entities/student.entity';
 import { Guardian } from '../students/entities/guardian.entity';
+import { localToday } from '../../common/time';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -36,7 +37,8 @@ describe('ArrivalNoticeService (integration)', () => {
   let service: ArrivalNoticeService;
   const T = SEED_TENANT_ID;
   const suffix = Date.now();
-  const DATE = '2026-03-02';
+  // The service only sends for the school's today (the text says "today").
+  const DATE = localToday('Asia/Dhaka');
   const students: string[] = [];
   const subIds: string[] = [];
 
@@ -175,12 +177,14 @@ describe('ArrivalNoticeService (integration)', () => {
     await setSettings({ enabled: true, smsAllowed: true }, true);
     const next = await service.sendArrivalNotices({
       tenantId: T,
-      date: '2026-03-03', // a new day -> a fresh key
+      date: DATE, // seed() made new students -> a fresh key
       students: [{ studentId: students[0], status: AttendanceStatus.LATE, occurredAt: new Date() }],
       takenBy: { kind: 'TEACHER', userId: SEED_ADMIN_USER_ID },
     });
     expect(next.queued).toBe(1);
-    const log = (await logs()).find((l) => l.reference_key?.startsWith('arrival:2026-03-03'))!;
+    const log = (await logs()).find((l) =>
+      l.reference_key?.startsWith(`arrival:${DATE}:${students[0]}`),
+    )!;
     const ledger = await dataSource.query(
       `SELECT kind FROM sms_credit_ledger WHERE tenant_id = $1 AND idempotency_key = $2`,
       [T, `batch:${log.id}`],

@@ -28,6 +28,7 @@ import { DeviceService } from './devices/device.service';
 import { AttendanceDevice } from './entities/attendance-device.entity';
 import { ArrivalNoticeSubscription } from './entities/arrival-notice-subscription.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { AttendanceRecord } from './entities/attendance-record.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { School } from '../schools/entities/school.entity';
 import { Student } from '../students/entities/student.entity';
@@ -48,10 +49,12 @@ describe('Arrival notice hooks (integration)', () => {
   const T = SEED_TENANT_ID;
   let sectionId: string;
   let studentIds: string[];
+  let guardianIds: string[];
 
   const TODAY = () => new Date().toISOString().slice(0, 10);
+  const YESTERDAY = () => new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
 
-  async function setSettings(arrival: object | undefined) {
+  async function setSettings(arrival: object | undefined, extra: object = {}) {
     await dataSource.getRepository(School).update(
       { id: T },
       {
@@ -65,6 +68,7 @@ describe('Arrival notice hooks (integration)', () => {
             correctionWindowDays: 2,
             allowFutureDates: false,
             ...(arrival ? { arrivalNotice: arrival } : {}),
+            ...extra,
           },
         } as any,
       },
@@ -87,11 +91,11 @@ describe('Arrival notice hooks (integration)', () => {
     return dataSource.getRepository(AttendanceDevice).findOneOrFail({ where: { id: d.id } });
   }
 
-  const punch = (studentId: string, time: string): DeviceEventDto =>
+  const punch = (studentId: string, time: string, date = TODAY()): DeviceEventDto =>
     ({
       device_event_id: `evt-${randomUUID()}`,
       student_id: studentId,
-      occurred_at: `${TODAY()}T${time}Z`,
+      occurred_at: `${date}T${time}Z`,
       direction: AttendanceEventDirection.IN,
     }) as DeviceEventDto;
 
@@ -164,6 +168,7 @@ describe('Arrival notice hooks (integration)', () => {
       .save({ section_name: 'HK', class_id: klass.id, tenant_id: T });
     sectionId = section.id;
     studentIds = [];
+    guardianIds = [];
     // 3 students; only the first two have an active SMS subscription.
     for (let i = 0; i < 3; i++) {
       const g = await dataSource.getRepository(Guardian).save({
@@ -183,6 +188,7 @@ describe('Arrival notice hooks (integration)', () => {
         guardians: [g],
       } as any);
       studentIds.push(s.id);
+      guardianIds.push(g.id);
       if (i < 2) {
         await dataSource.getRepository(ArrivalNoticeSubscription).save({
           tenant_id: T,
@@ -226,6 +232,21 @@ describe('Arrival notice hooks (integration)', () => {
       expect(await logs()).toHaveLength(0);
     });
 
+    // A guardian unlinked from the child (custody change) must stop hearing about that child,
+    // even though the subscription row survives the unlink.
+    it('a guardian unlinked after subscribing gets nothing', async () => {
+      await dataSource.query(`DELETE FROM student_guardians WHERE student_id = ANY($1::uuid[])`, [
+        studentIds,
+      ]);
+      await put(allPresent());
+      expect(await logs()).toHaveLength(0);
+    });
+
+    it('finalizing an earlier day sends nothing (the text says "today")', async () => {
+      await put(allPresent(), { date: YESTERDAY() });
+      expect(await logs()).toHaveLength(0);
+    });
+
     it('queue failure does not fail the finalize, and the register is saved', async () => {
       vi.spyOn(queue, 'add').mockRejectedValue(new Error('redis down'));
       const res = await put(allPresent());
@@ -263,6 +284,57 @@ describe('Arrival notice hooks (integration)', () => {
         base_version: version,
       });
       expect(await logs()).toHaveLength(1);
+    });
+
+    it('an old punch uploaded late sends nothing (the text says "today")', async () => {
+      const spy = spySend();
+      await devices.ingest(await device(), [punch(studentIds[0], '02:00:00', YESTERDAY())]);
+      expect(spy).toHaveBeenCalledTimes(1);
+      await spy.mock.results[0].value;
+      expect(await logs()).toHaveLength(0);
+    });
+
+    // An arrival notice on a DRAFT register must not trigger a correction: finalize itself sends
+    // the absence notice, so a correction here too would message the guardian twice.
+    it('arrival, DRAFT correction to ABSENT, then finalize -> exactly one absence notice', async () => {
+      await setSettings(
+        { enabled: true, smsAllowed: true },
+        { autoAbsentNotification: { enabled: true, cutoffTime: '00:00' } },
+      );
+      const d = await device();
+      await devices.ingest(d, [punch(studentIds[0], '02:00:00')]);
+      await waitLogs(1);
+      // Precondition: the arrival notice counts as "told" (not FAILED).
+      expect((await logs())[0].status).not.toBe('FAILED');
+
+      const rec = await dataSource
+        .getRepository(AttendanceRecord)
+        .findOneByOrFail({ student_id: studentIds[0], tenant_id: T });
+      await attendance.correctRecord({
+        recordId: rec.id,
+        tenantId: T,
+        role: UserRole.ADMIN,
+        userId: SEED_ADMIN_USER_ID,
+        dto: { status: AttendanceStatus.ABSENT, reason: 'Marked by mistake' } as any,
+        ip: null,
+        userAgent: null,
+      });
+      const [{ version }] = await dataSource.query(
+        `SELECT version FROM attendance_sessions WHERE tenant_id = $1 AND section_id = $2`,
+        [T, sectionId],
+      );
+      await put([{ student_id: studentIds[0], status: AttendanceStatus.ABSENT }], {
+        base_version: version,
+      });
+
+      const absence = await dataSource.query(
+        `SELECT l.id FROM communication_logs l
+           JOIN reminder_batches b ON b.id = l.reminder_batch_id
+          WHERE l.tenant_id = $1 AND l.guardian_id = $2
+            AND b.filters_applied->>'purpose' = 'ABSENCE_NOTICE'`,
+        [T, guardianIds[0]],
+      );
+      expect(absence).toHaveLength(1);
     });
 
     it('arrivalNotice.enabled=false does not call the service', async () => {

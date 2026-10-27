@@ -206,6 +206,14 @@ export class ArrivalSubscriptionsService {
   ): Promise<ArrivalSubscriptionResponseDto> {
     const row = await this.findForStaff(a, id);
     this.assertStaffMayChange(row, a.canLock);
+    // D35: ALWAYS means ACTIVE + RECURRING; ONCE or OFF would let the row stop on its own.
+    if (
+      row.lock === ArrivalNoticeLock.ALWAYS &&
+      ((dto.status && dto.status !== ArrivalNoticeStatus.ACTIVE) ||
+        dto.mode === ArrivalNoticeMode.ONCE)
+    ) {
+      throw new ConflictException(ARRIVAL_ERRORS.lockedAlways);
+    }
     if (dto.status) {
       row.status = dto.status;
       row.consumed_at = null;

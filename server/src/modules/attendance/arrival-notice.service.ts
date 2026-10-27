@@ -27,6 +27,7 @@ import {
 } from '../communications/credits/insufficient-sms-credit.constants';
 import { SchoolsService } from '../schools/schools.service';
 import { Student } from '../students/entities/student.entity';
+import { localToday } from '../../common/time';
 
 /** [84.2.2 / D12] Two wordings per locale. The teacher text never claims an arrival time. */
 export const ARRIVAL_TEMPLATES = {
@@ -58,6 +59,7 @@ export const ArrivalSkipReason = {
   SMS_NOT_ALLOWED: 'sms_not_allowed',
   NO_PHONE: 'guardian_has_no_phone',
   INSUFFICIENT_CREDIT: 'insufficient_sms_credit',
+  CREDIT_RESERVE_FAILED: 'credit_reserve_failed',
   ALREADY_SENT: 'already_sent_today',
   ENQUEUE_FAILED: 'enqueue_failed',
 } as const;
@@ -128,6 +130,10 @@ export class ArrivalNoticeService {
     );
     if (arrived.size === 0) return;
 
+    const [locale, timezone, smsAllowed] = await this.loadSchool(tenantId);
+    // The text says "today": a late finalize of an earlier day or an old device backlog sends nothing.
+    if (date !== localToday(timezone)) return;
+
     // D6 / lock: NEVER is dropped in SQL; opt-out is applied after, so it beats ALWAYS.
     const subs = await this.dataSource
       .getRepository(ArrivalNoticeSubscription)
@@ -138,6 +144,10 @@ export class ArrivalNoticeService {
       .andWhere('sub.status = :active', { active: ArrivalNoticeStatus.ACTIVE })
       .andWhere('sub.lock <> :never', { never: ArrivalNoticeLock.NEVER })
       .andWhere('sub.consumed_at IS NULL')
+      // A guardian unlinked from the child keeps no subscription rights (the row may survive).
+      .andWhere(
+        'EXISTS (SELECT 1 FROM student_guardians sg WHERE sg.student_id = sub.student_id AND sg.guardian_id = sub.guardian_id)',
+      )
       .getMany();
     // D7: no primary-only rule; each subscription stands on its own.
     const reachableGuardians = new Set(
@@ -146,7 +156,6 @@ export class ArrivalNoticeService {
     const live = subs.filter((s) => reachableGuardians.has(s.guardian_id));
     if (live.length === 0) return;
 
-    const [locale, timezone, smsAllowed] = await this.loadSchool(tenantId);
     const students = new Map(
       (
         await this.dataSource
@@ -196,7 +205,14 @@ export class ArrivalNoticeService {
       );
       if (outcome === 'QUEUED') {
         result.queued++;
-        if (sub.mode === ArrivalNoticeMode.ONCE) await this.consume(tenantId, sub.id);
+        // A failed consume must not stop the remaining guardians.
+        if (sub.mode === ArrivalNoticeMode.ONCE) {
+          await this.consume(tenantId, sub.id).catch((error: unknown) =>
+            this.logger.warn(
+              `Arrival ONCE consume failed for subscription ${sub.id}: ${String(error)}`,
+            ),
+          );
+        }
       } else skip(outcome);
     }
   }
@@ -285,13 +301,18 @@ export class ArrivalNoticeService {
           return CREDIT_RESERVE_FAILED;
         });
       if (typeof reserved === 'string') {
+        const insufficient = reserved === 'INSUFFICIENT';
         log.status = CommunicationStatus.FAILED;
+        // Free the key, as on enqueue failure, so a later call that day (after a top-up) can retry.
+        log.reference_key = null;
         log.metadata = {
           ...log.metadata,
-          reason: reserved === 'INSUFFICIENT' ? INSUFFICIENT_SMS_CREDIT : reserved,
+          reason: insufficient ? INSUFFICIENT_SMS_CREDIT : reserved,
         };
         await repo.save(log);
-        return ArrivalSkipReason.INSUFFICIENT_CREDIT;
+        return insufficient
+          ? ArrivalSkipReason.INSUFFICIENT_CREDIT
+          : ArrivalSkipReason.CREDIT_RESERVE_FAILED;
       }
       credit = reserved;
     }

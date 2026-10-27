@@ -415,8 +415,8 @@ describe('TeacherScopeService (integration)', () => {
   });
 
   describe('arrivalRequestCounts', () => {
-    it('counts REQUESTED rows per section, not ACTIVE, and is tenant-scoped', async () => {
-      const mkStudent = async (sectionId: string, n: number) => {
+    it('counts linked REQUESTED rows per section, not ACTIVE, and is tenant-scoped', async () => {
+      const mkStudent = async (sectionId: string, n: number, linked = true) => {
         const [st] = await dataSource.query(
           `INSERT INTO students (full_name, registration_number, roll_number, class_section_id, tenant_id)
            VALUES ('Arr S', $1, $2, $3, $4) RETURNING id`,
@@ -426,6 +426,12 @@ describe('TeacherScopeService (integration)', () => {
           `INSERT INTO guardians (full_name, relationship, phone, tenant_id) VALUES ('Arr G', 'FATHER', '01700000000', $1) RETURNING id`,
           [TENANT_A],
         );
+        if (linked) {
+          await dataSource.query(
+            `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`,
+            [st.id, g.id],
+          );
+        }
         return { student: st.id as string, guardian: g.id as string };
       };
       const sub = (ids: { student: string; guardian: string }, status: string) =>
@@ -436,6 +442,8 @@ describe('TeacherScopeService (integration)', () => {
         );
       for (let i = 0; i < 3; i++) await sub(await mkStudent(sec6A, i), 'REQUESTED');
       await sub(await mkStudent(sec6A, 9), 'ACTIVE');
+      // A guardian unlinked from the child: the row survives the unlink but is not a request.
+      await sub(await mkStudent(sec6A, 8, false), 'REQUESTED');
       const input = { tenantId: TENANT_A, sectionIds: [sec6A, sec6B] };
       const counts = await service.arrivalRequestCounts(input);
       expect([counts.get(sec6A) ?? 0, counts.get(sec6B) ?? 0]).toEqual([3, 0]);

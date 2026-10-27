@@ -1,6 +1,6 @@
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { server } from '../test/msw/server';
 import { apiErrorBody } from '../test/msw/support';
@@ -13,6 +13,7 @@ import {
   usePortalArrivalSubscriptions,
   usePutPortalArrivalSubscription,
 } from './arrival-subscriptions';
+import { myClassKeys } from './my-class';
 
 const sub = {
   id: 's1',
@@ -81,6 +82,22 @@ describe('arrival subscription mutations send Idempotency-Key and never retry', 
         mutate: () => m.mutate({ studentId: 'st1', input: { want: true } }),
       };
     }));
+});
+
+describe('arrival mutations refresh My class', () => {
+  // The My class badge shows the REQUESTED count, so a confirm must invalidate it.
+  it('a successful patch invalidates myClassKeys.all', async () => {
+    server.use(
+      http.patch('/api/v1/attendance/arrival-subscriptions/s1', () => HttpResponse.json(sub)),
+    );
+    const { result, queryClient } = renderHookWithProviders(() => usePatchArrivalSubscription(), {
+      tenantId: 't1',
+    });
+    const spy = vi.spyOn(queryClient, 'invalidateQueries');
+    result.current.mutate({ id: 's1', input: { status: 'ACTIVE' } });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(spy).toHaveBeenCalledWith({ queryKey: myClassKeys.all });
+  });
 });
 
 describe('usePortalArrivalSubscriptions', () => {

@@ -4,6 +4,7 @@ import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
 import { useIdempotencyKey } from './idempotency-key';
+import { myClassKeys } from './my-class';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -64,7 +65,12 @@ export function usePortalArrivalSubscriptions() {
 
 function useInvalidateArrival() {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: arrivalSubscriptionKeys.all });
+  // My class shows `arrival_request_count`, so it goes stale on a confirm or decline too.
+  return () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: arrivalSubscriptionKeys.all }),
+      qc.invalidateQueries({ queryKey: myClassKeys.all }),
+    ]);
 }
 
 export function useCreateArrivalSubscription() {

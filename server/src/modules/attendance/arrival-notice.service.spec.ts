@@ -15,8 +15,10 @@ import { ArrivalNoticeSubscription } from './entities/arrival-notice-subscriptio
 import { AttendanceDevice } from './entities/attendance-device.entity';
 import { CommunicationLog, PUSH_MEDIUM } from '../communications/entities/communication-log.entity';
 import { Student } from '../students/entities/student.entity';
+import { localToday } from '../../common/time';
 
 const T = 'tenant-1';
+const TODAY = localToday('Asia/Dhaka');
 const AT = new Date('2026-03-02T03:05:00Z'); // 09:05 Asia/Dhaka
 
 function guardian(over: Record<string, unknown> = {}) {
@@ -121,7 +123,7 @@ describe('ArrivalNoticeService', () => {
   const call = (over: Record<string, unknown> = {}) =>
     service.sendArrivalNotices({
       tenantId: T,
-      date: '2026-03-02',
+      date: TODAY,
       students: [{ studentId: 's1', status: AttendanceStatus.PRESENT, occurredAt: AT }],
       takenBy: { kind: 'TEACHER', userId: 'tu' },
       ...over,
@@ -133,7 +135,7 @@ describe('ArrivalNoticeService', () => {
     expect(saved[0]).toMatchObject({
       medium: PUSH_MEDIUM,
       recipient_address: 'push:u1',
-      reference_key: 'arrival:2026-03-02:s1:g1',
+      reference_key: `arrival:${TODAY}:s1:g1`,
       metadata: { subscription_id: 'sub1' },
     });
     expect(credits.reserveForLog).not.toHaveBeenCalled();
@@ -195,6 +197,34 @@ describe('ArrivalNoticeService', () => {
     expect(r.skipped[0].reason).toBe(ArrivalSkipReason.INSUFFICIENT_CREDIT);
     expect(queue.add).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('a failed reservation frees the dedupe key and reports its own reason', async () => {
+    subs = [sub({ channel: ArrivalNoticeChannel.SMS })];
+    credits.reserveForLog.mockResolvedValue('INSUFFICIENT');
+    await call();
+    // The key is cleared so a later call today (after a top-up) is not "already sent".
+    expect(saved.at(-1)).toMatchObject({ status: 'FAILED', reference_key: null });
+    credits.reserveForLog.mockRejectedValue(new Error('db down'));
+    const r = await call();
+    expect(r.skipped[0].reason).toBe(ArrivalSkipReason.CREDIT_RESERVE_FAILED);
+    expect(saved.at(-1)).toMatchObject({ status: 'FAILED', reference_key: null });
+  });
+
+  it('a past date sends nothing, because the text says "today"', async () => {
+    const r = await call({ date: '2020-01-01' });
+    expect(r.queued).toBe(0);
+    expect(saved).toHaveLength(0);
+  });
+
+  it('a failed ONCE consume does not stop the next guardian', async () => {
+    subs = [
+      sub({ mode: ArrivalNoticeMode.ONCE }),
+      sub({ id: 'sub2', guardian_id: 'g2', guardian: guardian({ id: 'g2', user_id: 'u2' }) }),
+    ];
+    update.mockRejectedValue(new Error('db blip'));
+    const r = await call();
+    expect(r.queued).toBe(2);
   });
 
   it('a unique-index conflict is "already sent", not an error', async () => {
