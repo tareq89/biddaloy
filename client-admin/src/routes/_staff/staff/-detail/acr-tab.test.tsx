@@ -164,4 +164,31 @@ describe('StartAcrDialog', () => {
       await screen.findByText('An ACR already exists for this staff member and year.'),
     ).toBeTruthy();
   });
+
+  it('says to save criteria first when no form version exists', async () => {
+    server.use(
+      http.post('/api/v1/acr/assessments', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'x',
+            error: 'Conflict',
+            requestId: 'r1',
+            details: { code: 'ACR_NO_FORM_VERSION' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderWithProviders(
+      <StartAcrDialog open onOpenChange={() => undefined} staffUserId="user-1" />,
+      { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' },
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByLabelText('Academic year'));
+    await user.click((await screen.findAllByRole('option'))[0]!);
+    await user.click(screen.getByRole('button', { name: 'Start ACR' }));
+    expect(await screen.findByText('Save the ACR criteria first, then start an ACR.')).toBeTruthy();
+    expect(screen.queryByText(/already exists/)).toBeNull();
+  });
 });

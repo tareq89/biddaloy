@@ -163,6 +163,10 @@ describe('AcrAssessmentsService', () => {
     ).rejects.toThrow(/year/);
     db.versions.length = 0;
     await expect(start('other')).rejects.toThrow(/form version/);
+    // The UI tells "no criteria yet" from "duplicate" by this code.
+    await expect(start('other')).rejects.toMatchObject({
+      response: { details: { code: 'ACR_NO_FORM_VERSION' } },
+    });
   });
 
   it('subject gets 404 on get/update/complete/reopen/history and is absent from the register', async () => {
