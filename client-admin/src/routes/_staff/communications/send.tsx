@@ -1,6 +1,7 @@
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  HelpHint,
   Card,
   Dialog,
   DialogClose,
@@ -418,10 +419,10 @@ function SendMessageBody() {
           </div>
 
           <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:justify-end">
-            <Button type="submit" disabled={!canSend}>
+            <span className="inline-flex items-center gap-1"><Button type="submit" disabled={!canSend}>
               <SendIcon aria-hidden />
               {t('send.submit')}
-            </Button>
+            </Button><HelpHint helpId="communications.sendMessage.action.send" /></span>
           </div>
         </Card>
       </form>

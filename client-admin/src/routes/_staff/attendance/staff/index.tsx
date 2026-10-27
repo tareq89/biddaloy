@@ -7,6 +7,7 @@
 import { AttendanceStatus, Permission } from '@biddaloy/shared';
 import {
   Button,
+  HelpHint,
   DatePicker,
   EmptyState,
   ErrorState,
@@ -131,7 +132,10 @@ function StaffAttendancePage() {
         </div>
         <div className="flex items-end gap-2">
           <div className="grid min-w-0 flex-1 gap-1.5 md:w-64 md:flex-none">
-            <Label htmlFor="staff-attendance-date">{t('grid.dateLabel')}</Label>
+            <span className="inline-flex items-center gap-1">
+              <Label htmlFor="staff-attendance-date">{t('grid.dateLabel')}</Label>
+              <HelpHint helpId="attendance.staffAttendance.field.date" />
+            </span>
             <DatePicker
               id="staff-attendance-date"
               aria-label={t('grid.dateLabel')}
@@ -197,7 +201,7 @@ function StaffAttendancePage() {
                   {t('grid.unmarkedRemaining', { n: unmarked })}
                 </span>
               )}
-              <Button
+              <><Button
                 type="button"
                 className="flex-1 md:ms-auto md:flex-none"
                 loading={markAttendance.isPending}
@@ -206,7 +210,7 @@ function StaffAttendancePage() {
               >
                 <Save aria-hidden="true" />
                 {markAttendance.isPending ? t('grid.saving') : t('grid.submit')}
-              </Button>
+              </Button><HelpHint helpId="attendance.staffAttendance.action.submit" /></>
             </div>
           )}
         </>

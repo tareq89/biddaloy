@@ -444,6 +444,7 @@ function CollectionsReportPage() {
           actions={[
             {
               id: 'csv',
+              helpId: 'reports.collectionsReport.action.downloadCsv',
               label: t('actions.downloadCsv'),
               icon: <DownloadIcon aria-hidden className="size-4" />,
               priority: 'secondary',
@@ -453,6 +454,7 @@ function CollectionsReportPage() {
             },
             {
               id: 'print',
+              helpId: 'reports.collectionsReport.action.print',
               label: t('actions.print'),
               icon: <PrinterIcon aria-hidden className="size-4" />,
               priority: 'primary',

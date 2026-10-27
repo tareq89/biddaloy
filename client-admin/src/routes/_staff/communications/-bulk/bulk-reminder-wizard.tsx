@@ -31,6 +31,7 @@ import {
   ConfirmDialog,
   DataTable,
   Input,
+  HelpHint,
   Label,
   Textarea,
   type DataTableColumn,
@@ -641,7 +642,10 @@ export function BulkReminderWizard() {
 
                     <fieldset>
                       <legend className="mb-1.5 text-label text-text-primary">
-                        {t('bulk.message.mediumsLabel')}
+                        <span className="inline-flex items-center gap-1">
+                          {t('bulk.message.mediumsLabel')}
+                          <HelpHint helpId="communications.feeReminders.field.bulkMediums" />
+                        </span>
                       </legend>
                       <div className="divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle">
                         {BULK_MEDIUMS.map((medium) => (
