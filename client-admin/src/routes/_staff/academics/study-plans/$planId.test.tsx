@@ -59,9 +59,9 @@ describe('/academics/study-plans/$planId', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Class 7-A · Mathematics · First term' });
     expect(screen.getByText('Rahima Akter')).toBeTruthy();
-    expect(await screen.findByText(/১লা জানুয়ারি – ৩০শে জুন/)).toBeTruthy();
-    expect(await screen.findByText('১/৩ lessons')).toBeTruthy();
-    expect(screen.getByText(/৫৮ · the remaining lessons need ৬২/)).toBeTruthy();
+    expect(await screen.findByText(/1st January – 30th June/)).toBeTruthy();
+    expect(await screen.findByText('1/3 lessons')).toBeTruthy();
+    expect(screen.getByText(/58 · the remaining lessons need 62/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add lesson' })).toBeTruthy();
   });
 
@@ -69,12 +69,12 @@ describe('/academics/study-plans/$planId', () => {
     [{ periods_behind: 0, lessons_behind: 0 }, 'On track', 'text-status-paid-fg'],
     [
       { periods_behind: 1, lessons_behind: 0 },
-      '১ periods behind (≈০ lessons)',
+      '1 periods behind (≈0 lessons)',
       'text-status-due-fg',
     ],
     [
       { periods_behind: 4, lessons_behind: 2 },
-      '৪ periods behind (≈২ lessons)',
+      '4 periods behind (≈2 lessons)',
       'text-status-overdue-fg',
     ],
   ])('behind badge %j reads %s', async (summary, text, toneClass) => {
@@ -157,7 +157,7 @@ describe('/academics/study-plans/$planId', () => {
     await screen.findByText('Lesson 2');
     await user.click(screen.getAllByRole('button', { name: 'Delete lesson' })[1]!);
     const dialog = await screen.findByRole('alertdialog');
-    expect(within(dialog).getByText(/Delete lesson ২ 'Lesson 2'\?/)).toBeTruthy();
+    expect(within(dialog).getByText(/Delete lesson 2 'Lesson 2'\?/)).toBeTruthy();
     expect(body).toBeUndefined();
     await user.click(within(dialog).getByRole('button', { name: 'Delete lesson' }));
 

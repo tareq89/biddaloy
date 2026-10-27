@@ -207,8 +207,9 @@ None of them throws while rendering.
   user typed it** — never hidden, never an error. `parsePhone` accepts Bangla or
   Latin digits.
 - Bangla day ordinals: ১লা, ২রা, ৩রা, ৪ঠা, ৫ই–১৮ই, ১৯শে–৩১শে.
-- **Never mix digits** inside one value. Numerals follow the school's numeral
-  setting everywhere — except things a person copies or dials, which stay Latin:
+- **Never mix digits** inside one value. In the Bangla UI, numerals follow the
+  school's numeral setting. The English UI always uses Latin digits and English
+  words. Things a person copies or dials stay Latin in both:
   registration / invoice / receipt numbers, phone numbers, emails, codes.
 - ISO strings (`2026-09-09`) appear only in exports, URLs and API calls. Use
   `toIsoDate` for those — never `formatDate` output as data. The

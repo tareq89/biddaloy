@@ -10,7 +10,7 @@
  *    batch's own stored template, and a "Retry of …" name — then lands
  *    on the new batch.
  */
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -112,7 +112,7 @@ describe('/communications/batches/$batchId', () => {
     expect(screen.queryByRole('link', { name: 'All rounds' })).toBeNull();
     // Facts render through the tenant numeral formatter.
     // The tenant's region settings load after the page; wait for the Bangla digits.
-    expect(await screen.findByText(formatNumber(3, REGION_BD_BN))).toBeTruthy();
+    expect(await screen.findByText(formatNumber(3, REGION_BD_EN))).toBeTruthy();
     // Per-recipient rows, including the FAILED ones' reasons — "FAILED" is
     // never unexplained, and never the worker's English text.
     expect(await screen.findByText('Guardian Two')).toBeTruthy();
@@ -127,11 +127,11 @@ describe('/communications/batches/$batchId', () => {
     const oneRow = screen.getByText('Guardian One').closest('tr');
     expect(oneRow).toBeTruthy();
     expect(
-      within(oneRow as HTMLElement).getByText(formatPhone('+8801700000000', REGION_BD_BN)),
+      within(oneRow as HTMLElement).getByText(formatPhone('+8801700000000', REGION_BD_EN)),
     ).toBeTruthy();
     // Skipped grouped by reason with a count, not a UUID list.
     expect(screen.getByText('No guardians on file')).toBeTruthy();
-    expect(screen.getByText(`${formatNumber(2, REGION_BD_BN)} students`)).toBeTruthy();
+    expect(screen.getByText(`${formatNumber(2, REGION_BD_EN)} students`)).toBeTruthy();
   });
 
   it('shows sent template tokens as labelled chips, never as raw braces', async () => {

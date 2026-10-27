@@ -89,10 +89,10 @@ describe('/classes', () => {
     // tenant's region numerals (Bengali by default here) — same fix as
     // `communications/batches/index.tsx`'s recipient counts, not raw
     // ASCII digits regardless of UI language.
-    expect(within(row).getByText('১')).toBeTruthy();
+    expect(within(row).getByText('1')).toBeTruthy();
     // Students column reads `student_count`, same list payload — no
     // per-row request.
-    expect(within(row).getByText('৫')).toBeTruthy();
+    expect(within(row).getByText('5')).toBeTruthy();
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
