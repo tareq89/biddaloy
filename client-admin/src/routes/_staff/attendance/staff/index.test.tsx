@@ -107,6 +107,74 @@ describe('/attendance/staff', () => {
     expect(screen.getByText('Unmarked 0')).toBeTruthy();
   });
 
+  describe('reason for an old day', () => {
+    function oldDay(reasonRequired: boolean, onPut?: (body: unknown) => void) {
+      return [
+        http.get('/api/v1/staff-attendance/register', () =>
+          HttpResponse.json({
+            date: '2026-10-04',
+            reason_required: reasonRequired,
+            non_working_day: false,
+            staff: [
+              {
+                user_id: 'u1',
+                full_name: 'Karim',
+                role: 'TEACHER',
+                staff_profile_id: 'profile-1',
+                status: null,
+              },
+            ],
+          }),
+        ),
+        http.put('/api/v1/staff-attendance/register', async ({ request }) => {
+          onPut?.(await request.json());
+          return HttpResponse.json({ saved: 1 });
+        }),
+      ];
+    }
+    function renderOld() {
+      return renderWithRouter(routeTree, {
+        initialEntries: ['/attendance/staff?date=2026-10-04'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+    }
+
+    it('blocks a save with no reason, then sends the typed reason', async () => {
+      const puts: unknown[] = [];
+      server.use(...oldDay(true, (b) => puts.push(b)));
+      const user = userEvent.setup();
+      const { localeReady } = renderOld();
+      await localeReady;
+
+      await user.click(await screen.findByRole('button', { name: 'Karim' }));
+      await user.click(screen.getByRole('button', { name: 'Save attendance' }));
+      expect(await screen.findByText('Write a reason of at least 3 characters.')).toBeTruthy();
+      expect(puts).toHaveLength(0);
+
+      await user.type(screen.getByLabelText('Why are you changing this day?'), 'late entry');
+      await user.click(screen.getByRole('button', { name: 'Save attendance' }));
+      expect(await screen.findByText('Attendance saved')).toBeTruthy();
+      expect(puts).toEqual([
+        {
+          date: '2026-10-04',
+          reason: 'late entry',
+          entries: [{ staff_profile_id: 'profile-1', status: 'PRESENT' }],
+        },
+      ]);
+    });
+
+    it('shows no reason field inside the correction window', async () => {
+      server.use(...oldDay(false));
+      const { localeReady } = renderOld();
+      await localeReady;
+
+      await screen.findByRole('button', { name: 'Karim' });
+      expect(screen.queryByLabelText('Why are you changing this day?')).toBeNull();
+    });
+  });
+
   describe('page chrome', () => {
     function twoStaff() {
       return day(
