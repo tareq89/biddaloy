@@ -95,10 +95,13 @@ export function ApplicationsReports() {
     },
   ];
 
-  const subtitle = year
-    ? t('subtitle', { year: year.name }) +
-      (search.from && search.to ? ` · ${formatDateRange(search.from, search.to, config)}` : '')
-    : undefined;
+  const yearApplies = Boolean(search.academic_year_id) || !(search.from || search.to);
+  const range =
+    search.from && search.to ? formatDateRange(search.from, search.to, config) : undefined;
+  const subtitle =
+    [yearApplies && year ? t('subtitle', { year: year.name }) : undefined, range]
+      .filter(Boolean)
+      .join(' · ') || undefined;
 
   return (
     <PageContainer>
