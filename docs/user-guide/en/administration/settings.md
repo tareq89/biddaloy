@@ -208,7 +208,7 @@ See: [**Dashboard**](../dashboard/dashboard.md).
 
 - **Status deadline** — on the same school day; reporting after this still counts, but late.
 - **Teacher reminder** — on the next school day, only if something is still open.
-- **Tell the head teacher and admin after** — this many school days not reported; 1 to 10, holidays are not counted.
+- **Tell the academic coordinator and admin after** — this many school days not reported; 1 to 10, holidays are not counted.
 - **Weekly summary time** — on the last working day of the week, to guardians and the committee.
 - **Also send the guardians' weekly summary by SMS** — push is always sent, at no cost. If you turn SMS on, it uses credit every week.
 

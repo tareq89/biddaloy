@@ -21,6 +21,7 @@ labels:
   [
     homework:list.*,
     homework:detail.*,
+    homework:grid.*,
     homework:form.*,
     homework:import.*,
     bulkImport:*,
@@ -332,7 +333,7 @@ Here you give each student the tick, the completion or the marks, depending on t
 
 1. On the homework's page, in the **Who has this homework** card, press **Check work** on a row.
 
-   → A full-page list opens, titled **Check work · Section A** (or the student's name). It has every student of that row: each active student of the section, and anyone who already handed in work. Each student shows the roll number, the name and a badge: **Not submitted**, **Submitted**, **Partial** or **Done**.
+   → A full-page list opens, titled **Check work · Section A** (or the student's name). Who is on it: for a section row, every active student of the section; for a student row, that one student. Anyone who already has work on the row stays on it, even after moving. A **Superseded** row adds nobody new; it lists only those who already have work on it. Each student shows the roll number, the name and a badge: **Not submitted**, **Submitted**, **Partial** or **Done**.
 
 2. Mark each student:
 
@@ -340,7 +341,7 @@ Here you give each student the tick, the completion or the marks, depending on t
    | -------------------------- | ------------------------------------------------------------- |
    | **Tick (done / not done)** | Tick the box of each student who did it                       |
    | **Partial completion**     | Pick **Done**, **Partial** or **Not done**                    |
-   | **Marks**                  | Type a whole number from 0 to 9999; leave it empty if no marks yet. Typing marks also makes the row **Done** |
+   | **Marks**                  | Type a whole number from 0 to 9,999; leave it empty if no marks yet. Typing marks also makes the row **Done** |
 
 3. Press **Save** at the bottom. One **Save** sends every row you changed.
 
@@ -376,7 +377,7 @@ Here you give each student the tick, the completion or the marks, depending on t
 | **Could not load the students' work.**                                             | Press **Retry**. Check your internet.                                                                                                                                                                                                                                                 | Admin        |
 | **This list cannot be opened. It may be for a section you do not teach.**          | The link is old, or the row is outside your duties. Press **Close** and open **Check work** from the homework's page.                                                                                                                                                                 | Admin        |
 | **This list changed while you were working. It is up to date now; check it and save again.** | Your marks were not saved. Look at the list, mark again and press **Save**.                                                                                                                                                                                                  | —            |
-| **Marks must be a whole number from 0 to 9999.**                                   | Fix the marks on that row. Nothing was saved.                                                                                                                                                                                                                                         | —            |
+| **Marks must be a whole number from 0 to 9,999.**                                   | Fix the marks on that row. Nothing was saved.                                                                                                                                                                                                                                         | —            |
 | **No students here yet**                                                           | The section has no active student, and nobody handed in work. Add students to the section first.                                                                                                                                                                                      | Admin        |
 
 ---
