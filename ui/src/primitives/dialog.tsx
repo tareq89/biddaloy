@@ -121,7 +121,7 @@ function DialogFooter({
         // `sticky bottom-0` (plus `shrink-0` so a tall body can't squeeze
         // it) keeps this reachable when `DialogContent` above scrolls —
         // see that component's own comment on why.
-        'sticky bottom-0 -mx-5 -mb-5 flex shrink-0 flex-col-reverse gap-2 bg-surface px-5 pt-3 pb-5 md:flex-row md:justify-end',
+        'sticky bottom-0 -mx-5 -mb-5 flex shrink-0 flex-col-reverse gap-2 bg-surface px-5 pt-3 pb-5 md:flex-row md:flex-wrap md:justify-end',
         className,
       )}
       {...props}
