@@ -8,6 +8,8 @@ import { HomeworkAccessService } from './homework-access.service';
 import { teacherAssignments } from '../classes/teacher-scope.service';
 import { HomeworkNoticeService } from './homework-notice.service';
 import { HomeworkToCheckDto } from './dto/homework-dashboard.dto';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 import {
   AssignHomeworkDto,
   CreateHomeworkDto,
@@ -547,6 +549,12 @@ export class HomeworkService {
     if (!result.affected) {
       throw new BadRequestException('A superseded assignment cannot be changed');
     }
+    // The not-submitted alert keys on status + due_date: a deactivate or date move clears it now.
+    emitRecheck(attentionEvents, {
+      tenantId: ctx.tenantId,
+      ruleKey: 'homework.not_submitted',
+      actorUserId: ctx.userId,
+    });
     return Object.assign(assignment, patch);
   }
 }

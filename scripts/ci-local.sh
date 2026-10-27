@@ -131,6 +131,8 @@ CI_PATHS_FRONTEND=(
   'scripts/flake-report.spec.mjs'
   'scripts/check-arch-docs.spec.mjs'
   'docs/architecture/**'
+  'CLAUDE.md'
+  'server/CLAUDE.md'
   'ci-budgets.json'
   'quarantine.json'
   'package.json'

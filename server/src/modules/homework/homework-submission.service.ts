@@ -423,8 +423,9 @@ export class HomeworkSubmissionService {
         .createQueryBuilder()
         .insert()
         .into(HomeworkSubmission)
+        // Sorted: two Saves inserting the same students in different orders would deadlock.
         .values(
-          ids.map((student_id) => ({
+          [...ids].sort().map((student_id) => ({
             tenant_id: ctx.tenantId,
             assignment_id: assignment.id,
             student_id,

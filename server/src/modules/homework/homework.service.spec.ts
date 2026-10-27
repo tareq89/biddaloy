@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { HomeworkAssignmentStatus, HomeworkGradingMode, UserRole } from '@biddaloy/shared';
 import { HomeworkService } from './homework.service';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK } from '../attention/engine/attention-events';
 
 describe('HomeworkService', () => {
   const TENANT_ID = 'tenant-1';
@@ -285,10 +287,21 @@ describe('HomeworkService', () => {
 
     it('moves the due date in place and keeps the status', async () => {
       assignmentRepo.findOne.mockResolvedValue(activeRow());
-      const result = await service.updateAssignment('assign-1', { due_date: '2026-01-15' }, ctx);
-      expect(result.id).toBe('assign-1');
-      expect(result.due_date).toBe('2026-01-15');
-      expect(result.status).toBe(HomeworkAssignmentStatus.ACTIVE);
+      const events: unknown[] = [];
+      const on = (p: unknown) => events.push(p);
+      attentionEvents.on(ATTENTION_RECHECK, on);
+      try {
+        const result = await service.updateAssignment('assign-1', { due_date: '2026-01-15' }, ctx);
+        expect(result.id).toBe('assign-1');
+        expect(result.due_date).toBe('2026-01-15');
+        expect(result.status).toBe(HomeworkAssignmentStatus.ACTIVE);
+      } finally {
+        attentionEvents.off(ATTENTION_RECHECK, on);
+      }
+      // The not-submitted alert keys on due_date, so a move rechecks it at once.
+      expect(events).toEqual([
+        { tenantId: TENANT_ID, ruleKey: 'homework.not_submitted', actorUserId: ctx.userId },
+      ]);
     });
 
     it('rejects a due date before the assigned date and saves nothing', async () => {

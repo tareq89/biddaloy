@@ -258,6 +258,8 @@ export function useReassignHomeworkAssignment() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: homeworkAssignmentsKeyRoot });
       void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
+      // Only ACTIVE rows count on the "Homework to check" card.
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'widget'] });
     },
   });
 }
@@ -289,6 +291,8 @@ export function useUpdateHomeworkAssignment() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: homeworkAssignmentsKeyRoot });
       void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
+      // Only ACTIVE rows count on the "Homework to check" card.
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'widget'] });
     },
   });
 }
