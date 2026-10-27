@@ -201,8 +201,7 @@ describe('ShiftsPanel', () => {
       const user = userEvent.setup();
 
       await user.click(await screen.findByRole('button', { name: 'Edit' }));
-      const name = await screen.findByLabelText('Name');
-      expect(name.value).toBe('Morning');
+      const name = await screen.findByDisplayValue('Morning');
       await user.clear(name);
       await user.type(name, 'Day');
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
