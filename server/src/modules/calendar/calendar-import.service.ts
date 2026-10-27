@@ -11,7 +11,6 @@ import { ImportStagingService } from '../bulk-import/import-staging.service';
 import {
   buildCalendarImportCsvTemplate,
   buildCalendarImportXlsxTemplate,
-  CalendarImportFileError,
   parseCalendarImportFile,
 } from './import/calendar-import-file.util';
 import { validateCalendarImportRow } from './import/calendar-import-rows.util';
@@ -184,15 +183,8 @@ export class CalendarImportService {
     userId: string,
     file: { buffer: Buffer; originalname: string },
   ): Promise<CalendarImportValidateResult> {
-    let rawRows;
-    try {
-      rawRows = await parseCalendarImportFile(file.buffer, file.originalname);
-    } catch (error) {
-      if (error instanceof CalendarImportFileError) {
-        throw new BadRequestException(error.message);
-      }
-      throw error;
-    }
+    // An unreadable file throws ImportFileError; known-errors.ts makes it a 400 with details.code.
+    const rawRows = await parseCalendarImportFile(file.buffer, file.originalname);
 
     // Explicit bound before anything iterates the parsed rows: the upload
     // is size-capped at the dropzone, but a pathological CSV can still pack
