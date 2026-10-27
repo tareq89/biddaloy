@@ -219,6 +219,7 @@ GET /health/ready | HealthController | allowlist: none
 GET /homework | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /homework-assignments/:id/submissions | HomeworkSubmissionController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /homework/:id | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
+GET /homework/:id/assignments | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /homework/analytics/class/:classId | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /homework/analytics/section/:sectionId | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /homework/analytics/student/:studentId | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER

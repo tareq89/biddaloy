@@ -350,6 +350,7 @@ POST   /api/v1/homework-assignments/:id/submissions                             
 PATCH  /api/v1/homework-submissions/:id                                          401 PASS PASS PASS 403 PASS 403 403 403 403 403 403
 GET    /api/v1/homework/:id                                                      401 PASS PASS PASS 403 PASS 403 403 403 403 403 403
 POST   /api/v1/homework/:id/assign                                               401 PASS PASS PASS 403 PASS 403 403 403 403 403 403
+GET    /api/v1/homework/:id/assignments                                          401 PASS PASS PASS 403 PASS 403 403 403 403 403 403
 GET    /api/v1/homework/analytics/class/:classId                                 401 PASS PASS PASS 403 PASS 403 403 403 403 403 403
 GET    /api/v1/homework/analytics/section/:sectionId                             401 PASS PASS PASS 403 PASS 403 403 403 403 403 403
 GET    /api/v1/homework/analytics/student/:studentId                             401 PASS PASS PASS 403 PASS 403 403 403 403 403 403

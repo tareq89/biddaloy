@@ -30,6 +30,13 @@ export interface HomeworkAssignment {
   status: HomeworkAssignmentStatus;
 }
 
+/** `GET /homework/:id/assignments` row: the assignment plus its target as names. */
+export interface HomeworkAssignmentListItem extends HomeworkAssignment {
+  target_section_id: string;
+  section_name: string;
+  student_name: string | null;
+}
+
 export interface HomeworkListFilters {
   class_id?: string;
   section_id?: string;
@@ -53,6 +60,10 @@ export interface AssignHomeworkInput {
 }
 
 export const homeworkKeys = createEntityKeys<HomeworkListFilters>('homework');
+
+/** Prefix of every homework's assignments query; invalidate this after any assignment write. */
+export const homeworkAssignmentsKeyRoot = [...homeworkKeys.all, 'assignments'] as const;
+const assignmentsKey = (homeworkId: string) => [...homeworkAssignmentsKeyRoot, homeworkId] as const;
 
 /** Mirrors `HomeworkAnalyticsService`'s `CompletionRollup` (server side,
  * `server/src/modules/homework/homework-analytics.service.ts`) — no case
@@ -158,6 +169,27 @@ export function useHomework(id: string | undefined) {
   return useQuery({ ...homeworkQueryOptions(id ?? ''), enabled: id !== undefined });
 }
 
+export function homeworkAssignmentsQueryOptions(homeworkId: string) {
+  return queryOptions({
+    queryKey: assignmentsKey(homeworkId),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<HomeworkAssignmentListItem[]>(
+        `/homework/${homeworkId}/assignments`,
+        { signal },
+      );
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useHomeworkAssignments(homeworkId: string | undefined) {
+  return useQuery({
+    ...homeworkAssignmentsQueryOptions(homeworkId ?? ''),
+    enabled: homeworkId !== undefined,
+  });
+}
+
 export function useCreateHomework() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -180,6 +212,7 @@ export function useCreateHomework() {
 export function useAssignHomework() {
   const queryClient = useQueryClient();
   return useMutation({
+    retry: false,
     mutationFn: async ({
       homeworkId,
       input,
@@ -191,6 +224,35 @@ export function useAssignHomework() {
       return res.data;
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: homeworkAssignmentsKeyRoot });
+    },
+  });
+}
+
+/**
+ * Supersedes one assignment row with a new one (`POST /homework-assignments/:id/reassign`).
+ * Refreshes on error too: a 400 means someone already changed that row.
+ */
+export function useReassignHomeworkAssignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    retry: false,
+    mutationFn: async ({
+      assignmentId,
+      input,
+    }: {
+      assignmentId: string;
+      input: AssignHomeworkInput;
+    }) => {
+      const res = await apiClient.post<HomeworkAssignment>(
+        `/homework-assignments/${assignmentId}/reassign`,
+        input,
+      );
+      return res.data;
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: homeworkAssignmentsKeyRoot });
       void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
     },
   });

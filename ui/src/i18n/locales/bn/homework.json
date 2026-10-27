@@ -34,7 +34,23 @@
     "notFound": "বাড়ির কাজ পাওয়া যায়নি।",
     "forbidden": "এই বাড়ির কাজ দেখার অনুমতি আপনার নেই।",
     "noDescription": "কোনো বিবরণ নেই।",
-    "assignDescription": "{{title}} · {{className}}"
+    "assignDescription": "{{title}} · {{className}}",
+    "assignments": {
+      "title": "কারা এই বাড়ির কাজ পেয়েছে",
+      "help": "প্রতিটি সারি একটি শাখা বা একজন শিক্ষার্থী। শেষ তারিখ বদলাতে বা অন্য কাউকে দিতে \"বদলান\" চাপুন।",
+      "caption": "যে শাখা ও শিক্ষার্থীরা এই বাড়ির কাজ পেয়েছে",
+      "columnTarget": "কাকে দেওয়া হয়েছে",
+      "sectionTarget": "শাখা {{section}}",
+      "studentTarget": "{{student}} · শাখা {{section}}",
+      "emptyTitle": "এখনো কাউকে দেওয়া হয়নি",
+      "emptyExplanation": "এই বাড়ির কাজ কোনো শাখা বা শিক্ষার্থীকে দিন।",
+      "loadError": "কারা এই কাজ পেয়েছে তা দেখানো যায়নি।",
+      "reassign": "{{target}} বদলান",
+      "reassignShort": "বদলান",
+      "reassignTitle": "দেওয়া কাজটি বদলান",
+      "reassignDescription": "পুরনো সারিটি তালিকায় \"প্রতিস্থাপিত\" হিসেবে থেকে যাবে। আগে জমা দেওয়া কাজ পুরনো সারিতেই থাকবে।",
+      "reassigned": "বদলানো হয়েছে। শেষ তারিখ {{date}}।"
+    }
   },
   "form": {
     "createTitle": "বাড়ির কাজ তৈরি করুন",

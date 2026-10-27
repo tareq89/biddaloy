@@ -504,6 +504,190 @@ describe('Homework E2E', () => {
       await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${h}`)).expect(404);
       expect(await listIds()).not.toContain(h);
     });
+
+    describe('GET /homework/:id/assignments (#1013)', () => {
+      // Resolves to the body after asserting the status (a Test is thenable, so never return one).
+      const list = async (
+        id: string,
+        as: 'admin' | 'teacher' = 'admin',
+        status = 200,
+      ): Promise<any> => {
+        const req = supertest(app.getHttpServer()).get(`/api/v1/homework/${id}/assignments`);
+        const res = await (as === 'teacher' ? asTeacher(req) : withAdmin(req, await adminToken()));
+        expect(res.status).toBe(status);
+        return res.body;
+      };
+      const reassignAsAdmin = async (assignmentId: string, due: string) =>
+        withAdmin(
+          supertest(app.getHttpServer()).post(
+            `/api/v1/homework-assignments/${assignmentId}/reassign`,
+          ),
+          await adminToken(),
+        )
+          .send({
+            section_id: MAPPED_SECTION_ID,
+            assigned_date: '2026-01-01',
+            due_date: due,
+          })
+          .expect(201);
+
+      it('ADMIN gets ACTIVE first then SUPERSEDED, dates as YYYY-MM-DD, names for the target', async () => {
+        const h = await mkHomework('List shape');
+        const first = await withAdmin(
+          supertest(app.getHttpServer()).post(`/api/v1/homework/${h}/assign`),
+          await adminToken(),
+        )
+          .send({
+            section_id: MAPPED_SECTION_ID,
+            assigned_date: '2026-01-01',
+            due_date: '2026-01-08',
+          })
+          .expect(201);
+        await reassignAsAdmin(first.body.id, '2026-01-15');
+
+        const body = await list(h);
+        expect(body).toHaveLength(2);
+        expect(body[0]).toMatchObject({
+          status: 'ACTIVE',
+          assigned_date: '2026-01-01',
+          due_date: '2026-01-15',
+          section_id: MAPPED_SECTION_ID,
+          student_id: null,
+          student_name: null,
+          target_section_id: MAPPED_SECTION_ID,
+        });
+        expect(typeof body[0].section_name).toBe('string');
+        expect(body[1]).toMatchObject({
+          id: first.body.id,
+          status: 'SUPERSEDED',
+          due_date: '2026-01-08',
+        });
+      });
+
+      it('a student row carries the student name and the student section', async () => {
+        const studentId = await mkStudent(MAPPED_SECTION_ID);
+        const h = await mkAssigned('List student', { student_id: studentId });
+        const body = await list(h);
+        expect(body).toHaveLength(1);
+        expect(body[0]).toMatchObject({
+          student_name: 'Scope Student',
+          section_id: null,
+          student_id: studentId,
+          target_section_id: MAPPED_SECTION_ID,
+        });
+      });
+
+      it('Rule 2: a teacher sees only rows in own sections; ADMIN sees all', async () => {
+        const sectionB = await mkSectionB();
+        const h = await mkAssigned('List scope', { section_id: MAPPED_SECTION_ID });
+        await assignAsAdmin(h, { section_id: sectionB });
+
+        const teacher = await list(h, 'teacher');
+        expect(teacher.map((r: { target_section_id: string }) => r.target_section_id)).toEqual([
+          MAPPED_SECTION_ID,
+        ]);
+        expect(await list(h)).toHaveLength(2);
+      });
+
+      it('D3: a SUBJECT_TEACHER sees rows only of homework in their subject', async () => {
+        const [{ id: teacherId }] = await dataSource.query(
+          `SELECT id FROM teachers WHERE tenant_id = $1 AND user_id = $2`,
+          [TENANT_ID, SEED_ADMIN_USER_ID],
+        );
+        const [{ id: otherSubjectId }] = await dataSource.query(
+          `INSERT INTO subjects (id, tenant_id, name_en, code, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, 'Other Subject', $2, NOW(), NOW()) RETURNING id`,
+          [TENANT_ID, `E2E-${randomUUID().slice(0, 8)}`],
+        );
+        const own = await mkAssigned('List own subject', { section_id: MAPPED_SECTION_ID });
+        const other = (
+          await withAdmin(
+            supertest(app.getHttpServer()).post('/api/v1/homework'),
+            await adminToken(),
+          )
+            .send({
+              subject_id: otherSubjectId,
+              class_id: SEED_CLASS_1_ID,
+              title: 'List other subject',
+              grading_mode: HomeworkGradingMode.TICK,
+            })
+            .expect(201)
+        ).body.id as string;
+        await assignAsAdmin(other, { section_id: MAPPED_SECTION_ID });
+        await unassignTeacher();
+        await dataSource.query(
+          `INSERT INTO teacher_class_sections (id, teacher_id, section_id, tenant_id, assignment_type, subject_id, created_at)
+           VALUES ($1, $2, $3, $4, 'SUBJECT_TEACHER', $5, NOW())`,
+          [randomUUID(), teacherId, MAPPED_SECTION_ID, TENANT_ID, subjectId],
+        );
+
+        expect(await list(own, 'teacher')).toHaveLength(1);
+        await list(other, 'teacher', 404);
+      });
+
+      it('Rule 2: out-of-scope homework is the same 404 as a random id, also after unassigning', async () => {
+        const sectionB = await mkSectionB();
+        const hB = await mkAssigned('List only B', { section_id: sectionB });
+        const missing = await list(randomUUID(), 'teacher', 404);
+        const hidden = await list(hB, 'teacher', 404);
+        expect(hidden.message).toBe('Homework not found');
+        expect(missing.message).toBe('Homework not found');
+
+        const visible = await mkAssigned('List visible', { section_id: MAPPED_SECTION_ID });
+        await list(visible, 'teacher');
+        await unassignTeacher();
+        await list(visible, 'teacher', 404);
+      });
+
+      it('a homework not assigned yet lists as an empty array', async () => {
+        const h = await mkHomework('List unassigned');
+        expect(await list(h)).toEqual([]);
+        expect(await list(h, 'teacher')).toEqual([]);
+      });
+
+      it('D5: a row whose student was soft-deleted is not listed', async () => {
+        const studentId = await mkStudent(MAPPED_SECTION_ID);
+        const h = await mkAssigned('List soft delete', { student_id: studentId });
+        await dataSource.query(`UPDATE students SET deleted_at = NOW() WHERE id = $1`, [studentId]);
+        expect(await list(h)).toEqual([]);
+      });
+
+      it('cross-tenant: other tenant 404, missing tenant header 401', async () => {
+        const h = await mkHomework('List tenant');
+        const OTHER_TENANT = '00000000-0000-4000-8000-000000000098';
+        await dataSource.query(
+          `INSERT INTO schools (id, name, slug, created_at, updated_at)
+           VALUES ($1, 'Other', 'other-hw-list', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [OTHER_TENANT],
+        );
+        await dataSource.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [SEED_ADMIN_USER_ID, OTHER_TENANT, UserRole.ADMIN],
+        );
+        try {
+          const token = await adminToken(); // re-login: token carries memberships
+          await supertest(app.getHttpServer())
+            .get(`/api/v1/homework/${h}/assignments`)
+            .set('Authorization', `Bearer ${token}`)
+            .set('X-Tenant-ID', OTHER_TENANT)
+            .expect(404);
+          await supertest(app.getHttpServer())
+            .get(`/api/v1/homework/${h}/assignments`)
+            .set('Authorization', `Bearer ${token}`)
+            .expect(401);
+        } finally {
+          await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`, [
+            SEED_ADMIN_USER_ID,
+            OTHER_TENANT,
+          ]);
+        }
+      });
+
+      it('Rule 3: a non-UUID id is 400', async () => {
+        await list('not-a-uuid', 'admin', 400);
+      });
+    });
   });
 
   // [TIME-11] Guardian SMS on assign is off until the school turns it on.

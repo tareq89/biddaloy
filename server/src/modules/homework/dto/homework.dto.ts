@@ -108,6 +108,14 @@ export class HomeworkAssignmentResponseDto {
   @ApiProperty({ enum: HomeworkAssignmentStatus }) status: HomeworkAssignmentStatus;
 }
 
+/** `GET /homework/:id/assignments` row: the assignment plus its target as names (P4). */
+export class HomeworkAssignmentListItemDto extends HomeworkAssignmentResponseDto {
+  /** The section the row reaches: its own section, or the student's section. */
+  @ApiProperty() target_section_id: string;
+  @ApiProperty() section_name: string;
+  @ApiProperty({ nullable: true }) student_name: string | null;
+}
+
 /** One homework a PARENT/STUDENT can see for a linked child ([8.10.7.4.14]). */
 export class FamilyHomeworkItemDto {
   @ApiProperty() assignment_id: string;

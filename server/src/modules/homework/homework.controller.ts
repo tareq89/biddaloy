@@ -28,6 +28,7 @@ import {
   AssignHomeworkDto,
   CreateHomeworkDto,
   FamilyHomeworkListDto,
+  HomeworkAssignmentListItemDto,
   HomeworkAssignmentResponseDto,
   HomeworkResponseDto,
   QueryHomeworkDto,
@@ -189,6 +190,23 @@ export class HomeworkController {
     @CurrentUser() user: { sub: string },
   ) {
     return this.homeworkService.findOne(id, {
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+  }
+
+  @Get('homework/:id/assignments')
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @RequirePermissions(Permission.HOMEWORK_READ)
+  @ApiOperation({ summary: "One homework's assignment rows (teacher: own sections only)." })
+  @ApiOkResponse({ type: HomeworkAssignmentListItemDto, isArray: true })
+  async findAssignments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    return this.homeworkService.findAssignments(id, {
       role: tenant.role,
       userId: user.sub,
       tenantId: tenant.id,
