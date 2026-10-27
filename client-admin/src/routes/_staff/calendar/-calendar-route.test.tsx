@@ -109,6 +109,15 @@ describe('/calendar', () => {
     expect(screen.queryByRole('button', { name: /^(Month|মাস)$/ })).toBeNull();
   });
 
+  it('shows a (?) after the Add event header action [44.3.03]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    renderCalendar();
+    await screen.findByTestId('day-cell-2026-10-05');
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(document.querySelector('[data-help-id="people.calendar.action.addEvent"]')).not.toBeNull();
+    vi.unstubAllEnvs();
+  });
+
   it('labels the month with the month name and year, not "2026-10"', async () => {
     renderCalendar();
 
