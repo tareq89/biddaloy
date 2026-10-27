@@ -283,6 +283,51 @@ describe('/staff', () => {
     );
   });
 
+  it('[#2865] promote dialog searches members on the server, so a member beyond the first 100 can be picked', async () => {
+    const first = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
+    const far = userResponseFactory({ id: 'user-999', full_name: 'Zakir Hossain' });
+    const searches: (string | null)[] = [];
+    let postBody: unknown = null;
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        const search = new URL(request.url).searchParams.get('search');
+        searches.push(search);
+        // `far` is only ever returned by a search for it.
+        return HttpResponse.json(paginated(search === 'Zakir' ? [far] : [first]));
+      }),
+      http.get('/api/v1/users/:id', ({ params }) =>
+        HttpResponse.json(params.id === 'user-999' ? far : first),
+      ),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+      http.post('/api/v1/teachers', async ({ request }) => {
+        postBody = await request.json();
+        return HttpResponse.json(teacherFactory(), { status: 201 });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Give teacher profile' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Give a teacher profile' });
+    const picker = within(dialog).getByRole('combobox', { name: 'Member' });
+    await user.click(picker);
+    await user.type(picker, 'Zakir');
+
+    await waitFor(() => expect(searches).toContain('Zakir'));
+    await user.click(await screen.findByRole('option', { name: 'Zakir Hossain' }));
+    // The chosen name stays in the input after the search text is cleared.
+    await waitFor(() => expect(picker.getAttribute('value')).toBe('Zakir Hossain'));
+
+    await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-99');
+    await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
+    await waitFor(() => expect(postBody).toMatchObject({ user_id: 'user-999' }));
+  });
+
   it('promote dialog tells an already-promoted member apart by details.code', async () => {
     const member = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
     server.use(

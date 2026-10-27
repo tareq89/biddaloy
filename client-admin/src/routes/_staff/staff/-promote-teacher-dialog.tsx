@@ -31,7 +31,13 @@ import {
   DialogTitle,
   Input,
 } from '@biddaloy/ui/components';
-import { useCreateTeacher, useTeachers, useUsers } from '@biddaloy/ui/hooks';
+import {
+  useAllTeachers,
+  useCreateTeacher,
+  useDebouncedValue,
+  useUser,
+  useUsers,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -56,14 +62,19 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
   const regionConfig = useRegionConfig();
   const createTeacher = useCreateTeacher();
 
-  // Both capped at the server's own max page size (100). The `search`
-  // param exists for larger schools, but `Combobox` filters client-side,
-  // so the first 100 members are what the picker can offer — the plan's
-  // own recorded trade-off for this dialog.
-  const usersQuery = useUsers({ limit: 100 });
-  const teachersQuery = useTeachers({ limit: 100 });
+  // The member list is searched on the server as the user types, so any
+  // member can be found, not just the first 100. Every teacher is loaded
+  // (all pages) so the "already a teacher" exclusion is complete; the server
+  // still refuses a duplicate with 409 ALREADY_TEACHER_HERE.
+  const [term, setTerm] = React.useState('');
+  const search = useDebouncedValue(term.trim(), 300);
+  const usersQuery = useUsers({ limit: 100, ...(search ? { search } : {}) });
+  const teachersQuery = useAllTeachers();
 
   const [userId, setUserId] = React.useState<string | null>(null);
+  // Keep the chosen member selectable (and their name shown) when a new
+  // search no longer returns them.
+  const selectedUser = useUser(userId ?? undefined);
   const [employeeId, setEmployeeId] = React.useState('');
   const [designations, setDesignations] = React.useState<TeacherDesignation[]>([]);
   const [subject, setSubject] = React.useState('');
@@ -73,6 +84,7 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
   React.useEffect(() => {
     if (!open) return;
     setUserId(null);
+    setTerm('');
     setEmployeeId('');
     setDesignations([]);
     setSubject('');
@@ -85,9 +97,14 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
   // Existing members, excluding anyone who already holds a teacher
   // profile — promotion is one-way and one-per-person.
   const existingTeacherUserIds = new Set(
-    (teachersQuery.data?.data ?? []).map((teacher) => teacher.user.id),
+    (teachersQuery.data ?? []).map((teacher) => teacher.user.id),
   );
-  const memberOptions = (usersQuery.data?.data ?? [])
+  const found = usersQuery.data?.data ?? [];
+  const members =
+    userId && selectedUser.data && !found.some((user) => user.id === userId)
+      ? [selectedUser.data, ...found]
+      : found;
+  const memberOptions = members
     .filter((user) => !existingTeacherUserIds.has(user.id))
     .map((user) => ({ value: user.id, label: user.full_name }));
 
@@ -155,6 +172,7 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
               options={memberOptions}
               value={userId}
               onValueChange={setUserId}
+              onQueryChange={setTerm}
               emptyText={t('teacherForm.memberEmpty')}
               announceResults={(count) => t('teacherForm.memberAnnounce', { count })}
             />
