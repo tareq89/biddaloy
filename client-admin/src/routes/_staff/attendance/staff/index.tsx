@@ -12,6 +12,7 @@ import {
   ErrorState,
   Label,
   Skeleton,
+  Textarea,
 } from '@biddaloy/ui/components';
 import {
   useHasPermission,
@@ -90,6 +91,8 @@ function StaffAttendancePage() {
     [staff],
   );
 
+  const [reason, setReason] = React.useState('');
+  const [reasonTooShort, setReasonTooShort] = React.useState(false);
   const [draft, setDraft] = React.useState<StaffAttendanceDraft>({});
   const markAttendance = useMarkStaffAttendance();
 
@@ -99,6 +102,8 @@ function StaffAttendancePage() {
   // saved against the new date.
   React.useEffect(() => {
     setDraft({});
+    setReason('');
+    setReasonTooShort(false);
     markAttendance.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on date change, not every markAttendance identity change
   }, [date]);
@@ -112,14 +117,28 @@ function StaffAttendancePage() {
       .filter((entry): entry is [string, AttendanceStatus] => entry[1] !== null)
       .map(([staff_profile_id, status]) => ({ staff_profile_id, status }));
     if (entries.length === 0) return;
+    const reasonRequired = dayQuery.data?.reason_required === true;
+    if (reasonRequired && reason.trim().length < 3) {
+      setReasonTooShort(true);
+      return;
+    }
+    setReasonTooShort(false);
     markAttendance.mutate(
-      { date, entries },
+      { date, entries, ...(reasonRequired ? { reason: reason.trim() } : {}) },
       {
-        onSuccess: () => setDraft({}),
+        onSuccess: () => {
+          setDraft({});
+          setReason('');
+        },
       },
     );
   }
 
+  // The server refused for a missing reason: show the same inline error.
+  const reasonRefused =
+    (markAttendance.error as { details?: { code?: string } } | null)?.details?.code ===
+    'STAFF_ATTENDANCE_REASON_REQUIRED';
+  const showReasonError = reasonTooShort || reasonRefused;
   const shown = React.useMemo(() => ({ ...saved, ...draft }), [saved, draft]);
   const unmarked = countStaffDraft(staff, shown).unmarked;
 
@@ -188,8 +207,32 @@ function StaffAttendancePage() {
             disabled={!canMark || markAttendance.isPending}
           />
           {canMark && (
-            <div className="sticky bottom-16 z-20 flex items-center gap-3 rounded-lg border border-border-subtle bg-surface p-3 shadow-e2 md:bottom-0 md:px-5">
-              {markAttendance.isError ? (
+            <div className="sticky bottom-16 z-20 flex flex-wrap items-center gap-3 rounded-lg border border-border-subtle bg-surface p-3 shadow-e2 md:bottom-0 md:px-5">
+              {dayQuery.data?.reason_required && (
+                <div className="grid w-full gap-1.5">
+                  <Label htmlFor="staff-attendance-reason">{t('grid.reasonLabel')}</Label>
+                  <Textarea
+                    id="staff-attendance-reason"
+                    value={reason}
+                    minLength={3}
+                    maxLength={280}
+                    rows={2}
+                    aria-describedby="staff-attendance-reason-help"
+                    aria-invalid={showReasonError}
+                    disabled={markAttendance.isPending}
+                    onChange={(event) => setReason(event.target.value)}
+                  />
+                  <p id="staff-attendance-reason-help" className="text-caption text-text-secondary">
+                    {t('grid.reasonHelp')}
+                  </p>
+                  {showReasonError && (
+                    <p role="alert" className="text-caption text-destructive">
+                      {t('grid.reasonTooShort')}
+                    </p>
+                  )}
+                </div>
+              )}
+              {markAttendance.isError && !reasonRefused ? (
                 <span role="alert" className="shrink-0 text-destructive">
                   {t('grid.errorMessage')}
                 </span>
