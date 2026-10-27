@@ -339,8 +339,8 @@
     },
     "collection-by-month": {
       "title": "Collection by month",
-      "description": "Collection for each month this year",
-      "value": "this year so far",
+      "description": "Collection for each month of this academic year",
+      "value": "this academic year so far",
       "vsLastMonthMore": "{{amount}} in the first {{days}} days of {{month}} — {{diff}} more than the same days of {{prevMonth}}.",
       "vsLastMonthLess": "{{amount}} in the first {{days}} days of {{month}} — {{diff}} less than the same days of {{prevMonth}}.",
       "legendDone": "Finished month",
@@ -348,7 +348,7 @@
       "peak": "{{amount}}, {{month}}",
       "colMonth": "Month",
       "colAmount": "Collected",
-      "emptyReason": "Nothing collected this year yet.",
+      "emptyReason": "Nothing collected this academic year yet.",
       "link": "Open collections report"
     },
     "dues-ageing": {

@@ -204,23 +204,54 @@ export class CollectionsReportService {
     }));
   }
 
-  /** Net per school-local month of `year`: index 0 = January. */
-  async getNetByMonth(tenantId: string, year: number): Promise<number[]> {
+  /** Bounds (YYYY-MM-DD) of the school's current academic year, or the
+   * calendar year `fallbackYear` when it has none. */
+  private async currentYearBounds(
+    tenantId: string,
+    fallbackYear: number,
+  ): Promise<{ start: string; end: string }> {
+    const rows = await this.paymentRepo.manager.query<Array<{ start: string; end: string }>>(
+      `SELECT to_char(start_date,'YYYY-MM-DD') AS start, to_char(end_date,'YYYY-MM-DD') AS "end"
+       FROM academic_years
+       WHERE tenant_id = $1 AND is_current = true AND deleted_at IS NULL
+       LIMIT 1`,
+      [tenantId],
+    );
+    return rows[0] ?? { start: `${fallbackYear}-01-01`, end: `${fallbackYear}-12-31` };
+  }
+
+  /** Net per school-local month from `start` to `end` (YYYY-MM-DD), one slot
+   * per month, zero-filled. */
+  async getNetByMonthRange(
+    tenantId: string,
+    start: string,
+    end: string,
+  ): Promise<Array<{ year: number; month: number; net: number }>> {
     const { clause, params } = this.buildFilterBetween(
       tenantId,
-      startOfLocalDay(`${year}-01-01`),
-      endOfLocalDay(`${year}-12-31`),
+      startOfLocalDay(start),
+      endOfLocalDay(end),
     );
-    const rows = await this.paymentRepo.manager.query<Array<{ month: number; net: string }>>(
-      `SELECT EXTRACT(MONTH FROM p.payment_date AT TIME ZONE '${SCHOOL_TZ}')::int AS month,
+    const rows = await this.paymentRepo.manager.query<Array<{ ym: string; net: string }>>(
+      `SELECT to_char(p.payment_date AT TIME ZONE '${SCHOOL_TZ}', 'YYYY-MM') AS ym,
          COALESCE(SUM(${NET_SQL}), 0) AS net
        FROM payments p
        WHERE ${clause}
        GROUP BY 1`,
       params,
     );
-    const slots = Array<number>(12).fill(0);
-    for (const r of rows) slots[r.month - 1] = Number(r.net);
+    const byMonth = new Map(rows.map((r) => [r.ym, Number(r.net)]));
+    const slots: Array<{ year: number; month: number; net: number }> = [];
+    let [y, m] = start.split('-').map(Number) as [number, number];
+    const [ey, em] = end.split('-').map(Number) as [number, number];
+    while (y < ey || (y === ey && m <= em)) {
+      const ym = `${y}-${String(m).padStart(2, '0')}`;
+      slots.push({ year: y, month: m, net: byMonth.get(ym) ?? 0 });
+      if (m === 12) {
+        y += 1;
+        m = 1;
+      } else m += 1;
+    }
     return slots;
   }
 
@@ -267,23 +298,28 @@ export class CollectionsReportService {
   ): Promise<CollectionByMonthWidgetDto> {
     const [y, m, d] = today.split('-').map(Number);
     const prev = monthRange(m === 1 ? y - 1 : y, m === 1 ? 12 : m - 1, d);
+    const { start, end } = await this.currentYearBounds(tenantId, y);
     const [slots, previous] = await Promise.all([
-      this.getNetByMonth(tenantId, y),
+      this.getNetByMonthRange(tenantId, start, end),
       this.getReceived(tenantId, prev.from, prev.to),
     ]);
+    const key = (s: { year: number; month: number }) => s.year * 12 + s.month;
+    const nowKey = y * 12 + m;
     // Months after the current one are null, whatever future-dated rows exist.
-    const months = slots.map((net, i) => ({
-      month: i + 1,
-      net: i + 1 > m ? null : net,
-      is_current: i + 1 === m,
+    const months = slots.map((s) => ({
+      year: s.year,
+      month: s.month,
+      net: key(s) > nowKey ? null : s.net,
+      is_current: key(s) === nowKey,
     }));
+    const sofar = slots.filter((s) => key(s) <= nowKey);
     return {
-      year: y,
-      year_to_date_net: round2(slots.slice(0, m).reduce((a, n) => a + n, 0)),
+      year: slots[0]?.year ?? y,
+      year_to_date_net: round2(sofar.reduce((a, s) => a + s.net, 0)),
       // ponytail: month_to_date ends at 'now' (monthly slot, payments dated later
       // today are future rows), while previous_month_same_days covers its whole
       // last day. Intentional asymmetry; no behaviour change.
-      month_to_date_net: slots[m - 1],
+      month_to_date_net: slots.find((s) => key(s) === nowKey)?.net ?? 0,
       previous_month_same_days_net: previous,
       months,
     };
@@ -538,7 +574,9 @@ export class CollectionsReportService {
       payoutRange.to,
       query.received_by_user_id ?? null,
     ];
-    const payoutsP: Promise<Array<{ user_id: string | null; full_name: string | null; paid_out: string }>> =
+    const payoutsP: Promise<
+      Array<{ user_id: string | null; full_name: string | null; paid_out: string }>
+    > =
       query.payment_method && query.payment_method !== PaymentMethod.CASH
         ? Promise.resolve([])
         : this.paymentRepo.manager.query(
@@ -591,7 +629,15 @@ export class CollectionsReportService {
     }
     // Same order as the SQL: full_name, nulls last.
     collectors.sort((a, b) =>
-      a.full_name === b.full_name ? 0 : a.full_name === null ? 1 : b.full_name === null ? -1 : a.full_name < b.full_name ? -1 : 1,
+      a.full_name === b.full_name
+        ? 0
+        : a.full_name === null
+          ? 1
+          : b.full_name === null
+            ? -1
+            : a.full_name < b.full_name
+              ? -1
+              : 1,
     );
 
     return {
