@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 import { CommunicationMedium, CommunicationStatus, ReminderBatchStatus } from '@biddaloy/shared';
 import { ReminderPreviewRecipientDto } from './single-reminder.dto';
 import { CommunicationLogMedium, PUSH_MEDIUM } from '../entities/communication-log.entity';
@@ -290,11 +291,11 @@ export class QueryCommunicationLogsDto {
   medium?: CommunicationMedium;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   from_date?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   to_date?: string;
 
   @IsOptional()
