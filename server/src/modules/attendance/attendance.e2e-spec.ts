@@ -201,7 +201,7 @@ describe('Attendance E2E', () => {
         .set('X-Tenant-ID', foreignTenantId)
         .expect(401);
 
-      expect(res.body.message).toBe(`User is not a member of tenant ${foreignTenantId}`);
+      expect(res.body.message).toBe('User is not a member of the requested tenant');
     });
 
     it("returns 403 for a role not in this route's @Roles list (STUDENT)", async () => {

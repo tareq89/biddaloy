@@ -175,7 +175,7 @@ describe('Enrollments E2E — GET /enrollments/:studentId/current', () => {
       .set('X-Tenant-ID', FOREIGN_TENANT_ID)
       .expect(401);
 
-    expect(res.body.message).toContain('is not a member of tenant');
+    expect(res.body.message).toContain('not a member of the requested tenant');
   });
   // [68.3.17.1] LIFE-07 — class change / second enrollment needs PROMOTION_MANAGE.
   describe('class-change gate', () => {

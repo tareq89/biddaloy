@@ -554,7 +554,10 @@ export class FeeGenerationService {
         if (override?.incident_date) {
           incidentDate = new Date(override.incident_date);
           if (Number.isNaN(incidentDate.getTime())) {
-            throw new BadRequestException('Invalid incident_date for one of the selected students');
+            throw new BadRequestException({
+              message: 'Invalid incident_date for one of the selected students',
+              details: { student_id: pair.student.id },
+            });
           }
         }
         const discount = await this.discountResolver.resolve({
