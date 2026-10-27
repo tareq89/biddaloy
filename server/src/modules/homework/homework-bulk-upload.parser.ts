@@ -1,3 +1,5 @@
+import { ImportFileError } from '../../common/errors/import-file.error';
+import { ImportFileErrorCode } from '@biddaloy/shared';
 import {
   assertXlsxWithinLimits,
   XLSX_TOO_LARGE_MESSAGE,
@@ -23,7 +25,7 @@ export const ALL_HEADERS = [...REQUIRED_HEADERS, 'description'] as const;
 
 export type BulkUploadHeader = (typeof ALL_HEADERS)[number];
 
-export class BulkUploadParseError extends Error {}
+export class BulkUploadParseError extends ImportFileError {}
 
 const MAX_DATA_ROWS = 2000;
 
@@ -46,15 +48,19 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
       await assertXlsxWithinLimits(buffer);
       await workbook.xlsx.load(buffer as never);
     } catch (e) {
-      throw new BulkUploadParseError(
-        e instanceof XlsxTooLargeError
-          ? XLSX_TOO_LARGE_MESSAGE
-          : 'Could not read file — is it a valid Excel file?',
-      );
+      throw e instanceof XlsxTooLargeError
+        ? new BulkUploadParseError(ImportFileErrorCode.TOO_LARGE, XLSX_TOO_LARGE_MESSAGE)
+        : new BulkUploadParseError(
+            ImportFileErrorCode.UNREADABLE,
+            'Could not read file — is it a valid Excel file?',
+          );
     }
     const worksheet = workbook.worksheets[0];
     if (!worksheet) {
-      throw new BulkUploadParseError('Could not read file — is it a valid Excel file?');
+      throw new BulkUploadParseError(
+        ImportFileErrorCode.UNREADABLE,
+        'Could not read file — is it a valid Excel file?',
+      );
     }
     return worksheet;
   }
@@ -63,11 +69,17 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
     try {
       return await workbook.csv.read(Readable.from(buffer), { map: (datum: string) => datum });
     } catch {
-      throw new BulkUploadParseError('Could not read file — is it a valid CSV file?');
+      throw new BulkUploadParseError(
+        ImportFileErrorCode.UNREADABLE,
+        'Could not read file — is it a valid CSV file?',
+      );
     }
   }
 
-  throw new BulkUploadParseError('Unsupported file type — upload .xlsx or .csv');
+  throw new BulkUploadParseError(
+    ImportFileErrorCode.UNSUPPORTED_TYPE,
+    'Unsupported file type — upload .xlsx or .csv',
+  );
 }
 
 /** Excel stores an entered date (e.g. `2026-01-01`) as a date cell, and
@@ -121,7 +133,10 @@ export async function parseSpreadsheet(buffer: Buffer, filename: string): Promis
 
   const missing = REQUIRED_HEADERS.filter((h) => !columnIndex.has(h));
   if (missing.length > 0) {
-    throw new BulkUploadParseError(`Missing required columns: ${missing.join(', ')}`);
+    throw new BulkUploadParseError(
+      ImportFileErrorCode.MISSING_COLUMNS,
+      `Missing required columns: ${missing.join(', ')}`,
+    );
   }
 
   const rows: ParsedRow[] = [];
@@ -138,10 +153,13 @@ export async function parseSpreadsheet(buffer: Buffer, filename: string): Promis
   }
 
   if (rows.length === 0) {
-    throw new BulkUploadParseError('File contains no data rows');
+    throw new BulkUploadParseError(ImportFileErrorCode.NO_ROWS, 'File contains no data rows');
   }
   if (rows.length > MAX_DATA_ROWS) {
-    throw new BulkUploadParseError(`File has too many rows (max ${MAX_DATA_ROWS})`);
+    throw new BulkUploadParseError(
+      ImportFileErrorCode.TOO_MANY_ROWS,
+      `File has too many rows (max ${MAX_DATA_ROWS})`,
+    );
   }
 
   return rows;

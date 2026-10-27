@@ -1,0 +1,9 @@
+/** `details.code` on a 400 when an import file cannot be read as a whole (#3020). */
+export enum ImportFileErrorCode {
+  UNREADABLE = 'IMPORT_FILE_UNREADABLE',
+  UNSUPPORTED_TYPE = 'IMPORT_FILE_UNSUPPORTED_TYPE',
+  MISSING_COLUMNS = 'IMPORT_FILE_MISSING_COLUMNS',
+  TOO_MANY_ROWS = 'IMPORT_FILE_TOO_MANY_ROWS',
+  NO_ROWS = 'IMPORT_FILE_NO_ROWS',
+  TOO_LARGE = 'IMPORT_FILE_TOO_LARGE',
+}

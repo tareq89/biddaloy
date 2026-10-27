@@ -19,7 +19,7 @@ import { ImportStagingService } from '../bulk-import/import-staging.service';
 import type { BulkImportErrorDto } from '../bulk-import/dto/bulk-import.dto';
 import { Student } from './entities/student.entity';
 import { StudentService, GuardianService } from './students.service';
-import { parseSpreadsheet, BulkUploadParseError, ParsedRow } from './bulk-upload.parser';
+import { parseSpreadsheet, ParsedRow } from './bulk-upload.parser';
 import {
   BulkUploadErrorDto,
   BulkUploadResultDto,
@@ -149,15 +149,7 @@ export class StudentBulkUploadService {
       throw new BadRequestException('No file uploaded');
     }
 
-    let rows: ParsedRow[];
-    try {
-      rows = await parseSpreadsheet(file.buffer, file.originalname);
-    } catch (err) {
-      if (err instanceof BulkUploadParseError) {
-        throw new BadRequestException(err.message);
-      }
-      throw err;
-    }
+    const rows: ParsedRow[] = await parseSpreadsheet(file.buffer, file.originalname);
 
     const classSections = await this.buildClassSectionMap(tenantId);
     const rollsSeenThisRequest = new Map<string, Set<number>>();
