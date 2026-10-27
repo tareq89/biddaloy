@@ -66,7 +66,7 @@ describe('SendResultSmsDialog', () => {
 
     expect(
       await screen.findByText(
-        `Up to ${formatNumber(10, REGION_BD_BN)} guardian(s) will be sent their child's result by SMS. Each message uses one SMS credit.`,
+        `Up to ${formatNumber(10, REGION_BD_BN)} guardian(s) will be sent their child's result by SMS. Credits are taken per SMS part: a long message is split into parts, and each part uses one credit.`,
       ),
     ).toBeTruthy();
     const sendButton = screen.getByRole('button', { name: 'Send' });
