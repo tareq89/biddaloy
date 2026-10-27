@@ -51,7 +51,7 @@ export class ShiftsService {
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!shift) {
-      throw new NotFoundException(`Shift with ID "${id}" not found`);
+      throw new NotFoundException('Shift not found');
     }
     return shift;
   }
@@ -114,7 +114,7 @@ export class ShiftsService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!shift) {
-        throw new NotFoundException(`Shift with ID "${id}" not found`);
+        throw new NotFoundException('Shift not found');
       }
 
       // Refuse rather than let `period_slots`' `FK_period_slots_shift ON
