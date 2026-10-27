@@ -1,8 +1,10 @@
 /**
  * [Epic 44 / #2562] Guide ids that deliberately have no (?) in code: id -> reason.
- * `help-guard.test.ts` fails when one of these is missing from the guide or is used in code (E6).
+ * `help-guard.test.ts` fails when one of these is missing from the guide or is used in code (E6),
+ * and when a reason is not `#<open issue>: …` or the E11 public-page reason (44.3.12).
+ * The issue that wires an id deletes its line here.
  */
-const PUBLIC = 'E11: public page, no shell';
+export const PUBLIC = 'E11: public page, no shell';
 /** 44.3.x wave 3: the page has no slot for the (?) yet (no element to attach it to). */
 const PAGE_FIX = '#3017: page fix pending';
 /** The ui/ component has no helpId slot (DataTable row action, FilterBar field). */
@@ -11,6 +13,8 @@ const UI_SLOT = '#3078: no helpId slot in ui/';
 const MENU_ITEM = '#3078: header More-menu item has no (?) slot';
 /** The element lives in a file outside the wave-3 lane territory. */
 const TERRITORY = '#3079: element outside the wave-3 territory';
+/** The guide declared the id after its wave-3 ticket ran; the ticket owns the folder. */
+const LATE = '#3015: declared after the wave-3 pass';
 
 export const HELP_UNWIRED: Record<string, string> = {
   'start.signIn': PUBLIC,
@@ -89,4 +93,22 @@ export const HELP_UNWIRED: Record<string, string> = {
   'portal.notifications.action.snooze': '#3063: page fix pending',
   'start.language.action.switch': '#3064: page fix pending',
   'start.phone.action.install': '#3065: page fix pending',
+
+  // 44.3.12: declared in the guide after the wave-3 pass ran
+  'applications.action.submit': '#3078: FullPageShell primary has no helpId slot',
+  'applications.action.cancelLeave': MENU_ITEM,
+  'applications.action.approve': LATE,
+  'applications.action.reject': LATE,
+  'applications.action.withdraw': LATE,
+  'applications.action.bulkApprove': LATE,
+  'applications.field.addressee': LATE,
+  'applications.field.applicant': LATE,
+  'applications.field.attachments': LATE,
+  'administration.curriculumPreset.action.apply': LATE,
+  'administration.curriculumPreset.field.stages': LATE,
+  'administration.curriculumPreset.field.confirmName': LATE,
+  'admin.setupOrder.action.continueSetup': LATE,
+  'administration.auditLogs.action.expand': '#3078: DataTable row expand toggle has no helpId slot',
+  'administration.printTemplates.action.create': '#3061: page fix pending',
+  'administration.printTemplates.action.archive': '#3061: page fix pending',
 };

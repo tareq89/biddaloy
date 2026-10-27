@@ -1,7 +1,10 @@
 // @vitest-environment node
 /**
  * [Epic 44 / #2562] Help guard (E6, E22): ids in code, ids in the guide and field keys in i18n
- * must agree. Code -> guide is strict now; guide -> code is report-only until 44.3.12.
+ * must agree. Strict both ways since 44.3.12 (#2573): an unknown helpId in code fails, and a
+ * declared action/field/section id that no code uses fails unless HELP_UNWIRED lists it with an
+ * open issue. `widget.<key>` ids are wired by WidgetSlot (E23), so they are checked against the
+ * widget files instead.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -11,10 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 import { readMeta } from './guide-gen/help-index';
 import { HELP_GAPS, HELP_INDEX } from './help-index.gen';
-import { HELP_UNWIRED } from './help-unwired';
-
-/** 44.3.12 flips this: every action/field/section/widget id must be wired or listed in HELP_UNWIRED. */
-const STRICT_UNUSED = false;
+import { HELP_UNWIRED, PUBLIC } from './help-unwired';
 
 /** Guide pages whose feature id is not in their own helpIds yet (gap for #3017); shrink, never grow. */
 const NO_PAGE_ENTRY_YET = new Set([
@@ -273,16 +273,35 @@ describe('help guard', () => {
     expect(codeIds.filter((id) => Object.hasOwn(HELP_UNWIRED, id))).toEqual([]);
   });
 
-  it('reports index ids that no code uses (strict from 44.3.12)', () => {
+  it('every HELP_UNWIRED reason names an issue (#n: …) or is the E11 public-page reason', () => {
+    expect(
+      Object.entries(HELP_UNWIRED)
+        .filter(([, why]) => why !== PUBLIC && !/^#\d+: \S/.test(why))
+        .map(([id]) => id),
+    ).toEqual([]);
+  });
+
+  it('every declared action/field/section id is used in code or listed in HELP_UNWIRED', () => {
     const unused = Object.keys(HELP_INDEX).filter(
       (id) =>
-        /\.(action|field|section)\.|(^|\.)widget\./.test(id) &&
+        /\.(action|field|section)\./.test(id) &&
         !codeIds.includes(id) &&
         !Object.hasOwn(HELP_UNWIRED, id),
     );
-    if (STRICT_UNUSED) expect(unused).toEqual([]);
-    else if (unused.length) {
-      console.warn(`help-guard: ${unused.length} guide ids not wired yet:\n${unused.join('\n')}`);
-    }
+    expect(unused).toEqual([]);
+  });
+
+  it('widget.<key> ids match the widget files one to one (WidgetSlot wires them, E23)', () => {
+    // Same rule as widgets/registry.ts: the key is the `<key>.widget.tsx` file name.
+    const dir = path.join(ROOT, 'client-admin/src/dashboard/widgets');
+    const keys = readdirSync(dir, { recursive: true, encoding: 'utf8' })
+      .filter((f) => f.endsWith('.widget.tsx'))
+      .map((f) => `widget.${path.basename(f, '.widget.tsx')}`)
+      .sort();
+    const declared = Object.keys(HELP_INDEX)
+      .filter((id) => id.startsWith('widget.'))
+      .sort();
+    expect(keys.length).toBeGreaterThan(0);
+    expect(declared).toEqual(keys);
   });
 });
