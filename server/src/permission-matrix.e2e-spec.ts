@@ -823,6 +823,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
       " #1364 new roles excluded: raising a change request is the teacher's own action.",
   },
   {
+    controller: 'ChangeRequestsController',
+    method: 'GET',
+    path: '/routines/:id/change-requests/mine',
+    reason:
+      '[86.3] The requesting teacher reads back their own change requests and the admin reply; the service filters by the token user. Managers use GET /routines/:id/change-requests (ROUTINE_MANAGE), and no other ROUTINE_READ holder raises requests.',
+  },
+  {
     controller: 'ProgramEnrollmentsController',
     method: 'GET',
     path: '/programs/:id/enrollments',

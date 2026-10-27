@@ -240,6 +240,19 @@
     "rowWhat": "{{subject}} · {{teachers}}",
     "loadError": "Couldn't work out the periods to fill. Close this and try again."
   },
+  "myChangeRequests": {
+    "title": "My change requests",
+    "caption": "My change requests",
+    "empty": "You haven't asked for any changes.",
+    "replyColumn": "Reply",
+    "dateColumn": "Asked on",
+    "statusColumn": "Status",
+    "state": {
+      "OPEN": "Waiting",
+      "ACCEPTED": "Accepted",
+      "REJECTED": "Rejected"
+    }
+  },
   "review": {
     "draftHiddenTitle": "The routine is still a draft",
     "draftHiddenExplanation": "It shows here once it is sent for review.",

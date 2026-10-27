@@ -196,4 +196,35 @@ describe('ChangeRequestsService [21.6.1] D11', () => {
     );
     expect(result.state).toBe(ChangeRequestState.ACCEPTED);
   });
+
+  it("findOwnForRoutine returns only the caller's requests, with state and reply", async () => {
+    const mine = {
+      id: 'cr-a',
+      requested_by: 'user-a',
+      state: ChangeRequestState.REJECTED,
+      resolution_note: 'Not possible this term',
+    };
+    const theirs = { id: 'cr-b', requested_by: 'user-b', state: ChangeRequestState.OPEN };
+    const ctx = buildService({ requests: [mine, theirs] });
+    // Fake query builder that really applies the requested_by filter.
+    ctx.requestRepo.createQueryBuilder = vi.fn(() => {
+      let by: string | undefined;
+      const qb: any = {
+        where: () => qb,
+        andWhere: (sql: string, params: any) => {
+          if (sql.includes('requested_by')) by = params.requestedBy;
+          return qb;
+        },
+        orderBy: () => qb,
+        getMany: async () => ctx.requests.filter((r) => !by || r.requested_by === by),
+      };
+      return qb;
+    });
+    const result = await ctx.service.findOwnForRoutine('routine-1', TENANT_ID, 'user-a');
+    expect(result).toEqual([mine]);
+    expect(result[0]).toMatchObject({
+      state: ChangeRequestState.REJECTED,
+      resolution_note: 'Not possible this term',
+    });
+  });
 });

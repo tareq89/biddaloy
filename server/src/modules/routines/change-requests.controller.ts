@@ -46,6 +46,20 @@ export class ChangeRequestsController {
     return this.service.open(slotId, dto, tenant.id, user.sub);
   }
 
+  @Get(':id/change-requests/mine')
+  @Roles(UserRole.TEACHER)
+  @RequirePermissions(Permission.ROUTINE_READ)
+  @ApiOperation({
+    summary: "A teacher's own change requests on a routine, with the admin's reply.",
+  })
+  findOwnForRoutine(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.findOwnForRoutine(id, tenant.id, user.sub);
+  }
+
   @Get(':id/change-requests')
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: "List a routine's change requests." })

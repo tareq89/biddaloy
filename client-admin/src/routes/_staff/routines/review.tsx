@@ -51,6 +51,7 @@ import {
   useActiveRole,
   useCurrentUserId,
   useHasPermission,
+  useMyChangeRequests,
   usePeriodSlotLookup,
   useRoutines,
   useRoutineSlots,
@@ -59,10 +60,11 @@ import {
   useSubmitForReview,
   useTeachers,
   useWithdrawRoutine,
+  type RoutineChangeRequest,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, PageContainer, PageHeader, type PageAction } from '@biddaloy/ui/shells';
-import { formatNumber, formatTime } from '@biddaloy/ui/utils';
+import { formatDate, formatNumber, formatTime } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
   CalendarX2Icon,
@@ -135,6 +137,9 @@ function RoutineReviewPage() {
   const slotsQuery = useRoutineSlots(routine?.id);
   const changeRequestsQuery = useChangeRequests(
     canManage && routine?.state === 'PUBLISHED' ? routine.id : undefined,
+  );
+  const myRequestsQuery = useMyChangeRequests(
+    isTeacher && routine?.state === 'PUBLISHED' ? routine.id : undefined,
   );
   const subjectsQuery = useSubjects({});
   const teachersQuery = useTeachers({});
@@ -396,6 +401,53 @@ function RoutineReviewPage() {
     },
   ];
 
+  const REQUEST_TONE = { OPEN: 'warning', ACCEPTED: 'success', REJECTED: 'neutral' } as const;
+  const myRequestColumns: DataTableColumn<RoutineChangeRequest>[] = [
+    {
+      id: 'period',
+      header: t('changeRequestList.periodColumn'),
+      card: 'title',
+      accessorFn: (request) => {
+        const slot = describeSlot(request.routine_slot_id);
+        return (
+          <>
+            <span className="font-medium">{slot.when}</span>
+            <span className="block text-caption text-text-secondary">{slot.what}</span>
+          </>
+        );
+      },
+    },
+    {
+      id: 'note',
+      header: t('changeRequestList.noteColumn'),
+      card: 'field',
+      accessorFn: (request) => request.note,
+    },
+    {
+      id: 'status',
+      header: t('myChangeRequests.statusColumn'),
+      card: 'field',
+      accessorFn: (request) => (
+        <StatusBadge
+          tone={REQUEST_TONE[request.state]}
+          label={t(`myChangeRequests.state.${request.state}`)}
+        />
+      ),
+    },
+    {
+      id: 'reply',
+      header: t('myChangeRequests.replyColumn'),
+      card: 'field',
+      accessorFn: (request) => request.resolution_note || '—',
+    },
+    {
+      id: 'date',
+      header: t('myChangeRequests.dateColumn'),
+      card: 'field',
+      accessorFn: (request) => formatDate(request.created_at, config),
+    },
+  ];
+
   const slotsTitle = canSeeAll ? t('review.slots.title') : t('review.slots.titleOwn');
   const showTable = canSeeAll || ownTeacher;
   // The server returns nothing to a coordinator while the routine is a draft.
@@ -459,6 +511,39 @@ function RoutineReviewPage() {
                     teachersQuery.data?.data.find((teacher) => teacher.user.id === userId)?.user
                       .full_name ?? '—'
                   }
+                />
+              )}
+            </section>
+          )}
+
+          {isTeacher && ownTeacher && published && (
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-h2">{t('myChangeRequests.title')}</h2>
+                <p className="mt-1 text-text-secondary">{t('myChangeRequests.caption')}</p>
+              </div>
+              {myRequestsQuery.isError ? (
+                <ErrorState
+                  message={t('changeRequestList.loadError')}
+                  retryLabel={t('review.error.retry')}
+                  onRetry={() => void myRequestsQuery.refetch()}
+                />
+              ) : (
+                <DataTable
+                  tableId="routine-my-change-requests"
+                  caption={t('myChangeRequests.caption')}
+                  columns={myRequestColumns}
+                  data={myRequestsQuery.data ?? []}
+                  getRowId={(request) => request.id}
+                  sorting={null}
+                  onSortingChange={() => {}}
+                  paginated={false}
+                  totalCount={myRequestsQuery.data?.length ?? 0}
+                  loading={myRequestsQuery.isPending}
+                  emptyState={{
+                    title: t('myChangeRequests.title'),
+                    explanation: t('myChangeRequests.empty'),
+                  }}
                 />
               )}
             </section>
