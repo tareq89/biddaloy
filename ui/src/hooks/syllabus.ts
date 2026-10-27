@@ -144,7 +144,7 @@ export function useCanWriteSyllabus(classId: string, subjectId: string): boolean
   const userId = useCurrentUserId();
   const isTeacher = role === UserRole.TEACHER;
   const teacherQuery = useQuery({
-    ...teachersQueryOptions({ user_id: userId ?? undefined, limit: 1 }),
+    ...teachersQueryOptions({ user_id: userId ?? '', limit: 1 }),
     enabled: isTeacher && userId !== null,
   });
   const assignments = useTeacherAssignments(teacherQuery.data?.data[0]?.id);
