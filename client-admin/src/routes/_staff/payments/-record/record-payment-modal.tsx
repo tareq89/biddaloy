@@ -352,24 +352,6 @@ export function RecordPaymentModal({
     (sum, bill) => sum + (lines.get(bill.student_fee_id)?.payMinorUnits ?? 0),
     0,
   );
-  // F9 (deliberately left untouched — cross-lane, pending reconciliation
-  // with #659): this sums every selected student's own `wallet_balance`
-  // into one pool and lets `wallet_use` draw against the pool as a whole.
-  // Whether #659's checkout contract actually allows one student's wallet
-  // credit to pay down a SIBLING's bill (rather than each student's
-  // wallet only covering their own lines) is an open cross-lane question
-  // for #659, not something to guess at here.
-  const walletBalanceMinorUnits = (cart.data?.students ?? []).reduce(
-    (sum, student) => sum + serverAmountToMinorUnits(student.wallet_balance, config),
-    0,
-  );
-  const cappedWalletUseMinorUnits = Math.min(
-    walletUseMinorUnits,
-    walletBalanceMinorUnits,
-    subtotalMinorUnits,
-  );
-  const amountDueMinorUnits = Math.max(0, subtotalMinorUnits - cappedWalletUseMinorUnits);
-
   // F12: a bill can be fully covered by pay + discount with `pay` itself
   // at 0 ("discount the rest" after clearing Pay) — a legitimate 100%
   // write-off. `subtotalMinorUnits` alone (sum of `payMinorUnits`) can't
@@ -387,10 +369,26 @@ export function RecordPaymentModal({
   // F-155: same count the server uses (students with a line in this checkout);
   // TO_WALLET is refused for more than one, so it is offered only for one.
   const touchedBillIds = new Set(touchedLines.map(({ bill }) => bill.student_fee_id));
-  const allowToWallet =
-    (cart.data?.students ?? []).filter((s) =>
-      s.bills.some((b) => touchedBillIds.has(b.student_fee_id)),
-    ).length <= 1;
+  const touchedStudents = (cart.data?.students ?? []).filter((s) =>
+    s.bills.some((b) => touchedBillIds.has(b.student_fee_id)),
+  );
+  const allowToWallet = touchedStudents.length <= 1;
+  // Server rule (checkout.service.ts:240-264): wallet_use is refused for more
+  // than one student and capped at that one student's own balance. So offer it
+  // for a single student only (touched, else the lone cart student).
+  const walletCandidates =
+    touchedStudents.length > 0 ? touchedStudents : (cart.data?.students ?? []);
+  const walletStudent = walletCandidates.length === 1 ? walletCandidates[0] : undefined;
+  const walletBalanceMinorUnits = walletStudent
+    ? serverAmountToMinorUnits(walletStudent.wallet_balance, config)
+    : 0;
+  const cappedWalletUseMinorUnits = Math.min(
+    walletUseMinorUnits,
+    walletBalanceMinorUnits,
+    subtotalMinorUnits,
+  );
+  const amountDueMinorUnits = Math.max(0, subtotalMinorUnits - cappedWalletUseMinorUnits);
+
   const effectiveChangeHandling: ChangeHandling = allowToWallet ? changeHandling : 'RETURN';
 
   /** Everything `resetAndClose()` used to do, minus closing the dialog —
