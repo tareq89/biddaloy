@@ -3,7 +3,8 @@
  * MSW-backed.
  */
 import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
-import { cleanupTestState, renderWithProviders, renderWithRouter, server } from '@biddaloy/ui/test';
+import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { createRootRoute } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -74,13 +75,20 @@ afterEach(async () => {
 });
 
 // Latin numerals pinned: the default region for these renders would print Bangla digits.
-const render = () =>
-  renderWithProviders(
+const reportsTree = createRootRoute({
+  component: () => (
     <RegionConfigProvider value={REGION_BD_EN}>
       <AdmissionReports />
-    </RegionConfigProvider>,
-    { tenantId: 'tenant-1', locale: 'en' },
-  );
+    </RegionConfigProvider>
+  ),
+});
+const render = () =>
+  renderWithRouter(reportsTree, {
+    initialEntries: ['/'],
+    tenantId: 'tenant-1',
+    role: 'ADMIN',
+    locale: 'en',
+  });
 
 describe('AdmissionReports', () => {
   it('shows the four counts (Left = withdrawn + transferred out) and rows, dash for missing reg. no.', async () => {
