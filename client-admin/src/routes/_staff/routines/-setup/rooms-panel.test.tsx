@@ -136,4 +136,32 @@ describe('RoomsPanel', () => {
       expect(posted).toEqual({ building: 'Annex', room_no: '404', capacity: 25 }),
     );
   });
+
+  it('edits a room: the dialog opens prefilled and saving PATCHes the changed number', async () => {
+    mockRooms([ROOM]);
+    let patched: unknown = null;
+    server.use(
+      http.patch('*/routines/rooms/room-1', async ({ request }) => {
+        patched = await request.json();
+        return HttpResponse.json({ ...ROOM, room_no: '102' });
+      }),
+    );
+    renderPanel();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    const roomNo = await screen.findByLabelText('Room no.');
+    expect(roomNo.value).toBe('101');
+    expect(screen.getByLabelText('Building').value).toBe('Main');
+    expect(screen.getByLabelText('Capacity').value).toBe('30');
+
+    await user.clear(roomNo);
+    await user.type(roomNo, '102');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(patched).toEqual({ building: 'Main', room_no: '102', capacity: 30 }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
 });
