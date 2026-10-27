@@ -336,19 +336,24 @@ export class CalendarEventsService {
       );
     }
 
-    await this.auditService.record({
-      action: AuditAction.CREATE,
-      entity_type: 'CalendarEvent',
-      entity_id: saved.id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      old_values: null,
-      new_values: {
-        ...saved,
-        class_ids: classIds,
-        ...(isPastClosure ? { reason } : {}),
+    await this.auditService.record(
+      {
+        action: AuditAction.CREATE,
+        entity_type: 'CalendarEvent',
+        entity_id: saved.id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        old_values: null,
+        new_values: {
+          ...saved,
+          class_ids: classIds,
+          ...(isPastClosure ? { reason } : {}),
+        },
       },
-    });
+      // Same transaction as the insert: a rolled-back bulk add leaves no
+      // audit row for an event that never existed.
+      manager,
+    );
 
     const [withClassIds] = await this.withClassIds([saved], tenantId);
     // D9: a draft (`publish: false`) is never notified — `publish()` sends

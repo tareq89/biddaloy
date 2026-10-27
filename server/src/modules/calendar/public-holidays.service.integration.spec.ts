@@ -264,9 +264,9 @@ describe('PublicHolidaysService (integration)', () => {
 
   it('bulkAdd leaves no holiday behind when a later entry fails to save', async () => {
     mockFetch([
-      { date: '2030-01-01', end_date: '2030-01-01', name: 'A' },
-      { date: '2030-02-01', end_date: '2030-02-01', name: 'B' },
-      { date: '2030-03-01', end_date: '2030-03-01', name: 'C' },
+      { date: '2030-01-01', end_date: '2030-01-01', name: 'Rollback Holiday A' },
+      { date: '2030-02-01', end_date: '2030-02-01', name: 'Rollback Holiday B' },
+      { date: '2030-03-01', end_date: '2030-03-01', name: 'Rollback Holiday C' },
     ]);
     const set = await service.fetchIntoSet('BD', 2030, SEED_ADMIN_USER_ID);
     await service.publish(set.id, SEED_ADMIN_USER_ID);
@@ -291,5 +291,13 @@ describe('PublicHolidaysService (integration)', () => {
       .getRepository(CalendarEvent)
       .find({ where: { tenant_id: TENANT_ID, type: CalendarEventType.HOLIDAY } });
     expect(events).toHaveLength(0);
+    // The saved event's audit row rolls back with it (same transaction).
+    const audits = await dataSource.query(
+      `SELECT id FROM audit_logs
+        WHERE tenant_id = $1 AND entity_type = 'CalendarEvent'
+          AND new_values->>'name' LIKE 'Rollback Holiday %'`,
+      [TENANT_ID],
+    );
+    expect(audits).toHaveLength(0);
   });
 });
