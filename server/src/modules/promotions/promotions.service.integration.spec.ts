@@ -868,7 +868,7 @@ describe('PromotionsService (integration)', () => {
 
     // Whole-class graduation fixture: a grade-12 class, one student with an ACTIVE
     // source-year enrollment and a passing result, and a built (uncommitted) run.
-    async function buildGraduationRun() {
+    async function buildGraduationRun(opts: { failing?: boolean } = {}) {
       // A class with no numeric_grade + 1 match and numeric_grade set →
       // resolveTarget graduates the whole run (target_class_id = null).
       const gradClassId = '00000000-0000-4000-8000-000000010030';
@@ -892,27 +892,7 @@ describe('PromotionsService (integration)', () => {
           tenant_id: TENANT_ID,
         }),
       );
-      // D20 retain class for grade 12 in the target year, else resolveTarget
-      // blocks with RETAIN_CLASS_MISSING before it ever reaches GRADUATE.
-      const gradRetainClassId = '00000000-0000-4000-8000-000000010032';
-      const gradRetainSectionId = '00000000-0000-4000-8000-000000010033';
-      await classRepo.save(
-        classRepo.create({
-          id: gradRetainClassId,
-          name: 'Class Twelve (retained)',
-          numeric_grade: 12,
-          academic_year_id: TARGET_YEAR_ID,
-          tenant_id: TENANT_ID,
-        }),
-      );
-      await sectionRepo.save(
-        sectionRepo.create({
-          id: gradRetainSectionId,
-          section_name: 'A',
-          class_id: gradRetainClassId,
-          tenant_id: TENANT_ID,
-        }),
-      );
+      // No retain class on purpose: nobody is retained, so none is needed (#2924).
 
       const gradExam = await examRepo.save(
         examRepo.create({
@@ -947,7 +927,7 @@ describe('PromotionsService (integration)', () => {
           total_marks: '450.00',
           gpa: '5.00',
           grade: 'A+',
-          is_fail: false,
+          is_fail: opts.failing ?? false,
           grading_scale_id: gradingScaleId,
           grading_scale_revision: 1,
           rule_version: 'v1',
@@ -1004,6 +984,13 @@ describe('PromotionsService (integration)', () => {
           .getRepository(StudentLifecycleEvent)
           .count({ where: { student_id: student.id } }),
       ).toBe(1);
+    });
+
+    it('refuses create with RETAIN_CLASS_MISSING when a failing student would be retained, and leaves no run row (#2924)', async () => {
+      await expect(buildGraduationRun({ failing: true })).rejects.toMatchObject({
+        response: { details: { code: 'RETAIN_CLASS_MISSING' } },
+      });
+      expect(await dataSource.getRepository(PromotionRun).count()).toBe(0);
     });
 
     it('carries no choice-group pick for a whole-class graduation run (D45)', async () => {
@@ -1631,25 +1618,20 @@ describe('PromotionsService (integration)', () => {
         }),
       );
 
-      const run = await service.create(
-        {
-          source_class_id: playgroupId,
-          target_academic_year_id: TARGET_YEAR_ID,
-          target_class_id: targetForPlaygroupId,
-          exam_ids: [playgroupExam.id],
-          algorithm: PlacementAlgorithm.BLOCK,
-        },
-        TENANT_ID,
-        ADMIN_USER_ID,
-      );
-
-      const entry = await entryRepo.findOne({ where: { run_id: run.id, student_id: student.id } });
-      expect(entry?.suggested_outcome).toBe(PromotionOutcome.RETAIN);
-
-      // commit() must refuse — not silently retain the student into the
-      // unrelated Nursery class.
+      // A would-be RETAIN with no real retain class is refused at create
+      // (#2924) — not silently retained into the unrelated Nursery class.
       await expect(
-        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+        service.create(
+          {
+            source_class_id: playgroupId,
+            target_academic_year_id: TARGET_YEAR_ID,
+            target_class_id: targetForPlaygroupId,
+            exam_ids: [playgroupExam.id],
+            algorithm: PlacementAlgorithm.BLOCK,
+          },
+          TENANT_ID,
+          ADMIN_USER_ID,
+        ),
       ).rejects.toThrow(UnprocessableEntityException);
 
       // Confirm the student was never enrolled into Nursery.

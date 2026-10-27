@@ -175,10 +175,6 @@ export class PromotionsService {
       }
     }
 
-    if (!blocking && sourceClass.numeric_grade !== null && !retainClass) {
-      blocking = 'RETAIN_CLASS_MISSING';
-    }
-
     return {
       target_class: targetClass ? { id: targetClass.id, name: targetClass.name } : null,
       retain_class: retainClass ? { id: retainClass.id, name: retainClass.name } : null,
@@ -379,9 +375,6 @@ export class PromotionsService {
     if (suggestion.blocking_reason === 'TARGET_SECTIONS_MISSING') {
       throw new UnprocessableEntityException({ details: { code: 'TARGET_SECTIONS_MISSING' } });
     }
-    if (suggestion.blocking_reason === 'RETAIN_CLASS_MISSING') {
-      throw new UnprocessableEntityException({ details: { code: 'RETAIN_CLASS_MISSING' } });
-    }
 
     const exams = await this.examRepo.find({
       where: {
@@ -463,6 +456,15 @@ export class PromotionsService {
           isGraduationRun,
         ),
       );
+
+      // A retain class is needed only when someone would be retained. Throwing
+      // here rolls back the run row.
+      if (
+        suggestion.retain_class === null &&
+        entries.some((e) => e.final_outcome === PromotionOutcome.RETAIN)
+      ) {
+        throw new UnprocessableEntityException({ details: { code: 'RETAIN_CLASS_MISSING' } });
+      }
 
       this.placePromoteEntries(entries, targetSections, dto.algorithm);
       await entryRepo.save(entries);
