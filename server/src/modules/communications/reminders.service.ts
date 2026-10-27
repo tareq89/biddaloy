@@ -9,7 +9,7 @@ import { deliveryErrorCode } from './delivery-error-code';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Repository } from 'typeorm';
+import { And, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { ReminderBatch } from './entities/reminder-batch.entity';
 import { StudentService } from '../students/students.service';
@@ -27,6 +27,7 @@ import {
   BulkPreviewStudentDto,
   BulkSmsProjectionDto,
   QueryReminderBatchLogsDto,
+  QueryCommunicationLogsDto,
   ReminderBatchLogListResponseDto,
   ReminderBatchLogDto,
 } from './dto/reminders.dto';
@@ -467,6 +468,55 @@ export class BulkReminderService {
 
     const [logs, total] = await this.logRepo.findAndCount({
       where: { reminder_batch_id: id, tenant_id: tenantId },
+      order: { created_at: 'DESC', id: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      data: logs.map((log) => this.toBatchLogDto(log)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * [87.SD] Tenant-wide message log (newest first), filtered by status /
+   * medium / created_at range. Same row shape as a batch's logs: no body,
+   * fixed error codes (Rule 23).
+   */
+  async findLogs(
+    query: QueryCommunicationLogsDto,
+    tenantId: string,
+  ): Promise<ReminderBatchLogListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+
+    const from = query.from_date ? new Date(query.from_date) : undefined;
+    let to: Date | undefined;
+    if (query.to_date) {
+      to = new Date(query.to_date);
+      // A date-only value includes the whole day, as findBatches does.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(query.to_date)) to.setUTCHours(23, 59, 59, 999);
+    }
+    const created =
+      from && to
+        ? And(MoreThanOrEqual(from), LessThanOrEqual(to))
+        : from
+          ? MoreThanOrEqual(from)
+          : to
+            ? LessThanOrEqual(to)
+            : undefined;
+
+    const [logs, total] = await this.logRepo.findAndCount({
+      where: {
+        tenant_id: tenantId,
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.medium ? { medium: query.medium } : {}),
+        ...(created ? { created_at: created } : {}),
+      },
       order: { created_at: 'DESC', id: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,

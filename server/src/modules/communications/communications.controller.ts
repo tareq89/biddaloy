@@ -38,6 +38,7 @@ import {
   SendBulkReminderDto,
   QueryReminderBatchesDto,
   QueryReminderBatchLogsDto,
+  QueryCommunicationLogsDto,
 } from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
 import { JwtPayload, Permission, RoleScope, roleScope } from '@biddaloy/shared';
@@ -185,6 +186,20 @@ export class CommunicationsController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.bulkReminderService.findBatch(id, tenant.id);
+  }
+
+  // Declared before @Get(':id') — 'logs' would otherwise hit the UUID param route.
+  // BULK_SEND, not LOG_READ: teachers hold LOG_READ and this list is tenant-wide (Rule 2).
+  @Get('logs')
+  @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
+  @ApiOperation({
+    summary: 'Message log — every message this tenant sent, newest first, filter by status.',
+  })
+  findLogs(
+    @Query() query: QueryCommunicationLogsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.bulkReminderService.findLogs(query, tenant.id);
   }
 
   @Post('send')

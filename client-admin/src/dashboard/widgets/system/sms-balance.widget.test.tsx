@@ -38,7 +38,7 @@ describe('sms-balance widget', () => {
     expect(await screen.findByText('1,240 SMS left')).toBeTruthy();
     expect(screen.getByText('60 held for messages being sent')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'View sent messages' }).getAttribute('href')).toBe(
-      '/communications/batches',
+      '/communications/message-log?medium=SMS',
     );
   });
 

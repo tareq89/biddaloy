@@ -69,7 +69,11 @@ export function SmsBalanceView({
         : {})}
       footer={
         data ? (
-          <Link to="/communications/batches" className="text-primary underline">
+          <Link
+            to="/communications/message-log"
+            search={{ medium: 'SMS' }}
+            className="text-primary underline"
+          >
             {tw('link')}
           </Link>
         ) : undefined

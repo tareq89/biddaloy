@@ -274,3 +274,39 @@ export class ReminderBatchLogDto {
 export class ReminderBatchLogListResponseDto extends ReminderPaginatedResponseDto {
   data: ReminderBatchLogDto[];
 }
+
+/**
+ * [87.SD] `GET /communications/logs` — the tenant-wide message log the
+ * dashboard's Failed messages / SMS balance widgets open. Same row shape as
+ * a batch's logs (`ReminderBatchLogDto`), filtered by outcome and channel.
+ */
+export class QueryCommunicationLogsDto {
+  @IsOptional()
+  @IsEnum(CommunicationStatus)
+  status?: CommunicationStatus;
+
+  @IsOptional()
+  @IsEnum(CommunicationMedium)
+  medium?: CommunicationMedium;
+
+  @IsOptional()
+  @IsDateString()
+  from_date?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to_date?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 25;
+}

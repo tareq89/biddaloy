@@ -428,6 +428,32 @@ describe('Bulk Reminder Read/Preview E2E', () => {
     });
   });
 
+  describe('GET /communications/logs', () => {
+    it('lists only this tenant logs, filtered by status, and caps limit at 100', async () => {
+      const batchId = await createBatch(TENANT_ID);
+      const foreignBatchId = await createBatch(OTHER_TENANT_ID);
+      await createBatchLog(batchId, TENANT_ID, { status: 'FAILED' });
+      await createBatchLog(batchId, TENANT_ID, { status: 'SENT' });
+      await createBatchLog(foreignBatchId, OTHER_TENANT_ID, { status: 'FAILED' });
+
+      const res = await supertest(app.getHttpServer())
+        .get('/api/v1/communications/logs?status=FAILED')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      expect(res.body.total).toBe(1);
+      expect(res.body.data[0]).toMatchObject({ status: 'FAILED' });
+      expect(res.body.data[0]).not.toHaveProperty('message_body');
+
+      await supertest(app.getHttpServer())
+        .get('/api/v1/communications/logs?limit=101')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(400);
+    });
+  });
+
   describe('GET /communications/reminder/bulk/:id/logs', () => {
     it('returns only the batch own logs, with the failure reason surfaced', async () => {
       const batchId = await createBatch(TENANT_ID);

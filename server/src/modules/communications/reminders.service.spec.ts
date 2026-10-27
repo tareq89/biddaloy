@@ -1494,6 +1494,39 @@ describe('BulkReminderService', () => {
     });
   });
 
+  describe('findLogs', () => {
+    it('scopes to the tenant, applies status/medium filters and pages newest first', async () => {
+      logRepo.findAndCount.mockResolvedValue([[], 60]);
+
+      const result = await service.findLogs(
+        { status: CommunicationStatus.FAILED, medium: CommunicationMedium.SMS, page: 2, limit: 25 },
+        TENANT,
+      );
+
+      expect(logRepo.findAndCount).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT,
+          status: CommunicationStatus.FAILED,
+          medium: CommunicationMedium.SMS,
+        },
+        order: { created_at: 'DESC', id: 'DESC' },
+        skip: 25,
+        take: 25,
+      });
+      expect(result.totalPages).toBe(3);
+    });
+
+    it('adds a created_at bound only when a date is given', async () => {
+      logRepo.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findLogs({ from_date: '2026-03-01' }, TENANT);
+
+      const where = logRepo.findAndCount.mock.calls.at(-1)![0].where;
+      expect(where.created_at).toBeDefined();
+      expect(where.status).toBeUndefined();
+    });
+  });
+
   describe('findBatchLogs', () => {
     const logRow = {
       id: 'log-1',

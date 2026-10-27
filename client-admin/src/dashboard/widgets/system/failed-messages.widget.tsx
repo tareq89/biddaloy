@@ -64,7 +64,11 @@ export function FailedMessagesView({
         : {})}
       footer={
         data ? (
-          <Link to="/communications/batches" className="text-primary underline">
+          <Link
+            to="/communications/message-log"
+            search={{ medium: 'SMS', status: 'FAILED' }}
+            className="text-primary underline"
+          >
             {tw('link')}
           </Link>
         ) : undefined
