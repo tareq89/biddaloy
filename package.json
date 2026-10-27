@@ -98,6 +98,8 @@
     "vitest-axe": "0.1.0"
   },
   "resolutions": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "js-yaml": "^5.2.2",
     "typescript": "^6",
     "browserslist": "^4.28.8",
