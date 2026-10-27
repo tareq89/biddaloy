@@ -64,7 +64,7 @@ describe('homework-to-check widget', () => {
     expect(screen.getByText('11')).toBeTruthy();
     expect(screen.getByText('7')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'See submissions' }).getAttribute('href')).toBe(
-      '/academics/homework/h1',
+      '/academics/homework/h1?assignment=a1',
     );
   });
 

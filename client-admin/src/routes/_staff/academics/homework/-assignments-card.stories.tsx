@@ -1,4 +1,5 @@
 import { HomeworkAssignmentStatus } from '@biddaloy/shared';
+import type { RowAction } from '@biddaloy/ui/components';
 import type { HomeworkAssignmentListItem } from '@biddaloy/ui/hooks';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { CalendarClock } from 'lucide-react';
@@ -29,9 +30,17 @@ const meta: Meta<typeof AssignmentsCard> = {
     onAssign: () => undefined,
     // #2900 D3: ACTIVE = Due date, Change, Deactivate; DEACTIVATED = Reactivate only.
     actionsFor: (r) => {
-      if (r.status === HomeworkAssignmentStatus.SUPERSEDED) return [];
+      // #2899: Check work leads every row, SUPERSEDED included.
+      const check: RowAction = {
+        intent: 'view',
+        display: 'text',
+        label: `Check work for ${r.section_name}`,
+        shortLabel: 'Check work',
+      };
+      if (r.status === HomeworkAssignmentStatus.SUPERSEDED) return [check];
       if (r.status === HomeworkAssignmentStatus.DEACTIVATED) {
         return [
+          check,
           {
             intent: 'restore',
             label: `Reactivate ${r.section_name}`,
@@ -40,6 +49,7 @@ const meta: Meta<typeof AssignmentsCard> = {
         ];
       }
       return [
+        check,
         {
           intent: 'edit',
           icon: <CalendarClock />,
