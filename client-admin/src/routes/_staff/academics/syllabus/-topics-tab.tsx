@@ -12,7 +12,7 @@
  * never a full-list resequence, so a big syllabus doesn't send N rows to
  * move one topic one place.
  */
-import { Permission, SyllabusTopicStatus } from '@biddaloy/shared';
+import { SyllabusTopicStatus } from '@biddaloy/shared';
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import {
   Button,
@@ -44,7 +44,7 @@ import {
   useClasses,
   useCreateSyllabusTopic,
   useDeleteSyllabusTopic,
-  useHasPermission,
+  useCanWriteSyllabus,
   useReorderSyllabusTopics,
   useSubjects,
   useSyllabusTopicList,
@@ -116,7 +116,6 @@ export function TopicsTab({
   const { t, i18n } = useTranslation('syllabus');
   const { t: tCommon } = useTranslation('common');
   const regionConfig = useTenantRegionConfig();
-  const canManage = useHasPermission(Permission.SYLLABUS_MANAGE);
   const isPhone = useIsPhone();
   const {
     classesQuery,
@@ -127,6 +126,7 @@ export function TopicsTab({
     subjectId,
     hasSelection,
   } = useTopicsSelection(search);
+  const canManage = useCanWriteSyllabus(classId, subjectId);
 
   const topicsQuery = useSyllabusTopicList(
     hasSelection ? { class_id: classId, subject_id: subjectId } : {},

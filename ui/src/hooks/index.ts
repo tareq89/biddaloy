@@ -1431,6 +1431,7 @@ export {
 } from './programs';
 export {
   syllabusTopicKeys,
+  useCanWriteSyllabus,
   syllabusTopicListQueryOptions,
   useCreateSyllabusTopic,
   useDeleteSyllabusTopic,
