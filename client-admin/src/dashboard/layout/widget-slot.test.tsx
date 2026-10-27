@@ -1,6 +1,7 @@
 import '@biddaloy/ui/test';
 
 import { recordFreshness } from '@biddaloy/ui/api';
+import { HelpProvider, WidgetCard } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -148,5 +149,30 @@ describe('WidgetSlot', () => {
     );
     expect(screen.getByText(ROUTE_BOUNDARY)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
+
+  it('gives the card a (?) with id widget.<key> through context', async () => {
+    renderWithProviders(
+      <HelpProvider
+        lang="en"
+        baseUrl="https://guide.test"
+        index={{
+          'widget.upcoming': {
+            title: { bn: 'আসন্ন', en: 'Upcoming' },
+            summary: { bn: 's', en: 's' },
+            path: 'dashboard/widgets',
+            anchor: 'widget.upcoming',
+            knownIssues: 0,
+          },
+        }}
+      >
+        <WidgetSlot size="S" widgetKey="upcoming">
+          <WidgetCard title={OK} />
+        </WidgetSlot>
+      </HelpProvider>,
+      { locale: 'en' },
+    );
+    const btn = await screen.findByRole('button', { name: 'Help: Upcoming' });
+    expect(btn.getAttribute('data-help-id')).toBe('widget.upcoming');
   });
 });
