@@ -133,7 +133,7 @@ function mockRoutine(state: 'DRAFT' | 'REVIEW' | 'PUBLISHED', slots: unknown[] =
 }
 
 function renderReview(
-  role: 'ADMIN' | 'TEACHER' = 'ADMIN',
+  role: 'ADMIN' | 'TEACHER' | 'EXECUTIVE' = 'ADMIN',
   locale: 'en' | 'bn' = 'en',
   entry = '/routines/review',
 ) {
@@ -288,6 +288,32 @@ describe('/routines/review', () => {
     renderReview('TEACHER');
 
     expect(await screen.findByRole('heading', { name: 'No periods for you' })).toBeTruthy();
+  });
+
+  it('an academic coordinator without a teacher record sees the whole PUBLISHED routine, read-only', async () => {
+    mockLookups();
+    mockRoutine('PUBLISHED');
+    mockTeachers([]);
+    renderReview('EXECUTIVE');
+
+    expect(await screen.findByRole('table', { name: 'Periods of the routine' })).toBeTruthy();
+    expect((await screen.findAllByText('Math')).length).toBeGreaterThan(0);
+    expect(screen.getByRole('combobox', { name: 'Class and section' })).toBeTruthy();
+    // No state actions and no request-change action.
+    expect(screen.queryByRole('button', { name: /withdraw|publish|submit/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /request a change/i })).toBeNull();
+  });
+
+  it('an academic coordinator sees a "still a draft" state on a DRAFT routine', async () => {
+    mockLookups();
+    mockRoutine('DRAFT');
+    mockTeachers([]);
+    renderReview('EXECUTIVE');
+
+    expect(
+      await screen.findByRole('heading', { name: 'The routine is still a draft' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('table', { name: 'Periods of the routine' })).toBeNull();
   });
 
   it('a teacher can open the change-request dialog only for a PUBLISHED routine', async () => {
