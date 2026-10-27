@@ -128,6 +128,7 @@ GET /classes/vocabulary | ClassController | perm: ACADEMIC_STRUCTURE_READ
 GET /communications/:id | CommunicationsController | perm: COMMUNICATION_LOG_READ
 GET /communications/guardian/:guardianId | CommunicationsController | perm: COMMUNICATION_LOG_READ
 GET /communications/last-reminders | CommunicationsController | perm: COMMUNICATION_LOG_READ
+GET /communications/logs | CommunicationsController | perm: COMMUNICATION_BULK_SEND
 GET /communications/reminder/bulk | CommunicationsController | perm: COMMUNICATION_BULK_SEND
 GET /communications/reminder/bulk/:id | CommunicationsController | perm: COMMUNICATION_BULK_SEND
 GET /communications/reminder/bulk/:id/logs | CommunicationsController | perm: COMMUNICATION_BULK_SEND
