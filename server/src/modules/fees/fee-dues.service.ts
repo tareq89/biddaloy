@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { round2 } from '../../common/constants/money';
+import { round2, toPaisa } from '../../common/constants/money';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, Brackets } from 'typeorm';
 import { StudentFee } from './entities/student-fee.entity';
@@ -132,7 +132,7 @@ export class FeeDuesService {
     const limit = query.limit || 10;
 
     if (restrictToStudentIds !== undefined && restrictToStudentIds.length === 0) {
-      return { data: [], total: 0, page, limit, totalPages: 0 };
+      return { data: [], total: 0, total_due_sum: 0, page, limit, totalPages: 0 };
     }
 
     const studentIds = await this.findMatchingStudentIds(tenantId, matchStatuses, {
@@ -146,7 +146,7 @@ export class FeeDuesService {
     });
 
     if (studentIds.length === 0) {
-      return { data: [], total: 0, page, limit, totalPages: 0 };
+      return { data: [], total: 0, total_due_sum: 0, page, limit, totalPages: 0 };
     }
 
     const aggregates = await this.aggregateForStudents(studentIds);
@@ -155,6 +155,8 @@ export class FeeDuesService {
     const sorted = sortAggregates(aggregates, sortBy, sortOrder);
 
     const total = sorted.length;
+    // Whole paisa so the sum cannot drift (Rule 26); covers every matched student, all pages.
+    const total_due_sum = sorted.reduce((sum, a) => sum + toPaisa(a.total_due), 0) / 100;
     const start = (page - 1) * limit;
     const pageAggregates = sorted.slice(start, start + limit);
 
@@ -164,7 +166,7 @@ export class FeeDuesService {
       dues: duesByStudent.get(a.student_id) ?? [],
     }));
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data, total, total_due_sum, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async getFlaggedDues(

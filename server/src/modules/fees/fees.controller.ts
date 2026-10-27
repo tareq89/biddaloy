@@ -69,6 +69,22 @@ import { Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
+import type { SchemaObject } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
+
+/** The paginated envelope plus `GET /fees/dues`'s section-wide money total. */
+function withTotalDueSum(base: SchemaObject): SchemaObject {
+  return {
+    ...base,
+    required: [...(base.required ?? []), 'total_due_sum'],
+    properties: {
+      ...base.properties,
+      total_due_sum: {
+        type: 'number',
+        description: 'Sum of total_due over every matched student, all pages.',
+      },
+    },
+  };
+}
 
 // [5.1 review] Several routes below return a *role-dependent union* — the
 // staff shape for staff, an allow-listed family DTO for a PARENT/STUDENT.
@@ -113,10 +129,12 @@ export class FeeController {
   @ApiOkResponse({
     description:
       'A page of per-student due summaries: `StaffStudentDueDto` rows for staff, `FamilyStudentDueDto` rows (no `reminder_threshold_date`) for a PARENT/STUDENT.',
-    schema: paginatedSchema([
-      { $ref: getSchemaPath(StaffStudentDueDto) },
-      { $ref: getSchemaPath(FamilyStudentDueDto) },
-    ]),
+    schema: withTotalDueSum(
+      paginatedSchema([
+        { $ref: getSchemaPath(StaffStudentDueDto) },
+        { $ref: getSchemaPath(FamilyStudentDueDto) },
+      ]),
+    ),
   })
   async getDues(
     @Query() query: QueryFeeDuesDto,
