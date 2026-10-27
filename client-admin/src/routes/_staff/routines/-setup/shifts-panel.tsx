@@ -24,7 +24,13 @@ import {
   toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
-import { useCreateShift, useDeleteShift, useShifts, type Shift } from '@biddaloy/ui/hooks';
+import {
+  useCreateShift,
+  useDeleteShift,
+  useShifts,
+  useUpdateShift,
+  type Shift,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatTime, parseValidationFieldErrors } from '@biddaloy/ui/utils';
 import { PlusIcon } from 'lucide-react';
@@ -44,6 +50,8 @@ export function ShiftsPanel() {
   const shiftsQuery = useShifts();
   const createShift = useCreateShift();
   const deleteShift = useDeleteShift();
+  const [editing, setEditing] = React.useState<Shift | null>(null);
+  const updateShift = useUpdateShift(editing?.id ?? '');
 
   const [addOpen, setAddOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState<Shift | null>(null);
@@ -52,16 +60,27 @@ export function ShiftsPanel() {
   const [dayEndsAt, setDayEndsAt] = React.useState('16:00');
   const [saveFailed, setSaveFailed] = React.useState(false);
   const [nameError, setNameError] = React.useState<string | null>(null);
+  const [periodsOutside, setPeriodsOutside] = React.useState(false);
 
   const shifts = shiftsQuery.data?.data ?? [];
   const endBeforeStart = timeToMinutes(dayEndsAt) <= timeToMinutes(dayStartsAt);
 
+  function openEdit(shift: Shift) {
+    setEditing(shift);
+    setName(shift.name);
+    setDayStartsAt(shift.day_starts_at.slice(0, 5));
+    setDayEndsAt(shift.day_ends_at.slice(0, 5));
+    setAddOpen(true);
+  }
+
   function closeAdd() {
     setAddOpen(false);
+    setEditing(null);
     setName('');
     setDayStartsAt('08:00');
     setDayEndsAt('16:00');
     setSaveFailed(false);
+    setPeriodsOutside(false);
     setNameError(null);
   }
 
@@ -79,29 +98,44 @@ export function ShiftsPanel() {
     }
     setNameError(null);
     setSaveFailed(false);
-    createShift.mutate(
-      {
-        name: trimmed,
-        day_starts_at: dayStartsAt,
-        day_ends_at: dayEndsAt,
-        sequence: shifts.length,
+    setPeriodsOutside(false);
+    const handlers = {
+      onSuccess: closeAdd,
+      onError: (error: unknown) => {
+        // A 400 that names `name`: our own sentence under the field, never the server's text.
+        if (
+          error instanceof ApiError &&
+          error.statusCode === 400 &&
+          'name' in parseValidationFieldErrors(error.messages, ['name'])
+        ) {
+          setNameError(t('shiftsPanel.nameInvalid'));
+        } else if (
+          error instanceof ApiError &&
+          error.statusCode === 409 &&
+          error.details?.['code'] === 'SHIFT_PERIODS_OUTSIDE_WINDOW'
+        ) {
+          setPeriodsOutside(true);
+        } else {
+          setSaveFailed(true);
+        }
       },
-      {
-        onSuccess: closeAdd,
-        onError: (error) => {
-          // A 400 that names `name`: our own sentence under the field, never the server's text.
-          if (
-            error instanceof ApiError &&
-            error.statusCode === 400 &&
-            'name' in parseValidationFieldErrors(error.messages, ['name'])
-          ) {
-            setNameError(t('shiftsPanel.nameInvalid'));
-          } else {
-            setSaveFailed(true);
-          }
+    };
+    if (editing) {
+      updateShift.mutate(
+        { name: trimmed, day_starts_at: dayStartsAt, day_ends_at: dayEndsAt },
+        handlers,
+      );
+    } else {
+      createShift.mutate(
+        {
+          name: trimmed,
+          day_starts_at: dayStartsAt,
+          day_ends_at: dayEndsAt,
+          sequence: shifts.length,
         },
-      },
-    );
+        handlers,
+      );
+    }
   }
 
   function handleDelete() {
@@ -179,6 +213,7 @@ export function ShiftsPanel() {
           totalCount={shifts.length}
           loading={shiftsQuery.isPending}
           rowActions={(shift) => [
+            { intent: 'edit', label: t('edit.action'), onClick: () => openEdit(shift) },
             { intent: 'delete', label: t('delete.action'), onClick: () => setDeleting(shift) },
           ]}
         />
@@ -188,7 +223,9 @@ export function ShiftsPanel() {
         <DialogContent size="sm">
           <form className="flex flex-col gap-4" onSubmit={handleAdd}>
             <DialogHeader>
-              <DialogTitle>{t('shiftsPanel.dialogTitle')}</DialogTitle>
+              <DialogTitle>
+                {t(editing ? 'shiftsPanel.editTitle' : 'shiftsPanel.dialogTitle')}
+              </DialogTitle>
               <DialogDescription>{t('shiftsPanel.subtitle')}</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-1">
@@ -231,17 +268,21 @@ export function ShiftsPanel() {
                 </p>
               )}
             </div>
-            {saveFailed && (
+            {(saveFailed || periodsOutside) && (
               <p role="alert" className="text-caption text-destructive">
-                {t('shiftsPanel.saveError')}
+                {t(periodsOutside ? 'shiftsPanel.periodsOutsideError' : 'shiftsPanel.saveError')}
               </p>
             )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closeAdd}>
                 {t('shiftsPanel.cancel')}
               </Button>
-              <Button type="submit" disabled={endBeforeStart} loading={createShift.isPending}>
-                {t('shiftsPanel.dialogConfirm')}
+              <Button
+                type="submit"
+                disabled={endBeforeStart}
+                loading={createShift.isPending || updateShift.isPending}
+              >
+                {t(editing ? 'shiftsPanel.editConfirm' : 'shiftsPanel.dialogConfirm')}
               </Button>
             </DialogFooter>
           </form>

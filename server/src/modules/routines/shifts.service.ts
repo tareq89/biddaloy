@@ -1,9 +1,19 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Shift } from './entities/shift.entity';
 import { PeriodSlot } from './entities/period-slot.entity';
 import { CreateShiftDto, UpdateShiftDto, QueryShiftDto } from './dto/setup.dto';
+
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
 
 /** [21.3.1] Shift CRUD, tenant-scoped — clone of `ClassService`'s pattern
  * in `classes.service.ts` (pagination, soft delete, reference guard on
@@ -51,7 +61,29 @@ export class ShiftsService {
   }
 
   async update(id: string, dto: UpdateShiftDto, tenantId: string): Promise<Shift> {
-    await this.findOne(id, tenantId);
+    const shift = await this.findOne(id, tenantId);
+
+    // The day window may not shrink past the shift's periods.
+    if (dto.day_starts_at !== undefined || dto.day_ends_at !== undefined) {
+      const starts = timeToMinutes(dto.day_starts_at ?? shift.day_starts_at);
+      const ends = timeToMinutes(dto.day_ends_at ?? shift.day_ends_at);
+      if (starts >= ends) {
+        throw new BadRequestException('The day must end after it starts');
+      }
+      const periods = await this.periodSlotRepo.find({
+        where: { shift_id: id, tenant_id: tenantId },
+      });
+      if (
+        periods.some(
+          (slot) => timeToMinutes(slot.starts_at) < starts || timeToMinutes(slot.ends_at) > ends,
+        )
+      ) {
+        throw new ConflictException({
+          message: 'Some periods fall outside the new day times',
+          details: { code: 'SHIFT_PERIODS_OUTSIDE_WINDOW' },
+        });
+      }
+    }
 
     const changedKeys = Object.keys(dto);
     if (changedKeys.length > 0) {

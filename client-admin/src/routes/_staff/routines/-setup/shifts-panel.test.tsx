@@ -186,4 +186,63 @@ describe('ShiftsPanel', () => {
       expect(screen.queryByText("Couldn't add the shift. Try again.")).toBeNull();
     });
   });
+
+  describe('edit [2894]', () => {
+    it('Edit prefills name and times, and saving PATCHes without a sequence', async () => {
+      mockShifts();
+      let patched: unknown = null;
+      server.use(
+        http.patch('*/routines/shifts/shift-1', async ({ request }) => {
+          patched = await request.json();
+          return HttpResponse.json({ ...SHIFT, name: 'Day' });
+        }),
+      );
+      renderPanel();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      const name = await screen.findByLabelText('Name');
+      expect(name.value).toBe('Morning');
+      await user.clear(name);
+      await user.type(name, 'Day');
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(patched).toEqual({ name: 'Day', day_starts_at: '08:00', day_ends_at: '13:00' }),
+      );
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    });
+
+    it('a 409 SHIFT_PERIODS_OUTSIDE_WINDOW shows the translated sentence', async () => {
+      mockShifts();
+      server.use(
+        http.patch('*/routines/shifts/shift-1', () =>
+          HttpResponse.json(
+            {
+              statusCode: 409,
+              message: 'Some periods fall outside the new day times',
+              details: { code: 'SHIFT_PERIODS_OUTSIDE_WINDOW' },
+              timestamp: new Date().toISOString(),
+              path: '/routines/shifts/shift-1',
+              requestId: 'req-1',
+            },
+            { status: 409 },
+          ),
+        ),
+      );
+      renderPanel();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      await user.click(
+        within(await screen.findByRole('dialog')).getByRole('button', { name: 'Save' }),
+      );
+
+      expect(
+        await screen.findByText(
+          'Some periods of this shift fall outside these times. Change the period times first.',
+        ),
+      ).toBeTruthy();
+    });
+  });
 });
