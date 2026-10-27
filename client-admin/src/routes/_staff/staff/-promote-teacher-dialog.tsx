@@ -20,6 +20,7 @@ import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Checkbox,
+  HelpHint,
   Combobox,
   DatePicker,
   Dialog,
@@ -172,7 +173,12 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
           </div>
 
           <fieldset className="flex flex-col gap-1.5">
-            <legend className="text-sm font-medium">{t('teacherForm.designationsLabel')}</legend>
+            <legend className="text-sm font-medium">
+              <span className="inline-flex items-center gap-1">
+                {t('teacherForm.designationsLabel')}
+                <HelpHint helpId="people.staff.field.designations" />
+              </span>
+            </legend>
             <div className="grid grid-cols-2 gap-2">
               {Object.values(TeacherDesignation).map((designation) => (
                 <div key={designation} className="flex items-center gap-2">
