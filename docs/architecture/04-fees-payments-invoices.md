@@ -494,15 +494,17 @@ dues, Record Payment can collect it, and it prints on an invoice.
 ### Waiving a fine (D24)
 
 Waiving reduces or clears a fine the same way a checkout discount does —
-`POST /fees/fines/:id/waive` behind `FEE_APPROVE` step-up
-(`ApprovalScope.FEES_DISCOUNT`), reason required, FINE bills only:
+`POST /fees/bills/:id/waive` (legacy alias `POST /fees/fines/:id/waive`) behind
+`FEE_APPROVE` step-up (`ApprovalScope.FEES_DISCOUNT`), reason required, any open
+bill of any fee type:
 
-| Situation                               | Waive amount                 | Resulting `status`     |
-| --------------------------------------- | ---------------------------- | ---------------------- |
-| Unpaid fine, waived in full             | the whole outstanding amount | `WAIVED`               |
-| Partly paid fine, rest waived           | the remaining balance        | `PAID`                 |
-| Partly paid fine, only part of the rest | less than the balance        | stays `PARTIALLY_PAID` |
-| Fully paid fine                         | — (nothing outstanding)      | rejected, `409`        |
+| Situation                                 | Waive amount                 | Resulting `status`     |
+| ----------------------------------------- | ---------------------------- | ---------------------- |
+| Unpaid fine, waived in full               | the whole outstanding amount | `WAIVED`               |
+| Partly paid fine, rest waived             | the remaining balance        | `PAID`                 |
+| Partly paid fine, only part of the rest   | less than the balance        | stays `PARTIALLY_PAID` |
+| Fully paid fine                           | — (nothing outstanding)      | rejected, `409`        |
+| Bill not open (`PAID`/`WAIVED`/`ADVANCE`) | —                            | rejected, same `409`   |
 
 There's no dedicated "waive" column — the endpoint writes the same
 `one_off_discount_amount`/`discount_amount` fields checkout uses, and
@@ -530,7 +532,7 @@ late fee on top of it isn't a case anyone asked for.
 
 - **Checkout lock order (#2647).** Two separate orders, both in `checkout.service.ts`:
   - **Rows: bills, then wallet.** Checkout locks every bill (`pessimistic_write`), then the wallet row. Wallet debit and reversal use the same order. A path that took the wallet first while another held a bill would deadlock.
-  - **Wallet lock before the approval token.** The wallet balance is checked under its lock *before* `approvalService.consume()` burns the one-time token, so a concurrent spend fails without wasting the approval.
+  - **Wallet lock before the approval token.** The wallet balance is checked under its lock _before_ `approvalService.consume()` burns the one-time token, so a concurrent spend fails without wasting the approval.
 
   TO_WALLET siblings are refused, and reversal handles a stale bill. Cost: a race between two checkouts on one wallet. Rule candidate: in any money path, lock bills then wallet, and burn approval tokens last -> Rule 24-27 candidate.
 
