@@ -87,15 +87,15 @@
   },
   "revoke": {
     "title": "Revoke {{name}}",
-    "warning": "Anyone scanning this card's QR code will see it is no longer valid.",
+    "warning": "Anyone scanning this document's QR code will see it is no longer valid.",
     "reason": "Reason",
     "reasonHelp": "Required, up to 280 characters. Shown to staff, not to the public.",
     "reasonRequired": "Enter a reason.",
-    "confirm": "Revoke card",
+    "confirm": "Revoke",
     "cancel": "Cancel",
     "saving": "Revoking…",
-    "failed": "Could not revoke this card.",
-    "done": "Card revoked"
+    "failed": "Could not revoke it.",
+    "done": "Revoked"
   },
   "subject": {
     "title": "Print history",
