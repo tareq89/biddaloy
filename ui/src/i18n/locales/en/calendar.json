@@ -74,6 +74,7 @@
     "title": "Government holidays",
     "description": "Suggested holidays for this year, from the published national calendar.",
     "alreadyAdded": "Already added",
+    "past": "Date has passed",
     "empty": "No suggested holidays for this year yet.",
     "addCount_one": "Add {{n}} holiday",
     "addCount_other": "Add {{n}} holidays",

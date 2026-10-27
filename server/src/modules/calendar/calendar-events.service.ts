@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { CalendarEvent } from './entities/calendar-event.entity';
 import { CalendarEventClass } from './entities/calendar-event-class.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
@@ -252,6 +252,9 @@ export class CalendarEventsService {
      * silently land the event in the wrong one. Never sourced from client
      * input. */
     expectedAcademicYearId?: string,
+    /** Write through this transaction's manager (bulk holiday add), so a
+     * later failure rolls the event back. */
+    manager?: EntityManager,
   ): Promise<CalendarEventWithClassIds> {
     if (dto.end_date < dto.start_date) {
       throw new UnprocessableEntityException({
@@ -304,7 +307,9 @@ export class CalendarEventsService {
     // A past closure is always live at once and never announced (no SMS
     // about a day that is over).
     const publish = isPastClosure ? true : (dto.publish ?? true);
-    const event = this.eventRepo.create({
+    const eventRepo = manager?.getRepository(CalendarEvent) ?? this.eventRepo;
+    const eventClassRepo = manager?.getRepository(CalendarEventClass) ?? this.eventClassRepo;
+    const event = eventRepo.create({
       tenant_id: tenantId,
       academic_year_id: academicYear.id,
       type: dto.type,
@@ -320,10 +325,10 @@ export class CalendarEventsService {
       created_by_user_id: userId,
       updated_by_user_id: userId,
     });
-    const saved = await this.eventRepo.save(event);
+    const saved = await eventRepo.save(event);
 
     if (classIds.length > 0) {
-      await this.eventClassRepo.save(
+      await eventClassRepo.save(
         classIds.map((classId) => ({ event_id: saved.id, class_id: classId, tenant_id: tenantId })),
       );
     }
