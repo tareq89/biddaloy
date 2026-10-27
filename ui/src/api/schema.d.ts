@@ -8225,7 +8225,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** The roster the caller may mark on a day, with saved marks. Admin-level callers get every staff member; anyone else gets only their own row. */
+        get: operations["StaffAttendanceController_getDay_v1"];
         /** Marks/corrects one day's staff attendance in one call. Outside the tenant's correction window a `reason` (>=3 chars) is required, and every correction is audited. */
         put: operations["StaffAttendanceController_markDay_v1"];
         post?: never;
@@ -9908,6 +9909,8 @@ export interface components {
             message: string;
             /** @enum {string} */
             severity: "error" | "warning";
+            /** @description Stable problem code; the UI translates it */
+            code?: string;
             /** @description Offending cell value, when available */
             value?: string;
             /** @description Sheet/tab name the row was found on, for multi-tab workbooks */
@@ -15837,6 +15840,21 @@ export interface components {
             version: number;
             records: components["schemas"]["StaffAttendanceRecordDto"][];
         };
+        StaffAttendanceRosterRowDto: {
+            staff_profile_id: string;
+            user_id: string;
+            full_name: string;
+            role: string;
+            /** @enum {string|null} */
+            status: "PRESENT" | "ABSENT" | "LATE" | "LEAVE" | null;
+        };
+        StaffAttendanceDayDto: {
+            date: string;
+            /** @description True when saving a correction needs a `reason`. */
+            reason_required: boolean;
+            non_working_day: boolean;
+            staff: components["schemas"]["StaffAttendanceRosterRowDto"][];
+        };
         StaffAttendanceSummaryDto: {
             working_days: number;
             present_days: number;
@@ -19568,6 +19586,8 @@ export interface operations {
                         limit: number;
                         /** @description Number of pages at this `limit`. */
                         totalPages: number;
+                        /** @description Sum of total_due over every matched student, all pages. */
+                        total_due_sum: number;
                     };
                 };
             };
@@ -37437,6 +37457,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StaffLanguage"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StaffAttendanceController_getDay_v1: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAttendanceDayDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
