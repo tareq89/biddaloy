@@ -284,6 +284,7 @@ GET /reports/collections.csv | ReportsController | perm: REPORT_COLLECTIONS_READ
 GET /routines | RoutineSlotsController | perm: ROUTINE_READ
 GET /routines/:id | RoutineSlotsController | perm: ROUTINE_READ
 GET /routines/:id/change-requests | ChangeRequestsController | perm: ROUTINE_MANAGE
+GET /routines/:id/change-requests/mine | ChangeRequestsController | perm: ROUTINE_READ | roles: TEACHER
 GET /routines/:id/greedy-fill | RoutineSlotsController | perm: ROUTINE_MANAGE
 GET /routines/:id/slots | RoutineSlotsController | perm: ROUTINE_READ
 GET /routines/:id/workload | RoutineSlotsController | perm: ROUTINE_MANAGE
