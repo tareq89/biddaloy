@@ -33,7 +33,7 @@
  * This page never re-filters or re-derives that on the client: `null`
  * renders as an em dash, never `0%`.
  */
-import { Permission } from '@biddaloy/shared';
+import { LOW_ATTENDANCE_FLAG_ROLES, Permission, UserRole } from '@biddaloy/shared';
 import { getActiveTenant } from '@biddaloy/ui/api';
 import {
   RoutePending,
@@ -48,6 +48,7 @@ import {
 import {
   useClasses,
   useClassSections,
+  useActiveRole,
   useHasPermission,
   useLowAttendance,
   useRegisterMatrix,
@@ -165,8 +166,13 @@ function ReportsPageContent() {
   const settingsQuery = useSchoolSettings(getActiveTenant() ?? '');
   const periodEnabled = settingsQuery.data?.attendance?.periodAttendance?.enabled === true;
   const lowThreshold = settingsQuery.data?.attendance?.lowAttendanceThresholdPercent;
+  // Same roles the route accepts (SUPER_ADMIN passes RolesGuard): others never
+  // see the tab or send the request.
+  const role = useActiveRole();
+  const canSeeFlags =
+    role === UserRole.SUPER_ADMIN || LOW_ATTENDANCE_FLAG_ROLES.includes(role as UserRole);
   const view =
-    filters.view === 'flags'
+    filters.view === 'flags' && canSeeFlags
       ? 'flags'
       : filters.view === 'subjects' && periodEnabled
         ? 'subjects'
@@ -191,15 +197,18 @@ function ReportsPageContent() {
     view === 'summary' ? filters.section_id : undefined,
     month,
   );
-  const flagsQuery = useLowAttendance({
-    from,
-    to,
-    ...(threshold !== undefined ? { threshold } : {}),
-    ...(filters.class_id !== undefined ? { class_id: filters.class_id } : {}),
-    ...(filters.section_id !== undefined ? { section_id: filters.section_id } : {}),
-    page: state.page,
-    limit: state.limit,
-  });
+  const flagsQuery = useLowAttendance(
+    {
+      from,
+      to,
+      ...(threshold !== undefined ? { threshold } : {}),
+      ...(filters.class_id !== undefined ? { class_id: filters.class_id } : {}),
+      ...(filters.section_id !== undefined ? { section_id: filters.section_id } : {}),
+      page: state.page,
+      limit: state.limit,
+    },
+    { enabled: canSeeFlags && view === 'flags' },
+  );
 
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const [reminderStudentId, setReminderStudentId] = React.useState<string | null>(null);
@@ -429,7 +438,7 @@ function ReportsPageContent() {
       >
         <TabsList variant="line" aria-label={t('reports.viewLabel')}>
           <TabsTrigger value="summary">{t('reports.viewSummary')}</TabsTrigger>
-          <TabsTrigger value="flags">{t('reports.viewFlags')}</TabsTrigger>
+          {canSeeFlags && <TabsTrigger value="flags">{t('reports.viewFlags')}</TabsTrigger>}
           {periodEnabled && <TabsTrigger value="subjects">{t('reports.viewSubjects')}</TabsTrigger>}
         </TabsList>
         {/* The selected view's report is its tab's panel. mt-4 + the Tabs gap-2 = the page's space-y-6. */}

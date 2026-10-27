@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { LOW_ATTENDANCE_FLAG_ROLES, Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -220,13 +220,7 @@ export class AttendanceSummaryController {
   }
 
   @Get('flags/low')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.EXECUTIVE,
-    UserRole.ACCOUNTANT,
-    UserRole.OFFICE_STAFF,
-    UserRole.EXAM_CONTROLLER,
-  )
+  @Roles(...LOW_ATTENDANCE_FLAG_ROLES)
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:

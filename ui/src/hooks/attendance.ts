@@ -544,8 +544,12 @@ export function lowAttendanceKey(filters: LowAttendanceFilters) {
   return [...attendanceKeys.all, 'low', filters] as const;
 }
 
-export function lowAttendanceQueryOptions(filters: LowAttendanceFilters) {
+export function lowAttendanceQueryOptions(
+  filters: LowAttendanceFilters,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   return queryOptions({
+    enabled,
     queryKey: lowAttendanceKey(filters),
     queryFn: async ({ signal }) => {
       const res = await apiClient.get<LowAttendanceListResponse>('/attendance/flags/low', {
@@ -559,6 +563,9 @@ export function lowAttendanceQueryOptions(filters: LowAttendanceFilters) {
   });
 }
 
-export function useLowAttendance(filters: LowAttendanceFilters) {
-  return useQuery(lowAttendanceQueryOptions(filters));
+export function useLowAttendance(
+  filters: LowAttendanceFilters,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery(lowAttendanceQueryOptions(filters, options));
 }
