@@ -106,6 +106,36 @@ describe('/staff/teaching-assignments', () => {
     expect(within(cardA).queryByRole('button', { name: /next/i })).toBeNull();
   });
 
+  it('lists only current-year classes in the picker', async () => {
+    const thisYear = classFactory({ id: 'class-now', name: 'Class 6 (now)' });
+    const lastYear = classFactory({ id: 'class-old', name: 'Class 6 (old)' });
+    let requestedYear: string | null = null;
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json(
+          paged([
+            { id: 'y-old', name: '2025', is_current: false },
+            { id: 'y-now', name: '2026', is_current: true },
+          ]),
+        ),
+      ),
+      http.get('/api/v1/classes', ({ request }) => {
+        requestedYear = new URL(request.url).searchParams.get('academic_year_id');
+        return HttpResponse.json(
+          paged(requestedYear === 'y-now' ? [thisYear] : [thisYear, lastYear]),
+        );
+      }),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([])),
+    );
+    render();
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox'));
+    expect(await screen.findByRole('option', { name: 'Class 6 (now)' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Class 6 (old)' })).toBeNull();
+    expect(requestedYear).toBe('y-now');
+  });
+
   it('class picker switches the cards to the selected class', async () => {
     const classA = classFactory({ id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', name: 'Class 6' });
     const classB = classFactory({ id: '4fa85f64-5717-4562-b3fc-2c963f66afa6', name: 'Class 7' });
