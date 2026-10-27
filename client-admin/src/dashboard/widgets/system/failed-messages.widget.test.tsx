@@ -35,7 +35,7 @@ describe('failed-messages widget', () => {
   it('3 failed → value, sentence, warning badge with text, link', async () => {
     serve({ failed: 3, window: WINDOW });
     renderWidget('full');
-    expect(await screen.findByText('৩ failed')).toBeTruthy();
+    expect(await screen.findByText('3 failed')).toBeTruthy();
     const badge = document.querySelector('[data-slot="status-badge"]')!;
     expect(badge.getAttribute('data-tone')).toBe('warning');
     expect(badge.textContent).toBe('SMS that could not be sent in the last 7 days.');
@@ -54,6 +54,6 @@ describe('failed-messages widget', () => {
   it('compact renders the count', async () => {
     serve({ failed: 2, window: WINDOW });
     renderWidget('compact');
-    expect(await screen.findByText('২ failed')).toBeTruthy();
+    expect(await screen.findByText('2 failed')).toBeTruthy();
   });
 });

@@ -35,8 +35,12 @@ export function resolveRegionConfig(
   if (!tenantRegion) return fallback;
 
   return {
-    locale: tenantRegion.locale ?? fallback.locale,
-    numerals: tenantRegion.numerals ?? fallback.numerals,
+    // [2974] The UI language decides the words (`locale`: month names, ordinals, AM/PM); the
+    // English UI always shows Latin digits; the Bangla UI follows the school's numeral setting.
+    // The school's stored `locale` ('bn-BD' by default) must not override the UI language.
+    locale: fallback.locale,
+    numerals:
+      fallback.numerals === 'latin' ? 'latin' : (tenantRegion.numerals ?? fallback.numerals),
     timezone: tenantRegion.timezone ?? fallback.timezone,
     currency: {
       code: tenantRegion.currency?.code ?? fallback.currency.code,

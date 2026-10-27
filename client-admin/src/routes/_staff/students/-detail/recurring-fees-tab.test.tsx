@@ -1,4 +1,4 @@
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   classSectionFactory,
   cleanupTestState,
@@ -248,7 +248,7 @@ describe('students/-detail/recurring-fees-tab', () => {
     // the UI, matching `generate-fees-modal.test.tsx`'s own assertion
     // shape for the same counter.
     expect(
-      await within(dialog).findByText(`${formatNumber(1, REGION_BD_BN)} selected`),
+      await within(dialog).findByText(`${formatNumber(1, REGION_BD_EN)} selected`),
     ).toBeTruthy();
   });
 

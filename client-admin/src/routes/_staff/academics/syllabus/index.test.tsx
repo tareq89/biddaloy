@@ -1,5 +1,5 @@
 import { SyllabusTopicStatus } from '@biddaloy/shared';
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   classFactory,
   cleanupTestState,
@@ -91,8 +91,8 @@ describe('/academics/syllabus', () => {
     expect(within(rows[0]!).getByText('Algebra basics')).toBeTruthy();
     expect(within(rows[1]!).getByText('Geometry')).toBeTruthy();
     // Numbered in teaching order (region digits).
-    expect(within(rows[0]!).getByText(formatNumber(1, REGION_BD_BN))).toBeTruthy();
-    expect(within(rows[1]!).getByText(formatNumber(2, REGION_BD_BN))).toBeTruthy();
+    expect(within(rows[0]!).getByText(formatNumber(1, REGION_BD_EN))).toBeTruthy();
+    expect(within(rows[1]!).getByText(formatNumber(2, REGION_BD_EN))).toBeTruthy();
   });
 
   it('empty list renders the empty message', async () => {
@@ -309,8 +309,8 @@ describe('/academics/syllabus', () => {
     const user = userEvent.setup();
     await pickClassAndSubject(user);
 
-    const done = formatNumber(1, REGION_BD_BN);
-    const total = formatNumber(2, REGION_BD_BN);
+    const done = formatNumber(1, REGION_BD_EN);
+    const total = formatNumber(2, REGION_BD_EN);
     expect(await screen.findByText(`${done} of ${total} topics done`)).toBeTruthy();
   });
 
@@ -576,7 +576,7 @@ describe('/academics/syllabus', () => {
     });
     expect(
       await screen.findByText(
-        `Taught in ${formatNumber(2, REGION_BD_BN)} of ${formatNumber(3, REGION_BD_BN)} sections`,
+        `Taught in ${formatNumber(2, REGION_BD_EN)} of ${formatNumber(3, REGION_BD_EN)} sections`,
       ),
     ).toBeTruthy();
     expect(screen.getAllByText(/Taught in/)).toHaveLength(1);
