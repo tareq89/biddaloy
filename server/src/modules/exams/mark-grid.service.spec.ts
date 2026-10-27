@@ -510,6 +510,22 @@ describe('MarkGridService.progress', () => {
 
     expect(result.counts[MarkGridState.SUBMITTED]).toBe(1);
     expect(result.outstanding).toEqual([]);
+    // The marks-entry list still shows it: `grids` has every openable grid.
+    expect(result.grids).toHaveLength(1);
+    expect(result.grids[0]).toMatchObject({ state: MarkGridState.SUBMITTED });
+  });
+
+  it('a SUBMITTED grid stays in grids with stateFilter = SUBMITTED, not in outstanding', async () => {
+    const { service } = await buildService({
+      section: { id: SECTION_ID, tenant_id: TENANT_ID, section_name: 'A' },
+      components: [{ id: 'comp-1', subject_id: SUBJECT_ID }],
+      grid: { section_id: SECTION_ID, subject_id: SUBJECT_ID, state: MarkGridState.SUBMITTED },
+    });
+
+    const result = await service.progress(EXAM_ID, TENANT_ID, MarkGridState.SUBMITTED, null);
+
+    expect(result.grids).toHaveLength(1);
+    expect(result.outstanding).toEqual([]);
   });
 });
 
