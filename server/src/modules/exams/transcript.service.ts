@@ -63,7 +63,7 @@ export class TranscriptService {
         })
       : null;
     if (!student || !year || !enrollment) {
-      throw new NotFoundException(`No enrollment for student "${studentId}" in that year`);
+      throw new NotFoundException('No enrollment for this student in that year');
     }
 
     const exams = await this.examRepo.find({
@@ -132,7 +132,7 @@ export class TranscriptService {
     const student = await this.studentRepo.findOne({
       where: { id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (!student) throw new NotFoundException(`Student "${studentId}" not found`);
+    if (!student) throw new NotFoundException('Student not found');
 
     let target: Record<string, string>;
     if (dto.document === 'REPORT_CARD') {
@@ -142,7 +142,7 @@ export class TranscriptService {
         tenantId,
         publishedOnly,
       );
-      if (!card) throw new NotFoundException(`No result for student "${studentId}" on that exam`);
+      if (!card) throw new NotFoundException('No result for this student on that exam');
       target = { exam_id: dto.exam_id! };
     } else {
       const enrolled = await this.enrollmentRepo.exists({
@@ -153,7 +153,7 @@ export class TranscriptService {
         },
       });
       if (!enrolled) {
-        throw new NotFoundException(`No enrollment for student "${studentId}" in that year`);
+        throw new NotFoundException('No enrollment for this student in that year');
       }
       target = { academic_year_id: dto.academic_year_id! };
     }

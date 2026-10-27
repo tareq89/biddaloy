@@ -132,7 +132,7 @@ export class PrintTemplatesService {
 
   async create(tenantId: string, userId: string, dto: CreatePrintTemplateDto) {
     const suggestion = PRINT_SUGGESTIONS.find((s) => s.key === dto.suggestion_key);
-    if (!suggestion) throw new BadRequestException(`Unknown suggestion "${dto.suggestion_key}"`);
+    if (!suggestion) throw new BadRequestException('Unknown suggestion');
 
     // Storage first, DB second: a failed transaction leaves at most an unreferenced object.
     // A front-only suggestion (the A4 ACR page) has no back artwork.

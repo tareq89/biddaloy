@@ -70,7 +70,7 @@ export class RecomputeService {
     const scale = await this.scaleRepo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (!scale) throw new NotFoundException(`Grading scale "${id}" not found`);
+    if (!scale) throw new NotFoundException('Grading scale not found');
     return scale;
   }
 
@@ -156,7 +156,7 @@ export class RecomputeService {
         // Only `revision`, a non-key column, is written below.
         lock: { mode: 'for_no_key_update' },
       });
-      if (!scale) throw new NotFoundException(`Grading scale "${scaleId}" not found`);
+      if (!scale) throw new NotFoundException('Grading scale not found');
 
       const bandRepo = manager.getRepository(GradingBand);
       // Capture the old band set (for the audit row) before it's replaced.

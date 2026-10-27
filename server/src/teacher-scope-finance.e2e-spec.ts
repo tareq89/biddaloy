@@ -308,7 +308,7 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
       expect(own.body.map((l: { id: string }) => l.id)).toEqual([logOfA]);
       expect(own.body.map((l: { id: string }) => l.id)).not.toContain(siblingLogB);
       const family = await asTeacher(`/communications/${familyLogA[0].id}`).expect(404);
-      expect(family.body.message).toBe(`Communication log with ID "${familyLogA[0].id}" not found`);
+      expect(family.body.message).toBe('Communication log not found');
       await asTeacher(`/communications/guardian/${fx.guardianB}`).expect(404);
     });
 
@@ -319,7 +319,7 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
       // D13: an out-of-scope log reads exactly like a missing one (the message echoes the id).
       const notFound = (id: string) => ({
         statusCode: 404,
-        message: `Communication log with ID "${id}" not found`,
+        message: 'Communication log not found',
       });
       for (const id of [logOfB, guardianLogB, randomUUID()]) {
         const res = await asTeacher(`/communications/${id}`).expect(404);

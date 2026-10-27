@@ -81,7 +81,7 @@ export async function lockExam(
     lock: { mode },
   });
   if (!exam) {
-    throw new NotFoundException(`Exam with ID "${examId}" not found`);
+    throw new NotFoundException('Exam not found');
   }
   return exam;
 }
@@ -229,7 +229,7 @@ export class ResultsService {
       where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!exam) {
-      throw new NotFoundException(`Exam with ID "${examId}" not found`);
+      throw new NotFoundException('Exam not found');
     }
     return exam;
   }
@@ -275,7 +275,7 @@ export class ResultsService {
     const scale = resolveScale(scales, exam.academic_year_id, exam.class_id);
     if (!scale) {
       throw new ConflictException(
-        `No grading scale found for academic year "${exam.academic_year_id}" (or class "${exam.class_id}").`,
+        "No grading scale found for this exam's academic year (or class).",
       );
     }
     const bandRows = await manager.getRepository(GradingBand).find({
@@ -596,7 +596,7 @@ export class ResultsService {
     const exam = await this.findExam(examId, tenantId);
     if (exam.status === ExamStatus.PUBLISHED) {
       throw new ConflictException(
-        `Exam "${examId}" is already published — reopen it (step-up approval) before reprocessing.`,
+        'This exam is already published — reopen it (step-up approval) before reprocessing.',
       );
     }
 
@@ -605,8 +605,7 @@ export class ResultsService {
       if (outstanding.length > 0) {
         throw new ConflictException({
           message:
-            `Cannot process exam "${examId}": ${outstanding.length} grid(s) are not submitted or still have blank cells ` +
-            `(section ${outstanding[0].section_id}, subject ${outstanding[0].subject_id}, and ${outstanding.length - 1} more). ` +
+            `Cannot process exam: ${outstanding.length} grid(s) are not submitted or still have blank cells. ` +
             'Pass force=true to override — the override is audited.',
           details: { code: 'GRIDS_OUTSTANDING', outstanding: outstanding.slice(0, 50) },
         });
@@ -618,9 +617,7 @@ export class ResultsService {
     });
     const scale = resolveScale(scales, exam.academic_year_id, exam.class_id);
     if (!scale) {
-      throw new ConflictException(
-        `No grading scale found for academic year "${exam.academic_year_id}".`,
-      );
+      throw new ConflictException("No grading scale found for this exam's academic year.");
     }
 
     const computed = await this.examRepo.manager.transaction(async (manager) => {
@@ -629,7 +626,7 @@ export class ResultsService {
       const locked = await lockExam(manager, examId, tenantId);
       if (locked.status === ExamStatus.PUBLISHED) {
         throw new ConflictException(
-          `Exam "${examId}" is already published — reopen it (step-up approval) before reprocessing.`,
+          'This exam is already published — reopen it (step-up approval) before reprocessing.',
         );
       }
       // Computed after the lock: mark writes hold it FOR SHARE, so none
@@ -720,7 +717,7 @@ export class ResultsService {
     const scale = resolveScale(scales, exam.academic_year_id, exam.class_id);
     if (!scale) {
       throw new ConflictException({
-        message: `No grading scale found for academic year "${exam.academic_year_id}" (or class "${exam.class_id}").`,
+        message: "No grading scale found for this exam's academic year (or class).",
         details: { code: 'NO_GRADING_SCALE' },
       });
     }
@@ -759,7 +756,7 @@ export class ResultsService {
     const exam = await this.findExam(examId, tenantId);
     if (exam.status !== ExamStatus.PROCESSED) {
       throw new ConflictException(
-        `Exam "${examId}" must be PROCESSED before it can be published (current: ${exam.status}).`,
+        `This exam must be PROCESSED before it can be published (current: ${exam.status}).`,
       );
     }
 
@@ -767,7 +764,7 @@ export class ResultsService {
       const locked = await lockExam(manager, examId, tenantId);
       if (locked.status !== ExamStatus.PROCESSED) {
         throw new ConflictException(
-          `Exam "${examId}" must be PROCESSED before it can be published (current: ${locked.status}).`,
+          `This exam must be PROCESSED before it can be published (current: ${locked.status}).`,
         );
       }
       const now = new Date();
@@ -814,15 +811,13 @@ export class ResultsService {
   ): Promise<void> {
     const exam = await this.findExam(examId, tenantId);
     if (exam.status !== ExamStatus.PUBLISHED) {
-      throw new ConflictException(`Exam "${examId}" is not published (current: ${exam.status}).`);
+      throw new ConflictException(`This exam is not published (current: ${exam.status}).`);
     }
 
     await this.examRepo.manager.transaction(async (manager) => {
       const locked = await lockExam(manager, examId, tenantId);
       if (locked.status !== ExamStatus.PUBLISHED) {
-        throw new ConflictException(
-          `Exam "${examId}" is not published (current: ${locked.status}).`,
-        );
+        throw new ConflictException(`This exam is not published (current: ${locked.status}).`);
       }
       await manager
         .getRepository(Exam)

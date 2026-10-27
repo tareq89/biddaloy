@@ -223,7 +223,7 @@ export class ProvisioningService {
             '',
         )
       ) {
-        throw new ConflictException(`School with slug "${dto.slug}" already exists`);
+        throw new ConflictException('A school with this slug already exists');
       }
       throw err;
     }
@@ -297,7 +297,7 @@ export class ProvisioningService {
       await new Promise((resolve) => setTimeout(resolve, IN_PROGRESS_POLL_MS));
     }
     throw new ConflictException(
-      `Provisioning for idempotency_key "${idempotencyKey}" is still in progress — retry shortly`,
+      'Provisioning for this idempotency_key is still in progress — retry shortly',
     );
   }
 
@@ -378,7 +378,7 @@ export class ProvisioningService {
     // QueryFailedError (500). Checked inside the caller's transaction: a defined 409
     // instead, without issuing another invitation.
     if (existingMembership && !existingMembership.deleted_at) {
-      throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
+      throw new ConflictException('This user is already an ADMIN of this school');
     }
 
     try {
@@ -386,7 +386,7 @@ export class ProvisioningService {
         // Only a soft-deleted (former) admin reaches here: the unique index
         // ignores soft-deletion, so bring that row back instead of inserting.
         if (!(await reviveMembership(manager, existingMembership.id))) {
-          throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
+          throw new ConflictException('This user is already an ADMIN of this school');
         }
       } else {
         await userTenantRepo.save(
@@ -412,7 +412,7 @@ export class ProvisioningService {
         err instanceof QueryFailedError &&
         (err as unknown as { code?: string }).code === '23505'
       ) {
-        throw new ConflictException(`User "${user.id}" is already an ADMIN of this school`);
+        throw new ConflictException('This user is already an ADMIN of this school');
       }
       throw err;
     }

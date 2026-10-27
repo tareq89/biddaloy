@@ -95,7 +95,7 @@ export class RecurringSchedulesService {
   private async loadAcademicYear(id: string, tenantId: string): Promise<AcademicYear> {
     const year = await this.academicYearRepo.findOne({ where: { id, tenant_id: tenantId } });
     if (!year) {
-      throw new NotFoundException(`Academic year "${id}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
     return year;
   }
@@ -111,7 +111,7 @@ export class RecurringSchedulesService {
         where: { id: audience.program_id, tenant_id: tenantId },
       });
       if (!program) {
-        throw new NotFoundException(`Program "${audience.program_id}" not found`);
+        throw new NotFoundException('Program not found');
       }
     }
     let classId = audience.class_id;
@@ -120,9 +120,7 @@ export class RecurringSchedulesService {
         where: { id: classId, tenant_id: tenantId, academic_year_id: academicYearId },
       });
       if (!klass) {
-        throw new BadRequestException(
-          `Class "${classId}" does not belong to this tenant/academic year`,
-        );
+        throw new BadRequestException('This class does not belong to this tenant/academic year');
       }
     }
     if (audience.section_id) {
@@ -130,7 +128,7 @@ export class RecurringSchedulesService {
         where: { id: audience.section_id, tenant_id: tenantId },
       });
       if (!section) {
-        throw new BadRequestException(`Section "${audience.section_id}" not found`);
+        throw new BadRequestException('Section not found');
       }
       if (classId && section.class_id !== classId) {
         throw new BadRequestException('audience.section_id does not belong to audience.class_id');
@@ -141,9 +139,7 @@ export class RecurringSchedulesService {
         where: { id: section.class_id, tenant_id: tenantId, academic_year_id: academicYearId },
       });
       if (!sectionClass) {
-        throw new BadRequestException(
-          `Section "${audience.section_id}" does not belong to this tenant/academic year`,
-        );
+        throw new BadRequestException('This section does not belong to this tenant/academic year');
       }
     }
   }
@@ -433,7 +429,7 @@ export class RecurringSchedulesService {
   private async getOwnedSchedule(id: string, tenantId: string): Promise<RecurringSchedule> {
     const schedule = await this.repo.findOne({ where: { id, tenant_id: tenantId } });
     if (!schedule) {
-      throw new NotFoundException(`Recurring schedule "${id}" not found`);
+      throw new NotFoundException('Recurring schedule not found');
     }
     return schedule;
   }
@@ -598,7 +594,7 @@ export class RecurringSchedulesService {
       where: { id: dto.student_id, tenant_id: tenantId },
     });
     if (!student) {
-      throw new BadRequestException(`Student "${dto.student_id}" not found`);
+      throw new BadRequestException('Student not found');
     }
 
     await this.repo.manager.transaction(async (manager) => {
@@ -842,7 +838,7 @@ export class RecurringSchedulesService {
       relations: { class_section: true },
     });
     if (!student) {
-      throw new NotFoundException(`Student "${studentId}" not found`);
+      throw new NotFoundException('Student not found');
     }
 
     // Restrict to schedules whose window is currently open — otherwise a

@@ -90,9 +90,7 @@ describe('CommunicationsController', () => {
 
   describe('error propagation', () => {
     it('should propagate NotFoundException from service.sendToGuardian', async () => {
-      service.sendToGuardian.mockRejectedValue(
-        new NotFoundException('Student with ID "bad" not found'),
-      );
+      service.sendToGuardian.mockRejectedValue(new NotFoundException('Student not found'));
 
       await expect(
         controller.send(
@@ -110,9 +108,7 @@ describe('CommunicationsController', () => {
     });
 
     it('should propagate NotFoundException from service.findOne', async () => {
-      service.findOne.mockRejectedValue(
-        new NotFoundException('Communication log with ID "bad" not found'),
-      );
+      service.findOne.mockRejectedValue(new NotFoundException('Communication log not found'));
 
       await expect(controller.findOne('bad', TENANT, USER)).rejects.toThrow(NotFoundException);
     });

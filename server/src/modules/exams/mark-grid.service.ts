@@ -135,7 +135,7 @@ export class MarkGridService {
       where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!exam) {
-      throw new NotFoundException(`Exam with ID "${examId}" not found`);
+      throw new NotFoundException('Exam not found');
     }
     return exam;
   }
@@ -145,7 +145,7 @@ export class MarkGridService {
       where: { id: sectionId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!section) {
-      throw new NotFoundException(`Section with ID "${sectionId}" not found`);
+      throw new NotFoundException('Section not found');
     }
     return section;
   }

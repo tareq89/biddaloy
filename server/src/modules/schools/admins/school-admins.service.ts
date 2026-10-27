@@ -182,7 +182,7 @@ export class SchoolAdminsService {
       where: { tenant_id: schoolId, user_id: userId, role: UserRole.ADMIN },
     });
     if (!membership) {
-      throw new NotFoundException(`ADMIN with ID "${userId}" not found on this school`);
+      throw new NotFoundException('ADMIN not found on this school');
     }
   }
 }
