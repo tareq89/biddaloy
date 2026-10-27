@@ -234,4 +234,29 @@ describe('Combobox', () => {
     expect(liveRegion).not.toBeNull();
     expect(liveRegion?.textContent).toBe('');
   });
+
+  it('[#2865] onQueryChange reports typed text and turns off the local filter', async () => {
+    const queries: string[] = [];
+    function Searching() {
+      const [value, setValue] = useState<string | null>(null);
+      return (
+        <Combobox
+          aria-label="Class"
+          options={CLASS_OPTIONS}
+          value={value}
+          onValueChange={setValue}
+          onQueryChange={(q) => queries.push(q)}
+        />
+      );
+    }
+    const user = userEvent.setup();
+    render(<Searching />);
+    const input = screen.getByRole('combobox', { name: 'Class' });
+    await user.click(input);
+    await user.type(input, 'xyz');
+
+    expect(queries.at(-1)).toBe('xyz');
+    // The caller searches on the server, so nothing is filtered out here.
+    expect(await screen.findAllByRole('option')).toHaveLength(CLASS_OPTIONS.length);
+  });
 });
