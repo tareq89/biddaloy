@@ -16,6 +16,7 @@ function fakeQueryBuilder(result: {
   const qb: any = {
     where: vi.fn().mockReturnThis(),
     andWhere: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
     innerJoin: vi.fn().mockReturnThis(),
     distinct: vi.fn().mockReturnThis(),
     take: vi.fn().mockReturnThis(),
@@ -417,7 +418,7 @@ describe('GuardianProvisioningService', () => {
 
       const result = await service.preview(TENANT, { guardian_ids: ['cross-tenant-id'] });
 
-      expect(result).toEqual({ total: 0, to_invite: [], skipped: [] });
+      expect(result).toEqual({ total: 0, to_invite: [], skipped: [], next_after: null });
     });
   });
 
