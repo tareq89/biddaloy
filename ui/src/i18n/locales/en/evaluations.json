@@ -14,6 +14,7 @@
     "yearLabel": "Academic year",
     "starting": "Starting…",
     "startError": "Couldn't start the ACR.",
+    "startNoCriteria": "Save the ACR criteria first, then start an ACR.",
     "startConflict": "An ACR already exists for this staff member and year.",
     "errorStaff": "Choose a staff member.",
     "errorYear": "Choose an academic year.",

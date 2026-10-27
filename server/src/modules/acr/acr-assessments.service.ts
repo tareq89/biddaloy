@@ -59,7 +59,11 @@ export class AcrAssessmentsService {
       where: { tenant_id: tenantId },
       order: { version: 'DESC' },
     });
-    if (!latest) throw new ConflictException('No ACR form version exists; save criteria first');
+    if (!latest)
+      throw new ConflictException({
+        message: 'No ACR form version exists; save criteria first',
+        details: { code: 'ACR_NO_FORM_VERSION' },
+      });
     const dup = await this.assessments.findOne({
       where: { tenant_id: tenantId, user_id: dto.user_id, academic_year_id: dto.academic_year_id },
     });
