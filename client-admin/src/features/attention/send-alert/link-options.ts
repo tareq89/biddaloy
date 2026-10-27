@@ -22,7 +22,7 @@ export interface LinkOption {
 }
 
 /** `nav:items.*` keys of the `/portal/*` pages (mirrors `routes/portal.tsx`). */
-const PORTAL_PAGES = [
+export const PORTAL_PAGES = [
   ['/portal', 'portalOverview'],
   ['/portal/fees', 'portalFees'],
   ['/portal/attendance', 'portalAttendance'],
@@ -32,7 +32,9 @@ const PORTAL_PAGES = [
   ['/portal/programs', 'portalPrograms'],
   ['/portal/exam-schedule', 'portalExamSchedule'],
   ['/portal/syllabus', 'portalSyllabus'],
+  ['/portal/homework', 'portalHomework'],
   ['/portal/surveys', 'portalSurveys'],
+  ['/portal/applications', 'portalApplications'],
   ['/portal/account', 'portalAccount'],
 ] as const;
 
