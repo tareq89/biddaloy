@@ -248,7 +248,7 @@ Set `TURNSTILE_SECRET_KEY` and `TURNSTILE_SITE_KEY` together or not at all: a
 secret with no site key rejects every sign-up. The content-security-policy
 (`server/src/security-headers.ts`) allows one outside origin,
 `https://challenges.cloudflare.com`, in `script-src` and `frame-src`. See
-[22-onboarding.md](22-onboarding.md).
+[34-onboarding.md](34-onboarding.md).
 
 ## Before you deploy: `yarn config:check`
 

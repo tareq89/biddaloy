@@ -71,7 +71,7 @@ class GuardsPassedInterceptor implements NestInterceptor {
  * answer is the same whatever the role, so the one ADMIN token is enough.
  *
  * Limits: routes that do not run ContextGuard are not walked (see "Over the seats" in
- * docs/architecture/22-onboarding.md for the intended exemptions), and routes only a platform
+ * docs/architecture/34-onboarding.md for the intended exemptions), and routes only a platform
  * token reaches are exempt by design. No other token is faked here.
  */
 describe('Read-only route walk (e2e)', () => {

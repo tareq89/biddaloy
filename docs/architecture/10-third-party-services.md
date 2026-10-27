@@ -20,7 +20,7 @@ flowchart LR
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Cloudflare Turnstile | Captcha on the public `/register` form and the public admission form (`POST /public/admission/:slug/applicants`). The widget loads from `https://challenges.cloudflare.com` (allowed in the CSP, see [07-deployment.md](07-deployment.md)).                                                          | `TURNSTILE_SECRET_KEY` (server). `VITE_TURNSTILE_SITE_KEY` (build arg; no key means the widget is hidden). Set both or neither. |
 | Google sign-in       | "Continue with Google" at login and register, and "connect" on the security page.                                                                                                                                                                                                                    | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`. A provider with no credentials is not listed.                           |
-| Facebook sign-in     | "Continue with Facebook", same places as Google. PKCE; Graph API `GRAPH_VERSION` is pinned in `facebook.provider.ts`. Meta also calls our data-deletion callback (`POST /api/v1/auth/social/facebook/data-deletion`), which links to a public status page. See [22-onboarding.md](22-onboarding.md). | `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`. Set the callback URL in the Meta app dashboard.                     |
+| Facebook sign-in     | "Continue with Facebook", same places as Google. PKCE; Graph API `GRAPH_VERSION` is pinned in `facebook.provider.ts`. Meta also calls our data-deletion callback (`POST /api/v1/auth/social/facebook/data-deletion`), which links to a public status page. See [34-onboarding.md](34-onboarding.md). | `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`. Set the callback URL in the Meta app dashboard.                     |
 
 ## Self-hosted infrastructure
 
@@ -190,7 +190,7 @@ somewhere:
   payments are recorded manually as `Payment` rows — see
   [`04-fees-payments-invoices.md`](04-fees-payments-invoices.md). The one
   exception is the platform's own seat billing, which takes **bKash** (Epic 49):
-  [`28-billing.md`](28-billing.md).
+  [`38-billing.md`](38-billing.md).
 - **Object storage is now wired up** (Epic 15.0/#521) — an S3-compatible
   bucket (SeaweedFS in dev) via `server/src/modules/storage/`, see
   [`13-backup-restore.md`](13-backup-restore.md). It backs uploaded assets
