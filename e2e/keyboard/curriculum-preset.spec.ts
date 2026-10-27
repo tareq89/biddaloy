@@ -187,8 +187,11 @@ test.describe('apply a curriculum preset', () => {
       await test.step('review: open the confirm dialog, type the exact name, apply', async () => {
         await tabUntilFocused(page, t('curriculumPreset.submit'), 10, { tag: 'BUTTON' });
         await page.keyboard.press('Enter');
+        // The label names the preset in the UI language (bn); the English
+        // name is still accepted (`alsoAccept`, #2948), so typing it must
+        // enable Apply — the POST below proves it did.
         const nameField = page.getByRole('textbox', {
-          name: t('curriculumPreset.confirm.typeLabel', { name: NCTB_NAME_EN }),
+          name: t('curriculumPreset.confirm.typeLabel', { name: NCTB_NAME_BN }),
         });
         await expect(nameField).toBeFocused();
         await page.keyboard.type(NCTB_NAME_EN);

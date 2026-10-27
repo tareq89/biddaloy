@@ -252,7 +252,13 @@ test.describe.serial('backup and restore', () => {
       await page.route(`**/api/v1/students/${studentId}`, refuse);
       await fullName.fill(`${studentName} Edited`);
       await save.click();
-      await expect(page.getByText(t('common.errors.schoolRestoring'))).toBeVisible();
+      // The same sentence shows twice: the toast and the form's inline
+      // MutationErrorMessage (<p role="alert">, #2869). Check each one.
+      const restoring = t('common.errors.schoolRestoring');
+      await expect(
+        page.locator('[data-sonner-toast]').filter({ hasText: restoring }),
+      ).toBeVisible();
+      await expect(page.getByRole('alert').filter({ hasText: restoring })).toBeVisible();
 
       // The editor is a chromeless full-screen page: no shell, so no bar
       // there (it has the toast and its own inline error). Back on a shell

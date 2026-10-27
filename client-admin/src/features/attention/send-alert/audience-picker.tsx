@@ -29,12 +29,18 @@ export function AudiencePicker({ value, onChange }: AudiencePickerProps) {
   const [userQuery, setUserQuery] = React.useState('');
   const q = useDebouncedValue(userQuery, 300).trim();
   const users = useUsers({ limit: 100, ...(q ? { search: q } : {}) });
+  // Until the typed text's search has answered, list nobody: the previous
+  // list (debounce pending, or kept as placeholder data while the request is
+  // in flight) does not match what was typed, and Enter would pick its first row.
+  const searching = userQuery.trim() !== q || users.isPending || users.isPlaceholderData;
   // A new search replaces the options, so remember each picked person's label.
   const [pickedLabels, setPickedLabels] = React.useState<Record<string, string>>({});
-  const userOptions: ComboboxOption[] = (users.data?.data ?? []).map((u) => ({
-    value: u.id,
-    label: u.role ? `${u.full_name} · ${t(`roles.${u.role}`)}` : u.full_name,
-  }));
+  const userOptions: ComboboxOption[] = searching
+    ? []
+    : (users.data?.data ?? []).map((u) => ({
+        value: u.id,
+        label: u.role ? `${u.full_name} · ${t(`roles.${u.role}`)}` : u.full_name,
+      }));
   const roleOptions: ComboboxOption[] = ROLES.map((r) => ({ value: r, label: t(`roles.${r}`) }));
 
   const groups: {
@@ -132,7 +138,12 @@ export function AudiencePicker({ value, onChange }: AudiencePickerProps) {
                   placeholder={addLabel}
                   options={options.filter((o) => !ids.includes(o.value))}
                   value={null}
-                  {...(key === 'userIds' ? { onQueryChange: setUserQuery } : {})}
+                  {...(key === 'userIds'
+                    ? {
+                        onQueryChange: setUserQuery,
+                        ...(searching ? { emptyText: t('status.loading', { ns: 'common' }) } : {}),
+                      }
+                    : {})}
                   onValueChange={(next) => {
                     if (!next) return;
                     if (key === 'userIds') {
