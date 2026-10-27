@@ -233,12 +233,41 @@ describe('PeriodSlotsPanel', () => {
 
       await waitFor(() =>
         expect(errorSpy).toHaveBeenCalledWith(
-          'A period you removed or made a break is used in a routine or in lesson records. Put it back, or clear it from the class routine first.',
+          'A period you removed or made a break is used in a routine or in lesson records. Put it back. If only the class routine uses it, you can clear it from the routine first.',
         ),
       );
     } finally {
       errorSpy.mockRestore();
     }
+  });
+
+  it('after a save, a period added there is sent back with its new id [2893]', async () => {
+    mockSlots([MATH]);
+    const bodies: { slots: { id?: string; sequence: number }[] }[] = [];
+    server.use(
+      http.put('*/routines/shifts/shift-1/period-slots', async ({ request }) => {
+        bodies.push((await request.json()) as (typeof bodies)[number]);
+        // The server answers with the rows it stored, the new one now with an id.
+        return HttpResponse.json([
+          MATH,
+          { ...MATH, id: 's9', sequence: 2, name: null, starts_at: '08:45', ends_at: '09:25' },
+        ]);
+      }),
+    );
+    renderPanel();
+    const user = userEvent.setup();
+
+    await screen.findAllByRole('combobox', { name: `Starts, row ${ROW1}` });
+    await user.click(screen.getByRole('button', { name: 'Add period' }));
+    await user.click(saveButton());
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]!.slots[1]).not.toHaveProperty('id');
+
+    // Without reseeding, this second save would send the new row id-less and
+    // the server would delete and re-insert it.
+    await user.click(saveButton());
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]!.slots.map((slot) => slot.id)).toEqual(['s1', 's9']);
   });
 
   it('numbers rows 1..n: a loaded 0-based set is shifted and a new row continues the count', async () => {

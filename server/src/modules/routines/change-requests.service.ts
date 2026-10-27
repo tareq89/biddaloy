@@ -82,7 +82,9 @@ export class ChangeRequestsService {
       .createQueryBuilder('cr')
       .where('cr.tenant_id = :tenantId', { tenantId })
       .andWhere('cr.routine_slot_id IN (:...slotIds)', { slotIds: slots.map((s) => s.id) });
-    if (requestedBy) query.andWhere('cr.requested_by = :requestedBy', { requestedBy });
+    // `!== undefined`, not truthiness: an empty requester must match nothing, never everything.
+    if (requestedBy !== undefined)
+      query.andWhere('cr.requested_by = :requestedBy', { requestedBy });
     return query.orderBy('cr.created_at', 'DESC').getMany();
   }
 

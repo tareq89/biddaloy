@@ -260,6 +260,24 @@ describe('RoutineSlotsService [21.4.1]', () => {
     expect(ctx.slots[0].valid_to).toBe(created.slot.valid_to);
   });
 
+  it('update() in place never reopens a row an earlier edit already closed', async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    const oldId = created.slot.id;
+    // Split: the old row is closed on 2026-05-31, a successor starts 2026-06-01.
+    await ctx.service.update(
+      oldId,
+      { ...baseDto, valid_from: '2026-06-01' } as any,
+      TENANT_ID,
+      'u',
+    );
+    // Re-edit the closed row in place, moved to another weekday (no clash with
+    // the successor), with no valid_to in the dto.
+    await ctx.service.update(oldId, { ...baseDto, weekday: 2 } as any, TENANT_ID, 'u');
+    const oldRow = ctx.slots.find((s: any) => s.id === oldId);
+    expect(oldRow.weekday).toBe(2);
+    expect(oldRow.valid_to).toBe('2026-05-31');
+  });
+
   it('update() rejects re-editing a row that was already superseded by a later edit', async () => {
     const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
     // First edit closes the original row at 2026-05-31 and opens a new one.
