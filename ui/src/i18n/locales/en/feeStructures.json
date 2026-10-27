@@ -34,7 +34,7 @@
   "form": {
     "createTitle": "Add fee structure",
     "editTitle": "Edit fee structure",
-    "description": "Fees are generated each month from the structures that match a student's class and academic year.",
+    "description": "A fee structure is a price. Bills are made from it when you press Create bills, or by an automatic billing rule that uses it.",
     "nameLabel": "Name",
     "namePlaceholder": "e.g. Monthly tuition",
     "feeTypeLabel": "Fee type",

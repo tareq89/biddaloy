@@ -263,6 +263,21 @@ describe('/fee-structures', () => {
     );
   });
 
+  it('says bills are made by Create bills or a billing rule, not monthly', async () => {
+    server.use(
+      listHandler([feeStructureFactory({ id: 'structure-1', class: KLASS })]),
+      ...referenceHandlers(),
+    );
+
+    render();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add fee structure' }));
+
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.getByText(/Create bills/)).toBeTruthy();
+    expect(dialog.queryByText(/each month/i)).toBeNull();
+  });
+
   it('refuses to submit the create form without a name', async () => {
     server.use(
       listHandler([feeStructureFactory({ id: 'structure-1', class: KLASS })]),
