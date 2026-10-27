@@ -11,6 +11,7 @@ const data: CollectionByMonthDto = {
   month_to_date_net: 48500,
   previous_month_same_days_net: 41200,
   months: Array.from({ length: 12 }, (_, i) => ({
+    year: 2026,
     month: i + 1,
     net: i < 9 ? NETS[i]! : i === 9 ? 48500 : null,
     is_current: i === 9,
