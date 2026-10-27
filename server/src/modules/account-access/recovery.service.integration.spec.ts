@@ -90,12 +90,15 @@ describe('RecoveryService (integration)', () => {
       {
         provide: ConfigService,
         useValue: {
+          // JWT_SECRET: OtpService HMACs codes with it.
           get: (key: string) =>
-            key === 'APP_BASE_URL'
-              ? 'http://localhost:5174'
-              : key === 'ACCOUNT_ACCESS_ECHO_SECRETS'
-                ? 'true'
-                : undefined,
+            (
+              ({
+                APP_BASE_URL: 'http://localhost:5174',
+                ACCOUNT_ACCESS_ECHO_SECRETS: 'true',
+                JWT_SECRET: 'test-secret',
+              }) as Record<string, string>
+            )[key],
         },
       },
     ]);

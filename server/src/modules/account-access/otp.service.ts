@@ -5,8 +5,9 @@ import {
   HttpStatus,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type Redis from 'ioredis';
-import { randomInt, createHash } from 'crypto';
+import { randomInt, createHmac } from 'crypto';
 import { toLatinDigits } from '../../common/utils/bengali-digits.util';
 import { normalizeLoginIdentifier } from '../auth/normalize-identifier';
 import { toE164ish } from './phone-delivery.util';
@@ -122,11 +123,15 @@ function lockKey(purpose: OtpPurpose, identifier: string): string {
 function attemptsKey(purpose: OtpPurpose, identifier: string): string {
   return `otp-attempts:${purpose}:${identifier}`;
 }
-/** `bind` ties the code to where it was sent: verifying with any other value fails. */
-function hashCode(code: string, bind: string): string {
-  return createHash('sha256')
-    .update(bind ? `${bind}\n${code}` : code, 'utf8')
-    .digest('hex');
+/**
+ * `bind` ties the code to where it was sent: verifying with any other value fails.
+ * Keyed (HMAC) rather than a plain hash: a 6-digit code has only a million
+ * values, so a leaked Redis record with an unkeyed hash gives the code away
+ * at once; with the key held in env it does not. Domain-separated with
+ * `otp:` from the other HMAC uses of the same secret (calendar feed).
+ */
+function hashCode(code: string, bind: string, secret: string): string {
+  return createHmac('sha256', secret).update(`otp:${bind}\n${code}`, 'utf8').digest('hex');
 }
 
 /**
@@ -155,7 +160,24 @@ export class TooManyRequestsException extends HttpException {
  */
 @Injectable()
 export class OtpService {
-  constructor(@Inject(OTP_REDIS) private readonly redis: Redis) {}
+  constructor(
+    @Inject(OTP_REDIS) private readonly redis: Redis,
+    private readonly config: ConfigService,
+  ) {}
+
+  /**
+   * Same key choice as CalendarFeedService: the settings-encryption key when
+   * set, else JWT_SECRET, so no deployment needs a new variable. Rotating the
+   * key only voids codes issued in the last 5 minutes; the user asks for a new one.
+   */
+  private requireSecret(): string {
+    const secret =
+      this.config.get<string>('SETTINGS_ENCRYPTION_KEY') ?? this.config.get<string>('JWT_SECRET');
+    if (!secret) {
+      throw new Error('JWT_SECRET must be set to hash one-time codes.');
+    }
+    return secret;
+  }
 
   /**
    * `bind` (optional) is the address the code goes to; `verify` must pass the
@@ -174,7 +196,7 @@ export class OtpService {
   ): Promise<{ code: string }> {
     try {
       const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
-      const record: OtpRecord = { hash: hashCode(code, bind) };
+      const record: OtpRecord = { hash: hashCode(code, bind, this.requireSecret()) };
 
       const claimed = await this.redis.eval(
         REQUEST_SCRIPT,
@@ -231,7 +253,7 @@ export class OtpService {
         cooldownKey(purpose, identifier),
         lockKey(purpose, identifier),
         attemptsKey(purpose, identifier),
-        hashCode(code, bind),
+        hashCode(code, bind, this.requireSecret()),
         MAX_ATTEMPTS,
         LOCK_TTL_MS,
         CODE_TTL_MS,

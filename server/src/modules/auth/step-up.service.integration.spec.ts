@@ -42,7 +42,11 @@ describe('StepUpService (integration)', () => {
       { provide: OTP_REDIS, useValue: otpRedis },
       { provide: STEP_UP_REDIS, useValue: stepUpRedis },
       { provide: JwtService, useValue: new JwtService({ secret: 'test-secret' }) },
-      { provide: ConfigService, useValue: { get: () => undefined } },
+      // OtpService HMACs codes with JWT_SECRET; nothing else here reads config.
+      {
+        provide: ConfigService,
+        useValue: { get: (key: string) => (key === 'JWT_SECRET' ? 'test-secret' : undefined) },
+      },
       {
         provide: SchoolsService,
         useValue: {
