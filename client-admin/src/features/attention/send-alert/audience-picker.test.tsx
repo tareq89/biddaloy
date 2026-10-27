@@ -34,6 +34,20 @@ function renderPicker(onValue: (v: ManualAudience) => void) {
         totalPages: 1,
       }),
     ),
+    http.get('/api/v1/users', ({ request }) => {
+      const search = new URL(request.url).searchParams.get('search');
+      const row = (id: string, name: string) => ({
+        id,
+        full_name: name,
+        email: `${id}@x.test`,
+        role: 'TEACHER',
+        status: 'ACTIVE',
+      });
+      const data = search
+        ? [row('u-zahid', 'Zahid Hasan')]
+        : Array.from({ length: 100 }, (_, i) => row(`u${i}`, `Person ${i}`));
+      return HttpResponse.json({ data, total: data.length, page: 1, limit: 100, totalPages: 1 });
+    }),
     http.get('/api/v1/classes/c1/sections', () =>
       HttpResponse.json([{ id: 's1', class_id: 'c1', section_name: 'A', enrolled_count: 3 }]),
     ),
@@ -87,5 +101,24 @@ describe('AudiencePicker', () => {
     await user.click(await screen.findByRole('combobox', { name: 'Add a section' }));
     await user.click(await screen.findByRole('option', { name: 'Class 7 – A' }));
     await waitFor(() => expect(latest).toEqual({ sectionIds: ['s1'] }));
+  });
+
+  it('finds a person beyond the first 100 by server search and keeps their chip label', async () => {
+    const user = userEvent.setup();
+    let latest: ManualAudience = {};
+    renderPicker((v) => (latest = v));
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Named people' }));
+    const box = await screen.findByRole('combobox', { name: 'Search by name or phone' });
+    await user.click(box);
+    await user.type(box, 'Zahid');
+    await user.click(await screen.findByRole('option', { name: /Zahid Hasan/ }, { timeout: 3000 }));
+    await waitFor(() => expect(latest).toEqual({ userIds: ['u-zahid'] }));
+
+    await user.click(screen.getByRole('combobox', { name: 'Search by name or phone' }));
+    await user.type(screen.getByRole('combobox', { name: 'Search by name or phone' }), 'Nobody');
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Remove Zahid Hasan/ })).toBeTruthy(),
+    );
   });
 });
