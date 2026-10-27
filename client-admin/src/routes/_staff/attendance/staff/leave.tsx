@@ -7,6 +7,7 @@
 import { ApplicationType, Permission } from '@biddaloy/shared';
 import {
   Button,
+  HelpHint,
   DataTable,
   EmptyState,
   ErrorState,
@@ -104,6 +105,7 @@ function LeavePage() {
             ? [
                 {
                   id: 'request',
+                  helpId: 'attendance.staffAttendance.action.requestLeave',
                   label: t('myLeave.requestButton'),
                   priority: 'primary',
                   icon: <Plus aria-hidden="true" />,
@@ -154,11 +156,11 @@ function LeavePage() {
       </section>
 
       {canApprove && (
-        <Button asChild variant="outline" className="self-start">
+        <span className="inline-flex items-center gap-1 self-start"><Button asChild variant="outline" className="self-start">
           <Link to="/applications" search={{ view: 'inbox', type: ApplicationType.STAFF_LEAVE }}>
             {t('myLeave.pendingLink')}
           </Link>
-        </Button>
+        </Button><HelpHint helpId="attendance.staffAttendance.action.approveLeave" /></span>
       )}
     </PageContainer>
   );

@@ -21,7 +21,7 @@ import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -136,6 +136,16 @@ describe('/communications/send', () => {
       message_body: 'School closed tomorrow.',
     });
     expect(screen.getByText('Queued')).toBeTruthy();
+  });
+
+  it('shows a (?) after the Review and send button [44.3.06]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(studentSearchHandler());
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(document.querySelector('[data-help-id="communications.sendMessage.action.send"]')).not.toBeNull();
+    vi.unstubAllEnvs();
   });
 
   it('keeps Send disabled until a guardian is picked', async () => {
