@@ -38,6 +38,7 @@ import {
   type CommandPaletteTab,
   type GlobalSearchGroup,
   ShortcutsSheet,
+  useHelp,
 } from '@biddaloy/ui/components';
 import {
   hasPermission,
@@ -86,6 +87,7 @@ export function CommandPaletteLauncher({
   const navigate = useNavigate();
   const activeRole = useActiveRole();
   const signOutToLogin = useSignOutToLogin();
+  const { pageHref: helpHref } = useHelp();
   const demo = useDemoMode();
   const actions = React.useMemo(
     () => (demo.enabled ? [...ACTIONS, DEMO_SWITCH_ROLE_ACTION] : ACTIONS),
@@ -97,6 +99,8 @@ export function CommandPaletteLauncher({
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
   const peopleResults = usePaletteSearch(pages ? '' : debouncedQuery);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const helpHrefRef = React.useRef(helpHref);
+  helpHrefRef.current = helpHref;
 
   // [30.1.3]'s `nav-tree.ts` uses `useEntityLabel` for the same fixed,
   // known-at-build-time set of entity nouns `_staff.tsx` resolves its
@@ -152,6 +156,13 @@ export function CommandPaletteLauncher({
       const isTypingTarget =
         target !== null &&
         (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      // [44.2.01] F1 opens this page's guide in a new tab (E8, D21); inert without one.
+      if (event.key === 'F1' && !isTypingTarget) {
+        if (helpHrefRef.current === null) return;
+        event.preventDefault();
+        window.open(helpHrefRef.current, '_blank', 'noopener');
+        return;
+      }
       if (
         event.key === '?' &&
         !isTypingTarget &&
@@ -315,7 +326,8 @@ export function CommandPaletteLauncher({
           .filter(
             (action) =>
               action.group === 'top' &&
-              hasPermission(activeRole, action.permission) &&
+              (action.permission === null || hasPermission(activeRole, action.permission)) &&
+              (action.id !== 'help.thisPage' || helpHref !== null) &&
               (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
               action.label[locale].toLowerCase().includes(trimmedQuery),
           )
@@ -333,7 +345,7 @@ export function CommandPaletteLauncher({
             .filter(
               (action) =>
                 action.group === group.id &&
-                hasPermission(activeRole, action.permission) &&
+                (action.permission === null || hasPermission(activeRole, action.permission)) &&
                 action.label[locale].toLowerCase().includes(trimmedQuery),
             )
             .map(toActionRow),
@@ -342,7 +354,7 @@ export function CommandPaletteLauncher({
       })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery, activeRole, availableContexts, i18n.language, actions]);
+  }, [trimmedQuery, activeRole, availableContexts, i18n.language, actions, helpHref]);
 
   const peopleTab: CommandPaletteTab = {
     id: 'people',
@@ -400,6 +412,7 @@ export function CommandPaletteLauncher({
       action?.run({
         navigate: (opts) => void navigate({ to: opts.to }),
         params: { studentId: params.studentId, examId: params.examId },
+        helpHref,
       });
     }
   }
