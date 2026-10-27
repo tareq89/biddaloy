@@ -62,6 +62,7 @@
     "emptyExplanation": "Add the rooms periods can be held in."
   },
   "periodSlotsPanel": {
+    "editNote": "Changing a time also changes it on past days.",
     "legend": "Period times",
     "selectShift": "Add a shift first, then set its period times.",
     "sequence": "Row",
@@ -90,7 +91,7 @@
     "timelineAria": "{{start}} to {{end}}: {{lessons}} periods, {{breaks}} breaks",
     "noRows": "This shift has no periods yet. Press Add period.",
     "noShiftTitle": "Add a shift first",
-    "inUseError": "Periods of this shift are already placed in a routine, so their times can't be replaced. Remove those periods from the class routine first.",
+    "inUseError": "A period you removed or made a break is used in a routine or in lesson records. Put it back, or clear it from the class routine first.",
     "invalidError": "Some rows have a time problem. Fix the red notes and save again.",
     "saveError": "Couldn't save the period times. Try again."
   },

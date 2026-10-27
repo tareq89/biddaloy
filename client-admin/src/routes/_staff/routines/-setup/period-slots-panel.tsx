@@ -103,6 +103,7 @@ export function PeriodSlotsPanel({
     const loaded = [...slotsQuery.data]
       .sort((a, b) => a.sequence - b.sequence)
       .map((slot, index) => ({
+        id: slot.id,
         sequence: index + 1,
         kind: slot.kind,
         name: slot.name,
@@ -366,6 +367,10 @@ export function PeriodSlotsPanel({
                 </tbody>
               </table>
             </div>
+
+            <p className="px-4 pt-3 text-caption text-text-secondary md:px-5">
+              {t('periodSlotsPanel.editNote')}
+            </p>
 
             <ul className="divide-y divide-border-subtle border-t border-border-subtle md:hidden">
               {rows.map((row, index) => {
