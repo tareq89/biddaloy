@@ -8,6 +8,8 @@ export class MyClassSectionDto {
   @ApiProperty() section_name: string;
   @ApiProperty() class_id: string;
   @ApiProperty() class_name: string;
+  @ApiProperty({ description: 'Arrival-notice requests waiting for the class teacher.' })
+  arrival_request_count: number;
   @ApiProperty({
     enum: [TeacherAssignmentType.CLASS_TEACHER, TeacherAssignmentType.ASSISTANT_CLASS_TEACHER],
     enumName: 'HomeroomAssignmentType',
