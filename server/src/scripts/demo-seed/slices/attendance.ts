@@ -646,9 +646,11 @@ const load = async (ctx: DemoSeedContext) => {
           .filter((id) => !used.has(id) && byStudent.get(id)?.guardianIds.length)
           .map((studentId) => ({ studentId, sectionId })),
       );
-    const c = ctx.pick(pool);
+    // A fixed stride, not `ctx.pick`: drawing from the shared `ctx.rng` here would shift every
+    // later slice's random stream (the fees slice's paid-share check dropped below 50%).
+    const c = pool[(used.size * 37) % pool.length];
     used.add(c.studentId);
-    return { ...c, guardianId: ctx.pick(byStudent.get(c.studentId)!.guardianIds) };
+    return { ...c, guardianId: byStudent.get(c.studentId)!.guardianIds[0] };
   };
   const [b0, b1, b2] = org.tenants; // b0 is the only `smsAllowed` branch (org slice), so it holds the 5 SMS rows
   const A = ArrivalNoticeStatus;
