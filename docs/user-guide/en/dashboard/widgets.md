@@ -58,10 +58,7 @@ appVersion: 0.1.0 (6b36c2549)
 owner: tareq89
 lastVerified: 2026-10-24
 knownIssues:
-  - { id: collection-by-month-calendar-year, checked: 2026-10-24, issue: 2941 }
   - { id: sms-links-open-reminder-history, checked: 2026-10-24, issue: 2942 }
-  - { id: homework-rate-last-7-days, checked: 2026-10-24, issue: 2943 }
-  - { id: streaks-fixed-3-days, checked: 2026-10-24, issue: 2944 }
 -->
 
 # What the widgets mean
@@ -405,10 +402,7 @@ Checked in version 0.1.0, 2026-10-24. Once fixed, an item is removed from this s
 
 | Issue                                                                                                                                                  | Whose, when                                                          | Data saved? | What to do for now                                                                  |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------- |
-| **Collection by month** shows the calendar year (January to December), not the academic year. In the description, "this year" means the calendar year. | Accountant and admin, if the academic year does not start in January | Yes         | Read the numbers as calendar-year figures.                                          |
 | The links of **Failed messages** and **SMS balance** open the [**Reminder history**](../communications/reminder-history.md) page, not a separate list of SMS.                                   | Admin, when pressing the link                                        | Yes         | In [**Reminder history**](../communications/reminder-history.md), open each **Reminder round** to see which messages failed. |
-| **Homework submission rate** says "this week" but actually shows the last 7 days including today.                                                      | Admin, every day                                                     | Yes         | Read the number as "last 7 days".                                                   |
-| **My class streaks** always counts 3 days in a row. Changing **Absent in a row (days)** in **Settings** does not change this widget.                   | Class teacher, when the school changes the limit                     | Yes         | Read the number as a 3-day count.                                                   |
 
 ---
 

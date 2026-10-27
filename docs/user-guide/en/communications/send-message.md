@@ -44,8 +44,7 @@ keywords:
 appVersion: 0.1.0 (3f7e424fc)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: no-credit-error-is-generic, checked: 2026-10-25, issue: 2939 }
+knownIssues: []
 -->
 
 # Send a message
@@ -69,7 +68,6 @@ You can send to only one person at a time. To remind many guardians about dues t
   - [Send by WhatsApp](#task-whatsapp)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -169,7 +167,7 @@ If the guardian has not replied to the school on WhatsApp in the last 24 hours, 
 | **Something in the number, email or message isn't right. …**             | Check that the message is not empty and the WhatsApp template details are right.                   | —            |
 | **SMS is not set up for this school, …**                                 | An Admin turns it on in **Settings › Communication**; for now pick another channel.                | Admin        |
 | **This school has no SMS credit left, …**                                | Ask the Admin to add credit; for now pick another channel.                                         | Admin        |
-| **The message could not be sent.** in the window                         | The credit may be low ([Known issues](#known-issues)). Shorten the message or tell the Admin.      | Admin        |
+| **The message could not be sent.** in the window                         | The credit may be low. Shorten the message or tell the Admin.      | Admin        |
 | **Message not sent** — **Sending by … is not set up for this school. …** | Press **Open Settings › Communication** (Admin).                                                   | Admin        |
 | **Message not sent** — **Could not be sent.**                            | Press **Send another message** and try again.                                                      | Admin        |
 
@@ -189,16 +187,6 @@ More help with this: [What to do when something goes wrong](../help/troubleshoot
 **Admin, Accountant and Office staff:** all three get the same page; there is no difference in the code. You can send only to a guardian of a student of this school. Turning SMS on and seeing the credit is the Admin's job.
 
 For the other roles, **Send Message** is not in the left menu.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app. When it is fixed, this part will be removed.
-
-| Issue                                                                                                                            | Who, when                                   | Is data saved? | What to do for now                                  |
-| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | -------------- | --------------------------------------------------- |
-| If SMS credit is low, the window only says **The message could not be sent.**; it does not say how much credit is needed or left | Schools that count credit, when sending SMS | —              | Shorten the message, or ask the Admin to add credit |
 
 ---
 

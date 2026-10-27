@@ -54,8 +54,7 @@ keywords:
 appVersion: 0.1.0 (94db6def4)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: kept-backup-expires-30-days, checked: 2026-10-25, issue: 2946 } # a backup kept forever still cannot be downloaded 30 days after it finishes
+knownIssues: []
 -->
 
 # Changing the school's settings
@@ -460,7 +459,7 @@ This category has two parts: **Backup** and **Restore from a backup**. To see th
 | The copy taken before a restore | Kept for 30 days.                                                                                         |
 | Total space                     | 500 MB for each school. If it goes over, the oldest backup is deleted. The **Space** field shows the use. |
 
-Press **Keep forever** and that backup is not deleted by itself. But 30 days later it too can no longer be downloaded; download the files you need earlier and keep them yourself.
+Press **Keep forever** and that backup is not deleted by itself.
 
 #### Restore from a backup <a href="#task-restore" id="task-restore"></a>
 

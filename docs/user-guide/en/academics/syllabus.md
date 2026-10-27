@@ -55,8 +55,7 @@ keywords:
 appVersion: 0.1.0 (e424f8fc4)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: syllabus-topic-buttons-out-of-scope, checked: 2026-10-24, issue: 2902 }
+knownIssues: []
 -->
 
 # Syllabus and study plans
@@ -84,7 +83,6 @@ The page has three tabs. The **Topics** tab holds the syllabus of a class and su
   - [The template library](#task-library)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -291,16 +289,6 @@ The **Template library** tab holds the school's study plan templates, arranged b
 **An academic coordinator** sees all topics and all plans, can download the progress CSV, and manages the template library (**Add template**, **Add to library**, delete). They cannot change topics or plans, make new plans, or press **Copy to my plan**; they do not see those buttons.
 
 **Every other staff role** does not see **Syllabus** in the left menu. Opening the page shows **You don't have access to this page.** Students and guardians see the syllabus in their own apps, not on this page.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part is removed once fixed.
-
-| Issue                                                                                                                                                                                                 | Who, when                                         | Data saved?                | What to do for now                                              |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | -------------------------- | --------------------------------------------------------------- |
-| A teacher sees the **Add topic**, **Edit** and **Delete** buttons for any class-subject, but if it is not their subject, pressing one gives only **Something went wrong. Please try again.**, with no reason | A teacher, in the syllabus of another's subject   | No, nothing changed        | Change only the topics of your own subject; ask an admin if needed |
 
 ---
 

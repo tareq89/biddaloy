@@ -33,10 +33,7 @@ keywords:
 appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: substitution-no-delete, checked: 2026-10-24, issue: 2895 }
-  - { id: substitute-busy-generic-error, checked: 2026-10-24, issue: 2896 }
-  - { id: old-year-rows-dash, checked: 2026-10-24, issue: 2897 }
+knownIssues: []
 -->
 
 # Recording a substitute teacher
@@ -60,7 +57,6 @@ This page works on the **list of substitute teachers**: who took whose period on
   - [Filter the list](#task-filter)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -143,8 +139,6 @@ If nobody will teach:
 
 Record it again with **Add substitute teacher** for the same date and the same period. The new one takes the place of the earlier one; you do not get two rows. You can turn a cancellation into a substitution, or a substitution into a cancellation, this way.
 
-There is no button to delete a substitution completely: [Known issues](#known-issues).
-
 ### Filter the list <a href="#task-filter" id="task-filter"></a>
 
 | Filter                 | What to pick                                                                                |
@@ -169,10 +163,9 @@ The columns of the list: **Date**, **Period**, **Class and section**, **Absent t
 | **Pick a date first.**                                                                                                  | Enter a date in the **Date** field.                                                                                                                        | Admin        |
 | **This section has no period on {weekday}.**                                                                            | Check the date; the section's routine has no period on that weekday.                                                                                       | Admin        |
 | **This period doesn't happen on the date you picked (it may run every other week or once a month). Pick another date.** | The period is biweekly or monthly; pick a date in a week when it happens.                                                                                  | Admin        |
-| **Could not save — try again.**                                                                                         | Check your internet. If that is fine, the substitute teacher is probably busy in another period then; pick another teacher. [Known issues](#known-issues). | Admin        |
+| **Could not save — try again.**                                                                                         | Check your internet. If that is fine, the substitute teacher is probably busy in another period then; pick another teacher. | Admin        |
 | **Couldn't load substitute teachers. Check your connection and try again.**                                             | Check your internet and try again.                                                                                                                         | Admin        |
 | The section is not in the **Class and section** list                                                                    | No period of that section is running on that date. Check the date.                                                                                         | Admin        |
-| "—" in place of the period or section in an old row                                                                     | The row is from an earlier academic year: [Known issues](#known-issues).                                                                                   | —            |
 
 ---
 
@@ -184,18 +177,6 @@ The columns of the list: **Date**, **Period**, **Class and section**, **Absent t
 | Academic coordinator, Teacher, Accountant, Office staff, Exam controller, Committee member | No                            | No                                   |
 
 A substitute teacher sees their substitute period on the [**My routine**](my-routine.md) page. People without permission do not have **Substitute teachers** in their left menu.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. This section will drop an item once it is fixed.
-
-| Problem                                                                                                                                                                 | Who, when                               | Is the data saved?          | What to do for now                                                                                     |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------ |
-| A substitution or cancellation, once recorded, cannot be deleted                                                                                                        | Admin, after recording something wrong  | Yes, the wrong record stays | Fix it by recording again for the same date and period ([Correct a wrong substitution](#task-correct)) |
-| If the substitute teacher is busy at that time, or is the period's own teacher, only **Could not save — try again.** appears with no reason; trying again does not help | Admin, when giving a substitute         | No                          | Pick a different teacher                                                                               |
-| In substitution rows from an earlier academic year, the period, section and absent teacher show "—"                                                                     | Admin, after a new academic year starts | Yes                         | Recognise the row by its date and substitute teacher                                                   |
 
 ---
 

@@ -43,8 +43,7 @@ keywords:
 appVersion: 0.1.0 (1798f8b1f)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: year-delete-reason-incomplete, checked: 2026-10-24, issue: 2883 }
+knownIssues: []
 -->
 
 # Creating and managing academic years
@@ -71,7 +70,6 @@ Almost everything in the school lives inside an academic year: [classes](classes
   - [The year page: the tabs](#task-detail)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -247,16 +245,6 @@ If a page or button is missing, see [Why can't I see this?](../help/cant-see-thi
 | Academic coordinator, teacher, accountant, office assistant, exam controller, governing board member | No                         | No                                    | No                   |
 
 For other roles, **Academic years** is not in the left menu. If they open the page, they see **You don't have access to this page.**
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It will be removed from this section once fixed.
-
-| Problem                                                                                                                                                                                                                       | Whose, when                         | Data saved?              | What to do for now                                          |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------ | ----------------------------------------------------------- |
-| When a delete is blocked, the message says only "current year, classes or fee structures". But the same message appears if enrolments, exams, bills, ACRs or other records exist, and classes that were deleted still count, so a delete can be blocked even when the year shows no classes | Whoever deletes a year, at any time | Yes, nothing was deleted | Keep the year. If it was made by pure mistake, tell support |
 
 ---
 

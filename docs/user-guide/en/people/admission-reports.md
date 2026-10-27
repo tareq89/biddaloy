@@ -28,9 +28,7 @@ keywords:
 appVersion: 0.1.0 (fb8af6c63)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: admitted-online-only, checked: 2026-10-24, issue: 2881 }
-  - { id: filters-not-in-url, checked: 2026-10-24, issue: 2882 }
+knownIssues: []
 -->
 
 # Admission reports
@@ -40,7 +38,7 @@ Count, on one page, who joined and who left in an academic year.
 **Go to:** **People → Admission reports** in the left menu. View this page on a computer.
 **Before you start:** be an Admin or Academic coordinator ([who can do what](#roles)). This page is view-only; nothing changes from here.
 
-The report combines two sources: students who are **Admitted** on the [Admission applicants](admission-applicants.md) page, and the leaving and readmission events recorded on a [student's](students.md) profile. A student added by hand or imported from Excel does not count in **Admitted** ([Known issues](#known-issues)).
+The report combines two sources: students who are **Admitted** on the [Admission applicants](admission-applicants.md) page, and the leaving and readmission events recorded on a [student's](students.md) profile.
 
 [See the year's totals](#task-main) · [Look at one class](#task-class) · [Problems and fixes](#trouble)
 
@@ -55,7 +53,6 @@ The report combines two sources: students who are **Admitted** on the [Admission
   - [When there are more than 500 records](#task-truncated)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -126,9 +123,7 @@ Under the list it says: "Showing the first 500 records only. Pick a class to nar
 | **You don't have access to this page.**                   | Only Admin and Academic coordinator see the report. Press **Back to dashboard**.                                                      | Admin        |
 | **Could not load the report**                             | Check your internet and reload the page.                                                                                              | Admin        |
 | **No records for this year**                              | Check that the right academic year is chosen. If a class is chosen, set it to **All classes**.                                        | —            |
-| The **Admitted** number is lower than the real admissions | It counts only admissions from online applications. Students added by hand or imported are not in it ([Known issues](#known-issues)). | —            |
 | Someone left the school but is not in the list            | Check that their leaving was recorded with **Record leaving** on their profile: [Students](students.md).                              | Office staff |
-| After a reload the filters are not as they were           | The filters are not kept in the page address; choose them again ([Known issues](#known-issues)).                                      | —            |
 
 ---
 
@@ -141,17 +136,6 @@ Under the list it says: "Showing the first 500 records only. Pick a class to nar
 | Office staff, Teacher, Accountant, Exam controller, Committee member | No             | —                       |
 
 **Admin** and **Academic coordinator** see the same report. Office staff can review and admit applications but cannot see this report. Someone without permission who opens the page sees **You don't have access to this page.**, and **Admission reports** is not in their left menu.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
-
-| Issue                                                                                                                              | Who, when                                   | Data saved? | What to do for now                                                                           |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------- |
-| **Admitted** counts only students admitted from online applications; students added by hand or imported from Excel are not counted | A school that admits in ways besides online | Yes         | To get the total number of students, look at the [Students](students.md) list class by class |
-| The **Academic year** and **Class** choices are lost when you reload the page or share the link                                    | Anyone, on reload                           | —           | Choose them again after reloading                                                            |
 
 ---
 

@@ -46,7 +46,6 @@ lastVerified: 2026-10-24
 knownIssues:
   - { id: homework-no-grading-screen, checked: 2026-10-24, issue: 2899 }
   - { id: homework-no-deactivate-reassign, checked: 2026-10-24, issue: 2900 }
-  - { id: homework-import-errors-english, checked: 2026-10-24, issue: 2901 }
 -->
 
 # Giving homework
@@ -311,7 +310,6 @@ The list of sections this homework has been given to cannot be seen on this page
 | **This file is too large — choose a smaller file**                                 | It is over 5 MB. Split the file in two.                                                                                                                                                                                                                                               | —            |
 | **Import failed.**                                                                 | Check your internet and upload again. Check that the first-row headers are as in the template, and that there are not more than 2000 rows.                                                                                                                                            | Admin        |
 | **This check expired — upload the file again**                                     | 30 minutes have passed since the check. Upload the same file again and confirm.                                                                                                                                                                                                       | —            |
-| English messages in the **Rows with problems** table                               | The messages still come in English ([Known issues](#known-issues)). Look at **Column** and **Value in your file** and [fix the problem rows](#task-import).                                                                                                                           | Admin        |
 | **You don't have access to this page.**                                            | This page is only for admins and teachers. Press **Back to dashboard**.                                                                                                                                                                                                               | Admin        |
 
 ---
@@ -340,7 +338,6 @@ Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part 
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------------------------- | ------------------------------------------------------------- |
 | There is no screen on the homework's page to give done, partial or marks student by student. The **Homework to check** card opens the homework's page, but you cannot see submissions or mark there | A teacher, wanting to see submissions       | Yes, submissions are not lost | For now, keep a note on paper                                 |
 | There is no way to see which sections a homework was given to, change its due date, or deactivate it; so the **Deactivated** and **Superseded** options of the **Status** filter are usually empty  | Whoever gave wrong homework or a wrong date | Yes, given homework stays     | Tell students in person; tell support                         |
-| In the import's **Rows with problems** table, the text in the **Problem** column is in English                                                                                                      | Whoever imports, if there are problems      | No, nothing was imported      | Look at **Column** and **Value in your file** and fix the row |
 
 ---
 

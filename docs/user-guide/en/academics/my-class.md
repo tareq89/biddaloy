@@ -28,8 +28,7 @@ keywords:
 appVersion: 0.1.0 (e424f8fc4)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: my-class-dues-capped-100, checked: 2026-10-24, issue: 2903 }
+knownIssues: []
 -->
 
 # Seeing your own class on one page
@@ -55,7 +54,6 @@ See everything you need today for the section you are class teacher of, on one p
   - [If you have more than one section](#task-many)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -183,16 +181,6 @@ Only sections of the current academic year appear. Last year's sections are not 
 **A teacher** sees **My class** in the left menu. They see only the sections where they are **Class teacher** or **Assistant class teacher**, and only of the current academic year. They do not see sections where they are only a subject teacher, another teacher's sections, or last year's sections; opening a link to another section shows a "not found" page. On the **Dues** card they see the figures, but cannot use **See all** to reach the full dues list.
 
 **Every other role** (Admin included) does not see **My class** in the left menu. Opening the page shows **You don't have access to this page.** An admin sees a section's details on the [Classes](classes.md#task-detail) page.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked in the code on version 0.1.0, 2026-10-24. Not run in the app. This part is removed once fixed.
-
-| Issue                                                                                                                                                | Who, when                                             | Data saved?                    | What to do for now                               |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------ | ------------------------------------------------ |
-| The **Total due** on the **Dues** card is the sum of only the first 100 students; if more than 100 students in the section owe, the total shows less | A section with more than 100 students who owe, always | Yes, this only affects display | Ask the office or accountant for the full figure |
 
 ---
 

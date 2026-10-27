@@ -49,10 +49,7 @@ keywords:
 appVersion: 0.1.0 (fb8af6c63)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: no-public-link-in-app, checked: 2026-10-24, issue: 2877 }
-  - { id: no-close-button, checked: 2026-10-24, issue: 2878 }
-  - { id: duplicate-shows-generic-error, checked: 2026-10-24, issue: 2879 }
+knownIssues: []
 -->
 
 # Admission rounds and the online admission form
@@ -78,7 +75,6 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
   - [From application to admitted student](#task-flow)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -121,7 +117,7 @@ An **admission round** is one batch of admissions: which **Class / Section**, ho
 
    → The dialog closes and the new round appears in the list. If today falls between the open and close dates, **Status** is **Open**; otherwise **Closed**.
 
-> **Remember:** an **Open** round can take applications, but you must still tell guardians the school's admission link. The link looks like `…/admission/<school-link-name>`. The app does not yet show this link anywhere: [Known issues](#known-issues).
+> **Remember:** an **Open** round can take applications, but you must still tell guardians the school's admission link. The link looks like `…/admission/<school-link-name>`.
 
 ---
 
@@ -199,7 +195,7 @@ This part is written from the guardian's side, so the office can talk them throu
 
 <img src="img/admission-intakes-04.png" alt="the submitted page on a guardian's phone: 1 the reference number, 2 the Copy number button, guest" width="300">
 
-> **Remember:** if the same child (same round, same mobile number, same name and date of birth) is submitted a second time, no new application is created; the form shows only **We couldn't submit your form. Please check your answers and try again.** ([Known issues](#known-issues)). Ask the guardian to contact the school with their earlier reference number.
+> **Remember:** if the same child (same round, same mobile number, same name and date of birth) is submitted a second time, no new application is created; the form shows only **We couldn't submit your form. Please check your answers and try again.**. Ask the guardian to contact the school with their earlier reference number.
 
 ### How a guardian checks the application status <a href="#task-status" id="task-status"></a>
 
@@ -263,18 +259,6 @@ Guardians do not see staff notes or the reason for a rejection on this page.
 | A guardian or anyone (not signed in)                                         | No         | No                  | Yes, while a round is open |
 
 **Admin** and **Office staff** see and do exactly the same on this page. Someone without permission who opens the page sees **You don't have access to this page.**, and **Admission rounds** is not in their left menu.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
-
-| Issue                                                                                                                                                                                            | Who, when                                              | Data saved?                                                 | What to do for now                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Nowhere in the app can you see or copy the school's admission link                                                                                                                               | Whoever gives guardians the link after opening a round | Yes, the round is fine                                      | Ask support for the school's link name; the link is `…/admission/<link-name>` |
-| There is no button to close a round right away                                                                                                                                                   | When you want to stop a round early                    | Yes                                                         | [Change the dates to close it](#task-edit)                                    |
-| When the same child is submitted again, or the seats or time run out at the moment of submitting, the guardian sees only "Please check your answers and try again"; the real reason is not given | A guardian, on a second submission                     | The earlier application stays; the new one is not submitted | Ask the guardian to contact the school with the reference number              |
 
 ---
 

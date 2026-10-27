@@ -43,9 +43,7 @@ keywords:
 appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: submitted-list-hidden, checked: 2026-10-25, issue: 2916 }
-  - { id: exempt-two-words, checked: 2026-10-25, issue: 2917 }
+knownIssues: []
 -->
 
 # Entering and submitting exam marks
@@ -70,7 +68,6 @@ This page is about the **marks list**. There is one marks list for each subject 
   - [Open a list to view only](#task-view)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -197,7 +194,6 @@ The Academic coordinator and the Exam controller can view marks but cannot type 
 | **No exams yet**                                                                                              | They will appear here once the Admin [creates an exam](exams.md).                                                                                | Admin                                                             |
 | **No marks lists yet**                                                                                        | The exam's subjects and mark parts are not set, or you are not assigned to any subject in this exam.                                             | Admin ([Teaching assignments](../people/teaching-assignments.md)) |
 | A section or subject is missing from your list                                                                | A Teacher sees only the lists where they are the **Subject teacher** for that subject. Being the class teacher is not enough to enter marks.     | Admin ([Teaching assignments](../people/teaching-assignments.md)) |
-| A submitted list no longer shows in the list                                                                  | This is normal, see [Known issues](#known-issues). Check the submitted count at the top.                                                         | —                                                                 |
 | **Nothing matches**                                                                                           | Press **Clear all** to clear the search and filter.                                                                                              | —                                                                 |
 | **Couldn't load marks lists.**                                                                                | Check your internet and try again.                                                                                                               | Admin                                                             |
 | **max …**                                                                                                     | You cannot type more than the full marks. Type the correct mark.                                                                                 | —                                                                 |
@@ -220,17 +216,6 @@ The Academic coordinator and the Exam controller can view marks but cannot type 
 | Accountant, Office staff, Committee member | **Enter marks** is not in their menu                                                                                                        | No                       | No                                 |
 
 If a Teacher opens the address of a list in another section directly, the app shows it as "not found", as if the list did not exist.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. This part will be removed once fixed.
-
-| Problem                                                                                                                                                                     | Whose, when                | Data saved? | What to do for now                                                                                            |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- |
-| A properly submitted list disappears from the list on the **Enter marks** page; the **Status: Submitted** filter shows only lists that were submitted with blank cells left | Everyone, after submitting | Yes         | Look at the submitted count at the top. To see submitted marks, the Admin opens them from the exam's page.    |
-| The meaning of **E** is written under two names on the same page: **exempt** in the help line and messages, **Exm** in the cell                                             | Everyone                   | —           | Treat them as the same: the student gets no marks for this part, and the part is left out of the calculation. |
 
 ---
 

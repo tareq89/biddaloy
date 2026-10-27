@@ -39,10 +39,7 @@ keywords: [কর্মীর উপস্থিতি, শিক্ষকের
 appVersion: 0.1.0 (a5fdbd4ba)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: staff-roster-admin-only, checked: 2026-10-25, issue: 2909 }
-  - { id: staff-saved-marks-not-shown, checked: 2026-10-25, issue: 2910 }
-  - { id: staff-old-day-no-reason-field, checked: 2026-10-25, issue: 2911 }
+knownIssues: []
 -->
 
 # Staff attendance and leave
@@ -69,7 +66,6 @@ Student attendance is taken by section ([Taking attendance](attendance.md)). Sta
   - [Cancel approved leave](#task-cancel)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -83,8 +79,6 @@ Student attendance is taken by section ([Taking attendance](attendance.md)). Sta
 ---
 
 ## Take today's staff attendance <a href="#task-main" id="task-main"></a>
-
-Right now only admins can do this ([Known issues](#known-issues)).
 
 1. In the left menu press **Attendance**, then **Staff attendance**.
 
@@ -110,10 +104,6 @@ Right now only admins can do this ([Known issues](#known-issues)).
 | **Changed on screen only**      | A mark sits next to the name, and the bottom says "… unmarked". You lose it if you change the date or leave the page. | Press **Save attendance**.  |
 | **Reached the school's system** | At the bottom left it says **Attendance saved**.                                              | Done.                           |
 
-{% hint style="warning" %}
-**Known issue (version 0.1.0):** when you open the page again, marks saved earlier are not shown; everyone looks unmarked. The marks are in the system. [Details](#known-issues)
-{% endhint %}
-
 This page cannot save without internet. If saving fails it says **Couldn't save attendance. Try again.** The marks stay on screen; press save again.
 
 ---
@@ -129,7 +119,6 @@ Rules:
 
 - On a future day you can only give **Leave**.
 - Nothing saves on a day the school is closed.
-- Changing a day that already had attendance and is older than the school's correction window (usually 2 days) needs a reason; this page has no box for a reason ([Known issues](#known-issues)).
 
 Changing the date throws away marks you had not saved for the previous date.
 
@@ -183,7 +172,6 @@ An admin or academic coordinator can open the request and press **Cancel leave**
 
 | What you see                                                         | What to do                                                                                                                    | Who can help |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Couldn't save attendance. Try again.** where the list should be    | The list does not open for anyone but admins ([Known issues](#known-issues)). Ask an admin.                                    | Admin        |
 | **No staff yet**                                                     | Press **Add staff**, or give people a staff profile ([Staff](../people/staff.md)).                                             | Admin        |
 | One staff member is missing from the list                            | They have no staff profile. Add one from the [Staff](../people/staff.md) page.                                                 | Admin        |
 | **You have no staff profile**                                        | Leave is tracked for staff only. Ask an admin to create your staff profile.                                                    | Admin        |
@@ -205,19 +193,7 @@ An admin or academic coordinator can open the request and press **Cancel leave**
 | Office staff         | No (the list does not open)                    | Yes                            | No                       |
 | Exam controller      | No (the list does not open)                    | Yes                            | No                       |
 
-**Staff attendance** is in every role's menu. By the rules, teachers, accountants, office staff and exam controllers could give only their own attendance, only for today, and only once; but right now the list does not open for them ([Known issues](#known-issues)). The **Pending leave applications** link is seen only by admins and academic coordinators.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked in the code for version 0.1.0 on 2026-10-25. Not run in the app. Each line is removed once the fix ships.
-
-| Issue                                                                                                               | Who, when                          | Data saved?                  | What to do for now                                                              |
-| ------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ---------------------------- | ------------------------------------------------------------------------------- |
-| On the **Staff attendance** page, **Couldn't save attendance. Try again.** shows where the list should be            | Everyone except admins, every time | Not applicable               | Have an admin take staff attendance. The **Leave** page works fine.             |
-| Opening the page again does not show marks saved earlier; everyone looks unmarked                                   | Admins, every time the page opens  | Yes                          | Mark only what you want to change, then save.                                   |
-| A day older than the correction window cannot be changed: there is no box for a reason, so **Couldn't save attendance.** | Admins, when correcting an old day | No — the correction is not saved | Note the correction down; this page will say when it is fixed.             |
+**Staff attendance** is in every role's menu. Teachers, accountants, office staff and exam controllers can give only their own attendance, only for today, and only once. The **Pending leave applications** link is seen only by admins and academic coordinators.
 
 ---
 

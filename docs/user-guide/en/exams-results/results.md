@@ -50,9 +50,7 @@ keywords:
 appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: sms-credit-per-segment, checked: 2026-10-25, issue: 2921 }
-  - { id: report-card-other-roles, checked: 2026-10-25, issue: 2922 }
+knownIssues: []
 -->
 
 # Processing and publishing results
@@ -79,7 +77,6 @@ This page is about an exam's **results**. The results of every exam are in one o
   - [Process again after marks change](#task-reprocess)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -259,18 +256,7 @@ More help with this: [What to do when something goes wrong](../help/troubleshoot
 | Academic coordinator, Teacher, Office staff | No             | No                        | No                   | No                                 |
 | Accountant, Committee member                | No             | No                        | No                   | No                                 |
 
-**Results** is not in the left menu of the other roles. The Academic coordinator, Teacher and Office staff are allowed to read results, but they may have trouble opening a report card from a student's page, see [Known issues](#known-issues). A Teacher gets results only for students in their own section; another student's results show "not found". Guardians see published results on their own page.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. This part will be removed once fixed.
-
-| Problem                                                                                                                                                                                                | Whose, when                                                          | Data saved? | What to do for now                                                     |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------- |
-| The SMS window says "Each message uses one SMS credit", but credits are taken per message part (segment); a long Bangla message may take more than one credit                                          | Whoever sends the result SMS                                         | Yes         | Keep a few spare credits before sending.                               |
-| The report card page asks for exam-management permission to fetch the exam's details, so when opened from a student's page, a role without that permission may get **Couldn't load this report card.** | Academic coordinator, Teacher, Office staff (not checked in the app) | —           | Ask the Admin or the Exam controller to print the report card for you. |
+**Results** is not in the left menu of the other roles. The Academic coordinator, Teacher and Office staff are allowed to read results. A Teacher gets results only for students in their own section; another student's results show "not found". Guardians see published results on their own page.
 
 ---
 

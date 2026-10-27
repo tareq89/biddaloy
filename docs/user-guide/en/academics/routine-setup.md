@@ -44,9 +44,7 @@ keywords:
 appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: period-times-locked-by-history, checked: 2026-10-24, issue: 2893 }
-  - { id: no-edit-shift-room, checked: 2026-10-24, issue: 2894 }
+knownIssues: []
 -->
 
 # Setting up shifts, period times, rooms and rules for the routine
@@ -71,7 +69,6 @@ This page has three tabs: **Shifts and periods**, **Rooms** and **Routine rules*
   - [Delete a shift or a room](#task-delete)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -145,8 +142,6 @@ Nothing on this page can be kept on a phone or computer and sent later. It is sa
 
 ![Period times section, with the timeline, one Break row and the Save button](img/routine-setup-02.png)
 
-Once any period of a shift has been placed in a class routine, its times can no longer be changed: **Periods of this shift are already placed in a routine, so their times can't be replaced. Remove those periods from the class routine first.** So check the times carefully before you build routines. More: [Known issues](#known-issues).
-
 ### Add a room <a href="#task-rooms" id="task-rooms"></a>
 
 1. Press the **Rooms** tab.
@@ -163,7 +158,7 @@ Once any period of a shift has been placed in a class routine, its times can no 
 
    → The dialog closes and **Room {number}** appears in the list.
 
-> **Remember:** the list of rooms is also used for exam seat plans. When you fill a cell of the class routine, there is no field for choosing a room right now; see [Known issues](#known-issues).
+> **Remember:** the list of rooms is also used for exam seat plans.
 
 ### Set the routine rules <a href="#task-rules" id="task-rules"></a>
 
@@ -207,7 +202,6 @@ Once any period of a shift has been placed in a class routine, its times can no 
 | **Couldn't add the shift. Try again.**                                                                                                          | Check your internet and press **Add** again. What you typed stays in the dialog. | Admin        |
 | **This name isn't valid. Check it and try again.**                                                                                              | Type a different name.                                                           | Admin        |
 | **Some rows have a time problem. Fix the red notes and save again.**                                                                            | Fix the time of the rows with red notes, then press **Save**.                    | Admin        |
-| **Periods of this shift are already placed in a routine, so their times can't be replaced. Remove those periods from the class routine first.** | See [Known issues](#known-issues).                                               | Admin        |
 | **Couldn't save the period times. Try again.**                                                                                                  | Check your internet and press **Save** again. The rows stay on screen.           | Admin        |
 | **Couldn't add the room. Try again.**                                                                                                           | Check your internet and try again.                                               | Admin        |
 | **Couldn't save the rules. Check the numbers and try again.**                                                                                   | Check that the numbers are within the limits, then press **Save** again.         | Admin        |
@@ -223,17 +217,6 @@ Once any period of a shift has been placed in a class routine, its times can no 
 | Academic coordinator, Teacher, Accountant, Office staff, Exam controller, Committee member | No                            |
 
 People without permission do not have **Routine setup** in their left menu.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. This section will drop an item once it is fixed.
-
-| Problem                                                                                                                                                                                                                | Who, when                               | Is the data saved?      | What to do for now                                                            |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------- | ----------------------------------------------------------------------------- |
-| Once a period of a shift is placed in a routine (even after it is removed from a published routine, its old record stays), or a teacher has reported a lesson, the period times of that shift can no longer be changed | Admin, after routine building has begun | Yes, the old times stay | Check the times before you build. If you must change them later, tell support |
-| There is no button to change a shift's or a room's name and times later; you can only add and delete                                                                                                                   | Admin, any time                         | Not applicable          | If it is wrong, delete it and add it again (if it is not in use)              |
 
 ---
 

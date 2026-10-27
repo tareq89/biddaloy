@@ -57,9 +57,7 @@ keywords:
 appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: add-staff-no-contact, checked: 2026-10-24, issue: 2864 }
-  - { id: promote-member-list-100, checked: 2026-10-24, issue: 2865 }
+knownIssues: []
 -->
 
 # Adding and managing staff
@@ -90,7 +88,6 @@ This page is about the **staff list**. The list holds everyone at the school: te
   - [The staff member's page: the tabs](#task-detail)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -126,7 +123,7 @@ This page is about the **staff list**. The list holds everyone at the school: te
 
 4. Type an **Email** or a **Phone** (both is better). Type the phone number in English digits, for example `01712345678`.
 
-   → The invitation goes to this address. Give at least one; if you give none, see [Known issues](#known-issues).
+   → The invitation goes to this address.
 
 5. In **Role**, press **Choose a role**, then pick one from the list.
 
@@ -220,7 +217,7 @@ Adding someone with the **Teacher** role does not create a separate **teacher pr
 
 2. In **Member**, choose the staff member.
 
-   → People who already have a profile do not appear in the list. If nobody is left, it says **No members without a teacher profile match**. This list has a limit: see [Known issues](#known-issues).
+   → People who already have a profile do not appear in the list. If nobody is left, it says **No members without a teacher profile match**.
 
 3. Type the **Employee ID**. There is one per person in the school; it cannot match anyone else's.
 
@@ -350,7 +347,7 @@ Which tabs you see depends on your permissions. To see and change the assignment
 | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | **You don't have access to this page.**                                                                                      | Only an Admin sees the staff pages. Press **Back to dashboard**.                                                                                                            | Admin        |
 | **Could not load users. Please try again.**                                                                                  | Check your internet and reload the page.                                                                                                                                    | Admin        |
-| **Could not add the user. Please try again.**                                                                                | Check your internet. See whether the name has already come into the list; if it has, do not add it again. If you gave no email or phone, see [Known issues](#known-issues). | Admin        |
+| **Could not add the user. Please try again.**                                                                                | Check your internet. See whether the name has already come into the list; if it has, do not add it again. | Admin        |
 | **A user with this email already exists.**                                                                                   | Check the spelling of the email. If it is right, the person already has an account; send a join request.                                                                    | Admin        |
 | **This person is already on your staff.**                                                                                    | Use **Search** to find the name in the list. There is nothing more to add.                                                                                                  | Admin        |
 | **Choose a role.**                                                                                                           | Pick one in **Role**.                                                                                                                                                       | Admin        |
@@ -375,17 +372,6 @@ Which tabs you see depends on your permissions. To see and change the assignment
 | Academic coordinator, Teacher, Accountant, Office staff, Exam controller, Committee member | No                                     | No                                       | No                                         |
 
 Someone without permission who opens the page sees **You don't have access to this page.**, and **Staff** is not in their left menu.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
-
-| Issue                                                                                                                                                                                                                                                | Who, when                                                      | Data saved?                          | What to do for now                                                                                                                                                           |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| If you leave both email and phone empty and press **Add staff member**, **Could not add the user. Please try again.** appears, yet the staff member is created; only the invitation does not go                                                      | Whoever adds staff, any time they give neither email nor phone | Yes, the staff member is in the list | Always give at least one email or phone. If you forget, add the email or phone on the person's page ([change contact details](#task-edit)), then press **Resend invitation** |
-| The **Member** list in the **Give a teacher profile** dialog holds only the school's first 100 staff; with more than 100 staff, the rest cannot be chosen here; with more than 100 teacher profiles, someone who already has one may still be listed | A school with more than 100 staff, whenever a profile is given | Yes, giving a profile itself works   | To bring the number down, remove former staff first; otherwise tell support. A teacher [imported](staff-import.md) from Excel does not have this problem                     |
 
 ---
 

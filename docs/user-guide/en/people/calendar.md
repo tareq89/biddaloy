@@ -63,9 +63,7 @@ keywords:
 appVersion: 0.1.0 (5f7194a2e)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: gov-holidays-past-date, checked: 2026-10-24, issue: 2871 }
-  - { id: upcoming-panel-range, checked: 2026-10-24, issue: 2872 }
+knownIssues: []
 -->
 
 # Seeing, adding and subscribing to holidays and events in the calendar
@@ -95,7 +93,6 @@ The **calendar** is a list of all the school's dates. Each **event** (a holiday,
   - [How holidays work in attendance and the routine](#task-offdays)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -193,7 +190,7 @@ Everyone can do this.
    | **Event type** | One type, for example **Holiday**. If you choose none, it says **All types**                                              |
    | **Class**      | One class. If you choose none, it says **All classes**. (You see events set for only that class, and events for everyone) |
 
-**The Upcoming list on the right:** the **Upcoming** card has at most five published events. At the top it says "Next holiday: {name} · in {number} days" (or "today" if it is today). For the limit of this card, see [Known issues](#known-issues).
+**The Upcoming list on the right:** the **Upcoming** card has at most five published events. At the top it says "Next holiday: {name} · in {number} days" (or "today" if it is today).
 
 > **Remember:** which events you see depends on your role. A teacher sees only events for everyone, events for staff, and events for the classes they teach. Only the Admin sees **Draft** events.
 
@@ -218,7 +215,6 @@ Do this to put the list of government holidays on the calendar in one go. (Admin
 | **Add {number} holidays**             | The holidays you picked become events of the type Holiday, not a working day, and are published right away. Nobody gets a notice | Yes    |
 | **Cancel** (when something is picked) | **Discard your changes?** opens                                                                                                  | No     |
 
-> **Remember:** if you tick a holiday whose date is before today, the whole adding stops and nothing is added. See [Known issues](#known-issues).
 
 ### Change, publish or delete an event <a href="#task-edit" id="task-edit"></a>
 
@@ -417,7 +413,7 @@ A holiday or closed day on the calendar takes effect in several places by itself
 | **A make-up school day always counts as a working day.**    | For this type, the **Counts as a working day** tick cannot be removed. If you want a closed day, choose another type.                                    | Admin        |
 | **Couldn't save this event. Try again.**                    | Check your internet and press **Save** again. What you typed stays on the page.                                                                          | Admin        |
 | **Couldn't complete that. Try again.** (in the event panel) | It came up when deleting or publishing. Check your internet and try again. A draft whose date has passed cannot be published.                            | Admin        |
-| **Couldn't add the holidays. Try again.**                   | See whether any holiday you picked has a date that has passed ([Known issues](#known-issues)); if not, check your internet.                              | Admin        |
+| **Couldn't add the holidays. Try again.**                   | Check your internet.                              | Admin        |
 | **No suggested holidays**                                   | The national holiday list for that year has not been published yet. Add them yourself with **Add event**.                                                | Admin        |
 | **Upload failed**                                           | Check the file is `.xlsx` or `.csv`, and the column names are the same as the template. Check your internet too.                                         | Admin        |
 | **Import failed**                                           | Check your internet. If the preview is more than 30 minutes old, check the file again.                                                                   | Admin        |
@@ -436,17 +432,6 @@ A holiday or closed day on the calendar takes effect in several places by itself
 | Accountant, Executive, Office staff, Exam controller, Committee member | Yes, published events only                                                    | No                                        | Yes                      |
 
 If your role is not allowed to change events, the **Government holidays**, **Import**, **Add event** and other buttons do not show on the page. Guardians and students see the calendar in their own portal; that page is separate: [**Calendar**](../portal/calendar.md).
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
-
-| Issue                                                                                                                                                                                                                  | Who, when                                                      | Data saved?              | What to do for now                                                                                                                                                    |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| On the **Government holidays** page, if you tick a holiday whose date has passed, **Couldn't add the holidays. Try again.** shows, and the other ticked holidays are not added either (everything is cancelled)        | Admin, when adding government holidays in the middle of a year | No, nothing was added    | Remove the tick on the dates that have passed and add the rest. Add the holiday that has passed separately with [Add a holiday for a day that has passed](#task-past) |
-| When the **Upcoming** card has no events it says "Nothing scheduled in the next 60 days." But the card does not really look 60 days ahead. It looks only at the month you are viewing (and a week before and after it) | Everyone, late in a month or when viewing another month        | Yes, the events are fine | Go to the next month and look; the events are in the month's boxes                                                                                                    |
 
 ---
 

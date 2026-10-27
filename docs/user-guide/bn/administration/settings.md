@@ -54,8 +54,7 @@ keywords:
 appVersion: 0.1.0 (94db6def4)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: kept-backup-expires-30-days, checked: 2026-10-25, issue: 2946 } # a backup kept forever still cannot be downloaded 30 days after it finishes
+knownIssues: []
 -->
 
 # স্কুলের সেটিংস ঠিক করা
@@ -460,7 +459,7 @@ knownIssues:
 | ফিরিয়ে আনার আগের কপি | ৩০ দিন পর্যন্ত থাকে।                                                                         |
 | মোট জায়গা            | স্কুলপ্রতি ৫০০ MB। বেশি হলে সবচেয়ে পুরোনো ব্যাকআপ মুছে যায়। **জায়গা** ঘরে ব্যবহার দেখায়। |
 
-**স্থায়ীভাবে রাখুন** চাপলে সেই ব্যাকআপ নিজে থেকে মোছে না। তবে ৩০ দিন পর এটিও আর ডাউনলোড হয় না; দরকারি ফাইল আগেই ডাউনলোড করে নিজের কাছে রাখুন।
+**স্থায়ীভাবে রাখুন** চাপলে সেই ব্যাকআপ নিজে থেকে মোছে না।
 
 #### ব্যাকআপ থেকে ফিরিয়ে আনুন <a href="#task-restore" id="task-restore"></a>
 

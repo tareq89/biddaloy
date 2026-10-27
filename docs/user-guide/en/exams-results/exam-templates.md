@@ -51,8 +51,7 @@ keywords:
 appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: template-unsaved-no-warning, checked: 2026-10-25, issue: 2915 }
+knownIssues: []
 -->
 
 # Building an exam structure
@@ -78,7 +77,6 @@ Say every year the **Half Yearly** exam has **Written 70** and **MCQ 30** in Cla
   - [Delete a structure](#task-delete)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -126,7 +124,7 @@ Structure details are saved only when you are online; they cannot be kept on the
 
 **To check:** reload the page. If the parts are as before, it was saved.
 
-**If no message comes:** see [Problems and fixes](#trouble). If you do not leave the page, the changes stay on the screen. If you go to another page before saving, the changes are lost ([Known issues](#known-issues)).
+**If no message comes:** see [Problems and fixes](#trouble). If you do not leave the page, the changes stay on the screen.
 
 ---
 
@@ -233,16 +231,6 @@ A structure can be deleted even if some exams were made from it; those exams sta
 | Academic coordinator, teacher, accountant, office assistant, governing board member | No                              | No                             |
 
 For other roles, **Exam structures** is not in the left menu. If they open the page, they see **You don't have access to this page.**
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It will be removed from this section once fixed.
-
-| Problem                                                                                                          | Whose, when                         | Data saved?                              | What to do for now                       |
-| ---------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------- | ---------------------------------------- |
-| If you change the grid and go to another page without pressing **Save**, no warning comes and the changes are lost | Whoever writes the structure's parts | No, changes after the last save are lost | Press **Save** now and then              |
 
 ---
 

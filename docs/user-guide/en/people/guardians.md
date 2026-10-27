@@ -48,8 +48,7 @@ keywords:
 appVersion: 0.1.0 (5f7194a2e)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: invite-all-over-1000, checked: 2026-10-24, issue: 2870 }
+knownIssues: []
 -->
 
 # Viewing guardians, fixing their details and sending invitations
@@ -77,7 +76,6 @@ A **guardian** is a student's father, mother or the person who looks after them.
   - [The guardian's page: the tabs](#task-detail)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -287,7 +285,7 @@ The tab is part of the page's address, so you can send someone straight to the "
 | **Full name is required.**                                | Write the name in the **Full name** box.                                                                                                                                          | Admin, Accountant, Office staff |
 | **Couldn't update the guardian. Try again.**              | Check your internet and press **Save changes** again. What you typed stays in the boxes. This also shows if you try to change a phone or email that the guardian uses to sign in. | Admin                           |
 | **Couldn't update linked students. Try again.**           | Check your internet and press **Save** again.                                                                                                                                     | Admin                           |
-| **Could not preview invitations. Please try again.**      | Check your internet and press **Preview invitations** again. If it keeps coming, see [Known issues](#known-issues).                                                               | Admin                           |
+| **Could not preview invitations. Please try again.**      | Check your internet and press **Preview invitations** again.                                                               | Admin                           |
 | **Could not send invitations. Please try again.**         | Check your internet and press **Send invitations** again. Guardians whose invitation already went will not get it twice.                                                          | Admin                           |
 | **No guardians found**                                    | Clear the filters. If the list is really empty, first [add students](students.md). If you are a teacher, you see only the guardians of students in your section.                  | Admin                           |
 
@@ -304,16 +302,6 @@ The tab is part of the page's address, so you can send someone straight to the "
 | All other roles | **Guardians** is not in their menu                                                                                                                                              | No                                 | No               | No               | No                                             |
 
 A button that your role is not allowed to use does not show on the page.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
-
-| Issue                                                                                                                                                                                              | Who, when                                        | Data saved?           | What to do for now                                                                                                                 |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| If the school has more than 1000 guardians in all, pressing **Preview invitations** shows **Could not preview invitations. Please try again.**, and you cannot pick a few guardians in this dialog | Admin, in a school with more than 1000 guardians | Yes, nothing was sent | Tell support. Meanwhile you can ask guardians to start their own account using their address ([Your account](../start/account.md)) |
 
 ---
 

@@ -66,9 +66,7 @@ keywords:
 appVersion: 0.1.0 (1798f8b1f)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: class-delete-blocked-message, checked: 2026-10-24, issue: 2884 }
-  - { id: class-name-reuse-after-delete, checked: 2026-10-24, issue: 2885 }
+knownIssues: []
 -->
 
 # Arranging classes, sections and subjects
@@ -98,7 +96,6 @@ A class lives inside one academic year, for example **Class 6** in the year **20
   - [The class page: the tabs](#task-detail)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -279,7 +276,7 @@ Only a section or class made by mistake and still empty can be deleted.
 
 **A section that cannot be deleted:** one that still has students or ever had them (the records of students who left are counted too), or that has records such as attendance, marks or routine. Then it shows **This section still has students, so it can't be deleted. Move them to another section first.** A section's teacher assignments do not block a delete; they go with the section.
 
-**A class that cannot be deleted:** one that has students or sections, or records such as exams, fee structures or homework. Then the dialog shows **This class still has students or sections, so it can't be deleted. Move the students and delete the sections first.**, with two buttons: **Move students** (opens the class's **Students** tab) and **Close**. There is no chance to press **Delete** again, because it would be blocked again. The message has a limit: [Known issues](#known-issues).
+**A class that cannot be deleted:** one that has students or sections, or records such as exams, fee structures or homework. Then the dialog shows **This class still has students or sections, so it can't be deleted. Move the students and delete the sections first.**, with two buttons: **Move students** (opens the class's **Students** tab) and **Close**. There is no chance to press **Delete** again, because it would be blocked again.
 
 ### The class page: the tabs <a href="#task-detail" id="task-detail"></a>
 
@@ -327,17 +324,6 @@ Press the class name in the list, or **View**, to open its page. At the top are 
 | Academic coordinator, teacher, accountant, office assistant, exam controller, governing board member | No                          | No                                              | No                               |
 
 For other roles, **Classes** is not in the left menu. If they open the page, they see **You don't have access to this page.** A teacher sees their own sections on their own pages, not here.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It will be removed from this section once fixed.
-
-| Problem                                                                                                                                                                                                                                      | Whose, when                          | Data saved?              | What to do for now                                          |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------ | ----------------------------------------------------------- |
-| A delete is blocked if a class has exams, fee structures or homework, even with no students or sections, yet the message says only "students or sections" and the **Move students** button shows                                            | Whoever deletes a class, at any time | Yes, nothing was deleted | Keep the class. If it was made by pure mistake, tell support |
-| A deleted class's name cannot be used again in the same year with the same shift and version: saving shows **Failed to save class** | Whoever adds a class after deleting one | No, the new class is not saved | Use a slightly different name, for example `Class 6 (new)` |
 
 ---
 

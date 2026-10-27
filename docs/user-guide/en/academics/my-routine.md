@@ -40,8 +40,7 @@ keywords:
 appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: non-teacher-roles-empty, checked: 2026-10-24, issue: 2898 }
+knownIssues: []
 -->
 
 # Seeing your routine and reporting periods
@@ -68,7 +67,6 @@ This page is your own **day's routine**: one card for each of today's periods, a
   - [See the periods of the next days](#task-next)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -199,20 +197,10 @@ You can report or change periods up to 7 days back from today. This page does no
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Teacher                                             | Yes, while the routine is in review or published                                            | Yes, up to 7 days back from today                              |
 | Admin                                               | If they have a teacher profile; if not, a **See class routines** button appears             | If they have a teacher profile, up to 7 days back on this page |
-| Academic coordinator, Office staff, Exam controller | If they have a teacher profile and the routine is published — [Known issues](#known-issues) | If they have a teacher profile                                 |
+| Academic coordinator, Office staff, Exam controller | If they have a teacher profile and the routine is published | If they have a teacher profile                                 |
 | Accountant, Committee member                        | Do not see the page                                                                         | No                                                             |
 
 Students and guardians see the published routine in their own portal.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. This section will drop an item once it is fixed.
-
-| Problem                                                                                                                                                                                               | Who, when                                         | Is the data saved? | What to do for now         |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ------------------ | -------------------------- |
-| An Academic coordinator, Office staff or Exam controller who has a teacher profile does not get their own periods on this page while the routine is **In review**; they get them once it is published | These three roles, while the routine is in review | Not applicable     | Wait until it is published |
 
 ---
 

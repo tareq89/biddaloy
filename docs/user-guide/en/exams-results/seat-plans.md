@@ -57,10 +57,7 @@ keywords:
 appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: seat-plan-claimed-sitting-generic-error, checked: 2026-10-25, issue: 2918 }
-  - { id: seat-plan-publish-conflict-generic-error, checked: 2026-10-25, issue: 2919 }
-  - { id: seat-plan-invigilator-busy-generic-error, checked: 2026-10-25, issue: 2920 }
+knownIssues: []
 -->
 
 # Making and publishing seat plans
@@ -90,7 +87,6 @@ A seat plan is made by exam **subject**, for example the **Bangla 1st Paper** of
   - [The plan page](#task-detail)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -166,7 +162,7 @@ If the picked rooms cannot seat everyone, the plan is not made. It says so in th
 
 If you pick several subjects at the same time, everyone needs a seat together; subjects at different times can each use the whole of the same room. A room with no capacity given counts no seats.
 
-**When times clash:** if a picked room is also in another **Published** plan at the same time, the plan is still made, but first a box shows: **This plan was created, but 1 room booking overlaps with another published plan.**, and a line for each room, for example **Room 101 · also in “Annual” at the same time**. Press **Open the plan** to go to the plan, or **Close**. In this situation the plan cannot be published until you change the room ([Known issues](#known-issues)).
+**When times clash:** if a picked room is also in another **Published** plan at the same time, the plan is still made, but first a box shows: **This plan was created, but 1 room booking overlaps with another published plan.**, and a line for each room, for example **Room 101 · also in “Annual” at the same time**. Press **Open the plan** to go to the plan, or **Close**.
 
 ### Give a room an invigilator <a href="#task-invigilator" id="task-invigilator"></a>
 
@@ -255,7 +251,6 @@ Press the plan's name in the list, or **View**, to open its page. At the top are
 | **This exam has no schedule yet.**                                           | First [give a schedule](exams.md#task-schedule) to the exam.                                                                                                        | Admin        |
 | **No rooms are set up yet.**                                                 | First [add rooms](../academics/routine-setup.md#task-rooms), with their capacity.                                                                                   | Admin        |
 | **Not enough seats: …**                                                      | See [When there are not enough seats](#task-shortfall).                                                                                                             | Admin        |
-| **Something went wrong. Please try again.** (while generating)               | A picked subject may already be in another published plan; look at the list and leave that subject out ([Known issues](#known-issues)). If not, check the internet. | Admin        |
 | **Couldn't publish the seat plan.**                                          | See whether a room is in another published plan at the same time; if so, move those students to another room ([Change one student's seat](#task-reseat)).           | Admin        |
 | **Couldn't change the invigilator.**                                         | They may be busy with other work at that time; pick someone else.                                                                                                   | Admin        |
 | **Someone already sits in this seat.** or **This room has no free seat.**    | Give another seat number or another room.                                                                                                                           | Admin        |
@@ -273,18 +268,6 @@ Press the plan's name in the list, or **View**, to open its page. At the top are
 | Academic coordinator, teacher, accountant, office assistant, governing board member | No                     | No                                           | No                    |
 
 For other roles, **Seat plans** is not in the left menu; if they open the page, they see **You don't have access to this page.** There is no separate view-only permission. Seat lists and invigilator sheets are printed from the exam's **Print** tab ([Exam documents](../administration/print-templates/exam-documents.md)).
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It will be removed from this section once fixed.
-
-| Problem                                                                                                                                           | Whose, when                   | Data saved?                   | What to do for now                                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------- | ---------------------------------------------------------------------------------- |
-| Generating with a subject already in another published plan shows only **Something went wrong. Please try again.**; it does not say which subject | Whoever generates a seat plan | No, the plan is not made      | Open the published plans in the list, see which subject is there, and leave it out |
-| When a room is in another published plan at the same time, publishing shows only **Couldn't publish the seat plan.**; it does not say which room  | Whoever publishes             | No, the plan stays a draft    | Remember the **Time clash** list from generating; empty that room                  |
-| Picking a busy person as invigilator shows only **Couldn't change the invigilator.**; it does not say why                                         | Whoever gives an invigilator  | No, the old invigilator stays | Pick someone else                                                                  |
 
 ---
 
