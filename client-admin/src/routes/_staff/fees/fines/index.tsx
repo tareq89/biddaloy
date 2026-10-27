@@ -138,6 +138,7 @@ function FinesListPage() {
 
   const canGenerate = useHasPermission(Permission.FEE_GENERATE);
   const canWaive = useHasPermission(Permission.FEE_APPROVE);
+  const canReadRules = useHasPermission(Permission.FEE_STRUCTURE_READ);
 
   const finesQuery = useFines({
     page: state.page,
@@ -210,6 +211,7 @@ function FinesListPage() {
       label: t('tabs.rules'),
       priority: 'secondary',
       icon: <ListChecks />,
+      allowed: canReadRules,
       onClick: () => void navigate({ to: '/fees/fines/rules' }),
     },
     {
