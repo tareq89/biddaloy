@@ -8,14 +8,20 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { routeTree } from '../../../../routeTree.gen';
 
 function day(
-  rows: { user_id: string; full_name: string; role: string; staff_profile_id: string }[],
+  rows: {
+    user_id: string;
+    full_name: string;
+    role: string;
+    staff_profile_id: string;
+    status?: string | null;
+  }[],
 ) {
   return http.get('/api/v1/staff-attendance/register', ({ request }) =>
     HttpResponse.json({
       date: new URL(request.url).searchParams.get('date'),
       reason_required: false,
       non_working_day: false,
-      staff: rows.map((r) => ({ ...r, status: null })),
+      staff: rows.map((r) => ({ status: null, ...r })),
     }),
   );
 }
@@ -55,6 +61,50 @@ describe('/attendance/staff', () => {
     });
 
     expect(await screen.findByText('No staff yet')).toBeTruthy();
+  });
+
+  it('shows the saved marks on load and keeps them after a save', async () => {
+    // Stateful stub: the PUT flips Rahima to ABSENT, and the refetch must show it.
+    const marks: Record<string, string | null> = { 'profile-1': 'PRESENT', 'profile-2': null };
+    server.use(
+      http.get('/api/v1/staff-attendance/register', () =>
+        HttpResponse.json({
+          date: '2026-10-04',
+          reason_required: false,
+          non_working_day: false,
+          staff: [
+            { user_id: 'u1', full_name: 'Karim', role: 'TEACHER', staff_profile_id: 'profile-1' },
+            { user_id: 'u2', full_name: 'Rahima', role: 'TEACHER', staff_profile_id: 'profile-2' },
+          ].map((r) => ({ ...r, status: marks[r.staff_profile_id] })),
+        }),
+      ),
+      http.put('/api/v1/staff-attendance/register', () => {
+        marks['profile-2'] = 'ABSENT';
+        return HttpResponse.json({ saved: 1 });
+      }),
+    );
+    const user = userEvent.setup();
+    const { localeReady } = renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/staff?date=2026-10-04'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await localeReady;
+
+    // Karim was saved as Present: counted as marked, so only Rahima is unmarked.
+    expect(await screen.findByText('Present 1')).toBeTruthy();
+    expect(screen.getByText('1 unmarked')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Rahima' })); // draft: PRESENT
+    await user.click(screen.getByRole('button', { name: 'Rahima' })); // draft: ABSENT
+    await user.click(screen.getByRole('button', { name: 'Save attendance' }));
+
+    expect(await screen.findByText('Attendance saved')).toBeTruthy();
+    // After the refetch the grid still shows both marks (nothing blanked).
+    expect(await screen.findByText('Absent 1')).toBeTruthy();
+    expect(screen.getByText('Present 1')).toBeTruthy();
+    expect(screen.getByText('Unmarked 0')).toBeTruthy();
   });
 
   describe('page chrome', () => {
