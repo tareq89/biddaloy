@@ -3,8 +3,10 @@
  * (#1013). "Assign to section or student" only adds a row (`POST /homework/:id/assign`);
  * "Change" on a row reassigns it through `POST /homework-assignments/:id/reassign`.
  * "Due date" moves the date in place and "Deactivate"/"Reactivate" flip the status, both through
- * `PATCH /homework-assignments/:id` (#2900); submissions stay on the row. No submission grid
- * yet (#2899).
+ * `PATCH /homework-assignments/:id` (#2900); submissions stay on the row.
+ * "Check work" (`?assignment=<id>`) opens a full-page list of that row's students
+ * (`GET`/`PATCH /homework-assignments/:id/submissions`, #2899). The "Homework to check" card
+ * deep-links here.
  */
 import { Permission } from '@biddaloy/shared';
 import {
@@ -24,6 +26,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  EmptyState,
   ErrorState,
   RecordNotFoundState,
   RoutePending,
@@ -32,7 +35,9 @@ import {
 } from '@biddaloy/ui/components';
 import {
   useAssignHomework,
+  useAssignmentSubmissions,
   useClass,
+  useGradeSubmissions,
   useHasPermission,
   useHomework,
   useHomeworkAssignments,
@@ -48,19 +53,32 @@ import {
   useTenantRegionConfig,
   useTranslation,
 } from '@biddaloy/ui/i18n';
-import { DetailShell } from '@biddaloy/ui/shells';
-import { formatDate, parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { DetailShell, FullPageShell, useCloseFullPage } from '@biddaloy/ui/shells';
+import { formatDate, formatNumber, parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
+import { createFileRoute } from '@tanstack/react-router';
 import { CalendarClock, Send } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
 import { AssignHomeworkForm, type AssignHomeworkFormSubmitPayload } from './-assign-homework-form';
 import { AssignmentsCard, assignmentTargetLabel } from './-assignments-card';
 import { subjectName } from './-subject-name';
+import {
+  HOMEWORK_MARKS_MAX,
+  SubmissionGrid,
+  type SubmissionSaveResult,
+  type SubmissionUpdate,
+} from './-submission-grid';
+
+const homeworkDetailSearchSchema = z.object({
+  // #2899: the check-work overlay is in the URL, so Back closes it and the dashboard can deep-link.
+  assignment: z.string().uuid().optional().catch(undefined),
+});
 
 export const Route = createFileRoute('/_staff/academics/homework/$homeworkId')({
+  validateSearch: homeworkDetailSearchSchema,
   loader: ({ context: { queryClient }, params }) =>
     Promise.all([
       queryClient
@@ -73,7 +91,7 @@ export const Route = createFileRoute('/_staff/academics/homework/$homeworkId')({
 });
 
 function HomeworkDetailPage() {
-  const navigate = useNavigate();
+  const navigate = Route.useNavigate();
   const { homeworkId } = Route.useParams();
   const { t, i18n } = useTranslation('homework');
   const { t: tCommon } = useTranslation('common');
@@ -96,6 +114,29 @@ function HomeworkDetailPage() {
   const [dueRow, setDueRow] = React.useState<HomeworkAssignmentListItem | null>(null);
   // Double-click guard: `isPending` flips a render late, a ref does not.
   const inFlight = React.useRef(false);
+  const search = Route.useSearch();
+  const canGrade = useHasPermission(Permission.HOMEWORK_GRADE);
+  const gridAssignmentId = canGrade ? search.assignment : undefined; // D12
+  const submissionsQuery = useAssignmentSubmissions(gridAssignmentId);
+  const grade = useGradeSubmissions();
+  const [gridDirty, setGridDirty] = React.useState(false);
+  // Memoised: the grid re-baselines its draft when this identity changes.
+  const gridRows = React.useMemo(
+    () =>
+      submissionsQuery.data?.map((r) => ({
+        id: r.student_id,
+        student_id: r.student_id,
+        student_name: r.student_name,
+        roll_number: r.roll_number,
+        status: r.status,
+        marks: r.marks,
+      })),
+    [submissionsQuery.data],
+  );
+  // D11: from the dashboard, Close goes back there (D22), not to the bare homework page.
+  const closeGrid = useCloseFullPage(
+    () => void navigate({ search: (prev) => ({ ...prev, assignment: undefined }), replace: true }),
+  );
 
   if (homeworkQuery.isPending) {
     return (
@@ -146,11 +187,56 @@ function HomeworkDetailPage() {
     notifyOutcome({ tenantId: captureNotificationTenant(), variant: 'error', message });
   }
 
-  // D3: ACTIVE rows get Due date, Change, Deactivate; DEACTIVATED rows only Reactivate (Change
-  // there would silently create a new ACTIVE row); SUPERSEDED rows nothing.
+  function openGrid(row: HomeworkAssignmentListItem) {
+    setGridDirty(false);
+    void navigate({ search: (prev) => ({ ...prev, assignment: row.id }) });
+  }
+
+  async function handleGrade(updates: SubmissionUpdate[]): Promise<SubmissionSaveResult[]> {
+    if (!gridAssignmentId) return [];
+    try {
+      await grade.mutateAsync({
+        assignmentId: gridAssignmentId,
+        items: updates.map((u) => ({
+          student_id: u.id,
+          ...(u.status !== undefined ? { status: u.status } : {}),
+          ...(u.marks !== undefined ? { marks: u.marks } : {}),
+        })),
+      });
+      notifyOutcome({
+        tenantId: captureNotificationTenant(),
+        variant: 'success',
+        message: t('detail.submissions.saved'),
+      });
+    } catch (err) {
+      if (rowGone(err)) {
+        void submissionsQuery.refetch();
+        notifyError(t('detail.submissions.saveChanged'));
+      } else {
+        notifyError(t('form.genericError')); // D10: the draft is kept
+      }
+    }
+    return [];
+  }
+
+  // D3 (#2900): ACTIVE rows get Due date, Change, Deactivate; DEACTIVATED rows only Reactivate
+  // (Change there would silently create a new ACTIVE row); SUPERSEDED rows nothing. Plus Check
+  // work first on every row (#2899), for HOMEWORK_GRADE holders.
   function actionsFor(row: HomeworkAssignmentListItem): RowAction[] {
-    if (!canAssign || row.status === 'SUPERSEDED') return [];
     const target = assignmentTargetLabel(row, t);
+    const check: RowAction[] = canGrade
+      ? [
+          {
+            intent: 'view',
+            display: 'text',
+            label: t('detail.submissions.open', { target }),
+            shortLabel: t('detail.submissions.openShort'),
+            'data-focus-anchor': row.id,
+            onClick: () => openGrid(row),
+          },
+        ]
+      : [];
+    if (!canAssign || row.status === 'SUPERSEDED') return check;
     const statusBusy = update.isPending && statusRow?.id === row.id;
     const openStatus = () => {
       update.reset();
@@ -158,6 +244,7 @@ function HomeworkDetailPage() {
     };
     if (row.status === 'DEACTIVATED') {
       return [
+        ...check,
         {
           intent: 'restore',
           label: t('detail.assignments.reactivate', { target }),
@@ -168,6 +255,7 @@ function HomeworkDetailPage() {
       ];
     }
     return [
+      ...check,
       {
         intent: 'edit',
         icon: <CalendarClock />,
@@ -280,6 +368,10 @@ function HomeworkDetailPage() {
       },
     );
   }
+
+  const gridRow = gridAssignmentId
+    ? assignmentsQuery.data?.find((a) => a.id === gridAssignmentId)
+    : undefined;
 
   return (
     <RegionConfigProvider value={regionConfig}>
@@ -467,6 +559,62 @@ function HomeworkDetailPage() {
             busy={update.isPending}
             onConfirm={handleStatusConfirm}
           />
+        )}
+
+        {gridAssignmentId && (
+          <FullPageShell
+            title={
+              gridRow
+                ? t('detail.submissions.title', { target: assignmentTargetLabel(gridRow, t) })
+                : t('detail.submissions.titleFallback')
+            }
+            onClose={closeGrid}
+            dirty={gridDirty}
+            size="wide"
+          >
+            <p className="text-text-secondary">
+              {t(`detail.submissions.help.${homework.grading_mode}`, {
+                max: formatNumber(HOMEWORK_MARKS_MAX, regionConfig),
+              })}
+            </p>
+            {assignmentsQuery.data !== undefined && gridRow === undefined ? (
+              // The id is not a row of THIS homework: never show a grid for it.
+              <ErrorState
+                message={t('detail.submissions.notFound')}
+                retryLabel={tCommon('actions.close')}
+                onRetry={closeGrid}
+              />
+            ) : submissionsQuery.isPending ? (
+              <Skeleton className="h-40 w-full" />
+            ) : submissionsQuery.isError ? (
+              rowGone(submissionsQuery.error) || isNotFoundError(submissionsQuery.error) ? (
+                <ErrorState
+                  message={t('detail.submissions.notFound')}
+                  retryLabel={tCommon('actions.close')}
+                  onRetry={closeGrid}
+                />
+              ) : (
+                <ErrorState
+                  message={t('detail.submissions.loadError')}
+                  retryLabel={tCommon('actions.retry')}
+                  onRetry={() => void submissionsQuery.refetch()}
+                />
+              )
+            ) : gridRows === undefined || gridRows.length === 0 ? (
+              <EmptyState
+                title={t('detail.submissions.emptyTitle')}
+                explanation={t('detail.submissions.emptyExplanation')}
+              />
+            ) : (
+              <SubmissionGrid
+                key={gridAssignmentId}
+                gradingMode={homework.grading_mode}
+                rows={gridRows}
+                onSave={handleGrade}
+                onDirtyChange={setGridDirty}
+              />
+            )}
+          </FullPageShell>
         )}
       </div>
     </RegionConfigProvider>

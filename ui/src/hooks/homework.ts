@@ -1,4 +1,8 @@
-import type { HomeworkAssignmentStatus, HomeworkGradingMode } from '@biddaloy/shared';
+import type {
+  HomeworkAssignmentStatus,
+  HomeworkGradingMode,
+  HomeworkSubmissionStatus,
+} from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -285,6 +289,77 @@ export function useUpdateHomeworkAssignment() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: homeworkAssignmentsKeyRoot });
       void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
+    },
+  });
+}
+
+/** `GET /homework-assignments/:id/submissions` row (#2899): one per student; `submission_id` is
+ * null until the student uploads or a teacher marks them. TODO(schema) like the types above. */
+export interface HomeworkSubmissionRosterRow {
+  student_id: string;
+  student_name: string;
+  roll_number: number;
+  submission_id: string | null;
+  status: HomeworkSubmissionStatus;
+  marks: number | null;
+  attachment_count: number;
+}
+
+export interface GradeSubmissionItem {
+  student_id: string;
+  status?: 'NOT_SUBMITTED' | 'PARTIAL' | 'DONE';
+  marks?: number | null;
+}
+
+const submissionsKey = (assignmentId: string) =>
+  [...homeworkKeys.all, 'submissions', assignmentId] as const;
+
+export function assignmentSubmissionsQueryOptions(assignmentId: string) {
+  return queryOptions({
+    queryKey: submissionsKey(assignmentId),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<HomeworkSubmissionRosterRow[]>(
+          `/homework-assignments/${assignmentId}/submissions`,
+          { signal },
+        )
+      ).data,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useAssignmentSubmissions(assignmentId: string | undefined) {
+  return useQuery({
+    ...assignmentSubmissionsQueryOptions(assignmentId ?? ''),
+    enabled: assignmentId !== undefined,
+  });
+}
+
+/** `PATCH /homework-assignments/:id/submissions`: one transaction for the whole Save. Refreshes
+ * the list and the dashboard cards (the "Homework to check" count moves) on success only, so a
+ * 500 keeps the teacher's unsaved draft. */
+export function useGradeSubmissions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    retry: false,
+    mutationFn: async ({
+      assignmentId,
+      items,
+    }: {
+      assignmentId: string;
+      items: GradeSubmissionItem[];
+    }) =>
+      (
+        await apiClient.patch<HomeworkSubmissionRosterRow[]>(
+          `/homework-assignments/${assignmentId}/submissions`,
+          { items },
+        )
+      ).data,
+    onSuccess: (data, { assignmentId }) => {
+      // The PATCH reply is the fresh roster: seed it so the grid re-baselines clean.
+      queryClient.setQueryData(submissionsKey(assignmentId), data);
+      void queryClient.invalidateQueries({ queryKey: submissionsKey(assignmentId) });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'widget'] });
     },
   });
 }

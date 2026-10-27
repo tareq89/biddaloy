@@ -527,7 +527,7 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     method: 'POST',
     path: '/homework-assignments/:id/submissions',
     reason:
-      '[22.3.2] uploading a submission is the STUDENT/PARENT-only self-service action (D26 ownership-scoped) — ADMIN/TEACHER also hold HOMEWORK_READ but grade via PATCH /homework-submissions/:id, not this route' +
+      '[22.3.2] uploading a submission is the STUDENT/PARENT-only self-service action (D26 ownership-scoped) — ADMIN/TEACHER also hold HOMEWORK_READ but grade via PATCH /homework-assignments/:id/submissions (#2899), not this route' +
       ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
   },
   {

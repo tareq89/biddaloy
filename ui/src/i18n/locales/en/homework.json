@@ -66,6 +66,23 @@
       "reactivateDescription": "Students and parents will see it again, and can hand it in until the due date.",
       "reactivated": "Active again.",
       "rowChanged": "This row was already changed. The list is up to date now."
+    },
+    "submissions": {
+      "open": "Check work for {{target}}",
+      "openShort": "Check work",
+      "title": "Check work · {{target}}",
+      "titleFallback": "Check work",
+      "help": {
+        "TICK": "Tick each student who did the homework, then press Save.",
+        "PARTIAL": "For each student pick Done, Partial or Not done, then press Save.",
+        "MARKS": "Type each student's marks, from 0 to {{max}}, then press Save. Leave it empty if there are no marks yet."
+      },
+      "emptyTitle": "No students here yet",
+      "emptyExplanation": "Nobody is in this section yet, and no work was handed in.",
+      "loadError": "Could not load the students' work.",
+      "notFound": "This list cannot be opened. It may be for a section you do not teach.",
+      "saved": "Saved.",
+      "saveChanged": "This list changed while you were working. It is up to date now; check it and save again."
     }
   },
   "form": {
@@ -140,7 +157,8 @@
       "SUBMITTED": "Submitted",
       "PARTIAL": "Partial",
       "DONE": "Done"
-    }
+    },
+    "marksInvalid": "Marks must be a whole number from 0 to {{max}}."
   },
   "import": {
     "title": "Import homework",

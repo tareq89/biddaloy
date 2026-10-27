@@ -399,6 +399,7 @@ PATCH /grading/scales/:id | GradingController | perm: GRADING_SCALE_MANAGE
 PATCH /guardians/:id | StudentController | perm: GUARDIAN_UPDATE
 PATCH /guardians/mine | StudentController | identity | roles: PARENT
 PATCH /homework-assignments/:id | HomeworkController | perm: HOMEWORK_ASSIGN
+PATCH /homework-assignments/:id/submissions | HomeworkSubmissionController | perm: HOMEWORK_GRADE
 PATCH /homework-submissions/:id | HomeworkSubmissionController | perm: HOMEWORK_GRADE
 PATCH /onboarding | OnboardingController | identity | roles: ADMIN,SUPER_ADMIN
 PATCH /print-jobs/:id/confirm | PrintJobActionsController | perm: DOCUMENT_PRINT

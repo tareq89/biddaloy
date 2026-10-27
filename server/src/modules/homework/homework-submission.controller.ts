@@ -29,7 +29,9 @@ import {
 } from './homework-submission.service';
 import {
   CreateHomeworkSubmissionDto,
+  GradeSubmissionsDto,
   HomeworkSubmissionResponseDto,
+  HomeworkSubmissionRosterRowDto,
   UpdateHomeworkSubmissionDto,
 } from './dto/homework-submission.dto';
 
@@ -103,11 +105,34 @@ export class HomeworkSubmissionController {
     });
   }
 
+  @Patch('homework-assignments/:id/submissions')
+  @RequirePermissions(Permission.HOMEWORK_GRADE)
+  @ApiOperation({
+    summary:
+      'Tick, done/partial or marks for many students of one assignment, in one transaction (#2899).',
+  })
+  @ApiOkResponse({ type: HomeworkSubmissionRosterRowDto, isArray: true })
+  async grade(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: GradeSubmissionsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    return this.submissionService.grade(id, dto, {
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+  }
+
   @Get('homework-assignments/:id/submissions')
   @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.HOMEWORK_READ)
-  @ApiOperation({ summary: 'List submissions for an assignment (teacher grid view).' })
-  @ApiOkResponse({ type: HomeworkSubmissionResponseDto, isArray: true })
+  @ApiOperation({
+    summary:
+      'One row per student on this assignment, with their submission (teacher check-work view, #2899).',
+  })
+  @ApiOkResponse({ type: HomeworkSubmissionRosterRowDto, isArray: true })
   async findAll(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
