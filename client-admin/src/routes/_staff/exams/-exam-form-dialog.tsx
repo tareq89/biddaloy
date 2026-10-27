@@ -335,9 +335,7 @@ export function ExamFormDialog({
           )}
           {mutation.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {mutation.error instanceof ApiError && mutation.error.statusCode === 409
-                ? t('examForm.duplicateMessage')
-                : t('examForm.errorMessage')}
+              {t(errorKey(mutation.error))}
             </p>
           )}
 
@@ -355,4 +353,16 @@ export function ExamFormDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/** Fixed sentence per server error code; never the server text (Rule 23). */
+const ERROR_KEYS: Record<string, string> = {
+  EXAM_PUBLISHED: 'examForm.errorPublished',
+  EXAM_NAME_TAKEN: 'examForm.duplicateMessage',
+  CLASS_HAS_NO_GRADE: 'examForm.errorClassNoGrade',
+};
+
+function errorKey(error: unknown): string {
+  const code = error instanceof ApiError ? (error.details?.code as string | undefined) : undefined;
+  return (code && ERROR_KEYS[code]) || 'examForm.errorMessage';
 }
