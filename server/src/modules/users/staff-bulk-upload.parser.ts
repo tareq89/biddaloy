@@ -133,9 +133,7 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
       throw new StaffUploadParseError('Could not read file — is it a valid CSV file?');
     }
   }
-  throw new StaffUploadParseError(
-    `Unsupported file type: ${ext || '(none)'} — upload .xlsx or .csv`,
-  );
+  throw new StaffUploadParseError('Unsupported file type — upload .xlsx or .csv');
 }
 
 /** Parses the staff sheet. Header labels may be English or Bangla; Bangla digits in Mobile are normalised. */

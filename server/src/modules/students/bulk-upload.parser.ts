@@ -72,9 +72,7 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
     }
   }
 
-  throw new BulkUploadParseError(
-    `Unsupported file type: ${ext || '(none)'} — upload .xlsx or .csv`,
-  );
+  throw new BulkUploadParseError('Unsupported file type — upload .xlsx or .csv');
 }
 
 function cellToString(value: ExcelJS.CellValue): string {
