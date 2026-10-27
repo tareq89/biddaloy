@@ -5,7 +5,9 @@
     "change": "Set or change password",
     "setNow": "Set a password",
     "saved": "Your password is set.",
-    "alreadySet": "You already have a password."
+    "changeHint": "You already have a password. Enter it, then choose a new one.",
+    "wrongCurrent": "That password is not correct.",
+    "changed": "Your password is changed."
   },
   "connectPassword": {
     "title": "Confirm it's you",
