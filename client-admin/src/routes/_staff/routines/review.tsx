@@ -7,11 +7,12 @@
  * same one-active-routine assumption `$sectionId.tsx` makes when it
  * can't find a section-scoped one.
  *
- * Two audiences share this page:
- * - `ROUTINE_MANAGE` holders (ADMIN/EXECUTIVE) see every slot, the state
- *   controls (submit for review / withdraw / publish) and the change
- *   request queue.
- * - Everyone else (a teacher) sees only their own slots and can request a
+ * Three audiences share this page:
+ * - `ROUTINE_MANAGE` holders (ADMIN) see every slot, the state controls
+ *   (submit for review / withdraw / publish) and the change request queue.
+ * - The academic coordinator (EXECUTIVE) reads every slot of a REVIEW or
+ *   PUBLISHED routine, read-only; a DRAFT stays builder-only.
+ * - A teacher sees only their own slots and can request a
  *   change on a published one — the server only accepts a change request
  *   against a `PUBLISHED` slot (`ChangeRequestsService.open`), so the
  *   action is hidden with an explanation otherwise, not just left to
@@ -19,7 +20,7 @@
  *
  * [31.4] The state is a `StatusBadge`; "who can see it" is a header fact.
  */
-import { Permission } from '@biddaloy/shared';
+import { Permission, UserRole } from '@biddaloy/shared';
 import {
   Button,
   DataTable,
@@ -47,6 +48,7 @@ import {
   useCreateRoutine,
   useChangeRequests,
   useCopyRoutineYear,
+  useActiveRole,
   useCurrentUserId,
   useHasPermission,
   usePeriodSlotLookup,
@@ -116,6 +118,11 @@ function RoutineReviewPage() {
   const search = Route.useSearch();
   const canManage = useHasPermission(Permission.ROUTINE_MANAGE);
   const currentUserId = useCurrentUserId();
+  const role = useActiveRole();
+  // The academic coordinator (EXECUTIVE) reads the whole routine, read-only;
+  // only managers (ADMIN) change state, resolve requests or copy.
+  const canSeeAll = canManage || role === UserRole.EXECUTIVE;
+  const isTeacher = role === UserRole.TEACHER;
 
   const academicYearsQuery = useAcademicYears({});
   const currentYear = academicYearsQuery.data?.data.find((year) => year.is_current);
@@ -151,7 +158,7 @@ function RoutineReviewPage() {
   if (
     routinesQuery.isPending ||
     academicYearsQuery.isPending ||
-    (!canManage && ownTeacherQuery.isPending)
+    (!canSeeAll && ownTeacherQuery.isPending)
   ) {
     return (
       <PageContainer>
@@ -264,7 +271,7 @@ function RoutineReviewPage() {
   const sectionOptions = [
     ...new Map(rows.map((row) => [row.sectionId, row.sectionLabel] as const)),
   ].sort((a, b) => a[1].localeCompare(b[1]));
-  const visibleRows = canManage
+  const visibleRows = canSeeAll
     ? rows.filter((row) => !search.sectionId || row.sectionId === search.sectionId)
     : rows.filter((row) => (ownTeacher ? row.teacherIds.includes(ownTeacher.id) : false));
   const pageSize = 25;
@@ -389,8 +396,10 @@ function RoutineReviewPage() {
     },
   ];
 
-  const slotsTitle = canManage ? t('review.slots.title') : t('review.slots.titleOwn');
-  const showTable = canManage || ownTeacher;
+  const slotsTitle = canSeeAll ? t('review.slots.title') : t('review.slots.titleOwn');
+  const showTable = canSeeAll || ownTeacher;
+  // The server returns nothing to a coordinator while the routine is a draft.
+  const draftHidden = !canManage && canSeeAll && routine.state === 'DRAFT';
 
   return (
     <>
@@ -460,10 +469,10 @@ function RoutineReviewPage() {
               <div>
                 <h2 className="text-h2">{slotsTitle}</h2>
                 <p className="mt-1 text-text-secondary">
-                  {canManage ? t('review.slots.subtitle') : t('review.slots.subtitleOwn')}
+                  {canSeeAll ? t('review.slots.subtitle') : t('review.slots.subtitleOwn')}
                 </p>
               </div>
-              {canManage && (
+              {canSeeAll && (
                 <div className="flex flex-col gap-1 md:w-72">
                   <Label htmlFor="review-section-filter">{t('review.slots.sectionFilter')}</Label>
                   <Select
@@ -493,11 +502,17 @@ function RoutineReviewPage() {
               )}
             </div>
 
-            {!canManage && ownTeacher && !published && (
+            {isTeacher && ownTeacher && !published && (
               <p className="text-text-secondary">{t('review.requestChangeDisabledExplanation')}</p>
             )}
 
-            {showTable ? (
+            {draftHidden ? (
+              <EmptyState
+                icon={<CalendarX2Icon aria-hidden="true" />}
+                title={t('review.draftHiddenTitle')}
+                explanation={t('review.draftHiddenExplanation')}
+              />
+            ) : showTable ? (
               <DataTable
                 tableId="routine-review-slots"
                 caption={t('review.slots.caption')}
@@ -511,7 +526,7 @@ function RoutineReviewPage() {
                 totalCount={visibleRows.length}
                 onPageChange={setPage}
                 loading={slotsQuery.isPending}
-                {...(canManage
+                {...(!isTeacher
                   ? {}
                   : {
                       rowActions: (row: SlotRow) => [
