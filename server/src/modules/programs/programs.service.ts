@@ -69,7 +69,7 @@ export class ProgramsService {
 
   async findOne(id: string, tenantId: string): Promise<Program> {
     const program = await this.programRepo.findOne({ where: { id, tenant_id: tenantId } });
-    if (!program) throw new NotFoundException(`Program "${id}" not found`);
+    if (!program) throw new NotFoundException('Program not found');
     return program;
   }
 
@@ -118,7 +118,7 @@ export class ProgramsService {
       // 23505 on the (tenant_id, name) unique index.
       const existing = await repo.findOne({ where: { tenant_id: tenantId, name: dto.name } });
       if (existing) {
-        throw new ConflictException(`A program named "${dto.name}" already exists`);
+        throw new ConflictException('A program with this name already exists');
       }
 
       const entity = repo.create({
@@ -171,7 +171,7 @@ export class ProgramsService {
         where: { tenant_id: tenantId, name: changes.name },
       });
       if (nameTaken) {
-        throw new ConflictException(`A program named "${changes.name}" already exists`);
+        throw new ConflictException('A program with this name already exists');
       }
     }
 
@@ -318,7 +318,7 @@ export class ProgramsService {
     const milestone = await this.milestoneRepo.findOne({
       where: { id: milestoneId, program_id: programId, tenant_id: tenantId },
     });
-    if (!milestone) throw new NotFoundException(`Milestone "${milestoneId}" not found`);
+    if (!milestone) throw new NotFoundException('Milestone not found');
     return milestone;
   }
 

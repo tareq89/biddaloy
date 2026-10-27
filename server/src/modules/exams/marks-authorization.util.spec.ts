@@ -164,7 +164,7 @@ describe('MarksAuthorizationService teacher miss body (D33/D13)', () => {
   it('says exactly what a missing section says', async () => {
     const { service } = buildService();
     await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(
-      'Section with ID "s1" not found',
+      'Section not found',
     );
   });
 });

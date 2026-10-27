@@ -25,7 +25,7 @@ const canReadTenantWide = (role: string) =>
  * any other role keeps the 403. */
 const deny = (role: string, sectionId: string) =>
   roleScope(role) === RoleScope.ASSIGNED_SECTIONS
-    ? new NotFoundException(`Section with ID "${sectionId}" not found`)
+    ? new NotFoundException('Section not found')
     : new ForbiddenException('You are not the assigned subject teacher for this section-subject.');
 
 /**

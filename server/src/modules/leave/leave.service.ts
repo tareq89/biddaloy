@@ -56,7 +56,7 @@ export class LeaveService {
       where: { tenant_id: tenantId, leave_type: leaveType },
     });
     if (!policy) {
-      throw new NotFoundException(`No leave policy for ${leaveType} in this tenant`);
+      throw new NotFoundException('No leave policy for this leave type in this tenant');
     }
     return policy;
   }
@@ -288,7 +288,7 @@ export class LeaveService {
     if (!policy) {
       // 422, not 404: on `POST /applications/:id/approve` a 404 reads as "no such application".
       throw new UnprocessableEntityException({
-        message: `No leave policy for ${leaveType} in this tenant`,
+        message: 'No leave policy for this leave type in this tenant',
         details: { code: 'LEAVE_POLICY_MISSING' },
       });
     }

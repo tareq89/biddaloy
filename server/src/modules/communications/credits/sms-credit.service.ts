@@ -229,7 +229,7 @@ export class SmsCreditService {
       }
       if (isCheckViolation(err)) {
         throw new BadRequestException(
-          `Adjustment would drive the SMS credit balance for tenant "${tenantId}" below zero.`,
+          "Adjustment would drive this school's SMS credit balance below zero.",
         );
       }
       throw err;

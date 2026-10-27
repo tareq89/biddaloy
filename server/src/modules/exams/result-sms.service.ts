@@ -79,10 +79,10 @@ export class ResultSmsService {
       where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!exam) {
-      throw new BadRequestException(`Exam with ID "${examId}" not found`);
+      throw new BadRequestException('Exam not found');
     }
     if (exam.status !== ExamStatus.PUBLISHED) {
-      throw new ConflictException(`Exam "${examId}" is not published — nothing to send yet.`);
+      throw new ConflictException('This exam is not published — nothing to send yet.');
     }
 
     const results = await this.resultRepo.find({

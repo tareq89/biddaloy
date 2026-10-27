@@ -95,7 +95,7 @@ export class InvoiceShareService {
       where: { id: invoiceId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!invoice) {
-      throw new NotFoundException(`Invoice with ID "${invoiceId}" not found`);
+      throw new NotFoundException('Invoice not found');
     }
   }
 
@@ -134,7 +134,7 @@ export class InvoiceShareService {
   async revokeToken(tokenId: string, tenantId: string, actorUserId: string): Promise<void> {
     const token = await this.repo.findOne({ where: { id: tokenId, tenant_id: tenantId } });
     if (!token) {
-      throw new NotFoundException(`Share token "${tokenId}" not found`);
+      throw new NotFoundException('Share token not found');
     }
     token.revoked_at = new Date();
     await this.repo.save(token);

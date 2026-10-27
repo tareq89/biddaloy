@@ -100,9 +100,7 @@ export class SurveysService {
         select: { id: true },
       });
       if (!exists) {
-        throw new BadRequestException(
-          `Teacher ${t.teacherId} is not assigned to subject ${t.subjectId}`,
-        );
+        throw new BadRequestException('A chosen teacher is not assigned to the chosen subject');
       }
     }
   }

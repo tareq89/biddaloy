@@ -139,13 +139,13 @@ export class StudentExamScheduleController {
       where: { id: studentId, tenant_id: tenant.id, deleted_at: IsNull() },
     });
     if (!student) {
-      throw new NotFoundException(`Student "${studentId}" not found`);
+      throw new NotFoundException('Student not found');
     }
     const section = await this.sectionRepo.findOne({
       where: { id: student.class_section_id, tenant_id: tenant.id, deleted_at: IsNull() },
     });
     if (!section) {
-      throw new NotFoundException(`Class section for student "${studentId}" not found`);
+      throw new NotFoundException('Class section for this student not found');
     }
 
     return this.service.listForStudentClass(

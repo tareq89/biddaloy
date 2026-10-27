@@ -282,7 +282,7 @@ export class CommunicationsController {
     if (this.isTeacher(tenant.role)) {
       // D13: every teacher miss reads exactly like a missing log. D36: a guardian-level log (no
       // student) can be about a sibling outside scope, so a teacher never opens one.
-      const notFound = new NotFoundException(`Communication log with ID "${id}" not found`);
+      const notFound = new NotFoundException('Communication log not found');
       const owner = await this.communicationsService.findOwner(id, tenant.id);
       if (!owner?.student_id) throw notFound;
       await this.familyAccess

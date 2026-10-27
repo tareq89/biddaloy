@@ -372,9 +372,7 @@ export class InvoicesController {
 
     const address = addressForMedium(guardian, dto.medium);
     if (!address) {
-      throw new BadRequestException(
-        `Guardian "${guardian.id}" has no address on file for ${dto.medium}.`,
-      );
+      throw new BadRequestException('This guardian has no address on file for the chosen medium.');
     }
 
     const { rawToken } = await this.shareService.createToken(id, tenant.id, user.sub);
@@ -443,9 +441,7 @@ export class InvoicesController {
     const student = await this.studentService.findOne(invoice.student_id, tenantId);
     const linkedIds = new Set((student.guardians ?? []).map((g) => g.id));
     if (!linkedIds.has(guardian.id)) {
-      throw new BadRequestException(
-        `Guardian "${guardianId}" is not linked to student "${invoice.student_id}".`,
-      );
+      throw new BadRequestException("This guardian is not linked to the invoice's student.");
     }
     return guardian;
   }
@@ -457,12 +453,12 @@ export class InvoicesController {
     const student = await this.studentService.findOne(studentId, tenantId);
     const linked = student.guardians ?? [];
     if (linked.length === 0) {
-      throw new BadRequestException(`Student "${studentId}" has no guardians on file`);
+      throw new BadRequestException('This student has no guardians on file');
     }
     const { guardians } = resolveReminderAudience(linked);
     if (guardians.length === 0) {
       throw new BadRequestException(
-        `Student "${studentId}" has no reachable guardian to send this invoice to.`,
+        'This student has no reachable guardian to send this invoice to.',
       );
     }
     return guardians[0];

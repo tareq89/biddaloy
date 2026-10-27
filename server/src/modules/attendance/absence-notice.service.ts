@@ -355,7 +355,7 @@ export class AbsenceNoticeService {
     // since removed. Silently falling back to empty names would let a
     // batch and SMS go out naming no section at all; fail loudly instead.
     if (!section) {
-      throw new NotFoundException(`Section "${sectionId}" not found`);
+      throw new NotFoundException('Section not found');
     }
     return {
       className: section.class?.name ?? '',
