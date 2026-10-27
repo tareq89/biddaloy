@@ -34,14 +34,17 @@ function buildService() {
     orderBy: vi.fn().mockReturnThis(),
     getMany: vi.fn(async () => []),
   };
-  const slotRepo: any = { findOne: vi.fn(async () => SLOT) };
+  const slotRepo: any = { findOne: vi.fn(async () => SLOT), find: vi.fn(async () => []) };
   const routineRepo: any = { findOne: vi.fn(async () => ROUTINE) };
   const yearRepo: any = { findOne: vi.fn(async () => YEAR) };
   const teacherRepo: any = {
     findOne: vi.fn(async () => ({ id: 't-2', tenant_id: TENANT_ID, user_id: 'u-2' })),
   };
   const slotTeacherRepo: any = { find: vi.fn(async () => [{ teacher_id: 't-1' }]) };
+  const sectionRepo: any = { find: vi.fn(async () => []) };
+  const subjectRepo: any = { find: vi.fn(async () => []) };
   const periodSlotRepo: any = {
+    find: vi.fn(async () => []),
     findOne: vi.fn(async () => ({
       shift_id: 'shift-1',
       sequence: 1,
@@ -64,10 +67,15 @@ function buildService() {
     busy,
     schools,
     audit,
+    sectionRepo,
+    subjectRepo,
   );
   return {
     service,
     audit,
+    sectionRepo,
+    subjectRepo,
+    periodSlotRepo,
     settings,
     slotTeacherRepo,
     busy,
@@ -85,6 +93,49 @@ describe('SubstitutionsService [21.5.1]', () => {
 
   beforeEach(() => {
     ctx = buildService();
+  });
+
+  it('list() returns the slot summary from any year, batch-loaded, with no year filter [2897]', async () => {
+    // The slot belongs to an old year's routine: nothing here knows or cares which year is current.
+    ctx.qb.getMany = vi.fn(async () => [
+      { id: 'sub-1', routine_slot_id: 'slot-old' },
+      { id: 'sub-2', routine_slot_id: 'slot-gone' },
+    ]);
+    ctx.slotRepo.find = vi.fn(async () => [
+      { id: 'slot-old', section_id: 'sec-1', period_slot_id: 'p-1', subject_id: 'subj-1' },
+    ]);
+    ctx.periodSlotRepo.find = vi.fn(async () => [
+      { id: 'p-1', sequence: 3, starts_at: '09:30:00' },
+    ]);
+    ctx.sectionRepo.find = vi.fn(async () => [
+      { id: 'sec-1', section_name: 'B', class: { name: 'Class 5' } },
+    ]);
+    ctx.subjectRepo.find = vi.fn(async () => [{ id: 'subj-1', name_en: 'Math', name_bn: null }]);
+    ctx.slotTeacherRepo.find = vi.fn(async () => [
+      { routine_slot_id: 'slot-old', teacher_id: 't-1' },
+    ]);
+
+    const result = await ctx.service.list({} as any, TENANT_ID);
+
+    expect(result[0]!.slot).toEqual({
+      section_id: 'sec-1',
+      class_name: 'Class 5',
+      section_name: 'B',
+      period_sequence: 3,
+      starts_at: '09:30:00',
+      subject_name_en: 'Math',
+      subject_name_bn: null,
+      teacher_ids: ['t-1'],
+    });
+    // A row whose slot is gone comes back with `slot: null`, not a crash.
+    expect(result[1]!.slot).toBeNull();
+    // Archived sections / subjects of an old year are still found.
+    expect(ctx.sectionRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ withDeleted: true }),
+    );
+    expect(ctx.subjectRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ withDeleted: true }),
+    );
   });
 
   describe('remove', () => {
