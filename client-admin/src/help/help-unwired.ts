@@ -1,20 +1,30 @@
 /**
  * [Epic 44 / #2562] Guide ids that deliberately have no (?) in code: id -> reason.
  * `help-guard.test.ts` fails when one of these is missing from the guide or is used in code (E6),
- * and when a reason is not `#<open issue>: …` or the E11 public-page reason (44.3.12).
+ * and when a reason does not start with an issue number (`#<n>: …`), or is the E11 public-page
+ * reason on an id outside `start.signIn` / `admin.createSchool` (44.3.12). The guard checks the
+ * format only, not that the issue is open.
  * The issue that wires an id deletes its line here.
  */
 export const PUBLIC = 'E11: public page, no shell';
 /** 44.3.x wave 3: the page has no slot for the (?) yet (no element to attach it to). */
 const PAGE_FIX = '#3017: page fix pending';
-/** The ui/ component has no helpId slot (DataTable row action, FilterBar field). */
+/** The print-templates pages have no slot for these (?) yet. */
+const PRINT_FIX = '#3061: page fix pending';
+/** The ui/ component has no helpId slot (DataTable row action or expand toggle, FilterBar field). */
 const UI_SLOT = '#3078: no helpId slot in ui/';
 /** PageHeader puts tertiary/destructive actions in the More menu, which draws no (?). */
 const MENU_ITEM = '#3078: header More-menu item has no (?) slot';
 /** The element lives in a file outside the wave-3 lane territory. */
 const TERRITORY = '#3079: element outside the wave-3 territory';
-/** The guide declared the id after its wave-3 ticket ran; the ticket owns the folder. */
+/**
+ * The guide declared the id after its wave-3 ticket ran; #3143 wires all 11. The 7 `applications.*`
+ * ids also need the Epic 52 e2e locators fixed (D14); the 4 curriculum-preset and setup-order ids
+ * only need the wiring.
+ */
 const LATE = '#3143: declared after the wave-3 pass';
+/** The guide id is outside the helpId grammar (no .action./.field./.section.); see the grammar test. */
+export const OFF_GRAMMAR = '#3148: settings id outside the helpId grammar';
 
 export const HELP_UNWIRED: Record<string, string> = {
   'start.signIn': PUBLIC,
@@ -79,15 +89,15 @@ export const HELP_UNWIRED: Record<string, string> = {
   'examsResults.examTemplates.action.delete': '#3046: page fix pending',
   'finance.feeStructures.action.delete': '#3057: page fix pending',
   'finance.recurringSchedules.action.deactivate': '#3058: page fix pending',
-  'administration.printTemplates.action.confirmRound': '#3061: page fix pending',
-  'administration.printTemplates.action.makeDefault': '#3061: page fix pending',
-  'administration.printTemplates.action.print': '#3061: page fix pending',
-  'administration.printTemplates.action.publish': '#3061: page fix pending',
-  'administration.printTemplates.action.revoke': '#3061: page fix pending',
-  'administration.printTemplates.field.batchSize': '#3061: page fix pending',
-  'administration.printTemplates.field.design': '#3061: page fix pending',
-  'administration.printTemplates.field.kind': '#3061: page fix pending',
-  'administration.printTemplates.field.printer': '#3061: page fix pending',
+  'administration.printTemplates.action.confirmRound': PRINT_FIX,
+  'administration.printTemplates.action.makeDefault': PRINT_FIX,
+  'administration.printTemplates.action.print': PRINT_FIX,
+  'administration.printTemplates.action.publish': PRINT_FIX,
+  'administration.printTemplates.action.revoke': PRINT_FIX,
+  'administration.printTemplates.field.batchSize': PRINT_FIX,
+  'administration.printTemplates.field.design': PRINT_FIX,
+  'administration.printTemplates.field.kind': PRINT_FIX,
+  'administration.printTemplates.field.printer': PRINT_FIX,
   'administration.auditLogs.field.performedBy': '#3062: page fix pending',
   'portal.notifications.action.close': '#3063: page fix pending',
   'portal.notifications.action.snooze': '#3063: page fix pending',
@@ -95,7 +105,6 @@ export const HELP_UNWIRED: Record<string, string> = {
   'start.phone.action.install': '#3065: page fix pending',
 
   // 44.3.12: declared in the guide after the wave-3 pass ran
-  'applications.action.submit': '#3078: FullPageShell primary has no helpId slot',
   'applications.action.cancelLeave': MENU_ITEM,
   'applications.action.approve': LATE,
   'applications.action.reject': LATE,
@@ -108,7 +117,25 @@ export const HELP_UNWIRED: Record<string, string> = {
   'administration.curriculumPreset.field.stages': LATE,
   'administration.curriculumPreset.field.confirmName': LATE,
   'admin.setupOrder.action.continueSetup': LATE,
-  'administration.auditLogs.action.expand': '#3078: DataTable row expand toggle has no helpId slot',
-  'administration.printTemplates.action.create': '#3061: page fix pending',
-  'administration.printTemplates.action.archive': '#3061: page fix pending',
+  'administration.auditLogs.action.expand': UI_SLOT,
+  'administration.printTemplates.action.create': PRINT_FIX,
+  'administration.printTemplates.action.archive': PRINT_FIX,
+
+  // 44.3.12 review: declared by the settings page outside the grammar, so the guard missed them
+  'administration.settings.logo': OFF_GRAMMAR,
+  'administration.settings.organisation': OFF_GRAMMAR,
+  'administration.settings.attendance': OFF_GRAMMAR,
+  'administration.settings.autoAbsent': OFF_GRAMMAR,
+  'administration.settings.approvalMode': OFF_GRAMMAR,
+  'administration.settings.secondApprover': OFF_GRAMMAR,
+  'administration.settings.lateFees': OFF_GRAMMAR,
+  'administration.settings.buySeats': OFF_GRAMMAR,
+  'administration.settings.smsProvider': OFF_GRAMMAR,
+  'administration.settings.smsCredit': OFF_GRAMMAR,
+  'administration.settings.guardianSmsFallback': OFF_GRAMMAR,
+  'administration.settings.printers': OFF_GRAMMAR,
+  'administration.settings.otpLogin': OFF_GRAMMAR,
+  'administration.settings.backup': OFF_GRAMMAR,
+  'administration.settings.backupSchedule': OFF_GRAMMAR,
+  'administration.settings.restore': OFF_GRAMMAR,
 };

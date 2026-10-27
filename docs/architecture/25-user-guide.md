@@ -245,7 +245,7 @@ follow-up on Epic 58.
 ## In-app help (Epic 44)
 
 The small round **(?)** sits next to a page title, a button, a field or a
-section header. Hover, click or Enter opens a short card: the guide page's
+section header. Hover, click, tap, Enter or Space opens a short card: the guide page's
 summary (or the field's help text) and a link that opens **this guide** at the
 right spot, in the user's language, in a new tab.
 
@@ -259,7 +259,7 @@ flowchart LR
   BTN -->|"capture hides [data-help-id]"| SHOT["guide screenshots"]
   IDX --> GUARD{{"help-guard.test.ts<br/>ids in code ⇄ ids in guide"}}
   CODE --> GUARD
-  UNW["help-unwired.ts<br/>id → #open issue"] --> GUARD
+  UNW["help-unwired.ts<br/>id → #issue"] --> GUARD
 ```
 
 ### helpId grammar and where the link lands
@@ -325,7 +325,9 @@ A page with `knownIssues` also gets a "Known issues →" link to `#known-issues`
    [21-ui-patterns §10](21-ui-patterns.md#helphint-placement), D18):
    - page title: nothing to do. `PageHeader` finds the page id from the route
      (`HELP_ROUTES`, E15);
-   - header action: `helpId` on the `PageAction`;
+   - header action that `PageHeader` shows inline (primary, the first two
+     secondaries, or a lone destructive): `helpId` on the `PageAction`. An
+     action in the More menu gets no (?): list its id in `help-unwired.ts` (#3078);
    - field: `helpId` on its `FormField`;
    - any other button, or a section header: `<HelpHint helpId="…" />` right after it.
 4. **Check:** `npx vitest run client-admin/src/help/` and `yarn guide:check`.
@@ -338,22 +340,27 @@ links into the guide.
 `client-admin/src/help/help-guard.test.ts` keeps code and guide in step, **both
 ways** (E6, strict since 44.3.12):
 
-| Check             | Fails when                                                                                                                                           |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| code → guide      | a `helpId` literal in code is not in `HELP_INDEX`                                                                                                    |
-| guide → code      | a declared `.action.` / `.field.` / `.section.` id is not used in code and not in `help-unwired.ts`                                                  |
-| widgets           | the `widget.*` ids differ from the `dashboard/widgets/*/<key>.widget.tsx` files (WidgetSlot wires them through context, E23, so code has no literal) |
-| `help-unwired.ts` | an id is used in code, is not in the guide, or its reason is not `#<issue>: …` or the E11 public-page reason                                         |
-| fields            | a `.field.` id has no `help.<name>` in bn and en                                                                                                     |
-| baselines         | `HELP_GAPS`, missing anchors or missing `known-issues` sections differ from their checked-in lists (shrink-only)                                     |
+| Check             | Fails when                                                                                                                                                                                                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| code → guide      | a `helpId` literal in code is not in `HELP_INDEX`                                                                                                                                                                                                                                                       |
+| guide → code      | a declared id that is not a page id or `widget.*` is not used in code and not in `help-unwired.ts`. Blind spots: a `helpId` on a More-menu action counts as used, though no (?) renders (#3078); and the guard cannot tell which actions go to the More menu when that depends on `allowed` at run time |
+| grammar           | an index id is not `<feature>`, `<feature>.action\|field\|section.<name>` or `widget.<key>`, bar the 16 `administration.settings.*` ids listed under #3148                                                                                                                                              |
+| widgets           | the `widget.*` ids differ from the `dashboard/widgets/*/<key>.widget.tsx` files (WidgetSlot wires them through context, E23, so code has no literal)                                                                                                                                                    |
+| `help-unwired.ts` | an id is used in code, is not in the guide, or its reason is not `#<issue>: …` (the E11 reason is allowed only on sign-in and create-school ids)                                                                                                                                                        |
+| fields            | a `.field.` id has no `help.<name>` in bn and en                                                                                                                                                                                                                                                        |
+| baselines         | `HELP_GAPS`, missing anchors or missing `known-issues` sections differ from their checked-in lists (shrink-only)                                                                                                                                                                                        |
 
 The guard reads literals only: `helpId="x"`, `helpId={'x'}` and `helpId: 'x'`.
-An id built from a variable is invisible to it.
+An id built from a variable is invisible to it, and a literal inside a comment
+counts as used.
 
 `client-admin/src/help/help-unwired.ts` is the only allowlist: id → reason.
-A reason is either an **open issue** (`'#3078: header More-menu item has no (?) slot'`)
+A reason is either an **issue number** (`'#3078: header More-menu item has no (?) slot'`)
 or `E11: public page, no shell` (sign-in, create-school: no (?) by design). The
-issue that wires an id deletes its line.
+guard checks the format only, not that the issue is still open. The issue that
+wires an id deletes its line. Nothing ties a closed issue to its lines, so a PR
+that says `Closes #3143` but wires only some of its ids still passes: the
+reviewer checks that no line names the issue being closed.
 
 ### The gap rule (E19, #3017 = 44.4.00)
 
@@ -418,11 +425,13 @@ Each bullet: surprise, cost, fix, rule candidate.
   44.3.12 exempts `widget.*` from that check and instead matches the `widget.*`
   ids one to one against the `*.widget.tsx` files.
 - **2026-10-28 — a helpId on a More-menu action renders nothing.** `PageHeader`
-  moves tertiary and destructive actions into the "More" menu, and a menu item
+  moves tertiary actions, secondaries after the second, and a destructive that
+  is not alone into the "More" menu, and a menu item
   has no (?). The id is still a literal in code, so the guard counted it as
   wired while no user could see it. Cost: dead ids that looked done. Fix: such
   ids sit in `help-unwired.ts` under #3078 instead of in code. Rule candidate:
-  give `helpId` only to a primary or secondary header action.
+  give `helpId` only to an action `PageHeader` shows inline (primary, the first
+  two secondaries, or a lone destructive).
 - **2026-10-28 — every new (?) broke older e2e locators.** The (?) is a button
   named "Help: <page title>", so `getByRole('button', { name: /record payment/i })`
   or any substring name now matches two buttons and Playwright's strict mode
@@ -450,6 +459,13 @@ Each bullet: surprise, cost, fix, rule candidate.
   open the (?) briefly has `tabindex="-1"`, so a test waits for the attribute to
   go before checking it. Rule candidate: a focus helper that is not a target
   must never be the first tabbable element of a dialog.
+- **2026-10-28 — the guide → code check missed 16 ids.** It only looked at
+  `.action.` / `.field.` / `.section.` ids, so the settings page's
+  `administration.settings.logo` and 15 more (no kind in the id) were neither
+  wired nor listed. Fix: the check now covers every id except page and
+  `widget.*` ids, a grammar test pins the 16 to #3148, which renames or drops
+  them. Rule candidate: a completeness check names what it skips, not what it
+  checks, so an id of a new shape is checked by default.
 
 ## Related
 

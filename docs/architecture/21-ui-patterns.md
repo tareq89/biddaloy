@@ -329,15 +329,15 @@ muted icon with a 44 px target and no pulse (D22).
 **Where it goes (D18):** page titles, crucial actions, hard fields and
 multi-part section headers. Not on every field.
 
-| Element                            | How to wire it                                                               |
-| ---------------------------------- | ---------------------------------------------------------------------------- |
-| Page title                         | nothing: `PageHeader` finds the page id from the route (E15)                 |
-| Primary or secondary header action | `helpId` on the `PageAction`; the (?) hides on phone with its button         |
-| Tertiary header action (More menu) | none: a menu item draws no (?). List the id in `help-unwired.ts` (#3078)     |
-| Any other button                   | `<HelpHint helpId="…" />` right after it, inside its flex row                |
-| Form field                         | `helpId` on its `FormField`; the (?) follows the label                       |
-| Section header                     | `<HelpHint helpId="…" />` after the `h2`, in a `flex items-center gap-1` row |
-| Dashboard widget                   | nothing: `WidgetSlot` passes `widget.<key>` to `WidgetCard` (E23)            |
+| Element                                                                                                 | How to wire it                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page title                                                                                              | nothing: `PageHeader` finds the page id from the route (E15)                                                                                                                          |
+| Header action shown inline (primary, first two secondaries, or a lone destructive)                      | `helpId` on the `PageAction`; the (?) follows its button and hides on phone when the button does (a secondary or destructive without `keepOnPhone`). The primary's (?) stays on phone |
+| Header action in the More menu (tertiary, third and later secondaries, a destructive that is not alone) | none: a menu item draws no (?). List the id in `help-unwired.ts` (#3078)                                                                                                              |
+| Any other button                                                                                        | `<HelpHint helpId="…" />` right after it, inside its flex row                                                                                                                         |
+| Form field                                                                                              | `helpId` on its `FormField`; the (?) follows the label                                                                                                                                |
+| Section header                                                                                          | `<HelpHint helpId="…" />` after the `h2`, in a `flex items-center gap-1` row                                                                                                          |
+| Dashboard widget                                                                                        | nothing: `WidgetSlot` passes `widget.<key>` to `WidgetCard` (E23)                                                                                                                     |
 
 Example, from `client-admin/src/routes/_staff/attendance/$sectionId.tsx`:
 

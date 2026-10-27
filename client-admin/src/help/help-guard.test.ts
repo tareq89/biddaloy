@@ -2,9 +2,9 @@
 /**
  * [Epic 44 / #2562] Help guard (E6, E22): ids in code, ids in the guide and field keys in i18n
  * must agree. Strict both ways since 44.3.12 (#2573): an unknown helpId in code fails, and a
- * declared action/field/section id that no code uses fails unless HELP_UNWIRED lists it with an
- * open issue. `widget.<key>` ids are wired by WidgetSlot (E23), so they are checked against the
- * widget files instead.
+ * declared id that no code uses fails unless HELP_UNWIRED lists it with an issue number. Page ids
+ * are wired by PageHeader from the route (E15) and `widget.<key>` ids by WidgetSlot (E23), so
+ * those two kinds are checked another way.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 import { readMeta } from './guide-gen/help-index';
 import { HELP_GAPS, HELP_INDEX } from './help-index.gen';
-import { HELP_UNWIRED, PUBLIC } from './help-unwired';
+import { HELP_UNWIRED, OFF_GRAMMAR, PUBLIC } from './help-unwired';
 
 /** Guide pages whose feature id is not in their own helpIds yet (gap for #3017); shrink, never grow. */
 const NO_PAGE_ENTRY_YET = new Set([
@@ -30,8 +30,19 @@ const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const features = JSON.parse(
   readFileSync(path.join(ROOT, 'docs/user-guide/_generated/features.json'), 'utf8'),
 ) as { id: string }[];
+const featureIds = new Set(features.map((f) => f.id));
+/** E11: the pages with no shell, so no (?) by design. Only their ids may use the PUBLIC reason. */
+const PUBLIC_PAGES = ['start.signIn', 'admin.createSchool'];
+const isPublicId = (id: string) => PUBLIC_PAGES.some((p) => id === p || id.startsWith(`${p}.`));
+/** `<feature>`, `<feature>.action|field|section.<name>` or `widget.<key>` (25-user-guide). */
+const inGrammar = (id: string) => {
+  if (featureIds.has(id) || /^widget\.[a-z0-9-]+$/.test(id)) return true;
+  const m = id.match(/^(.+)\.(action|field|section)\.[A-Za-z0-9]+$/);
+  return !!m && featureIds.has(m[1]!);
+};
 const SOURCE_DIRS = ['client-admin/src', 'ui/src'];
-// ponytail: literals only; a helpId built from a variable is not seen (spread props, ternaries).
+// ponytail: literals only; a helpId built from a variable is not seen (spread props, ternaries),
+// and a literal inside a comment counts as used. Strip comments if that ever hides a dead id.
 const SKIP = /\.(test|stories|gen)\.tsx?$|\.d\.ts$|help-hint\.tsx$/;
 const LITERAL = /\bhelpId(?:=\{?\s*["']|:\s*["'])([^"']+)["']/g;
 
@@ -273,29 +284,41 @@ describe('help guard', () => {
     expect(codeIds.filter((id) => Object.hasOwn(HELP_UNWIRED, id))).toEqual([]);
   });
 
-  it('every HELP_UNWIRED reason names an issue (#n: …) or is the E11 public-page reason', () => {
+  it('every HELP_UNWIRED reason names an issue (#n: …), or is E11 on a public page id', () => {
     expect(
       Object.entries(HELP_UNWIRED)
-        .filter(([, why]) => why !== PUBLIC && !/^#\d+: \S/.test(why))
+        .filter(([id, why]) => (why === PUBLIC ? !isPublicId(id) : !/^#\d+: \S/.test(why)))
         .map(([id]) => id),
     ).toEqual([]);
   });
 
-  it('every declared action/field/section id is used in code or listed in HELP_UNWIRED', () => {
+  it('every declared id that is not a page or widget id is used in code or in HELP_UNWIRED', () => {
     const unused = Object.keys(HELP_INDEX).filter(
       (id) =>
-        /\.(action|field|section)\./.test(id) &&
+        !featureIds.has(id) &&
+        !id.startsWith('widget.') &&
         !codeIds.includes(id) &&
         !Object.hasOwn(HELP_UNWIRED, id),
     );
     expect(unused).toEqual([]);
   });
 
+  it('every HELP_INDEX id follows the helpId grammar, bar the #3148 list (shrink-only)', () => {
+    const off = Object.keys(HELP_INDEX).filter((id) => !inGrammar(id));
+    const allowed = Object.keys(HELP_UNWIRED).filter((id) => HELP_UNWIRED[id] === OFF_GRAMMAR);
+    expect(off.sort()).toEqual(allowed.sort());
+    expect(inGrammar('attendance.attendance.action.submit')).toBe(true);
+    expect(inGrammar('widget.attendance-today')).toBe(true);
+    expect(inGrammar('administration.settings.logo')).toBe(false);
+    expect(inGrammar('nope.page.action.x')).toBe(false);
+  });
+
   it('widget.<key> ids match the widget files one to one (WidgetSlot wires them, E23)', () => {
     // Same rule as widgets/registry.ts: the key is the `<key>.widget.tsx` file name.
     const dir = path.join(ROOT, 'client-admin/src/dashboard/widgets');
     const keys = readdirSync(dir, { recursive: true, encoding: 'utf8' })
-      .filter((f) => f.endsWith('.widget.tsx'))
+      // `./*/*.widget.tsx`: exactly one folder deep, like the registry glob.
+      .filter((f) => f.endsWith('.widget.tsx') && f.split(path.sep).length === 2)
       .map((f) => `widget.${path.basename(f, '.widget.tsx')}`)
       .sort();
     const declared = Object.keys(HELP_INDEX)
