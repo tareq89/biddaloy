@@ -272,3 +272,11 @@ Wave 0 (#2979): five security fixes found while writing the user guide.
 - 2026-10-27 — #2941: the collection-by-month widget now follows the current academic year, so `e2e/journeys/dashboard-reconciliation.spec.ts` (which assumed the calendar year) changed too.
 - 2026-10-27 — #2946: pinned backups skip the 30-day download expiry; `expires_at` is not cleared on pin, so un-pinning restores the old expiry.
 - 2026-10-27 — #2951: an abandoned request body leaves its idempotency key in `sessionStorage` until the tab closes; known and minor.
+
+## Epic 87 — follow-ups from Epic 86
+
+- 2026-10-27 — #3002 was already fixed by a review round on the Epic 86 stack; only test coverage was left. Rule candidate: check the issue against the stack head before planning.
+- 2026-10-27 — #3031: the plan said remove the Regional locale picker; the stored locale still sets the language of outgoing SMS, emails and alerts, so the picker was kept and relabelled. Rule candidate: grep server consumers of a setting before removing its UI.
+- 2026-10-27 — #3032: a per-widget cache version (only collection-by-month at 2) avoids emptying every widget's cache on deploy.
+- 2026-10-27 — #3033: dropping `@Roles` when it equals the permission holders also requires deleting the matching `ROLE_NARROWINGS` entries, or the "still narrows a live route" test fails.
+- 2026-10-27 — #3020: `withHttpStatusShape` dropped `details`, so a server-only code change would never have reached the staff import screen.
