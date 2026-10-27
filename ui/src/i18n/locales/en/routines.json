@@ -168,6 +168,7 @@
     "fillAssistAction": "Fill empty periods",
     "savedToast": "Saved",
     "saveErrorToast": "Could not save — try again.",
+    "slotInUseToast": "This period has substitutions or open change requests. Resolve them first, or edit from a later date.",
     "studentsFact": "Students",
     "studentsValue": "{{formattedCount}} student",
     "studentsValue_other": "{{formattedCount}} students",
@@ -413,6 +414,7 @@
     "deleteConfirm": "Delete",
     "cancel": "Cancel",
     "deletedToast": "Deleted",
+    "pastDeleteError": "A past substitution is part of the record and cannot be deleted.",
     "deleteError": "Could not delete — try again."
   },
   "agenda": {
