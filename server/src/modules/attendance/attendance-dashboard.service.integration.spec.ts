@@ -62,11 +62,20 @@ describe('AttendanceDashboardService (integration)', () => {
     return d.toISOString().slice(0, 10);
   };
 
-  async function setSettings(tenantId: string, attendance: object = { weeklyOffDays: [] }) {
+  async function setSettings(
+    tenantId: string,
+    attendance: object = { weeklyOffDays: [] },
+    dashboard?: object,
+  ) {
     await dataSource.getRepository(School).update(
       { id: tenantId },
       {
-        settings: { version: 1, region: { timezone: 'Asia/Dhaka' }, attendance } as any,
+        settings: {
+          version: 1,
+          region: { timezone: 'Asia/Dhaka' },
+          attendance,
+          ...(dashboard ? { dashboard } : {}),
+        } as any,
       },
     );
   }
@@ -540,6 +549,33 @@ describe('AttendanceDashboardService (integration)', () => {
       expect(w.items.map((i) => i.student_id)).toEqual(
         raw.items.filter((i) => i.status === AttendanceStatus.ABSENT).map((i) => i.student_id),
       );
+    });
+
+    it('streaks: the "Absent in a row" setting sets the run length (lower)', async () => {
+      await setSettings(TENANT_ID, { weeklyOffDays: [] }, { risk: { absentStreakDays: 2 } });
+      const date = await today();
+      const x = await addStudent(secDone.id, 'tl1');
+      for (const i of [0, 1]) {
+        await register(secDone.id, isoOffset(date, -i), AttendanceSessionState.FINALIZED, [
+          [x.id, A],
+        ]);
+      }
+      await clearCaches();
+      // Two absences in a row; the fixed default of 3 would hide this student.
+      expect((await streaks()).items.map((i) => i.student_id)).toEqual([x.id]);
+    });
+
+    it('streaks: the "Absent in a row" setting sets the run length (higher)', async () => {
+      await setSettings(TENANT_ID, { weeklyOffDays: [] }, { risk: { absentStreakDays: 5 } });
+      const date = await today();
+      const x = await addStudent(secDone.id, 'th1');
+      for (const i of [0, 1, 2]) {
+        await register(secDone.id, isoOffset(date, -i), AttendanceSessionState.FINALIZED, [
+          [x.id, A],
+        ]);
+      }
+      await clearCaches();
+      expect((await streaks()).items).toEqual([]);
     });
 
     it('streaks: a teacher with no homeroom gets an empty widget', async () => {
