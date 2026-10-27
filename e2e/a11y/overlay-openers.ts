@@ -78,7 +78,10 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     const t = makeT(locale);
     await page.getByLabel(t('communications.send.recipientNameLabel')).fill('Rahima Begum');
     await page.getByLabel(t('communications.send.recipientAddressLabel')).fill('+8801700000001');
-    await page.getByLabel(t('communications.send.messageLabel')).fill('School closed tomorrow.');
+    // textbox, not getByLabel: the Send (?) is named "Help: Send a message" and also matches (Epic 44).
+    await page
+      .getByRole('textbox', { name: t('communications.send.messageLabel') })
+      .fill('School closed tomorrow.');
     await page.getByRole('button', { name: t('communications.send.submit') }).click();
     await expectDialogOpen(page);
   },
