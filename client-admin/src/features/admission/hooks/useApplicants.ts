@@ -18,6 +18,18 @@ export interface ApplicantFilters {
   status?: AdmissionApplicantStatus;
   /** Matches applicant name, reference number or guardian phone (server-side). */
   search?: string;
+  /** 1-based page; the server caps `limit` at 100. */
+  page?: number;
+  limit?: number;
+}
+
+/** `GET /admission/applicants` returns one page plus the total, like `GET /students`. */
+export interface ApplicantPage {
+  data: AdmissionApplicantDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface ApplicantWithHistory {
@@ -41,7 +53,7 @@ export function applicantsQueryOptions(filters: ApplicantFilters = {}) {
   return queryOptions({
     queryKey: applicantKeys.list(filters),
     queryFn: async () => {
-      const res = await apiClient.get<AdmissionApplicantDto[]>('/admission/applicants', {
+      const res = await apiClient.get<ApplicantPage>('/admission/applicants', {
         params: filters,
       });
       return res.data;

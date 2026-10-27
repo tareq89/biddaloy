@@ -54,7 +54,7 @@ function IntakeDetailPage() {
   const regionConfig = useRegionConfig();
   const navigate = Route.useNavigate();
   const intakeQuery = useIntake(intakeId);
-  const applicantsQuery = useApplicants({ intakeId });
+  const applicantsQuery = useApplicants({ intakeId, limit: 1 }); // only the total is shown
   const updateIntake = useUpdateIntake(intakeId);
 
   const [form, setForm] = React.useState<IntakeFormValue | null>(null);
@@ -87,7 +87,7 @@ function IntakeDetailPage() {
   }
 
   const intake = intakeQuery.data;
-  const count = applicantsQuery.data?.length;
+  const count = applicantsQuery.data?.total;
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();

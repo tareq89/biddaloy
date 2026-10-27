@@ -1152,12 +1152,13 @@ test.describe('dashboard reconciliation: office staff', () => {
         latest: { id: string }[];
       }>(request, 'office_staff', 'admissions-today');
       const sourceUrl = '/admission/applicants';
-      const all = await getJson<{ id: string; status: string; created_at: string }[]>(
+      // The list is paged (max 100 a page), so read every page.
+      const all = await allPages<{ id: string; status: string; created_at: string }>(
         request,
         'office_staff',
         sourceUrl,
       );
-      const pending = await getJson<{ id: string }[]>(
+      const pending = await allPages<{ id: string }>(
         request,
         'office_staff',
         `${sourceUrl}?status=PENDING`,
