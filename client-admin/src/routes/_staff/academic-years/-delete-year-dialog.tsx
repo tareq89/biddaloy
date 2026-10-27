@@ -45,7 +45,7 @@ export function DeleteYearDialog({
     if (!(error instanceof ApiError)) return t('deleteDialog.errorMessage');
     if (error.details?.code === 'ACADEMIC_YEAR_CURRENT') return t('deleteDialog.isCurrent');
     if (error.details?.code === 'ACADEMIC_YEAR_IN_USE') {
-      const details = error.details as Record<string, unknown>;
+      const details = error.details;
       const kinds = BLOCKER_KEYS.filter((key) => Number(details[key]) > 0).map((key) =>
         t(`deleteDialog.kinds.${key}`),
       );
