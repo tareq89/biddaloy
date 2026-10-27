@@ -329,12 +329,9 @@ export function useRevokeShare(invoiceId: string) {
 }
 
 /** #667 `POST /invoices/:id/send` — dispatches the receipt to a guardian
- * over WhatsApp or SMS. A distinct `SMS_NO_CREDIT` `ApiError.message` is
- * the server's way of saying the tenant is out of SMS credit — callers
- * check `error.message` / `error.details` to show that distinctly from a
- * generic failure toast, same pattern as every other `ApiError` consumer
- * in this codebase (there's no machine-readable error code field beyond
- * `message`, see `api/errors.ts`'s own header comment). */
+ * over WhatsApp or SMS. A 409 with `details.code === 'INSUFFICIENT_SMS_CREDIT'`
+ * means the tenant is out of SMS credit — callers check that to show it
+ * distinctly from a generic failure toast. */
 export function useSendInvoice(invoiceId: string) {
   const { keyFor, rotate } = useIdempotencyKey();
   return useMutation({
