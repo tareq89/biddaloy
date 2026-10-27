@@ -16,6 +16,7 @@ import { HolidayEntryInputDto } from './dto/public-holidays.dto';
 const BULK_ADD_LOCK_NAMESPACE = 630147;
 import { CreateCalendarEventDto } from './dto/calendar-events.dto';
 import { CalendarEventsService } from './calendar-events.service';
+import { localToday } from '../attendance/attendance-policy.util';
 import { SchoolsService } from '../schools/schools.service';
 import { AuditService } from '../audit/audit.service';
 
@@ -259,7 +260,8 @@ export class PublicHolidaysService {
    * `date` already has a `HOLIDAY` event on this tenant are skipped rather
    * than erroring, matching `suggest`'s `already_added` flag. An entry id
    * that doesn't exist (wrong tenant's request, stale suggestion) is
-   * silently skipped too — nothing to add. */
+   * silently skipped too — nothing to add. Entries dated before the tenant's
+   * today are skipped as well (a past closure needs a reason). */
   async bulkAdd(tenantId: string, userId: string, entryIds: string[]): Promise<{ added: number }> {
     const entries = await this.entryRepo.find({
       where: { id: In(entryIds) },
@@ -273,6 +275,7 @@ export class PublicHolidaysService {
 
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const useBn = (settings.region?.locale ?? '').toLowerCase().startsWith('bn');
+    const today = localToday(settings.region?.timezone ?? 'UTC');
 
     // Two concurrent bulkAdd calls for the same tenant could otherwise
     // both read the same `existingDates` snapshot and both create a
@@ -294,6 +297,7 @@ export class PublicHolidaysService {
 
       let addedCount = 0;
       for (const entry of publishedEntries) {
+        if (entry.date < today) continue;
         if (existingDates.has(entry.date)) continue;
 
         const name = useBn && entry.name_bn ? entry.name_bn : entry.name;
@@ -304,7 +308,7 @@ export class PublicHolidaysService {
         dto.end_date = entry.end_date;
         dto.counts_as_working_day = false;
         dto.publish = true;
-        await this.calendarEventsService.create(dto, tenantId, userId);
+        await this.calendarEventsService.create(dto, tenantId, userId, undefined, manager);
         existingDates.add(entry.date);
         addedCount += 1;
       }
