@@ -19,6 +19,7 @@
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  HelpHint,
   Card,
   EmptyState,
   ErrorState,
@@ -243,10 +244,13 @@ function PairForm({
           </p>
         )}
         <div className="flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:justify-end">
-          <Button type="submit" className="w-full md:w-auto" loading={respond.isPending}>
-            <SendIcon className="size-4" aria-hidden="true" />
-            {respond.isPending ? t('portalSurveys.submitting') : t('portalSurveys.submit')}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button type="submit" className="flex-1 md:flex-none" loading={respond.isPending}>
+              <SendIcon className="size-4" aria-hidden="true" />
+              {respond.isPending ? t('portalSurveys.submitting') : t('portalSurveys.submit')}
+            </Button>
+            <HelpHint helpId="portal.surveys.action.submit" />
+          </div>
         </div>
       </form>
     </details>

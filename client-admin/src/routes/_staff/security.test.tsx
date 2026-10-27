@@ -2,7 +2,7 @@ import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../routeTree.gen';
 
@@ -39,6 +39,20 @@ const SESSIONS_RESPONSE = {
 describe('/security', () => {
   afterEach(async () => {
     await cleanupTestState();
+  });
+
+  // [44.4 / #3016] The (?) beside "Sign out" resolves the generated guide entry.
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(http.get('/api/v1/auth/sessions', () => HttpResponse.json(SESSIONS_RESPONSE)));
+      renderSecurityPage();
+      expect(
+        (await screen.findAllByRole('button', { name: 'Help: Your account' })).length,
+      ).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('renders the heading and both sessions', async () => {

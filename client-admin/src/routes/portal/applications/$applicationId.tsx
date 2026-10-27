@@ -105,6 +105,7 @@ function PortalApplicationDetailPage() {
   const actions: PageAction[] = [
     {
       id: 'withdraw',
+      helpId: 'portal.applications.action.withdraw',
       label: tDetail('actions.withdraw'),
       icon: <UndoIcon />,
       allowed: app.can.withdraw,

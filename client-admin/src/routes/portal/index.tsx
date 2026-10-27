@@ -4,6 +4,7 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  HelpHint,
   RoutePending,
   Skeleton,
   StatusBadge,
@@ -574,15 +575,18 @@ function ChildCard({
           </div>
           <DueThisMonthSection dues={child.dues} now={now} config={config} />
         </div>
-        <Link
-          to="/portal/fees"
-          search={{ student: child.id }}
-          aria-label={t('children.viewFeesFor', { name: child.fullName })}
-          className="flex h-11 items-center justify-between gap-2 rounded-b-lg border-t border-border-subtle px-4 font-medium text-primary hover:bg-muted md:px-5"
-        >
-          {t('actions.viewFeeBreakdown')}
-          <ChevronRightIcon className="size-4" aria-hidden="true" />
-        </Link>
+        <div className="flex items-center rounded-b-lg border-t border-border-subtle pr-3 md:pr-4">
+          <Link
+            to="/portal/fees"
+            search={{ student: child.id }}
+            aria-label={t('children.viewFeesFor', { name: child.fullName })}
+            className="flex h-11 flex-1 items-center justify-between gap-2 rounded-bl-lg px-4 font-medium text-primary hover:bg-muted md:px-5"
+          >
+            {t('actions.viewFeeBreakdown')}
+            <ChevronRightIcon className="size-4" aria-hidden="true" />
+          </Link>
+          <HelpHint helpId="portal.overview.action.viewFeeBreakdown" />
+        </div>
       </article>
     </Card>
   );

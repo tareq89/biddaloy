@@ -10,7 +10,7 @@ import {
   ApplicationType,
 } from '@biddaloy/shared';
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
-import { Card, ChoiceCards, ConfirmDialog, StepIndicator } from '@biddaloy/ui/components';
+import { Card, ChoiceCards, ConfirmDialog, HelpHint, StepIndicator } from '@biddaloy/ui/components';
 import {
   useActiveRole,
   useApplicationAddressees,
@@ -250,18 +250,23 @@ function PortalNewApplicationPage() {
           )}
 
           {step === 'type' && (
-            <ChoiceCards
-              label={t('new.typeLabel')}
-              columns={2}
-              value={type}
-              options={typeOptions}
-              onValueChange={(v) => {
-                const next = v as ApplicationType;
-                if (next !== type) setPayload(undefined);
-                setType(next);
-                setAddressee('');
-              }}
-            />
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-end">
+                <HelpHint helpId="portal.applications.field.type" />
+              </div>
+              <ChoiceCards
+                label={t('new.typeLabel')}
+                columns={2}
+                value={type}
+                options={typeOptions}
+                onValueChange={(v) => {
+                  const next = v as ApplicationType;
+                  if (next !== type) setPayload(undefined);
+                  setType(next);
+                  setAddressee('');
+                }}
+              />
+            </div>
           )}
 
           {step === 'details' && type && student && (
@@ -295,10 +300,20 @@ function PortalNewApplicationPage() {
             </>
           )}
 
-          {step === 'attachments' && <AttachmentsStep files={files} onChange={setFiles} />}
+          {step === 'attachments' && (
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-end">
+                <HelpHint helpId="portal.applications.field.attachments" />
+              </div>
+              <AttachmentsStep files={files} onChange={setFiles} />
+            </div>
+          )}
 
           {step === 'preview' && type && (
             <div className="flex flex-col gap-4">
+              <div className="flex justify-end">
+                <HelpHint helpId="portal.applications.action.submit" />
+              </div>
               {previewBody && <DraftLetterPreview input={previewBody} />}
               <Card padded>
                 <h3 className="text-h3">{t('new.summary')}</h3>
@@ -354,6 +369,9 @@ function AddresseeChoice({
   const addressees = useApplicationAddressees(studentId);
   return (
     <Card padded className="flex flex-col gap-3">
+      <div className="flex justify-end">
+        <HelpHint helpId="portal.applications.field.addressee" />
+      </div>
       {addressees.isError && (
         <p role="alert" className="text-sm text-destructive">
           {t('new.loadError')}

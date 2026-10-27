@@ -14,7 +14,7 @@
  */
 import { ApplicationType, AttendanceStatus } from '@biddaloy/shared';
 import { Permission } from '@biddaloy/shared';
-import { Button, Card, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import { Button, Card, HelpHint, Skeleton, StatusBadge } from '@biddaloy/ui/components';
 import type { StatusTone } from '@biddaloy/ui/components';
 import {
   useHasPermission,
@@ -116,14 +116,17 @@ function initials(fullName: string): string {
 function TellSchoolLink({ childId, className }: { childId: string; className?: string }) {
   const { t } = useTranslation('portal');
   return (
-    <Button asChild variant="outline" className={`min-h-11 ${className ?? ''}`}>
-      <Link
-        to="/portal/applications/new"
-        search={{ type: ApplicationType.STUDENT_LEAVE, student: childId }}
-      >
-        {t('today.tellSchool')}
-      </Link>
-    </Button>
+    <div className={`flex items-center gap-1 ${className ?? ''}`}>
+      <Button asChild variant="outline" className="min-h-11 flex-1">
+        <Link
+          to="/portal/applications/new"
+          search={{ type: ApplicationType.STUDENT_LEAVE, student: childId }}
+        >
+          {t('today.tellSchool')}
+        </Link>
+      </Button>
+      <HelpHint helpId="portal.overview.action.tellSchool" />
+    </div>
   );
 }
 
