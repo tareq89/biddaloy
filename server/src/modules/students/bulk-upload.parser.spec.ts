@@ -124,9 +124,10 @@ describe('parseSpreadsheet', () => {
   it('rejects an unsupported file extension', async () => {
     const buffer = Buffer.from('not a spreadsheet');
 
-    await expect(parseSpreadsheet(buffer, 'students.pdf')).rejects.toThrow(
-      'Unsupported file type: .pdf — upload .xlsx or .csv',
-    );
+    const err = await parseSpreadsheet(buffer, 'students.pdf').catch((e: unknown) => e);
+    // Rule 23: fixed text, nothing from the upload (no extension).
+    expect((err as Error).message).toBe('Unsupported file type — upload .xlsx or .csv');
+    expect((err as Error).message).not.toContain('pdf');
   });
 
   it('rejects a corrupt .xlsx buffer with a clear message', async () => {
