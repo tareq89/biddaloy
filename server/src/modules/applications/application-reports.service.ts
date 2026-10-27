@@ -64,19 +64,27 @@ export class ApplicationReportsService {
     _user: ApplicationCaller,
     q: ReportsQueryDto,
   ): Promise<ApplicationReportsDto> {
-    // No year picked means the school's current year (what the page's label says);
-    // all years only when the school has none.
-    const yearId =
-      q.academic_year_id ??
-      (
-        await this.dataSource.getRepository(AcademicYear).findOne({
-          where: { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
-          select: { id: true },
-        })
-      )?.id;
+    // An explicit year filters to that year. Otherwise, with no dates, the school's
+    // current year applies, plus rows that have no year (submitted when none was
+    // current, or whose year was deleted). Dates without a year search every year.
+    const explicitYearId = q.academic_year_id;
+    const datesGiven = q.from !== undefined || q.to !== undefined;
+    const defaultYearId =
+      explicitYearId || datesGiven
+        ? undefined
+        : (
+            await this.dataSource.getRepository(AcademicYear).findOne({
+              where: { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
+              select: { id: true },
+            })
+          )?.id;
     const filtered = () => {
       const qb = this.apps(tenantId);
-      if (yearId) qb.andWhere('a.academic_year_id = :yr', { yr: yearId });
+      if (explicitYearId) qb.andWhere('a.academic_year_id = :yr', { yr: explicitYearId });
+      else if (defaultYearId)
+        qb.andWhere('(a.academic_year_id = :yr OR a.academic_year_id IS NULL)', {
+          yr: defaultYearId,
+        });
       if (q.from)
         qb.andWhere(`(a.created_at AT TIME ZONE '${SCHOOL_TZ}')::date >= :from`, { from: q.from });
       if (q.to)
