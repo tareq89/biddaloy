@@ -24,6 +24,8 @@ export interface BulkImportError {
   severity: 'error' | 'warning';
   value?: string;
   tab?: string;
+  /** Stable problem code; the table translates it when present. */
+  code?: string;
 }
 
 export interface PreviewResult<S> {

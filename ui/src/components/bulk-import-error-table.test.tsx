@@ -42,6 +42,17 @@ describe('BulkImportErrorTable', () => {
     expect(screen.getByText('Error')).toBeTruthy();
   });
 
+  it('shows the translated sentence for a code, and the message when there is none', async () => {
+    await renderTable([
+      error({ code: 'SUBJECT_NOT_FOUND', message: 'English server text', value: 'Maths' }),
+      error({ row: 3, message: 'Plain message' }),
+    ]);
+
+    expect(screen.getByText('No subject with this name.')).toBeTruthy();
+    expect(screen.queryByText('English server text')).toBeNull();
+    expect(screen.getByText('Plain message')).toBeTruthy();
+  });
+
   it('falls back to "Whole row" and "(empty)" when column/value are missing', async () => {
     await renderTable([error({ column: null })]);
 
