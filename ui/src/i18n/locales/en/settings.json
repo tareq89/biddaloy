@@ -70,7 +70,8 @@
   },
   "regional": {
     "legend": "Language, numbers and dates",
-    "locale": "Language and number format",
+    "locale": "Language of messages the school sends",
+    "localeHelp": "SMS, emails, letters and alerts from this school use this language. Each person chooses their own screen language.",
     "numerals": "Numeral system",
     "numeralsLatin": "Latin (0-9)",
     "numeralsBengali": "Bengali (০-৯)",
