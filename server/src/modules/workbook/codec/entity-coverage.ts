@@ -9,6 +9,7 @@ import { CalendarFeedToken } from '../../calendar/entities/calendar-feed-token.e
 import { AttendanceSession } from '../../attendance/entities/attendance-session.entity';
 import { AttendanceRecord } from '../../attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from '../../attendance/entities/attendance-device.entity';
+import { ArrivalNoticeSubscription } from '../../attendance/entities/arrival-notice-subscription.entity';
 import { AttendanceDeviceEvent } from '../../attendance/entities/attendance-device-event.entity';
 import { Alert } from '../../attention/entities/alert.entity';
 import { PlatformAlert } from '../../health/platform-alerts/platform-alert.entity';
@@ -101,6 +102,7 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   [CalendarEventClass, 'Tenant-scoped calendar-event/class link, no tab yet — tracked in #856.'],
   [AttendanceSession, 'Tenant-scoped attendance session data, no tab yet — tracked in #856.'],
   [AttendanceRecord, 'Tenant-scoped per-student attendance, no tab yet — tracked in #856.'],
+  [ArrivalNoticeSubscription, 'Tenant-scoped arrival-notice subscriptions, tab lands in 84.2.3.'],
   [AttendanceDevice, 'Tenant-scoped device config, no tab yet — tracked in #856.'],
   [AttendanceDeviceEvent, 'Tenant-scoped device event log, no tab yet — tracked in #856.'],
   [UserTenant, 'Tenant-scoped role membership, no tab yet — tracked in #856.'],

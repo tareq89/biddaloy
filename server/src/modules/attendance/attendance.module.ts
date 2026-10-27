@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { AttendanceDevice } from './entities/attendance-device.entity';
+import { ArrivalNoticeSubscription } from './entities/arrival-notice-subscription.entity';
 import { AttendanceDeviceEvent } from './entities/attendance-device-event.entity';
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -68,6 +69,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
       AttendanceSession,
       AttendanceRecord,
       AttendanceDevice,
+      ArrivalNoticeSubscription,
       AttendanceDeviceEvent,
       Student,
       ClassSection,
