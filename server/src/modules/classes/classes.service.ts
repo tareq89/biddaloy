@@ -808,7 +808,7 @@ export class SectionService {
           });
           if (homeroom) {
             throw conflict(
-              `Teacher "${dto.teacher_id}" already holds a class-teacher role in section "${sectionId}"`,
+              'This teacher already holds a class-teacher role in this section',
               'TEACHER_ALREADY_HOMEROOM',
             );
           }
@@ -824,7 +824,7 @@ export class SectionService {
           });
           if (duplicate) {
             throw conflict(
-              `Teacher "${dto.teacher_id}" is already the subject-teacher for subject "${subjectId}" in section "${sectionId}"`,
+              'This teacher is already the subject-teacher for this subject in this section',
               'TEACHER_ALREADY_SUBJECT_TEACHER',
             );
           }
@@ -876,7 +876,7 @@ export class SectionService {
         isUniqueViolationOn(error, 'IDX_tcs_teacher_section_subject')
       ) {
         throw conflict(
-          `This teacher assignment conflicts with an existing one in section "${sectionId}"`,
+          'This teacher assignment conflicts with an existing one in this section',
           'TEACHER_ASSIGNMENT_CONFLICT',
         );
       }

@@ -23,7 +23,7 @@ const canReadTenantWide = (role: string) =>
 
 /** D33/D13: a teacher miss is the same 404 as a missing section (`MarkGridService.findSection`);
  * any other role keeps the 403. */
-const deny = (role: string, sectionId: string) =>
+const deny = (role: string) =>
   roleScope(role) === RoleScope.ASSIGNED_SECTIONS
     ? new NotFoundException('Section not found')
     : new ForbiddenException('You are not the assigned subject teacher for this section-subject.');
@@ -68,7 +68,7 @@ export class MarksAuthorizationService {
       sectionId,
     });
     if (!subjectIds.includes(subjectId) || !inYearWindow) {
-      throw deny(role, sectionId);
+      throw deny(role);
     }
   }
 
@@ -115,7 +115,7 @@ export class MarksAuthorizationService {
       sectionId,
     });
     if ((!homeroom && !subjectIds.includes(subjectId)) || !inYearWindow) {
-      throw deny(role, sectionId);
+      throw deny(role);
     }
   }
 }

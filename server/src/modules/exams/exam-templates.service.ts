@@ -126,7 +126,7 @@ export class ExamTemplatesService {
         kind: dto.kind,
       });
       return saved.id;
-    }, dto.name);
+    });
     return this.get(id, tenantId);
   }
 
@@ -185,7 +185,7 @@ export class ExamTemplatesService {
           ...(dto.rows && { rows_replaced: dto.rows.length }),
         },
       );
-    }, dto.name);
+    });
     return this.get(id, tenantId);
   }
 
@@ -286,7 +286,7 @@ export class ExamTemplatesService {
   }
 
   /** Runs `fn` in a transaction; a unique violation (23505) becomes a 409. */
-  private async run<T>(fn: (m: EntityManager) => Promise<T>, name?: string): Promise<T> {
+  private async run<T>(fn: (m: EntityManager) => Promise<T>): Promise<T> {
     try {
       return await this.repo.manager.transaction(fn);
     } catch (err) {

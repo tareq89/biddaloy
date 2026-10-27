@@ -358,8 +358,16 @@ describe('MarkGridService blank cells (integration)', () => {
     expect(outstanding).toEqual([
       expect.objectContaining({ section_id: secB, state: MarkGridState.SUBMITTED }),
     ]);
-    await expect(results.process(examId, SEED_TENANT_ID, SEED_ADMIN_USER_ID)).rejects.toThrow(
-      new RegExp(secB),
-    );
+    // #3000: the section id is in `details.outstanding`, never in the message.
+    const err: any = await results
+      .process(examId, SEED_TENANT_ID, SEED_ADMIN_USER_ID)
+      .catch((e) => e);
+    expect(err.getResponse()).toMatchObject({
+      details: {
+        code: 'GRIDS_OUTSTANDING',
+        outstanding: [expect.objectContaining({ section_id: secB })],
+      },
+    });
+    expect(err.message).not.toContain(secB);
   });
 });

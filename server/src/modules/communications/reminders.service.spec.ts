@@ -286,15 +286,15 @@ describe('BulkReminderService', () => {
       expect(batchRepo.save).not.toHaveBeenCalled();
     });
 
-    it('throws NotFound listing student ids that do not resolve within the tenant', async () => {
+    it('throws NotFound for student ids outside the tenant, without echoing them (#3000)', async () => {
       studentService.findManyWithGuardians.mockResolvedValue([student({ id: 's-1' })]);
 
-      await expect(
-        service.sendBulk({ ...dto, student_ids: ['s-1', 's-missing'] } as any, TENANT, USER),
-      ).rejects.toThrow(/s-missing/);
-      await expect(
-        service.sendBulk({ ...dto, student_ids: ['s-1', 's-missing'] } as any, TENANT, USER),
-      ).rejects.toThrow(NotFoundException);
+      const err = await service
+        .sendBulk({ ...dto, student_ids: ['s-1', 's-missing'] } as any, TENANT, USER)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect(err.message).toBe('One or more student IDs not found');
+      expect(err.message).not.toContain('s-missing');
     });
 
     it('scopes the student lookup and the dues lookup to the caller tenant', async () => {

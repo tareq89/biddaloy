@@ -153,7 +153,7 @@ export class StudyPlanTemplatesService {
         lesson_count: lessons.length,
       });
       return row;
-    }, name);
+    });
     return this.get(saved.id, tenantId);
   }
 
@@ -202,7 +202,7 @@ export class StudyPlanTemplatesService {
           ...(lessons && { lesson_count: lessons.length }),
         },
       );
-    }, name);
+    });
     return this.get(id, tenantId);
   }
 
@@ -347,7 +347,7 @@ export class StudyPlanTemplatesService {
   }
 
   /** Runs `fn` in a transaction; a unique violation (23505) becomes a 409. */
-  private async run<T>(fn: (m: EntityManager) => Promise<T>, name?: string): Promise<T> {
+  private async run<T>(fn: (m: EntityManager) => Promise<T>): Promise<T> {
     try {
       return await this.repo.manager.transaction(fn);
     } catch (err) {

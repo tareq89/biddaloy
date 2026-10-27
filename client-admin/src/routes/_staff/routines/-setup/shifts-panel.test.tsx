@@ -61,7 +61,7 @@ describe('ShiftsPanel', () => {
           {
             statusCode: 409,
             message:
-              'Cannot delete shift "shift-1": 2 period slot(s) still reference it. Remove them first.',
+              'Cannot delete this shift: 2 period slot(s) still reference it. Remove them first.',
             timestamp: new Date().toISOString(),
             path: '/routines/shifts/shift-1',
             requestId: 'req-1',

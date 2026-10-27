@@ -138,8 +138,6 @@ export class ProgramEnrollmentsService {
       where: { id: In(studentIds), tenant_id: tenantId },
     });
     if (students.length !== studentIds.length) {
-      const foundIds = new Set(students.map((s) => s.id));
-      const missing = studentIds.filter((id) => !foundIds.has(id));
       throw new NotFoundException('One or more student IDs not found');
     }
 
@@ -258,8 +256,6 @@ export class ProgramEnrollmentsService {
       where: { id: In(enrollmentIds), program_id: programId, tenant_id: tenantId },
     });
     if (enrollments.length !== enrollmentIds.length) {
-      const foundIds = new Set(enrollments.map((e) => e.id));
-      const missing = enrollmentIds.filter((id) => !foundIds.has(id));
       throw new NotFoundException('One or more enrollments not found in this program');
     }
 

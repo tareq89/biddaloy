@@ -316,16 +316,11 @@ describe('Teacher scope: finance reads (75.6-d)', () => {
       const ok = await asTeacher(`/communications/${logOfA}`).expect(200);
       expect(ok.body).not.toHaveProperty('student_id');
       expect(ok.body).not.toHaveProperty('guardian_id');
-      // D13: an out-of-scope log reads exactly like a missing one (the message echoes the id).
-      const notFound = (id: string) => ({
-        statusCode: 404,
-        message: 'Communication log not found',
-      });
+      // D13: an out-of-scope log reads exactly like a missing one (#3000: no id in the text).
+      const notFound = { statusCode: 404, message: 'Communication log not found' };
       for (const id of [logOfB, guardianLogB, randomUUID()]) {
         const res = await asTeacher(`/communications/${id}`).expect(404);
-        expect({ statusCode: res.body.statusCode, message: res.body.message }).toEqual(
-          notFound(id),
-        );
+        expect({ statusCode: res.body.statusCode, message: res.body.message }).toEqual(notFound);
       }
     });
 
