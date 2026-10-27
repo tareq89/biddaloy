@@ -94,6 +94,27 @@ describe('/admissions/applicants', () => {
     await waitFor(() => expect(seen.at(-1)).toBe('SHORTLISTED'));
   });
 
+  it('[#2880] sends the typed search text to the server', async () => {
+    mockIntakes();
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get('/api/v1/admission/applicants', ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get('search'));
+        return HttpResponse.json([applicant]);
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('REF-001');
+    const user = userEvent.setup();
+    await user.type(screen.getByPlaceholderText('Name, reference number or phone'), 'jane');
+    await waitFor(() => expect(seen.at(-1)).toBe('jane'));
+  });
+
   it('shows a real empty state when there are no applications', async () => {
     mockIntakes();
     server.use(http.get('/api/v1/admission/applicants', () => HttpResponse.json([])));

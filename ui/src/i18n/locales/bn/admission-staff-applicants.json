@@ -1,6 +1,8 @@
 {
   "list": {
     "title": "ভর্তি আবেদনকারী",
+    "searchLabel": "খুঁজুন",
+    "searchPlaceholder": "নাম, রেফারেন্স নম্বর বা ফোন",
     "caption": "ভর্তি আবেদনকারী",
     "columnReferenceNumber": "রেফারেন্স নম্বর",
     "columnApplicantName": "আবেদনকারী",

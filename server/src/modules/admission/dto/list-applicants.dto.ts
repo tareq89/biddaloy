@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { AdmissionApplicantStatus } from '@biddaloy/shared';
 
@@ -17,4 +17,11 @@ export class ListApplicantsDto {
   @IsOptional()
   @IsEnum(STATUSES)
   status?: AdmissionApplicantStatus;
+
+  /** Matches applicant name, reference number or guardian phone. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
 }
