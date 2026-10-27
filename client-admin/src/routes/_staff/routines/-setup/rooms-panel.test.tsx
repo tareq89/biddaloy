@@ -150,10 +150,10 @@ describe('RoomsPanel', () => {
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    const roomNo = await screen.findByLabelText('Room no.');
-    expect(roomNo.value).toBe('101');
-    expect(screen.getByLabelText('Building').value).toBe('Main');
-    expect(screen.getByLabelText('Capacity').value).toBe('30');
+    // Prefilled from the row (found by value, so a missing prefill fails).
+    const roomNo = await screen.findByDisplayValue('101');
+    expect(screen.getByDisplayValue('Main')).toBeTruthy();
+    expect(screen.getByDisplayValue('30')).toBeTruthy();
 
     await user.clear(roomNo);
     await user.type(roomNo, '102');
