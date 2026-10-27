@@ -148,6 +148,8 @@
     "error": "Couldn't load the classes. Check your connection and try again."
   },
   "builder": {
+    "clearErrorToast": "Could not clear this period — try again.",
+    "clearedToast": "Period cleared",
     "title": "{{className}} – {{sectionName}}",
     "noClassIdExplanation": "Open this page from the class routine list so we know which section it is.",
     "sectionNotFound": "Section not found.",
