@@ -15,7 +15,10 @@
     "viewApplicants": "View applicants",
     "edit": "Edit",
     "emptyTitle": "No admission rounds yet",
-    "emptyText": "Add a round so guardians can apply online."
+    "emptyText": "Add a round so guardians can apply online.",
+    "copyPublicLink": "Copy public link",
+    "linkCopied": "Public admission link copied.",
+    "linkCopyFailed": "Could not copy the link."
   },
   "createDialog": {
     "title": "Add admission round",
