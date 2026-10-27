@@ -3,6 +3,7 @@
  * "Process anyway" with an explicit audit warning, per the issue's step 2.
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
+import { HelpProvider } from '@biddaloy/ui/components';
 import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -10,6 +11,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { HELP_INDEX } from '../../../help/help-index.gen';
 
 import { ProcessDialog } from './-process-dialog';
 
@@ -27,7 +30,9 @@ async function renderDialog() {
   const view = render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <ProcessDialog open onOpenChange={onOpenChange} examId="exam-1" />
+        <HelpProvider index={HELP_INDEX} lang="en" baseUrl="https://guide.test">
+          <ProcessDialog open onOpenChange={onOpenChange} examId="exam-1" />
+        </HelpProvider>
       </I18nProvider>
     </QueryClientProvider>,
   );
@@ -35,6 +40,19 @@ async function renderDialog() {
 }
 
 describe('ProcessDialog', () => {
+  // [44.4 / #3013] The (?) in the title resolves the generated guide entry.
+  it('shows the (?) beside the title', async () => {
+    server.use(
+      http.get('/api/v1/exams/exam-1/marks/progress', () =>
+        HttpResponse.json({ counts: {}, outstanding: [] }),
+      ),
+    );
+    await renderDialog();
+    expect(
+      await screen.findByRole('button', { name: 'Help: Processing and publishing results' }),
+    ).toBeTruthy();
+  });
+
   it('lists outstanding DRAFT grids and shows the force-audit warning', async () => {
     server.use(
       http.get('/api/v1/exams/exam-1/marks/progress', () =>

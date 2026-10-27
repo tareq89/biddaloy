@@ -8,7 +8,7 @@ import {
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -17,7 +17,23 @@ import { routeTree } from '../../../routeTree.gen';
  * server-side (`ui/src/hooks/promotions.ts`), so these stub the raw array. */
 describe('/promotions', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
+  });
+
+  // [44.4 / #3013] The (?) beside the new-run action resolves the guide entry.
+  it('shows the (?) for the new-run action when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(http.get('/api/v1/promotions', () => HttpResponse.json([])));
+    renderWithRouter(routeTree, {
+      initialEntries: ['/promotions'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(
+      await screen.findAllByRole('button', { name: 'Help: Promoting students' }),
+    ).not.toHaveLength(0);
   });
 
   it('lists runs with source/target, year, status, override count and algorithm', async () => {
