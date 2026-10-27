@@ -19,6 +19,7 @@ function buildService() {
     find: vi.fn(async () => []),
     create: vi.fn((v: any) => v),
     delete: vi.fn(async () => undefined),
+    update: vi.fn(async () => undefined),
     save: vi.fn(async (v: any) => v),
     manager: {
       // `replaceForShift` now locks the shift row and reads
@@ -66,8 +67,13 @@ describe('PeriodSlotsService [21.3.1]', () => {
       { slots: validSlots } as any,
       TENANT_ID,
     );
-    expect(ctx.repo.delete).toHaveBeenCalledWith({ shift_id: 'shift-1', tenant_id: TENANT_ID });
-    expect(result).toHaveLength(2);
+    // Empty shift: both rows are new, nothing is deleted.
+    expect(ctx.repo.delete).not.toHaveBeenCalled();
+    expect(ctx.repo.save).toHaveBeenCalledWith([
+      expect.objectContaining({ sequence: 0 }),
+      expect.objectContaining({ sequence: 1 }),
+    ]);
+    expect(result).toEqual([]);
   });
 
   it('locks the existing period-slot rows before counting references, to race-proof against a concurrent RoutineSlotsService write', async () => {
@@ -112,25 +118,72 @@ describe('PeriodSlotsService [21.3.1]', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('refuses to replace slots still referenced by a routine slot', async () => {
-    ctx.repo.find = vi.fn(async () => [{ id: 'old-slot-1' }]);
+  const OLD = [
+    { id: 'p1', kind: PeriodSlotKind.CLASS },
+    { id: 'p2', kind: PeriodSlotKind.CLASS },
+  ];
+  const keepP1 = {
+    id: 'p1',
+    sequence: 0,
+    kind: PeriodSlotKind.CLASS,
+    starts_at: '08:00',
+    ends_at: '08:40',
+  };
+  const keepP2 = {
+    id: 'p2',
+    sequence: 1,
+    kind: PeriodSlotKind.CLASS,
+    starts_at: '08:45',
+    ends_at: '09:25',
+  };
+
+  it('updates kept rows in place even when they are in use', async () => {
+    ctx.repo.find = vi.fn(async () => OLD);
+    ctx.routineSlotRepo.count = vi.fn(async () => 3);
+    await ctx.service.replaceForShift('shift-1', { slots: [keepP1, keepP2] } as any, TENANT_ID);
+    // Nothing removed or made a break, so no reference check and no delete.
+    expect(ctx.routineSlotRepo.count).not.toHaveBeenCalled();
+    expect(ctx.repo.delete).not.toHaveBeenCalled();
+    expect(ctx.repo.update).toHaveBeenCalledWith(
+      { id: 'p2', tenant_id: TENANT_ID },
+      expect.objectContaining({ sequence: 1, starts_at: '08:45' }),
+    );
+  });
+
+  it('refuses to remove a period that a routine slot uses, without echoing ids', async () => {
+    ctx.repo.find = vi.fn(async () => OLD);
     ctx.routineSlotRepo.count = vi.fn(async () => 1);
-    await expect(
-      ctx.service.replaceForShift('shift-1', { slots: validSlots } as any, TENANT_ID),
-    ).rejects.toThrow(ConflictException);
+    const err: any = await ctx.service
+      .replaceForShift('shift-1', { slots: [keepP1] } as any, TENANT_ID)
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('PERIOD_SLOT_IN_USE');
+    expect(JSON.stringify(err.getResponse())).not.toContain('shift-1');
     expect(ctx.repo.delete).not.toHaveBeenCalled();
   });
 
-  it('refuses to replace slots that recorded lesson deliveries point at', async () => {
-    ctx.repo.find = vi.fn(async () => [{ id: 'old-slot-1' }]);
+  it('refuses to make a period a break when lesson deliveries use it', async () => {
+    ctx.repo.find = vi.fn(async () => OLD);
     ctx.deliveryRepo.count = vi.fn(async () => 2);
     await expect(
-      ctx.service.replaceForShift('shift-1', { slots: validSlots } as any, TENANT_ID),
+      ctx.service.replaceForShift(
+        'shift-1',
+        { slots: [keepP1, { ...keepP2, kind: PeriodSlotKind.BREAK }] } as any,
+        TENANT_ID,
+      ),
     ).rejects.toThrow(ConflictException);
-    expect(ctx.deliveryRepo.count).toHaveBeenCalledWith({
-      where: expect.objectContaining({ tenant_id: TENANT_ID }),
-    });
-    expect(ctx.repo.delete).not.toHaveBeenCalled();
+    expect(ctx.repo.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects an id that is not one of the shift rows', async () => {
+    ctx.repo.find = vi.fn(async () => OLD);
+    await expect(
+      ctx.service.replaceForShift(
+        'shift-1',
+        { slots: [{ ...keepP1, id: 'other' }] } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('suggestChangeover spaces periods by defaultChangeoverMinutes from day_starts_at', async () => {
