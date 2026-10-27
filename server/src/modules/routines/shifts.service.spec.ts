@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
 
 const TENANT_ID = 'tenant-1';
@@ -14,7 +14,7 @@ function buildService() {
     update: vi.fn(async () => undefined),
     softDelete: vi.fn(async () => undefined),
   };
-  const periodSlotRepo: any = { count: vi.fn(async () => 0) };
+  const periodSlotRepo: any = { count: vi.fn(async () => 0), find: vi.fn(async () => []) };
   // `remove()` runs inside `this.repo.manager.transaction(...)` — the
   // transaction manager's repos delegate to the same mocks above so
   // existing `expect(ctx.repo...)` / `expect(ctx.periodSlotRepo...)`
@@ -67,6 +67,46 @@ describe('ShiftsService [21.3.1]', () => {
       { id: 'shift-1', tenant_id: TENANT_ID },
       { name: 'Day' },
     );
+  });
+
+  it('refuses a day window that shrinks past a period', async () => {
+    ctx.repo.findOne = vi.fn(async () => ({
+      id: 'shift-1',
+      tenant_id: TENANT_ID,
+      day_starts_at: '08:00:00',
+      day_ends_at: '14:00:00',
+    }));
+    ctx.periodSlotRepo.find = vi.fn(async () => [{ starts_at: '12:00:00', ends_at: '13:00:00' }]);
+    const err: any = await ctx.service
+      .update('shift-1', { day_ends_at: '12:30' } as any, TENANT_ID)
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('SHIFT_PERIODS_OUTSIDE_WINDOW');
+    expect(ctx.repo.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses a day that ends before it starts', async () => {
+    ctx.repo.findOne = vi.fn(async () => ({
+      id: 'shift-1',
+      tenant_id: TENANT_ID,
+      day_starts_at: '08:00:00',
+      day_ends_at: '14:00:00',
+    }));
+    await expect(
+      ctx.service.update('shift-1', { day_starts_at: '15:00' } as any, TENANT_ID),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('allows a day window that still holds every period', async () => {
+    ctx.repo.findOne = vi.fn(async () => ({
+      id: 'shift-1',
+      tenant_id: TENANT_ID,
+      day_starts_at: '08:00:00',
+      day_ends_at: '14:00:00',
+    }));
+    ctx.periodSlotRepo.find = vi.fn(async () => [{ starts_at: '09:00:00', ends_at: '10:00:00' }]);
+    await ctx.service.update('shift-1', { day_ends_at: '12:00' } as any, TENANT_ID);
+    expect(ctx.repo.update).toHaveBeenCalled();
   });
 
   it('refuses to delete a shift with period slots, naming the count', async () => {
