@@ -9,13 +9,35 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
 describe('/academics/homework', () => {
   afterEach(async () => {
     await cleanupTestState();
+  });
+
+  it('shows a (?) after the Assign header action [44.3.05]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(
+      http.get('/api/v1/homework', () => HttpResponse.json([])),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+      http.get('/api/v1/subjects', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/homework'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(document.querySelector('[data-help-id="academics.homework.action.assign"]')).not.toBeNull();
+    vi.unstubAllEnvs();
   });
 
   it('renders rows with subject/class names resolved from /classes and /subjects', async () => {
