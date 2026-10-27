@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { HelpProvider, type HelpIndex } from '../components/help-hint';
 import { renderWithProviders } from '../test';
 import { renderWithRouter } from '../test/render-with-router';
 
@@ -196,5 +197,74 @@ describe('PageHeader', () => {
       />,
     );
     await expect(container).toHaveNoViolations();
+  });
+});
+
+describe('PageHeader help (?)', () => {
+  const mk = (title: string) => ({
+    title: { bn: title, en: title },
+    summary: { bn: 's', en: 's' },
+    path: 'p',
+    anchor: 'task-main',
+    knownIssues: 0,
+  });
+  const index: HelpIndex = {
+    page: mk('Students page'),
+    other: mk('Other'),
+    act: mk('Import help'),
+  };
+  const withHelp = (node: React.ReactElement, pageId: string | null = 'page') => (
+    <HelpProvider index={index} lang="en" baseUrl="https://g.test" pageId={pageId}>
+      {node}
+    </HelpProvider>
+  );
+
+  it('shows the provider pageId (?) automatically, none without a provider', async () => {
+    await renderInEnglish(withHelp(<PageHeader title="Students" />));
+    expect(await screen.findByRole('button', { name: 'Help: Students page' })).toBeTruthy();
+  });
+
+  it('renders no (?) without a provider', async () => {
+    await renderInEnglish(<PageHeader title="Students" />);
+    expect(screen.queryByRole('button', { name: /Help/ })).toBeNull();
+  });
+
+  it('helpId overrides the page id', async () => {
+    await renderInEnglish(withHelp(<PageHeader title="Students" helpId="other" />));
+    expect(screen.getByRole('button', { name: 'Help: Other' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Help: Students page' })).toBeNull();
+  });
+
+  it('helpId on an action renders a (?) after its button', async () => {
+    await renderInEnglish(
+      withHelp(<PageHeader title="T" actions={[act1('p', 'primary', { helpId: 'act' })]} />, null),
+    );
+    expect(screen.getByRole('button', { name: 'Help: Import help' })).toBeTruthy();
+  });
+
+  it('an action (?) hides on phone with its button when the button is hidden', async () => {
+    await renderInEnglish(
+      withHelp(
+        <PageHeader
+          title="T"
+          actions={[act1('p', 'primary'), act1('s1', 'secondary', { helpId: 'act' })]}
+        />,
+        null,
+      ),
+    );
+    const hint = await screen.findByRole('button', { name: 'Help: Import help' });
+    expect(hint.className).toContain('hidden');
+    expect(screen.getByRole('button', { name: 's1' }).className).toContain('hidden');
+  });
+
+  it('tab order is h1, then (?), then the first action', async () => {
+    const user = userEvent.setup();
+    await renderInEnglish(withHelp(<PageHeader title="T" actions={[act1('p', 'primary')]} />));
+    await user.tab();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Help: Students page' }),
+    );
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'p' }));
   });
 });

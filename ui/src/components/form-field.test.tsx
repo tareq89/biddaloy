@@ -17,6 +17,7 @@ import {
   FormLabel,
   FormMessage,
 } from './form-field';
+import { HelpProvider, type HelpIndex } from './help-hint';
 import { Input } from './input';
 
 const schema = z.object({
@@ -26,9 +27,11 @@ const schema = z.object({
 function NameForm({
   onSubmit,
   required,
+  helpId,
 }: {
   onSubmit: (values: z.infer<typeof schema>) => void;
   required?: boolean;
+  helpId?: string;
 }) {
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -43,7 +46,9 @@ function NameForm({
           name="studentName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel required={required}>Student name</FormLabel>
+              <FormLabel required={required} helpId={helpId}>
+                Student name
+              </FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -79,6 +84,28 @@ describe('FormField', () => {
     expect(star.getAttribute('aria-hidden')).toBe('true');
     expect(screen.getByText('(required)').className).toContain('sr-only');
     expect(screen.getByRole('textbox', { name: /\(required\)/ })).toBeTruthy();
+  });
+
+  it('with helpId, clicking the label still focuses the input and the (?) shows beside it', async () => {
+    const user = userEvent.setup();
+    const index: HelpIndex = {
+      'x.field.name': {
+        title: { bn: 'নাম', en: 'Name' },
+        summary: { bn: 'নাম', en: 'Name help' },
+        path: 'p',
+        anchor: 'more',
+        knownIssues: 0,
+      },
+    };
+    rtlRender(
+      <HelpProvider index={index} lang="en" baseUrl="https://g.test">
+        <NameForm onSubmit={vi.fn()} helpId="x.field.name" />
+      </HelpProvider>,
+      { wrapper: I18nProvider },
+    );
+    expect(await screen.findByRole('button', { name: 'Help: Name' })).toBeTruthy();
+    await user.click(screen.getByText('Student name'));
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: /Student name/ }));
   });
 
   it('has no star when not required', () => {

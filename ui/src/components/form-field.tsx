@@ -29,6 +29,7 @@ import {
 import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
 
+import { HelpHint } from './help-hint';
 import { Label } from './label';
 
 const Form = FormProvider;
@@ -103,11 +104,16 @@ function FormLabel({
   htmlFor,
   required,
   children,
+  helpId,
   ...props
-}: React.ComponentProps<typeof Label> & { required?: boolean | undefined }) {
+}: React.ComponentProps<typeof Label> & {
+  required?: boolean | undefined;
+  /** A (?) after the label text; a sibling of the label, so clicking the label still focuses the input. */
+  helpId?: string | undefined;
+}) {
   const { error, formItemId } = useFormField();
   const { t } = useTranslation();
-  return (
+  const label = (
     <Label
       {...props}
       data-slot="form-label"
@@ -142,6 +148,13 @@ function FormLabel({
         children
       )}
     </Label>
+  );
+  if (!helpId) return label;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <HelpHint helpId={helpId} />
+    </span>
   );
 }
 
