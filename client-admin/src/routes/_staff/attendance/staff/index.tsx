@@ -80,6 +80,16 @@ function StaffAttendancePage() {
   const dayQuery = useStaffAttendanceDay(date);
   const staff = React.useMemo(() => dayQuery.data?.staff ?? [], [dayQuery.data]);
 
+  // Saved marks come from the server; `draft` holds only this session's edits, so a
+  // save sends just the changed rows and the refetched marks stay on screen.
+  const saved = React.useMemo(
+    () =>
+      Object.fromEntries(
+        staff.filter((row) => row.status).map((row) => [row.staff_profile_id, row.status]),
+      ) as StaffAttendanceDraft,
+    [staff],
+  );
+
   const [draft, setDraft] = React.useState<StaffAttendanceDraft>({});
   const markAttendance = useMarkStaffAttendance();
 
@@ -110,7 +120,8 @@ function StaffAttendancePage() {
     );
   }
 
-  const unmarked = countStaffDraft(staff, draft).unmarked;
+  const shown = React.useMemo(() => ({ ...saved, ...draft }), [saved, draft]);
+  const unmarked = countStaffDraft(staff, shown).unmarked;
 
   return (
     <PageContainer>
@@ -172,7 +183,7 @@ function StaffAttendancePage() {
         <>
           <StaffAttendanceGrid
             staff={staff}
-            draft={draft}
+            draft={shown}
             onStatusChange={handleStatusChange}
             disabled={!canMark || markAttendance.isPending}
           />
