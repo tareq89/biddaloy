@@ -328,6 +328,20 @@ describe('RoutineSlotsService.findForRoutine visibility [86.1]', () => {
       await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.OFFICE_STAFF)),
     ).toEqual([]);
   });
+  it('REVIEW + EXECUTIVE (academic coordinator) returns every slot', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.EXECUTIVE)),
+    ).toHaveLength(2);
+  });
+  it('DRAFT + EXECUTIVE returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.DRAFT);
+    expect(await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.EXECUTIVE))).toEqual(
+      [],
+    );
+  });
   it('PUBLISHED + TEACHER returns all slots', async () => {
     const ctx = buildService();
     seed(ctx, RoutineState.PUBLISHED);

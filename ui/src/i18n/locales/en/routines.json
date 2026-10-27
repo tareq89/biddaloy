@@ -241,6 +241,8 @@
     "loadError": "Couldn't work out the periods to fill. Close this and try again."
   },
   "review": {
+    "draftHiddenTitle": "The routine is still a draft",
+    "draftHiddenExplanation": "It shows here once it is sent for review.",
     "title": "Routine review",
     "noRoutineExplanation": "No routine exists yet for this academic year.",
     "createRoutineAction": "Create routine",

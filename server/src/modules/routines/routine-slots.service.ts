@@ -19,7 +19,7 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
 import { SchoolsService } from '../schools/schools.service';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
-import { AuditAction, RoutineState, SlotRecurrence } from '@biddaloy/shared';
+import { AuditAction, RoutineState, SlotRecurrence, UserRole } from '@biddaloy/shared';
 import { routineSlotScope } from './routine-visibility';
 import { UpsertRoutineSlotDto } from './dto/routine-slots.dto';
 import { checkSlot, SlotLike, Violation, Warning } from './constraint-check';
@@ -76,7 +76,13 @@ export class RoutineSlotsService {
   ): Promise<RoutineSlotWithWarnings[]> {
     const routine = await this.getRoutine(routineId, tenantId);
     // Same visibility rule as ResolveRoutineService (one helper, D14).
-    const scope = await routineSlotScope(this.teacherRepo, routine, caller, tenantId);
+    // The academic coordinator (EXECUTIVE) reviews the whole routine before it is
+    // published, so a REVIEW routine is read in full. DRAFT stays managers-only.
+    const coordinatorReview =
+      caller.role === UserRole.EXECUTIVE && routine.state === RoutineState.REVIEW;
+    const scope = coordinatorReview
+      ? 'all'
+      : await routineSlotScope(this.teacherRepo, routine, caller, tenantId);
     if (scope === 'none') return [];
     const ownTeacherId = scope === 'all' ? null : scope.teacherId;
     const slots = await this.slotRepo.find({
