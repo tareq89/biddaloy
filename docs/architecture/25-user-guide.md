@@ -234,13 +234,49 @@ flowchart LR
 
 Screenshots, GIFs and diagrams only. There is no video and no narration (D48).
 
-| What                 | Command                                                                                                                   | Needs                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Diagrams             | `yarn guide:diagrams [name-prefix]`                    | `mmdc` (`MMDC` env) or `npx -p @mermaid-js/mermaid-cli mmdc`; `PUPPETEER_CONFIG` for an installed Chrome |
+| What                 | Command                                                                                                   | Needs                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Diagrams             | `yarn guide:diagrams [name-prefix]`                                                                       | `mmdc` (`MMDC` env) or `npx -p @mermaid-js/mermaid-cli mmdc`; `PUPPETEER_CONFIG` for an installed Chrome |
 | Screenshots and GIFs | `yarn guide:shoot <feature>`: runs `e2e/docs/tours/<feature>.tour.ts` through `playwright.docs.config.ts` | the demo school (Epic 58), Playwright                                                                    |
 
 A tour never uses fake data. If the demo school lacks what a tour needs, open a
 follow-up on Epic 58.
+
+## In-app help (Epic 44)
+
+The small round **(?)** in the app opens a card with a link into this guide.
+Wave 1 (2026-10-27) ships the pieces; the routes are wired in wave 3.
+
+```mermaid
+flowchart LR
+  META["guide:meta in each page<br/>helpIds · summary · knownIssues"] -->|yarn guide:gen| IDX["client-admin/src/help/help-index.gen.ts<br/>HELP_INDEX · HELP_ROUTES · HELP_GAPS"]
+  IDX --> GUARD{{"help-guard.test.ts<br/>ids in code ⇄ ids in guide"}}
+  IDX --> HH["HelpHint (?) in ui/<br/>button has data-help-id"]
+  HH -->|"capture hides it"| SHOT["guide screenshots<br/>(e2e/docs/helpers/capture.ts)"]
+```
+
+Learning from wave 1 (surprise, cost, fix, rule candidate):
+
+- **2026-10-27 — the guide's real data did not match the ticket.** About 51
+  `.field.` ids have no `help.<key>` in the page's `fields:<ns>` namespace, and 6
+  ids are declared on two pages (all under `administration.printTemplates.*`).
+  Cost: a strict generator would have made `yarn guide:gen` unusable. Fix: the
+  generator skips the offender, lists it in `HELP_GAPS`, and a checked-in
+  `KNOWN_GAPS` baseline (63 ids) fails on any new gap or stale entry. Rule
+  candidate: check a new generator against the real tree before making it strict;
+  44.3.12 flips it to strict once the gaps close.
+- **2026-10-27 — focus-open broke keyboard use.** Opening the card on focus
+  meant Tab could never reach the card's links and Enter toggled the card shut.
+  Fix: Enter, Space and click open it, and a keyboard open moves focus to the
+  "গাইড দেখুন" link; hover keeps its 300 ms / 200 ms timers. This changes E1.
+  Rule candidate: review a popover's keyboard path before wiring it to focus.
+- **2026-10-27 — the capture hide lives in `capture.ts`.** The ticket named
+  `overlays.ts`, but the style injected for every shot and GIF is in `prepare()`
+  in `capture.ts`, next to the demo-ribbon rule. The `[data-help-id]` hide went
+  there.
+- **2026-10-27 — the generated index is not visible to `git status` until it is
+  committed**, so "run `guide:gen` twice, no diff" must be checked through the
+  golden test, not `git status`.
 
 ## Related
 
