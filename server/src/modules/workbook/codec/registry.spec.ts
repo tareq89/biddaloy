@@ -159,6 +159,8 @@ describe('EXPECTED_TABS', () => {
       'study_plan_templates',
       'study_plans',
       'lesson_deliveries',
+      // [84.2.3] Epic 84.0 arrival-notice subscriptions.
+      'arrival_notice_subscriptions',
     ]);
   });
 
