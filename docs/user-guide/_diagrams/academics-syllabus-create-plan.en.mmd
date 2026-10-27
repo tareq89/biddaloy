@@ -1,0 +1,15 @@
+%% title: The four steps of a new study plan
+%% desc: First pick the class, section, subject and term. Then choose where the lessons come from: empty, the library or a CSV file. In the preview, choose which lessons to keep. Saving opens the plan's page.
+flowchart LR
+  A["1. Section · subject<br/>· term"]:::teacher --> B["2. How to start"]:::teacher
+  B --> B1["Start empty"]:::note
+  B --> B2["From the library"]:::note
+  B --> B3["From a CSV file"]:::note
+  B1 --> C["3. Preview<br/>keep or drop lessons"]:::teacher
+  B2 --> C
+  B3 --> C
+  C --> D["4. Save<br/>the plan page opens"]:::teacher
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

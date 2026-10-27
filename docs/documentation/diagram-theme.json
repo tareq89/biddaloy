@@ -1,0 +1,21 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "'Noto Sans Bengali', 'Hind Siliguri', 'Bangla Sangam MN', system-ui, sans-serif",
+    "fontSize": "16px",
+    "primaryColor": "#f8f9fa",
+    "primaryBorderColor": "#adb5bd",
+    "primaryTextColor": "#212529",
+    "lineColor": "#868e96",
+    "edgeLabelBackground": "#ffffff",
+    "secondaryColor": "#eef1fe",
+    "secondaryBorderColor": "#8f96f4",
+    "tertiaryColor": "#dfe3fd",
+    "tertiaryBorderColor": "#4a3fd4"
+  },
+  "flowchart": {
+    "curve": "basis",
+    "htmlLabels": true,
+    "padding": 12
+  }
+}

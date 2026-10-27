@@ -544,6 +544,11 @@ If a needed component genuinely does not exist, extend the design system
 following its own conventions rather than inventing a local one, and report the
 addition so it lands in the PR description.
 
+Reviewer checklist (both tiers): **a user-visible change updates its guide page(s)
+in `docs/user-guide/{bn,en}` (bn and en), or the PR body has
+`User guide: not affected — <reason>`; `yarn guide:check` and `yarn guide:impact`
+pass.** A miss is a finding.
+
 Consistency is checked in the review pass (step 5's second reviewer), not by a
 human gate before the work starts.
 

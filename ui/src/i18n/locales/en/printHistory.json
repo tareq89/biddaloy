@@ -181,5 +181,18 @@
   "reopenRevokeConfirm": "Reopen and revoke {{n}}",
   "reopenRevokeReason": "Result reopened for correction",
   "reopenRevokeFailed": "The results are reopened, but these could not be revoked: {{serials}}. Try again or use the certificate register.",
-  "reopenRegisterError": "Couldn't load the certificates issued for this exam. Check the certificate register after reopening."
+  "reopenRegisterError": "Couldn't load the certificates issued for this exam. Check the certificate register after reopening.",
+  "fields": {
+    "revokeReason": "Reason for revoking",
+    "validity": "Status",
+    "outcome": "Result"
+  },
+  "help": {
+    "revokeReason": "Why you are revoking the card, such as card lost; up to 280 characters. Only staff see it.",
+    "validity": "Valid means the card or certificate is still good. Revoked means someone cancelled it; a QR scan shows it is no longer valid.",
+    "outcome": "Filter by how the print went: Printed, Not printed or Waiting. Leave empty for all."
+  },
+  "helpRequired": {
+    "revokeReason": "Yes"
+  }
 }

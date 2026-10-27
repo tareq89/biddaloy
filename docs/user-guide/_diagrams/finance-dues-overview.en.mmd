@@ -1,0 +1,14 @@
+%% title: The path of dues
+%% desc: A new bill raises the student's dues. A payment or discount lowers them. Once the student has paid in full, they leave the list. From a row you can collect the fee or send a reminder.
+flowchart TD
+  B["A bill is created"] --> D["Student's dues go up"]
+  D --> L["Student appears in the list"]:::admin
+  L --> A{"From the row"}:::note
+  A -->|"Collect fee"| R["Record payment page"]:::admin
+  A -->|"Remind"| M["Reminder sent<br/>Last reminder updates"]
+  R --> P["Payment or discount is applied"]
+  P --> Q{"Fully paid?"}:::note
+  Q -->|"No"| D2["Dues go down<br/>student stays in the list"]
+  Q -->|"Yes"| X["Student leaves the list"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

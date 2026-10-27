@@ -1,0 +1,19 @@
+{
+  "fields": {
+    "month": "Month",
+    "class": "Class",
+    "section": "Section",
+    "minimumAttendance": "Minimum attendance (%)"
+  },
+  "help": {
+    "month": "Which month. The current month is filled in; you can pick back up to 12 months.",
+    "class": "Which class. Changing it empties the section.",
+    "section": "Which section.",
+    "minimumAttendance": "The percentage limit, for example 75. If empty, low attendance uses the school's settings limit."
+  },
+  "helpRequired": {
+    "month": "Yes",
+    "class": "Yes, for month summary",
+    "section": "Yes, for month summary"
+  }
+}

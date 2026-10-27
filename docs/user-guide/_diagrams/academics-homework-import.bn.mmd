@@ -1,0 +1,14 @@
+%% title: ফাইল থেকে বাড়ির কাজ আমদানি
+%% desc: টেমপ্লেট ডাউনলোড করুন, প্রতি সারিতে একটি কাজ লিখুন, ফাইল আপলোড করুন। অ্যাপ সব সারি যাচাই করে। কোনো সারিতে সমস্যা থাকলে কিছুই জমা হয় না; সমস্যার সারি ঠিক করে আবার আপলোড করুন। সমস্যা না থাকলে নিশ্চিত করলে সব কাজ একসঙ্গে তৈরি হয়।
+flowchart TD
+  D["টেমপ্লেট<br/>ডাউনলোড"]:::teacher --> F["সারি পূরণ"]:::teacher
+  F --> U["ফাইল আপলোড"]:::teacher
+  U --> V{"সব সারি ঠিক?"}:::note
+  V -->|"না"| X["সমস্যার সারি<br/>ঠিক করুন"]:::note
+  X --> U
+  V -->|"হ্যাঁ"| C["আমদানি নিশ্চিত"]:::teacher
+  C --> R["সব কাজ তৈরি"]:::note
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40
