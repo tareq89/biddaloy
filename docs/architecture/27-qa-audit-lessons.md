@@ -264,3 +264,11 @@ Wave 0 (#2979): five security fixes found while writing the user guide.
 - 2026-10-27 — #2932: the body asked for a "role without SCHEDULE_MANAGE sees no Delete" test. The whole route is gated on that permission, so no such role can reach the page; the test was dropped and the guard kept as defence in depth.
 - 2026-10-27 — #2939: the body said to use `regionConfig`, but that variable belongs to the parent component; `useRegionConfig()` in the same component is the sibling pattern.
 - 2026-10-27 — #2936 fix is client-only: the server already refuses a wallet pick across siblings (`checkout.service.ts`), the UI just summed them.
+
+### Wave 6 — platform, dashboard and i18n (#2985)
+
+- 2026-10-27 — #2974 (English UI showed Bangla digits) broke 18 client tests that had asserted the old, wrong output. Rule candidate: a region/formatting fix is high blast radius; run the whole client suite, not only the touched folder.
+- 2026-10-27 — #2869 had nine consumers, not the seven the ticket named (`readmit-dialog.tsx` and a comment); grep every consumer of a shared component first.
+- 2026-10-27 — #2941: the collection-by-month widget now follows the current academic year, so `e2e/journeys/dashboard-reconciliation.spec.ts` (which assumed the calendar year) changed too.
+- 2026-10-27 — #2946: pinned backups skip the 30-day download expiry; `expires_at` is not cleared on pin, so un-pinning restores the old expiry.
+- 2026-10-27 — #2951: an abandoned request body leaves its idempotency key in `sessionStorage` until the tab closes; known and minor.
