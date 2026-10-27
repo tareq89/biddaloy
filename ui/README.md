@@ -183,7 +183,10 @@ use it). Falls back to sensible defaults for a non-numeric, negative, or
 missing `page`/`limit` rather than propagating `NaN` or a negative offset
 into a query — the same malformed-URL problem a route's own
 `validateSearch` (see the example below) handles declaratively when one
-exists, and this hook still handles defensively when one doesn't:
+exists, and this hook still handles defensively when one doesn't.
+On a route that declares `validateSearch`, `filters` holds only the keys the
+schema kept; a stray param is dropped (#2999). On a route without one, every
+non-reserved param is a filter:
 
 ```tsx
 const [state, updateUrl] = useListUrlState({ limit: 10 });
