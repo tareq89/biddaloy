@@ -506,6 +506,7 @@ PATCH  /api/v1/routines/slots/:slotId                                           
 POST   /api/v1/routines/slots/:slotId/change-requests                            401 PASS PASS 403 403 PASS 403 403 403 403 403 403
 GET    /api/v1/routines/substitutions                                            401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/routines/substitutions                                            401 PASS PASS PASS 403 403 403 403 403 403 403 403
+DELETE /api/v1/routines/substitutions/:id                                        401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/school-calendar/holidays                                          401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS PASS
 GET    /api/v1/school-calendar/working-days                                      401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 GET    /api/v1/schools                                                           401 PASS 403 403 403 403 403 403 403 403 403 403

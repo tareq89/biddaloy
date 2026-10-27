@@ -10,13 +10,21 @@
  * year's routine (no API change). `class_id` lives in the URL but is never
  * sent to the API — it only narrows the section filter's options.
  */
-import { DataTable, ErrorState, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import {
+  ConfirmDialog,
+  DataTable,
+  ErrorState,
+  StatusBadge,
+  toast,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
 import {
   usePeriodSlotLookup,
   useClasses,
   useClassSections,
   useSectionLookup,
   useSubjects,
+  useDeleteSubstitution,
   useSubstitutions,
   useTeachers,
   type RoutineSubstitution,
@@ -62,6 +70,8 @@ function SubstitutionsPage() {
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [page, setPage] = React.useState(1);
+  const [deleting, setDeleting] = React.useState<RoutineSubstitution | null>(null);
+  const deleteSubstitution = useDeleteSubstitution();
 
   const { class_id, ...apiFilters } = search;
   const teachersQuery = useTeachers({});
@@ -198,6 +208,20 @@ function SubstitutionsPage() {
   );
   const pageSize = 25;
 
+  function handleDelete() {
+    if (!deleting) return;
+    deleteSubstitution.mutate(deleting.id, {
+      onSuccess: () => {
+        setDeleting(null);
+        toast.success(t('substitutionsPage.deletedToast'));
+      },
+      onError: () => {
+        setDeleting(null);
+        toast.error(t('substitutionsPage.deleteError'));
+      },
+    });
+  }
+
   const columns: DataTableColumn<Row>[] = [
     {
       id: 'date',
@@ -311,6 +335,13 @@ function SubstitutionsPage() {
           totalCount={rows.length}
           onPageChange={setPage}
           loading={substitutionsQuery.isPending}
+          rowActions={(row) => [
+            {
+              intent: 'delete',
+              label: t('substitutionsPage.deleteAction'),
+              onClick: () => setDeleting(row.substitution),
+            },
+          ]}
           emptyState={{
             title: t('substitutionsPage.emptyTitle'),
             explanation: t('substitutionsPage.emptyExplanation'),
@@ -325,6 +356,20 @@ function SubstitutionsPage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        tone="danger"
+        title={t('substitutionsPage.deleteTitle', {
+          date: deleting ? formatDate(deleting.date, config) : '',
+        })}
+        description={t('substitutionsPage.deleteDescription')}
+        confirmLabel={t('substitutionsPage.deleteConfirm')}
+        cancelLabel={t('substitutionsPage.cancel')}
+        busy={deleteSubstitution.isPending}
+        onConfirm={handleDelete}
+      />
 
       <SubstitutionDialog
         open={dialogOpen}

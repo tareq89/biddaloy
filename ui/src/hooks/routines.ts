@@ -624,6 +624,19 @@ export function useSubstitutions(filters: SubstitutionFilters) {
   return useQuery(substitutionsQueryOptions(filters));
 }
 
+/** Deletes one substitution row; the period returns to its usual teacher. */
+export function useDeleteSubstitution() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/routines/substitutions/${id}`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: substitutionKeys.lists() });
+    },
+  });
+}
+
 /** Records a cover or cancellation for one slot on one date (D12). Never
  * touches `routine_slots` — refuses (422) when the slot doesn't occur on
  * that date, a sign the caller has the wrong slot; that message is
