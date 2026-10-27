@@ -17,10 +17,10 @@ import {
   publicHolidaySetQueryOptions,
   recurringScheduleQueryOptions,
   reminderBatchQueryOptions,
-  resultDetailKey,
   schoolsKeys,
   seatPlanDetailQueryOptions,
   studentQueryOptions,
+  studentResultCardKey,
   studyPlanQueryOptions,
   surveyKeys,
   useEntityLabel,
@@ -120,7 +120,10 @@ export const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
   },
   // Attendance register (cached by section + date + period) or the sections list.
   section: {
-    queryKeys: (id) => [[...attendanceKeys.all, 'register', id], [...classKeys.all, 'sections']],
+    queryKeys: (id) => [
+      [...attendanceKeys.all, 'register', id],
+      [...classKeys.all, 'sections'],
+    ],
     getName: (data, id) => {
       if (Array.isArray(data)) {
         const row = (
@@ -230,10 +233,10 @@ export const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
       return [d.student?.full_name, date].filter(Boolean).join(' — ') || undefined;
     },
   },
-  // The page reads `useResultDetail`, so key by (examId, studentId), not `useStudent`.
+  // The page reads `useStudentResultCard`, so key by (studentId, examId), not `useStudent`.
   reportCard: {
     param: 'studentId',
-    queryKeys: (id, params) => [resultDetailKey(params.examId, id)],
+    queryKeys: (id, params) => [studentResultCardKey(id, params.examId)],
     getName: (data) => field((data as { student?: unknown } | undefined)?.student, 'full_name'),
   },
 };
