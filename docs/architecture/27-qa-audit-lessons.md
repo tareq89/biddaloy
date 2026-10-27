@@ -250,3 +250,10 @@ Wave 0 (#2979): five security fixes found while writing the user guide.
 - 2026-10-27 — #2892 added a route, so `ROLE_NARROWINGS` in `permission-matrix.e2e-spec.ts` also needed an entry; the ticket named only the two route snapshots.
 - 2026-10-27 — #2895 logs its audit entry under `RoutineSlot` because `RoutineSubstitution` is not in the shared audit entity catalog. Follow-up: add it.
 - 2026-10-27 — #2893 changed period slots to update in place; changing a time now also changes it on past days. Versioned period times are out of scope.
+
+### Wave 4 — exams, results and promotion (#2983)
+
+- 2026-10-27 — #2925: hiding Graduate in a normal run left the `g` keyboard shortcut sending GRADUATE, which the server now refuses. Rule candidate: when a server refuses a value, grep the client for every path that can send it (shortcuts, mobile cards), not only the select.
+- 2026-10-27 — #2922: stopping the page from loading the exam detail query broke the breadcrumb, which was keyed on that query. The fix moved the resolver key. Rule candidate: before removing a query from a page, grep the breadcrumb resolver for its key.
+- 2026-10-27 — #2916: `progress()` gained a `grids` array instead of widening `outstanding`, so the results-processing gate keeps its meaning.
+- 2026-10-27 — #2913 also closed #2914, #2918 also closed #2919 and #2920, #2916 also closed #2978: those issues were duplicates of one cause.
