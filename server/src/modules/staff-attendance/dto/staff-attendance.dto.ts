@@ -60,6 +60,13 @@ export class PutStaffAttendanceRegisterDto {
   entries: StaffAttendanceEntryDto[];
 }
 
+/** Query params for `GET /staff-attendance/register`. */
+export class QueryStaffAttendanceRegisterDto {
+  @IsString()
+  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  date: string;
+}
+
 /** Query params for `GET /staff-attendance/summary`. */
 export class QueryStaffAttendanceSummaryDto {
   @IsUUID()
@@ -102,4 +109,24 @@ export class StaffAttendanceSummaryDto {
   @ApiProperty() absent_days: number;
   @ApiProperty() leave_days: number;
   @ApiProperty({ type: Number, nullable: true }) attendance_percentage: number | null;
+}
+
+/** One staff member the caller may mark on the requested day. */
+export class StaffAttendanceRosterRowDto {
+  @ApiProperty() staff_profile_id: string;
+  @ApiProperty() user_id: string;
+  @ApiProperty() full_name: string;
+  @ApiProperty() role: string;
+  @ApiProperty({ enum: AttendanceStatus, nullable: true })
+  status: AttendanceStatus | null;
+}
+
+/** `GET /staff-attendance/register` — the day's roster with saved marks. */
+export class StaffAttendanceDayDto {
+  @ApiProperty() date: string;
+  @ApiProperty({ description: 'True when saving a correction needs a `reason`.' })
+  reason_required: boolean;
+  @ApiProperty() non_working_day: boolean;
+  @ApiProperty({ type: StaffAttendanceRosterRowDto, isArray: true })
+  staff: StaffAttendanceRosterRowDto[];
 }
