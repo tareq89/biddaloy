@@ -146,7 +146,7 @@ describe('SubstitutionsService [21.5.1]', () => {
     const ROW = {
       id: 'sub-1',
       routine_slot_id: 'slot-1',
-      date: '2026-02-02',
+      date: '2099-01-01', // future: still deletable
       substitute_teacher_id: 't-2',
       is_cancelled: false,
     };
@@ -168,10 +168,18 @@ describe('SubstitutionsService [21.5.1]', () => {
           action: 'DELETE',
           entity_type: 'RoutineSubstitution',
           entity_id: 'sub-1',
-          old_values: expect.objectContaining({ routine_slot_id: 'slot-1', date: '2026-02-02' }),
+          old_values: expect.objectContaining({ routine_slot_id: 'slot-1', date: '2099-01-01' }),
         }),
         expect.anything(), // the transaction manager: delete and audit commit together
       );
+    });
+
+    it('refuses (409) to delete a past-dated substitution and keeps the row', async () => {
+      ctx.substitutionRepo.findOne = vi.fn(async () => ({ ...ROW, date: '2000-01-01' }));
+      const err: any = await ctx.service.remove('sub-1', TENANT_ID, 'user-1').catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('SUBSTITUTION_IN_PAST');
+      expect(ctx.substitutionRepo.delete).not.toHaveBeenCalled();
     });
 
     it("another tenant's id is a 404 whose text carries no id", async () => {

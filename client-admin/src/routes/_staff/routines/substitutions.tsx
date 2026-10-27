@@ -10,6 +10,7 @@
  * earlier year are not blank. `class_id` lives in the URL but is never
  * sent to the API — it only narrows the section filter's options.
  */
+import { ApiError } from '@biddaloy/ui/api';
 import {
   ConfirmDialog,
   DataTable,
@@ -205,9 +206,12 @@ function SubstitutionsPage() {
         setDeleting(null);
         toast.success(t('substitutionsPage.deletedToast'));
       },
-      onError: () => {
+      onError: (err) => {
         setDeleting(null);
-        toast.error(t('substitutionsPage.deleteError'));
+        const isPast = err instanceof ApiError && err.details?.['code'] === 'SUBSTITUTION_IN_PAST';
+        toast.error(
+          t(isPast ? 'substitutionsPage.pastDeleteError' : 'substitutionsPage.deleteError'),
+        );
       },
     });
   }

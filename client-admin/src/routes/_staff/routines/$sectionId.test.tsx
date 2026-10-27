@@ -217,6 +217,47 @@ describe('/routines/$sectionId', () => {
     expect(screen.getAllByText('Empty').length).toBeGreaterThan(0);
   });
 
+  it('a 409 SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS toasts the in-use sentence', async () => {
+    mockCommonRoutes();
+    server.use(
+      http.post('/api/v1/routines/routine-1/slots', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'x',
+            requestId: 'req-9',
+            details: { code: 'SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    try {
+      renderWithRouter(routeTree, {
+        initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      const table = await screen.findByRole('table', { name: GRID_NAME });
+      await waitFor(() => expect(screen.getByText(PERIOD_TEXT)).toBeTruthy());
+      fireEvent.keyDown(table, { key: 'Enter' });
+      const user = userEvent.setup();
+      await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+      await user.click(screen.getByText('Math'));
+      await user.click(screen.getByLabelText('Ms Nahar'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() =>
+        expect(errorSpy).toHaveBeenCalledWith(
+          'This period has substitutions or open change requests. Resolve them first, or edit from a later date.',
+        ),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   // [1047] A 409 that arrives *after* the user moved on must not repopulate
   // the violation list — the reported symptom is the *next* cell opening
   // with the previous cell's conflict, over a form that never submitted.

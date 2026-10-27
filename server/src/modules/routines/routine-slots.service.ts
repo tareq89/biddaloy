@@ -10,6 +10,8 @@ import { Routine } from './entities/routine.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
 import { PeriodSlot } from './entities/period-slot.entity';
+import { RoutineSubstitution } from './entities/routine-substitution.entity';
+import { RoutineChangeRequest } from './entities/routine-change-request.entity';
 import { Room } from './entities/room.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
@@ -21,6 +23,7 @@ import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
 import {
   AuditAction,
+  ChangeRequestState,
   EnrollmentStatus,
   RoutineState,
   SlotRecurrence,
@@ -257,6 +260,21 @@ export class RoutineSlotsService {
     userId: string | null,
   ): Promise<RoutineSlotWithWarnings> {
     const id = oldSlot.id;
+    // #3022: the in-place edit keeps the slot id, so substitutions and open change
+    // requests would silently point at the changed lesson. Refuse instead.
+    const [subs, openRequests] = await Promise.all([
+      manager.count(RoutineSubstitution, { where: { routine_slot_id: id, tenant_id: tenantId } }),
+      manager.count(RoutineChangeRequest, {
+        where: { routine_slot_id: id, tenant_id: tenantId, state: ChangeRequestState.OPEN },
+      }),
+    ]);
+    if (subs > 0 || openRequests > 0) {
+      throw new ConflictException({
+        message:
+          'This period has substitutions or open change requests; resolve them before editing it.',
+        details: { code: 'SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS' },
+      });
+    }
     // Exclude the row itself so it does not clash with itself.
     const existing = (
       await this.loadExisting(oldSlot.routine_id, tenantId, manager, dto, userId)

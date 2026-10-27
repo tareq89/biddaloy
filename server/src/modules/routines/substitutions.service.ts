@@ -15,7 +15,11 @@ import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
 import { PeriodSlot } from './entities/period-slot.entity';
 import { TeacherBusyService } from './teacher-busy.service';
 import { SchoolsService } from '../schools/schools.service';
-import { periodTimesOn, resolveAttendancePolicy } from '../attendance/attendance-policy.util';
+import {
+  localToday,
+  periodTimesOn,
+  resolveAttendancePolicy,
+} from '../attendance/attendance-policy.util';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -148,6 +152,16 @@ export class SubstitutionsService {
       });
       if (!row) {
         throw new NotFoundException('Substitution not found');
+      }
+      // #3022: a past date's cover is history; deleting it would rewrite who covered a period.
+      const today = localToday(
+        (await this.schools.getResolvedSettings(tenantId)).region?.timezone ?? 'UTC',
+      );
+      if (row.date < today) {
+        throw new ConflictException({
+          message: 'A past substitution cannot be deleted.',
+          details: { code: 'SUBSTITUTION_IN_PAST' },
+        });
       }
       await repo.delete({ id, tenant_id: tenantId });
       await this.auditService.record(
