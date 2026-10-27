@@ -241,12 +241,63 @@ describe('/academic-years', () => {
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
     expect(
-      await dialog.findByText(
-        "This year is current or still has classes or fee structures, so it can't be deleted.",
-        { exact: false },
-      ),
+      await dialog.findByText('This is the current year. Make another year current first.', {
+        exact: false,
+      }),
     ).toBeTruthy();
     expect(dialog.queryByText('Failed to delete academic year', { exact: false })).toBeNull();
+  });
+
+  it('[2883] delete blocked only by exams and bills names those, not classes', async () => {
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({
+          data: [academicYearFactory({ id: 'year-1', name: 'Keep Me' })],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+      http.delete('/api/v1/academic-years/:id', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'in use',
+            error: 'Conflict',
+            requestId: 'req-1',
+            path: '/api/v1/academic-years/year-1',
+            timestamp: new Date().toISOString(),
+            details: {
+              code: 'ACADEMIC_YEAR_IN_USE',
+              classes_count: 0,
+              exams_count: 2,
+              student_fees_count: 1,
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academic-years'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = within(await screen.findByRole('alertdialog'));
+    await user.click(dialog.getByRole('button', { name: 'Delete' }));
+
+    expect(
+      await dialog.findByText('This year still has exams and bills. Remove them first.', {
+        exact: false,
+      }),
+    ).toBeTruthy();
+    expect(dialog.queryByText(/classes/)).toBeNull();
   });
 
   // [14.13.2]: an empty list is where a newcomer migrating a whole school
