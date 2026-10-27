@@ -15,7 +15,7 @@
  * otherwise its most-recently-created `DRAFT`. With neither, the empty state
  * offers to create the year's draft routine.
  */
-import { getActiveTenant } from '@biddaloy/ui/api';
+import { ApiError, getActiveTenant } from '@biddaloy/ui/api';
 import {
   Card,
   EmptyState,
@@ -334,7 +334,17 @@ function RoutineBuilderPage() {
     );
     if (!entry) return;
     deleteSlot.mutate(entry.slot.id, {
-      onSuccess: () => setViolations([]),
+      onSuccess: () => {
+        setViolations([]);
+        toast.success(t('builder.clearedToast'));
+      },
+      // The global handler only toasts 403s and 5xx; any other failure
+      // (404, 409 ROUTINE_SLOT_ALREADY_ENDED) would otherwise be silent.
+      onError: (error) => {
+        if (error instanceof ApiError && error.statusCode !== 403 && error.statusCode < 500) {
+          toast.error(t('builder.clearErrorToast'));
+        }
+      },
     });
   }
 

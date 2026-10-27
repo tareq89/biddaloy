@@ -1,3 +1,4 @@
+import { toast } from '@biddaloy/ui/components';
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   classFactory,
@@ -12,7 +13,7 @@ import { formatNumber, formatTime } from '@biddaloy/ui/utils';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -552,6 +553,61 @@ describe('/routines/$sectionId', () => {
     fireEvent.keyDown(table, { key: 'Delete' });
 
     await waitFor(() => expect(screen.queryByText('Math')).toBeNull());
+  });
+
+  it('shows an error toast and keeps the cell when clearing fails with a 409', async () => {
+    mockCommonRoutes();
+    const errorToast = vi.spyOn(toast, 'error');
+    server.use(
+      http.get('/api/v1/routines/routine-1/slots', () =>
+        HttpResponse.json([
+          {
+            slot: {
+              id: 'slot-1',
+              section_id: 'section-1',
+              weekday: 0,
+              period_slot_id: 'p1',
+              subject_id: 'subject-math',
+              recurrence: 'WEEKLY' as const,
+              recurrence_offset: 0,
+              valid_from: '2026-01-01',
+              valid_to: null,
+            },
+            teacher_ids: ['teacher-1'],
+            warnings: [],
+          },
+        ]),
+      ),
+      http.delete('/api/v1/routines/slots/slot-1', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'This slot has already ended',
+            timestamp: new Date().toISOString(),
+            path: '/routines/slots/slot-1',
+            requestId: 'req-1',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const table = await screen.findByRole('table', { name: GRID_NAME });
+    await waitFor(() => expect(screen.getAllByText('Math').length).toBeGreaterThan(0));
+    fireEvent.keyDown(table, { key: 'Delete' });
+
+    await waitFor(() =>
+      expect(errorToast).toHaveBeenCalledWith('Could not clear this period — try again.'),
+    );
+    expect(screen.getAllByText('Math').length).toBeGreaterThan(0);
+    errorToast.mockRestore();
   });
 
   it('opens the fill-assist dialog from the header action', async () => {
