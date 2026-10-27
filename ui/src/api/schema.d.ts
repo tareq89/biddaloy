@@ -12104,6 +12104,8 @@ export interface components {
             guardian_ids?: string[];
             student_ids?: string[];
             all?: boolean;
+            /** Format: uuid */
+            after?: string;
         };
         InvitePreviewEntryDto: {
             guardian_id: string;
@@ -12121,6 +12123,7 @@ export interface components {
         };
         InvitePreviewResponseDto: {
             total: number;
+            next_after: string | null;
             to_invite: components["schemas"]["InvitePreviewEntryDto"][];
             skipped: components["schemas"]["InviteSkippedEntryDto"][];
         };
@@ -14860,6 +14863,20 @@ export interface components {
             close_date?: string;
             required_document_types?: ("PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT")[];
         };
+        GuardianMatchGuardianDto: {
+            id: string;
+            full_name: string;
+            phone: string;
+            student_names: string[];
+        };
+        GuardianMatchResponseDto: {
+            guardian: components["schemas"]["GuardianMatchGuardianDto"] | null;
+        };
+        EvaluateApplicantDto: {
+            notes: string;
+            /** @enum {string} */
+            decision?: "SHORTLIST" | "ADMIT" | "REJECT";
+        };
         AdmissionIntake: {
             id: string;
             tenant: components["schemas"]["School"];
@@ -14901,20 +14918,6 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
-        };
-        GuardianMatchGuardianDto: {
-            id: string;
-            full_name: string;
-            phone: string;
-            student_names: string[];
-        };
-        GuardianMatchResponseDto: {
-            guardian: components["schemas"]["GuardianMatchGuardianDto"] | null;
-        };
-        EvaluateApplicantDto: {
-            notes: string;
-            /** @enum {string} */
-            decision?: "SHORTLIST" | "ADMIT" | "REJECT";
         };
         AdmitApplicantDto: {
             notes?: string;
@@ -33062,6 +33065,9 @@ export interface operations {
             query?: {
                 intakeId?: string;
                 status?: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
+                search?: string;
+                page?: number;
+                limit?: number;
             };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
@@ -33078,9 +33084,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["AdmissionApplicant"][];
-                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
