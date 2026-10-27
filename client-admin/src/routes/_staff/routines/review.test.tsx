@@ -316,6 +316,43 @@ describe('/routines/review', () => {
     expect(screen.queryByRole('table', { name: 'Periods of the routine' })).toBeNull();
   });
 
+  it('a teacher sees their own change requests with status and the admin reply; an admin does not', async () => {
+    mockLookups();
+    mockRoutine('PUBLISHED');
+    mockTeachers([{ id: 'teacher-1', user: { id: 'current-user', full_name: 'Ms Nahar' } }]);
+    server.use(
+      http.get('/api/v1/routines/routine-1/change-requests/mine', () =>
+        HttpResponse.json([
+          {
+            id: 'cr-1',
+            routine_slot_id: 'slot-1',
+            requested_by: 'current-user',
+            note: 'Please move it',
+            state: 'REJECTED',
+            resolution_note: 'Hall is booked',
+            created_at: '2026-03-01T00:00:00Z',
+          },
+        ]),
+      ),
+    );
+    renderReview('TEACHER');
+
+    expect(await screen.findByRole('heading', { name: 'My change requests' })).toBeTruthy();
+    expect(await screen.findByText('Rejected')).toBeTruthy();
+    expect(screen.getByText('Hall is booked')).toBeTruthy();
+    expect(screen.getByText('Please move it')).toBeTruthy();
+  });
+
+  it('an admin does not see the My change requests section', async () => {
+    mockLookups();
+    mockRoutine('PUBLISHED');
+    mockTeachers([]);
+    renderReview();
+
+    await screen.findByRole('table', { name: 'Periods of the routine' });
+    expect(screen.queryByRole('heading', { name: 'My change requests' })).toBeNull();
+  });
+
   it('a teacher can open the change-request dialog only for a PUBLISHED routine', async () => {
     mockLookups();
     mockRoutine('PUBLISHED');

@@ -538,6 +538,23 @@ export function useChangeRequests(routineId: string | undefined) {
   });
 }
 
+/** The signed-in teacher's own requests on a routine, with the admin's
+ * state and reply (`GET /routines/:id/change-requests/mine`, TEACHER only). */
+export function useMyChangeRequests(routineId: string | undefined) {
+  return useQuery({
+    queryKey: [...changeRequestKeys.detail(routineId ?? ''), 'mine'] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<RoutineChangeRequest[]>(
+        `/routines/${routineId}/change-requests/mine`,
+        { signal },
+      );
+      return res.data;
+    },
+    enabled: Boolean(routineId),
+    retry: shouldRetryQuery,
+  });
+}
+
 function invalidateChangeRequests(
   queryClient: ReturnType<typeof useQueryClient>,
   routineId: string,

@@ -809,6 +809,7 @@ export {
   useCopyRoutineYear,
   useCreateRoutine,
   useChangeRequests,
+  useMyChangeRequests,
   useOpenChangeRequest,
   useResolveChangeRequest,
   useSubstitutions,

@@ -240,6 +240,19 @@
     "rowWhat": "{{subject}} · {{teachers}}",
     "loadError": "পূরণ করার মতো পিরিয়ড খুঁজে পাওয়া যায়নি। এটি বন্ধ করে আবার চেষ্টা করুন।"
   },
+  "myChangeRequests": {
+    "title": "আমার পরিবর্তনের অনুরোধ",
+    "caption": "আমার পরিবর্তনের অনুরোধ",
+    "empty": "আপনি কোনো পরিবর্তনের অনুরোধ করেননি।",
+    "replyColumn": "উত্তর",
+    "dateColumn": "অনুরোধের তারিখ",
+    "statusColumn": "অবস্থা",
+    "state": {
+      "OPEN": "অপেক্ষমাণ",
+      "ACCEPTED": "গৃহীত",
+      "REJECTED": "প্রত্যাখ্যাত"
+    }
+  },
   "review": {
     "draftHiddenTitle": "রুটিনটি এখনও খসড়া",
     "draftHiddenExplanation": "পর্যালোচনায় পাঠানোর পর এটি এখানে দেখা যাবে।",
