@@ -4,7 +4,7 @@ import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -44,6 +44,22 @@ const invoice = { id: 'invoice-1', invoice_number: 'INV-2026-000123' };
 describe('/payments/$id', () => {
   afterEach(async () => {
     await cleanupTestState();
+  });
+
+  // [44.4 / #3014] The (?) beside Print receipt (finance.payments.action.printReceipt).
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(
+        http.get('/api/v1/payments/:id', () => HttpResponse.json(paymentDetail({ invoice }))),
+      );
+      renderDetail();
+      expect(
+        (await screen.findAllByRole('button', { name: 'Help: Payments' })).length,
+      ).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('has no back link; the h1 is the student and the facts include the approver', async () => {

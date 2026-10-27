@@ -14,7 +14,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
@@ -59,6 +59,20 @@ function render(role: 'ADMIN' | 'ACCOUNTANT' | 'EXECUTIVE' = 'ADMIN', entry = '/
 describe('/fees/fines', () => {
   afterEach(async () => {
     await cleanupTestState();
+  });
+
+  // [44.4 / #3014] The (?) beside the header actions (finance.fines.action.*).
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(finesHandler([]), ...referenceHandlers());
+      render();
+      expect(
+        (await screen.findAllByRole('button', { name: 'Help: Fines' })).length,
+      ).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('renders fine rows and the totals footer', async () => {
