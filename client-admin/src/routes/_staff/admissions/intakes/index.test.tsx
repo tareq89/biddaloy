@@ -191,7 +191,7 @@ describe('/admissions/intakes', () => {
     };
     server.use(
       http.get('/api/v1/admission/applicants', () =>
-        HttpResponse.json([{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }]),
+        HttpResponse.json({ data: [{ id: 'a1' }], total: 3, page: 1, limit: 1, totalPages: 3 }),
       ),
       http.get('/api/v1/admission-intakes/:id', () => HttpResponse.json(intake)),
       http.patch('/api/v1/admission-intakes/:id', async ({ request }) => {
@@ -232,7 +232,7 @@ describe('/admissions/intakes', () => {
     mockClassAndSection();
     server.use(
       http.get('/api/v1/admission/applicants', () =>
-        HttpResponse.json([{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }]),
+        HttpResponse.json({ data: [{ id: 'a1' }], total: 3, page: 1, limit: 1, totalPages: 3 }),
       ),
       http.get('/api/v1/admission-intakes/:id', () =>
         HttpResponse.json({
@@ -276,7 +276,9 @@ describe('/admissions/intakes', () => {
         }),
       ),
       http.get('/api/v1/admission-intakes', () => HttpResponse.json([])),
-      http.get('/api/v1/admission/applicants', () => HttpResponse.json([])),
+      http.get('/api/v1/admission/applicants', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 50, totalPages: 0 }),
+      ),
     );
 
     renderWithRouter(routeTree, {

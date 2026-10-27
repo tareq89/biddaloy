@@ -402,7 +402,18 @@ export class ApplicantReviewService {
 
   /** [27.10] Tenant-scoped applicant list for the staff screen, optionally
    * filtered by intake and/or status. */
-  async list(tenantId: string, filters: ListApplicantsDto): Promise<AdmissionApplicant[]> {
+  async list(
+    tenantId: string,
+    filters: ListApplicantsDto,
+  ): Promise<{
+    data: AdmissionApplicant[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 50;
     const base = {
       tenant_id: tenantId,
       deleted_at: IsNull(),
@@ -418,7 +429,14 @@ export class ApplicantReviewService {
           { ...base, guardian_phone: ILike(`%${search}%`) },
         ]
       : base;
-    return this.applicants.find({ where, order: { created_at: 'DESC' } });
+    const [data, total] = await this.applicants.findAndCount({
+      where,
+      // `id` breaks created_at ties so a page boundary never repeats or skips a row.
+      order: { created_at: 'DESC', id: 'ASC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   /** [27.10] One applicant plus its evaluation history, newest first, for
