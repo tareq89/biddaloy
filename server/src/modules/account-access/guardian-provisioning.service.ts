@@ -28,6 +28,8 @@ export interface BatchInviteSelection {
   guardian_ids?: string[];
   student_ids?: string[];
   all?: boolean;
+  /** Only with `all`: continue after this guardian id. */
+  after?: string;
 }
 
 export interface InvitationBatchJobData {
@@ -65,7 +67,10 @@ export class GuardianProvisioningService {
   private async resolveGuardians(
     tenantId: string,
     selection: BatchInviteSelection,
-  ): Promise<Guardian[]> {
+  ): Promise<{ guardians: Guardian[]; nextAfter: string | null }> {
+    if (selection.after && !selection.all) {
+      throw new BadRequestException('after can only be used with all');
+    }
     const selectors = [selection.guardian_ids, selection.student_ids, selection.all].filter(
       (s) => s !== undefined && s !== null && s !== false,
     );
@@ -81,16 +86,19 @@ export class GuardianProvisioningService {
       .andWhere('guardian.deleted_at IS NULL');
 
     if (selection.guardian_ids) {
-      if (selection.guardian_ids.length === 0) return [];
+      if (selection.guardian_ids.length === 0) return { guardians: [], nextAfter: null };
       qb.andWhere('guardian.id IN (:...guardianIds)', { guardianIds: selection.guardian_ids });
     } else if (selection.student_ids) {
-      if (selection.student_ids.length === 0) return [];
+      if (selection.student_ids.length === 0) return { guardians: [], nextAfter: null };
       qb.innerJoin('student_guardians', 'sg', 'sg.guardian_id = guardian.id').andWhere(
         'sg.student_id IN (:...studentIds)',
         { studentIds: selection.student_ids },
       );
+    } else {
+      // `all`: keyset-page by id, MAX at a time; `after` continues the previous slice.
+      qb.orderBy('guardian.id', 'ASC');
+      if (selection.after) qb.andWhere('guardian.id > :after', { after: selection.after });
     }
-    // `all` needs no extra predicate — tenant scope above already narrows it.
 
     // Cross-tenant ids in the selection are simply excluded by the
     // tenant_id predicate above, never a 500. `take` caps the row count the
@@ -101,11 +109,15 @@ export class GuardianProvisioningService {
       .take(MAX_BATCH_INVITE_SELECTION + 1)
       .getMany();
     if (guardians.length > MAX_BATCH_INVITE_SELECTION) {
-      throw new BadRequestException(
-        `A batch cannot exceed ${MAX_BATCH_INVITE_SELECTION} guardians`,
-      );
+      if (!selection.all) {
+        throw new BadRequestException(
+          `A batch cannot exceed ${MAX_BATCH_INVITE_SELECTION} guardians`,
+        );
+      }
+      const page = guardians.slice(0, MAX_BATCH_INVITE_SELECTION);
+      return { guardians: page, nextAfter: page[page.length - 1].id };
     }
-    return guardians;
+    return { guardians, nextAfter: null };
   }
 
   /** Resolves whether a guardian is linked to an existing account and its lifecycle state. */
@@ -197,7 +209,7 @@ export class GuardianProvisioningService {
     tenantId: string,
     selection: BatchInviteSelection,
   ): Promise<InvitePreviewResponseDto> {
-    const guardians = await this.resolveGuardians(tenantId, selection);
+    const { guardians, nextAfter } = await this.resolveGuardians(tenantId, selection);
 
     const to_invite: InvitePreviewResponseDto['to_invite'] = [];
     const skipped: InviteSkippedEntryDto[] = [];
@@ -232,7 +244,7 @@ export class GuardianProvisioningService {
       }
     }
 
-    return { total: guardians.length, to_invite, skipped };
+    return { total: guardians.length, next_after: nextAfter, to_invite, skipped };
   }
 
   async dispatch(input: {

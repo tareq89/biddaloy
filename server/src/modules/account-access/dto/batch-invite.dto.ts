@@ -27,6 +27,12 @@ export class BatchInviteDto {
   @IsOptional()
   @IsBoolean()
   all?: boolean;
+
+  /** Only with `all`: continue after this guardian id (keyset paging, 1000 at a time). */
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  after?: string;
 }
 
 export type InviteSkipReason =
@@ -58,6 +64,8 @@ export class InviteSkippedEntryDto {
 
 export class InvitePreviewResponseDto {
   @ApiProperty() total: number;
+  /** For `all`: id to send as `after` to get the next slice; null when none remain. */
+  @ApiProperty({ type: String, nullable: true }) next_after: string | null;
   @ApiProperty({ type: [InvitePreviewEntryDto] }) to_invite: InvitePreviewEntryDto[];
   @ApiProperty({ type: [InviteSkippedEntryDto] }) skipped: InviteSkippedEntryDto[];
 }
