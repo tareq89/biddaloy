@@ -226,6 +226,80 @@ describe('Homework E2E', () => {
 
     const unassignTeacher = () => dataSource.query(`DELETE FROM teacher_class_sections`);
 
+    // Extra sections this describe adds to SEED_CLASS_1_ID. class_sections is only reset once
+    // per file, so afterEach removes them (students first: that FK has no cascade;
+    // homework_assignments cascade).
+    const extraSectionIds: string[] = [];
+    const mkSectionB = async (): Promise<string> => {
+      const [{ id }] = await dataSource.query(
+        `INSERT INTO class_sections (id, section_name, class_id, tenant_id, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW()) RETURNING id`,
+        [`HW-B-${randomUUID().slice(0, 8)}`, SEED_CLASS_1_ID, TENANT_ID],
+      );
+      extraSectionIds.push(id);
+      return id;
+    };
+    afterEach(async () => {
+      if (!extraSectionIds.length) return;
+      await dataSource.query(`DELETE FROM students WHERE class_section_id = ANY($1::uuid[])`, [
+        extraSectionIds,
+      ]);
+      await dataSource.query(`DELETE FROM class_sections WHERE id = ANY($1::uuid[])`, [
+        extraSectionIds,
+      ]);
+      extraSectionIds.length = 0;
+    });
+
+    const mkStudent = async (sectionId: string): Promise<string> => {
+      const id = randomUUID();
+      await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
+         VALUES ($1, 'Scope Student', $2, 1, $3, $4, 'ACTIVE', NOW(), NOW())`,
+        [id, `HW-STU-${randomUUID().slice(0, 8)}`, sectionId, TENANT_ID],
+      );
+      return id;
+    };
+
+    const adminToken = async (): Promise<string> =>
+      (
+        await supertest(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+          .expect(200)
+      ).body.access_token as string;
+    const withAdmin = (req: supertest.Test, token: string) =>
+      req.set('Authorization', `Bearer ${token}`).set('X-Tenant-ID', TENANT_ID);
+    const mkHomework = async (title: string): Promise<string> =>
+      (
+        await withAdmin(supertest(app.getHttpServer()).post('/api/v1/homework'), await adminToken())
+          .send({
+            subject_id: subjectId,
+            class_id: SEED_CLASS_1_ID,
+            title,
+            grading_mode: HomeworkGradingMode.TICK,
+          })
+          .expect(201)
+      ).body.id as string;
+    const assignAsAdmin = async (
+      homeworkId: string,
+      target: { section_id?: string; student_id?: string },
+    ) => {
+      await withAdmin(
+        supertest(app.getHttpServer()).post(`/api/v1/homework/${homeworkId}/assign`),
+        await adminToken(),
+      )
+        .send({ ...target, assigned_date: '2026-01-01', due_date: '2026-01-08' })
+        .expect(201);
+    };
+    const mkAssigned = async (
+      title: string,
+      target: { section_id?: string; student_id?: string },
+    ) => {
+      const id = await mkHomework(title);
+      await assignAsAdmin(id, target);
+      return id;
+    };
+
     it("a teacher assigned only in a past academic year cannot read that class's homework analytics", async () => {
       const [{ id: teacherId }] = await dataSource.query(
         `SELECT id FROM teachers WHERE tenant_id = $1 AND user_id = $2`,
@@ -355,6 +429,9 @@ describe('Homework E2E', () => {
         supertest(app.getHttpServer()).get('/api/v1/homework'),
       ).expect(200);
       expect(teacherList.body.map((h: { id: string }) => h.id)).toEqual([mine]);
+      // By id agrees with the list.
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${theirs}`)).expect(404);
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${mine}`)).expect(200);
       const adminList = await asAdmin(
         supertest(app.getHttpServer()).get('/api/v1/homework'),
       ).expect(200);
@@ -376,35 +453,9 @@ describe('Homework E2E', () => {
     });
 
     it('a teacher of section A does not list homework assigned only to section B of the same class', async () => {
-      const [{ id: otherSectionId }] = await dataSource.query(
-        `INSERT INTO class_sections (id, section_name, class_id, tenant_id, created_at, updated_at)
-         VALUES (gen_random_uuid(), 'HW-B', $1, $2, NOW(), NOW()) RETURNING id`,
-        [SEED_CLASS_1_ID, TENANT_ID],
-      );
-      const admin = await supertest(app.getHttpServer())
-        .post('/api/v1/auth/login')
-        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-        .expect(200);
-      const asAdmin = (req: supertest.Test) =>
-        req.set('Authorization', `Bearer ${admin.body.access_token}`).set('X-Tenant-ID', TENANT_ID);
-      const mkAssigned = async (title: string, sectionId: string) => {
-        const created = await asAdmin(supertest(app.getHttpServer()).post('/api/v1/homework'))
-          .send({
-            subject_id: subjectId,
-            class_id: SEED_CLASS_1_ID,
-            title,
-            grading_mode: HomeworkGradingMode.TICK,
-          })
-          .expect(201);
-        await asAdmin(
-          supertest(app.getHttpServer()).post(`/api/v1/homework/${created.body.id}/assign`),
-        )
-          .send({ section_id: sectionId, assigned_date: '2026-01-01', due_date: '2026-01-08' })
-          .expect(201);
-        return created.body.id as string;
-      };
-      const x = await mkAssigned('Only B', otherSectionId);
-      const y = await mkAssigned('Mine A', MAPPED_SECTION_ID);
+      const otherSectionId = await mkSectionB();
+      const x = await mkAssigned('Only B', { section_id: otherSectionId });
+      const y = await mkAssigned('Mine A', { section_id: MAPPED_SECTION_ID });
 
       const list = await asTeacher(supertest(app.getHttpServer()).get('/api/v1/homework')).expect(
         200,
@@ -415,6 +466,43 @@ describe('Homework E2E', () => {
       // Rule 2: what the list hides is 404 by id too, not just missing from the list.
       await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${x}`)).expect(404);
       await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${y}`)).expect(200);
+    });
+
+    it('a teacher of section A gets 404 by id for homework assigned only to a student of section B', async () => {
+      const sectionB = await mkSectionB();
+      const studentB = await mkStudent(sectionB);
+      const studentA = await mkStudent(MAPPED_SECTION_ID);
+      const x = await mkAssigned('Only B student', { student_id: studentB });
+      const y = await mkAssigned('A student', { student_id: studentA });
+
+      const list = await asTeacher(supertest(app.getHttpServer()).get('/api/v1/homework')).expect(
+        200,
+      );
+      const ids = list.body.map((h: { id: string }) => h.id);
+      expect(ids).toContain(y);
+      expect(ids).not.toContain(x);
+      const miss = await asTeacher(
+        supertest(app.getHttpServer()).get(`/api/v1/homework/${x}`),
+      ).expect(404);
+      // D13: same text as a homework that does not exist.
+      expect(miss.body.message).toBe('Homework not found');
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${y}`)).expect(200);
+    });
+
+    it('unassigned homework in my class is 200 by id, then 404 once assigned only to section B', async () => {
+      const sectionB = await mkSectionB();
+      const h = await mkHomework('Not assigned yet');
+      const listIds = async () =>
+        (
+          await asTeacher(supertest(app.getHttpServer()).get('/api/v1/homework')).expect(200)
+        ).body.map((r: { id: string }) => r.id);
+
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${h}`)).expect(200);
+      expect(await listIds()).toContain(h);
+
+      await assignAsAdmin(h, { section_id: sectionB });
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${h}`)).expect(404);
+      expect(await listIds()).not.toContain(h);
     });
   });
 
