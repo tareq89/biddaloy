@@ -457,7 +457,10 @@
     "noSlotsOnDay": "This section has no period on {{weekday}}.",
     "pickDateFirst": "Pick a date first.",
     "noRoutine": "There is no routine for this academic year yet.",
-    "notOnDateError": "This period doesn't happen on the date you picked (it may run every other week or once a month). Pick another date."
+    "notOnDateError": "This period doesn't happen on the date you picked (it may run every other week or once a month). Pick another date.",
+    "slotTeacherError": "This teacher already teaches this period. Pick someone else.",
+    "teacherBusyError": "This teacher has another class from {{from}} to {{to}}. Pick someone else.",
+    "teacherBusyNoTimeError": "This teacher is not free at that time. Pick someone else."
   },
   "marking": {
     "todayTitle": "Today, {{weekday}}",
