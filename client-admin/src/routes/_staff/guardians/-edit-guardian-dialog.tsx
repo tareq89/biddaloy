@@ -12,6 +12,7 @@ import {
   Card,
   ConfirmDialog,
   Input,
+  HelpHint,
   Label,
   PhoneInput,
   Select,
@@ -117,9 +118,18 @@ export function EditGuardianDialog({ guardian, config, onClose }: EditGuardianDi
     updateGuardian.mutate(input, { onSuccess: onClose });
   }
 
-  const field = (id: string, label: string, control: React.ReactNode, className?: string) => (
+  const field = (
+    id: string,
+    label: string,
+    control: React.ReactNode,
+    className?: string,
+    opts?: { helpId?: string },
+  ) => (
     <div className={className}>
-      <Label htmlFor={id}>{label}</Label>
+      <span className="inline-flex items-center gap-1">
+        <Label htmlFor={id}>{label}</Label>
+        {opts?.helpId && <HelpHint helpId={opts.helpId} />}
+      </span>
       <div className="mt-1.5">{control}</div>
     </div>
   );
@@ -173,6 +183,8 @@ export function EditGuardianDialog({ guardian, config, onClose }: EditGuardianDi
                 value={form.relationship}
                 onChange={(event) => setForm({ ...form, relationship: event.target.value })}
               />,
+              undefined,
+              { helpId: 'people.guardians.field.relationship' },
             )}
             {contactOwnedByLogin ? (
               <div className="md:col-span-2">
@@ -204,6 +216,8 @@ export function EditGuardianDialog({ guardian, config, onClose }: EditGuardianDi
                   config={config}
                   onValueChange={(value) => setForm({ ...form, phone: value })}
                 />,
+                undefined,
+                { helpId: 'people.guardians.field.phone' },
               )
             )}
             {field(

@@ -4,17 +4,30 @@
  * entry for this route yet, so going through the real `routeTree.gen.ts`
  * would hit `_staff.tsx`'s fail-closed `AccessDeniedState` for every role.
  */
+import { HelpProvider } from '@biddaloy/ui/components';
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { createRootRoute } from '@tanstack/react-router';
+import { createRootRoute, Outlet } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { HELP_INDEX } from '../../../help/help-index.gen';
+
 import { Route as ProgramDetailRoute } from './$programId';
 
-function buildRouteTree() {
-  const rootRoute = createRootRoute();
+function buildRouteTree(withHelp = false) {
+  const rootRoute = createRootRoute(
+    withHelp
+      ? {
+          component: () => (
+            <HelpProvider index={HELP_INDEX} lang="en" baseUrl="https://guide.test">
+              <Outlet />
+            </HelpProvider>
+          ),
+        }
+      : {},
+  );
   ProgramDetailRoute.update({
     id: '/$programId',
     path: '/$programId',
@@ -61,6 +74,22 @@ function enrollmentRow(overrides: Partial<Record<string, unknown>> = {}) {
 describe('/programs/$programId', () => {
   afterEach(async () => {
     await cleanupTestState();
+  });
+
+  it('shows a (?) after the Enrol header action [44.3.03]', async () => {
+    server.use(
+      http.get('/api/v1/programs/:id', () => HttpResponse.json(program())),
+      http.get('/api/v1/programs/:id/enrollments', () => HttpResponse.json([])),
+    );
+    renderWithRouter(buildRouteTree(true), {
+      initialEntries: ['/p-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('Read 5 books');
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(document.querySelector('[data-help-id="people.programs.action.enrol"]')).not.toBeNull();
   });
 
   it('switches between the Milestones and Students tabs', async () => {
