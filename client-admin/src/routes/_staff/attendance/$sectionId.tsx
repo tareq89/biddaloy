@@ -302,6 +302,7 @@ function SectionRegisterPage() {
       ...(period !== undefined ? { period_no: period } : {}),
       base_version: registerQuery.data?.session.version ?? 0,
       client_request_id: crypto.randomUUID(),
+      finalize: true,
       entries: Object.entries(draft)
         .filter(([, entry]) => entry.status !== null)
         .map(([student_id, entry]) => ({
