@@ -499,13 +499,13 @@ test.describe('dashboard reconciliation: accountant', () => {
         year_to_date_net: number;
         month_to_date_net: number;
         previous_month_same_days_net: number;
-        months: { month: number; net: number | null; is_current: boolean }[];
+        months: { year: number; month: number; net: number | null; is_current: boolean }[];
       }>(request, 'accountant', 'collection-by-month');
       const url = '/dashboard/widgets/collection-by-month';
       const currentMonth = Number(TODAY.slice(5, 7));
       let ytd = 0;
       for (const m of w.months) {
-        if (m.month > currentMonth) {
+        if (m.year * 12 + m.month > Number(TODAY.slice(0, 4)) * 12 + currentMonth) {
           expectSame(
             `month ${m.month} is in the future`,
             m.net,
@@ -515,10 +515,10 @@ test.describe('dashboard reconciliation: accountant', () => {
           );
           continue;
         }
-        const from = `${w.year}-${String(m.month).padStart(2, '0')}-01`;
+        const from = `${m.year}-${String(m.month).padStart(2, '0')}-01`;
         const to = m.is_current
           ? TODAY
-          : `${w.year}-${String(m.month).padStart(2, '0')}-${lastDayOf(w.year, m.month)}`;
+          : `${m.year}-${String(m.month).padStart(2, '0')}-${lastDayOf(m.year, m.month)}`;
         const report = await getJson<CollectionsReport>(request, 'accountant', reportUrl(from, to));
         expectSame(`month ${m.month}`, m.net, url, report.totals.net, reportUrl(from, to));
         ytd += round2(report.totals.net); // the server sums rounded months
