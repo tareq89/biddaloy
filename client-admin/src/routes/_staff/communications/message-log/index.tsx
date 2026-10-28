@@ -26,7 +26,7 @@ import {
   useTranslation,
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { formatDate, formatPhone } from '@biddaloy/ui/utils';
+import { formatDateTime, formatPhone } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { CircleAlertIcon, MessageSquareIcon } from 'lucide-react';
 import { z } from 'zod';
@@ -148,7 +148,7 @@ function MessageLogList() {
     {
       id: 'sent',
       header: t('messageLog.sentHeader'),
-      accessorFn: (row) => formatDate(new Date(row.created_at), config),
+      accessorFn: (row) => formatDateTime(new Date(row.created_at), config),
       card: 'subtitle',
     },
     {

@@ -153,6 +153,14 @@ describe('/applications/reports', () => {
     );
   });
 
+  it('the no-year option says "All years" when a year is picked and a date bound remains', async () => {
+    render(REPORT, { locale: 'en', search: `?academic_year_id=${Y2}&from=2026-01-01` });
+    await screen.findByText('2026/0031');
+    await userEvent.click(screen.getAllByRole('combobox', { name: 'Academic year' })[0]!);
+    expect(await screen.findByRole('option', { name: 'All years' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: /Current year/ })).toBeNull();
+  });
+
   it('keeps "Current year" in the picker when no dates are set (#3059)', async () => {
     render(REPORT, { locale: 'en' });
     await screen.findByText('2026/0031');

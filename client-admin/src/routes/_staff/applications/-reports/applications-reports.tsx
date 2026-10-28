@@ -47,7 +47,7 @@ export function ApplicationsReports() {
       key: 'academic_year_id',
       label: t('filterYear'),
       // Dates with no year: the server counts every year, so say so.
-      allLabel: yearApplies
+      allLabel: !(search.from || search.to)
         ? t('filterCurrentYear', { name: current?.name ?? '' })
         : t('filterAllYears'),
       options: years.map((y) => ({ value: y.id, label: y.name })),
