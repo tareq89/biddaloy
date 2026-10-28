@@ -1,0 +1,10 @@
+%% title: How a hand-sent alert travels
+%% desc: You write a title and message and pick the groups. The app counts each person once, and only people with an active account. On Send, the alert goes into each person's bar and notifications. It leaves the bar after the end date or when you withdraw it, and stays in history.
+flowchart LR
+  W["Write title<br/>and message"] --> G["Pick groups"]
+  G --> N["Count people<br/>(each once, only<br/>active accounts)"]
+  N --> S["Send"]
+  S --> B["In each person's bar<br/>and notifications"]
+  B --> E{"End date over<br/>or withdrawn?"}
+  E -- "Yes" --> H["Leaves the bar,<br/>stays in history"]:::done
+  classDef done fill:#ebfbee,stroke:#2b8a3e,color:#14411d

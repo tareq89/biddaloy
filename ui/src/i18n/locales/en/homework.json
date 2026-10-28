@@ -177,5 +177,40 @@
     "confirm_one": "Import {{n}} homework",
     "confirm_other": "Import {{n}} homework",
     "confirmIdle": "Import"
+  },
+  "fields": {
+    "class": "Class",
+    "subject": "Subject",
+    "title": "Title",
+    "description": "Description",
+    "gradingMode": "Grading mode",
+    "assignTo": "Assign to",
+    "section": "Section",
+    "student": "Student",
+    "assignedDate": "Assigned date",
+    "dueDate": "Due date"
+  },
+  "help": {
+    "class": "Which class the homework is for. It does not change later.",
+    "subject": "One subject attached to the class. It does not change later.",
+    "title": "A short name for the homework, for example Exercise 3.2.",
+    "description": "What to do, in detail.",
+    "gradingMode": "Tick, partial completion or marks. Tick at the start. It does not change later.",
+    "assignTo": "A whole section, or one student.",
+    "section": "A section of the class. Even to pick a student, pick the section first.",
+    "student": "One student of the section. It shows only when giving to a student.",
+    "assignedDate": "The date it is given. Today at the start.",
+    "dueDate": "The date it must be done by. Seven days later at the start; not before the assigned date."
+  },
+  "helpRequired": {
+    "class": "Yes",
+    "subject": "Yes",
+    "title": "Yes",
+    "gradingMode": "Yes",
+    "assignTo": "Yes",
+    "section": "Yes",
+    "student": "When giving to a student",
+    "assignedDate": "Yes",
+    "dueDate": "Yes"
   }
 }

@@ -161,6 +161,7 @@ function ProgramDetailPage() {
         actions={[
           {
             id: 'enrol',
+            helpId: 'people.programs.action.enrol',
             label: t('actions.enrol'),
             icon: <UserPlusIcon />,
             priority: 'secondary',
@@ -169,6 +170,7 @@ function ProgramDetailPage() {
           },
           {
             id: 'record',
+            helpId: 'people.programs.action.record',
             label: t('actions.record'),
             icon: <AwardIcon />,
             priority: 'primary',

@@ -15,7 +15,7 @@ import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -63,7 +63,25 @@ const render = () =>
 
 describe('/grading-scales', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
+  });
+
+  // [44.4 / #3013] The (?) beside "Add scale" resolves the generated guide entry.
+  it('shows the (?) for the add action when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(
+      http.get('/api/v1/grading/scales', () => HttpResponse.json(paginated([]))),
+      http.get('/api/v1/academic-years', () => HttpResponse.json(paginated([]))),
+      http.get('/api/v1/classes', () => HttpResponse.json(paginated([]))),
+    );
+    render();
+    // By id: the page-level (?) carries the same "Help: <page title>" name.
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-help-id="examsResults.gradingScales.action.add"]'),
+      ).not.toBeNull(),
+    );
   });
 
   it('shows year and class names (even the 12th year), never an id, and asks for limit=100', async () => {

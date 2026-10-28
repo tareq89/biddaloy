@@ -109,5 +109,20 @@
   "makeDefaultConfirm": {
     "title": "Make {{name}} the default?",
     "explain": "It will be picked first when printing this document type."
+  },
+  "fields": {
+    "kind": "Document type",
+    "design": "Choose a design",
+    "name": "Name"
+  },
+  "help": {
+    "kind": "What the design is for, for example Student ID card or Transfer certificate (TC). It cannot be changed later.",
+    "design": "A ready-made design to start from. You can change everything in the editor afterwards.",
+    "name": "A name only your school sees in this list, for example Student ID 2027. Two designs cannot share a name. You can rename it later."
+  },
+  "helpRequired": {
+    "kind": "Yes",
+    "design": "Yes",
+    "name": "Yes"
   }
 }

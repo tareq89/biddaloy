@@ -1,0 +1,9 @@
+%% title: A school and its branches
+%% desc: One person has one login. Each branch is its own school, with its own classes, students and fees. A menu at the top switches from one school to another.
+flowchart LR
+  P["One person<br/>one login"]:::admin --> S1["School 1<br/>High School"]
+  P --> S2["School 2<br/>College branch"]
+  S1 --> D1["Own classes,<br/>students, fees"]:::note
+  S2 --> D2["Own classes,<br/>students, fees"]:::note
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

@@ -48,10 +48,13 @@ COPY . .
 ARG APP_VERSION=dev
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT
+# Vite inlines this at build time; empty = every in-app help (?) and F1 stay hidden (#3045).
+ARG VITE_HANDBOOK_URL=https://schoolmanagerp.gitbook.io/schoolmanagerp-docs
 RUN --mount=type=secret,id=sentry_auth_token,required=false \
     yarn build:shared && yarn build:server \
     && export SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" \
        SENTRY_RELEASE="$APP_VERSION" SENTRY_ORG="$SENTRY_ORG" SENTRY_PROJECT="$SENTRY_PROJECT" \
+       VITE_HANDBOOK_URL="$VITE_HANDBOOK_URL" \
     && yarn build:client-admin
 
 # ---- Runner (production) ----

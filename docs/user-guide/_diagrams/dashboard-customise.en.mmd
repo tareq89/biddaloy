@@ -1,0 +1,11 @@
+%% title: Customising the dashboard
+%% desc: Pressing Customise opens the customise panel. There you show or hide widgets, move them up or down and change their size. Save stores the layout for your role; Cancel changes nothing.
+flowchart LR
+  B["Customise"]:::teacher --> P["Customise panel"]:::sys
+  P --> E["Show, move,<br/>size"]:::teacher
+  E --> S["Save"]:::teacher
+  E -.-> X["Cancel"]:::sys
+  S --> L["Your role's<br/>dashboard"]:::sys
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef sys fill:#f1f3f5,stroke:#868e96,color:#343a40

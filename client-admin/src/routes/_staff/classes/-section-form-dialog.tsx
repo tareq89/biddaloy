@@ -163,7 +163,11 @@ export function SectionFormDialog({
               />
             </Field>
 
-            <Field id="section-form-capacity" label={t('sectionForm.capacityLabel')}>
+            <Field
+              id="section-form-capacity"
+              label={t('sectionForm.capacityLabel')}
+              helpId="academics.classes.field.capacity"
+            >
               <Input
                 id="section-form-capacity"
                 inputMode="numeric"
@@ -174,7 +178,11 @@ export function SectionFormDialog({
             </Field>
 
             {showGroup && (
-              <Field id="section-form-group" label={t('sectionForm.groupLabel')}>
+              <Field
+                id="section-form-group"
+                label={t('sectionForm.groupLabel')}
+                helpId="academics.classes.field.group"
+              >
                 <Select value={groupName} onValueChange={setGroupName}>
                   <SelectTrigger id="section-form-group">
                     <SelectValue placeholder={t('sectionForm.groupPlaceholder')} />

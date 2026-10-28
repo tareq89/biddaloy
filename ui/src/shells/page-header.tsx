@@ -7,9 +7,11 @@
  */
 import { Link } from '@tanstack/react-router';
 import { EllipsisIcon } from 'lucide-react';
+import { Fragment } from 'react';
 import type * as React from 'react';
 
 import { Button } from '../components/button';
+import { HelpHint, useHelp } from '../components/help-hint';
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../components/menu';
 import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
@@ -33,6 +35,8 @@ interface PageActionBase {
   keepOnPhone?: boolean;
   /** `to` actions only: the link's search params. */
   search?: Record<string, string> | undefined;
+  /** A (?) after this action's button (needs a help index entry). Hidden with the button on phone. */
+  helpId?: string | undefined;
 }
 
 /** An in-page action (`onClick`), or a navigation (`to`) rendered as a real
@@ -44,13 +48,26 @@ export interface PageHeaderProps {
   title: string;
   subtitle?: string | undefined;
   actions?: readonly PageAction[] | undefined;
+  /** Overrides the page's own (?) id (defaults to the provider's `pageId`). */
+  helpId?: string | undefined;
 }
 
-export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, actions, helpId }: PageHeaderProps) {
+  const { resolve, pageId } = useHelp();
+  const id = helpId ?? pageId;
+  const h1 = <h1 className="text-h1">{title}</h1>;
   return (
     <header className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:justify-between md:gap-x-6 md:gap-y-3">
       <div className="min-w-0 md:min-w-48">
-        <h1 className="text-h1">{title}</h1>
+        {/* The flex row only when a (?) renders, so a page without help keeps its DOM. */}
+        {resolve(id) ? (
+          <div className="flex items-center gap-2">
+            {h1}
+            <HelpHint size="md" helpId={id} />
+          </div>
+        ) : (
+          h1
+        )}
         {subtitle && <p className="mt-0.5 truncate text-text-secondary">{subtitle}</p>}
       </div>
       <PageHeaderActions actions={actions} />
@@ -138,6 +155,20 @@ export function PageHeaderActions({
       </Button>
     );
 
+  // The (?) follows the button and is hidden on phone with it.
+  const withHelp = (a: PageAction, el: React.ReactNode, hiddenOnPhone = false) =>
+    a.helpId ? (
+      <Fragment key={a.id}>
+        {el}
+        <HelpHint
+          helpId={a.helpId}
+          className={hiddenOnPhone ? 'hidden md:inline-flex' : undefined}
+        />
+      </Fragment>
+    ) : (
+      el
+    );
+
   const item = (a: PageAction, className = '') =>
     isLink(a) ? (
       <MenuItem
@@ -166,7 +197,9 @@ export function PageHeaderActions({
 
   return (
     <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:flex-nowrap">
-      {inlineOthers.map((a) => button(a, cn(a !== kept[0] && 'hidden md:inline-flex')))}
+      {inlineOthers.map((a) =>
+        withHelp(a, button(a, cn(a !== kept[0] && 'hidden md:inline-flex')), a !== kept[0]),
+      )}
       {hasMenu && (
         <Menu>
           <MenuTrigger asChild>
@@ -189,7 +222,7 @@ export function PageHeaderActions({
           </MenuContent>
         </Menu>
       )}
-      {primary.map((a) => button(a, 'flex-1 md:flex-none'))}
+      {primary.map((a) => withHelp(a, button(a, 'flex-1 md:flex-none')))}
     </div>
   );
 }

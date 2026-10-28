@@ -61,6 +61,7 @@ function PromotionsListPage() {
       actions={[
         {
           id: 'new',
+          helpId: 'examsResults.promotion.action.create',
           label: t('list.newRun'),
           icon: <PlusIcon aria-hidden="true" />,
           priority: 'primary',

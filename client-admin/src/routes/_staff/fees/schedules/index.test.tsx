@@ -56,6 +56,23 @@ describe('/fees/schedules', () => {
     await cleanupTestState();
   });
 
+  // [44.4 / #3014] The (?) beside "Add rule" (finance.recurringSchedules.action.add).
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(listHandler([]));
+      render();
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.recurringSchedules.action.add"]'),
+        ).not.toBeNull(),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('shows plain-language rows: when, last billed month, status badge, a never-billed muted label', async () => {
     server.use(
       listHandler([

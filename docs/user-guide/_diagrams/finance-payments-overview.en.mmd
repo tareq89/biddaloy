@@ -1,0 +1,14 @@
+%% title: From a payment to its reversal
+%% desc: A payment makes an invoice. To reverse it, give a reason and get admin approval. The bills owe money again, credit balance is unwound, a credit note is made against the invoice, and a new reversal entry is added.
+flowchart TD
+  P["Payment"] --> I["Invoice"]
+  P --> RV["Admin presses Reverse payment"]:::admin
+  RV --> W["Writes a reason"]:::admin
+  W --> AP{"Admin approval"}:::note
+  AP -->|"Given"| B["Bills owe money again"]
+  AP -->|"Not given"| NO["Nothing changes"]
+  B --> WL["Credit balance is unwound"]
+  WL --> CN["Credit note against the invoice"]
+  CN --> E["New reversal entry<br/>original marked Reversed"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

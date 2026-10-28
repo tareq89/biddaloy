@@ -1,0 +1,10 @@
+%% title: From file to staff
+%% desc: The Admin fills in the sample file and uploads it. The app checks it and shows what will happen. When the Admin confirms, the staff are added and invitations go out.
+flowchart LR
+  F["Sample file<br/>fill in"]:::admin --> U["Upload and<br/>check"]:::note
+  U --> P["Review"]:::note
+  P --> C["Confirm"]:::admin
+  C --> S["Staff added"]
+  S -.-> V["Invitation"]:::note
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

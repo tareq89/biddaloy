@@ -1,0 +1,12 @@
+%% title: শিক্ষার্থীর প্রোগ্রাম-অবস্থা
+%% desc: তালিকাভুক্ত হলে শিক্ষার্থী সক্রিয়। সক্রিয় থেকে সম্পন্ন বা প্রত্যাহৃত করা যায়, আর সেখান থেকে আবার সক্রিয় করা যায়। অর্জন শুধু সক্রিয় অবস্থায় রেকর্ড হয়।
+flowchart LR
+  N["তালিকাভুক্ত<br/>করুন"]:::admin --> A["সক্রিয়<br/>অর্জন রেকর্ড চলে"]:::teacher
+  A -->|"সম্পন্ন হিসেবে চিহ্নিত"| C["সম্পন্ন"]:::guardian
+  A -->|"প্রত্যাহার"| W["প্রত্যাহৃত"]:::note
+  C -->|"পুনরায় সক্রিয়"| A
+  W -->|"পুনরায় সক্রিয়"| A
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

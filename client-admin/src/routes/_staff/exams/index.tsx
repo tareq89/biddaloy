@@ -177,6 +177,7 @@ function ExamsListPage() {
         actions={[
           {
             id: 'add',
+            helpId: 'examsResults.exams.action.add',
             label: t('list.addExam'),
             icon: <Plus aria-hidden className="size-4" />,
             priority: 'primary',

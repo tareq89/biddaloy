@@ -106,6 +106,7 @@ function PaymentDetailPage() {
   const actions: DetailShellAction[] = [
     {
       id: 'print',
+      helpId: 'finance.payments.action.printReceipt',
       label: t('detail.printReceipt'),
       priority: 'primary',
       icon: <Printer aria-hidden />,

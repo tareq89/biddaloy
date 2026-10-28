@@ -68,6 +68,7 @@ export function TemplatesList({
         actions={[
           {
             id: 'add',
+            helpId: 'examsResults.examTemplates.action.add',
             label: t('list.add'),
             icon: <Plus aria-hidden className="size-4" />,
             priority: 'primary',

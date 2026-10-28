@@ -1,0 +1,14 @@
+%% title: The path of the routine
+%% desc: The school publishes the routine. When a parent opens the page, the server first checks that they are linked to this child. Then it finds the child's section and sends seven days of classes, including cancelled classes and substitute teachers. Holidays show separately.
+flowchart TD
+  P["School publishes the routine"]:::admin --> O["Parent opens Routine"]
+  O --> L{"Linked to this child?"}:::note
+  L -->|"No"| X["Nothing is sent"]
+  L -->|"Yes"| S["Server finds the child's section"]:::admin
+  S --> D["Seven days of classes<br/>from today"]
+  D --> C["Cancelled classes and<br/>substitute teachers on their dates"]
+  D --> H{"Holiday or weekly off day?"}:::note
+  H -->|"Yes"| HO["Day shows the holiday<br/>instead of periods"]
+  H -->|"No"| PE["Periods listed"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

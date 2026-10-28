@@ -50,6 +50,7 @@ at hand instead of loading the whole set.
 | [29-landing.md](29-landing.md) | Working on the public marketing site `landing/`: content flags, third parties and consent, sitemap/robots/`llms.txt`/JSON-LD, the Lighthouse budget and Playwright smoke in CI, copy rules, screenshots |
 | [30-deployment-target.md](30-deployment-target.md) | Asking *why* the deployment is shaped this way (decisions D1–D26), how it compares with a larger company, *when* to add HA, a managed DB, a second VM or Cloudflare as code (future-work triggers), or what each Epic 79.0 wave learned |
 | [31-vps-deploy-walkthrough.md](31-vps-deploy-walkthrough.md) | **Deploying from zero** on any domain, VM or provider: the complete step-by-step guide (laptop tools, keys, Cloudflare, GitHub, Telegram/Sentry/SMS, provision, secrets, images, first deploy, first accounts, Kuma/Beszel/Dozzle, verify, everyday releases, moving VM, new domain, direct mode) with every problem hit on the first real deploy and its fix |
+| [25-user-guide.md](25-user-guide.md) | Working on `docs/user-guide/` (the bilingual GitBook help guide), adding a guide page for a new screen, the page template, `guide:check` / `guide:impact`, generated guide files, or the `User guide: not affected` PR line |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the _why_ behind the
