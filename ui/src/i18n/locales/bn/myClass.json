@@ -19,7 +19,8 @@
     "dues": "বকেয়া",
     "homework": "বাড়ির কাজ",
     "results": "ফলাফল",
-    "roster": "শিক্ষার্থী"
+    "roster": "শিক্ষার্থী",
+    "arrival": "আগমন বার্তা"
   },
   "flagGroups": {
     "ABSENT": "টানা ৩ দিন বা বেশি অনুপস্থিত",
@@ -59,5 +60,42 @@
   "duesTotal": "মোট বকেয়া",
   "duesStudents": "শিক্ষার্থী",
   "studentCount_one": "{{n}} জন",
-  "studentCount_other": "{{n}} জন"
+  "studentCount_other": "{{n}} জন",
+  "arrival": {
+    "waiting": "অপেক্ষায়",
+    "on": "চালু",
+    "waitingBadge": "{{n}}টি অপেক্ষায়",
+    "empty": "কোনো অভিভাবক এখনও আগমন বার্তা চাননি।",
+    "addYourself": "নিজে যোগ করুন",
+    "once": "একবার",
+    "everyDay": "প্রতিদিন",
+    "notNow": "এখন না",
+    "onceDone": "হয়ে গেছে",
+    "setBySchool": "অ্যাডমিন ঠিক করেছেন",
+    "appChannel": "অ্যাপে",
+    "smsChannel": "SMS-এ",
+    "switchToOnce": "একবার করুন",
+    "switchToEveryDay": "প্রতিদিন করুন",
+    "stop": "চাই না",
+    "rowError": "সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+    "dialog": {
+      "title": "নিজে যোগ করুন",
+      "description": "এই শাখার কোনো অভিভাবকের জন্য আগমন বার্তা চালু করুন।",
+      "student": "শিক্ষার্থী",
+      "guardian": "অভিভাবক",
+      "how": "কত বার",
+      "save": "যোগ করুন",
+      "cancel": "বাতিল",
+      "noGuardians": "এই শিক্ষার্থীর এখনও কোনো অভিভাবক নেই।",
+      "error": "যোগ করা যায়নি। আবার চেষ্টা করুন।",
+      "added": "আগমন বার্তা চালু হয়েছে"
+    }
+  },
+  "arrivalCount": "আগমন অনুরোধ ({{n}})",
+  "help": {
+    "arrivalNotice": {
+      "once": "শিশু পরের বার পৌঁছালে একটি বার্তা যাবে, তারপর বন্ধ হবে।",
+      "everyDay": "প্রতিদিন শিশু পৌঁছালে বার্তা যাবে।"
+    }
+  }
 }

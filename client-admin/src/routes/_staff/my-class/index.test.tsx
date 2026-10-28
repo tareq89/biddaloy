@@ -48,6 +48,16 @@ describe('/my-class', () => {
     ).toBeTruthy();
   });
 
+  it('badges the waiting arrival requests on a section card, none for zero [84.3.2]', async () => {
+    mockSections([
+      { ...S1, arrival_request_count: 3 },
+      { ...S2, arrival_request_count: 0 },
+    ]);
+    render('/my-class');
+    expect(await screen.findByText(/^Arrival requests \((3|৩)\)$/)).toBeTruthy();
+    expect(screen.getAllByText(/^Arrival requests/)).toHaveLength(1);
+  });
+
   it('redirects to the section page when there is exactly one section', async () => {
     mockSections([S1]);
     const { router } = render('/my-class');
