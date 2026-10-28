@@ -2,6 +2,7 @@ import {
   DayPanel,
   EmptyState,
   ErrorState,
+  HelpHint,
   MonthGrid,
   type MonthGridEvent,
   RoutePending,
@@ -249,6 +250,13 @@ function PortalCalendar() {
       )}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
         <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center justify-end gap-1">
+            <HelpHint helpId="portal.calendar.action.pickDay" label={t('helpLabels.pickDay')} />
+            <HelpHint
+              helpId="portal.calendar.action.changeMonth"
+              label={t('helpLabels.changeMonth')}
+            />
+          </div>
           <MonthGrid
             month={month}
             today={toIsoDate(new Date())}

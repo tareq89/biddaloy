@@ -1,0 +1,14 @@
+%% title: From SVG to design: background and changing fields
+%% desc: The admin downloads the design kit with guides, artwork and fields layers. The designer draws in the artwork layer and copies placeholders from the fields layer. The guides layer is deleted and the SVG exported. On import the placeholder texts become editable fields and everything else becomes the background. Then the photo, logo and QR code are placed and the design is published.
+flowchart TD
+  K["Download design kit<br/>guides · artwork · fields"]:::admin --> A["Draw in artwork<br/>copy placeholders"]
+  A --> E["Delete guides<br/>export SVG"]
+  E --> I["Import in editor"]:::admin
+  I --> Q{"Which part?"}:::note
+  Q -->|"Placeholder texts"| F["Editable fields"]:::admin
+  Q -->|"Everything else"| B["Background"]
+  F --> L["Place photo, logo, QR"]:::admin
+  B --> L
+  L --> PU["Publish"]:::admin
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

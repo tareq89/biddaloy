@@ -1,0 +1,13 @@
+{
+  "routes": [
+    {
+      "path": "/one"
+    },
+    {
+      "path": "/two"
+    },
+    {
+      "path": "/login"
+    }
+  ]
+}

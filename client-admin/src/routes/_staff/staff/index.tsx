@@ -338,6 +338,7 @@ function StaffListPage() {
         actions={[
           {
             id: 'promote',
+            helpId: 'people.staff.action.promoteTeacher',
             label: t('list.promoteTeacher'),
             icon: <UserRoundCheckIcon />,
             priority: 'secondary',
@@ -346,6 +347,7 @@ function StaffListPage() {
           },
           {
             id: 'add',
+            helpId: 'people.staff.action.add',
             label: t('list.addUser'),
             icon: <PlusIcon />,
             priority: 'primary',

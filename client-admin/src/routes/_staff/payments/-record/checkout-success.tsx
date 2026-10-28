@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   RadioGroup,
   RadioGroupItem,
   toast,
@@ -150,14 +151,17 @@ export function CheckoutSuccess({ result, studentIds }: CheckoutSuccessProps) {
               {t('printFormat.pos58')}
             </label>
           </RadioGroup>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 self-start"
-            onClick={() => printInvoice(result.invoice_id, format)}
-          >
-            {tFees('invoiceDetail.print')}
-          </Button>
+          <div className="flex items-center gap-1 self-start">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              onClick={() => printInvoice(result.invoice_id, format)}
+            >
+              {tFees('invoiceDetail.print')}
+            </Button>
+            <HelpHint helpId="finance.recordPayment.action.print" />
+          </div>
         </div>
       )}
 

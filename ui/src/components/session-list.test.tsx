@@ -165,6 +165,18 @@ describe('SessionList', () => {
     expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
   });
 
+  it('draws signOutAllHint beside "Sign out everywhere", and not when that button is gone', async () => {
+    const props = { onRevoke: () => {}, onRevokeAll: () => {}, config: REGION_BD_EN, locale: 'en' };
+    const hint = <span data-testid="hint" />;
+    const { unmount } = await renderInEnglish(
+      <SessionList {...props} sessions={[CURRENT, OTHER]} signOutAllHint={hint} />,
+    );
+    expect(screen.getByTestId('hint')).toBeTruthy();
+    unmount();
+    await renderInEnglish(<SessionList {...props} sessions={[CURRENT]} signOutAllHint={hint} />);
+    expect(screen.queryByTestId('hint')).toBeNull();
+  });
+
   it('renders skeletons while loading', async () => {
     const { container } = await renderInEnglish(
       <SessionList

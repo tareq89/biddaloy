@@ -1,0 +1,12 @@
+%% title: নম্বর তালিকা জমা থেকে ফলাফল পর্যন্ত
+%% desc: পরীক্ষার প্রতিটি শাখা ও বিষয়ের একটি নম্বর তালিকা। শিক্ষক নম্বর দেন, তা নিজে থেকে সংরক্ষিত হয়, তারপর জমা দেন। জমার পর তালিকা বন্ধ; শুধু অ্যাডমিন আবার খুলতে পারেন। সব তালিকা জমা হলে ফলাফল প্রক্রিয়া হয়।
+flowchart LR
+  E["পরীক্ষা"]:::admin --> L["নম্বর তালিকা<br/>শাখা × বিষয়"]
+  L --> D["জমা বাকি<br/>নম্বর লিখুন"]:::teacher
+  D -->|"জমা দিন"| S["জমা হয়েছে<br/>শুধু দেখা যায়"]:::guardian
+  S -->|"আবার খুলুন<br/>শুধু অ্যাডমিন"| D
+  S --> R["ফলাফল<br/>প্রক্রিয়া"]:::admin
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

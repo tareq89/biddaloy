@@ -1,0 +1,11 @@
+%% title: ড্যাশবোর্ড সাজানো
+%% desc: সাজান চাপলে সাজানোর প্যানেল খোলে। সেখানে উইজেট দেখান বা লুকান, উপরে-নিচে সরান, আকার বদলান। সেভ করুন চাপলে আপনার ভূমিকার জন্য সাজানোটি জমা হয়; বাতিল চাপলে কিছুই বদলায় না।
+flowchart LR
+  B["সাজান"]:::teacher --> P["সাজানোর প্যানেল"]:::sys
+  P --> E["দেখান, সরান,<br/>আকার"]:::teacher
+  E --> S["সেভ করুন"]:::teacher
+  E -.-> X["বাতিল"]:::sys
+  S --> L["আপনার ভূমিকার<br/>ড্যাশবোর্ড"]:::sys
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef sys fill:#f1f3f5,stroke:#868e96,color:#343a40

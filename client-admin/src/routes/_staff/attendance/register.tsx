@@ -352,6 +352,7 @@ function RegisterPageContent() {
         actions={[
           {
             id: 'print',
+            helpId: 'attendance.attendanceRegister.action.print',
             label: t('register.print'),
             icon: <PrinterIcon aria-hidden="true" />,
             priority: 'primary',
@@ -361,6 +362,7 @@ function RegisterPageContent() {
           },
           {
             id: 'edit',
+            helpId: 'attendance.attendanceRegister.action.edit',
             label: t('register.edit'),
             icon: <PencilIcon aria-hidden="true" />,
             allowed: !editing && !loading && isMd && canMark && rows.length > 0,
@@ -375,6 +377,7 @@ function RegisterPageContent() {
           },
           {
             id: 'save',
+            helpId: 'attendance.attendanceRegister.action.save',
             label: t('register.save', { count: draft.size }),
             icon: <SaveIcon aria-hidden="true" />,
             priority: 'primary',

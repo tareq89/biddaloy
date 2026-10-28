@@ -1,0 +1,10 @@
+%% title: How the Students page works
+%% desc: The student list opens one student's profile; the profile shows all their details in tabs; the buttons at the top lead to edit, collect fees, print ID card and record leaving.
+flowchart LR
+  L["Student list<br/>search, filter"] --> P["One student's<br/>profile"]
+  P --> T["All details<br/>in tabs"]
+  P --> E["Edit"]:::admin
+  P --> F["Collect fees"]:::admin
+  P --> I["Print ID card"]:::admin
+  P --> V["Record leaving"]:::admin
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05

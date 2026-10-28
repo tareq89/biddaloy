@@ -1,0 +1,12 @@
+%% title: The path of the calendar
+%% desc: The school adds items to the calendar and publishes them. When a parent opens the page, it asks for the chosen child's class. Only published items the school tied to that class go into the month calendar. Tapping a day shows that day's items.
+flowchart TD
+  A["School adds items<br/>and publishes them"]:::admin --> O["Parent opens Calendar"]
+  O --> S["Page asks for the<br/>chosen child's class"]:::admin
+  S --> F{"Which items?"}:::note
+  F -->|"Draft, staff only,<br/>or not tied to that class"| X["Left out"]
+  F -->|"Published and<br/>tied to that class"| M["Month calendar"]
+  M --> D["Tap a day"]
+  D --> I["That day's items,<br/>each with its type"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

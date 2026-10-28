@@ -1,0 +1,12 @@
+%% title: What happens when you fill a cell
+%% desc: Pressing a cell opens a picker for subject, teachers and how often it repeats. When you save, the rules are checked. A hard rule stops the save. A soft rule still saves and only shows a heads-up.
+flowchart LR
+  C["Press an empty cell"]:::admin --> P["Pick subject, teachers,<br/>recurrence"]:::admin
+  P --> K{"Rules pass?"}:::note
+  K -- "hard rule broken" --> X["This can't be saved<br/>the picker stays open"]:::note
+  K -- "soft rule broken" --> W["Saved<br/>+ Heads up"]:::admin
+  K -- "all fine" --> OK["Saved"]:::admin
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

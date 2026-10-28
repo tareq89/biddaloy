@@ -116,6 +116,7 @@ export function TemplateDetail({
           },
           {
             id: 'save',
+            helpId: 'examsResults.examTemplates.action.save',
             label: t('detail.save'),
             icon: <Save aria-hidden className="size-4" />,
             priority: 'primary',

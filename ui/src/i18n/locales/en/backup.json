@@ -134,5 +134,20 @@
   "requestedByAutomatic": "Automatic",
   "pinnedLabel": "Kept forever",
   "templatePrompt": "Moving a whole school from another system? Fill in the blank template and upload it here.",
-  "listLoadError": "Couldn't load your backups. Try again."
+  "listLoadError": "Couldn't load your backups. Try again.",
+  "fields": {
+    "schedule": "Automatic backup",
+    "restoreFile": "Choose file",
+    "confirmSchoolName": "Type the school's name to confirm",
+    "inviteRestoredUsers": "Send invitations to restored users"
+  },
+  "help": {
+    "schedule": "Off, weekly or daily. It saves as soon as you choose; a change can take up to an hour to start. No email is sent when an automatic backup succeeds; if one fails, every admin gets an email.",
+    "restoreFile": "An .xlsx backup taken from this app, up to 64 MB. It is only checked; nothing changes before you press Confirm.",
+    "confirmSchoolName": "Type the school's name exactly. If it does not match, the restore does not start.",
+    "inviteRestoredUsers": "Restored users come back without passwords. Tick this to email them an invitation. Not ticked at the start."
+  },
+  "helpRequired": {
+    "confirmSchoolName": "Yes"
+  }
 }

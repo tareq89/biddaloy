@@ -6,7 +6,7 @@
  * that it shouldn't be one accidental keystroke away from the Pay column
  * next to it.
  */
-import { Button, MoneyInput } from '@biddaloy/ui/components';
+import { Button, HelpHint, MoneyInput } from '@biddaloy/ui/components';
 import type { RegionConfig } from '@biddaloy/ui/i18n';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { formatCurrency } from '@biddaloy/ui/utils';
@@ -72,14 +72,17 @@ export function DiscountCell({
         value={value}
         onValueChange={commit}
       />
-      <Button
-        type="button"
-        variant="ghost"
-        className="h-11 justify-start px-2 text-label text-primary md:h-8"
-        onClick={() => commit(balance - pay)}
-      >
-        {t('record.discount.discountTheRest')}
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-11 justify-start px-2 text-label text-primary md:h-8"
+          onClick={() => commit(balance - pay)}
+        >
+          {t('record.discount.discountTheRest')}
+        </Button>
+        <HelpHint helpId="finance.recordPayment.action.discountTheRest" />
+      </div>
       {!isValid && (
         <p className="text-xs text-destructive">{t('record.discount.exceedsBalance')}</p>
       )}

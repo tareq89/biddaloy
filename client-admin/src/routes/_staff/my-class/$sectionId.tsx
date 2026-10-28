@@ -4,7 +4,7 @@
  * A section the caller is not a CLASS/ASSISTANT teacher of is a 404, same as
  * an id that does not exist.
  */
-import { Button, ErrorState, RoutePending } from '@biddaloy/ui/components';
+import { Button, ErrorState, HelpHint, RoutePending } from '@biddaloy/ui/components';
 import { myClassSectionsQueryOptions, useMyClassSections } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
@@ -87,17 +87,20 @@ function MyClassSectionPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button asChild className="flex-1 md:flex-none">
-            <Link
-              ref={attendanceRef}
-              to="/attendance/$sectionId"
-              params={{ sectionId }}
-              search={{ date: todayIso() }}
-            >
-              <ClipboardCheckIcon aria-hidden="true" />
-              {t('takeAttendance')}
-            </Link>
-          </Button>
+          <span className="inline-flex flex-1 items-center gap-1 md:flex-none">
+            <Button asChild className="flex-1 md:flex-none">
+              <Link
+                ref={attendanceRef}
+                to="/attendance/$sectionId"
+                params={{ sectionId }}
+                search={{ date: todayIso() }}
+              >
+                <ClipboardCheckIcon aria-hidden="true" />
+                {t('takeAttendance')}
+              </Link>
+            </Button>
+            <HelpHint helpId="academics.myClass.action.takeAttendance" />
+          </span>
         </div>
       </header>
       <div className="grid items-start gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">

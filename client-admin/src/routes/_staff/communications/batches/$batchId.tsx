@@ -326,6 +326,7 @@ function BatchDetail() {
           ? [
               {
                 id: 'retry',
+                helpId: 'communications.reminderHistory.action.retryFailed',
                 label: t('batches.detail.retryAction'),
                 icon: <RotateCcwIcon aria-hidden />,
                 priority: 'primary',

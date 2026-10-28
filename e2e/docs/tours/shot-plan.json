@@ -1,0 +1,1060 @@
+{
+ "people/admission-applicants": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "office-staff",
+   "phone": false,
+   "text": "the applicants list, the two filters and the columns marked",
+   "route": "/admissions/applicants"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "office-staff",
+   "phone": false,
+   "text": "the application page, the top details, the three cards and the action buttons marked",
+   "route": "/admissions/applicants"
+  },
+  {
+   "idx": 2,
+   "kind": "skip",
+   "login": "office-staff",
+   "phone": false,
+   "text": "the five parts of the application page marked with numbers",
+   "route": "/admissions/applicants"
+  },
+  {
+   "idx": 3,
+   "kind": "skip",
+   "login": "office-staff",
+   "phone": false,
+   "text": "GIF from opening an application and checking documents to shortlisting and admitting",
+   "route": "/admissions/applicants"
+  }
+ ],
+ "people/admission-intakes": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the admission rounds list, with the Add admission round button and the columns marked",
+   "route": "/admissions/intakes"
+  },
+  {
+   "idx": 1,
+   "kind": "dialog",
+   "login": "admin",
+   "phone": false,
+   "text": "the Add admission round dialog, the six fields and the Create button marked",
+   "route": "/admissions/intakes"
+  },
+  {
+   "idx": 2,
+   "kind": "skip",
+   "login": "admin",
+   "phone": true,
+   "text": "the top of the admission form on a guardian's phone, the round details box marked",
+   "route": "/admissions/intakes"
+  },
+  {
+   "idx": 3,
+   "kind": "skip",
+   "login": "admin",
+   "phone": true,
+   "text": "the submitted page on a guardian's phone, the reference number and the copy button marked",
+   "route": "/admissions/intakes"
+  },
+  {
+   "idx": 4,
+   "kind": "skip",
+   "login": "admin",
+   "phone": true,
+   "text": "the status card on a guardian's phone, the badge and the what-next text marked",
+   "route": "/admissions/intakes"
+  },
+  {
+   "idx": 5,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the three parts of the admission rounds list marked with numbers",
+   "route": "/admissions/intakes"
+  },
+  {
+   "idx": 6,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "GIF from adding a round to a guardian submitting on a phone, admin and guest",
+   "route": "/admissions/intakes"
+  }
+ ],
+ "people/admission-reports": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the admission report, the two filters, the four number cards and the events list marked",
+   "route": "/admissions/reports"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the four parts of the admission report marked with numbers",
+   "route": "/admissions/reports"
+  }
+ ],
+ "people/calendar": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "calendar page, with the buttons at the top, the month grid and the two lists on the right marked",
+   "route": "/calendar"
+  },
+  {
+   "idx": 1,
+   "kind": "dialog",
+   "login": "admin",
+   "phone": false,
+   "text": "the Add event page, with the two parts, the type and date boxes and the buttons at the bottom marked",
+   "route": "/calendar"
+  },
+  {
+   "idx": 2,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "the import preview, with the four counts at the top, the list of rows and the two options at the bottom marked",
+   "route": "/calendar"
+  },
+  {
+   "idx": 3,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the five parts of the calendar marked with numbers",
+   "route": "/calendar"
+  },
+  {
+   "idx": 4,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "GIF from adding an event to publishing it and seeing it on the calendar",
+   "route": "/calendar"
+  },
+  {
+   "idx": 5,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "GIF of importing from a file, from the preview to confirming",
+   "route": "/calendar"
+  }
+ ],
+ "people/evaluations": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "Evaluations page, three tabs, Start ACR button and list columns marked",
+   "route": "/staff/evaluations"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "ACR criteria step, score buttons and progress marked",
+   "route": "/staff/evaluations"
+  },
+  {
+   "idx": 2,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "New survey form, teacher-subject, questions, privacy, dates and minimum answers marked",
+   "route": "/staff/evaluations"
+  },
+  {
+   "idx": 3,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the four parts of the Evaluations page marked with numbers",
+   "route": "/staff/evaluations"
+  },
+  {
+   "idx": 4,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "GIF from starting an ACR to completing it",
+   "route": "/staff/evaluations"
+  }
+ ],
+ "people/guardians": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "guardian list, with the Invite guardians button, the filter row and the list columns marked",
+   "route": "/guardians"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "the invitation preview step, with the count of guardians to be invited and the list of skipped guardians marked",
+   "route": "/guardians"
+  },
+  {
+   "idx": 2,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "the Edit guardian page, with the eight boxes and the buttons at the bottom marked",
+   "route": "/guardians"
+  },
+  {
+   "idx": 3,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the four parts of the guardian list marked with numbers",
+   "route": "/guardians"
+  },
+  {
+   "idx": 4,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "GIF from the invitation preview to sending",
+   "route": "/guardians"
+  }
+ ],
+ "people/programs": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "program list, Add program button and list columns marked",
+   "route": "/programs"
+  },
+  {
+   "idx": 1,
+   "kind": "dialog",
+   "login": "admin",
+   "phone": false,
+   "text": "Add program dialog, three fields and bottom button marked",
+   "route": "/programs"
+  },
+  {
+   "idx": 2,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "program page, facts, tabs and milestone list marked",
+   "route": "/programs"
+  },
+  {
+   "idx": 3,
+   "kind": "dialog",
+   "login": "admin",
+   "phone": false,
+   "text": "Enrol students form, class, section, date and student list marked",
+   "route": "/programs"
+  },
+  {
+   "idx": 4,
+   "kind": "dialog",
+   "login": "class-teacher-8a",
+   "phone": false,
+   "text": "Record achievement form, milestone, students, date, score, grade, remark marked",
+   "route": "/programs"
+  },
+  {
+   "idx": 5,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the four parts of the program list marked with numbers",
+   "route": "/programs"
+  },
+  {
+   "idx": 6,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "GIF from adding a program to recording an achievement",
+   "route": "/programs"
+  }
+ ],
+ "people/staff-import": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "top of the import page, with the Download sample file button and the column guide marked",
+   "route": "/staff/import"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "the import preview, four parts marked",
+   "route": "/staff/import"
+  },
+  {
+   "idx": 2,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the three parts of the import page marked with numbers",
+   "route": "/staff/import"
+  },
+  {
+   "idx": 3,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "GIF from uploading the file to Import finished",
+   "route": "/staff/import"
+  }
+ ],
+ "people/staff": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "staff list, with the Add staff member button and the list columns marked",
+   "route": "/staff"
+  },
+  {
+   "idx": 1,
+   "kind": "dialog",
+   "login": "admin",
+   "phone": false,
+   "text": "the Add staff member dialog, the four fields and the button at the bottom marked",
+   "route": "/staff"
+  },
+  {
+   "idx": 2,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "the new staff member's row in the list, three parts marked",
+   "route": "/staff"
+  },
+  {
+   "idx": 3,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the four parts of the staff list marked with numbers",
+   "route": "/staff"
+  },
+  {
+   "idx": 4,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "GIF from adding a staff member to giving a teacher profile",
+   "route": "/staff"
+  }
+ ],
+ "people/students": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "Add student form: 1 Identity, 2 Placement, 3 Guardians",
+   "route": "/students/new"
+  },
+  {
+   "idx": 1,
+   "kind": "row",
+   "login": "admin",
+   "phone": false,
+   "text": "Student profile: 1 name and status badge, 2 facts strip, 3 action buttons",
+   "route": "/students"
+  }
+ ],
+ "people/teaching-assignments": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the Teacher assignments page, with the Class field, section cards, Add teacher button and duty list marked",
+   "route": "/staff/teaching-assignments"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "the Assign teacher dialog with Subject teacher chosen, four parts marked",
+   "route": "/staff/teaching-assignments"
+  },
+  {
+   "idx": 2,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "the section card, three kinds of row, three parts marked",
+   "route": "/staff/teaching-assignments"
+  },
+  {
+   "idx": 3,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the four parts of the Teacher assignments page marked with numbers",
+   "route": "/staff/teaching-assignments"
+  },
+  {
+   "idx": 4,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "GIF from choosing a class to assigning and removing a teacher",
+   "route": "/staff/teaching-assignments"
+  }
+ ],
+ "academics/academic-years": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the academic years list, with the Add academic year button and the Status column marked",
+   "route": "/academic-years"
+  },
+  {
+   "idx": 1,
+   "kind": "dialog",
+   "login": "admin",
+   "phone": false,
+   "text": "the Add academic year dialog, with the name, the two dates and the current tick box marked",
+   "route": "/academic-years"
+  },
+  {
+   "idx": 2,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the three parts of the academic years list, numbered",
+   "route": "/academic-years"
+  }
+ ],
+ "academics/classes": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the class list, with the Add class button and the academic year filter marked",
+   "route": "/classes"
+  },
+  {
+   "idx": 1,
+   "kind": "dialog",
+   "login": "admin",
+   "phone": false,
+   "text": "the Add class dialog, with the name, grade, academic year, shift and version marked",
+   "route": "/classes"
+  },
+  {
+   "idx": 2,
+   "kind": "dialog",
+   "login": "admin",
+   "phone": false,
+   "text": "the Sections tab, with the Add section button and the Enrolled column marked",
+   "route": "/classes"
+  },
+  {
+   "idx": 3,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the four parts of the class list, numbered",
+   "route": "/classes"
+  }
+ ],
+ "academics/homework": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "class-teacher-8a",
+   "phone": false,
+   "text": "homework list, Assign homework and Import homework buttons marked",
+   "route": "/academics/homework"
+  },
+  {
+   "idx": 1,
+   "kind": "dialog",
+   "login": "class-teacher-8a",
+   "phone": false,
+   "text": "Create homework, the 1. What to do part with class, subject, title and grading mode marked",
+   "route": "/academics/homework"
+  },
+  {
+   "idx": 2,
+   "kind": "dialog",
+   "login": "class-teacher-8a",
+   "phone": true,
+   "text": "Create homework on a phone, Give homework button at the bottom",
+   "route": "/academics/homework"
+  },
+  {
+   "idx": 3,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "Import homework, Download template button and the column reference open",
+   "route": "/academics/homework"
+  },
+  {
+   "idx": 4,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "import Rows with problems table, Row, Column and Problem columns and the CSV download button marked",
+   "route": "/academics/homework"
+  },
+  {
+   "idx": 5,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the four parts of the homework list numbered",
+   "route": "/academics/homework"
+  }
+ ],
+ "academics/my-class": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "class-teacher-8a",
+   "phone": false,
+   "text": "My class, two section cards to pick from, marked Class teacher and Assistant class teacher",
+   "route": "/my-class"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "class-teacher-8a",
+   "phone": false,
+   "text": "section page, Take today's attendance button and the six cards numbered",
+   "route": "/my-class"
+  },
+  {
+   "idx": 2,
+   "kind": "page",
+   "login": "class-teacher-8a",
+   "phone": true,
+   "text": "section page on a phone, full-width Take today's attendance button at the top",
+   "route": "/my-class"
+  },
+  {
+   "idx": 3,
+   "kind": "page",
+   "login": "class-teacher-8a",
+   "phone": false,
+   "text": "the four parts of the section page numbered",
+   "route": "/my-class"
+  }
+ ],
+ "academics/my-routine": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "class-teacher-8a",
+   "phone": true,
+   "text": "My routine on a phone, today's card, one period card and three buttons marked",
+   "route": "/routines/my"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "class-teacher-8a",
+   "phone": false,
+   "text": "a period card in the Reported state",
+   "route": "/routines/my"
+  },
+  {
+   "idx": 2,
+   "kind": "page",
+   "login": "class-teacher-8a",
+   "phone": true,
+   "text": "the four parts of My routine marked with numbers",
+   "route": "/routines/my"
+  }
+ ],
+ "academics/routine-builder": [
+  {
+   "idx": 0,
+   "kind": "row",
+   "login": "admin",
+   "phone": false,
+   "text": "the class routine table, with the facts at the top, an empty cell and two buttons marked",
+   "route": "/routines"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "the Assign a period dialog, with Subject, Teacher(s), Recurrence and Save marked",
+   "route": "/routines"
+  },
+  {
+   "idx": 2,
+   "kind": "row",
+   "login": "admin",
+   "phone": false,
+   "text": "the four parts of the section routine page marked with numbers",
+   "route": "/routines"
+  }
+ ],
+ "academics/routine-review": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "Routine review page, Draft state, the Submit for review button and the facts marked",
+   "route": "/routines/review"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "class-teacher-8a",
+   "phone": true,
+   "text": "the teacher's My periods list and the Request a change dialog",
+   "route": "/routines/review"
+  },
+  {
+   "idx": 2,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the Admin's page on a published routine, the four parts marked with numbers",
+   "route": "/routines/review"
+  }
+ ],
+ "academics/routine-setup": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "Routine setup page, with the three tabs and the Add shift button marked",
+   "route": "/routines/setup"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "Period times section, with the timeline, one Break row and the Save button marked",
+   "route": "/routines/setup"
+  },
+  {
+   "idx": 2,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "the three tabs marked with numbers",
+   "route": "/routines/setup"
+  }
+ ],
+ "academics/routine-substitutions": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "Substitute teachers page, with the Add substitute teacher button, the filters and the list marked",
+   "route": "/routines/substitutions"
+  },
+  {
+   "idx": 1,
+   "kind": "dialog",
+   "login": "admin",
+   "phone": false,
+   "text": "the Record a substitute teacher dialog, with Date, Class and section, Period and Substitute teacher marked",
+   "route": "/routines/substitutions"
+  }
+ ],
+ "academics/syllabus": [
+  {
+   "idx": 0,
+   "kind": "skip",
+   "login": "class-teacher-8a",
+   "phone": false,
+   "text": "Syllabus, Topics tab, class and subject picked, topic list and Add topic button marked",
+   "route": "/academics/syllabus"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "class-teacher-8a",
+   "phone": true,
+   "text": "Syllabus topic list on a phone, the four buttons under each row",
+   "route": "/academics/syllabus"
+  },
+  {
+   "idx": 2,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "Study plans tab, Behind column and Behind only tick marked",
+   "route": "/academics/syllabus"
+  },
+  {
+   "idx": 3,
+   "kind": "skip",
+   "login": "class-teacher-8a",
+   "phone": false,
+   "text": "study plan page, lessons list, Date (expected) and Status columns marked",
+   "route": "/academics/syllabus"
+  },
+  {
+   "idx": 4,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "the four parts of the Syllabus page numbered",
+   "route": "/academics/syllabus"
+  }
+ ],
+ "attendance/attendance-register": [
+  {
+   "idx": 0,
+   "kind": "pick",
+   "login": "class-teacher-8a",
+   "phone": false,
+   "text": "\u09ae\u09be\u09b8\u09c7\u09b0 \u0996\u09be\u09a4\u09be, \u09b6\u09cd\u09b0\u09c7\u09a3\u09bf-\u09b6\u09be\u0996\u09be-\u09ae\u09be\u09b8 \u0998\u09b0, \u0985\u0995\u09cd\u09b7\u09b0\u09c7\u09b0 \u09ac\u09cd\u09af\u09be\u0996\u09cd\u09af\u09be \u0986\u09b0 \u09ae\u09cb\u099f \u0995\u09b2\u09be\u09ae \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
+   "route": "/attendance/register"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "admin",
+   "phone": false,
+   "text": "\u09b8\u09ae\u09cd\u09aa\u09be\u09a6\u09a8\u09be \u099a\u09b2\u099b\u09c7, \u09ac\u09a6\u09b2\u09be\u09a8\u09cb \u0998\u09b0, \u09b8\u0982\u09b6\u09cb\u09a7\u09a8\u09c7\u09b0 \u0995\u09be\u09b0\u09a3 \u0998\u09b0 \u0986\u09b0 \u09b8\u0982\u09b0\u0995\u09cd\u09b7\u09a3 \u0995\u09b0\u09c1\u09a8 \u09ac\u09cb\u09a4\u09be\u09ae \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
+   "route": "/attendance/register"
+  },
+  {
+   "idx": 2,
+   "kind": "pick",
+   "login": "admin",
+   "phone": false,
+   "text": "\u0996\u09be\u09a4\u09be \u09aa\u09be\u09a4\u09be\u09b0 \u099a\u09be\u09b0\u099f\u09bf \u0985\u0982\u09b6 \u09a8\u09ae\u09cd\u09ac\u09b0 \u09a6\u09bf\u09af\u09bc\u09c7 \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
+   "route": "/attendance/register"
+  }
+ ],
+ "attendance/attendance-reports": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "\u09ae\u09be\u09b8\u09c7\u09b0 \u09b9\u09bf\u09b8\u09be\u09ac \u099f\u09cd\u09af\u09be\u09ac, \u09ae\u09be\u09b8-\u09b6\u09cd\u09b0\u09c7\u09a3\u09bf-\u09b6\u09be\u0996\u09be \u0998\u09b0 \u0986\u09b0 \u09b6\u09bf\u0995\u09cd\u09b7\u09be\u09b0\u09cd\u09a5\u09c0\u09b0 \u09b8\u09be\u09b0\u09bf \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
+   "route": "/attendance/reports"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "\u0995\u09ae \u0989\u09aa\u09b8\u09cd\u09a5\u09bf\u09a4\u09bf \u099f\u09cd\u09af\u09be\u09ac, \u09b8\u09b0\u09cd\u09ac\u09a8\u09bf\u09ae\u09cd\u09a8 \u0989\u09aa\u09b8\u09cd\u09a5\u09bf\u09a4\u09bf \u0998\u09b0 \u0986\u09b0 \u0995\u09ae \u099a\u09bf\u09b9\u09cd\u09a8 \u09a6\u09c7\u0993\u09af\u09bc\u09be \u09b8\u09be\u09b0\u09bf",
+   "route": "/attendance/reports"
+  },
+  {
+   "idx": 2,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "\u09aa\u09cd\u09b0\u09a4\u09bf\u09ac\u09c7\u09a6\u09a8 \u09aa\u09be\u09a4\u09be\u09b0 \u099a\u09be\u09b0\u099f\u09bf \u0985\u0982\u09b6 \u09a8\u09ae\u09cd\u09ac\u09b0 \u09a6\u09bf\u09af\u09bc\u09c7 \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
+   "route": "/attendance/reports"
+  }
+ ],
+ "attendance/staff-attendance": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "\u0995\u09b0\u09cd\u09ae\u09c0\u09b0 \u0989\u09aa\u09b8\u09cd\u09a5\u09bf\u09a4\u09bf \u09a4\u09be\u09b2\u09bf\u0995\u09be, \u09a4\u09be\u09b0\u09bf\u0996 \u0998\u09b0, \u0989\u09aa\u09b0\u09c7\u09b0 \u09b9\u09bf\u09b8\u09be\u09ac, \u098f\u0995\u099c\u09a8\u09c7\u09b0 \u0985\u09ac\u09b8\u09cd\u09a5\u09be\u09b0 \u09ac\u09cb\u09a4\u09be\u09ae \u0986\u09b0 \u0989\u09aa\u09b8\u09cd\u09a5\u09bf\u09a4\u09bf \u09b8\u0982\u09b0\u0995\u09cd\u09b7\u09a3 \u0995\u09b0\u09c1\u09a8 \u09ac\u09cb\u09a4\u09be\u09ae \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
+   "route": "/attendance/staff"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "\u099b\u09c1\u099f\u09bf \u09aa\u09be\u09a4\u09be, \u0986\u09ae\u09be\u09b0 \u099b\u09c1\u099f\u09bf \u09a4\u09be\u09b2\u09bf\u0995\u09be, \u099b\u09c1\u099f\u09bf\u09b0 \u0986\u09ac\u09c7\u09a6\u09a8 \u0995\u09b0\u09c1\u09a8 \u09ac\u09cb\u09a4\u09be\u09ae \u0986\u09b0 \u0985\u09aa\u09c7\u0995\u09cd\u09b7\u09ae\u09be\u09a3 \u099b\u09c1\u099f\u09bf\u09b0 \u0986\u09ac\u09c7\u09a6\u09a8 \u09b2\u09bf\u0982\u0995 \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
+   "route": "/attendance/staff"
+  },
+  {
+   "idx": 2,
+   "kind": "page",
+   "login": "admin",
+   "phone": false,
+   "text": "\u0995\u09b0\u09cd\u09ae\u09c0\u09b0 \u0989\u09aa\u09b8\u09cd\u09a5\u09bf\u09a4\u09bf \u09aa\u09be\u09a4\u09be\u09b0 \u099b\u09af\u09bc\u099f\u09bf \u0985\u0982\u09b6 \u09a8\u09ae\u09cd\u09ac\u09b0 \u09a6\u09bf\u09af\u09bc\u09c7 \u099a\u09bf\u09b9\u09cd\u09a8\u09bf\u09a4",
+   "route": "/attendance/staff"
+  }
+ ],
+ "portal/account": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "The Devices card on a phone: 1 This device",
+   "route": "/portal/account"
+  },
+  {
+   "idx": 1,
+   "kind": "change2",
+   "login": "guardian",
+   "phone": true,
+   "text": "Change phone number on a phone: 1 new phone number",
+   "route": "/portal/account"
+  }
+ ],
+ "portal/applications": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "The application list on a phone: 1 New application button, 2 one application card and its state",
+   "route": "/portal/applications"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "guardian",
+   "phone": true,
+   "text": "The last step on a phone: 1 the draft letter",
+   "route": "/portal/applications"
+  },
+  {
+   "idx": 2,
+   "kind": "row",
+   "login": "guardian",
+   "phone": true,
+   "text": "An application's page on a phone: 1 state, 2 step",
+   "route": "/portal/applications"
+  }
+ ],
+ "portal/attendance": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Attendance",
+   "route": "/portal/attendance"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": false,
+   "text": "Attendance, four parts numbered",
+   "route": "/portal/attendance"
+  }
+ ],
+ "portal/calendar": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Calendar, current month",
+   "route": "/portal/calendar?month=2026-11"
+  },
+  {
+   "idx": 1,
+   "kind": "day1",
+   "login": "student-9b",
+   "phone": true,
+   "text": "Calendar, three parts numbered",
+   "route": "/portal/calendar?month=2026-11"
+  }
+ ],
+ "portal/exam-schedule": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Exam schedule",
+   "route": "/portal/exam-schedule"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": true,
+   "text": "Exam schedule",
+   "route": "/portal/exam-schedule"
+  },
+  {
+   "idx": 2,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Exam schedule, three parts numbered",
+   "route": "/portal/exam-schedule"
+  }
+ ],
+ "portal/fees": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Fees and invoices",
+   "route": "/portal/fees"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "guardian",
+   "phone": false,
+   "text": "Fees and invoices, two children",
+   "route": "/portal/fees"
+  }
+ ],
+ "portal/notifications": [
+  {
+   "idx": 0,
+   "kind": "bell",
+   "login": "guardian",
+   "phone": true,
+   "text": "The bell's panel on a phone: 1 the number on the bell",
+   "route": "/portal/notifications"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "The to-do list on a phone: 1 the To-do and History tabs",
+   "route": "/portal/notifications"
+  }
+ ],
+ "portal/overview": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Overview",
+   "route": "/portal"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": true,
+   "text": "Overview, one child",
+   "route": "/portal"
+  }
+ ],
+ "portal/programs": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "A program card on a phone: 1 name and state",
+   "route": "/portal/programs"
+  }
+ ],
+ "portal/results": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Results, two exams",
+   "route": "/portal/results"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": false,
+   "text": "Results",
+   "route": "/portal/results"
+  }
+ ],
+ "portal/routine": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "Routine",
+   "route": "/portal/routine"
+  },
+  {
+   "idx": 1,
+   "kind": "page",
+   "login": "student-9b",
+   "phone": true,
+   "text": "Routine, three parts numbered",
+   "route": "/portal/routine"
+  }
+ ],
+ "portal/surveys": [
+  {
+   "idx": 0,
+   "kind": "skip",
+   "login": "guardian",
+   "phone": true,
+   "text": "Survey cards on a phone: 1 the privacy line",
+   "route": "/portal/surveys"
+  },
+  {
+   "idx": 1,
+   "kind": "skip",
+   "login": "guardian",
+   "phone": true,
+   "text": "An open form on a phone: 1 stars",
+   "route": "/portal/surveys"
+  }
+ ],
+ "portal/syllabus": [
+  {
+   "idx": 0,
+   "kind": "page",
+   "login": "guardian",
+   "phone": true,
+   "text": "The Syllabus page on a phone: 1 the exam card",
+   "route": "/portal/syllabus"
+  }
+ ]
+}

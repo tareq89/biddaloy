@@ -156,6 +156,18 @@ describe('billing E2E', () => {
     const res = await get(`orders/${own}/receipt`, tokens.admin).expect(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.text).toContain('SMR-2027-900001');
+    // #3041: the stored locale is `bn-BD`/`en-BD`, and no stored region is the bn-BD default.
+    expect(res.text).toContain('<html lang="bn">');
+    const receiptLang = async (locale: string) => {
+      await dataSource.query(`UPDATE schools SET settings = $2::jsonb WHERE id = $1`, [
+        TENANT_ID,
+        JSON.stringify({ region: { locale } }),
+      ]);
+      return (await get(`orders/${own}/receipt`, tokens.admin).expect(200)).text;
+    };
+    expect(await receiptLang('en-BD')).toContain('<html lang="en">');
+    expect(await receiptLang('bn-BD')).toContain('<html lang="bn">');
+    await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_ID]);
     // Another school's order and an unpaid one look the same as a missing one.
     await get(`orders/${foreign}/receipt`, tokens.admin).expect(404);
     await get(`orders/${unpaid}/receipt`, tokens.admin).expect(404);

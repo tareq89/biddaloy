@@ -136,6 +136,7 @@ export const PLATFORM_NAV_ICONS = {
   '/holiday-sets': TreePalmIcon,
   '/subscriptions': WalletCardsIcon,
 } as const;
+/** @alias */
 export const STAFF_PLATFORM_EXTRA_ICONS = PLATFORM_NAV_ICONS;
 
 export const PORTAL_NAV_ICONS: Record<string, LucideIcon> = {

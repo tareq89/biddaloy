@@ -37,7 +37,9 @@ import {
   CommandPalette,
   type CommandPaletteTab,
   type GlobalSearchGroup,
+  HelpHint,
   ShortcutsSheet,
+  useHelp,
 } from '@biddaloy/ui/components';
 import {
   hasPermission,
@@ -64,6 +66,7 @@ import {
 } from '../nav-tree';
 
 const SEARCH_DEBOUNCE_MS = 300;
+const HELP_ACTION_ID = 'help.thisPage';
 
 /** [31.3.1] Page-only mode for the portal and platform shells: their own pages, no People/Action tab, no `/search` call. */
 export interface PaletteLauncherPage {
@@ -86,6 +89,7 @@ export function CommandPaletteLauncher({
   const navigate = useNavigate();
   const activeRole = useActiveRole();
   const signOutToLogin = useSignOutToLogin();
+  const { pageHref: helpHref } = useHelp();
   const demo = useDemoMode();
   const actions = React.useMemo(
     () => (demo.enabled ? [...ACTIONS, DEMO_SWITCH_ROLE_ACTION] : ACTIONS),
@@ -151,7 +155,28 @@ export function CommandPaletteLauncher({
       const target = event.target as HTMLElement | null;
       const isTypingTarget =
         target !== null &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+      // [44.2.01] F1 opens this page's guide in a new tab (E8, D21); inert without one.
+      // Plain F1 only: no modifier combos, and holding the key opens one tab, not one per repeat.
+      if (event.key === 'F1') {
+        if (
+          isTypingTarget ||
+          helpHref === null ||
+          event.repeat ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.altKey ||
+          event.shiftKey
+        ) {
+          return;
+        }
+        event.preventDefault();
+        window.open(helpHref, '_blank', 'noopener');
+        return;
+      }
       if (
         event.key === '?' &&
         !isTypingTarget &&
@@ -165,7 +190,7 @@ export function CommandPaletteLauncher({
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [helpHref]);
 
   // Closing always starts the next open on a blank query — same
   // reasoning as the old launcher.
@@ -237,11 +262,24 @@ export function CommandPaletteLauncher({
   const trimmedQuery = query.trim().toLowerCase();
   const pageGroups = React.useMemo<GlobalSearchGroup[]>(() => {
     if (pages) {
-      // Portal / platform palettes have no Action tab, so the demo switch rides along as a page.
-      const demoLabel = DEMO_SWITCH_ROLE_ACTION.label[i18n.language.startsWith('bn') ? 'bn' : 'en'];
-      const listed = demo.enabled
-        ? [...pages, { id: DEMO_SWITCH_ROLE_ACTION.id, label: demoLabel, to: '/login' }]
-        : pages;
+      // Portal / platform palettes have no Action tab, so the demo switch and this page's
+      // help ride along as pages. `handleSelect` intercepts both ids before navigating.
+      const locale = i18n.language.startsWith('bn') ? 'bn' : 'en';
+      const helpLabel = ACTIONS.find((action) => action.id === HELP_ACTION_ID)?.label[locale];
+      // The help row has no `to`: its URL would show as a long, unbreakable description.
+      const listed: (Omit<PaletteLauncherPage, 'to'> & { to?: string })[] = [
+        ...pages,
+        ...(demo.enabled
+          ? [
+              {
+                id: DEMO_SWITCH_ROLE_ACTION.id,
+                label: DEMO_SWITCH_ROLE_ACTION.label[locale],
+                to: '/login',
+              },
+            ]
+          : []),
+        ...(helpHref !== null && helpLabel ? [{ id: HELP_ACTION_ID, label: helpLabel }] : []),
+      ];
       return [
         {
           id: 'pages',
@@ -249,7 +287,11 @@ export function CommandPaletteLauncher({
           results: rankByMatch(
             listed
               .filter((page) => matchesNavSearch(page.label, page.synonyms, trimmedQuery))
-              .map((page) => ({ id: page.id, label: page.label, description: page.to })),
+              .map((page) => ({
+                id: page.id,
+                label: page.label,
+                ...(page.to !== undefined && { description: page.to }),
+              })),
             trimmedQuery,
           ),
         },
@@ -275,7 +317,7 @@ export function CommandPaletteLauncher({
       })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery, activeRole, i18n.language, pages, demo.enabled]);
+  }, [trimmedQuery, activeRole, i18n.language, pages, demo.enabled, helpHref]);
 
   // Action tab — `ACTIONS` (30.4.2), one section per nav group. Hidden when
   // the role lacks the permission; *disabled with a reason* (not hidden) when
@@ -315,7 +357,8 @@ export function CommandPaletteLauncher({
           .filter(
             (action) =>
               action.group === 'top' &&
-              hasPermission(activeRole, action.permission) &&
+              (action.permission === null || hasPermission(activeRole, action.permission)) &&
+              (action.id !== HELP_ACTION_ID || helpHref !== null) &&
               (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
               action.label[locale].toLowerCase().includes(trimmedQuery),
           )
@@ -333,7 +376,7 @@ export function CommandPaletteLauncher({
             .filter(
               (action) =>
                 action.group === group.id &&
-                hasPermission(activeRole, action.permission) &&
+                (action.permission === null || hasPermission(activeRole, action.permission)) &&
                 action.label[locale].toLowerCase().includes(trimmedQuery),
             )
             .map(toActionRow),
@@ -342,7 +385,7 @@ export function CommandPaletteLauncher({
       })),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmedQuery, activeRole, availableContexts, i18n.language, actions]);
+  }, [trimmedQuery, activeRole, availableContexts, i18n.language, actions, helpHref]);
 
   const peopleTab: CommandPaletteTab = {
     id: 'people',
@@ -390,6 +433,11 @@ export function CommandPaletteLauncher({
       void signOutToLogin();
       return;
     }
+    // The portal page row: an external tab, never a navigate. The staff action opens via its `run`.
+    if (tabId === 'page' && resultId === HELP_ACTION_ID) {
+      if (helpHref !== null) window.open(helpHref, '_blank', 'noopener');
+      return;
+    }
     if (tabId === 'page') {
       const item = pageGroups.flatMap((g) => g.results).find((result) => result.id === resultId);
       if (item?.description) void navigate({ to: item.description });
@@ -400,6 +448,7 @@ export function CommandPaletteLauncher({
       action?.run({
         navigate: (opts) => void navigate({ to: opts.to }),
         params: { studentId: params.studentId, examId: params.examId },
+        helpHref,
       });
     }
   }
@@ -411,22 +460,26 @@ export function CommandPaletteLauncher({
        * this collapses to an icon-only square below `md` instead of
        * hiding, and why it stays a single element with a fixed
        * `aria-label` rather than a hidden/shown pair. */}
-      <Button
-        ref={triggerRef}
-        type="button"
-        variant="outline"
-        onClick={() => setOpen(true)}
-        aria-label={t('commandPalette.buttonLabel')}
-        className="inline-flex h-[var(--control-h,2rem)] w-[var(--control-h,2rem)] items-center justify-center gap-2 rounded-md border-input px-0 font-normal text-muted-foreground md:w-56 md:justify-start md:px-2"
-      >
-        <SearchIcon className="size-4 shrink-0" aria-hidden="true" />
-        <span className="hidden flex-1 truncate text-start md:inline">
-          {t('commandPalette.launcherPlaceholder')}
-        </span>
-        <span className="hidden shrink-0 text-xs md:inline">
-          {t('commandPalette.shortcutHint')}
-        </span>
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="outline"
+          onClick={() => setOpen(true)}
+          aria-label={t('commandPalette.buttonLabel')}
+          className="inline-flex h-[var(--control-h,2rem)] w-[var(--control-h,2rem)] items-center justify-center gap-2 rounded-md border-input px-0 font-normal text-muted-foreground md:w-56 md:justify-start md:px-2"
+        >
+          <SearchIcon className="size-4 shrink-0" aria-hidden="true" />
+          <span className="hidden flex-1 truncate text-start md:inline">
+            {t('commandPalette.launcherPlaceholder')}
+          </span>
+          <span className="hidden shrink-0 text-xs md:inline">
+            {t('commandPalette.shortcutHint')}
+          </span>
+        </Button>
+        {/* Desktop only: the phone header row holds exactly menu, search, bell, account (D12). */}
+        <HelpHint helpId="start.findAnything.action.open" className="hidden md:inline-flex" />
+      </span>
       <CommandPalette
         open={open}
         onOpenChange={setOpen}
@@ -450,7 +503,11 @@ export function CommandPaletteLauncher({
             : t('commandPalette.resultCountPlural', { count })
         }
       />
-      <ShortcutsSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <ShortcutsSheet
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+        showHelpShortcut={helpHref !== null}
+      />
     </>
   );
 }

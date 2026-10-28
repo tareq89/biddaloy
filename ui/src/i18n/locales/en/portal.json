@@ -527,5 +527,9 @@
     "emptyTitle": "No homework due",
     "emptyBody": "Homework the teachers give will show up here.",
     "error": "Homework could not load."
+  },
+  "helpLabels": {
+    "pickDay": "Pick a day",
+    "changeMonth": "Change month"
   }
 }
