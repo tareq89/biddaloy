@@ -42,12 +42,13 @@
   failed_when: false
   when: stack in ['prod', 'staging'] and not smoke_login_skipped | bool
 # no_log hides the output (it sits next to the credentials), so print the script's own last
-# verdict line. smoke-post-deploy.mjs prints PASS/FAIL lines and never a credential.
+# FAIL line (else the last summary line). smoke-post-deploy.mjs prints PASS/FAIL lines and never a credential.
 - name: Stop when the smoke test failed
   ansible.builtin.fail:
     msg: >-
-      {{ (smoke.stdout_lines | default([]) | select('search', 'FAIL|usage|smoke:') | list | last)
-         | default('the smoke test failed') }}
+      {{ ((smoke.stdout_lines | default([]) | select('search', '^FAIL') | list | last)
+          | default((smoke.stdout_lines | default([]) | select('search', 'FAIL|usage|smoke:') | list | last)
+          | default('the smoke test failed'))) }}
   when: stack in ['prod', 'staging'] and not smoke_login_skipped | bool and smoke.rc | default(0) != 0
 
 - name: Health over the edge network (demo, and a first deploy)

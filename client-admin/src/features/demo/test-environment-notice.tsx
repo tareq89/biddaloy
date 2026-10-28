@@ -36,14 +36,15 @@ function environmentKey(sentryEnvironment: string): 'demo' | 'staging' | 'other'
 /** One help-text line with the inbox link, for the sign-in and forgot-password screens (D14). */
 export function TestInboxHint({ className }: { className?: string }) {
   const { messageSinkUrl } = runtimeConfig();
-  const { t } = useTranslation('auth');
-  const { t: tDemo } = useTranslation('demo');
+  // The i18n key check resolves one namespace per file (the first useTranslation), so the one
+  // auth key below carries an explicit `ns`.
+  const { t } = useTranslation('demo');
   if (!messageSinkUrl) return null;
   return (
     <p className={className ?? 'text-caption text-text-secondary'}>
-      {t('help.testInbox')}{' '}
+      {t('help.testInbox', { ns: 'auth' })}{' '}
       <a href={messageSinkUrl} {...NEW_TAB} className="font-medium text-primary underline">
-        {tDemo('testInbox.open')}
+        {t('testInbox.open')}
       </a>
     </p>
   );

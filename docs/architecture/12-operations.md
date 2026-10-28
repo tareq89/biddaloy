@@ -717,7 +717,7 @@ records a real payment.
 | `#2639` | `SMOKE_PARENT_EMAIL` + `SMOKE_PARENT_PASSWORD` | parent asks for a step-up OTP: 403                                           |
 | `inbox` | `SMOKE_INBOX_API_URL` (staging only)           | forgot-password for the admin, then the message shows in Mailpit within 30 s |
 
-The `inbox` row is not a rejection check: it asks for a password reset and polls Mailpit every 2 s for up to 30 s, printing `inbox: ok`. Unset (prod), it prints `inbox: skipped (no SMOKE_INBOX_API_URL)`. A stopped Mailpit fails the deploy on the `inbox` line.
+The `inbox` row is not a rejection check: it asks for a password reset and polls Mailpit every 2 s for up to 30 s, printing `inbox: ok`. Unset (prod), it prints `inbox: skipped (no SMOKE_INBOX_API_URL)`. A stopped Mailpit fails the deploy on the `inbox` line. If the password-reset cooldown is still running from a deploy just before, the app answers 202 but sends no mail, and the check fails with `message not found`; wait out the cooldown and redeploy.
 
 The `#2638` deleted-student invoice row is added by #2651 (Wave 2).
 

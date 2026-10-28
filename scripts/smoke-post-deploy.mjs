@@ -235,6 +235,7 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
   } else {
     const started = Date.now();
     let found = false;
+    let refused = false;
     try {
       const res = await fetch(`${baseUrl}/api/v1/auth/forgot-password`, {
         method: 'POST',
@@ -252,12 +253,14 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
             return false;
           }
         });
+      } else {
+        refused = true;
       }
     } catch {
       // falls through to FAIL
     }
     out(
-      `${found ? 'PASS' : 'FAIL'}  inbox: ${found ? 'ok' : 'message not found'}  ${Date.now() - started}ms`,
+      `${found ? 'PASS' : 'FAIL'}  inbox: ${found ? 'ok' : refused ? 'reset request refused' : 'message not found'}  ${Date.now() - started}ms`,
     );
     if (found) result.passed++;
     else result.failed++;
