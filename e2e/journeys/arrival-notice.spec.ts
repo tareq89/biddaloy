@@ -1,195 +1,220 @@
-import { request as pwRequest, type APIRequestContext } from '@playwright/test';
+import { type APIRequestContext } from '@playwright/test';
 
-import { adminApiSession, apiSession, get, isFridayAnywhere, markableDateIso, put } from '../api';
+import {
+  adminApiSession,
+  createClassSection,
+  createGuardian,
+  createTeacher,
+  currentAcademicYear,
+  get,
+  isFridayAnywhere,
+  loginAsFreshUser,
+  markableDateIso,
+  post,
+  put,
+  type ApiSession,
+} from '../api';
 import { shells } from '../config';
-import { expect, loggedIn, test } from '../fixtures/test';
+import { expect, guest, test } from '../fixtures/test';
 import { t } from '../i18n';
+import { LoginPage } from '../pages/login-page';
 
 /**
  * [84.4.4] Epic 84 close journey: the guardian asks, the class teacher answers in My class,
  * the teacher finalizes the register, and the arrival message is queued for the guardian.
  *
+ * Own data, so no other spec can change it: a fresh section in the current year, one student,
+ * one guardian with a portal account (batch invite + first sign-in with a code), and a fresh
+ * class teacher. Nothing else finalizes this section's register, so the finalize below always
+ * runs and the message check always checks.
+ *
+ * The school switch: the dev seed turns arrival notices on (`ensureArrivalNoticeSetting`) and no
+ * spec turns them off, so this spec writes no settings and has nothing to restore.
+ *
  * Why the last leg reads the communication history and not `/portal/notifications`: a PUSH
  * arrival notice goes to a browser push device (D44) and is never written to the alerts
- * worklist. The e2e guardian has no device (the log ends FAILED, NO_PUSH_DEVICE), so the push
+ * worklist. The new guardian has no device (the log ends FAILED, NO_PUSH_DEVICE), so the push
  * log row is the observable proof that the notice was produced.
- *
- * Seed: `ensureArrivalSeed` gives `parent@biddaloy.test`'s roll-1 child (Class 6 A, the class
- * teacher's section) one ACTIVE row. Leg 1 switches it off and on again, which makes it
- * REQUESTED, so the whole story starts from "asked".
  */
 
-interface MyChildren {
-  school: { enabled: boolean };
-  children: { student_id: string; student_name: string; subscription: { status: string } | null }[];
-}
-interface Register {
-  session: { version: number; state: string };
-  students: { student_id: string; roll_number: number }[];
+interface InviteBatchStatus {
+  batch_id: string;
+  queued: number;
 }
 
-const TODAY = markableDateIso();
-const SETTINGS_KEY = 'attendance';
-
-async function admin() {
-  const api = await pwRequest.newContext({ baseURL: shells.app.baseURL });
-  const password = process.env.SEED_ADMIN_PASSWORD;
-  if (!password) throw new Error('SEED_ADMIN_PASSWORD is not set');
-  return { api, session: await adminApiSession(api) };
+/** Bearer session for a fresh account, on its own request context (its own token family). */
+async function freshApiSession(
+  request: APIRequestContext,
+  email: string,
+  password: string,
+): Promise<ApiSession> {
+  const res = await request.post('/api/v1/auth/login', { data: { email, password } });
+  expect(res.ok(), `login ${email}: ${res.status()}`).toBe(true);
+  const body = (await res.json()) as {
+    access_token: string;
+    memberships: { tenantId: string }[];
+  };
+  return { token: body.access_token, tenantId: body.memberships[0]!.tenantId };
 }
 
-async function setArrivalEnabled(api: APIRequestContext, enabled: boolean) {
-  const session = await adminApiSession(api);
-  const path = `/schools/${session.tenantId}/settings`;
-  const cur = await get<{ version: number; attendance?: Record<string, unknown> }>(
-    api,
-    session,
-    path,
-  );
-  const attendance = cur[SETTINGS_KEY] as { arrivalNotice?: object } | undefined;
-  const res = await api.patch(`/api/v1${path}`, {
-    headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
-    data: {
-      version: cur.version,
-      attendance: { ...attendance, arrivalNotice: { ...attendance?.arrivalNotice, enabled } },
-    },
-  });
-  expect(res.ok(), `arrival switch: ${res.status()} ${await res.text()}`).toBe(true);
-}
-
-test.describe
-  .serial('arrival notice: guardian asks -> teacher answers -> register -> message', () => {
+test.describe('arrival notice: guardian asks -> teacher answers -> register -> message', () => {
+  test.use(guest);
   test.skip(isFridayAnywhere(), 'the school is closed on Friday; no register to finalize');
 
-  let studentId = '';
-  let finalizedHere = false;
+  test('the whole story on a section of its own', async ({ browser, playwright, request }) => {
+    test.setTimeout(180_000);
+    const today = markableDateIso();
+    const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    const childName = `Arrival Child ${suffix}`;
+    const phone = `019${suffix.slice(-8)}`;
+    const admin = await adminApiSession(request);
 
-  test.afterAll(async () => {
-    const { api } = await admin();
-    await setArrivalEnabled(api, false);
-    await api.dispose();
-  });
-
-  test.describe('1. guardian asks', () => {
-    test.use(loggedIn('parent'));
-
-    test('switching the child off and on again leaves a waiting request', async ({
-      page,
+    // --- setup: section, child, guardian with an account, class teacher -------------------
+    // My class lists the current year only, so the section goes into that year.
+    const chain = await createClassSection(
       request,
-    }) => {
-      const { api } = await admin();
-      await setArrivalEnabled(api, true);
-      await api.dispose();
-
-      const parent = await apiSession(request, 'parent');
-      const mine = await get<MyChildren>(request, parent, '/portal/arrival-subscriptions');
-      // The seeded child: the one with a subscription row.
-      const child = mine.children.find((c) => c.subscription !== null);
-      expect(child, 'seeded arrival subscription is missing - has `yarn seed` run?').toBeTruthy();
-      studentId = child!.student_id;
-
-      await page.goto('/portal/attendance');
-      // Two demo children share a name, so pick the row by its position in the card.
-      const sw = page
-        .getByRole('heading', { name: t('portal.arrivalNotice.title') })
-        .locator('..')
-        .getByRole('listitem')
-        .nth(mine.children.indexOf(child!))
-        .getByRole('switch');
-      await expect(sw).toBeChecked();
-      const offDone = page.waitForResponse(
-        (r) => r.url().includes('/portal/arrival-subscriptions/') && r.request().method() === 'PUT',
-      );
-      await sw.click();
-      await offDone;
-      await expect(sw).not.toBeChecked();
-      const onDone = page.waitForResponse(
-        (r) => r.url().includes('/portal/arrival-subscriptions/') && r.request().method() === 'PUT',
-      );
-      await sw.click();
-      await onDone;
-      await expect(sw).toBeChecked();
-      await expect(page.getByText(t('portal.arrivalNotice.status.waiting'))).toBeVisible();
+      admin,
+      await currentAcademicYear(request, admin),
+    );
+    const guardian = await createGuardian(request, admin, `Arrival Guardian ${suffix}`, phone);
+    const student = await post<{ id: string }>(request, admin, '/students', {
+      full_name: childName,
+      class_section_id: chain.sectionId,
+      guardian_ids: [guardian.id],
     });
-  });
+    const batch = await post<{ batch_id: string }>(request, admin, '/users/invitations/batch', {
+      guardian_ids: [guardian.id],
+    });
+    // The processor links the guardian to a new passwordless PARENT account.
+    await expect
+      .poll(
+        async () =>
+          (
+            await get<InviteBatchStatus>(
+              request,
+              admin,
+              `/users/invitations/batch/${batch.batch_id}`,
+            )
+          ).queued,
+        { timeout: 30_000, intervals: [500, 1000] },
+      )
+      .toBe(0);
+    const teacher = await createTeacher(request, admin, `Arrival Teacher ${suffix}`, chain);
 
-  test.describe('2. teacher answers and finalizes', () => {
-    test.use(loggedIn('teacher'));
-
-    test('"every school day" in My class, then the register is finalized with the child present', async ({
-      page,
+    const settings = await get<{ attendance?: { arrivalNotice?: { enabled?: boolean } } }>(
       request,
-    }) => {
-      const teacher = await apiSession(request, 'teacher');
-      const sections = await get<{ section_id: string }[]>(request, teacher, '/my-class/sections');
-      const sectionId = sections[0]!.section_id;
+      admin,
+      `/schools/${admin.tenantId}/settings`,
+    );
+    expect(
+      settings.attendance?.arrivalNotice?.enabled,
+      'arrival notices are off for the e2e school - re-run `yarn seed` on a fresh database',
+    ).toBe(true);
 
-      await page.goto(`/my-class/${sectionId}`);
-      const card = page.getByRole('region', { name: t('myClass.cards.arrival') });
-      await expect(card).toBeVisible();
-      const answered = page.waitForResponse(
-        (r) =>
-          r.url().includes('/attendance/arrival-subscriptions/') &&
-          r.request().method() === 'PATCH',
-      );
-      await card
-        .getByRole('button', { name: t('myClass.arrival.everyDay') })
-        .first()
-        .click();
-      expect((await answered).ok()).toBe(true);
-
-      // Finalize today's register with everyone present (the API, as attendance.spec does).
-      const register = await get<Register>(
-        request,
-        teacher,
-        `/attendance/sections/${sectionId}/register?date=${TODAY}`,
-      );
-      // One register per section and day, and attendance specs finalize Class 6 / A too (the
-      // notice is sent only by the finalize and only for today, so a rerun cannot resend).
-      finalizedHere = register.session.state !== 'FINALIZED';
-      test.skip(
-        !finalizedHere,
-        "today's register was finalized before this journey (rerun or an earlier spec)",
-      );
-      const saved = await put<{ session: { state: string } }>(
-        request,
-        teacher,
-        `/attendance/sections/${sectionId}/register`,
-        {
-          date: TODAY,
-          base_version: register.session.version,
-          client_request_id: crypto.randomUUID(),
-          finalize: true,
-          // Each seeded student keeps their streak (roll 1 present, 2 late, 3 absent), so the My
-          // class streaks card of other specs still has rows.
-          entries: register.students.map((s) => ({
-            student_id: s.student_id,
-            status: { 2: 'LATE', 3: 'ABSENT' }[s.roll_number] ?? 'PRESENT',
-          })),
-        },
-      );
-      expect(saved.session.state).toBe('FINALIZED');
+    const parentContext = await browser.newContext();
+    const teacherApi = await playwright.request.newContext({ baseURL: shells.app.baseURL });
+    const teacherContext = await browser.newContext({
+      storageState: await loginAsFreshUser(
+        teacherApi,
+        shells.app.baseURL,
+        teacher.email,
+        teacher.password,
+      ),
     });
-  });
+    try {
+      await test.step('1. the guardian asks on the portal', async () => {
+        const page = await parentContext.newPage();
+        const login = new LoginPage(page);
+        await login.goto();
+        await page.getByRole('link', { name: t('auth.login.firstTime') }).click();
+        await login.requestAndEnterOtp(phone);
+        await page.getByRole('button', { name: t('auth.setPassword.skip') }).click();
+        await expect(page).toHaveURL(/\/portal/);
 
-  test.describe('3. the message exists', () => {
-    test.use(loggedIn('admin'));
+        await page.goto('/portal/attendance');
+        const sw = page.getByRole('switch', {
+          name: t('portal.arrivalNotice.switchLabel', { name: childName }),
+        });
+        await expect(sw).not.toBeChecked();
+        const asked = page.waitForResponse(
+          (r) =>
+            r.url().includes(`/portal/arrival-subscriptions/${student.id}`) &&
+            r.request().method() === 'PUT',
+        );
+        await sw.click();
+        expect((await asked).ok()).toBe(true);
+        await expect(sw).toBeChecked();
+        await expect(page.getByText(t('portal.arrivalNotice.status.waiting'))).toBeVisible();
+      });
 
-    test("the child's communication history holds today's arrival notice", async ({ request }) => {
-      test.skip(!finalizedHere, 'the register was not finalized by this journey');
-      const session = await adminApiSession(request);
-      // The history DTO has no trigger or body; a push log made in the last minutes for this
-      // child is the arrival notice (nothing else messages this child on the seed).
-      const logs = await get<{ medium: string; recipient_address: string; created_at: string }[]>(
-        request,
-        session,
-        `/communications/student/${studentId}`,
-      );
-      const newest = logs[0];
-      expect(newest, 'no communication log for the child').toBeTruthy();
-      expect(newest!.medium).toBe('PUSH');
-      expect(newest!.recipient_address).toMatch(/^push:/);
-      expect(Date.now() - new Date(newest!.created_at).getTime()).toBeLessThan(5 * 60_000);
-    });
+      await test.step('2. the class teacher answers "every school day" in My class', async () => {
+        const page = await teacherContext.newPage();
+        await page.goto(`/my-class/${chain.sectionId}`);
+        const card = page.getByRole('region', { name: t('myClass.cards.arrival') });
+        await expect(card).toBeVisible();
+        await expect(card.getByText(childName)).toBeVisible();
+        const answered = page.waitForResponse(
+          (r) =>
+            r.url().includes('/attendance/arrival-subscriptions/') &&
+            r.request().method() === 'PATCH',
+        );
+        // The only waiting request in this section is this child's.
+        await card.getByRole('button', { name: t('myClass.arrival.everyDay') }).click();
+        expect((await answered).ok()).toBe(true);
+        await expect(card.getByRole('button', { name: t('myClass.arrival.everyDay') })).toHaveCount(
+          0,
+        );
+      });
+
+      await test.step('3. the teacher finalizes the register with the child present', async () => {
+        const session = await freshApiSession(teacherApi, teacher.email, teacher.password);
+        const register = await get<{
+          session: { version: number; state: string };
+          students: { student_id: string }[];
+        }>(teacherApi, session, `/attendance/sections/${chain.sectionId}/register?date=${today}`);
+        // Nothing else knows this section, so today's register cannot be finalized yet.
+        expect(register.session.state).not.toBe('FINALIZED');
+        const saved = await put<{ session: { state: string } }>(
+          teacherApi,
+          session,
+          `/attendance/sections/${chain.sectionId}/register`,
+          {
+            date: today,
+            base_version: register.session.version,
+            client_request_id: crypto.randomUUID(),
+            finalize: true,
+            entries: register.students.map((s) => ({
+              student_id: s.student_id,
+              status: 'PRESENT',
+            })),
+          },
+        );
+        expect(saved.session.state).toBe('FINALIZED');
+      });
+
+      await test.step("4. the child's communication history holds the arrival notice", async () => {
+        // The finalize queues the notice after its commit and does not wait for it (D26).
+        await expect
+          .poll(
+            async () => {
+              const logs = await get<{ medium: string; recipient_address: string }[]>(
+                request,
+                admin,
+                `/communications/student/${student.id}`,
+              );
+              // Nothing else messages this new child, so its one PUSH log is the notice.
+              return logs.some(
+                (l) => l.medium === 'PUSH' && l.recipient_address.startsWith('push:'),
+              );
+            },
+            { timeout: 15_000, intervals: [500, 1000] },
+          )
+          .toBe(true);
+      });
+    } finally {
+      await parentContext.close();
+      await teacherContext.close();
+      await teacherApi.dispose();
+    }
   });
 });

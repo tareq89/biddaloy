@@ -57,7 +57,7 @@ import { ConflictDialog } from './-conflict-dialog';
 import { CorrectionDialog } from './-correction-dialog';
 import { PeriodSwitcher } from './-period-switcher';
 import { RecordHistoryPanel } from './-record-history-panel';
-import { ArrivalAwareRosterMarker, RosterMarker, type Draft } from './-roster-marker';
+import { RosterMarker, useArrivalBells, type Draft } from './-roster-marker';
 
 // Browser-local, not `.toISOString()` (UTC), for the search-schema default
 // only: `validateSearch` runs outside React, before the tenant's timezone is
@@ -159,6 +159,7 @@ function SectionRegisterPage() {
   // grants ATTENDANCE_CORRECT without full marking rights.
   const canCorrect = useHasPermission(Permission.ATTENDANCE_CORRECT);
   const canSeeArrival = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE);
+  const arrivalSubscribed = useArrivalBells(sectionId, canSeeArrival);
   const regionConfig = useTenantRegionConfig();
 
   const registerQuery = useSectionRegister(sectionId, date, period);
@@ -651,32 +652,18 @@ function SectionRegisterPage() {
             </div>
           )}
         </div>
-        {canSeeArrival ? (
-          <ArrivalAwareRosterMarker
-            sectionId={sectionId}
-            students={students}
-            draft={draft}
-            onStatusChange={handleStatusChange}
-            onMinutesLateChange={handleMinutesLateChange}
-            onAllPresent={handleAllPresent}
-            onSubmit={handleSubmit}
-            disabled={!editable}
-            allowedStatuses={allowedStatuses}
-            renderRowActions={renderRowActions}
-          />
-        ) : (
-          <RosterMarker
-            students={students}
-            draft={draft}
-            onStatusChange={handleStatusChange}
-            onMinutesLateChange={handleMinutesLateChange}
-            onAllPresent={handleAllPresent}
-            onSubmit={handleSubmit}
-            disabled={!editable}
-            allowedStatuses={allowedStatuses}
-            renderRowActions={renderRowActions}
-          />
-        )}
+        <RosterMarker
+          students={students}
+          draft={draft}
+          onStatusChange={handleStatusChange}
+          onMinutesLateChange={handleMinutesLateChange}
+          onAllPresent={handleAllPresent}
+          onSubmit={handleSubmit}
+          disabled={!editable}
+          allowedStatuses={allowedStatuses}
+          renderRowActions={renderRowActions}
+          arrivalSubscribed={arrivalSubscribed}
+        />
         {editable && (
           <p className="hidden border-t border-border-subtle px-5 py-3 text-caption text-text-secondary md:block">
             {t('mark.shortcutHint')}

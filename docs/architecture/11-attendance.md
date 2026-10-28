@@ -890,6 +890,7 @@ Deleting the student or guardian deletes the row.
 | ------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
 | Guardian (role `PARENT`) of the child       | Ask, or switch off, for their own linked children       | `GET` and `PUT /portal/arrival-subscriptions`      |
 | Class teacher (own section only)            | List, add, confirm or decline a row                     | `/attendance/arrival-subscriptions`                |
+| `ADMIN` or `EXECUTIVE` (any section)        | The same, school-wide, from a student's Guardians tab   | `/attendance/arrival-subscriptions`                |
 | Admin with `ATTENDANCE_ARRIVAL_NOTICE_LOCK` | Set a lock (`ALWAYS` or `NEVER`); only `ADMIN` holds it | `PATCH /attendance/arrival-subscriptions/:id/lock` |
 
 A lock beats the guardian: under `NEVER` the guardian cannot ask, under
@@ -899,10 +900,14 @@ A lock beats the guardian: under `NEVER` the guardian cannot ask, under
 
 ### The two wordings
 
-| Who marked the child in          | Bangla (as sent)                                    | English                                                   |
-| -------------------------------- | --------------------------------------------------- | --------------------------------------------------------- |
-| A teacher finalized the register | `আনিকা আজ ০৮:২০-এ উপস্থিত — মিসেস রহমান।`           | `Anika is present today at 08:20 - Mrs Rahman.`           |
-| A gate device read the card      | `আনিকা আজ ০৮:২০-এ স্কুলে পৌঁছেছে — মেইন গেট রিডার।` | `Anika reached school today at 08:20 - Main Gate Reader.` |
+| Who marked the child in          | Bangla (as sent)                                        | English                                                   |
+| -------------------------------- | ------------------------------------------------------- | --------------------------------------------------------- |
+| A teacher finalized the register | `আনিকা আজ সকাল ৮:২০-এ উপস্থিত — মিসেস রহমান।`           | `Anika is present today at 08:20 - Mrs Rahman.`           |
+| A gate device read the card      | `আনিকা আজ সকাল ৮:২০-এ স্কুলে পৌঁছেছে — মেইন গেট রিডার।` | `Anika reached school today at 08:20 - Main Gate Reader.` |
+
+The time is `formatArrivalTime` (`arrival-notice.service.ts`, D39): in Bangla a
+day-part word (`সকাল` / `দুপুর` / `বিকাল`) then 12-hour `h:mm` with no leading
+zero; in English 24-hour `HH:mm`, in the school's timezone.
 
 The last part is the teacher's name (or "the office" / `অফিস`) or the device
 name exactly as saved. Text always says "today", so a late upload of an old
@@ -932,7 +937,12 @@ Nobody gets a half-sent message and the teacher sees no error.
 - The school switch `arrivalNotice.enabled` is read only by the send hooks.
   The subscription routes still accept rows while it is off; they just never
   send.
-- Both switches default to off (`enabled: false`, `smsAllowed: false`).
+- Both switches default to off (`enabled: false`, `smsAllowed: false`). The
+  e2e dev seed turns `enabled` on (app only, `ensureArrivalNoticeSetting`), so
+  no Playwright spec ever switches it: specs run in parallel, and one spec
+  turning it off would silence another spec's register.
+- Saving Settings with notices off also saves `smsAllowed: false`, so SMS
+  (which spends credit) never comes back on by itself.
 
 Screens: the My class card (guardian requests, answer "once" or "every
 school day"), the register bell, and the two switches in Settings >
@@ -1025,6 +1035,15 @@ no shared tables, no shared code, just the same status enum reused. See
 - **2026-10-29 · Epic 84 W4 close — a notice that fires once per day cannot be a shared fixture.**
   Surprise: the notice is sent only when today's register is finalized, and other
   attendance specs finalize the same Class 6 / A register. Cost: the journey cannot
-  rerun on one database and may be pre-empted. Fix: it skips (with a reason) when
-  the register is already finalized, and keeps each seeded student's streak when it
-  finalizes. Rule candidate: give a once-per-day journey its own section.
+  rerun on one database and may be pre-empted. Fix (review round 1): the journey
+  builds its own section, child, guardian account (batch invite + first sign-in
+  with a code) and class teacher, and hard-asserts the register is not finalized;
+  the bell spec has its own section too. Rule candidate: give a once-per-day
+  journey its own section.
+- **2026-10-29 · Epic 84 PR 2 review — a skip is not a pass, and a shared switch is a race.**
+  Surprise: the journey's two key legs skipped (green) whenever another spec had
+  finalized Class 6 / A first, and three spec files changed the same seeded row and
+  the school switch in parallel (`fullyParallel`, 4 workers). Cost: the end-to-end
+  proof could stay unrun in CI with the suite green. Fix: own data per spec, the
+  switch set once by the seed, settings restores merge only their own key. Rule
+  candidate: a spec never writes a tenant switch another file depends on.

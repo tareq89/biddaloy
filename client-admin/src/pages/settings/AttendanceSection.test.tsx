@@ -236,6 +236,34 @@ describe('AttendanceSection', () => {
     });
   });
 
+  it('saves SMS as off when arrival notices are turned off (84 review #20)', async () => {
+    const patchBody = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        patchBody(await request.json());
+        return HttpResponse.json({ version: 1 });
+      }),
+    );
+    const { user } = renderWithProviders(
+      <WithTestRouter>
+        <AttendanceSection
+          schoolId={SCHOOL_ID}
+          attendance={{ ...ATTENDANCE, arrivalNotice: { enabled: true, smsAllowed: true } }}
+        />
+      </WithTestRouter>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    await user.click(await screen.findByLabelText('Send arrival notices'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patchBody).toHaveBeenCalled());
+    // A hidden "SMS allowed" must not survive: turning notices on later starts with SMS off.
+    expect(patchBody.mock.calls[0]![0].attendance.arrivalNotice).toEqual({
+      enabled: false,
+      smsAllowed: false,
+    });
+  });
+
   it('shows a translated error, never the server text, when the save fails', async () => {
     server.use(failing('/api/v1/schools/:id/settings'));
     const { user } = renderWithProviders(

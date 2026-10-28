@@ -371,6 +371,39 @@ describe('/my-class/$sectionId', () => {
       );
     });
 
+    it('keeps focus in the card after answering, while the request count changes', async () => {
+      let answered = false;
+      let sectionsCalls = 0;
+      mockAll([
+        // The badge count drops after an answer, so the sections refetch returns a new object.
+        http.get('/api/v1/my-class/sections', () => {
+          sectionsCalls += 1;
+          return HttpResponse.json([{ ...SECTION, arrival_request_count: answered ? 0 : 1 }]);
+        }),
+        http.get('/api/v1/attendance/arrival-subscriptions', () =>
+          HttpResponse.json([sub(answered ? { status: 'ACTIVE', mode: 'RECURRING' } : {})]),
+        ),
+        http.patch('/api/v1/attendance/arrival-subscriptions/:id', () => {
+          answered = true;
+          return HttpResponse.json(sub({ status: 'ACTIVE', mode: 'RECURRING' }));
+        }),
+      ]);
+      render();
+      const heading = await screen.findByRole('heading', { name: 'Arrival notices' });
+      const card = heading.closest('section')!;
+      const everyDay = await within(card).findByRole('button', { name: 'Every school day' });
+      // First focus went to Take attendance; the teacher then works in the card.
+      const take = await screen.findByRole('link', { name: "Take today's attendance" });
+      await waitFor(() => expect(document.activeElement).toBe(take));
+      const before = sectionsCalls;
+      everyDay.focus();
+      fireEvent.click(everyDay);
+      await waitFor(() => expect(sectionsCalls).toBeGreaterThan(before));
+      await within(card).findByText('Every school day');
+      // Not thrown back to Take attendance (or the body) by the refetch.
+      await waitFor(() => expect(card.contains(document.activeElement)).toBe(true));
+    });
+
     it('focuses the card heading for ?then=arrival', async () => {
       mockAll();
       render('/my-class/section-1?then=arrival');

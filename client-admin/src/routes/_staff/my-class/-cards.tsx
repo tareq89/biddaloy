@@ -525,7 +525,18 @@ export function ArrivalNoticesCard({ sectionId }: { sectionId: string }) {
   const on = rows.filter((r) => r.status === 'ACTIVE' || (r.status === 'OFF' && r.consumed_at));
   const failedId = patch.isError ? patch.variables.id : undefined;
 
-  const send = (id: string, input: ArrivalPatch) => patch.mutate({ id, input });
+  // A status change (answer a request, or Stop) moves the row out of its list, taking the
+  // pressed button with it: keep the keyboard in the card (its heading), not on the page body.
+  // A mode-only change keeps the row and its button, so focus stays put.
+  const send = (id: string, input: ArrivalPatch) =>
+    patch.mutate(
+      { id, input },
+      {
+        onSuccess: () => {
+          if (input.status) document.getElementById('my-class-arrival')?.focus();
+        },
+      },
+    );
   const channel = (r: StaffArrivalSubscription) =>
     t(r.channel === 'SMS' ? 'arrival.smsChannel' : 'arrival.appChannel');
   const who = (r: StaffArrivalSubscription) => (

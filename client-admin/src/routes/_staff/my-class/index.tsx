@@ -81,6 +81,8 @@ function MyClassPickerPage() {
   const region = useRegionConfig();
   const query = useMyClassSections();
   const sections = query.data ?? [];
+  // The palette's "→ arrival" path picks a section here, then lands on the card.
+  const { then } = Route.useSearch();
 
   let body: ReactNode;
   if (query.isPending) {
@@ -118,6 +120,7 @@ function MyClassPickerPage() {
               <Link
                 to="/my-class/$sectionId"
                 params={{ sectionId: section.section_id }}
+                search={then === 'arrival' ? { then } : {}}
                 className="flex min-h-16 items-center gap-3 rounded-lg border border-border-subtle bg-surface p-4 no-underline shadow-e1 hover:bg-muted md:p-5"
               >
                 <span

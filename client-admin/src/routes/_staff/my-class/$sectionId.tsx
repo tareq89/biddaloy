@@ -4,8 +4,13 @@
  * A section the caller is not a CLASS/ASSISTANT teacher of is a 404, same as
  * an id that does not exist.
  */
+import { Permission } from '@biddaloy/shared';
 import { Button, ErrorState, HelpHint, RoutePending } from '@biddaloy/ui/components';
-import { myClassSectionsQueryOptions, useMyClassSections } from '@biddaloy/ui/hooks';
+import {
+  myClassSectionsQueryOptions,
+  useHasPermission,
+  useMyClassSections,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
@@ -55,15 +60,21 @@ function MyClassSectionPage() {
   const query = useMyClassSections();
   const attendanceRef = React.useRef<HTMLAnchorElement>(null);
   const section = query.data?.find((s) => s.section_id === sectionId);
+  // The card's list needs MANAGE; MY_CLASS_VIEW alone must not mount a card that can only fail.
+  const canManageArrival = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE);
+  const resolvedId = section?.section_id;
 
   // First focus: the one thing a class teacher does here every morning.
-  // Runs once the section resolves (the button only exists then).
+  // Runs once per section, when it resolves (the button only exists then). Keyed on the id,
+  // not the object: answering a request refetches the sections (the count changes), and
+  // focus must stay where the teacher is working in the card.
   // `?then=arrival` (palette / alert link) lands on the arrival card instead.
   React.useEffect(() => {
-    if (!section) return;
+    if (!resolvedId) return;
     if (then === 'arrival') document.getElementById('my-class-arrival')?.focus();
     else attendanceRef.current?.focus();
-  }, [section, then]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `then` is read on first focus only
+  }, [resolvedId]);
 
   if (query.isError && !section) {
     return (
@@ -116,7 +127,7 @@ function MyClassSectionPage() {
       </header>
       <div className="grid items-start gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
         <AbsenteesCard sectionId={sectionId} />
-        <ArrivalNoticesCard sectionId={sectionId} />
+        {canManageArrival && <ArrivalNoticesCard sectionId={sectionId} />}
         <FlagsCard sectionId={sectionId} />
         <DuesCard sectionId={sectionId} />
         <HomeworkCard sectionId={sectionId} />

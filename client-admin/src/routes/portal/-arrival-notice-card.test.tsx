@@ -1,4 +1,4 @@
-import { cleanupTestState, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -76,6 +76,42 @@ describe('ArrivalNoticeCard', () => {
     const sw = await screen.findByRole('switch', { name: /Fatima/ });
     expect((sw as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByText('Set by the admin').length).toBeGreaterThan(0);
+  });
+
+  it('under an ALWAYS lock the switch is fixed but the guardian still picks how it is sent', async () => {
+    mock([
+      {
+        student_id: 'kid-a',
+        student_name: 'Fatima',
+        subscription: sub({ lock: 'ALWAYS', status: 'ACTIVE', mode: 'RECURRING' }),
+      },
+    ]);
+    renderPortalCard(<ArrivalNoticeCard />);
+    const sw = await screen.findByRole('switch', { name: /Fatima/ });
+    // The server answers 409 to "off" under ALWAYS, so the switch must not offer it (D35).
+    expect((sw as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Set by the admin')).toBeTruthy();
+    expect(
+      screen.getByText('The admin has turned this on. You can still choose how it is sent.'),
+    ).toBeTruthy();
+    const sms = screen.getByRole('radio', { name: 'By SMS' });
+    expect((sms as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('shows one fixed sentence when the save fails, never the server text', async () => {
+    mock(kids);
+    server.use(
+      http.put('/api/v1/portal/arrival-subscriptions/:id', () =>
+        HttpResponse.json(
+          apiErrorBody(409, 'secret server text', '/api/v1/portal/arrival-subscriptions/kid-b'),
+          { status: 409 },
+        ),
+      ),
+    );
+    renderPortalCard(<ArrivalNoticeCard />);
+    await userEvent.click(await screen.findByRole('switch', { name: /Imran/ }));
+    expect((await screen.findByRole('alert')).textContent).toBe('Could not save. Try again.');
+    expect(screen.queryByText('secret server text')).toBeNull();
   });
 
   it('renders nothing when the school switch is off', async () => {

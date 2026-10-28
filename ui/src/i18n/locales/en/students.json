@@ -254,7 +254,7 @@
           "stop": "Stop",
           "always": "Always",
           "never": "Never",
-          "clear": "Clear lock"
+          "clear": "Let the teacher decide"
         },
         "lockedNote": "An admin has fixed this. It cannot be changed here.",
         "updatedOn": "Changed on {{date}}",

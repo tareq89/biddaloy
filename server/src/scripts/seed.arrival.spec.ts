@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ensureArrivalSeed, type ArrivalSeedRepositories } from './seed.arrival';
+import type { School } from '../modules/schools/entities/school.entity';
+import {
+  ensureArrivalNoticeSetting,
+  ensureArrivalSeed,
+  type ArrivalSeedRepositories,
+} from './seed.arrival';
 
 const TENANT = 'school-1';
 
@@ -51,5 +56,29 @@ describe('ensureArrivalSeed [84.4.4]', () => {
     const { subs, repos } = setup(false);
     await ensureArrivalSeed(repos, TENANT);
     expect(subs).toHaveLength(0);
+  });
+});
+
+describe('ensureArrivalNoticeSetting [84.4.4]', () => {
+  it('turns arrival notices on, app only, when the school never set them', () => {
+    const school = {
+      settings: { attendance: { periodAttendance: { enabled: true } } },
+    } as unknown as School;
+    expect(ensureArrivalNoticeSetting(school)).toBe(true);
+    expect(school.settings?.attendance).toEqual({
+      periodAttendance: { enabled: true },
+      arrivalNotice: { enabled: true, smsAllowed: false },
+    });
+  });
+
+  it('keeps a hand-set value on a re-run', () => {
+    const school = {
+      settings: { attendance: { arrivalNotice: { enabled: false, smsAllowed: false } } },
+    } as unknown as School;
+    expect(ensureArrivalNoticeSetting(school)).toBe(false);
+    expect(school.settings?.attendance?.arrivalNotice).toEqual({
+      enabled: false,
+      smsAllowed: false,
+    });
   });
 });

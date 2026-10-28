@@ -6,6 +6,7 @@ import {
   ArrivalNoticeStatus,
 } from '@biddaloy/shared';
 import type { ArrivalNoticeSubscription } from '../modules/attendance/entities/arrival-notice-subscription.entity';
+import type { School } from '../modules/schools/entities/school.entity';
 import type { Guardian } from '../modules/students/entities/guardian.entity';
 import type { Student } from '../modules/students/entities/student.entity';
 import { DEMO_ACADEMIC_YEAR } from './seed.util';
@@ -16,6 +17,22 @@ export interface ArrivalSeedRepositories {
   studentRepository: Repository<Student>;
   guardianRepository: Repository<Guardian>;
   arrivalSubscriptionRepository: Repository<ArrivalNoticeSubscription>;
+}
+
+/**
+ * [84.4.4] Arrival notices on for the e2e school (the default is off), app only. The switch is
+ * part of the seed so no e2e spec has to turn it on and off: specs run in parallel, and one
+ * spec switching it off would silence another spec's register. Only flips the default (absent),
+ * like `ensureAttendancePeriodSetting`; returns whether it changed anything.
+ */
+export function ensureArrivalNoticeSetting(school: School): boolean {
+  const attendance = school.settings?.attendance;
+  if (attendance?.arrivalNotice !== undefined) return false;
+  school.settings = {
+    ...(school.settings ?? {}),
+    attendance: { ...attendance, arrivalNotice: { enabled: true, smsAllowed: false } },
+  } as School['settings'];
+  return true;
 }
 
 /** [84.4.4 / D33] The guardian behind `parent@biddaloy.test` (see `ensureDemoStudents`). */

@@ -6,6 +6,7 @@ import {
   MenuItem,
   MenuSeparator,
   MenuTrigger,
+  Skeleton,
   StatusBadge,
   type StatusTone,
 } from '@biddaloy/ui/components';
@@ -48,8 +49,9 @@ function badgeKey(sub: StaffArrivalSubscription | undefined): BadgeKey {
   if (sub.lock === 'ALWAYS') return 'adminAlways';
   if (sub.lock === 'NEVER') return 'adminNever';
   if (sub.status === 'REQUESTED') return 'waiting';
-  if (sub.status === 'OFF') return 'off';
-  if (sub.mode === 'ONCE') return sub.consumed_at ? 'done' : 'once';
+  // A used "Once" ends OFF with `consumed_at` set: Done, as on My class and the portal.
+  if (sub.status === 'OFF') return sub.consumed_at ? 'done' : 'off';
+  if (sub.mode === 'ONCE') return 'once';
   return 'daily';
 }
 
@@ -60,7 +62,8 @@ export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNot
   const config = useRegionConfig();
   const canManage = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE);
   const canLock = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_LOCK);
-  const list = useArrivalSubscriptions({ sectionId, limit: 100 });
+  // Same query key as the Guardians tab's read, so this is the cached list, not a new call.
+  const list = useArrivalSubscriptions({ sectionId });
   const create = useCreateArrivalSubscription();
   const patch = usePatchArrivalSubscription();
   const lockMutation = useLockArrivalSubscription();
@@ -79,6 +82,13 @@ export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNot
     if (sub) lockMutation.mutate({ id: sub.id, lock });
   };
 
+  // No state is known yet (loading) or at all (failed): never claim "Not asked" and never
+  // offer choices that cannot be saved.
+  if (list.isPending) return <Skeleton className="h-6 w-24" />;
+  if (list.isError) {
+    return <span className="text-text-secondary">{t('list.emptyValue')}</span>;
+  }
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
@@ -88,7 +98,7 @@ export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNot
             {t(`detail.guardians.arrival.channel.${sub.channel}`)}
           </span>
         )}
-        {(canManage || canLock) && (
+        {canManage && (
           <Menu>
             <MenuTrigger asChild>
               <Button
@@ -117,11 +127,6 @@ export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNot
                   >
                     {t('detail.guardians.arrival.action.stop')}
                   </MenuItem>
-                  {locked && (
-                    <p className="px-2 py-1 text-caption text-text-secondary">
-                      {t('detail.guardians.arrival.lockedNote')}
-                    </p>
-                  )}
                 </>
               )}
               {canLock && (
@@ -142,6 +147,13 @@ export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNot
           </Menu>
         )}
       </div>
+      {locked && canManage && (
+        // Outside the menu (a <p> in role="menu" is skipped by screen readers): the reason the
+        // three choices are greyed out.
+        <span className="text-caption text-text-secondary">
+          {t('detail.guardians.arrival.lockedNote')}
+        </span>
+      )}
       {sub && (
         <span className="text-caption text-text-secondary">
           {t('detail.guardians.arrival.updatedOn', {

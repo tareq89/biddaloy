@@ -254,7 +254,12 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
         enabled: values.autoAbsentEnabled,
         cutoffTime: values.autoAbsentCutoffTime,
       },
-      arrivalNotice: { enabled: values.arrivalEnabled, smsAllowed: values.arrivalSmsAllowed },
+      // SMS is off whenever notices are off, so turning notices back on never brings SMS
+      // (which spends credit) back without anyone ticking it again.
+      arrivalNotice: {
+        enabled: values.arrivalEnabled,
+        smsAllowed: values.arrivalEnabled && values.arrivalSmsAllowed,
+      },
       periodAttendance: { enabled: values.periodEnabled },
       specialTimings: values.specialTimings,
     };

@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ArrivalAwareRosterMarker, RosterMarker } from './-roster-marker';
+import { RosterMarker, useArrivalBells } from './-roster-marker';
 
 const STUDENTS = [
   { student_id: 'st-1', full_name: 'Rahim Uddin', roll_number: 1 },
@@ -20,6 +20,12 @@ const base = {
 };
 
 const LABEL = 'Guardian waits for the arrival notice';
+
+/** The register page's wiring: the hook feeds the bell set into one RosterMarker. */
+function WithBells({ enabled }: { enabled: boolean }) {
+  const subscribed = useArrivalBells('section-1', enabled);
+  return <RosterMarker {...base} arrivalSubscribed={subscribed} />;
+}
 
 describe('RosterMarker arrival bell', () => {
   afterEach(async () => {
@@ -48,7 +54,7 @@ describe('RosterMarker arrival bell', () => {
         return HttpResponse.json([]);
       }),
     );
-    renderWithProviders(<RosterMarker {...base} />, { tenantId: 'tenant-1', locale: 'en' });
+    renderWithProviders(<WithBells enabled={false} />, { tenantId: 'tenant-1', locale: 'en' });
     await screen.findByText('Rahim Uddin');
     expect(screen.queryByLabelText(LABEL)).toBeNull();
     expect(hit).not.toHaveBeenCalled();
@@ -62,10 +68,7 @@ describe('RosterMarker arrival bell', () => {
         return HttpResponse.json([{ student_id: 'st-2', status: 'ACTIVE' }]);
       }),
     );
-    renderWithProviders(<ArrivalAwareRosterMarker {...base} sectionId="section-1" />, {
-      tenantId: 'tenant-1',
-      locale: 'en',
-    });
+    renderWithProviders(<WithBells enabled />, { tenantId: 'tenant-1', locale: 'en' });
     await waitFor(() => expect(screen.getAllByLabelText(LABEL)).toHaveLength(1));
     expect(query).toContain('sectionId=section-1');
     expect(query).toContain('status=ACTIVE');

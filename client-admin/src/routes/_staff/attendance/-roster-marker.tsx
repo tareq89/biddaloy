@@ -49,18 +49,18 @@ export interface RosterMarkerProps {
   arrivalSubscribed?: ReadonlySet<string> | undefined;
 }
 
-/** Fetches the section's ACTIVE arrival subscriptions, then renders the roster with bells.
- * Mount only for a caller holding `ATTENDANCE_ARRIVAL_NOTICE_MANAGE` (the list route needs it). */
-export function ArrivalAwareRosterMarker({
-  sectionId,
-  ...props
-}: Omit<RosterMarkerProps, 'arrivalSubscribed'> & { sectionId: string }) {
-  const query = useArrivalSubscriptions({ sectionId, status: 'ACTIVE' });
-  const subscribed = React.useMemo(
-    () => (query.data ? new Set(query.data.map((s) => s.student_id)) : undefined),
-    [query.data],
+/** The section's students with an ACTIVE arrival subscription, for `arrivalSubscribed`.
+ * `enabled` only for a caller holding `ATTENDANCE_ARRIVAL_NOTICE_MANAGE` (the list route needs
+ * it); otherwise no request and `undefined` (no bells). */
+export function useArrivalBells(
+  sectionId: string,
+  enabled: boolean,
+): ReadonlySet<string> | undefined {
+  const query = useArrivalSubscriptions({ sectionId, status: 'ACTIVE' }, { enabled });
+  return React.useMemo(
+    () => (enabled && query.data ? new Set(query.data.map((s) => s.student_id)) : undefined),
+    [enabled, query.data],
   );
-  return <RosterMarker {...props} arrivalSubscribed={subscribed} />;
 }
 
 const STATUS_SHORTCUT: Record<string, AttendanceStatus> = {

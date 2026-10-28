@@ -150,7 +150,7 @@ A guardian can ask to be told when their child reaches school. You decide how of
 
    → A request you accept moves under **On**, with a mark: **Once** or **Every school day**.
 
-2. To change it later, press the row's action menu and choose **Change to every school day** or **Change to once**. After a **Once** message has gone, the mark says **Done**.
+2. To change it later, press **Change to every school day** or **Change to once** on the row. **Stop** on the row turns it off. After a **Once** message has gone, the mark says **Done**.
 
 If the card says **Set by school**, an admin fixed it and you cannot change it. If it says **No guardian has asked for arrival notices yet.**, there is nothing to answer.
 

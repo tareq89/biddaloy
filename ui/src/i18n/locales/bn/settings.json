@@ -178,7 +178,7 @@
     "autoAbsentLegend": "অনুপস্থিতির স্বয়ংক্রিয় বার্তা",
     "autoAbsentEnabled": "কোনো শিক্ষার্থীকে অনুপস্থিত চিহ্নিত করা হলে স্বয়ংক্রিয়ভাবে অভিভাবককে জানান",
     "autoAbsentCutoffTime": "পাঠানোর সময়সীমা",
-    "arrivalEnabled": "আগমন বার্তা পাঠাও",
+    "arrivalEnabled": "আগমন বার্তা পাঠান",
     "arrivalSmsAllowed": "আগমন বার্তায় SMS অনুমতি",
     "confirmEnableNotificationDescription": "এটি চালু করলে প্রতিদিন প্রতিটি অনুপস্থিত শিক্ষার্থীর অভিভাবককে স্বয়ংক্রিয়ভাবে একটি বিজ্ঞপ্তি পাঠানো হবে। আপনি কি নিশ্চিত?",
     "confirmEnableNotificationConfirm": "হ্যাঁ, চালু করুন",

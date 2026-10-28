@@ -18,6 +18,7 @@ import { PrintJobItem } from '../../../modules/print/entities/print-job-item.ent
 import { SmsCreditBalance } from '../../../modules/communications/credits/entities/sms-credit-balance.entity';
 import { PrintTemplatesService } from '../../../modules/print/templates/print-templates.service';
 import { PrintJobsService } from '../../../modules/print/jobs/print-jobs.service';
+import { formatArrivalTime } from '../../../modules/attendance/arrival-notice.service';
 import { insertChunked } from '../bulk';
 import { orgIds, type OrgTenant } from './org';
 import { studentIds } from './students';
@@ -47,6 +48,9 @@ const addDays = (date: string, n: number) =>
   new Date(Date.parse(date) + n * 86_400_000).toISOString().slice(0, 10);
 const at = (date: string, hh: number, mm = 0) =>
   new Date(`${date}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00+06:00`);
+/** `YYYY-MM-DD` of a moment in Asia/Dhaka (UTC+6, no DST), the inverse of `at`. */
+const dhakaDate = (when: Date) =>
+  new Date(when.getTime() + 6 * 3_600_000).toISOString().slice(0, 10);
 
 function body(kind: Kind, child: string, date: string): string {
   const month = MONTH_BN[Number(date.slice(5, 7)) - 1];
@@ -266,14 +270,22 @@ async function messages(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
   return rows + 1;
 }
 
-const BN_DIGITS = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+/** A stable uuid-shaped id from a string, so the log ids take no `ctx.rng` draw. */
+const stableId = (seed: string) => {
+  const h = createHash('sha1').update(seed).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+};
 
 /**
- * [84.3.6] Sent arrival messages for every ACTIVE subscription: one per school day (up to the
- * last 10) the child was PRESENT or LATE. OFF / REQUESTED rows get none. The first branch is
- * the one wired to the gate reader, so it gets the device wording; the others the teacher one.
- * No `ctx.rng` draw: the minute is derived from the row, so later slices' random streams do
- * not shift. SMS rows also spend a credit, so ledger and balance still agree.
+ * [84.3.6] Sent arrival messages, shaped like the real service leaves them (D4, D23):
+ * - ACTIVE + every school day: one per school day (up to the last 10) the child was PRESENT/LATE;
+ * - a used "Once" (OFF + `consumed_at`): exactly one, at `consumed_at` (that message used it);
+ * - ACTIVE "Once" (nothing sent yet), REQUESTED and plain OFF rows: none.
+ * Like `ArrivalNoticeService`, a PUSH row whose guardian has no user, and an SMS row with no
+ * phone, get nothing. The first branch is the one wired to the gate reader, so it gets the
+ * device wording; the others the teacher one. Time text comes from `formatArrivalTime`.
+ * No `ctx.rng` draw: the minute and the id are derived from the row, so later slices' random
+ * streams do not shift. SMS rows also spend a credit, so ledger and balance still agree.
  */
 export async function arrivalLogs(ctx: DemoSeedContext): Promise<number> {
   const subs: {
@@ -282,52 +294,60 @@ export async function arrivalLogs(ctx: DemoSeedContext): Promise<number> {
     student_id: string;
     guardian_id: string;
     channel: string;
+    status: string;
+    consumed_at: Date | null;
     name: string;
     guardian: string;
     guardian_user_id: string | null;
     phone: string | null;
     setter: string | null;
   }[] = await ctx.ds.query(
-    `SELECT a.id, a.tenant_id, a.student_id, a.guardian_id, a.channel,
+    `SELECT a.id, a.tenant_id, a.student_id, a.guardian_id, a.channel, a.status, a.consumed_at,
             COALESCE(st.full_name_bn, st.full_name) AS name, g.full_name AS guardian,
             g.user_id AS guardian_user_id, g.phone, u.full_name AS setter
        FROM arrival_notice_subscriptions a
        JOIN students st ON st.id = a.student_id
        JOIN guardians g ON g.id = a.guardian_id
        LEFT JOIN users u ON u.id = a.set_by_user_id
-      WHERE a.status = 'ACTIVE' ORDER BY a.tenant_id, a.id`,
+      WHERE (a.status = 'ACTIVE' AND a.mode = 'RECURRING')
+         OR (a.status = 'OFF' AND a.consumed_at IS NOT NULL)
+      ORDER BY a.tenant_id, a.id`,
   );
   const firstBranch = orgIds(ctx).tenants[0].id;
-  const bn = (n: number) =>
-    String(n)
-      .padStart(2, '0')
-      .replace(/\d/g, (d) => BN_DIGITS[Number(d)]);
   const logs: Record<string, unknown>[] = [];
   const debits: { tenant: string; id: string; at: Date }[] = [];
   for (const [i, sub] of subs.entries()) {
-    const days: { date: string }[] = await ctx.ds.query(
-      `SELECT DISTINCT to_char(date, 'YYYY-MM-DD') AS date FROM attendance_records
-        WHERE tenant_id = $1 AND student_id = $2 AND status IN ('PRESENT', 'LATE') AND date <= $3
-        ORDER BY 1 DESC LIMIT 10`,
-      [sub.tenant_id, sub.student_id, ctx.anchor],
-    );
     const sms = sub.channel === 'SMS';
-    if (sms && !sub.phone) continue;
-    for (const [d, { date }] of days.entries()) {
-      const hh = 7 + ((i + d) % 2);
-      const mm = (i * 7 + d * 11) % 50;
-      const when = at(date, hh, 5 + mm);
-      const time = `${bn(hh)}:${bn(5 + mm)}`;
+    if (sms ? !sub.phone : !sub.guardian_user_id) continue;
+    let sends: { date: string; when: Date }[];
+    if (sub.consumed_at) {
+      const when = new Date(sub.consumed_at);
+      sends = [{ date: dhakaDate(when), when }];
+    } else {
+      const days: { date: string }[] = await ctx.ds.query(
+        `SELECT DISTINCT to_char(date, 'YYYY-MM-DD') AS date FROM attendance_records
+          WHERE tenant_id = $1 AND student_id = $2 AND status IN ('PRESENT', 'LATE') AND date <= $3
+          ORDER BY 1 DESC LIMIT 10`,
+        [sub.tenant_id, sub.student_id, ctx.anchor],
+      );
+      sends = days.map(({ date }, d) => ({
+        date,
+        when: at(date, 7 + ((i + d) % 2), 5 + ((i * 7 + d * 11) % 50)),
+      }));
+    }
+    for (const { date, when } of sends) {
+      const time = formatArrivalTime(when, 'Asia/Dhaka', 'bn');
       const body =
         sub.tenant_id === firstBranch
           ? `${sub.name} আজ ${time}-এ স্কুলে পৌঁছেছে — Main Gate Reader।`
           : `${sub.name} আজ ${time}-এ উপস্থিত — ${sub.setter ?? 'অফিস'}।`;
-      const id = ctx.rng.string.uuid();
+      const referenceKey = `arrival:${date}:${sub.student_id}:${sub.guardian_id}`;
+      const id = stableId(`${sub.tenant_id}:${referenceKey}`);
       logs.push({
         id,
         tenant_id: sub.tenant_id,
         medium: sms ? CommunicationMedium.SMS : 'PUSH',
-        recipient_address: sms ? sub.phone : `push:${sub.guardian_user_id ?? sub.guardian_id}`,
+        recipient_address: sms ? sub.phone : `push:${sub.guardian_user_id}`,
         recipient_name: sub.guardian,
         message_body: body,
         subject: 'Arrival Notice',
@@ -338,7 +358,7 @@ export async function arrivalLogs(ctx: DemoSeedContext): Promise<number> {
         sent_by_user_id: null,
         provider_message_id: `${DEMO_PROVIDER}-${id}`,
         metadata: { provider: DEMO_PROVIDER, kind: 'ARRIVAL', subscription_id: sub.id },
-        reference_key: `arrival:${date}:${sub.student_id}:${sub.guardian_id}`,
+        reference_key: referenceKey,
         created_at: when,
         updated_at: when,
       });

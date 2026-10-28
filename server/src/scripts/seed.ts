@@ -83,7 +83,7 @@ import { ensureAttentionSeed } from './seed.attention';
 import { ensureAttentionRulesSeed } from './seed.attention-rules';
 import { ensureAttentionW5Seed } from './seed.attention-w5';
 import { ensureDashboardSeed } from './seed.dashboard';
-import { ensureArrivalSeed } from './seed.arrival';
+import { ensureArrivalNoticeSetting, ensureArrivalSeed } from './seed.arrival';
 import { ArrivalNoticeSubscription } from '../modules/attendance/entities/arrival-notice-subscription.entity';
 import { Alert } from '../modules/attention/entities/alert.entity';
 import { AlertRecipient } from '../modules/attention/entities/alert-recipient.entity';
@@ -211,6 +211,11 @@ export async function seed() {
   if (ensureAttendancePeriodSetting(school)) {
     await schoolRepository.save(school);
     console.log(`Turned period attendance on for ${school.name}.`);
+  }
+  // [84.4.4] Arrival notices on (app only), so the e2e arrival journeys never flip the switch.
+  if (ensureArrivalNoticeSetting(school)) {
+    await schoolRepository.save(school);
+    console.log(`Turned arrival notices on for ${school.name}.`);
   }
 
   await seedAccounts(

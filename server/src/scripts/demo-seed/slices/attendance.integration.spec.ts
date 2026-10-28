@@ -265,27 +265,58 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
     expect(Number(staffPct)).toBeGreaterThan(94);
   }, 120_000);
 
-  it('seeds sent arrival logs for ACTIVE subscriptions only (84.3.6)', async () => {
-    // Every ACTIVE subscription has 1..10 arrival logs; OFF and REQUESTED rows have none.
+  it('seeds sent arrival logs shaped like the real service (84.3.6, D4, D23)', async () => {
     const per = await q(
-      `SELECT a.status, count(l.*)::int AS n
+      `SELECT a.status, a.mode, a.consumed_at, a.channel,
+              (CASE WHEN a.channel = 'SMS' THEN g.phone IS NOT NULL ELSE g.user_id IS NOT NULL END)
+                AS reachable,
+              count(l.*)::int AS n,
+              min(l.created_at) AS first_at
          FROM arrival_notice_subscriptions a
+         JOIN guardians g ON g.id = a.guardian_id
          LEFT JOIN communication_logs l ON l.trigger = 'ARRIVAL_NOTICE'
           AND l.student_id = a.student_id AND l.guardian_id = a.guardian_id
-        GROUP BY a.id, a.status`,
+        GROUP BY a.id, g.phone, g.user_id`,
     );
-    const active = per.filter((r) => r.status === 'ACTIVE');
-    expect(active.length).toBeGreaterThan(0);
-    for (const r of active) {
-      expect(r.n).toBeGreaterThanOrEqual(1);
-      expect(r.n).toBeLessThanOrEqual(10);
+    // Every school day, reachable guardian: 1..10 messages (one per day the child came in).
+    const recurring = per.filter((r) => r.status === 'ACTIVE' && r.mode === 'RECURRING');
+    expect(recurring.some((r) => r.reachable)).toBe(true);
+    for (const r of recurring) {
+      if (r.reachable) {
+        expect(r.n).toBeGreaterThanOrEqual(1);
+        expect(r.n).toBeLessThanOrEqual(10);
+      } else {
+        // Like the service: no user means no PUSH address, no phone means no SMS.
+        expect(r.n).toBe(0);
+      }
     }
-    for (const r of per.filter((r) => r.status !== 'ACTIVE')) expect(r.n).toBe(0);
+    // A used "Once" had exactly the one message that used it, at `consumed_at`.
+    const used = per.filter((r) => r.status === 'OFF' && r.consumed_at !== null);
+    expect(used.length).toBeGreaterThan(0);
+    for (const r of used) {
+      expect(r.n).toBe(r.reachable ? 1 : 0);
+      if (r.reachable) {
+        expect(new Date(r.first_at).getTime()).toBe(new Date(r.consumed_at).getTime());
+      }
+    }
+    // An ACTIVE "Once" has sent nothing yet (the first message would use it up); REQUESTED and
+    // plain OFF rows have none either.
+    for (const r of per.filter((r) => !recurring.includes(r) && !used.includes(r))) {
+      expect(r.n).toBe(0);
+    }
     const bad = await q(
       `SELECT count(*)::int AS n FROM communication_logs
-        WHERE trigger = 'ARRIVAL_NOTICE' AND (status <> 'SENT' OR reference_key NOT LIKE 'arrival:%')`,
+        WHERE trigger = 'ARRIVAL_NOTICE' AND (status <> 'SENT' OR reference_key NOT LIKE 'arrival:%'
+          OR (medium = 'PUSH' AND recipient_address NOT LIKE 'push:%'))`,
     );
     expect(bad[0].n).toBe(0);
+    // The Bangla time reads like `formatArrivalTime`: a day-part word, then h:mm (no leading 0).
+    const bodies = await q<{ message_body: string }>(
+      `SELECT message_body FROM communication_logs WHERE trigger = 'ARRIVAL_NOTICE' LIMIT 20`,
+    );
+    for (const { message_body } of bodies) {
+      expect(message_body).toMatch(/আজ (সকাল|দুপুর|বিকাল) [১-৯][০-৯]?:[০-৯]{2}-এ /);
+    }
   }, 120_000);
 
   it('seeds 15 arrival-notice subscriptions over 3 branches (D43)', async () => {

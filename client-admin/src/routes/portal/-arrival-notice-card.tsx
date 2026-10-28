@@ -18,7 +18,8 @@ type Channel = 'PUSH' | 'SMS';
 
 function badgeFor(sub: MyArrivalChild['subscription']): { tone: StatusTone; key: string } | null {
   if (sub === null) return null;
-  if (sub.lock === 'NEVER') return { tone: 'neutral', key: 'locked' };
+  // Either admin choice (D35) shows "Set by the admin": the guardian cannot change it.
+  if (sub.lock !== 'NONE') return { tone: 'neutral', key: 'locked' };
   if (sub.status === 'REQUESTED') return { tone: 'warning', key: 'waiting' };
   if (sub.status === 'ACTIVE') {
     return sub.mode === 'RECURRING'
@@ -42,7 +43,10 @@ function ChildRow({
   const put = usePutPortalArrivalSubscription();
   const sub = child.subscription;
   const on = sub !== null && (sub.status === 'REQUESTED' || sub.status === 'ACTIVE');
-  const locked = sub?.lock === 'NEVER';
+  // NEVER and ALWAYS both fix the switch (the server answers 409 to a change); under ALWAYS
+  // the guardian still picks how it is sent (D5).
+  const lock = sub?.lock ?? 'NONE';
+  const locked = lock !== 'NONE';
   const channel: Channel = sub?.channel ?? 'PUSH';
   const badge = badgeFor(sub);
   const send = (want: boolean, next: Channel) =>
@@ -68,9 +72,11 @@ function ChildRow({
         </div>
       </div>
       {locked && (
-        <p className="text-caption text-text-secondary">{t('arrivalNotice.lockedHint')}</p>
+        <p className="text-caption text-text-secondary">
+          {t(lock === 'ALWAYS' ? 'arrivalNotice.lockedAlwaysHint' : 'arrivalNotice.lockedHint')}
+        </p>
       )}
-      {on && !locked && (
+      {on && lock !== 'NEVER' && (
         <>
           <RadioRows
             legend={t('arrivalNotice.channelLegend')}
@@ -96,6 +102,12 @@ function ChildRow({
             </p>
           )}
         </>
+      )}
+      {put.isError && (
+        // One fixed sentence: the server's text is never shown (Rule 23).
+        <p role="alert" className="text-caption text-destructive">
+          {t('arrivalNotice.saveError')}
+        </p>
       )}
     </li>
   );

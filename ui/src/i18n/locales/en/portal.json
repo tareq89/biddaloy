@@ -545,6 +545,8 @@
       "locked": "Set by the admin"
     },
     "lockedHint": "The admin has set this. It cannot be changed here.",
+    "lockedAlwaysHint": "The admin has turned this on. You can still choose how it is sent.",
+    "saveError": "Could not save. Try again.",
     "channelLegend": "How to send",
     "channel": {
       "push": "In the app",
@@ -552,6 +554,6 @@
     },
     "smsNotAllowed": "Your school sends this in the app only",
     "noPush": "This phone does not have the app yet. Choose SMS or install the app.",
-    "noPushLink": "Notification settings"
+    "noPushLink": "Turn on app messages"
   }
 }

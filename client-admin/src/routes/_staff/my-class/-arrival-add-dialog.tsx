@@ -24,6 +24,8 @@ import { useCreateArrivalSubscription, useStudents } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
+import { useRelationshipLabel } from '../students/-detail/relationship-label';
+
 export interface ArrivalAddDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,6 +41,7 @@ export function ArrivalAddDialog({ open, onOpenChange, sectionId }: ArrivalAddDi
     { enabled: open },
   );
   const create = useCreateArrivalSubscription();
+  const relationshipLabel = useRelationshipLabel();
   const [studentId, setStudentId] = React.useState('');
   const [guardianId, setGuardianId] = React.useState('');
   const [mode, setMode] = React.useState<Mode>('ONCE');
@@ -112,7 +115,7 @@ export function ArrivalAddDialog({ open, onOpenChange, sectionId }: ArrivalAddDi
               <SelectContent>
                 {guardians.map((g) => (
                   <SelectItem key={g.id} value={g.id}>
-                    {`${g.full_name} (${g.relationship})`}
+                    {`${g.full_name} (${relationshipLabel(g.relationship)})`}
                   </SelectItem>
                 ))}
               </SelectContent>

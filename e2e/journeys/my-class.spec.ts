@@ -158,8 +158,10 @@ async function guardianRequestsArrivalNotice(): Promise<void> {
 test.describe('class teacher arrival notices', () => {
   test.use(loggedIn('teacher'));
 
-  // [84.3.6] The seed gives the card's section guardian requests (REQUESTED rows), so no
-  // setup call is needed; the test takes whatever is waiting and answers the first one.
+  // [84.3.6] The dev seed holds one ACTIVE row in this section (parent@'s roll-1 child, D33) and
+  // no request. This spec is the only one that touches that row (the arrival journey and the
+  // register bell test use sections of their own): the guardian switching it off and on makes
+  // it a request, and the test answers it.
   test('answers a waiting request with "every school day" and the waiting list shrinks', async ({
     page,
   }) => {

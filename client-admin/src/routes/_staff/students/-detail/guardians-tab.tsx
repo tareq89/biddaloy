@@ -1,7 +1,9 @@
 import { Permission } from '@biddaloy/shared';
+import { isNotFoundError } from '@biddaloy/ui/api';
 import { DataTable, type DataTableColumn } from '@biddaloy/ui/components';
 import {
   useActiveTenant,
+  useArrivalSubscriptions,
   useHasPermission,
   useSchoolSettings,
   useStudent,
@@ -13,23 +15,12 @@ import { Link } from '@tanstack/react-router';
 import { UsersRoundIcon } from 'lucide-react';
 
 import { ArrivalNoticeCell } from './-arrival-notice-cell';
+import { useRelationshipLabel } from './relationship-label';
 import { TabQueryState } from './tab-query-state';
 
 export interface GuardiansTabProps {
   studentId: string;
 }
-
-const KNOWN_RELATIONSHIPS = [
-  'father',
-  'mother',
-  'brother',
-  'sister',
-  'grandfather',
-  'grandmother',
-  'uncle',
-  'aunt',
-  'other',
-];
 
 /** From the student payload, per this ticket's own tab-source table —
  * `Student.guardians` is already loaded by the same `useStudent` query
@@ -42,19 +33,21 @@ export function GuardiansTab({ studentId }: GuardiansTabProps) {
   const canManageArrival = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE);
   const canLockArrival = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_LOCK);
   // School settings are ADMIN-only on the server, so only a lock holder can learn the switch is
-  // off; everyone else sees the column (the staff list is empty for them when the feature is off).
+  // off. A TEACHER or EXECUTIVE still sees the column while it is off: the server keeps listing
+  // and accepting rows then, and no notice is sent until the switch is on (11-attendance
+  // "Known limits").
   const tenantId = useActiveTenant();
   const settings = useSchoolSettings(canLockArrival ? (tenantId ?? '') : '');
   const arrivalOff = settings.data?.attendance?.arrivalNotice?.enabled === false;
-  const showArrival = (canManageArrival || canLockArrival) && !arrivalOff;
-
-  // Free text field: known English values are translated, anything else is shown as typed.
-  const relationshipLabel = (relationship: string): string => {
-    const key = relationship.trim().toLowerCase();
-    return KNOWN_RELATIONSHIPS.includes(key)
-      ? t(`enums.relationship.${key}`, { ns: 'common' })
-      : relationship;
-  };
+  // One read for the whole tab (the cells share it by query key). The list needs MANAGE, and a
+  // teacher who is not this section's class teacher gets a 404: no column for them at all.
+  const sectionId = query.data?.class_section_id ?? '';
+  const arrivalList = useArrivalSubscriptions(
+    { sectionId },
+    { enabled: canManageArrival && !arrivalOff && sectionId !== '' },
+  );
+  const showArrival = canManageArrival && !arrivalOff && !isNotFoundError(arrivalList.error);
+  const relationshipLabel = useRelationshipLabel();
 
   return (
     <TabQueryState

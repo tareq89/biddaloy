@@ -58,6 +58,13 @@ describe('/my-class', () => {
     expect(screen.getAllByText(/^Arrival requests/)).toHaveLength(1);
   });
 
+  it('keeps ?then=arrival on the picker links, so the palette path lands on the card', async () => {
+    mockSections([S1, S2]);
+    render('/my-class?then=arrival');
+    const link = await screen.findByRole('link', { name: /Class 7 – A/ });
+    expect(link.getAttribute('href')).toBe('/my-class/section-1?then=arrival');
+  });
+
   it('redirects to the section page when there is exactly one section', async () => {
     mockSections([S1]);
     const { router } = render('/my-class');
