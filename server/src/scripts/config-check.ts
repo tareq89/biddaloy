@@ -35,7 +35,12 @@ export function runConfigCheck(env: Record<string, unknown>): { ok: boolean; out
   const checks = [
     () => validate(env),
     () => assertSecretEchoAllowed(get('NODE_ENV'), get('ACCOUNT_ACCESS_ECHO_SECRETS')),
-    () => assertMessageSinkAllowed(get('ENV_NAME'), get('MESSAGE_SINK')),
+    () =>
+      assertMessageSinkAllowed(
+        get('ENV_NAME'),
+        get('MESSAGE_SINK'),
+        get('ALLOW_REAL_PROVIDERS_ON_STAGING'),
+      ),
     () => buildDatabaseSsl(get('NODE_ENV'), get('DB_SSL'), get('DB_SSL_REJECT_UNAUTHORIZED')),
     // An unset key or URL is already reported by validate(); these add the shape checks.
     () =>
@@ -200,7 +205,12 @@ export async function runStackConfigCheck(
   if (stack === 'prod' && profiles.includes('sink')) {
     errors.push('COMPOSE_PROFILES must not contain sink on prod');
   }
-  if (stack !== 'prod') {
+  // [87] staging may opt out of the inbox on purpose; demo and prod never can.
+  const realOnStaging = stack === 'staging' && val('ALLOW_REAL_PROVIDERS_ON_STAGING') === 'true';
+  if (val('ALLOW_REAL_PROVIDERS_ON_STAGING') && stack !== 'staging') {
+    errors.push(`ALLOW_REAL_PROVIDERS_ON_STAGING must not be set on ${stack}`);
+  }
+  if (stack !== 'prod' && !realOnStaging) {
     if (!profiles.includes('sink')) errors.push(`COMPOSE_PROFILES must contain sink on ${stack}`);
     if (val('MESSAGE_SINK') !== 'mailpit') errors.push(`MESSAGE_SINK must be mailpit on ${stack}`);
     if (!set('MESSAGE_SINK_PUBLIC_URL')) {
