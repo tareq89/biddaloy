@@ -633,10 +633,11 @@ function SingleStudentView({
         {metaParts.length > 0 && (
           <p className="mt-0.5 text-text-secondary">{metaParts.join(' · ')}</p>
         )}
-        <div className="mt-3">
-          <Button asChild className="w-full md:w-auto">
+        <div className="mt-3 flex items-center gap-1">
+          <Button asChild className="flex-1 md:flex-none">
             <Link to="/portal/fees">{t('actions.viewFeeBreakdown')}</Link>
           </Button>
+          <HelpHint helpId="portal.overview.action.viewFeeBreakdown" />
         </div>
       </Card>
 

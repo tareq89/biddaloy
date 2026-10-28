@@ -110,6 +110,8 @@ function PortalApplicationDetailPage() {
       icon: <UndoIcon />,
       allowed: app.can.withdraw,
       priority: 'secondary',
+      // Inline on phone too: the More menu draws no (?) yet (#3078).
+      keepOnPhone: true,
       onClick: () => setWithdrawing(true),
     },
     {

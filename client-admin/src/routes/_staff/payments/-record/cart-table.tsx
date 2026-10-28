@@ -181,7 +181,14 @@ export function CartTable({
                       )}
                     </div>
                     <div className="col-span-2 flex flex-col md:col-span-1">
-                      <CellLabel>{t('record.cart.columnDiscount')}</CellLabel>
+                      <div className="flex items-center gap-1">
+                        <CellLabel>{t('record.cart.columnDiscount')}</CellLabel>
+                        {/* Phone only: on desktop the header row carries this (?). */}
+                        <HelpHint
+                          helpId="finance.recordPayment.field.discount"
+                          className="md:hidden"
+                        />
+                      </div>
                       <DiscountCell
                         value={line.discountMinorUnits}
                         balance={balanceMinorUnits}

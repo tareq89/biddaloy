@@ -371,7 +371,11 @@ export function TemplateGrid({
           icon={<FileStack aria-hidden className="size-6" />}
           title={t('detail.noGradesTitle')}
           explanation={t('detail.noGradesText')}
-          action={{ label: t('grid.addGrade'), onClick: () => setGradeOpen(true) }}
+          action={{
+            label: t('grid.addGrade'),
+            onClick: () => setGradeOpen(true),
+            helpId: 'examsResults.examTemplates.action.addGrade',
+          }}
         />
         {gradeDialog}
       </>

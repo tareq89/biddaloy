@@ -458,16 +458,14 @@ function PortalAccount() {
 
       <Card asChild padded>
         <section aria-labelledby="account-devices-title">
-          <div className="flex items-center gap-1">
-            <h2 id="account-devices-title" className="text-h2">
-              {t('account.devices.title')}
-            </h2>
-            <HelpHint helpId="start.account.action.signOutAll" />
-          </div>
+          <h2 id="account-devices-title" className="text-h2">
+            {t('account.devices.title')}
+          </h2>
           <p className="mt-1 text-text-secondary">{tAuth('sessions.description')}</p>
           <div className="mt-3">
             <SessionList
               variant="compact"
+              signOutAllHint={<HelpHint helpId="start.account.action.signOutAll" />}
               sessions={showAllDevices ? sortedSessions : sortedSessions.slice(0, 5)}
               loading={sessionsQuery.isPending}
               error={sessionsQuery.isError ? tAuth('sessions.error') : null}

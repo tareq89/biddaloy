@@ -101,12 +101,9 @@ function SecurityPage() {
       <PageHeader title={tNav('items.security')} subtitle={tNav('security.pageDescription')} />
       <section aria-labelledby="sessions-title" className="space-y-3">
         <div>
-          <div className="flex items-center gap-1">
-            <h2 id="sessions-title" className="text-h2">
-              {t('sessions.title')}
-            </h2>
-            <HelpHint helpId="start.account.action.signOutAll" />
-          </div>
+          <h2 id="sessions-title" className="text-h2">
+            {t('sessions.title')}
+          </h2>
           <p className="mt-1 text-text-secondary">{t('sessions.description')}</p>
         </div>
         {sessionsQuery.isError ? (
@@ -126,6 +123,7 @@ function SecurityPage() {
             )}
             <SessionList
               sessions={sessions}
+              signOutAllHint={<HelpHint helpId="start.account.action.signOutAll" />}
               loading={sessionsQuery.isPending}
               onRevoke={(id) => {
                 const target = sessions.find((session) => session.id === id);
