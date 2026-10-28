@@ -518,7 +518,7 @@ function RoutineReviewPage() {
             </section>
           )}
 
-          {isTeacher && ownTeacher && published && (
+          {isTeacher && published && (
             <section className="space-y-3">
               <div>
                 <h2 className="text-h2">{t('myChangeRequests.title')}</h2>
