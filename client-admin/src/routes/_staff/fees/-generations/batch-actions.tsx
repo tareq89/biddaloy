@@ -30,6 +30,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Menu,
   MenuContent,
   MenuItem,
@@ -158,7 +159,10 @@ function RemoveUncollectedConfirmDialog({
       <Dialog open onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('generations.removeUncollectedDialog.title')}</DialogTitle>
+            <div className="flex items-center gap-1">
+              <DialogTitle>{t('generations.removeUncollectedDialog.title')}</DialogTitle>
+              <HelpHint helpId="finance.generateFees.action.removeUncollected" />
+            </div>
             <DialogDescription>
               {t('generations.removeUncollectedDialog.description')}
             </DialogDescription>
@@ -219,7 +223,10 @@ function DeleteBatchConfirmDialog({
       <Dialog open onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('generations.deleteBatchDialog.title')}</DialogTitle>
+            <div className="flex items-center gap-1">
+              <DialogTitle>{t('generations.deleteBatchDialog.title')}</DialogTitle>
+              <HelpHint helpId="finance.generateFees.action.deleteBatch" />
+            </div>
             <DialogDescription>
               {t('generations.deleteBatchDialog.description', {
                 count: generation.student_count,

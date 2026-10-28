@@ -19,6 +19,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Input,
   Label,
   MoneyInput,
@@ -68,9 +69,11 @@ function Field({
   requiredLabel,
   error,
   className,
+  helpId,
   children,
 }: {
   id: string;
+  helpId?: string;
   label: string;
   required?: boolean;
   requiredLabel?: string;
@@ -80,18 +83,21 @@ function Field({
 }) {
   return (
     <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
-      <Label htmlFor={id}>
-        {label}
-        {required && (
-          <>
-            <span className="text-destructive" aria-hidden="true">
-              {' '}
-              *
-            </span>
-            <span className="sr-only"> {requiredLabel}</span>
-          </>
-        )}
-      </Label>
+      <span className="inline-flex items-center gap-1">
+        <Label htmlFor={id}>
+          {label}
+          {required && (
+            <>
+              <span className="text-destructive" aria-hidden="true">
+                {' '}
+                *
+              </span>
+              <span className="sr-only"> {requiredLabel}</span>
+            </>
+          )}
+        </Label>
+        {helpId && <HelpHint helpId={helpId} />}
+      </span>
       {children}
       {error && (
         <p id={`${id}-error`} className="flex items-center gap-1 text-caption text-destructive">
@@ -217,7 +223,10 @@ export function StructureFormDialog({
       <DialogContent size="md">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
+            <div className="flex items-center gap-1">
+              <DialogTitle>{title}</DialogTitle>
+              {isEdit && <HelpHint helpId="finance.feeStructures.action.edit" />}
+            </div>
             <DialogDescription>{t('form.description')}</DialogDescription>
           </DialogHeader>
 
@@ -241,6 +250,7 @@ export function StructureFormDialog({
 
             <Field
               id="structure-form-type"
+              helpId="finance.feeStructures.field.feeType"
               label={t('form.feeTypeLabel')}
               required
               requiredLabel={requiredLabel}
@@ -261,6 +271,7 @@ export function StructureFormDialog({
 
             <Field
               id="structure-form-amount"
+              helpId="finance.feeStructures.field.amount"
               label={t('form.amountLabel')}
               required
               requiredLabel={requiredLabel}
@@ -277,6 +288,7 @@ export function StructureFormDialog({
 
             <Field
               id="structure-form-year"
+              helpId="finance.feeStructures.field.academicYear"
               label={t('form.academicYearLabel')}
               required={!isEdit}
               requiredLabel={requiredLabel}
@@ -304,7 +316,11 @@ export function StructureFormDialog({
               )}
             </Field>
 
-            <Field id="structure-form-class" label={t('form.classLabel')}>
+            <Field
+              id="structure-form-class"
+              label={t('form.classLabel')}
+              helpId="finance.feeStructures.field.class"
+            >
               <Select
                 value={classId === '' ? NO_CLASS : classId}
                 onValueChange={(value) => {

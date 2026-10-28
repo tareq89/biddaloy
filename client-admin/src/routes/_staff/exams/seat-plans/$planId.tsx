@@ -18,6 +18,7 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
+  HelpHint,
   Label,
   RoutePending,
   Select,
@@ -129,7 +130,10 @@ function SeatPlanDetailPage() {
   for (const room of plan.rooms) {
     for (const a of room.allocations) {
       if (sittings.has(a.exam_schedule_id)) continue;
-      const subject = subjectLabel({ name_en: a.subject_name, name_bn: a.subject_name_bn }, i18n.language);
+      const subject = subjectLabel(
+        { name_en: a.subject_name, name_bn: a.subject_name_bn },
+        i18n.language,
+      );
       sittings.set(a.exam_schedule_id, {
         id: a.exam_schedule_id,
         order: `${a.exam_date ?? ''} ${a.starts_at ?? ''}`,
@@ -155,14 +159,24 @@ function SeatPlanDetailPage() {
         name={plan.name}
         statusBadge={<SeatPlanStatusBadge status={plan.status} ns="seatPlansDetail" />}
         facts={[
-          { label: t('detail.facts.subjects'), value: count(plan.schedule_count, 'detail.countItems') },
+          {
+            label: t('detail.facts.subjects'),
+            value: count(plan.schedule_count, 'detail.countItems'),
+          },
           { label: t('detail.facts.rooms'), value: count(plan.room_count, 'detail.countItems') },
-          { label: t('detail.facts.students'), value: count(plan.student_count, 'detail.countPeople') },
-          { label: t('detail.facts.seatOrder'), value: t(`detail.seatOrder.${plan.seat_order_mode}`) },
+          {
+            label: t('detail.facts.students'),
+            value: count(plan.student_count, 'detail.countPeople'),
+          },
+          {
+            label: t('detail.facts.seatOrder'),
+            value: t(`detail.seatOrder.${plan.seat_order_mode}`),
+          },
         ]}
         actions={[
           {
             id: 'publish',
+            helpId: 'examsResults.seatPlans.action.publish',
             label: t('detail.publishButton'),
             icon: <Megaphone aria-hidden className="size-4" />,
             priority: 'primary',
@@ -171,6 +185,7 @@ function SeatPlanDetailPage() {
           },
           {
             id: 'unpublish',
+            helpId: 'examsResults.seatPlans.action.unpublish',
             label: t('unpublish.button'),
             icon: <Undo2 aria-hidden className="size-4" />,
             priority: 'secondary',
@@ -179,6 +194,7 @@ function SeatPlanDetailPage() {
           },
           {
             id: 'delete',
+            helpId: 'examsResults.seatPlans.action.delete',
             label: t('delete.button'),
             icon: <Trash2 aria-hidden className="size-4" />,
             priority: 'destructive',
@@ -247,9 +263,12 @@ function SeatPlanDetailPage() {
                 {editable ? (
                   <div className="flex flex-col gap-3 md:flex-row md:items-end">
                     <div className="flex flex-col gap-1.5">
-                      <Label htmlFor={`invigilator-${room.room_id}`}>
-                        {t('room.invigilatorLabel')}
-                      </Label>
+                      <span className="inline-flex items-center gap-1">
+                        <Label htmlFor={`invigilator-${room.room_id}`}>
+                          {t('room.invigilatorLabel')}
+                        </Label>
+                        <HelpHint helpId="examsResults.seatPlans.field.invigilator" />
+                      </span>
                       <InvigilatorPicker
                         id={`invigilator-${room.room_id}`}
                         planId={planId}
@@ -258,16 +277,21 @@ function SeatPlanDetailPage() {
                         disabled={false}
                       />
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full md:w-auto"
-                      loading={reshuffleRoom.isPending && reshuffleRoom.variables === room.room_id}
-                      onClick={() => setReshuffleTarget(room)}
-                    >
-                      <Shuffle aria-hidden className="size-4" />
-                      {t('room.reshuffleButton')}
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full md:w-auto"
+                        loading={
+                          reshuffleRoom.isPending && reshuffleRoom.variables === room.room_id
+                        }
+                        onClick={() => setReshuffleTarget(room)}
+                      >
+                        <Shuffle aria-hidden className="size-4" />
+                        {t('room.reshuffleButton')}
+                      </Button>
+                      <HelpHint helpId="examsResults.seatPlans.action.reshuffle" />
+                    </div>
                   </div>
                 ) : (
                   <dl>
@@ -344,7 +368,11 @@ function SeatPlanDetailPage() {
         })}
 
         {plan.rooms.length === 0 && (
-          <EmptyState icon={<DoorOpen aria-hidden className="size-6" />} title={t('detail.noRooms')} explanation={t('detail.noRoomsText')} />
+          <EmptyState
+            icon={<DoorOpen aria-hidden className="size-6" />}
+            title={t('detail.noRooms')}
+            explanation={t('detail.noRoomsText')}
+          />
         )}
       </DetailShell>
 

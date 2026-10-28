@@ -257,7 +257,7 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
               rules={{ validate: (v) => v !== '' || t('addUser.errorRoleRequired') }}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="add-user-role" required>
+                  <FormLabel htmlFor="add-user-role" required helpId="people.staff.field.role">
                     {t('addUser.roleLabel')}
                   </FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>

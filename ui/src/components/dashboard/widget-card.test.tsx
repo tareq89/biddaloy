@@ -1,10 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import type * as React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { I18nProvider, i18n, whenReady } from '../../i18n';
+import { HelpProvider, type HelpIndex } from '../help-hint';
 import { MenuItem } from '../menu';
 
-import { WidgetCard } from './widget-card';
+import { WidgetCard, WidgetHelpContext } from './widget-card';
 
 const base = { title: 'Student attendance' };
 
@@ -146,6 +149,72 @@ describe('WidgetCard a11y', () => {
     rerender(
       <WidgetCard {...base} error={{ message: 'F', retryLabel: 'Retry', onRetry: () => {} }} />,
     );
+    await expect(container).toHaveNoViolations();
+  });
+});
+
+describe('WidgetCard help (E23)', () => {
+  const entry = (en: string) => ({
+    title: { bn: en, en },
+    summary: { bn: 's', en: 's' },
+    path: 'dashboard/widgets',
+    anchor: 'widget.x',
+    knownIssues: 0,
+  });
+  const index: HelpIndex = { 'widget.x': entry('Attendance'), 'widget.y': entry('Other') };
+  const wrap = (ui: React.ReactElement, idx: HelpIndex = index) =>
+    render(
+      <HelpProvider index={idx} lang="en" baseUrl="https://guide.test">
+        {ui}
+      </HelpProvider>,
+      { wrapper: I18nProvider },
+    );
+
+  beforeEach(async () => {
+    await whenReady(i18n);
+    await i18n.changeLanguage('en');
+  });
+
+  it.each(['full', 'compact'] as const)('shows (?) from the context in %s', async (variant) => {
+    wrap(
+      <WidgetHelpContext.Provider value="widget.x">
+        <WidgetCard {...base} variant={variant} />
+      </WidgetHelpContext.Provider>,
+    );
+    // Named by the card title, not the shared guide page title (F10, WCAG 2.4.6).
+    const btn = await screen.findByRole('button', { name: 'Help: Student attendance' });
+    expect(btn.getAttribute('data-help-id')).toBe('widget.x');
+  });
+
+  it('shows nothing when the index lacks the id or no id is set', () => {
+    wrap(
+      <WidgetHelpContext.Provider value="widget.missing">
+        <WidgetCard {...base} />
+      </WidgetHelpContext.Provider>,
+    );
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('helpId prop overrides the context', async () => {
+    wrap(
+      <WidgetHelpContext.Provider value="widget.x">
+        <WidgetCard {...base} helpId="widget.y" />
+      </WidgetHelpContext.Provider>,
+    );
+    const btn = await screen.findByRole('button', { name: 'Help: Student attendance' });
+    expect(btn.getAttribute('data-help-id')).toBe('widget.y');
+  });
+
+  it('is axe clean with the (?)', async () => {
+    const { container } = wrap(
+      <WidgetCard
+        {...base}
+        helpId="widget.x"
+        menuLabel="More"
+        menu={<MenuItem>Export</MenuItem>}
+      />,
+    );
+    await screen.findByRole('button', { name: 'Help: Student attendance' });
     await expect(container).toHaveNoViolations();
   });
 });

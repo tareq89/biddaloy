@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../../../routeTree.gen';
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await cleanupTestState();
 });
 
@@ -168,6 +169,17 @@ function render(entry = '/routines/substitutions') {
 }
 
 describe('/routines/substitutions', () => {
+  it('shows a (?) after the Add header action [44.3.04]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    mockBaseData();
+    server.use(http.get('/api/v1/routines/substitutions', () => HttpResponse.json([])));
+    render();
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(
+      document.querySelector('[data-help-id="academics.routineSubstitutions.action.add"]'),
+    ).not.toBeNull();
+  });
+
   it('renders each record from the server slot summary, shows a status badge, and has no native select or date input', async () => {
     mockBaseData();
     server.use(

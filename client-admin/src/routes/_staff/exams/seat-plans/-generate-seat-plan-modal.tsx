@@ -25,6 +25,7 @@ import {
   Button,
   Checkbox,
   ConfirmDialog,
+  HelpHint,
   Input,
   Label,
   RadioGroup,
@@ -314,7 +315,12 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
             </div>
 
             <fieldset className="md:col-span-2">
-              <legend className="text-label">{t('generate.seatOrderLabel')}</legend>
+              {/* The (?) sits outside the legend so it stays out of the group's name. */}
+              <legend className="sr-only">{t('generate.seatOrderLabel')}</legend>
+              <div className="flex items-center gap-1 text-label">
+                <span aria-hidden="true">{t('generate.seatOrderLabel')}</span>
+                <HelpHint helpId="examsResults.seatPlans.field.seatOrder" />
+              </div>
               <RadioGroup
                 value={seatOrderMode}
                 onValueChange={(value) => setSeatOrderMode(value as 'SEQUENTIAL' | 'RANDOM')}
@@ -423,7 +429,10 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
         <section className={CARD} data-testid="room-picker">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className={`text-h2 ${REQUIRED}`}>{t('generate.roomsLabel')}</h2>
+              <div className="flex items-center gap-1">
+                <h2 className={`text-h2 ${REQUIRED}`}>{t('generate.roomsLabel')}</h2>
+                <HelpHint helpId="examsResults.seatPlans.field.rooms" />
+              </div>
               <p className="mt-1 text-text-secondary">
                 {t('generate.roomsSummary', {
                   n: formatNumber(selectedRooms.size, config),

@@ -38,7 +38,15 @@ import { resetSystemPrefersDark } from './system-theme';
 // ceiling costs nothing on a passing test — the query resolves as soon as
 // the element appears — it only makes a genuinely broken query fail
 // later, not less loudly.
-configure({ asyncUtilTimeout: 5_000 });
+//
+// [#3082] 5s was still too short under heavy contention: the first render of
+// the real `routeTree` shows the Loading page until the route's lazy chunks
+// and i18n namespaces have been *transformed by vite-node* (cold, CPU-bound,
+// ~5-9s under load; reproduced with 8 `while(1){}` burners on an already
+// busy box against the five specs named in the issue). That cold import is
+// counted inside the first `findBy*`. 15s stays under the 20s per-project
+// `testTimeout`; past ~12 burners tests hit that `testTimeout` regardless.
+configure({ asyncUtilTimeout: 15_000 });
 
 // [#437] See `quarantine.ts`'s module header for the full mechanism.
 installQuarantine();

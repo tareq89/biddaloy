@@ -183,4 +183,28 @@ describe('Dialog', () => {
     await localeReady;
     expect(await screen.findByRole('button', { name: 'বন্ধ করুন' })).toBeTruthy();
   });
+
+  it('[Epic 44] opens on the first field, not on a (?) before it, and keeps the (?) tabbable', async () => {
+    const user = userEvent.setup();
+    render(
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button>Open</Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogTitle>Reverse payment</DialogTitle>
+          <button type="button" data-help-id="finance.payments.action.reverse">
+            ?
+          </button>
+          <input aria-label="Reason" />
+        </DialogContent>
+      </Dialog>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Open' }));
+    const reason = await screen.findByRole('textbox', { name: 'Reason' });
+    await waitFor(() => expect(document.activeElement).toBe(reason));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '?' }).hasAttribute('tabindex')).toBe(false),
+    );
+  });
 });

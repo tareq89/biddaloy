@@ -168,6 +168,7 @@ function AnalysisPage() {
           actions={[
             {
               id: 'print',
+              helpId: 'examsResults.analysis.action.print',
               label: tg('analysisPage.print'),
               icon: <PrinterIcon />,
               onClick: () => window.print(),
@@ -175,6 +176,7 @@ function AnalysisPage() {
             },
             {
               id: 'csv',
+              helpId: 'examsResults.analysis.action.downloadCsv',
               label: tg('analysisPage.downloadCsv'),
               icon: <DownloadIcon />,
               onClick: () => void handleDownloadCsv(),

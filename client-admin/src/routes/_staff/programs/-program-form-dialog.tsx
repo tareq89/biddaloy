@@ -7,6 +7,7 @@ import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Checkbox,
+  HelpHint,
   Dialog,
   DialogClose,
   DialogContent,
@@ -138,13 +139,16 @@ export function ProgramFormDialog({
             />
           </LabelledField>
 
-          <label className="flex min-h-11 items-center gap-3 md:min-h-8">
-            <Checkbox
-              checked={showOnReportCard}
-              onCheckedChange={(checked) => setShowOnReportCard(checked === true)}
-            />
-            {t('formDialog.showOnReportCard')}
-          </label>
+          <div className="flex items-center gap-1">
+            <label className="flex min-h-11 items-center gap-3 md:min-h-8">
+              <Checkbox
+                checked={showOnReportCard}
+                onCheckedChange={(checked) => setShowOnReportCard(checked === true)}
+              />
+              {t('formDialog.showOnReportCard')}
+            </label>
+            <HelpHint helpId="people.programs.field.showOnReportCard" />
+          </div>
 
           {isError && !serverNameInvalid && (
             <p role="alert" className="text-sm text-destructive">

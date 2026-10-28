@@ -21,6 +21,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Select,
   SelectContent,
   SelectItem,
@@ -111,7 +112,10 @@ export function EditBatchDialog({
         <DialogContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <DialogHeader>
-              <DialogTitle>{t('generations.editBatchDialog.title')}</DialogTitle>
+              <div className="flex items-center gap-1">
+                <DialogTitle>{t('generations.editBatchDialog.title')}</DialogTitle>
+                <HelpHint helpId="finance.generateFees.action.editPeriod" />
+              </div>
               <DialogDescription>{t('generations.editBatchDialog.description')}</DialogDescription>
             </DialogHeader>
 

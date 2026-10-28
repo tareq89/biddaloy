@@ -26,6 +26,7 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
+  HelpHint,
   ReportCard,
   RoutePending,
   Skeleton,
@@ -279,28 +280,34 @@ function ResultCard({
           </dl>
         </div>
         <div className="flex flex-col gap-2 border-t border-border-subtle px-4 py-3 md:flex-row md:px-5">
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-11 md:h-8"
-            aria-expanded={open}
-            aria-controls={subjectsId}
-            onClick={() => setOpen((value) => !value)}
-          >
-            {open ? <ChevronUpIcon aria-hidden="true" /> : <ChevronDownIcon aria-hidden="true" />}
-            {open ? t('results.hideSubjects') : t('results.showSubjects')}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 md:ms-auto md:h-8"
-            aria-label={t('results.printLabel', { name: row.exam_name })}
-            loading={printing}
-            onClick={onPrint}
-          >
-            <PrinterIcon aria-hidden="true" />
-            {tExams('reportCard.print')}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 flex-1 md:h-8 md:flex-none"
+              aria-expanded={open}
+              aria-controls={subjectsId}
+              onClick={() => setOpen((value) => !value)}
+            >
+              {open ? <ChevronUpIcon aria-hidden="true" /> : <ChevronDownIcon aria-hidden="true" />}
+              {open ? t('results.hideSubjects') : t('results.showSubjects')}
+            </Button>
+            <HelpHint helpId="portal.results.action.showSubjects" />
+          </div>
+          <div className="flex items-center gap-1 md:ms-auto">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 flex-1 md:h-8 md:flex-none"
+              aria-label={t('results.printLabel', { name: row.exam_name })}
+              loading={printing}
+              onClick={onPrint}
+            >
+              <PrinterIcon aria-hidden="true" />
+              {tExams('reportCard.print')}
+            </Button>
+            <HelpHint helpId="portal.results.action.printReportCard" />
+          </div>
         </div>
         <div id={subjectsId}>
           {open && <ResultBreakdown studentId={studentId} examId={row.exam_id} />}

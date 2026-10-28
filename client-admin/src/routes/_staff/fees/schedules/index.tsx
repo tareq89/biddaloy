@@ -241,6 +241,7 @@ function SchedulesListPage() {
         actions={[
           {
             id: 'add',
+            helpId: 'finance.recurringSchedules.action.add',
             label: t('schedules.addSchedule'),
             icon: <PlusIcon />,
             priority: 'primary',

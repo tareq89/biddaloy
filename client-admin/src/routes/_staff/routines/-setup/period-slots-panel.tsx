@@ -24,6 +24,7 @@
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  HelpHint,
   Card,
   EmptyState,
   Input,
@@ -511,14 +512,18 @@ export function PeriodSlotsPanel({
                   <PlusIcon aria-hidden="true" />
                   {t('periodSlotsPanel.addRowAction')}
                 </Button>
-                <Button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={!ready || hasErrors}
-                  loading={replaceSlots.isPending}
-                >
-                  {t('save.action')}
-                </Button>
+                <span className="inline-flex items-center gap-1">
+                  <Button
+                    type="button"
+                    className="flex-1 md:flex-none"
+                    onClick={handleSave}
+                    disabled={!ready || hasErrors}
+                    loading={replaceSlots.isPending}
+                  >
+                    {t('save.action')}
+                  </Button>
+                  <HelpHint helpId="academics.routineSetup.action.savePeriods" />
+                </span>
               </div>
             </div>
           </>

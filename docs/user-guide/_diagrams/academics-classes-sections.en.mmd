@@ -1,0 +1,13 @@
+%% title: Shift and version are labels on a class; group is a label on a section
+%% desc: The Morning and Day shifts of Class 6 are separate classes. Each has sections A and B. The sections of Class 9 carry the Science and Business Studies groups.
+flowchart LR
+  A["Class 6<br/>Morning shift"]:::teacher --> A1["Section A"]
+  A --> A2["Section B"]
+  B["Class 6<br/>Day shift"]:::teacher --> B1["Section A"]
+  B --> B2["Section B"]
+  N["Class 9"]:::teacher --> N1["Section A<br/>Group: Science"]:::guardian
+  N --> N2["Section B<br/>Group: Business Studies"]:::guardian
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

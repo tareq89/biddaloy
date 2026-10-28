@@ -47,5 +47,13 @@
   "col_submitted": "Submitted",
   "errorMessage": "Could not load the report.",
   "emptyTitle": "No applications in this period",
-  "emptyExplanation": "Nothing was submitted in the selected year and dates."
+  "emptyExplanation": "Nothing was submitted in the selected year and dates.",
+  "fields": {
+    "academicYear": "Academic year",
+    "submitted": "Submitted"
+  },
+  "help": {
+    "academicYear": "Which academic year to count. When chosen, only that year’s applications are counted.",
+    "submitted": "Filters by the day an application was submitted; both the start and end days count. Staff leave days use the same dates, by the day the leave starts."
+  }
 }

@@ -165,6 +165,37 @@ jobs:
           done
           [ -z "$failed" ] || { echo "::error::failed:$failed"; exit 1; }
 
+  # [42.1.07] User guide gate (Epic 42). `guide:check` keeps the guide
+  # structurally sound; `guide:impact` fails a PR that changes code or UI
+  # words a page documents without touching that page in bn + en. The PR
+  # body reaches the script only through env (never interpolated into a
+  # shell command), so a hostile body cannot inject anything. Always runs:
+  # a guide page can be wrong because of a change anywhere in the repo.
+  guide:
+    name: User guide checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # impact diffs base..head, so it needs the full history.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Guide structure check
+        run: yarn guide:check
+
+      - name: Guide impact check
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: yarn guide:impact --base "$BASE_SHA" --head "$HEAD_SHA"
+
   verify:
     name: Build, lint, unit tests
     runs-on: ubuntu-latest
@@ -757,6 +788,9 @@ jobs:
       # Keeps playwright.config.ts's projects list consistent with the
       # --project flag this matrix entry passes.
       E2E_BROWSERS: ${{ matrix.browser }}
+      # [44.2.03] `yarn e2e:serve:client` builds client-admin; Vite inlines this at build
+      # time, and without it every in-app help (?) and F1 stay hidden (E4, E12).
+      VITE_HANDBOOK_URL: https://schoolmanagerp.gitbook.io/schoolmanagerp-docs
       # [15.5] See the "integration" job's identical block — `yarn ...
       # server seed` below boots `AppModule`, which needs `StorageModule`
       # env to construct. Since [14.11.4] these also have to point at a
@@ -970,6 +1004,8 @@ jobs:
       S3_ALLOW_INSECURE_HTTP: 'true'
       S3_FORCE_PATH_STYLE: 'true'
       E2E_BROWSERS: chromium
+      # [44.2.03] Build the sweeps' client-admin like the e2e job's, (?) included.
+      VITE_HANDBOOK_URL: https://schoolmanagerp.gitbook.io/schoolmanagerp-docs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { resolveAppBaseUrl } from '../account-access/app-base-url.util';
+import { resolveTemplateLocale } from '../account-access/account-access-templates';
+import { DEFAULT_REGION_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { renderReceiptHtml } from './receipt.template';
 
@@ -67,7 +69,8 @@ export class ReceiptService {
       method: r.method ?? '',
       reference: r.reference,
       paidAt: r.paid_at,
-      locale: r.locale === 'bn' ? 'bn' : 'en',
+      // Stored as `bn-BD`/`en-BD`; no stored region means the bn-BD default (#3041).
+      locale: resolveTemplateLocale(r.locale ?? DEFAULT_REGION_SETTINGS.locale),
       vatRegistration: r.receipt_snapshot?.vat ?? null,
     });
   }

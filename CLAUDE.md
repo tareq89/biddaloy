@@ -25,6 +25,18 @@ says. Follow that doc's safety rules: no literal dates, fresh DB only,
 `ctx.rng` only, real services for "today", no real contacts. The dev seed
 (`yarn seed`) stays e2e-only.
 
+## User guide rule (always, for any change a user can see)
+
+A new or changed feature updates its guide page(s) in `docs/user-guide/{bn,en}`
+(both languages) per [`docs/architecture/39-user-guide.md`](docs/architecture/39-user-guide.md)
+(Recipe R1). A removed feature removes its page and its coverage entry.
+
+- CI `guide:impact` fails a PR that touches a page's sources or labels without
+  updating the bn and en page, unless the PR body carries the line
+  `User guide: not affected — <reason>`.
+- Field help text lives in i18n `help.*` keys, not in the guide page.
+- Media regenerates through `yarn guide:shoot`; videos are out of scope (Epic 42 D48).
+
 ## Security rules (always)
 
 Any change to auth, routes, uploads, SQL, logs or infra follows these. The full

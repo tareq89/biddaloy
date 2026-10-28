@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  HelpHint,
   Label,
   Select,
   SelectContent,
@@ -174,6 +175,7 @@ function GradingScalesListPage() {
         actions={[
           {
             id: 'add',
+            helpId: 'examsResults.gradingScales.action.add',
             label: t('list.addScale'),
             priority: 'primary',
             icon: <PlusIcon />,
@@ -265,7 +267,10 @@ function GradingScalesListPage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="scale-class">{t('createDialog.classLabel')}</Label>
+                <span className="inline-flex items-center gap-1">
+                  <Label htmlFor="scale-class">{t('createDialog.classLabel')}</Label>
+                  <HelpHint helpId="examsResults.gradingScales.field.appliesTo" />
+                </span>
                 <Select value={classId} onValueChange={setClassId}>
                   <SelectTrigger id="scale-class" className="w-full">
                     <SelectValue />

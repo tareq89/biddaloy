@@ -1,0 +1,13 @@
+%% title: The status of a round
+%% desc: When reminders are sent together, the round is Processing. Each message is sent or fails. If all go, the round is Completed; if none go, Failed; if some go, Partially failed. If any failed, Retry failed makes a new round for the students whose delivery failed.
+flowchart LR
+  S["Send reminders to many"]:::admin --> P["Processing"]:::note
+  P --> Q{"How many went?"}:::note
+  Q -->|"All"| C["Completed"]
+  Q -->|"Some"| PF["Partially failed"]
+  Q -->|"None"| F["Failed"]
+  PF -->|"Retry failed"| N["New round<br/>Retry of …"]:::admin
+  F -->|"Retry failed"| N
+  N --> P
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

@@ -39,6 +39,8 @@ export async function tabUntilFocused(
     const focused = await focusedText(page);
     // `exact`: a short label ("Payments") must not match a longer one ("Record payment").
     if (options.exact ? focused !== text : !focused.includes(text)) continue;
+    // A help (?) is named after its page or card title ("সাহায্য: …"), so it can contain any label.
+    if (await page.evaluate(() => document.activeElement?.hasAttribute('data-help-id'))) continue;
     if (options.tag) {
       const tag = await page.evaluate(() => document.activeElement?.tagName ?? '');
       // Same accessible text can exist as both a nav link and a button
@@ -197,6 +199,8 @@ export async function tabToWithRing(
     await expectFocusRing(page);
     const focused = await focusedText(page);
     if (options.exact ? focused !== text : !focused.includes(text)) continue;
+    // A help (?) is named after its page or card title ("সাহায্য: …"), so it can contain any label.
+    if (await page.evaluate(() => document.activeElement?.hasAttribute('data-help-id'))) continue;
     if (options.tag) {
       const tag = await page.evaluate(() => document.activeElement?.tagName ?? '');
       if (tag !== options.tag.toUpperCase()) continue;

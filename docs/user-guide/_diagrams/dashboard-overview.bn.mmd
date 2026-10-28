@@ -1,0 +1,9 @@
+%% title: ড্যাশবোর্ড থেকে পাতা
+%% desc: ড্যাশবোর্ডে কয়েকটি উইজেট থাকে। প্রতিটি উইজেট একটি সংখ্যা দেখায় এবং যে পাতায় কাজ করবেন সেখানে নিয়ে যায়। কোনো সংখ্যা নজরে আনা দরকার হলে সতর্কতা জানায়।
+flowchart LR
+  D["ড্যাশবোর্ড"]:::sys --> W["উইজেট<br/>একটি সংখ্যা"]:::teacher
+  W --> P["পাতা<br/>যেখানে কাজ"]:::admin
+  A["সতর্কতা"]:::sys -.-> D
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef sys fill:#f1f3f5,stroke:#868e96,color:#343a40

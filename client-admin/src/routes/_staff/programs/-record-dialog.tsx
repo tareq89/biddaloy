@@ -239,7 +239,11 @@ export function RecordDialog({
               />
             </LabelledField>
 
-            <LabelledField id="record-score" label={t('dialogs.record.score')}>
+            <LabelledField
+              id="record-score"
+              label={t('dialogs.record.score')}
+              helpId="people.programs.field.score"
+            >
               <Input
                 id="record-score"
                 inputMode="decimal"

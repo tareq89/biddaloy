@@ -389,5 +389,36 @@
       "columnAverage": "Average"
     },
     "downloadCsvError": "Could not download the CSV. Please try again."
+  },
+  "fields": {
+    "examName": "Name (exam)",
+    "examKind": "Kind (exam)",
+    "deadline": "Mark entry deadline",
+    "academicYear": "Academic year",
+    "class": "Class",
+    "template": "Start from an exam structure (optional)",
+    "componentName": "Name (part)",
+    "componentKind": "Kind (part)",
+    "fullMarks": "Full marks",
+    "passMarks": "Pass marks"
+  },
+  "help": {
+    "examName": "The exam name, e.g. Half Yearly 2026. Two exams of the same class and year cannot share a name.",
+    "examKind": "Term, monthly, model or other. Cannot change once results are published.",
+    "deadline": "Teachers see the days left on their dashboard. Leave empty if there is none.",
+    "academicYear": "The year the exam belongs to. Chosen only when you add the exam.",
+    "class": "The class that sits the exam. Pick the year first; it cannot change later.",
+    "template": "Pick an exam structure and the parts for the class subjects are made for you. Hidden when there is no structure.",
+    "componentName": "The part name, e.g. Written. Two parts of one subject cannot share a name.",
+    "componentKind": "Written, MCQ, viva, practical and so on. Attendance is counted for you.",
+    "fullMarks": "The full marks of the part, e.g. 70; a positive number. Not shown for an attendance part.",
+    "passMarks": "The pass mark of the part, e.g. 23. Not more than the full marks. Leave empty if not needed."
+  },
+  "helpRequired": {
+    "examName": "Yes",
+    "academicYear": "Yes",
+    "class": "Yes",
+    "componentName": "Yes",
+    "fullMarks": "Yes, except attendance parts"
   }
 }
