@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './dialog';
+import { HelpHint, HelpProvider } from './help-hint';
 
 const meta: Meta<typeof Dialog> = {
   title: 'Components/Dialog',
@@ -211,4 +212,40 @@ export const RightToLeft: Story = {
     </Dialog>
   ),
   decorators: [rtlDecorator],
+};
+
+const helpIndex = {
+  amount: {
+    title: { bn: 'পরিমাণ', en: 'Amount' },
+    summary: { bn: 'প্রাপ্ত টাকা', en: 'Money received' },
+    path: 'fees/payments',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+};
+
+/** [#3213] (?) beside the title and a field; opening focuses the Amount input, not the (?). */
+export const WithHelpHint: Story = {
+  render: () => (
+    <HelpProvider index={helpIndex} lang="en" baseUrl="https://guide.example">
+      <Dialog defaultOpen>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Record a payment <HelpHint helpId="amount" />
+            </DialogTitle>
+            <DialogDescription>Enter the amount received.</DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-1">
+            Amount <HelpHint helpId="amount" />
+          </div>
+          <input aria-label="Amount" placeholder="0.00" />
+        </DialogContent>
+      </Dialog>
+    </HelpProvider>
+  ),
+  play: async () => {
+    const input = await within(document.body).findByLabelText('Amount');
+    await expect(input).toHaveFocus();
+  },
 };
