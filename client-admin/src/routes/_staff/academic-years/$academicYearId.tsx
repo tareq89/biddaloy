@@ -164,6 +164,7 @@ function AcademicYearDetailPage() {
           },
           {
             id: 'set-current',
+            helpId: 'academics.academicYears.action.setCurrent',
             label: t('list.setCurrent'),
             icon: <CircleCheckIcon />,
             onClick: () => setSetCurrentOpen(true),

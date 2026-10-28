@@ -1,6 +1,7 @@
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  HelpHint,
   Card,
   DataTable,
   Dialog,
@@ -56,10 +57,13 @@ export function LinkedStudentsTab({ guardianId }: LinkedStudentsTabProps) {
               <p className="mt-1 text-text-secondary">{t('detail.linkedStudents.description')}</p>
             </div>
             {canUpdate && (
-              <Button type="button" variant="outline" onClick={() => setEditing(true)}>
-                <UserRoundPenIcon aria-hidden="true" />
-                {t('detail.linkedStudents.editAction')}
-              </Button>
+              <span className="inline-flex items-center gap-1">
+                <Button type="button" variant="outline" onClick={() => setEditing(true)}>
+                  <UserRoundPenIcon aria-hidden="true" />
+                  {t('detail.linkedStudents.editAction')}
+                </Button>
+                <HelpHint helpId="people.guardians.action.editLinkedStudents" />
+              </span>
             )}
           </div>
           <DataTable

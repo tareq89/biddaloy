@@ -102,6 +102,7 @@ export function PlansPageHeader({
     ? [
         {
           id: 'newPlan',
+          helpId: 'academics.syllabus.action.createPlan',
           label: t('list.newPlan'),
           icon: <PlusIcon />,
           priority: 'primary',

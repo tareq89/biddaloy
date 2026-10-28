@@ -300,6 +300,7 @@ function RoutineReviewPage() {
           ? [
               {
                 id: 'submit',
+                helpId: 'academics.routineReview.action.submitForReview',
                 label: t('review.submitForReviewAction'),
                 icon: <SendIcon />,
                 priority: 'primary' as const,
@@ -320,6 +321,7 @@ function RoutineReviewPage() {
               },
               {
                 id: 'publish',
+                helpId: 'academics.routineReview.action.publish',
                 label: t('review.publishAction'),
                 icon: <GlobeIcon />,
                 priority: 'primary' as const,
