@@ -6,6 +6,7 @@ import {
   studentFactory,
 } from '@biddaloy/ui/test';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -17,7 +18,7 @@ describe('students/-detail/guardians-tab', () => {
     await cleanupTestState();
   });
 
-  function renderGuardians(role = 'ADMIN') {
+  function renderGuardians(role = 'ADMIN', subs: unknown[] = []) {
     const primary = guardianFactory({
       id: 'g-primary',
       full_name: 'Karim Uddin',
@@ -36,6 +37,7 @@ describe('students/-detail/guardians-tab', () => {
     server.use(
       http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
       http.get('/api/v1/students/:studentId/promotion-overrides', () => HttpResponse.json([])),
+      http.get('/api/v1/attendance/arrival-subscriptions', () => HttpResponse.json(subs)),
     );
     return renderWithRouter(routeTree, {
       initialEntries: ['/students/student-1?tab=guardians'],
@@ -72,5 +74,65 @@ describe('students/-detail/guardians-tab', () => {
     renderGuardians('TEACHER');
     await screen.findByRole('region', { name: /^Guardians of / });
     expect(screen.queryByRole('link', { name: 'edit the student' })).toBeNull();
+  });
+
+  describe('arrival notice', () => {
+    const sub = (lock: 'NONE' | 'NEVER') => ({
+      id: 'sub-1',
+      student_id: 'student-1',
+      guardian_id: 'g-primary',
+      student_name: 'Rahim',
+      guardian_name: 'Karim Uddin',
+      status: 'ACTIVE',
+      mode: 'RECURRING',
+      channel: 'PUSH',
+      lock,
+      consumed_at: null,
+      updated_at: '2026-10-20T08:00:00.000Z',
+    });
+
+    async function openMenu() {
+      const user = userEvent.setup();
+      await user.click(
+        await screen.findByRole('button', { name: 'Arrival notice for Karim Uddin' }),
+      );
+      return user;
+    }
+
+    it('gives a TEACHER the manage items and no lock items', async () => {
+      renderGuardians('TEACHER', [sub('NONE')]);
+      await openMenu();
+      expect(await screen.findByRole('menuitem', { name: 'Every day' })).toBeTruthy();
+      expect(screen.getByRole('menuitem', { name: 'Stop' })).toBeTruthy();
+      expect(screen.queryByRole('menuitem', { name: 'Always' })).toBeNull();
+      expect(screen.queryByRole('menuitem', { name: 'Never' })).toBeNull();
+      expect(screen.queryByRole('menuitem', { name: 'Clear lock' })).toBeNull();
+    });
+
+    it('gives an admin the lock items', async () => {
+      renderGuardians('ADMIN', [sub('NONE')]);
+      await openMenu();
+      expect(await screen.findByRole('menuitem', { name: 'Always' })).toBeTruthy();
+      expect(screen.getByRole('menuitem', { name: 'Never' })).toBeTruthy();
+      expect(screen.getByRole('menuitem', { name: 'Clear lock' })).toBeTruthy();
+    });
+
+    it('disables the manage items and says why when the row is locked', async () => {
+      renderGuardians('TEACHER', [sub('NEVER')]);
+      expect(await screen.findByText('Set by admin: never')).toBeTruthy();
+      await openMenu();
+      for (const name of ['Once', 'Every day', 'Stop']) {
+        const item = await screen.findByRole('menuitem', { name });
+        expect(
+          item.getAttribute('aria-disabled') ?? item.getAttribute('data-disabled'),
+        ).not.toBeNull();
+      }
+      expect(screen.getByText('An admin has fixed this. It cannot be changed here.')).toBeTruthy();
+    });
+
+    it('shows the last change date', async () => {
+      renderGuardians('TEACHER', [sub('NONE')]);
+      expect(await screen.findByText(/^Changed on /)).toBeTruthy();
+    });
   });
 });
