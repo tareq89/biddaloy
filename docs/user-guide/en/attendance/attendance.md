@@ -192,6 +192,10 @@ After the window, the top of the register says "This register is older than 2 da
   <figcaption><em>1 · The message teachers see after the window &nbsp; 2 · The ⋮ button on a row (History)</em></figcaption>
 </figure>
 
+### The bell beside a name <a href="#task-bell" id="task-bell"></a>
+
+A small bell beside a student's name means a guardian has asked to be told when this child arrives. Hold or hover over it to read **Guardian waits for the arrival notice**. Mark the student present as usual; the message goes by itself. The bell is only a reminder. To answer the request, see [Answer arrival notice requests](../academics/my-class.md#task-arrival).
+
 ### Per-period attendance <a href="#task-period" id="task-period"></a>
 
 If the school turns on per-period attendance under **Settings › Attendance policy** and the class routine is published, the register shows a tab per period next to **Whole day**. Press your period's tab, then follow the same five steps. Each period's register is submitted separately.

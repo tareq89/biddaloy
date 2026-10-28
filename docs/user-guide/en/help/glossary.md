@@ -187,6 +187,7 @@ When a new page is written, its record name is added here.
 | <a id="sms-credit"></a>[**SMS credit**](../communications/send-message.md#sms-count) | The school's balance for sending SMS. When it runs out, SMS do not go. | A long message uses more than one SMS. |
 | <a id="reminder"></a>[**Reminder**](../communications/fee-reminders.md) | A message that reminds a guardian about dues. The name and amount fill in by themselves. | A message that January tuition is unpaid. |
 | <a id="reminder-batch"></a>[**Reminder round**](../communications/reminder-history.md) | Reminders sent to many people at once. Open the round to see who it reached. | A round for 200 guardians, 12 failed. |
+| <a id="arrival-notice"></a>[**Arrival notice**](../portal/attendance.md#task-arrival) | A message to a guardian when their child reaches school. The guardian asks; the class teacher confirms. | A message at 7:50 am that Rima has arrived. |
 | <a id="alert"></a>[**Alert**](../dashboard/alerts.md) | News of work that needs your attention. It goes away by itself when the work is done. | Today's attendance is still to be taken. |
 | <a id="widget"></a>[**Widget**](../dashboard/widgets.md) | One card on the dashboard. Each shows news about one thing. They can be hidden or arranged. | The **Absent today** widget. |
 | <a id="audit-log"></a>[**Activity log**](../administration/audit-logs.md) | The list of who created, changed or deleted what in the school, and when. You can only view it, not change it. | Who reversed a payment yesterday. |
