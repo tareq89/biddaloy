@@ -35,7 +35,7 @@ const stripCode = (s) => s.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, 
 const norm = (p) => p.replace(/\.md$/, '');
 // Anchor ids declared as `<a … id="x">` on a heading line.
 const anchorIds = (body) =>
-  [...body.matchAll(/^#{1,6} .*<a [^>]*\bid="([^"]+)"/gm)].map((m) => m[1]);
+  [...body.matchAll(/^#{1,6} .*<a [^>]*(?<![\w-])id="([^"]+)"/gm)].map((m) => m[1]);
 
 function flatten(obj, prefix = '', out = []) {
   for (const [k, v] of Object.entries(obj)) {

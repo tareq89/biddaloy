@@ -157,6 +157,21 @@ describe('buildHelpIndex', () => {
     ]);
   });
 
+  it('an id with no field help on one page still indexes from a later page that has it', () => {
+    writeAll('demo.one, demo.x.field.zz');
+    for (const l of ['bn', 'en'] as const) {
+      put(
+        `docs/user-guide/${l}/demo/two.md`,
+        page(l, 'demo.two, demo.x.field.zz').replace('fields:demo', 'fields:other'),
+      );
+      put(`ui/src/i18n/locales/${l}/other.json`, JSON.stringify({ help: { zz: 'help' } }));
+    }
+    const two = [...FEATURES, { id: 'demo.two', path: 'demo/two', routes: ['/two'] }];
+    const r = buildHelpIndex(root, two, { strict: false });
+    expect(r.index['demo.x.field.zz']).toMatchObject({ path: 'demo/two' });
+    expect(r.gaps).toEqual([expect.stringContaining('no help.zz')]);
+  });
+
   it('throws on an id declared twice', () => {
     writeAll('demo.one, demo.one');
     expect(() => buildHelpIndex(root, FEATURES)).toThrow(/declared twice/);

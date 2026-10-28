@@ -335,6 +335,15 @@ A page with `knownIssues` also gets a "Known issues →" link to `#known-issues`
 New code uses `HelpHint` and the generated index only (D36). No hand-written
 links into the guide.
 
+Two behaviours worth knowing:
+
+- **Tab after a keyboard open.** Focus lands on the card's guide link. Tab past
+  the last link (or Shift+Tab before the first) closes the card and Radix puts
+  focus back on the (?), so the next Tab continues from there.
+- **Two features claiming one route** (`HELP_ROUTES`) makes `yarn guide:gen`
+  throw, even in non-strict mode. Routes come from code, not from guide data,
+  so this is a code bug (D41), not a guide gap.
+
 ### The guard and `help-unwired.ts`
 
 `client-admin/src/help/help-guard.test.ts` keeps code and guide in step, **both
