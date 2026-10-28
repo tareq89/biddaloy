@@ -372,6 +372,27 @@ describe('Staff Attendance E2E', () => {
     });
   });
 
+  // Context header (server/CLAUDE.md): every tenant route must refuse a missing or bad X-Tenant-ID.
+  describe('X-Tenant-ID header', () => {
+    const roster = () =>
+      supertest(app.getHttpServer())
+        .get('/api/v1/staff-attendance/register')
+        .query({ date: addDays(0) })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+    it('401s a request with no X-Tenant-ID', async () => {
+      await roster().expect(401);
+    });
+
+    it('401s an X-Tenant-ID that is not a UUID', async () => {
+      await roster().set('X-Tenant-ID', 'not-a-uuid').expect(401);
+    });
+
+    it('401s a well-formed X-Tenant-ID the user is not a member of', async () => {
+      await roster().set('X-Tenant-ID', '00000000-0000-4000-8000-00000000dead').expect(401);
+    });
+  });
+
   it('rejects an unauthenticated request', async () => {
     await supertest(app.getHttpServer())
       .get('/api/v1/staff-attendance/summary')
