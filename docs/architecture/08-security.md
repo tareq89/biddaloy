@@ -76,6 +76,7 @@ The layers diagram above shows where most of these rules sit on a request's way 
 - **Rule.** Every route behind `PermissionsGuard` declares `@RequirePermissions(...)`, or `@AuthenticatedOnly()` plus a reviewed `IDENTITY_SCOPED` entry with a reason. A route with neither is a 403.
 - **Why.** A forgotten permission used to be a silent allow (D14, #2315, #2436).
 - **Example.** `GET /users/me` carries `@AuthenticatedOnly()` and the entry `{ path: '/users/me', reason: '10.4 — self-service: the id comes from the JWT, never the path' }`.
+- **Also.** `GET /portal/arrival-subscriptions` and `PUT /portal/arrival-subscriptions/:studentId` (Epic 84) are `@AuthenticatedOnly()` + `@Roles(PARENT)` with `IDENTITY_SCOPED` entries: the guardian is read from the JWT, and a child not linked to that guardian is a 404. Their six rows (four staff `attendance/arrival-subscriptions`, two portal) were added to `route-status.snapshot.txt` by 84.2.1; the lock route is `403` for teachers and every other school role.
 - **Test.** `server/src/permission-matrix.e2e-spec.ts` (marker and list match one-for-one), `route-guard-coverage.e2e-spec.ts`.
 
 ### Rule 2: Teacher reads are scoped to assigned sections
