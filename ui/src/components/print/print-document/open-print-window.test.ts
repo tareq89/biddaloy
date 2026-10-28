@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { openPrintWindow } from './open-print-window';
+import { applyStylesThroughCssom, openPrintWindow } from './open-print-window';
 
 const fakeWindow = () => ({ opener: 'x', close: vi.fn(), print: vi.fn(), location: { href: '' } });
 
@@ -39,5 +39,36 @@ describe('openPrintWindow', () => {
     await openPrintWindow(prepare, onError);
     expect(prepare).not.toHaveBeenCalled();
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'POPUP_BLOCKED' }));
+  });
+});
+
+describe('applyStylesThroughCssom ([#3216])', () => {
+  it('copies style attributes onto the CSSOM and adopts the <style> text', () => {
+    document.body.innerHTML =
+      '<style>.a{color:red}</style><p class="a" style="margin-left:7px">x</p>';
+    const replaceSync = vi.fn();
+    class FakeSheet {
+      replaceSync = replaceSync;
+    }
+    const win = {
+      document,
+      CSSStyleSheet: FakeSheet,
+    } as unknown as Window;
+    Object.defineProperty(document, 'adoptedStyleSheets', {
+      value: [],
+      writable: true,
+      configurable: true,
+    });
+    const p = document.querySelector('p')!;
+    applyStylesThroughCssom(win);
+    expect(replaceSync).toHaveBeenCalledWith('.a{color:red}');
+    expect(document.adoptedStyleSheets).toHaveLength(1);
+    expect(p.style.marginLeft).toBe('7px');
+  });
+
+  it('still copies style attributes when constructable stylesheets are missing', () => {
+    document.body.innerHTML = '<p style="margin-left:3px">x</p>';
+    applyStylesThroughCssom({ document } as unknown as Window);
+    expect(document.querySelector('p')!.style.marginLeft).toBe('3px');
   });
 });

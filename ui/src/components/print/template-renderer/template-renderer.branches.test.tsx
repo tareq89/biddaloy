@@ -125,7 +125,19 @@ describe('TemplateRenderer branches', () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
-  it('inlines fonts, dropping quotes from the family name', () => {
+  it('adopts fonts as a stylesheet (no <style> tag: the live CSP blocks it), dropping quotes from the family name', () => {
+    const replaceSync = vi.fn();
+    vi.stubGlobal(
+      'CSSStyleSheet',
+      class {
+        replaceSync = replaceSync;
+      },
+    );
+    Object.defineProperty(document, 'adoptedStyleSheets', {
+      value: [],
+      writable: true,
+      configurable: true,
+    });
     const { container } = render(
       <TemplateRenderer
         {...base}
@@ -135,9 +147,11 @@ describe('TemplateRenderer branches', () => {
         ]}
       />,
     );
-    const css = container.querySelector('style')!.textContent;
+    expect(container.querySelector('style')).toBeNull();
+    const css = replaceSync.mock.calls[0]![0] as string;
     expect(css).toContain('font-family:"MyFont"');
     expect(css).toContain('unicode-range');
+    vi.unstubAllGlobals();
   });
 });
 
@@ -176,13 +190,7 @@ describe('TextElement overflow', () => {
     const box = container.firstElementChild as HTMLElement;
     expect(box.getAttribute('data-overflow')).toBe('true');
     expect(box.style.outline).toContain('dashed');
-    rerender(
-      <TextElement
-        el={text('t', { overflow: 'FLAG' })}
-        text="Long"
-        showOverflow={false}
-      />,
-    );
+    rerender(<TextElement el={text('t', { overflow: 'FLAG' })} text="Long" showOverflow={false} />);
     expect((container.firstElementChild as HTMLElement).getAttribute('data-overflow')).toBeNull();
   });
 

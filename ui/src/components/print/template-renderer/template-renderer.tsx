@@ -4,6 +4,7 @@
  * the editor canvas, the preview and the print tab all show what prints.
  */
 import { fillPlaceholders, textPlaceholders, type TemplateDefinition } from '@biddaloy/shared';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { renderDigits } from '../../../utils/digits';
@@ -72,6 +73,20 @@ export function TemplateRenderer({
 }: TemplateRendererProps) {
   const { i18n } = useTranslation();
   const numerals = i18n.language?.startsWith('bn') ? 'bengali' : 'latin';
+  // [#3216] A `<style>` tag made at runtime is blocked by the live `style-src 'self'`;
+  // an adopted stylesheet (CSSOM) is not. Print mode never passes `fonts` (the print
+  // document carries its own `@font-face`), so this only serves the on-screen preview.
+  const fontCss = fonts.length > 0 ? fontFaces(fonts) : '';
+  useEffect(() => {
+    if (!fontCss || typeof CSSStyleSheet === 'undefined' || !('adoptedStyleSheets' in document))
+      return;
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(fontCss);
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    return () => {
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter((x) => x !== sheet);
+    };
+  }, [fontCss]);
   const sideDef = definition[side];
   if (!sideDef) return null;
 
@@ -122,7 +137,6 @@ export function TemplateRenderer({
         height: `${heightMm}mm`,
       }}
     >
-      {fonts.length > 0 && <style>{fontFaces(fonts)}</style>}
       {drawBackground && (
         <img
           src={assetUrl(bg.assetId)}
