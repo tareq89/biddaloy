@@ -299,6 +299,24 @@ describe('/students/import', () => {
     expect(alert.textContent).toContain('Missing required columns: roll, section');
   });
 
+  it('[#3042] shows our own text for a whole-file code, never the server sentence', async () => {
+    server.use(
+      validateHandler(
+        {
+          ...apiErrorBody(400, 'Server English sentence', '/api/v1/students/bulk-upload/validate'),
+          details: { code: 'IMPORT_FILE_MISSING_COLUMNS' },
+        },
+        400,
+      ),
+    );
+    renderImportPage();
+    await uploadFile(makeFile('students.csv'));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain("Some columns are missing. Use the sample file's columns.");
+    expect(alert.textContent).not.toContain('Server English sentence');
+  });
+
   // [8.11.8] The server route admits ACCOUNTANT and EXECUTIVE, so the page
   // must open for them too — it used to be ADMIN-only, which hid a feature
   // those roles could actually use.

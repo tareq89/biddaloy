@@ -287,7 +287,6 @@ export {
   type UpdateEnrollmentInput,
 } from './enrollments';
 export {
-  communicationLogKeys,
   useCommunicationLog,
   useGuardianCommunicationLogs,
   useSendCommunication,
@@ -698,6 +697,10 @@ export {
 } from './seat-plans';
 export {
   collectFailedStudentIds,
+  messageLogKeys,
+  communicationLogsQueryOptions,
+  useCommunicationLogs,
+  type CommunicationLogListFilters,
   REMINDER_BATCH_POLL_MS,
   reminderBatchKeys,
   reminderBatchLogsKey,

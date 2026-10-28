@@ -364,7 +364,10 @@ export class InvoicesController {
 
     const address = addressForMedium(guardian, dto.medium);
     if (!address) {
-      throw new BadRequestException('This guardian has no address on file for the chosen medium.');
+      throw new BadRequestException({
+        message: 'This guardian has no address on file for the chosen medium.',
+        details: { medium: dto.medium },
+      });
     }
 
     const { rawToken } = await this.shareService.createToken(id, tenant.id, user.sub);

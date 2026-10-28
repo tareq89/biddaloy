@@ -168,6 +168,7 @@
     "fillAssistAction": "খালি ঘর পূরণ করুন",
     "savedToast": "সংরক্ষিত হয়েছে",
     "saveErrorToast": "সংরক্ষণ করা যায়নি — আবার চেষ্টা করুন।",
+    "slotInUseToast": "এই পিরিয়ডে বদলি বা খোলা পরিবর্তনের অনুরোধ আছে। আগে সেগুলো নিষ্পত্তি করুন, অথবা পরবর্তী তারিখ থেকে বদলান।",
     "studentsFact": "শিক্ষার্থী",
     "studentsValue": "{{formattedCount}} জন",
     "studentsValue_other": "{{formattedCount}} জন",
@@ -413,6 +414,7 @@
     "deleteConfirm": "মুছুন",
     "cancel": "বাতিল",
     "deletedToast": "মুছে ফেলা হয়েছে",
+    "pastDeleteError": "আগের তারিখের বদলি রেকর্ডের অংশ, তাই মোছা যায় না।",
     "deleteError": "মোছা যায়নি — আবার চেষ্টা করুন।"
   },
   "agenda": {

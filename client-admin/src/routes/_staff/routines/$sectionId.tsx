@@ -324,6 +324,13 @@ function RoutineBuilderPage() {
           if (activeCellRef.current === savingCell) setViolations(found);
           return;
         }
+        if (
+          error instanceof ApiError &&
+          error.details?.['code'] === 'SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS'
+        ) {
+          toast.error(t('builder.slotInUseToast'));
+          return;
+        }
         toast.error(t('builder.saveErrorToast'));
       });
   }

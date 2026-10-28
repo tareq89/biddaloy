@@ -654,6 +654,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/communications/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Message log — every message this tenant sent, newest first, filter by status. */
+        get: operations["CommunicationsController_findLogs_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/send": {
         parameters: {
             query?: never;
@@ -17885,6 +17902,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReminderBatchResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommunicationsController_findLogs_v1: {
+        parameters: {
+            query?: {
+                status?: "QUEUED" | "SENT" | "DELIVERED" | "FAILED" | "READ";
+                medium?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+                from_date?: string;
+                to_date?: string;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderBatchLogListResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

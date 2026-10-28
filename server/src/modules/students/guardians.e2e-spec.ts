@@ -416,7 +416,7 @@ describe('Guardians E2E', () => {
         .set('X-Tenant-ID', FOREIGN_TENANT_ID)
         .expect(401);
 
-      expect(res.body.message).toContain('is not a member of tenant');
+      expect(res.body.message).toContain('not a member of the requested tenant');
     });
 
     it('should return 400 for a malformed (non-UUID) guardian id', async () => {

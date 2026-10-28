@@ -31,7 +31,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
 import { ChevronRightIcon } from 'lucide-react';
 import * as React from 'react';
@@ -135,7 +135,7 @@ function LoginPage() {
   // (the form shows the error), and so does focus inside it; nothing closes it but the user.
   const [ownOpen, setOwnOpen] = React.useState(false);
   const search = Route.useSearch();
-  const navigate = useNavigate();
+  const navigate = Route.useNavigate();
   const queryClient = useQueryClient();
 
   function handleSuccess(result: { memberships: { tenantId: string }[] }): void {
@@ -288,6 +288,7 @@ function LoginPage() {
             }
           />
           <Link
+            from="/login"
             to="/login"
             search={(prev) => ({ ...prev, method: undefined, mode: 'code' })}
             replace

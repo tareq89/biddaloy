@@ -8,9 +8,16 @@ import { loadRouteNamespaces } from '../../../../route-loaders';
 
 /** [35.5.1] Exams & Results › Exam setup › Templates. Gated `EXAM_MANAGE`
  * by `_staff.tsx` (see `route-permissions.ts`); the list does not self-gate. */
-// `z.looseObject`, not `z.object`: a plain object would strip every param it does not list.
+// `z.object`, not `z.looseObject`: a param not listed here is stripped, so a stray
+// `?foo=1` is not a filter chip. Declare every key the page reads.
 export const Route = createFileRoute('/_staff/exams/templates/')({
-  validateSearch: z.looseObject({ new: z.coerce.string().optional().catch(undefined) }),
+  validateSearch: z.object({
+    page: z.number().int().positive().optional().catch(undefined),
+    limit: z.number().int().positive().max(100).optional().catch(undefined),
+    sort: z.string().optional().catch(undefined),
+    order: z.enum(['asc', 'desc']).optional().catch(undefined),
+    new: z.coerce.string().optional().catch(undefined),
+  }),
   loader: () => loadRouteNamespaces('examTemplates', 'exams', 'common', 'presetWarning'),
   pendingComponent: TemplatesPending,
   component: TemplatesPage,

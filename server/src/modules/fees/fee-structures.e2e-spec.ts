@@ -186,7 +186,7 @@ describe('Fee Structures E2E', () => {
         })
         .expect(401);
 
-      expect(res.body.message).toContain('not a member of tenant');
+      expect(res.body.message).toContain('not a member of the requested tenant');
     });
 
     it('should return 400 for invalid DTO (missing required fields)', async () => {

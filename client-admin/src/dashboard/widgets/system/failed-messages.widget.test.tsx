@@ -40,7 +40,7 @@ describe('failed-messages widget', () => {
     expect(badge.getAttribute('data-tone')).toBe('warning');
     expect(badge.textContent).toBe('SMS that could not be sent in the last 7 days.');
     expect(screen.getByRole('link', { name: 'See which ones' }).getAttribute('href')).toBe(
-      '/communications/batches',
+      `/communications/message-log?medium=SMS&status=FAILED&from_date=${WINDOW.from}`,
     );
   });
 

@@ -168,7 +168,7 @@ export class ContextGuard implements CanActivate {
     const activeRole = resolveRole(user.memberships, tenantId, explicitRole, platformTenantId);
 
     if (!activeRole) {
-      throw new UnauthorizedException(`User is not a member of tenant ${tenantId}`);
+      throw new UnauthorizedException('User is not a member of the requested tenant');
     }
 
     // A SUPER_ADMIN acting on their OWN platform tenant (the /schools
@@ -187,7 +187,7 @@ export class ContextGuard implements CanActivate {
       // stays blocked rather than becoming writable by accident.
       const status = await this.tenantStatus.getStatus(tenantId);
       if (status === null) {
-        throw new UnauthorizedException(`Tenant ${tenantId} does not exist`);
+        throw new UnauthorizedException('The requested tenant does not exist');
       }
       if (status !== SchoolStatus.ACTIVE) {
         const reason = await this.tenantStatus.getStatusReason(tenantId);

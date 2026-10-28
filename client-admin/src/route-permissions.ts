@@ -103,6 +103,7 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/communications/reminders': Permission.COMMUNICATION_BULK_SEND,
   '/_staff/communications/batches/': Permission.COMMUNICATION_BULK_SEND,
   '/_staff/communications/batches/$batchId': Permission.COMMUNICATION_BULK_SEND,
+  '/_staff/communications/message-log/': Permission.COMMUNICATION_BULK_SEND,
   '/_staff/academic-years/': Permission.ACADEMIC_YEAR_MANAGE,
   '/_staff/academic-years/$academicYearId': Permission.ACADEMIC_YEAR_MANAGE,
   '/_staff/classes/': Permission.CLASS_MANAGE,

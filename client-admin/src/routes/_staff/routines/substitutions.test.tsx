@@ -290,6 +290,39 @@ describe('/routines/substitutions', () => {
     await waitFor(() => expect(deletedId).toBe('sub-1'));
   });
 
+  it('a 409 SUBSTITUTION_IN_PAST shows the past-record sentence', async () => {
+    mockBaseData();
+    server.use(
+      http.get('/api/v1/routines/substitutions', () => HttpResponse.json([COVERED])),
+      http.delete('/api/v1/routines/substitutions/:id', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'x',
+            requestId: 'req-9',
+            details: { code: 'SUBSTITUTION_IN_PAST' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    try {
+      render();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Delete' }));
+      const dialog = await screen.findByRole('alertdialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+      await waitFor(() =>
+        expect(errorSpy).toHaveBeenCalledWith(
+          'A past substitution is part of the record and cannot be deleted.',
+        ),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('a failing DELETE shows "Could not delete"', async () => {
     mockBaseData();
     server.use(

@@ -1,4 +1,8 @@
-import type { ReminderBatchStatus } from '@biddaloy/shared';
+import type {
+  CommunicationMedium,
+  CommunicationStatus,
+  ReminderBatchStatus,
+} from '@biddaloy/shared';
 import { keepPreviousData, queryOptions, useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -160,6 +164,38 @@ export function reminderBatchesQueryOptions(filters: ReminderBatchListFilters = 
 
 export function useReminderBatches(filters: ReminderBatchListFilters = {}) {
   return useQuery(reminderBatchesQueryOptions(filters));
+}
+
+// [87.SD] Mirrors `QueryCommunicationLogsDto` (reminders.dto.ts).
+export interface CommunicationLogListFilters {
+  status?: CommunicationStatus;
+  medium?: CommunicationMedium;
+  from_date?: string;
+  to_date?: string;
+  page?: number;
+  limit?: number;
+}
+
+export const messageLogKeys = createEntityKeys<CommunicationLogListFilters>('message-log');
+
+/** `GET /communications/logs` — the tenant-wide message log. */
+export function communicationLogsQueryOptions(filters: CommunicationLogListFilters = {}) {
+  return queryOptions({
+    queryKey: messageLogKeys.list(filters),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<PaginatedReminderBatchLogs>('/communications/logs', {
+        params: filters,
+        signal,
+      });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCommunicationLogs(filters: CommunicationLogListFilters = {}) {
+  return useQuery(communicationLogsQueryOptions(filters));
 }
 
 /** How often the batch detail page re-asks the server about a batch that

@@ -394,5 +394,13 @@
     "message": "It may have been deleted, or the link may be wrong.",
     "back": "Go back"
   },
-  "outcomeUnknown": "We could not confirm whether this was saved. Check the list before trying again."
+  "outcomeUnknown": "We could not confirm whether this was saved. Check the list before trying again.",
+  "importFileErrors": {
+    "unreadable": "We could not read this file. Check that it is a valid Excel or CSV file.",
+    "unsupportedType": "This file type is not supported. Upload an Excel (.xlsx) or CSV file.",
+    "missingColumns": "Some columns are missing. Use the sample file's columns.",
+    "tooManyRows": "This file has too many rows. Split the file into smaller files.",
+    "noRows": "This file has no rows in it. Add at least one row.",
+    "tooLarge": "This file is too large. Split the file into smaller files."
+  }
 }

@@ -1,4 +1,3 @@
-import { ImportFileErrorCode } from '@biddaloy/shared';
 import { BulkUploadPreview, Button, Card, Checkbox, StatusBadge } from '@biddaloy/ui/components';
 import {
   useCommitStaffUpload,
@@ -9,6 +8,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { importFileErrorKey } from '@biddaloy/ui/utils';
 import { Link, useSearch } from '@tanstack/react-router';
 import { DownloadIcon } from 'lucide-react';
 import * as React from 'react';
@@ -41,25 +41,13 @@ export function rowErrorKey(error: { column: string | null; message: string }): 
   return 'other';
 }
 
-const FILE_ERROR_KEY: Record<ImportFileErrorCode, string> = {
-  [ImportFileErrorCode.UNREADABLE]: 'unreadable',
-  [ImportFileErrorCode.UNSUPPORTED_TYPE]: 'unsupportedType',
-  [ImportFileErrorCode.MISSING_COLUMNS]: 'missingColumns',
-  [ImportFileErrorCode.TOO_MANY_ROWS]: 'tooManyRows',
-  [ImportFileErrorCode.NO_ROWS]: 'noRows',
-  [ImportFileErrorCode.TOO_LARGE]: 'tooLarge',
-};
-
 /**
  * Maps the server's `details.code` on a whole-file 400 to `staffImport:fileErrors.*`.
  * No code (or an unknown one) is `other`, so no server English reaches the screen.
  * Exported for the test.
  */
 export function fileErrorKey(error: unknown): string {
-  const code = (error as { details?: { code?: unknown } } | null)?.details?.code;
-  return typeof code === 'string' && Object.hasOwn(FILE_ERROR_KEY, code)
-    ? FILE_ERROR_KEY[code as ImportFileErrorCode]
-    : 'other';
+  return importFileErrorKey(error) ?? 'other';
 }
 
 /**

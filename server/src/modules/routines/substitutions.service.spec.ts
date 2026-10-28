@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { RoutineState, SlotRecurrence } from '@biddaloy/shared';
+import { QueryFailedError } from 'typeorm';
 import { SubstitutionsService } from './substitutions.service';
 import { attentionEvents } from '../attention/attention.constants';
 import { ATTENTION_RECHECK } from '../attention/engine/attention-events';
@@ -58,7 +59,11 @@ function buildService() {
   };
   const busy: any = { busyAt: vi.fn(async () => null) };
   const settings: any = { attendance: { specialTimings: [] } };
-  const schools: any = { getResolvedSettings: vi.fn(async () => settings) };
+  // The school's today (#3022): rows before it are history.
+  const schools: any = {
+    getResolvedSettings: vi.fn(async () => settings),
+    todayFor: vi.fn(async () => '2026-01-01'),
+  };
   const audit: any = { record: vi.fn(async () => undefined) };
   const service = new SubstitutionsService(
     substitutionRepo,
@@ -77,6 +82,7 @@ function buildService() {
   return {
     service,
     audit,
+    schools,
     sectionRepo,
     subjectRepo,
     periodSlotRepo,
@@ -146,7 +152,7 @@ describe('SubstitutionsService [21.5.1]', () => {
     const ROW = {
       id: 'sub-1',
       routine_slot_id: 'slot-1',
-      date: '2026-02-02',
+      date: '2099-01-01', // future: still deletable
       substitute_teacher_id: 't-2',
       is_cancelled: false,
     };
@@ -168,10 +174,18 @@ describe('SubstitutionsService [21.5.1]', () => {
           action: 'DELETE',
           entity_type: 'RoutineSubstitution',
           entity_id: 'sub-1',
-          old_values: expect.objectContaining({ routine_slot_id: 'slot-1', date: '2026-02-02' }),
+          old_values: expect.objectContaining({ routine_slot_id: 'slot-1', date: '2099-01-01' }),
         }),
         expect.anything(), // the transaction manager: delete and audit commit together
       );
+    });
+
+    it('refuses (409) to delete a past-dated substitution and keeps the row', async () => {
+      ctx.substitutionRepo.findOne = vi.fn(async () => ({ ...ROW, date: '2000-01-01' }));
+      const err: any = await ctx.service.remove('sub-1', TENANT_ID, 'user-1').catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('SUBSTITUTION_IN_PAST');
+      expect(ctx.substitutionRepo.delete).not.toHaveBeenCalled();
     });
 
     it("another tenant's id is a 404 whose text carries no id", async () => {
@@ -192,6 +206,24 @@ describe('SubstitutionsService [21.5.1]', () => {
         'user-1',
       ),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('refuses (409) to overwrite an existing past-dated substitution (#3022)', async () => {
+    // The unique index says a row for (slot, date) exists: an update would rewrite history.
+    ctx.substitutionRepo.save = vi.fn(async () => {
+      throw Object.assign(new QueryFailedError('INSERT', [], new Error('dup')), { code: '23505' });
+    });
+    ctx.schools.todayFor = vi.fn(async () => '2026-02-01');
+    const err: any = await ctx.service
+      .record(
+        { routine_slot_id: 'slot-1', date: '2026-01-05', is_cancelled: true } as any,
+        TENANT_ID,
+        'u',
+      )
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('SUBSTITUTION_IN_PAST');
+    expect(ctx.substitutionRepo.update).not.toHaveBeenCalled();
   });
 
   it('records a cover for an occurring date', async () => {

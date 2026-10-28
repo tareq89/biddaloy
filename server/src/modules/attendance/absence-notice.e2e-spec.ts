@@ -128,7 +128,7 @@ describe('Absence Notice E2E', () => {
         .send({ date: todayIso() })
         .expect(401);
 
-      expect(res.body.message).toContain('not a member of tenant');
+      expect(res.body.message).toContain('not a member of the requested tenant');
     });
 
     it('writes a REMINDER_PREVIEWED audit row', async () => {
@@ -191,7 +191,7 @@ describe('Absence Notice E2E', () => {
         .send({ date: todayIso() })
         .expect(401);
 
-      expect(res.body.message).toContain('not a member of tenant');
+      expect(res.body.message).toContain('not a member of the requested tenant');
     });
   });
 });
