@@ -244,14 +244,13 @@ Before you copy, have classes with the same names and fee structures with the sa
 <details>
 <summary><strong>Short help for the boxes (the (?) button)</strong></summary>
 
-<!-- guide:generated:fields:fees -->
+<!-- guide:generated:fields:fees:rule,dueDays,audience -->
 
-| Field                  | What to enter                                                                                          | Required? |
-| ---------------------- | ------------------------------------------------------------------------------------------------------ | --------- |
-| Overdue only           | Shows only the students who have a fee past its reminder date. Leave it off to see everyone with dues. | No        |
-| When bills are created | Every month on a day you pick (or the last day), or every week on the days you pick.                   | Yes       |
-| Days to pay            | How many days after the period starts the bill is due. A number from 0 to 60.                          | Yes       |
-| Who is billed          | The whole school, or one class, section or program. Only students who are enrolled now are billed.     | No        |
+| Field                  | What to enter                                                                                      | Required? |
+| ---------------------- | -------------------------------------------------------------------------------------------------- | --------- |
+| When bills are created | Every month on a day you pick (or the last day), or every week on the days you pick.               | Yes       |
+| Days to pay            | How many days after the period starts the bill is due. A number from 0 to 60.                      | Yes       |
+| Who is billed          | The whole school, or one class, section or program. Only students who are enrolled now are billed. | No        |
 
 <!-- /guide:generated -->
 

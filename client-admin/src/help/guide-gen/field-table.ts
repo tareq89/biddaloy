@@ -4,11 +4,13 @@
  *
  * KEY CONVENTION (in `ui/src/i18n/locales/<lang>/<ns>.json`):
  *   help.<fieldKey>          what to enter. `help.<fieldKey>` explains the
- *                            label at `<fieldKey>` or, when that is absent,
- *                            at `fields.<fieldKey>`.
+ *                            label at `fields.<fieldKey>` or, when that is absent,
+ *                            at `<fieldKey>`.
  *   helpRequired.<fieldKey>  optional. The text of the "Required?" column
  *                            ("Yes", "No - the app asks if any are left").
  *                            Missing means "No".
+ *
+ * A page that shares a namespace lists only its own fields: `fields:<ns>:<key>,<key>`.
  *
  * A namespace with no `help` block is not managed yet: `buildFieldTable`
  * returns null and the page keeps its hand-written table.
@@ -31,20 +33,27 @@ const cell = (s: string) =>
     .trim();
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
 
-export function buildFieldTable(ns: Json, lang: GuideLang, nsName = '?'): string | null {
+export function buildFieldTable(
+  ns: Json,
+  lang: GuideLang,
+  nsName = '?',
+  only?: string[],
+): string | null {
   const help = ns.help;
   if (!help || typeof help !== 'object') return null;
   const required = (ns.helpRequired ?? {}) as Json;
   const fields = (ns.fields ?? {}) as Json;
-  const rows = Object.entries(help as Json).map(([key, text]) => {
-    const label = str(ns[key]) ?? str(fields[key]);
-    const body = str(text);
-    if (label === undefined || body === undefined)
-      throw new Error(
-        `${nsName}.json (${lang}): help.${key} needs a string and a label at "${key}" or "fields.${key}"`,
-      );
-    return `| ${cell(label)} | ${cell(body)} | ${cell(str(required[key]) ?? NO[lang])} |`;
-  });
+  const rows = Object.entries(help as Json)
+    .filter(([key]) => !only || only.includes(key))
+    .map(([key, text]) => {
+      const label = str(fields[key]) ?? str(ns[key]);
+      const body = str(text);
+      if (label === undefined || body === undefined)
+        throw new Error(
+          `${nsName}.json (${lang}): help.${key} needs a string and a label at "${key}" or "fields.${key}"`,
+        );
+      return `| ${cell(label)} | ${cell(body)} | ${cell(str(required[key]) ?? NO[lang])} |`;
+    });
   const [a, b, c] = HEADERS[lang];
   return [`| ${a} | ${b} | ${c} |`, '| --- | --- | --- |', ...rows].join('\n');
 }

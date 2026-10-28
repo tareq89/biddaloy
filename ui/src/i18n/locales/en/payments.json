@@ -240,7 +240,7 @@
     "changeHandling": "Whether to give the change back in hand or keep it as the student's credit balance. It can be kept as credit only when the payment is for one student.",
     "remarks": "A note for yourselves, for example who dropped off the money.",
     "reverseReason": "Why you are reversing the payment; 3 to 500 characters. The reversal entry and the credit note carry this reason.",
-    "includeReversed": "Off: a payment that was reversed is hidden. On: reversed payments and the reversal entries show too, marked Reversed and Reversal."
+    "includeReversed": "Off: a payment that was reversed is hidden. On: reversed payments and the reversal entries show too, marked Reversed and Reversal entry."
   },
   "helpRequired": {
     "reverseReason": "Required."

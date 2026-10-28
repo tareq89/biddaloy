@@ -311,17 +311,17 @@ Arrow keys: move from cell to cell · Enter: open a cell · Delete: clear a cell
 
 <!-- guide:generated:fields:routines -->
 
-| Field                                 | What to enter                                                                                                                                | Required?                           |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| Lesson status                         | For each period, choose Taught, Partly or Not taught. Not taught asks you for a reason.                                                      | Yes                                 |
-| Reason (not taught)                   | Teacher absent, School closed, Exam or Other. Write one line when you choose Other. The lesson moves to the next period.                     | Yes, when not taught                |
-| Teachers                              | One or more teachers for this period.                                                                                                        | Yes                                 |
-| Recurrence                            | Weekly, Biweekly (every other week; pick Week 1 or Week 2) or Monthly (pick which occurrence of that day in the month, or the last).         | Yes                                 |
-| Gap between periods (minutes)         | A new period starts this many minutes after the one before it ends. A whole number from 0 to 120.                                            | No                                  |
-| Most periods a teacher takes in a day | The most periods one teacher may take in a day. A whole number of at least 1; leave empty for no limit. Checked while you build the routine. | No                                  |
-| Most periods in a row                 | The most periods in a row for one teacher. A whole number of at least 1; leave empty for no limit. Checked while you build the routine.      | No                                  |
-| Cancel the period                     | Tick it when nobody teaches the period on that date. The weekly routine itself does not change.                                              | No                                  |
-| Substitute teacher                    | Who teaches the period on that date. It cannot be the teacher already assigned, or someone with another class at that time.                  | Yes, unless the period is cancelled |
+| Field                                 | What to enter                                                                                                                                         | Required?                           |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Lesson status                         | For each period, choose Taught, Partly or Not taught. Not taught asks you for a reason.                                                               | Yes                                 |
+| Reason (not taught)                   | Teacher absent, School closed, Exam or Other. Write one line when you choose Other. The lesson moves to the next period.                              | Yes, when not taught                |
+| Teachers                              | One or more teachers for this period.                                                                                                                 | Yes                                 |
+| Recurrence                            | Weekly, Biweekly (every other week; pick Week 1 or Week 2) or Monthly (pick the 1st, 2nd, 3rd, 4th, 5th or last occurrence of that day in the month). | Yes                                 |
+| Gap between periods (minutes)         | A new period starts this many minutes after the one before it ends. A whole number from 0 to 120.                                                     | No                                  |
+| Most periods a teacher takes in a day | The most periods one teacher may take in a day. A whole number of at least 1; leave empty for no limit. Checked while you build the routine.          | No                                  |
+| Most periods in a row                 | The most periods in a row for one teacher. A whole number of at least 1; leave empty for no limit. Checked while you build the routine.               | No                                  |
+| Cancel the period                     | Tick it when nobody teaches the period on that date. The weekly routine itself does not change.                                                       | No                                  |
+| Substitute teacher                    | Who teaches the period on that date. It cannot be the teacher already assigned, or someone with another class at that time.                           | Yes, unless the period is cancelled |
 
 <!-- /guide:generated -->
 

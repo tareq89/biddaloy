@@ -157,9 +157,10 @@
     "overrideNote": "Why changed"
   },
   "helpRequired": {
-    "targetClass": "Yes",
+    "targetClass": "No, if one is suggested",
     "exams": "Yes, at least one",
     "algorithm": "Yes",
+    "finalOutcome": "Yes",
     "overrideNote": "Yes, when you change the suggestion"
   }
 }

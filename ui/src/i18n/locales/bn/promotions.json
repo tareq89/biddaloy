@@ -157,9 +157,10 @@
     "overrideNote": "কেন বদলানো হলো"
   },
   "helpRequired": {
-    "targetClass": "হ্যাঁ",
+    "targetClass": "প্রস্তাব থাকলে না",
     "exams": "হ্যাঁ, অন্তত একটি",
     "algorithm": "হ্যাঁ",
+    "finalOutcome": "হ্যাঁ",
     "overrideNote": "হ্যাঁ, প্রস্তাব বদলালে"
   }
 }

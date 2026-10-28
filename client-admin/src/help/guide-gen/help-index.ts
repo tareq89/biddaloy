@@ -63,7 +63,9 @@ export function readMeta(file: string): PageMeta {
     knownIssues: issues.split('\n').filter((l) => /^\s+-\s/.test(l)).length,
     // Not `data-id="…"`: the char before `id` must not be a word char or `-`.
     anchors: new Set([...text.matchAll(/(?<![\w-])id="([^"]+)"/g)].map((m) => m[1]!)),
-    fieldNs: [...text.matchAll(/<!-- guide:generated:fields:(\S+) -->/g)].map((m) => m[1]!),
+    fieldNs: [...text.matchAll(/<!-- guide:generated:fields:([^\s:]+)(?::\S+)? -->/g)].map(
+      (m) => m[1]!,
+    ),
   };
 }
 

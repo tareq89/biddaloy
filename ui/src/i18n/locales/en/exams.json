@@ -426,6 +426,7 @@
     "class": "Yes",
     "componentName": "Yes",
     "fullMarks": "Yes, except attendance parts",
-    "exam": "Yes"
+    "exam": "Yes",
+    "mark": "Yes, the list cannot be submitted while blank"
   }
 }

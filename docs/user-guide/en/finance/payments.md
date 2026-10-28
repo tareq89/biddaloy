@@ -205,21 +205,12 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 <details>
 <summary><strong>What the boxes mean</strong></summary>
 
-<!-- guide:generated:fields:payments -->
+<!-- guide:generated:fields:payments:reverseReason,includeReversed -->
 
-| Field                 | What to enter                                                                                                                                                                                      | Required? |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Amount received       | How much money you received in total. When you type it, the money is split across the bills with the oldest due dates first and fills the Pay boxes; or leave it empty and fill each box yourself. | No        |
-| Pay                   | How much money goes on this bill. Pay and discount together cannot be more than what is due on the bill.                                                                                           | No        |
-| Discount              | A one-off discount on this bill. Any discount needs an admin's approval when you submit.                                                                                                           | No        |
-| Use credit balance    | Tick to deduct from the student's earlier credit balance: the smaller of the credit balance and the subtotal comes off; credit balance cannot be used when paying for several students.            | No        |
-| Payment method        | How you received the money. Only with cash can you take more than the amount due and give change.                                                                                                  | No        |
-| Transaction reference | The transaction number for bKash, Nagad, Rocket, bank, cheque or card; this box is not shown for cash.                                                                                             | No        |
-| Cash handed over      | Cash only: how much the payer handed over. Used to work out the change; you can leave it empty. If it falls short of the amount due after credit balance, you cannot submit.                       | No        |
-| Change                | Whether to give the change back in hand or keep it as the student's credit balance. It can be kept as credit only when the payment is for one student.                                             | No        |
-| Remarks               | A note for yourselves, for example who dropped off the money.                                                                                                                                      | No        |
-| Reason                | Why you are reversing the payment; 3 to 500 characters. The reversal entry and the credit note carry this reason.                                                                                  | Required. |
-| Show reversed too     | Off: a payment that was reversed is hidden. On: reversed payments and the reversal entries show too, marked Reversed and Reversal.                                                                 | No        |
+| Field             | What to enter                                                                                                                            | Required? |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Reason            | Why you are reversing the payment; 3 to 500 characters. The reversal entry and the credit note carry this reason.                        | Required. |
+| Show reversed too | Off: a payment that was reversed is hidden. On: reversed payments and the reversal entries show too, marked Reversed and Reversal entry. | No        |
 
 <!-- /guide:generated -->
 
