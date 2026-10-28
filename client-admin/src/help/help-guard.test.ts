@@ -247,7 +247,7 @@ describe('help guard', () => {
     ).toEqual([]);
   });
 
-  it('every .field. id has help.<key> in bn and en of its namespace', () => {
+  it('every .field. id has non-blank help.<key> in bn and en of its namespace', () => {
     const missing: string[] = [];
     for (const [id, e] of Object.entries(HELP_INDEX)) {
       if (!id.includes('.field.')) continue;
@@ -258,7 +258,8 @@ describe('help guard', () => {
         }
         const file = path.join(ROOT, `ui/src/i18n/locales/${lang}/${e.field.ns}.json`);
         const help = JSON.parse(readFileSync(file, 'utf8')).help as Record<string, unknown>;
-        if (typeof help?.[e.field.key] !== 'string') missing.push(`${lang}:${id}`);
+        const text = help?.[e.field.key];
+        if (typeof text !== 'string' || !text.trim()) missing.push(`${lang}:${id}`);
       }
     }
     expect(missing).toEqual([]);

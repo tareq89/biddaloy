@@ -107,6 +107,18 @@ describe('buildHelpIndex', () => {
     );
   });
 
+  it('throws on a blank field help text in one language', () => {
+    writeAll('demo.one, demo.one.field.date');
+    put('ui/src/i18n/locales/en/demo.json', JSON.stringify({ help: { date: ' ' } }));
+    expect(() => buildHelpIndex(root, FEATURES)).toThrow(/help\.date/);
+  });
+
+  it('throws when bn and en list a different number of known issues', () => {
+    writeAll();
+    put('docs/user-guide/en/demo/one.md', page('en', IDS).replace(/^ {2}- \{ id: b.*\n/m, ''));
+    expect(() => buildHelpIndex(root, FEATURES)).toThrow(/knownIssues differ \(bn 2, en 1\)/);
+  });
+
   it('throws when two features claim the same route', () => {
     writeAll();
     const two = [...FEATURES, { id: 'demo.two', path: 'demo/two', routes: ['/demo'] }];

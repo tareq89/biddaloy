@@ -114,6 +114,11 @@ export function buildHelpIndex(
     const enFile = path.join(guide, 'en', `${pagePath}.md`);
     if (!existsSync(enFile)) throw new Error(`${path.relative(root, bnFile)}: no en twin`);
     const meta = { bn: readMeta(bnFile), en: readMeta(enFile) };
+    // One count serves both languages, so a list on one page only would link the other to nothing.
+    if (meta.bn.knownIssues !== meta.en.knownIssues)
+      problems.push(
+        `${pagePath}: "${f.id}" knownIssues differ (bn ${meta.bn.knownIssues}, en ${meta.en.knownIssues})`,
+      );
     const m = manifest[f.id];
     const video = m && {
       bn: { id: m.youtube.bn, durationSec: m.durationSec },
@@ -149,7 +154,10 @@ export function buildHelpIndex(
       const fieldKey = id.match(/\.field\.(.+)$/)?.[1];
       if (fieldKey) {
         const ns = meta.bn.fieldNs.find((n) =>
-          LANGS.every((l) => typeof locale(l, n).help?.[fieldKey] === 'string'),
+          LANGS.every((l) => {
+            const text = locale(l, n).help?.[fieldKey];
+            return typeof text === 'string' && text.trim() !== '';
+          }),
         );
         if (!ns) {
           problems.push(`${pagePath}: "${id}" has no help.${fieldKey} in any fields:<ns> marker`);
