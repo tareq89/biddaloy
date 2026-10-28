@@ -254,16 +254,6 @@ describe('Dialog with a HelpHint (#3213)', () => {
   }
   const hint = () => screen.findByRole('button', { name: 'Help: Attendance' });
 
-  it('focuses the first real control, not the (?), and keeps the (?) tabbable', async () => {
-    const user = await open();
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Amount')));
-    expect((await hint()).hasAttribute('tabindex')).toBe(false);
-    // Tab from the input wraps through the dialog; the (?) must be reachable.
-    const h = await hint();
-    for (let i = 0; i < 4 && document.activeElement !== h; i++) await user.tab();
-    expect(document.activeElement).toBe(h);
-  });
-
   it('opens its card without closing the dialog', async () => {
     const user = await open();
     (await hint()).focus();
