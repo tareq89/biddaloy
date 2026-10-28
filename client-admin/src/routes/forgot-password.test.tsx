@@ -59,6 +59,39 @@ describe('/forgot-password', () => {
     expect(screen.getByText(/check your spam folder/)).toBeTruthy();
   });
 
+  it('hints at the test inbox on the code step and the link-sent state, only with a URL', async () => {
+    server.use(authHandlers.refreshFailure, authHandlers.forgotPassword);
+    window.__BIDDALOY_CONFIG__ = { messageSinkUrl: 'https://inbox-demo.example.com' };
+    try {
+      const view = renderWithRouter(routeTree, {
+        initialEntries: ['/forgot-password'],
+        locale: 'en',
+      });
+      await submitIdentifier('01712345678');
+      await screen.findByRole('heading', { name: 'Enter the code' });
+      const phoneLink = await screen.findByRole('link', { name: 'Open test inbox' });
+      expect(phoneLink.getAttribute('href')).toBe('https://inbox-demo.example.com');
+      view.unmount();
+      await cleanupTestState();
+
+      server.use(authHandlers.refreshFailure, authHandlers.forgotPassword);
+      renderWithRouter(routeTree, { initialEntries: ['/forgot-password'], locale: 'en' });
+      await submitIdentifier('unknown@example.com');
+      await screen.findByText(/a reset link has been sent/);
+      expect(await screen.findByRole('link', { name: 'Open test inbox' })).toBeTruthy();
+    } finally {
+      delete window.__BIDDALOY_CONFIG__;
+    }
+  });
+
+  it('shows no test inbox hint without a URL', async () => {
+    server.use(authHandlers.refreshFailure, authHandlers.forgotPassword);
+    renderWithRouter(routeTree, { initialEntries: ['/forgot-password'], locale: 'en' });
+    await submitIdentifier('01712345678');
+    await screen.findByRole('heading', { name: 'Enter the code' });
+    expect(screen.queryByRole('link', { name: 'Open test inbox' })).toBeNull();
+  });
+
   it('shows a calm rate-limit banner on 429, without leaving the identifier step', async () => {
     server.use(authHandlers.refreshFailure, authHandlers.forgotPasswordRateLimited);
 

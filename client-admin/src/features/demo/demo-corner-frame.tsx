@@ -2,6 +2,7 @@ import { DemoRibbon } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { ReactNode } from 'react';
 
+import { TestEnvironmentNotice } from './test-environment-notice';
 import { useDemoMode } from './use-demo-mode';
 
 /**
@@ -14,6 +15,8 @@ export function DemoCornerFrame({ children }: { children: ReactNode }) {
   return (
     <div className="relative">
       {enabled && <LabelledRibbon />}
+      {/* Staging has no ribbon but needs the bar, so it does not depend on `enabled`. */}
+      <TestEnvironmentNotice />
       {children}
     </div>
   );

@@ -164,6 +164,41 @@ describe('/login', () => {
     expect(router.state.location.search).toEqual({});
   });
 
+  describe('87.2.02: test inbox hint', () => {
+    afterEach(() => {
+      delete window.__BIDDALOY_CONFIG__;
+    });
+
+    it('shows the hint on the code tab only when a test inbox URL is set, linking to it', async () => {
+      server.use(authHandlers.refreshFailure);
+      window.__BIDDALOY_CONFIG__ = { messageSinkUrl: 'https://inbox-demo.example.com' };
+      renderWithRouter(routeTree, {
+        initialEntries: ['/login'],
+        tenantId: 'tenant-1',
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('tab', { name: 'With a code' }));
+      // The shell bar carries the same link; the hint is the paragraph under the form.
+      const hint = (await screen.findByText(/This is a test site/)).closest('p')!;
+      const link = hint.querySelector('a')!;
+      expect(link.getAttribute('href')).toBe('https://inbox-demo.example.com');
+      expect(link.getAttribute('target')).toBe('_blank');
+    });
+
+    it('shows no hint without a URL', async () => {
+      server.use(authHandlers.refreshFailure);
+      renderWithRouter(routeTree, {
+        initialEntries: ['/login'],
+        tenantId: 'tenant-1',
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('tab', { name: 'With a code' }));
+      expect(screen.queryByText(/This is a test site/)).toBeNull();
+    });
+  });
+
   describe('12.5: "With a code" tab', () => {
     it('defaults to the password tab, and switches to the OTP tab on click', async () => {
       server.use(authHandlers.refreshFailure);

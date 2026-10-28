@@ -39,6 +39,7 @@ import { z } from 'zod';
 
 import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
 import { DemoRoleCards } from '../features/demo/demo-role-cards';
+import { TestInboxHint } from '../features/demo/test-environment-notice';
 import { useDemoMode, type DemoRoleCard } from '../features/demo/use-demo-mode';
 import { FirstPasswordStep } from '../features/first-password/first-password-step';
 import { isSameAppRedirect } from '../same-app-redirect';
@@ -308,6 +309,7 @@ function LoginPage() {
             loading={otpVerifyMutation.isPending}
             error={buildOtpError(otpVerifyMutation.error ?? otpRequestMutation.error, t)}
           />
+          <TestInboxHint className="mt-3 text-caption text-text-secondary" />
         </TabsContent>
       </Tabs>
     </>
