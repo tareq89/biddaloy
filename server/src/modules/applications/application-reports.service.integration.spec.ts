@@ -328,6 +328,31 @@ describe('ApplicationReportsService (integration)', () => {
       expect(old.by_type_status).toEqual([]);
     });
 
+    it('no academic_year_id counts only the current year; an explicit id counts that year', async () => {
+      const [py] = await dataSource.query(
+        `INSERT INTO academic_years (name, start_date, end_date, is_current, tenant_id, created_at, updated_at)
+         VALUES ('Reports Past', '2018-01-01', '2018-12-31', false, $1, NOW(), NOW()) RETURNING id`,
+        [SEED_TENANT_ID],
+      );
+      await testimonial();
+      const old = await testimonial();
+      await setRow(old.id, `academic_year_id = '${py.id}'`);
+      const total = (r: { by_type_status: Array<{ count: number }> }) =>
+        r.by_type_status.reduce((n, x) => n + x.count, 0);
+      try {
+        expect(total(await reports.reports(SEED_TENANT_ID, callers.admin, {}))).toBe(1);
+        const picked = await reports.reports(SEED_TENANT_ID, callers.admin, {
+          academic_year_id: py.id,
+        });
+        expect(total(picked)).toBe(1);
+      } finally {
+        await dataSource.query(`UPDATE applications SET academic_year_id = NULL WHERE id = $1`, [
+          old.id,
+        ]);
+        await dataSource.query(`DELETE FROM academic_years WHERE id = $1`, [py.id]);
+      }
+    });
+
     it('from/to match by school-timezone day, like by_month', async () => {
       const a = await testimonial();
       // 20:00 UTC on 2026-03-31 is 02:00 on 2026-04-01 in Asia/Dhaka (+06).

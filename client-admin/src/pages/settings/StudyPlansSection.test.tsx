@@ -68,7 +68,7 @@ describe('StudyPlansSection', () => {
       'value',
       '8:00 AM',
     );
-    expect(screen.getByLabelText('Tell the head teacher and admin after')).toHaveProperty(
+    expect(screen.getByLabelText('Tell the academic coordinator and admin after')).toHaveProperty(
       'value',
       '2',
     );
@@ -101,7 +101,7 @@ describe('StudyPlansSection', () => {
     const patchBody = mockPatch();
     const { user } = renderSection({ studyPlans: STORED });
 
-    const days = await screen.findByLabelText('Tell the head teacher and admin after');
+    const days = await screen.findByLabelText('Tell the academic coordinator and admin after');
     await user.clear(days);
     await user.type(days, '5');
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -118,7 +118,7 @@ describe('StudyPlansSection', () => {
     const patchBody = mockPatch();
     const { user } = renderSection();
 
-    const days = await screen.findByLabelText('Tell the head teacher and admin after');
+    const days = await screen.findByLabelText('Tell the academic coordinator and admin after');
     await user.clear(days);
     await user.type(days, v);
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -133,7 +133,7 @@ describe('StudyPlansSection', () => {
     // The time picker only offers HH:mm, so a bad value can only arrive from stored data.
     const { user } = renderSection({ studyPlans: { ...STORED, statusDeadline: '9' } });
 
-    await screen.findByLabelText('Tell the head teacher and admin after');
+    await screen.findByLabelText('Tell the academic coordinator and admin after');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText('Enter a time like 18:00.')).toBeTruthy();
@@ -160,7 +160,7 @@ describe('StudyPlansSection', () => {
     mockCredits();
     const { user } = renderSection();
 
-    const input = await screen.findByLabelText('Tell the head teacher and admin after');
+    const input = await screen.findByLabelText('Tell the academic coordinator and admin after');
     const event = new Event('beforeunload', { cancelable: true });
     window.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(false);

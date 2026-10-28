@@ -19,6 +19,7 @@ const BASE = {
   month_to_date_net: 48500,
   previous_month_same_days_net: 41200,
   months: Array.from({ length: 12 }, (_, i) => ({
+    year: 2026,
     month: i + 1,
     net: i < 9 ? NETS[i]! : i === 9 ? 48500 : null,
     is_current: i === 9,
@@ -86,6 +87,23 @@ describe('collection-by-month widget', () => {
     expect(screen.getAllByText('—').length).toBe(2);
   });
 
+  it('July-June year labels the first row July 2026 and the last June 2027', async () => {
+    serve({
+      ...BASE,
+      months: Array.from({ length: 12 }, (_, i) => ({
+        year: i < 6 ? 2026 : 2027,
+        month: ((i + 6) % 12) + 1,
+        net: i < 3 ? 1000 : i === 3 ? 500 : null,
+        is_current: i === 3,
+      })),
+    });
+    renderWidget('full');
+    await screen.findByText(/more than the same days|less than the same days/);
+    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    expect(screen.getByText('July 2026')).toBeTruthy();
+    expect(screen.getByText('June 2027')).toBeTruthy();
+  });
+
   it('negative diff -> vsLastMonthLess', async () => {
     serve({ ...BASE, month_to_date_net: 30000 });
     renderWidget('full');
@@ -96,7 +114,7 @@ describe('collection-by-month widget', () => {
     serve(BASE);
     renderWidget('compact');
     expect(await screen.findByText('৳10,00,000.00')).toBeTruthy();
-    expect(screen.getByText('this year so far')).toBeTruthy();
+    expect(screen.getByText('this academic year so far')).toBeTruthy();
   });
 
   it('empty year -> emptyReason', async () => {
@@ -108,7 +126,7 @@ describe('collection-by-month widget', () => {
       months: BASE.months.map((m) => ({ ...m, net: m.net === null ? null : 0 })),
     });
     renderWidget('full');
-    expect(await screen.findByText('Nothing collected this year yet.')).toBeTruthy();
+    expect(await screen.findByText('Nothing collected this academic year yet.')).toBeTruthy();
   });
 
   it('error: Retry fires a second request', async () => {

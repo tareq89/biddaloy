@@ -306,6 +306,8 @@
     "approvalModeHelp": "How an admin confirms once more before sensitive changes, such as changing late fees.",
     "requireSecondApprover": "Always need a second admin to reverse a payment",
     "requireSecondApproverHelp": "When off, an admin can approve their own reversal only if they are the school's only admin.",
+    "fineDueDaysLabel": "Fine due after (days)",
+    "fineDueDaysHelp": "A new fine is due this many days after it is made. 1 to 60.",
     "lateFeeIntro": "Tick the fees that get a late fee.",
     "lateFeeType": "Fee type"
   },
@@ -460,7 +462,7 @@
       "reminderValue": "Next school day {{time}}",
       "escalateValue_one": "After {{count}} school day",
       "escalateValue_other": "After {{count}} school days",
-      "escalate": "The head teacher and admin are told.",
+      "escalate": "The academic coordinator and admin are told.",
       "digestValue": "End of week {{time}}",
       "digest": "Guardians and the committee get a summary."
     },
@@ -468,7 +470,7 @@
     "statusDeadlineHelp": "Same school day. Reporting after this still counts, but late.",
     "reminderTime": "Teacher reminder",
     "reminderTimeHelp": "Next school day, only if something is still open.",
-    "escalateAfter": "Tell the head teacher and admin after",
+    "escalateAfter": "Tell the academic coordinator and admin after",
     "escalateSuffix": "school days not reported",
     "escalateHelp": "Holidays are not counted. Between 1 and 10.",
     "escalateRange": "Enter a number from 1 to 10.",

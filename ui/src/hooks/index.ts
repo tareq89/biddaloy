@@ -986,6 +986,7 @@ export {
   invoiceSharesQueryOptions,
   invoicesQueryOptions,
   openPrintableInvoice,
+  useCanSendInvoice,
   useCreateInvoice,
   useInvoice,
   useInvoiceSendCandidates,

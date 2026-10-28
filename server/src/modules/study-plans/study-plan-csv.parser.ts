@@ -50,7 +50,7 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
       throw new StudyPlanParseError('Could not read file — is it a valid CSV file?');
     }
   }
-  throw new StudyPlanParseError(`Unsupported file type: ${ext || '(none)'} — upload .xlsx or .csv`);
+  throw new StudyPlanParseError('Unsupported file type — upload .xlsx or .csv');
 }
 
 function cellToString(value: ExcelJS.CellValue): string {

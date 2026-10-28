@@ -27,6 +27,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   invoiceQueryOptions,
+  useCanSendInvoice,
   useHasPermission,
   useInvoice,
   useInvoiceSendCandidates,
@@ -94,7 +95,7 @@ function InvoiceDetailPage() {
   const regionConfig = useRegionConfig();
   const invoiceQuery = useInvoice(invoiceId);
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
-  const canShare = useHasPermission(Permission.INVOICE_READ);
+  const canShare = useCanSendInvoice();
   const formatLegendId = React.useId();
 
   const [format, setFormat] = React.useState<InvoicePrintFormat>(
@@ -102,7 +103,7 @@ function InvoiceDetailPage() {
   );
   const printInvoice = usePrintInvoice();
 
-  const sharesQuery = useInvoiceShares(invoiceId);
+  const sharesQuery = useInvoiceShares(invoiceId, canShare);
   const shareInvoice = useShareInvoice();
   const revokeShare = useRevokeShare(invoiceId);
   const [revokeTargetId, setRevokeTargetId] = React.useState<string | null>(null);
@@ -150,7 +151,9 @@ function InvoiceDetailPage() {
         },
         onError: (error) => {
           const message =
-            error instanceof ApiError && error.message.includes('SMS_NO_CREDIT')
+            error instanceof ApiError &&
+            error.statusCode === 409 &&
+            error.details?.code === 'INSUFFICIENT_SMS_CREDIT'
               ? t('invoiceDetail.send.smsNoCredit')
               : t('invoiceDetail.send.failed');
           toast.error(message);

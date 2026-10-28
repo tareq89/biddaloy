@@ -222,7 +222,15 @@ describe('GET /dashboard/widgets/collection-month', () => {
             redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${k}:school`),
           ),
         );
+      const setYear = (a: string, b: string) =>
+        dataSource.query(`UPDATE academic_years SET start_date = $2, end_date = $3 WHERE id = $1`, [
+          SEED_ACADEMIC_YEAR_ID,
+          a,
+          b,
+        ]);
       try {
+        // The widget follows the school's current academic year.
+        await setYear('2032-01-01', '2032-12-31');
         vi.useFakeTimers({ toFake: ['Date'] });
         vi.setSystemTime(new Date('2032-01-14T06:00:00Z')); // 12:00 Dhaka, 14 Jan
         await clearBoth();
@@ -245,8 +253,10 @@ describe('GET /dashboard/widgets/collection-month', () => {
           // 1-14 Dec 2031: the 10 Dec payment.
           previous_month_same_days_net: 250,
         });
+        expect(month.months[0].year).toBe(2032);
         expect(month.months[1].net).toBeNull();
       } finally {
+        await setYear('2026-01-01', '2026-12-31');
         await clearBoth();
         await dataSource.query(`DELETE FROM payments WHERE student_id = $1`, [studentId]);
         await dataSource.query(`DELETE FROM students WHERE id = $1`, [studentId]);

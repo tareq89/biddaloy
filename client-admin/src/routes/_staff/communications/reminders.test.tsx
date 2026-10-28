@@ -7,7 +7,7 @@
  * just before *a* preview but before a preview of *these exact inputs* —
  * the first test pins the whole enable → edit → re-disable loop.
  */
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   cleanupTestState,
   guardianFactory,
@@ -25,7 +25,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { routeTree } from '../../../routeTree.gen';
 
 /** Counts render in the region's numerals. */
-const n = (value: number) => formatNumber(value, REGION_BD_BN);
+const n = (value: number) => formatNumber(value, REGION_BD_EN);
 
 const GUARDIAN_MOTHER = guardianFactory({
   id: 'guardian-1',
@@ -173,7 +173,7 @@ describe('/communications/reminders', () => {
     await screen.findByText('Dear Rahima Begum, Arif Hossain has dues.');
     expect(screen.getByText(`Will receive (${n(1)})`)).toBeTruthy();
     expect(
-      screen.getByText(`SMS · ${formatPhone(GUARDIAN_MOTHER.phone as string, REGION_BD_BN)}`),
+      screen.getByText(`SMS · ${formatPhone(GUARDIAN_MOTHER.phone as string, REGION_BD_EN)}`),
     ).toBeTruthy();
 
     // The rendered body is what the network charges for — its count sits
@@ -512,7 +512,7 @@ describe('/communications/reminders', () => {
     await pickStudent(user);
     const row = screen.getByRole('checkbox', { name: /Rahima Begum \(Mother\)/ }).closest('label');
     expect(row?.textContent).toContain(
-      `Prefers SMS · ${formatPhone(GUARDIAN_MOTHER.phone as string, REGION_BD_BN)}`,
+      `Prefers SMS · ${formatPhone(GUARDIAN_MOTHER.phone as string, REGION_BD_EN)}`,
     );
 
     await user.click(screen.getByRole('textbox', { name: 'Message' }));

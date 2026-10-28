@@ -184,7 +184,7 @@ describe('plan header actions', () => {
       );
 
       await user.click(within(dialog).getByRole('combobox', { name: 'Period' }));
-      await user.click(await screen.findByRole('option', { name: /Period ৩/ }));
+      await user.click(await screen.findByRole('option', { name: /Period 3/ }));
       await user.click(within(dialog).getByRole('button', { name: 'Log extra class' }));
 
       expect((await within(dialog).findByRole('alert')).textContent).toBe(
@@ -209,7 +209,7 @@ describe('plan header actions', () => {
         ),
       );
       await user.click(within(dialog).getByRole('combobox', { name: 'Period' }));
-      await user.click(await screen.findByRole('option', { name: /Period ৩/ }));
+      await user.click(await screen.findByRole('option', { name: /Period 3/ }));
       await user.click(within(dialog).getByRole('button', { name: 'Log extra class' }));
 
       const alert = await within(dialog).findByRole('alert');
@@ -322,7 +322,7 @@ describe('plan header actions', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Add marker' }));
 
       expect(within(dialog).getAllByRole('listitem')).toHaveLength(2);
-      expect(within(dialog).getByText(/Half-yearly · up to lesson ৩ 'Decimals'/)).toBeTruthy();
+      expect(within(dialog).getByText(/Half-yearly · up to lesson 3 'Decimals'/)).toBeTruthy();
 
       await user.click(within(dialog).getByRole('button', { name: 'Remove Final marker' }));
       expect(within(dialog).getAllByRole('listitem')).toHaveLength(1);

@@ -218,7 +218,7 @@ describe('/communications/batches', () => {
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale — same reasoning
     // `invoices/index.test.tsx` documents for its own page-size test.
-    await user.click(await screen.findByRole('option', { name: '৫০' }));
+    await user.click(await screen.findByRole('option', { name: '50' }));
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 50, page: 1 }));
   });

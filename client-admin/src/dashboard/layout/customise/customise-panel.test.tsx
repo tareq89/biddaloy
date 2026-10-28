@@ -132,6 +132,8 @@ describe('CustomisePanel', () => {
       locale: 'en',
       role: 'EXECUTIVE',
     });
-    expect((await screen.findByRole('alert')).textContent).toBe('Too many widgets');
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Something went wrong. Please try again.',
+    );
   });
 });

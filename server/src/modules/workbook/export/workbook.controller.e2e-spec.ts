@@ -326,6 +326,20 @@ describe('Workbook Backup E2E', () => {
         .expect(410);
     });
 
+    it('downloads a pinned job whose expires_at is 31 days ago (Keep forever)', async () => {
+      const jobId = await insertJob(TENANT_ID, {
+        expires_at: new Date(Date.now() - 31 * 24 * 3600 * 1000).toISOString(),
+      });
+      await dataSource.query(`UPDATE workbook_jobs SET pinned = true WHERE id = $1`, [jobId]);
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/backup/jobs/${jobId}/download`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID);
+
+      expect(res.status).toBe(200);
+    });
+
     it('does not 410 when expires_at is NULL (never expires) — proves C3', async () => {
       const jobId = await insertJob(TENANT_ID, { expires_at: null });
 

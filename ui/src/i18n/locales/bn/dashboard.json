@@ -169,13 +169,13 @@
     },
     "homework-submission-rate": {
       "title": "হোমওয়ার্ক জমার হার",
-      "description": "এ সপ্তাহে কত শতাংশ বাড়ির কাজ জমা পড়েছে",
-      "value": "এ সপ্তাহে জমা পড়েছে",
+      "description": "গত ৭ দিনে কত শতাংশ বাড়ির কাজ জমা পড়েছে",
+      "value": "গত ৭ দিনে জমা পড়েছে",
       "sentence": "{{expected}}টা জমার মধ্যে {{submitted}}টা এসেছে।",
       "lowest": "সবচেয়ে কম: {{class}} শ্রেণি ({{percent}})।",
       "colClass": "শ্রেণি",
       "colRate": "জমা",
-      "emptyReason": "এ সপ্তাহে কোনো হোমওয়ার্ক জমার দিন ছিল না।",
+      "emptyReason": "গত ৭ দিনে কোনো হোমওয়ার্ক জমার দিন ছিল না।",
       "link": "হোমওয়ার্ক দেখুন",
       "compactTitle": "হোমওয়ার্ক জমা"
     },
@@ -339,8 +339,8 @@
     },
     "collection-by-month": {
       "title": "মাস অনুযায়ী আদায়",
-      "description": "এ বছরের প্রতি মাসের আদায়",
-      "value": "এ বছর এ পর্যন্ত",
+      "description": "এই শিক্ষাবর্ষের প্রতি মাসের আদায়",
+      "value": "এই শিক্ষাবর্ষে এ পর্যন্ত",
       "vsLastMonthMore": "{{month}}-এর প্রথম {{days}} দিনে {{amount}} এসেছে — {{prevMonth}}-এর একই সময়ের চেয়ে {{diff}} বেশি।",
       "vsLastMonthLess": "{{month}}-এর প্রথম {{days}} দিনে {{amount}} এসেছে — {{prevMonth}}-এর একই সময়ের চেয়ে {{diff}} কম।",
       "legendDone": "শেষ হওয়া মাস",
@@ -348,7 +348,7 @@
       "peak": "{{amount}}, {{month}}",
       "colMonth": "মাস",
       "colAmount": "আদায়",
-      "emptyReason": "এ বছর এখনো কোনো আদায় নেই।",
+      "emptyReason": "এই শিক্ষাবর্ষে এখনো কোনো আদায় নেই।",
       "link": "সংগ্রহ প্রতিবেদন খুলুন"
     },
     "dues-ageing": {

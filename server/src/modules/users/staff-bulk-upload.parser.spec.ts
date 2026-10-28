@@ -79,6 +79,13 @@ describe('parseStaffSpreadsheet', () => {
     await expect(parseStaffSpreadsheet(buf, 'a.xlsx')).rejects.toThrow(/no data rows/);
   });
 
+  it('does not echo the file extension in the unsupported-type error (Rule 23)', async () => {
+    const err = await parseStaffSpreadsheet(Buffer.from(''), 'a.pdf').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(StaffUploadParseError);
+    expect((err as Error).message).toBe('Unsupported file type — upload .xlsx or .csv');
+    expect((err as Error).message).not.toContain('pdf');
+  });
+
   it('keeps a leading zero / plus in a CSV mobile', async () => {
     const csv = Buffer.from('Name,Mobile,Email,Role,Designation\nA,+8801711111111,,Teacher,\n');
     const [row] = await parseStaffSpreadsheet(csv, 'a.csv');

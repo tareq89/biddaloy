@@ -20,6 +20,7 @@ import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { resolveAttendancePolicy } from './attendance-policy.util';
 import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { SchoolsService } from '../schools/schools.service';
+import { DEFAULT_DASHBOARD_SETTINGS } from '../schools/settings/tenant-settings-defaults';
 import { TENANT_STATUS_REDIS } from '../schools/tenant-status.service';
 import type {
   CommitteeAttendanceDto,
@@ -134,9 +135,15 @@ export class AttendanceDashboardService {
           homerooms.find((h) => h.assignment_type === TeacherAssignmentType.CLASS_TEACHER) ??
           homerooms[0];
         if (!home) return { section: null, as_of_date: null, total: 0, items: [] };
+        // The school's "Absent in a row (days)" setting, as the at-risk sweep reads it.
+        const settings = await this.schoolsService.getResolvedSettings(tenantId);
+        const absentThreshold =
+          settings.dashboard?.risk?.absentStreakDays ??
+          DEFAULT_DASHBOARD_SETTINGS.risk.absentStreakDays;
         const { items, as_of_date } = await this.summaryService.getSectionStreaks({
           tenantId,
           sectionId: home.section_id,
+          absentThreshold,
         });
         const absent = items.filter((i) => i.status === AttendanceStatus.ABSENT);
         return {

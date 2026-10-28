@@ -154,6 +154,56 @@ describe('/fees/schedules', () => {
     await waitFor(() => expect(patched).toEqual({ is_active: false }));
   });
 
+  it('deleting a rule asks first, then sends DELETE and the row is gone after the refetch', async () => {
+    let rows = [rule()];
+    let deleted = false;
+    server.use(
+      http.get('/api/v1/fees/schedules', () => HttpResponse.json(rows)),
+      http.delete('/api/v1/fees/schedules/:id', () => {
+        deleted = true;
+        rows = [];
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    render();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+
+    const dialog = within(await screen.findByRole('alertdialog'));
+    expect(dialog.getByText('Delete this rule?')).toBeTruthy();
+    expect(deleted).toBe(false);
+
+    await user.click(dialog.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(deleted).toBe(true));
+    await waitFor(() => expect(screen.queryByText('Monthly tuition')).toBeNull());
+  });
+
+  it('closes the confirm and shows a translated error when deleting a rule fails', async () => {
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      listHandler([rule()]),
+      http.delete('/api/v1/fees/schedules/:id', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    render();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }),
+    );
+
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith("Couldn't delete this rule. Try again."),
+    );
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    toastSpy.mockRestore();
+  });
+
   it('B10: a role without PROGRAM_READ makes no programs request', async () => {
     let programsRequested = false;
     server.use(
