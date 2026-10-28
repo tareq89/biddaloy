@@ -355,6 +355,11 @@ export class AnalysisService {
       .select('COUNT(*)', 'appeared')
       .addSelect(`COUNT(*) FILTER (WHERE r.is_fail = false)`, 'passed')
       .addSelect(`COUNT(*) FILTER (WHERE r.is_fail = true)`, 'failed')
+      // A student counts once if absent in any subject [#2923].
+      .addSelect(
+        `COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM result_subjects rs WHERE rs.result_id = r.id AND rs.deleted_at IS NULL AND rs.grade = 'ABS'))`,
+        'absent',
+      )
       .addSelect('MAX(r.total_marks)', 'highest')
       .addSelect('AVG(r.total_marks)', 'average')
       .getRawOne();
@@ -375,7 +380,7 @@ export class AnalysisService {
       appeared: overallAppeared,
       passed: overallPassed,
       failed: Number(overallRaw.failed),
-      absent: 0,
+      absent: Number(overallRaw.absent),
       pass_pct: overallAppeared > 0 ? Math.round((overallPassed / overallAppeared) * 1000) / 10 : 0,
       highest: overallRaw.highest === null ? null : Number(overallRaw.highest),
       average:

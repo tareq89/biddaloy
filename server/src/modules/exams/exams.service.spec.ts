@@ -296,6 +296,9 @@ describe('ExamsService.create with template_id', () => {
     const { service, examRepo } = await buildService();
     examRepo.manager.getRepository = vi.fn(() => ({ findOne: vi.fn(async () => ({ id: 't1' })) }));
     await expect(service.create(base, TENANT_ID)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.create(base, TENANT_ID)).rejects.toMatchObject({
+      response: { details: { code: 'CLASS_HAS_NO_GRADE' } },
+    });
     expect(examRepo.save).not.toHaveBeenCalled();
   });
 
@@ -404,6 +407,25 @@ describe('ExamsService duplicate-name mapping', () => {
         TENANT_ID,
       ),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('the create 409 carries EXAM_NAME_TAKEN and never echoes the submitted name', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.save = vi.fn(async () => {
+      throw new QueryFailedError(
+        'insert',
+        [],
+        Object.assign(new Error('duplicate'), { code: '23505' }),
+      );
+    });
+    const err: any = await service
+      .create(
+        { name: 'Secret Name', kind: ExamKind.TERM, academic_year_id: 'y1', class_id: 'c1' } as any,
+        TENANT_ID,
+      )
+      .catch((e) => e);
+    expect(err.response.details.code).toBe('EXAM_NAME_TAKEN');
+    expect(JSON.stringify(err.response)).not.toContain('Secret Name');
   });
 });
 

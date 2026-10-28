@@ -91,10 +91,9 @@ function MarksEntryPage() {
   // list and the progress list `/marks` already loads); `GET /exams/:id`
   // would 403 without EXAM_MANAGE.
   const exam = useExams({ limit: 50 }).data?.data.find((e) => e.id === examId);
-  const progressRows = useExamProgress(examId).data?.outstanding;
+  const progressRows = useExamProgress(examId).data?.grids;
   // The subject name only from this exact section + subject row; any row of
-  // the section still names the section (a submitted subject drops out of
-  // `outstanding`), but must never lend its subject name.
+  // the section still names the section, but must never lend its subject name.
   const row = progressRows?.find((r) => r.section_id === sectionId && r.subject_id === subjectId);
   const sectionRow = row ?? progressRows?.find((r) => r.section_id === sectionId);
   const role = useActiveRole();
@@ -259,26 +258,28 @@ function MarksEntryPage() {
         <div className="min-w-0">
           <h1 className="text-h1">{t('marksGrid.caption')}</h1>
           <p className="mt-0.5 text-text-secondary">{subtitle}</p>
-          <p
-            className={`mt-2 flex items-center gap-1.5 ${
-              saveState === 'error' ? 'text-destructive' : 'text-text-secondary'
-            }`}
-            role="status"
-            aria-live="polite"
-            data-testid="save-state-line"
-          >
-            <SaveIcon
-              aria-hidden="true"
-              className={`size-4 shrink-0 ${
-                saveState === 'saving'
-                  ? 'animate-spin'
-                  : saveState === 'saved'
-                    ? 'text-status-paid-fg'
-                    : ''
+          {!submitted && (
+            <p
+              className={`mt-2 flex items-center gap-1.5 ${
+                saveState === 'error' ? 'text-destructive' : 'text-text-secondary'
               }`}
-            />
-            {saveStateLine}
-          </p>
+              role="status"
+              aria-live="polite"
+              data-testid="save-state-line"
+            >
+              <SaveIcon
+                aria-hidden="true"
+                className={`size-4 shrink-0 ${
+                  saveState === 'saving'
+                    ? 'animate-spin'
+                    : saveState === 'saved'
+                      ? 'text-status-paid-fg'
+                      : ''
+                }`}
+              />
+              {saveStateLine}
+            </p>
+          )}
         </div>
         {canSubmit && (
           <div className="flex w-full shrink-0 items-center gap-2 md:w-auto">

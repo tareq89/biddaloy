@@ -83,6 +83,15 @@ function isShortfallDetails(details: unknown): details is SeatCapacityShortfallD
   );
 }
 
+function claimedScheduleIds(details: unknown): string[] | undefined {
+  const d = details as { code?: unknown; exam_schedule_ids?: unknown } | undefined;
+  return d?.code === 'SCHEDULE_ALREADY_CLAIMED' &&
+    Array.isArray(d.exam_schedule_ids) &&
+    d.exam_schedule_ids.every((id) => typeof id === 'string')
+    ? d.exam_schedule_ids
+    : undefined;
+}
+
 export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
   const { t, i18n } = useTranslation('seatPlans');
   const { t: tc } = useTranslation('common');
@@ -171,7 +180,19 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
     generate.error instanceof ApiError && isShortfallDetails(generate.error.details)
       ? generate.error.details
       : undefined;
-  const genericError = generate.error && !shortfall ? t('errors.unknown') : undefined;
+  const claimedIds =
+    generate.error instanceof ApiError ? claimedScheduleIds(generate.error.details) : undefined;
+  const claimedSubjects = claimedIds
+    ?.map((id) => schedules.find((s) => s.id === id)?.subject)
+    .map((subject) => (subject ? subjectLabel(subject, i18n.language) : undefined))
+    .filter((label): label is string => !!label);
+  const genericError = !generate.error
+    ? undefined
+    : shortfall
+      ? undefined
+      : claimedSubjects && claimedSubjects.length > 0
+        ? t('errors.scheduleClaimed', { subjects: claimedSubjects.join(', ') })
+        : t('errors.unknown');
 
   const seatsSelected = rooms
     .filter((room) => selectedRooms.has(room.id))
