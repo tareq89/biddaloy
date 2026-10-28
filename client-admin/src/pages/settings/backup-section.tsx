@@ -5,6 +5,7 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
+  HelpHint,
   Label,
   Select,
   SelectContent,
@@ -377,6 +378,7 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
       <SettingsSection
         id="backup-section"
         title={t('sectionTitle')}
+        helpId="administration.settings.section.backup"
         description={`${t('containsDescription')} ${t('neverContainsDescription')}`}
         // With no backups the EmptyState's own button is the only request action.
         actions={
@@ -400,7 +402,10 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
               Hidden for a SUPER_ADMIN — see `isSuperAdmin` above. */}
           {!isSuperAdmin && (
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="backup-schedule">{t('scheduleLabel')}</Label>
+              <span className="inline-flex items-center gap-1">
+                <Label htmlFor="backup-schedule">{t('scheduleLabel')}</Label>
+                <HelpHint helpId="administration.settings.field.schedule" />
+              </span>
               <Select
                 value={schedule}
                 disabled={!settingsQuery.data || updateSettings.isPending}
@@ -497,7 +502,11 @@ export function BackupSection({ backupJobId }: BackupSectionProps) {
         </div>
       </SettingsSection>
 
-      <SettingsSection title={t('restoreSectionTitle')} description={t('restoreDescription')}>
+      <SettingsSection
+        title={t('restoreSectionTitle')}
+        description={t('restoreDescription')}
+        helpId="administration.settings.section.restore"
+      >
         <div className="mt-4 flex flex-col gap-4">
           <RestoreWizard hideTitle />
           {/* [13.5.12] Sits with the full template button (inside the wizard)

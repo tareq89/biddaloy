@@ -8,6 +8,7 @@ import {
   Card,
   Checkbox,
   Combobox,
+  HelpHint,
   Input,
   Label,
   Select,
@@ -283,7 +284,10 @@ export function SubjectCard({
       />
       {student && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="new-app-applicant">{t('subject.applicant')}</Label>
+          <span className="inline-flex items-center gap-1">
+            <Label htmlFor="new-app-applicant">{t('subject.applicant')}</Label>
+            <HelpHint helpId="applications.field.applicant" />
+          </span>
           <Select value={state.applicant} onValueChange={(applicant) => onChange({ applicant })}>
             <SelectTrigger
               id="new-app-applicant"

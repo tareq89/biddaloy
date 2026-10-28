@@ -37,11 +37,11 @@ helpIds:
   [
     applications,
     applications.action.submit,
-    applications.action.approve,
-    applications.action.reject,
-    applications.action.bulkApprove,
+    applications.action.approve#task-decide,
+    applications.action.reject#task-decide,
+    applications.action.bulkApprove#task-bulk,
     applications.action.cancelLeave,
-    applications.action.withdraw,
+    applications.action.withdraw#task-withdraw,
     applications.field.addressee,
     applications.field.applicant,
     applications.field.attachments,
@@ -120,9 +120,9 @@ Example: a teacher wants two days of casual leave.
 
 ## How to know the application was submitted <a href="#confirm" id="confirm"></a>
 
-| State                           | How you can tell                                                                                                                  | What next                                        |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| **Only written on the screen**  | The **New application** page is open; the letter says **Draft**                                                                   | Press **Submit application**                     |
+| State                           | How you can tell                                                                                                                                                 | What next                                              |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **Only written on the screen**  | The **New application** page is open; the letter says **Draft**                                                                                                  | Press **Submit application**                           |
 | **Reached the school's system** | The message **Application submitted · …**; on the **My applications** tab the application is **Pending**, with its number and **Step** (for example **1/1 · …**) | Wait for the decision; you are told when it is decided |
 
 This page does not keep anything separately on a phone or computer, so there is no "saved on this device" state. If you leave the page before submitting, what you wrote is lost.
@@ -145,25 +145,24 @@ This page does not keep anything separately on a phone or computer, so there is 
 
 3. Press one of the three:
 
-| You press                  | What you give in the window                              | What happens                                                                                                                  |
-| -------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Approve**                | **Note (optional)**                                      | If there is a next step, the application goes there. If it is the last step, it becomes **Approved**, and the work happens by itself. The applicant is told. |
-| **Reject**                 | **Reason for rejecting**, required, within 500 characters | It becomes **Rejected**. The applicant learns it with the reason.                                                            |
-| **Keep under consideration** | **Note (optional)**                                    | It becomes **Under consideration**; the step does not change. The applicant sees that it is being looked at. Later approve or reject it. |
+| You press                    | What you give in the window                               | What happens                                                                                                                                                 |
+| ---------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Approve**                  | **Note (optional)**                                       | If there is a next step, the application goes there. If it is the last step, it becomes **Approved**, and the work happens by itself. The applicant is told. |
+| **Reject**                   | **Reason for rejecting**, required, within 500 characters | It becomes **Rejected**. The applicant learns it with the reason.                                                                                            |
+| **Keep under consideration** | **Note (optional)**                                       | It becomes **Under consideration**; the step does not change. The applicant sees that it is being looked at. Later approve or reject it.                     |
 
 **What happens by itself when the last step is approved:**
 
-| Type                                                       | After approval                                                                                                          |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Staff leave                                                | The leave is put in the staff member's attendance, and the days are taken from the leave balance.                       |
-| Student leave                                              | Leave is marked on the student's attendance for the school days in the range. The student must still be active.        |
-| Fee waiver                                                 | The waiver is put on the student's fees. Before approval the Admin's check is needed (see below).                       |
-| Transfer certificate (TC)                                  | The student is marked as having left the school.                                                                        |
-| Readmission                                                | The student comes back to the chosen section.                                                                           |
-| Section change                                             | The student's active enrolment moves to the new section. A section of another class also needs the right to promote students (Admin). |
-| Testimonial, ID card reprint, script recheck               | Nothing happens by itself; do the work by hand after approval. A button for the next job may appear on the application's page, for example **View marks**. |
-| General application                                        | Nothing happens by itself.                                                                                              |
-
+| Type                                         | After approval                                                                                                                                             |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Staff leave                                  | The leave is put in the staff member's attendance, and the days are taken from the leave balance.                                                          |
+| Student leave                                | Leave is marked on the student's attendance for the school days in the range. The student must still be active.                                            |
+| Fee waiver                                   | The waiver is put on the student's fees. Before approval the Admin's check is needed (see below).                                                          |
+| Transfer certificate (TC)                    | The student is marked as having left the school.                                                                                                           |
+| Readmission                                  | The student comes back to the chosen section.                                                                                                              |
+| Section change                               | The student's active enrolment moves to the new section. A section of another class also needs the right to promote students (Admin).                      |
+| Testimonial, ID card reprint, script recheck | Nothing happens by itself; do the work by hand after approval. A button for the next job may appear on the application's page, for example **View marks**. |
+| General application                          | Nothing happens by itself.                                                                                                                                 |
 
 **Extra check for a fee waiver:** when you press **Approve** at the last step, a window comes up: "This action needs a second check before it goes through." An Admin gives their **Email or phone** there, then gives a **Password** or a **One-time code**, and presses **Verify**. Only an Admin can give this check. If the check does not pass, nothing is approved.
 
@@ -194,7 +193,6 @@ For another staff member's paper application, tick **I am writing another staff 
 
 On your own application's page press **Withdraw**, then **Withdraw** in the window. The application becomes **Withdrawn** and is no longer looked at. You can apply again later. You can withdraw it while it is **Pending** or **Under consideration**; once it has been decided, it can no longer be withdrawn.
 
-
 ### Cancel approved leave <a href="#task-cancel" id="task-cancel"></a>
 
 Only approved staff leave and student leave can be cancelled. You cannot cancel your own leave yourself.
@@ -218,18 +216,18 @@ The **Activity** part of the application's page keeps every event in time order:
 
 On the page, the Admin is written as **Headmaster** in the step names.
 
-| Type                   | For                  | Step 1                                                                                                             | Step 2                                    |
-| ---------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| Staff leave            | Staff member         | Admin or Academic coordinator                                                                                      | —                                         |
-| Student leave          | Student              | Class teacher                                                                                                      | —                                         |
-| Fee waiver             | Student              | Class teacher                                                                                                      | Admin or Accountant (Accounts)            |
-| Testimonial            | Student              | Class teacher                                                                                                      | Admin                                     |
-| Transfer certificate (TC) | Student           | Class teacher                                                                                                      | Admin or Academic coordinator             |
-| Readmission            | Student              | Admin or Academic coordinator                                                                                      | —                                         |
-| Section change         | Student              | Class teacher                                                                                                      | Admin                                     |
-| Script recheck         | Student              | Class teacher                                                                                                      | Exam controller                           |
-| ID card reprint        | Staff member or student | Office staff or Admin                                                                                           | —                                         |
-| General application    | Staff member or student | Whoever it is **Addressed to**: class teacher, headmaster (Admin), office (Office staff) or a specific staff member | —                                       |
+| Type                      | For                     | Step 1                                                                                                              | Step 2                         |
+| ------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Staff leave               | Staff member            | Admin or Academic coordinator                                                                                       | —                              |
+| Student leave             | Student                 | Class teacher                                                                                                       | —                              |
+| Fee waiver                | Student                 | Class teacher                                                                                                       | Admin or Accountant (Accounts) |
+| Testimonial               | Student                 | Class teacher                                                                                                       | Admin                          |
+| Transfer certificate (TC) | Student                 | Class teacher                                                                                                       | Admin or Academic coordinator  |
+| Readmission               | Student                 | Admin or Academic coordinator                                                                                       | —                              |
+| Section change            | Student                 | Class teacher                                                                                                       | Admin                          |
+| Script recheck            | Student                 | Class teacher                                                                                                       | Exam controller                |
+| ID card reprint           | Staff member or student | Office staff or Admin                                                                                               | —                              |
+| General application       | Staff member or student | Whoever it is **Addressed to**: class teacher, headmaster (Admin), office (Office staff) or a specific staff member | —                              |
 
 - **If there is no class teacher:** in a two-step application the first step is skipped and it goes straight to step 2. For a staff member's application too, the class teacher's step is skipped. An application with a class-teacher-only step (for example student leave) comes to the **Awaiting decision** tab of the Admin and the Academic coordinator.
 - **The Admin and the Academic coordinator** can decide at any step of any open application (except their own), even if it is not in their **Awaiting decision** tab; open it from the **All applications** tab. But approving the last step also needs the permission for the work itself: the Academic coordinator cannot approve the last step of a fee waiver or a section change.
@@ -238,36 +236,36 @@ On the page, the Admin is written as **Headmaster** in the step names.
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                                          | What to do                                                                                              | Who can help |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------ |
-| The type is grey, with **Applications on behalf of a student are recorded by the office** below       | A student's application is entered by Office staff, the Admin or the Academic coordinator. Give them the paper. | Office staff |
-| The type is grey, with **Your account has no staff profile** below                                    | Ask the Admin to create your staff profile.                                                             | Admin        |
-| **Script recheck** is not in the list                                                                 | The Accountant and Office staff do not see this type, because they cannot see the exam list.            | Admin        |
-| **This student's section has no class teacher yet. Choose another addressee or ask the office.**      | In a general application choose another **Addressed to**, or have a class teacher set for the section.  | Admin        |
-| **You do not decide this application at its current step.**                                           | The application is at another step. Look in the **Step** column to see whose it is.                     | —            |
-| **You do not have the permission needed to approve this application.**                                | You do not have the permission for the last step's work. Ask the Admin to approve.                      | Admin        |
-| **Someone else has already decided. The page has been refreshed.**                                    | Look at the new state; nothing more to do.                                                              | —            |
-| **The leave balance is not enough for these days.**                                                   | Apply for fewer days, or choose another leave type.                                                     | Admin        |
-| **No leave policy is set up for this leave type. Ask the office to set it up.**                       | Until the leave policy is set, this type of leave cannot be approved.                                   | Admin        |
-| **This overlaps with leave that is already approved.**                                                | Change the dates and apply again.                                                                       | —            |
-| **Too many or too large files. Up to 3 files, 5 MB each.**                                            | Add fewer or smaller files; only PDF, JPG or PNG.                                                       | —            |
-| **This kind of application cannot be approved in bulk.**                                              | Open the fee waiver and approve it on its own.                                                          | —            |
-| **You cannot view this application.**                                                                 | You are not the applicant, a decider or tagged.                                                         | Admin        |
-| **Could not load applications.**                                                                      | Press **Retry**.                                                                                        | —            |
+| What you see                                                                                     | What to do                                                                                                      | Who can help |
+| ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------------ |
+| The type is grey, with **Applications on behalf of a student are recorded by the office** below  | A student's application is entered by Office staff, the Admin or the Academic coordinator. Give them the paper. | Office staff |
+| The type is grey, with **Your account has no staff profile** below                               | Ask the Admin to create your staff profile.                                                                     | Admin        |
+| **Script recheck** is not in the list                                                            | The Accountant and Office staff do not see this type, because they cannot see the exam list.                    | Admin        |
+| **This student's section has no class teacher yet. Choose another addressee or ask the office.** | In a general application choose another **Addressed to**, or have a class teacher set for the section.          | Admin        |
+| **You do not decide this application at its current step.**                                      | The application is at another step. Look in the **Step** column to see whose it is.                             | —            |
+| **You do not have the permission needed to approve this application.**                           | You do not have the permission for the last step's work. Ask the Admin to approve.                              | Admin        |
+| **Someone else has already decided. The page has been refreshed.**                               | Look at the new state; nothing more to do.                                                                      | —            |
+| **The leave balance is not enough for these days.**                                              | Apply for fewer days, or choose another leave type.                                                             | Admin        |
+| **No leave policy is set up for this leave type. Ask the office to set it up.**                  | Until the leave policy is set, this type of leave cannot be approved.                                           | Admin        |
+| **This overlaps with leave that is already approved.**                                           | Change the dates and apply again.                                                                               | —            |
+| **Too many or too large files. Up to 3 files, 5 MB each.**                                       | Add fewer or smaller files; only PDF, JPG or PNG.                                                               | —            |
+| **This kind of application cannot be approved in bulk.**                                         | Open the fee waiver and approve it on its own.                                                                  | —            |
+| **You cannot view this application.**                                                            | You are not the applicant, a decider or tagged.                                                                 | Admin        |
+| **Could not load applications.**                                                                 | Press **Retry**.                                                                                                | —            |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                  | Own applications                                                   | Enter paper applications and see **All applications** | Decides                                                                                                                   |
-| --------------------- | ------------------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Admin                 | Yes                                                                | Yes, and the report                                   | The headmaster's step, ID card, general applications (addressed to the headmaster); any step except their own             |
-| Academic coordinator  | Yes                                                                | Yes, and the report                                   | Staff leave, transfer certificate, readmission; any step, but not the last step of a fee waiver or section change         |
-| Office staff          | Yes                                                                | Yes, and the report                                   | ID card reprint, general applications addressed to the office                                                             |
-| Accountant            | Staff types (leave, ID card, general); not script recheck          | No                                                    | The second step of a fee waiver (the Admin's check is needed)                                                             |
-| Exam controller       | Staff types (leave, ID card, general)                              | No                                                    | The second step of a script recheck                                                                                       |
-| Teacher               | Staff types (leave, ID card, general)                              | No                                                    | If a class teacher, the class teacher step of the applications of their own section's students                            |
-| Committee member      | No                                                                 | No                                                    | No; **Applications** is not in their menu                                                                                 |
+| Role                 | Own applications                                          | Enter paper applications and see **All applications** | Decides                                                                                                           |
+| -------------------- | --------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Admin                | Yes                                                       | Yes, and the report                                   | The headmaster's step, ID card, general applications (addressed to the headmaster); any step except their own     |
+| Academic coordinator | Yes                                                       | Yes, and the report                                   | Staff leave, transfer certificate, readmission; any step, but not the last step of a fee waiver or section change |
+| Office staff         | Yes                                                       | Yes, and the report                                   | ID card reprint, general applications addressed to the office                                                     |
+| Accountant           | Staff types (leave, ID card, general); not script recheck | No                                                    | The second step of a fee waiver (the Admin's check is needed)                                                     |
+| Exam controller      | Staff types (leave, ID card, general)                     | No                                                    | The second step of a script recheck                                                                               |
+| Teacher              | Staff types (leave, ID card, general)                     | No                                                    | If a class teacher, the class teacher step of the applications of their own section's students                    |
+| Committee member     | No                                                        | No                                                    | No; **Applications** is not in their menu                                                                         |
 
 Everyone sees the applications they submitted, the ones they are tagged on, and the ones they have acted on before. In a general application addressed to a specific staff member, that staff member decides. An application of another school is never visible.
 
@@ -308,18 +306,18 @@ Everyone sees the applications they submitted, the ones they are tagged on, and 
 
 **The details step of each type**
 
-| Type                    | Fields                                                                                                                                                                                                                      |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Staff leave             | **Leave type**, **From**, **To**, **Reason** — all required                                                                                                                                                                 |
-| Student leave           | **Reason for leave** (Illness, Family reasons, Other), **From**, **To**, **Details** — all required                                                                                                                         |
-| Fee waiver              | **Kind of waiver** (Percent or Flat amount), **Percent (1 to 100)** or **Amount in taka**, **Fees it applies to** (leave empty to cover all fees), **Valid from (optional)**, **Valid until (optional)**, **Reason**        |
-| Testimonial             | **Purpose**, for example "for admission to college", within 300 characters                                                                                                                                                  |
-| Transfer certificate (TC) | **Leaving date**, **Going to (optional)**, **Reason**                                                                                                                                                                     |
-| Readmission             | **Class**, **Section**, **Date of readmission** (not in the future), **Reason**                                                                                                                                             |
-| Section change          | **Move to section**, **Reason**                                                                                                                                                                                             |
-| Script recheck          | **Exam**, **Subject**, **Reason**                                                                                                                                                                                           |
-| ID card reprint         | **Reason**                                                                                                                                                                                                                  |
-| General application     | **Subject of the application** (within 200 characters), **Application** (within 5,000 characters)                                                                                                                           |
+| Type                      | Fields                                                                                                                                                                                                               |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Staff leave               | **Leave type**, **From**, **To**, **Reason** — all required                                                                                                                                                          |
+| Student leave             | **Reason for leave** (Illness, Family reasons, Other), **From**, **To**, **Details** — all required                                                                                                                  |
+| Fee waiver                | **Kind of waiver** (Percent or Flat amount), **Percent (1 to 100)** or **Amount in taka**, **Fees it applies to** (leave empty to cover all fees), **Valid from (optional)**, **Valid until (optional)**, **Reason** |
+| Testimonial               | **Purpose**, for example "for admission to college", within 300 characters                                                                                                                                           |
+| Transfer certificate (TC) | **Leaving date**, **Going to (optional)**, **Reason**                                                                                                                                                                |
+| Readmission               | **Class**, **Section**, **Date of readmission** (not in the future), **Reason**                                                                                                                                      |
+| Section change            | **Move to section**, **Reason**                                                                                                                                                                                      |
+| Script recheck            | **Exam**, **Subject**, **Reason**                                                                                                                                                                                    |
+| ID card reprint           | **Reason**                                                                                                                                                                                                           |
+| General application       | **Subject of the application** (within 200 characters), **Application** (within 5,000 characters)                                                                                                                    |
 
 A writing field needs at least 3 characters; **Reason** and **Details** are within 1,000 characters. The end date must be on or after the start date.
 

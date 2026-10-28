@@ -186,7 +186,12 @@ export function SmsSection({ schoolId, sms }: SmsSectionProps) {
             name="provider"
             render={({ field }) => (
               <FormItem className="md:col-span-2">
-                <FormLabel htmlFor="sms-provider">{t('sms.provider')}</FormLabel>
+                <FormLabel
+                  htmlFor="sms-provider"
+                  helpId="administration.settings.field.smsProvider"
+                >
+                  {t('sms.provider')}
+                </FormLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger id="sms-provider">

@@ -1,4 +1,4 @@
-import { Checkbox, Form, FormField, FormItem, Label } from '@biddaloy/ui/components';
+import { Checkbox, Form, FormField, FormItem, HelpHint, Label } from '@biddaloy/ui/components';
 import { useUpdateSchoolSettings, type AuthSettings } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
@@ -79,6 +79,7 @@ export function SignInSection({ schoolId, auth }: SignInSectionProps) {
                 <Label htmlFor="signin-otpLoginEnabled" className="flex-1 self-stretch">
                   {t('signIn.otpLoginEnabled')}
                 </Label>
+                <HelpHint helpId="administration.settings.field.otpLoginEnabled" />
               </div>
               <p id="signin-otpLoginEnabled-help" className="text-caption text-text-secondary">
                 {t('signIn.otpLoginHelp')}

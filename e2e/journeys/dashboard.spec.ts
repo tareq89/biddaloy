@@ -18,12 +18,17 @@ const upcomingCard = (page: Page) =>
   page.getByRole('heading', { name: t('calendar.upcomingPanel.title') });
 const panel = (page: Page) =>
   page.getByRole('region', { name: t('dashboard.customise.panelTitle') });
+// "সাজান" is a substring of the setup card's (?) name "সাহায্য: স্কুল সাজানোর ক্রম" (Epic 44).
+const customiseButton = (page: Page) =>
+  page
+    .getByRole('button', { name: t('dashboard.page.customise') })
+    .and(page.locator(':not([data-help-id])'));
 
 async function saveCustomisation(page: Page) {
   await panel(page)
     .getByRole('button', { name: t('dashboard.customise.save'), exact: true })
     .click();
-  await expect(page.getByRole('button', { name: t('dashboard.page.customise') })).toBeVisible();
+  await expect(customiseButton(page)).toBeVisible();
 }
 
 test.describe('dashboard', () => {
@@ -46,7 +51,7 @@ test.describe('dashboard', () => {
     await page.goto('/dashboard');
     await expect(upcomingCard(page)).toBeVisible();
 
-    await page.getByRole('button', { name: t('dashboard.page.customise') }).click();
+    await customiseButton(page).click();
     await expect(page).toHaveURL(/customize=1/);
     await expectNoAxeViolations(page, 'main');
     await panel(page).getByRole('checkbox', { name: UPCOMING() }).uncheck();

@@ -24,6 +24,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  HelpHint,
   Input,
   Select,
   SelectContent,
@@ -363,6 +364,7 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
       <SettingsSection
         id="attendance-section"
         title={t('attendance.legend')}
+        helpId="administration.settings.section.attendance"
         description={t('attendance.description')}
         onSubmit={(event) => void form.handleSubmit(handleSave)(event)}
         saving={updateSettings.isPending}
@@ -449,6 +451,7 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
                 <FormLabel htmlFor="attendance-autoAbsentEnabled" className="flex-1 self-stretch">
                   {t('attendance.autoAbsentEnabled')}
                 </FormLabel>
+                <HelpHint helpId="administration.settings.field.autoAbsentEnabled" />
                 <ConfirmDialog
                   open={confirmingAutoAbsent}
                   onOpenChange={setConfirmingAutoAbsent}

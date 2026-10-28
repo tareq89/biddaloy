@@ -1,6 +1,6 @@
 /** [13.5.1] Dashboard "Finish setting up your school" card. ADMIN only; hidden once dismissed or all done. */
 import { UserRole, type OnboardingItemId, type OnboardingStatus } from '@biddaloy/shared';
-import { Button, Card, ProgressBar } from '@biddaloy/ui/components';
+import { Button, Card, HelpHint, ProgressBar } from '@biddaloy/ui/components';
 import {
   onboardingStatusQueryOptions,
   useActiveRole,
@@ -46,9 +46,12 @@ export function SetupChecklistCard() {
       <section aria-labelledby={headingId} className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <h2 id={headingId} className="text-h3">
-              {t('title')}
-            </h2>
+            <div className="flex items-center gap-1">
+              <h2 id={headingId} className="text-h3">
+                {t('title')}
+              </h2>
+              <HelpHint helpId="admin.setupOrder.action.continueSetup" />
+            </div>
             <p className="text-text-secondary">
               {t('progress', { done, total: data.items.length })}
             </p>

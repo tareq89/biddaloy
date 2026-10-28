@@ -236,6 +236,7 @@ export function OrganisationSection({ schoolId, organisation }: OrganisationSect
     <SettingsSection
       id="organisation-section"
       title={t('organisation.legend')}
+      helpId="administration.settings.section.organisation"
       description={t('organisation.description')}
       onSubmit={(event) => {
         event.preventDefault();

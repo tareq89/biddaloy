@@ -39,7 +39,7 @@ export const HELP_INDEX: HelpIndex = {
       en: "Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper application into the app, and approve or reject applications waiting for your decision. When the last step is approved, work such as leave or a waiver happens by itself.",
     },
     path: 'applications/applications',
-    anchor: 'task-main',
+    anchor: 'task-decide',
     knownIssues: 0,
   },
   'applications.action.reject': {
@@ -49,7 +49,7 @@ export const HELP_INDEX: HelpIndex = {
       en: "Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper application into the app, and approve or reject applications waiting for your decision. When the last step is approved, work such as leave or a waiver happens by itself.",
     },
     path: 'applications/applications',
-    anchor: 'task-main',
+    anchor: 'task-decide',
     knownIssues: 0,
   },
   'applications.action.bulkApprove': {
@@ -59,7 +59,7 @@ export const HELP_INDEX: HelpIndex = {
       en: "Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper application into the app, and approve or reject applications waiting for your decision. When the last step is approved, work such as leave or a waiver happens by itself.",
     },
     path: 'applications/applications',
-    anchor: 'task-main',
+    anchor: 'task-bulk',
     knownIssues: 0,
   },
   'applications.action.cancelLeave': {
@@ -79,7 +79,7 @@ export const HELP_INDEX: HelpIndex = {
       en: "Submit school applications such as leave, fee waiver, transfer certificate, testimonial and section change, enter a guardian's paper application into the app, and approve or reject applications waiting for your decision. When the last step is approved, work such as leave or a waiver happens by itself.",
     },
     path: 'applications/applications',
-    anchor: 'task-main',
+    anchor: 'task-withdraw',
     knownIssues: 0,
   },
   'applications.field.addressee': {
@@ -2927,164 +2927,150 @@ export const HELP_INDEX: HelpIndex = {
     anchor: '',
     knownIssues: 0,
   },
-  'administration.settings.logo': {
+  'administration.settings.field.logo': {
+    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
+    summary: { bn: '', en: '' },
+    path: 'administration/settings',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'settings', key: 'logo' },
+  },
+  'administration.settings.section.organisation': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
     summary: {
       bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
       en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
     },
     path: 'administration/settings',
-    anchor: '',
+    anchor: 'task-school',
     knownIssues: 0,
   },
-  'administration.settings.organisation': {
+  'administration.settings.section.attendance': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
     summary: {
       bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
       en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
     },
     path: 'administration/settings',
-    anchor: '',
+    anchor: 'task-academics',
     knownIssues: 0,
   },
-  'administration.settings.attendance': {
+  'administration.settings.field.autoAbsentEnabled': {
+    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
+    summary: { bn: '', en: '' },
+    path: 'administration/settings',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'settings', key: 'autoAbsentEnabled' },
+  },
+  'administration.settings.field.approvalMode': {
+    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
+    summary: { bn: '', en: '' },
+    path: 'administration/settings',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'settings', key: 'approvalMode' },
+  },
+  'administration.settings.field.requireSecondApprover': {
+    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
+    summary: { bn: '', en: '' },
+    path: 'administration/settings',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'settings', key: 'requireSecondApprover' },
+  },
+  'administration.settings.section.lateFees': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
     summary: {
       bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
       en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
     },
     path: 'administration/settings',
-    anchor: '',
+    anchor: 'task-finance',
     knownIssues: 0,
   },
-  'administration.settings.autoAbsent': {
+  'administration.settings.action.buySeats': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
     summary: {
       bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
       en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
     },
     path: 'administration/settings',
-    anchor: '',
+    anchor: 'task-billing',
     knownIssues: 0,
   },
-  'administration.settings.approvalMode': {
+  'administration.settings.field.smsProvider': {
+    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
+    summary: { bn: '', en: '' },
+    path: 'administration/settings',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'settings', key: 'smsProvider' },
+  },
+  'administration.settings.section.smsCredit': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
     summary: {
       bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
       en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
     },
     path: 'administration/settings',
-    anchor: '',
+    anchor: 'task-communication',
     knownIssues: 0,
   },
-  'administration.settings.secondApprover': {
+  'administration.settings.section.guardianSmsFallback': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
     summary: {
       bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
       en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
     },
     path: 'administration/settings',
-    anchor: '',
+    anchor: 'task-alerts',
     knownIssues: 0,
   },
-  'administration.settings.lateFees': {
+  'administration.settings.section.printers': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
     summary: {
       bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
       en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
     },
     path: 'administration/settings',
-    anchor: '',
+    anchor: 'task-printing',
     knownIssues: 0,
   },
-  'administration.settings.buySeats': {
+  'administration.settings.field.otpLoginEnabled': {
+    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
+    summary: { bn: '', en: '' },
+    path: 'administration/settings',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'settings', key: 'otpLoginEnabled' },
+  },
+  'administration.settings.section.backup': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
     summary: {
       bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
       en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
     },
     path: 'administration/settings',
-    anchor: '',
+    anchor: 'task-backup',
     knownIssues: 0,
   },
-  'administration.settings.smsProvider': {
+  'administration.settings.field.schedule': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
-    summary: {
-      bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
-      en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
-    },
+    summary: { bn: '', en: '' },
     path: 'administration/settings',
-    anchor: '',
+    anchor: 'more',
     knownIssues: 0,
+    field: { ns: 'backup', key: 'schedule' },
   },
-  'administration.settings.smsCredit': {
+  'administration.settings.section.restore': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
     summary: {
       bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
       en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
     },
     path: 'administration/settings',
-    anchor: '',
-    knownIssues: 0,
-  },
-  'administration.settings.guardianSmsFallback': {
-    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
-    summary: {
-      bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
-      en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
-    },
-    path: 'administration/settings',
-    anchor: '',
-    knownIssues: 0,
-  },
-  'administration.settings.printers': {
-    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
-    summary: {
-      bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
-      en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
-    },
-    path: 'administration/settings',
-    anchor: '',
-    knownIssues: 0,
-  },
-  'administration.settings.otpLogin': {
-    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
-    summary: {
-      bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
-      en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
-    },
-    path: 'administration/settings',
-    anchor: '',
-    knownIssues: 0,
-  },
-  'administration.settings.backup': {
-    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
-    summary: {
-      bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
-      en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
-    },
-    path: 'administration/settings',
-    anchor: '',
-    knownIssues: 0,
-  },
-  'administration.settings.backupSchedule': {
-    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
-    summary: {
-      bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
-      en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
-    },
-    path: 'administration/settings',
-    anchor: '',
-    knownIssues: 0,
-  },
-  'administration.settings.restore': {
-    title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
-    summary: {
-      bn: 'স্কুলের প্রোফাইল, একাডেমিক নিয়ম, ফির নিয়ম, যোগাযোগ, প্রিন্টিং, সাইন-ইন, ব্যাকআপ আর সতর্কতা এক পাতায়, নয়টি বিভাগে ঠিক করুন।',
-      en: "Set the school's profile, academic rules, fee rules, communication, printing, sign-in, backup and alerts on one page, in nine categories.",
-    },
-    path: 'administration/settings',
-    anchor: '',
+    anchor: 'task-restore',
     knownIssues: 0,
   },
   'administration.curriculumPreset': {

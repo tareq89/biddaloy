@@ -93,9 +93,12 @@ async function freshSchool(
   }
 }
 
-/** Presses Tab once and asserts the checkbox with this exact label took focus. */
+/** Presses Tab once (twice past a (?)) and asserts the checkbox with this exact label took focus. */
 async function tabToCheckbox(page: Page, name: string): Promise<void> {
   await page.keyboard.press('Tab');
+  // The Stages legend carries a (?) (Epic 44) that sits before the first checkbox.
+  if (await page.evaluate(() => document.activeElement?.hasAttribute('data-help-id')))
+    await page.keyboard.press('Tab');
   await expect(page.getByRole('checkbox', { name, exact: true })).toBeFocused();
 }
 

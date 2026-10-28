@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Input,
   Label,
 } from '@biddaloy/ui/components';
@@ -51,7 +52,10 @@ export function ConfirmApplyDialog({
        * is rendered after the content) and closes on Esc by default. */}
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t('confirm.title', { name: presetName })}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('confirm.title', { name: presetName })}</DialogTitle>
+            <HelpHint helpId="administration.curriculumPreset.action.apply" />
+          </div>
           <DialogDescription>{t('confirm.creates')}</DialogDescription>
         </DialogHeader>
         <p className="text-sm font-medium text-destructive">{t('confirm.irreversible')}</p>
@@ -63,7 +67,12 @@ export function ConfirmApplyDialog({
             if (matches && !pending) onConfirm();
           }}
         >
-          <Label htmlFor="confirm-apply-name">{t('confirm.typeLabel', { name: presetName })}</Label>
+          <span className="inline-flex items-center gap-1">
+            <Label htmlFor="confirm-apply-name">
+              {t('confirm.typeLabel', { name: presetName })}
+            </Label>
+            <HelpHint helpId="administration.curriculumPreset.field.confirmName" />
+          </span>
           <Input
             id="confirm-apply-name"
             autoComplete="off"

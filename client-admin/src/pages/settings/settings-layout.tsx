@@ -1,4 +1,4 @@
-import { Button } from '@biddaloy/ui/components';
+import { Button, HelpHint } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { Link } from '@tanstack/react-router';
 import type { LucideIcon } from 'lucide-react';
@@ -78,6 +78,8 @@ export interface SettingsSectionProps {
   id?: string;
   title: string;
   description?: string;
+  /** A (?) after the title (needs a help index entry). */
+  helpId?: string | undefined;
   /** E.g. a StatusBadge next to the title. */
   badge?: React.ReactNode;
   /** Omit -> renders a `<section>` with no Save. */
@@ -102,6 +104,7 @@ export function SettingsSection({
   id,
   title,
   description,
+  helpId,
   badge,
   onSubmit,
   saving,
@@ -118,6 +121,7 @@ export function SettingsSection({
     <>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h2 className="text-h2">{title}</h2>
+        <HelpHint size="md" helpId={helpId} />
         {badge}
       </div>
       {description && <p className="mt-0.5 text-text-secondary">{description}</p>}

@@ -20,6 +20,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  HelpHint,
   Input,
   Switch,
   TimeInput,
@@ -372,9 +373,12 @@ export function AlertsSection({ schoolId, attention }: AlertsSectionProps) {
           </section>
 
           <section aria-labelledby="alerts-guardian" className="flex flex-col gap-3">
-            <h3 id="alerts-guardian" className="text-h3">
-              {t('settings.guardianTitle')}
-            </h3>
+            <div className="flex items-center gap-1">
+              <h3 id="alerts-guardian" className="text-h3">
+                {t('settings.guardianTitle')}
+              </h3>
+              <HelpHint helpId="administration.settings.section.guardianSmsFallback" />
+            </div>
             <FormField
               control={form.control}
               name="guardianSmsFallback"
