@@ -359,6 +359,7 @@ function RoutineBuilderPage() {
         },
         {
           id: 'fill',
+          helpId: 'academics.routineBuilder.action.fillAssist',
           label: t('builder.fillAssistAction'),
           icon: <WandSparklesIcon />,
           priority: 'primary',

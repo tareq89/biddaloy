@@ -14,6 +14,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Label,
   Select,
   SelectContent,
@@ -71,7 +72,10 @@ export function CloneScheduleDialog({
       <DialogContent size="sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{t('schedules.cloneDialog.title')}</DialogTitle>
+            <div className="flex items-center gap-1">
+              <DialogTitle>{t('schedules.cloneDialog.title')}</DialogTitle>
+              <HelpHint helpId="finance.recurringSchedules.action.clone" />
+            </div>
             <DialogDescription>{t('schedules.cloneDialog.description')}</DialogDescription>
           </DialogHeader>
 

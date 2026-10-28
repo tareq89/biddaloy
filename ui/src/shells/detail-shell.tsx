@@ -20,9 +20,8 @@ import * as React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../primitives/tabs';
 
 import { PageContainer } from './page-container';
-import { PageHeaderActions, type PageAction, type PageActionPriority } from './page-header';
+import { PageHeaderActions, type PageAction } from './page-header';
 
-export type DetailShellActionPriority = PageActionPriority;
 export type DetailShellAction = PageAction;
 
 export interface DetailShellTab {

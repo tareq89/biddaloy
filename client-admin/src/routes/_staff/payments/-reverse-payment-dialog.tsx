@@ -22,6 +22,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Textarea,
 } from '@biddaloy/ui/components';
 import { type ReverseLaterPaymentsFirstDetails, useReversePayment } from '@biddaloy/ui/hooks';
@@ -87,7 +88,10 @@ export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReverseP
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>{t('detail.reverseDialog.title')}</DialogTitle>
+            <div className="flex items-center gap-1">
+              <DialogTitle>{t('detail.reverseDialog.title')}</DialogTitle>
+              <HelpHint helpId="finance.payments.action.reverse" />
+            </div>
             <DialogDescription>{t('detail.reverseDialog.description')}</DialogDescription>
           </DialogHeader>
 
@@ -105,6 +109,7 @@ export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReverseP
               <span aria-hidden="true" className="text-destructive">
                 *
               </span>
+              <HelpHint helpId="finance.payments.field.reverseReason" />
             </div>
             <Textarea
               id="reverse-payment-reason"

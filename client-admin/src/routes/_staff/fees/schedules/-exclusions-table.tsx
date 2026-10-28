@@ -11,6 +11,7 @@ import {
   Card,
   ConfirmDialog,
   DataTable,
+  HelpHint,
   Input,
   Label,
   toast,
@@ -89,7 +90,10 @@ export function ExclusionsTable({ scheduleId, exclusions, canManage }: Exclusion
 
   return (
     <Card padded>
-      <h2 className="text-h2">{t('schedules.detail.exclusionsTitle')}</h2>
+      <div className="flex items-center gap-1">
+        <h2 className="text-h2">{t('schedules.detail.exclusionsTitle')}</h2>
+        <HelpHint helpId="finance.recurringSchedules.action.exclude" />
+      </div>
       <p className="mt-0.5 text-text-secondary">{t('schedules.detail.exclusionsExplanation')}</p>
 
       {canManage && (

@@ -11,7 +11,7 @@ import { formatDate, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 import { pickDate } from '../../../test/pick-date';
@@ -41,7 +41,21 @@ describe('/staff', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
+  });
+
+  it('shows a (?) after the Add user header action [44.3.02]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([]))));
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(document.querySelector('[data-help-id="people.staff.action.add"]')).not.toBeNull();
   });
 
   it('lists users with name, email, phone, role, status, and joined date', async () => {

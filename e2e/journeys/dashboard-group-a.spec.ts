@@ -99,7 +99,10 @@ test.describe('dashboard: executive', () => {
     await expect(atRisk).toBeVisible();
     // The list is computed by a nightly job; "computing" has no rows yet, and a seed with few
     // at-risk students has no toggle on desktop (it shows five rows). Say so instead of failing.
-    const seeAll = atRisk.getByRole('button', { name: /\S/, expanded: false });
+    // Not the widget's (?) help button, which is also a collapsed popover trigger (Epic 44).
+    const seeAll = atRisk
+      .getByRole('button', { name: /\S/, expanded: false })
+      .and(page.locator(':not([data-help-id])'));
     if ((await seeAll.count()) === 0) {
       test.info().annotations.push({
         type: 'not-exercised',

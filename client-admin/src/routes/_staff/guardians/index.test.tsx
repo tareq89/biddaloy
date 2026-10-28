@@ -8,7 +8,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -18,6 +18,7 @@ import { routeTree } from '../../../routeTree.gen';
  */
 describe('/guardians', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -51,6 +52,25 @@ describe('/guardians', () => {
     expect(screen.getByText('SMS')).toBeTruthy();
     expect(screen.getByText('Karim Rahman')).toBeTruthy();
     expect(screen.getByText('Primary')).toBeTruthy();
+  });
+
+  it('shows a (?) after the Invite header action [44.3.03]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(
+      http.get('/api/v1/guardians', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/guardians'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(
+      document.querySelector('[data-help-id="people.guardians.action.invite"]'),
+    ).not.toBeNull();
   });
 
   it('shows a placeholder for a guardian with no students linked yet', async () => {

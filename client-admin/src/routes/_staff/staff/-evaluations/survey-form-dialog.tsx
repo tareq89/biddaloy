@@ -14,6 +14,7 @@ import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Checkbox,
+  HelpHint,
   Combobox,
   DatePicker,
   Input,
@@ -334,14 +335,17 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
               </Select>
             </div>
             <div className="md:col-span-2">
-              <label className="flex min-h-11 items-center gap-3 font-medium md:min-h-8">
-                <Checkbox
-                  checked={anonymous}
-                  onCheckedChange={(c) => setAnonymous(c === true)}
-                  aria-describedby="survey-anonymous-hint"
-                />
-                {t('surveys.form.anonymousLabel')}
-              </label>
+              <div className="flex items-center gap-1">
+                <label className="flex min-h-11 items-center gap-3 font-medium md:min-h-8">
+                  <Checkbox
+                    checked={anonymous}
+                    onCheckedChange={(c) => setAnonymous(c === true)}
+                    aria-describedby="survey-anonymous-hint"
+                  />
+                  {t('surveys.form.anonymousLabel')}
+                </label>
+                <HelpHint helpId="people.evaluations.field.anonymous" />
+              </div>
               <p id="survey-anonymous-hint" className="text-caption text-text-secondary">
                 {t(anonymous ? 'surveys.form.anonymousHintOn' : 'surveys.form.anonymousHintOff')}
               </p>

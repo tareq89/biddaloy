@@ -138,6 +138,7 @@ function HomeworkDetailPage() {
           actions={[
             {
               id: 'assign',
+              helpId: 'academics.homework.action.assignAgain',
               label: t('detail.assignAgain'),
               icon: <Send />,
               onClick: () => {

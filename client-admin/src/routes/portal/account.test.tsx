@@ -78,6 +78,27 @@ describe('/portal/account', () => {
     expect(screen.queryByText('One capital letter (A-Z)')).toBeNull();
   });
 
+  // [44.4 / #3016] The (?) beside "Sign out" resolves the generated guide entry.
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(
+        http.get('/api/v1/users/me', () =>
+          HttpResponse.json(userResponseFactory({ full_name: 'Karim Student' })),
+        ),
+      );
+      renderAccount('STUDENT');
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="start.account.action.signOutDevice"]'),
+        ).not.toBeNull(),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('renders the profile, password and sign-out cards, and never issues a /guardians/mine request, for STUDENT', async () => {
     server.use(
       http.get('/api/v1/users/me', () =>

@@ -15,6 +15,7 @@ import { resolvePresetRange } from './collections';
  * `attendance/reports.test.tsx` documents for itself. */
 describe('/reports/collections', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -58,6 +59,17 @@ describe('/reports/collections', () => {
       locale: 'en',
     });
   }
+
+  it('shows a (?) after the Download CSV header action [44.3.06]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(http.get('/api/v1/reports/collections', () => HttpResponse.json(reportResponse())));
+    renderReport();
+    await screen.findAllByText('Karim Rahman');
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(
+      document.querySelector('[data-help-id="reports.collectionsReport.action.downloadCsv"]'),
+    ).not.toBeNull();
+  });
 
   it('renders with a payment present', async () => {
     server.use(http.get('/api/v1/reports/collections', () => HttpResponse.json(reportResponse())));
