@@ -36,6 +36,19 @@ async function continueFromPicker(page: Page) {
   await expect(page).not.toHaveURL(/\/(login|select-school)/);
 }
 
+// [87.2.04] The demo-reset container sets MESSAGE_SINK and the public inbox URL (#3204). When the
+// server hands the page that URL, the notice bar must link to it; a local run without a sink skips.
+test('/login links to the test inbox when the server has one', async ({ page }) => {
+  await page.goto('/login');
+  const inboxUrl = await page.evaluate(
+    () =>
+      (window as { __BIDDALOY_CONFIG__?: { messageSinkUrl?: string } }).__BIDDALOY_CONFIG__
+        ?.messageSinkUrl ?? '',
+  );
+  test.skip(!inboxUrl, 'no messageSinkUrl in runtime config: this server has no test inbox');
+  await expect(page.locator(`a[href="${inboxUrl}"]`)).toBeVisible();
+});
+
 test('/login shows one card per demo login and a single page title', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Enter the demo school');
