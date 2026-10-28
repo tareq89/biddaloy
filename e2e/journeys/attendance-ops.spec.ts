@@ -7,7 +7,6 @@ import {
   currentAcademicYear,
   get,
   isFridayAnywhere,
-  patch,
   markableDateIso,
   put,
   type ApiSession,
@@ -526,26 +525,14 @@ test.describe('arrival notices', () => {
   // [84.3.6] A student whose guardian waits for the arrival notice shows a bell in the register.
   test('the register bells a student with an ACTIVE subscription', async ({ page, request }) => {
     const admin = await adminApiSession(request);
-    const teacher = await apiSession(request, 'teacher').catch(() => null);
-    test.skip(teacher === null, 'no teacher session');
-    const sections = await get<{ section_id: string }[]>(request, teacher!, '/my-class/sections');
-    const sectionId = sections[0]!.section_id;
-    const waiting = await get<{ id: string; student_name: string }[]>(
-      request,
-      admin,
-      `/attendance/arrival-subscriptions?sectionId=${sectionId}&status=REQUESTED`,
-    );
+    // The dev seed gives Class 6 / A's roll-1 child one ACTIVE subscription (D33).
+    const sectionId = (await seededClassSixA(request, admin)).section_id;
     const active = await get<{ id: string }[]>(
       request,
       admin,
       `/attendance/arrival-subscriptions?sectionId=${sectionId}&status=ACTIVE`,
     );
-    if (active.length === 0) {
-      test.skip(waiting.length === 0, 'no arrival subscription in the class teacher section');
-      await patch(request, admin, `/attendance/arrival-subscriptions/${waiting[0]!.id}`, {
-        status: 'ACTIVE',
-      });
-    }
+    expect(active.length, 'seeded ACTIVE arrival subscription is missing').toBeGreaterThan(0);
     await page.goto(`/attendance/${sectionId}?date=${MARK_DATE}`);
     await expect(page.getByLabel(t('attendance.mark.arrivalSubscribed')).first()).toBeVisible();
   });

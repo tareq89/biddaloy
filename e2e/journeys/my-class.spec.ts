@@ -122,6 +122,39 @@ test.describe('class teacher', () => {
   });
 });
 
+/** parent@: switch the seeded child's arrival notice off and on again, which leaves it REQUESTED. */
+async function guardianRequestsArrivalNotice(): Promise<void> {
+  const password = process.env[SEED_PASSWORD_ENV];
+  if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+  const api = await pwRequest.newContext({ baseURL: shells.app.baseURL });
+  try {
+    const res = await api.post('/api/v1/auth/login', {
+      data: { email: SEED_ROLE_EMAILS.parent, password },
+    });
+    const body = (await res.json()) as {
+      access_token: string;
+      memberships: { tenantId: string; role: string }[];
+    };
+    const tenantId = body.memberships.find((m) => m.role === 'PARENT')!.tenantId;
+    const headers = { Authorization: `Bearer ${body.access_token}`, 'X-Tenant-ID': tenantId };
+    const mine = await api.get('/api/v1/portal/arrival-subscriptions', { headers });
+    const { children } = (await mine.json()) as {
+      children: { student_id: string; subscription: unknown }[];
+    };
+    const child = children.find((c) => c.subscription !== null);
+    if (!child) throw new Error('seeded arrival subscription is missing - has `yarn seed` run?');
+    for (const want of [false, true]) {
+      const put = await api.put(`/api/v1/portal/arrival-subscriptions/${child.student_id}`, {
+        headers: { ...headers, 'Idempotency-Key': crypto.randomUUID() },
+        data: { want, channel: 'PUSH' },
+      });
+      if (!put.ok()) throw new Error(`guardian PUT want=${want} failed: ${put.status()}`);
+    }
+  } finally {
+    await api.dispose();
+  }
+}
+
 test.describe('class teacher arrival notices', () => {
   test.use(loggedIn('teacher'));
 
@@ -132,15 +165,22 @@ test.describe('class teacher arrival notices', () => {
   }) => {
     const seeded = await login(SEED_ROLE_EMAILS.teacher);
     const sectionId = seeded.sections[0]!.section_id;
-    const waiting = await seeded.getJson<{ id: string }[]>('/attendance/arrival-subscriptions', {
-      sectionId,
-      status: 'REQUESTED',
-    });
+    const listWaiting = () =>
+      seeded.getJson<{ id: string }[]>('/attendance/arrival-subscriptions', {
+        sectionId,
+        status: 'REQUESTED',
+      });
+    let waiting = await listWaiting();
+    // The seed holds one ACTIVE row; the guardian switching it off and on makes it a request.
+    if (waiting.length === 0) {
+      await guardianRequestsArrivalNotice();
+      waiting = await listWaiting();
+    }
     await seeded.api.dispose();
-    test.skip(waiting.length === 0, 'no waiting arrival request left in the class teacher section');
+    expect(waiting.length).toBeGreaterThan(0);
 
     await page.goto(`/my-class/${sectionId}`);
-    const card = page.locator('#my-class-arrival');
+    const card = page.getByRole('region', { name: t('myClass.cards.arrival') });
     await expect(card).toBeVisible();
     const everyDay = card.getByRole('button', { name: t('myClass.arrival.everyDay') });
     await expect(everyDay).toHaveCount(waiting.length);
