@@ -57,7 +57,6 @@ export const HELP_UNWIRED: Record<string, string> = {
   'portal.notifications.action.snooze': ROW_CONTROL,
 
   // 44.3.12: declared in the guide after the wave-3 pass ran
-  'administration.printTemplates.action.create': PRINT_FIX,
 
   // Help text written (was HELP_GAPS): indexed now, wireable by the route lanes
   'people.students.field.rollNumber': GAP,
