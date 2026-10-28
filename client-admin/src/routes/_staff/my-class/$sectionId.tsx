@@ -12,11 +12,13 @@ import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, notFound } from '@tanstack/react-router';
 import { ClipboardCheckIcon } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import {
   AbsenteesCard,
+  ArrivalNoticesCard,
   DuesCard,
   FlagsCard,
   HomeworkCard,
@@ -25,7 +27,12 @@ import {
   todayIso,
 } from './-cards';
 
+const searchSchema = z.object({
+  then: z.enum(['arrival']).optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/my-class/$sectionId')({
+  validateSearch: searchSchema,
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       queryClient.ensureQueryData(myClassSectionsQueryOptions()).catch(swallowUnlessOffline),
@@ -42,6 +49,7 @@ function SectionPending() {
 
 function MyClassSectionPage() {
   const { sectionId } = Route.useParams();
+  const { then } = Route.useSearch();
   const { t } = useTranslation('myClass');
   const region = useRegionConfig();
   const query = useMyClassSections();
@@ -50,9 +58,12 @@ function MyClassSectionPage() {
 
   // First focus: the one thing a class teacher does here every morning.
   // Runs once the section resolves (the button only exists then).
+  // `?then=arrival` (palette / alert link) lands on the arrival card instead.
   React.useEffect(() => {
-    if (section) attendanceRef.current?.focus();
-  }, [section]);
+    if (!section) return;
+    if (then === 'arrival') document.getElementById('my-class-arrival')?.focus();
+    else attendanceRef.current?.focus();
+  }, [section, then]);
 
   if (query.isError && !section) {
     return (
@@ -105,6 +116,7 @@ function MyClassSectionPage() {
       </header>
       <div className="grid items-start gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
         <AbsenteesCard sectionId={sectionId} />
+        <ArrivalNoticesCard sectionId={sectionId} />
         <FlagsCard sectionId={sectionId} />
         <DuesCard sectionId={sectionId} />
         <HomeworkCard sectionId={sectionId} />

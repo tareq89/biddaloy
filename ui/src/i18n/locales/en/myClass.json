@@ -19,7 +19,8 @@
     "dues": "Dues",
     "homework": "Homework",
     "results": "Results",
-    "roster": "Students"
+    "roster": "Students",
+    "arrival": "Arrival notices"
   },
   "flagGroups": {
     "ABSENT": "Absent 3 or more days in a row",
@@ -59,5 +60,42 @@
   "duesTotal": "Total due",
   "duesStudents": "Students",
   "studentCount_one": "{{n}}",
-  "studentCount_other": "{{n}}"
+  "studentCount_other": "{{n}}",
+  "arrival": {
+    "waiting": "Waiting",
+    "on": "On",
+    "waitingBadge": "{{n}} waiting",
+    "empty": "No guardian has asked for arrival notices yet.",
+    "addYourself": "Add yourself",
+    "once": "Once",
+    "everyDay": "Every school day",
+    "notNow": "Not now",
+    "onceDone": "Done",
+    "setBySchool": "Set by school",
+    "appChannel": "In the app",
+    "smsChannel": "By SMS",
+    "switchToOnce": "Change to once",
+    "switchToEveryDay": "Change to every school day",
+    "stop": "Stop",
+    "rowError": "Could not save. Try again.",
+    "dialog": {
+      "title": "Add yourself",
+      "description": "Turn on arrival notices for a guardian of this section.",
+      "student": "Student",
+      "guardian": "Guardian",
+      "how": "How often",
+      "save": "Add",
+      "cancel": "Cancel",
+      "noGuardians": "This student has no guardian yet.",
+      "error": "Could not add. Try again.",
+      "added": "Arrival notice turned on"
+    }
+  },
+  "arrivalCount": "Arrival requests ({{n}})",
+  "help": {
+    "arrivalNotice": {
+      "once": "Sends one message the next time the child arrives, then stops.",
+      "everyDay": "Sends a message every school day when the child arrives."
+    }
+  }
 }
