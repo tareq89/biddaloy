@@ -127,3 +127,21 @@ describe('SubjectService group_name [35.1.2]', () => {
     expect(rows[0].group_name).toBe('Science');
   });
 });
+
+describe('SubjectService.create duplicate code [#3000]', () => {
+  it('409 with a fixed sentence that does not echo the code', async () => {
+    const ref = await Test.createTestingModule({
+      providers: [
+        SubjectService,
+        { provide: getRepositoryToken(Subject), useValue: { findOne: async () => ({ id: 's1' }) } },
+        { provide: getRepositoryToken(ClassSubject), useValue: {} },
+        { provide: getRepositoryToken(Class), useValue: {} },
+        { provide: getRepositoryToken(AcademicYear), useValue: {} },
+        { provide: SchoolSettingsReader, useValue: {} },
+      ],
+    }).compile();
+    await expect(
+      ref.get(SubjectService).create({ code: 'MATH-SECRET', name_en: 'Maths' } as any, T),
+    ).rejects.toThrow(/^A subject with this code already exists$/);
+  });
+});

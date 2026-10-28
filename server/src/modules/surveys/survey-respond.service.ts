@@ -189,7 +189,7 @@ export class SurveyRespondService {
     const seen = new Set<string>();
     for (const a of dto.answers) {
       const q = byId.get(a.questionId);
-      if (!q) throw new BadRequestException(`Unknown question ${a.questionId}`);
+      if (!q) throw new BadRequestException('Unknown question');
       if (seen.has(a.questionId)) throw new BadRequestException('Duplicate answer for a question');
       seen.add(a.questionId);
       if (a.stars != null && !q.stars_enabled) {

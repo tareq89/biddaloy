@@ -91,7 +91,7 @@ export class AnalysisService {
       where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!exam) {
-      throw new NotFoundException(`Exam with ID "${examId}" not found`);
+      throw new NotFoundException('Exam not found');
     }
     return exam;
   }

@@ -47,7 +47,7 @@ export class ExamTemplatesService {
     const t = await this.repo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (!t) throw new NotFoundException(`Exam template with ID "${id}" not found`);
+    if (!t) throw new NotFoundException('Exam template not found');
     return t;
   }
 
@@ -126,7 +126,7 @@ export class ExamTemplatesService {
         kind: dto.kind,
       });
       return saved.id;
-    }, dto.name);
+    });
     return this.get(id, tenantId);
   }
 
@@ -146,7 +146,7 @@ export class ExamTemplatesService {
         where: { id, tenant_id: tenantId, deleted_at: IsNull() },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!live) throw new NotFoundException(`Exam template with ID "${id}" not found`);
+      if (!live) throw new NotFoundException('Exam template not found');
       const patch: Partial<ExamTemplate> = {};
       if (dto.name !== undefined) patch.name = dto.name;
       if (dto.kind !== undefined) patch.kind = dto.kind;
@@ -185,7 +185,7 @@ export class ExamTemplatesService {
           ...(dto.rows && { rows_replaced: dto.rows.length }),
         },
       );
-    }, dto.name);
+    });
     return this.get(id, tenantId);
   }
 
@@ -201,7 +201,7 @@ export class ExamTemplatesService {
         where: { id, tenant_id: tenantId, deleted_at: IsNull() },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!live) throw new NotFoundException(`Exam template with ID "${id}" not found`);
+      if (!live) throw new NotFoundException('Exam template not found');
       // Components have no deleted_at and nothing references them: hard-delete.
       await manager
         .getRepository(ExamTemplateComponent)
@@ -286,13 +286,13 @@ export class ExamTemplatesService {
   }
 
   /** Runs `fn` in a transaction; a unique violation (23505) becomes a 409. */
-  private async run<T>(fn: (m: EntityManager) => Promise<T>, name?: string): Promise<T> {
+  private async run<T>(fn: (m: EntityManager) => Promise<T>): Promise<T> {
     try {
       return await this.repo.manager.transaction(fn);
     } catch (err) {
       if (isUniqueViolation(err)) {
         throw new ConflictException(
-          `An exam template named "${name ?? ''}" already exists, or a row repeats a component name.`,
+          'An exam template with this name already exists, or a row repeats a component name.',
         );
       }
       throw err;

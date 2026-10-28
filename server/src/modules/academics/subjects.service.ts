@@ -71,7 +71,7 @@ export class SubjectService {
       where: { tenant_id: tenantId, code: dto.code, deleted_at: IsNull() },
     });
     if (existing) {
-      throw new ConflictException(`Subject with code "${dto.code}" already exists`);
+      throw new ConflictException('A subject with this code already exists');
     }
 
     const entity = this.repo.create({
@@ -109,7 +109,7 @@ export class SubjectService {
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!entity) {
-      throw new NotFoundException(`Subject with ID "${id}" not found`);
+      throw new NotFoundException('Subject not found');
     }
     return entity;
   }
@@ -122,7 +122,7 @@ export class SubjectService {
         where: { tenant_id: tenantId, code: dto.code, deleted_at: IsNull() },
       });
       if (existing && existing.id !== id) {
-        throw new ConflictException(`Subject with code "${dto.code}" already exists`);
+        throw new ConflictException('A subject with this code already exists');
       }
     }
 
@@ -144,7 +144,7 @@ export class SubjectService {
         .where('subject.id = :id AND subject.tenant_id = :tenantId', { id, tenantId })
         .getOne();
       if (!locked) {
-        throw new NotFoundException(`Subject with ID "${id}" not found`);
+        throw new NotFoundException('Subject not found');
       }
       // [2627] A subject that exam components or marks point at would show a
       // blank name on published result cards. Refuse and name the counts.
@@ -209,7 +209,7 @@ export class SubjectService {
       where: { id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!cls) {
-      throw new NotFoundException(`Class with ID "${classId}" not found`);
+      throw new NotFoundException('Class not found');
     }
 
     return this.classSubjectRepo.find({
@@ -234,7 +234,7 @@ export class SubjectService {
       where: { id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!cls) {
-      throw new NotFoundException(`Class with ID "${classId}" not found`);
+      throw new NotFoundException('Class not found');
     }
 
     // Verify academic year belongs to tenant.
@@ -242,15 +242,13 @@ export class SubjectService {
       where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!academicYear) {
-      throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
 
     // The academic year must match the class's own — a class can't offer a
     // subject under a different year than the one it belongs to.
     if (cls.academic_year_id !== dto.academic_year_id) {
-      throw new ConflictException(
-        `Class "${classId}" belongs to a different academic year than "${dto.academic_year_id}"`,
-      );
+      throw new ConflictException('This class belongs to a different academic year');
     }
 
     const isOptional = dto.is_optional ?? false;
@@ -275,7 +273,7 @@ export class SubjectService {
         )
         .getOne();
       if (!subject) {
-        throw new NotFoundException(`Subject with ID "${dto.subject_id}" not found`);
+        throw new NotFoundException('Subject not found');
       }
 
       const existing = await manager.findOne(ClassSubject, {
@@ -288,7 +286,7 @@ export class SubjectService {
       });
       if (existing) {
         throw new ConflictException(
-          `Subject "${dto.subject_id}" is already offered by class "${classId}" in that academic year`,
+          'This subject is already offered by this class in that academic year',
         );
       }
 
@@ -334,7 +332,7 @@ export class SubjectService {
         .getOne();
       if (!row) {
         throw new NotFoundException(
-          `Subject "${subjectId}" is not offered by class "${classId}" in that academic year`,
+          'This subject is not offered by this class in that academic year',
         );
       }
       const isOptional = dto.is_optional ?? row.is_optional;
@@ -397,7 +395,7 @@ export class SubjectService {
     });
     if (!classSubject) {
       throw new NotFoundException(
-        `Subject "${subjectId}" is not offered by class "${classId}" in that academic year`,
+        'This subject is not offered by this class in that academic year',
       );
     }
     // Stale picks would block re-picking after re-attach (23505).

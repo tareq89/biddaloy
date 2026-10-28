@@ -233,7 +233,7 @@ export class BulkReminderService {
   async findBatch(id: string, tenantId: string): Promise<ReminderBatchResponseDto> {
     const batch = await this.batchRepo.findOne({ where: { id, tenant_id: tenantId } });
     if (!batch) {
-      throw new NotFoundException(`Reminder batch with ID "${id}" not found`);
+      throw new NotFoundException('Reminder batch not found');
     }
     const skipped = (batch.filters_applied?.skipped as SkippedRecipientDto[] | undefined) ?? [];
     return this.toResponseDto(batch, skipped);
@@ -459,7 +459,7 @@ export class BulkReminderService {
   ): Promise<ReminderBatchLogListResponseDto> {
     const batch = await this.batchRepo.findOne({ where: { id, tenant_id: tenantId } });
     if (!batch) {
-      throw new NotFoundException(`Reminder batch with ID "${id}" not found`);
+      throw new NotFoundException('Reminder batch not found');
     }
 
     const page = query.page ?? 1;
@@ -514,7 +514,7 @@ export class BulkReminderService {
     const found = new Set(students.map((s) => s.id));
     const missing = studentIds.filter((id) => !found.has(id));
     if (missing.length > 0) {
-      throw new NotFoundException(`Student(s) not found: ${missing.join(', ')}`);
+      throw new NotFoundException('One or more student IDs not found');
     }
 
     const dueSnapshots = await this.feeDuesService.getDueSnapshots(studentIds, tenantId);

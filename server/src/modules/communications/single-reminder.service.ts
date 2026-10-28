@@ -278,7 +278,7 @@ export class SingleReminderService {
       : linked;
 
     if (candidates.length === 0) {
-      throw new BadRequestException(`Student "${studentId}" has no guardians on file`);
+      throw new BadRequestException('This student has no guardians on file');
     }
 
     // Explicit path: staff named these guardians, so every opt-out among
@@ -298,7 +298,7 @@ export class SingleReminderService {
       studentId,
     );
     if (!snapshot) {
-      throw new BadRequestException(`Student "${studentId}" has no open dues to remind about`);
+      throw new BadRequestException('This student has no open dues to remind about');
     }
 
     const dueMonth =
@@ -353,7 +353,7 @@ export class SingleReminderService {
     if (recipients.length === 0) {
       const reasons = skipped.map((s) => `${s.guardian_name} (${s.reason})`).join(', ');
       throw new BadRequestException(
-        `No deliverable guardian for student "${studentId}" — every candidate was skipped: ${reasons}`,
+        `No deliverable guardian for this student — every candidate was skipped: ${reasons}`,
       );
     }
 
@@ -380,9 +380,7 @@ export class SingleReminderService {
 
     const notLinked = guardians.filter((g) => !studentGuardianIds.has(g.id));
     if (notLinked.length > 0) {
-      throw new BadRequestException(
-        `Guardian(s) not linked to student "${student.id}": ${notLinked.map((g) => g.id).join(', ')}`,
-      );
+      throw new BadRequestException('One or more guardians are not linked to this student');
     }
 
     return guardians;

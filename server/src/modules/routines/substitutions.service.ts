@@ -343,7 +343,7 @@ export class SubstitutionsService {
     if (!inRange || !matchesRecurrence) {
       // `details.code` lets the SPA tell this apart from any other 422.
       throw new UnprocessableEntityException({
-        message: `Routine slot "${slot.id}" does not occur on ${date}`,
+        message: `This routine slot does not occur on ${date}`,
         details: { code: 'SLOT_NOT_ON_DATE' },
       });
     }

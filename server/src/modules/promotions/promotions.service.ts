@@ -109,7 +109,7 @@ export class PromotionsService {
       where: { id: sourceClassId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!sourceClass) {
-      throw new NotFoundException(`Class with ID "${sourceClassId}" not found`);
+      throw new NotFoundException('Class not found');
     }
     return this.resolveTarget(sourceClass, targetAcademicYearId, undefined, tenantId);
   }
@@ -139,9 +139,7 @@ export class PromotionsService {
         },
       });
       if (!targetClass) {
-        throw new BadRequestException(
-          `Class with ID "${explicitTargetClassId}" not found in academic year "${targetAcademicYearId}"`,
-        );
+        throw new BadRequestException('Target class not found in the target academic year');
       }
     } else if (sourceClass.numeric_grade === null) {
       blocking = 'PICK_TARGET_CLASS';
@@ -354,7 +352,7 @@ export class PromotionsService {
       where: { id: dto.source_class_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!sourceClass) {
-      throw new NotFoundException(`Class with ID "${dto.source_class_id}" not found`);
+      throw new NotFoundException('Class not found');
     }
 
     await this.assertTargetYearLater(
@@ -538,7 +536,7 @@ export class PromotionsService {
           where: { id: runId, tenant_id: tenantId },
           lock: { mode: 'pessimistic_write' },
         });
-        if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+        if (!run) throw new NotFoundException('Promotion run not found');
         if (run.status !== PromotionRunStatus.DRAFT) {
           throw new ConflictException('Only DRAFT runs can be edited');
         }
@@ -549,9 +547,7 @@ export class PromotionsService {
         for (const patch of dtoEntries) {
           const entry = entryByStudent.get(patch.student_id);
           if (!entry) {
-            throw new NotFoundException(
-              `No promotion entry for student "${patch.student_id}" on this run`,
-            );
+            throw new NotFoundException('No promotion entry for this student on this run');
           }
           // `final_outcome` unset means "leave this entry's outcome as-is" — a
           // patch that only changes group_name must not silently clear an
@@ -575,7 +571,7 @@ export class PromotionsService {
           const overrideNote = patch.override_note ?? (isOverride ? entry.override_note : null);
           if (isOverride && (!overrideNote || overrideNote.trim().length === 0)) {
             throw new UnprocessableEntityException(
-              `Overriding student "${patch.student_id}" requires a non-empty override_note`,
+              'Overriding a student requires a non-empty override_note',
             );
           }
           entry.final_outcome = finalOutcome;
@@ -663,7 +659,7 @@ export class PromotionsService {
           where: { id: runId, tenant_id: tenantId },
           lock: { mode: 'pessimistic_write' },
         });
-        if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+        if (!run) throw new NotFoundException('Promotion run not found');
         if (run.status !== PromotionRunStatus.DRAFT) {
           throw new ConflictException('Only DRAFT runs can be refreshed');
         }
@@ -779,7 +775,7 @@ export class PromotionsService {
 
   async remove(runId: string, tenantId: string): Promise<void> {
     const run = await this.runRepo.findOne({ where: { id: runId, tenant_id: tenantId } });
-    if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+    if (!run) throw new NotFoundException('Promotion run not found');
     if (run.status !== PromotionRunStatus.DRAFT) {
       throw new ConflictException('Only DRAFT runs can be deleted');
     }
@@ -813,7 +809,7 @@ export class PromotionsService {
     tenantId: string,
   ): Promise<PromotionRun & { entries: PromotionEntryView[] }> {
     const run = await this.runRepo.findOne({ where: { id: runId, tenant_id: tenantId } });
-    if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+    if (!run) throw new NotFoundException('Promotion run not found');
 
     const entries = await this.entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
     const studentIds = entries.map((e) => e.student_id);
@@ -863,7 +859,7 @@ export class PromotionsService {
         where: { id: runId, tenant_id: tenantId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+      if (!run) throw new NotFoundException('Promotion run not found');
       if (run.status === PromotionRunStatus.COMMITTED) {
         throw new ConflictException({ details: { code: 'ALREADY_COMMITTED' } });
       }
@@ -1051,7 +1047,7 @@ export class PromotionsService {
           where: { id: run.source_class_id, tenant_id: tenantId },
         });
         if (!sourceClass) {
-          throw new NotFoundException(`Class with ID "${run.source_class_id}" not found`);
+          throw new NotFoundException('Class not found');
         }
         const retainClass = await this.findRetainClass(
           sourceClass,

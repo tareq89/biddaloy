@@ -311,6 +311,24 @@ describe('ExamsService.create with template_id', () => {
 });
 
 describe('ExamsService tenant-reference guard (IDOR)', () => {
+  it('unknown class: fixed message without the id (#3000)', async () => {
+    const { service, classRepo } = await buildService();
+    classRepo.findOne = vi.fn(async () => null);
+    const err: any = await service
+      .create(
+        {
+          name: 'Term 1',
+          kind: ExamKind.TERM,
+          academic_year_id: 'y1',
+          class_id: 'secret-class-id',
+        } as any,
+        TENANT_ID,
+      )
+      .catch((e) => e);
+    expect(err.message).toMatch(/^Class not found for this tenant\.$/);
+    expect(err.message).not.toContain('secret-class-id');
+  });
+
   it("rejects a class_id that doesn't belong to the tenant", async () => {
     const { service, classRepo } = await buildService();
     classRepo.findOne = vi.fn(async () => null);

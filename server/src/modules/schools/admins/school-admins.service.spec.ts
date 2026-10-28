@@ -173,7 +173,7 @@ describe('SchoolAdminsService', () => {
       // translates both the pre-check and a racing 23505 into this 409 —
       // nothing here may swallow or re-wrap it into a 500.
       provisioning.provisionAdminForSchool.mockRejectedValue(
-        new ConflictException('User "user-1" is already an ADMIN of this school'),
+        new ConflictException('This user is already an ADMIN of this school'),
       );
 
       await expect(

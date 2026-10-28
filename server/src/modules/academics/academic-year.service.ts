@@ -140,7 +140,7 @@ export class AcademicYearService {
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!entity) {
-      throw new NotFoundException(`Academic year with ID "${id}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
     return entity;
   }
@@ -164,7 +164,7 @@ export class AcademicYearService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!existing) {
-        throw new NotFoundException(`Academic year with ID "${id}" not found`);
+        throw new NotFoundException('Academic year not found');
       }
 
       // If setting as current, unset all other current years for this
@@ -251,7 +251,7 @@ export class AcademicYearService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!existing) {
-        throw new NotFoundException(`Academic year with ID "${id}" not found`);
+        throw new NotFoundException('Academic year not found');
       }
 
       // [68.2.12] Refuse the current year and any year still in use. Counted on

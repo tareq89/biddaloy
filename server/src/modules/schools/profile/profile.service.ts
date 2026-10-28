@@ -48,7 +48,7 @@ export class SchoolProfileService {
   async getProfile(schoolId: string): Promise<SchoolProfileView> {
     const school = await this.repo.findOne({ where: { id: schoolId } });
     if (!school) {
-      throw new NotFoundException(`School with ID "${schoolId}" not found`);
+      throw new NotFoundException('School not found');
     }
     return toProfileView(school);
   }
@@ -67,7 +67,7 @@ export class SchoolProfileService {
         .setLock('pessimistic_write')
         .getOne();
       if (!current) {
-        throw new NotFoundException(`School with ID "${schoolId}" not found`);
+        throw new NotFoundException('School not found');
       }
 
       const oldValues: Partial<Record<ProfileField, unknown>> = {};

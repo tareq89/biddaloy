@@ -126,7 +126,7 @@ export class ShiftsService {
       });
       if (slotCount > 0) {
         throw new ConflictException(
-          `Cannot delete shift "${id}": ${slotCount} period slot(s) still reference it. Remove them first.`,
+          `Cannot delete this shift: ${slotCount} period slot(s) still reference it. Remove them first.`,
         );
       }
 
