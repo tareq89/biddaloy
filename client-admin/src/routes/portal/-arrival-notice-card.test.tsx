@@ -1,0 +1,87 @@
+import { cleanupTestState, server } from '@biddaloy/ui/test';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { ArrivalNoticeCard } from './-arrival-notice-card';
+import { renderPortalCard } from './-card-test-utils';
+
+const sub = (over: Record<string, unknown> = {}) => ({
+  id: 's1',
+  student_id: 'kid-a',
+  guardian_id: 'g1',
+  status: 'REQUESTED',
+  mode: 'ONCE',
+  channel: 'PUSH',
+  lock: 'NONE',
+  consumed_at: null,
+  updated_at: '2026-09-15T10:00:00.000Z',
+  ...over,
+});
+
+function mock(
+  children: unknown[],
+  school = { enabled: true, smsAllowed: true },
+  puts: unknown[] = [],
+) {
+  server.use(
+    http.get('/api/v1/portal/arrival-subscriptions', () => HttpResponse.json({ school, children })),
+    http.put('/api/v1/portal/arrival-subscriptions/:id', async ({ request }) => {
+      puts.push(await request.json());
+      return HttpResponse.json(sub());
+    }),
+  );
+}
+
+describe('ArrivalNoticeCard', () => {
+  afterEach(cleanupTestState);
+
+  const kids = [
+    { student_id: 'kid-a', student_name: 'Fatima', subscription: sub() },
+    { student_id: 'kid-b', student_name: 'Imran', subscription: null },
+  ];
+
+  it('shows the waiting badge for a REQUESTED child', async () => {
+    mock(kids);
+    renderPortalCard(<ArrivalNoticeCard />);
+    expect(await screen.findByText('Waiting for the teacher')).toBeTruthy();
+    expect(screen.getByText('Imran')).toBeTruthy();
+  });
+
+  it('PUTs want and channel when the switch is flipped', async () => {
+    const puts: unknown[] = [];
+    mock(kids, undefined, puts);
+    renderPortalCard(<ArrivalNoticeCard />);
+    await userEvent.click(await screen.findByRole('switch', { name: /Imran/ }));
+    await waitFor(() => expect(puts).toEqual([{ want: true, channel: 'PUSH' }]));
+  });
+
+  it('disables SMS when the school does not allow it', async () => {
+    mock(kids, { enabled: true, smsAllowed: false });
+    renderPortalCard(<ArrivalNoticeCard />);
+    const sms = await screen.findByRole('radio', { name: 'By SMS' });
+    expect((sms as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('disables the switch under a NEVER lock', async () => {
+    mock([
+      {
+        student_id: 'kid-a',
+        student_name: 'Fatima',
+        subscription: sub({ lock: 'NEVER', status: 'OFF' }),
+      },
+    ]);
+    renderPortalCard(<ArrivalNoticeCard />);
+    const sw = await screen.findByRole('switch', { name: /Fatima/ });
+    expect((sw as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText('Set by the admin').length).toBeGreaterThan(0);
+  });
+
+  it('renders nothing when the school switch is off', async () => {
+    mock(kids, { enabled: false, smsAllowed: true });
+    renderPortalCard(<ArrivalNoticeCard />);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText('Fatima')).toBeNull();
+  });
+});

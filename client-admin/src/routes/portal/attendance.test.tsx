@@ -386,4 +386,47 @@ describe('/portal/attendance', () => {
     await screen.findByText('90%');
     await expect(container).toHaveNoViolations();
   });
+
+  describe('arrival notice card', () => {
+    function mockArrival(enabled: boolean) {
+      server.use(
+        http.get('/api/v1/portal/arrival-subscriptions', () =>
+          HttpResponse.json({
+            school: { enabled, smsAllowed: true },
+            children: [
+              { student_id: FATIMA_ID, student_name: 'Fatima Rahman', subscription: null },
+            ],
+          }),
+        ),
+      );
+    }
+
+    it('shows for a guardian when the school switch is on', async () => {
+      mockAttendance({ students: [fatima], days: {}, summaries: {} });
+      mockArrival(true);
+      renderAttendance();
+      expect(await screen.findByRole('heading', { name: 'Arrival notices' })).toBeTruthy();
+    });
+
+    it('is absent when the school switch is off', async () => {
+      mockAttendance({ students: [fatima], days: {}, summaries: {} });
+      mockArrival(false);
+      renderAttendance();
+      await screen.findByText(/Fatima Rahman/);
+      expect(screen.queryByRole('heading', { name: 'Arrival notices' })).toBeNull();
+    });
+
+    it('is absent for a student login', async () => {
+      mockAttendance({ students: [fatima], days: {}, summaries: {} });
+      mockArrival(true);
+      renderWithRouter(routeTree, {
+        initialEntries: ['/portal/attendance'],
+        tenantId: 'tenant-1',
+        role: 'STUDENT',
+        locale: 'en',
+      });
+      await screen.findByText(/Fatima Rahman/);
+      expect(screen.queryByRole('heading', { name: 'Arrival notices' })).toBeNull();
+    });
+  });
 });
