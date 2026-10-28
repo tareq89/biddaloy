@@ -39,6 +39,7 @@ export class MailpitSinkProvider implements CommunicationProvider {
     try {
       const transport = nodemailer.createTransport(
         process.env.MESSAGE_SINK_SMTP_URL ?? DEFAULT_SMTP_URL,
+        { connectionTimeout: 5000, greetingTimeout: 5000, socketTimeout: 10000 },
       );
       await transport.sendMail({
         from: `${this.medium.toLowerCase()}@sink.invalid`,

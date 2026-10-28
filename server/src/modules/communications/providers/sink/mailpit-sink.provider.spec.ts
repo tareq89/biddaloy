@@ -25,7 +25,7 @@ describe('MailpitSinkProvider', () => {
       subject: 'Hello',
       body: 'Your code is 123456',
     });
-    expect(nodemailer.createTransport).toHaveBeenCalledWith('smtp://mailpit:1025');
+    expect(nodemailer.createTransport).toHaveBeenCalledWith('smtp://mailpit:1025', expect.objectContaining({ connectionTimeout: 5000 }));
     expect(sendMail).toHaveBeenCalledWith({
       from: 'email@sink.invalid',
       to: 'g@example.com',
@@ -45,7 +45,7 @@ describe('MailpitSinkProvider', () => {
   it('honours MESSAGE_SINK_SMTP_URL', async () => {
     vi.stubEnv('MESSAGE_SINK_SMTP_URL', 'smtp://localhost:2525');
     await new MailpitSinkProvider(CommunicationMedium.EMAIL).send({ to: 'a@b.c', body: 'x' });
-    expect(nodemailer.createTransport).toHaveBeenCalledWith('smtp://localhost:2525');
+    expect(nodemailer.createTransport).toHaveBeenCalledWith('smtp://localhost:2525', expect.objectContaining({ connectionTimeout: 5000 }));
   });
 
   it('SMS maps the number to a sink address, tags SMS and counts segments', async () => {

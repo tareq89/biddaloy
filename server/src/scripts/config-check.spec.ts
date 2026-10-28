@@ -200,6 +200,8 @@ describe('runStackConfigCheck', () => {
     const notProvider = new Set([
       'NODE_ENV',
       'ENV_NAME',
+      'MESSAGE_SINK',
+      'MESSAGE_SINK_PUBLIC_URL',
       'DATABASE_URL',
       'NODE_EXTRA_CA_CERTS',
       'DB_SSL',
