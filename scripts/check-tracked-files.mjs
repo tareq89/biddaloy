@@ -75,7 +75,7 @@ const MEM_SMALL = ['APP_MEM=768m', 'PG_MEM=1g', 'REDIS_MEM=128m', 'S3_MEM=256m']
 const sinkLines = (stack) => [
   'MESSAGE_SINK=mailpit',
   'MESSAGE_SINK_SMTP_URL=smtp://mailpit:1025',
-  `MESSAGE_SINK_PUBLIC_URL=https://inbox.${stack}.school.example`,
+  `MESSAGE_SINK_PUBLIC_URL=https://inbox-${stack}.school.example`,
 ];
 const EXAMPLE_VALUES_ALLOWED = {
   prod: [
@@ -92,6 +92,7 @@ const EXAMPLE_VALUES_ALLOWED = {
     ...MEM_SMALL,
     ...TURNSTILE_TEST,
     ...sinkLines('staging'),
+    'SMOKE_INBOX_API_URL=http://staging-mailpit:8025',
   ],
   demo: ['ENV_NAME=demo', 'DEMO_MODE=true', ...MEM_SMALL, ...TURNSTILE_TEST, ...sinkLines('demo')],
   edge: ['EDGE_MODE=tunnel'],
