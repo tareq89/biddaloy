@@ -39,6 +39,23 @@
 @import "tw-animate-css";
 
 /**
+ * [#3214] Toast and scroll-lock CSS as a real stylesheet. The CSP is
+ * `style-src 'self'`, so the `<style>` tags sonner and react-style-singleton
+ * make at runtime are blocked; `client-admin/vite.config.ts`
+ * (`csp-no-runtime-style`) strips them from the build. Unlayered, like the
+ * injected tag was.
+ */
+@import "sonner/dist/styles.css";
+
+/* Radix sets `data-scroll-locked` on <body> while a modal is open. No
+   scrollbar-width compensation: that rule needs a measured width, which only
+   the blocked runtime tag could carry. */
+body[data-scroll-locked] {
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+}
+
+/**
  * `@tailwindcss/vite`'s automatic content detection scans the *consuming
  * app's* own directory tree — it never sees this sibling package, so a class
  * name used only inside a `ui/src` component would silently generate no CSS

@@ -8,6 +8,8 @@ import type { HelmetOptions } from 'helmet';
  * are broader (e.g. `style-src ... 'unsafe-inline'`, `font-src ... https:`)
  * than this app actually needs — verify any change here by loading each SPA
  * with the browser console open and confirming zero CSP violations.
+ * `e2e/pwa/csp-inline-style.spec.ts` checks `styleSrc` automatically (#3214):
+ * a runtime `<style>` tag or `style="..."` attribute fails it.
  *
  * One third-party origin is allowed: Cloudflare Turnstile, the captcha on the
  * public `/register` form ([13.5.1]). It loads a script and renders its

@@ -50,6 +50,38 @@ export default defineConfig({
       routeFileIgnorePattern: '\\.(test|spec)\\.[jt]sx?$',
     }),
     react(),
+    // [#3214] The live CSP is `style-src 'self'`: a `<style>` tag made at
+    // runtime is blocked. Two libraries make one, so the build strips it:
+    // - sonner injects its whole stylesheet on import. Its CSS comes from
+    //   `sonner/dist/styles.css`, imported in `ui/src/styles/globals.css`.
+    // - react-style-singleton (Radix's scroll lock) injects the scroll-lock
+    //   rules on dialog open. `makeStyleTag()` returning null is its own
+    //   "no document" path; the static lock rule is in globals.css.
+    // Build only: `vite dev` pre-bundles deps and sends no CSP, so it keeps both.
+    // `e2e/pwa/csp-inline-style.spec.ts` fails if a new injector shows up.
+    {
+      name: 'csp-no-runtime-style',
+      apply: 'build',
+      transform(code, id) {
+        const patch = [
+          {
+            file: /\/node_modules\/sonner\/dist\/index\.m?js$/,
+            find: /^__insertCSS\(".*"\);$/m,
+            replace: '',
+          },
+          {
+            file: /\/node_modules\/react-style-singleton\/dist\/[^/]+\/singleton\.js$/,
+            find: 'function makeStyleTag() {',
+            replace: 'function makeStyleTag() { return null;',
+          },
+        ].find((p) => p.file.test(id));
+        if (!patch) return null;
+        const patched = code.replace(patch.find, patch.replace);
+        // A library upgrade that changes this shape must fail the build, not ship the violation.
+        if (patched === code) throw new Error(`csp-no-runtime-style: pattern not found in ${id}`);
+        return { code: patched, map: null };
+      },
+    },
     tailwindcss(),
     // [8.12.1]: installability + offline app shell.
     //
