@@ -851,11 +851,25 @@ jobs:
 
       - name: Install Playwright browser (${{ matrix.browser }})
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps ${{ matrix.browser }}
+        # [#3085] The apt mirror a runner lands on is sometimes ~30 kB/s (shard 3
+        # spent ~10 min on one package in three runs; shards 1/2 took 2-3 s).
+        # Each attempt is cut at 4 min and retried; a fresh apt run usually
+        # gets a healthy connection. The browser binary itself is cached above.
+        run: |
+          for i in 1 2 3; do
+            timeout 240 npx playwright install --with-deps ${{ matrix.browser }} && exit 0
+            echo "attempt $i failed or timed out"
+          done
+          exit 1
 
       - name: Install Playwright OS dependencies (cache hit)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps ${{ matrix.browser }}
+        run: |
+          for i in 1 2 3; do
+            timeout 240 npx playwright install-deps ${{ matrix.browser }} && exit 0
+            echo "attempt $i failed or timed out"
+          done
+          exit 1
 
       - name: Run migrations
         run: yarn workspace @biddaloy/server migration:run
