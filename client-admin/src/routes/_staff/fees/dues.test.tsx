@@ -29,6 +29,32 @@ describe('/fees/dues', () => {
     await cleanupTestState();
   });
 
+  // [44.4 / #3014] The (?) beside the header Record payment action (finance.dues.action.collect).
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(
+        http.get('/api/v1/fees/dues', () =>
+          HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 }),
+        ),
+      );
+      renderEn({
+        initialEntries: ['/fees/dues'],
+        tenantId: 'tenant-1',
+        role: 'ACCOUNTANT',
+        locale: 'en',
+      });
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.dues.action.collect"]'),
+        ).not.toBeNull(),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   function feeDue(overrides: Record<string, unknown> = {}) {
     return {
       student_fee_id: 'fee-1',

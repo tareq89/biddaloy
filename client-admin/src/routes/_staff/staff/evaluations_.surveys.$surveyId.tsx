@@ -95,6 +95,7 @@ function SurveyPage() {
         actions={[
           {
             id: 'publish',
+            helpId: 'people.evaluations.action.publishSurvey',
             label: publish.isPending ? t('surveys.detail.publishing') : t('surveys.detail.publish'),
             priority: 'primary',
             allowed: canWrite && survey.status === 'DRAFT',
@@ -107,6 +108,7 @@ function SurveyPage() {
           },
           {
             id: 'close',
+            helpId: 'people.evaluations.action.closeSurvey',
             label: close.isPending ? t('surveys.detail.closing') : t('surveys.detail.close'),
             priority: 'primary',
             allowed: canWrite && survey.status === 'OPEN',

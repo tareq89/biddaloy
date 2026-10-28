@@ -1,0 +1,11 @@
+%% title: Where the admission report numbers come from
+%% desc: Children admitted from an online application go to the Admitted card; withdrawals, transfers out, graduations and readmissions recorded on a student's profile go to the other three cards; together they make the events list.
+flowchart LR
+  A["Admission applicants<br/>Admitted"] --> C1["Admitted"]
+  E["Student profile<br/>Record leaving / Readmit"] --> C2["Left<br/>withdrawn · transferred out"]
+  E --> C3["Graduated"]
+  E --> C4["Readmitted"]
+  C1 --> T["Events list<br/>by academic year and class"]
+  C2 --> T
+  C3 --> T
+  C4 --> T

@@ -198,6 +198,7 @@ function HomeworkListPage() {
       actions={[
         {
           id: 'import',
+          helpId: 'academics.homework.action.import',
           label: t('list.importHomework'),
           icon: <Upload />,
           priority: 'secondary',
@@ -206,6 +207,7 @@ function HomeworkListPage() {
         },
         {
           id: 'assign',
+          helpId: 'academics.homework.action.assign',
           label: t('list.assignHomework'),
           icon: <Plus />,
           priority: 'primary',

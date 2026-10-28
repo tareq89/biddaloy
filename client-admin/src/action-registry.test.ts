@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { Permission } from '@biddaloy/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   ACTIONS,
@@ -14,7 +14,7 @@ import { isPathUnder, STAFF_NAV_GROUPS } from './nav-tree';
 import { STAFF_ROUTE_PERMISSIONS } from './route-permissions';
 import { PALETTE_ALLOW_LIST, UNREGISTERED_ACTIONS } from './unregistered-actions';
 
-const VALID_KINDS = new Set(['modal', 'navigate', 'inline']);
+const VALID_KINDS = new Set(['modal', 'navigate', 'inline', 'external']);
 const VALID_CONTEXTS = new Set<ActionContext>([
   'student',
   'guardian',
@@ -223,7 +223,7 @@ function validAction(overrides: Partial<PaletteAction> = {}): PaletteAction {
  * shape can be asserted in isolation, with the offending id named in the
  * failure message — mirrors `route-permissions.test.ts`'s style. */
 function isShapeValid(action: PaletteAction): boolean {
-  if (!PERMISSION_VALUES.has(action.permission)) return false;
+  if (action.permission !== null && !PERMISSION_VALUES.has(action.permission)) return false;
   if (action.alsoRequires && !action.alsoRequires.every((p) => PERMISSION_VALUES.has(p))) {
     return false;
   }
@@ -248,7 +248,7 @@ describe('action-registry.ts', () => {
   it.each(ACTIONS.map((action) => [action.id, action] as const))(
     '%s: permission is a real Permission enum member',
     (_id, action) => {
-      expect(PERMISSION_VALUES.has(action.permission)).toBe(true);
+      if (action.permission !== null) expect(PERMISSION_VALUES.has(action.permission)).toBe(true);
       for (const p of action.alsoRequires ?? []) expect(PERMISSION_VALUES.has(p)).toBe(true);
     },
   );
@@ -282,6 +282,7 @@ describe('action-registry.ts', () => {
   it.each(ACTIONS.map((action) => [action.id, action] as const))(
     '%s: run() calls navigate without throwing',
     (_id, action) => {
+      if (action.kind === 'external') return; // opens a tab instead, covered below
       const calls: string[] = [];
       expect(() => action.run({ navigate: (opts) => calls.push(opts.to) })).not.toThrow();
       expect(calls.length).toBe(1);
@@ -334,10 +335,13 @@ describe('action-registry.ts', () => {
     'students.uploadPhotos',
     // [41.4.7] Edit mode needs ATTENDANCE_MARK; the register route is read-gated.
     'attendance.register.edit',
+    // E17: not a route, any role.
+    'help.thisPage',
   ]);
 
   it('every seeded action targets a route that exists in STAFF_ROUTE_PERMISSIONS with the same permission (or a documented, stricter exception)', () => {
     for (const action of ACTIONS) {
+      if (action.kind === 'external') continue;
       const calls: string[] = [];
       action.run({ navigate: (opts) => calls.push(opts.to) });
       const [target] = calls;
@@ -358,6 +362,26 @@ describe('action-registry.ts', () => {
         `${action.id} permission (${action.permission}) does not match route ${target}'s permission (${routePermission}) — if this is intentional (the route is broader than the action), add it to ROUTE_PERMISSION_EXCEPTIONS with a comment explaining why`,
       ).toBe(routePermission);
     }
+  });
+
+  describe('help.thisPage [44.2.01]', () => {
+    const help = ACTIONS.find((a) => a.id === 'help.thisPage');
+
+    it('is an any-role external action, in the exception set', () => {
+      expect(help?.kind).toBe('external');
+      expect(help?.permission).toBeNull();
+      expect(ROUTE_PERMISSION_EXCEPTIONS.has('help.thisPage')).toBe(true);
+    });
+
+    it('opens the guide in a new tab, and does nothing without one', () => {
+      const open = vi.spyOn(window, 'open').mockReturnValue(null);
+      help?.run({ navigate: () => {}, helpHref: 'https://g.example/bn/x#a' });
+      expect(open).toHaveBeenCalledWith('https://g.example/bn/x#a', '_blank', 'noopener');
+      open.mockClear();
+      help?.run({ navigate: () => {}, helpHref: null });
+      expect(open).not.toHaveBeenCalled();
+      open.mockRestore();
+    });
   });
 
   describe('shape guard — five invalid shapes must not ship', () => {

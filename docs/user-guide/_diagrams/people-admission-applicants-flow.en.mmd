@@ -1,0 +1,11 @@
+%% title: How an admission application's status changes
+%% desc: A new application is awaiting review; from there it can go to shortlisted, admitted or rejected; from shortlisted it can go to admitted or rejected; when admitted, a student and guardian are created; admitted and rejected are final.
+flowchart LR
+  N["Awaiting review"] -->|"Add to shortlist"| L["Shortlisted"]
+  N -->|"Admit"| A["Admitted"]:::done
+  L -->|"Admit"| A
+  N -->|"Reject"| X["Rejected"]:::stop
+  L -->|"Reject"| X
+  A --> S["New student<br/>guardian linked or new"]
+  classDef done fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef stop fill:#fff5f5,stroke:#c92a2a,color:#5c1111

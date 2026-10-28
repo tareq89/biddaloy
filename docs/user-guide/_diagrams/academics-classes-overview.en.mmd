@@ -1,0 +1,12 @@
+%% title: From class to sections, students and teachers
+%% desc: A class sits inside an academic year. Subjects attach to a class. Sections sit inside a class. Students enrol in a section and teachers get duties there.
+flowchart LR
+  Y["Academic year"]:::admin --> K["Class"]:::teacher
+  K --> B["Subjects"]
+  K --> SE["Sections"]:::guardian
+  SE --> ST["Students<br/>enrol"]
+  SE --> TE["Teachers<br/>duties"]:::teacher
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

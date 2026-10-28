@@ -83,6 +83,23 @@ describe('/fee-structures', () => {
     await cleanupTestState();
   });
 
+  // [44.4 / #3014] The (?) beside "Add structure" resolves the generated guide entry.
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(listHandler([]), ...referenceHandlers());
+      render();
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.feeStructures.action.add"]'),
+        ).not.toBeNull(),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('renders every column, formatting the server’s decimal-string amount for the region', async () => {
     const row = feeStructureFactory({
       id: 'structure-1',

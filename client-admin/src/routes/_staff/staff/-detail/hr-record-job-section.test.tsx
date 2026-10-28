@@ -167,7 +167,7 @@ describe('HrRecordJobSection', () => {
       http.patch('/api/v1/staff-hr-records/hr-1', async () => {
         // 400ms, matching `record-payment-modal.test.tsx`'s own in-flight
         // case: long enough that the request is reliably still pending when
-        // `findByRole` first polls, well inside the 5s `asyncUtilTimeout`.
+        // `findByRole` first polls, well inside the 15s `asyncUtilTimeout`.
         await delay(400);
         return HttpResponse.json(RECORD);
       }),

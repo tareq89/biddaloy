@@ -1,0 +1,12 @@
+%% title: A marks list from submission to results
+%% desc: Each section and subject of an exam has one marks list. The Teacher enters marks, which save by themselves, then submits. After submitting, the list is closed; only an Admin can reopen it. Once every list is submitted, the results are processed.
+flowchart LR
+  E["Exam"]:::admin --> L["Marks list<br/>section × subject"]
+  L --> D["Not submitted<br/>enter marks"]:::teacher
+  D -->|"Submit"| S["Submitted<br/>view only"]:::guardian
+  S -->|"Reopen<br/>Admin only"| D
+  S --> R["Process<br/>results"]:::admin
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

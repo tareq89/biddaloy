@@ -164,5 +164,20 @@
     "invigilator": "Invigilator"
   },
   "sectionLabel": "Section",
-  "sectionPlaceholder": "Choose a section"
+  "sectionPlaceholder": "Choose a section",
+  "fields": {
+    "admitGroup": "Which admit cards",
+    "meritScope": "Rank by",
+    "meritTop": "How many top students (1–50)"
+  },
+  "help": {
+    "admitGroup": "Everyone, only those whose card is not printed yet, or one section.",
+    "meritScope": "Class position or section position decides who gets a merit certificate.",
+    "meritTop": "How many students from the top get a certificate, from 1 to 50."
+  },
+  "helpRequired": {
+    "admitGroup": "Yes",
+    "meritScope": "Yes",
+    "meritTop": "Yes"
+  }
 }

@@ -1,0 +1,33 @@
+%% title: Exam papers: what each one needs first
+%% desc: Exam papers come in three parts. Before the exam: the admit card needs a published seat plan and the routine notice needs a schedule. In the exam hall: the seat list, invigilator sheet and seat stickers need a published seat plan; the blank marks sheet needs the marks parts set up. After results: the tabulation needs results processed; the mark sheets, result certificate and merit certificate need results published.
+flowchart LR
+  subgraph B["Before the exam"]
+    direction TB
+    B1["Admit card<br/>published seat plan"]:::admin
+    B2["Routine notice<br/>schedule"]:::admin
+    B1 ~~~ B2
+  end
+  subgraph H["In the exam hall"]
+    direction TB
+    H1["Seat list<br/>published seat plan"]
+    H2["Invigilator sheet<br/>published seat plan"]
+    H3["Seat stickers<br/>published seat plan"]
+    H4["Marks sheet<br/>marks parts set up"]
+    H1 ~~~ H2
+    H2 ~~~ H3
+    H3 ~~~ H4
+  end
+  subgraph A["After results"]
+    direction TB
+    A1["Tabulation<br/>results processed"]:::done
+    A2["Mark sheets<br/>results published"]:::done
+    A3["Result certificate<br/>results published"]:::done
+    A4["Merit certificate<br/>results published"]:::done
+    A1 ~~~ A2
+    A2 ~~~ A3
+    A3 ~~~ A4
+  end
+  B ~~~ H
+  H ~~~ A
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef done fill:#ebfbee,stroke:#2b8a3e,color:#14411d

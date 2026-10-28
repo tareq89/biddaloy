@@ -1,9 +1,10 @@
+import { HelpProvider } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
 
@@ -424,6 +425,138 @@ describe('CommandPaletteLauncher', () => {
       await openActions('/students', 'EXECUTIVE', '>print');
       expect(await screen.findByRole('option', { name: 'Print history' })).toBeTruthy();
       absent('To print');
+    });
+  });
+  describe('F1 and Help for this page [44.2.01]', () => {
+    const HREF = 'https://guide.example/docs/en/';
+
+    // jsdom has no layout, so `offsetParent` is always null and the launcher's
+    // "only the visible instance listens" guard would swallow every key. Make
+    // exactly one of the two mounted launchers (desktop/mobile) "visible".
+    let visible: Element | undefined;
+    function visibleLaunchers() {
+      vi.spyOn(HTMLElement.prototype, 'offsetParent', 'get').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return this === visible ? document.body : null;
+      });
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllEnvs();
+    });
+
+    async function setup(path: string, handbook = 'https://guide.example/docs') {
+      vi.stubEnv('VITE_HANDBOOK_URL', handbook);
+      visibleLaunchers();
+      const open = vi.spyOn(window, 'open').mockReturnValue(null);
+      renderWithRouter(routeTree, {
+        initialEntries: [path],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      visible = (await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0];
+      return { open, user: userEvent.setup() };
+    }
+
+    it('F1 outside inputs opens the page guide in a new tab', async () => {
+      const { open, user } = await setup('/students');
+      await user.keyboard('{F1}');
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(String(open.mock.calls[0]?.[0]).startsWith(HREF)).toBe(true);
+      expect(open.mock.calls[0]?.slice(1)).toEqual(['_blank', 'noopener']);
+    });
+
+    it('F1 with a modifier does nothing', async () => {
+      const { open, user } = await setup('/students');
+      await user.keyboard('{Shift>}{F1}{/Shift}{Control>}{F1}{/Control}');
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it('a held F1 (key repeat) opens nothing', async () => {
+      const { open } = await setup('/students');
+      fireEvent.keyDown(window, { key: 'F1', repeat: true });
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it('the shortcuts sheet lists F1 only when the page has a guide', async () => {
+      const { user } = await setup('/students');
+      await user.keyboard('?');
+      expect(await screen.findByText('Open help for this page')).toBeTruthy();
+    });
+
+    it('without a handbook URL, F1 does nothing and the sheet omits it', async () => {
+      const { open, user } = await setup('/students', '');
+      await user.keyboard('{F1}');
+      expect(open).not.toHaveBeenCalled();
+      await user.keyboard('?');
+      expect(await screen.findByText('Open command palette')).toBeTruthy();
+      expect(screen.queryByText('Open help for this page')).toBeNull();
+    });
+
+    it('the portal (page-only) palette lists Help for this page and opens the guide', async () => {
+      const open = vi.spyOn(window, 'open').mockReturnValue(null);
+      const rootRoute = createRootRoute();
+      const tree = rootRoute.addChildren([
+        createRoute({
+          getParentRoute: () => rootRoute,
+          path: '/',
+          component: () => (
+            <HelpProvider
+              lang="en"
+              baseUrl="https://guide.example/docs"
+              pageId="portal.fees"
+              index={{
+                'portal.fees': {
+                  title: { bn: 'ফি', en: 'Fees' },
+                  summary: { bn: 's', en: 's' },
+                  path: 'portal/fees',
+                  anchor: '',
+                  knownIssues: 0,
+                },
+              }}
+            >
+              <CommandPaletteLauncher pages={[{ id: 'fees', label: 'Fees page', to: '/fees' }]} />
+            </HelpProvider>
+          ),
+        }),
+      ]);
+      const { router } = renderWithRouter(tree, {
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Search (Ctrl+K)' }));
+      // Exact name: the row has no description, so the guide URL is not part of it.
+      await user.click(await screen.findByRole('option', { name: 'Help for this page' }));
+      expect(open).toHaveBeenCalledWith(
+        'https://guide.example/docs/en/portal/fees',
+        '_blank',
+        'noopener',
+      );
+      expect(router.state.location.pathname).toBe('/');
+    });
+
+    it('F1 inside an input does nothing', async () => {
+      const { open, user } = await setup('/students');
+      await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+      await user.type(await screen.findByRole('combobox', { name: 'Search' }), 'x{F1}');
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it('the palette offers Help for this page on a page with a guide', async () => {
+      const { open, user } = await setup('/students');
+      await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+      await user.type(await screen.findByRole('combobox', { name: 'Search' }), '>help for');
+      await user.click(await screen.findByRole('option', { name: 'Help for this page' }));
+      expect(open).toHaveBeenCalledWith(
+        expect.stringMatching(/^https:\/\/guide\.example\//),
+        '_blank',
+        'noopener',
+      );
     });
   });
 });

@@ -1,0 +1,13 @@
+%% title: The steps of a reminder
+%% desc: Pick one student or several, write the message and preview. The preview shows who will receive it, who is skipped and why, and how many SMS are needed. If you change anything after the preview, preview again. When you send, at a school that counts SMS credit the credit for all the SMS is held at once; if it is too low, nothing is sent. Otherwise the message goes into the queue.
+flowchart TD
+  A["Pick students<br/>one, or up to 500"]:::admin --> B["Write the message<br/>insert name · amount · month"]:::admin
+  B --> P["Preview recipients"]:::admin
+  P --> V["Will receive · Skipped and why<br/>how many SMS"]:::note
+  V -->|"Changed something"| P
+  V --> S["Send reminder to … people"]:::admin
+  S --> Q{"Enough credit for<br/>all the SMS?"}:::note
+  Q -->|"No"| X["Nothing is sent"]
+  Q -->|"Yes, or credit is not counted"| OK["Goes into the queue<br/>the round: in Reminder history"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

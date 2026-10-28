@@ -1,0 +1,13 @@
+%% title: The path of one application
+%% desc: A submitted application goes to the decider of the first step, for many types the class teacher first. At each step it can be approved, rejected or kept under consideration. When the last step is approved, work such as leave, a waiver or a section change happens by itself. Before the decision the applicant can withdraw it. Approved leave can be cancelled later.
+flowchart TD
+  N["New application submitted"] --> S1{"First step<br/>often the class teacher"}:::note
+  S1 -->|"approve"| S2{"Next step, if any<br/>headmaster, accounts<br/>or exam controller"}:::note
+  S1 -->|"reject, with a reason"| RJ["Rejected"]
+  S1 -->|"keep under consideration"| UC["Under consideration<br/>step stays the same"]
+  S2 -->|"approve"| AP["Approved<br/>leave, waiver, section change<br/>happens by itself"]:::admin
+  S2 -->|"reject"| RJ
+  N -.->|"before the decision"| WD["Applicant withdraws"]
+  AP -.->|"leave only"| CN["Leave cancelled"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

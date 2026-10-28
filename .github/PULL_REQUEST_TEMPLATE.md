@@ -4,6 +4,8 @@
 
 Closes #
 
+User guide: <updated pages> | not affected — <reason>
+
 ## Test plan
 
 - [ ] `yarn build`

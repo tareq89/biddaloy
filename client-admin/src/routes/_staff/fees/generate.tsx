@@ -149,6 +149,7 @@ function GeneratedFeesPage() {
     actions: [
       {
         id: 'generate',
+        helpId: 'finance.generateFees.action.generate',
         label: t('generations.generateButton'),
         icon: <FilePlusIcon />,
         priority: 'primary',

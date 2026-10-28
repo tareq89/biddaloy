@@ -79,7 +79,9 @@ export function TemplateDetail({ templateId, selectedGrade, onGradeChange }: Tem
     <>
       <DetailShell
         name={template.name}
-        {...(dirty ? { statusBadge: <StatusBadge tone="warning" label={t('detail.unsaved')} /> } : {})}
+        {...(dirty
+          ? { statusBadge: <StatusBadge tone="warning" label={t('detail.unsaved')} /> }
+          : {})}
         facts={[
           { label: t('detail.facts.kind'), value: tExams(`kind.${template.kind}`) },
           {
@@ -107,6 +109,7 @@ export function TemplateDetail({ templateId, selectedGrade, onGradeChange }: Tem
           },
           {
             id: 'save',
+            helpId: 'examsResults.examTemplates.action.save',
             label: t('detail.save'),
             icon: <Save aria-hidden className="size-4" />,
             priority: 'primary',

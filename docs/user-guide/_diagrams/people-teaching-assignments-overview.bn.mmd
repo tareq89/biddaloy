@@ -1,0 +1,9 @@
+%% title: কর্মী থেকে শিক্ষকের দায়িত্ব
+%% desc: অ্যাডমিন কর্মীকে শিক্ষক প্রোফাইল দেন, তারপর শাখায় দায়িত্ব দেন। দায়িত্ব পেলে শিক্ষক নিজের শাখার হাজিরা, শিক্ষার্থী তালিকা ও নম্বর দেখেন।
+flowchart LR
+  P["শিক্ষক<br/>প্রোফাইল"]:::admin --> D["শাখায়<br/>দায়িত্ব"]:::admin
+  D --> A["হাজিরা"]:::teacher
+  D --> S["শিক্ষার্থী<br/>তালিকা"]:::teacher
+  D --> M["নম্বর"]:::teacher
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05

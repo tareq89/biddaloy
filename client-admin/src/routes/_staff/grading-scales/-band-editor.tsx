@@ -18,6 +18,7 @@
 import {
   Button,
   Checkbox,
+  HelpHint,
   Input,
   Label,
   Table,
@@ -171,9 +172,18 @@ export function BandEditor({ bands, onChange, readOnly = false }: BandEditorProp
       if (value !== null) updateBand(index, { [key]: value });
     };
 
+  // A disabled fieldset disables a (?) inside it, so phone and read-only views draw it outside.
+  const failHelp = (
+    <p className="flex items-center gap-1 text-text-secondary">
+      {t('bandEditor.columnFail')}
+      <HelpHint helpId="examsResults.gradingScales.field.failGrade" />
+    </p>
+  );
+
   if (isMobile) {
     return (
       <div className="flex flex-col gap-3">
+        {failHelp}
         <fieldset disabled={readOnly} className="contents">
           <ul className="flex flex-col gap-3">
             {bands.map((band, index) => (
@@ -295,7 +305,13 @@ export function BandEditor({ bands, onChange, readOnly = false }: BandEditorProp
                 <TableHead className="text-end">{t('bandEditor.columnTo')}</TableHead>
                 <TableHead>{t('bandEditor.columnGrade')}</TableHead>
                 <TableHead className="text-end">{t('bandEditor.columnGpa')}</TableHead>
-                <TableHead>{t('bandEditor.columnFail')}</TableHead>
+                {/* aria-label keeps the (?) out of the column name read on every cell. */}
+                <TableHead aria-label={t('bandEditor.columnFail')}>
+                  <span className="inline-flex items-center gap-1">
+                    {t('bandEditor.columnFail')}
+                    {!readOnly && <HelpHint helpId="examsResults.gradingScales.field.failGrade" />}
+                  </span>
+                </TableHead>
                 <TableHead>{t('bandEditor.columnComment')}</TableHead>
                 <TableHead>{t('bandEditor.columnActions')}</TableHead>
               </TableRow>
@@ -380,6 +396,7 @@ export function BandEditor({ bands, onChange, readOnly = false }: BandEditorProp
             </TableBody>
           </Table>
         </fieldset>
+        {readOnly && <div className="border-t border-border-subtle px-4 py-3">{failHelp}</div>}
         {!readOnly && (
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-3">
             <Button type="button" variant="outline" onClick={addBand}>

@@ -1,0 +1,11 @@
+%% title: The two states of a seat plan
+%% desc: A new seat plan is a draft; while it is a draft you can move seats, change room invigilators and delete the plan. Publishing locks all of that. Before the day of the first exam you can unpublish and make it a draft again.
+flowchart LR
+  G["Generate seat plan<br/>pick subjects and rooms"]:::admin --> D["Draft<br/>move seats, invigilators, delete"]:::teacher
+  D -->|"Publish seat plan"| P["Published<br/>view only"]:::guardian
+  P -->|"Unpublish<br/>before the first exam day"| D
+  D -->|"Delete plan"| X["Deleted<br/>subjects can be picked again"]:::note
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

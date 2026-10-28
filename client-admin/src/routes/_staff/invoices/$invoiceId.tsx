@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   ErrorState,
+  HelpHint,
   RecordNotFoundState,
   Input,
   Label,
@@ -434,7 +435,10 @@ function InvoiceDetailPage() {
           <div className="order-1 space-y-6 md:order-2 md:w-80 md:shrink-0">
             {canPrint && (
               <section className={CARD_CLASS}>
-                <h2 className="text-h2">{t('invoiceDetail.printTitle', { ns: 'payments' })}</h2>
+                <div className="flex items-center gap-1">
+                  <h2 className="text-h2">{t('invoiceDetail.printTitle', { ns: 'payments' })}</h2>
+                  <HelpHint helpId="finance.invoices.action.print" />
+                </div>
                 <div className="mt-3 flex flex-col gap-2">
                   <span id={formatLegendId} className="text-sm font-medium">
                     {t('printFormat.label', { ns: 'payments' })}
@@ -472,7 +476,10 @@ function InvoiceDetailPage() {
 
             {canShare && (
               <section className={CARD_CLASS}>
-                <h2 className="text-h2">{t('invoiceDetail.sendTitle', { ns: 'payments' })}</h2>
+                <div className="flex items-center gap-1">
+                  <h2 className="text-h2">{t('invoiceDetail.sendTitle', { ns: 'payments' })}</h2>
+                  <HelpHint helpId="finance.invoices.action.send" />
+                </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <Button
                     type="button"
@@ -504,7 +511,10 @@ function InvoiceDetailPage() {
                 )}
 
                 <div className="mt-4 flex flex-col gap-2 border-t border-border-subtle pt-4">
-                  <h3 className="text-h3">{t('invoiceDetail.shareTitle', { ns: 'payments' })}</h3>
+                  <div className="flex items-center gap-1">
+                    <h3 className="text-h3">{t('invoiceDetail.shareTitle', { ns: 'payments' })}</h3>
+                    <HelpHint helpId="finance.invoices.action.share" />
+                  </div>
                   <p className="text-text-secondary">
                     {t('invoiceDetail.shareHelp', { ns: 'payments' })}
                   </p>
@@ -556,33 +566,39 @@ function InvoiceDetailPage() {
                           date: formatDate(new Date(liveShare.expires_at), regionConfig),
                         })}
                       </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-11 w-full"
-                        loading={regenerateShare.isPending}
-                        onClick={() => {
-                          shareInvoice.reset();
-                          revokeShare.reset();
-                          regenerateShare.reset();
-                          setConfirmRegenerate(true);
-                        }}
-                      >
-                        {t('invoiceDetail.share.regenerate')}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-11 w-full text-destructive"
-                        onClick={() => {
-                          revokeShare.reset();
-                          shareInvoice.reset();
-                          regenerateShare.reset();
-                          setRevokeTargetId(liveShare.id);
-                        }}
-                      >
-                        {t('invoiceDetail.shareRevoke', { ns: 'payments' })}
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-11 flex-1"
+                          loading={regenerateShare.isPending}
+                          onClick={() => {
+                            shareInvoice.reset();
+                            revokeShare.reset();
+                            regenerateShare.reset();
+                            setConfirmRegenerate(true);
+                          }}
+                        >
+                          {t('invoiceDetail.share.regenerate')}
+                        </Button>
+                        <HelpHint helpId="finance.invoices.action.regenerate" />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-11 flex-1 text-destructive"
+                          onClick={() => {
+                            revokeShare.reset();
+                            shareInvoice.reset();
+                            regenerateShare.reset();
+                            setRevokeTargetId(liveShare.id);
+                          }}
+                        >
+                          {t('invoiceDetail.shareRevoke', { ns: 'payments' })}
+                        </Button>
+                        <HelpHint helpId="finance.invoices.action.revoke" />
+                      </div>
                     </div>
                   )}
                   {(shareInvoice.isError || revokeShare.isError || regenerateShare.isError) && (

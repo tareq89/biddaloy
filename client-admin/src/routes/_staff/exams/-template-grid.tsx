@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
   EmptyState,
+  HelpHint,
   Input,
   Label,
   Select,
@@ -334,7 +335,10 @@ export function TemplateGrid({
             <DialogTitle>{t('grid.addGradeTitle')}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="template-grid-grade">{t('grid.gradeLabel')}</Label>
+            <span className="inline-flex items-center gap-1">
+              <Label htmlFor="template-grid-grade">{t('grid.gradeLabel')}</Label>
+              <HelpHint helpId="examsResults.examTemplates.field.grade" />
+            </span>
             <Input
               id="template-grid-grade"
               inputMode="numeric"
@@ -367,7 +371,11 @@ export function TemplateGrid({
           icon={<FileStack aria-hidden className="size-6" />}
           title={t('detail.noGradesTitle')}
           explanation={t('detail.noGradesText')}
-          action={{ label: t('grid.addGrade'), onClick: () => setGradeOpen(true) }}
+          action={{
+            label: t('grid.addGrade'),
+            onClick: () => setGradeOpen(true),
+            helpId: 'examsResults.examTemplates.action.addGrade',
+          }}
         />
         {gradeDialog}
       </>
@@ -406,6 +414,7 @@ export function TemplateGrid({
             <Plus aria-hidden className="size-4" />
             {t('grid.addGrade')}
           </button>
+          <HelpHint helpId="examsResults.examTemplates.action.addGrade" />
         </div>
 
         <TabsContent value={String(active)} className="mt-4 flex flex-col gap-6">
@@ -477,6 +486,8 @@ export function TemplateGrid({
                         row: index + 1,
                       });
                     const isLast = index === block.components.length - 1;
+                    // One (?) per column, not per row: the very first row of the grid.
+                    const firstRow = index === 0 && block === gradeBlocks[0];
                     return (
                       <div
                         key={c.key}
@@ -540,15 +551,22 @@ export function TemplateGrid({
                           <Label htmlFor={`${c.key}-full`} className="text-label md:sr-only">
                             {t('grid.columnFull')}
                           </Label>
-                          <Input
-                            id={`${c.key}-full`}
-                            inputMode="decimal"
-                            className="text-right tabular-nums"
-                            aria-label={label('grid.columnFull')}
-                            aria-invalid={code === 'fullInvalid'}
-                            value={c.full}
-                            onChange={(e) => patchComponent(block, c.key, { full: e.target.value })}
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input
+                              id={`${c.key}-full`}
+                              inputMode="decimal"
+                              className="text-right tabular-nums"
+                              aria-label={label('grid.columnFull')}
+                              aria-invalid={code === 'fullInvalid'}
+                              value={c.full}
+                              onChange={(e) =>
+                                patchComponent(block, c.key, { full: e.target.value })
+                              }
+                            />
+                            {firstRow && (
+                              <HelpHint helpId="examsResults.examTemplates.field.fullMarks" />
+                            )}
+                          </div>
                           {code === 'fullInvalid' && (
                             <p role="alert" className="text-sm text-destructive">
                               {t('grid.error.fullInvalid', {
@@ -561,22 +579,29 @@ export function TemplateGrid({
                           <Label htmlFor={`${c.key}-pass`} className="text-label md:sr-only">
                             {t('grid.columnPass')}
                           </Label>
-                          <Input
-                            id={`${c.key}-pass`}
-                            inputMode="decimal"
-                            className="text-right tabular-nums"
-                            aria-label={label('grid.columnPass')}
-                            aria-invalid={code === 'passInvalid'}
-                            value={c.pass}
-                            onChange={(e) => patchComponent(block, c.key, { pass: e.target.value })}
-                            onKeyDown={(e) => {
-                              // Enter in the block's last cell appends a row.
-                              if (e.key === 'Enter' && isLast) {
-                                e.preventDefault();
-                                addComponent(block);
+                          <div className="flex items-center gap-1">
+                            <Input
+                              id={`${c.key}-pass`}
+                              inputMode="decimal"
+                              className="text-right tabular-nums"
+                              aria-label={label('grid.columnPass')}
+                              aria-invalid={code === 'passInvalid'}
+                              value={c.pass}
+                              onChange={(e) =>
+                                patchComponent(block, c.key, { pass: e.target.value })
                               }
-                            }}
-                          />
+                              onKeyDown={(e) => {
+                                // Enter in the block's last cell appends a row.
+                                if (e.key === 'Enter' && isLast) {
+                                  e.preventDefault();
+                                  addComponent(block);
+                                }
+                              }}
+                            />
+                            {firstRow && (
+                              <HelpHint helpId="examsResults.examTemplates.field.passMarks" />
+                            )}
+                          </div>
                           {code === 'passInvalid' && (
                             <p role="alert" className="text-sm text-destructive">
                               {t('grid.error.passInvalid')}
@@ -653,15 +678,18 @@ export function TemplateGrid({
                   </SelectContent>
                 </Select>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full md:w-auto"
-                disabled={!pickers[active]}
-                onClick={() => addSubject(active)}
-              >
-                {t('grid.addSubject')}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full md:w-auto"
+                  disabled={!pickers[active]}
+                  onClick={() => addSubject(active)}
+                >
+                  {t('grid.addSubject')}
+                </Button>
+                <HelpHint helpId="examsResults.examTemplates.action.addSubject" />
+              </div>
             </div>
           </section>
         </TabsContent>

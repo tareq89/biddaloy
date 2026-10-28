@@ -108,5 +108,36 @@
       "ADMITTED": "Please contact the school to finish the admission.",
       "REJECTED": "If you have any questions, please contact the school."
     }
+  },
+  "fields": {
+    "whichAdmissionAreYouApplyingFor": "Which admission are you applying for?",
+    "studentSFullName": "Student's full name",
+    "studentSDateOfBirth": "Student's date of birth",
+    "studentSGender": "Student's gender",
+    "parentGuardianSName": "Parent/guardian's name",
+    "parentGuardianSPhoneNumber": "Parent/guardian's phone number",
+    "parentGuardianSEmailOptional": "Parent/guardian's email (optional)",
+    "homeAddressOptional": "Home address (optional)",
+    "papers": "Papers"
+  },
+  "help": {
+    "whichAdmissionAreYouApplyingFor": "The round you are applying to. Chosen for you when only one is open.",
+    "studentSFullName": "The child's full name.",
+    "studentSDateOfBirth": "The child's date of birth.",
+    "studentSGender": "Boy, Girl or Other.",
+    "parentGuardianSName": "The person applying.",
+    "parentGuardianSPhoneNumber": "A correct mobile number. SMS messages and the status check both use this number.",
+    "parentGuardianSEmailOptional": "A correct email address.",
+    "homeAddressOptional": "The home address. When admitted, it goes to the student's address.",
+    "papers": "One photo (JPG, PNG) or PDF for each document the round asks for, at most 5 MB."
+  },
+  "helpRequired": {
+    "whichAdmissionAreYouApplyingFor": "Yes",
+    "studentSFullName": "Yes",
+    "studentSDateOfBirth": "Yes",
+    "studentSGender": "Yes",
+    "parentGuardianSName": "Yes",
+    "parentGuardianSPhoneNumber": "Yes",
+    "papers": "If the round asks"
   }
 }
