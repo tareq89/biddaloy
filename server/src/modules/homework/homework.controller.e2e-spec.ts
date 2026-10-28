@@ -378,8 +378,8 @@ describe('Homework E2E', () => {
     it('a teacher of section A does not list homework assigned only to section B of the same class', async () => {
       const [{ id: otherSectionId }] = await dataSource.query(
         `INSERT INTO class_sections (id, section_name, class_id, tenant_id, created_at, updated_at)
-         VALUES (gen_random_uuid(), 'HW-B', $1, $2, NOW(), NOW()) RETURNING id`,
-        [SEED_CLASS_1_ID, TENANT_ID],
+         VALUES (gen_random_uuid(), $3, $1, $2, NOW(), NOW()) RETURNING id`,
+        [SEED_CLASS_1_ID, TENANT_ID, `HW-B-${Date.now()}`],
       );
       const admin = await supertest(app.getHttpServer())
         .post('/api/v1/auth/login')

@@ -155,7 +155,9 @@ function ReportsPageContent() {
   // The router keeps unvalidated parent search on `useSearch({ strict: false })`,
   // so a stray `?date=` still reaches `state.filters`; keep only what this page owns.
   const filters = Object.fromEntries(
-    Object.entries(state.filters).filter(([key]) => key in reportsSearchSchema.shape),
+    Object.entries(state.filters).filter(([key]) =>
+      Object.hasOwn(reportsSearchSchema.shape, key),
+    ),
   ) as ReportsFilters;
   // Tenant switch + low-attendance threshold, read the way AttendanceSection's
   // page does: the active tenant's settings. Unreadable (no SETTINGS_MANAGE) =
