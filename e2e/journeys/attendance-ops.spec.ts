@@ -7,6 +7,7 @@ import {
   currentAcademicYear,
   get,
   isFridayAnywhere,
+  patch,
   markableDateIso,
   put,
   type ApiSession,
@@ -513,6 +514,72 @@ test.describe('settings', () => {
           version: original.version,
           attendance: { ...rest, periodAttendance: { enabled: true }, shiftTimes: [] },
         },
+      });
+      expect(response.ok(), `restoring settings failed: ${response.status()}`).toBe(true);
+    }
+  });
+});
+
+test.describe('arrival notices', () => {
+  test.use(loggedIn('admin'));
+
+  // [84.3.6] A student whose guardian waits for the arrival notice shows a bell in the register.
+  test('the register bells a student with an ACTIVE subscription', async ({ page, request }) => {
+    const admin = await adminApiSession(request);
+    const teacher = await apiSession(request, 'teacher').catch(() => null);
+    test.skip(teacher === null, 'no teacher session');
+    const sections = await get<{ section_id: string }[]>(request, teacher!, '/my-class/sections');
+    const sectionId = sections[0]!.section_id;
+    const waiting = await get<{ id: string; student_name: string }[]>(
+      request,
+      admin,
+      `/attendance/arrival-subscriptions?sectionId=${sectionId}&status=REQUESTED`,
+    );
+    const active = await get<{ id: string }[]>(
+      request,
+      admin,
+      `/attendance/arrival-subscriptions?sectionId=${sectionId}&status=ACTIVE`,
+    );
+    if (active.length === 0) {
+      test.skip(waiting.length === 0, 'no arrival subscription in the class teacher section');
+      await patch(request, admin, `/attendance/arrival-subscriptions/${waiting[0]!.id}`, {
+        status: 'ACTIVE',
+      });
+    }
+    await page.goto(`/attendance/${sectionId}?date=${MARK_DATE}`);
+    await expect(page.getByLabel(t('attendance.mark.arrivalSubscribed')).first()).toBeVisible();
+  });
+
+  test('the arrival switches in Attendance policy hold after a reload', async ({
+    page,
+    request,
+  }) => {
+    const admin = await adminApiSession(request);
+    const settingsPath = `/schools/${admin.tenantId}/settings`;
+    const original = await get<{ version: number; attendance?: Record<string, unknown> }>(
+      request,
+      admin,
+      settingsPath,
+    );
+    try {
+      await page.goto('/settings?section=academics');
+      const card = page.locator('#attendance-section');
+      await expect(card).toBeVisible();
+      const enabled = card.getByLabel(t('settings.attendance.arrivalEnabled'));
+      const wasOn = await enabled.isChecked();
+      await (wasOn ? enabled.uncheck() : enabled.check());
+      await card.getByRole('button', { name: t('settings.save.action') }).click();
+      await expect(card.getByText(t('settings.save.success'))).toBeVisible();
+      await page.reload();
+      const after = page
+        .locator('#attendance-section')
+        .getByLabel(t('settings.attendance.arrivalEnabled'));
+      await expect(after).toBeChecked({ checked: !wasOn });
+    } finally {
+      const fresh = await get<{ version: number }>(request, admin, settingsPath);
+      const response = await request.patch(`/api/v1${settingsPath}`, {
+        headers: { Authorization: `Bearer ${admin.token}`, 'X-Tenant-ID': admin.tenantId },
+        data: { version: fresh.version, attendance: original.attendance },
       });
       expect(response.ok(), `restoring settings failed: ${response.status()}`).toBe(true);
     }

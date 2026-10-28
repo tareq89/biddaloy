@@ -179,6 +179,27 @@ log (fee, payment-receipt and calendar notices reserve credit and carry
 `metadata.credit = RELEASED`), because no SMS goes out. Logs with no
 reservation (unmetered tenant, no `batchId`) touch nothing.
 
+### The arrival-notice branch [84.1.3 / D44]
+
+An `ARRIVAL_NOTICE` log is **not** push-first. The subscription row already
+says how the guardian wants it, so the processor obeys the log's `medium`
+and never falls back to the other channel.
+
+```mermaid
+flowchart TD
+  L[ARRIVAL_NOTICE log] --> M{medium}
+  M -->|PUSH| P{guardian has a push device?}
+  P -->|yes| S[push sent]
+  P -->|no| F1[FAILED, reason NO_PUSH_DEVICE, never SMS]
+  M -->|SMS| R[credit-reservation backstop, then SMS provider]
+  M -->|anything else| F2[FAILED, reason ARRIVAL_MEDIUM]
+```
+
+Example: Rahim's guardian chose "in the app" but has no device. The log ends
+`FAILED` with `metadata.reason = 'NO_PUSH_DEVICE'`; no SMS credit is spent.
+Dedupe is the log's `reference_key` (`arrival:<date>:<student>:<guardian>`,
+D22): a second notice for the same day is a unique-key conflict, so a skip.
+
 ## Suspended tenants: queued work is cancelled, not paused
 
 A school (tenant) can be suspended by a SUPER_ADMIN

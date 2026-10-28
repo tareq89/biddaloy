@@ -517,6 +517,8 @@
     "correctionWindowDays": "সংশোধনের সময়সীমা (দিন)",
     "lowAttendanceThresholdPercent": "কম উপস্থিতির সীমা (%)",
     "autoAbsentEnabled": "অনুপস্থিতির স্বয়ংক্রিয় বার্তা",
+    "arrivalNoticeEnabled": "আগমন বার্তা",
+    "arrivalNoticeSmsAllowed": "আগমন বার্তায় SMS",
     "escalateAfterSchoolDays": "প্রধান শিক্ষক ও অ্যাডমিনকে জানানো হবে",
     "approvalMode": "অনুমোদনের পদ্ধতি",
     "requireSecondApprover": "পেমেন্ট বাতিল করতে সবসময় আরেকজন অ্যাডমিন লাগবে",

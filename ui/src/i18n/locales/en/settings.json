@@ -517,6 +517,8 @@
     "correctionWindowDays": "Correction window (days)",
     "lowAttendanceThresholdPercent": "Low attendance threshold (%)",
     "autoAbsentEnabled": "Automatic absence message",
+    "arrivalNoticeEnabled": "Arrival notices",
+    "arrivalNoticeSmsAllowed": "SMS for arrival notices",
     "escalateAfterSchoolDays": "Tell the head teacher and admin after",
     "approvalMode": "Approval method",
     "requireSecondApprover": "Always need a second admin to reverse a payment",
