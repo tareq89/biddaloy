@@ -79,7 +79,6 @@ export const HELP_UNWIRED: Record<string, string> = {
 
   // 44.3.12: declared in the guide after the wave-3 pass ran
   'applications.action.cancelLeave': MENU_ITEM,
-  'administration.printTemplates.action.create': PRINT_FIX,
 
   // Help text written (was HELP_GAPS): indexed now, wireable by the route lanes
   'people.students.field.rollNumber': GAP,

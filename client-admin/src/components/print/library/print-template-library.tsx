@@ -220,6 +220,7 @@ export function PrintTemplateLibrary({ onEdit, openNewDialog = false }: PrintTem
           icon: <PlusIcon aria-hidden />,
           priority: 'primary' as const,
           onClick: () => openNew(),
+          helpId: 'administration.printTemplates.action.create',
         },
       ]
     : [];
