@@ -187,9 +187,12 @@ function SectionRegisterPage() {
     }));
   // Mirrors the server's two reason checks in `putRegister`: outside the correction window
   // (`reason_required`) and on an already-finalized session.
+  // `reasonForced`: the server asked for one after this page loaded (another editor finalized it).
+  const [reasonForced, setReasonForced] = React.useState(false);
   const needsReason =
     !!registerQuery.data &&
-    (registerQuery.data.reason_required ||
+    (reasonForced ||
+      registerQuery.data.reason_required ||
       (registerQuery.data.session.id !== null && registerQuery.data.session.state === 'FINALIZED'));
   const [reason, setReason] = React.useState('');
   const [reasonError, setReasonError] = React.useState(false);
@@ -197,7 +200,12 @@ function SectionRegisterPage() {
   React.useEffect(() => {
     setReason('');
     setReasonError(false);
+    setReasonForced(false);
   }, [storageKey]);
+  // The field mounts one render after a server refusal reveals it.
+  React.useEffect(() => {
+    if (reasonError) reasonRef.current?.focus();
+  }, [reasonError, reasonForced]);
   const [confirmUnmarkedOpen, setConfirmUnmarkedOpen] = React.useState(false);
   const [conflict, setConflict] = React.useState<{
     currentRegister: Register | undefined;
@@ -354,13 +362,14 @@ function SectionRegisterPage() {
           });
           return;
         }
-        if (isReasonRequired(error)) return showReasonError();
+        if (isReasonRequired(error)) return showReasonError(true);
         toast.error(t('mark.errorToast'));
       },
     });
   }
 
-  function showReasonError() {
+  function showReasonError(fromServer = false) {
+    if (fromServer) setReasonForced(true);
     setReasonError(true);
     reasonRef.current?.focus();
   }
@@ -407,7 +416,7 @@ function SectionRegisterPage() {
           }
           if (isReasonRequired(error)) {
             setConflict(null);
-            return showReasonError();
+            return showReasonError(true);
           }
           toast.error(t('mark.errorToast'));
         },

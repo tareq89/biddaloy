@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -37,6 +38,7 @@ export class StaffAttendanceEntryDto {
 export class PutStaffAttendanceRegisterDto {
   @IsString()
   @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'date must be a real calendar date' })
   date: string;
 
   /** Required when correcting an already-marked day outside the tenant's
@@ -64,6 +66,7 @@ export class PutStaffAttendanceRegisterDto {
 export class QueryStaffAttendanceRegisterDto {
   @IsString()
   @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'date must be a real calendar date' })
   date: string;
 }
 
@@ -74,10 +77,12 @@ export class QueryStaffAttendanceSummaryDto {
 
   @IsString()
   @Matches(DATE_ONLY, { message: 'from must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'from must be a real calendar date' })
   from: string;
 
   @IsString()
   @Matches(DATE_ONLY, { message: 'to must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'to must be a real calendar date' })
   to: string;
 }
 

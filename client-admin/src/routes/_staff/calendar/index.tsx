@@ -34,9 +34,9 @@ import {
   type CreateCalendarEventInput,
   type UpdateCalendarEventInput,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell, PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { toIsoDate } from '@biddaloy/ui/utils';
+import { tenantTodayIso, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { CopyIcon, DownloadIcon, FlagIcon, PlusIcon, UploadIcon } from 'lucide-react';
 import * as React from 'react';
@@ -115,6 +115,7 @@ function CalendarPage() {
   const { t: tImport } = useTranslation('calendarImport');
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
+  const regionConfig = useTenantRegionConfig();
 
   const month = search.month ?? currentMonth();
   // Local calendar day (B20): `toISOString()` would read the UTC day.
@@ -414,7 +415,8 @@ function CalendarPage() {
 
       {canManage && (
         <GovernmentHolidaysDialog
-          today={today}
+          // The server skips past dates on the school's clock, not the browser's.
+          today={tenantTodayIso(regionConfig)}
           open={search.panel === 'holidays'}
           onOpenChange={(open) => {
             if (!open) {

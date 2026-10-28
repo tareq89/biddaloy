@@ -7,6 +7,7 @@
 import { AttendanceStatus, Permission } from '@biddaloy/shared';
 import {
   Button,
+  ConfirmDialog,
   DatePicker,
   EmptyState,
   ErrorState,
@@ -21,7 +22,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
-import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
+import { parseDate, tenantTodayIso, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { CalendarMinus, Save, UserCheck } from 'lucide-react';
 import * as React from 'react';
@@ -36,11 +37,6 @@ import {
 } from './-staff-attendance-grid';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-function todayIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 // `parseDate` throws on e.g. 2026-13-45; such a URL falls back to today.
 function isRealDate(value: string): boolean {
@@ -72,9 +68,13 @@ function StaffAttendancePage() {
   const regionConfig = useTenantRegionConfig();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
-  const date = search.date ?? todayIso();
+  // The school's today, as the server computes it (not the browser's).
+  const today = tenantTodayIso(regionConfig);
+  const date = search.date ?? today;
 
   const canMark = useHasPermission(Permission.STAFF_ATTENDANCE_MARK);
+  // Mirrors the server's `isAdmin` in `markDay`.
+  const isAdmin = useHasPermission(Permission.LEAVE_APPROVE);
   // The roster comes from `GET /staff-attendance/register`, which returns every
   // staff member for an admin-level caller and only the caller's own row otherwise
   // (`GET /users` is admin-only, so it broke this page for every other role).
@@ -94,7 +94,15 @@ function StaffAttendancePage() {
   const [reason, setReason] = React.useState('');
   const [reasonTooShort, setReasonTooShort] = React.useState(false);
   const [draft, setDraft] = React.useState<StaffAttendanceDraft>({});
+  const [confirmNonWorking, setConfirmNonWorking] = React.useState(false);
   const markAttendance = useMarkStaffAttendance();
+  // The server refused for a missing reason (the cached `reason_required` was stale).
+  const reasonRefused =
+    (markAttendance.error as { details?: { code?: string } } | null)?.details?.code ===
+    'STAFF_ATTENDANCE_REASON_REQUIRED';
+  const reasonRequired = dayQuery.data?.reason_required === true || reasonRefused;
+  // A non-admin may only create their own mark, for today; saved marks and other days are read-only.
+  const locked = !isAdmin && (date !== today || staff.some((row) => row.status));
 
   // `draft` is plain component state, not tied to `date` — switching the
   // date via the picker keeps this same route component mounted, so
@@ -104,6 +112,7 @@ function StaffAttendancePage() {
     setDraft({});
     setReason('');
     setReasonTooShort(false);
+    setConfirmNonWorking(false);
     markAttendance.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on date change, not every markAttendance identity change
   }, [date]);
@@ -112,19 +121,27 @@ function StaffAttendancePage() {
     setDraft((prev) => ({ ...prev, [staffProfileId]: status }));
   }
 
-  function handleSubmit() {
+  function handleSubmit(forceNonWorking = false) {
     const entries = Object.entries(draft)
       .filter((entry): entry is [string, AttendanceStatus] => entry[1] !== null)
       .map(([staff_profile_id, status]) => ({ staff_profile_id, status }));
     if (entries.length === 0) return;
-    const reasonRequired = dayQuery.data?.reason_required === true;
+    if (isAdmin && dayQuery.data?.non_working_day && !forceNonWorking) {
+      setConfirmNonWorking(true);
+      return;
+    }
     if (reasonRequired && reason.trim().length < 3) {
       setReasonTooShort(true);
       return;
     }
     setReasonTooShort(false);
     markAttendance.mutate(
-      { date, entries, ...(reasonRequired ? { reason: reason.trim() } : {}) },
+      {
+        date,
+        entries,
+        ...(reasonRequired ? { reason: reason.trim() } : {}),
+        ...(forceNonWorking ? { force_non_working_day: true } : {}),
+      },
       {
         onSuccess: () => {
           setDraft({});
@@ -135,9 +152,6 @@ function StaffAttendancePage() {
   }
 
   // The server refused for a missing reason: show the same inline error.
-  const reasonRefused =
-    (markAttendance.error as { details?: { code?: string } } | null)?.details?.code ===
-    'STAFF_ATTENDANCE_REASON_REQUIRED';
   const showReasonError = reasonTooShort || reasonRefused;
   const shown = React.useMemo(() => ({ ...saved, ...draft }), [saved, draft]);
   const unmarked = countStaffDraft(staff, shown).unmarked;
@@ -204,11 +218,11 @@ function StaffAttendancePage() {
             staff={staff}
             draft={shown}
             onStatusChange={handleStatusChange}
-            disabled={!canMark || markAttendance.isPending}
+            disabled={!canMark || locked || markAttendance.isPending}
           />
           {canMark && (
             <div className="sticky bottom-16 z-20 flex flex-wrap items-center gap-3 rounded-lg border border-border-subtle bg-surface p-3 shadow-e2 md:bottom-0 md:px-5">
-              {dayQuery.data?.reason_required && (
+              {reasonRequired && (
                 <div className="grid w-full gap-1.5">
                   <Label htmlFor="staff-attendance-reason">{t('grid.reasonLabel')}</Label>
                   <Textarea
@@ -250,13 +264,25 @@ function StaffAttendancePage() {
                 className="flex-1 md:ms-auto md:flex-none"
                 loading={markAttendance.isPending}
                 disabled={Object.keys(draft).length === 0}
-                onClick={handleSubmit}
+                onClick={() => handleSubmit()}
               >
                 <Save aria-hidden="true" />
                 {markAttendance.isPending ? t('grid.saving') : t('grid.submit')}
               </Button>
             </div>
           )}
+          <ConfirmDialog
+            open={confirmNonWorking}
+            onOpenChange={setConfirmNonWorking}
+            tone="default"
+            title={t('grid.nonWorkingTitle')}
+            description={t('grid.nonWorkingDescription')}
+            confirmLabel={t('grid.nonWorkingConfirm')}
+            onConfirm={() => {
+              setConfirmNonWorking(false);
+              handleSubmit(true);
+            }}
+          />
         </>
       )}
     </PageContainer>

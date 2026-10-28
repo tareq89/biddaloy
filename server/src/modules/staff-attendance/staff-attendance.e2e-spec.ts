@@ -314,6 +314,35 @@ describe('Staff Attendance E2E', () => {
       expect(res.body.staff[0].staff_profile_id).toBe(ownProfileId);
     });
 
+    it("never returns another tenant's staff, and 400s an impossible date", async () => {
+      const TENANT_B = '00000000-0000-4000-8000-000000000388';
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug, created_at, updated_at)
+         VALUES ($1, 'Roster Tenant B', 'roster-tenant-b', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [TENANT_B],
+      );
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [SEED_ADMIN_USER_ID, TENANT_B, UserRole.ACCOUNTANT],
+      );
+      const b = await dataSource.query(
+        `INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, 'EMP-ROSTER-B', NOW(), NOW()) RETURNING id`,
+        [SEED_ADMIN_USER_ID, TENANT_B],
+      );
+      try {
+        const res = await get(UserRole.EXECUTIVE, addDays(0)).expect(200);
+        const ids = res.body.staff.map((s: { staff_profile_id: string }) => s.staff_profile_id);
+        expect(ids).not.toContain(b[0].id);
+        await get(UserRole.EXECUTIVE, '2026-02-30').expect(400);
+      } finally {
+        await dataSource.query(`DELETE FROM staff_profiles WHERE tenant_id = $1`, [TENANT_B]);
+        await dataSource.query(`DELETE FROM user_tenants WHERE tenant_id = $1`, [TENANT_B]);
+        await dataSource.query(`DELETE FROM schools WHERE id = $1`, [TENANT_B]);
+      }
+    });
+
     it('403s a PARENT', async () => {
       await get(UserRole.PARENT, addDays(0)).expect(403);
     });
