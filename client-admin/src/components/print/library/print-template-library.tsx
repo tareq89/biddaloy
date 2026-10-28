@@ -63,6 +63,7 @@ function ArchiveConfirm({
         if (!open && !archive.isPending) onClose();
       }}
       title={t('archive.title', { name: template.name })}
+      helpId="administration.printTemplates.action.archive"
       description={t('archive.explain')}
       confirmLabel={t('archive.confirm')}
       busy={archive.isPending}
@@ -98,6 +99,7 @@ function DefaultConfirm({
         if (!open && !makeDefault.isPending) onClose();
       }}
       title={t('makeDefaultConfirm.title', { name: template.name })}
+      helpId="administration.printTemplates.action.makeDefault"
       description={t('makeDefaultConfirm.explain')}
       confirmLabel={t('actions.makeDefault')}
       busy={makeDefault.isPending}

@@ -243,6 +243,7 @@ function ProgramDetailPage() {
         onOpenChange={(o) => !deleteProgram.isPending && setDeleteOpen(o)}
         tone="danger"
         title={t('detail.deleteTitle')}
+        helpId="people.programs.action.delete"
         description={
           deleteConflict
             ? t('formDialog.deleteConflict')

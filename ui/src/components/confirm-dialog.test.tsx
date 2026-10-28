@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../test/render-with-providers';
 
 import { ConfirmDialog } from './confirm-dialog';
+import { HelpProvider, type HelpIndex } from './help-hint';
 
 function setup(props: Partial<React.ComponentProps<typeof ConfirmDialog>> = {}) {
   const onOpenChange = vi.fn();
@@ -62,5 +63,57 @@ describe('ConfirmDialog', () => {
     expect(screen.getByRole('button', { name: 'Cancel' }).hasAttribute('disabled')).toBe(true);
     await userEvent.setup().keyboard('{Escape}');
     expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  describe('helpId', () => {
+    const index: HelpIndex = {
+      del: {
+        title: { bn: 'ম', en: 'Deleting fees' },
+        summary: { bn: 's', en: 's' },
+        path: 'p',
+        anchor: 'task-delete',
+        knownIssues: 0,
+      },
+    };
+    const open = (helpId?: string) => {
+      const utils = renderWithProviders(
+        <HelpProvider index={index} lang="en" baseUrl="https://g.test">
+          <ConfirmDialog
+            open
+            onOpenChange={() => undefined}
+            title="Delete fee?"
+            description="This cannot be undone."
+            confirmLabel="Delete"
+            onConfirm={() => undefined}
+            helpId={helpId}
+          />
+        </HelpProvider>,
+        { locale: 'en' },
+      );
+      return utils;
+    };
+
+    it('renders a (?) beside the title; the dialog name stays the title', async () => {
+      const { localeReady } = open('del');
+      await localeReady;
+      await screen.findByRole('alertdialog', { name: 'Delete fee?' });
+      const hint = await screen.findByRole('button', { name: 'Help: Deleting fees' });
+      expect(hint.getAttribute('data-help-id')).toBe('del');
+    });
+
+    it('first focus is not the (?)', async () => {
+      const { localeReady } = open('del');
+      await localeReady;
+      await screen.findByRole('button', { name: 'Help: Deleting fees' });
+      expect(document.activeElement?.getAttribute('data-help-id')).toBeNull();
+    });
+
+    it('an unknown id draws nothing and keeps the header DOM', async () => {
+      const { localeReady } = open('nope');
+      await localeReady;
+      const title = await screen.findByRole('heading', { name: 'Delete fee?' });
+      expect(screen.queryByRole('button', { name: /Help/ })).toBeNull();
+      expect(title.parentElement?.className).toContain('flex-col');
+    });
   });
 });

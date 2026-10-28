@@ -35,7 +35,7 @@ import {
   type PrintSubjectType,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { FullPageShell } from '@biddaloy/ui/shells';
+import { FullPageShell, type FullPageShellAction } from '@biddaloy/ui/shells';
 import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
@@ -356,10 +356,7 @@ export function PrintPreview({
 
   // --- empty states ----------------------------------------------------------
   // Close is always there: every state renders inside the same full-page frame.
-  const frame = (
-    primary: { label: string; onClick: () => void; busy?: boolean; disabled?: boolean },
-    body: React.ReactNode,
-  ) => (
+  const frame = (primary: FullPageShellAction, body: React.ReactNode) => (
     <FullPageShell
       title={t('title')}
       size="wide"
@@ -400,6 +397,7 @@ export function PrintPreview({
       onClick: print,
       busy: printing,
       disabled: !canPrint,
+      helpId: 'administration.printTemplates.action.print',
     },
     <div data-print-preview className="flex flex-col gap-6">
       <Card padded>

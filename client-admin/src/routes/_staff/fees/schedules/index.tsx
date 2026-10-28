@@ -89,6 +89,8 @@ function ToggleScheduleConfirm({
           : t('schedules.activateConfirmDescription')
       }
       confirmLabel={schedule.is_active ? t('schedules.deactivate') : t('schedules.activate')}
+      // The guide documents switching off only; switching back on has no help entry.
+      {...(schedule.is_active && { helpId: 'finance.recurringSchedules.action.deactivate' })}
       busy={toggleActive.isPending}
       onConfirm={() =>
         toggleActive.mutate(

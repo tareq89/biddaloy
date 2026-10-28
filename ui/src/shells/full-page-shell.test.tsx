@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { HelpProvider } from '../components/help-hint';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/popover';
 import { renderWithRouter } from '../test/render-with-router';
 
@@ -154,6 +155,37 @@ describe('FullPageShell', () => {
     expect(screen.getByRole('button', { name: /Save/ }).getAttribute('aria-busy')).toBe('true');
     const footer = screen.getByRole('button', { name: /Save/ }).parentElement;
     expect(footer?.firstElementChild?.textContent).toBe('Cancel');
+  });
+
+  it('primary.helpId draws a (?) right after the primary button', async () => {
+    const index = {
+      print: {
+        title: { bn: 'ছাপা', en: 'Printing' },
+        summary: { bn: 's', en: 's' },
+        path: 'p',
+        anchor: 'task-main',
+        knownIssues: 0,
+      },
+    };
+    const { localeReady } = renderWithRouter(
+      createRootRoute({
+        component: () => (
+          <HelpProvider index={index} lang="en" baseUrl="https://g.test">
+            <FullPageShell
+              title="Preview"
+              onClose={() => {}}
+              primary={{ ...primary, helpId: 'print' }}
+            >
+              <p>body</p>
+            </FullPageShell>
+          </HelpProvider>
+        ),
+      }),
+      { locale: 'en' },
+    );
+    await localeReady;
+    const hint = await screen.findByRole('button', { name: 'Help: Printing' });
+    expect(hint.previousElementSibling).toBe(screen.getByRole('button', { name: 'Save' }));
   });
 });
 
