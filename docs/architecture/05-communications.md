@@ -455,3 +455,19 @@ Example: an SMS to `01711111111` arrives as an email to `01711111111@sms.sink.in
 | `MESSAGE_SINK_PUBLIC_URL` | unset                 | Browser URL of the Mailpit UI, for links in docs and UI. |
 
 If Mailpit is down, the send fails at once (`Test inbox unreachable`, not retryable) and the log row ends FAILED.
+
+### Test inbox: deploy and learning [87.1.06]
+
+Hostnames are single level: `inbox-demo.<domain>` and `inbox-staging.<domain>`. Cloudflare Universal SSL covers one level only, so `inbox.demo.<domain>` would have no cert.
+
+Deploy prerequisites on demo and staging:
+
+- `MESSAGE_SINK=mailpit` and `COMPOSE_PROFILES=sink` (starts the Mailpit container).
+- `INBOX_*` keys in `edge.enc.env`.
+- The edge nginx has a separate block for Mailpit's send API (`/api/v1/send`); it is not exposed like the UI.
+
+Dated learning (2026-10-28):
+
+- **Surprise:** test-env starts db, redis and seaweedfs only, so there is no Mailpit locally. Cost: the "OTP in Mailpit" proof could not run in CI. Fix: `mailpit-sink.smtp.spec.ts` runs the real provider against an in-test SMTP socket. Rule candidate: prove a sink with a socket listener, keep the live-inbox check as a manual step.
+- **Surprise:** the existing provider spec mocks `nodemailer`, so it never checked the wire format (`X-Tags`, `To`, `Subject`). Fix: a second spec file with no mock. Rule candidate: one mocked spec plus one real-transport spec per provider.
+- **Surprise:** a down inbox must fail the log row (D10). Covered by the closed-port case in the same spec.
