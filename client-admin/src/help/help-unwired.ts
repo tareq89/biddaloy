@@ -58,12 +58,10 @@ export const HELP_UNWIRED: Record<string, string> = {
   'reports.printables.action.exportRegister': TERRITORY,
   'reports.printables.field.revokeReason': TERRITORY,
   'reports.printables.field.validity': TERRITORY,
-  'academics.academicYears.action.delete': MENU_ITEM,
   'academics.routineReview.action.copyYear': MENU_ITEM,
   'academics.syllabus.action.copyToSection': MENU_ITEM,
   'people.programs.action.archive': MENU_ITEM,
   'people.staff.action.remove': MENU_ITEM,
-  'people.students.action.delete': MENU_ITEM,
   'people.students.action.printIdCard': MENU_ITEM,
   'people.students.action.sendReminder': MENU_ITEM,
 
