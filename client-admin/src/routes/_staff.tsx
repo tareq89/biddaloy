@@ -45,6 +45,7 @@ import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
 import { useDemoMode } from '../features/demo/use-demo-mode';
 import { TrialDetailsLanding } from '../features/onboarding/trial-details-landing';
 import { useWelcomeGate } from '../features/onboarding/welcome-gate';
+import { AppHelpProvider } from '../help/help-provider';
 import { MORE_ICON, PLATFORM_NAV_ICONS, STAFF_NAV_ICONS } from '../nav-icons';
 import {
   isPathUnder,
@@ -330,95 +331,97 @@ function StaffLayout() {
   );
 
   return (
-    <DemoCornerFrame>
-      <RequireRole allow={STAFF_ROLES} redirectTo="/portal">
-        {/* The app's single step-up approval modal host. Every staff route
+    <AppHelpProvider>
+      <DemoCornerFrame>
+        <RequireRole allow={STAFF_ROLES} redirectTo="/portal">
+          {/* The app's single step-up approval modal host. Every staff route
           renders inside this layout, so any `useApprovedMutation` on any
           staff page finds exactly one host — regardless of which component
           mounted first. See `ui/src/hooks/approval.tsx`. */}
-        <ApprovalModalHostProvider>
-          {chromeless ? (
-            permissionGate
-          ) : (
-            <AppShell
-              reserveCorner={demo.enabled}
-              navItems={navItems}
-              navGroups={navGroups}
-              brand={t('brand')}
-              // [8.14.3]: desktop-only now — below `md` the consolidated mobile
-              // header row (`mobileTitle` / `mobileActions`) carries search, the bell and the account menu,
-              // and language, theme and switch-school live in the account menu (D12). `topBar` itself
-              // stays wired (not deleted): `AppShell` still measures it into
-              // `--app-header-h` for the desktop sticky-chrome contract [8.14.2]
-              // established.
-              topBar={
-                <div className="hidden md:flex">
-                  <AppHeader
-                    reserveCorner={demo.enabled}
-                    start={<TenantBar />}
-                    end={
-                      <>
-                        <SyncStatusIndicator />
-                        <CommandPaletteLauncher />
-                        {notificationBell}
-                        <LocaleSwitcher />
-                        <ThemeToggle />
-                        <StaffUserMenu invites={schoolInvites} />
-                      </>
-                    }
+          <ApprovalModalHostProvider>
+            {chromeless ? (
+              permissionGate
+            ) : (
+              <AppShell
+                reserveCorner={demo.enabled}
+                navItems={navItems}
+                navGroups={navGroups}
+                brand={t('brand')}
+                // [8.14.3]: desktop-only now — below `md` the consolidated mobile
+                // header row (`mobileTitle` / `mobileActions`) carries search, the bell and the account menu,
+                // and language, theme and switch-school live in the account menu (D12). `topBar` itself
+                // stays wired (not deleted): `AppShell` still measures it into
+                // `--app-header-h` for the desktop sticky-chrome contract [8.14.2]
+                // established.
+                topBar={
+                  <div className="hidden md:flex">
+                    <AppHeader
+                      reserveCorner={demo.enabled}
+                      start={<TenantBar />}
+                      end={
+                        <>
+                          <SyncStatusIndicator />
+                          <CommandPaletteLauncher />
+                          {notificationBell}
+                          <LocaleSwitcher />
+                          <ThemeToggle />
+                          <StaffUserMenu invites={schoolInvites} />
+                        </>
+                      }
+                    />
+                  </div>
+                }
+                mobileTitle={schoolName}
+                mobileActions={
+                  <>
+                    <CommandPaletteLauncher />
+                    {notificationBell}
+                    <StaffUserMenu invites={schoolInvites} />
+                  </>
+                }
+                bottomNav={
+                  <BottomNav
+                    // [9.6 fix] `BottomNav`'s own contract caps `items` at 4 when
+                    // `more` is present (`bottom-nav.tsx`) — a 5th cell isn't
+                    // truncated for you, it just overflows the bar past 320/640px
+                    // (WCAG 1.4.10 reflow) for any role that can see all of them.
+                    // `attendanceItem` stays reachable through the drawer nav group
+                    // below instead, same as `attendanceReportsItem`/
+                    // `attendanceRegisterItem` already are.
+                    items={bottomItems}
+                    label={t('bottomNavStaffLabel')}
+                    more={{
+                      label: t('items.more'),
+                      icon: <MORE_ICON className="size-5" aria-hidden="true" />,
+                      active: moreActive,
+                    }}
                   />
-                </div>
-              }
-              mobileTitle={schoolName}
-              mobileActions={
-                <>
-                  <CommandPaletteLauncher />
-                  {notificationBell}
-                  <StaffUserMenu invites={schoolInvites} />
-                </>
-              }
-              bottomNav={
-                <BottomNav
-                  // [9.6 fix] `BottomNav`'s own contract caps `items` at 4 when
-                  // `more` is present (`bottom-nav.tsx`) — a 5th cell isn't
-                  // truncated for you, it just overflows the bar past 320/640px
-                  // (WCAG 1.4.10 reflow) for any role that can see all of them.
-                  // `attendanceItem` stays reachable through the drawer nav group
-                  // below instead, same as `attendanceReportsItem`/
-                  // `attendanceRegisterItem` already are.
-                  items={bottomItems}
-                  label={t('bottomNavStaffLabel')}
-                  more={{
-                    label: t('items.more'),
-                    icon: <MORE_ICON className="size-5" aria-hidden="true" />,
-                    active: moreActive,
-                  }}
-                />
-              }
-              openMenuLabel={t('openMenuLabel')}
-              closeMenuLabel={t('closeMenuLabel')}
-              navLabel={t('navLabel')}
-              skipLinkLabel={t('skipToContent')}
-            >
-              <RestoreInProgressBar />
-              <PlatformAlertBanner enabled={activeRole === UserRole.SUPER_ADMIN} />
-              {activeRole === UserRole.ADMIN && <ReadOnlyNoticeGate />}
-              {attention.bar}
-              {attention.modal}
-              <TrialDetailsLanding />
-              {breadcrumbItems.length > 0 && (
-                <Breadcrumbs
-                  items={breadcrumbItems}
-                  aria-label={t('breadcrumb.navLabel')}
-                  className="mb-4"
-                />
-              )}
-              <SchoolInvitesCard {...schoolInvites.cardProps} />
-              {permissionGate}
-            </AppShell>
-          )}
-        </ApprovalModalHostProvider>
-      </RequireRole>
-    </DemoCornerFrame>
+                }
+                openMenuLabel={t('openMenuLabel')}
+                closeMenuLabel={t('closeMenuLabel')}
+                navLabel={t('navLabel')}
+                skipLinkLabel={t('skipToContent')}
+              >
+                <RestoreInProgressBar />
+                <PlatformAlertBanner enabled={activeRole === UserRole.SUPER_ADMIN} />
+                {activeRole === UserRole.ADMIN && <ReadOnlyNoticeGate />}
+                {attention.bar}
+                {attention.modal}
+                <TrialDetailsLanding />
+                {breadcrumbItems.length > 0 && (
+                  <Breadcrumbs
+                    items={breadcrumbItems}
+                    aria-label={t('breadcrumb.navLabel')}
+                    className="mb-4"
+                  />
+                )}
+                <SchoolInvitesCard {...schoolInvites.cardProps} />
+                {permissionGate}
+              </AppShell>
+            )}
+          </ApprovalModalHostProvider>
+        </RequireRole>
+      </DemoCornerFrame>
+    </AppHelpProvider>
   );
 }

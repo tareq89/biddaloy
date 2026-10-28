@@ -12,6 +12,8 @@
  * component supplies its own translated copy rather than prop-drilling
  * English.
  */
+import * as React from 'react';
+
 import { useTranslation } from '../i18n';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './dialog';
@@ -19,16 +21,21 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 export interface ShortcutsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Lists F1 only when it opens something: this page has a guide (E4). */
+  showHelpShortcut?: boolean | undefined;
 }
 
 interface ShortcutRow {
   keys: readonly string[];
   labelKey: string;
+  /** Label lives outside `common:shortcuts.rows` (44.1.01's `helpHint`). */
+  ns?: 'helpHint';
 }
 
 const ROWS: readonly ShortcutRow[] = [
   { keys: ['Ctrl/⌘', 'K'], labelKey: 'openPalette' },
   { keys: ['?'], labelKey: 'openShortcuts' },
+  { keys: ['F1'], labelKey: 'shortcutF1', ns: 'helpHint' },
   { keys: ['←', '→'], labelKey: 'switchTab' },
   { keys: ['Ctrl', '1-3'], labelKey: 'jumpTab' },
   { keys: ['/'], labelKey: 'jumpPageTab' },
@@ -38,8 +45,13 @@ const ROWS: readonly ShortcutRow[] = [
   { keys: ['Esc'], labelKey: 'close' },
 ];
 
-export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
+export function ShortcutsSheet({
+  open,
+  onOpenChange,
+  showHelpShortcut = false,
+}: ShortcutsSheetProps) {
   const { t } = useTranslation('common');
+  const rows = showHelpShortcut ? ROWS : ROWS.filter((row) => row.keys[0] !== 'F1');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,9 +61,17 @@ export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
           <DialogDescription>{t('shortcuts.description')}</DialogDescription>
         </DialogHeader>
         <dl className="flex flex-col gap-2">
-          {ROWS.map((row) => (
+          {rows.map((row) => (
             <div key={row.labelKey} className="flex items-center justify-between gap-4 text-sm">
-              <dt className="text-muted-foreground">{t(`shortcuts.rows.${row.labelKey}`)}</dt>
+              <dt className="text-muted-foreground">
+                {row.ns ? (
+                  <React.Suspense fallback={null}>
+                    <HelpRowLabel labelKey={row.labelKey} />
+                  </React.Suspense>
+                ) : (
+                  t(`shortcuts.rows.${row.labelKey}`)
+                )}
+              </dt>
               <dd className="flex items-center gap-1">
                 {row.keys.map((key, index) => (
                   <kbd
@@ -68,4 +88,10 @@ export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
       </DialogContent>
     </Dialog>
   );
+}
+
+/** Own component so `helpHint` loads only while the sheet is open, never suspending the launcher. */
+function HelpRowLabel({ labelKey }: { labelKey: string }) {
+  const { t: tHelp } = useTranslation('helpHint');
+  return <>{tHelp(labelKey)}</>;
 }

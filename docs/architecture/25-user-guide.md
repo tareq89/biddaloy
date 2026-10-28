@@ -279,6 +279,18 @@ Learning from wave 1 (surprise, cost, fix, rule candidate):
 - **2026-10-27 — the generated index is not visible to `git status` until it is
   committed**, so "run `guide:gen` twice, no diff" must be checked through the
   golden test, not `git status`.
+- **2026-10-27 — the Vite build, not the browser, needs the handbook URL.**
+  `VITE_HANDBOOK_URL` is inlined at build time, so the e2e job sets it on the
+  step that builds client-admin (`yarn e2e:serve:client`). A build without it
+  hides every (?) and F1 on purpose (E4), so an e2e that finds no (?) usually
+  means a missing build variable. The Dockerfile and deploy files carry no
+  `VITE_*` build argument yet; #3045 wires one for production. For local dev the
+  variable goes in `client-admin/.env` (copy `client-admin/.env.example`): Vite
+  reads env files from `client-admin/`, not the repo root.
+- **2026-10-27 — widget help is wired through context, not 39 widget files.**
+  `WidgetSlot` sets a `widget.<key>` id and `WidgetCard` reads it, so the
+  unused-id check in `help-guard.test.ts` cannot see those ids in code.
+  44.3.12 must exempt `widget.*` before it turns that check strict.
 
 ## Related
 
