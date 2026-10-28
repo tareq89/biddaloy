@@ -10,6 +10,7 @@ sources:
   - client-admin/src/routes/reset-password.tsx
   - client-admin/src/routes/select-school.tsx
   - client-admin/src/features/first-password/first-password-step.tsx
+  - client-admin/src/features/demo/test-environment-notice.tsx
   - ui/src/components/otp-sign-in-form.tsx
   - ui/src/components/set-password-form.tsx
   - ui/src/components/school-picker.tsx
@@ -29,6 +30,8 @@ labels:
     auth:passwordRules.*,
     auth:activate.*,
     auth:forgot.*,
+    auth:help.*,
+    demo:testInbox.*,
     auth:reset.*,
     auth:schoolPicker.*,
     auth:selectSchool.*,
@@ -198,6 +201,21 @@ If a school invitation is waiting, a **School invitations** card shows at the to
 If your school has turned it on, the sign-in page shows **Continue with Google** or **Continue with Facebook** buttons at the top. If there is no button, your school has not turned it on; sign in with a password or a code.
 
 These buttons work only when the Google or Facebook account is already connected to your SchoolManager account. If it is not, you return to the sign-in page with the message **That account is not connected yet. Sign in with a code, then connect it from your account page.** The steps to connect are on [Your own account](account.md).
+
+---
+
+### Where do codes and messages go on the demo? <a href="#task-test-inbox" id="task-test-inbox"></a>
+
+On the demo site and the staging site nothing is really sent. No code reaches a phone or an email. Every code and message goes to a **test inbox** instead. A thin bar at the top of every page tells you this.
+
+1. Ask for a code as usual: in the **Mobile number or email** box, type the number and tap **Send code**.
+2. In the bar at the top of the page, or in the line under the code box, tap **Open test inbox**.
+
+   → The test inbox opens in a new tab. The newest message is at the top.
+
+3. Copy the 6-digit code from the message, go back to the first tab, type it in the **6-digit code** box and tap **Sign in**.
+
+If the bar is in your way, tap **Hide**. It shrinks to a small button at the top that still opens the test inbox. On a normal school's site there is no bar and no test inbox: the code goes to the real phone or email.
 
 ---
 
