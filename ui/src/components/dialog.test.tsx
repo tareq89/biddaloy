@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
+import { I18nProvider, i18n, whenReady } from '../i18n';
 import { renderWithProviders } from '../test/render-with-providers';
 
 import { Button } from './button';
@@ -14,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './dialog';
+import { HelpHint, HelpProvider } from './help-hint';
 
 function RecordPaymentDialog() {
   return (
@@ -206,5 +208,64 @@ describe('Dialog', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: '?' }).hasAttribute('tabindex')).toBe(false),
     );
+  });
+});
+
+describe('Dialog with a HelpHint (#3213)', () => {
+  const index = {
+    a: {
+      title: { bn: 'হাজিরা', en: 'Attendance' },
+      summary: { bn: 'হাজিরা নিন', en: 'Take attendance' },
+      path: 'attendance/register',
+      anchor: 'task-main',
+      knownIssues: 0,
+    },
+  };
+
+  beforeEach(async () => {
+    await whenReady(i18n);
+    await i18n.changeLanguage('en');
+  });
+
+  async function open(onOpenAutoFocus?: (e: Event) => void) {
+    const user = userEvent.setup();
+    render(
+      <HelpProvider index={index} lang="en" baseUrl="https://guide.test">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>Open</Button>
+          </DialogTrigger>
+          <DialogContent onOpenAutoFocus={onOpenAutoFocus}>
+            <DialogHeader>
+              <DialogTitle>
+                Record a payment <HelpHint helpId="a" />
+              </DialogTitle>
+              <DialogDescription>Enter the amount.</DialogDescription>
+            </DialogHeader>
+            <input aria-label="Amount" />
+          </DialogContent>
+        </Dialog>
+      </HelpProvider>,
+      { wrapper: I18nProvider },
+    );
+    await user.click(screen.getByRole('button', { name: 'Open' }));
+    await screen.findByRole('dialog');
+    return user;
+  }
+  const hint = () => screen.findByRole('button', { name: 'Help: Attendance' });
+
+  it('opens its card without closing the dialog', async () => {
+    const user = await open();
+    (await hint()).focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByText('Take attendance')).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: /Record a payment/ })).toBeTruthy();
+  });
+
+  it('a caller preventDefault on onOpenAutoFocus wins (no tabindex flip)', async () => {
+    await open((e) => e.preventDefault());
+    expect((await hint()).hasAttribute('tabindex')).toBe(false);
+    // Radix skipped its own focus too, so the (?) is not forced away from the dialog.
+    expect(document.activeElement).not.toBe(screen.getByLabelText('Amount'));
   });
 });
