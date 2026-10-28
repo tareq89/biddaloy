@@ -197,6 +197,45 @@ describe('AttendanceSection', () => {
     expect(patchBody.mock.calls[0]![0].attendance.autoAbsentNotification.enabled).toBe(true);
   });
 
+  it('renders both arrival switches from settings and gates SMS on the first', async () => {
+    const patchBody = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        patchBody(await request.json());
+        return HttpResponse.json({ version: 1 });
+      }),
+    );
+    const { user } = renderWithProviders(
+      <WithTestRouter>
+        <AttendanceSection
+          schoolId={SCHOOL_ID}
+          attendance={{ ...ATTENDANCE, arrivalNotice: { enabled: true, smsAllowed: false } }}
+        />
+      </WithTestRouter>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const enabled = await screen.findByLabelText('Send arrival notices');
+    const sms = screen.getByLabelText('Allow SMS for arrival notices');
+    expect(isChecked(enabled)).toBe(true);
+    expect(isChecked(sms)).toBe(false);
+    expect(sms.hasAttribute('disabled')).toBe(false);
+
+    await user.click(enabled);
+    expect(isChecked(enabled)).toBe(false);
+    expect(sms.hasAttribute('disabled')).toBe(true);
+
+    await user.click(enabled);
+    expect(sms.hasAttribute('disabled')).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patchBody).toHaveBeenCalled());
+    expect(patchBody.mock.calls[0]![0].attendance.arrivalNotice).toEqual({
+      enabled: true,
+      smsAllowed: false,
+    });
+  });
+
   it('shows a translated error, never the server text, when the save fails', async () => {
     server.use(failing('/api/v1/schools/:id/settings'));
     const { user } = renderWithProviders(
