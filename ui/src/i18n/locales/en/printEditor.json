@@ -198,7 +198,13 @@
     "student.photo": "Photo",
     "student.registration_number": "Registration number",
     "student.roll": "Roll number",
-    "student.section": "Section"
+    "student.section": "Section",
+    "paper": "Paper",
+    "sides": "Sides",
+    "batchSize": "Cards per round",
+    "copyLabel": "Text on reprints",
+    "overflow": "If the text is too long",
+    "minSize": "Smallest size (pt)"
   },
   "tabs": {
     "group": "Editor panels",
@@ -301,5 +307,13 @@
     "open": "Import from Illustrator / SVG",
     "kit": "Download design kit",
     "kitHelp": "An empty artboard at this paper size, with guides and a how-to."
+  },
+  "help": {
+    "paper": "The size of one card or page: CR80 card portrait, CR80 card landscape, or your own size in mm.",
+    "sides": "Front only, or front and back.",
+    "batchSize": "How many cards print in one round before the app asks if they all came out right. Up to 200. Heavy designs print more reliably in smaller rounds.",
+    "copyLabel": "Printed from the 2nd copy on, for example \"Copy {n}\" or \"Duplicate\". Leave empty if you do not want it.",
+    "overflow": "What happens when a name or other text does not fit its box: shrink it, wrap it to more lines, cut it off, or print it and warn you before printing.",
+    "minSize": "Text shrinks down to this size and no further. Leave empty for the default."
   }
 }

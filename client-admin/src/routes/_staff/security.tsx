@@ -8,7 +8,7 @@
  */
 import type { UserRole } from '@biddaloy/shared';
 import { decodeAccessTokenMemberships } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, SessionList, toast } from '@biddaloy/ui/components';
+import { ErrorState, HelpHint, RoutePending, SessionList, toast } from '@biddaloy/ui/components';
 import {
   logoutAll,
   sessionsQueryOptions,
@@ -131,6 +131,7 @@ function SecurityPage() {
             )}
             <SessionList
               sessions={sessions}
+              signOutAllHint={<HelpHint helpId="start.account.action.signOutAll" />}
               loading={sessionsQuery.isPending}
               onRevoke={(id) => {
                 const target = sessions.find((session) => session.id === id);

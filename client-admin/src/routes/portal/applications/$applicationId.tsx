@@ -105,10 +105,13 @@ function PortalApplicationDetailPage() {
   const actions: PageAction[] = [
     {
       id: 'withdraw',
+      helpId: 'portal.applications.action.withdraw',
       label: tDetail('actions.withdraw'),
       icon: <UndoIcon />,
       allowed: app.can.withdraw,
       priority: 'secondary',
+      // Inline on phone too: the More menu draws no (?) yet (#3078).
+      keepOnPhone: true,
       onClick: () => setWithdrawing(true),
     },
     {

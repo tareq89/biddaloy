@@ -65,6 +65,7 @@ import * as React from 'react';
 import { cn } from '../primitives/lib/utils';
 
 import { Button } from './button';
+import { HelpHint } from './help-hint';
 
 /** See the note above on why this is a distinct state and not just
  * different copy. */
@@ -75,7 +76,7 @@ export interface EmptyStateProps {
   explanation: string;
   /** Optional so a caller can withhold the primary next move from a viewer
    * who lacks the permission to take it. */
-  action?: { label: string; onClick: () => void };
+  action?: { label: string; onClick: () => void; helpId?: string };
   /** A second, lower-emphasis way out. Rendered as a `ghost` button beside
    * `action`, mirroring `ErrorState`'s `onHome`. Optional: most "nothing
    * yet" states have exactly one honest next move. */
@@ -129,6 +130,7 @@ export function EmptyState({
               {action.label}
             </Button>
           )}
+          {action?.helpId && <HelpHint helpId={action.helpId} label={action.label} />}
           {secondaryAction && (
             <Button type="button" variant="ghost" onClick={secondaryAction.onClick}>
               {secondaryAction.label}

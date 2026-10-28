@@ -1,0 +1,16 @@
+%% title: From draft to finalised
+%% desc: A new promotion list starts as a draft. In the draft you can change decisions, update it from the results, or delete it, and no student changes. Pressing Finalise, after extra approval if anything was changed by hand, moves everyone at once: those who pass go to the next class, those retained go to a class of the same level, and graduates become Graduated. After finalising it cannot be undone.
+flowchart LR
+  D["Draft list<br/>nothing changes for students"]:::note
+  D -->|"change decisions<br/>update from results"| D
+  D -->|"Delete list"| X["Deleted"]:::note
+  D -->|"Finalise"| A{"Changed by hand?"}:::admin
+  A -->|"Yes: extra approval"| C["Finalised<br/>cannot be undone"]:::guardian
+  A -->|"No"| C
+  C --> O1["Promote:<br/>next class, new roll"]:::teacher
+  C --> O2["Retain:<br/>same level class again"]:::teacher
+  C --> O3["Graduate:<br/>status Graduated"]:::teacher
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ffe3e3,stroke:#c92a2a,color:#5c0a0a
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

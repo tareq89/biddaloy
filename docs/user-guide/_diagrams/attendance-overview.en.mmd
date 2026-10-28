@@ -1,0 +1,11 @@
+%% title: How attendance fits together
+%% desc: A teacher marks the section register; reports and the monthly register are built from it; an admin fixes old registers; a missing register raises an alert.
+flowchart LR
+  T["Teacher<br/>marks attendance"]:::teacher --> R["Section register<br/>one per day"]
+  A["Admin<br/>fixes old registers"]:::admin --> R
+  R --> RP["Attendance reports"]
+  R --> MR["Attendance register<br/>by month"]
+  W["Not marked on time<br/>alert"]:::warn -.-> T
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef warn fill:#f1f3f5,stroke:#868e96,color:#343a40

@@ -291,6 +291,7 @@ function SubstitutionsPage() {
         actions={[
           {
             id: 'add',
+            helpId: 'academics.routineSubstitutions.action.add',
             priority: 'primary',
             icon: <PlusIcon />,
             label: t('substitutionsPage.addAction'),

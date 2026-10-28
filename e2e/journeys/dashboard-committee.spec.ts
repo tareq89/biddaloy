@@ -125,7 +125,11 @@ test.describe('dashboard: committee', () => {
     expect(boxes[2]?.y ?? 0).toBeGreaterThan((boxes[0]?.y ?? 0) + 20);
 
     const phone = page.getByTestId('grid-phone');
-    await phone.getByRole('button', { name: new RegExp(title('committee-finance')) }).click();
+    // The widget's own (?) is named "Help: <title>" too (Epic 44); only the card toggle expands it.
+    await phone
+      .getByRole('button', { name: new RegExp(title('committee-finance')) })
+      .and(page.locator(':not([data-help-id])'))
+      .click();
     await phone.getByRole('button', { name: t('dashboard.widgets.common.showTable') }).click();
     await expect(phone.getByRole('table').first()).toBeVisible();
   });

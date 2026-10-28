@@ -1,0 +1,16 @@
+%% title: পরিচালনা পর্ষদ সদস্য: কে কী করে
+%% desc: স্কুলের হাজিরা, আদায় ও ফলাফল মোট হিসাব হয়ে পর্ষদ সদস্যের কাছে আসে; তিনি কিছু পাঠান না।
+flowchart LR
+  com["পরিচালনা<br/>পর্ষদ সদস্য"]:::me
+  tea["শিক্ষক"]
+  acc["হিসাবরক্ষক"]
+  exam["পরীক্ষা<br/>নিয়ন্ত্রক"]
+  admin["অ্যাডমিন"]
+  school["স্কুল"]
+  tea -->|"হাজিরা (মোট)"| com
+  acc -->|"আদায় (মোট)"| com
+  exam -->|"পাসের হার"| com
+  admin -->|"কর্মী মূল্যায়ন"| com
+  school -->|"ক্যালেন্ডার"| com
+  classDef me fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef view fill:#ebfbee,stroke:#2b8a3e,color:#14411d

@@ -11,7 +11,7 @@ import {
   Permission,
 } from '@biddaloy/shared';
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
-import { Card, ConfirmDialog, StepIndicator } from '@biddaloy/ui/components';
+import { Card, ConfirmDialog, HelpHint, StepIndicator } from '@biddaloy/ui/components';
 import {
   useActiveRole,
   useCurrentUser,
@@ -398,6 +398,9 @@ function NewApplicationPage() {
 
           {step === 'preview' && type && (
             <div className="flex flex-col gap-4">
+              <div className="flex justify-end">
+                <HelpHint helpId="applications.action.submit" />
+              </div>
               {previewBody && <DraftLetterPreview input={previewBody} />}
               <Card padded>
                 <h3 className="text-h3">{t('preview.summary')}</h3>

@@ -211,7 +211,11 @@ export function ClassFormDialog({
               />
             </Field>
 
-            <Field id="class-form-grade" label={t('classForm.gradeLabel')}>
+            <Field
+              id="class-form-grade"
+              label={t('classForm.gradeLabel')}
+              helpId="academics.classes.field.grade"
+            >
               <Input
                 id="class-form-grade"
                 inputMode="numeric"
@@ -239,7 +243,11 @@ export function ClassFormDialog({
             )}
 
             {showShift && (
-              <Field id="class-form-shift" label={t('classForm.shiftLabel')}>
+              <Field
+                id="class-form-shift"
+                label={t('classForm.shiftLabel')}
+                helpId="academics.classes.field.shift"
+              >
                 <Select value={shift} onValueChange={setShift}>
                   <SelectTrigger id="class-form-shift">
                     <SelectValue placeholder={t('classForm.shiftPlaceholder')} />
@@ -257,7 +265,11 @@ export function ClassFormDialog({
             )}
 
             {showVersion && (
-              <Field id="class-form-version" label={t('classForm.versionLabel')}>
+              <Field
+                id="class-form-version"
+                label={t('classForm.versionLabel')}
+                helpId="academics.classes.field.version"
+              >
                 <Select value={version} onValueChange={setVersion}>
                   <SelectTrigger id="class-form-version">
                     <SelectValue placeholder={t('classForm.versionPlaceholder')} />

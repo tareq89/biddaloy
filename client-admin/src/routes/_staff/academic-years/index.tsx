@@ -169,6 +169,7 @@ function AcademicYearsListPage() {
         actions={[
           {
             id: 'add',
+            helpId: 'academics.academicYears.action.add',
             label: t('list.addYear'),
             icon: <PlusIcon />,
             priority: 'primary',

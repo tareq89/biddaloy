@@ -1,0 +1,895 @@
+[
+  {
+    "id": "dashboard",
+    "kind": "dashboard",
+    "path": "dashboard/dashboard",
+    "route": "/dashboard",
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": ["/dashboard", "/print/committee-report"]
+  },
+  {
+    "id": "applications",
+    "kind": "nav",
+    "path": "applications/applications",
+    "route": "/applications",
+    "roles": ["ADMIN", "ACCOUNTANT", "TEACHER", "EXECUTIVE", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": ["/applications", "/applications/$applicationId", "/applications/new"]
+  },
+  {
+    "id": "people.students",
+    "kind": "nav",
+    "path": "people/students",
+    "route": "/students",
+    "roles": ["ADMIN", "ACCOUNTANT", "TEACHER", "EXECUTIVE", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": [
+      "/students",
+      "/students/$studentId",
+      "/students/$studentId/edit",
+      "/students/import",
+      "/students/new"
+    ]
+  },
+  {
+    "id": "people.guardians",
+    "kind": "nav",
+    "path": "people/guardians",
+    "route": "/guardians",
+    "roles": ["ADMIN", "ACCOUNTANT", "TEACHER", "OFFICE_STAFF"],
+    "routes": ["/guardians", "/guardians/$guardianId"]
+  },
+  {
+    "id": "people.calendar",
+    "kind": "nav",
+    "path": "people/calendar",
+    "route": "/calendar",
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": ["/calendar", "/calendar/import"]
+  },
+  {
+    "id": "people.staff",
+    "kind": "nav",
+    "path": "people/staff",
+    "route": "/staff",
+    "roles": ["ADMIN"],
+    "routes": ["/staff", "/staff/$userId"]
+  },
+  {
+    "id": "people.staffImport",
+    "kind": "nav",
+    "path": "people/staff-import",
+    "route": "/staff/import",
+    "roles": ["ADMIN"],
+    "routes": ["/staff/import"]
+  },
+  {
+    "id": "people.programs",
+    "kind": "nav",
+    "path": "people/programs",
+    "route": "/programs",
+    "roles": ["ADMIN", "TEACHER", "EXECUTIVE"],
+    "routes": ["/programs", "/programs/$programId"]
+  },
+  {
+    "id": "people.admissionIntakes",
+    "kind": "nav",
+    "path": "people/admission-intakes",
+    "route": "/admissions/intakes",
+    "roles": ["ADMIN", "OFFICE_STAFF"],
+    "routes": [
+      "/admission/$slug",
+      "/admission/$slug/status",
+      "/admissions/intakes",
+      "/admissions/intakes/$intakeId"
+    ]
+  },
+  {
+    "id": "people.admissionApplicants",
+    "kind": "nav",
+    "path": "people/admission-applicants",
+    "route": "/admissions/applicants",
+    "roles": ["ADMIN", "OFFICE_STAFF"],
+    "routes": ["/admissions/applicants", "/admissions/applicants/$applicantId"]
+  },
+  {
+    "id": "people.admissionReports",
+    "kind": "nav",
+    "path": "people/admission-reports",
+    "route": "/admissions/reports",
+    "roles": ["ADMIN", "EXECUTIVE"],
+    "routes": ["/admissions/reports"]
+  },
+  {
+    "id": "people.teachingAssignments",
+    "kind": "nav",
+    "path": "people/teaching-assignments",
+    "route": "/staff/teaching-assignments",
+    "roles": ["ADMIN"],
+    "routes": ["/staff/teaching-assignments"]
+  },
+  {
+    "id": "people.evaluations",
+    "kind": "nav",
+    "path": "people/evaluations",
+    "route": "/staff/evaluations",
+    "roles": ["ADMIN", "COMMITTEE"],
+    "routes": [
+      "/staff/$userId/acr/$assessmentId",
+      "/staff/evaluations",
+      "/staff/evaluations/surveys/$surveyId"
+    ]
+  },
+  {
+    "id": "academics.academicYears",
+    "kind": "nav",
+    "path": "academics/academic-years",
+    "route": "/academic-years",
+    "roles": ["ADMIN"],
+    "routes": ["/academic-years", "/academic-years/$academicYearId"]
+  },
+  {
+    "id": "academics.classes",
+    "kind": "nav",
+    "path": "academics/classes",
+    "route": "/classes",
+    "roles": ["ADMIN"],
+    "routes": ["/classes", "/classes/$classId"]
+  },
+  {
+    "id": "academics.routineSetup",
+    "kind": "nav",
+    "path": "academics/routine-setup",
+    "route": "/routines/setup",
+    "roles": ["ADMIN"],
+    "routes": ["/routines/setup"]
+  },
+  {
+    "id": "academics.routineBuilder",
+    "kind": "nav",
+    "path": "academics/routine-builder",
+    "route": "/routines",
+    "roles": ["ADMIN"],
+    "routes": ["/routines", "/routines/$sectionId"]
+  },
+  {
+    "id": "academics.routineReview",
+    "kind": "nav",
+    "path": "academics/routine-review",
+    "route": "/routines/review",
+    "roles": ["ADMIN", "TEACHER", "EXECUTIVE", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": ["/routines/review"]
+  },
+  {
+    "id": "academics.routineSubstitutions",
+    "kind": "nav",
+    "path": "academics/routine-substitutions",
+    "route": "/routines/substitutions",
+    "roles": ["ADMIN"],
+    "routes": ["/routines/substitutions"]
+  },
+  {
+    "id": "academics.myRoutine",
+    "kind": "nav",
+    "path": "academics/my-routine",
+    "route": "/routines/my",
+    "roles": ["ADMIN", "TEACHER", "EXECUTIVE", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": ["/routines/my"]
+  },
+  {
+    "id": "academics.myClass",
+    "kind": "nav",
+    "path": "academics/my-class",
+    "route": "/my-class",
+    "roles": ["TEACHER"],
+    "routes": ["/my-class", "/my-class/$sectionId"]
+  },
+  {
+    "id": "academics.homework",
+    "kind": "nav",
+    "path": "academics/homework",
+    "route": "/academics/homework",
+    "roles": ["ADMIN", "TEACHER"],
+    "routes": [
+      "/academics/homework",
+      "/academics/homework/$homeworkId",
+      "/academics/homework/import",
+      "/academics/homework/new"
+    ]
+  },
+  {
+    "id": "academics.syllabus",
+    "kind": "nav",
+    "path": "academics/syllabus",
+    "route": "/academics/syllabus",
+    "roles": ["ADMIN", "TEACHER", "EXECUTIVE"],
+    "routes": ["/academics/study-plans/$planId", "/academics/syllabus"]
+  },
+  {
+    "id": "attendance.attendance",
+    "kind": "nav",
+    "path": "attendance/attendance",
+    "route": "/attendance",
+    "roles": ["ADMIN", "ACCOUNTANT", "TEACHER", "EXECUTIVE", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": ["/attendance", "/attendance/$sectionId"]
+  },
+  {
+    "id": "attendance.attendanceReports",
+    "kind": "nav",
+    "path": "attendance/attendance-reports",
+    "route": "/attendance/reports",
+    "roles": ["ADMIN", "ACCOUNTANT", "TEACHER", "EXECUTIVE", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": ["/attendance/reports"]
+  },
+  {
+    "id": "attendance.attendanceRegister",
+    "kind": "nav",
+    "path": "attendance/attendance-register",
+    "route": "/attendance/register",
+    "roles": ["ADMIN", "ACCOUNTANT", "TEACHER", "EXECUTIVE", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": ["/attendance/register"]
+  },
+  {
+    "id": "attendance.staffAttendance",
+    "kind": "nav",
+    "path": "attendance/staff-attendance",
+    "route": "/attendance/staff",
+    "roles": ["ADMIN", "ACCOUNTANT", "TEACHER", "EXECUTIVE", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": ["/attendance/staff", "/attendance/staff/leave"]
+  },
+  {
+    "id": "examsResults.exams",
+    "kind": "nav",
+    "path": "exams-results/exams",
+    "route": "/exams",
+    "roles": ["ADMIN", "EXAM_CONTROLLER"],
+    "routes": ["/exams", "/exams/$examId"]
+  },
+  {
+    "id": "examsResults.examTemplates",
+    "kind": "nav",
+    "path": "exams-results/exam-templates",
+    "route": "/exams/templates",
+    "roles": ["ADMIN", "EXAM_CONTROLLER"],
+    "routes": ["/exams/templates", "/exams/templates/$templateId"]
+  },
+  {
+    "id": "examsResults.marksEntry",
+    "kind": "nav",
+    "path": "exams-results/marks-entry",
+    "route": "/marks",
+    "roles": ["ADMIN", "TEACHER", "EXECUTIVE", "EXAM_CONTROLLER"],
+    "routes": ["/marks", "/marks/$examId/$sectionId/$subjectId"]
+  },
+  {
+    "id": "examsResults.seatPlans",
+    "kind": "nav",
+    "path": "exams-results/seat-plans",
+    "route": "/exams/seat-plans",
+    "roles": ["ADMIN", "EXAM_CONTROLLER"],
+    "routes": ["/exams/seat-plans", "/exams/seat-plans/$planId"]
+  },
+  {
+    "id": "examsResults.gradingScales",
+    "kind": "nav",
+    "path": "exams-results/grading-scales",
+    "route": "/grading-scales",
+    "roles": ["ADMIN"],
+    "routes": ["/grading-scales", "/grading-scales/$scaleId"]
+  },
+  {
+    "id": "examsResults.results",
+    "kind": "nav",
+    "path": "exams-results/results",
+    "route": "/results",
+    "roles": ["ADMIN", "EXAM_CONTROLLER"],
+    "routes": ["/results", "/results/$examId/$studentId"]
+  },
+  {
+    "id": "examsResults.analysis",
+    "kind": "nav",
+    "path": "exams-results/analysis",
+    "route": "/analysis",
+    "roles": ["ADMIN", "TEACHER", "EXECUTIVE", "EXAM_CONTROLLER"],
+    "routes": ["/analysis"]
+  },
+  {
+    "id": "examsResults.promotion",
+    "kind": "nav",
+    "path": "exams-results/promotion",
+    "route": "/promotions",
+    "roles": ["ADMIN"],
+    "routes": ["/promotions", "/promotions/$runId", "/promotions/new"]
+  },
+  {
+    "id": "finance.dues",
+    "kind": "nav",
+    "path": "finance/dues",
+    "route": "/fees/dues",
+    "roles": ["ADMIN", "ACCOUNTANT"],
+    "routes": ["/fees/dues"]
+  },
+  {
+    "id": "finance.recordPayment",
+    "kind": "nav",
+    "path": "finance/record-payment",
+    "route": "/payments/record",
+    "roles": ["ADMIN", "ACCOUNTANT"],
+    "routes": ["/payments/record"]
+  },
+  {
+    "id": "finance.feeStructures",
+    "kind": "nav",
+    "path": "finance/fee-structures",
+    "route": "/fee-structures",
+    "roles": ["ADMIN", "ACCOUNTANT"],
+    "routes": ["/fee-structures"]
+  },
+  {
+    "id": "finance.generateFees",
+    "kind": "nav",
+    "path": "finance/generate-fees",
+    "route": "/fees/generate",
+    "roles": ["ADMIN", "ACCOUNTANT"],
+    "routes": ["/fees/generate"]
+  },
+  {
+    "id": "finance.recurringSchedules",
+    "kind": "nav",
+    "path": "finance/recurring-schedules",
+    "route": "/fees/schedules",
+    "roles": ["ADMIN", "ACCOUNTANT"],
+    "routes": ["/fees/schedules", "/fees/schedules/$id"]
+  },
+  {
+    "id": "finance.fines",
+    "kind": "nav",
+    "path": "finance/fines",
+    "route": "/fees/fines",
+    "roles": ["ADMIN", "ACCOUNTANT", "TEACHER", "EXECUTIVE", "OFFICE_STAFF"],
+    "routes": ["/fees/fines", "/fees/fines/rules"]
+  },
+  {
+    "id": "finance.payments",
+    "kind": "nav",
+    "path": "finance/payments",
+    "route": "/payments",
+    "roles": ["ADMIN", "ACCOUNTANT"],
+    "routes": ["/payments", "/payments/$id"]
+  },
+  {
+    "id": "finance.invoices",
+    "kind": "nav",
+    "path": "finance/invoices",
+    "route": "/invoices",
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF"],
+    "routes": ["/i/$token", "/invoices", "/invoices/$invoiceId"]
+  },
+  {
+    "id": "reports.collectionsReport",
+    "kind": "nav",
+    "path": "reports/collections-report",
+    "route": "/reports/collections",
+    "roles": ["ADMIN", "ACCOUNTANT", "EXECUTIVE"],
+    "routes": ["/reports/collections"]
+  },
+  {
+    "id": "reports.printables",
+    "kind": "nav",
+    "path": "reports/printables",
+    "route": "/reports/printables",
+    "roles": ["ADMIN", "EXECUTIVE", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": ["/reports/printables"]
+  },
+  {
+    "id": "reports.applications",
+    "kind": "nav",
+    "path": "reports/applications",
+    "route": "/applications/reports",
+    "roles": ["ADMIN", "EXECUTIVE", "OFFICE_STAFF"],
+    "routes": ["/applications/reports"]
+  },
+  {
+    "id": "reports.alertsReport",
+    "kind": "nav",
+    "path": "reports/alerts-report",
+    "route": "/reports/alerts",
+    "roles": ["ADMIN", "EXECUTIVE"],
+    "routes": ["/reports/alerts"]
+  },
+  {
+    "id": "communications.sendMessage",
+    "kind": "nav",
+    "path": "communications/send-message",
+    "route": "/communications/send",
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF"],
+    "routes": ["/communications/send"]
+  },
+  {
+    "id": "communications.sendAlert",
+    "kind": "nav",
+    "path": "communications/send-alert",
+    "route": "/communications/send-alert",
+    "roles": ["ADMIN", "EXECUTIVE"],
+    "routes": ["/communications/send-alert"]
+  },
+  {
+    "id": "communications.feeReminders",
+    "kind": "nav",
+    "path": "communications/fee-reminders",
+    "route": "/communications/reminders",
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF"],
+    "routes": ["/communications/reminders"]
+  },
+  {
+    "id": "communications.reminderHistory",
+    "kind": "nav",
+    "path": "communications/reminder-history",
+    "route": "/communications/batches",
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF"],
+    "routes": ["/communications/batches", "/communications/batches/$batchId"]
+  },
+  {
+    "id": "administration.printTemplates",
+    "kind": "nav",
+    "path": "administration/print-templates",
+    "route": "/print-templates",
+    "roles": ["ADMIN"],
+    "routes": [
+      "/print-templates",
+      "/print-templates/$templateId/edit",
+      "/print/document",
+      "/print/preview",
+      "/v/$token"
+    ]
+  },
+  {
+    "id": "administration.roles",
+    "kind": "nav",
+    "path": "administration/roles",
+    "route": "/roles",
+    "roles": ["ADMIN"],
+    "routes": ["/roles"]
+  },
+  {
+    "id": "administration.auditLogs",
+    "kind": "nav",
+    "path": "administration/audit-logs",
+    "route": "/audit-logs",
+    "roles": ["ADMIN"],
+    "routes": ["/audit-logs"]
+  },
+  {
+    "id": "administration.settings",
+    "kind": "nav",
+    "path": "administration/settings",
+    "route": "/settings",
+    "roles": ["ADMIN"],
+    "routes": ["/settings"]
+  },
+  {
+    "id": "administration.curriculumPreset",
+    "kind": "nav",
+    "path": "administration/curriculum-preset",
+    "route": "/curriculum-preset",
+    "roles": ["ADMIN"],
+    "routes": ["/curriculum-preset"]
+  },
+  {
+    "id": "portal.overview",
+    "kind": "portal",
+    "path": "portal/overview",
+    "route": "/portal",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal"]
+  },
+  {
+    "id": "portal.fees",
+    "kind": "portal",
+    "path": "portal/fees",
+    "route": "/portal/fees",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/fees"]
+  },
+  {
+    "id": "portal.attendance",
+    "kind": "portal",
+    "path": "portal/attendance",
+    "route": "/portal/attendance",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/attendance"]
+  },
+  {
+    "id": "portal.routine",
+    "kind": "portal",
+    "path": "portal/routine",
+    "route": "/portal/routine",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/routine"]
+  },
+  {
+    "id": "portal.calendar",
+    "kind": "portal",
+    "path": "portal/calendar",
+    "route": "/portal/calendar",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/calendar"]
+  },
+  {
+    "id": "portal.results",
+    "kind": "portal",
+    "path": "portal/results",
+    "route": "/portal/results",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/results"]
+  },
+  {
+    "id": "portal.programs",
+    "kind": "portal",
+    "path": "portal/programs",
+    "route": "/portal/programs",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/programs"]
+  },
+  {
+    "id": "portal.examSchedule",
+    "kind": "portal",
+    "path": "portal/exam-schedule",
+    "route": "/portal/exam-schedule",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/exam-schedule"]
+  },
+  {
+    "id": "portal.syllabus",
+    "kind": "portal",
+    "path": "portal/syllabus",
+    "route": "/portal/syllabus",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/syllabus"]
+  },
+  {
+    "id": "portal.homework",
+    "kind": "portal",
+    "path": "portal/homework",
+    "route": "/portal/homework",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/homework"]
+  },
+  {
+    "id": "portal.surveys",
+    "kind": "portal",
+    "path": "portal/surveys",
+    "route": "/portal/surveys",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/surveys"]
+  },
+  {
+    "id": "portal.applications",
+    "kind": "portal",
+    "path": "portal/applications",
+    "route": "/portal/applications",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": [
+      "/portal/applications",
+      "/portal/applications/$applicationId",
+      "/portal/applications/new"
+    ]
+  },
+  {
+    "id": "portal.account",
+    "kind": "portal",
+    "path": "portal/account",
+    "route": "/portal/account",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/account"]
+  },
+  {
+    "id": "start.signIn",
+    "kind": "start",
+    "path": "start/sign-in",
+    "route": "/login",
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": [
+      "/activate",
+      "/auth/social/done",
+      "/forgot-password",
+      "/login",
+      "/reset-password",
+      "/select-school"
+    ]
+  },
+  {
+    "id": "start.phone",
+    "kind": "start",
+    "path": "start/phone",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "start.language",
+    "kind": "start",
+    "path": "start/language",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "start.account",
+    "kind": "start",
+    "path": "start/account",
+    "route": "/security",
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": ["/security", "/verify-email"]
+  },
+  {
+    "id": "start.findAnything",
+    "kind": "start",
+    "path": "start/find-anything",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "admin.howItWorks",
+    "kind": "admin",
+    "path": "admin/how-it-works",
+    "route": null,
+    "roles": ["ADMIN"],
+    "routes": []
+  },
+  {
+    "id": "admin.setupOrder",
+    "kind": "admin",
+    "path": "admin/setup-order",
+    "route": null,
+    "roles": ["ADMIN"],
+    "routes": []
+  },
+  {
+    "id": "admin.scenarios",
+    "kind": "admin",
+    "path": "admin/scenarios",
+    "route": null,
+    "roles": ["ADMIN"],
+    "routes": []
+  },
+  {
+    "id": "admin.createSchool",
+    "kind": "admin",
+    "path": "admin/create-school",
+    "route": "/register",
+    "roles": ["ADMIN"],
+    "routes": ["/register", "/welcome"]
+  },
+  {
+    "id": "dashboard.widgets",
+    "kind": "dashboard",
+    "path": "dashboard/widgets",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "dashboard.customise",
+    "kind": "dashboard",
+    "path": "dashboard/customise",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "dashboard.alerts",
+    "kind": "dashboard",
+    "path": "dashboard/alerts",
+    "route": "/notifications",
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": ["/notifications"]
+  },
+  {
+    "id": "administration.printDesignerGuide",
+    "kind": "administration",
+    "path": "administration/print-templates/designer-guide",
+    "route": null,
+    "roles": ["ADMIN"],
+    "routes": []
+  },
+  {
+    "id": "administration.printPrinters",
+    "kind": "administration",
+    "path": "administration/print-templates/printers-and-calibration",
+    "route": null,
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": []
+  },
+  {
+    "id": "administration.printIdCards",
+    "kind": "administration",
+    "path": "administration/print-templates/id-cards",
+    "route": null,
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": []
+  },
+  {
+    "id": "administration.printExamDocuments",
+    "kind": "administration",
+    "path": "administration/print-templates/exam-documents",
+    "route": null,
+    "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF", "EXAM_CONTROLLER"],
+    "routes": []
+  },
+  {
+    "id": "administration.printCertificates",
+    "kind": "administration",
+    "path": "administration/print-templates/certificates",
+    "route": null,
+    "roles": ["ADMIN", "EXECUTIVE", "OFFICE_STAFF"],
+    "routes": []
+  },
+  {
+    "id": "help.glossary",
+    "kind": "help",
+    "path": "help/glossary",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "help.troubleshooting",
+    "kind": "help",
+    "path": "help/troubleshooting",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "help.cantSeeThis",
+    "kind": "help",
+    "path": "help/cant-see-this",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "help.whatsNew",
+    "kind": "help",
+    "path": "help/whats-new",
+    "route": null,
+    "roles": [
+      "ADMIN",
+      "ACCOUNTANT",
+      "TEACHER",
+      "PARENT",
+      "STUDENT",
+      "EXECUTIVE",
+      "OFFICE_STAFF",
+      "EXAM_CONTROLLER",
+      "COMMITTEE"
+    ],
+    "routes": []
+  },
+  {
+    "id": "portal.notifications",
+    "kind": "portal",
+    "path": "portal/notifications",
+    "route": "/portal/notifications",
+    "roles": ["PARENT", "STUDENT"],
+    "routes": ["/portal/notifications"]
+  }
+]

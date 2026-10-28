@@ -19,6 +19,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   MoneyInput,
   RadioGroup,
   RadioGroupItem,
@@ -137,7 +138,10 @@ export function WaiveFineDialog({ open, onOpenChange, fineId, studentId }: Waive
     <Dialog open={open} onOpenChange={(next) => !waiveFine.isPending && onOpenChange(next)}>
       <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle>{t('waiveDialog.title')}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('waiveDialog.title')}</DialogTitle>
+            <HelpHint helpId="finance.fines.action.waive" />
+          </div>
           <DialogDescription>{t('waiveDialog.description')}</DialogDescription>
         </DialogHeader>
 
@@ -193,9 +197,12 @@ export function WaiveFineDialog({ open, onOpenChange, fineId, studentId }: Waive
         )}
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="waive-fine-reason" className="text-sm font-medium">
-            {t('waiveDialog.reasonLabel')}
-          </label>
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor="waive-fine-reason" className="text-sm font-medium">
+              {t('waiveDialog.reasonLabel')}
+            </label>
+            <HelpHint helpId="finance.fines.field.waiveReason" />
+          </span>
           <Textarea
             id="waive-fine-reason"
             value={reason}

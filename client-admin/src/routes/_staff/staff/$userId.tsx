@@ -303,6 +303,7 @@ function StaffDetailPage() {
             actions={[
               {
                 id: 'resetPassword',
+                helpId: 'people.staff.action.resetPassword',
                 label: t('detail.actions.resetPassword'),
                 icon: <KeyRoundIcon />,
                 allowed: canUpdate && user.id !== currentUserId,

@@ -81,6 +81,7 @@ function SeatPlansListPage() {
         actions={[
           {
             id: 'generate',
+            helpId: 'examsResults.seatPlans.action.generate',
             label: t('list.generateButton'),
             icon: <Plus aria-hidden className="size-4" />,
             priority: 'primary',

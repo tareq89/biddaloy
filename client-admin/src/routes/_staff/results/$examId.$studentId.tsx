@@ -139,6 +139,7 @@ function ReportCardPage() {
           actions={[
             {
               id: 'print',
+              helpId: 'examsResults.results.action.printReportCard',
               label: t('reportCard.print'),
               priority: 'primary',
               icon: <PrinterIcon />,

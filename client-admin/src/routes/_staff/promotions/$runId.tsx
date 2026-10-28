@@ -534,6 +534,7 @@ function PromotionRunPage() {
       ? [
           {
             id: 'refresh',
+            helpId: 'examsResults.promotion.action.refresh',
             label: refreshRun.isPending ? t('grid.refreshing') : t('grid.refresh'),
             icon: <RotateCcwIcon aria-hidden="true" />,
             priority: 'secondary',
@@ -542,6 +543,7 @@ function PromotionRunPage() {
           },
           {
             id: 'commit',
+            helpId: 'examsResults.promotion.action.commit',
             label: t('grid.commit'),
             icon: <CircleCheckIcon aria-hidden="true" />,
             priority: 'primary',
@@ -549,6 +551,7 @@ function PromotionRunPage() {
           },
           {
             id: 'delete',
+            helpId: 'examsResults.promotion.action.delete',
             label: t('grid.delete'),
             icon: <Trash2Icon aria-hidden="true" />,
             priority: 'destructive',

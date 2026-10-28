@@ -82,12 +82,13 @@ describe('/my-class', () => {
       }),
     );
     render('/my-class');
-    // 5xx is retried twice with backoff (~3s) before the error state shows.
-    const retry = await screen.findByRole('button', { name: 'Try again' }, { timeout: 8000 });
+    // 5xx is retried twice with backoff (~3s) before the error state shows;
+    // the global 15s asyncUtilTimeout covers that plus a cold route import.
+    const retry = await screen.findByRole('button', { name: 'Try again' });
     expect(screen.getByRole('heading', { level: 1, name: 'My class' })).toBeTruthy();
     expect(screen.getByText('Could not load your sections.')).toBeTruthy();
     const before = calls;
     fireEvent.click(retry);
     await waitFor(() => expect(calls).toBeGreaterThan(before));
-  }, 15_000);
+  }, 25_000);
 });

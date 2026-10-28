@@ -15,6 +15,7 @@ import { t } from '../i18n';
 import { DetailShellPage } from '../pages';
 
 // [31.4] The Record Payment footer primary reads "Record <amount>" (or "Record payment" before any amount), so match the verb (same as checkout.spec.ts).
+// Callers add :not([data-help-id]): every Record-payment (?) is named "Help: Record payment" (Epic 44).
 const RECORD_BUTTON = /রেকর্ড করুন|^Record/;
 
 /**
@@ -157,7 +158,9 @@ test.describe.serial('fines: rule -> sweep -> dues -> payment -> portal', () => 
 
         // 3 absences x 50 per `createFineStructure` above.
         await page.getByLabel(t('payments.record.amountReceived.label')).fill('150');
-        const submitPayment = page.getByRole('button', { name: RECORD_BUTTON });
+        const submitPayment = page
+          .getByRole('button', { name: RECORD_BUTTON })
+          .and(page.locator(':not([data-help-id])'));
         await expect(submitPayment).toBeEnabled({ timeout: 10_000 });
         await submitPayment.click();
         await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();

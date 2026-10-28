@@ -169,5 +169,48 @@
   "emptyFiltered": {
     "title": "No fines match these filters",
     "description": "Pick another month or status, or clear the filters."
+  },
+  "fields": {
+    "ruleTrigger": "Trigger",
+    "ruleFee": "Fine type",
+    "ruleClass": "Class",
+    "ruleFreePerPeriod": "Free per month",
+    "ruleCap": "Cap per month",
+    "ruleMinMinutesLate": "Minimum minutes late",
+    "logStudents": "Students",
+    "logFee": "Fine type",
+    "logAmount": "Amount",
+    "logIncidentDate": "Incident date",
+    "logNote": "Reason",
+    "logNotify": "Notify guardian",
+    "waiveMode": "In full or part",
+    "waiveAmount": "Amount to waive",
+    "waiveReason": "Reason"
+  },
+  "help": {
+    "ruleTrigger": "Whether to count absent days or late arrivals. This cannot be changed after the rule is made.",
+    "ruleFee": "Which fine type applies; its own amount is used each time. Only fees of the fine type appear here.",
+    "ruleClass": "For one class, or for the whole school.",
+    "ruleFreePerPeriod": "The first this-many times in a month are not fined; every time after that is. 0 means fined from the very first time.",
+    "ruleCap": "A student's total fine under this rule in one month will not go above this. Leave empty for no limit.",
+    "ruleMinMinutesLate": "Late-arrival rules only: counts only if at least this many minutes late, 0 to 240. If no late minutes are recorded, it always counts.",
+    "logStudents": "One or more students, up to 200 at a time. A separate bill is made for each.",
+    "logFee": "Which fine type; only fees of the fine type appear here.",
+    "logAmount": "If left empty, the fine type's own amount is used. More than zero, up to two decimals.",
+    "logIncidentDate": "When it happened. It cannot be a date after today, and it must be inside the fine type's academic year.",
+    "logNote": "Why the fine; 3 to 280 characters. The bill carries this reason.",
+    "logNotify": "When on, the guardian is told about the fine.",
+    "waiveMode": "Whether to waive everything that is left, or only part of it.",
+    "waiveAmount": "How much, when waiving part. It cannot be more than what is left.",
+    "waiveReason": "Why you are waiving it; 3 to 280 characters."
+  },
+  "helpRequired": {
+    "ruleTrigger": "Required.",
+    "ruleFee": "Required.",
+    "logStudents": "Required.",
+    "logFee": "Required.",
+    "logIncidentDate": "Required.",
+    "logNote": "Required.",
+    "waiveReason": "Required."
   }
 }

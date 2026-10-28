@@ -237,6 +237,7 @@ function GuardiansListPage() {
         actions={[
           {
             id: 'invite',
+            helpId: 'people.guardians.action.invite',
             label: t('invite.trigger'),
             icon: <SendIcon aria-hidden="true" />,
             priority: 'primary',
