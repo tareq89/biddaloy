@@ -357,6 +357,7 @@ describe('/staff', () => {
     const picker = within(dialog).getByRole('combobox', { name: 'Member' });
     await user.click(picker);
     await user.type(picker, 'Abdul');
+    await screen.findByRole('option', { name: 'Abdul Karim' });
     await user.keyboard('{ArrowDown}{Enter}');
     await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-42');
     await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
@@ -395,6 +396,7 @@ describe('/staff', () => {
     const picker = within(dialog).getByRole('combobox', { name: 'Member' });
     await user.click(picker);
     await user.type(picker, 'Abdul');
+    await screen.findByRole('option', { name: 'Abdul Karim' });
     await user.keyboard('{ArrowDown}{Enter}');
     await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-42');
     await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
@@ -432,6 +434,7 @@ describe('/staff', () => {
     const picker = within(dialog).getByRole('combobox', { name: 'Member' });
     await user.click(picker);
     await user.type(picker, 'Abdul');
+    await screen.findByRole('option', { name: 'Abdul Karim' });
     await user.keyboard('{ArrowDown}{Enter}');
     await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-42');
     await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));

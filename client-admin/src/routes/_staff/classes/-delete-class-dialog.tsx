@@ -81,12 +81,15 @@ export function DeleteClassDialog({
 
   // Name the real blocker from the 409's `details` (classes.service remove).
   const details = (blocked ? (deleteClass.error as ApiError).details : undefined) ?? {};
-  const hasStudents =
-    (Number(details.students_count) || 0) + (Number(details.enrollments_count) || 0) > 0;
+  // The Students tab lists current students only, so link there only when some
+  // exist; enrollment history alone blocks with its own reason and no link.
+  const hasStudents = (Number(details.students_count) || 0) > 0;
+  const hasEnrollments = (Number(details.enrollments_count) || 0) > 0;
   const hasSections = (Number(details.sections_count) || 0) > 0;
   let blockedText = '';
   if (blocked) {
     if (hasStudents) blockedText = t('deleteClassDialog.blockedStudents');
+    else if (hasEnrollments) blockedText = t('deleteClassDialog.blockedEnrollments');
     else if (hasSections) blockedText = t('deleteClassDialog.blockedSections');
     else {
       const dependents = (details.dependents ?? {}) as Record<string, unknown>;

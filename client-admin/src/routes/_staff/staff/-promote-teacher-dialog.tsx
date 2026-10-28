@@ -69,7 +69,7 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
   const [term, setTerm] = React.useState('');
   const search = useDebouncedValue(term.trim(), 300);
   const usersQuery = useUsers({ limit: 100, ...(search ? { search } : {}) });
-  const teachersQuery = useAllTeachers();
+  const teachersQuery = useAllTeachers({ enabled: open });
 
   const [userId, setUserId] = React.useState<string | null>(null);
   // Keep the chosen member selectable (and their name shown) when a new
@@ -99,19 +99,16 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
   const existingTeacherUserIds = new Set(
     (teachersQuery.data ?? []).map((teacher) => teacher.user.id),
   );
-  const found = usersQuery.data?.data ?? [];
+  // The users query keeps the previous page while a new term loads; only list
+  // results once they belong to the typed text.
+  const settled = term.trim() === search && !usersQuery.isPlaceholderData;
+  const found = settled ? (usersQuery.data?.data ?? []) : [];
   const members =
     userId && selectedUser.data && !found.some((user) => user.id === userId)
       ? [selectedUser.data, ...found]
       : found;
-  // While the server answer for the typed text is still on its way (debounce or
-  // fetch), narrow the previous results by name, so Enter never picks a member
-  // the typed text does not match.
-  const needle = term.trim().toLowerCase();
-  const stale = term.trim() !== search || usersQuery.isFetching;
   const memberOptions = members
     .filter((user) => !existingTeacherUserIds.has(user.id))
-    .filter((user) => !stale || user.full_name.toLowerCase().includes(needle))
     .map((user) => ({ value: user.id, label: user.full_name }));
 
   function toggleDesignation(designation: TeacherDesignation, checked: boolean) {

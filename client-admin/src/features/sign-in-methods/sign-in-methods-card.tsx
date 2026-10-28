@@ -98,13 +98,19 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
     },
   });
 
-  const changeError: ChangePasswordFormServerError | null = !changePw.error
-    ? null
-    : changePw.error instanceof ApiError && changePw.error.statusCode === 403
-      ? { fieldErrors: { current_password: t('password.wrongCurrent') } }
-      : weakPasswordRules(changePw.error) || passwordTooLong(changePw.error)
+  // Memoised: the form re-applies `serverError` whenever its identity changes,
+  // so an unrelated parent render must not hand it a fresh object for the same 403.
+  const changeError = React.useMemo<ChangePasswordFormServerError | null>(
+    () =>
+      !changePw.error
         ? null
-        : { message: t('error') };
+        : changePw.error instanceof ApiError && changePw.error.statusCode === 403
+          ? { fieldErrors: { current_password: t('password.wrongCurrent') } }
+          : weakPasswordRules(changePw.error) || passwordTooLong(changePw.error)
+            ? null
+            : { message: t('error') },
+    [changePw.error, t],
+  );
 
   const passwordError: SignInFormError | null =
     setPassword.error &&

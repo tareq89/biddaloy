@@ -99,6 +99,18 @@ export function AttachSubjectDialog({
                 placeholder={t('subjectAttachForm.subjectPlaceholder')}
               />
             </Field>
+            {subjectsQuery.isError && (
+              <div className="flex items-center gap-2">
+                <ErrorText>{t('subjectAttachForm.loadError')}</ErrorText>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void subjectsQuery.refetch()}
+                >
+                  {t('actions.retry', { ns: 'common' })}
+                </Button>
+              </div>
+            )}
 
             <div className="flex min-h-11 items-center gap-2 md:min-h-8">
               <Checkbox

@@ -82,7 +82,12 @@ export function StaffImportView() {
       } catch (err) {
         // Whole-file failures arrive as English text; show ours. The shared
         // hook (also used by the student import) is left as it is.
-        throw new Error(t(`fileErrors.${fileErrorKey(err instanceof Error ? err.message : '')}`), {
+        const key =
+          // The hook rethrows as `Error` with the HTTP code in `status`.
+          (err as { status?: number }).status === 429
+            ? 'rateLimited'
+            : fileErrorKey(err instanceof Error ? err.message : '');
+        throw new Error(t(`fileErrors.${key}`), {
           cause: err,
         });
       }

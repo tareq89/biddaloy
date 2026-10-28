@@ -72,6 +72,7 @@
     "moveStudents": "Move students",
     "close": "Close",
     "blockedStudents": "This class still has students. Move them to another class first.",
+    "blockedEnrollments": "This class has enrollment history, so it cannot be deleted.",
     "blockedSections": "This class still has sections. Delete the sections first.",
     "blockedKinds": "This class is still used by {{kinds}}. Remove or move them first.",
     "kinds": {
@@ -128,6 +129,7 @@
     "optionalLabel": "Optional subject",
     "errorSubjectRequired": "Subject is required",
     "errorMessage": "Failed to attach subject",
+    "loadError": "Could not load subjects.",
     "save": "Add",
     "saving": "Adding…"
   },

@@ -38,6 +38,7 @@
     "tooManyRows": "This file has too many rows. Split the file into smaller files.",
     "noRows": "This file has no people in it. Add at least one row.",
     "tooLarge": "This file is too large. Split the file into smaller files.",
+    "rateLimited": "Too many attempts. Wait a minute, then try again.",
     "other": "We could not check this file. Please try again."
   },
   "rowErrors": {

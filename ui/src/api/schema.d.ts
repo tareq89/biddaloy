@@ -14864,20 +14864,6 @@ export interface components {
             close_date?: string;
             required_document_types?: ("PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT")[];
         };
-        GuardianMatchGuardianDto: {
-            id: string;
-            full_name: string;
-            phone: string;
-            student_names: string[];
-        };
-        GuardianMatchResponseDto: {
-            guardian: components["schemas"]["GuardianMatchGuardianDto"] | null;
-        };
-        EvaluateApplicantDto: {
-            notes: string;
-            /** @enum {string} */
-            decision?: "SHORTLIST" | "ADMIT" | "REJECT";
-        };
         AdmissionIntake: {
             id: string;
             tenant: components["schemas"]["School"];
@@ -14919,6 +14905,20 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
+        };
+        GuardianMatchGuardianDto: {
+            id: string;
+            full_name: string;
+            phone: string;
+            student_names: string[];
+        };
+        GuardianMatchResponseDto: {
+            guardian: components["schemas"]["GuardianMatchGuardianDto"] | null;
+        };
+        EvaluateApplicantDto: {
+            notes: string;
+            /** @enum {string} */
+            decision?: "SHORTLIST" | "ADMIT" | "REJECT";
         };
         AdmitApplicantDto: {
             notes?: string;
@@ -33085,7 +33085,19 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdmissionApplicant"][];
+                        /** @description Total rows matching the query, across all pages. */
+                        total: number;
+                        /** @description 1-based index of the page returned. */
+                        page: number;
+                        /** @description Maximum rows per page. */
+                        limit: number;
+                        /** @description Number of pages at this `limit`. */
+                        totalPages: number;
+                    };
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

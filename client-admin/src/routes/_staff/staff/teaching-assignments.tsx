@@ -97,7 +97,7 @@ function TeachingAssignmentsPage() {
   const currentYearId = academicYearsQuery.data?.data.find((y) => y.is_current)?.id;
   const classesQuery = useAllClasses({
     ...(currentYearId ? { academicYearId: currentYearId } : {}),
-    enabled: !academicYearsQuery.isPending,
+    enabled: academicYearsQuery.isSuccess,
   });
   const classes = classesQuery.data ?? [];
   // No `classId` in the URL: show the first class without writing it.
@@ -168,7 +168,13 @@ function TeachingAssignmentsPage() {
     <PageContainer size="wide">
       <PageHeader title={t('list.title')} subtitle={t('list.subtitle')} />
 
-      {classesQuery.isError ? (
+      {academicYearsQuery.isError ? (
+        <ErrorState
+          message={t('list.classListErrorMessage')}
+          retryLabel={t('actions.retry', { ns: 'common' })}
+          onRetry={() => void academicYearsQuery.refetch()}
+        />
+      ) : classesQuery.isError ? (
         <ErrorState
           message={t('list.classListErrorMessage')}
           retryLabel={t('actions.retry', { ns: 'common' })}

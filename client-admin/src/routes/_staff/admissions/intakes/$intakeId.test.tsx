@@ -70,7 +70,9 @@ describe('/admissions/intakes/$intakeId', () => {
   ) {
     server.use(
       http.get('/api/v1/admission-intakes/:id', async () => HttpResponse.json(await getIntake())),
-      http.get('/api/v1/admission-applicants', () => HttpResponse.json([])),
+      http.get('/api/v1/admission/applicants', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 50, totalPages: 0 }),
+      ),
       http.get('/api/v1/admission-intakes', () => HttpResponse.json([])),
     );
   }
