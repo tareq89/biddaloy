@@ -201,6 +201,7 @@ export function PrintTemplateLibrary({ onEdit, openNewDialog = false }: PrintTem
       kind: 'select',
       key: 'kind',
       label: t('filters.kind'),
+      helpId: 'administration.printTemplates.field.kind',
       allLabel: t('filters.allKinds'),
       options: PRINT_KIND_ORDER.map((k) => ({
         value: k,
