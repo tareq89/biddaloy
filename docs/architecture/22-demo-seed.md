@@ -213,6 +213,7 @@ The demo is the `demo` project on the one VM (`deploy/stack.yml` with
 `demo.<domain>` by the shared edge nginx. It rebuilds itself every night from
 a **host systemd timer**, not from a cron inside a container (D11). The design
 is in [07-deployment.md](07-deployment.md#demo); this section is how to run it.
+The demo's test inbox (Mailpit, in memory) is restarted by the same rebuild, so it empties every night.
 
 ```mermaid
 flowchart LR

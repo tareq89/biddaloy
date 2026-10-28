@@ -120,11 +120,13 @@ expect "4b exit 0 when the push fails" test "$RC" = 0
 # 5 demo
 run demo-rebuild
 expect "5 ok: restarts and pushes up" test "$RC" = 0 -a "$(grep -c 'restart app' "$LOG")" = 1
+expect "5 ok: mailpit restarted after the app" test "$(grep -c 'restart mailpit' "$LOG")" = 1
 FAIL_MATCH=reset.sh FAIL_RC=3 run demo-rebuild
 expect "5 exit 3: still restarts the app" has "restart app"
 expect "5 exit 3: up with a warning" has "status=up&msg=ok++warning"
 FAIL_MATCH=reset.sh FAIL_RC=1 run demo-rebuild
 expect "5 other code: no restart" hasnt "restart app"
+expect "5 other code: mailpit not restarted" hasnt "restart mailpit"
 expect "5 other code: down&msg=reset" has "status=down&msg=reset"
 
 # 6 log archive: the job gets a tar on stdin (no bind mount), the host copy goes after success

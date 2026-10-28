@@ -176,6 +176,12 @@ stack_checks() { # <stack>
     else emit "$s services" OK "$(printf '%s\n' "$rows" | wc -l | tr -d ' ') running, none unhealthy"; fi
   fi
 
+  # Test inbox (D17): staging and demo only, prod has no mailpit.
+  if [[ "$s" != prod ]]; then
+    [[ -n "$DOCKER_PS" ]] || DOCKER_PS="$(tmo docker ps -a --format '{{.Names}}|{{.Status}}' 2>/dev/null)"
+    check_container "$s-mailpit-1"
+  fi
+
   # ready endpoint: the app container holds HEALTH_TOKEN itself; only the status code comes back.
   tok="$(envval "$envf" HEALTH_TOKEN)"
   if [[ -z "$tok" ]]; then
