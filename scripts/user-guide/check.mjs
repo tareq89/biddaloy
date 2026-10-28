@@ -27,7 +27,8 @@ const REQUIRED_IDS = ['task-main', 'confirm', 'other', 'trouble', 'roles', 'more
 const RELATED = /^\*\*(সম্পর্কিত পাতা|Related pages)\*\*\s*$/m;
 const DAY = 86400000;
 
-const readJson = (file, fallback) => (existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : fallback);
+const readJson = (file, fallback) =>
+  existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : fallback;
 const sha1 = (s) => createHash('sha1').update(s).digest('hex');
 const sortedKey = (v) => JSON.stringify([...(v ?? [])].sort());
 const stripCode = (s) => s.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
@@ -78,7 +79,11 @@ export function check(root = '.', { today = new Date() } = {}) {
     for (const p of listPages(lang, root)) {
       const file = path.join(guide, lang, p);
       const { fm, body, legacyFrontmatter } = readPage(file);
-      if (legacyFrontmatter) fail(rel(file), '(r) still has --- frontmatter; metadata belongs in a <!-- guide:meta --> comment');
+      if (legacyFrontmatter)
+        fail(
+          rel(file),
+          '(r) still has --- frontmatter; metadata belongs in a <!-- guide:meta --> comment',
+        );
       if (fm) pages[lang].set(p, { file, fm, body });
     }
   }
@@ -86,7 +91,11 @@ export function check(root = '.', { today = new Date() } = {}) {
 
   // ---- (a) features id missing from coverage ----------------------------
   for (const f of features ?? [])
-    if (!(f.id in coverage)) fail(rel(path.join(guide, 'coverage.json')), `(a) feature "${f.id}" is missing from coverage.json`);
+    if (!(f.id in coverage))
+      fail(
+        rel(path.join(guide, 'coverage.json')),
+        `(a) feature "${f.id}" is missing from coverage.json`,
+      );
 
   // ---- (b) done id lacks a bn or en page --------------------------------
   for (const [id, status] of Object.entries(coverage)) {
@@ -100,8 +109,25 @@ export function check(root = '.', { today = new Date() } = {}) {
   // D16: every coverage id is `done`; there are no exceptions.
   for (const [id, status] of Object.entries(coverage)) {
     if (status !== 'planned') continue;
-    fail(rel(path.join(guide, 'coverage.json')), `(t) "${id}" is still planned; every id must be done (D16)`);
+    fail(
+      rel(path.join(guide, 'coverage.json')),
+      `(t) "${id}" is still planned; every id must be done (D16)`,
+    );
   }
+
+  // ---- (u) a helpIds `#anchor` suffix must be an id="…" on that page (E20) --
+  // `attendance.attendance.action.fix#task-fix` links the (?) to a section; bn and en share anchors.
+  for (const lang of LANGS)
+    for (const pg of pages[lang].values()) {
+      // Any `id="…"` (glossary rows carry inline anchors), but not `data-id="…"`.
+      const ids = new Set([...pg.body.matchAll(/(?<![\w-])id="([^"]+)"/g)].map((m) => m[1]));
+      for (const entry of pg.fm.helpIds ?? []) {
+        const anchor = String(entry).split('#')[1];
+        if (anchor === undefined) continue;
+        if (!ids.has(anchor))
+          fail(rel(pg.file), `(u) helpIds "${entry}": no id="${anchor}" on the page`);
+      }
+    }
 
   // ---- (c) bn/en pair differs -------------------------------------------
   for (const [p, bn] of pages.bn) {
@@ -111,7 +137,10 @@ export function check(root = '.', { today = new Date() } = {}) {
       continue;
     }
     for (const key of ['feature', 'roles', 'helpIds']) {
-      const [x, y] = key === 'feature' ? [bn.fm[key], en.fm[key]] : [sortedKey(bn.fm[key]), sortedKey(en.fm[key])];
+      const [x, y] =
+        key === 'feature'
+          ? [bn.fm[key], en.fm[key]]
+          : [sortedKey(bn.fm[key]), sortedKey(en.fm[key])];
       if (x !== y) fail(rel(bn.file), `(c) ${key} differs between bn and en`);
     }
   }
@@ -121,7 +150,9 @@ export function check(root = '.', { today = new Date() } = {}) {
   for (const lang of LANGS) {
     // Portal pages are named after the app's own menu labels ("Attendance", "Results"), so
     // their titles cannot be told apart from a bold UI word: (o) leaves them out both ways.
-    const titles = [...pages[lang]].filter(([p, pg]) => done(pg) && !p.startsWith('portal/')).map(([p, pg]) => ({ p, title: pg.fm.title }));
+    const titles = [...pages[lang]]
+      .filter(([p, pg]) => done(pg) && !p.startsWith('portal/'))
+      .map(([p, pg]) => ({ p, title: pg.fm.title }));
     for (const [p, pg] of pages[lang]) {
       const file = rel(pg.file);
       const text = stripCode(pg.body);
@@ -146,8 +177,14 @@ export function check(root = '.', { today = new Date() } = {}) {
           fail(file, `(e) label "${label}": no locale file ${rel(nsFile)}`);
           continue;
         }
-        const re = new RegExp(`^${glob.split('*').map((s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`);
-        if (!flatten(readJson(nsFile)).some((k) => re.test(k))) fail(file, `(e) label "${label}" matches no key in ${rel(nsFile)}`);
+        const re = new RegExp(
+          `^${glob
+            .split('*')
+            .map((s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
+            .join('.*')}$`,
+        );
+        if (!flatten(readJson(nsFile)).some((k) => re.test(k)))
+          fail(file, `(e) label "${label}" matches no key in ${rel(nsFile)}`);
       }
 
       // ---- (f) page without a diagram -----------------------------------
@@ -155,26 +192,35 @@ export function check(root = '.', { today = new Date() } = {}) {
         fail(file, '(f) no diagrams/*.svg image');
 
       // ---- (j) page outside features.json paths -------------------------
-      if (features && !features.some((f) => norm(f.path) === norm(p)) && !/^(help|start)\/index\.md$/.test(p))
+      if (
+        features &&
+        !features.some((f) => norm(f.path) === norm(p)) &&
+        !/^(help|start)\/index\.md$/.test(p)
+      )
         fail(file, '(j) page is not listed in features.json');
 
       // ---- (k) generated blocks, and no video (D48) ---------------------
-      for (const m of pg.body.matchAll(/<!-- guide:generated:(\w+):([^\s]+) -->([\s\S]*?)<!-- \/guide:generated -->/g)) {
+      for (const m of pg.body.matchAll(
+        /<!-- guide:generated:(\w+):([^\s]+) -->([\s\S]*?)<!-- \/guide:generated -->/g,
+      )) {
         if (m[1] === 'video') {
           fail(file, '(k) guide:generated:video block: videos are out of this release (D48)');
           continue;
         }
         if (!blocks) continue;
         const want = blocks[lang]?.[`${m[1]}:${m[2]}`];
-        if (want === undefined) fail(file, `(k) generated block ${m[1]}:${m[2]} has no entry in blocks.json`);
-        else if (m[3].trim() !== want.trim()) fail(file, `(k) generated block ${m[1]}:${m[2]} differs from what guide:gen writes`);
+        if (want === undefined)
+          fail(file, `(k) generated block ${m[1]}:${m[2]} has no entry in blocks.json`);
+        else if (m[3].trim() !== want.trim())
+          fail(file, `(k) generated block ${m[1]}:${m[2]} differs from what guide:gen writes`);
       }
 
       // ---- (m) anchor ids ------------------------------------------------
       const ids = anchorIds(pg.body);
       // help/ pages (glossary, ...) are reference pages, not task pages
       if (done(pg) && !p.startsWith('help/')) {
-        for (const id of REQUIRED_IDS) if (!ids.includes(id)) fail(file, `(m) missing required anchor id "${id}"`);
+        for (const id of REQUIRED_IDS)
+          if (!ids.includes(id)) fail(file, `(m) missing required anchor id "${id}"`);
         const other = pages[lang === 'bn' ? 'en' : 'bn'].get(p);
         if (lang === 'bn' && other && sortedKey(ids) !== sortedKey(anchorIds(other.body)))
           fail(file, '(m) bn and en pages have different anchor ids');
@@ -183,31 +229,44 @@ export function check(root = '.', { today = new Date() } = {}) {
       // ---- (n) entry vs #arrive -----------------------------------------
       const entry = pg.fm.entry ?? [];
       const hasArrive = ids.includes('arrive');
-      if (entry.some((e) => e !== 'sidebar' && e !== 'palette') && !hasArrive) fail(file, '(n) entry lists more than sidebar/palette but there is no #arrive heading');
-      if (hasArrive && entry.length === 0) fail(file, '(n) #arrive exists but entry is missing in guide:meta');
+      if (entry.some((e) => e !== 'sidebar' && e !== 'palette') && !hasArrive)
+        fail(file, '(n) entry lists more than sidebar/palette but there is no #arrive heading');
+      if (hasArrive && entry.length === 0)
+        fail(file, '(n) #arrive exists but entry is missing in guide:meta');
 
       // ---- (o) bolded page title without a link (D46) -------------------
       if (done(pg) && !p.startsWith('portal/'))
         for (const m of text.matchAll(/(\[\s*)?\*\*([^*\n]+)\*\*/g)) {
           const hit = titles.find((t) => t.p !== p && t.title === m[2].trim());
-          if (hit && !m[1]) fail(file, `(o) bolds the title of page "${hit.title}" without linking it`);
+          if (hit && !m[1])
+            fail(file, `(o) bolds the title of page "${hit.title}" without linking it`);
         }
 
       // ---- (p) related pages link back (D46) ----------------------------
       const related = pg.body.match(RELATED);
       if (related) {
         for (const t of relatedLinks(pg.body)) {
-          const targetRel = path.relative(path.join(guide, lang), path.join(path.dirname(pg.file), t.split('#')[0]));
+          const targetRel = path.relative(
+            path.join(guide, lang),
+            path.join(path.dirname(pg.file), t.split('#')[0]),
+          );
           const back = pages[lang].get(targetRel);
           if (!back) continue; // a broken or non-guide target is (d)'s job
-          const backs = relatedLinks(back.body).some((b) => path.relative(path.join(guide, lang), path.join(path.dirname(back.file), b.split('#')[0])) === p);
+          const backs = relatedLinks(back.body).some(
+            (b) =>
+              path.relative(
+                path.join(guide, lang),
+                path.join(path.dirname(back.file), b.split('#')[0]),
+              ) === p,
+          );
           if (!backs) fail(file, `(p) related link ${t} does not link back`);
         }
       }
 
       // ---- (q) warnings ---------------------------------------------------
       for (const k of pg.fm.knownIssues ?? []) {
-        if (k.checked && today - new Date(k.checked) > 30 * DAY) warn(file, `knownIssues "${k.id}" last checked ${k.checked}, over 30 days ago`);
+        if (k.checked && today - new Date(k.checked) > 30 * DAY)
+          warn(file, `knownIssues "${k.id}" last checked ${k.checked}, over 30 days ago`);
         if (k.issue == null && done(pg)) warn(file, `knownIssues "${k.id}" has no issue number`);
       }
     }
@@ -228,15 +287,18 @@ export function check(root = '.', { today = new Date() } = {}) {
     const svg = path.join(guide, m[2], sectionOf(m[2], m[1]), 'diagrams', `${m[1]}.svg`);
     const want = sha1(readFileSync(path.join(srcDir, f), 'utf8'));
     if (!existsSync(svg)) fail(rel(path.join(srcDir, f)), `(g) no rendered svg at ${rel(svg)}`);
-    else if (readFileSync(svg, 'utf8').match(/<!-- src:([0-9a-f]+) -->/)?.[1] !== want) fail(rel(svg), '(g) svg is stale: its .mmd source changed; run render-diagrams');
+    else if (readFileSync(svg, 'utf8').match(/<!-- src:([0-9a-f]+) -->/)?.[1] !== want)
+      fail(rel(svg), '(g) svg is stale: its .mmd source changed; run render-diagrams');
   }
 
   // ---- (h) guide media size (other docs/ images are not ours), (i) no video under docs/ ----
   for (const f of walk(path.join(root, 'docs'))) {
     const size = statSync(f).size;
     const inGuide = f.startsWith(guide + path.sep);
-    if (inGuide && /\.png$/i.test(f) && size > 300 * 1024) fail(rel(f), `(h) png is ${Math.round(size / 1024)} KB, limit 300 KB`);
-    if (inGuide && /\.gif$/i.test(f) && size > 2 * 1024 * 1024) fail(rel(f), `(h) gif is ${Math.round(size / 1024)} KB, limit 2048 KB`);
+    if (inGuide && /\.png$/i.test(f) && size > 300 * 1024)
+      fail(rel(f), `(h) png is ${Math.round(size / 1024)} KB, limit 300 KB`);
+    if (inGuide && /\.gif$/i.test(f) && size > 2 * 1024 * 1024)
+      fail(rel(f), `(h) gif is ${Math.round(size / 1024)} KB, limit 2048 KB`);
     if (/\.(mp4|mov|webm)$/i.test(f)) fail(rel(f), '(i) video files are not allowed under docs/');
   }
 
@@ -248,11 +310,16 @@ export function check(root = '.', { today = new Date() } = {}) {
   if (features && existsSync(manifestFile)) {
     // A feature owns its routes and every sub-route under them (detail pages, `$id` params).
     const owned = features.flatMap((f) => [...(f.routes ?? []), f.route].filter(Boolean));
-    const mapped = { has: (r) => owned.some((o) => r === o || (o !== '/' && r.startsWith(o + '/'))) };
+    const mapped = {
+      has: (r) => owned.some((o) => r === o || (o !== '/' && r.startsWith(o + '/'))),
+    };
     for (const { path: route } of readJson(manifestFile).routes) {
       if (mapped.has(route)) continue;
       if (/^internal: ./.test(routeMap[route] ?? '')) continue;
-      fail('e2e/route-manifest.json', `(l) route ${route} maps to no feature and has no "internal:" entry in route-map.json`);
+      fail(
+        'e2e/route-manifest.json',
+        `(l) route ${route} maps to no feature and has no "internal:" entry in route-map.json`,
+      );
     }
   }
 

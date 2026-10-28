@@ -13,6 +13,7 @@ import {
   ConfirmDialog,
   DataTable,
   DatePicker,
+  HelpHint,
   Input,
   Label,
   Select,
@@ -372,15 +373,18 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
                 aria-label={t('schedulePanel.columnEndsAt')}
               />
             </div>
-            <Button
-              type="submit"
-              variant="outline"
-              className="w-full md:col-span-1"
-              loading={createSchedule.isPending}
-              disabled={!addSubjectId || !addDate}
-            >
-              {t('schedulePanel.add')}
-            </Button>
+            <div className="flex items-center gap-1 md:col-span-1">
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full"
+                loading={createSchedule.isPending}
+                disabled={!addSubjectId || !addDate}
+              >
+                {t('schedulePanel.add')}
+              </Button>
+              <HelpHint helpId="examsResults.exams.action.addSchedule" />
+            </div>
           </div>
         </form>
       )}

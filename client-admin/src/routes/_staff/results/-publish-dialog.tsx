@@ -25,6 +25,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import {
   useExamCertificates,
@@ -61,7 +62,10 @@ export function PublishDialog({ open, onOpenChange, examId, resultCount }: Publi
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
-          <DialogTitle>{t('publishDialog.title')}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('publishDialog.title')}</DialogTitle>
+            <HelpHint helpId="examsResults.results.action.publish" />
+          </div>
           <DialogDescription>
             {tg('resultsPage.publishDescription', { n: formatNumber(resultCount, config) })}
           </DialogDescription>
@@ -179,7 +183,10 @@ export function ReopenPreviewDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
-          <DialogTitle>{t('reopenDialog.title')}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('reopenDialog.title')}</DialogTitle>
+            <HelpHint helpId="examsResults.results.action.reopen" />
+          </div>
           <DialogDescription>
             {tg('resultsPage.reopenImpact', { n: formatNumber(resultCount, config) })}
           </DialogDescription>

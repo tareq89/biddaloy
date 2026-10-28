@@ -77,6 +77,6 @@ export function Stepper({ steps, current, progressLabel, label, className }: Ste
   );
 }
 
-/** Kept so the register card and wizards that import the old name do not change. */
+/** @alias Kept so the register card and wizards that import the old name do not change. */
 export const StepIndicator = Stepper;
 export type StepIndicatorProps = StepperProps;

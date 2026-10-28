@@ -3,7 +3,7 @@ import { cleanupTestState, renderWithRouter, server, userEvent } from '@biddaloy
 import { tenantTodayIso } from '@biddaloy/ui/utils';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -57,7 +57,23 @@ const pinEnglishRegion = http.get('/api/v1/schools/:schoolId/settings', () =>
 
 describe('/attendance/register', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
+  });
+
+  it('shows a (?) after the Print header action [44.3.06]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/register'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'No section picked yet' });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(
+      document.querySelector('[data-help-id="attendance.attendanceRegister.action.print"]'),
+    ).not.toBeNull();
   });
 
   it('prompts for a section instead of fetching anything when none is selected', async () => {

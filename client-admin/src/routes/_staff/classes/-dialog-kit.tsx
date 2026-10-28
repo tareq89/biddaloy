@@ -13,6 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { CircleAlertIcon, Trash2Icon } from 'lucide-react';
@@ -55,27 +56,32 @@ export function Field({
   id,
   label,
   required,
+  helpId,
   children,
 }: {
   id: string;
   label: string;
   required?: boolean;
+  helpId?: string;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation('common');
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-label text-text-primary">
-        {label}
-        {required && (
-          <>
-            <span className="text-destructive" aria-hidden="true">
-              *
-            </span>
-            <span className="sr-only">{t('form.required')}</span>
-          </>
-        )}
-      </label>
+      <span className="inline-flex items-center gap-1">
+        <label htmlFor={id} className="text-label text-text-primary">
+          {label}
+          {required && (
+            <>
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+              <span className="sr-only">{t('form.required')}</span>
+            </>
+          )}
+        </label>
+        {helpId && <HelpHint helpId={helpId} />}
+      </span>
       {children}
     </div>
   );

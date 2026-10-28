@@ -5,6 +5,7 @@
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  HelpHint,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -143,10 +144,13 @@ export function IncidentsTab({ userId }: IncidentsTabProps) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-h2">{t('incident.title')}</h2>
         {canWrite && (
-          <Button type="button" variant="outline" onClick={() => setReportOpen(true)}>
-            <FlagIcon aria-hidden="true" />
-            {t('incident.report')}
-          </Button>
+          <span className="inline-flex items-center gap-1">
+            <Button type="button" variant="outline" onClick={() => setReportOpen(true)}>
+              <FlagIcon aria-hidden="true" />
+              {t('incident.report')}
+            </Button>
+            <HelpHint helpId="people.evaluations.action.reportIncident" />
+          </span>
         )}
       </div>
       <div className="mt-4">

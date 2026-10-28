@@ -19,6 +19,7 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  HelpHint,
   RoutePending,
   Skeleton,
   StatusBadge,
@@ -366,15 +367,18 @@ function PortalRoutineDays({
   return (
     <Card className="overflow-hidden p-0">
       <Tabs value={selectedDate} onValueChange={setSelectedDate} className="gap-0">
-        <TabsList variant="line" aria-label={tRoutines('agenda.daySwitcherLabel')}>
-          {days.map((day) => (
-            <TabsTrigger key={day.date} value={day.date} className="h-11 flex-none px-3 md:h-10">
-              {day.isToday
-                ? tCommon('date.today')
-                : `${day.weekdayLabel} ${formatNumber(parseServerDate(day.date).getDate(), config)}`}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="flex items-center gap-1 pr-2">
+          <TabsList variant="line" aria-label={tRoutines('agenda.daySwitcherLabel')}>
+            {days.map((day) => (
+              <TabsTrigger key={day.date} value={day.date} className="h-11 flex-none px-3 md:h-10">
+                {day.isToday
+                  ? tCommon('date.today')
+                  : `${day.weekdayLabel} ${formatNumber(parseServerDate(day.date).getDate(), config)}`}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <HelpHint helpId="portal.routine.action.pickDay" />
+        </div>
         {days.map((day) => (
           <TabsContent key={day.date} value={day.date} className="p-4 md:p-5">
             <h2 className="text-h2">

@@ -101,7 +101,7 @@ and `roles`.
 
 ### Ids and paths
 
-- helpId grammar: `<feature>`, `<feature>.action.<name>`, `<feature>.field.<name>`, `<feature>.section.<name>`, `widget.<widgetKey>`.
+- helpId grammar: `<feature>`, `<feature>.action.<name>`, `<feature>.field.<name>`, `<feature>.section.<name>`, `widget.<widgetKey>`; a `helpIds` entry may add `#<anchor>` (E20). Details: [In-app help](#in-app-help-epic-44).
 - URL slugs are English kebab case in **both** languages (D27).
 - The feature id maps to a path through `docs/user-guide/_generated/features.json` _(planned, 42.1.04)_.
 
@@ -234,13 +234,238 @@ flowchart LR
 
 Screenshots, GIFs and diagrams only. There is no video and no narration (D48).
 
-| What                 | Command                                                                                                                   | Needs                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Diagrams             | `yarn guide:diagrams [name-prefix]`                    | `mmdc` (`MMDC` env) or `npx -p @mermaid-js/mermaid-cli mmdc`; `PUPPETEER_CONFIG` for an installed Chrome |
+| What                 | Command                                                                                                   | Needs                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Diagrams             | `yarn guide:diagrams [name-prefix]`                                                                       | `mmdc` (`MMDC` env) or `npx -p @mermaid-js/mermaid-cli mmdc`; `PUPPETEER_CONFIG` for an installed Chrome |
 | Screenshots and GIFs | `yarn guide:shoot <feature>`: runs `e2e/docs/tours/<feature>.tour.ts` through `playwright.docs.config.ts` | the demo school (Epic 58), Playwright                                                                    |
 
 A tour never uses fake data. If the demo school lacks what a tour needs, open a
 follow-up on Epic 58.
+
+## In-app help (Epic 44)
+
+The small round **(?)** sits next to a page title, a button, a field or a
+section header. Hover, click, tap, Enter or Space opens a short card: the guide page's
+summary (or the field's help text) and a link that opens **this guide** at the
+right spot, in the user's language, in a new tab.
+
+### How an id becomes a (?)
+
+```mermaid
+flowchart LR
+  META["guide:meta in the bn + en page<br/>helpIds: [..., attendance.attendance.action.submit]"] -->|yarn guide:gen| IDX["client-admin/src/help/help-index.gen.ts<br/>HELP_INDEX · HELP_ROUTES · HELP_GAPS"]
+  IDX --> CODE["code passes the id:<br/>helpId prop or &lt;HelpHint helpId=… /&gt;"]
+  CODE -->|"VITE_HANDBOOK_URL set at build"| BTN["(?) button with data-help-id<br/>card links into the guide"]
+  BTN -->|"capture hides [data-help-id]"| SHOT["guide screenshots"]
+  IDX --> GUARD{{"help-guard.test.ts<br/>ids in code ⇄ ids in guide"}}
+  CODE --> GUARD
+  UNW["help-unwired.ts<br/>id → #issue"] --> GUARD
+```
+
+### helpId grammar and where the link lands
+
+An id is the page's feature id plus an optional kind and name. Without a
+suffix, the link goes to the default spot for its kind (E10):
+
+| Shape                      | Example                                                                   | The card links to                                    |
+| -------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `<feature>`                | `attendance.attendance`                                                   | the page top                                         |
+| `<feature>.action.<name>`  | `attendance.attendance.action.submit`                                     | `#task-main`                                         |
+| `<feature>.section.<name>` | `people.admissionIntakes.section.status` (declared, not wired yet: #3079) | `#task-main`                                         |
+| `<feature>.field.<name>`   | `finance.feeStructures.field.amount`                                      | `#more`; the card text is the i18n key `help.<name>` |
+| `widget.<key>`             | `widget.attendance-today`                                                 | `dashboard/widgets#widget.attendance-today`          |
+
+**`#anchor` suffix (E20).** In `helpIds` an entry may name its own section.
+No page uses a suffix yet; for example
+`attendance.attendance.action.fix#task-fix`. The index keeps the id without
+the suffix and stores `anchor: 'task-fix'`; code still writes
+`helpId="attendance.attendance.action.fix"`. `guide:check` fails a suffix that
+is not an `id="…"` on the page (bn and en share anchors, D44).
+
+A page with `knownIssues` also gets a "Known issues →" link to `#known-issues`.
+
+### One real example: `attendance.attendance.action.submit`
+
+1. **Guide.** `docs/user-guide/bn/attendance/attendance.md` and the en page list
+   it in `helpIds` (same list in both).
+2. **`yarn guide:gen`** writes this entry into `help-index.gen.ts`:
+
+   ```ts
+   'attendance.attendance.action.submit': {
+     title: { bn: 'উপস্থিতি নেওয়া', en: 'Taking attendance' },
+     summary: { bn: '…', en: "Take your section's attendance, mark late arrivals and leave, and fix mistakes." },
+     path: 'attendance/attendance',
+     anchor: 'task-main',   // E10 default for .action.
+     knownIssues: 3,
+   },
+   ```
+
+3. **Code.** `client-admin/src/routes/_staff/attendance/$sectionId.tsx` puts it
+   right after the Submit button, in the same row:
+
+   ```tsx
+   <Button type="submit">…</Button>
+   <HelpHint helpId="attendance.attendance.action.submit" />
+   ```
+
+4. **Result.** With `VITE_HANDBOOK_URL=https://schoolmanagerp.gitbook.io/schoolmanagerp-docs`
+   and the app in Bangla, the card links to
+   `https://schoolmanagerp.gitbook.io/schoolmanagerp-docs/bn/attendance/attendance#task-main`,
+   plus "Known issues →" to `…/attendance#known-issues`. In English the
+   button's accessible name is "Help: Taking attendance".
+
+### How a new page, button or field gets its (?)
+
+1. **Declare** the id in `helpIds` of the page's `guide:meta`, bn and en.
+   A field also needs `help.<name>` in bn and en of
+   `ui/src/i18n/locales/<lang>/<ns>.json`, where `<ns>` is the page's
+   `<!-- guide:generated:fields:<ns> -->` marker.
+2. **Run `yarn guide:gen`** and commit `help-index.gen.ts`. Never edit it by hand.
+3. **Wire the prop** where the guide says the element is (placement rules:
+   [21-ui-patterns §10](21-ui-patterns.md#helphint-placement), D18):
+   - page title: nothing to do. `PageHeader` finds the page id from the route
+     (`HELP_ROUTES`, E15);
+   - header action that `PageHeader` shows inline (primary, the first two
+     secondaries, or a lone destructive): `helpId` on the `PageAction`. An
+     action in the More menu gets no (?): list its id in `help-unwired.ts` (#3078);
+   - field: `helpId` on its `FormField`;
+   - any other button, or a section header: `<HelpHint helpId="…" />` right after it.
+4. **Check:** `npx vitest run client-admin/src/help/` and `yarn guide:check`.
+
+New code uses `HelpHint` and the generated index only (D36). No hand-written
+links into the guide.
+
+### The guard and `help-unwired.ts`
+
+`client-admin/src/help/help-guard.test.ts` keeps code and guide in step, **both
+ways** (E6, strict since 44.3.12):
+
+| Check             | Fails when                                                                                                                                                                                                                                                                                                                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| code → guide      | a `helpId` literal in code is not in `HELP_INDEX`                                                                                                                                                                                                                                                                                              |
+| guide → code      | a declared id (indexed, or skipped into `HELP_GAPS`) that is not a page id or `widget.*` is not used in code and not in `help-unwired.ts`. Blind spots: a `helpId` on a More-menu action counts as used, though no (?) renders (#3078); and the guard cannot tell which actions go to the More menu when that depends on `allowed` at run time |
+| grammar           | an index id is not `<feature>`, `<feature>.action\|field\|section.<name>` or `widget.<key>`, bar the 16 `administration.settings.*` ids listed under #3148                                                                                                                                                                                     |
+| widgets           | the `widget.*` ids differ from the `dashboard/widgets/*/<key>.widget.tsx` files (WidgetSlot wires them through context, E23, so code has no literal)                                                                                                                                                                                           |
+| `help-unwired.ts` | an id is used in code, is not in the guide, or its reason is not `#<issue>: …` (the E11 reason is allowed only on sign-in and create-school ids)                                                                                                                                                                                               |
+| fields            | a `.field.` id has no non-blank `help.<name>` in bn and en                                                                                                                                                                                                                                                                                     |
+| baselines         | `HELP_GAPS`, missing anchors or missing `known-issues` sections differ from their checked-in lists (shrink-only)                                                                                                                                                                                                                               |
+
+The guard reads literals only: `helpId="x"`, `helpId={'x'}` and `helpId: 'x'`.
+An id built from a variable is invisible to it, and a literal inside a comment
+counts as used.
+
+`client-admin/src/help/help-unwired.ts` is the only allowlist: id → reason.
+A reason is either an **issue number** (`'#3078: header More-menu item has no (?) slot'`)
+or `E11: public page, no shell` (sign-in, create-school: no (?) by design). The
+guard checks the format only, not that the issue is still open. The issue that
+wires an id deletes its line. Nothing ties a closed issue to its lines, so a PR
+that says `Closes #3143` but wires only some of its ids still passes: the
+reviewer checks that no line names the issue being closed.
+
+### The gap rule (E19, #3017 = 44.4.00)
+
+Two kinds of gap, both tracked under #3017 (one sub-issue each):
+
+- **A spot needs a (?) but the guide has no id for it.** File
+  `[44.4.nn] guide gap — <page>: <what>` (new page, or section of an existing
+  page). Add no `helpId` yet.
+- **The guide declares an id but the element has no slot** (no button, a menu
+  item, a `ui/` component without `helpId`). File a page-fix issue and add the
+  id to `help-unwired.ts` with that issue number.
+
+Never add a `helpId` the guide does not declare, and never leave a gap in PR
+notes. When the gap's page lands: write bn, then en, declare the id, run
+`yarn guide:gen`, wire it, delete its `help-unwired.ts` line. #3017 closes when
+`help-unwired.ts` holds only E11 lines.
+
+### Video (E21, waits for Epic 85)
+
+The index already has an optional `video` per language, read from
+`docs/user-guide/media-manifest.json` when that file exists. Today it does not
+(D48: no video in this release). When Epic 85 (#2837) adds the file, the card
+shows "ভিডিও দেখুন · m:ss" as a YouTube link; no code change is needed. A story
+and a test already cover that state.
+
+### Learning
+
+Each bullet: surprise, cost, fix, rule candidate.
+
+- **2026-10-27 — the guide's real data did not match the ticket.** 54
+  `.field.` ids have no `help.<key>` in the page's `fields:<ns>` namespace, and 9
+  ids are declared on more than one page (all under
+  `administration.printTemplates.*`, 14 extra declarations). Cost: a strict
+  generator would have made `yarn guide:gen` unusable. Fix: the generator skips
+  the offender, lists it in `HELP_GAPS` (68 messages), and a checked-in
+  `KNOWN_GAPS` baseline of those whole messages fails on any new gap, fixed gap,
+  or added or removed duplicate declaration. Rule
+  candidate: check a new generator against the real tree before making it strict.
+- **2026-10-27 — focus-open broke keyboard use.** Opening the card on focus
+  meant Tab could never reach the card's links and Enter toggled the card shut.
+  Fix: Enter, Space and click open it, and a keyboard open moves focus to the
+  "গাইড দেখুন" link; hover keeps its 300 ms / 200 ms timers. This changes E1.
+  Rule candidate: review a popover's keyboard path before wiring it to focus.
+- **2026-10-27 — the capture hide lives in `capture.ts`.** The ticket named
+  `overlays.ts`, but the style injected for every shot and GIF is in `prepare()`
+  in `capture.ts`, next to the demo-ribbon rule. The `[data-help-id]` hide went
+  there.
+- **2026-10-27 — the generated index is not visible to `git status` until it is
+  committed**, so "run `guide:gen` twice, no diff" must be checked through the
+  golden test, not `git status`.
+- **2026-10-27 — the Vite build, not the browser, needs the handbook URL.**
+  `VITE_HANDBOOK_URL` is inlined at build time, so the e2e job sets it on the
+  step that builds client-admin (`yarn e2e:serve:client`). A build without it
+  hides every (?) and F1 on purpose (E4), so an e2e that finds no (?) usually
+  means a missing build variable. The Dockerfile and deploy files carry no
+  `VITE_*` build argument yet; #3045 wires one for production. For local dev the
+  variable goes in `client-admin/.env` (copy `client-admin/.env.example`): Vite
+  reads env files from `client-admin/`, not the repo root.
+- **2026-10-27 — widget help is wired through context, not 39 widget files.**
+  `WidgetSlot` sets a `widget.<key>` id and `WidgetCard` reads it, so the
+  unused-id check in `help-guard.test.ts` cannot see those ids in code.
+  44.3.12 exempts `widget.*` from that check and instead matches the `widget.*`
+  ids one to one against the `*.widget.tsx` files.
+- **2026-10-28 — a helpId on a More-menu action renders nothing.** `PageHeader`
+  moves tertiary actions, secondaries after the second, and a destructive that
+  is not alone into the "More" menu, and a menu item
+  has no (?). The id is still a literal in code, so the guard counted it as
+  wired while no user could see it. Cost: dead ids that looked done. Fix: such
+  ids sit in `help-unwired.ts` under #3078 instead of in code. Rule candidate:
+  give `helpId` only to an action `PageHeader` shows inline (primary, the first
+  two secondaries, or a lone destructive).
+- **2026-10-28 — every new (?) broke older e2e locators.** The (?) is a button
+  named "Help: <page title>", so `getByRole('button', { name: /record payment/i })`
+  or any substring name now matches two buttons and Playwright's strict mode
+  fails. Each retrofit wave paid a CI round for it. Fix: `exact: true`, or add
+  `.and(page.locator(':not([data-help-id])'))`; `tabUntilFocused` in
+  `e2e/keyboard/keyboard-utils.ts` skips `[data-help-id]`. Rule candidate: a
+  PR that adds a (?) greps `e2e/` for the neighbour's label first.
+- **2026-10-28 — e2e passes trivially without the handbook URL.** With no
+  `VITE_HANDBOOK_URL` at build time no (?) renders, so every spec that tabs
+  past or clicks around a (?) passes without testing the new case. Fix: CI sets
+  it on the build step, and `e2e/help.spec.ts` expects a visible (?), so it
+  fails loudly when the variable is missing. Rule candidate: every local sweep
+  of (?) behaviour includes `e2e/help.spec.ts`.
+- **2026-10-28 — a "cancelled" e2e shard was not a test failure.** Shard 3/3
+  spends about 10 minutes on the Playwright apt download and hits the 20-minute
+  job timeout (#3085). Cost: reruns and time spent hunting a test that never
+  failed. Fix: read the cancelled job's step times before reading test output;
+  #3085 tracks caching the download. Rule candidate: a cancelled shard is an
+  infra signal until the log says otherwise.
+- **2026-10-28 — Radix put first focus on the (?).** A dialog's first field
+  label carries a (?), and Radix focuses the first tabbable element on open, so
+  focus landed on the (?) instead of the field. Fix: `DialogContent`
+  (`ui/src/primitives/dialog.tsx`) sets `tabindex="-1"` on `[data-help-id]` for
+  that one pick and removes it a microtask later. Cost for tests: right after
+  open the (?) briefly has `tabindex="-1"`, so a test waits for the attribute to
+  go before checking it. Rule candidate: a focus helper that is not a target
+  must never be the first tabbable element of a dialog.
+- **2026-10-28 — the guide → code check missed 16 ids.** It only looked at
+  `.action.` / `.field.` / `.section.` ids, so the settings page's
+  `administration.settings.logo` and 15 more (no kind in the id) were neither
+  wired nor listed. Fix: the check now covers every id except page and
+  `widget.*` ids, a grammar test pins the 16 to #3148, which renames or drops
+  them. Rule candidate: a completeness check names what it skips, not what it
+  checks, so an id of a new shape is checked by default.
 
 ## Related
 

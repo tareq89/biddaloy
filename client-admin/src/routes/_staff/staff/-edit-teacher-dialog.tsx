@@ -18,6 +18,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Input,
 } from '@biddaloy/ui/components';
 import { useUpdateTeacher, type Teacher } from '@biddaloy/ui/hooks';
@@ -115,7 +116,12 @@ export function EditTeacherDialog({ open, onOpenChange, teacher }: EditTeacherDi
           </div>
 
           <fieldset className="flex flex-col gap-1.5">
-            <legend className="text-sm font-medium">{t('teacherForm.designationsLabel')}</legend>
+            {/* The (?) sits outside the legend so it stays out of the group's name. */}
+            <legend className="sr-only">{t('teacherForm.designationsLabel')}</legend>
+            <div className="flex items-center gap-1 text-sm font-medium">
+              <span aria-hidden="true">{t('teacherForm.designationsLabel')}</span>
+              <HelpHint helpId="people.staff.field.designations" />
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {Object.values(TeacherDesignation).map((designation) => (
                 <div key={designation} className="flex items-center gap-2">

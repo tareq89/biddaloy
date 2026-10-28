@@ -28,6 +28,7 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
+  HelpHint,
   Label,
   RoutePending,
   Select,
@@ -214,17 +215,20 @@ function TeachingAssignmentsPage() {
                       {t('list.sectionTitle', { name: section.section_name })}
                     </h2>
                     {canManage && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setAssignSectionId(section.id);
-                          setAssignOpen(true);
-                        }}
-                      >
-                        <UserPlusIcon aria-hidden="true" />
-                        {t('list.assign')}
-                      </Button>
+                      <span className="inline-flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setAssignSectionId(section.id);
+                            setAssignOpen(true);
+                          }}
+                        >
+                          <UserPlusIcon aria-hidden="true" />
+                          {t('list.assign')}
+                        </Button>
+                        <HelpHint helpId="people.teachingAssignments.action.assign" />
+                      </span>
                     )}
                   </div>
                   {q?.isError ? (

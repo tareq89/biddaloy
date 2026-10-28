@@ -22,6 +22,7 @@ import {
   Button,
   ConfirmDialog,
   ErrorState,
+  HelpHint,
   Input,
   Label,
   MoneyInput,
@@ -709,7 +710,10 @@ export function RecordPaymentModal({
               <p className="text-text-secondary">{t('record.sections.billsHelp')}</p>
             </div>
             <div className="flex flex-col gap-1.5 md:w-56">
-              <Label htmlFor={amountId}>{t('record.amountReceived.label')}</Label>
+              <span className="inline-flex items-center gap-1">
+                <Label htmlFor={amountId}>{t('record.amountReceived.label')}</Label>
+                <HelpHint helpId="finance.recordPayment.field.amountReceived" />
+              </span>
               <MoneyInput
                 id={amountId}
                 config={config}
@@ -750,7 +754,10 @@ export function RecordPaymentModal({
         </section>
 
         <section className={`${CARD_CLASS} flex flex-col gap-4 p-4 md:p-5`}>
-          <h2 className="text-h3">{t('record.sections.money')}</h2>
+          <div className="flex items-center gap-1">
+            <h2 className="text-h3">{t('record.sections.money')}</h2>
+            <HelpHint helpId="finance.recordPayment.action.submit" />
+          </div>
 
           <div className="flex flex-col gap-2">
             <span id={methodLegendId} className="text-sm font-medium">

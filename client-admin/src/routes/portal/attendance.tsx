@@ -4,6 +4,7 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  HelpHint,
   RoutePending,
   Skeleton,
   StatusBadge,
@@ -210,6 +211,13 @@ function PortalAttendance() {
       <SummaryCard summary={summaryQuery.data} month={search.month} config={config} t={t} />
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
         <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center justify-end gap-1">
+            <HelpHint helpId="portal.attendance.action.pickDay" label={t('helpLabels.pickDay')} />
+            <HelpHint
+              helpId="portal.attendance.action.changeMonth"
+              label={t('helpLabels.changeMonth')}
+            />
+          </div>
           <AttendanceMonthGrid
             month={search.month}
             days={days}
