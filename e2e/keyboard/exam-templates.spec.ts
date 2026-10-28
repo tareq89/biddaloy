@@ -90,25 +90,18 @@ test('create a template, fill the grid, save, then create an exam from it', asyn
     await page.keyboard.press('Enter');
   });
 
-  const cell = (column: string, row: number) =>
-    page.getByRole('textbox', {
-      name: t('examTemplates.grid.cellLabel', {
-        column: t(column),
-        subject: `${subjectCode} — ${subjectName}`,
-        grade,
-        row,
-      }),
+  const cellName = (column: string, row: number) =>
+    t('examTemplates.grid.cellLabel', {
+      column: t(column),
+      subject: `${subjectCode} — ${subjectName}`,
+      grade,
+      row,
     });
+  const cell = (column: string, row: number) =>
+    page.getByRole('textbox', { name: cellName(column, row) });
 
   const kindSelect = (row: number) =>
-    page.getByRole('combobox', {
-      name: t('examTemplates.grid.cellLabel', {
-        column: t('examTemplates.grid.columnKind'),
-        subject: `${subjectCode} — ${subjectName}`,
-        grade,
-        row,
-      }),
-    });
+    page.getByRole('combobox', { name: cellName('examTemplates.grid.columnKind', row) });
 
   await test.step('row 1 by Tab; Enter in the last pass cell appends row 2', async () => {
     // Adding a subject focuses its first component's name field.
@@ -118,7 +111,8 @@ test('create a template, fill the grid, save, then create an exam from it', asyn
     await page.keyboard.press('Tab');
     await expect(cell('examTemplates.grid.columnFull', 1)).toBeFocused();
     await page.keyboard.type('70');
-    await page.keyboard.press('Tab');
+    // Row 1 carries each column's help (?) after its cell (Epic 44), so Tab may stop on it first.
+    await tabUntilFocused(page, cellName('examTemplates.grid.columnPass', 1), 3, { exact: true });
     await page.keyboard.type('23');
     await page.keyboard.press('Enter');
 

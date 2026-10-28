@@ -37,6 +37,7 @@ import {
   CommandPalette,
   type CommandPaletteTab,
   type GlobalSearchGroup,
+  HelpHint,
   ShortcutsSheet,
   useHelp,
 } from '@biddaloy/ui/components';
@@ -459,22 +460,26 @@ export function CommandPaletteLauncher({
        * this collapses to an icon-only square below `md` instead of
        * hiding, and why it stays a single element with a fixed
        * `aria-label` rather than a hidden/shown pair. */}
-      <Button
-        ref={triggerRef}
-        type="button"
-        variant="outline"
-        onClick={() => setOpen(true)}
-        aria-label={t('commandPalette.buttonLabel')}
-        className="inline-flex h-[var(--control-h,2rem)] w-[var(--control-h,2rem)] items-center justify-center gap-2 rounded-md border-input px-0 font-normal text-muted-foreground md:w-56 md:justify-start md:px-2"
-      >
-        <SearchIcon className="size-4 shrink-0" aria-hidden="true" />
-        <span className="hidden flex-1 truncate text-start md:inline">
-          {t('commandPalette.launcherPlaceholder')}
-        </span>
-        <span className="hidden shrink-0 text-xs md:inline">
-          {t('commandPalette.shortcutHint')}
-        </span>
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="outline"
+          onClick={() => setOpen(true)}
+          aria-label={t('commandPalette.buttonLabel')}
+          className="inline-flex h-[var(--control-h,2rem)] w-[var(--control-h,2rem)] items-center justify-center gap-2 rounded-md border-input px-0 font-normal text-muted-foreground md:w-56 md:justify-start md:px-2"
+        >
+          <SearchIcon className="size-4 shrink-0" aria-hidden="true" />
+          <span className="hidden flex-1 truncate text-start md:inline">
+            {t('commandPalette.launcherPlaceholder')}
+          </span>
+          <span className="hidden shrink-0 text-xs md:inline">
+            {t('commandPalette.shortcutHint')}
+          </span>
+        </Button>
+        {/* Desktop only: the phone header row holds exactly menu, search, bell, account (D12). */}
+        <HelpHint helpId="start.findAnything.action.open" className="hidden md:inline-flex" />
+      </span>
       <CommandPalette
         open={open}
         onOpenChange={setOpen}
