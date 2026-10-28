@@ -481,6 +481,17 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/my-class?then=attendance' }),
   },
+  // [84.3.6] Lands on the My class card (`?then=arrival` focuses it). The permission is
+  // stricter than the route's MY_CLASS_VIEW; both must hold (see `ROUTE_PERMISSION_EXCEPTIONS`).
+  {
+    id: 'arrival-notice.requests',
+    label: { en: 'Arrival notice requests', bn: 'আগমনের বার্তার অনুরোধ' },
+    permission: Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE,
+    alsoRequires: [Permission.MY_CLASS_VIEW],
+    kind: 'navigate',
+    group: 'academics',
+    run: (ctx) => ctx.navigate({ to: '/my-class?then=arrival' }),
+  },
   {
     id: 'routines.openMyRoutine',
     label: { en: 'Open my routine', bn: 'আমার রুটিন খুলুন' },

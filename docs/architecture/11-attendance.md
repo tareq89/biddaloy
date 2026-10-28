@@ -307,16 +307,16 @@ field included, but not while one of these dialogs is open. The palette reaches 
 
 ## 4. The correction rules
 
-| Situation                                                                 | Who                                                            | Requires                              |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------- |
-| Marking today's register for the first time                               | Any caller with section access                                 | Nothing extra                         |
-| Editing a register inside the tenant's correction window (default 2 days) | Any caller with section access                                 | Nothing extra                         |
-| Editing a register **outside** the window                                 | A caller holding `ATTENDANCE_CORRECT`                          | A reason (≥ 3 characters)             |
-| Editing a **finalized** register                                          | A caller holding `ATTENDANCE_CORRECT`                          | A reason                              |
-| Marking a **future** date                                                 | A caller with section access, only if `allowFutureDates` is on | Status must be `LEAVE` — nothing else |
-| Marking a date **outside the section's academic year**                      | Nobody                                                         | 422 `ATTENDANCE_OUTSIDE_ACADEMIC_YEAR` |
-| Marking a non-working day (holiday/weekly-off)                            | A caller holding `ATTENDANCE_CORRECT`                          | `force_non_working_day: true`         |
-| Saving several days from the monthly grid                                 | Same rules, per day                                            | One reason for the whole save         |
+| Situation                                                                 | Who                                                            | Requires                               |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------- |
+| Marking today's register for the first time                               | Any caller with section access                                 | Nothing extra                          |
+| Editing a register inside the tenant's correction window (default 2 days) | Any caller with section access                                 | Nothing extra                          |
+| Editing a register **outside** the window                                 | A caller holding `ATTENDANCE_CORRECT`                          | A reason (≥ 3 characters)              |
+| Editing a **finalized** register                                          | A caller holding `ATTENDANCE_CORRECT`                          | A reason                               |
+| Marking a **future** date                                                 | A caller with section access, only if `allowFutureDates` is on | Status must be `LEAVE` — nothing else  |
+| Marking a date **outside the section's academic year**                    | Nobody                                                         | 422 `ATTENDANCE_OUTSIDE_ACADEMIC_YEAR` |
+| Marking a non-working day (holiday/weekly-off)                            | A caller holding `ATTENDANCE_CORRECT`                          | `force_non_working_day: true`          |
+| Saving several days from the monthly grid                                 | Same rules, per day                                            | One reason for the whole save          |
 
 Every correction that touches an existing mark writes an `audit_logs` row
 (`entity_type: 'AttendanceRecord'`, `old_values`, `new_values`, the reason)
@@ -836,6 +836,34 @@ the section). Response:
 roll number. `as_of_date` is `null` when the section has no day-session yet.
 The service loads at most the 15 newest sessions (the longest threshold).
 
+## 10a. Arrival notices (Epic 84)
+
+A guardian asks (or staff set it for them) to be told when their child is
+marked in. One row per (student, guardian) in `arrival_notice_subscriptions`.
+
+```mermaid
+flowchart LR
+  R[Register finalized / device punch] --> S[ACTIVE subscriptions of the present students]
+  S --> N[arrival-notice.service]
+  N --> L[communication_logs ARRIVAL_NOTICE<br/>reference_key dedupes the day]
+  L --> Q[queue]
+  Q --> W[processor]
+  W -->|channel PUSH| P[push]
+  W -->|channel SMS| M[SMS, spends credit]
+```
+
+Example: Anika's guardian is `ACTIVE`, channel `PUSH`. The class teacher
+finalizes 8-A at 08:20. One log
+`arrival:2026-10-12:<anika>:<guardian>` is queued and a push says
+"Anika is present today at 08:20 - Mrs Rahman". The gate reader says
+"reached school ... Main Gate Reader" instead (D12).
+
+Screens: the My class card (guardian requests, answer "once" or "every
+school day"), the register bell, and the two switches in Settings >
+Attendance policy. `Ctrl+K` "arrival" opens My class with the card in focus.
+The processor side is in
+[05-communications](05-communications.md#the-arrival-notice-branch-8413--d44).
+
 ## 11. What this epic deliberately did not build
 
 - **A period check-list** — "Pending" ([§3a](#3a-the-check-list-and-the-month-edit-screens))
@@ -892,3 +920,15 @@ no shared tables, no shared code, just the same status enum reused. See
   lives in `useIdempotencyKey` (see `reminders.ts`). Cost: a copied hook would
   have replayed an old key for a different body. Fix: `keyFor(body)` per mutation
   and `retry: false`. Rule candidate: new write hooks copy `reminders.ts`.
+- **2026-10-29 · Epic 84 W3 close — a palette action can be stricter than its route.**
+  Surprise: `arrival-notice.requests` needs `ATTENDANCE_ARRIVAL_NOTICE_MANAGE`
+  but lands on `/my-class`, gated by `MY_CLASS_VIEW`; the registry test demands
+  equal permissions. Cost: a red test for a correct design. Fix: keep the
+  stricter permission, list the id in `ROUTE_PERMISSION_EXCEPTIONS`, add
+  `alsoRequires` for the route gate. Rule candidate: a ticket that names a
+  stricter permission also names the exception list.
+- **2026-10-29 · Epic 84 W3 close — attendance records repeat a date per period.**
+  Surprise: a student can have several `attendance_records` for one day
+  (period sessions), so "last 10 present days" made duplicate `reference_key`s.
+  Cost: a unique-index crash in the demo seed. Fix: `SELECT DISTINCT` the date.
+  Rule candidate: day-level seed queries over `attendance_records` dedupe dates.

@@ -33,6 +33,7 @@ import { TeacherBusyService } from '../../../modules/routines/teacher-busy.servi
 import { DEMO_CARDS } from '../../../modules/demo/demo-accounts';
 import { createContext, type DemoSeedContext } from '../context';
 import { validate } from '../validator';
+import { arrivalLogs } from './comms-print';
 import { slice as org } from './org';
 import { slice as staff } from './staff';
 import { slice as students } from './students';
@@ -108,6 +109,7 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
     const t0 = Date.now();
     await slice.run(ctx);
     console.log(`attendance slice: ${Date.now() - t0} ms`);
+    await arrivalLogs(ctx); // [84.3.6] reads the subscriptions and records just seeded
   }, 600_000);
 
   afterAll(async () => {
@@ -261,6 +263,29 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
       `SELECT 100.0 * count(*) FILTER (WHERE status <> 'ABSENT') / count(*) AS "staffPct" FROM staff_attendance_records`,
     );
     expect(Number(staffPct)).toBeGreaterThan(94);
+  }, 120_000);
+
+  it('seeds sent arrival logs for ACTIVE subscriptions only (84.3.6)', async () => {
+    // Every ACTIVE subscription has 1..10 arrival logs; OFF and REQUESTED rows have none.
+    const per = await q(
+      `SELECT a.status, count(l.*)::int AS n
+         FROM arrival_notice_subscriptions a
+         LEFT JOIN communication_logs l ON l.trigger = 'ARRIVAL_NOTICE'
+          AND l.student_id = a.student_id AND l.guardian_id = a.guardian_id
+        GROUP BY a.id, a.status`,
+    );
+    const active = per.filter((r) => r.status === 'ACTIVE');
+    expect(active.length).toBeGreaterThan(0);
+    for (const r of active) {
+      expect(r.n).toBeGreaterThanOrEqual(1);
+      expect(r.n).toBeLessThanOrEqual(10);
+    }
+    for (const r of per.filter((r) => r.status !== 'ACTIVE')) expect(r.n).toBe(0);
+    const bad = await q(
+      `SELECT count(*)::int AS n FROM communication_logs
+        WHERE trigger = 'ARRIVAL_NOTICE' AND (status <> 'SENT' OR reference_key NOT LIKE 'arrival:%')`,
+    );
+    expect(bad[0].n).toBe(0);
   }, 120_000);
 
   it('seeds 15 arrival-notice subscriptions over 3 branches (D43)', async () => {

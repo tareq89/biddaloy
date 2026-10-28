@@ -88,7 +88,7 @@ export const slice: DemoSlice = {
       rows += await calendarTokens(ctx, tenant, org.adminUserId);
       rows += await printing(ctx, tenant, org.adminUserId);
     }
-    return rows;
+    return rows + (await arrivalLogs(ctx));
   },
 };
 
@@ -264,6 +264,110 @@ async function messages(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
     [tenant.id, CREDIT_FLOOR],
   );
   return rows + 1;
+}
+
+const BN_DIGITS = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+
+/**
+ * [84.3.6] Sent arrival messages for every ACTIVE subscription: one per school day (up to the
+ * last 10) the child was PRESENT or LATE. OFF / REQUESTED rows get none. The first branch is
+ * the one wired to the gate reader, so it gets the device wording; the others the teacher one.
+ * No `ctx.rng` draw: the minute is derived from the row, so later slices' random streams do
+ * not shift. SMS rows also spend a credit, so ledger and balance still agree.
+ */
+export async function arrivalLogs(ctx: DemoSeedContext): Promise<number> {
+  const subs: {
+    id: string;
+    tenant_id: string;
+    student_id: string;
+    guardian_id: string;
+    channel: string;
+    name: string;
+    guardian: string;
+    guardian_user_id: string | null;
+    phone: string | null;
+    setter: string | null;
+  }[] = await ctx.ds.query(
+    `SELECT a.id, a.tenant_id, a.student_id, a.guardian_id, a.channel,
+            COALESCE(st.full_name_bn, st.full_name) AS name, g.full_name AS guardian,
+            g.user_id AS guardian_user_id, g.phone, u.full_name AS setter
+       FROM arrival_notice_subscriptions a
+       JOIN students st ON st.id = a.student_id
+       JOIN guardians g ON g.id = a.guardian_id
+       LEFT JOIN users u ON u.id = a.set_by_user_id
+      WHERE a.status = 'ACTIVE' ORDER BY a.tenant_id, a.id`,
+  );
+  const firstBranch = orgIds(ctx).tenants[0].id;
+  const bn = (n: number) =>
+    String(n)
+      .padStart(2, '0')
+      .replace(/\d/g, (d) => BN_DIGITS[Number(d)]);
+  const logs: Record<string, unknown>[] = [];
+  const debits: { tenant: string; id: string; at: Date }[] = [];
+  for (const [i, sub] of subs.entries()) {
+    const days: { date: string }[] = await ctx.ds.query(
+      `SELECT DISTINCT to_char(date, 'YYYY-MM-DD') AS date FROM attendance_records
+        WHERE tenant_id = $1 AND student_id = $2 AND status IN ('PRESENT', 'LATE') AND date <= $3
+        ORDER BY 1 DESC LIMIT 10`,
+      [sub.tenant_id, sub.student_id, ctx.anchor],
+    );
+    const sms = sub.channel === 'SMS';
+    if (sms && !sub.phone) continue;
+    for (const [d, { date }] of days.entries()) {
+      const hh = 7 + ((i + d) % 2);
+      const mm = (i * 7 + d * 11) % 50;
+      const when = at(date, hh, 5 + mm);
+      const time = `${bn(hh)}:${bn(5 + mm)}`;
+      const body =
+        sub.tenant_id === firstBranch
+          ? `${sub.name} আজ ${time}-এ স্কুলে পৌঁছেছে — Main Gate Reader।`
+          : `${sub.name} আজ ${time}-এ উপস্থিত — ${sub.setter ?? 'অফিস'}।`;
+      const id = ctx.rng.string.uuid();
+      logs.push({
+        id,
+        tenant_id: sub.tenant_id,
+        medium: sms ? CommunicationMedium.SMS : 'PUSH',
+        recipient_address: sms ? sub.phone : `push:${sub.guardian_user_id ?? sub.guardian_id}`,
+        recipient_name: sub.guardian,
+        message_body: body,
+        subject: 'Arrival Notice',
+        status: CommunicationStatus.SENT,
+        trigger: CommunicationTrigger.ARRIVAL_NOTICE,
+        student_id: sub.student_id,
+        guardian_id: sub.guardian_id,
+        sent_by_user_id: null,
+        provider_message_id: `${DEMO_PROVIDER}-${id}`,
+        metadata: { provider: DEMO_PROVIDER, kind: 'ARRIVAL', subscription_id: sub.id },
+        reference_key: `arrival:${date}:${sub.student_id}:${sub.guardian_id}`,
+        created_at: when,
+        updated_at: when,
+      });
+      if (sms) debits.push({ tenant: sub.tenant_id, id, at: when });
+    }
+  }
+  if (!logs.length) return 0;
+  let rows = await insertChunked(ctx.ds.getRepository(CommunicationLog), logs as never);
+  rows += await insertChunked(
+    ctx.ds.getRepository(SmsCreditLedger),
+    debits.map((d) => ({
+      tenant_id: d.tenant,
+      kind: 'DEBIT',
+      units: 1,
+      reference_type: 'log',
+      reference_id: d.id,
+      idempotency_key: `demo-debit:${d.id}`,
+      reason: null,
+      actor_user_id: null,
+      created_at: d.at,
+    })) as never,
+  );
+  for (const tenant of new Set(debits.map((d) => d.tenant))) {
+    await ctx.ds.query(
+      `UPDATE sms_credit_balance SET available = available - $2 WHERE tenant_id = $1`,
+      [tenant, debits.filter((d) => d.tenant === tenant).length],
+    );
+  }
+  return rows;
 }
 
 /** A calendar feed link for the admin and for one class teacher of the branch. */

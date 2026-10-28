@@ -103,6 +103,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/routines/my': '/_staff/routines/my',
   '/my-class': '/_staff/my-class/',
   '/my-class?then=attendance': '/_staff/my-class/',
+  '/my-class?then=arrival': '/_staff/my-class/',
   '/routines/substitutions': '/_staff/routines/substitutions',
   '/marks': '/_staff/marks/',
   '/results': '/_staff/results/',
@@ -176,6 +177,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'grading.copyScale': 'client-admin/src/routes/_staff/grading-scales/-copy-scale-dialog.tsx',
   'my-class.open': 'client-admin/src/routes/_staff/my-class/index.tsx',
   'my-class.take-attendance': 'client-admin/src/routes/_staff/my-class/index.tsx',
+  'arrival-notice.requests': 'client-admin/src/routes/_staff/my-class/index.tsx',
   'routines.openMyRoutine': 'client-admin/src/routes/_staff/routines/my.tsx',
   'routines.addSubstitution': `${R}_staff/routines/-substitution-dialog.tsx`,
   'routines.copyLastYearRoutine': 'client-admin/src/routes/_staff/routines/review.tsx',
@@ -335,6 +337,8 @@ describe('action-registry.ts', () => {
     'students.uploadPhotos',
     // [41.4.7] Edit mode needs ATTENDANCE_MARK; the register route is read-gated.
     'attendance.register.edit',
+    // [84.3.6] ATTENDANCE_ARRIVAL_NOTICE_MANAGE is stricter than the MY_CLASS_VIEW route gate.
+    'arrival-notice.requests',
     // E17: not a route, any role.
     'help.thisPage',
   ]);

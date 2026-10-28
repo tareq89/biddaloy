@@ -37,7 +37,7 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   {
     file: `${R}_staff/my-class/-arrival-add-dialog.tsx`,
     reason:
-      'opened from the My class card only; the palette action `arrival-notice.requests` (84.3.6) lands on the card',
+      'opened from the My class card only; the palette action `arrival-notice.requests` lands on the card, so the dialog itself stays out of `Ctrl+K`',
   },
   {
     file: `${R}_platform/holiday-sets/$setId.tsx`,

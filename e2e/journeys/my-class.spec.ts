@@ -122,6 +122,34 @@ test.describe('class teacher', () => {
   });
 });
 
+test.describe('class teacher arrival notices', () => {
+  test.use(loggedIn('teacher'));
+
+  // [84.3.6] The seed gives the card's section guardian requests (REQUESTED rows), so no
+  // setup call is needed; the test takes whatever is waiting and answers the first one.
+  test('answers a waiting request with "every school day" and the waiting list shrinks', async ({
+    page,
+  }) => {
+    const seeded = await login(SEED_ROLE_EMAILS.teacher);
+    const sectionId = seeded.sections[0]!.section_id;
+    const waiting = await seeded.getJson<{ id: string }[]>('/attendance/arrival-subscriptions', {
+      sectionId,
+      status: 'REQUESTED',
+    });
+    await seeded.api.dispose();
+    test.skip(waiting.length === 0, 'no waiting arrival request left in the class teacher section');
+
+    await page.goto(`/my-class/${sectionId}`);
+    const card = page.locator('#my-class-arrival');
+    await expect(card).toBeVisible();
+    const everyDay = card.getByRole('button', { name: t('myClass.arrival.everyDay') });
+    await expect(everyDay).toHaveCount(waiting.length);
+
+    await everyDay.first().click();
+    await expect(everyDay).toHaveCount(waiting.length - 1);
+  });
+});
+
 test('assistant class teacher sees the same section', async ({ browser }) => {
   const teacher = await login(SEED_ROLE_EMAILS.teacher);
   const assistant = await login(SEED_ASSISTANT_TEACHER_EMAIL);
