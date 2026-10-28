@@ -634,13 +634,15 @@ const load = async (ctx: DemoSeedContext) => {
   );
   const byStudent = new Map(st.students.map((s) => [s.id, s]));
   const used = new Set<string>();
-  /** A student of a current-year section (limited to `only`, when given) with a guardian; never twice. */
-  const pickChild = (tenantId: string, only?: string[]) => {
+  /** A student of a current-year section with a guardian, never twice: from the card teacher's
+   * homeroom when `homeroom`, else from any other section (the homeroom stays free for the
+   * REQUESTED rows). Null when none is left, as at a small scale. */
+  const pickChild = (tenantId: string, homeroom: boolean) => {
     const t = org.tenants.find((x) => x.id === tenantId)!;
     const pool = t.years
       .filter((y) => y.isCurrent)
       .flatMap((y) => y.classes.flatMap((c) => c.sections.map((s) => s.id)))
-      .filter((id) => !only || only.includes(id))
+      .filter((id) => homeroom8a.includes(id) === homeroom)
       .flatMap((sectionId) =>
         (st.bySection.get(sectionId) ?? [])
           .filter((id) => !used.has(id) && byStudent.get(id)?.guardianIds.length)
@@ -648,6 +650,7 @@ const load = async (ctx: DemoSeedContext) => {
       );
     // A fixed stride, not `ctx.pick`: drawing from the shared `ctx.rng` here would shift every
     // later slice's random stream (the fees slice's paid-share check dropped below 50%).
+    if (!pool.length) return null;
     const c = pool[(used.size * 37) % pool.length];
     used.add(c.studentId);
     return { ...c, guardianId: byStudent.get(c.studentId)!.guardianIds[0] };
@@ -674,10 +677,11 @@ const load = async (ctx: DemoSeedContext) => {
     [A.OFF, M.RECURRING, L.NEVER, false, b1.id],
     [A.OFF, M.RECURRING, L.NONE, false, b2.id],
   ];
-  const subs = plan.map(([status, mode, lock, consumed, tenantId], i) => {
+  const subs = plan.flatMap(([status, mode, lock, consumed, tenantId], i) => {
     // The two REQUESTED rows sit in the card teacher's own section, so its badge reads 2.
     const requested = status === A.REQUESTED;
-    const c = pickChild(tenantId, requested ? homeroom8a : undefined);
+    const c = pickChild(tenantId, requested);
+    if (!c) return [];
     return {
       tenant_id: tenantId,
       student_id: c.studentId,
@@ -692,7 +696,8 @@ const load = async (ctx: DemoSeedContext) => {
       consumed_at: consumed ? todayAt(addDays(ctx.anchor, -(1 + (i % 3))), 8, 20 + i) : null,
     };
   });
-  rows += await unnestInsert(ctx.ds, 'arrival_notice_subscriptions', Object.keys(subs[0]), subs);
+  if (subs.length)
+    rows += await unnestInsert(ctx.ds, 'arrival_notice_subscriptions', Object.keys(subs[0]), subs);
   return rows;
 };
 
