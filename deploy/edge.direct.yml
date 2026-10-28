@@ -28,7 +28,7 @@ services:
   # issue the real one (the certbot container has LETSENCRYPT_EMAIL and APP_DOMAIN from the edge
   # .env; add -d for every other hostname), then the certbot loop below keeps it renewed:
   #   docker exec edge-certbot-1 sh -c 'certbot certonly --webroot -w /var/www/acme -n --agree-tos \
-  #     -m "$LETSENCRYPT_EMAIL" --cert-name "$APP_DOMAIN" -d "$APP_DOMAIN" -d <staging domain> ... --force-renewal'
+  #     -m "$LETSENCRYPT_EMAIL" --cert-name "$APP_DOMAIN" -d "$APP_DOMAIN" -d <staging domain> -d <inbox.demo domain> -d <inbox.staging domain> ... --force-renewal'
   cert-bootstrap:
     logging: *logging
     image: certbot/certbot:v5.8.0@sha256:f70ad0adbb7e117f0fe42a63c553f28ea451edabc0148757b6efcd9735acaa20

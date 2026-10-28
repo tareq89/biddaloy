@@ -146,7 +146,8 @@ it and ask Let's Encrypt for the real one (the command is in the comment above
 rm -r /opt/biddaloy/edge/letsencrypt/live/<APP_DOMAIN>
 docker compose -p edge exec certbot certbot certonly --webroot -w /var/www/acme \
   --cert-name <APP_DOMAIN> -d <APP_DOMAIN> -d <STAGING_DOMAIN> -d <DEMO_DOMAIN> \
-  -d <LANDING_DOMAIN> -d <KUMA_DOMAIN> -d <BESZEL_DOMAIN> -d <LOGS_DOMAIN> --force-renewal
+  -d <LANDING_DOMAIN> -d <KUMA_DOMAIN> -d <BESZEL_DOMAIN> -d <LOGS_DOMAIN> \
+  -d <INBOX_DEMO_DOMAIN> -d <INBOX_STAGING_DOMAIN> --force-renewal
 ```
 
 (Not yet run on a real host. The command as written has no `--email` and nothing

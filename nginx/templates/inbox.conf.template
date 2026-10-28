@@ -1,0 +1,74 @@
+# Test inbox (Epic 87): Mailpit's UI, one block per environment. INBOX_DEMO_DOMAIN and
+# INBOX_STAGING_DOMAIN come from the edge .env (`*.invalid` when unset, so nothing matches).
+# `demo-mailpit` and `staging-mailpit` are the aliases deploy/stack.yml gives each stack's
+# mailpit on the `biddaloy-edge` network. `resolve` keeps nginx booting while a stack is down.
+#
+# Demo is public and never indexed (D6). Staging sits behind the same outer login as the
+# staging app (D7): tunnel mode = Cloudflare Access, checked by cloudflared; direct mode =
+# basic auth here ($basic_auth, off in tunnel mode).
+# Mailpit's live view is a websocket, so the Upgrade/Connection headers and the long read
+# timeout match the Kuma block; $ops_connection is the map in ops.conf.template.
+
+upstream inbox_demo_upstream {
+    zone inbox_demo_upstream 256k;
+    server demo-mailpit:8025 resolve;
+}
+
+upstream inbox_staging_upstream {
+    zone inbox_staging_upstream 256k;
+    server staging-mailpit:8025 resolve;
+}
+
+server {
+    listen 80;
+    include /etc/nginx/snippets/edge-server.conf;
+    access_log /var/log/nginx/access.log redacted;
+    server_name ${INBOX_DEMO_DOMAIN};
+
+    client_max_body_size 1m;
+    add_header Strict-Transport-Security $edge_hsts always;
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $ops_connection;
+    proxy_set_header X-Forwarded-Proto $edge_proto;
+    proxy_connect_timeout 2s;
+    proxy_read_timeout 3600s;
+
+    location = /robots.txt {
+        default_type text/plain;
+        return 200 "User-agent: *\nDisallow: /\n";
+    }
+
+    location / {
+        proxy_pass http://inbox_demo_upstream;
+    }
+}
+
+server {
+    listen 80;
+    include /etc/nginx/snippets/edge-server.conf;
+    access_log /var/log/nginx/access.log redacted;
+    server_name ${INBOX_STAGING_DOMAIN};
+
+    auth_basic $basic_auth;
+    auth_basic_user_file /etc/nginx/auth/htpasswd;
+
+    client_max_body_size 1m;
+    add_header Strict-Transport-Security $edge_hsts always;
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $ops_connection;
+    proxy_set_header X-Forwarded-Proto $edge_proto;
+    proxy_connect_timeout 2s;
+    proxy_read_timeout 3600s;
+
+    location / {
+        proxy_pass http://inbox_staging_upstream;
+    }
+}
