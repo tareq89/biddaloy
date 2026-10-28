@@ -35,6 +35,7 @@ import {
   DialogTitle,
   RadioGroup,
   RadioGroupItem,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import {
   useAllSubjects,
@@ -277,9 +278,14 @@ export function AssignTeacherDialog({
               </Field>
             )}
 
-            <fieldset className="flex flex-col gap-1.5">
-              <legend className="text-label text-text-primary">
+            {/* The name is set here so the (?) inside the legend stays out of it. */}
+            <fieldset
+              className="flex flex-col gap-1.5"
+              aria-label={t('assignTeacherForm.modeLabel')}
+            >
+              <legend className="flex items-center gap-1 text-label text-text-primary">
                 {t('assignTeacherForm.modeLabel')}
+                <HelpHint helpId="people.teachingAssignments.field.assignmentType" />
               </legend>
               <RadioGroup
                 aria-label={t('assignTeacherForm.modeLabel')}

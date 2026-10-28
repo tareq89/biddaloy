@@ -200,6 +200,7 @@ export function CertificateRegister({ search, onSearchChange, tabs }: Certificat
             icon: <FileDownIcon aria-hidden className="size-4" />,
             priority: 'secondary',
             busy: exporting,
+            helpId: 'reports.printables.action.exportRegister',
             onClick: () => {
               setExporting(true);
               void downloadCertificateRegisterCsv(toRegisterFilters(search)).finally(() =>
