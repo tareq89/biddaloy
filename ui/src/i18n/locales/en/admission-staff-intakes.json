@@ -61,7 +61,8 @@
     "seatCount": "Seat count",
     "openDate": "Open date",
     "closeDate": "Close date",
-    "requiredDocuments": "Required documents"
+    "requiredDocuments": "Required documents",
+    "dates": "Open and close dates"
   },
   "help": {
     "title": "The name guardians will recognise the round by, for example Class 6 Admission 2027.",
@@ -69,13 +70,15 @@
     "seatCount": "How many can be admitted. Once that many are admitted, the round leaves the form. The number of applications does not block it.",
     "openDate": "The day applications start.",
     "closeDate": "The last day to apply; the day itself counts. It cannot be before the open date.",
-    "requiredDocuments": "Which of Photo, Birth certificate and Transcript the guardian must upload."
+    "requiredDocuments": "Which of Photo, Birth certificate and Transcript the guardian must upload.",
+    "dates": "The first and last day applications are open. Both days count; the close date cannot be before the open date."
   },
   "helpRequired": {
     "title": "Yes",
     "classSection": "Yes",
     "seatCount": "Yes",
     "openDate": "Yes",
-    "closeDate": "Yes"
+    "closeDate": "Yes",
+    "dates": "Yes"
   }
 }

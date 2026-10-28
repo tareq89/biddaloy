@@ -141,5 +141,25 @@
     "retain": "Kept in the same class by special decision, {{year}}: {{note}} — by {{user}}",
     "graduate": "Completed by special decision, {{year}}: {{note}} — by {{user}}",
     "conditional": "Promoted on condition, {{year}}: {{note}} — by {{user}}"
+  },
+  "help": {
+    "targetClass": "The class the students move to. It fills in by itself when you pick the current class; you can change it, or choose Graduate for no next class.",
+    "exams": "Tick the published exams to average. The merit order comes from their average GPA. Pick at least one.",
+    "algorithm": "Block fills section A in merit order first, then B. Snake takes turns across sections in merit order, so all sections stay even.",
+    "finalOutcome": "Promote, Retain, Graduate or Promote on condition for each student. It starts as the system’s suggestion; if you change it, a note is required.",
+    "overrideNote": "Why you changed the system’s suggestion for this student. Needed whenever the outcome differs from the suggestion."
+  },
+  "fields": {
+    "targetClass": "Next class",
+    "exams": "Exams to average",
+    "algorithm": "How students are placed in sections",
+    "finalOutcome": "Outcome",
+    "overrideNote": "Why changed"
+  },
+  "helpRequired": {
+    "targetClass": "Yes",
+    "exams": "Yes, at least one",
+    "algorithm": "Yes",
+    "overrideNote": "Yes, when you change the suggestion"
   }
 }

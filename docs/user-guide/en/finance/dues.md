@@ -125,14 +125,14 @@ Tick the students, then press **Export CSV**. The file is named `dues.csv` and h
 
 ## Troubleshooting <a href="#trouble" id="trouble"></a>
 
-| What you see                                                 | What to do                                                                                                | Who can help |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------ |
-| **No outstanding dues found**                                | Clear the filters and look again. It also shows when everyone has truly paid.                             | —            |
-| **Couldn't load student dues**                               | Reload the page.                                                                                          | Admin        |
-| **Collect fee** or [**Record payment**](record-payment.md) is missing             | You need both the collect-fee and the record-payment permissions. Ask the admin.                          | Admin        |
-| **Credit balance** column shows —                            | The student's credit balance did not load. Reload the page.                                               | —            |
-| You are looking for a student but the **Search** box is gone | Untick **Overdue only**.                                                                                  | —            |
-| Fewer rows in the export file                                | Only ticked rows come in, and a reload clears the ticks. Go through the pages again and tick. ([Export CSV](#task-export)) | —            |
+| What you see                                                          | What to do                                                                                                                 | Who can help |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **No outstanding dues found**                                         | Clear the filters and look again. It also shows when everyone has truly paid.                                              | —            |
+| **Couldn't load student dues**                                        | Reload the page.                                                                                                           | Admin        |
+| **Collect fee** or [**Record payment**](record-payment.md) is missing | You need both the collect-fee and the record-payment permissions. Ask the admin.                                           | Admin        |
+| **Credit balance** column shows —                                     | The student's credit balance did not load. Reload the page.                                                                | —            |
+| You are looking for a student but the **Search** box is gone          | Untick **Overdue only**.                                                                                                   | —            |
+| Fewer rows in the export file                                         | Only ticked rows come in, and a reload clears the ticks. Go through the pages again and tick. ([Export CSV](#task-export)) | —            |
 
 ---
 
@@ -181,11 +181,25 @@ For other roles, **Student dues** is not in the left menu.
 
 </details>
 
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:fees -->
+
+| Field                  | What to enter                                                                                          | Required? |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ | --------- |
+| Overdue only           | Shows only the students who have a fee past its reminder date. Leave it off to see everyone with dues. | No        |
+| When bills are created | Every month on a day you pick (or the last day), or every week on the days you pick.                   | Yes       |
+| Days to pay            | How many days after the period starts the bill is due. A number from 0 to 60.                          | Yes       |
+| Who is billed          | The whole school, or one class, section or program. Only students who are enrolled now are billed.     | No        |
+
+<!-- /guide:generated -->
+
+</details>
+
 **Related pages**
 
 - [**Fees and invoices**](../portal/fees.md) — how a guardian sees the same fees.
-
-
 
 - [**Record payment**](record-payment.md) — taking money against dues.
 - [**Payments**](payments.md) — all payments taken, receipts and reversals.

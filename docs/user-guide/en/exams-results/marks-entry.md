@@ -278,6 +278,31 @@ On a Mac you can press **⌘** instead of **Ctrl**.
 
 </details>
 
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:exams -->
+
+| Field                                   | What to enter                                                                                                                              | Required?                    |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
+| Name (exam)                             | The exam name, e.g. Half Yearly 2026. Two exams of the same class and year cannot share a name.                                            | Yes                          |
+| Kind (exam)                             | Term, monthly, model or other. Cannot change once results are published.                                                                   | No                           |
+| Mark entry deadline                     | Teachers see the days left on their dashboard. Leave empty if there is none.                                                               | No                           |
+| Academic year                           | The year the exam belongs to. Chosen only when you add the exam.                                                                           | Yes                          |
+| Class                                   | The class that sits the exam. Pick the year first; it cannot change later.                                                                 | Yes                          |
+| Start from an exam structure (optional) | Pick an exam structure and the parts for the class subjects are made for you. Hidden when there is no structure.                           | No                           |
+| Name (part)                             | The part name, e.g. Written. Two parts of one subject cannot share a name.                                                                 | Yes                          |
+| Kind (part)                             | Written, MCQ, viva, practical and so on. Attendance is counted for you.                                                                    | No                           |
+| Full marks                              | The full marks of the part, e.g. 70; a positive number. Not shown for an attendance part.                                                  | Yes, except attendance parts |
+| Pass marks                              | The pass mark of the part, e.g. 23. Not more than the full marks. Leave empty if not needed.                                               | No                           |
+| Exam (marks entry)                      | The exam you are entering marks for. Its marks lists for the sections and subjects you may enter show below.                               | Yes                          |
+| Marks (marks entry)                     | The marks for that student and part, up to the maximum shown. Type A for absent and E for exempt. Attendance parts are worked out for you. | No                           |
+| By part (analysis)                      | On the Pass/fail tab, tick it to see the results for each part of a subject, not only for the whole subject.                               | No                           |
+
+<!-- /guide:generated -->
+
+</details>
+
 **Related pages**
 
 - [**Processing and publishing results**](results.md) — the results are built from the submitted marks.

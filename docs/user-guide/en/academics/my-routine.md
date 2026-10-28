@@ -193,12 +193,12 @@ You can report or change periods up to 7 days back from today. This page does no
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                | See their own periods                                                                       | Report periods                                                 |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Teacher                                             | Yes, while the routine is in review or published                                            | Yes, up to 7 days back from today                              |
-| Admin                                               | If they have a teacher profile; if not, a **See class routines** button appears             | If they have a teacher profile, up to 7 days back on this page |
-| Academic coordinator, Office staff, Exam controller | If they have a teacher profile, while the routine is in review or published | If they have a teacher profile                                 |
-| Accountant, Committee member                        | Do not see the page                                                                         | No                                                             |
+| Role                                                | See their own periods                                                           | Report periods                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Teacher                                             | Yes, while the routine is in review or published                                | Yes, up to 7 days back from today                              |
+| Admin                                               | If they have a teacher profile; if not, a **See class routines** button appears | If they have a teacher profile, up to 7 days back on this page |
+| Academic coordinator, Office staff, Exam controller | If they have a teacher profile, while the routine is in review or published     | If they have a teacher profile                                 |
+| Accountant, Committee member                        | Do not see the page                                                             | No                                                             |
 
 Students and guardians see the published routine in their own portal.
 
@@ -228,6 +228,27 @@ Students and guardians see the published routine in their own portal.
 
 - Even while the routine is **In review**, teachers see their own periods here, so mistakes can be caught before publishing.
 - The **Report by {time}** deadline comes from the school's study plan setting; without a setting, it is 6 pm.
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:routines -->
+
+| Field                                 | What to enter                                                                                                                                | Required?                           |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Lesson status                         | For each period, choose Taught, Partly or Not taught. Not taught asks you for a reason.                                                      | Yes                                 |
+| Reason (not taught)                   | Teacher absent, School closed, Exam or Other. Write one line when you choose Other. The lesson moves to the next period.                     | Yes, when not taught                |
+| Teachers                              | One or more teachers for this period.                                                                                                        | Yes                                 |
+| Recurrence                            | Weekly, Biweekly (every other week; pick Week 1 or Week 2) or Monthly (pick which occurrence of that day in the month, or the last).         | Yes                                 |
+| Gap between periods (minutes)         | A new period starts this many minutes after the one before it ends. A whole number from 0 to 120.                                            | No                                  |
+| Most periods a teacher takes in a day | The most periods one teacher may take in a day. A whole number of at least 1; leave empty for no limit. Checked while you build the routine. | No                                  |
+| Most periods in a row                 | The most periods in a row for one teacher. A whole number of at least 1; leave empty for no limit. Checked while you build the routine.      | No                                  |
+| Cancel the period                     | Tick it when nobody teaches the period on that date. The weekly routine itself does not change.                                              | No                                  |
+| Substitute teacher                    | Who teaches the period on that date. It cannot be the teacher already assigned, or someone with another class at that time.                  | Yes, unless the period is cancelled |
+
+<!-- /guide:generated -->
 
 </details>
 

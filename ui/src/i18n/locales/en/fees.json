@@ -418,5 +418,21 @@
         "resultMessage": "{{structures}} fine type(s), {{rules}} rule(s) copied, {{skipped}} skipped"
       }
     }
+  },
+  "help": {
+    "flagged": "Shows only the students who have a fee past its reminder date. Leave it off to see everyone with dues.",
+    "rule": "Every month on a day you pick (or the last day), or every week on the days you pick.",
+    "dueDays": "How many days after the period starts the bill is due. A number from 0 to 60.",
+    "audience": "The whole school, or one class, section or program. Only students who are enrolled now are billed."
+  },
+  "fields": {
+    "flagged": "Overdue only",
+    "rule": "When bills are created",
+    "dueDays": "Days to pay",
+    "audience": "Who is billed"
+  },
+  "helpRequired": {
+    "rule": "Yes",
+    "dueDays": "Yes"
   }
 }

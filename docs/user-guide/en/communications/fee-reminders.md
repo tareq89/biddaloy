@@ -114,11 +114,11 @@ If you put **{Student name}**, **{Guardian name}**, **{Amount due}** and **{Due 
 
 ## How to know the reminder went <a href="#confirm" id="confirm"></a>
 
-| State                    | How you know                                                                                          | What next                                                          |
-| ------------------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| **Only written on screen** | The form is open; if you try to leave, a warning appears                                            | Preview                                                            |
-| **Previewed**            | **Preview** and **Up to date** show; nothing has gone yet                                             | Press **Send reminder to … people**                                |
-| **Sent to the queue**    | For one student, **Reminder sent**; for many, **Reminders queued**                                    | For a round sent together, see [**Reminder history**](reminder-history.md) |
+| State                      | How you know                                                       | What next                                                                  |
+| -------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| **Only written on screen** | The form is open; if you try to leave, a warning appears           | Preview                                                                    |
+| **Previewed**              | **Preview** and **Up to date** show; nothing has gone yet          | Press **Send reminder to … people**                                        |
+| **Sent to the queue**      | For one student, **Reminder sent**; for many, **Reminders queued** | For a round sent together, see [**Reminder history**](reminder-history.md) |
 
 This page does not keep anything on your phone or computer, so there is no "saved on this device" state.
 
@@ -163,14 +163,14 @@ How many characters one SMS holds is on the [**Send a message**](send-message.md
 
 ### Who is skipped, and why <a href="#task-skipped" id="task-skipped"></a>
 
-| Reason (as written in the app)                                   | When                                                                          |
-| ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| **No open dues to remind about**                                 | The student has no unpaid, partly paid or overdue bills                       |
-| **No guardians on file**                                         | No guardian is linked to the student                                          |
-| **Guardian has turned off notifications**                        | The guardian turned notifications off; even if ticked, it does not go         |
-| **Preferred channel is not among the requested channels**        | For many: the guardian's preferred channel is not ticked in **Channels**      |
-| **Preferred channel cannot be sent automatically**               | The preferred channel is phone call or Messenger                              |
-| **No phone or email on file for the preferred channel**          | There is no number or email for that channel                                  |
+| Reason (as written in the app)                            | When                                                                     |
+| --------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **No open dues to remind about**                          | The student has no unpaid, partly paid or overdue bills                  |
+| **No guardians on file**                                  | No guardian is linked to the student                                     |
+| **Guardian has turned off notifications**                 | The guardian turned notifications off; even if ticked, it does not go    |
+| **Preferred channel is not among the requested channels** | For many: the guardian's preferred channel is not ticked in **Channels** |
+| **Preferred channel cannot be sent automatically**        | The preferred channel is phone call or Messenger                         |
+| **No phone or email on file for the preferred channel**   | There is no number or email for that channel                             |
 
 **Which guardian gets it, when sending to many:** each student's main contact guardian. If there is no main one, or the main one turned notifications off, all the other guardians. **For one student**, everyone who is ticked gets it. A guardian of two picked students gets one message for each student.
 
@@ -178,18 +178,18 @@ How many characters one SMS holds is on the [**Send a message**](send-message.md
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                   | What to do                                                                                                | Who can help |
-| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------ |
-| You cannot press **Preview recipients**                                        | Check that there is a student, at least one guardian and a message; fix any unknown curly brackets.      | —            |
-| **{…} isn't recognised. Use the buttons below to insert a name or amount.**    | Delete the text in the curly brackets and put it in with the **Insert into message** buttons.            | —            |
-| **A curly bracket is not closed. …**                                           | There is one extra `{` or `}`; delete it.                                                                 | —            |
-| **The preview could not be made — check the student, guardians and message.**  | This also appears when the student has no dues. Check whether there are dues.                            | Accountant   |
-| **No one will receive this reminder — every guardian was skipped.**            | See the reasons in the **Skipped** list; pick another channel or add a number.                           | Office staff |
-| **Too many bulk requests in a row — wait a moment and try again.**             | A bulk preview and send are allowed at most 5 times a minute. Wait a minute.                              | —            |
-| **Not enough SMS credit: …**                                                   | Ask the Admin to add credit, pick fewer students, or keep another channel.                               | Admin        |
-| **The reminder could not be sent.**                                            | This also appears for one student when credit is low. Preview again and send, or tell the Admin.         | Admin        |
-| **Select at most 500 students — remove … to continue.**                        | Untick some; send the rest in another round.                                                              | —            |
-| **The student list could not be loaded.**                                      | Reload the page.                                                                                          | Admin        |
+| What you see                                                                  | What to do                                                                                          | Who can help |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------ |
+| You cannot press **Preview recipients**                                       | Check that there is a student, at least one guardian and a message; fix any unknown curly brackets. | —            |
+| **{…} isn't recognised. Use the buttons below to insert a name or amount.**   | Delete the text in the curly brackets and put it in with the **Insert into message** buttons.       | —            |
+| **A curly bracket is not closed. …**                                          | There is one extra `{` or `}`; delete it.                                                           | —            |
+| **The preview could not be made — check the student, guardians and message.** | This also appears when the student has no dues. Check whether there are dues.                       | Accountant   |
+| **No one will receive this reminder — every guardian was skipped.**           | See the reasons in the **Skipped** list; pick another channel or add a number.                      | Office staff |
+| **Too many bulk requests in a row — wait a moment and try again.**            | A bulk preview and send are allowed at most 5 times a minute. Wait a minute.                        | —            |
+| **Not enough SMS credit: …**                                                  | Ask the Admin to add credit, pick fewer students, or keep another channel.                          | Admin        |
+| **The reminder could not be sent.**                                           | This also appears for one student when credit is low. Preview again and send, or tell the Admin.    | Admin        |
+| **Select at most 500 students — remove … to continue.**                       | Untick some; send the rest in another round.                                                        | —            |
+| **The student list could not be loaded.**                                     | Reload the page.                                                                                    | Admin        |
 
 More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
 
@@ -197,12 +197,12 @@ More help with this: [What to do when something goes wrong](../help/troubleshoot
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                    | Remind one student | Remind many at once |
-| ----------------------------------------------------------------------- | ------------------ | ------------------- |
-| Admin                                                                   | Yes                | Yes                 |
-| Accountant                                                              | Yes                | Yes                 |
-| Office staff                                                            | Yes                | Yes                 |
-| Academic coordinator, Teacher, Exam controller, Committee member        | No                 | No                  |
+| Role                                                             | Remind one student | Remind many at once |
+| ---------------------------------------------------------------- | ------------------ | ------------------- |
+| Admin                                                            | Yes                | Yes                 |
+| Accountant                                                       | Yes                | Yes                 |
+| Office staff                                                     | Yes                | Yes                 |
+| Academic coordinator, Teacher, Exam controller, Committee member | No                 | No                  |
 
 **Admin, Accountant and Office staff:** all three can send both kinds of reminder; there is no difference in the code. Adding credit and turning on SMS is the Admin's job.
 
@@ -229,16 +229,15 @@ For the other roles, **Fee Reminders** is not in the left menu.
 
 <!-- guide:generated:fields:communications -->
 
-| Field                      | What to enter                                                                                                 | Required?         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------- |
-| Which guardian to send to  | One guardian of the chosen student. Their phone or email shows below; without one you cannot send.            | Yes               |
-| How to send (Send message) | SMS, WhatsApp or Email. SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. | No                |
-| Message (Send message)     | What to send. For SMS, the characters and the number of SMS it uses show below.                               | Yes               |
-| Who to remind              | Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.      | Yes, at least one |
-| Message (Fee reminder)     | Use the buttons below to put in the name, due amount or month; each guardian gets their real details.         | Yes               |
-| How to send (Fee reminder) | Starts on each guardian’s preferred channel. Pick one to send everyone on that channel this time.             | No                |
-| Batch name                 | A name for this batch; you find it by this name in Reminder history later.                                    | Yes               |
-| Channels (bulk reminder)   | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                     | Yes, at least one |
+| Field                     | What to enter                                                                                                                                                                                                                               | Required?         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Which guardian to send to | One guardian of the chosen student. Their phone or email shows below; without one you cannot send.                                                                                                                                          | Yes               |
+| How to send               | Send message: SMS, WhatsApp or Email; SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. Fee reminder: starts on each guardian’s preferred channel; pick one to send everyone on that channel this time. | No                |
+| Message                   | What to send. For SMS, the characters and the number of SMS it uses show below. In a fee reminder, use the buttons below to put in the name, due amount or month; each guardian gets their real details.                                    | Yes               |
+| Who to remind             | Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.                                                                                                                                    | Yes, at least one |
+| Batch name                | A name for this batch; you find it by this name in Reminder history later.                                                                                                                                                                  | Yes               |
+| Channels (bulk reminder)  | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                                                                                                                                                   | Yes, at least one |
+| Status                    | Shows only the rounds in one state: Processing, Completed, Partially failed or Failed. Leave it on All statuses to see every round.                                                                                                         | No                |
 
 <!-- /guide:generated -->
 

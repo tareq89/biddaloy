@@ -113,10 +113,10 @@ Example: for the Class 8 half-yearly exam, **All sections** shows the position i
 
 This page saves nothing. It only reads from the school's system and shows it.
 
-| State                         | How you know                                 | What next                               |
-| ----------------------------- | -------------------------------------------- | --------------------------------------- |
-| **The list has appeared**     | Rows are shown under the tabs                | Print or download a CSV if you need to  |
-| **Results are not ready yet** | The page says **Results are not ready yet**  | First process the [results](results.md) |
+| State                         | How you know                                | What next                               |
+| ----------------------------- | ------------------------------------------- | --------------------------------------- |
+| **The list has appeared**     | Rows are shown under the tabs               | Print or download a CSV if you need to  |
+| **Results are not ready yet** | The page says **Results are not ready yet** | First process the [results](results.md) |
 
 **To check:** the page address holds the exam, the section and the tab. If you copy the address and send it, the other person sees the same list, as long as they are allowed to see this page.
 
@@ -170,16 +170,16 @@ These two buttons are not there for an exam whose results are not ready.
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                 | What to do                                                                                                                      | Who can help           |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| **No exams yet**                                             | First create an exam ([Creating and setting up exams](exams.md)).                                                               | Admin                  |
-| **Results are not ready yet**                                | Process the results ([Results](results.md#task-main)). The Admin and the Exam controller also get an **Open the exam** button here.                    | Admin, Exam controller |
-| **Couldn't load exams.**                                     | Check your internet and try again.                                                                                              | —                      |
-| **Couldn't load results.**                                   | Press the try-again button inside the tab.                                                                                      | —                      |
-| **No results for this choice**                               | The chosen section has no results. **Try another section.**                                                                     | —                      |
-| **Could not download the CSV. Please try again.**            | Check your internet and press again.                                                                                            | —                      |
-| As a Teacher, the **Section** box does not have all sections | This is normal: a Teacher sees only the sections they are responsible for in the current year. Ask the Admin to add a section.  | Admin                  |
-| The **Exam** box does not have an old exam                   | This box shows up to 50 exams (from the code; not checked in the app).                                                          | —                      |
+| What you see                                                 | What to do                                                                                                                          | Who can help           |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| **No exams yet**                                             | First create an exam ([Creating and setting up exams](exams.md)).                                                                   | Admin                  |
+| **Results are not ready yet**                                | Process the results ([Results](results.md#task-main)). The Admin and the Exam controller also get an **Open the exam** button here. | Admin, Exam controller |
+| **Couldn't load exams.**                                     | Check your internet and try again.                                                                                                  | —                      |
+| **Couldn't load results.**                                   | Press the try-again button inside the tab.                                                                                          | —                      |
+| **No results for this choice**                               | The chosen section has no results. **Try another section.**                                                                         | —                      |
+| **Could not download the CSV. Please try again.**            | Check your internet and press again.                                                                                                | —                      |
+| As a Teacher, the **Section** box does not have all sections | This is normal: a Teacher sees only the sections they are responsible for in the current year. Ask the Admin to add a section.      | Admin                  |
+| The **Exam** box does not have an old exam                   | This box shows up to 50 exams (from the code; not checked in the app).                                                              | —                      |
 
 ---
 
@@ -235,6 +235,31 @@ If a Teacher asks for the list of another section, it shows "not found". Even wi
 - **Failed or absent tab:** failed the overall result, or **ABS** in at least one subject.
 - **Order and ties:** by **Position**, smallest first; when the position is the same, by name in alphabetical order. The position is set when the results are processed (GPA first, then total marks; if both are equal, the position is the same).
 - **Overall row:** **Appeared** means the number of students who have a result; **Highest** and **Average** are of the total marks.
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:exams -->
+
+| Field                                   | What to enter                                                                                                                              | Required?                    |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
+| Name (exam)                             | The exam name, e.g. Half Yearly 2026. Two exams of the same class and year cannot share a name.                                            | Yes                          |
+| Kind (exam)                             | Term, monthly, model or other. Cannot change once results are published.                                                                   | No                           |
+| Mark entry deadline                     | Teachers see the days left on their dashboard. Leave empty if there is none.                                                               | No                           |
+| Academic year                           | The year the exam belongs to. Chosen only when you add the exam.                                                                           | Yes                          |
+| Class                                   | The class that sits the exam. Pick the year first; it cannot change later.                                                                 | Yes                          |
+| Start from an exam structure (optional) | Pick an exam structure and the parts for the class subjects are made for you. Hidden when there is no structure.                           | No                           |
+| Name (part)                             | The part name, e.g. Written. Two parts of one subject cannot share a name.                                                                 | Yes                          |
+| Kind (part)                             | Written, MCQ, viva, practical and so on. Attendance is counted for you.                                                                    | No                           |
+| Full marks                              | The full marks of the part, e.g. 70; a positive number. Not shown for an attendance part.                                                  | Yes, except attendance parts |
+| Pass marks                              | The pass mark of the part, e.g. 23. Not more than the full marks. Leave empty if not needed.                                               | No                           |
+| Exam (marks entry)                      | The exam you are entering marks for. Its marks lists for the sections and subjects you may enter show below.                               | Yes                          |
+| Marks (marks entry)                     | The marks for that student and part, up to the maximum shown. Type A for absent and E for exempt. Attendance parts are worked out for you. | No                           |
+| By part (analysis)                      | On the Pass/fail tab, tick it to see the results for each part of a subject, not only for the whole subject.                               | No                           |
+
+<!-- /guide:generated -->
 
 </details>
 

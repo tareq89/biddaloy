@@ -144,23 +144,26 @@
     "name": "Name",
     "startDate": "Start date",
     "endDate": "End date",
-    "setAsTheCurrentAcademicYear": "Set as the current academic year",
+    "isCurrent": "Set as the current academic year",
     "termName": "Term name",
-    "termStartAndEndDates": "Term start and end dates"
+    "termStartAndEndDates": "Term start and end dates",
+    "dates": "Start and end dates"
   },
   "help": {
     "name": "The name of the year, for example 2026-2027.",
     "startDate": "The first day of the year.",
     "endDate": "The last day of the year; it must be after the start date.",
-    "setAsTheCurrentAcademicYear": "Tick it and this year becomes current, and the mark leaves the other current year. You must confirm if ticked.",
+    "isCurrent": "Tick it and this year becomes current, and the mark leaves the other current year. You must confirm if ticked.",
     "termName": "For example First term.",
-    "termStartAndEndDates": "Inside the year's dates, not clashing with another term."
+    "termStartAndEndDates": "Inside the year's dates, not clashing with another term.",
+    "dates": "The first and last day of the year. The last day must be after the first."
   },
   "helpRequired": {
     "name": "Yes",
     "startDate": "Yes",
     "endDate": "Yes",
     "termName": "Yes",
-    "termStartAndEndDates": "Yes"
+    "termStartAndEndDates": "Yes",
+    "dates": "Yes"
   }
 }

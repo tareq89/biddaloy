@@ -168,10 +168,10 @@ Every student has a **profile**. The profile is their own page: at the top their
 
 ## How to know the student was added <a href="#confirm" id="confirm"></a>
 
-| State                           | How you can tell                                                                                                                                                                                  | What next                  |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| **Changed on screen only**      | You typed in the form but have not submitted. If you open the form again on this device, the top may say **You have an unsaved draft of this form.** with **Restore draft**.                      | Press **Add student**.     |
-| **Reached the school's system** | The app opened the new student's profile and the registration number is at the top.                                                                                                               | Done.                      |
+| State                           | How you can tell                                                                                                                                                             | What next              |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| **Changed on screen only**      | You typed in the form but have not submitted. If you open the form again on this device, the top may say **You have an unsaved draft of this form.** with **Restore draft**. | Press **Add student**. |
+| **Reached the school's system** | The app opened the new student's profile and the registration number is at the top.                                                                                          | Done.                  |
 
 This form cannot keep a student on your device while the internet is off. So the middle state ("Saved on this device") does not happen here.
 
@@ -181,10 +181,10 @@ This form cannot keep a student on your device while the internet is off. So the
 
 **If you try to leave the page without submitting**, the app asks **Leave without saving?**
 
-| You press                 | What happens                                        | Saved?        |
-| ------------------------- | --------------------------------------------------- | ------------- |
-| **Stay on this page**     | You stay on the form; everything you typed remains. | Not yet       |
-| **Leave without saving**  | You leave the page; unsaved changes are lost.       | No            |
+| You press                | What happens                                        | Saved?  |
+| ------------------------ | --------------------------------------------------- | ------- |
+| **Stay on this page**    | You stay on the form; everything you typed remains. | Not yet |
+| **Leave without saving** | You leave the page; unsaved changes are lost.       | No      |
 
 ---
 
@@ -230,28 +230,28 @@ Press a name in the list, or **View**, to open the profile.
 
 The tabs come in this order:
 
-| Tab                      | What it shows                                                                                                          |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| **Overview**             | **Personal details**: date of birth, gender, Bangla name, blood group, address, preferred contact.                      |
-| **Guardians**            | Linked guardians: name, relationship, phone, email, and who is the **Primary contact**.                                |
-| **Enrollment**           | **Enrolment history**: which class in which academic year. From here you can **Move class** ([see](#task-move)).       |
-| **Attendance**           | Month by month: present, absent, late, leave, and the attendance rate.                                                 |
-| **Results**              | Every exam result, published or not. Results not yet published are marked separately.                                  |
-| **Homework**             | Total homework, how many are done, how many are overdue, and the completion rate.                                      |
-| **Subject choices**      | Choosing one of the optional subjects the class has (for example the fourth subject).                                  |
-| **Programs**             | The program the student is enrolled in, with progress and milestones.                                                  |
-| **Performance**          | A summary built from marks. Only people who may see marks get this tab.                                                |
-| **Fees**                 | Total billed, total paid, dues; **Open bills**, **Credit balance**, **History** and **Discounts**.                     |
-| [**Fines**](../finance/fines.md)                | All of this student's [fines](../help/glossary.md#fine).                                                               |
-| **Automatic billing**    | Which recurring bills the student is on, and which they are left out of.                                               |
-| [**Payments**](../finance/payments.md)             | All money received, with date and method.                                                                              |
-| [**Invoices**](../finance/invoices.md)             | Invoices issued; you can **Print** them.                                                                               |
-| **Communication**        | Messages and reminders sent to the guardian.                                                                           |
-| **Notes**                | Staff-only notes ([see](#task-notes)). The tab is missing if you may not see notes.                                    |
-| **Records**              | Family, health and public exam details ([see](#task-records)). Missing if you may not see records.                     |
-| **Documents**            | Photo, ID card, certificates and the list of printed papers ([see](#task-documents)). Needs print, certificate or print-history permission. |
-| [**Applications**](../applications/applications.md)         | Applications submitted for this student. Missing if you may not handle applications.                                   |
-| **Activity**             | Who changed what in this student's details, and when.                                                                  |
+| Tab                                                 | What it shows                                                                                                                               |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overview**                                        | **Personal details**: date of birth, gender, Bangla name, blood group, address, preferred contact.                                          |
+| **Guardians**                                       | Linked guardians: name, relationship, phone, email, and who is the **Primary contact**.                                                     |
+| **Enrollment**                                      | **Enrolment history**: which class in which academic year. From here you can **Move class** ([see](#task-move)).                            |
+| **Attendance**                                      | Month by month: present, absent, late, leave, and the attendance rate.                                                                      |
+| **Results**                                         | Every exam result, published or not. Results not yet published are marked separately.                                                       |
+| **Homework**                                        | Total homework, how many are done, how many are overdue, and the completion rate.                                                           |
+| **Subject choices**                                 | Choosing one of the optional subjects the class has (for example the fourth subject).                                                       |
+| **Programs**                                        | The program the student is enrolled in, with progress and milestones.                                                                       |
+| **Performance**                                     | A summary built from marks. Only people who may see marks get this tab.                                                                     |
+| **Fees**                                            | Total billed, total paid, dues; **Open bills**, **Credit balance**, **History** and **Discounts**.                                          |
+| [**Fines**](../finance/fines.md)                    | All of this student's [fines](../help/glossary.md#fine).                                                                                    |
+| **Automatic billing**                               | Which recurring bills the student is on, and which they are left out of.                                                                    |
+| [**Payments**](../finance/payments.md)              | All money received, with date and method.                                                                                                   |
+| [**Invoices**](../finance/invoices.md)              | Invoices issued; you can **Print** them.                                                                                                    |
+| **Communication**                                   | Messages and reminders sent to the guardian.                                                                                                |
+| **Notes**                                           | Staff-only notes ([see](#task-notes)). The tab is missing if you may not see notes.                                                         |
+| **Records**                                         | Family, health and public exam details ([see](#task-records)). Missing if you may not see records.                                          |
+| **Documents**                                       | Photo, ID card, certificates and the list of printed papers ([see](#task-documents)). Needs print, certificate or print-history permission. |
+| [**Applications**](../applications/applications.md) | Applications submitted for this student. Missing if you may not handle applications.                                                        |
+| **Activity**                                        | Who changed what in this student's details, and when.                                                                                       |
 
 ### Add a guardian <a href="#task-guardians" id="task-guardians"></a>
 
@@ -308,10 +308,10 @@ From then on no new fee bills are made in this student's name, because bills are
 
 If any bill has a due date after the leave date, the dialog does not close. It shows **Bills after the leave date** and **These bills stay as dues until you write them off.**
 
-| You press            | What happens                                                    | Saved?                                   |
-| -------------------- | --------------------------------------------------------------- | ---------------------------------------- |
-| **Close**            | The dialog closes and you stay on the profile.                  | Yes, the leaving was saved before this   |
-| **Open Fees tab**    | The profile's **Fees** tab opens; you can write off bills there. | Yes, the leaving was saved before this   |
+| You press         | What happens                                                     | Saved?                                 |
+| ----------------- | ---------------------------------------------------------------- | -------------------------------------- |
+| **Close**         | The dialog closes and you stay on the profile.                   | Yes, the leaving was saved before this |
+| **Open Fees tab** | The profile's **Fees** tab opens; you can write off bills there. | Yes, the leaving was saved before this |
 
 ### Readmit a student <a href="#task-readmit" id="task-readmit"></a>
 
@@ -341,10 +341,10 @@ Only staff see notes; guardians do not.
 
 A saved note cannot be changed. If it is wrong, delete it and write a new one. The delete button next to a note (**Delete note**) is visible only to the note's writer and an admin. Pressing it asks **Delete this note?**
 
-| You press       | What happens                                  | Saved?             |
-| --------------- | --------------------------------------------- | ------------------ |
-| **Cancel**      | Nothing happens; the note stays.              | No                 |
-| **Delete**      | The note is deleted; it cannot be brought back. | Yes, it is deleted |
+| You press  | What happens                                    | Saved?             |
+| ---------- | ----------------------------------------------- | ------------------ |
+| **Cancel** | Nothing happens; the note stays.                | No                 |
+| **Delete** | The note is deleted; it cannot be brought back. | Yes, it is deleted |
 
 ### Family, health and public exam details <a href="#task-records" id="task-records"></a>
 
@@ -397,10 +397,10 @@ If it stops halfway, the photos sent so far are kept.
 
 A registration number you fill in is checked and kept; a blank cell gets a number from the system. The link for the large whole-school file (**Migrating a whole school?**) is visible only to people who may manage backups.
 
-| You press               | What happens                                 | Saved? |
-| ----------------------- | -------------------------------------------- | ------ |
-| **Import N students**   | The good rows are added as students.         | Yes    |
-| **Cancel**              | The page closes; nobody is added.            | No     |
+| You press             | What happens                         | Saved? |
+| --------------------- | ------------------------------------ | ------ |
+| **Import N students** | The good rows are added as students. | Yes    |
+| **Cancel**            | The page closes; nobody is added.    | No     |
 
 ### Delete a student <a href="#task-delete" id="task-delete"></a>
 
@@ -410,59 +410,59 @@ Only an admin can do this. For a student who has left the school, [record leavin
 
    → A red **Delete student** dialog appears: the student is removed from active lists; support can bring them back, but not from the app.
 
-| You press     | What happens                                                                                                        | Saved?     |
-| ------------- | ------------------------------------------------------------------------------------------------------------------- | ---------- |
-| **Cancel**    | Nothing happens.                                                                                                    | No         |
-| **Delete**    | The student is deleted and the app returns to the list. If fees are due or credit remains, it is not deleted (see the message below). | Yes / No   |
+| You press  | What happens                                                                                                                          | Saved?   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| **Cancel** | Nothing happens.                                                                                                                      | No       |
+| **Delete** | The student is deleted and the app returns to the list. If fees are due or credit remains, it is not deleted (see the message below). | Yes / No |
 
 ---
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                                                          | What to do                                                                                                    | Who can help         |
-| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------- |
-| **Failed to load students**                                                                                           | Check your internet, then reopen the page.                                                                    | Admin                |
-| **No students found**, with **You see the students of the sections you teach this year. Ask your school admin to assign you a section.** | You are a teacher and no section is in your name this year.                                  | Admin ([teacher assignment](../help/glossary.md#teacher-assignment)) |
-| As a teacher, a student's profile says "not found"                                                                    | The student is not in a section you teach. Teachers see only the students of their own sections.              | Admin                |
-| **Couldn't load this student.**                                                                                       | Press **Retry**.                                                                                          | Admin                |
-| **You don't have permission to view this.**                                                                           | Your role cannot see this profile.                                                                            | Admin                |
-| **Full name is required.**                                                                                            | Type a name in **Full name**.                                                                                 | —                    |
-| **Select a class and section.**                                                                                       | Choose the **Class** first, then the **Section**.                                                             | —                    |
-| **Roll number must be a positive whole number.**                                                                      | Give a whole number like 1, 2, 3, or leave the box empty.                                                     | —                    |
-| The form will not save because the roll number is already in that section                                             | Give another roll, or leave the box empty (the next roll is filled in).                                       | —                    |
-| **The Bangla name must be 200 characters or fewer.**                                                                  | Shorten the Bangla name.                                                                                      | —                    |
-| **Choose a blood group from the list.**                                                                               | Choose from the list, or keep **Not set**.                                                                    | —                    |
-| **The guardian could not be added. Check the details and try again.**                                                 | Check that the name and phone number are right.                                                               | —                    |
-| **Student limit reached** (when adding)                                                                               | The trial school's student count is full. **Contact us to add more students.**                                | Admin                |
-| **Choose a date.** / **The date cannot be in the future.**                                                            | Give today's date or an earlier one.                                                                          | —                    |
-| **Write a reason.**                                                                                                   | Type the **Reason** for leaving.                                                                              | —                    |
-| **Choose a class and section.**                                                                                       | Choose the class and section for the readmission.                                                             | —                    |
-| **Could not save. Please try again.** (leaving or readmitting)                                                        | Press again. If it keeps coming up when readmitting, a trial school may have reached its student limit.       | Admin                |
-| **This student still owes fees or has wallet money. Record leaving first, or clear the money.**                       | Do not delete; [record leaving](#task-leave).                                                                 | Accountant           |
-| **Couldn't delete the student. Try again.**                                                                           | Try again.                                                                                                    | Admin                |
-| **Couldn't move the student. Try again.**                                                                             | Try again.                                                                                                    | Admin                |
-| **Could not save the note. Try again.**                                                                               | Do not delete what you typed; press **Save note** again.                                                      | —                    |
-| **This file type isn't supported — choose a .csv or .xlsx file**                                                      | In Excel, save the file as CSV or XLSX.                                                                       | —                    |
-| **This file is too large — choose a smaller file**                                                                    | Split the file (within 5 MB and 2,000 students).                                                              | —                    |
-| **This check has expired**                                                                                            | Upload the same file again and confirm sooner.                                                                | —                    |
-| **Import failed.**                                                                                                    | Upload the file again.                                                                                        | Admin                |
-| **We could not read this file. …**, **Some columns are missing. Use the sample file's columns.**, **This file has too many rows. …** or **This file has no rows in it. …** | The whole file could not be checked. Do what the sentence says: save it again as .xlsx or .csv, keep the template's first-row headers, or split it into smaller files. Then upload again. | — |
-| **Couldn't send the reminder. Nothing was sent — try again.**                                                         | Send it again.                                                                                                | —                    |
-| **We couldn't confirm whether the reminder went out. …**                                                              | Before sending again, check the **Communication** tab so it does not go twice.                                | —                    |
-| A button or tab is missing (for example **Add student**, **Notes**, **Delete**)                                       | Your role does not have it. See [Who can do what](#roles).                                                    | Admin                |
+| What you see                                                                                                                                                               | What to do                                                                                                                                                                                | Who can help                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Failed to load students**                                                                                                                                                | Check your internet, then reopen the page.                                                                                                                                                | Admin                                                                |
+| **No students found**, with **You see the students of the sections you teach this year. Ask your school admin to assign you a section.**                                   | You are a teacher and no section is in your name this year.                                                                                                                               | Admin ([teacher assignment](../help/glossary.md#teacher-assignment)) |
+| As a teacher, a student's profile says "not found"                                                                                                                         | The student is not in a section you teach. Teachers see only the students of their own sections.                                                                                          | Admin                                                                |
+| **Couldn't load this student.**                                                                                                                                            | Press **Retry**.                                                                                                                                                                          | Admin                                                                |
+| **You don't have permission to view this.**                                                                                                                                | Your role cannot see this profile.                                                                                                                                                        | Admin                                                                |
+| **Full name is required.**                                                                                                                                                 | Type a name in **Full name**.                                                                                                                                                             | —                                                                    |
+| **Select a class and section.**                                                                                                                                            | Choose the **Class** first, then the **Section**.                                                                                                                                         | —                                                                    |
+| **Roll number must be a positive whole number.**                                                                                                                           | Give a whole number like 1, 2, 3, or leave the box empty.                                                                                                                                 | —                                                                    |
+| The form will not save because the roll number is already in that section                                                                                                  | Give another roll, or leave the box empty (the next roll is filled in).                                                                                                                   | —                                                                    |
+| **The Bangla name must be 200 characters or fewer.**                                                                                                                       | Shorten the Bangla name.                                                                                                                                                                  | —                                                                    |
+| **Choose a blood group from the list.**                                                                                                                                    | Choose from the list, or keep **Not set**.                                                                                                                                                | —                                                                    |
+| **The guardian could not be added. Check the details and try again.**                                                                                                      | Check that the name and phone number are right.                                                                                                                                           | —                                                                    |
+| **Student limit reached** (when adding)                                                                                                                                    | The trial school's student count is full. **Contact us to add more students.**                                                                                                            | Admin                                                                |
+| **Choose a date.** / **The date cannot be in the future.**                                                                                                                 | Give today's date or an earlier one.                                                                                                                                                      | —                                                                    |
+| **Write a reason.**                                                                                                                                                        | Type the **Reason** for leaving.                                                                                                                                                          | —                                                                    |
+| **Choose a class and section.**                                                                                                                                            | Choose the class and section for the readmission.                                                                                                                                         | —                                                                    |
+| **Could not save. Please try again.** (leaving or readmitting)                                                                                                             | Press again. If it keeps coming up when readmitting, a trial school may have reached its student limit.                                                                                   | Admin                                                                |
+| **This student still owes fees or has wallet money. Record leaving first, or clear the money.**                                                                            | Do not delete; [record leaving](#task-leave).                                                                                                                                             | Accountant                                                           |
+| **Couldn't delete the student. Try again.**                                                                                                                                | Try again.                                                                                                                                                                                | Admin                                                                |
+| **Couldn't move the student. Try again.**                                                                                                                                  | Try again.                                                                                                                                                                                | Admin                                                                |
+| **Could not save the note. Try again.**                                                                                                                                    | Do not delete what you typed; press **Save note** again.                                                                                                                                  | —                                                                    |
+| **This file type isn't supported — choose a .csv or .xlsx file**                                                                                                           | In Excel, save the file as CSV or XLSX.                                                                                                                                                   | —                                                                    |
+| **This file is too large — choose a smaller file**                                                                                                                         | Split the file (within 5 MB and 2,000 students).                                                                                                                                          | —                                                                    |
+| **This check has expired**                                                                                                                                                 | Upload the same file again and confirm sooner.                                                                                                                                            | —                                                                    |
+| **Import failed.**                                                                                                                                                         | Upload the file again.                                                                                                                                                                    | Admin                                                                |
+| **We could not read this file. …**, **Some columns are missing. Use the sample file's columns.**, **This file has too many rows. …** or **This file has no rows in it. …** | The whole file could not be checked. Do what the sentence says: save it again as .xlsx or .csv, keep the template's first-row headers, or split it into smaller files. Then upload again. | —                                                                    |
+| **Couldn't send the reminder. Nothing was sent — try again.**                                                                                                              | Send it again.                                                                                                                                                                            | —                                                                    |
+| **We couldn't confirm whether the reminder went out. …**                                                                                                                   | Before sending again, check the **Communication** tab so it does not go twice.                                                                                                            | —                                                                    |
+| A button or tab is missing (for example **Add student**, **Notes**, **Delete**)                                                                                            | Your role does not have it. See [Who can do what](#roles).                                                                                                                                | Admin                                                                |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                 | See list and profile                 | Add and edit | Import | Record leaving / Readmit | Notes | Records    | Collect fees | Reminders | Print ID card | Delete |
-| -------------------- | ------------------------------------ | ------------ | ------ | ------------------------ | ----- | ---------- | ------------ | --------- | ------------- | ------ |
-| Admin                | Yes                                  | Yes          | Yes    | Yes                      | Yes   | Read and write | Yes      | Yes       | Yes           | Yes    |
-| Accountant           | Yes                                  | Yes          | Yes    | No                       | No    | No         | Yes          | Yes       | Yes           | No     |
-| Teacher              | Only the sections they teach this year | No         | No     | No                       | Yes   | Read only  | No           | No        | No            | No     |
-| Academic coordinator | Yes                                  | No           | Yes    | Yes                      | Yes   | Read and write | No       | No        | No            | No     |
-| Office staff         | Yes                                  | Yes          | Yes    | No                       | No    | Read and write | No       | Yes       | Yes           | No     |
-| Exam controller      | Yes                                  | No           | No     | No                       | No    | No         | No           | No        | Yes           | No     |
+| Role                 | See list and profile                   | Add and edit | Import | Record leaving / Readmit | Notes | Records        | Collect fees | Reminders | Print ID card | Delete |
+| -------------------- | -------------------------------------- | ------------ | ------ | ------------------------ | ----- | -------------- | ------------ | --------- | ------------- | ------ |
+| Admin                | Yes                                    | Yes          | Yes    | Yes                      | Yes   | Read and write | Yes          | Yes       | Yes           | Yes    |
+| Accountant           | Yes                                    | Yes          | Yes    | No                       | No    | No             | Yes          | Yes       | Yes           | No     |
+| Teacher              | Only the sections they teach this year | No           | No     | No                       | Yes   | Read only      | No           | No        | No            | No     |
+| Academic coordinator | Yes                                    | No           | Yes    | Yes                      | Yes   | Read and write | No           | No        | No            | No     |
+| Office staff         | Yes                                    | Yes          | Yes    | No                       | No    | Read and write | No           | Yes       | Yes           | No     |
+| Exam controller      | Yes                                    | No           | No     | No                       | No    | No             | No           | No        | Yes           | No     |
 
 - Moving a student to another **Class** is for admins only; others who may edit can change only the **Section**.
 - **Issue certificate** is for the admin, Academic coordinator and Office staff.
@@ -489,11 +489,11 @@ Only an admin can do this. For a student who has left the school, [record leavin
 <details>
 <summary><strong>Keyboard shortcuts</strong> (on a computer)</summary>
 
-| Key            | Where                                  | What it does           |
-| -------------- | -------------------------------------- | ---------------------- |
-| `Ctrl + Enter` | In the **Add a note** dialog           | Saves the note         |
-| `Ctrl + Enter` | In the **Record leaving** dialog       | Records the leaving    |
-| `Ctrl + K`     | On any page                            | Opens the search box   |
+| Key            | Where                            | What it does         |
+| -------------- | -------------------------------- | -------------------- |
+| `Ctrl + Enter` | In the **Add a note** dialog     | Saves the note       |
+| `Ctrl + Enter` | In the **Record leaving** dialog | Records the leaving  |
+| `Ctrl + K`     | On any page                      | Opens the search box |
 
 </details>
 
@@ -502,43 +502,42 @@ Only an admin can do this. For a student who has left the school, [record leavin
 
 <!-- fields table: hand-written; wave close registers fields:students in guide-gen and swaps in the generated markers -->
 
-| Box                          | What to type                                                                                                       | Required? |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------- |
-| Full name                    | The student's full name.                                                                                           | Yes       |
-| Name (Bangla)                | The name in Bangla, up to 200 characters. It is printed on the ID card.                                            | No        |
-| Blood group                  | One of A+, A-, B+, B-, AB+, AB-, O+, O-, or **Not set**.                                                           | No        |
-| Date of birth                | A date from the calendar.                                                                                          | No        |
-| Gender                       | **Male**, **Female** or **Other**.                                                                                 | No        |
-| Class                        | A class of the current year.                                                                                       | Yes       |
-| Section                      | A section of the chosen class.                                                                                     | Yes       |
-| Roll number                  | A positive whole number, not used by anyone else in the section. If left empty, the next roll in the section is filled in. | No |
-| Guardians                    | Search and link, or add a new one.                                                                                 | No        |
-| Preferred contact            | **SMS** (chosen at first), **WhatsApp**, **Email**, **Phone call** or **Messenger**. School messages go this way.  | No        |
-| Home address                 | The student's home address.                                                                                        | No        |
-| Reason type                  | **Withdrawn**, **Transferred to another school** or **Graduated**.                                                 | Yes       |
-| Date (leaving / readmit)     | Today or an earlier day.                                                                                           | Yes       |
-| New school                   | Appears only if you choose **Transferred to another school**.                                                      | No        |
-| Reason (leaving)             | Why the student is leaving.                                                                                        | Yes       |
-| Reason / Remark (readmit)    | Optional.                                                                                                          | No        |
+| Box                       | What to type                                                                                                               | Required? |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Full name                 | The student's full name.                                                                                                   | Yes       |
+| Name (Bangla)             | The name in Bangla, up to 200 characters. It is printed on the ID card.                                                    | No        |
+| Blood group               | One of A+, A-, B+, B-, AB+, AB-, O+, O-, or **Not set**.                                                                   | No        |
+| Date of birth             | A date from the calendar.                                                                                                  | No        |
+| Gender                    | **Male**, **Female** or **Other**.                                                                                         | No        |
+| Class                     | A class of the current year.                                                                                               | Yes       |
+| Section                   | A section of the chosen class.                                                                                             | Yes       |
+| Roll number               | A positive whole number, not used by anyone else in the section. If left empty, the next roll in the section is filled in. | No        |
+| Guardians                 | Search and link, or add a new one.                                                                                         | No        |
+| Preferred contact         | **SMS** (chosen at first), **WhatsApp**, **Email**, **Phone call** or **Messenger**. School messages go this way.          | No        |
+| Home address              | The student's home address.                                                                                                | No        |
+| Reason type               | **Withdrawn**, **Transferred to another school** or **Graduated**.                                                         | Yes       |
+| Date (leaving / readmit)  | Today or an earlier day.                                                                                                   | Yes       |
+| New school                | Appears only if you choose **Transferred to another school**.                                                              | No        |
+| Reason (leaving)          | Why the student is leaving.                                                                                                | Yes       |
+| Reason / Remark (readmit) | Optional.                                                                                                                  | No        |
 
 **Columns of the import template**
 
-| Column                    | What to type                                                                      | Required? |
-| ------------------------- | --------------------------------------------------------------------------------- | --------- |
-| `student_name`            | The student's full name, for example Arifa Khatun.                                | Yes       |
-| `class`                   | The name of a class that exists in the current academic year, for example Class 5. | Yes      |
-| `section`                 | A section of that class, for example A.                                           | Yes       |
-| `roll`                    | A whole number, unique within the section.                                        | No        |
+| Column                    | What to type                                                                       | Required? |
+| ------------------------- | ---------------------------------------------------------------------------------- | --------- |
+| `student_name`            | The student's full name, for example Arifa Khatun.                                 | Yes       |
+| `class`                   | The name of a class that exists in the current academic year, for example Class 5. | Yes       |
+| `section`                 | A section of that class, for example A.                                            | Yes       |
+| `roll`                    | A whole number, unique within the section.                                         | No        |
 | `registration_number`     | Checked and kept if filled; blank gets one.                                        | No        |
-| `guardian1_name`          | The main guardian's full name.                                                    | Yes       |
-| `guardian1_phone`         | A Bangladeshi mobile number, for example 01712345678 or +8801712345678.           | Yes       |
-| `guardian1_email`         | An email address.                                                                 | No        |
-| `guardian2_name`          | The second guardian's name. Leave empty if there is only one.                     | No        |
-| `guardian2_phone`         | Required if there is a second guardian's name.                                    | No        |
-| `guardian2_email`         | The second guardian's email.                                                      | No        |
-| `home_address`            | The student's home address.                                                       | No        |
-| `preferred_communication` | Any one of SMS, WHATSAPP, EMAIL, PHONE_CALL, MESSENGER.                           | No        |
-
+| `guardian1_name`          | The main guardian's full name.                                                     | Yes       |
+| `guardian1_phone`         | A Bangladeshi mobile number, for example 01712345678 or +8801712345678.            | Yes       |
+| `guardian1_email`         | An email address.                                                                  | No        |
+| `guardian2_name`          | The second guardian's name. Leave empty if there is only one.                      | No        |
+| `guardian2_phone`         | Required if there is a second guardian's name.                                     | No        |
+| `guardian2_email`         | The second guardian's email.                                                       | No        |
+| `home_address`            | The student's home address.                                                        | No        |
+| `preferred_communication` | Any one of SMS, WHATSAPP, EMAIL, PHONE_CALL, MESSENGER.                            | No        |
 
 </details>
 
@@ -567,6 +566,21 @@ Only an admin can do this. For a student who has left the school, [record leavin
 - Only an **Active** student can leave; only a student in one of the other three statuses can be readmitted.
 - When a student is not **Active**, no new fee bills are made; old dues stay.
 - Every change is written in **Lifecycle history** in the **Records** tab.
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:students -->
+
+| Field             | What to enter                                                                       | Required? |
+| ----------------- | ----------------------------------------------------------------------------------- | --------- |
+| Roll number       | A positive whole number. Leave it empty to use the next roll number in the section. | No        |
+| Blood group       | Choose one from the list, or leave it Not set.                                      | No        |
+| Preferred contact | SMS, WhatsApp, Email, Phone call or Messenger. It starts as SMS.                    | No        |
+
+<!-- /guide:generated -->
 
 </details>
 

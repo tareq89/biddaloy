@@ -219,6 +219,7 @@ For other roles, **Payments** is not in the left menu. A teacher can see one stu
 | Change                | Whether to give the change back in hand or keep it as the student's credit balance. It can be kept as credit only when the payment is for one student.                                             | No        |
 | Remarks               | A note for yourselves, for example who dropped off the money.                                                                                                                                      | No        |
 | Reason                | Why you are reversing the payment; 3 to 500 characters. The reversal entry and the credit note carry this reason.                                                                                  | Required. |
+| Show reversed too     | Off: a payment that was reversed is hidden. On: reversed payments and the reversal entries show too, marked Reversed and Reversal.                                                                 | No        |
 
 <!-- /guide:generated -->
 

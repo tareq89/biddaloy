@@ -98,10 +98,10 @@ A **rule** says: which academic year, for whom, which fee, and on which day. Whe
 
 ## How to know the rule is saved <a href="#confirm" id="confirm"></a>
 
-| State                           | How you know                                                                  | What next             |
-| ------------------------------- | ----------------------------------------------------------------------------- | --------------------- |
-| **Only typed on screen**        | The rule page is open; if you try to leave, a warning appears                 | Press **Save**        |
-| **Reached the school's system** | The page closes, and the rule appears in the list with **Status** **Active**  | You are done          |
+| State                           | How you know                                                                 | What next      |
+| ------------------------------- | ---------------------------------------------------------------------------- | -------------- |
+| **Only typed on screen**        | The rule page is open; if you try to leave, a warning appears                | Press **Save** |
+| **Reached the school's system** | The page closes, and the rule appears in the list with **Status** **Active** | You are done   |
 
 This page does not keep anything separately on your phone or computer, so there is no "saved on this device" state.
 
@@ -141,10 +141,10 @@ To add them back, press **Include again** in the student's row. They are billed 
 
    → The **Deactivate this schedule?** window appears.
 
-| What you pressed in the window | What happens                                                                              |
-| ------------------------------ | ----------------------------------------------------------------------------------------- |
-| **Deactivate**                 | New bills stop being created. Earlier bills and the exclusion list stay as they were.     |
-| **Cancel**                     | Nothing changes.                                                                          |
+| What you pressed in the window | What happens                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------- |
+| **Deactivate**                 | New bills stop being created. Earlier bills and the exclusion list stay as they were. |
+| **Cancel**                     | Nothing changes.                                                                      |
 
 To turn it on again press **Activate**. Bills are made again from the next scheduled day. This page has no button to delete a rule; if you do not need one, leave it deactivated.
 
@@ -164,28 +164,28 @@ Before you copy, have classes with the same names and fee structures with the sa
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                              | What to do                                                                                                                                       | Who can help |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| **Name is required**                                                      | Type a **Rule name** (up to 100 characters).                                                                                                     | —            |
-| **Select at least one fee**                                               | Tick at least one fee in **Fees**. If the list is empty, first add a [**fee structure**](fee-structures.md#task-main).                           | Accountant   |
-| **Select at least one day**                                               | If you chose **Every week**, tick at least one day in **Days of the week**.                                                                      | —            |
-| **Days to pay must be between 0 and 60**                                  | Type a number from 0 to 60.                                                                                                                      | —            |
-| **Could not save this schedule. Try again.**                              | Check your internet. Make sure the start date is not after the end date, and that the class and fees are from the same academic year.            | Admin        |
-| **Couldn't copy this rule. Try again.**                                   | Choose a different academic year; copying into the same year does not work.                                                                      | Admin        |
-| **Couldn't change this rule's status. Try again.**                        | Check your internet and press again.                                                                                                             | Admin        |
-| **That rule no longer exists.**                                           | Someone else may have removed it. Reload the list.                                                                                               | Admin        |
-| **Couldn't load automatic billing rules**                                 | Reload the page.                                                                                                                                 | Admin        |
-| The rule's day has passed, but no bills were made                         | Check that the rule is **Active**, that today is between its start and end dates, and that it covers some active students.                       | Admin        |
-| One student did not get a bill                                            | Check whether they are on the excluded list, or are inactive. If needed, bill them yourself with [**Create bills**](generate-fees.md).           | Accountant   |
+| What you see                                       | What to do                                                                                                                             | Who can help |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Name is required**                               | Type a **Rule name** (up to 100 characters).                                                                                           | —            |
+| **Select at least one fee**                        | Tick at least one fee in **Fees**. If the list is empty, first add a [**fee structure**](fee-structures.md#task-main).                 | Accountant   |
+| **Select at least one day**                        | If you chose **Every week**, tick at least one day in **Days of the week**.                                                            | —            |
+| **Days to pay must be between 0 and 60**           | Type a number from 0 to 60.                                                                                                            | —            |
+| **Could not save this schedule. Try again.**       | Check your internet. Make sure the start date is not after the end date, and that the class and fees are from the same academic year.  | Admin        |
+| **Couldn't copy this rule. Try again.**            | Choose a different academic year; copying into the same year does not work.                                                            | Admin        |
+| **Couldn't change this rule's status. Try again.** | Check your internet and press again.                                                                                                   | Admin        |
+| **That rule no longer exists.**                    | Someone else may have removed it. Reload the list.                                                                                     | Admin        |
+| **Couldn't load automatic billing rules**          | Reload the page.                                                                                                                       | Admin        |
+| The rule's day has passed, but no bills were made  | Check that the rule is **Active**, that today is between its start and end dates, and that it covers some active students.             | Admin        |
+| One student did not get a bill                     | Check whether they are on the excluded list, or are inactive. If needed, bill them yourself with [**Create bills**](generate-fees.md). | Accountant   |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                          | See rules | Add, change, exclude, switch off and copy |
-| ----------------------------------------------------------------------------- | --------- | ----------------------------------------- |
-| Admin                                                                         | Yes       | Yes                                       |
-| Accountant                                                                    | Yes       | Yes                                       |
+| Role                                                                           | See rules | Add, change, exclude, switch off and copy |
+| ------------------------------------------------------------------------------ | --------- | ----------------------------------------- |
+| Admin                                                                          | Yes       | Yes                                       |
+| Accountant                                                                     | Yes       | Yes                                       |
 | Academic coordinator, Teacher, Office staff, Exam controller, Committee member | No        | No                                        |
 
 **Admin and Accountant:** both can do everything on this page. No approval is needed here, because a rule never touches earlier bills.
@@ -211,18 +211,18 @@ Before you copy, have classes with the same names and fee structures with the sa
 <details>
 <summary><strong>What each field means</strong></summary>
 
-| Field                                         | Meaning                                                                                                              |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Rule name**                                 | The name shown in the list; up to 100 characters. Required.                                                          |
-| **Academic year**                             | Which year the rule is for. It can be chosen only when creating.                                                     |
-| **Fees**                                      | Which fee structures are billed. They must be from the same academic year. At least one.                             |
-| **Who is billed** (Class, Section, Program)   | Who is billed. **Whole school** means every active student of the year. If you give a section, give the class too.   |
-| **How often**                                 | **Every month** or **Every week**.                                                                                   |
-| **Day of the month**                          | Day 1 to 28, or **Last day**. There is no 29–31, so that the day exists in every month.                              |
-| **Days of the week**                          | One or more days; a bill is made only once a week.                                                                   |
-| **Days to pay**                               | Within how many days after the period starts the money is due; 0 to 60, 9 at the start.                              |
-| **Starts on** / **Ends on**                   | The rule runs only between these dates. The end date is not after the last day of the academic year.                 |
-| **Notify families when bills are created**    | When ticked, families get a message when bills are made. Ticked at the start.                                        |
+| Field                                       | Meaning                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Rule name**                               | The name shown in the list; up to 100 characters. Required.                                                        |
+| **Academic year**                           | Which year the rule is for. It can be chosen only when creating.                                                   |
+| **Fees**                                    | Which fee structures are billed. They must be from the same academic year. At least one.                           |
+| **Who is billed** (Class, Section, Program) | Who is billed. **Whole school** means every active student of the year. If you give a section, give the class too. |
+| **How often**                               | **Every month** or **Every week**.                                                                                 |
+| **Day of the month**                        | Day 1 to 28, or **Last day**. There is no 29–31, so that the day exists in every month.                            |
+| **Days of the week**                        | One or more days; a bill is made only once a week.                                                                 |
+| **Days to pay**                             | Within how many days after the period starts the money is due; 0 to 60, 9 at the start.                            |
+| **Starts on** / **Ends on**                 | The rule runs only between these dates. The end date is not after the last day of the academic year.               |
+| **Notify families when bills are created**  | When ticked, families get a message when bills are made. Ticked at the start.                                      |
 
 </details>
 
@@ -238,6 +238,22 @@ Before you copy, have classes with the same names and fee structures with the sa
 - **If an earlier bill exists:** if a student already has a bill for the same fee in that period (for example, you created it yourself), they do not get another.
 - **The money:** the bill's amount comes from the fee structure of that day. If the student has a discount rule, the discount is applied too.
 - **Active students only:** inactive or excluded students are not billed.
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:fees -->
+
+| Field                  | What to enter                                                                                          | Required? |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ | --------- |
+| Overdue only           | Shows only the students who have a fee past its reminder date. Leave it off to see everyone with dues. | No        |
+| When bills are created | Every month on a day you pick (or the last day), or every week on the days you pick.                   | Yes       |
+| Days to pay            | How many days after the period starts the bill is due. A number from 0 to 60.                          | Yes       |
+| Who is billed          | The whole school, or one class, section or program. Only students who are enrolled now are billed.     | No        |
+
+<!-- /guide:generated -->
 
 </details>
 

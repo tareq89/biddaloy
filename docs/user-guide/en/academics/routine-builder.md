@@ -229,22 +229,22 @@ Below the table is the **Teacher workload** section: each teacher's **Periods / 
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                    | What to do                                                                                                                      | Who can help   |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| **No classes yet**                                                              | Press **Go to classes** and add a class and its sections first.                                                                 | Admin          |
-| **No sections**                                                                 | Press **Open class** and add sections to the class.                                                                             | Admin          |
-| **This class has no shift**                                                     | Press **Open class** and give the class a shift. If there is no shift, do [Routine setup](routine-setup.md) first.              | Admin          |
-| **No routine yet**                                                              | Press **Create routine**. A new **Draft** routine is made for the current academic year. If **Could not create the routine — try again.** appears, check your internet and press again. | Admin          |
-| **Which section?**                                                              | You came from an old link. Press **Class routine** and open the section from the list.                                          | Admin          |
-| **Section not found.**                                                          | The section may have been removed. Press **Class routine** and pick it again.                                                   | Admin          |
-| **Couldn't load the classes. Check your connection and try again.**             | Check your internet and try again.                                                                                              | Admin          |
-| **Could not save — try again.**                                                 | Check your internet and press **Save** again. | Admin          |
-| **This period has substitutions or open change requests. Resolve them first, or edit from a later date.** | Delete the period's substitutions for today and later, or settle the open change request. See [Change or clear a cell](#task-clear). | Admin          |
-| **This can't be saved**                                                         | See the reason written below it: [Clashes and warnings](#task-conflicts).                                                       | Admin          |
-| **Couldn't work out the periods to fill. Close this and try again.**            | Close the dialog and press **Fill empty periods** again.                                                                        | Admin          |
-| **This routine table needs a wider screen — try landscape or a bigger window.** | Open it on a computer, or make the window bigger.                                                                               | —              |
-| Friday and Saturday (or some other day) are missing from the table              | That is a weekly off day of the school. To change it, see [Off days in the calendar](../people/calendar.md#task-offdays).       | Admin          |
-| You cannot find someone in the teacher list                                     | Check whether they have a teacher profile: [Adding and managing staff](../people/staff.md#task-teacher).                        | Admin          |
+| What you see                                                                                              | What to do                                                                                                                                                                              | Who can help |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **No classes yet**                                                                                        | Press **Go to classes** and add a class and its sections first.                                                                                                                         | Admin        |
+| **No sections**                                                                                           | Press **Open class** and add sections to the class.                                                                                                                                     | Admin        |
+| **This class has no shift**                                                                               | Press **Open class** and give the class a shift. If there is no shift, do [Routine setup](routine-setup.md) first.                                                                      | Admin        |
+| **No routine yet**                                                                                        | Press **Create routine**. A new **Draft** routine is made for the current academic year. If **Could not create the routine — try again.** appears, check your internet and press again. | Admin        |
+| **Which section?**                                                                                        | You came from an old link. Press **Class routine** and open the section from the list.                                                                                                  | Admin        |
+| **Section not found.**                                                                                    | The section may have been removed. Press **Class routine** and pick it again.                                                                                                           | Admin        |
+| **Couldn't load the classes. Check your connection and try again.**                                       | Check your internet and try again.                                                                                                                                                      | Admin        |
+| **Could not save — try again.**                                                                           | Check your internet and press **Save** again.                                                                                                                                           | Admin        |
+| **This period has substitutions or open change requests. Resolve them first, or edit from a later date.** | Delete the period's substitutions for today and later, or settle the open change request. See [Change or clear a cell](#task-clear).                                                    | Admin        |
+| **This can't be saved**                                                                                   | See the reason written below it: [Clashes and warnings](#task-conflicts).                                                                                                               | Admin        |
+| **Couldn't work out the periods to fill. Close this and try again.**                                      | Close the dialog and press **Fill empty periods** again.                                                                                                                                | Admin        |
+| **This routine table needs a wider screen — try landscape or a bigger window.**                           | Open it on a computer, or make the window bigger.                                                                                                                                       | —            |
+| Friday and Saturday (or some other day) are missing from the table                                        | That is a weekly off day of the school. To change it, see [Off days in the calendar](../people/calendar.md#task-offdays).                                                               | Admin        |
+| You cannot find someone in the teacher list                                                               | Check whether they have a teacher profile: [Adding and managing staff](../people/staff.md#task-teacher).                                                                                | Admin        |
 
 ---
 
@@ -303,6 +303,27 @@ Arrow keys: move from cell to cell · Enter: open a cell · Delete: clear a cell
 3. [Routine review](routine-review.md): send it for review, then publish.
 4. Teachers see it on the [My routine](my-routine.md) page.
 5. If someone is absent, a [substitute teacher](routine-substitutions.md).
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:routines -->
+
+| Field                                 | What to enter                                                                                                                                | Required?                           |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Lesson status                         | For each period, choose Taught, Partly or Not taught. Not taught asks you for a reason.                                                      | Yes                                 |
+| Reason (not taught)                   | Teacher absent, School closed, Exam or Other. Write one line when you choose Other. The lesson moves to the next period.                     | Yes, when not taught                |
+| Teachers                              | One or more teachers for this period.                                                                                                        | Yes                                 |
+| Recurrence                            | Weekly, Biweekly (every other week; pick Week 1 or Week 2) or Monthly (pick which occurrence of that day in the month, or the last).         | Yes                                 |
+| Gap between periods (minutes)         | A new period starts this many minutes after the one before it ends. A whole number from 0 to 120.                                            | No                                  |
+| Most periods a teacher takes in a day | The most periods one teacher may take in a day. A whole number of at least 1; leave empty for no limit. Checked while you build the routine. | No                                  |
+| Most periods in a row                 | The most periods in a row for one teacher. A whole number of at least 1; leave empty for no limit. Checked while you build the routine.      | No                                  |
+| Cancel the period                     | Tick it when nobody teaches the period on that date. The weekly routine itself does not change.                                              | No                                  |
+| Substitute teacher                    | Who teaches the period on that date. It cannot be the teacher already assigned, or someone with another class at that time.                  | Yes, unless the period is cancelled |
+
+<!-- /guide:generated -->
 
 </details>
 

@@ -274,30 +274,27 @@
     "generic": "Could not be sent."
   },
   "fields": {
-    "sendGuardian": "Which guardian to send to",
-    "sendMedium": "How to send (Send message)",
-    "sendMessage": "Message (Send message)",
-    "reminderGuardians": "Who to remind",
-    "reminderMessage": "Message (Fee reminder)",
-    "reminderMedium": "How to send (Fee reminder)",
+    "guardian": "Which guardian to send to",
+    "medium": "How to send",
+    "message": "Message",
+    "guardians": "Who to remind",
     "bulkBatchName": "Batch name",
-    "bulkMediums": "Channels (bulk reminder)"
+    "bulkMediums": "Channels (bulk reminder)",
+    "status": "Status"
   },
   "help": {
-    "sendGuardian": "One guardian of the chosen student. Their phone or email shows below; without one you cannot send.",
-    "sendMedium": "SMS, WhatsApp or Email. SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none.",
-    "sendMessage": "What to send. For SMS, the characters and the number of SMS it uses show below.",
-    "reminderGuardians": "Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.",
-    "reminderMessage": "Use the buttons below to put in the name, due amount or month; each guardian gets their real details.",
-    "reminderMedium": "Starts on each guardian’s preferred channel. Pick one to send everyone on that channel this time.",
+    "guardian": "One guardian of the chosen student. Their phone or email shows below; without one you cannot send.",
+    "medium": "Send message: SMS, WhatsApp or Email; SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. Fee reminder: starts on each guardian’s preferred channel; pick one to send everyone on that channel this time.",
+    "message": "What to send. For SMS, the characters and the number of SMS it uses show below. In a fee reminder, use the buttons below to put in the name, due amount or month; each guardian gets their real details.",
+    "guardians": "Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.",
     "bulkBatchName": "A name for this batch; you find it by this name in Reminder history later.",
-    "bulkMediums": "A guardian whose preferred channel is not ticked here is skipped. All three start ticked."
+    "bulkMediums": "A guardian whose preferred channel is not ticked here is skipped. All three start ticked.",
+    "status": "Shows only the rounds in one state: Processing, Completed, Partially failed or Failed. Leave it on All statuses to see every round."
   },
   "helpRequired": {
-    "sendGuardian": "Yes",
-    "sendMessage": "Yes",
-    "reminderGuardians": "Yes, at least one",
-    "reminderMessage": "Yes",
+    "guardian": "Yes",
+    "message": "Yes",
+    "guardians": "Yes, at least one",
     "bulkBatchName": "Yes",
     "bulkMediums": "Yes, at least one"
   },
