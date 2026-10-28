@@ -720,7 +720,7 @@
         "action": "Check the work and give feedback. See submissions opens the Check work list of the first homework on the card."
       },
       "class-teacher-streaks": {
-        "means": "Students of your own section who have been absent several school days in a row, up to the last register. How many days comes from the Absent in a row (days) setting, 3 unless changed.",
+        "means": "Students of your own section who have been absent several school days in a row, up to the last register. The number of days comes from the Absent in a row (days) setting; it is 3 unless changed.",
         "source": "It comes from the whole-day attendance registers of the section where you are class teacher.",
         "action": "Call the guardian today. Tell guardian and the link both open your section page in My class."
       },

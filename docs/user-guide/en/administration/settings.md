@@ -150,13 +150,13 @@ To add a logo, press **Upload logo** and pick an image. It is saved as soon as y
 
 **3. Language, numbers and dates.** "How numbers, money and dates appear on every page."
 
-| Field                          | What to choose                                                                                                                           |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Field                                     | What to choose                                                                                                                                                                                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Language of messages the school sends** | **Bangla (Bangladesh)** or **English (Bangladesh)**. SMS, emails, letters and alerts from this school use this language. It does not change anyone's screen: each person picks their own ([Changing the language](../start/language.md)). |
-| **Numeral system**             | **Bengali (০-৯)** or **Latin (0-9)**                                                                                                     |
-| **First day of week**          | The day the week starts                                                                                                                  |
-| **Academic year start month**  | A month from 1 to 12                                                                                                                     |
-| **Currency**                   | The symbol, **Symbol position**, **Decimal places** (0 to 4), **Number grouping** (**Lakh/crore** or **Thousand**); a sample shows below |
+| **Numeral system**                        | **Bengali (০-৯)** or **Latin (0-9)**                                                                                                                                                                                                      |
+| **First day of week**                     | The day the week starts                                                                                                                                                                                                                   |
+| **Academic year start month**             | A month from 1 to 12                                                                                                                                                                                                                      |
+| **Currency**                              | The symbol, **Symbol position**, **Decimal places** (0 to 4), **Number grouping** (**Lakh/crore** or **Thousand**); a sample shows below                                                                                                  |
 
 Press **Advanced settings** for more fields: **Timezone**, **Currency code**, the phone number rule, the address parts and the ID number check rules. The app itself says: "Time zone, phone, address and ID rules. You rarely need to change these; a wrong value can stop phone or ID checks from working." If a field has a mistake, the part opens by itself.
 
@@ -451,13 +451,13 @@ This category has two parts: **Backup** and **Restore from a backup**. To see th
 
 **How long things are kept**
 
-| Rule                            | What happens                                                                                              |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Download time                   | 30 days after the backup finishes. After that it shows **Download expired**.                              |
-| Backups you took yourself       | The newest 3 are kept; older ones are deleted by themselves.                                              |
-| Automatic backups               | The newest 8 are kept.                                                                                    |
-| The copy taken before a restore | Kept for 30 days.                                                                                         |
-| Total space                     | 500 MB for each school. If it goes over, the oldest backup is deleted. The **Space** field shows the use. |
+| Rule                            | What happens                                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Download time                   | 30 days after the backup finishes (not for a backup you pressed **Keep forever**). After that it shows **Download expired**. |
+| Backups you took yourself       | The newest 3 are kept; older ones are deleted by themselves.                                                                 |
+| Automatic backups               | The newest 8 are kept.                                                                                                       |
+| The copy taken before a restore | Kept for 30 days.                                                                                                            |
+| Total space                     | 500 MB for each school. If it goes over, the oldest backup is deleted. The **Space** field shows the use.                    |
 
 Press **Keep forever** and that backup is not deleted by itself.
 

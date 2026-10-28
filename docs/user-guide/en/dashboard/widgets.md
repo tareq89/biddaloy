@@ -227,7 +227,7 @@ This list is generated from the app's own text, so it matches the app. Widgets t
 
 ### My class streaks <a href="#widget.class-teacher-streaks" id="widget.class-teacher-streaks"></a>
 
-- **What it means:** Students of your own section who have been absent several school days in a row, up to the last register. How many days comes from the Absent in a row (days) setting, 3 unless changed.
+- **What it means:** Students of your own section who have been absent several school days in a row, up to the last register. The number of days comes from the Absent in a row (days) setting; it is 3 unless changed.
 - **Where the number comes from:** It comes from the whole-day attendance registers of the section where you are class teacher.
 - **What to do:** Call the guardian today. Tell guardian and the link both open your section page in My class.
 
@@ -375,11 +375,11 @@ This list is generated from the app's own text, so it matches the app. Widgets t
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                  | What to do                                                                                      | Who can help |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------ |
-| **This widget could not load.**               | Press **Try again**. If it keeps happening, reload the page.                                    | Admin        |
+| What you see                                  | What to do                                                                                                                    | Who can help |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **This widget could not load.**               | Press **Try again**. If it keeps happening, reload the page.                                                                  | Admin        |
 | The number does not match the linked page     | Read the widget's **What it means** line above: it says which days the number counts. The linked page may show a longer time. | Admin        |
-| A widget in the list is not on your dashboard | Either it is not for your role, or it is hidden. See [Customising the dashboard](customise.md). | Yourself     |
+| A widget in the list is not on your dashboard | Either it is not for your role, or it is hidden. See [Customising the dashboard](customise.md).                               | Yourself     |
 
 ---
 
