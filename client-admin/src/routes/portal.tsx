@@ -10,6 +10,7 @@ import {
   SyncStatusIndicator,
   TenantBar,
   ThemeToggle,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import {
   hasPermission,
@@ -263,6 +264,7 @@ function PortalLayout() {
                         attention={attention.bell}
                       />
                       <LocaleSwitcher />
+                      <HelpHint helpId="start.language.action.switch" />
                       <ThemeToggle />
                       <StaffUserMenu securityTo="/portal/account" invites={schoolInvites} />
                     </>

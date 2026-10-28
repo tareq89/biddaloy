@@ -132,7 +132,11 @@ export function StaffUserMenu({
         </DialogContent>
       </Dialog>
       {mode === 'ios-instructions' && (
-        <IosInstallSheet open={iosSheetOpen} onOpenChange={setIosSheetOpen} />
+        <IosInstallSheet
+          open={iosSheetOpen}
+          onOpenChange={setIosSheetOpen}
+          helpId="start.phone.action.install"
+        />
       )}
     </>
   );

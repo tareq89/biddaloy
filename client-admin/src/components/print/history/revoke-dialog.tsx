@@ -12,6 +12,7 @@ import {
   DialogTitle,
   Textarea,
   toast,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import { useRevokePrintItem } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -65,15 +66,21 @@ export function RevokeDialog({ open, onOpenChange, itemId, subjectLabel }: Revok
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>{t('revoke.title', { name: subjectLabel })}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('revoke.title', { name: subjectLabel })}</DialogTitle>
+            <HelpHint helpId="reports.printables.action.revoke" />
+          </div>
         </DialogHeader>
 
         <p className="text-sm">{t('revoke.warning')}</p>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="revoke-reason" className="text-sm font-medium">
-            {t('revoke.reason')}
-          </label>
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor="revoke-reason" className="text-sm font-medium">
+              {t('revoke.reason')}
+            </label>
+            <HelpHint helpId="reports.printables.field.revokeReason" />
+          </span>
           <Textarea
             id="revoke-reason"
             value={reason}

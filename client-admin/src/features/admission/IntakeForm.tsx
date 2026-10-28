@@ -6,6 +6,7 @@ import { AdmissionDocumentType } from '@biddaloy/shared';
 import {
   Checkbox,
   DatePicker,
+  HelpHint,
   Input,
   Label,
   Select,
@@ -68,9 +69,18 @@ const DOCUMENT_TYPE_LABEL_KEY: Record<AdmissionDocumentType, string> = {
 };
 
 /** Label + a visible required mark (the star is decorative, the word is for screen readers). */
-function RequiredLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+function RequiredLabel({
+  htmlFor,
+  helpId,
+  children,
+}: {
+  htmlFor?: string;
+  /** A (?) after the label; a sibling, so clicking the label still focuses the field. */
+  helpId?: string;
+  children: React.ReactNode;
+}) {
   const { t } = useTranslation('admission-staff-intakes');
-  return (
+  const label = (
     <Label htmlFor={htmlFor}>
       {children}
       <span className="text-destructive" aria-hidden="true">
@@ -78,6 +88,13 @@ function RequiredLabel({ htmlFor, children }: { htmlFor?: string; children: Reac
       </span>
       <span className="sr-only">{t('form.required', { ns: 'common' })}</span>
     </Label>
+  );
+  if (!helpId) return label;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <HelpHint helpId={helpId} />
+    </span>
   );
 }
 
@@ -115,7 +132,12 @@ export function IntakeForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <RequiredLabel htmlFor="intake-class-section">{t('form.classSectionLabel')}</RequiredLabel>
+        <RequiredLabel
+          htmlFor="intake-class-section"
+          helpId="people.admissionIntakes.field.classSection"
+        >
+          {t('form.classSectionLabel')}
+        </RequiredLabel>
         <Select
           value={value.class_section_id}
           onValueChange={(next) => onChange({ ...value, class_section_id: next })}
@@ -134,7 +156,9 @@ export function IntakeForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <RequiredLabel htmlFor="intake-seat-count">{t('form.seatCountLabel')}</RequiredLabel>
+        <RequiredLabel htmlFor="intake-seat-count" helpId="people.admissionIntakes.field.seatCount">
+          {t('form.seatCountLabel')}
+        </RequiredLabel>
         <Input
           id="intake-seat-count"
           type="number"
@@ -174,8 +198,15 @@ export function IntakeForm({
       </div>
       <p className="text-caption text-text-secondary md:col-span-2">{t('form.datesHelp')}</p>
 
-      <fieldset className="flex flex-col gap-1.5 md:col-span-2">
-        <legend className="text-label">{t('form.requiredDocumentsLabel')}</legend>
+      {/* The name is set here so the (?) inside the legend stays out of it. */}
+      <fieldset
+        className="flex flex-col gap-1.5 md:col-span-2"
+        aria-label={t('form.requiredDocumentsLabel')}
+      >
+        <legend className="flex items-center gap-1 text-label">
+          {t('form.requiredDocumentsLabel')}
+          <HelpHint helpId="people.admissionIntakes.field.requiredDocuments" />
+        </legend>
         <p className="text-caption text-text-secondary">{t('form.documentsHelp')}</p>
         {ALL_DOCUMENT_TYPES.map((type) => (
           <label key={type} className="flex min-h-11 items-center gap-3 md:min-h-8">

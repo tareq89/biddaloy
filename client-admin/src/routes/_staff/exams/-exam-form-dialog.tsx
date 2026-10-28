@@ -206,7 +206,10 @@ export function ExamFormDialog({
       <DialogContent size="md">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
+            <div className="flex items-center gap-1">
+              <DialogTitle>{title}</DialogTitle>
+              {mode === 'edit' && <HelpHint helpId="examsResults.exams.action.edit" />}
+            </div>
             <DialogDescription>{t('examForm.description')}</DialogDescription>
           </DialogHeader>
 

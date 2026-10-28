@@ -7,6 +7,7 @@ import { type BulkImportError, type PreviewResult } from '../hooks/use-bulk-uplo
 import { renderWithProviders } from '../test/render-with-providers';
 
 import { BulkUploadPreview } from './bulk-upload-preview';
+import { HelpProvider } from './help-hint';
 
 interface Summary {
   totalRows: number;
@@ -71,6 +72,34 @@ async function selectFile() {
 }
 
 describe('BulkUploadPreview', () => {
+  it('helpId draws a (?) right after Confirm', async () => {
+    const index = {
+      ok: {
+        title: { bn: 'আমদানি', en: 'Importing staff' },
+        summary: { bn: 's', en: 's' },
+        path: 'p',
+        anchor: 'task-main',
+        knownIssues: 0,
+      },
+    };
+    const { localeReady } = renderWithProviders(
+      <HelpProvider index={index} lang="en" baseUrl="https://g.test">
+        <BulkUploadPreview<Summary, CommitResult>
+          validate={vi.fn().mockResolvedValue(baseResult())}
+          commit={vi.fn()}
+          renderSummary={renderSummary}
+          renderDone={renderDone}
+          helpId="ok"
+        />
+      </HelpProvider>,
+      { locale: 'en' },
+    );
+    await localeReady;
+    await selectFile();
+    const hint = await screen.findByRole('button', { name: 'Help: Importing staff' });
+    expect(hint.previousElementSibling).toBe(screen.getByRole('button', { name: 'Confirm' }));
+  });
+
   it('disables Confirm when hard_error_count > 0, enables it on a clean preview', async () => {
     const errors: BulkImportError[] = [{ row: 1, column: 'x', message: 'bad', severity: 'error' }];
     const validate = vi.fn().mockResolvedValue(baseResult({ errors, hard_error_count: 1 }));

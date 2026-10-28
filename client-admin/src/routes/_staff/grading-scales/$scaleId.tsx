@@ -15,7 +15,6 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
-  HelpHint,
   RecordNotFoundState,
   RoutePending,
   Skeleton,
@@ -338,14 +337,9 @@ function ScaleEditorPage() {
 
         <section className="space-y-3" aria-labelledby="bands-title">
           <div>
-            <div className="flex items-center gap-1">
-              <h2 id="bands-title" className="text-h2">
-                {t('bandEditor.title')}
-              </h2>
-              {canManage && bands.length === 0 && (
-                <HelpHint helpId="examsResults.gradingScales.action.startFromNctb" />
-              )}
-            </div>
+            <h2 id="bands-title" className="text-h2">
+              {t('bandEditor.title')}
+            </h2>
             <p className="mt-1 text-text-secondary">{t('bandEditor.help')}</p>
           </div>
           {bands.length === 0 ? (
@@ -358,6 +352,7 @@ function ScaleEditorPage() {
                     action: {
                       label: t('detail.startFromNctb'),
                       onClick: () => changeBands(NCTB_BANDS.map((band) => ({ ...band }))),
+                      helpId: 'examsResults.gradingScales.action.startFromNctb',
                     },
                     secondaryAction: {
                       label: t('bandEditor.addBand'),

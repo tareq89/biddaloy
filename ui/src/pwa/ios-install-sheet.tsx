@@ -15,21 +15,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/dialog';
+import { HelpHint } from '../components/help-hint';
 import { useTranslation } from '../i18n';
 
 export interface IosInstallSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** A (?) beside the title (the Install menu item that opens this sheet has none). */
+  helpId?: string | undefined;
 }
 
-export function IosInstallSheet({ open, onOpenChange }: IosInstallSheetProps) {
+export function IosInstallSheet({ open, onOpenChange, helpId }: IosInstallSheetProps) {
   const { t } = useTranslation('nav');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('installPrompt.iosSheet.title')}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('installPrompt.iosSheet.title')}</DialogTitle>
+            <HelpHint helpId={helpId} />
+          </div>
           <DialogDescription>{t('installPrompt.iosSheet.description')}</DialogDescription>
         </DialogHeader>
         <ol className="flex flex-col gap-3 text-sm text-foreground">

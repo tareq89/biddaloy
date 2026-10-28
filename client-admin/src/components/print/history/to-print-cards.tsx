@@ -11,6 +11,7 @@ import {
   Skeleton,
   StatusBadge,
   type DataTableColumn,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import { useAdmitCardRoster, type AdmitCardStudent, type IdCardQueueRow } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -138,22 +139,25 @@ export function ExamGroup({ exam, filled }: { exam: QueueExam; filled: boolean }
       }
       action={
         waiting.length > 0 ? (
-          <Button asChild variant={filled ? 'default' : 'outline'}>
-            <Link
-              to="/print/preview"
-              search={{
-                kind: DocumentKind.EXAM_ADMIT_CARD,
-                subject_type: PrintSubjectType.STUDENT,
-                context_type: 'EXAM',
-                context_id: exam.exam_id,
-                ids: waiting.map((s) => s.student_id).join(','),
-                from: BACK,
-              }}
-            >
-              <PrinterIcon aria-hidden className="size-4" />
-              {t('toPrint.printAdmit', { count: waiting.length })}
-            </Link>
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button asChild variant={filled ? 'default' : 'outline'}>
+              <Link
+                to="/print/preview"
+                search={{
+                  kind: DocumentKind.EXAM_ADMIT_CARD,
+                  subject_type: PrintSubjectType.STUDENT,
+                  context_type: 'EXAM',
+                  context_id: exam.exam_id,
+                  ids: waiting.map((s) => s.student_id).join(','),
+                  from: BACK,
+                }}
+              >
+                <PrinterIcon aria-hidden className="size-4" />
+                {t('toPrint.printAdmit', { count: waiting.length })}
+              </Link>
+            </Button>
+            <HelpHint helpId="reports.printables.action.printAdmitCards" />
+          </div>
         ) : null
       }
       rows={waiting}
@@ -230,20 +234,23 @@ export function IdCardGroup({ filled, rows }: { filled: boolean; rows: IdCardQue
       }
       action={
         printable.length > 0 ? (
-          <Button asChild variant={filled ? 'default' : 'outline'}>
-            <Link
-              to="/print/preview"
-              search={{
-                kind: DocumentKind.STUDENT_ID_CARD,
-                subject_type: PrintSubjectType.STUDENT,
-                ids: printable.map((r) => r.student_id).join(','),
-                from: BACK,
-              }}
-            >
-              <PrinterIcon aria-hidden className="size-4" />
-              {t('toPrint.printId', { count: printable.length })}
-            </Link>
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button asChild variant={filled ? 'default' : 'outline'}>
+              <Link
+                to="/print/preview"
+                search={{
+                  kind: DocumentKind.STUDENT_ID_CARD,
+                  subject_type: PrintSubjectType.STUDENT,
+                  ids: printable.map((r) => r.student_id).join(','),
+                  from: BACK,
+                }}
+              >
+                <PrinterIcon aria-hidden className="size-4" />
+                {t('toPrint.printId', { count: printable.length })}
+              </Link>
+            </Button>
+            <HelpHint helpId="reports.printables.action.printIdCards" />
+          </div>
         ) : null
       }
       rows={rows}

@@ -146,6 +146,7 @@ export function PageSetupPanel({
       <NumberField
         id="page-batch"
         label={t('page.batchSize')}
+        helpId="administration.printTemplates.field.batchSize"
         value={batchSize}
         min={1}
         max={PRINT_BATCH_CEILING}

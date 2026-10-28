@@ -12,6 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
@@ -77,7 +78,12 @@ export function DidAllPrintDialog({
         onPointerDownOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>{t('confirm.title', { n: formatNumber(items.length, region) })}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>
+              {t('confirm.title', { n: formatNumber(items.length, region) })}
+            </DialogTitle>
+            <HelpHint helpId="administration.printTemplates.action.confirmRound" />
+          </div>
         </DialogHeader>
 
         {step === 'pick' ? (

@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -53,10 +54,13 @@ export function NumberField({
   step = 0.1,
   optional = false,
   help,
+  helpId,
   onCommit,
 }: {
   id: string;
   label: string;
+  /** A (?) after the label (needs a help index entry, Epic 44). */
+  helpId?: string;
   value: number | undefined;
   min: number;
   max: number;
@@ -87,9 +91,12 @@ export function NumberField({
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium">
-        {label}
-      </label>
+      <span className="inline-flex items-center gap-1">
+        <label htmlFor={id} className="text-xs font-medium">
+          {label}
+        </label>
+        <HelpHint helpId={helpId} />
+      </span>
       <Input
         id={id}
         type="number"

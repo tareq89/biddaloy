@@ -17,6 +17,7 @@ import { BulkImportErrorTable } from './bulk-import-error-table';
 import { Button } from './button';
 import { Card } from './card';
 import { FileUpload, type FileUploadItem } from './file-upload';
+import { HelpHint } from './help-hint';
 
 export interface BulkUploadPreviewConfirmSlotApi {
   setBlocked: (blocked: boolean) => void;
@@ -62,6 +63,8 @@ export interface BulkUploadPreviewProps<S, C> {
    * buttons and the preview's own `Card` frame (the host card frames it),
    * showing a file row with an "upload another" button instead. */
   hideConfirm?: boolean;
+  /** A (?) right after the in-card Confirm button (needs a help index entry, Epic 44). */
+  helpId?: string | undefined;
 }
 
 function formatCountdown(remainingMs: number): string {
@@ -111,6 +114,7 @@ export function BulkUploadPreview<S, C>({
   renderDone,
   onControllerChange,
   hideConfirm = false,
+  helpId,
 }: BulkUploadPreviewProps<S, C>) {
   const { t } = useTranslation('bulkImport');
   const config = useRegionConfig();
@@ -333,6 +337,7 @@ export function BulkUploadPreview<S, C>({
                   <Button type="button" onClick={confirm} disabled={confirmDisabled}>
                     {state.status === 'committing' ? t('confirming') : t('confirm')}
                   </Button>
+                  <HelpHint helpId={helpId} />
                   <Button
                     type="button"
                     variant="outline"

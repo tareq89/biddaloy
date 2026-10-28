@@ -267,13 +267,13 @@ flowchart LR
 An id is the page's feature id plus an optional kind and name. Without a
 suffix, the link goes to the default spot for its kind (E10):
 
-| Shape                      | Example                                                                   | The card links to                                    |
-| -------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `<feature>`                | `attendance.attendance`                                                   | the page top                                         |
-| `<feature>.action.<name>`  | `attendance.attendance.action.submit`                                     | `#task-main`                                         |
-| `<feature>.section.<name>` | `people.admissionIntakes.section.status` (declared, not wired yet: #3079) | `#task-main`                                         |
-| `<feature>.field.<name>`   | `finance.feeStructures.field.amount`                                      | `#more`; the card text is the i18n key `help.<name>` |
-| `widget.<key>`             | `widget.attendance-today`                                                 | `dashboard/widgets#widget.attendance-today`          |
+| Shape                      | Example                                      | The card links to                                    |
+| -------------------------- | -------------------------------------------- | ---------------------------------------------------- |
+| `<feature>`                | `attendance.attendance`                      | the page top                                         |
+| `<feature>.action.<name>`  | `attendance.attendance.action.submit`        | `#task-main`                                         |
+| `<feature>.section.<name>` | `administration.settings.section.attendance` | `#task-main`                                         |
+| `<feature>.field.<name>`   | `finance.feeStructures.field.amount`         | `#more`; the card text is the i18n key `help.<name>` |
+| `widget.<key>`             | `widget.attendance-today`                    | `dashboard/widgets#widget.attendance-today`          |
 
 **`#anchor` suffix (E20).** In `helpIds` an entry may name its own section.
 No page uses a suffix yet; for example
