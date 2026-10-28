@@ -8,7 +8,7 @@ import { PlatformTenantResolver, platformRecipients, schoolNames } from './platf
 /**
  * bKash took money that paid no order (amount mismatch, or the order was already settled):
  * `BkashService` records it as an orphan `platform_payments` row. It stays on this alert until the
- * operator refunds it and stamps `raw.refunded_at` (28-billing.md, "Money bKash took for nothing").
+ * operator refunds it and stamps `raw.refunded_at` (38-billing.md, "Money bKash took for nothing").
  */
 @AttentionRule()
 export class PlatformBkashRefundDueRule implements AttentionRuleShape {
@@ -19,7 +19,7 @@ export class PlatformBkashRefundDueRule implements AttentionRuleShape {
       why: 'bKash took the money but no order was paid (trxID {refs}; {schools}).',
       steps: [
         'Refund each trxID from the bKash merchant panel.',
-        'Then mark it refunded as 28-billing.md shows.',
+        'Then mark it refunded as 38-billing.md shows.',
       ],
       action: 'Open subscriptions',
     },
@@ -28,7 +28,7 @@ export class PlatformBkashRefundDueRule implements AttentionRuleShape {
       why: 'বিকাশ টাকা নিয়েছে কিন্তু কোনো অর্ডার পরিশোধ হয়নি (trxID {refs}; {schools})।',
       steps: [
         'বিকাশ মার্চেন্ট প্যানেল থেকে প্রতিটি trxID-এর টাকা ফেরত দিন।',
-        'তারপর 28-billing.md অনুযায়ী ফেরত দেওয়া হয়েছে বলে চিহ্ন দিন।',
+        'তারপর 38-billing.md অনুযায়ী ফেরত দেওয়া হয়েছে বলে চিহ্ন দিন।',
       ],
       action: 'সাবস্ক্রিপশন খুলুন',
     },

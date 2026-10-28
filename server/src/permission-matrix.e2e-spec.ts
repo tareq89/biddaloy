@@ -486,6 +486,14 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
     controller: 'HomeworkController',
     method: 'GET',
+    path: '/homework/:id/assignments',
+    reason:
+      '[#1013] same narrowing as GET /homework/:id — staff assignment rows, not a family view' +
+      ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
     path: '/students/:studentId/homework',
     reason:
       "[8.10.7.4.14] family view of one linked child's homework — ADMIN/TEACHER also hold HOMEWORK_READ, but staff use the unscoped /homework list; this route is PARENT/STUDENT only and enforces the guardian link (FamilyAccessService.assertLinked)",
@@ -519,7 +527,7 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     method: 'POST',
     path: '/homework-assignments/:id/submissions',
     reason:
-      '[22.3.2] uploading a submission is the STUDENT/PARENT-only self-service action (D26 ownership-scoped) — ADMIN/TEACHER also hold HOMEWORK_READ but grade via PATCH /homework-submissions/:id, not this route' +
+      '[22.3.2] uploading a submission is the STUDENT/PARENT-only self-service action (D26 ownership-scoped) — ADMIN/TEACHER also hold HOMEWORK_READ but grade via PATCH /homework-assignments/:id/submissions (#2899), not this route' +
       ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
   },
   {

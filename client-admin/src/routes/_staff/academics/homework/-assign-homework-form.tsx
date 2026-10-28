@@ -1,7 +1,8 @@
 /**
- * [22.4.1] One form, two modes: `create` builds a new Homework + its first
+ * [22.4.1] One form, three modes: `create` builds a new Homework + its first
  * assignment in one submit; `assign` (used from the detail page's dialog)
- * only assigns an existing homework to another section/student. Local
+ * only assigns an existing homework to another section/student; `reassign`
+ * (#1013) is `assign` prefilled from an existing row, saved over it. Local
  * `useState`, not FormShell — same reasoning `-year-form-dialog.tsx`'s
  * header gives for a short field count.
  */
@@ -31,17 +32,25 @@ import {
   type CreateHomeworkInput,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { parseServerDate } from '@biddaloy/ui/utils';
 import { CircleAlert } from 'lucide-react';
 import * as React from 'react';
 
 import { subjectName } from './-subject-name';
 
-export type AssignHomeworkFormMode = 'create' | 'assign';
+export type AssignHomeworkFormMode = 'create' | 'assign' | 'reassign';
 
 export interface AssignHomeworkFormInitial {
   classId?: string;
   sectionId?: string;
   subjectId?: string;
+  /** reassign: the row's student, if it targets one. */
+  studentId?: string;
+  /** reassign: the held student's name, shown if they are not in the loaded page. */
+  studentName?: string;
+  /** reassign: ISO `YYYY-MM-DD` dates of the row being changed. */
+  assignedDate?: string;
+  dueDate?: string;
 }
 
 export interface AssignHomeworkFormSubmitPayload {
@@ -127,13 +136,17 @@ export function AssignHomeworkForm({
   const [description, setDescription] = React.useState('');
   const [gradingMode, setGradingMode] = React.useState<string>(HomeworkGradingMode.TICK);
 
-  const [target, setTarget] = React.useState<Target>('section');
+  const [target, setTarget] = React.useState<Target>(initial?.studentId ? 'student' : 'section');
   const [sectionId, setSectionId] = React.useState(initial?.sectionId ?? '');
-  const [studentId, setStudentId] = React.useState('');
+  const [studentId, setStudentId] = React.useState(initial?.studentId ?? '');
 
   const today = React.useMemo(() => new Date(), []);
-  const [assignedDate, setAssignedDate] = React.useState<Date | undefined>(today);
-  const [dueDate, setDueDate] = React.useState<Date | undefined>(() => addDays(today, 7));
+  const [assignedDate, setAssignedDate] = React.useState<Date | undefined>(() =>
+    initial?.assignedDate ? parseServerDate(initial.assignedDate) : today,
+  );
+  const [dueDate, setDueDate] = React.useState<Date | undefined>(() =>
+    initial?.dueDate ? parseServerDate(initial.dueDate) : addDays(today, 7),
+  );
 
   const [fieldErrors, setFieldErrors] = React.useState<
     Partial<
@@ -172,6 +185,16 @@ export function AssignHomeworkForm({
     sectionId !== '' ? { section_id: sectionId, limit: 100 } : { limit: 100 },
     { enabled: target === 'student' && sectionId !== '' },
   );
+
+  // reassign: a student who moved to another class has a section this class does not list.
+  // Clear it (and the student) so "Pick a section." asks for a new pick instead of a 400.
+  React.useEffect(() => {
+    if (mode !== 'reassign' || !sectionsQuery.data || sectionId === '') return;
+    if (!sectionsQuery.data.some((s) => s.id === sectionId)) {
+      setSectionId('');
+      setStudentId('');
+    }
+  }, [mode, sectionsQuery.data, sectionId]);
 
   function handleClassChange(value: string) {
     setClassId(value);
@@ -300,6 +323,13 @@ export function AssignHomeworkForm({
               <SelectValue placeholder={tCommon('form.selectPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
+              {mode === 'reassign' &&
+                studentId !== '' &&
+                studentId === initial?.studentId &&
+                initial.studentName &&
+                !(studentsQuery.data?.data ?? []).some((s) => s.id === studentId) && (
+                  <SelectItem value={studentId}>{initial.studentName}</SelectItem>
+                )}
               {(studentsQuery.data?.data ?? []).map((student) => (
                 <SelectItem key={student.id} value={student.id}>
                   {student.full_name} · {student.registration_number}
@@ -468,7 +498,7 @@ export function AssignHomeworkForm({
         </p>
       )}
 
-      {mode === 'assign' && !hideFooter && (
+      {mode !== 'create' && !hideFooter && (
         <div className="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
           <DialogClose asChild>
             <Button type="button" variant="outline" disabled={isPending}>
@@ -476,7 +506,7 @@ export function AssignHomeworkForm({
             </Button>
           </DialogClose>
           <Button type="submit" loading={isPending}>
-            {t('form.assignSubmit')}
+            {mode === 'reassign' ? tCommon('actions.save') : t('form.assignSubmit')}
           </Button>
         </div>
       )}

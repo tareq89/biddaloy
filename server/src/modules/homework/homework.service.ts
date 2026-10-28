@@ -8,10 +8,13 @@ import { HomeworkAccessService } from './homework-access.service';
 import { teacherAssignments } from '../classes/teacher-scope.service';
 import { HomeworkNoticeService } from './homework-notice.service';
 import { HomeworkToCheckDto } from './dto/homework-dashboard.dto';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 import {
   AssignHomeworkDto,
   CreateHomeworkDto,
   FamilyHomeworkListDto,
+  HomeworkAssignmentListItemDto,
   QueryHomeworkDto,
   UpdateHomeworkAssignmentDto,
 } from './dto/homework.dto';
@@ -341,6 +344,72 @@ export class HomeworkService {
     return homework;
   }
 
+  /**
+   * Every assignment row of one homework, with its target as names. `findOne` is the
+   * 404/tenant/scope gate. A teacher sees only rows passing the same section + subject
+   * rule as `assertCanManageSection`, so every listed row can be reassigned.
+   */
+  async findAssignments(
+    homeworkId: string,
+    ctx: CallerContext,
+  ): Promise<HomeworkAssignmentListItemDto[]> {
+    const homework = await this.findOne(homeworkId, ctx);
+    const qb = this.assignmentRepo
+      .createQueryBuilder('ha')
+      .leftJoin(
+        'students',
+        'st',
+        'st.id = ha.student_id AND st.tenant_id = :tenantId AND st.deleted_at IS NULL',
+      )
+      .innerJoin(
+        'class_sections',
+        'cs',
+        'cs.id = COALESCE(ha.section_id, st.class_section_id) AND cs.tenant_id = :tenantId AND cs.deleted_at IS NULL',
+      )
+      .select([
+        'ha.id AS id',
+        'ha.homework_id AS homework_id',
+        'ha.section_id AS section_id',
+        'ha.student_id AS student_id',
+        'ha.status AS status',
+        'cs.id AS target_section_id',
+        'cs.section_name AS section_name',
+        'st.full_name AS student_name',
+      ])
+      // Raw `date` columns would come back as shifted JS Dates; see findForStudent.
+      .addSelect("to_char(ha.assigned_date, 'YYYY-MM-DD')", 'assigned_date')
+      .addSelect("to_char(ha.due_date, 'YYYY-MM-DD')", 'due_date')
+      .where('ha.homework_id = :homeworkId AND ha.tenant_id = :tenantId', {
+        homeworkId: homework.id,
+        tenantId: ctx.tenantId,
+      });
+    if (!this.access.canManageTenantWide(ctx.role)) {
+      const rows = await teacherAssignments(this.homeworkRepo.manager, {
+        userId: ctx.userId,
+        tenantId: ctx.tenantId,
+      });
+      if (rows.length === 0) return [];
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM unnest(CAST(:scopeSections AS uuid[]), CAST(:scopeSubjects AS uuid[]))
+                   AS sc(section_id, subject_id)
+                 WHERE sc.section_id = cs.id
+                   AND (sc.subject_id IS NULL OR sc.subject_id = :hwSubject))`,
+        {
+          scopeSections: rows.map((r) => r.section_id),
+          scopeSubjects: rows.map((r) => r.subject_id),
+          hwSubject: homework.subject_id,
+        },
+      );
+    }
+    return qb
+      .orderBy("CASE ha.status WHEN 'ACTIVE' THEN 0 WHEN 'DEACTIVATED' THEN 1 ELSE 2 END", 'ASC')
+      .addOrderBy('ha.due_date', 'DESC')
+      .addOrderBy('ha.created_at', 'DESC')
+      .addOrderBy('ha.id', 'ASC')
+      .limit(100)
+      .getRawMany<HomeworkAssignmentListItemDto>();
+  }
+
   async assign(
     homeworkId: string,
     dto: AssignHomeworkDto,
@@ -436,27 +505,56 @@ export class HomeworkService {
     });
   }
 
-  /** `PATCH /homework-assignments/:id` — deactivate/reactivate only (Q10 D22). */
+  /** `PATCH /homework-assignments/:id`: status and/or due date, in place (#2900). Every miss
+   * (unknown id, homework or target out of the teacher's scope) is one 404 text (Rule 23). */
   async updateAssignment(
     assignmentId: string,
     dto: UpdateHomeworkAssignmentDto,
     ctx: CallerContext,
   ): Promise<HomeworkAssignment> {
+    if (dto.status === undefined && dto.due_date === undefined) {
+      throw new BadRequestException('Nothing to change');
+    }
+    const miss = () => new NotFoundException('Homework assignment not found');
     const assignment = await this.assignmentRepo.findOne({
       where: { id: assignmentId, tenant_id: ctx.tenantId },
     });
-    if (!assignment) {
-      throw new NotFoundException('Homework assignment not found');
+    if (!assignment) throw miss();
+    try {
+      const homework = await this.findOne(assignment.homework_id, ctx);
+      await this.assertCanManageTarget(assignment, homework, ctx);
+    } catch (e) {
+      throw e instanceof NotFoundException ? miss() : e;
     }
-    const homework = await this.findOne(assignment.homework_id, ctx);
-
-    await this.assertCanManageTarget(assignment, homework, ctx);
 
     if (assignment.status === HomeworkAssignmentStatus.SUPERSEDED) {
       throw new BadRequestException('A superseded assignment cannot be changed');
     }
-
-    assignment.status = dto.status;
-    return this.assignmentRepo.save(assignment);
+    if (dto.due_date !== undefined && dto.due_date < assignment.assigned_date) {
+      throw new BadRequestException('due_date must be on or after assigned_date');
+    }
+    const patch: Pick<Partial<HomeworkAssignment>, 'due_date' | 'status'> = {
+      ...(dto.due_date !== undefined ? { due_date: dto.due_date } : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+    };
+    // Conditional update: a reassign racing this PATCH must not be overwritten (0 rows = lost race).
+    const result = await this.assignmentRepo.update(
+      {
+        id: assignment.id,
+        tenant_id: ctx.tenantId,
+        status: Not(HomeworkAssignmentStatus.SUPERSEDED),
+      },
+      patch,
+    );
+    if (!result.affected) {
+      throw new BadRequestException('A superseded assignment cannot be changed');
+    }
+    // The not-submitted alert keys on status + due_date: a deactivate or date move clears it now.
+    emitRecheck(attentionEvents, {
+      tenantId: ctx.tenantId,
+      ruleKey: 'homework.not_submitted',
+      actorUserId: ctx.userId,
+    });
+    return Object.assign(assignment, patch);
   }
 }

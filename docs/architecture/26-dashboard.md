@@ -1,6 +1,6 @@
 # 26 — Dashboard: role dashboards, widgets, preferences, morning summary
 
-> **Why 26?** The ticket (#1919) said `22-dashboard.md`. By the time it was written, `22-demo-seed.md`, `22-onboarding.md`, `23-*`, `24-*` and `25-*` already existed, so the next free number is 26.
+> **Why 26?** The ticket (#1919) said `22-dashboard.md`. By the time it was written, `22-demo-seed.md`, `22-onboarding.md` (now `34-onboarding.md`), `23-*`, `24-*` and `25-*` already existed, so the next free number is 26.
 
 Epic #169. The staff `/dashboard` is a grid of **widgets**. Each widget is one small card that loads its own data from its own endpoint. This page explains how a widget is defined, served, cached, permission-checked, laid out and customised, and how to add a new one.
 
@@ -281,7 +281,7 @@ Files are in `server/src/modules/dashboard/digest/`.
 | Recent payments total    | total of shown rows                                | `total_of_shown` = SUCCESS rows shown only                                                                                                                                                                                                                                  | FAILED rows move no money                                                                                          |
 | Phone tile tap           | tile itself is a button                            | A sibling overlay button (`dashboard-grid.tsx`) expands the tile. A CSS `:has()` rule (`group-has-[a,button:not([data-tile-toggle])]:hidden`) hides it when the tile holds its own link or button                                                                           | No button nested inside a button                                                                                   |
 | Customise                | add from catalogue                                 | Hide, show, reorder and resize the widgets the role may see. There is no "add from catalogue" step: every allowed widget is already listed, hidden or not.                                                                                                                  | Allowed set is already in the list                                                                                 |
-| Load test                | manual run doc                                     | The 10k-student run is manual only (D24). The run guide is [26-dashboard-load-test.md](26-dashboard-load-test.md) (`load:seed` and `run-dashboard-load.ts` under `server/src/scripts/load/`). The attention perf script `server/src/scripts/perf-attention.ts` also exists. | Epic 169 ticket 6-02                                                                                               |
+| Load test                | manual run doc                                     | The 10k-student run is manual only (D24). The run guide is [37-dashboard-load-test.md](37-dashboard-load-test.md) (`load:seed` and `run-dashboard-load.ts` under `server/src/scripts/load/`). The attention perf script `server/src/scripts/perf-attention.ts` also exists. | Epic 169 ticket 6-02                                                                                               |
 
 Other limits:
 

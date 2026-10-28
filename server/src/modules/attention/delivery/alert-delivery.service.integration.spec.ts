@@ -237,7 +237,7 @@ describe('AlertDeliveryService (integration)', () => {
       expect(await pushedAt(idB)).not.toBeNull();
     });
 
-    // A suspended school does nothing in the background (25-domain-invariants).
+    // A suspended school does nothing in the background (36-domain-invariants).
     // The sweep already skips it; the all-tenant catch-up must too.
     it('skips a suspended school', async () => {
       const idB = await add({ tenantId: tenantB });

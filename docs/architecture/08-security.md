@@ -685,7 +685,7 @@ flowchart TD
 | Consent          | Terms acceptance is stored in the audit log with the school id.                                                                                                                                                                                             |
 
 Gaps: the server has no captcha-specific error code (#1700) and does not
-normalise phone numbers (#1701). See [22-onboarding.md](22-onboarding.md).
+normalise phone numbers (#1701). See [34-onboarding.md](34-onboarding.md).
 
 ## Connecting a social account (75.3)
 

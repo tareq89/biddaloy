@@ -28,6 +28,7 @@ import {
   AssignHomeworkDto,
   CreateHomeworkDto,
   FamilyHomeworkListDto,
+  HomeworkAssignmentListItemDto,
   HomeworkAssignmentResponseDto,
   HomeworkResponseDto,
   QueryHomeworkDto,
@@ -195,6 +196,23 @@ export class HomeworkController {
     });
   }
 
+  @Get('homework/:id/assignments')
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @RequirePermissions(Permission.HOMEWORK_READ)
+  @ApiOperation({ summary: "One homework's assignment rows (teacher: own sections only)." })
+  @ApiOkResponse({ type: HomeworkAssignmentListItemDto, isArray: true })
+  async findAssignments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    return this.homeworkService.findAssignments(id, {
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+  }
+
   @Post('homework/:id/assign')
   @RequirePermissions(Permission.HOMEWORK_ASSIGN)
   @ApiOperation({ summary: 'Assign a Homework to a section or a single student (D24).' })
@@ -234,7 +252,10 @@ export class HomeworkController {
 
   @Patch('homework-assignments/:id')
   @RequirePermissions(Permission.HOMEWORK_ASSIGN)
-  @ApiOperation({ summary: 'Deactivate or reactivate an assignment (Q10 D22).' })
+  @ApiOperation({
+    summary:
+      'Deactivate or reactivate an assignment, or move its due date in place (Q10 D22, #2900).',
+  })
   @ApiOkResponse({ type: HomeworkAssignmentResponseDto })
   async updateAssignment(
     @Param('id', ParseUUIDPipe) id: string,

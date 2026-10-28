@@ -220,6 +220,7 @@ GET /health/ready | HealthController | allowlist: none
 GET /homework | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /homework-assignments/:id/submissions | HomeworkSubmissionController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /homework/:id | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
+GET /homework/:id/assignments | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /homework/analytics/class/:classId | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /homework/analytics/section/:sectionId | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
 GET /homework/analytics/student/:studentId | HomeworkController | perm: HOMEWORK_READ | roles: ADMIN,TEACHER
@@ -398,6 +399,7 @@ PATCH /grading/scales/:id | GradingController | perm: GRADING_SCALE_MANAGE
 PATCH /guardians/:id | StudentController | perm: GUARDIAN_UPDATE
 PATCH /guardians/mine | StudentController | identity | roles: PARENT
 PATCH /homework-assignments/:id | HomeworkController | perm: HOMEWORK_ASSIGN
+PATCH /homework-assignments/:id/submissions | HomeworkSubmissionController | perm: HOMEWORK_GRADE
 PATCH /homework-submissions/:id | HomeworkSubmissionController | perm: HOMEWORK_GRADE
 PATCH /onboarding | OnboardingController | identity | roles: ADMIN,SUPER_ADMIN
 PATCH /print-jobs/:id/confirm | PrintJobActionsController | perm: DOCUMENT_PRINT

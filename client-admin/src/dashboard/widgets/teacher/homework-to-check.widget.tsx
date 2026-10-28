@@ -99,6 +99,7 @@ export function HomeworkToCheckView({
           <Link
             to="/academics/homework/$homeworkId"
             params={{ homeworkId: first.homework_id }}
+            search={{ assignment: first.assignment_id }}
             className="text-primary underline"
           >
             {tw('action')}

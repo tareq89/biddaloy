@@ -128,7 +128,7 @@ flowchart TD
   least as many seats as the school's own cover starts where that cover ends
   (a renewal never counts seats twice); a smaller one, and a platform `GRANT`,
   start today and add seats (a top-up). Grants never count as cover. Full
-  rule: [28-billing.md](28-billing.md#where-a-paid-orders-period-starts).
+  rule: [38-billing.md](38-billing.md#where-a-paid-orders-period-starts).
   Example: 100 seats for Jan 1 to Jul 1, renewed for 6 months on Jun 1, run
   Jul 1 to Jan 1. June still has 100 seats, not 200.
 - Paying also lifts an `IDLE` suspension at once, and the idle job never
@@ -146,7 +146,7 @@ flowchart TD
 - One-off per environment: `yarn workspace @biddaloy/server backfill-trials`
   (dry run; add `--apply --confirm-db=<name>`). It clears every
   `trial_ends_at` and reactivates schools suspended with `TRIAL_EXPIRED`.
-- Receipts for paid orders: see [28-billing.md](28-billing.md#receipts).
+- Receipts for paid orders: see [38-billing.md](38-billing.md#receipts).
 - Legacy: the old trial warning mails, the `trial.ending` rule (now inert) and
   the `TRIAL_DAYS` / `TRIAL_SEAT_LIMIT` env values are gone or dead.
 - The attention rule for expiring seats is `seats.expiring` (it replaces the

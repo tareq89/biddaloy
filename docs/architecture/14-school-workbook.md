@@ -90,7 +90,7 @@ The starter file is also offered under Settings, Backup & restore.
 the destination school's commercial and setup state. A file must not be able
 to extend a trial, raise a seat limit or fake finished setup. The `school`
 tab leaves them out (`tabs/school/school.tab.ts`). Seats are still enforced
-when a restore adds students, see [22-onboarding.md](22-onboarding.md).
+when a restore adds students, see [34-onboarding.md](34-onboarding.md).
 
 ## The tabs (table lists the original 18; later epics add more)
 

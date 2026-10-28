@@ -324,7 +324,7 @@ Shell and shared props that tripped people (read the source, not the plan):
 ### HelpHint placement
 
 The **(?)** opens a short card with a link into the user guide
-([25-user-guide → In-app help](25-user-guide.md#in-app-help-epic-44)). It is a
+([39-user-guide → In-app help](39-user-guide.md#in-app-help-epic-44)). It is a
 muted icon with a 44 px target and no pulse (D22).
 
 **Where it goes (D18):** page titles, crucial actions, hard fields and

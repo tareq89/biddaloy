@@ -1,24 +1,39 @@
 /**
- * [22.4.2] One row per student against a `HomeworkAssignment`. Column set
- * depends on `Homework.grading_mode` (D11): TICK shows a single checkbox,
- * PARTIAL a 3-state radio group (D19's NOT_SUBMITTED/PARTIAL/DONE), MARKS
- * a numeric input.
+ * [22.4.2] One row per student against a `HomeworkAssignment`. Column set depends on
+ * `Homework.grading_mode` (D11): TICK a checkbox, PARTIAL a 3-state radio group, MARKS a number.
+ * One Save sends every dirty row at once. `$homeworkId.tsx` mounts it (#2899).
  *
- * Bulk-save with per-row optimistic UI + error surfacing, following
- * `-roster-marker.tsx`'s draft pattern (local `draft` state edited row by
- * row, one bulk submit) — the closest existing "grid of per-student
- * controls + single save" precedent in this codebase (attendance has no
- * bulk-save-with-per-row-errors screen to clone instead).
- *
- * A route-partial (`-` prefix, TanStack Router convention), not a route:
- * it takes data and callbacks as props so a sibling lane (w4-g2) can wire
- * it into a real route with real hooks — this file doesn't invent an API
- * layer, per plan.
+ * `rows` MUST be memoised by the caller: the draft re-baselines whenever its identity changes
+ * (so a background refetch with really-changed data drops unsaved edits; accepted).
  */
 import { HomeworkGradingMode, HomeworkSubmissionStatus } from '@biddaloy/shared';
-import { Button, Checkbox, Input, RadioGroup, RadioGroupItem } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import {
+  Button,
+  Checkbox,
+  Input,
+  RadioGroup,
+  RadioGroupItem,
+  StatusBadge,
+} from '@biddaloy/ui/components';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
+
+/** Mirrors server `HOMEWORK_MARKS_MAX` (dto/homework-submission.dto.ts). */
+export const HOMEWORK_MARKS_MAX = 9999;
+
+const STATUS_TONE = {
+  NOT_SUBMITTED: 'neutral',
+  SUBMITTED: 'info',
+  PARTIAL: 'warning',
+  DONE: 'success',
+} as const;
+
+/** What a teacher "clearing" a row goes back to (D8): uploaded work stays SUBMITTED. */
+const cleared = (row: SubmissionRow) =>
+  row.status === HomeworkSubmissionStatus.SUBMITTED
+    ? HomeworkSubmissionStatus.SUBMITTED
+    : HomeworkSubmissionStatus.NOT_SUBMITTED;
 
 export interface SubmissionRow {
   id: string;
@@ -51,6 +66,8 @@ export interface SubmissionGridProps {
    * succeeded. */
   onSave: (updates: SubmissionUpdate[]) => Promise<SubmissionSaveResult[]>;
   disabled?: boolean;
+  /** Fires when the draft differs from `rows` (drives the close-with-unsaved prompt). */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 type Draft = Record<string, { status: HomeworkSubmissionStatus; marks: number | null }>;
@@ -68,8 +85,11 @@ export function SubmissionGrid({
   rows,
   onSave,
   disabled = false,
+  onDirtyChange,
 }: SubmissionGridProps) {
   const { t } = useTranslation('homework');
+  const regionConfig = useRegionConfig();
+  const savingRef = React.useRef(false);
   const [draft, setDraft] = React.useState<Draft>(() => draftFromRows(rows));
   const [saving, setSaving] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -89,22 +109,29 @@ export function SubmissionGrid({
     }));
   }
 
-  function setMarks(id: string, marks: number | null) {
+  function setMarks(row: SubmissionRow, marks: number | null) {
     setDraft((prev) => ({
       ...prev,
-      [id]: {
+      [row.id]: {
         status:
           marks !== null
             ? HomeworkSubmissionStatus.DONE
-            : prev[id]?.status === HomeworkSubmissionStatus.DONE
-              ? HomeworkSubmissionStatus.NOT_SUBMITTED
-              : (prev[id]?.status ?? HomeworkSubmissionStatus.NOT_SUBMITTED),
+            : prev[row.id]?.status === HomeworkSubmissionStatus.DONE
+              ? cleared(row)
+              : (prev[row.id]?.status ?? cleared(row)),
         marks,
       },
     }));
   }
 
+  const dirty = rows.some((r) => {
+    const e = draft[r.id];
+    return e !== undefined && (e.status !== r.status || e.marks !== r.marks);
+  });
+  React.useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+
   async function handleSave() {
+    if (savingRef.current) return;
     const updates: SubmissionUpdate[] = rows
       .map((row) => {
         const entry = draft[row.id];
@@ -125,6 +152,22 @@ export function SubmissionGrid({
 
     if (updates.length === 0) return;
 
+    // Marks must be whole numbers 0..MAX; show the row error and send nothing otherwise.
+    const markErrors: Record<string, string> = {};
+    for (const update of updates) {
+      const m = update.marks;
+      if (m != null && (!Number.isInteger(m) || m < 0 || m > HOMEWORK_MARKS_MAX)) {
+        markErrors[update.id] = t('grid.marksInvalid', {
+          max: formatNumber(HOMEWORK_MARKS_MAX, regionConfig),
+        });
+      }
+    }
+    if (Object.keys(markErrors).length > 0) {
+      setErrors(markErrors);
+      return;
+    }
+
+    savingRef.current = true;
     setSaving(true);
     try {
       const results = await onSave(updates);
@@ -134,6 +177,7 @@ export function SubmissionGrid({
       }
       setErrors(nextErrors);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -153,9 +197,10 @@ export function SubmissionGrid({
                   {row.roll_number ?? ''}
                 </span>
                 <span className="flex-1 font-medium">{row.student_name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {t(`grid.status.${row.status}`)}
-                </span>
+                <StatusBadge
+                  tone={STATUS_TONE[row.status]}
+                  label={t(`grid.status.${row.status}`)}
+                />
 
                 {gradingMode === HomeworkGradingMode.TICK && (
                   <Checkbox
@@ -163,12 +208,7 @@ export function SubmissionGrid({
                     checked={entry.status === HomeworkSubmissionStatus.DONE}
                     disabled={isDisabled}
                     onCheckedChange={(checked) =>
-                      setStatus(
-                        row.id,
-                        checked
-                          ? HomeworkSubmissionStatus.DONE
-                          : HomeworkSubmissionStatus.NOT_SUBMITTED,
-                      )
+                      setStatus(row.id, checked ? HomeworkSubmissionStatus.DONE : cleared(row))
                     }
                   />
                 )}
@@ -176,8 +216,19 @@ export function SubmissionGrid({
                 {gradingMode === HomeworkGradingMode.PARTIAL && (
                   <RadioGroup
                     aria-label={t('grid.completionFor', { name: row.student_name })}
-                    value={entry.status}
-                    onValueChange={(value) => setStatus(row.id, value as HomeworkSubmissionStatus)}
+                    value={
+                      entry.status === HomeworkSubmissionStatus.SUBMITTED
+                        ? HomeworkSubmissionStatus.NOT_SUBMITTED
+                        : entry.status
+                    }
+                    onValueChange={(value) =>
+                      setStatus(
+                        row.id,
+                        value === HomeworkSubmissionStatus.NOT_SUBMITTED
+                          ? cleared(row)
+                          : (value as HomeworkSubmissionStatus),
+                      )
+                    }
                     disabled={isDisabled}
                     className="flex gap-3"
                   >
@@ -212,13 +263,15 @@ export function SubmissionGrid({
                   <Input
                     type="number"
                     min={0}
+                    max={HOMEWORK_MARKS_MAX}
+                    step={1}
                     aria-label={t('grid.marksFor', { name: row.student_name })}
                     className="w-20"
                     disabled={isDisabled}
                     value={entry.marks ?? ''}
                     onChange={(event) => {
                       const raw = event.target.value;
-                      setMarks(row.id, raw === '' ? null : Number(raw));
+                      setMarks(row, raw === '' ? null : Number(raw));
                     }}
                   />
                 )}
@@ -233,9 +286,14 @@ export function SubmissionGrid({
         })}
       </ul>
 
-      <div>
-        <Button type="button" onClick={() => void handleSave()} disabled={isDisabled}>
-          {saving ? t('grid.saving') : t('grid.save')}
+      <div className="sticky bottom-0 z-10 -mx-1 border-t border-border-subtle bg-bg px-1 py-3">
+        <Button
+          type="button"
+          onClick={() => void handleSave()}
+          disabled={isDisabled || !dirty}
+          loading={saving}
+        >
+          {t('grid.save')}
         </Button>
       </div>
     </div>

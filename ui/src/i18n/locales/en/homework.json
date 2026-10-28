@@ -34,7 +34,56 @@
     "notFound": "Homework not found.",
     "forbidden": "You don't have permission to view this homework.",
     "noDescription": "No description.",
-    "assignDescription": "{{title}} · {{className}}"
+    "assignDescription": "{{title}} · {{className}}",
+    "assignments": {
+      "title": "Who has this homework",
+      "help": "Each row is one section or one student. Use Due date to move the due date; work already handed in stays. Use Change to give it to someone else.",
+      "caption": "Sections and students who have this homework",
+      "columnTarget": "Given to",
+      "sectionTarget": "Section {{section}}",
+      "studentTarget": "{{student}} · Section {{section}}",
+      "emptyTitle": "Not given to anyone yet",
+      "emptyExplanation": "Give this homework to a section or a student.",
+      "loadError": "Could not load who has this homework.",
+      "reassign": "Change {{target}}",
+      "reassignShort": "Change",
+      "reassignTitle": "Change this assignment",
+      "reassignDescription": "The old row stays in the list as \"Superseded\". Work already handed in stays with the old row.",
+      "reassigned": "Changed. Due {{date}}.",
+      "changeDue": "Change due date for {{target}}",
+      "changeDueShort": "Due date",
+      "changeDueTitle": "Change the due date",
+      "changeDueDescription": "{{target}}. Work already handed in stays.",
+      "dueChanged": "Due date is now {{date}}.",
+      "deactivate": "Deactivate {{target}}",
+      "deactivateShort": "Deactivate",
+      "deactivateTitle": "Deactivate this homework for {{target}}?",
+      "deactivateDescription": "Students and parents will stop seeing it, and no one can hand it in. Work already handed in is kept. You can reactivate it later.",
+      "deactivated": "Deactivated.",
+      "reactivate": "Reactivate {{target}}",
+      "reactivateShort": "Reactivate",
+      "reactivateTitle": "Reactivate this homework for {{target}}?",
+      "reactivateDescription": "Students and parents will see it again, and can hand it in until the due date.",
+      "reactivated": "Active again.",
+      "rowChanged": "This row was already changed. The list is up to date now."
+    },
+    "submissions": {
+      "open": "Check work for {{target}}",
+      "openShort": "Check work",
+      "title": "Check work · {{target}}",
+      "titleFallback": "Check work",
+      "help": {
+        "TICK": "Tick each student who did the homework, then press Save.",
+        "PARTIAL": "For each student pick Done, Partial or Not done, then press Save.",
+        "MARKS": "Type each student's marks, from 0 to {{max}}, then press Save. Leave it empty if there are no marks yet."
+      },
+      "emptyTitle": "No students here yet",
+      "emptyExplanation": "Nobody is in this section yet, and no work was handed in.",
+      "loadError": "Could not load the students' work.",
+      "notFound": "This list cannot be opened. It may be for a section you do not teach.",
+      "saved": "Saved.",
+      "saveChanged": "This list changed while you were working. It is up to date now; check it and save again."
+    }
   },
   "form": {
     "createTitle": "Create homework",
@@ -108,7 +157,8 @@
       "SUBMITTED": "Submitted",
       "PARTIAL": "Partial",
       "DONE": "Done"
-    }
+    },
+    "marksInvalid": "Marks must be a whole number from 0 to {{max}}."
   },
   "import": {
     "title": "Import homework",
