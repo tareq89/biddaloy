@@ -858,6 +858,82 @@ finalizes 8-A at 08:20. One log
 "Anika is present today at 08:20 - Mrs Rahman". The gate reader says
 "reached school ... Main Gate Reader" instead (D12).
 
+### Data model
+
+```mermaid
+erDiagram
+  students ||--o{ arrival_notice_subscriptions : "has"
+  guardians ||--o{ arrival_notice_subscriptions : "has"
+  arrival_notice_subscriptions {
+    enum status "REQUESTED, ACTIVE, OFF"
+    enum mode "ONCE, RECURRING"
+    enum channel "PUSH, SMS"
+    enum lock "NONE, ALWAYS, NEVER"
+    timestamptz consumed_at "set when a ONCE row is used"
+  }
+```
+
+One row per (tenant, student, guardian): a unique index
+(`UQ_arrival_notice_subscriptions_tenant_student_guardian`) refuses a second.
+Deleting the student or guardian deletes the row.
+
+| Column    | Values                       | Plain meaning                                                                     |
+| --------- | ---------------------------- | --------------------------------------------------------------------------------- |
+| `status`  | `REQUESTED`, `ACTIVE`, `OFF` | Asked and waiting for staff / sending / the guardian opted out                    |
+| `mode`    | `ONCE`, `RECURRING`          | Tell me one time ("once") / every school day                                      |
+| `channel` | `PUSH`, `SMS`                | In the app (free) / text message (spends SMS credit, needs the school switch)     |
+| `lock`    | `NONE`, `ALWAYS`, `NEVER`    | Free choice / school forces it on (`ACTIVE` + `RECURRING`) / school forces it off |
+
+### Who may do what
+
+| Who                                         | Can do                                                  | Route                                              |
+| ------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
+| Guardian (role `PARENT`) of the child       | Ask, or switch off, for their own linked children       | `GET` and `PUT /portal/arrival-subscriptions`      |
+| Class teacher (own section only)            | List, add, confirm or decline a row                     | `/attendance/arrival-subscriptions`                |
+| Admin with `ATTENDANCE_ARRIVAL_NOTICE_LOCK` | Set a lock (`ALWAYS` or `NEVER`); only `ADMIN` holds it | `PATCH /attendance/arrival-subscriptions/:id/lock` |
+
+A lock beats the guardian: under `NEVER` the guardian cannot ask, under
+`ALWAYS` they cannot switch off or choose "once". `ALWAYS` rewrites the row to
+`ACTIVE` + `RECURRING` (channel kept); `NEVER` rewrites it to `OFF`; setting
+`NONE` leaves the row as it is.
+
+### The two wordings
+
+| Who marked the child in          | Bangla (as sent)                                    | English                                                   |
+| -------------------------------- | --------------------------------------------------- | --------------------------------------------------------- |
+| A teacher finalized the register | `আনিকা আজ ০৮:২০-এ উপস্থিত — মিসেস রহমান।`           | `Anika is present today at 08:20 - Mrs Rahman.`           |
+| A gate device read the card      | `আনিকা আজ ০৮:২০-এ স্কুলে পৌঁছেছে — মেইন গেট রিডার।` | `Anika reached school today at 08:20 - Main Gate Reader.` |
+
+The last part is the teacher's name (or "the office" / `অফিস`) or the device
+name exactly as saved. Text always says "today", so a late upload of an old
+punch, or finalizing an earlier day, sends nothing. Bangla text is kept to
+two SMS segments.
+
+### Rules that always hold
+
+- One message per (student, guardian, day): the unique `reference_key`
+  (`arrival:<date>:<student>:<guardian>`) decides, not a code check (D22). A
+  gate punch in the morning blocks the later register message.
+- `OFF` is never sent, even under an `ALWAYS` lock. `ONCE` flips to used
+  (`consumed_at`) when its message is queued.
+- `SMS` is sent only when the school has turned `arrivalNotice.smsAllowed`
+  on, and the credit is reserved first. No credit means nothing is queued
+  and a `ONCE` row stays unused.
+- Only `PRESENT` and `LATE` students send.
+
+### What a Redis outage does (D26)
+
+It fails open. The register still saves; the notice is skipped, the skip is
+logged, held SMS credit is released, and a `ONCE` row is not used up.
+Nobody gets a half-sent message and the teacher sees no error.
+
+### Known limits
+
+- The school switch `arrivalNotice.enabled` is read only by the send hooks.
+  The subscription routes still accept rows while it is off; they just never
+  send.
+- Both switches default to off (`enabled: false`, `smsAllowed: false`).
+
 Screens: the My class card (guardian requests, answer "once" or "every
 school day"), the register bell, and the two switches in Settings >
 Attendance policy. `Ctrl+K` "arrival" opens My class with the card in focus.
