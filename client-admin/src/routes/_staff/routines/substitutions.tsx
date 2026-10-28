@@ -5,21 +5,26 @@
  * bookmarkable/sharable, same convention every other filtered list route
  * in this codebase follows.
  *
- * [31.4] Each record only carries `routine_slot_id`, so the day / period /
- * class / subject / teachers are joined on the client from the current
- * year's routine (no API change). `class_id` lives in the URL but is never
+ * [2897] Each record comes with a `slot` summary (section, period, subject,
+ * the slot's teachers) joined by the server from any year, so rows from an
+ * earlier year are not blank. `class_id` lives in the URL but is never
  * sent to the API — it only narrows the section filter's options.
  */
-import { DataTable, ErrorState, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
 import {
-  usePeriodSlotLookup,
+  ConfirmDialog,
+  DataTable,
+  ErrorState,
+  StatusBadge,
+  toast,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
+import {
   useClasses,
   useClassSections,
-  useSectionLookup,
-  useSubjects,
+  useDeleteSubstitution,
   useSubstitutions,
   useTeachers,
-  type RoutineSubstitution,
+  type SubstitutionLogRow,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import {
@@ -37,7 +42,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { subjectName } from './-subject-name';
-import { SubstitutionDialog, useCurrentRoutineSlots } from './-substitution-dialog';
+import { SubstitutionDialog } from './-substitution-dialog';
 
 const searchSchema = z.object({
   from: z.string().optional().catch(undefined),
@@ -62,28 +67,17 @@ function SubstitutionsPage() {
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [page, setPage] = React.useState(1);
+  const [deleting, setDeleting] = React.useState<SubstitutionLogRow | null>(null);
+  const deleteSubstitution = useDeleteSubstitution();
 
   const { class_id, ...apiFilters } = search;
   const teachersQuery = useTeachers({});
   const classesQuery = useClasses();
   const sectionsQuery = useClassSections(class_id);
   const substitutionsQuery = useSubstitutions(apiFilters);
-  const { slotsById } = useCurrentRoutineSlots();
-  const sectionLookup = useSectionLookup();
-  const periodLookup = usePeriodSlotLookup();
-  const subjectsQuery = useSubjects({});
 
   const teacherName = (id: string | null | undefined) =>
     (id && teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name) || '—';
-  const sectionName = (id: string | undefined) => {
-    const entry = id ? sectionLookup.data?.[id] : undefined;
-    return entry
-      ? t('substitutionsPage.sectionName', {
-          className: entry.className,
-          sectionName: entry.sectionName,
-        })
-      : '—';
-  };
 
   const teacherOptions = (teachersQuery.data?.data ?? []).map((teacher) => ({
     value: teacher.id,
@@ -162,7 +156,7 @@ function SubstitutionsPage() {
   }
 
   interface Row {
-    substitution: RoutineSubstitution;
+    substitution: SubstitutionLogRow;
     sequence: number;
     periodCell: string;
     subject: string;
@@ -171,25 +165,31 @@ function SubstitutionsPage() {
   }
 
   const rows: Row[] = (substitutionsQuery.data ?? []).map((substitution) => {
-    const entry = slotsById.get(substitution.routine_slot_id);
-    const period = entry ? periodLookup.data?.[entry.slot.period_slot_id] : undefined;
+    const slot = substitution.slot;
     return {
       substitution,
-      sequence: period?.sequence ?? 0,
-      periodCell: period
+      sequence: slot?.period_sequence ?? 0,
+      periodCell: slot
         ? t('substitutionsPage.periodCell', {
-            period: t('agenda.periodLabel', { sequence: formatNumber(period.sequence, config) }),
-            time: formatTime(period.starts_at, config),
+            period: t('agenda.periodLabel', {
+              sequence: formatNumber(slot.period_sequence, config),
+            }),
+            time: formatTime(slot.starts_at, config),
           })
         : '—',
-      subject: entry
+      subject: slot
         ? subjectName(
-            subjectsQuery.data?.data.find((subject) => subject.id === entry.slot.subject_id),
+            { name_en: slot.subject_name_en, name_bn: slot.subject_name_bn },
             i18n.language,
           )
         : '—',
-      section: sectionName(entry?.slot.section_id),
-      absent: entry ? entry.teacher_ids.map(teacherName).join(', ') || '—' : '—',
+      section: slot
+        ? t('substitutionsPage.sectionName', {
+            className: slot.class_name,
+            sectionName: slot.section_name,
+          })
+        : '—',
+      absent: slot ? slot.teacher_ids.map(teacherName).join(', ') || '—' : '—',
     };
   });
   // Server order is date desc; within a day, period order.
@@ -197,6 +197,20 @@ function SubstitutionsPage() {
     (a, b) => b.substitution.date.localeCompare(a.substitution.date) || a.sequence - b.sequence,
   );
   const pageSize = 25;
+
+  function handleDelete() {
+    if (!deleting) return;
+    deleteSubstitution.mutate(deleting.id, {
+      onSuccess: () => {
+        setDeleting(null);
+        toast.success(t('substitutionsPage.deletedToast'));
+      },
+      onError: () => {
+        setDeleting(null);
+        toast.error(t('substitutionsPage.deleteError'));
+      },
+    });
+  }
 
   const columns: DataTableColumn<Row>[] = [
     {
@@ -312,6 +326,13 @@ function SubstitutionsPage() {
           totalCount={rows.length}
           onPageChange={setPage}
           loading={substitutionsQuery.isPending}
+          rowActions={(row) => [
+            {
+              intent: 'delete',
+              label: t('substitutionsPage.deleteAction'),
+              onClick: () => setDeleting(row.substitution),
+            },
+          ]}
           emptyState={{
             title: t('substitutionsPage.emptyTitle'),
             explanation: t('substitutionsPage.emptyExplanation'),
@@ -326,6 +347,20 @@ function SubstitutionsPage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        tone="danger"
+        title={t('substitutionsPage.deleteTitle', {
+          date: deleting ? formatDate(deleting.date, config) : '',
+        })}
+        description={t('substitutionsPage.deleteDescription')}
+        confirmLabel={t('substitutionsPage.deleteConfirm')}
+        cancelLabel={t('substitutionsPage.cancel')}
+        busy={deleteSubstitution.isPending}
+        onConfirm={handleDelete}
+      />
 
       <SubstitutionDialog
         open={dialogOpen}

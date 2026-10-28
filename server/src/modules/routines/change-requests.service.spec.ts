@@ -196,4 +196,52 @@ describe('ChangeRequestsService [21.6.1] D11', () => {
     );
     expect(result.state).toBe(ChangeRequestState.ACCEPTED);
   });
+
+  it("findOwnForRoutine returns only the caller's requests, with state and reply", async () => {
+    const base = { requested_by: 'user-a', tenant_id: TENANT_ID, routine_slot_id: 'slot-1' };
+    const mine = {
+      ...base,
+      id: 'cr-a',
+      state: ChangeRequestState.REJECTED,
+      resolution_note: 'Not possible this term',
+    };
+    const theirs = { ...base, id: 'cr-b', requested_by: 'user-b' };
+    // Same requester, but another tenant / a slot of another routine: both must stay out.
+    const otherTenant = { ...base, id: 'cr-c', tenant_id: 'other-tenant' };
+    const otherRoutine = { ...base, id: 'cr-d', routine_slot_id: 'slot-other' };
+    const ctx = buildService({ requests: [mine, theirs, otherTenant, otherRoutine] });
+    // Only slot-1 belongs to routine-1 in this tenant.
+    ctx.slotRepo.find = vi.fn(async ({ where }: any) =>
+      where.routine_id === 'routine-1' && where.tenant_id === TENANT_ID ? [{ id: 'slot-1' }] : [],
+    );
+    // Fake query builder that really applies the tenant, slot and requested_by filters.
+    ctx.requestRepo.createQueryBuilder = vi.fn(() => {
+      const p: Record<string, any> = {};
+      const qb: any = {
+        where: (_sql: string, params: any) => {
+          Object.assign(p, params);
+          return qb;
+        },
+        andWhere: (_sql: string, params: any) => {
+          Object.assign(p, params);
+          return qb;
+        },
+        orderBy: () => qb,
+        getMany: async () =>
+          ctx.requests.filter(
+            (r) =>
+              r.tenant_id === p.tenantId &&
+              p.slotIds.includes(r.routine_slot_id) &&
+              (p.requestedBy === undefined || r.requested_by === p.requestedBy),
+          ),
+      };
+      return qb;
+    });
+    const result = await ctx.service.findOwnForRoutine('routine-1', TENANT_ID, 'user-a');
+    expect(result).toEqual([mine]);
+    expect(result[0]).toMatchObject({
+      state: ChangeRequestState.REJECTED,
+      resolution_note: 'Not possible this term',
+    });
+  });
 });

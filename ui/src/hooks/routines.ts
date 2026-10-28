@@ -424,8 +424,26 @@ export type RoutineChangeRequest = components['schemas']['RoutineChangeRequest']
 export type CreateChangeRequestInput = components['schemas']['CreateChangeRequestDto'];
 export type ResolveChangeRequestInput = components['schemas']['ResolveChangeRequestDto'];
 export type RoutineSubstitution = components['schemas']['RoutineSubstitution'];
+
+/** One log row as `GET /routines/substitutions` returns it: the substitution
+ * plus a summary of its slot from any year (hand-typed, like
+ * `CopyRoutineResult`, because the endpoint returns the entity in the schema).
+ * Mirrors `SubstitutionLogRow` in `substitutions.service.ts`. */
+export interface SubstitutionLogRow extends RoutineSubstitution {
+  slot: {
+    section_id: string;
+    class_name: string;
+    section_name: string;
+    period_sequence: number;
+    starts_at: string;
+    subject_name_en: string;
+    subject_name_bn: string | null;
+    teacher_ids: string[];
+  } | null;
+}
 export type UpsertSubstitutionInput = components['schemas']['UpsertSubstitutionDto'];
 export type CopyRoutineInput = components['schemas']['CopyRoutineDto'];
+export type CreateRoutineInput = components['schemas']['CreateRoutineDto'];
 
 export interface UnmappedSection {
   source_section_id: string;
@@ -482,6 +500,18 @@ export function usePublishRoutine(routineId: string) {
   });
 }
 
+/** Creates the DRAFT routine for an academic year (the first routine of a school). */
+export function useCreateRoutine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateRoutineInput) => {
+      const res = await apiClient.post<Routine>('/routines', input);
+      return res.data;
+    },
+    onSuccess: () => invalidateRoutines(queryClient),
+  });
+}
+
 /** D19: copies every slot into a new DRAFT routine for another academic
  * year. Reports what it couldn't remap — the caller decides whether that
  * matters, this never silently drops anything without saying so. */
@@ -522,6 +552,23 @@ export function useChangeRequests(routineId: string | undefined) {
   return useQuery({
     ...changeRequestsQueryOptions(routineId ?? ''),
     enabled: Boolean(routineId),
+  });
+}
+
+/** The signed-in teacher's own requests on a routine, with the admin's
+ * state and reply (`GET /routines/:id/change-requests/mine`, TEACHER only). */
+export function useMyChangeRequests(routineId: string | undefined) {
+  return useQuery({
+    queryKey: [...changeRequestKeys.detail(routineId ?? ''), 'mine'] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<RoutineChangeRequest[]>(
+        `/routines/${routineId}/change-requests/mine`,
+        { signal },
+      );
+      return res.data;
+    },
+    enabled: Boolean(routineId),
+    retry: shouldRetryQuery,
   });
 }
 
@@ -578,7 +625,7 @@ export function substitutionsQueryOptions(filters: SubstitutionFilters) {
   return queryOptions({
     queryKey: substitutionKeys.list({ ...filters }),
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<RoutineSubstitution[]>('/routines/substitutions', {
+      const res = await apiClient.get<SubstitutionLogRow[]>('/routines/substitutions', {
         params: filters,
         signal,
       });
@@ -592,6 +639,19 @@ export function substitutionsQueryOptions(filters: SubstitutionFilters) {
  * (`ADMIN`, `EXECUTIVE`, `TEACHER`) may read it server-side. */
 export function useSubstitutions(filters: SubstitutionFilters) {
   return useQuery(substitutionsQueryOptions(filters));
+}
+
+/** Deletes one substitution row; the period returns to its usual teacher. */
+export function useDeleteSubstitution() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/routines/substitutions/${id}`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: substitutionKeys.lists() });
+    },
+  });
 }
 
 /** Records a cover or cancellation for one slot on one date (D12). Never

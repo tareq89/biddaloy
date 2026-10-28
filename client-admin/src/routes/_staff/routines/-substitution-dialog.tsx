@@ -100,7 +100,15 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
   const [isCancelled, setIsCancelled] = React.useState(false);
   const [substituteTeacherId, setSubstituteTeacherId] = React.useState('');
   const [reason, setReason] = React.useState('');
-  const [errorKey, setErrorKey] = React.useState<'notOnDateError' | 'errorToast' | null>(null);
+  const [error, setError] = React.useState<{
+    key:
+      | 'notOnDateError'
+      | 'slotTeacherError'
+      | 'teacherBusyError'
+      | 'teacherBusyNoTimeError'
+      | 'errorToast';
+    values?: Record<string, string>;
+  } | null>(null);
 
   const { routine, slots, slotsById } = useCurrentRoutineSlots();
   const sectionLookup = useSectionLookup();
@@ -155,7 +163,7 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
       setIsCancelled(false);
       setSubstituteTeacherId('');
       setReason('');
-      setErrorKey(null);
+      setError(null);
     }
   }, [open]);
 
@@ -163,7 +171,7 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
 
   function handleSubmit() {
     if (!canSave || !date) return;
-    setErrorKey(null);
+    setError(null);
     recordSubstitution.mutate(
       {
         routine_slot_id: slotId,
@@ -178,12 +186,22 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
           onDone();
           onOpenChange(false);
         },
-        onError: (error) =>
-          setErrorKey(
-            error instanceof ApiError && error.details?.['code'] === 'SLOT_NOT_ON_DATE'
-              ? 'notOnDateError'
-              : 'errorToast',
-          ),
+        onError: (err) => {
+          // Our own sentence per code; the server's message is never shown.
+          const details = err instanceof ApiError ? err.details : undefined;
+          const code = details?.['code'];
+          const from = details?.['from'];
+          const to = details?.['to'];
+          if (code === 'SLOT_NOT_ON_DATE') setError({ key: 'notOnDateError' });
+          else if (code === 'SUBSTITUTE_IS_SLOT_TEACHER') setError({ key: 'slotTeacherError' });
+          else if (code === 'TEACHER_BUSY' && typeof from === 'string' && typeof to === 'string') {
+            setError({
+              key: 'teacherBusyError',
+              values: { from: formatTime(from, config), to: formatTime(to, config) },
+            });
+          } else if (code === 'TEACHER_BUSY') setError({ key: 'teacherBusyNoTimeError' });
+          else setError({ key: 'errorToast' });
+        },
       },
     );
   }
@@ -319,10 +337,10 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
             />
           </div>
 
-          {errorKey && (
+          {error && (
             <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
               <CircleAlertIcon className="size-4" aria-hidden="true" />
-              {t(`substitutionDialog.${errorKey}`)}
+              {t(`substitutionDialog.${error.key}`, error.values ?? {})}
             </p>
           )}
         </div>

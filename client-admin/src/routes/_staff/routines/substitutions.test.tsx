@@ -1,7 +1,8 @@
+import { toast } from '@biddaloy/ui/components';
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatDate } from '@biddaloy/ui/utils';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -129,6 +130,33 @@ const COVERED = {
   created_by: 'user-2',
   created_at: '2026-10-01T00:00:00Z',
   updated_at: '2026-10-01T00:00:00Z',
+  // [2897] The server joins the slot's context; the page renders from this alone.
+  slot: {
+    section_id: SECTION_ID,
+    class_name: 'Class 6',
+    section_name: 'B',
+    period_sequence: 2,
+    starts_at: '08:45:00',
+    subject_name_en: 'Math',
+    subject_name_bn: null,
+    teacher_ids: [TEACHER_2_ID],
+  },
+};
+
+/** A row from an earlier year: its slot is in no current routine, yet it has a slot summary. */
+const OLD_YEAR = {
+  ...COVERED,
+  id: 'sub-old',
+  date: '2025-03-04',
+  routine_slot_id: 'slot-old-year',
+  slot: {
+    ...COVERED.slot,
+    class_name: 'Class 5',
+    section_name: 'A',
+    period_sequence: 4,
+    subject_name_en: 'Science',
+    teacher_ids: [TEACHER_1_ID],
+  },
 };
 
 function render(entry = '/routines/substitutions') {
@@ -152,7 +180,7 @@ describe('/routines/substitutions', () => {
     ).not.toBeNull();
   });
 
-  it('joins each record to its period, shows a status badge, and has no native select or date input', async () => {
+  it('renders each record from the server slot summary, shows a status badge, and has no native select or date input', async () => {
     mockBaseData();
     server.use(
       http.get('/api/v1/routines/substitutions', () =>
@@ -166,7 +194,7 @@ describe('/routines/substitutions', () => {
             substitute_teacher_id: null,
             reason: null,
           },
-          { ...COVERED, id: 'sub-3', date: '2026-10-06', routine_slot_id: 'slot-not-current' },
+          OLD_YEAR,
         ]),
       ),
     );
@@ -178,7 +206,10 @@ describe('/routines/substitutions', () => {
     expect(screen.getAllByText('Covering for a workshop').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Covered').length).toBe(2);
     expect(screen.getByText('Period cancelled')).toBeTruthy();
-    expect(screen.queryByText('slot-not-current')).toBeNull();
+    // The earlier-year row shows its own section, subject and absent teacher, not dashes.
+    expect((await screen.findAllByText('Class 5 – A')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Science').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Ms Nahar').length).toBeGreaterThan(0);
     expect(container.querySelector('select')).toBeNull();
     expect(container.querySelector('input[type="date"]')).toBeNull();
   });
@@ -236,5 +267,47 @@ describe('/routines/substitutions', () => {
     await user.click(screen.getAllByRole('button', { name: /add substitute teacher/i })[0]!);
 
     expect(screen.getByRole('dialog', { name: /record a substitute teacher/i })).toBeTruthy();
+  });
+
+  it('Delete asks first, then sends DELETE /routines/substitutions/<id>', async () => {
+    mockBaseData();
+    let deletedId: string | null = null;
+    server.use(
+      http.get('/api/v1/routines/substitutions', () => HttpResponse.json([COVERED])),
+      http.delete('/api/v1/routines/substitutions/:id', ({ params }) => {
+        deletedId = String(params['id']);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(deletedId).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deletedId).toBe('sub-1'));
+  });
+
+  it('a failing DELETE shows "Could not delete"', async () => {
+    mockBaseData();
+    server.use(
+      http.get('/api/v1/routines/substitutions', () => HttpResponse.json([COVERED])),
+      http.delete('/api/v1/routines/substitutions/:id', () =>
+        HttpResponse.json({ statusCode: 500, message: 'x' }, { status: 500 }),
+      ),
+    );
+    const errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    try {
+      render();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Delete' }));
+      const dialog = await screen.findByRole('alertdialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+      await waitFor(() => expect(errorSpy).toHaveBeenCalledWith('Could not delete — try again.'));
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

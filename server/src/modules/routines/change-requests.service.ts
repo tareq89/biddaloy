@@ -59,17 +59,33 @@ export class ChangeRequestsService {
     return this.requestRepo.save(entity);
   }
 
-  async findForRoutine(routineId: string, tenantId: string): Promise<RoutineChangeRequest[]> {
+  /** A teacher's own requests on a routine, with the admin's reply. The
+   * requester comes from the token (`userId`), never from the request. */
+  async findOwnForRoutine(
+    routineId: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<RoutineChangeRequest[]> {
+    return this.findForRoutine(routineId, tenantId, userId);
+  }
+
+  async findForRoutine(
+    routineId: string,
+    tenantId: string,
+    requestedBy?: string,
+  ): Promise<RoutineChangeRequest[]> {
     const slots = await this.slotRepo.find({
       where: { routine_id: routineId, tenant_id: tenantId },
     });
     if (slots.length === 0) return [];
-    return this.requestRepo
+    const query = this.requestRepo
       .createQueryBuilder('cr')
       .where('cr.tenant_id = :tenantId', { tenantId })
-      .andWhere('cr.routine_slot_id IN (:...slotIds)', { slotIds: slots.map((s) => s.id) })
-      .orderBy('cr.created_at', 'DESC')
-      .getMany();
+      .andWhere('cr.routine_slot_id IN (:...slotIds)', { slotIds: slots.map((s) => s.id) });
+    // `!== undefined`, not truthiness: an empty requester must match nothing, never everything.
+    if (requestedBy !== undefined)
+      query.andWhere('cr.requested_by = :requestedBy', { requestedBy });
+    return query.orderBy('cr.created_at', 'DESC').getMany();
   }
 
   async resolve(

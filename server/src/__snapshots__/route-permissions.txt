@@ -35,6 +35,7 @@ DELETE /promotions/:id | PromotionsController | perm: PROMOTION_MANAGE
 DELETE /routines/rooms/:id | RoomsController | perm: ROUTINE_MANAGE
 DELETE /routines/shifts/:id | ShiftsController | perm: ROUTINE_MANAGE
 DELETE /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
+DELETE /routines/substitutions/:id | SubstitutionsController | perm: ROUTINE_MANAGE
 DELETE /schools/:id/admins/:userId/invitation | SchoolAdminsController | identity | roles: SUPER_ADMIN
 DELETE /schools/me/logo | SchoolLogoController | identity | roles: ADMIN,SUPER_ADMIN
 DELETE /seat-plans/:id | SeatPlansController | perm: SEAT_PLAN_MANAGE
@@ -284,6 +285,7 @@ GET /reports/collections.csv | ReportsController | perm: REPORT_COLLECTIONS_READ
 GET /routines | RoutineSlotsController | perm: ROUTINE_READ
 GET /routines/:id | RoutineSlotsController | perm: ROUTINE_READ
 GET /routines/:id/change-requests | ChangeRequestsController | perm: ROUTINE_MANAGE
+GET /routines/:id/change-requests/mine | ChangeRequestsController | perm: ROUTINE_READ | roles: TEACHER
 GET /routines/:id/greedy-fill | RoutineSlotsController | perm: ROUTINE_MANAGE
 GET /routines/:id/slots | RoutineSlotsController | perm: ROUTINE_READ
 GET /routines/:id/workload | RoutineSlotsController | perm: ROUTINE_MANAGE

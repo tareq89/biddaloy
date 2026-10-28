@@ -15,9 +15,10 @@ import {
   ChangeoverSuggestionQueryDto,
 } from './dto/setup.dto';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
+import { PeriodSlotKind } from '@biddaloy/shared';
 import { LessonDelivery } from '../study-plans/entities/lesson-delivery.entity';
 
-function timeToMinutes(time: string): number {
+export function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
 }
@@ -30,7 +31,9 @@ function minutesToTime(minutes: number): string {
 }
 
 /** [21.3.1] Period slots are edited as a whole set per shift, in one
- * transaction — not row by row (Step 3 of the plan).
+ * transaction — not row by row (Step 3 of the plan). Rows keep their id
+ * when the client sends it back, so a time change updates in place and past
+ * dates read the new times. (Versioned period times are out of scope.)
  *
  * Step 5's invariant — a `kind: BREAK` slot must never be referenced by a
  * `RoutineSlot` (no subject/teacher on a break) — is documented here but
@@ -84,52 +87,88 @@ export class PeriodSlotsService {
         throw new BadRequestException({ message: 'Invalid period slots', errors });
       }
 
-      // Replacing the set deletes the old rows outright; refuse if a routine
-      // slot still points at one of them rather than orphaning it silently.
-      // Locked so a concurrent `RoutineSlotsService.create()`/`update()`
-      // (which takes a `pessimistic_read` lock on the same row via
-      // `getPeriodSlot`) can't insert a new reference between this count
-      // and the `repo.delete(...)` below — without the lock, that insert
-      // could commit after the count-of-0 but before the delete, and
-      // `ON DELETE CASCADE` would silently wipe the row it just created.
+      // Rows keep their id: an item with an `id` updates that row in place,
+      // an item without one is new, and an existing row missing from the
+      // request is removed. Locked so a concurrent `RoutineSlotsService`
+      // create/update (which takes a `pessimistic_read` lock on the same
+      // row) can't add a reference between the counts below and the delete.
       const existing = await repo.find({
         where: { shift_id: shiftId, tenant_id: tenantId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (existing.length > 0) {
-        const referencedCount = await manager.getRepository(RoutineSlot).count({
-          where: { tenant_id: tenantId, period_slot_id: In(existing.map((slot) => slot.id)) },
-        });
-        if (referencedCount > 0) {
-          throw new ConflictException(
-            `Cannot replace period slots for shift "${shiftId}": ${referencedCount} routine slot(s) still reference its existing slots. Remove them first.`,
-          );
+      const existingById = new Map(existing.map((row) => [row.id, row]));
+      const sentIds = new Set<string>();
+      for (const item of dto.slots) {
+        if (item.id === undefined) continue;
+        if (!existingById.has(item.id) || sentIds.has(item.id)) {
+          throw new BadRequestException('Invalid period slots');
         }
-        // [66.0] Delivery history points at these slots too (FK RESTRICT);
+        sentIds.add(item.id);
+      }
+
+      const removed = existing.filter((row) => !sentIds.has(row.id));
+      const toBreak = dto.slots
+        .filter((item) => item.id !== undefined && item.kind === PeriodSlotKind.BREAK)
+        .map((item) => existingById.get(item.id as string) as PeriodSlot)
+        .filter((row) => row.kind !== PeriodSlotKind.BREAK);
+      const guarded = [...removed, ...toBreak].map((row) => row.id);
+      if (guarded.length > 0) {
+        const routineCount = await manager
+          .getRepository(RoutineSlot)
+          .count({ where: { tenant_id: tenantId, period_slot_id: In(guarded) } });
+        // [66.0] Delivery history points at these rows too (FK RESTRICT);
         // a clear 409 here instead of a raw FK error on the delete below.
-        const deliveryCount = await manager.getRepository(LessonDelivery).count({
-          where: { tenant_id: tenantId, period_slot_id: In(existing.map((slot) => slot.id)) },
-        });
-        if (deliveryCount > 0) {
-          throw new ConflictException(
-            `Cannot replace period slots for shift "${shiftId}": ${deliveryCount} recorded lesson(s) still reference its existing slots.`,
-          );
+        const deliveryCount = await manager
+          .getRepository(LessonDelivery)
+          .count({ where: { tenant_id: tenantId, period_slot_id: In(guarded) } });
+        if (routineCount > 0 || deliveryCount > 0) {
+          throw new ConflictException({
+            message: 'A period that is in use cannot be removed or made a break',
+            details: { code: 'PERIOD_SLOT_IN_USE' },
+          });
         }
       }
 
-      await repo.delete({ shift_id: shiftId, tenant_id: tenantId });
-      const entities = dto.slots.map((slot) =>
-        repo.create({
-          shift_id: shiftId,
-          tenant_id: tenantId,
-          sequence: slot.sequence,
-          kind: slot.kind,
-          name: slot.name ?? null,
-          starts_at: slot.starts_at,
-          ends_at: slot.ends_at,
-        }),
-      );
-      return repo.save(entities);
+      if (removed.length > 0) {
+        await repo.delete({ id: In(removed.map((row) => row.id)), tenant_id: tenantId });
+      }
+
+      // `UQ_period_slots_shift_sequence` would trip while sequences shift,
+      // so park the kept rows on negative sequences first.
+      const kept = dto.slots.filter((item) => item.id !== undefined);
+      for (const [index, item] of kept.entries()) {
+        await repo.update({ id: item.id, tenant_id: tenantId }, { sequence: -1 - index });
+      }
+      for (const item of kept) {
+        await repo.update(
+          { id: item.id, tenant_id: tenantId },
+          {
+            sequence: item.sequence,
+            kind: item.kind,
+            name: item.name ?? null,
+            starts_at: item.starts_at,
+            ends_at: item.ends_at,
+          },
+        );
+      }
+      const fresh = dto.slots
+        .filter((item) => item.id === undefined)
+        .map((item) =>
+          repo.create({
+            shift_id: shiftId,
+            tenant_id: tenantId,
+            sequence: item.sequence,
+            kind: item.kind,
+            name: item.name ?? null,
+            starts_at: item.starts_at,
+            ends_at: item.ends_at,
+          }),
+        );
+      if (fresh.length > 0) await repo.save(fresh);
+      return repo.find({
+        where: { shift_id: shiftId, tenant_id: tenantId },
+        order: { sequence: 'ASC' },
+      });
     });
   }
 

@@ -21,7 +21,13 @@ import {
   toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
-import { useCreateRoom, useDeleteRoom, useRooms, type Room } from '@biddaloy/ui/hooks';
+import {
+  useCreateRoom,
+  useDeleteRoom,
+  useRooms,
+  useUpdateRoom,
+  type Room,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { DoorOpenIcon, PlusIcon } from 'lucide-react';
@@ -33,6 +39,8 @@ export function RoomsPanel() {
   const roomsQuery = useRooms();
   const createRoom = useCreateRoom();
   const deleteRoom = useDeleteRoom();
+  const [editing, setEditing] = React.useState<Room | null>(null);
+  const updateRoom = useUpdateRoom(editing?.id ?? '');
 
   const [addOpen, setAddOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState<Room | null>(null);
@@ -43,8 +51,17 @@ export function RoomsPanel() {
 
   const rooms = roomsQuery.data?.data ?? [];
 
+  function openEdit(room: Room) {
+    setEditing(room);
+    setBuilding(room.building ?? '');
+    setRoomNo(room.room_no);
+    setCapacity(room.capacity != null ? String(room.capacity) : '');
+    setAddOpen(true);
+  }
+
   function closeAdd() {
     setAddOpen(false);
+    setEditing(null);
     setBuilding('');
     setRoomNo('');
     setCapacity('');
@@ -54,14 +71,14 @@ export function RoomsPanel() {
   function handleAdd(event: React.FormEvent) {
     event.preventDefault();
     setSaveFailed(false);
-    createRoom.mutate(
-      {
-        building: building === '' ? null : building,
-        room_no: roomNo,
-        capacity: capacity === '' ? null : Number(capacity),
-      },
-      { onSuccess: closeAdd, onError: () => setSaveFailed(true) },
-    );
+    const body = {
+      building: building === '' ? null : building,
+      room_no: roomNo,
+      capacity: capacity === '' ? null : Number(capacity),
+    };
+    const handlers = { onSuccess: closeAdd, onError: () => setSaveFailed(true) };
+    if (editing) updateRoom.mutate(body, handlers);
+    else createRoom.mutate(body, handlers);
   }
 
   function handleDelete() {
@@ -146,6 +163,7 @@ export function RoomsPanel() {
           totalCount={rooms.length}
           loading={roomsQuery.isPending}
           rowActions={(room) => [
+            { intent: 'edit', label: t('edit.action'), onClick: () => openEdit(room) },
             { intent: 'delete', label: t('delete.action'), onClick: () => setDeleting(room) },
           ]}
           emptyState={{
@@ -160,7 +178,9 @@ export function RoomsPanel() {
         <DialogContent size="sm">
           <form className="flex flex-col gap-4" onSubmit={handleAdd}>
             <DialogHeader>
-              <DialogTitle>{t('roomsPanel.dialogTitle')}</DialogTitle>
+              <DialogTitle>
+                {t(editing ? 'roomsPanel.editTitle' : 'roomsPanel.dialogTitle')}
+              </DialogTitle>
               <DialogDescription>{t('roomsPanel.subtitle')}</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-1">
@@ -200,8 +220,8 @@ export function RoomsPanel() {
               <Button type="button" variant="outline" onClick={closeAdd}>
                 {t('roomsPanel.cancel')}
               </Button>
-              <Button type="submit" loading={createRoom.isPending}>
-                {t('roomsPanel.dialogConfirm')}
+              <Button type="submit" loading={createRoom.isPending || updateRoom.isPending}>
+                {t(editing ? 'roomsPanel.editConfirm' : 'roomsPanel.dialogConfirm')}
               </Button>
             </DialogFooter>
           </form>
