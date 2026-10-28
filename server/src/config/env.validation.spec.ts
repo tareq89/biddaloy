@@ -359,6 +359,12 @@ describe('assertMessageSinkAllowed (87 D22)', () => {
   ])('passes for (%s, %s)', (env, sink) => {
     expect(() => assertMessageSinkAllowed(env, sink)).not.toThrow();
   });
+  it('lets staging, and only staging, opt out of the inbox', () => {
+    expect(() => assertMessageSinkAllowed('staging', 'real', 'true')).not.toThrow();
+    expect(() => assertMessageSinkAllowed('staging', 'real', 'yes')).toThrow('must be mailpit');
+    expect(() => assertMessageSinkAllowed('demo', 'real', 'true')).toThrow('must be mailpit');
+    expect(() => assertMessageSinkAllowed('prod', 'mailpit', 'true')).toThrow('not be mailpit');
+  });
   it('validates the sink variables', () => {
     expect(() => validate({ ...validConfig, MESSAGE_SINK: 'bogus' })).toThrow();
     expect(() => validate({ ...validConfig, MESSAGE_SINK_SMTP_URL: 'http://x:1025' })).toThrow();

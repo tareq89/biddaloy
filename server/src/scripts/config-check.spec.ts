@@ -196,6 +196,23 @@ describe('runStackConfigCheck', () => {
     expect(onProd.output).toContain('COMPOSE_PROFILES must not contain sink on prod');
   });
 
+  // Staging may choose real providers on purpose; demo and prod can never carry the flag.
+  it('ALLOW_REAL_PROVIDERS_ON_STAGING frees staging from the inbox only', async () => {
+    const real = {
+      ...staging,
+      ALLOW_REAL_PROVIDERS_ON_STAGING: 'true',
+      MESSAGE_SINK: 'real',
+      COMPOSE_PROFILES: '',
+    };
+    expect((await runStackConfigCheck('staging', real)).output).not.toContain('must be mailpit');
+    expect((await runStackConfigCheck('staging', real)).output).not.toContain('must contain sink');
+    const onDemo = await runStackConfigCheck('demo', {
+      ...demo,
+      ALLOW_REAL_PROVIDERS_ON_STAGING: 'true',
+    });
+    expect(onDemo.output).toContain('ALLOW_REAL_PROVIDERS_ON_STAGING must not be set on demo');
+  });
+
   // The part of deploy/stack.yml that makes the app container: x-s3, x-db-url and x-app.
   const stackYml = readFileSync(join(repoRoot, 'deploy/stack.yml'), 'utf8');
   const appBlock = stackYml.slice(stackYml.indexOf('\nx-s3:'), stackYml.indexOf('\nx-jobs-env:'));
@@ -232,6 +249,7 @@ describe('runStackConfigCheck', () => {
       'ENV_NAME',
       'MESSAGE_SINK',
       'MESSAGE_SINK_PUBLIC_URL',
+      'ALLOW_REAL_PROVIDERS_ON_STAGING',
       'DATABASE_URL',
       'NODE_EXTRA_CA_CERTS',
       'DB_SSL',

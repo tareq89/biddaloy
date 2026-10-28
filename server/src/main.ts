@@ -34,7 +34,11 @@ import { assertMessageSinkAllowed } from './config/env.validation';
 
 async function bootstrap() {
   assertSecretEchoAllowed(process.env.NODE_ENV, process.env.ACCOUNT_ACCESS_ECHO_SECRETS);
-  assertMessageSinkAllowed(process.env.ENV_NAME, process.env.MESSAGE_SINK);
+  assertMessageSinkAllowed(
+    process.env.ENV_NAME,
+    process.env.MESSAGE_SINK,
+    process.env.ALLOW_REAL_PROVIDERS_ON_STAGING,
+  );
 
   // Before Nest even starts building the app graph — every request from
   // here on can hit the exception filter's Sentry.captureException call.

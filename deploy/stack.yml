@@ -45,6 +45,7 @@ x-app: &app
     REDIS_URL: redis://redis:6379
     # Test inbox (Epic 87): empty = off. The SMTP URL is the code default (smtp://mailpit:1025).
     MESSAGE_SINK: ${MESSAGE_SINK:-}
+    ALLOW_REAL_PROVIDERS_ON_STAGING: ${ALLOW_REAL_PROVIDERS_ON_STAGING:-}
     MESSAGE_SINK_PUBLIC_URL: ${MESSAGE_SINK_PUBLIC_URL:-}
     JWT_SECRET: ${JWT_SECRET}
     # Rotation grace window (12-operations.md section 8): verify-only, empty = off.

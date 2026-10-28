@@ -407,12 +407,15 @@ const PLACEHOLDER_KEYS = [
 /**
  * [87 D22] The test inbox lives only on non-prod stacks: prod must never use it, and staging
  * and demo must always use it (so no real message leaves them). Names the variable, never a
- * value. An unknown `envName` (dev, CI, tests) passes.
+ * value. An unknown `envName` (dev, CI, tests) passes. Staging alone may opt out with
+ * `ALLOW_REAL_PROVIDERS_ON_STAGING=true` (real providers, real messages); demo and prod never can.
  */
 export function assertMessageSinkAllowed(
   envName: string | undefined,
   messageSink: string | undefined,
+  allowRealOnStaging?: string,
 ): void {
+  if (envName === 'staging' && allowRealOnStaging === 'true') return;
   if (envName === 'prod' && messageSink === 'mailpit') {
     throw new Error('MESSAGE_SINK must not be mailpit on prod');
   }
