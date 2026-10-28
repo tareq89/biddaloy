@@ -168,7 +168,7 @@ flowchart LR
   - Readiness (`/api/health/ready`) is a bare `404` at the edge, in both modes.
 - **Why.** A direct hit on the origin IP skips Cloudflare's WAF and rate limits when Cloudflare is in front, and exposes internal tools when it is not (D14, D17, 75.5, Epic 79.0 D8).
 - **Example.** `curl -H 'Host: evil.test' http://<origin-ip>/` → empty reply. `curl https://kuma.<domain>/` or `https://inbox-staging.<domain>/` in direct mode → `401` (`inbox-demo.<domain>` is public by design, noindex). See [30-deployment-target](30-deployment-target.md#edge-two-modes-same-nginx).
-- **Test.** `nginx/test/edge-mode.infra.test.sh` (both modes, bad `EDGE_MODE`, unknown host, auth layers, two app upstreams), `nginx/test/landing.infra.test.sh`.
+- **Test.** `nginx/test/edge-mode.infra.test.sh` (both modes, bad `EDGE_MODE`, unknown host, auth layers, two app upstreams), `nginx/test/landing.infra.test.sh`, `nginx/test/inbox.infra.test.sh` (protected inbox host).
 
 ### Rule 13: Logs never carry secrets
 
