@@ -50,9 +50,10 @@ function mockAll(overrides: Parameters<typeof server.use> = []) {
       }),
     ),
     http.get('/api/v1/fees/dues', () =>
-      HttpResponse.json(
-        paged([{ student_id: 's1', full_name: 'Rafi Absent', total_due: 500, dues: [] }]),
-      ),
+      HttpResponse.json({
+        ...paged([{ student_id: 's1', full_name: 'Rafi Absent', total_due: 500, dues: [] }]),
+        total_due_sum: 500,
+      }),
     ),
     http.get('/api/v1/homework/analytics/section/section-1', () =>
       HttpResponse.json({
@@ -251,6 +252,23 @@ describe('/my-class/$sectionId', () => {
     const dues = (await screen.findByRole('heading', { name: 'Dues' })).closest('section')!;
     expect(await within(dues).findByText('Rafi Absent')).toBeTruthy();
     expect(within(dues).queryByRole('link', { name: 'See all' })).toBeNull();
+  });
+
+  it('shows the server-wide dues total, not the sum of the rows on the page', async () => {
+    mockAll([
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({
+          ...paged([
+            { student_id: 's1', full_name: 'Rafi Absent', total_due: 500, dues: [] },
+            { student_id: 's2', full_name: 'Mina Present', total_due: 700, dues: [] },
+          ]),
+          total_due_sum: 123456,
+        }),
+      ),
+    ]);
+    render();
+    const dues = (await screen.findByRole('heading', { name: 'Dues' })).closest('section')!;
+    expect(await within(dues).findByText(/1,23,456|123,456|১,২৩,৪৫৬/)).toBeTruthy();
   });
 
   it('says attendance is not taken yet when no student has a status', async () => {

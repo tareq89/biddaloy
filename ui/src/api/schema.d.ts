@@ -654,6 +654,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/communications/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Message log — every message this tenant sent, newest first, filter by status. */
+        get: operations["CommunicationsController_findLogs_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/send": {
         parameters: {
             query?: never;
@@ -4163,6 +4180,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/routines/substitutions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a substitution; the period returns to its usual teacher. */
+        delete: operations["SubstitutionsController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/routines/slots/{slotId}/change-requests": {
         parameters: {
             query?: never;
@@ -4174,6 +4208,23 @@ export interface paths {
         put?: never;
         /** Teacher flags a published slot for the builder. */
         post: operations["ChangeRequestsController_open_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routines/{id}/change-requests/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A teacher's own change requests on a routine, with the admin's reply. */
+        get: operations["ChangeRequestsController_findOwnForRoutine_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4256,7 +4307,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List a routine's slots. */
+        /** List a routine's slots. A PARENT or STUDENT sees only the sections of students they are linked to. */
         get: operations["RoutineSlotsController_findSlots_v1"];
         put?: never;
         /** Create a routine slot (hard constraints enforced server-side). */
@@ -5726,6 +5777,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/homework/{id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One homework's assignment rows (teacher: own sections only). */
+        get: operations["HomeworkController_findAssignments_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/homework/{id}/assign": {
         parameters: {
             query?: never;
@@ -5773,7 +5841,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Deactivate or reactivate an assignment (Q10 D22). */
+        /** Deactivate or reactivate an assignment, or move its due date in place (Q10 D22, #2900). */
         patch: operations["HomeworkController_updateAssignment_v1"];
         trace?: never;
     };
@@ -5784,7 +5852,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List submissions for an assignment (teacher grid view). */
+        /** One row per student on this assignment, with their submission (teacher check-work view, #2899). */
         get: operations["HomeworkSubmissionController_findAll_v1"];
         put?: never;
         /** Upload (or resubmit) a homework submission — up to 10 files, 5MB each, PDF/JPG/PNG/WebP (D27). Blocked once due_date has passed. */
@@ -5792,7 +5860,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Tick, done/partial or marks for many students of one assignment, in one transaction (#2899). */
+        patch: operations["HomeworkSubmissionController_grade_v1"];
         trace?: never;
     };
     "/api/v1/homework-submissions/{id}": {
@@ -8225,7 +8294,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** The roster the caller may mark on a day, with saved marks. Admin-level callers get every staff member; anyone else gets only their own row. */
+        get: operations["StaffAttendanceController_getDay_v1"];
         /** Marks/corrects one day's staff attendance in one call. Outside the tenant's correction window a `reason` (>=3 chars) is required, and every correction is audited. */
         put: operations["StaffAttendanceController_markDay_v1"];
         post?: never;
@@ -9908,6 +9978,8 @@ export interface components {
             message: string;
             /** @enum {string} */
             severity: "error" | "warning";
+            /** @description Stable problem code; the UI translates it */
+            code?: string;
             /** @description Offending cell value, when available */
             value?: string;
             /** @description Sheet/tab name the row was found on, for multi-tab workbooks */
@@ -12104,6 +12176,8 @@ export interface components {
             guardian_ids?: string[];
             student_ids?: string[];
             all?: boolean;
+            /** Format: uuid */
+            after?: string;
         };
         InvitePreviewEntryDto: {
             guardian_id: string;
@@ -12121,12 +12195,14 @@ export interface components {
         };
         InvitePreviewResponseDto: {
             total: number;
+            next_after: string | null;
             to_invite: components["schemas"]["InvitePreviewEntryDto"][];
             skipped: components["schemas"]["InviteSkippedEntryDto"][];
         };
         InviteDispatchResponseDto: {
             batch_id: string;
             queued: number;
+            next_after: string | null;
             skipped: components["schemas"]["InviteSkippedEntryDto"][];
         };
         InviteBatchStatusResponseDto: {
@@ -12822,6 +12898,8 @@ export interface components {
             updated_at: string;
         };
         PeriodSlotItemDto: {
+            /** Format: uuid */
+            id?: string;
             sequence: number;
             /** @enum {string} */
             kind: "CLASS" | "BREAK";
@@ -13502,6 +13580,11 @@ export interface components {
             current_month: components["schemas"]["CollectionMonthWidgetDto"];
         };
         CollectionMonthFigure: {
+            /**
+             * @description Calendar year of this slot.
+             * @example 2026
+             */
+            year: number;
             month: number;
             /** @description Amount applied to bills that school-local month (net of reversals, not physical cash); null for months after the current one. */
             net: number | null;
@@ -13509,7 +13592,7 @@ export interface components {
         };
         CollectionByMonthWidgetDto: {
             /**
-             * @description School-local year.
+             * @description School-local start year of the range.
              * @example 2026
              */
             year: number;
@@ -13519,7 +13602,7 @@ export interface components {
             month_to_date_net: number;
             /** @description Net received in the previous month from day 1 to the same day-of-month (clamped to its last day). */
             previous_month_same_days_net: number;
-            /** @description Twelve slots, January to December. */
+            /** @description One slot per month of the current academic year (calendar year if none). */
             months: components["schemas"]["CollectionMonthFigure"][];
         };
         AtRiskThresholdsDto: {
@@ -14103,6 +14186,19 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        HomeworkAssignmentListItemDto: {
+            id: string;
+            homework_id: string;
+            section_id: string | null;
+            student_id: string | null;
+            assigned_date: string;
+            due_date: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "DEACTIVATED" | "SUPERSEDED";
+            target_section_id: string;
+            section_name: string;
+            student_name: string | null;
+        };
         AssignHomeworkDto: {
             /** Format: uuid */
             section_id?: string;
@@ -14123,7 +14219,8 @@ export interface components {
         };
         UpdateHomeworkAssignmentDto: {
             /** @enum {string} */
-            status: "ACTIVE" | "DEACTIVATED";
+            status?: "ACTIVE" | "DEACTIVATED";
+            due_date?: string;
         };
         HomeworkSubmissionResponseDto: {
             id: string;
@@ -14142,6 +14239,26 @@ export interface components {
             /** @enum {string} */
             status?: "PARTIAL" | "DONE";
             marks?: number;
+        };
+        GradeSubmissionItemDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** @enum {string} */
+            status?: "NOT_SUBMITTED" | "PARTIAL" | "DONE";
+            marks?: number | null;
+        };
+        GradeSubmissionsDto: {
+            items: components["schemas"]["GradeSubmissionItemDto"][];
+        };
+        HomeworkSubmissionRosterRowDto: {
+            student_id: string;
+            student_name: string;
+            roll_number: number;
+            submission_id: string | null;
+            /** @enum {string} */
+            status: "NOT_SUBMITTED" | "SUBMITTED" | "PARTIAL" | "DONE";
+            marks: number | null;
+            attachment_count: number;
         };
         HomeworkBulkUploadPreviewRowDto: {
             row: number;
@@ -14860,6 +14977,56 @@ export interface components {
             close_date?: string;
             required_document_types?: ("PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT")[];
         };
+        /** @enum {string} */
+        AdmissionDocumentType: "PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT";
+        AdmissionApplicantDocumentDto: {
+            type: components["schemas"]["AdmissionDocumentType"];
+            storage_key: string;
+        };
+        /** @enum {string} */
+        AdmissionApplicantStatus: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
+        AdmissionApplicantResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            intake_id: string;
+            reference_number: string;
+            applicant_name: string;
+            /** Format: date */
+            date_of_birth: string;
+            gender: string;
+            guardian_name: string;
+            guardian_phone: string;
+            guardian_email: string | null;
+            home_address: string | null;
+            documents: components["schemas"]["AdmissionApplicantDocumentDto"][];
+            status: components["schemas"]["AdmissionApplicantStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ApplicantListResponseDto: {
+            data: components["schemas"]["AdmissionApplicantResponseDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        GuardianMatchGuardianDto: {
+            id: string;
+            full_name: string;
+            phone: string;
+            student_names: string[];
+        };
+        GuardianMatchResponseDto: {
+            guardian: components["schemas"]["GuardianMatchGuardianDto"] | null;
+        };
+        EvaluateApplicantDto: {
+            notes: string;
+            /** @enum {string} */
+            decision?: "SHORTLIST" | "ADMIT" | "REJECT";
+        };
         AdmissionIntake: {
             id: string;
             tenant: components["schemas"]["School"];
@@ -14901,20 +15068,6 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
-        };
-        GuardianMatchGuardianDto: {
-            id: string;
-            full_name: string;
-            phone: string;
-            student_names: string[];
-        };
-        GuardianMatchResponseDto: {
-            guardian: components["schemas"]["GuardianMatchGuardianDto"] | null;
-        };
-        EvaluateApplicantDto: {
-            notes: string;
-            /** @enum {string} */
-            decision?: "SHORTLIST" | "ADMIT" | "REJECT";
         };
         AdmitApplicantDto: {
             notes?: string;
@@ -14963,8 +15116,6 @@ export interface components {
             /** @description True when more than 500 rows matched and the list was cut. */
             truncated: boolean;
         };
-        /** @enum {string} */
-        AdmissionApplicantStatus: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
         AdmissionLatestApplicantDto: {
             id: string;
             /** @example ADM-2026-0042 */
@@ -15832,6 +15983,21 @@ export interface components {
             session_id: string;
             version: number;
             records: components["schemas"]["StaffAttendanceRecordDto"][];
+        };
+        StaffAttendanceRosterRowDto: {
+            staff_profile_id: string;
+            user_id: string;
+            full_name: string;
+            role: string;
+            /** @enum {string|null} */
+            status: "PRESENT" | "ABSENT" | "LATE" | "LEAVE" | null;
+        };
+        StaffAttendanceDayDto: {
+            date: string;
+            /** @description True when saving a correction needs a `reason`. */
+            reason_required: boolean;
+            non_working_day: boolean;
+            staff: components["schemas"]["StaffAttendanceRosterRowDto"][];
         };
         StaffAttendanceSummaryDto: {
             working_days: number;
@@ -17799,6 +17965,44 @@ export interface operations {
             };
         };
     };
+    CommunicationsController_findLogs_v1: {
+        parameters: {
+            query?: {
+                status?: "QUEUED" | "SENT" | "DELIVERED" | "FAILED" | "READ";
+                medium?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
+                from_date?: string;
+                to_date?: string;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderBatchLogListResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CommunicationsController_send_v1: {
         parameters: {
             query?: never;
@@ -19564,6 +19768,8 @@ export interface operations {
                         limit: number;
                         /** @description Number of pages at this `limit`. */
                         totalPages: number;
+                        /** @description Sum of total_due over every matched student, all pages. */
+                        total_due_sum: number;
                     };
                 };
             };
@@ -27296,7 +27502,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoutineSubstitution"][];
+                    "application/json": Record<string, never>[];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27343,6 +27549,37 @@ export interface operations {
             };
         };
     };
+    SubstitutionsController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ChangeRequestsController_open_v1: {
         parameters: {
             query?: never;
@@ -27369,6 +27606,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoutineChangeRequest"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ChangeRequestsController_findOwnForRoutine_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutineChangeRequest"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -31216,6 +31486,39 @@ export interface operations {
             };
         };
     };
+    HomeworkController_findAssignments_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeworkAssignmentListItemDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     HomeworkController_assign_v1: {
         parameters: {
             query?: never;
@@ -31348,7 +31651,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HomeworkSubmissionResponseDto"][];
+                    "application/json": components["schemas"]["HomeworkSubmissionRosterRowDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -31390,6 +31693,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HomeworkSubmissionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HomeworkSubmissionController_grade_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GradeSubmissionsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeworkSubmissionRosterRowDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -33062,6 +33402,9 @@ export interface operations {
             query?: {
                 intakeId?: string;
                 status?: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
+                search?: string;
+                page?: number;
+                limit?: number;
             };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
@@ -33079,7 +33422,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdmissionApplicant"][];
+                    "application/json": components["schemas"]["ApplicantListResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -37432,6 +37775,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StaffLanguage"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StaffAttendanceController_getDay_v1: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAttendanceDayDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

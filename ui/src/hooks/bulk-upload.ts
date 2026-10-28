@@ -53,11 +53,14 @@ export interface BulkUploadResult {
  * `extractHttpStatus` reads — but `apiClient`'s interceptor throws an
  * `ApiError` with `statusCode`, not a raw axios error. Without this, a
  * 404/410 (expired/consumed stage) would be treated as a generic failure
- * instead of `reason: 'expired'`.
+ * instead of `reason: 'expired'`. `details` is kept so callers can read `details.code`.
  */
 export function withHttpStatusShape(error: unknown): unknown {
   if (error instanceof ApiError) {
-    return Object.assign(new Error(error.message), { status: error.statusCode });
+    return Object.assign(new Error(error.message), {
+      status: error.statusCode,
+      details: error.details,
+    });
   }
   return error;
 }

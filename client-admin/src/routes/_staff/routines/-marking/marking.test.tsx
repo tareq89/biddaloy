@@ -438,7 +438,7 @@ describe('/routines/my marking', () => {
       render();
 
       expect(await screen.findByText(/3 periods not reported since/)).toBeTruthy();
-      expect(screen.getByText('The head teacher and admin have been told.')).toBeTruthy();
+      expect(screen.getByText('The academic coordinator and admin have been told.')).toBeTruthy();
     });
 
     it('no banner when nothing is unreported', async () => {

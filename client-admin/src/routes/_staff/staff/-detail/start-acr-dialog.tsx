@@ -138,9 +138,12 @@ export function StartAcrDialog({ open, onOpenChange, staffUserId }: StartAcrDial
           </div>
           {start.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {start.error instanceof ApiError && start.error.statusCode === 409
-                ? t('acr.startConflict')
-                : t('acr.startError')}
+              {start.error instanceof ApiError &&
+              start.error.details?.code === 'ACR_NO_FORM_VERSION'
+                ? t('acr.startNoCriteria')
+                : start.error instanceof ApiError && start.error.statusCode === 409
+                  ? t('acr.startConflict')
+                  : t('acr.startError')}
             </p>
           )}
           <DialogFooter>

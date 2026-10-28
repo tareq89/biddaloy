@@ -82,23 +82,33 @@ describe('RegionalSection', () => {
     await cleanupTestState();
   });
 
-  it('shows plain words instead of codes for locale, first weekday and start month', async () => {
+  it('shows plain words instead of codes for message language, first weekday and start month', async () => {
     mount();
 
-    expect((await screen.findByLabelText('Language and number format')).textContent).toBe(
-      'Bangla (Bangladesh)',
-    );
+    expect(
+      (await screen.findByLabelText('Language of messages the school sends')).textContent,
+    ).toBe('Bangla (Bangladesh)');
     expect(screen.getByLabelText('First day of week').textContent).toBe('Sunday');
     expect(screen.getByLabelText('Academic year start month').textContent).toBe('January');
     expect(screen.queryByText('bn-BD')).toBeNull();
   });
 
+  it('explains that the message language does not change the screen language (#3031)', async () => {
+    mount();
+
+    expect(
+      await screen.findByText(
+        'SMS, emails, letters and alerts from this school use this language. Each person chooses their own screen language.',
+      ),
+    ).toBeTruthy();
+  });
+
   it('keeps an unknown stored locale selectable as "keep the current value"', async () => {
     mount({ ...REGION, locale: 'xx-XX' });
 
-    expect((await screen.findByLabelText('Language and number format')).textContent).toBe(
-      'Keep the current value',
-    );
+    expect(
+      (await screen.findByLabelText('Language of messages the school sends')).textContent,
+    ).toBe('Keep the current value');
   });
 
   it('sends date.format and date.calendar unchanged from the stored region', async () => {

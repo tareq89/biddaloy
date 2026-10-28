@@ -7,6 +7,7 @@ import ExcelJS from 'exceljs';
 import { UserRole } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
 import { TeacherService } from './users.service';
+import { AllExceptionsFilter } from '../../common/filters/http-exception.filter';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import {
@@ -60,6 +61,8 @@ describe('Staff bulk import E2E', () => {
     app = mod.createNestApplication();
     configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
+    // The real app registers this in main.ts; it turns a parser's ImportFileError into a 400.
+    app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
     ds = app.get(DataSource);
 
@@ -90,6 +93,15 @@ describe('Staff bulk import E2E', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  it('[#3020] a whole-file problem is a 400 with details.code', async () => {
+    const garbage = await validate(Buffer.from('not a zip')).expect(400);
+    expect(garbage.body.details).toEqual({ code: 'IMPORT_FILE_UNREADABLE' });
+    expect(garbage.body.message).not.toContain('not a zip');
+
+    const headerOnly = await validate(await sheet([])).expect(400);
+    expect(headerOnly.body.details).toEqual({ code: 'IMPORT_FILE_NO_ROWS' });
   });
 
   it('validate reports every bad row and writes nothing; commit refuses that stage', async () => {

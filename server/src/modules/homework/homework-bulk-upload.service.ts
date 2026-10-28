@@ -19,7 +19,7 @@ import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkAccessService } from './homework-access.service';
 import { ImportStagingService } from '../bulk-import/import-staging.service';
 import type { BulkImportErrorDto } from '../bulk-import/dto/bulk-import.dto';
-import { parseSpreadsheet, BulkUploadParseError, ParsedRow } from './homework-bulk-upload.parser';
+import { parseSpreadsheet, ParsedRow } from './homework-bulk-upload.parser';
 import {
   HomeworkBulkUploadResultDto,
   HomeworkBulkUploadRowDto,
@@ -36,6 +36,8 @@ import { HomeworkGradingMode, HomeworkAssignmentStatus } from '@biddaloy/shared'
 class BulkRowError extends BadRequestException {
   constructor(
     message: string,
+    /** Stable problem code; the UI translates it. */
+    readonly code: string,
     readonly field?: string,
     readonly value?: string,
   ) {
@@ -125,15 +127,7 @@ export class HomeworkBulkUploadService {
       throw new BadRequestException('No file uploaded');
     }
 
-    let rows: ParsedRow[];
-    try {
-      rows = await parseSpreadsheet(file.buffer, file.originalname);
-    } catch (err) {
-      if (err instanceof BulkUploadParseError) {
-        throw new BadRequestException(err.message);
-      }
-      throw err;
-    }
+    const rows: ParsedRow[] = await parseSpreadsheet(file.buffer, file.originalname);
 
     const classLookup = await this.buildClassLookup(tenantId);
     const subjectLookup = await this.buildSubjectLookup(tenantId);
@@ -172,6 +166,7 @@ export class HomeworkBulkUploadService {
             column: err instanceof BulkRowError ? (err.field ?? null) : null,
             value: err instanceof BulkRowError ? err.value : undefined,
             severity: 'error',
+            code: err instanceof BulkRowError ? err.code : 'ROW_INVALID',
             message: this.describeError(err),
           });
         } else {
@@ -273,7 +268,8 @@ export class HomeworkBulkUploadService {
     } catch (err) {
       if (err instanceof ForbiddenException || err instanceof NotFoundException) {
         throw new BulkRowError(
-          `You do not have access to Class '${row.class}' / Section '${row.section}' for subject '${row.subject}'`,
+          'You do not have access to this class, section and subject',
+          'NO_ACCESS',
           'section',
           row.section,
         );
@@ -295,23 +291,31 @@ export class HomeworkBulkUploadService {
     const dto = plainToInstance(HomeworkBulkUploadRowDto, this.toDtoInput(parsed.values));
     const validationErrors = await validate(dto);
     if (validationErrors.length > 0) {
-      const messages = validationErrors.flatMap((e) => Object.values(e.constraints ?? {}));
       if (validationErrors.length === 1) {
         const failed = validationErrors[0];
         const rawValue = (parsed.values as Record<string, string | undefined>)[failed.property];
+        const constraints = failed.constraints ?? {};
+        const [code, message] =
+          'isNotEmpty' in constraints
+            ? ['MISSING_FIELD', 'This cell is empty but required']
+            : 'isDateString' in constraints
+              ? ['INVALID_DATE', 'This is not a valid date (YYYY-MM-DD)']
+              : ['ROW_INVALID', 'This row is not valid'];
         throw new BulkRowError(
-          messages.join('; '),
+          message,
+          code,
           failed.property,
           rawValue === '' ? undefined : rawValue,
         );
       }
-      throw new BadRequestException(messages.join('; '));
+      throw new BulkRowError('This row is not valid', 'ROW_INVALID');
     }
 
     const sectionKey = `${dto.class}::${dto.section}`;
     if (classLookup.ambiguousSectionKeys.has(sectionKey)) {
       throw new BulkRowError(
-        `Class '${dto.class}' / Section '${dto.section}' matches more than one section in the current academic year — rename one of the classes to disambiguate`,
+        'This class and section match more than one section in the current academic year — rename one of the classes to disambiguate',
+        'SECTION_AMBIGUOUS',
         'class',
         dto.class,
       );
@@ -320,7 +324,10 @@ export class HomeworkBulkUploadService {
     if (!sectionId) {
       const classExists = classLookup.classNames.has(dto.class);
       throw new BulkRowError(
-        `Class '${dto.class}' / Section '${dto.section}' not found for the current academic year`,
+        classExists
+          ? 'No section with this name in this class for the current academic year'
+          : 'No class with this name for the current academic year',
+        classExists ? 'SECTION_NOT_FOUND' : 'CLASS_NOT_FOUND',
         classExists ? 'section' : 'class',
         classExists ? dto.section : dto.class,
       );
@@ -329,19 +336,26 @@ export class HomeworkBulkUploadService {
 
     if (subjectLookup.ambiguousNames.has(dto.subject)) {
       throw new BulkRowError(
-        `Subject '${dto.subject}' matches more than one subject — use a unique subject name`,
+        'More than one subject has this name — use a unique subject name',
+        'SUBJECT_AMBIGUOUS',
         'subject',
         dto.subject,
       );
     }
     const subjectId = subjectLookup.idByName.get(dto.subject);
     if (!subjectId) {
-      throw new BulkRowError(`Subject '${dto.subject}' not found`, 'subject', dto.subject);
+      throw new BulkRowError(
+        'No subject with this name',
+        'SUBJECT_NOT_FOUND',
+        'subject',
+        dto.subject,
+      );
     }
 
     if (new Date(dto.due_date) < new Date(dto.assigned_date)) {
       throw new BulkRowError(
-        `due_date (${dto.due_date}) cannot be before assigned_date (${dto.assigned_date})`,
+        'The due date cannot be before the assigned date',
+        'DUE_BEFORE_ASSIGNED',
         'due_date',
         dto.due_date,
       );

@@ -148,6 +148,42 @@ describe('/calendar', () => {
     expect(within(upcoming).getByText('Sports day')).toBeTruthy();
   });
 
+  it('lists events from today to today + 60 days even when a past month is on screen', async () => {
+    const requests: URLSearchParams[] = [];
+    server.use(
+      http.get('/api/v1/calendar/events', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        requests.push(params);
+        const upcoming = params.get('from') === '2026-10-05';
+        return HttpResponse.json({
+          data: upcoming
+            ? [
+                event({
+                  id: 'ev-far',
+                  name: 'Founders day',
+                  start_date: '2026-11-24',
+                  end_date: '2026-11-24',
+                }),
+              ]
+            : [],
+          total: upcoming ? 1 : 0,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        });
+      }),
+    );
+    renderCalendar('/calendar?month=2026-01');
+
+    const upcoming = (await screen.findByRole('heading', { name: /^(Upcoming|আসন্ন)$/ })).closest(
+      'div',
+    )!;
+    expect(await within(upcoming).findByText('Founders day')).toBeTruthy();
+    expect(
+      requests.some((p) => p.get('from') === '2026-10-05' && p.get('to') === '2026-12-04'),
+    ).toBe(true);
+  });
+
   it('opens the full-page event form from ?panel=new-event', async () => {
     renderCalendar();
     const user = userEvent.setup();

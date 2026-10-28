@@ -220,3 +220,71 @@ flowchart LR
   W6[W6 lanes g1 g2 g3] --> Fixed[Fixed: #2684 and the lane tickets]
   W6 --> Skipped[Skipped: see table]
 ```
+
+## Epic 86 — guide bugs
+
+Wave 0 (#2979): five security fixes found while writing the user guide.
+
+- 2026-10-27 — #2975's plan said a zod `validateSearch` on the route is enough. It was not: `useListUrlState` reads `useSearch({ strict: false })`, which keeps unvalidated parent search, so the stray `?date=` chip stayed. Cost: one failing test and a page-level key filter. Fix: filter `filters` to the schema's keys in the page. Rule candidate: a list page with `validateSearch` must also be checked in a render test with a stray param. The shared hook still leaks on every list page (follow-up filed).
+- 2026-10-27 — #2863's planned `rg` for echoed ids missed messages whose template literal sits on the line after `new NotFoundException(`. The reviewer found three more. Rule candidate: grep with `-U` (multiline) for Rule 23 sweeps.
+- 2026-10-27 — #2859: two existing e2e specs treated a tenant-local SUPER_ADMIN as the platform admin and broke once the guard landed. Fix: move their SA onto the platform tenant, as `platform-alerts.controller.e2e-spec.ts` does.
+- 2026-10-27 — Sandbox refused `git commit` inside worktree agents (once). The orchestrator committed the staged files from the parent.
+
+### Wave 1 — people, staff and admissions (#2980)
+
+- 2026-10-27 — #2878: the body said the form re-seeds after a close; it seeds once, so the fix resets the form. #2882: component tests need a `RegionConfigProvider` or numbers print as Bangla digits.
+- 2026-10-27 — #2995 and #2880 share files, so they were committed as two commits from one tree. Rule candidate: give tickets that share a file one lane and one commit order from the start.
+- 2026-10-27 — #2864: a new "needs a contact" guard broke every fixture that created a user with only a name. Rule candidate: grep fixtures for the factory before tightening a service guard.
+- 2026-10-27 — workers cannot `git commit` through the rtk-wrapped git; `/usr/bin/git -C <worktree>` works.
+
+### Wave 2 — academics, calendar and attendance (#2981)
+
+- 2026-10-27 — #2909: a new route also changes `server/src/__snapshots__/route-permissions.txt`, not only `route-status.snapshot.txt`. The ticket named only the second. Rule candidate: any ticket that adds a route lists both snapshots under Files.
+- 2026-10-27 — #2871: `bulkAdd` ran outside one transaction. The fix passes the transaction manager to `CalendarEventsService.create`, so the holiday and its audit row roll back together. Notifications use their own connections, so a rollback does not undo them.
+- 2026-10-27 — #2872: the test went into `-calendar-route.test.tsx`, which already has the fixed-date route harness, not the file the ticket named.
+- 2026-10-27 — a worker-added prop (`today`) on `GovernmentHolidaysDialog` broke two existing renders; type-check, not tests, would have caught it. `tsc` is unusable in worktrees until the ui `.tsout` is built.
+
+### Wave 3 — routines (#2982)
+
+- 2026-10-27 — #2898 and #2891 both change who sees routine slots in REVIEW. #2898's body named `resolve-routine.service.ts`, but an earlier fix had moved the rule into `routine-visibility.ts`; it was changed there once so resolve and slots agree. Rule candidate: before a ticket edits a rule, grep for a shared helper that now owns it.
+- 2026-10-27 — #2892 added a route, so `ROLE_NARROWINGS` in `permission-matrix.e2e-spec.ts` also needed an entry; the ticket named only the two route snapshots.
+- 2026-10-27 — #2895 logs its audit entry under `RoutineSlot` because `RoutineSubstitution` is not in the shared audit entity catalog. Follow-up: add it.
+- 2026-10-27 — #2893 changed period slots to update in place; changing a time now also changes it on past days. Versioned period times are out of scope.
+
+### Wave 4 — exams, results and promotion (#2983)
+
+- 2026-10-27 — #2925: hiding Graduate in a normal run left the `g` keyboard shortcut sending GRADUATE, which the server now refuses. Rule candidate: when a server refuses a value, grep the client for every path that can send it (shortcuts, mobile cards), not only the select.
+- 2026-10-27 — #2922: stopping the page from loading the exam detail query broke the breadcrumb, which was keyed on that query. The fix moved the resolver key. Rule candidate: before removing a query from a page, grep the breadcrumb resolver for its key.
+- 2026-10-27 — #2916: `progress()` gained a `grids` array instead of widening `outstanding`, so the results-processing gate keeps its meaning.
+- 2026-10-27 — #2913 also closed #2914, #2918 also closed #2919 and #2920, #2916 also closed #2978: those issues were duplicates of one cause.
+
+### Wave 5 — finance and communications (#2984)
+
+- 2026-10-27 — All nine wave 5 tickets were client-side (copy, buttons, role gates). The server already enforced each rule, so no route snapshot changed.
+- 2026-10-27 — #2932: the body asked for a "role without SCHEDULE_MANAGE sees no Delete" test. The whole route is gated on that permission, so no such role can reach the page; the test was dropped and the guard kept as defence in depth.
+- 2026-10-27 — #2939: the body said to use `regionConfig`, but that variable belongs to the parent component; `useRegionConfig()` in the same component is the sibling pattern.
+- 2026-10-27 — #2936 fix is client-only: the server already refuses a wallet pick across siblings (`checkout.service.ts`), the UI just summed them.
+
+### Wave 6 — platform, dashboard and i18n (#2985)
+
+- 2026-10-27 — #2974 (English UI showed Bangla digits) broke 18 client tests that had asserted the old, wrong output. Rule candidate: a region/formatting fix is high blast radius; run the whole client suite, not only the touched folder.
+- 2026-10-27 — #2869 had nine consumers, not the seven the ticket named (`readmit-dialog.tsx` and a comment); grep every consumer of a shared component first.
+- 2026-10-27 — #2941: the collection-by-month widget now follows the current academic year, so `e2e/journeys/dashboard-reconciliation.spec.ts` (which assumed the calendar year) changed too.
+- 2026-10-27 — #2946: pinned backups skip the 30-day download expiry; `expires_at` is not cleared on pin, so un-pinning restores the old expiry.
+- 2026-10-27 — #2951: an abandoned request body leaves its idempotency key in `sessionStorage` until the tab closes; known and minor.
+
+## Epic 87 — follow-ups from Epic 86
+
+- 2026-10-27 — #3002 was already fixed by a review round on the Epic 86 stack; only test coverage was left. Rule candidate: check the issue against the stack head before planning.
+- 2026-10-27 — #3031: the plan said remove the Regional locale picker; the stored locale still sets the language of outgoing SMS, emails and alerts, so the picker was kept and relabelled. Rule candidate: grep server consumers of a setting before removing its UI.
+- 2026-10-27 — #3032: a per-widget cache version (only collection-by-month at 2) avoids emptying every widget's cache on deploy.
+- 2026-10-27 — #3033: dropping `@Roles` when it equals the permission holders also requires deleting the matching `ROLE_NARROWINGS` entries, or the "still narrows a live route" test fails.
+- 2026-10-27 — #3020: `withHttpStatusShape` dropped `details`, so a server-only code change would never have reached the staff import screen.
+
+### Epic 87 part 2 — follow-ups and unfinished features
+
+- 2026-10-28 — #2942 said "fix the link", but the dashboard widgets count every failed SMS, while the page they linked to lists bulk-reminder rounds only. A new tenant-wide message log (`GET /communications/logs`, permission `COMMUNICATION_BULK_SEND`, not log-read, because teachers hold log-read) was needed. Rule candidate: check what a link target lists before retargeting a link.
+- 2026-10-28 — #2940 (delivery reports) was skipped: no provider adapter has a status or callback API and the gateways' formats cannot be checked offline. A product/ops decision comes first.
+- 2026-10-28 — #3022 was decided under the recommended mode: a same-day in-place slot edit is refused while substitutions or open change requests reference the slot; past-dated substitutions cannot be deleted.
+- 2026-10-28 — #3043: switching four routes from `z.looseObject` to `z.object` broke the types of two unrelated routes that had relied on the index signature (`login.tsx`, `trial-details-landing.tsx`).
+- 2026-10-28 — #3082: the flake was cold vite-node transforms counted inside the first `findBy*`; the timeout is 15 s now. Warming route imports once per worker would be the real fix.

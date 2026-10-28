@@ -4,6 +4,7 @@
  * matches the entity's own `ManyToOne -> User` relation
  * (`seat-allocation.entity.ts`) rather than the separate teachers list.
  */
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Select,
   SelectContent,
@@ -12,7 +13,8 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import { useUpdateInvigilator, useUsers } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatTime } from '@biddaloy/ui/utils';
 
 const UNASSIGNED = '__unassigned__';
 
@@ -33,6 +35,7 @@ export function InvigilatorPicker({
   disabled,
 }: InvigilatorPickerProps) {
   const { t } = useTranslation('seatPlansDetail');
+  const config = useRegionConfig();
   const teachersQuery = useUsers({ role: 'TEACHER', limit: 100 });
   const teachers = teachersQuery.data?.data ?? [];
   const updateInvigilator = useUpdateInvigilator(planId);
@@ -44,33 +47,50 @@ export function InvigilatorPicker({
     });
   }
 
+  // TEACHER_BUSY: say why from fixed sentences; never the server text or tenant name.
+  const details =
+    updateInvigilator.error instanceof ApiError ? updateInvigilator.error.details : undefined;
+  const hhmm = (value: unknown) =>
+    typeof value === 'string' && value !== '' ? formatTime(value.slice(0, 5), config) : '';
+  const errorLine =
+    details?.code === 'TEACHER_BUSY'
+      ? t(
+          `room.invigilatorBusy.${
+            ['TEACHING', 'INVIGILATING', 'ON_LEAVE'].includes(String(details.kind))
+              ? String(details.kind)
+              : 'other'
+          }`,
+          { from: hhmm(details.from), to: hhmm(details.to) },
+        )
+      : t('room.invigilatorError');
+
   return (
     <div className="flex flex-col gap-1.5">
-    <Select
-      value={invigilatorUserId ?? UNASSIGNED}
-      onValueChange={handleChange}
-      disabled={disabled}
-    >
-      <SelectTrigger
-        {...(id ? { id } : { 'aria-label': t('room.invigilatorLabel') })}
-        className="w-full md:w-56"
+      <Select
+        value={invigilatorUserId ?? UNASSIGNED}
+        onValueChange={handleChange}
+        disabled={disabled}
       >
-        <SelectValue placeholder={t('room.invigilatorPlaceholder')} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={UNASSIGNED}>{t('room.invigilatorNone')}</SelectItem>
-        {teachers.map((teacher) => (
-          <SelectItem key={teacher.id} value={teacher.id}>
-            {teacher.full_name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-    {updateInvigilator.isError && (
-      <p role="alert" className="text-sm text-destructive">
-        {t('room.invigilatorError')}
-      </p>
-    )}
+        <SelectTrigger
+          {...(id ? { id } : { 'aria-label': t('room.invigilatorLabel') })}
+          className="w-full md:w-56"
+        >
+          <SelectValue placeholder={t('room.invigilatorPlaceholder')} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={UNASSIGNED}>{t('room.invigilatorNone')}</SelectItem>
+          {teachers.map((teacher) => (
+            <SelectItem key={teacher.id} value={teacher.id}>
+              {teacher.full_name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {updateInvigilator.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {errorLine}
+        </p>
+      )}
     </div>
   );
 }

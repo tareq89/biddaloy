@@ -1,7 +1,8 @@
 /**
  * [39.3.2] "Readmit" dialog (D9). Picks a class/section in the active
  * academic year; the server derives the enrollment year from the section.
- * A 409 (e.g. already active) shows inline. Not wired here (#1197).
+ * A 409 (e.g. already active) shows inline; a `SEAT_LIMIT_REACHED` 409 shows
+ * the translated seat-limit message with the buy-seats action.
  */
 import {
   Button,
@@ -29,6 +30,8 @@ import {
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
+
+import { MutationErrorMessage } from '../../../../components/MutationErrorMessage';
 
 import { todayDateInputValue } from './leave-dialog';
 
@@ -215,11 +218,15 @@ export function ReadmitDialog({ open, onOpenChange, studentId, studentName }: Re
             />
           </div>
 
-          {readmit.isError && (
-            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
-              {t('errors.generic')}
-            </p>
-          )}
+          {readmit.isError &&
+            ((readmit.error as { details?: { code?: string } } | null)?.details?.code ===
+            'SEAT_LIMIT_REACHED' ? (
+              <MutationErrorMessage error={readmit.error} />
+            ) : (
+              <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+                {t('errors.generic')}
+              </p>
+            ))}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

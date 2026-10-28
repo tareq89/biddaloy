@@ -73,6 +73,17 @@ function isCaptchaFailed(error: unknown): boolean {
   return error instanceof ApiError && error.details?.code === 'CAPTCHA_FAILED';
 }
 
+/** Plain reason for a refused submit; any other failure keeps the generic line. */
+function submitErrorKey(error: unknown): string {
+  if (error instanceof ApiError) {
+    const code = error.details?.code;
+    if (code === 'INTAKE_CLOSED' || code === 'INTAKE_NOT_OPEN') return 'form.errors.intakeClosed';
+    if (code === 'INTAKE_FULL') return 'form.errors.intakeFull';
+    if (code === 'DUPLICATE_APPLICATION') return 'form.errors.duplicate';
+  }
+  return 'form.submitError';
+}
+
 /** Digits only, with the leading 0 the server's BD_PHONE_REGEX expects ("1712-345678" -> "01712345678"). */
 function toLocalPhone(raw: string): string {
   const digits = toLatinDigits(raw).replace(/\D/g, '').replace(/^880/, '');
@@ -109,9 +120,10 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
   const onlyOpenIntakeId = intakes.length === 1 ? intakes[0]?.id : undefined;
 
   // A single open intake is the common case — pick it automatically so a
-  // guardian never has to make a meaningless one-item choice.
+  // guardian never has to make a meaningless one-item choice. Also when the
+  // picked round closed or filled and only one is left (no picker is shown then).
   React.useEffect(() => {
-    if (!intakeId && onlyOpenIntakeId) setIntakeId(onlyOpenIntakeId);
+    if (onlyOpenIntakeId && intakeId !== onlyOpenIntakeId) setIntakeId(onlyOpenIntakeId);
   }, [intakeId, onlyOpenIntakeId]);
 
   function clearError(id: string) {
@@ -172,9 +184,12 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
 
     submitMutation.mutate(input, {
       onSuccess: onSubmitted,
-      onError: () => {
+      onError: (error) => {
         setCaptcha(null);
         setCaptchaKey((k) => k + 1);
+        // The round closed or filled while the form was open: drop it from the picker.
+        const code = error instanceof ApiError ? error.details?.code : undefined;
+        if (code === 'INTAKE_CLOSED' || code === 'INTAKE_FULL') void intakesQuery.refetch();
       },
     });
   }
@@ -563,7 +578,7 @@ export function PublicAdmissionForm({ slug, onSubmitted }: PublicAdmissionFormPr
               ? t('form.unavailable')
               : isCaptchaFailed(submitMutation.error)
                 ? t('form.captchaFailed')
-                : t('form.submitError')}
+                : t(submitErrorKey(submitMutation.error))}
           </p>
         )}
 

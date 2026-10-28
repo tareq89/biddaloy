@@ -1,4 +1,8 @@
-import type { HomeworkAssignmentStatus, HomeworkGradingMode } from '@biddaloy/shared';
+import type {
+  HomeworkAssignmentStatus,
+  HomeworkGradingMode,
+  HomeworkSubmissionStatus,
+} from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -30,6 +34,13 @@ export interface HomeworkAssignment {
   status: HomeworkAssignmentStatus;
 }
 
+/** `GET /homework/:id/assignments` row: the assignment plus its target as names. */
+export interface HomeworkAssignmentListItem extends HomeworkAssignment {
+  target_section_id: string;
+  section_name: string;
+  student_name: string | null;
+}
+
 export interface HomeworkListFilters {
   class_id?: string;
   section_id?: string;
@@ -53,6 +64,10 @@ export interface AssignHomeworkInput {
 }
 
 export const homeworkKeys = createEntityKeys<HomeworkListFilters>('homework');
+
+/** Prefix of every homework's assignments query; invalidate this after any assignment write. */
+export const homeworkAssignmentsKeyRoot = [...homeworkKeys.all, 'assignments'] as const;
+const assignmentsKey = (homeworkId: string) => [...homeworkAssignmentsKeyRoot, homeworkId] as const;
 
 /** Mirrors `HomeworkAnalyticsService`'s `CompletionRollup` (server side,
  * `server/src/modules/homework/homework-analytics.service.ts`) — no case
@@ -158,6 +173,27 @@ export function useHomework(id: string | undefined) {
   return useQuery({ ...homeworkQueryOptions(id ?? ''), enabled: id !== undefined });
 }
 
+export function homeworkAssignmentsQueryOptions(homeworkId: string) {
+  return queryOptions({
+    queryKey: assignmentsKey(homeworkId),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<HomeworkAssignmentListItem[]>(
+        `/homework/${homeworkId}/assignments`,
+        { signal },
+      );
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useHomeworkAssignments(homeworkId: string | undefined) {
+  return useQuery({
+    ...homeworkAssignmentsQueryOptions(homeworkId ?? ''),
+    enabled: homeworkId !== undefined,
+  });
+}
+
 export function useCreateHomework() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -180,6 +216,7 @@ export function useCreateHomework() {
 export function useAssignHomework() {
   const queryClient = useQueryClient();
   return useMutation({
+    retry: false,
     mutationFn: async ({
       homeworkId,
       input,
@@ -192,6 +229,141 @@ export function useAssignHomework() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: homeworkAssignmentsKeyRoot });
+    },
+  });
+}
+
+/**
+ * Supersedes one assignment row with a new one (`POST /homework-assignments/:id/reassign`).
+ * Refreshes on error too: a 400 means someone already changed that row.
+ */
+export function useReassignHomeworkAssignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    retry: false,
+    mutationFn: async ({
+      assignmentId,
+      input,
+    }: {
+      assignmentId: string;
+      input: AssignHomeworkInput;
+    }) => {
+      const res = await apiClient.post<HomeworkAssignment>(
+        `/homework-assignments/${assignmentId}/reassign`,
+        input,
+      );
+      return res.data;
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: homeworkAssignmentsKeyRoot });
+      void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
+      // Only ACTIVE rows count on the "Homework to check" card.
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'widget'] });
+    },
+  });
+}
+
+export interface UpdateHomeworkAssignmentInput {
+  status?: 'ACTIVE' | 'DEACTIVATED';
+  /** `YYYY-MM-DD`; edits the row in place, so submissions stay. */
+  due_date?: string;
+}
+
+/** `PATCH /homework-assignments/:id`. Refreshes on error too: a 400/404 means the row changed. */
+export function useUpdateHomeworkAssignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    retry: false,
+    mutationFn: async ({
+      assignmentId,
+      input,
+    }: {
+      assignmentId: string;
+      input: UpdateHomeworkAssignmentInput;
+    }) => {
+      const res = await apiClient.patch<HomeworkAssignment>(
+        `/homework-assignments/${assignmentId}`,
+        input,
+      );
+      return res.data;
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: homeworkAssignmentsKeyRoot });
+      void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
+      // Only ACTIVE rows count on the "Homework to check" card.
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'widget'] });
+    },
+  });
+}
+
+/** `GET /homework-assignments/:id/submissions` row (#2899): one per student; `submission_id` is
+ * null until the student uploads or a teacher marks them. TODO(schema) like the types above. */
+export interface HomeworkSubmissionRosterRow {
+  student_id: string;
+  student_name: string;
+  roll_number: number;
+  submission_id: string | null;
+  status: HomeworkSubmissionStatus;
+  marks: number | null;
+  attachment_count: number;
+}
+
+export interface GradeSubmissionItem {
+  student_id: string;
+  status?: 'NOT_SUBMITTED' | 'PARTIAL' | 'DONE';
+  marks?: number | null;
+}
+
+const submissionsKey = (assignmentId: string) =>
+  [...homeworkKeys.all, 'submissions', assignmentId] as const;
+
+export function assignmentSubmissionsQueryOptions(assignmentId: string) {
+  return queryOptions({
+    queryKey: submissionsKey(assignmentId),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<HomeworkSubmissionRosterRow[]>(
+          `/homework-assignments/${assignmentId}/submissions`,
+          { signal },
+        )
+      ).data,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useAssignmentSubmissions(assignmentId: string | undefined) {
+  return useQuery({
+    ...assignmentSubmissionsQueryOptions(assignmentId ?? ''),
+    enabled: assignmentId !== undefined,
+  });
+}
+
+/** `PATCH /homework-assignments/:id/submissions`: one transaction for the whole Save. Refreshes
+ * the list and the dashboard cards (the "Homework to check" count moves) on success only, so a
+ * 500 keeps the teacher's unsaved draft. */
+export function useGradeSubmissions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    retry: false,
+    mutationFn: async ({
+      assignmentId,
+      items,
+    }: {
+      assignmentId: string;
+      items: GradeSubmissionItem[];
+    }) =>
+      (
+        await apiClient.patch<HomeworkSubmissionRosterRow[]>(
+          `/homework-assignments/${assignmentId}/submissions`,
+          { items },
+        )
+      ).data,
+    onSuccess: (data, { assignmentId }) => {
+      // The PATCH reply is the fresh roster: seed it so the grid re-baselines clean.
+      queryClient.setQueryData(submissionsKey(assignmentId), data);
+      void queryClient.invalidateQueries({ queryKey: submissionsKey(assignmentId) });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'widget'] });
     },
   });
 }

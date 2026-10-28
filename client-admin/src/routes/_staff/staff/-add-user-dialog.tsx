@@ -124,6 +124,8 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
   /** A contact edit makes any earlier answer stale: drop it, with the join offer it brought. */
   function contactEdited(field: 'email' | 'phone') {
     form.clearErrors(field);
+    // The "email or phone" error sits under email; typing a phone answers it too.
+    if (field === 'phone') form.clearErrors('email');
     createUser.reset();
     requestJoin.reset();
   }
@@ -199,6 +201,13 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
             <FormField
               control={form.control}
               name="email"
+              rules={{
+                // The invitation goes by email or SMS, so one of the two is needed.
+                validate: (v) =>
+                  v.trim() !== '' ||
+                  form.getValues('phone').trim() !== '' ||
+                  t('addUser.errorContactRequired'),
+              }}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel htmlFor="add-user-email">{t('addUser.emailLabel')}</FormLabel>

@@ -154,12 +154,21 @@ export class ImportController {
       );
     } catch (error) {
       if (error instanceof WorkbookFormatError) {
-        throw new BadRequestException({ code: error.code, message: error.message });
+        // `details.code` is what the error filter forwards (#3042); top-level `code` kept for old readers.
+        throw new BadRequestException({
+          code: error.code,
+          message: error.message,
+          details: { code: error.code },
+        });
       }
       // Fail closed: one workbook in memory per process (see ValidationService).
       if (error instanceof ValidationBusyError) {
         throw new HttpException(
-          { code: 'VALIDATE_BUSY', message: `${error.message} Try again in a minute.` },
+          {
+            code: 'VALIDATE_BUSY',
+            message: `${error.message} Try again in a minute.`,
+            details: { code: 'VALIDATE_BUSY' },
+          },
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }

@@ -61,6 +61,23 @@ describe('/fees/fines', () => {
     await cleanupTestState();
   });
 
+  it('shows the Fine rules button to ACCOUNTANT but not EXECUTIVE', async () => {
+    server.use(finesHandler([]), ...referenceHandlers());
+    const first = render('ACCOUNTANT');
+    expect(await screen.findByRole('button', { name: 'Fine rules' })).toBeTruthy();
+    first.unmount();
+
+    render('EXECUTIVE');
+    await screen.findByRole('heading', { level: 1, name: 'Fines' });
+    expect(screen.queryByRole('button', { name: 'Fine rules' })).toBeNull();
+  });
+
+  it('refuses EXECUTIVE on /fees/fines/rules with the forbidden state', async () => {
+    server.use(finesHandler([]), ...referenceHandlers());
+    render('EXECUTIVE', '/fees/fines/rules');
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+  });
+
   // [44.4 / #3014] The (?) beside the header actions (finance.fines.action.*).
   it('shows the (?) for a declared id when a handbook URL is set', async () => {
     vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');

@@ -16,7 +16,7 @@ import {
   type StudyPlanImportSummary,
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { downloadCsv, formatDate, formatNumber } from '@biddaloy/ui/utils';
+import { downloadCsv, formatDate, formatNumber, importFileErrorKey } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
 import { DownloadIcon, FileSpreadsheetIcon, LibraryIcon, SquarePenIcon } from 'lucide-react';
 import * as React from 'react';
@@ -91,6 +91,7 @@ export function StartStep({
   capacity: CapacityLine | null;
 }) {
   const { t } = useTranslation('studyPlans');
+  const { t: tCommon } = useTranslation('common');
   const regionConfig = useTenantRegionConfig();
   const validateMutation = useValidateStudyPlanImport();
   const { mutateAsync: validateAsync } = validateMutation;
@@ -111,8 +112,15 @@ export function StartStep({
 
   const validate = React.useCallback(
     (file: File, onProgress: (percent: number) => void) =>
-      validateAsync({ file, target: { class_id: classId, subject_id: subjectId }, onProgress }),
-    [validateAsync, classId, subjectId],
+      validateAsync({
+        file,
+        target: { class_id: classId, subject_id: subjectId },
+        onProgress,
+      }).catch((err: unknown) => {
+        const fileKey = importFileErrorKey(err);
+        throw fileKey ? new Error(tCommon(`importFileErrors.${fileKey}`), { cause: err }) : err;
+      }),
+    [validateAsync, classId, subjectId, tCommon],
   );
 
   return (

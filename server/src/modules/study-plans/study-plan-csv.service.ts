@@ -28,7 +28,7 @@ import type { BulkImportErrorDto } from '../bulk-import/dto/bulk-import.dto';
 import { StudyPlansService, StudyPlanCaller } from './study-plans.service';
 import { PlanScheduleService } from './plan-schedule.service';
 import { StudyPlanTemplatesService } from './study-plan-templates.service';
-import { ParsedLessonRow, StudyPlanParseError, parseLessonSheet } from './study-plan-csv.parser';
+import { ParsedLessonRow, parseLessonSheet } from './study-plan-csv.parser';
 import {
   CommitStudyPlanImportDto,
   ProgressCsvQueryDto,
@@ -183,13 +183,7 @@ export class StudyPlanCsvService {
       }
     }
 
-    let rows: ParsedLessonRow[];
-    try {
-      rows = await parseLessonSheet(file.buffer, file.originalname);
-    } catch (err) {
-      if (err instanceof StudyPlanParseError) throw new BadRequestException(err.message);
-      throw err;
-    }
+    const rows: ParsedLessonRow[] = await parseLessonSheet(file.buffer, file.originalname);
 
     // Plan target: class and subject must be this tenant's; topics resolve by name.
     const topicIdByName = new Map<string, string>();

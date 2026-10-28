@@ -20,15 +20,15 @@ flowchart TD
 
 ## What each command does
 
-| Command                              | What it does                                                                                           | Needs                          |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------ |
-| `yarn guide:check`                   | Is the guide itself right? Links, anchors, coverage, alt text, generated blocks.                       | Node 24                        |
-| `yarn guide:impact`                  | Did this branch change code or labels a page documents, without touching the page in bn and en?        | a git history with the base    |
-| `yarn guide:gen`                     | Rewrites every generated file from the app: `features.json`, `blocks.json`, field tables, role indexes. | Node 24                        |
-| `yarn guide:diagrams [prefix]`       | Draws `.mmd` files into `.svg` files.                                                                  | `mmdc` (see Job 5)             |
-| `yarn guide:shoot`                   | Takes screenshots and GIFs by driving the demo school.                                                 | demo school, Playwright (Job 3) |
-| `yarn guide:gif`                     | Turns a recording into a guide GIF (960 px wide, at most 20 s and 2 MB).                               | `ffmpeg`, `ffprobe`            |
-| `yarn guide:card [role]`             | Prints the one-page desk card of a role as a PDF, in bn and en.                                        | Playwright's Chromium          |
+| Command                        | What it does                                                                                            | Needs                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `yarn guide:check`             | Is the guide itself right? Links, anchors, coverage, alt text, generated blocks.                        | Node 24                         |
+| `yarn guide:impact`            | Did this branch change code or labels a page documents, without touching the page in bn and en?         | a git history with the base     |
+| `yarn guide:gen`               | Rewrites every generated file from the app: `features.json`, `blocks.json`, field tables, role indexes. | Node 24                         |
+| `yarn guide:diagrams [prefix]` | Draws `.mmd` files into `.svg` files.                                                                   | `mmdc` (see Job 5)              |
+| `yarn guide:shoot`             | Takes screenshots and GIFs by driving the demo school.                                                  | demo school, Playwright (Job 3) |
+| `yarn guide:gif`               | Turns a recording into a guide GIF (960 px wide, at most 20 s and 2 MB).                                | `ffmpeg`, `ffprobe`             |
+| `yarn guide:card [role]`       | Prints the one-page desk card of a role as a PDF, in bn and en.                                         | Playwright's Chromium           |
 
 CI runs `guide:check` on every pull request and every push to main, and `guide:impact` on every pull request (`.github/workflows/ci.yml`, job
 **User guide checks**). The `guide:gen` golden test runs with the normal unit tests.
@@ -36,7 +36,7 @@ CI runs `guide:check` on every pull request and every push to main, and `guide:i
 ## Job 1: add a page for a new feature (Recipe R1)
 
 Do this in the same PR as the feature. The full recipe is in
-[`25-user-guide.md`](../architecture/25-user-guide.md#recipe-r1--one-feature-page); this is the short
+[`39-user-guide.md`](../architecture/39-user-guide.md#recipe-r1--one-feature-page); this is the short
 version with the exact order.
 
 ```mermaid

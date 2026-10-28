@@ -28,16 +28,14 @@ export class RoutineService {
       where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!academicYear) {
-      throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
 
     const existing = await this.repo.findOne({
       where: { tenant_id: tenantId, academic_year_id: dto.academic_year_id, deleted_at: IsNull() },
     });
     if (existing) {
-      throw new ConflictException(
-        `A routine already exists for academic year "${dto.academic_year_id}".`,
-      );
+      throw new ConflictException('A routine already exists for this academic year.');
     }
     const entity = this.repo.create({
       ...dto,
@@ -60,7 +58,7 @@ export class RoutineService {
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!routine) {
-      throw new NotFoundException(`Routine with ID "${id}" not found`);
+      throw new NotFoundException('Routine not found');
     }
     return routine;
   }

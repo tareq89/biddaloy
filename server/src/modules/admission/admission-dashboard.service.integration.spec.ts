@@ -185,8 +185,10 @@ describe('AdmissionDashboardService (integration)', () => {
     const all = await review.list(tenantA, {} as any);
     const from = startOfLocalDay('2026-10-07');
     const to = endOfLocalDay('2026-10-07');
-    expect(r.pending_total).toBe(pending.length);
-    expect(r.new_today).toBe(all.filter((a) => a.created_at >= from && a.created_at <= to).length);
+    expect(r.pending_total).toBe(pending.total);
+    expect(r.new_today).toBe(
+      all.data.filter((a) => a.created_at >= from && a.created_at <= to).length,
+    );
   });
 
   it('tenant isolation', async () => {

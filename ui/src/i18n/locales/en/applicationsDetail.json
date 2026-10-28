@@ -14,15 +14,15 @@
   },
   "roles": {
     "SUPER_ADMIN": "Super admin",
-    "ADMIN": "Headmaster",
+    "ADMIN": "Admin",
     "ACCOUNTANT": "Accountant",
     "TEACHER": "Teacher",
     "PARENT": "Parent",
     "STUDENT": "Student",
-    "EXECUTIVE": "Executive",
+    "EXECUTIVE": "Academic coordinator",
     "OFFICE_STAFF": "Office staff",
     "EXAM_CONTROLLER": "Exam controller",
-    "COMMITTEE": "Committee"
+    "COMMITTEE": "Committee member"
   },
   "actions": {
     "approve": "Approve",

@@ -38,10 +38,14 @@ async function pickDate(page: Page, label: string, iso: string): Promise<void> {
   // CI once saw the second popover dismissed right after it opened (cell "not stable", then
   // detached): reopen and retry instead of waiting out the test timeout on a gone cell.
   await expect(async () => {
-    if (!(await grid.isVisible())) await page.getByRole('button', { name: label }).click();
-    // The picker opens on this month; the free day may be a few months ahead.
+    if (!(await grid.isVisible()))
+      await page.getByRole('button', { name: label }).click({ timeout: 3_000 });
+    // The picker opens on this month; the free day may be a few months ahead. Every click has a
+    // short timeout so a popover that closed mid-loop fails this attempt and toPass reopens it.
     for (let i = 0; i < 12 && !(await cell.isVisible()); i += 1) {
-      await page.getByRole('button', { name: t('common.date.nextMonth') }).click();
+      await page
+        .getByRole('button', { name: t('common.date.nextMonth') })
+        .click({ timeout: 3_000 });
     }
     await cell.click({ timeout: 3_000 });
   }).toPass({ timeout: 15_000 });
@@ -157,6 +161,9 @@ test.describe.serial('staff leave: file -> approve -> balance moves', () => {
       const day = await freeStaffLeaveDay(request, session, staffProfileId);
       await page.getByRole('combobox', { name: t('applicationForms.fields.leaveType') }).click();
       await page.getByRole('option', { name: t('leave.type.CASUAL') }).click();
+      // The Select hands focus back to its trigger when its close animation ends; a date popover
+      // opened before that loses focus and closes (seen on slow CI runners).
+      await expect(page.getByRole('listbox')).toHaveCount(0);
       await pickDate(page, t('applicationForms.fields.startDate'), day);
       await pickDate(page, t('applicationForms.fields.endDate'), day);
       await page.getByLabel(t('applicationForms.fields.reason')).fill('E2E পারিবারিক কাজ');

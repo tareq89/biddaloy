@@ -97,4 +97,117 @@ describe('SubmissionGrid', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
     expect(onSave).not.toHaveBeenCalled();
   });
+
+  it('TICK: ticking then un-ticking a SUBMITTED row leaves nothing to save', async () => {
+    const onSave = vi.fn();
+    await renderInEnglish(
+      <SubmissionGrid
+        gradingMode={HomeworkGradingMode.TICK}
+        rows={[row({ status: HomeworkSubmissionStatus.SUBMITTED })]}
+        onSave={onSave}
+      />,
+    );
+    const box = screen.getByRole('checkbox', { name: /mark karim rahman done/i });
+    fireEvent.click(box);
+    fireEvent.click(box);
+    const save = screen.getByRole<HTMLButtonElement>('button', { name: /save/i });
+    expect(save.disabled).toBe(true);
+    fireEvent.click(save);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('TICK: un-ticking a DONE row sends NOT_SUBMITTED', async () => {
+    const onSave = vi.fn().mockResolvedValue([]);
+    await renderInEnglish(
+      <SubmissionGrid
+        gradingMode={HomeworkGradingMode.TICK}
+        rows={[row({ status: HomeworkSubmissionStatus.DONE })]}
+        onSave={onSave}
+      />,
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: /mark karim rahman done/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    expect(onSave).toHaveBeenCalledWith([
+      { id: 'sub-1', status: HomeworkSubmissionStatus.NOT_SUBMITTED },
+    ]);
+  });
+
+  it('PARTIAL: a SUBMITTED row shows Not done selected; Partial then Not done saves nothing', async () => {
+    const onSave = vi.fn();
+    await renderInEnglish(
+      <SubmissionGrid
+        gradingMode={HomeworkGradingMode.PARTIAL}
+        rows={[row({ status: HomeworkSubmissionStatus.SUBMITTED })]}
+        onSave={onSave}
+      />,
+    );
+    const notDone = screen.getByRole('radio', { name: /not done/i });
+    expect(notDone.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('radio', { name: /^partial/i }));
+    fireEvent.click(notDone);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: /save/i }).disabled).toBe(true);
+  });
+
+  it('MARKS: 10000 shows the row error and does not call onSave', async () => {
+    const onSave = vi.fn();
+    await renderInEnglish(
+      <SubmissionGrid gradingMode={HomeworkGradingMode.MARKS} rows={[row()]} onSave={onSave} />,
+    );
+    fireEvent.change(screen.getByRole('spinbutton', { name: /marks/i }), {
+      target: { value: '10000' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    // The test region renders Bengali numerals; the number follows the school's region.
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Marks must be a whole number from 0 to ৯,৯৯৯.',
+    );
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('reports dirty after an edit and clean again when fresh rows arrive', async () => {
+    const onDirtyChange = vi.fn();
+    const onSave = vi.fn();
+    const view = await renderInEnglish(
+      <SubmissionGrid
+        gradingMode={HomeworkGradingMode.TICK}
+        rows={[row()]}
+        onSave={onSave}
+        onDirtyChange={onDirtyChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: /mark karim rahman done/i }));
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    view.rerender(
+      <SubmissionGrid
+        gradingMode={HomeworkGradingMode.TICK}
+        rows={[row()]}
+        onSave={onSave}
+        onDirtyChange={onDirtyChange}
+      />,
+    );
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it('a double click saves once', async () => {
+    const onSave = vi.fn(() => new Promise<never>(() => undefined));
+    await renderInEnglish(
+      <SubmissionGrid gradingMode={HomeworkGradingMode.TICK} rows={[row()]} onSave={onSave} />,
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: /mark karim rahman done/i }));
+    const save = screen.getByRole('button', { name: /save/i });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the status as a badge', async () => {
+    await renderInEnglish(
+      <SubmissionGrid
+        gradingMode={HomeworkGradingMode.TICK}
+        rows={[row({ status: HomeworkSubmissionStatus.SUBMITTED })]}
+        onSave={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Submitted')).toBeTruthy();
+  });
 });

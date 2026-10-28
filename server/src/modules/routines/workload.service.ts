@@ -41,7 +41,7 @@ export class WorkloadService {
       where: { id: routineId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!routine) {
-      throw new NotFoundException(`Routine ID "${routineId}" not found`);
+      throw new NotFoundException('Routine not found');
     }
 
     // `valid_to IS NULL` alone misses a currently-active row with a

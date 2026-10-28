@@ -31,6 +31,7 @@ describe('Public holiday sets (e2e)', () => {
   let dataSource: DataSource;
   let adminToken: string;
   let superAdminToken: string;
+  let platformId: string;
   let otherAdminToken: string;
 
   const TENANT_ID = SEED_TENANT_ID;
@@ -81,6 +82,21 @@ describe('Public holiday sets (e2e)', () => {
        VALUES ($1, $2, $3, NOW(), NOW())
        ON CONFLICT DO NOTHING`,
       [SUPER_ADMIN_USER_ID, TENANT_ID, UserRole.SUPER_ADMIN],
+    );
+
+    // Platform authority = SUPER_ADMIN membership on the 'default-school' tenant.
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       SELECT gen_random_uuid(), 'Platform', 'default-school', NOW(), NOW()
+       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
+    );
+    platformId = (await dataSource.query(`SELECT id FROM schools WHERE slug = 'default-school'`))[0]
+      .id;
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [SUPER_ADMIN_USER_ID, platformId, UserRole.SUPER_ADMIN],
     );
 
     await dataSource.query(
@@ -141,7 +157,7 @@ describe('Public holiday sets (e2e)', () => {
     await supertest(app.getHttpServer())
       .get(`${API}/platform/holiday-sets/not-a-uuid`)
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Tenant-ID', platformId)
       .expect(400);
   });
 
@@ -154,7 +170,7 @@ describe('Public holiday sets (e2e)', () => {
     const fetchRes = await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/fetch`)
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Tenant-ID', platformId)
       .send({ country: 'BD', year: 2031 })
       .expect(201);
 
@@ -167,7 +183,7 @@ describe('Public holiday sets (e2e)', () => {
     const editRes = await supertest(app.getHttpServer())
       .put(`${API}/platform/holiday-sets/${setId}/entries`)
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Tenant-ID', platformId)
       .send({
         entries: [
           {
@@ -185,7 +201,7 @@ describe('Public holiday sets (e2e)', () => {
     const publishRes = await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/${setId}/publish`)
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Tenant-ID', platformId)
       .expect(201);
     expect(publishRes.body.published_at).not.toBeNull();
   });
@@ -197,7 +213,7 @@ describe('Public holiday sets (e2e)', () => {
     const res = await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/fetch`)
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Tenant-ID', platformId)
       .send({ country: 'PK', year: 2031 })
       .expect(502);
 
@@ -215,7 +231,7 @@ describe('Public holiday sets (e2e)', () => {
     const fetchRes = await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/fetch`)
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Tenant-ID', platformId)
       .send({ country: 'BD', year: 2032 })
       .expect(201);
     const setId = fetchRes.body.id;
@@ -233,7 +249,7 @@ describe('Public holiday sets (e2e)', () => {
     await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/${setId}/publish`)
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Tenant-ID', platformId)
       .expect(201);
 
     const suggestRes = await supertest(app.getHttpServer())
@@ -277,13 +293,13 @@ describe('Public holiday sets (e2e)', () => {
     const fetchRes = await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/fetch`)
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Tenant-ID', platformId)
       .send({ country: 'BD', year: 2033 })
       .expect(201);
     await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/${fetchRes.body.id}/publish`)
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Tenant-ID', platformId)
       .expect(201);
 
     const suggestForA = await supertest(app.getHttpServer())

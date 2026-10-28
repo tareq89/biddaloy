@@ -24,6 +24,7 @@ import {
   MenuTrigger,
   Skeleton,
   StatusBadge,
+  Textarea,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -185,6 +186,27 @@ function SectionRegisterPage() {
       key: current.key,
       draft: typeof next === 'function' ? next(current.draft) : next,
     }));
+  // Mirrors the server's two reason checks in `putRegister`: outside the correction window
+  // (`reason_required`) and on an already-finalized session.
+  // `reasonForced`: the server asked for one after this page loaded (another editor finalized it).
+  const [reasonForced, setReasonForced] = React.useState(false);
+  const needsReason =
+    !!registerQuery.data &&
+    (reasonForced ||
+      registerQuery.data.reason_required ||
+      (registerQuery.data.session.id !== null && registerQuery.data.session.state === 'FINALIZED'));
+  const [reason, setReason] = React.useState('');
+  const [reasonError, setReasonError] = React.useState(false);
+  const reasonRef = React.useRef<HTMLTextAreaElement>(null);
+  React.useEffect(() => {
+    setReason('');
+    setReasonError(false);
+    setReasonForced(false);
+  }, [storageKey]);
+  // The field mounts one render after a server refusal reveals it.
+  React.useEffect(() => {
+    if (reasonError) reasonRef.current?.focus();
+  }, [reasonError, reasonForced]);
   const [confirmUnmarkedOpen, setConfirmUnmarkedOpen] = React.useState(false);
   const [conflict, setConflict] = React.useState<{
     currentRegister: Register | undefined;
@@ -303,6 +325,8 @@ function SectionRegisterPage() {
       ...(period !== undefined ? { period_no: period } : {}),
       base_version: registerQuery.data?.session.version ?? 0,
       client_request_id: crypto.randomUUID(),
+      finalize: true,
+      ...(needsReason ? { reason: reason.trim() } : {}),
       entries: Object.entries(draft)
         .filter(([, entry]) => entry.status !== null)
         .map(([student_id, entry]) => ({
@@ -339,12 +363,31 @@ function SectionRegisterPage() {
           });
           return;
         }
+        if (isReasonRequired(error)) return showReasonError(true);
         toast.error(t('mark.errorToast'));
       },
     });
   }
 
+  function showReasonError(fromServer = false) {
+    if (fromServer) setReasonForced(true);
+    setReasonError(true);
+    reasonRef.current?.focus();
+  }
+
+  function isReasonRequired(error: unknown) {
+    return (
+      error instanceof ApiError &&
+      (error.details as { code?: string } | undefined)?.code === 'ATTENDANCE_REASON_REQUIRED'
+    );
+  }
+
   function handleSubmit() {
+    if (needsReason && reason.trim().length < 3) {
+      showReasonError();
+      return;
+    }
+    setReasonError(false);
     if (counts.unmarked > 0) {
       setConfirmUnmarkedOpen(true);
       return;
@@ -371,6 +414,10 @@ function SectionRegisterPage() {
               currentVersion: details?.current_version,
             });
             return;
+          }
+          if (isReasonRequired(error)) {
+            setConflict(null);
+            return showReasonError(true);
           }
           toast.error(t('mark.errorToast'));
         },
@@ -620,6 +667,33 @@ function SectionRegisterPage() {
           </p>
         )}
       </section>
+
+      {editable && needsReason && (
+        <div className="grid gap-1.5">
+          <Label htmlFor="attendance-reason">{t('mark.correctionReasonLabel')}</Label>
+          <Textarea
+            id="attendance-reason"
+            ref={reasonRef}
+            value={reason}
+            maxLength={280}
+            aria-invalid={reasonError}
+            aria-describedby={
+              reasonError
+                ? 'attendance-reason-help attendance-reason-error'
+                : 'attendance-reason-help'
+            }
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <p id="attendance-reason-help" className="text-caption text-text-secondary">
+            {t('mark.correctionReasonHelp')}
+          </p>
+          {reasonError && (
+            <p id="attendance-reason-error" role="alert" className="text-danger text-caption">
+              {t('mark.correctionReasonTooShort')}
+            </p>
+          )}
+        </div>
+      )}
 
       {editable && (
         <div className="sticky bottom-16 z-20 flex items-center gap-3 rounded-lg border border-border-subtle bg-surface p-3 shadow-e2 md:bottom-0 md:px-5">

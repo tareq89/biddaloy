@@ -9,7 +9,7 @@ import { deliveryErrorCode } from './delivery-error-code';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Repository } from 'typeorm';
+import { And, In, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { ReminderBatch } from './entities/reminder-batch.entity';
 import { StudentService } from '../students/students.service';
@@ -27,6 +27,7 @@ import {
   BulkPreviewStudentDto,
   BulkSmsProjectionDto,
   QueryReminderBatchLogsDto,
+  QueryCommunicationLogsDto,
   ReminderBatchLogListResponseDto,
   ReminderBatchLogDto,
 } from './dto/reminders.dto';
@@ -56,7 +57,7 @@ import { SmsCreditService } from './credits/sms-credit.service';
 import { INSUFFICIENT_SMS_CREDIT } from './credits/insufficient-sms-credit.constants';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { localToday } from '../../common/time';
+import { endOfLocalDay, localToday, startOfLocalDay } from '../../common/time';
 import {
   AuditAction,
   CommunicationMedium,
@@ -233,7 +234,7 @@ export class BulkReminderService {
   async findBatch(id: string, tenantId: string): Promise<ReminderBatchResponseDto> {
     const batch = await this.batchRepo.findOne({ where: { id, tenant_id: tenantId } });
     if (!batch) {
-      throw new NotFoundException(`Reminder batch with ID "${id}" not found`);
+      throw new NotFoundException('Reminder batch not found');
     }
     const skipped = (batch.filters_applied?.skipped as SkippedRecipientDto[] | undefined) ?? [];
     return this.toResponseDto(batch, skipped);
@@ -459,7 +460,7 @@ export class BulkReminderService {
   ): Promise<ReminderBatchLogListResponseDto> {
     const batch = await this.batchRepo.findOne({ where: { id, tenant_id: tenantId } });
     if (!batch) {
-      throw new NotFoundException(`Reminder batch with ID "${id}" not found`);
+      throw new NotFoundException('Reminder batch not found');
     }
 
     const page = query.page ?? 1;
@@ -467,6 +468,53 @@ export class BulkReminderService {
 
     const [logs, total] = await this.logRepo.findAndCount({
       where: { reminder_batch_id: id, tenant_id: tenantId },
+      order: { created_at: 'DESC', id: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      data: logs.map((log) => this.toBatchLogDto(log)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * [87.SD] Tenant-wide message log (newest first), filtered by status /
+   * medium / created_at range. Same row shape as a batch's logs: no body,
+   * fixed error codes (Rule 23).
+   */
+  async findLogs(
+    query: QueryCommunicationLogsDto,
+    tenantId: string,
+  ): Promise<ReminderBatchLogListResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+
+    // School-local days (IsRealDate: always YYYY-MM-DD), the same days the
+    // Failed messages widget counts with, so its link lands on the same rows.
+    const from = query.from_date ? startOfLocalDay(query.from_date) : undefined;
+    const to = query.to_date ? endOfLocalDay(query.to_date) : undefined;
+    const created =
+      from && to
+        ? And(MoreThanOrEqual(from), LessThanOrEqual(to))
+        : from
+          ? MoreThanOrEqual(from)
+          : to
+            ? LessThanOrEqual(to)
+            : undefined;
+
+    const [logs, total] = await this.logRepo.findAndCount({
+      where: {
+        tenant_id: tenantId,
+        ...(query.status ? { status: query.status } : {}),
+        // PUSH rows are app notifications ('push:<user id>'), not messages a school sent.
+        medium: query.medium ?? In(Object.values(CommunicationMedium)),
+        ...(created ? { created_at: created } : {}),
+      },
       order: { created_at: 'DESC', id: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -514,7 +562,7 @@ export class BulkReminderService {
     const found = new Set(students.map((s) => s.id));
     const missing = studentIds.filter((id) => !found.has(id));
     if (missing.length > 0) {
-      throw new NotFoundException(`Student(s) not found: ${missing.join(', ')}`);
+      throw new NotFoundException('One or more student IDs not found');
     }
 
     const dueSnapshots = await this.feeDuesService.getDueSnapshots(studentIds, tenantId);

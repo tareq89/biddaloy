@@ -42,7 +42,7 @@ export class AcademicTermsService {
       where: { id: academicYearId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!year) {
-      throw new NotFoundException(`Academic year "${academicYearId}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
     return year;
   }
@@ -73,7 +73,7 @@ export class AcademicTermsService {
       (err as unknown as { code?: string }).code === EXCLUSION_VIOLATION
     ) {
       throw new UnprocessableEntityException({
-        message: `"${name}" overlaps an existing term in this academic year`,
+        message: 'This term overlaps an existing term in this academic year',
         // `name` lets the client build a fully localized message instead
         // of interpolating this English-only sentence.
         details: { code: 'TERM_OVERLAP', name },
@@ -150,7 +150,7 @@ export class AcademicTermsService {
         where: { id, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (!existing) {
-        throw new NotFoundException(`Academic term "${id}" not found`);
+        throw new NotFoundException('Academic term not found');
       }
 
       const startDate = dto.start_date ?? existing.start_date;
@@ -208,7 +208,7 @@ export class AcademicTermsService {
         where: { id, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (!existing) {
-        throw new NotFoundException(`Academic term "${id}" not found`);
+        throw new NotFoundException('Academic term not found');
       }
 
       await repo.softDelete({ id, tenant_id: tenantId });

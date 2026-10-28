@@ -32,7 +32,7 @@ function mockExam(
       HttpResponse.json({ data: [exam], total: 1, page: 1, limit: 50, totalPages: 1 }),
     ),
     http.get(`/api/v1/exams/${exam.id}/marks/progress`, () =>
-      HttpResponse.json({ counts, outstanding }),
+      HttpResponse.json({ counts, outstanding, grids: outstanding }),
     ),
   );
   return exam;
@@ -108,6 +108,29 @@ describe('/marks', () => {
       .filter((h) => h?.startsWith('/marks/exam-1'));
     expect(hrefs).toEqual(['/marks/exam-1/sec-1/subj-1', '/marks/exam-1/sec-2/subj-2']);
     expect(screen.getByText(`Total ${formatNumber(2, REGION_BD_BN)}`)).toBeTruthy();
+  });
+
+  it('lists fully submitted grids even though outstanding is empty', async () => {
+    const exam = examFactory({ id: 'exam-1', name: 'Half Yearly 2026' });
+    server.use(
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [exam], total: 1, page: 1, limit: 50, totalPages: 1 }),
+      ),
+      http.get('/api/v1/exams/exam-1/marks/progress', () =>
+        HttpResponse.json({
+          counts: { DRAFT: 0, SUBMITTED: 2 },
+          outstanding: [],
+          grids: [
+            row('Six - A', 'Math', '1', 'SUBMITTED'),
+            row('Six - B', 'Math', '2', 'SUBMITTED'),
+          ],
+        }),
+      ),
+    );
+    render('ADMIN');
+    const links = await findRowLinks('View marks');
+    expect(links).toHaveLength(2);
+    expect(screen.queryByText('No marks lists yet')).toBeNull();
   });
 
   it('the status filter hides the other group', async () => {

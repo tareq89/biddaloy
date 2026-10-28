@@ -3,6 +3,7 @@ import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Card,
+  ChangePasswordForm,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -14,9 +15,11 @@ import {
   toast,
   weakPasswordRules,
   passwordTooLong,
+  type ChangePasswordFormServerError,
   type SignInFormError,
 } from '@biddaloy/ui/components';
 import {
+  changePassword,
   identitiesQueryOptions,
   setFirstPassword,
   socialProvidersQueryOptions,
@@ -51,6 +54,8 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
   const disconnect = useDisconnectIdentity();
 
   const [passwordOpen, setPasswordOpen] = React.useState(false);
+  // 'change' once the server says a password exists (409): ask for the current one.
+  const [passwordMode, setPasswordMode] = React.useState<'set' | 'change'>('set');
   const [lastMethod, setLastMethod] = React.useState(false);
   const [connectProvider, setConnectProvider] = React.useState<SocialProvider | null>(null);
   const [connectPassword, setConnectPassword] = React.useState('');
@@ -79,13 +84,33 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
       toast.success(t('password.saved'));
     },
     onError: (error) => {
-      // 409: a password already exists (another tab or device set it).
-      if (error instanceof ApiError && error.statusCode === 409) {
-        setPasswordOpen(false);
-        toast.success(t('password.alreadySet'));
-      }
+      // 409: a password already exists, so switch the dialog to the change flow.
+      if (error instanceof ApiError && error.statusCode === 409) setPasswordMode('change');
     },
   });
+
+  const changePw = useMutation({
+    mutationFn: changePassword,
+    retry: false,
+    onSuccess: () => {
+      setPasswordOpen(false);
+      toast.success(t('password.changed'));
+    },
+  });
+
+  // Memoised: the form re-applies `serverError` whenever its identity changes,
+  // so an unrelated parent render must not hand it a fresh object for the same 403.
+  const changeError = React.useMemo<ChangePasswordFormServerError | null>(
+    () =>
+      !changePw.error
+        ? null
+        : changePw.error instanceof ApiError && changePw.error.statusCode === 403
+          ? { fieldErrors: { current_password: t('password.wrongCurrent') } }
+          : weakPasswordRules(changePw.error) || passwordTooLong(changePw.error)
+            ? null
+            : { message: t('error') },
+    [changePw.error, t],
+  );
 
   const passwordError: SignInFormError | null =
     setPassword.error &&
@@ -157,8 +182,9 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
                 variant="outline"
                 className="min-h-11 sm:min-h-0"
                 onClick={() => {
-                  // A 409 closes the dialog from code, so clear its last error on the way back in.
                   setPassword.reset();
+                  changePw.reset();
+                  setPasswordMode('set');
                   setPasswordOpen(true);
                 }}
               >
@@ -257,23 +283,40 @@ export function SignInMethodsCard({ roles }: SignInMethodsCardProps) {
           open={passwordOpen}
           onOpenChange={(open) => {
             setPasswordOpen(open);
-            if (!open) setPassword.reset();
+            if (!open) {
+              setPassword.reset();
+              changePw.reset();
+            }
           }}
         >
           <DialogContent size="md">
             <DialogHeader>
               <DialogTitle className="sr-only">{t('password.change')}</DialogTitle>
             </DialogHeader>
-            <SetPasswordForm
-              heading={t('password.change')}
-              audience={audienceForRoles(roles)}
-              onSubmit={(password) => setPassword.mutate(password)}
-              loading={setPassword.isPending}
-              error={passwordError}
-              failedRules={weakPasswordRules(setPassword.error)}
-              tooLong={passwordTooLong(setPassword.error)}
-              submitLabel={t('password.setNow')}
-            />
+            {passwordMode === 'change' ? (
+              <>
+                <p className="text-sm text-muted-foreground">{t('password.changeHint')}</p>
+                <ChangePasswordForm
+                  audience={audienceForRoles(roles)}
+                  onSubmit={(values) => changePw.mutate(values)}
+                  submitting={changePw.isPending}
+                  serverError={changeError}
+                  failedRules={weakPasswordRules(changePw.error)}
+                  tooLong={passwordTooLong(changePw.error)}
+                />
+              </>
+            ) : (
+              <SetPasswordForm
+                heading={t('password.change')}
+                audience={audienceForRoles(roles)}
+                onSubmit={(password) => setPassword.mutate(password)}
+                loading={setPassword.isPending}
+                error={passwordError}
+                failedRules={weakPasswordRules(setPassword.error)}
+                tooLong={passwordTooLong(setPassword.error)}
+                submitLabel={t('password.setNow')}
+              />
+            )}
           </DialogContent>
         </Dialog>
       </section>

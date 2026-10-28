@@ -43,7 +43,7 @@ export class ExamComponentsService {
       where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!exam) {
-      throw new NotFoundException(`Exam with ID "${examId}" not found`);
+      throw new NotFoundException('Exam not found');
     }
     return exam;
   }
@@ -117,7 +117,7 @@ export class ExamComponentsService {
       where: { id: subjectId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!subject) {
-      throw new BadRequestException(`Subject "${subjectId}" not found for this tenant.`);
+      throw new BadRequestException('Subject not found for this tenant.');
     }
   }
 
@@ -163,13 +163,13 @@ export class ExamComponentsService {
     // this check; create/update didn't).
     if (others.some((c) => c.name === values.name)) {
       throw new ConflictException(
-        `A component named "${values.name}" already exists for this exam-subject.`,
+        'A component with this name already exists for this exam-subject.',
       );
     }
 
     if (others.some((c) => c.sequence === values.sequence)) {
       throw new ConflictException(
-        `Sequence ${values.sequence} is already used by another component of this exam-subject.`,
+        'This sequence is already used by another component of this exam-subject.',
       );
     }
 
@@ -262,7 +262,7 @@ export class ExamComponentsService {
       where: { id, exam_id: examId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!entity) {
-      throw new NotFoundException(`Exam component with ID "${id}" not found`);
+      throw new NotFoundException('Exam component not found');
     }
     return entity;
   }
@@ -285,7 +285,7 @@ export class ExamComponentsService {
       const existing = await manager.getRepository(ExamComponent).findOne({
         where: { id, exam_id: examId, tenant_id: tenantId, deleted_at: IsNull() },
       });
-      if (!existing) throw new NotFoundException(`Exam component with ID "${id}" not found`);
+      if (!existing) throw new NotFoundException('Exam component not found');
 
       await this.validate(
         manager,
@@ -411,9 +411,7 @@ export class ExamComponentsService {
       where: { id: In(dto.target_subject_ids), tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (targetSubjects.length !== dto.target_subject_ids.length) {
-      const found = new Set(targetSubjects.map((s) => s.id));
-      const missing = dto.target_subject_ids.filter((id) => !found.has(id));
-      throw new BadRequestException(`Subject(s) not found for this tenant: ${missing.join(', ')}`);
+      throw new BadRequestException('One or more subjects not found for this tenant');
     }
 
     const result: CopyComponentsResult = { copied: [], skipped: [] };

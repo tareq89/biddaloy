@@ -1,11 +1,27 @@
 import { describe, expect, it } from 'vitest';
 
+import { formatDate, formatNumber } from '../utils';
+
 import { REGION_BD_BN, REGION_BD_EN } from './region-config';
 import { resolveRegionConfig } from './region-config-resolver';
 
 describe('resolveRegionConfig', () => {
   it('returns the fallback unchanged when the tenant has no region settings', () => {
     expect(resolveRegionConfig(REGION_BD_BN, undefined)).toBe(REGION_BD_BN);
+  });
+
+  it('English UI: tenant bn-BD/bengali neither changes the words nor the digits', () => {
+    const result = resolveRegionConfig(REGION_BD_EN, { locale: 'bn-BD', numerals: 'bengali' });
+    expect(result.locale).toBe('en-BD');
+    expect(result.numerals).toBe('latin');
+    expect(formatDate('2026-10-25', result)).toBe('25th October, 2026');
+    expect(formatNumber(5, result)).toBe('5');
+  });
+
+  it('Bangla UI: tenant latin numerals are honoured and locale stays bn-BD', () => {
+    const result = resolveRegionConfig(REGION_BD_BN, { locale: 'en-US', numerals: 'latin' });
+    expect(result.numerals).toBe('latin');
+    expect(result.locale).toBe('bn-BD');
   });
 
   it('ignores a server-shaped tenant phone block the client cannot parse', () => {
@@ -49,7 +65,9 @@ describe('resolveRegionConfig', () => {
 
     const resolved = resolveRegionConfig(REGION_BD_BN, tenantRegion);
 
-    expect(resolved.locale).toBe('en-US');
+    // The UI language wins over the tenant's stored locale; Bangla UI follows tenant numerals.
+    expect(resolved.locale).toBe(REGION_BD_BN.locale);
+    expect(resolved.numerals).toBe('latin');
     expect(resolved.currency).toEqual(tenantRegion.currency);
     expect(resolved.date).toEqual(tenantRegion.date);
     expect(resolved.phone.country).toBe('1');

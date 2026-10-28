@@ -133,6 +133,51 @@ describe('/applications/reports', () => {
     await waitFor(() => expect(calls.at(-1)?.searchParams.get('academic_year_id')).toBe(Y2));
   });
 
+  it('names the year in the subtitle when no dates are set (#3034)', async () => {
+    render(REPORT, { locale: 'en' });
+    await screen.findByText('2026/0031');
+    expect(screen.getByText(/^Academic year 2026 · all applications/)).toBeTruthy();
+  });
+
+  it('drops the year from the subtitle when only dates filter (#3034)', async () => {
+    render(REPORT, { locale: 'en', search: '?from=2026-01-01&to=2026-03-31' });
+    await screen.findByText('2026/0031');
+    expect(screen.queryByText(/all applications/)).toBeNull();
+  });
+
+  it('labels the year picker "All years" when dates are set without a year (#3059)', async () => {
+    render(REPORT, { locale: 'en', search: '?from=2026-01-01' });
+    await screen.findByText('2026/0031');
+    expect(screen.getAllByRole('combobox', { name: 'Academic year' })[0]!.textContent).toContain(
+      'All years',
+    );
+  });
+
+  it('the no-year option says "All years" when a year is picked and a date bound remains', async () => {
+    render(REPORT, { locale: 'en', search: `?academic_year_id=${Y2}&from=2026-01-01` });
+    await screen.findByText('2026/0031');
+    await userEvent.click(screen.getAllByRole('combobox', { name: 'Academic year' })[0]!);
+    expect(await screen.findByRole('option', { name: 'All years' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: /Current year/ })).toBeNull();
+  });
+
+  it('keeps "Current year" in the picker when no dates are set (#3059)', async () => {
+    render(REPORT, { locale: 'en' });
+    await screen.findByText('2026/0031');
+    expect(screen.getAllByRole('combobox', { name: 'Academic year' })[0]!.textContent).toContain(
+      'Current year',
+    );
+  });
+
+  it.each([
+    ['?from=2026-01-01', /^From /],
+    ['?to=2026-03-31', /^Up to /],
+  ])('shows a one-sided date subtitle for %s (#3059)', async (search, pattern) => {
+    render(REPORT, { locale: 'en', search });
+    await screen.findByText('2026/0031');
+    expect(screen.getByText(pattern)).toBeTruthy();
+  });
+
   it('shows ErrorState and retry refetches', async () => {
     const { calls } = render(REPORT, { status: 500 });
     // The reports query keeps its own retry (two backoffs, ~3 s) over the test client's retry: false.

@@ -228,7 +228,8 @@ describe('Students E2E', () => {
         })
         .expect(404);
 
-      expect(res.body.message).toContain('Class section with ID');
+      expect(res.body.message).toBe('Class section not found');
+      expect(res.body.message).not.toContain('00000000-0000-4000-8000-000000000000');
     });
 
     it('should return 400 for invalid DTO (missing required fields)', async () => {

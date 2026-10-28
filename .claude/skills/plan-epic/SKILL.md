@@ -220,7 +220,7 @@ exists? Push the answer into a decision (either "new, because `<X>`" or
 ## Usability test        ← tasks, participants, targets, the test ticket, which screen tickets wait for it
 ## UX requirements       ← easiest path first, then per screen: tree path, keyboard path, palette actions, breadcrumb, empty/error states, phone layout (15-ux-principles §8)
 ## Backup & restore coverage ← entities added → workbook tab + round-trip test + seed rows, and the ticket that does it
-## User guide coverage    ← feature → guide page (bn+en) → ticket; removed features → page removed (docs/architecture/25-user-guide.md)
+## User guide coverage    ← feature → guide page (bn+en) → ticket; removed features → page removed (docs/architecture/39-user-guide.md)
 ## Demo seed coverage     ← every table/column added or changed → which demo-seed slice covers it (or DEMO_SEED_EXEMPT + reason), and the ticket (docs/architecture/22-demo-seed.md)
 ## No-silent-gaps checklist ← route manifest · nav tree · action registry · i18n en+bn · workbook tab · seed — each with its ticket
 ## Review tier overrides                     ← optional explicit money-tier list; otherwise implement-epic's path rule applies

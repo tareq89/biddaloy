@@ -22,7 +22,13 @@ import {
   useTranslation,
 } from '@biddaloy/ui/i18n';
 import { FullPageShell, useCloseFullPage } from '@biddaloy/ui/shells';
-import { downloadCsv, formatDate, formatDateRange, formatNumber } from '@biddaloy/ui/utils';
+import {
+  downloadCsv,
+  formatDate,
+  formatDateRange,
+  formatNumber,
+  importFileErrorKey,
+} from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { ChevronDown, Download, RotateCcw } from 'lucide-react';
 import * as React from 'react';
@@ -99,6 +105,7 @@ function ImportHomeworkPage() {
 
 function ImportHomeworkContent() {
   const { t } = useTranslation('homework');
+  const { t: tCommon } = useTranslation('common');
   const validateMutation = useValidateHomeworkUpload();
   const commitMutation = useCommitHomeworkUpload();
 
@@ -113,9 +120,10 @@ function ImportHomeworkContent() {
           variant: 'error',
           message: t('import.notifications.failed'),
         });
-        throw err;
+        const fileKey = importFileErrorKey(err);
+        throw fileKey ? new Error(tCommon(`importFileErrors.${fileKey}`), { cause: err }) : err;
       }),
-    [validateAsync, t],
+    [validateAsync, t, tCommon],
   );
 
   const commit = React.useCallback(
@@ -131,7 +139,6 @@ function ImportHomeworkContent() {
     [commitAsync, t],
   );
 
-  const { t: tCommon } = useTranslation('common');
   const regionConfig = useRegionConfig();
   const navigate = useNavigate();
   const close = useCloseFullPage(() => void navigate({ to: '/academics/homework' }));

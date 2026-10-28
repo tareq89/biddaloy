@@ -34,7 +34,15 @@ afterEach(async () => {
 /** Loads the form with the Turnstile module stubbed: `siteKey` '' means "no widget". */
 async function setup(
   siteKey: string,
-  { intake = INTAKE, status = 200 }: { intake?: typeof INTAKE; status?: number } = {},
+  {
+    intake = INTAKE,
+    status = 200,
+    failure,
+  }: {
+    intake?: typeof INTAKE;
+    status?: number;
+    failure?: { status: number; code?: string };
+  } = {},
 ) {
   vi.doMock('../registration/turnstile', () => ({
     TURNSTILE_SITE_KEY: siteKey,
@@ -52,6 +60,18 @@ async function setup(
       const fd = await request.formData();
       posted.push(fd.get('captcha_token') as string);
       phones.push(fd.get('guardian_phone') as string);
+      if (failure)
+        return HttpResponse.json(
+          {
+            statusCode: failure.status,
+            message: 'refused',
+            timestamp: '2026-01-01T00:00:00.000Z',
+            path: '/api/v1/public/admission/a-school/applicants',
+            requestId: 'req-1',
+            ...(failure.code ? { details: { code: failure.code } } : {}),
+          },
+          { status: failure.status },
+        );
       if (status === 503)
         return HttpResponse.json(
           {
@@ -189,5 +209,36 @@ describe('PublicAdmissionForm captcha', () => {
     expect(await screen.findByText(/The robot check didn't go through/)).toBeTruthy();
     expect(screen.queryByText(/check your answers/)).toBeNull();
     expect(posted).toEqual(['tok']);
+  });
+});
+
+describe('PublicAdmissionForm refusal reasons [2879]', () => {
+  async function submitWith(failure: { status: number; code?: string }) {
+    const { user } = await setup('', { failure });
+    await fillValid(user);
+    await user.click(screen.getByRole('button', { name: 'Submit application' }));
+  }
+
+  it('a 409 DUPLICATE_APPLICATION shows the duplicate text', async () => {
+    await submitWith({ status: 409, code: 'DUPLICATE_APPLICATION' });
+    expect(await screen.findByText(/could not be accepted/)).toBeTruthy();
+    expect(screen.queryByText(/check your answers/)).toBeNull();
+  });
+
+  it('a 400 INTAKE_FULL shows the no-seats text', async () => {
+    await submitWith({ status: 400, code: 'INTAKE_FULL' });
+    expect(await screen.findByText('This admission round has no seats left.')).toBeTruthy();
+  });
+
+  it('a 400 INTAKE_CLOSED shows the closed text', async () => {
+    await submitWith({ status: 400, code: 'INTAKE_CLOSED' });
+    expect(
+      await screen.findByText('This admission round is not taking applications now.'),
+    ).toBeTruthy();
+  });
+
+  it('an unknown 400 still shows the generic line', async () => {
+    await submitWith({ status: 400 });
+    expect(await screen.findByText(/check your answers/)).toBeTruthy();
   });
 });

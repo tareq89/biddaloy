@@ -28,7 +28,7 @@ says. Follow that doc's safety rules: no literal dates, fresh DB only,
 ## User guide rule (always, for any change a user can see)
 
 A new or changed feature updates its guide page(s) in `docs/user-guide/{bn,en}`
-(both languages) per [`docs/architecture/25-user-guide.md`](docs/architecture/25-user-guide.md)
+(both languages) per [`docs/architecture/39-user-guide.md`](docs/architecture/39-user-guide.md)
 (Recipe R1). A removed feature removes its page and its coverage entry.
 
 - CI `guide:impact` fails a PR that touches a page's sources or labels without

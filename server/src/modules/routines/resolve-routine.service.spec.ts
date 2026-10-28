@@ -444,7 +444,7 @@ describe('ResolveRoutineService [21.5.1]', () => {
       expect(result).toHaveLength(1);
     });
 
-    it('REVIEW: a guardian/student/executive sees nothing', async () => {
+    it('REVIEW: a guardian sees nothing', async () => {
       const ctx2 = buildService({ routine: { ...ROUTINE, state: RoutineState.REVIEW } });
       const result = await ctx2.service.resolveRoutine(
         { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
@@ -480,6 +480,75 @@ describe('ResolveRoutineService [21.5.1]', () => {
           where: expect.objectContaining({ user_id: 'teacher-user-1', tenant_id: TENANT_ID }),
         }),
       );
+    });
+
+    it('REVIEW: a non-TEACHER staff caller with a Teacher row sees only their own slots', async () => {
+      const covered = { ...MON_SLOT, id: 'slot-2', section_id: 'section-2' };
+      const ctx2 = buildService({
+        routine: { ...ROUTINE, state: RoutineState.REVIEW },
+        slots: [MON_SLOT, covered],
+        periodSlots: [{ id: 'period-1', kind: PeriodSlotKind.CLASS }],
+        teacherRows: [
+          { routine_slot_id: 'slot-1', teacher_id: 't-1' },
+          { routine_slot_id: 'slot-2', teacher_id: 't-3' },
+        ],
+        teacher: { id: 't-1' },
+      });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'OFFICE_STAFF', userId: 'staff-user-1' },
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].routine_slot_id).toBe('slot-1');
+    });
+
+    it('REVIEW: the academic coordinator (EXECUTIVE) reads the whole routine, same as the slots path [2891]', async () => {
+      const ctx2 = buildService({
+        routine: { ...ROUTINE, state: RoutineState.REVIEW },
+        teacher: null,
+      });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'EXECUTIVE', userId: 'exec-user-1' },
+      );
+      expect(result).toHaveLength(1);
+      expect(ctx2.teacherRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('DRAFT: the academic coordinator (EXECUTIVE) sees nothing', async () => {
+      const ctx2 = buildService({ routine: { ...ROUTINE, state: RoutineState.DRAFT } });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'EXECUTIVE', userId: 'exec-user-1' },
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('REVIEW: OFFICE_STAFF with no Teacher row sees nothing', async () => {
+      const ctx2 = buildService({
+        routine: { ...ROUTINE, state: RoutineState.REVIEW },
+        teacher: null,
+      });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'OFFICE_STAFF', userId: 'user-1' },
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('REVIEW: a synthetic STUDENT caller with empty userId sees nothing, no teacher lookup', async () => {
+      const ctx2 = buildService({ routine: { ...ROUTINE, state: RoutineState.REVIEW } });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'STUDENT', userId: '' },
+      );
+      expect(result).toEqual([]);
+      expect(ctx2.teacherRepo.findOne).not.toHaveBeenCalled();
     });
 
     it('REVIEW: empty for a teacher with no Teacher profile', async () => {

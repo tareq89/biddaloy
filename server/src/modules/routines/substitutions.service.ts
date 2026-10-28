@@ -5,7 +5,9 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { In, QueryFailedError, Repository } from 'typeorm';
+import { AuditAction } from '@biddaloy/shared';
+import { AuditService } from '../audit/audit.service';
 import { RoutineSubstitution } from './entities/routine-substitution.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { Routine } from './entities/routine.entity';
@@ -16,10 +18,25 @@ import { SchoolsService } from '../schools/schools.service';
 import { periodTimesOn, resolveAttendancePolicy } from '../attendance/attendance-policy.util';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { UpsertSubstitutionDto, QuerySubstitutionsDto } from './dto/substitution.dto';
 import { occursOn } from './recurrence';
 import { attentionEvents } from '../attention/attention.constants';
 import { emitRecheck } from '../attention/engine/attention-events';
+
+/** What the log shows about a row's slot, from any year (`null` if it is gone). */
+export interface SubstitutionSlotSummary {
+  section_id: string;
+  class_name: string;
+  section_name: string;
+  period_sequence: number;
+  starts_at: string;
+  subject_name_en: string;
+  subject_name_bn: string | null;
+  teacher_ids: string[];
+}
+export type SubstitutionLogRow = RoutineSubstitution & { slot: SubstitutionSlotSummary | null };
 
 /**
  * [21.5.1] Substitutions CRUD (`ROUTINE_MANAGE`, enforced by the
@@ -42,6 +59,9 @@ export class SubstitutionsService {
     @InjectRepository(PeriodSlot) private readonly periodSlotRepo: Repository<PeriodSlot>,
     private readonly teacherBusy: TeacherBusyService,
     private readonly schools: SchoolsService,
+    private readonly auditService: AuditService,
+    @InjectRepository(ClassSection) private readonly sectionRepo: Repository<ClassSection>,
+    @InjectRepository(Subject) private readonly subjectRepo: Repository<Subject>,
   ) {}
 
   async record(
@@ -53,7 +73,7 @@ export class SubstitutionsService {
       where: { id: dto.routine_slot_id, tenant_id: tenantId },
     });
     if (!slot) {
-      throw new NotFoundException(`Routine slot with ID "${dto.routine_slot_id}" not found`);
+      throw new NotFoundException('Routine slot not found');
     }
 
     // IDOR guard: `dto.substitute_teacher_id` is caller-controlled and
@@ -65,7 +85,7 @@ export class SubstitutionsService {
         where: { id: dto.substitute_teacher_id, tenant_id: tenantId },
       });
       if (!teacher) {
-        throw new NotFoundException(`Teacher with ID "${dto.substitute_teacher_id}" not found`);
+        throw new NotFoundException('Teacher not found');
       }
       substituteUserId = teacher.user_id;
     }
@@ -94,6 +114,8 @@ export class SubstitutionsService {
       saved = await this.substitutionRepo.save(this.substitutionRepo.create(values));
     } catch (err) {
       if (!this.isUniqueViolation(err)) throw err;
+      // #3022: a row already exists; rewriting a past one is the same history edit remove() refuses.
+      await this.assertNotPast(dto.date, tenantId);
       await this.substitutionRepo.update(
         { routine_slot_id: dto.routine_slot_id, date: dto.date, tenant_id: tenantId },
         values,
@@ -113,6 +135,54 @@ export class SubstitutionsService {
       actorUserId: userId,
     });
     return saved;
+  }
+
+  /** Delete one substitution row: the slot goes back to its usual teacher on
+   * that date. `routine_substitutions` has no child FKs. */
+  async remove(id: string, tenantId: string, userId: string): Promise<void> {
+    // One transaction, row locked: the delete and its audit row commit together,
+    // and a concurrent second delete waits, then gets the same 404.
+    await this.substitutionRepo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(RoutineSubstitution);
+      const row = await repo.findOne({
+        where: { id, tenant_id: tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!row) {
+        throw new NotFoundException('Substitution not found');
+      }
+      // #3022: a past date's cover is history; deleting it would rewrite who covered a period.
+      await this.assertNotPast(row.date, tenantId);
+      await repo.delete({ id, tenant_id: tenantId });
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'RoutineSubstitution',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          old_values: {
+            substitution_id: id,
+            routine_slot_id: row.routine_slot_id,
+            date: row.date,
+            substitute_teacher_id: row.substitute_teacher_id,
+            is_cancelled: row.is_cancelled,
+          },
+          new_values: null,
+        },
+        manager,
+      );
+    });
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'routine.substitution_today',
+      actorUserId: userId,
+    });
+    emitRecheck(attentionEvents, {
+      tenantId,
+      ruleKey: 'routine.changed_today',
+      actorUserId: userId,
+    });
   }
 
   /** TEN-07: the cover must not be the slot's own teacher, nor busy then. */
@@ -165,13 +235,23 @@ export class SubstitutionsService {
     }
   }
 
+  /** #3022: a substitution dated before the school's today is history. */
+  private async assertNotPast(date: string, tenantId: string): Promise<void> {
+    if (date < (await this.schools.todayFor(tenantId))) {
+      throw new ConflictException({
+        message: 'A past substitution cannot be changed or deleted.',
+        details: { code: 'SUBSTITUTION_IN_PAST' },
+      });
+    }
+  }
+
   private isUniqueViolation(err: unknown): boolean {
     return (
       err instanceof QueryFailedError && (err as unknown as { code?: string }).code === '23505'
     );
   }
 
-  async list(query: QuerySubstitutionsDto, tenantId: string): Promise<RoutineSubstitution[]> {
+  async list(query: QuerySubstitutionsDto, tenantId: string): Promise<SubstitutionLogRow[]> {
     const qb = this.substitutionRepo
       .createQueryBuilder('sub')
       .innerJoin('sub.routine_slot', 'slot')
@@ -194,7 +274,67 @@ export class SubstitutionsService {
       );
     }
 
-    return qb.orderBy('sub.date', 'DESC').getMany();
+    const rows = await qb.orderBy('sub.date', 'DESC').getMany();
+    return this.withSlotSummaries(rows, tenantId);
+  }
+
+  /** Batch-loads each row's slot context (no per-row query, no year filter), so
+   * rows from an earlier year still show their period, section and teachers. */
+  private async withSlotSummaries(
+    rows: RoutineSubstitution[],
+    tenantId: string,
+  ): Promise<SubstitutionLogRow[]> {
+    if (rows.length === 0) return [];
+    const slots = await this.slotRepo.find({
+      where: { tenant_id: tenantId, id: In([...new Set(rows.map((r) => r.routine_slot_id))]) },
+    });
+    const slotById = new Map(slots.map((slot) => [slot.id, slot]));
+    const [periods, sections, subjects, slotTeachers] = await Promise.all([
+      this.periodSlotRepo.find({
+        where: { tenant_id: tenantId, id: In([...new Set(slots.map((s) => s.period_slot_id))]) },
+      }),
+      this.sectionRepo.find({
+        where: { tenant_id: tenantId, id: In([...new Set(slots.map((s) => s.section_id))]) },
+        relations: { class: true },
+        withDeleted: true,
+      }),
+      this.subjectRepo.find({
+        where: { tenant_id: tenantId, id: In([...new Set(slots.map((s) => s.subject_id))]) },
+        withDeleted: true,
+      }),
+      this.slotTeacherRepo.find({
+        where: { tenant_id: tenantId, routine_slot_id: In(slots.map((s) => s.id)) },
+      }),
+    ]);
+    const periodById = new Map(periods.map((p) => [p.id, p]));
+    const sectionById = new Map(sections.map((sec) => [sec.id, sec]));
+    const subjectById = new Map(subjects.map((subj) => [subj.id, subj]));
+    const teacherIdsBySlot = new Map<string, string[]>();
+    for (const st of slotTeachers) {
+      const ids = teacherIdsBySlot.get(st.routine_slot_id) ?? [];
+      ids.push(st.teacher_id);
+      teacherIdsBySlot.set(st.routine_slot_id, ids);
+    }
+
+    return rows.map((row) => {
+      const slot = slotById.get(row.routine_slot_id);
+      const period = slot && periodById.get(slot.period_slot_id);
+      const section = slot && sectionById.get(slot.section_id);
+      const subject = slot && subjectById.get(slot.subject_id);
+      if (!slot || !period || !section || !subject) return Object.assign(row, { slot: null });
+      return Object.assign(row, {
+        slot: {
+          section_id: slot.section_id,
+          class_name: section.class?.name ?? '',
+          section_name: section.section_name,
+          period_sequence: period.sequence,
+          starts_at: period.starts_at,
+          subject_name_en: subject.name_en,
+          subject_name_bn: subject.name_bn,
+          teacher_ids: teacherIdsBySlot.get(slot.id) ?? [],
+        },
+      });
+    });
   }
 
   /** Refuse a substitution on a date the slot doesn't actually occur on —
@@ -217,7 +357,7 @@ export class SubstitutionsService {
     if (!inRange || !matchesRecurrence) {
       // `details.code` lets the SPA tell this apart from any other 422.
       throw new UnprocessableEntityException({
-        message: `Routine slot "${slot.id}" does not occur on ${date}`,
+        message: `This routine slot does not occur on ${date}`,
         details: { code: 'SLOT_NOT_ON_DATE' },
       });
     }

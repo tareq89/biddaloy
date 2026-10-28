@@ -37,7 +37,10 @@
     "saveError": "Couldn't add the shift. Try again.",
     "nameRequired": "Enter a shift name.",
     "nameTooLong": "The name can be at most {{max}} characters.",
-    "nameInvalid": "This name isn't valid. Check it and try again."
+    "nameInvalid": "This name isn't valid. Check it and try again.",
+    "editTitle": "Edit shift",
+    "editConfirm": "Save",
+    "periodsOutsideError": "Some periods of this shift fall outside these times. Change the period times first."
   },
   "roomsPanel": {
     "legend": "Rooms",
@@ -59,9 +62,12 @@
     "deleteError": "Couldn't delete the room. Try again.",
     "saveError": "Couldn't add the room. Try again.",
     "emptyTitle": "No rooms yet",
-    "emptyExplanation": "Add the rooms periods can be held in."
+    "emptyExplanation": "Add the rooms periods can be held in.",
+    "editTitle": "Edit room",
+    "editConfirm": "Save"
   },
   "periodSlotsPanel": {
+    "editNote": "Changing a time also changes it on past days.",
     "legend": "Period times",
     "selectShift": "Add a shift first, then set its period times.",
     "sequence": "Row",
@@ -90,7 +96,7 @@
     "timelineAria": "{{start}} to {{end}}: {{lessons}} periods, {{breaks}} breaks",
     "noRows": "This shift has no periods yet. Press Add period.",
     "noShiftTitle": "Add a shift first",
-    "inUseError": "Periods of this shift are already placed in a routine, so their times can't be replaced. Remove those periods from the class routine first.",
+    "inUseError": "A period you removed or made a break is used in a routine or in lesson records. Put it back. If only the class routine uses it, you can clear it from the routine first.",
     "invalidError": "Some rows have a time problem. Fix the red notes and save again.",
     "saveError": "Couldn't save the period times. Try again."
   },
@@ -148,14 +154,21 @@
     "error": "Couldn't load the classes. Check your connection and try again."
   },
   "builder": {
+    "clearErrorToast": "Could not clear this period — try again.",
+    "clearedToast": "Period cleared",
     "title": "{{className}} – {{sectionName}}",
     "noClassIdExplanation": "Open this page from the class routine list so we know which section it is.",
     "sectionNotFound": "Section not found.",
     "noShiftExplanation": "This class has no shift assigned yet — set one on the class before building its routine.",
-    "noRoutineExplanation": "No routine exists yet for this academic year.",
+    "noRoutineExplanation": "No routine exists yet for this academic year. Create one to start placing periods.",
+    "createRoutineAction": "Create routine",
+    "createRoutineName": "Routine {{year}}",
+    "createRoutineToast": "Routine created as a draft",
+    "createRoutineError": "Could not create the routine — try again.",
     "fillAssistAction": "Fill empty periods",
     "savedToast": "Saved",
     "saveErrorToast": "Could not save — try again.",
+    "slotInUseToast": "This period has substitutions or open change requests. Resolve them first, or edit from a later date.",
     "studentsFact": "Students",
     "studentsValue": "{{formattedCount}} student",
     "studentsValue_other": "{{formattedCount}} students",
@@ -173,6 +186,8 @@
     "loading": "Loading the routine"
   },
   "cellPicker": {
+    "roomLabel": "Room (optional)",
+    "noRoom": "No room",
     "title": "Assign a period",
     "description": "Pick a subject, one or more teachers, and how often this repeats.",
     "subjectLabel": "Subject",
@@ -190,7 +205,8 @@
     "recurrenceOccurrence": "Occurrence {{n}}",
     "cancel": "Cancel",
     "save": "Save",
-    "cellLabel": "{{day}} · {{period}} · {{time}}"
+    "cellLabel": "{{day}} · {{period}} · {{time}}",
+    "recurrenceLast": "Last"
   },
   "conflictList": {
     "violationsTitle": "This can't be saved",
@@ -232,9 +248,25 @@
     "rowWhat": "{{subject}} · {{teachers}}",
     "loadError": "Couldn't work out the periods to fill. Close this and try again."
   },
+  "myChangeRequests": {
+    "title": "My change requests",
+    "caption": "My change requests",
+    "empty": "You haven't asked for any changes.",
+    "replyColumn": "Reply",
+    "dateColumn": "Asked on",
+    "statusColumn": "Status",
+    "state": {
+      "OPEN": "Waiting",
+      "ACCEPTED": "Accepted",
+      "REJECTED": "Rejected"
+    }
+  },
   "review": {
+    "draftHiddenTitle": "The routine is still a draft",
+    "draftHiddenExplanation": "It shows here once it is sent for review.",
     "title": "Routine review",
     "noRoutineExplanation": "No routine exists yet for this academic year.",
+    "createRoutineAction": "Create routine",
     "notATeacherExplanation": "Your account isn't linked to a teacher, so there are no periods of yours to show.",
     "emptyExplanation": "No periods have been placed in this routine yet.",
     "error": {
@@ -375,7 +407,15 @@
     "sectionName": "{{className}} – {{sectionName}}",
     "statusCovered": "Covered",
     "error": "Couldn't load substitute teachers. Check your connection and try again.",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "deleteAction": "Delete",
+    "deleteTitle": "Delete the substitution on {{date}}?",
+    "deleteDescription": "The period goes back to its usual teacher on that date.",
+    "deleteConfirm": "Delete",
+    "cancel": "Cancel",
+    "deletedToast": "Deleted",
+    "pastDeleteError": "A past substitution is part of the record and cannot be deleted.",
+    "deleteError": "Could not delete — try again."
   },
   "agenda": {
     "daySwitcherLabel": "Choose a day",
@@ -420,7 +460,10 @@
     "noSlotsOnDay": "This section has no period on {{weekday}}.",
     "pickDateFirst": "Pick a date first.",
     "noRoutine": "There is no routine for this academic year yet.",
-    "notOnDateError": "This period doesn't happen on the date you picked (it may run every other week or once a month). Pick another date."
+    "notOnDateError": "This period doesn't happen on the date you picked (it may run every other week or once a month). Pick another date.",
+    "slotTeacherError": "This teacher already teaches this period. Pick someone else.",
+    "teacherBusyError": "This teacher has another class from {{from}} to {{to}}. Pick someone else.",
+    "teacherBusyNoTimeError": "This teacher is not free at that time. Pick someone else."
   },
   "marking": {
     "todayTitle": "Today, {{weekday}}",
@@ -466,9 +509,9 @@
       "title_other": "{{count}} periods from yesterday not reported",
       "titleSince_one": "{{count}} period not reported since {{date}}",
       "titleSince_other": "{{count}} periods not reported since {{date}}",
-      "escalated": "The head teacher and admin have been told.",
-      "escalation_one": "If they are still not reported after {{count}} more school day, the head teacher and admin are told.",
-      "escalation_other": "If they are still not reported after {{count}} more school days, the head teacher and admin are told.",
+      "escalated": "The academic coordinator and admin have been told.",
+      "escalation_one": "If they are still not reported after {{count}} more school day, the academic coordinator and admin are told.",
+      "escalation_other": "If they are still not reported after {{count}} more school days, the academic coordinator and admin are told.",
       "action": "Report yesterday's periods",
       "actionDay": "Report {{weekday}}'s periods"
     },
@@ -487,5 +530,8 @@
     "nextDays": "Next days",
     "nextDayMeta_one": "{{count}} period · first {{section}}",
     "nextDayMeta_other": "{{count}} periods · first {{section}}"
+  },
+  "edit": {
+    "action": "Edit"
   }
 }

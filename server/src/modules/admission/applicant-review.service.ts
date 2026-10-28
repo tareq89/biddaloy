@@ -5,7 +5,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, EntityManager, Not, In } from 'typeorm';
+import { Repository, IsNull, ILike, EntityManager, Not, In } from 'typeorm';
+import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import {
   AdmissionApplicantStatus,
   AdmissionDocumentType,
@@ -401,16 +402,41 @@ export class ApplicantReviewService {
 
   /** [27.10] Tenant-scoped applicant list for the staff screen, optionally
    * filtered by intake and/or status. */
-  async list(tenantId: string, filters: ListApplicantsDto): Promise<AdmissionApplicant[]> {
-    return this.applicants.find({
-      where: {
-        tenant_id: tenantId,
-        deleted_at: IsNull(),
-        ...(filters.intakeId ? { intake_id: filters.intakeId } : {}),
-        ...(filters.status ? { status: filters.status } : {}),
-      },
-      order: { created_at: 'DESC' },
+  async list(
+    tenantId: string,
+    filters: ListApplicantsDto,
+  ): Promise<{
+    data: AdmissionApplicant[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 50;
+    const base = {
+      tenant_id: tenantId,
+      deleted_at: IsNull(),
+      ...(filters.intakeId ? { intake_id: filters.intakeId } : {}),
+      ...(filters.status ? { status: filters.status } : {}),
+    };
+    // Rule 4: the term is a bound parameter (ILike value), LIKE wildcards escaped.
+    const search = normalizeSearchTerm(filters.search);
+    const where = search
+      ? [
+          { ...base, applicant_name: ILike(`%${search}%`) },
+          { ...base, reference_number: ILike(`%${search}%`) },
+          { ...base, guardian_phone: ILike(`%${search}%`) },
+        ]
+      : base;
+    const [data, total] = await this.applicants.findAndCount({
+      where,
+      // `id` breaks created_at ties so a page boundary never repeats or skips a row.
+      order: { created_at: 'DESC', id: 'ASC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   /** [27.10] One applicant plus its evaluation history, newest first, for

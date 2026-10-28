@@ -13,7 +13,13 @@
  * shape, same gap `PaginatedClasses` documents for `/classes`.
  */
 import { ApprovalScope } from '@biddaloy/shared';
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  type QueryClient,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -224,14 +230,19 @@ export function useCopyExamComponents(examId: string) {
 
 export interface ExamProgress {
   counts: Record<'DRAFT' | 'SUBMITTED', number>;
-  outstanding: Array<{
-    section_id: string;
-    section_name: string;
-    subject_id: string;
-    subject_name: string | null;
-    subject_name_bn: string | null;
-    state: 'DRAFT' | 'SUBMITTED';
-  }>;
+  /** Grids not ready to process (draft, or submitted with blanks). */
+  outstanding: ExamProgressGrid[];
+  /** Every grid the caller may open, whatever its state. */
+  grids: ExamProgressGrid[];
+}
+
+export interface ExamProgressGrid {
+  section_id: string;
+  section_name: string;
+  subject_id: string;
+  subject_name: string | null;
+  subject_name_bn: string | null;
+  state: 'DRAFT' | 'SUBMITTED';
 }
 
 export function examProgressQueryOptions(examId: string | undefined) {
@@ -650,6 +661,17 @@ export function useStudentExamSchedule(studentId: string | undefined) {
   return useQuery(studentExamScheduleQueryOptions(studentId));
 }
 
+/** After process, publish or reopen: the exam's results, its detail, and every
+ * per-student result card/list (`['students', id, 'results', …]`), which the
+ * staff report card reads [#2922]. */
+function invalidateExamResults(queryClient: QueryClient, examId: string) {
+  void queryClient.invalidateQueries({ queryKey: resultsKey(examId) });
+  void queryClient.invalidateQueries({ queryKey: examKeys.detail(examId) });
+  void queryClient.invalidateQueries({
+    predicate: (q) => q.queryKey[0] === 'students' && q.queryKey[2] === 'results',
+  });
+}
+
 /** [19.8.1] step 2: if any grid is still DRAFT the server refuses with a
  * 409 unless `force` is set — the process dialog lists those and offers
  * "process anyway" (audited server-side via `forced: true`). */
@@ -660,8 +682,7 @@ export function useProcessResults(examId: string) {
       (await apiClient.post<{ processed: number }>(`/exams/${examId}/results/process`, { force }))
         .data,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: resultsKey(examId) });
-      void queryClient.invalidateQueries({ queryKey: examKeys.detail(examId) });
+      invalidateExamResults(queryClient, examId);
     },
   });
 }
@@ -673,8 +694,7 @@ export function usePublishResults(examId: string) {
       await apiClient.post(`/exams/${examId}/results/publish`);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: resultsKey(examId) });
-      void queryClient.invalidateQueries({ queryKey: examKeys.detail(examId) });
+      invalidateExamResults(queryClient, examId);
     },
   });
 }
@@ -693,8 +713,7 @@ export function useReopenResults(examId: string): ApprovedMutationResult<void, v
     {
       approvalScope: ApprovalScope.RESULTS_REOPEN,
       onSuccess: () => {
-        void queryClient.invalidateQueries({ queryKey: resultsKey(examId) });
-        void queryClient.invalidateQueries({ queryKey: examKeys.detail(examId) });
+        invalidateExamResults(queryClient, examId);
       },
     },
   );

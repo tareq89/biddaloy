@@ -226,6 +226,80 @@ describe('Homework E2E', () => {
 
     const unassignTeacher = () => dataSource.query(`DELETE FROM teacher_class_sections`);
 
+    // Extra sections this describe adds to SEED_CLASS_1_ID. class_sections is only reset once
+    // per file, so afterEach removes them (students first: that FK has no cascade;
+    // homework_assignments cascade).
+    const extraSectionIds: string[] = [];
+    const mkSectionB = async (): Promise<string> => {
+      const [{ id }] = await dataSource.query(
+        `INSERT INTO class_sections (id, section_name, class_id, tenant_id, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW()) RETURNING id`,
+        [`HW-B-${randomUUID().slice(0, 8)}`, SEED_CLASS_1_ID, TENANT_ID],
+      );
+      extraSectionIds.push(id);
+      return id;
+    };
+    afterEach(async () => {
+      if (!extraSectionIds.length) return;
+      await dataSource.query(`DELETE FROM students WHERE class_section_id = ANY($1::uuid[])`, [
+        extraSectionIds,
+      ]);
+      await dataSource.query(`DELETE FROM class_sections WHERE id = ANY($1::uuid[])`, [
+        extraSectionIds,
+      ]);
+      extraSectionIds.length = 0;
+    });
+
+    const mkStudent = async (sectionId: string, roll = 1): Promise<string> => {
+      const id = randomUUID();
+      await dataSource.query(
+        `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, enrollment_status, created_at, updated_at)
+         VALUES ($1, 'Scope Student', $2, $5, $3, $4, 'ACTIVE', NOW(), NOW())`,
+        [id, `HW-STU-${randomUUID().slice(0, 8)}`, sectionId, TENANT_ID, roll],
+      );
+      return id;
+    };
+
+    const adminToken = async (): Promise<string> =>
+      (
+        await supertest(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+          .expect(200)
+      ).body.access_token as string;
+    const withAdmin = (req: supertest.Test, token: string) =>
+      req.set('Authorization', `Bearer ${token}`).set('X-Tenant-ID', TENANT_ID);
+    const mkHomework = async (title: string): Promise<string> =>
+      (
+        await withAdmin(supertest(app.getHttpServer()).post('/api/v1/homework'), await adminToken())
+          .send({
+            subject_id: subjectId,
+            class_id: SEED_CLASS_1_ID,
+            title,
+            grading_mode: HomeworkGradingMode.TICK,
+          })
+          .expect(201)
+      ).body.id as string;
+    const assignAsAdmin = async (
+      homeworkId: string,
+      target: { section_id?: string; student_id?: string },
+    ) => {
+      await withAdmin(
+        supertest(app.getHttpServer()).post(`/api/v1/homework/${homeworkId}/assign`),
+        await adminToken(),
+      )
+        .send({ ...target, assigned_date: '2026-01-01', due_date: '2026-01-08' })
+        .expect(201);
+    };
+    const mkAssigned = async (
+      title: string,
+      target: { section_id?: string; student_id?: string },
+    ) => {
+      const id = await mkHomework(title);
+      await assignAsAdmin(id, target);
+      return id;
+    };
+
     it("a teacher assigned only in a past academic year cannot read that class's homework analytics", async () => {
       const [{ id: teacherId }] = await dataSource.query(
         `SELECT id FROM teachers WHERE tenant_id = $1 AND user_id = $2`,
@@ -355,6 +429,9 @@ describe('Homework E2E', () => {
         supertest(app.getHttpServer()).get('/api/v1/homework'),
       ).expect(200);
       expect(teacherList.body.map((h: { id: string }) => h.id)).toEqual([mine]);
+      // By id agrees with the list.
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${theirs}`)).expect(404);
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${mine}`)).expect(200);
       const adminList = await asAdmin(
         supertest(app.getHttpServer()).get('/api/v1/homework'),
       ).expect(200);
@@ -373,6 +450,721 @@ describe('Homework E2E', () => {
         .set('Authorization', `Bearer ${admin.body.access_token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .expect(200);
+    });
+
+    it('a teacher of section A does not list homework assigned only to section B of the same class', async () => {
+      const otherSectionId = await mkSectionB();
+      const x = await mkAssigned('Only B', { section_id: otherSectionId });
+      const y = await mkAssigned('Mine A', { section_id: MAPPED_SECTION_ID });
+
+      const list = await asTeacher(supertest(app.getHttpServer()).get('/api/v1/homework')).expect(
+        200,
+      );
+      const ids = list.body.map((h: { id: string }) => h.id);
+      expect(ids).toContain(y);
+      expect(ids).not.toContain(x);
+      // Rule 2: what the list hides is 404 by id too, not just missing from the list.
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${x}`)).expect(404);
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${y}`)).expect(200);
+    });
+
+    it('a teacher of section A gets 404 by id for homework assigned only to a student of section B', async () => {
+      const sectionB = await mkSectionB();
+      const studentB = await mkStudent(sectionB);
+      const studentA = await mkStudent(MAPPED_SECTION_ID);
+      const x = await mkAssigned('Only B student', { student_id: studentB });
+      const y = await mkAssigned('A student', { student_id: studentA });
+
+      const list = await asTeacher(supertest(app.getHttpServer()).get('/api/v1/homework')).expect(
+        200,
+      );
+      const ids = list.body.map((h: { id: string }) => h.id);
+      expect(ids).toContain(y);
+      expect(ids).not.toContain(x);
+      const miss = await asTeacher(
+        supertest(app.getHttpServer()).get(`/api/v1/homework/${x}`),
+      ).expect(404);
+      // D13: same text as a homework that does not exist.
+      expect(miss.body.message).toBe('Homework not found');
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${y}`)).expect(200);
+    });
+
+    it('unassigned homework in my class is 200 by id, then 404 once assigned only to section B', async () => {
+      const sectionB = await mkSectionB();
+      const h = await mkHomework('Not assigned yet');
+      const listIds = async () =>
+        (
+          await asTeacher(supertest(app.getHttpServer()).get('/api/v1/homework')).expect(200)
+        ).body.map((r: { id: string }) => r.id);
+
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${h}`)).expect(200);
+      expect(await listIds()).toContain(h);
+
+      await assignAsAdmin(h, { section_id: sectionB });
+      await asTeacher(supertest(app.getHttpServer()).get(`/api/v1/homework/${h}`)).expect(404);
+      expect(await listIds()).not.toContain(h);
+    });
+
+    describe('GET /homework/:id/assignments (#1013)', () => {
+      // Resolves to the body after asserting the status (a Test is thenable, so never return one).
+      const list = async (
+        id: string,
+        as: 'admin' | 'teacher' = 'admin',
+        status = 200,
+      ): Promise<any> => {
+        const req = supertest(app.getHttpServer()).get(`/api/v1/homework/${id}/assignments`);
+        const res = await (as === 'teacher' ? asTeacher(req) : withAdmin(req, await adminToken()));
+        expect(res.status).toBe(status);
+        return res.body;
+      };
+      const reassignAsAdmin = async (assignmentId: string, due: string) =>
+        withAdmin(
+          supertest(app.getHttpServer()).post(
+            `/api/v1/homework-assignments/${assignmentId}/reassign`,
+          ),
+          await adminToken(),
+        )
+          .send({
+            section_id: MAPPED_SECTION_ID,
+            assigned_date: '2026-01-01',
+            due_date: due,
+          })
+          .expect(201);
+
+      it('ADMIN gets ACTIVE first then SUPERSEDED, dates as YYYY-MM-DD, names for the target', async () => {
+        const h = await mkHomework('List shape');
+        const first = await withAdmin(
+          supertest(app.getHttpServer()).post(`/api/v1/homework/${h}/assign`),
+          await adminToken(),
+        )
+          .send({
+            section_id: MAPPED_SECTION_ID,
+            assigned_date: '2026-01-01',
+            due_date: '2026-01-08',
+          })
+          .expect(201);
+        await reassignAsAdmin(first.body.id, '2026-01-15');
+
+        const body = await list(h);
+        expect(body).toHaveLength(2);
+        expect(body[0]).toMatchObject({
+          status: 'ACTIVE',
+          assigned_date: '2026-01-01',
+          due_date: '2026-01-15',
+          section_id: MAPPED_SECTION_ID,
+          student_id: null,
+          student_name: null,
+          target_section_id: MAPPED_SECTION_ID,
+        });
+        expect(typeof body[0].section_name).toBe('string');
+        expect(body[1]).toMatchObject({
+          id: first.body.id,
+          status: 'SUPERSEDED',
+          due_date: '2026-01-08',
+        });
+      });
+
+      it('a student row carries the student name and the student section', async () => {
+        const studentId = await mkStudent(MAPPED_SECTION_ID);
+        const h = await mkAssigned('List student', { student_id: studentId });
+        const body = await list(h);
+        expect(body).toHaveLength(1);
+        expect(body[0]).toMatchObject({
+          student_name: 'Scope Student',
+          section_id: null,
+          student_id: studentId,
+          target_section_id: MAPPED_SECTION_ID,
+        });
+      });
+
+      it('Rule 2: a teacher sees only rows in own sections; ADMIN sees all', async () => {
+        const sectionB = await mkSectionB();
+        const h = await mkAssigned('List scope', { section_id: MAPPED_SECTION_ID });
+        await assignAsAdmin(h, { section_id: sectionB });
+
+        const teacher = await list(h, 'teacher');
+        expect(teacher.map((r: { target_section_id: string }) => r.target_section_id)).toEqual([
+          MAPPED_SECTION_ID,
+        ]);
+        expect(await list(h)).toHaveLength(2);
+      });
+
+      it('D3: a SUBJECT_TEACHER sees rows only of homework in their subject', async () => {
+        const [{ id: teacherId }] = await dataSource.query(
+          `SELECT id FROM teachers WHERE tenant_id = $1 AND user_id = $2`,
+          [TENANT_ID, SEED_ADMIN_USER_ID],
+        );
+        const [{ id: otherSubjectId }] = await dataSource.query(
+          `INSERT INTO subjects (id, tenant_id, name_en, code, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, 'Other Subject', $2, NOW(), NOW()) RETURNING id`,
+          [TENANT_ID, `E2E-${randomUUID().slice(0, 8)}`],
+        );
+        const own = await mkAssigned('List own subject', { section_id: MAPPED_SECTION_ID });
+        const other = (
+          await withAdmin(
+            supertest(app.getHttpServer()).post('/api/v1/homework'),
+            await adminToken(),
+          )
+            .send({
+              subject_id: otherSubjectId,
+              class_id: SEED_CLASS_1_ID,
+              title: 'List other subject',
+              grading_mode: HomeworkGradingMode.TICK,
+            })
+            .expect(201)
+        ).body.id as string;
+        await assignAsAdmin(other, { section_id: MAPPED_SECTION_ID });
+        await unassignTeacher();
+        await dataSource.query(
+          `INSERT INTO teacher_class_sections (id, teacher_id, section_id, tenant_id, assignment_type, subject_id, created_at)
+           VALUES ($1, $2, $3, $4, 'SUBJECT_TEACHER', $5, NOW())`,
+          [randomUUID(), teacherId, MAPPED_SECTION_ID, TENANT_ID, subjectId],
+        );
+
+        expect(await list(own, 'teacher')).toHaveLength(1);
+        await list(other, 'teacher', 404);
+      });
+
+      it('Rule 2: out-of-scope homework is the same 404 as a random id, also after unassigning', async () => {
+        const sectionB = await mkSectionB();
+        const hB = await mkAssigned('List only B', { section_id: sectionB });
+        const missing = await list(randomUUID(), 'teacher', 404);
+        const hidden = await list(hB, 'teacher', 404);
+        expect(hidden.message).toBe('Homework not found');
+        expect(missing.message).toBe('Homework not found');
+
+        const visible = await mkAssigned('List visible', { section_id: MAPPED_SECTION_ID });
+        await list(visible, 'teacher');
+        await unassignTeacher();
+        await list(visible, 'teacher', 404);
+      });
+
+      it('a homework not assigned yet lists as an empty array', async () => {
+        const h = await mkHomework('List unassigned');
+        expect(await list(h)).toEqual([]);
+        expect(await list(h, 'teacher')).toEqual([]);
+      });
+
+      it('D5: a row whose student was soft-deleted is not listed', async () => {
+        const studentId = await mkStudent(MAPPED_SECTION_ID);
+        const h = await mkAssigned('List soft delete', { student_id: studentId });
+        await dataSource.query(`UPDATE students SET deleted_at = NOW() WHERE id = $1`, [studentId]);
+        expect(await list(h)).toEqual([]);
+      });
+
+      it('cross-tenant: other tenant 404, missing tenant header 401', async () => {
+        const h = await mkHomework('List tenant');
+        const OTHER_TENANT = '00000000-0000-4000-8000-000000000098';
+        await dataSource.query(
+          `INSERT INTO schools (id, name, slug, created_at, updated_at)
+           VALUES ($1, 'Other', 'other-hw-list', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [OTHER_TENANT],
+        );
+        await dataSource.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [SEED_ADMIN_USER_ID, OTHER_TENANT, UserRole.ADMIN],
+        );
+        try {
+          const token = await adminToken(); // re-login: token carries memberships
+          await supertest(app.getHttpServer())
+            .get(`/api/v1/homework/${h}/assignments`)
+            .set('Authorization', `Bearer ${token}`)
+            .set('X-Tenant-ID', OTHER_TENANT)
+            .expect(404);
+          await supertest(app.getHttpServer())
+            .get(`/api/v1/homework/${h}/assignments`)
+            .set('Authorization', `Bearer ${token}`)
+            .expect(401);
+        } finally {
+          await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`, [
+            SEED_ADMIN_USER_ID,
+            OTHER_TENANT,
+          ]);
+        }
+      });
+
+      it('Rule 3: a non-UUID id is 400', async () => {
+        await list('not-a-uuid', 'admin', 400);
+      });
+    });
+
+    describe('PATCH /homework-assignments/:id (#2900)', () => {
+      // Assigns and returns the new assignment id (assignAsAdmin returns nothing).
+      const assignRow = async (
+        homeworkId: string,
+        target: { section_id?: string; student_id?: string },
+      ): Promise<string> =>
+        (
+          await withAdmin(
+            supertest(app.getHttpServer()).post(`/api/v1/homework/${homeworkId}/assign`),
+            await adminToken(),
+          )
+            .send({ ...target, assigned_date: '2026-01-01', due_date: '2026-01-08' })
+            .expect(201)
+        ).body.id as string;
+      const patch = async (id: string, body: object, as: 'admin' | 'teacher' = 'admin') => {
+        const req = supertest(app.getHttpServer()).patch(`/api/v1/homework-assignments/${id}`);
+        return as === 'teacher'
+          ? asTeacher(req).send(body)
+          : withAdmin(req, await adminToken()).send(body);
+      };
+      const rows = async (homeworkId: string): Promise<any[]> =>
+        (
+          await withAdmin(
+            supertest(app.getHttpServer()).get(`/api/v1/homework/${homeworkId}/assignments`),
+            await adminToken(),
+          ).expect(200)
+        ).body;
+      const listIdsByStatus = async (status: string): Promise<string[]> =>
+        (
+          await withAdmin(
+            supertest(app.getHttpServer()).get(`/api/v1/homework?status=${status}`),
+            await adminToken(),
+          ).expect(200)
+        ).body.map((h: { id: string }) => h.id);
+
+      it('deactivate shows up under the Deactivated filter, reactivate removes it', async () => {
+        const h = await mkHomework('Patch status');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        expect((await patch(a, { status: 'DEACTIVATED' })).status).toBe(200);
+        expect((await rows(h))[0].status).toBe('DEACTIVATED');
+        expect(await listIdsByStatus('DEACTIVATED')).toContain(h);
+        expect((await patch(a, { status: 'ACTIVE' })).status).toBe(200);
+        expect((await rows(h))[0].status).toBe('ACTIVE');
+        expect(await listIdsByStatus('DEACTIVATED')).not.toContain(h);
+      });
+
+      it('moves the due date in place and keeps the submissions on the same row', async () => {
+        const studentId = await mkStudent(MAPPED_SECTION_ID);
+        const h = await mkHomework('Patch due');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const [{ id: submissionId }] = await dataSource.query(
+          `INSERT INTO homework_submissions (id, assignment_id, student_id, tenant_id, status, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, 'SUBMITTED', NOW(), NOW()) RETURNING id`,
+          [a, studentId, TENANT_ID],
+        );
+        const res = await patch(a, { due_date: '2026-01-20' });
+        expect(res.status).toBe(200);
+        expect(res.body).toMatchObject({ id: a, due_date: '2026-01-20' });
+        const list = await rows(h);
+        expect(list).toHaveLength(1);
+        expect(list[0].id).toBe(a);
+        const [{ assignment_id }] = await dataSource.query(
+          `SELECT assignment_id FROM homework_submissions WHERE id = $1`,
+          [submissionId],
+        );
+        expect(assignment_id).toBe(a);
+      });
+
+      it('rejects bad bodies with 400 and leaves the row unchanged', async () => {
+        const h = await mkHomework('Patch validation');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const before = (await rows(h))[0];
+        const early = await patch(a, { due_date: '2025-12-31' });
+        expect(early.status).toBe(400);
+        expect(early.body.message).toBe('due_date must be on or after assigned_date');
+        const empty = await patch(a, {});
+        expect(empty.status).toBe(400);
+        expect(empty.body.message).toBe('Nothing to change');
+        for (const body of [
+          { status: null },
+          { due_date: null },
+          { status: 'SUPERSEDED' },
+          { due_date: 'not-a-date' },
+        ]) {
+          expect((await patch(a, body)).status).toBe(400);
+        }
+        expect((await rows(h))[0]).toEqual(before);
+      });
+
+      it('a SUPERSEDED row cannot be changed', async () => {
+        const h = await mkHomework('Patch superseded');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        await withAdmin(
+          supertest(app.getHttpServer()).post(`/api/v1/homework-assignments/${a}/reassign`),
+          await adminToken(),
+        )
+          .send({
+            section_id: MAPPED_SECTION_ID,
+            assigned_date: '2026-01-01',
+            due_date: '2026-01-15',
+          })
+          .expect(201);
+        const res = await patch(a, { due_date: '2026-01-20' });
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe('A superseded assignment cannot be changed');
+      });
+
+      it('Rules 2 and 23: every 404 has one text and teachers reach only own sections', async () => {
+        const sectionB = await mkSectionB();
+        const h = await mkHomework('Patch scope');
+        const mapped = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const other = await assignRow(h, { section_id: sectionB });
+
+        expect((await patch(mapped, { due_date: '2026-01-20' }, 'teacher')).status).toBe(200);
+        const hidden = await patch(other, { due_date: '2026-01-20' }, 'teacher');
+        const unknown = await patch(randomUUID(), { due_date: '2026-01-20' }, 'teacher');
+        expect(hidden.status).toBe(404);
+        expect(unknown.status).toBe(404);
+        expect(hidden.body.message).toBe('Homework assignment not found');
+        expect(unknown.body.message).toBe('Homework assignment not found');
+
+        await unassignTeacher();
+        const gone = await patch(mapped, { due_date: '2026-01-21' }, 'teacher');
+        expect(gone.status).toBe(404);
+        expect(gone.body.message).toBe('Homework assignment not found');
+      });
+
+      it('cross-tenant: other tenant 404, missing tenant header 401', async () => {
+        const h = await mkHomework('Patch tenant');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const OTHER_TENANT = '00000000-0000-4000-8000-000000000098';
+        await dataSource.query(
+          `INSERT INTO schools (id, name, slug, created_at, updated_at)
+           VALUES ($1, 'Other', 'other-hw-list', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [OTHER_TENANT],
+        );
+        await dataSource.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [SEED_ADMIN_USER_ID, OTHER_TENANT, UserRole.ADMIN],
+        );
+        try {
+          const token = await adminToken(); // re-login: token carries memberships
+          await supertest(app.getHttpServer())
+            .patch(`/api/v1/homework-assignments/${a}`)
+            .set('Authorization', `Bearer ${token}`)
+            .set('X-Tenant-ID', OTHER_TENANT)
+            .send({ status: 'DEACTIVATED' })
+            .expect(404);
+          await supertest(app.getHttpServer())
+            .patch(`/api/v1/homework-assignments/${a}`)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ status: 'DEACTIVATED' })
+            .expect(401);
+        } finally {
+          await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`, [
+            SEED_ADMIN_USER_ID,
+            OTHER_TENANT,
+          ]);
+        }
+      });
+
+      it('Rule 3: a non-UUID id is 400', async () => {
+        expect((await patch('not-a-uuid', { status: 'ACTIVE' })).status).toBe(400);
+      });
+    });
+
+    describe('check work: GET/PATCH /homework-assignments/:id/submissions (#2899)', () => {
+      const MISS = 'Homework assignment not found';
+      const assignRow = async (
+        homeworkId: string,
+        target: { section_id?: string; student_id?: string },
+      ): Promise<string> =>
+        (
+          await withAdmin(
+            supertest(app.getHttpServer()).post(`/api/v1/homework/${homeworkId}/assign`),
+            await adminToken(),
+          )
+            .send({ ...target, assigned_date: '2026-01-01', due_date: '2026-01-08' })
+            .expect(201)
+        ).body.id as string;
+      const mkMarksHomework = async (title: string): Promise<string> =>
+        (
+          await withAdmin(
+            supertest(app.getHttpServer()).post('/api/v1/homework'),
+            await adminToken(),
+          )
+            .send({
+              subject_id: subjectId,
+              class_id: SEED_CLASS_1_ID,
+              title,
+              grading_mode: HomeworkGradingMode.MARKS,
+            })
+            .expect(201)
+        ).body.id as string;
+      const get = async (id: string, as: 'admin' | 'teacher' = 'admin') => {
+        const req = supertest(app.getHttpServer()).get(
+          `/api/v1/homework-assignments/${id}/submissions`,
+        );
+        return as === 'teacher' ? asTeacher(req) : withAdmin(req, await adminToken());
+      };
+      const grade = async (id: string, body: object, as: 'admin' | 'teacher' = 'admin') => {
+        const req = supertest(app.getHttpServer()).patch(
+          `/api/v1/homework-assignments/${id}/submissions`,
+        );
+        return as === 'teacher'
+          ? asTeacher(req).send(body)
+          : withAdmin(req, await adminToken()).send(body);
+      };
+      const rowFor = (body: any[], studentId: string) =>
+        body.find((r) => r.student_id === studentId);
+      const countRows = async (assignmentId: string, studentId: string): Promise<number> =>
+        Number(
+          (
+            await dataSource.query(
+              `SELECT COUNT(*)::int AS n FROM homework_submissions WHERE assignment_id=$1 AND student_id=$2`,
+              [assignmentId, studentId],
+            )
+          )[0].n,
+        );
+      const insertSubmission = (
+        assignmentId: string,
+        studentId: string,
+        status: string,
+        attachments = '[]',
+      ) =>
+        dataSource.query(
+          `INSERT INTO homework_submissions (id, tenant_id, assignment_id, student_id, status, attachments, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::jsonb, NOW(), NOW())`,
+          [TENANT_ID, assignmentId, studentId, status, attachments],
+        );
+
+      it('E1 roster: a student who never uploaded is listed with no submission', async () => {
+        const s = await mkStudent(MAPPED_SECTION_ID);
+        const h = await mkHomework('CW roster');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const res = await get(a);
+        expect(res.status).toBe(200);
+        expect(rowFor(res.body, s)).toEqual({
+          student_id: s,
+          student_name: 'Scope Student',
+          roll_number: 1,
+          submission_id: null,
+          status: 'NOT_SUBMITTED',
+          marks: null,
+          attachment_count: 0,
+        });
+      });
+
+      it('E2/E3 tick creates the row; the same body twice leaves one row (Rule 25)', async () => {
+        const s = await mkStudent(MAPPED_SECTION_ID);
+        const h = await mkHomework('CW tick');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const body = { items: [{ student_id: s, status: 'DONE' }] };
+        const first = await grade(a, body);
+        expect(first.status).toBe(200);
+        expect(rowFor(first.body, s)).toMatchObject({ status: 'DONE' });
+        expect(rowFor(first.body, s).submission_id).toEqual(expect.any(String));
+        expect(await countRows(a, s)).toBe(1);
+        const second = await grade(a, body);
+        expect(second.status).toBe(200);
+        expect(rowFor(second.body, s)).toMatchObject({ status: 'DONE' });
+        expect(await countRows(a, s)).toBe(1);
+        expect(rowFor((await get(a)).body, s).status).toBe('DONE');
+      });
+
+      it('E4 NOT_SUBMITTED on uploaded work leaves it SUBMITTED (D8)', async () => {
+        const s1 = await mkStudent(MAPPED_SECTION_ID);
+        const s2 = await mkStudent(MAPPED_SECTION_ID, 2);
+        const h = await mkHomework('CW d8');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        await insertSubmission(
+          a,
+          s2,
+          'DONE',
+          '[{"key":"k","filename":"a.pdf","mimetype":"application/pdf","size":1}]',
+        );
+        await grade(a, { items: [{ student_id: s1, status: 'DONE' }] });
+        const res = await grade(a, {
+          items: [
+            { student_id: s1, status: 'NOT_SUBMITTED' },
+            { student_id: s2, status: 'NOT_SUBMITTED' },
+          ],
+        });
+        expect(res.status).toBe(200);
+        expect(rowFor(res.body, s1).status).toBe('NOT_SUBMITTED');
+        expect(rowFor(res.body, s2).status).toBe('SUBMITTED');
+      });
+
+      it('E5 marks: set, clear, bounds, and TICK rejects marks', async () => {
+        const s = await mkStudent(MAPPED_SECTION_ID);
+        const h = await mkMarksHomework('CW marks');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const set = await grade(a, { items: [{ student_id: s, marks: 7 }] });
+        expect(rowFor(set.body, s).marks).toBe(7);
+        const clear = await grade(a, { items: [{ student_id: s, marks: null }] });
+        expect(rowFor(clear.body, s).marks).toBeNull();
+        for (const bad of [10000, -1, 1.5]) {
+          expect((await grade(a, { items: [{ student_id: s, marks: bad }] })).status).toBe(400);
+        }
+        const tickH = await mkHomework('CW marks tick');
+        const tickA = await assignRow(tickH, { section_id: MAPPED_SECTION_ID });
+        const res = await grade(tickA, { items: [{ student_id: s, marks: 5 }] });
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(
+          'Marks can only be set when the homework grading mode is MARKS',
+        );
+        expect(await countRows(tickA, s)).toBe(0);
+      });
+
+      it('E6 validation: each is a 400 and nothing is written', async () => {
+        const s = await mkStudent(MAPPED_SECTION_ID);
+        const other = await mkStudent(await mkSectionB());
+        const h = await mkHomework('CW validation');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const bad = async (body: object, message?: string) => {
+          const res = await grade(a, body);
+          expect(res.status).toBe(400);
+          if (message) {
+            expect(res.body.message).toBe(message);
+            expect(JSON.stringify(res.body)).not.toContain(other);
+          }
+        };
+        await bad({ items: [] });
+        await bad({});
+        await bad({
+          items: Array.from({ length: 301 }, () => ({ student_id: randomUUID(), status: 'DONE' })),
+        });
+        await bad(
+          {
+            items: [
+              { student_id: s, status: 'DONE' },
+              { student_id: s, status: 'PARTIAL' },
+            ],
+          },
+          'Each student can appear only once',
+        );
+        await bad({ items: [{ student_id: s }] }, 'Nothing to change');
+        await bad({ items: [{ student_id: s, status: 'SUBMITTED' }] });
+        await bad({ items: [{ student_id: s, status: null }] });
+        await bad(
+          { items: [{ student_id: other, status: 'DONE' }] },
+          'A student in this list is not on this homework',
+        );
+        expect(await countRows(a, s)).toBe(0);
+        expect(await countRows(a, other)).toBe(0);
+      });
+
+      it('E7 teacher scope + Rule 23: every miss is the same 404 text', async () => {
+        const secB = await mkSectionB();
+        const h = await mkHomework('CW scope');
+        const aMapped = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const aB = await assignRow(h, { section_id: secB });
+        const s = await mkStudent(MAPPED_SECTION_ID);
+        expect((await get(aMapped, 'teacher')).status).toBe(200);
+        expect(
+          (await grade(aMapped, { items: [{ student_id: s, status: 'DONE' }] }, 'teacher')).status,
+        ).toBe(200);
+        for (const id of [aB, randomUUID()]) {
+          const g = await get(id, 'teacher');
+          expect(g.status).toBe(404);
+          expect(g.body.message).toBe(MISS);
+          const p = await grade(id, { items: [{ student_id: s, status: 'DONE' }] }, 'teacher');
+          expect(p.status).toBe(404);
+          expect(p.body.message).toBe(MISS);
+        }
+        await unassignTeacher();
+        const g = await get(aMapped, 'teacher');
+        expect(g.status).toBe(404);
+        expect(g.body.message).toBe(MISS);
+      });
+
+      it('E8 student-target row lists exactly that student; teacher can grade', async () => {
+        const s = await mkStudent(MAPPED_SECTION_ID);
+        await mkStudent(MAPPED_SECTION_ID, 2);
+        const h = await mkHomework('CW student target');
+        const a = await assignRow(h, { student_id: s });
+        const res = await get(a, 'teacher');
+        expect(res.status).toBe(200);
+        expect(res.body.map((r: any) => r.student_id)).toEqual([s]);
+        expect(
+          (await grade(a, { items: [{ student_id: s, status: 'PARTIAL' }] }, 'teacher')).status,
+        ).toBe(200);
+      });
+
+      it('E9 SUPERSEDED lists only students who already have a row', async () => {
+        const sA = await mkStudent(MAPPED_SECTION_ID);
+        const sB = await mkStudent(MAPPED_SECTION_ID, 2);
+        const h = await mkHomework('CW superseded');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        await grade(a, { items: [{ student_id: sA, status: 'DONE' }] });
+        await withAdmin(
+          supertest(app.getHttpServer()).post(`/api/v1/homework-assignments/${a}/reassign`),
+          await adminToken(),
+        )
+          .send({
+            section_id: MAPPED_SECTION_ID,
+            assigned_date: '2026-01-01',
+            due_date: '2026-01-15',
+          })
+          .expect(201);
+        const res = await get(a);
+        expect(rowFor(res.body, sA)).toBeDefined();
+        expect(rowFor(res.body, sB)).toBeUndefined();
+        const bad = await grade(a, { items: [{ student_id: sB, status: 'DONE' }] });
+        expect(bad.status).toBe(400);
+        expect(bad.body.message).toBe('A student in this list is not on this homework');
+        expect((await grade(a, { items: [{ student_id: sA, status: 'PARTIAL' }] })).status).toBe(
+          200,
+        );
+      });
+
+      it('E10 a student who moved sections keeps their existing row (reconciliation)', async () => {
+        const s = await mkStudent(MAPPED_SECTION_ID);
+        const h = await mkHomework('CW moved');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        await insertSubmission(a, s, 'SUBMITTED');
+        await dataSource.query(`UPDATE students SET class_section_id = $2 WHERE id = $1`, [
+          s,
+          await mkSectionB(),
+        ]);
+        expect(rowFor((await get(a)).body, s)).toMatchObject({ status: 'SUBMITTED' });
+      });
+
+      it('E11 cross-tenant: other tenant 404, missing tenant header 401', async () => {
+        const h = await mkHomework('CW tenant');
+        const a = await assignRow(h, { section_id: MAPPED_SECTION_ID });
+        const OTHER_TENANT = '00000000-0000-4000-8000-000000000097';
+        await dataSource.query(
+          `INSERT INTO schools (id, name, slug, created_at, updated_at)
+           VALUES ($1, 'Other', 'other-hw-cw', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [OTHER_TENANT],
+        );
+        await dataSource.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [SEED_ADMIN_USER_ID, OTHER_TENANT, UserRole.ADMIN],
+        );
+        try {
+          const token = await adminToken();
+          const url = `/api/v1/homework-assignments/${a}/submissions`;
+          const body = { items: [{ student_id: randomUUID(), status: 'DONE' }] };
+          await supertest(app.getHttpServer())
+            .get(url)
+            .set('Authorization', `Bearer ${token}`)
+            .set('X-Tenant-ID', OTHER_TENANT)
+            .expect(404);
+          await supertest(app.getHttpServer())
+            .patch(url)
+            .set('Authorization', `Bearer ${token}`)
+            .set('X-Tenant-ID', OTHER_TENANT)
+            .send(body)
+            .expect(404);
+          await supertest(app.getHttpServer())
+            .get(url)
+            .set('Authorization', `Bearer ${token}`)
+            .expect(401);
+          await supertest(app.getHttpServer())
+            .patch(url)
+            .set('Authorization', `Bearer ${token}`)
+            .send(body)
+            .expect(401);
+        } finally {
+          await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`, [
+            SEED_ADMIN_USER_ID,
+            OTHER_TENANT,
+          ]);
+        }
+      });
+
+      it('E12 Rule 3: a non-UUID id is 400', async () => {
+        expect(
+          (await grade('not-a-uuid', { items: [{ student_id: randomUUID(), status: 'DONE' }] }))
+            .status,
+        ).toBe(400);
+      });
     });
   });
 

@@ -201,6 +201,6 @@ describe('Calendar settings (e2e)', () => {
       .set('X-Tenant-ID', UNAFFILIATED_TENANT_ID)
       .expect(401);
 
-    expect(res.body.message).toContain('not a member of tenant');
+    expect(res.body.message).toContain('not a member of the requested tenant');
   });
 });

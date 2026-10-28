@@ -108,7 +108,10 @@
   "errors": {
     "uploadTooLarge": "This upload is too large. Send fewer or smaller files at a time.",
     "permissionDenied": "You don't have permission to do that.",
-    "schoolRestoring": "This school is being restored from a backup. Your change was not saved. Try again in a few minutes."
+    "schoolRestoring": "This school is being restored from a backup. Your change was not saved. Try again in a few minutes.",
+    "generic": "Something went wrong. Please try again.",
+    "conflict": "This clashes with a record that already exists. Check the details and try again.",
+    "invalid": "Some details are not valid. Check them and try again."
   },
   "restoreBar": {
     "message": "A backup restore is running. You can look at data, but changes can't be saved until it finishes."
@@ -391,5 +394,13 @@
     "message": "It may have been deleted, or the link may be wrong.",
     "back": "Go back"
   },
-  "outcomeUnknown": "We could not confirm whether this was saved. Check the list before trying again."
+  "outcomeUnknown": "We could not confirm whether this was saved. Check the list before trying again.",
+  "importFileErrors": {
+    "unreadable": "We could not read this file. Check that it is a valid Excel or CSV file.",
+    "unsupportedType": "This file type is not supported. Upload an Excel (.xlsx) or CSV file.",
+    "missingColumns": "Some columns are missing. Use the sample file's columns.",
+    "tooManyRows": "This file has too many rows. Split the file into smaller files.",
+    "noRows": "This file has no rows in it. Add at least one row.",
+    "tooLarge": "This file is too large. Split the file into smaller files."
+  }
 }

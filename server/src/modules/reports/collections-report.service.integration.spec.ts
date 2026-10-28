@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { DataSource, Repository } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -536,6 +536,14 @@ describe('CollectionsReportService', () => {
       });
     }
 
+    async function setCurrentYear(start: string, end: string | null) {
+      await dataSource.query(
+        `UPDATE academic_years SET start_date = $2, end_date = $3, is_current = $4 WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID, start, end ?? start, end !== null],
+      );
+    }
+    afterEach(() => setCurrentYear('2026-01-01', '2026-12-31'));
+
     it('fills 12 slots: later months null, sums the rest, reversal and FAILED handled', async () => {
       await paid(500, '2026-01-10T05:00:00Z');
       const mar = await paid(700, '2026-03-10T05:00:00Z');
@@ -550,10 +558,10 @@ describe('CollectionsReportService', () => {
       expect(w.year).toBe(2026);
       expect(w.months).toHaveLength(12);
       expect(w.months.map((m) => m.month)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-      expect(w.months[0]).toEqual({ month: 1, net: 500, is_current: false });
+      expect(w.months[0]).toEqual({ year: 2026, month: 1, net: 500, is_current: false });
       expect(w.months[1].net).toBe(0);
       expect(w.months[2].net).toBe(550);
-      expect(w.months[9]).toEqual({ month: 10, net: 300, is_current: true });
+      expect(w.months[9]).toEqual({ year: 2026, month: 10, net: 300, is_current: true });
       expect(w.months[10].net).toBeNull();
       expect(w.months[11].net).toBeNull();
       expect(w.year_to_date_net).toBe(1350);
@@ -579,14 +587,59 @@ describe('CollectionsReportService', () => {
       expect(w.month_to_date_net).toBe(50);
     });
 
+    it('July-June current year: 12 slots from July, other years not counted', async () => {
+      await setCurrentYear('2026-07-01', '2027-06-30');
+      await paid(111, '2026-03-10T05:00:00Z'); // before the academic year
+      await paid(200, '2026-07-10T05:00:00Z');
+      await paid(300, '2026-10-03T05:00:00Z');
+      await paid(8888, '2026-11-05T05:00:00Z'); // future-dated: must not leak
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      expect(w.year).toBe(2026);
+      expect(w.months).toHaveLength(12);
+      expect(w.months[0]).toEqual({ year: 2026, month: 7, net: 200, is_current: false });
+      expect(w.months[3]).toEqual({ year: 2026, month: 10, net: 300, is_current: true });
+      expect(w.months.slice(4).every((m) => m.net === null)).toBe(true);
+      expect(w.months[6]).toMatchObject({ year: 2027, month: 1 });
+      expect(w.months[11]).toMatchObject({ year: 2027, month: 6 });
+      expect(w.year_to_date_net).toBe(500);
+      expect(w.month_to_date_net).toBe(300);
+    });
+
+    it('current year does not contain today: falls back to the calendar year', async () => {
+      // School has not rolled over yet: the current year is last year.
+      await setCurrentYear('2025-01-01', '2025-12-31');
+      await paid(300, '2026-10-03T05:00:00Z');
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      expect(w.months[0]).toMatchObject({ year: 2026, month: 1 });
+      expect(w.months[9]).toMatchObject({ year: 2026, month: 10, is_current: true });
+      expect(w.month_to_date_net).toBe(300);
+    });
+
+    it('mid-month year bounds still count the whole first and last month', async () => {
+      await setCurrentYear('2026-01-10', '2026-12-20');
+      await paid(70, '2026-01-03T05:00:00Z'); // before the 10th: still January
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      expect(w.months).toHaveLength(12);
+      expect(w.months[0]).toEqual({ year: 2026, month: 1, net: 70, is_current: false });
+    });
+
+    it('no current year: falls back to January-December', async () => {
+      await setCurrentYear('2026-01-01', null);
+      await paid(40, '2026-02-10T05:00:00Z');
+      const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2026-10-07');
+      expect(w.months.map((m) => m.month)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+      expect(w.months[1].net).toBe(40);
+    });
+
     it('January wraps to December of the previous year', async () => {
+      await setCurrentYear('2027-01-01', '2027-12-31');
       await paid(250, '2026-12-10T05:00:00Z');
       await paid(999, '2026-12-20T05:00:00Z');
       await paid(60, '2027-01-04T05:00:00Z');
       const w = await service.getCollectionByMonthWidget(SEED_TENANT_ID, '2027-01-15');
       expect(w.year).toBe(2027);
       expect(w.previous_month_same_days_net).toBe(250);
-      expect(w.months[0]).toEqual({ month: 1, net: 60, is_current: true });
+      expect(w.months[0]).toEqual({ year: 2027, month: 1, net: 60, is_current: true });
       expect(w.months.slice(1).every((m) => m.net === null)).toBe(true);
     });
 

@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  ParseUUIDPipe,
+  HttpCode,
+  Body,
+  Query,
+  UseGuards,
+  Inject,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -40,5 +52,17 @@ export class SubstitutionsController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.substitutionsService.list(query, tenant.id);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @RequirePermissions(Permission.ROUTINE_MANAGE)
+  @ApiOperation({ summary: 'Delete a substitution; the period returns to its usual teacher.' })
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ): Promise<void> {
+    await this.substitutionsService.remove(id, tenant.id, user.sub);
   }
 }

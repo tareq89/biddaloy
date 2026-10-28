@@ -207,8 +207,9 @@ None of them throws while rendering.
   user typed it** — never hidden, never an error. `parsePhone` accepts Bangla or
   Latin digits.
 - Bangla day ordinals: ১লা, ২রা, ৩রা, ৪ঠা, ৫ই–১৮ই, ১৯শে–৩১শে.
-- **Never mix digits** inside one value. Numerals follow the school's numeral
-  setting everywhere — except things a person copies or dials, which stay Latin:
+- **Never mix digits** inside one value. In the Bangla UI, numerals follow the
+  school's numeral setting. The English UI always uses Latin digits and English
+  words. Things a person copies or dials stay Latin in both:
   registration / invoice / receipt numbers, phone numbers, emails, codes.
 - ISO strings (`2026-09-09`) appear only in exports, URLs and API calls. Use
   `toIsoDate` for those — never `formatDate` output as data. The
@@ -323,7 +324,7 @@ Shell and shared props that tripped people (read the source, not the plan):
 ### HelpHint placement
 
 The **(?)** opens a short card with a link into the user guide
-([25-user-guide → In-app help](25-user-guide.md#in-app-help-epic-44)). It is a
+([39-user-guide → In-app help](39-user-guide.md#in-app-help-epic-44)). It is a
 muted icon with a 44 px target and no pulse (D22).
 
 **Where it goes (D18):** page titles, crucial actions, hard fields and
@@ -451,7 +452,6 @@ flowchart LR
 | `PageHeaderActions`     | No `print:hidden`. Header buttons print with the page. (`DataTable`'s footer has it.)                                             | `ui/src/shells/page-header.tsx`                                                                       | Hide the header row in the page's own print styles.                                                           |
 | `WizardShell`           | No `subtitle`, unlike `PageHeader`.                                                                                               | `ui/src/shells/wizard-shell.tsx`                                                                      | Put one line of help text in the first step; do not mock a subtitle.                                          |
 | `StatusBadge`           | No `className`. Its props are the `tone` / `domain` union only.                                                                   | `ui/src/components/status-badge.tsx`                                                                  | Wrap it in a `<span>` for layout.                                                                             |
-| `MutationErrorMessage`  | Prints the raw `error.message`. That breaks P4 ("no English server message on screen") when the server sends English.             | `client-admin/src/components/MutationErrorMessage.tsx`                                                | Show a translated sentence from the API error `code` instead.                                                 |
 | `useWarnUnsavedChanges` | Guards only the browser `beforeunload` (closing the tab, reload). It does **not** block in-app navigation.                        | `ui/src/shells/use-form-shell.ts`                                                                     | `FullPageShell` covers its own Close / Esc; a plain page needs a router blocker of its own.                   |
 
 ### Focus does not return after a dialog closes

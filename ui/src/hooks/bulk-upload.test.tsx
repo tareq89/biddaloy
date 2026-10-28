@@ -9,7 +9,11 @@ import { apiErrorBody } from '../test/msw/support';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { createTestQueryClient } from '../test/render-with-providers';
 
-import { useValidateStudentUpload, useCommitStudentUpload } from './bulk-upload';
+import {
+  useValidateStaffUpload,
+  useValidateStudentUpload,
+  useCommitStudentUpload,
+} from './bulk-upload';
 import { studentKeys } from './students';
 
 function makeCsvFile(name = 'students.csv'): File {
@@ -148,6 +152,37 @@ describe('useValidateStudentUpload', () => {
     });
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(requestCount).toBe(1);
+  });
+
+  it('[#3020] keeps details.code on a whole-file 400 from the staff validate hook', async () => {
+    server.use(
+      http.post('/api/v1/users/bulk-upload/validate', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(
+              400,
+              'File contains no data rows',
+              '/api/v1/users/bulk-upload/validate',
+            ),
+            details: { code: 'IMPORT_FILE_NO_ROWS' },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useValidateStaffUpload(), {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+    act(() => {
+      result.current.mutate({ file: makeCsvFile() });
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toMatchObject({
+      status: 400,
+      details: { code: 'IMPORT_FILE_NO_ROWS' },
+    });
   });
 });
 

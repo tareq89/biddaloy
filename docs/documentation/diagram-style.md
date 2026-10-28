@@ -5,7 +5,7 @@ and a flow that crosses features (structure, then dues, then payment, then
 receipt) is drawn on **every** page it touches (Epic 42, D23). This file is the
 rulebook. Page rules are in [`writing-guide.md`](writing-guide.md) and
 [`page-template.md`](page-template.md); the system is in
-[`../architecture/25-user-guide.md`](../architecture/25-user-guide.md).
+[`../architecture/39-user-guide.md`](../architecture/39-user-guide.md).
 
 ```mermaid
 flowchart LR

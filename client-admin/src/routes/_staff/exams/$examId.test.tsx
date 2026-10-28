@@ -172,6 +172,68 @@ describe('/exams/$examId', () => {
     expect(tab.getAttribute('aria-selected')).toBe('true');
   });
 
+  /** Open the delete confirm from the header (inline button or More menu). */
+  async function openDelete(user: ReturnType<typeof userEvent.setup>) {
+    await screen.findByRole('heading', { name: 'Half Yearly 2026' });
+    const inline = screen.queryByRole('button', { name: 'Delete exam' });
+    if (inline) {
+      await user.click(inline);
+    } else {
+      await user.click(await screen.findByRole('button', { name: 'More actions' }));
+      await user.click(await screen.findByRole('menuitem', { name: 'Delete exam' }));
+    }
+    return screen.findByRole('alertdialog');
+  }
+
+  it('DRAFT: Delete exam confirms, calls DELETE and goes back to the list', async () => {
+    const user = userEvent.setup();
+    let deleted = false;
+    renderExam('DRAFT');
+    server.use(
+      http.delete('/api/v1/exams/:id', () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get('/api/v1/exams', () => HttpResponse.json({ data: [], total: 0 })),
+    );
+    const dialog = await openDelete(user);
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await vi.waitFor(() => expect(deleted).toBe(true));
+    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  });
+
+  it('PUBLISHED: there is no Delete exam action', async () => {
+    const user = userEvent.setup();
+    renderExam('PUBLISHED');
+    await screen.findByRole('heading', { name: 'Half Yearly 2026' });
+    expect(screen.queryByRole('button', { name: 'Delete exam' })).toBeNull();
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await screen.findByRole('menuitem', { name: 'Reopen' });
+    expect(screen.queryByRole('menuitem', { name: 'Delete exam' })).toBeNull();
+  });
+
+  it('a 409 EXAM_HAS_RESULTS shows the has-results sentence, not the server text', async () => {
+    const user = userEvent.setup();
+    renderExam('DRAFT');
+    server.use(
+      http.delete('/api/v1/exams/:id', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'raw server text',
+            requestId: 'req-1',
+            details: { code: 'EXAM_HAS_RESULTS' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const dialog = await openDelete(user);
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(await within(dialog).findByText(/This exam has results\./)).toBeTruthy();
+    expect(within(dialog).queryByText(/raw server text/)).toBeNull();
+  });
+
   it('hides the Print tab without DOCUMENT_PRINT', async () => {
     grant.only = new Set(['EXAM_MANAGE', 'EXAM_READ']);
     renderExam('PUBLISHED');

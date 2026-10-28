@@ -1,9 +1,8 @@
 /**
- * [19.8.1] step 5: the printable report card. Fetches the student's
- * result detail, the grading scale it was computed against (for the
- * legend — `useGradingScale(result.grading_scale_id)`, not duplicated
- * server-side, see `ResultsService.getStudentResult`'s own comment), and
- * the school's own profile for the header (`IssuerHeader`, D6).
+ * [19.8.1] step 5: the printable report card. One `RESULT_READ` call,
+ * `GET /students/:id/results/:examId`, returns the exam name, result,
+ * legend and school header, so roles without EXAM_MANAGE or
+ * GRADING_SCALE_MANAGE can open it too [#2922].
  */
 import {
   ErrorState,
@@ -14,13 +13,7 @@ import {
   toast,
   type ReportCardData,
 } from '@biddaloy/ui/components';
-import {
-  logDocumentPrint,
-  useExam,
-  useGradingScale,
-  useResultDetail,
-  useSchoolProfile,
-} from '@biddaloy/ui/hooks';
+import { logDocumentPrint, useStudentResultCard } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, PageContainer } from '@biddaloy/ui/shells';
 import { formatNumber } from '@biddaloy/ui/utils';
@@ -42,10 +35,7 @@ function ReportCardPage() {
   const { t: tg } = useTranslation('grading');
   const config = useRegionConfig();
   const [printing, setPrinting] = React.useState(false);
-  const examQuery = useExam(examId);
-  const detailQuery = useResultDetail(examId, studentId);
-  const scaleQuery = useGradingScale(detailQuery.data?.result.grading_scale_id);
-  const profileQuery = useSchoolProfile();
+  const cardQuery = useStudentResultCard(studentId, examId);
 
   async function handlePrint() {
     setPrinting(true);
@@ -60,10 +50,7 @@ function ReportCardPage() {
     }
   }
 
-  const isLoading = examQuery.isPending || detailQuery.isPending || profileQuery.isPending;
-  const isError = examQuery.isError || detailQuery.isError || profileQuery.isError;
-
-  if (isLoading) {
+  if (cardQuery.isPending) {
     return (
       <PageContainer>
         <div aria-busy="true" className="space-y-4">
@@ -78,62 +65,55 @@ function ReportCardPage() {
       </PageContainer>
     );
   }
-  if (isError || !examQuery.data || !detailQuery.data || !profileQuery.data) {
+  if (cardQuery.isError || !cardQuery.data) {
     return (
       <PageContainer>
         <ErrorState
           message={t('reportCard.loadError')}
           onRetry={() => {
-            void examQuery.refetch();
-            void detailQuery.refetch();
+            void cardQuery.refetch();
           }}
         />
       </PageContainer>
     );
   }
 
-  const detail = detailQuery.data;
+  const card = cardQuery.data;
   const data: ReportCardData = {
-    exam_name: examQuery.data.name,
-    student: detail.student,
-    result: detail.result,
-    subjects: detail.subjects,
-    legend: (scaleQuery.data?.bands ?? []).map((band) => ({
-      grade: band.grade,
-      gpa: band.gpa,
-      comment: band.comment,
-    })),
+    exam_name: card.exam_name,
+    student: card.student,
+    result: card.result,
+    subjects: card.subjects,
+    legend: card.legend,
   };
-
-  const profile = profileQuery.data;
 
   return (
     <>
       <div className="print:hidden">
         <DetailShell
-          name={detail.student.full_name}
+          name={card.student.full_name}
           statusBadge={
             <StatusBadge
-              tone={detail.result.is_fail ? 'danger' : 'success'}
-              label={t(detail.result.is_fail ? 'resultsPanel.fail' : 'resultsPanel.pass')}
+              tone={card.result.is_fail ? 'danger' : 'success'}
+              label={t(card.result.is_fail ? 'resultsPanel.fail' : 'resultsPanel.pass')}
             />
           }
           facts={[
-            { label: t('reportCard.examLabel'), value: examQuery.data.name },
+            { label: t('reportCard.examLabel'), value: card.exam_name },
             {
               label: t('reportCard.rollLabel'),
-              value: formatNumber(detail.student.roll_number, config),
+              value: formatNumber(card.student.roll_number, config),
             },
             {
               label: t('reportCard.gpa'),
               value: tg('resultsPage.gpaValue', {
-                gpa: formatNumber(detail.result.gpa, config, { decimals: 2 }),
-                grade: detail.result.grade,
+                gpa: formatNumber(card.result.gpa, config, { decimals: 2 }),
+                grade: card.result.grade,
               }),
             },
             {
               label: t('reportCard.position'),
-              value: formatNumber(detail.result.position, config),
+              value: formatNumber(card.result.position, config),
             },
           ]}
           actions={[
@@ -155,16 +135,8 @@ function ReportCardPage() {
           <div className="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5 print:rounded-none print:border-0 print:p-0 print:shadow-none">
             <ReportCard
               data={data}
-              issuer={{
-                name: profile.name,
-                name_bn: profile.name_bn,
-                address: profile.address,
-                phone: profile.phone,
-                email: profile.email,
-                registration_id: profile.registration_id,
-                logo_key: profile.logo_url ? 'active' : null,
-              }}
-              logoUrl={profile.logo_url}
+              issuer={card.issuer}
+              logoUrl={card.logo_url}
               activeLanguage={i18n.language}
               labels={{
                 examLabel: t('reportCard.examLabel'),

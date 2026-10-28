@@ -109,7 +109,7 @@ export class PromotionsService {
       where: { id: sourceClassId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!sourceClass) {
-      throw new NotFoundException(`Class with ID "${sourceClassId}" not found`);
+      throw new NotFoundException('Class not found');
     }
     return this.resolveTarget(sourceClass, targetAcademicYearId, undefined, tenantId);
   }
@@ -139,9 +139,7 @@ export class PromotionsService {
         },
       });
       if (!targetClass) {
-        throw new BadRequestException(
-          `Class with ID "${explicitTargetClassId}" not found in academic year "${targetAcademicYearId}"`,
-        );
+        throw new BadRequestException('Target class not found in the target academic year');
       }
     } else if (sourceClass.numeric_grade === null) {
       blocking = 'PICK_TARGET_CLASS';
@@ -173,10 +171,6 @@ export class PromotionsService {
       if (sections.length === 0 && !blocking) {
         blocking = 'TARGET_SECTIONS_MISSING';
       }
-    }
-
-    if (!blocking && sourceClass.numeric_grade !== null && !retainClass) {
-      blocking = 'RETAIN_CLASS_MISSING';
     }
 
     return {
@@ -358,7 +352,7 @@ export class PromotionsService {
       where: { id: dto.source_class_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!sourceClass) {
-      throw new NotFoundException(`Class with ID "${dto.source_class_id}" not found`);
+      throw new NotFoundException('Class not found');
     }
 
     await this.assertTargetYearLater(
@@ -378,9 +372,6 @@ export class PromotionsService {
     }
     if (suggestion.blocking_reason === 'TARGET_SECTIONS_MISSING') {
       throw new UnprocessableEntityException({ details: { code: 'TARGET_SECTIONS_MISSING' } });
-    }
-    if (suggestion.blocking_reason === 'RETAIN_CLASS_MISSING') {
-      throw new UnprocessableEntityException({ details: { code: 'RETAIN_CLASS_MISSING' } });
     }
 
     const exams = await this.examRepo.find({
@@ -464,6 +455,17 @@ export class PromotionsService {
         ),
       );
 
+      // A retain class is needed only when someone would be retained. Throwing
+      // here rolls back the run row. A null-grade class never has one (M1), so
+      // its run still starts and staff override RETAIN; commit refuses the rest.
+      if (
+        sourceClass.numeric_grade !== null &&
+        suggestion.retain_class === null &&
+        entries.some((e) => e.final_outcome === PromotionOutcome.RETAIN)
+      ) {
+        throw new UnprocessableEntityException({ details: { code: 'RETAIN_CLASS_MISSING' } });
+      }
+
       this.placePromoteEntries(entries, targetSections, dto.algorithm);
       await entryRepo.save(entries);
 
@@ -534,7 +536,7 @@ export class PromotionsService {
           where: { id: runId, tenant_id: tenantId },
           lock: { mode: 'pessimistic_write' },
         });
-        if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+        if (!run) throw new NotFoundException('Promotion run not found');
         if (run.status !== PromotionRunStatus.DRAFT) {
           throw new ConflictException('Only DRAFT runs can be edited');
         }
@@ -545,9 +547,7 @@ export class PromotionsService {
         for (const patch of dtoEntries) {
           const entry = entryByStudent.get(patch.student_id);
           if (!entry) {
-            throw new NotFoundException(
-              `No promotion entry for student "${patch.student_id}" on this run`,
-            );
+            throw new NotFoundException('No promotion entry for this student on this run');
           }
           // `final_outcome` unset means "leave this entry's outcome as-is" — a
           // patch that only changes group_name must not silently clear an
@@ -559,11 +559,19 @@ export class PromotionsService {
               details: { code: 'CONDITIONAL_NOT_FOR_GRADUATION' },
             });
           }
+          // Checks the patched value only: a group-only edit on an old GRADUATE
+          // row still saves, and commit() refuses that row instead.
+          if (patch.final_outcome === PromotionOutcome.GRADUATE && run.target_class_id !== null) {
+            throw new UnprocessableEntityException({
+              message: 'Only a graduation run can graduate students.',
+              details: { code: 'GRADUATE_ONLY_IN_GRADUATION_RUN' },
+            });
+          }
           const isOverride = finalOutcome !== entry.suggested_outcome;
           const overrideNote = patch.override_note ?? (isOverride ? entry.override_note : null);
           if (isOverride && (!overrideNote || overrideNote.trim().length === 0)) {
             throw new UnprocessableEntityException(
-              `Overriding student "${patch.student_id}" requires a non-empty override_note`,
+              'Overriding a student requires a non-empty override_note',
             );
           }
           entry.final_outcome = finalOutcome;
@@ -651,7 +659,7 @@ export class PromotionsService {
           where: { id: runId, tenant_id: tenantId },
           lock: { mode: 'pessimistic_write' },
         });
-        if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+        if (!run) throw new NotFoundException('Promotion run not found');
         if (run.status !== PromotionRunStatus.DRAFT) {
           throw new ConflictException('Only DRAFT runs can be refreshed');
         }
@@ -767,7 +775,7 @@ export class PromotionsService {
 
   async remove(runId: string, tenantId: string): Promise<void> {
     const run = await this.runRepo.findOne({ where: { id: runId, tenant_id: tenantId } });
-    if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+    if (!run) throw new NotFoundException('Promotion run not found');
     if (run.status !== PromotionRunStatus.DRAFT) {
       throw new ConflictException('Only DRAFT runs can be deleted');
     }
@@ -801,7 +809,7 @@ export class PromotionsService {
     tenantId: string,
   ): Promise<PromotionRun & { entries: PromotionEntryView[] }> {
     const run = await this.runRepo.findOne({ where: { id: runId, tenant_id: tenantId } });
-    if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+    if (!run) throw new NotFoundException('Promotion run not found');
 
     const entries = await this.entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
     const studentIds = entries.map((e) => e.student_id);
@@ -851,7 +859,7 @@ export class PromotionsService {
         where: { id: runId, tenant_id: tenantId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+      if (!run) throw new NotFoundException('Promotion run not found');
       if (run.status === PromotionRunStatus.COMMITTED) {
         throw new ConflictException({ details: { code: 'ALREADY_COMMITTED' } });
       }
@@ -868,6 +876,17 @@ export class PromotionsService {
       );
 
       const entries = await entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
+      // A draft saved before patchEntries refused it (#2925) may still hold
+      // GRADUATE in a normal run; never mark those students GRADUATED.
+      if (
+        run.target_class_id !== null &&
+        entries.some((e) => e.final_outcome === PromotionOutcome.GRADUATE)
+      ) {
+        throw new UnprocessableEntityException({
+          message: 'Only a graduation run can graduate students.',
+          details: { code: 'GRADUATE_ONLY_IN_GRADUATION_RUN' },
+        });
+      }
       if (entries.some((e) => movesUp(e.final_outcome) && e.placement_error)) {
         throw new UnprocessableEntityException(
           'Cannot commit: one or more students moving up has a placement error',
@@ -1028,7 +1047,7 @@ export class PromotionsService {
           where: { id: run.source_class_id, tenant_id: tenantId },
         });
         if (!sourceClass) {
-          throw new NotFoundException(`Class with ID "${run.source_class_id}" not found`);
+          throw new NotFoundException('Class not found');
         }
         const retainClass = await this.findRetainClass(
           sourceClass,

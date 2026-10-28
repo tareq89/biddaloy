@@ -33,7 +33,7 @@ export class PresetRegistryService implements OnModuleInit {
 
   get(id: string): PresetPack {
     const pack = this.packs.find((p) => p.id === id);
-    if (!pack) throw new NotFoundException(`Preset ${id} not found`);
+    if (!pack) throw new NotFoundException('Preset not found');
     return pack;
   }
 }

@@ -15,6 +15,7 @@ import { QueryFailedError } from 'typeorm';
 import { JwtPayload, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { PlatformSuperAdminGuard } from '../../auth/guards/platform-super-admin.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -32,7 +33,13 @@ import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.deco
 @ApiTags('schools')
 @ApiTenantAuth()
 @Controller('schools')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@UseGuards(
+  AuthGuard('jwt'),
+  ContextGuard,
+  RolesGuard,
+  PermissionsGuard,
+  PlatformSuperAdminGuard,
+)
 export class ProvisioningController {
   constructor(private readonly provisioning: ProvisioningService) {}
 

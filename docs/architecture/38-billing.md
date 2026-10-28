@@ -139,7 +139,7 @@ seats in March). On Jun 1 it renews 100 x 6: Jul 1 to Jan 1, so July still has 1
 `paid_until`, the 30 / 7 / 0 day notices and `seats.expiring` also read the school's own orders;
 the grant's end is used only for a school that has nothing but grants. The grace anchor
 (`readOnlyUntilFor`) still counts grants: read-only starts when the last cover of any kind ran out.
-See also [22-onboarding.md](22-onboarding.md#free-period-and-seats).
+See also [34-onboarding.md](34-onboarding.md#free-period-and-seats).
 
 ## Orders that stay PENDING
 

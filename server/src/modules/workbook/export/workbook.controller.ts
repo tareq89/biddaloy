@@ -194,7 +194,8 @@ export class WorkbookController {
     if (job.status === WorkbookJobStatus.DELETED) {
       throw new GoneException('This backup has been removed.');
     }
-    if (job.expires_at !== null && job.expires_at.getTime() <= Date.now()) {
+    // Pinned = keep forever. expires_at stays set so an unpin returns the row to normal retention.
+    if (!job.pinned && job.expires_at !== null && job.expires_at.getTime() <= Date.now()) {
       throw new GoneException('This backup has expired.');
     }
     if (job.status !== WorkbookJobStatus.DONE) {

@@ -93,6 +93,16 @@ export interface GridResponse {
   derived: Record<string, { reason: string | null; values: Record<string, string | null> }>;
 }
 
+/** One (section, subject) mark grid in `progress()`. */
+type ProgressGridRow = {
+  section_id: string;
+  section_name: string;
+  subject_id: string;
+  subject_name: string | null;
+  subject_name_bn: string | null;
+  state: MarkGridState;
+};
+
 /**
  * [19.4.1] D12 — the grid's DRAFT/SUBMITTED state machine, and the
  * composed GET that fills the whole entry grid in one request.
@@ -125,7 +135,7 @@ export class MarkGridService {
       where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!exam) {
-      throw new NotFoundException(`Exam with ID "${examId}" not found`);
+      throw new NotFoundException('Exam not found');
     }
     return exam;
   }
@@ -135,7 +145,7 @@ export class MarkGridService {
       where: { id: sectionId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!section) {
-      throw new NotFoundException(`Section with ID "${sectionId}" not found`);
+      throw new NotFoundException('Section not found');
     }
     return section;
   }
@@ -514,14 +524,9 @@ export class MarkGridService {
     caller: { role: string; userId: string } | null,
   ): Promise<{
     counts: Record<MarkGridState, number>;
-    outstanding: Array<{
-      section_id: string;
-      section_name: string;
-      subject_id: string;
-      subject_name: string | null;
-      subject_name_bn: string | null;
-      state: MarkGridState;
-    }>;
+    outstanding: ProgressGridRow[];
+    /** Every grid the caller may open (submitted or not), for the marks-entry list. */
+    grids: ProgressGridRow[];
   }> {
     const exam = await this.findExam(examId, tenantId);
 
@@ -565,14 +570,8 @@ export class MarkGridService {
       [MarkGridState.DRAFT]: 0,
       [MarkGridState.SUBMITTED]: 0,
     };
-    const outstanding: Array<{
-      section_id: string;
-      section_name: string;
-      subject_id: string;
-      subject_name: string | null;
-      subject_name_bn: string | null;
-      state: MarkGridState;
-    }> = [];
+    const outstanding: ProgressGridRow[] = [];
+    const gridRows: ProgressGridRow[] = [];
 
     // One batch for every SUBMITTED grid, not a query set per grid.
     const sectionIdSet = new Set(classSections.map((s) => s.id));
@@ -601,19 +600,19 @@ export class MarkGridService {
         const hasBlanks =
           state === MarkGridState.SUBMITTED &&
           (blanks.get(`${section.id}:${subjectId}`)?.length ?? 0) > 0;
-        if (state !== MarkGridState.SUBMITTED || hasBlanks) {
-          outstanding.push({
-            section_id: section.id,
-            section_name: section.section_name,
-            subject_id: subjectId,
-            subject_name: subjectById.get(subjectId)?.name_en ?? null,
-            subject_name_bn: subjectById.get(subjectId)?.name_bn ?? null,
-            state,
-          });
-        }
+        const entry = {
+          section_id: section.id,
+          section_name: section.section_name,
+          subject_id: subjectId,
+          subject_name: subjectById.get(subjectId)?.name_en ?? null,
+          subject_name_bn: subjectById.get(subjectId)?.name_bn ?? null,
+          state,
+        };
+        gridRows.push(entry);
+        if (state !== MarkGridState.SUBMITTED || hasBlanks) outstanding.push(entry);
       }
     }
 
-    return { counts, outstanding };
+    return { counts, outstanding, grids: gridRows };
   }
 }

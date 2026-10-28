@@ -229,7 +229,7 @@ export class SmsCreditService {
       }
       if (isCheckViolation(err)) {
         throw new BadRequestException(
-          `Adjustment would drive the SMS credit balance for tenant "${tenantId}" below zero.`,
+          "Adjustment would drive this school's SMS credit balance below zero.",
         );
       }
       throw err;
@@ -363,9 +363,7 @@ export class SmsCreditService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!reserveRow) {
-        throw new BadRequestException(
-          `No RESERVE found for idempotency key "${idempotencyKey}" on tenant "${tenantId}".`,
-        );
+        throw new BadRequestException('No matching SMS credit reservation was found.');
       }
 
       const alreadySettled = await manager.findOne(SmsCreditLedger, {
@@ -421,9 +419,7 @@ export class SmsCreditService {
           lock: { mode: 'pessimistic_write' },
         });
         if (!reserveRow) {
-          throw new BadRequestException(
-            `No RESERVE found for batch key "${batchKey}" on tenant "${tenantId}".`,
-          );
+          throw new BadRequestException('No matching SMS credit reservation was found.');
         }
 
         const alreadySettled = await manager.findOne(SmsCreditLedger, {
@@ -449,7 +445,7 @@ export class SmsCreditService {
           const alreadySettledUnits = priorSettlements.reduce((sum, row) => sum + row.units, 0);
           if (alreadySettledUnits + units > reserveRow.units) {
             throw new BadRequestException(
-              `settlePart(${units}) would exceed the remaining reserved balance for batch "${batchKey}" on tenant "${tenantId}".`,
+              'Settling these units would exceed the remaining reserved SMS credit balance.',
             );
           }
         }
@@ -468,7 +464,7 @@ export class SmsCreditService {
     } catch (err) {
       if (isCheckViolation(err)) {
         throw new BadRequestException(
-          `settlePart(${units}) would exceed the remaining reserved balance for batch "${batchKey}" on tenant "${tenantId}".`,
+          'Settling these units would exceed the remaining reserved SMS credit balance.',
         );
       }
       throw err;

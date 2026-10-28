@@ -1,3 +1,5 @@
+import { ImportFileError } from '../../common/errors/import-file.error';
+import { ImportFileErrorCode } from '@biddaloy/shared';
 import {
   assertXlsxWithinLimits,
   XLSX_TOO_LARGE_MESSAGE,
@@ -7,7 +9,7 @@ import ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 import { STAFF_ROLES, TeacherDesignation, UserRole } from '@biddaloy/shared';
 
-export class StaffUploadParseError extends Error {}
+export class StaffUploadParseError extends ImportFileError {}
 
 const MAX_DATA_ROWS = 2000;
 
@@ -115,14 +117,19 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
       await assertXlsxWithinLimits(buffer);
       await workbook.xlsx.load(buffer as never);
     } catch (e) {
-      throw new StaffUploadParseError(
-        e instanceof XlsxTooLargeError
-          ? XLSX_TOO_LARGE_MESSAGE
-          : 'Could not read file — is it a valid Excel file?',
-      );
+      throw e instanceof XlsxTooLargeError
+        ? new StaffUploadParseError(ImportFileErrorCode.TOO_LARGE, XLSX_TOO_LARGE_MESSAGE)
+        : new StaffUploadParseError(
+            ImportFileErrorCode.UNREADABLE,
+            'Could not read file — is it a valid Excel file?',
+          );
     }
     const ws = workbook.worksheets[0];
-    if (!ws) throw new StaffUploadParseError('Could not read file — is it a valid Excel file?');
+    if (!ws)
+      throw new StaffUploadParseError(
+        ImportFileErrorCode.UNREADABLE,
+        'Could not read file — is it a valid Excel file?',
+      );
     return ws;
   }
   if (ext === '.csv') {
@@ -130,11 +137,15 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
       // Identity cell mapper: the default coerces "0171…" / "+880…" through Number().
       return await workbook.csv.read(Readable.from(buffer), { map: (d: string) => d });
     } catch {
-      throw new StaffUploadParseError('Could not read file — is it a valid CSV file?');
+      throw new StaffUploadParseError(
+        ImportFileErrorCode.UNREADABLE,
+        'Could not read file — is it a valid CSV file?',
+      );
     }
   }
   throw new StaffUploadParseError(
-    `Unsupported file type: ${ext || '(none)'} — upload .xlsx or .csv`,
+    ImportFileErrorCode.UNSUPPORTED_TYPE,
+    'Unsupported file type — upload .xlsx or .csv',
   );
 }
 
@@ -155,12 +166,18 @@ export async function parseStaffSpreadsheet(
   });
   const missing = HEADERS.filter((h) => !col.has(h));
   if (missing.length) {
-    throw new StaffUploadParseError(`Missing required columns: ${missing.join(', ')}`);
+    throw new StaffUploadParseError(
+      ImportFileErrorCode.MISSING_COLUMNS,
+      `Missing required columns: ${missing.join(', ')}`,
+    );
   }
 
   // ponytail: the sheet is already in memory here; a streaming reader would cap a zip bomb.
   if (ws.actualRowCount - 1 > MAX_DATA_ROWS) {
-    throw new StaffUploadParseError(`File has too many rows (max ${MAX_DATA_ROWS})`);
+    throw new StaffUploadParseError(
+      ImportFileErrorCode.TOO_MANY_ROWS,
+      `File has too many rows (max ${MAX_DATA_ROWS})`,
+    );
   }
   const rows: StaffParsedRow[] = [];
   for (let rowNumber = 2; rowNumber <= ws.rowCount; rowNumber++) {
@@ -178,9 +195,13 @@ export async function parseStaffSpreadsheet(
     rows.push({ rowNumber, values, numericMobile });
   }
 
-  if (rows.length === 0) throw new StaffUploadParseError('File contains no data rows');
+  if (rows.length === 0)
+    throw new StaffUploadParseError(ImportFileErrorCode.NO_ROWS, 'File contains no data rows');
   if (rows.length > MAX_DATA_ROWS) {
-    throw new StaffUploadParseError(`File has too many rows (max ${MAX_DATA_ROWS})`);
+    throw new StaffUploadParseError(
+      ImportFileErrorCode.TOO_MANY_ROWS,
+      `File has too many rows (max ${MAX_DATA_ROWS})`,
+    );
   }
   return rows;
 }

@@ -253,6 +253,25 @@ describe('WorkbookController', () => {
       await expect(controller.download('id', tenant, res)).rejects.toBeInstanceOf(GoneException);
     });
 
+    it('streams a pinned DONE job whose expires_at is in the past', async () => {
+      jobsRepo.findOne.mockResolvedValue(
+        makeJob({
+          status: WorkbookJobStatus.DONE,
+          storage_key: 'k',
+          pinned: true,
+          expires_at: new Date(Date.now() - 31 * 24 * 3600 * 1000),
+        }),
+      );
+      storage.get.mockResolvedValue({
+        body: Readable.from(Buffer.from('x')),
+        contentType: XLSX_MIME,
+      });
+
+      const result = await controller.download('id', tenant, res);
+
+      expect(result).toBeInstanceOf(StreamableFile);
+    });
+
     it('proceeds when expires_at is null (never expires) — proves C3', async () => {
       const job = makeJob({ status: WorkbookJobStatus.DONE, storage_key: 'k', expires_at: null });
       jobsRepo.findOne.mockResolvedValue(job);

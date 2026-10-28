@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CalendarEvent } from './entities/calendar-event.entity';
@@ -11,7 +11,6 @@ import { ImportStagingService } from '../bulk-import/import-staging.service';
 import {
   buildCalendarImportCsvTemplate,
   buildCalendarImportXlsxTemplate,
-  CalendarImportFileError,
   parseCalendarImportFile,
 } from './import/calendar-import-file.util';
 import { validateCalendarImportRow } from './import/calendar-import-rows.util';
@@ -22,7 +21,8 @@ import {
   StagedCalendarImport,
   StagedCalendarImportRow,
 } from './dto/calendar-import.dto';
-import { CalendarImportRowStatus } from '@biddaloy/shared';
+import { CalendarImportRowStatus, ImportFileErrorCode } from '@biddaloy/shared';
+import { ImportFileError } from '../../common/errors/import-file.error';
 import { localToday } from '../attendance/attendance-policy.util';
 
 export interface CalendarImportValidateResult {
@@ -184,15 +184,8 @@ export class CalendarImportService {
     userId: string,
     file: { buffer: Buffer; originalname: string },
   ): Promise<CalendarImportValidateResult> {
-    let rawRows;
-    try {
-      rawRows = await parseCalendarImportFile(file.buffer, file.originalname);
-    } catch (error) {
-      if (error instanceof CalendarImportFileError) {
-        throw new BadRequestException(error.message);
-      }
-      throw error;
-    }
+    // An unreadable file throws ImportFileError; known-errors.ts makes it a 400 with details.code.
+    const rawRows = await parseCalendarImportFile(file.buffer, file.originalname);
 
     // Explicit bound before anything iterates the parsed rows: the upload
     // is size-capped at the dropzone, but a pathological CSV can still pack
@@ -200,8 +193,9 @@ export class CalendarImportService {
     // Checked here, not just at the dropzone, so this stays provably bounded
     // no matter what calls validate() directly.
     if (rawRows.length > MAX_IMPORT_ROWS) {
-      throw new BadRequestException(
-        `File has ${rawRows.length} rows; the maximum is ${MAX_IMPORT_ROWS}`,
+      throw new ImportFileError(
+        ImportFileErrorCode.TOO_MANY_ROWS,
+        `The file has more than ${MAX_IMPORT_ROWS} rows.`,
       );
     }
 

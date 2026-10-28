@@ -30,12 +30,22 @@ export function ApplicantList() {
   const intakesQuery = useIntakes();
 
   const filters: ApplicantFilters = {
+    page: state.page,
+    limit: state.limit,
+    ...(state.filters.search ? { search: state.filters.search } : {}),
     ...(state.filters.intakeId ? { intakeId: state.filters.intakeId } : {}),
     ...(state.filters.status ? { status: state.filters.status as AdmissionApplicantStatus } : {}),
   };
   const applicantsQuery = useApplicants(filters);
 
   const filterFields: readonly FilterFieldDescriptor[] = [
+    {
+      kind: 'text',
+      key: 'search',
+      label: t('list.searchLabel'),
+      placeholder: t('list.searchPlaceholder'),
+      primary: true,
+    },
     {
       kind: 'select',
       key: 'intakeId',
@@ -108,13 +118,13 @@ export function ApplicantList() {
       caption={t('list.caption')}
       filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
       columns={columns}
-      data={applicantsQuery.data ?? []}
+      data={applicantsQuery.data?.data ?? []}
       getRowId={(row) => row.id}
-      sorting={state.sorting}
-      onSortingChange={actions.setSorting}
+      sorting={null}
+      onSortingChange={() => {}}
       page={state.page}
       pageSize={state.limit}
-      totalCount={applicantsQuery.data?.length ?? 0}
+      totalCount={applicantsQuery.data?.total ?? 0}
       onPageChange={actions.setPage}
       onPageSizeChange={actions.setLimit}
       pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}

@@ -1,8 +1,8 @@
 /**
  * The server's single error-response shape, from
- * `server/src/common/filters/error-response.ts`. There is no machine-readable
- * error code field — callers distinguish cases by `message`, which the
- * server keeps stable for exactly this reason.
+ * `server/src/common/filters/error-response.ts`. Some 4xx carry a machine-readable
+ * `details.code` (see `details` below); other cases are told apart by `message`,
+ * which the server keeps stable for exactly this reason.
  *
  * `message` is `string | string[]` because the global `ValidationPipe`
  * (`server/src/validation-pipe.ts`) throws `BadRequestException(string[])`

@@ -251,6 +251,53 @@ export const REGISTRY: DialogEntry[] = [
     done: dialogClosed,
   },
   {
+    name: 'homework reassign',
+    route: '/academics/homework',
+    // [#1013] A homework with one live assignment row; the dialog is prefilled from it.
+    prepare: async (request, session, suffix) => {
+      const year = await currentAcademicYear(request, session);
+      const klass = await post<{ id: string }>(request, session, '/classes', {
+        name: `Dbl hw class ${suffix}`,
+        academic_year_id: year.id,
+      });
+      const section = await post<{ id: string }>(
+        request,
+        session,
+        `/classes/${klass.id}/sections`,
+        { section_name: 'A' },
+      );
+      const subject = await post<{ id: string }>(request, session, '/subjects', {
+        code: `HW${suffix}`.slice(0, 20),
+        name_en: `Dbl hw ${suffix}`,
+      });
+      const homework = await post<{ id: string }>(request, session, '/homework', {
+        class_id: klass.id,
+        subject_id: subject.id,
+        title: `Dbl hw ${suffix}`,
+        grading_mode: 'TICK',
+      });
+      await post(request, session, `/homework/${homework.id}/assign`, {
+        section_id: section.id,
+        assigned_date: '2026-01-01',
+        due_date: '2026-01-08',
+      });
+      return { route: `/academics/homework/${homework.id}` };
+    },
+    open: (page) =>
+      page
+        .getByRole('button', {
+          name: t('homework.detail.assignments.reassign', {
+            target: t('homework.detail.assignments.sectionTarget', { section: 'A' }),
+          }),
+        })
+        .first()
+        .click(),
+    fill: async () => {}, // prefilled from the row
+    submitKey: 'common.actions.save',
+    postUrl: /\/api\/v1\/homework-assignments\/[0-9a-f-]+\/reassign$/,
+    done: dialogClosed,
+  },
+  {
     name: 'student',
     route: '/students/new',
     // [2683] Its own class and section, picked by name: the first option may be another

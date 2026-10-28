@@ -11,7 +11,7 @@
  *    Preview until the preview is re-run (a queued bulk SMS cannot be
  *    recalled).
  */
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatMonthName, formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
@@ -55,7 +55,7 @@ function duesHandler() {
 }
 
 /** Counts and row indices render in the region's numerals. */
-const n = (value: number) => formatNumber(value, REGION_BD_BN);
+const n = (value: number) => formatNumber(value, REGION_BD_EN);
 
 function render() {
   return renderWithRouter(routeTree, {
@@ -211,7 +211,7 @@ describe('bulk reminder wizard', () => {
     await user.click(screen.getByRole('combobox', { name: 'Month' }));
     // The test tenant has no region settings, so month names follow the Bangla default.
     expect(
-      await screen.findByRole('option', { name: formatMonthName(1, REGION_BD_BN) }),
+      await screen.findByRole('option', { name: formatMonthName(1, REGION_BD_EN) }),
     ).toBeTruthy();
     expect(screen.queryByRole('option', { name: '01' })).toBeNull();
   });

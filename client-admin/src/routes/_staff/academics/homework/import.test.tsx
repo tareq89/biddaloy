@@ -1,6 +1,6 @@
 import { File as NodeFile } from 'node:buffer';
 
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
@@ -114,7 +114,7 @@ describe('/academics/homework/import', () => {
     renderImportPage();
     await uploadFile(makeFile('homework.csv'));
 
-    await screen.findByText(`${formatNumber(2, REGION_BD_BN)} homework will be created.`);
+    await screen.findByText(`${formatNumber(2, REGION_BD_EN)} homework will be created.`);
     expect(await screen.findByText('Class 5 · A · Mathematics')).toBeTruthy();
     expect(commitCalled).toBe(false);
 
@@ -124,10 +124,10 @@ describe('/academics/homework/import', () => {
 
     const user = userEvent.setup();
     await user.click(
-      screen.getByRole('button', { name: `Import ${formatNumber(2, REGION_BD_BN)} homework` }),
+      screen.getByRole('button', { name: `Import ${formatNumber(2, REGION_BD_EN)} homework` }),
     );
 
-    await screen.findByText(`${formatNumber(2, REGION_BD_BN)} homework created.`);
+    await screen.findByText(`${formatNumber(2, REGION_BD_EN)} homework created.`);
     expect(commitCalled).toBe(true);
     expect(commitBody).toEqual({ staging_id: 'stage-clean' });
   });
@@ -167,11 +167,11 @@ describe('/academics/homework/import', () => {
     renderImportPage();
     await uploadFile(makeFile('homework.csv'));
 
-    await screen.findByText(`${formatNumber(1, REGION_BD_BN)} homework will be created.`);
+    await screen.findByText(`${formatNumber(1, REGION_BD_EN)} homework will be created.`);
     expect(await screen.findByText('due_date must be a valid date (YYYY-MM-DD)')).toBeTruthy();
 
     const confirmButton = screen.getByRole('button', {
-      name: `Import ${formatNumber(1, REGION_BD_BN)} homework`,
+      name: `Import ${formatNumber(1, REGION_BD_EN)} homework`,
     });
     expect(confirmButton.hasAttribute('disabled')).toBe(true);
     expect(commitCalled).toBe(false);

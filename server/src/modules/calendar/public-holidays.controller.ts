@@ -14,6 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PlatformSuperAdminGuard } from '../auth/guards/platform-super-admin.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -53,6 +54,7 @@ export class PublicHolidaysController {
 
   @AuthenticatedOnly()
   @Get('platform/holiday-sets')
+  @UseGuards(PlatformSuperAdminGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'List every platform public-holiday set. SUPER_ADMIN only.' })
   async listSets() {
@@ -61,6 +63,7 @@ export class PublicHolidaysController {
 
   @AuthenticatedOnly()
   @Get('platform/holiday-sets/:id')
+  @UseGuards(PlatformSuperAdminGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get one platform public-holiday set. SUPER_ADMIN only.' })
   async getSet(@Param('id', ParseUUIDPipe) id: string) {
@@ -69,6 +72,7 @@ export class PublicHolidaysController {
 
   @AuthenticatedOnly()
   @Post('platform/holiday-sets/fetch')
+  @UseGuards(PlatformSuperAdminGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({
     summary:
@@ -80,6 +84,7 @@ export class PublicHolidaysController {
 
   @AuthenticatedOnly()
   @Put('platform/holiday-sets/:id/entries')
+  @UseGuards(PlatformSuperAdminGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: "Replace a holiday set's entries. SUPER_ADMIN only." })
   async updateEntries(
@@ -92,6 +97,7 @@ export class PublicHolidaysController {
 
   @AuthenticatedOnly()
   @Post('platform/holiday-sets/:id/publish')
+  @UseGuards(PlatformSuperAdminGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Publish a holiday set for tenants to import from. SUPER_ADMIN only.' })
   async publish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { sub: string }) {
@@ -100,6 +106,7 @@ export class PublicHolidaysController {
 
   @AuthenticatedOnly()
   @Post('platform/holiday-sets/:id/unpublish')
+  @UseGuards(PlatformSuperAdminGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Unpublish a holiday set. SUPER_ADMIN only.' })
   async unpublish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { sub: string }) {

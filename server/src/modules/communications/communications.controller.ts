@@ -38,6 +38,7 @@ import {
   SendBulkReminderDto,
   QueryReminderBatchesDto,
   QueryReminderBatchLogsDto,
+  QueryCommunicationLogsDto,
 } from './dto/reminders.dto';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
 import { JwtPayload, Permission, RoleScope, roleScope } from '@biddaloy/shared';
@@ -187,6 +188,20 @@ export class CommunicationsController {
     return this.bulkReminderService.findBatch(id, tenant.id);
   }
 
+  // Declared before @Get(':id') — 'logs' would otherwise hit the UUID param route.
+  // BULK_SEND, not LOG_READ: teachers hold LOG_READ and this list is tenant-wide (Rule 2).
+  @Get('logs')
+  @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
+  @ApiOperation({
+    summary: 'Message log — every message this tenant sent, newest first, filter by status.',
+  })
+  findLogs(
+    @Query() query: QueryCommunicationLogsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.bulkReminderService.findLogs(query, tenant.id);
+  }
+
   @Post('send')
   @UseInterceptors(IdempotencyInterceptor)
   @RequirePermissions(Permission.COMMUNICATION_SEND)
@@ -282,7 +297,7 @@ export class CommunicationsController {
     if (this.isTeacher(tenant.role)) {
       // D13: every teacher miss reads exactly like a missing log. D36: a guardian-level log (no
       // student) can be about a sibling outside scope, so a teacher never opens one.
-      const notFound = new NotFoundException(`Communication log with ID "${id}" not found`);
+      const notFound = new NotFoundException('Communication log not found');
       const owner = await this.communicationsService.findOwner(id, tenant.id);
       if (!owner?.student_id) throw notFound;
       await this.familyAccess

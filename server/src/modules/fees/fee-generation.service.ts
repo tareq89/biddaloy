@@ -554,9 +554,10 @@ export class FeeGenerationService {
         if (override?.incident_date) {
           incidentDate = new Date(override.incident_date);
           if (Number.isNaN(incidentDate.getTime())) {
-            throw new BadRequestException(
-              `Invalid incident_date "${override.incident_date}" for student ${pair.student.id}`,
-            );
+            throw new BadRequestException({
+              message: 'Invalid incident_date for one of the selected students',
+              details: { student_id: pair.student.id },
+            });
           }
         }
         const discount = await this.discountResolver.resolve({
@@ -838,7 +839,7 @@ export class FeeGenerationService {
       .getRepository(Program)
       .findOne({ where: { id: dto.program_id, tenant_id: tenantId } });
     if (!program) {
-      throw new NotFoundException(`Program "${dto.program_id}" not found`);
+      throw new NotFoundException('Program not found');
     }
 
     // D17: program audience is ACTIVE-enrolment-only, matching the scheduler
@@ -887,7 +888,7 @@ export class FeeGenerationService {
       where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!academicYear) {
-      throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
 
     const { periodStart, periodEnd } = this.assertPeriodWithinAcademicYear(dto, academicYear);
@@ -901,11 +902,7 @@ export class FeeGenerationService {
       },
     });
     if (fetchedStructures.length !== new Set(dto.fee_structure_ids).size) {
-      const foundIds = new Set(fetchedStructures.map((s) => s.id));
-      const missing = dto.fee_structure_ids.filter((id) => !foundIds.has(id));
-      throw new NotFoundException(
-        `Fee structure(s) not found for this tenant/academic year: ${missing.join(', ')}`,
-      );
+      throw new NotFoundException('One or more fee structures not found for this academic year');
     }
     // `find({ where: { id: In(...) } })` gives no ordering guarantee —
     // `generate()`'s pair-building loop iterates `context.structures`
@@ -931,9 +928,7 @@ export class FeeGenerationService {
       ...(opts.lockStudents ? { lock: { mode: 'pessimistic_read' as const } } : {}),
     });
     if (students.length !== new Set(studentIds).size) {
-      const foundIds = new Set(students.map((s) => s.id));
-      const missing = studentIds.filter((id) => !foundIds.has(id));
-      throw new NotFoundException(`Student(s) not found for this tenant: ${missing.join(', ')}`);
+      throw new NotFoundException('One or more student IDs not found');
     }
 
     const activeStudents = students.filter((s) => s.enrollment_status === EnrollmentStatus.ACTIVE);

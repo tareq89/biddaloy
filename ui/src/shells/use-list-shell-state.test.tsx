@@ -144,6 +144,25 @@ describe('useListShellState', () => {
     expect(router.state.location.searchStr).toContain('class_id=class-9');
   });
 
+  it('strips a legacy ?selected= on a route whose validateSearch does not declare it (#2999)', async () => {
+    const rootRoute = createRootRoute();
+    const tree = rootRoute.addChildren([
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/students',
+        validateSearch: (s: Record<string, unknown>) => ({
+          class_id: typeof s.class_id === 'string' ? s.class_id : undefined,
+        }),
+        component: Probe,
+      }),
+    ]);
+    const { router } = renderWithRouter(tree, {
+      initialEntries: ['/students?selected=s1,s2&class_id=class-9'],
+    });
+    expect(await screen.findByText('class_id: class-9')).toBeTruthy();
+    await waitFor(() => expect(router.state.location.searchStr).not.toContain('selected'));
+  });
+
   it('clearListSelectionMemory() empties the stored selection', async () => {
     const user = userEvent.setup();
     const first = renderWithRouter(buildRouteTree(), { initialEntries: ['/students'] });

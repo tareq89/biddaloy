@@ -206,7 +206,7 @@ describe('ContextGuard', () => {
 
       await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
       await expect(guard.canActivate(context)).rejects.toThrow(
-        'User is not a member of tenant other-tenant',
+        'User is not a member of the requested tenant',
       );
     });
 
@@ -227,7 +227,7 @@ describe('ContextGuard', () => {
 
       await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
       await expect(guard.canActivate(context)).rejects.toThrow(
-        'User is not a member of tenant tenant-1',
+        'User is not a member of the requested tenant',
       );
     });
 
@@ -710,7 +710,7 @@ describe('ContextGuard', () => {
 
       await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
       await expect(guard.canActivate(context)).rejects.toThrow(
-        'User is not a member of tenant other-tenant',
+        'User is not a member of the requested tenant',
       );
     });
 
@@ -767,7 +767,7 @@ describe('ContextGuard', () => {
 
       await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
       await expect(guard.canActivate(context)).rejects.toThrow(
-        'User is not a member of tenant school-b',
+        'User is not a member of the requested tenant',
       );
     });
 
@@ -857,7 +857,7 @@ describe('ContextGuard', () => {
 
       await expect(realGuard.canActivate(context)).rejects.toThrow(UnauthorizedException);
       await expect(realGuard.canActivate(context)).rejects.toThrow(
-        'Tenant not-a-uuid does not exist',
+        'The requested tenant does not exist',
       );
     });
   });

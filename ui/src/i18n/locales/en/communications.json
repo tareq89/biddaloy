@@ -300,5 +300,21 @@
     "reminderMessage": "Yes",
     "bulkBatchName": "Yes",
     "bulkMediums": "Yes, at least one"
+  },
+  "messageLog": {
+    "title": "Message log",
+    "subtitle": "Every message the school sent, newest first.",
+    "tableCaption": "Messages sent",
+    "statusFilterLabel": "Status",
+    "allStatuses": "All statuses",
+    "mediumFilterLabel": "Channel",
+    "allMediums": "All channels",
+    "dateRangeLabel": "Sent",
+    "fromDateLabel": "Sent from",
+    "toDateLabel": "Sent to",
+    "sentHeader": "Sent",
+    "empty": "No messages found.",
+    "emptyHelp": "Try a different status or date range.",
+    "error": "Could not load the message log."
   }
 }

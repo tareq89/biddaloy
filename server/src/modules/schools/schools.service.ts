@@ -99,7 +99,7 @@ export class SchoolsService {
   async findById(id: string): Promise<School> {
     const school = await this.repo.findOne({ where: { id } });
     if (!school) {
-      throw new NotFoundException(`School with ID "${id}" not found`);
+      throw new NotFoundException('School not found');
     }
     return school;
   }
@@ -319,7 +319,7 @@ export class SchoolsService {
         .setLock('pessimistic_write')
         .getOne();
       if (!school) {
-        throw new NotFoundException(`School with ID "${schoolId}" not found`);
+        throw new NotFoundException('School not found');
       }
 
       const oldSnapshot = pickPatchShape(
@@ -736,7 +736,7 @@ export class SchoolsService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!school) {
-        throw new NotFoundException(`School with ID "${schoolId}" not found`);
+        throw new NotFoundException('School not found');
       }
 
       // A manual suspension on top of an ended trial must replace TRIAL_EXPIRED, which opens the

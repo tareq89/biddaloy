@@ -50,11 +50,7 @@ export interface PromotionEntryCardProps {
   isOverride: (entry: PromotionEntry) => boolean;
   noteErrors: ReadonlySet<string>;
   /** The route's placement rule (section · roll, a problem badge, or a dash). */
-  placement: (
-    entry: PromotionEntry,
-    finalOutcome: PromotionOutcome,
-    override: boolean,
-  ) => ReactNode;
+  placement: (entry: PromotionEntry, finalOutcome: PromotionOutcome) => ReactNode;
   config: RegionConfig;
   onOutcome: (entry: PromotionEntry, outcome: PromotionOutcome) => void;
   onGroup: (entry: PromotionEntry, group: string) => void;
@@ -152,15 +148,11 @@ export function PromotionEntryCard({
         </div>
         <div>
           <dt className="text-caption text-text-secondary">{t('grid.columnSuggested')}</dt>
-          <dd className="font-medium">
-            {t(OUTCOME_KEY[entry.suggested_outcome] ?? '')}
-          </dd>
+          <dd className="font-medium">{t(OUTCOME_KEY[entry.suggested_outcome] ?? '')}</dd>
         </div>
         <div className="col-span-2">
           <dt className="text-caption text-text-secondary">{t('grid.columnPlacement')}</dt>
-          <dd className="font-medium">
-            {placement(entry, eff.final_outcome as PromotionOutcome, override)}
-          </dd>
+          <dd className="font-medium">{placement(entry, eff.final_outcome as PromotionOutcome)}</dd>
         </div>
       </dl>
 
@@ -174,7 +166,11 @@ export function PromotionEntryCard({
           className="divide-y divide-border-subtle"
         >
           {(Object.keys(OUTCOME_KEY) as PromotionOutcome[])
-            .filter((outcome) => outcome !== 'CONDITIONAL' || !isGraduationRun)
+            .filter((outcome) =>
+              outcome === 'CONDITIONAL'
+                ? !isGraduationRun
+                : outcome !== 'GRADUATE' || isGraduationRun,
+            )
             .map((outcome) => (
               <label key={outcome} className="flex min-h-11 items-center gap-3">
                 <RadioGroupItem value={outcome} />

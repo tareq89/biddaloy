@@ -10,7 +10,7 @@ vi.mock('../../common/utils/xlsx-guard.util', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../common/utils/xlsx-guard.util')>();
   return { ...actual, assertXlsxWithinLimits: vi.fn(actual.assertXlsxWithinLimits) };
 });
-import { TeacherDesignation, UserRole } from '@biddaloy/shared';
+import { ImportFileErrorCode, TeacherDesignation, UserRole } from '@biddaloy/shared';
 import {
   parseDesignation,
   parseRole,
@@ -72,11 +72,20 @@ describe('parseStaffSpreadsheet', () => {
   });
 
   it('rejects an unsupported extension and a header-only file', async () => {
-    await expect(parseStaffSpreadsheet(Buffer.from(''), 'a.pdf')).rejects.toBeInstanceOf(
-      StaffUploadParseError,
-    );
+    await expect(parseStaffSpreadsheet(Buffer.from(''), 'a.pdf')).rejects.toMatchObject({
+      code: ImportFileErrorCode.UNSUPPORTED_TYPE,
+    });
     const buf = await xlsx([['Name', 'Mobile', 'Email', 'Role', 'Designation']]);
-    await expect(parseStaffSpreadsheet(buf, 'a.xlsx')).rejects.toThrow(/no data rows/);
+    await expect(parseStaffSpreadsheet(buf, 'a.xlsx')).rejects.toMatchObject({
+      code: ImportFileErrorCode.NO_ROWS,
+    });
+  });
+
+  it('does not echo the file extension in the unsupported-type error (Rule 23)', async () => {
+    const err = await parseStaffSpreadsheet(Buffer.from(''), 'a.pdf').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(StaffUploadParseError);
+    expect((err as Error).message).toBe('Unsupported file type — upload .xlsx or .csv');
+    expect((err as Error).message).not.toContain('pdf');
   });
 
   it('keeps a leading zero / plus in a CSV mobile', async () => {

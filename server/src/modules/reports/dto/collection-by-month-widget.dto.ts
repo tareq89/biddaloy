@@ -1,6 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CollectionMonthFigure {
+  @ApiProperty({ example: 2026, description: 'Calendar year of this slot.' })
+  year: number;
+
   @ApiProperty({ minimum: 1, maximum: 12 })
   month: number;
 
@@ -17,7 +20,7 @@ export class CollectionMonthFigure {
 }
 
 export class CollectionByMonthWidgetDto {
-  @ApiProperty({ example: 2026, description: 'School-local year.' })
+  @ApiProperty({ example: 2026, description: 'School-local start year of the range.' })
   year: number;
 
   @ApiProperty({ description: 'Sum of the months up to and including the current one.' })
@@ -35,6 +38,9 @@ export class CollectionByMonthWidgetDto {
   })
   previous_month_same_days_net: number;
 
-  @ApiProperty({ type: [CollectionMonthFigure], description: 'Twelve slots, January to December.' })
+  @ApiProperty({
+    type: [CollectionMonthFigure],
+    description: 'One slot per month of the current academic year (calendar year if none).',
+  })
   months: CollectionMonthFigure[];
 }

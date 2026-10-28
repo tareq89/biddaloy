@@ -234,6 +234,116 @@ describe('/attendance/$sectionId', () => {
     expect(toastSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('sends finalize: true when the register is submitted', async () => {
+    let body: { finalize?: boolean } | null = null;
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(registerBody()),
+      ),
+      http.put('/api/v1/attendance/sections/section-1/register', async ({ request }) => {
+        body = (await request.json()) as { finalize?: boolean };
+        return HttpResponse.json({}, { status: 500 });
+      }),
+    );
+    vi.spyOn(toast, 'error').mockImplementation(() => '');
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByText('Rafi Ahmed'));
+    await user.click(screen.getByText('Nusrat Jahan'));
+    await user.click(screen.getByRole('button', { name: 'Submit attendance' }));
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body!.finalize).toBe(true);
+  });
+
+  it('asks for a reason when one is required, blocks an empty one, and sends it', async () => {
+    const bodies: { reason?: string }[] = [];
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(registerBody({ reason_required: true })),
+      ),
+      http.put('/api/v1/attendance/sections/section-1/register', async ({ request }) => {
+        bodies.push((await request.json()) as { reason?: string });
+        return HttpResponse.json({}, { status: 500 });
+      }),
+    );
+    vi.spyOn(toast, 'error').mockImplementation(() => '');
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByText('Rafi Ahmed'));
+    await user.click(screen.getByText('Nusrat Jahan'));
+    await user.click(screen.getByRole('button', { name: 'Submit attendance' }));
+    expect(await screen.findByText('Write a reason of at least 3 characters.')).toBeTruthy();
+    expect(bodies).toHaveLength(0);
+
+    await user.type(screen.getByLabelText('Why are you changing this register?'), 'late slip');
+    await user.click(screen.getByRole('button', { name: 'Submit attendance' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]!.reason).toBe('late slip');
+  });
+
+  it('shows the reason field for a finalized register even when reason_required is false', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(
+          registerBody({
+            session: {
+              id: 'session-1',
+              date: '2026-09-04',
+              period_no: null,
+              state: 'FINALIZED',
+              version: 1,
+              marked_by_user_id: 'u1',
+              marked_at: '2026-09-04T01:00:00.000Z',
+              finalized_at: '2026-09-04T01:00:00.000Z',
+            },
+          }),
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    expect(await screen.findByLabelText('Why are you changing this register?')).toBeTruthy();
+  });
+
+  it('shows no reason field for an in-window draft register', async () => {
+    server.use(
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json(registerBody()),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/section-1?date=2026-09-04'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await screen.findByRole('button', { name: 'Submit attendance' });
+    expect(screen.queryByLabelText('Why are you changing this register?')).toBeNull();
+  });
+
   it('shows an error state with Retry when the register fails to load', async () => {
     server.use(
       http.get('/api/v1/attendance/sections/section-1/register', () =>

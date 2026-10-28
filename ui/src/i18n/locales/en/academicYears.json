@@ -42,7 +42,17 @@
     "description": "Delete \"{{name}}\"? This cannot be undone.",
     "confirm": "Delete",
     "errorMessage": "Failed to delete academic year",
-    "inUse": "This year is current or still has classes or fee structures, so it can't be deleted."
+    "isCurrent": "This is the current year. Make another year current first.",
+    "inUseKinds": "This year still has {{kinds}}. Remove them first.",
+    "inUseOther": "This year is still used by other records. Remove or move them first.",
+    "kinds": {
+      "classes_count": "classes",
+      "fee_structures_count": "fee structures",
+      "enrollments_count": "enrolments",
+      "exams_count": "exams",
+      "student_fees_count": "bills",
+      "acr_assessments_count": "staff evaluations"
+    }
   },
   "setCurrentDialog": {
     "title": "Set as current academic year",

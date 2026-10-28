@@ -24,6 +24,7 @@ import {
   toast,
 } from '@biddaloy/ui/components';
 import {
+  useCanSendInvoice,
   useHasPermission,
   useInvoiceSendCandidates,
   usePrintInvoice,
@@ -65,7 +66,7 @@ export function CheckoutSuccess({ result, studentIds }: CheckoutSuccessProps) {
   const formatLegendId = React.useId();
   const printInvoice = usePrintInvoice();
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
-  const canSend = useHasPermission(Permission.INVOICE_READ);
+  const canSend = useCanSendInvoice();
 
   const sendInvoice = useSendInvoice(result.invoice_id);
   const [pendingMedium, setPendingMedium] = React.useState<SendInvoiceMedium | null>(null);
@@ -87,7 +88,9 @@ export function CheckoutSuccess({ result, studentIds }: CheckoutSuccessProps) {
         },
         onError: (error) => {
           const message =
-            error instanceof ApiError && error.message.includes('SMS_NO_CREDIT')
+            error instanceof ApiError &&
+            error.statusCode === 409 &&
+            error.details?.code === 'INSUFFICIENT_SMS_CREDIT'
               ? tFees('invoiceDetail.send.smsNoCredit')
               : tFees('invoiceDetail.send.failed');
           toast.error(message);

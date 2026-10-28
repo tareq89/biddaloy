@@ -4,8 +4,9 @@
  * `DataTable`). No export (Epic 8.15 owns that). The route's permission gate lives in
  * `route-permissions.ts`; the student link is gated on `STUDENT_READ` here.
  *
- * Filter state is local (`useState`) so the screen needs no router, and paging
- * happens on the client over the (at most 500) rows the server returns.
+ * Year, class, page and page size live in the URL (`useListShellState`), so a
+ * reload or a copied link keeps them. Paging happens on the client over the
+ * (at most 500) rows the server returns.
  *
  * Data caveat: ADMITTED rows carry no student (applicants aren't linked to
  * one), so their reg. no. is null and renders as a dash.
@@ -24,11 +25,11 @@ import {
   FilterBar,
   PageContainer,
   PageHeader,
+  useListShellState,
   type FilterFieldDescriptor,
 } from '@biddaloy/ui/shells';
 import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { InfoIcon } from 'lucide-react';
-import { useState } from 'react';
 
 /** Server cuts the list at this many rows (`truncated`). */
 const ROW_LIMIT = 500;
@@ -46,9 +47,8 @@ export function AdmissionReports() {
   const { t } = useTranslation('admission-reports');
   const regionConfig = useRegionConfig();
   const canReadStudents = useHasPermission(Permission.STUDENT_READ);
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [state, actions] = useListShellState();
+  const { filters, page, limit: pageSize } = state;
 
   const yearsQuery = useAcademicYears({ limit: 100 });
   const years = yearsQuery.data?.data ?? [];
@@ -152,19 +152,10 @@ export function AdmissionReports() {
       <FilterBar
         fields={filterFields}
         values={filters}
-        onChange={(patch) => {
-          setPage(1);
-          setFilters((prev) => {
-            const next = { ...prev };
-            for (const [k, v] of Object.entries(patch)) {
-              if (v === null) delete next[k];
-              else next[k] = v;
-            }
-            // A class belongs to one year: changing year clears it.
-            if ('academicYearId' in patch) delete next.classId;
-            return next;
-          });
-        }}
+        onChange={(patch) =>
+          // A class belongs to one year: changing year clears it. `setFilters` resets the page.
+          actions.setFilters({ ...patch, ...('academicYearId' in patch ? { classId: null } : {}) })
+        }
       />
       {(counts || reportQuery.isLoading) && (
         <dl
@@ -209,11 +200,8 @@ export function AdmissionReports() {
         page={currentPage}
         pageSize={pageSize}
         totalCount={rows.length}
-        onPageChange={setPage}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-        }}
+        onPageChange={actions.setPage}
+        onPageSizeChange={actions.setLimit}
         pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         rowActions={(r) => [
           {

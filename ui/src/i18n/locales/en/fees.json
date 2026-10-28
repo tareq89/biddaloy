@@ -338,6 +338,10 @@
     "activateConfirmTitle": "Turn this rule back on?",
     "activateConfirmDescription": "Bills will be created again from the next scheduled day.",
     "toggleErrorMessage": "Couldn't change this rule's status. Try again.",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete this rule?",
+    "deleteConfirmDescription": "It stops making new bills. Bills already made stay as they are.",
+    "deleteErrorMessage": "Couldn't delete this rule. Try again.",
     "editNotFound": "That rule no longer exists."
   },
   "recurringFeesTab": {

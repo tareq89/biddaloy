@@ -276,13 +276,12 @@ describe('/promotions/$runId', () => {
     );
     renderRun();
 
-    const outcomeCell = await screen.findByLabelText('Final decision');
-    outcomeCell.focus();
-    await user.keyboard('g');
+    await user.click(await screen.findByRole('combobox', { name: 'Final decision' }));
+    await user.click(await screen.findByRole('option', { name: 'Promote on condition' }));
 
     await waitFor(() =>
       expect(record.patches).toEqual([
-        [{ student_id: 's1', final_outcome: 'GRADUATE', override_note: 'old' }],
+        [{ student_id: 's1', final_outcome: 'CONDITIONAL', override_note: 'old' }],
       ]),
     );
   });
@@ -340,7 +339,9 @@ describe('/promotions/$runId', () => {
 
   // Only the commit endpoint returns these codes — so drive a real commit
   // (Ctrl+Enter → confirm) rather than faking them on the entries PATCH.
-  async function commitAndGetConflict(code: 'STALE_RESULTS' | 'COHORT_CHANGED') {
+  async function commitAndGetConflict(
+    code: 'STALE_RESULTS' | 'COHORT_CHANGED' | 'RETAIN_CLASS_MISSING',
+  ) {
     const user = userEvent.setup();
     stubCommon();
     server.use(
@@ -400,6 +401,14 @@ describe('/promotions/$runId', () => {
     // The toolbar button plus the one the banner now carries.
     expect(screen.getAllByRole('button', { name: 'Update from results' })).toHaveLength(2);
     expect(screen.queryByText('Results changed since this preview — refresh')).toBeNull();
+  });
+
+  it('says a retain class is needed when commit returns RETAIN_CLASS_MISSING (#2924)', async () => {
+    const toastError = vi.spyOn(toast, 'error');
+    await commitAndGetConflict('RETAIN_CLASS_MISSING');
+    expect(toastError).toHaveBeenCalledWith(
+      "No class is set up to retain students who didn't pass — add one first.",
+    );
   });
 
   it('renders a committed run read-only', async () => {
@@ -487,6 +496,38 @@ describe('/promotions/$runId', () => {
     expect(screen.queryByText(/OVER_CAPACITY/)).toBeNull();
   });
 
+  it('shows and blocks on a placement problem of a saved Promote override (#2926)', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    server.use(
+      http.get(RUN_URL, () =>
+        HttpResponse.json(
+          baseRun({
+            entries: [
+              entry({
+                suggested_outcome: 'RETAIN',
+                final_outcome: 'PROMOTE',
+                is_override: true,
+                override_note: 'Parents asked',
+                placement_error: 'OVER_CAPACITY',
+                target_section_id: null,
+              }),
+            ],
+          }),
+        ),
+      ),
+    );
+    renderRun();
+
+    expect(await screen.findByText('No room in any section')).toBeTruthy();
+    await user.click(await screen.findByRole('button', { name: /Finalise/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Fix every placement error before finalising.')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Finalise' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+  });
+
   it('the Finalise button carries no shortcut text and Delete asks before deleting', async () => {
     const user = userEvent.setup();
     stubCommon();
@@ -566,6 +607,21 @@ describe('/promotions/$runId', () => {
     const summary = screen.getByRole('status');
     expect(within(summary).getByText('Promoted ১')).toBeTruthy();
     expect(within(summary).getByText('Graduated ০')).toBeTruthy();
+  });
+
+  it('a normal run has no Graduate option, and the G key does nothing', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    const record = statefulRun();
+    renderRun();
+
+    const cell = await screen.findByRole('combobox', { name: 'Final decision' });
+    cell.focus();
+    await user.keyboard('g');
+    expect(record.patches).toEqual([]);
+    await user.click(cell);
+    expect(await screen.findByRole('option', { name: 'Retain' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Graduate' })).toBeNull();
   });
 
   it('a graduation run does not offer Promote on condition', async () => {
@@ -648,7 +704,7 @@ describe('/promotions/$runId', () => {
       renderRun();
 
       const group = await screen.findByRole('radiogroup', { name: 'Final decision' });
-      expect(within(group).getAllByRole('radio')).toHaveLength(4);
+      expect(within(group).getAllByRole('radio')).toHaveLength(3);
       expect(screen.getByRole('button', { name: 'Previous student' })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Next student' })).toBeTruthy();
     } finally {
@@ -731,7 +787,7 @@ describe('/promotions/$runId', () => {
     renderRun();
 
     await user.click(await screen.findByRole('combobox', { name: 'Final decision' }));
-    await user.click(await screen.findByRole('option', { name: 'Graduate' }));
+    await user.click(await screen.findByRole('option', { name: 'Retain' }));
     const note = await screen.findByRole('textbox', { name: 'Why changed' });
     await waitFor(() => expect(document.activeElement).toBe(note));
   });

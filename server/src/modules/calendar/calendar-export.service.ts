@@ -232,9 +232,10 @@ export class CalendarExportService {
       const found = new Set(sourceEvents.map((e) => e.id));
       const missing = eventIds.filter((id) => !found.has(id));
       if (missing.length > 0) {
-        throw new BadRequestException(
-          `event_ids not found in source year (or HOLIDAY/unpublished): ${missing.join(', ')}`,
-        );
+        throw new BadRequestException({
+          message: 'Some event_ids were not found in the source year, or are HOLIDAY/unpublished',
+          details: { missing_event_ids: missing },
+        });
       }
     }
 

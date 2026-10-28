@@ -135,6 +135,7 @@ import { Route as StaffAttendanceStaffIndexRouteImport } from './routes/_staff/a
 import { Route as StaffAttendanceStaffLeaveRouteImport } from './routes/_staff/attendance/staff/leave'
 import { Route as StaffCommunicationsBatchesIndexRouteImport } from './routes/_staff/communications/batches/index'
 import { Route as StaffCommunicationsBatchesBatchIdRouteImport } from './routes/_staff/communications/batches/$batchId'
+import { Route as StaffCommunicationsMessageLogIndexRouteImport } from './routes/_staff/communications/message-log/index'
 import { Route as StaffExamsSeatPlansIndexRouteImport } from './routes/_staff/exams/seat-plans/index'
 import { Route as StaffExamsSeatPlansPlanIdRouteImport } from './routes/_staff/exams/seat-plans/$planId'
 import { Route as StaffExamsTemplatesIndexRouteImport } from './routes/_staff/exams/templates/index'
@@ -809,6 +810,12 @@ const StaffCommunicationsBatchesBatchIdRoute =
     path: '/communications/batches/$batchId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffCommunicationsMessageLogIndexRoute =
+  StaffCommunicationsMessageLogIndexRouteImport.update({
+    id: '/communications/message-log/',
+    path: '/communications/message-log/',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffExamsSeatPlansIndexRoute =
   StaffExamsSeatPlansIndexRouteImport.update({
     id: '/exams/seat-plans/',
@@ -1022,6 +1029,7 @@ export interface FileRoutesByFullPath {
   '/admissions/reports/': typeof StaffAdmissionsReportsIndexRoute
   '/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
+  '/communications/message-log/': typeof StaffCommunicationsMessageLogIndexRoute
   '/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
   '/exams/templates/': typeof StaffExamsTemplatesIndexRoute
   '/fees/fines/': typeof StaffFeesFinesIndexRoute
@@ -1160,6 +1168,7 @@ export interface FileRoutesByTo {
   '/admissions/reports': typeof StaffAdmissionsReportsIndexRoute
   '/attendance/staff': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
+  '/communications/message-log': typeof StaffCommunicationsMessageLogIndexRoute
   '/exams/seat-plans': typeof StaffExamsSeatPlansIndexRoute
   '/exams/templates': typeof StaffExamsTemplatesIndexRoute
   '/fees/fines': typeof StaffFeesFinesIndexRoute
@@ -1303,6 +1312,7 @@ export interface FileRoutesById {
   '/_staff/admissions/reports/': typeof StaffAdmissionsReportsIndexRoute
   '/_staff/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
+  '/_staff/communications/message-log/': typeof StaffCommunicationsMessageLogIndexRoute
   '/_staff/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
   '/_staff/exams/templates/': typeof StaffExamsTemplatesIndexRoute
   '/_staff/fees/fines/': typeof StaffFeesFinesIndexRoute
@@ -1445,6 +1455,7 @@ export interface FileRouteTypes {
     | '/admissions/reports/'
     | '/attendance/staff/'
     | '/communications/batches/'
+    | '/communications/message-log/'
     | '/exams/seat-plans/'
     | '/exams/templates/'
     | '/fees/fines/'
@@ -1583,6 +1594,7 @@ export interface FileRouteTypes {
     | '/admissions/reports'
     | '/attendance/staff'
     | '/communications/batches'
+    | '/communications/message-log'
     | '/exams/seat-plans'
     | '/exams/templates'
     | '/fees/fines'
@@ -1725,6 +1737,7 @@ export interface FileRouteTypes {
     | '/_staff/admissions/reports/'
     | '/_staff/attendance/staff/'
     | '/_staff/communications/batches/'
+    | '/_staff/communications/message-log/'
     | '/_staff/exams/seat-plans/'
     | '/_staff/exams/templates/'
     | '/_staff/fees/fines/'
@@ -2637,6 +2650,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffCommunicationsBatchesBatchIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/communications/message-log/': {
+      id: '/_staff/communications/message-log/'
+      path: '/communications/message-log'
+      fullPath: '/communications/message-log/'
+      preLoaderRoute: typeof StaffCommunicationsMessageLogIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/exams/seat-plans/': {
       id: '/_staff/exams/seat-plans/'
       path: '/exams/seat-plans'
@@ -2875,6 +2895,7 @@ interface StaffRouteChildren {
   StaffAdmissionsReportsIndexRoute: typeof StaffAdmissionsReportsIndexRoute
   StaffAttendanceStaffIndexRoute: typeof StaffAttendanceStaffIndexRoute
   StaffCommunicationsBatchesIndexRoute: typeof StaffCommunicationsBatchesIndexRoute
+  StaffCommunicationsMessageLogIndexRoute: typeof StaffCommunicationsMessageLogIndexRoute
   StaffExamsSeatPlansIndexRoute: typeof StaffExamsSeatPlansIndexRoute
   StaffExamsTemplatesIndexRoute: typeof StaffExamsTemplatesIndexRoute
   StaffMarksExamIdSectionIdSubjectIdRoute: typeof StaffMarksExamIdSectionIdSubjectIdRoute
@@ -2976,6 +2997,8 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAdmissionsReportsIndexRoute: StaffAdmissionsReportsIndexRoute,
   StaffAttendanceStaffIndexRoute: StaffAttendanceStaffIndexRoute,
   StaffCommunicationsBatchesIndexRoute: StaffCommunicationsBatchesIndexRoute,
+  StaffCommunicationsMessageLogIndexRoute:
+    StaffCommunicationsMessageLogIndexRoute,
   StaffExamsSeatPlansIndexRoute: StaffExamsSeatPlansIndexRoute,
   StaffExamsTemplatesIndexRoute: StaffExamsTemplatesIndexRoute,
   StaffMarksExamIdSectionIdSubjectIdRoute:

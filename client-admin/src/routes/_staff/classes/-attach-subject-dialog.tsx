@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@biddaloy/ui/components';
-import { useAttachClassSubject, useSubjects } from '@biddaloy/ui/hooks';
+import { useAllSubjects, useAttachClassSubject } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -41,7 +41,7 @@ export function AttachSubjectDialog({
   onSaved,
 }: AttachSubjectDialogProps) {
   const { t, i18n } = useTranslation('classes');
-  const subjectsQuery = useSubjects({ is_active: true, limit: 100 });
+  const subjectsQuery = useAllSubjects({ is_active: true });
   const attachSubject = useAttachClassSubject(classId, academicYearId);
 
   const [subjectId, setSubjectId] = React.useState<string | null>(null);
@@ -56,7 +56,7 @@ export function AttachSubjectDialog({
   );
 
   const excluded = new Set(excludeSubjectIds);
-  const subjectOptions = (subjectsQuery.data?.data ?? [])
+  const subjectOptions = (subjectsQuery.data ?? [])
     .filter((subject) => !excluded.has(subject.id))
     .map((subject) => ({
       value: subject.id,
@@ -99,6 +99,18 @@ export function AttachSubjectDialog({
                 placeholder={t('subjectAttachForm.subjectPlaceholder')}
               />
             </Field>
+            {subjectsQuery.isError && (
+              <div className="flex items-center gap-2">
+                <ErrorText>{t('subjectAttachForm.loadError')}</ErrorText>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void subjectsQuery.refetch()}
+                >
+                  {t('actions.retry', { ns: 'common' })}
+                </Button>
+              </div>
+            )}
 
             <div className="flex min-h-11 items-center gap-2 md:min-h-8">
               <Checkbox

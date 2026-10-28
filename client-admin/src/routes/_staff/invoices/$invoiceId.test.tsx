@@ -1,3 +1,4 @@
+import { toast } from '@biddaloy/ui/components';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -14,11 +15,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
-function renderDetail() {
+function renderDetail(role = 'ACCOUNTANT') {
   return renderWithRouter(routeTree, {
     initialEntries: ['/invoices/invoice-1'],
     tenantId: 'tenant-1',
-    role: 'ACCOUNTANT',
+    role,
     locale: 'en',
   });
 }
@@ -385,6 +386,60 @@ describe('/invoices/$invoiceId', () => {
 
     await waitFor(() => expect(sentBody).toEqual({ medium: 'WHATSAPP' }));
     expect(screen.queryByText('Pick a guardian')).toBeNull();
+  });
+
+  it('hides the Send and Share cards and skips the shares request for OFFICE_STAFF', async () => {
+    const guardian = guardianFactory({ id: 'guardian-1', notifications_enabled: true });
+    const student = studentFactory({ guardians: [guardian] });
+    const invoice = invoiceFactory({ id: 'invoice-1', student, student_id: student.id });
+    let sharesRequested = false;
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.get('/api/v1/invoices/:id/share', () => {
+        sharesRequested = true;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    renderDetail('OFFICE_STAFF');
+
+    await screen.findByRole('heading', { level: 1, name: invoice.invoice_number });
+    expect(screen.queryByRole('button', { name: 'WhatsApp' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Create share link' })).toBeNull();
+    expect(sharesRequested).toBe(false);
+  });
+
+  it('shows the out-of-credit toast when the send is refused for SMS credit (409 INSUFFICIENT_SMS_CREDIT)', async () => {
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const guardian = guardianFactory({ id: 'guardian-1', notifications_enabled: true });
+    const student = studentFactory({ guardians: [guardian] });
+    const invoice = invoiceFactory({ id: 'invoice-1', student, student_id: student.id });
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.post('/api/v1/invoices/:id/send', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'Insufficient SMS credit to send this invoice.',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/invoices/invoice-1/send',
+            requestId: 'req-1',
+            details: { code: 'INSUFFICIENT_SMS_CREDIT', required: 1, available: 0 },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderDetail();
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'WhatsApp' }));
+
+    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith('This school is out of SMS credit.'));
+    toastSpy.mockRestore();
   });
 
   it('opens a guardian picker and sends with the chosen guardian_id when there are 2+ reachable guardians', async () => {

@@ -103,6 +103,53 @@ describe('FeesSection', () => {
     expect(patchBody.mock.calls[0]![0].fees.requireSecondApprover).toBe(false);
   });
 
+  it('shows the loaded fine due days and sends the changed value in the PATCH', async () => {
+    const patchBody = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        patchBody(await request.json());
+        return HttpResponse.json({ version: 1 });
+      }),
+    );
+
+    const { user } = renderWithProviders(
+      <FeesSection schoolId={SCHOOL_ID} fees={{ ...FEES, fineDueDays: 10 }} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const input = await screen.findByLabelText('Fine due after (days)');
+    expect(inputValue(input)).toBe('10');
+    await user.clear(input);
+    await user.type(input, '14');
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(patchBody).toHaveBeenCalled());
+    expect(patchBody.mock.calls[0]![0].fees.fineDueDays).toBe(14);
+  });
+
+  it.each(['0', '61'])('refuses fine due days of %s and sends no PATCH', async (bad) => {
+    const patchBody = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        patchBody(await request.json());
+        return HttpResponse.json({ version: 1 });
+      }),
+    );
+
+    const { user } = renderWithProviders(
+      <FeesSection schoolId={SCHOOL_ID} fees={{ ...FEES, fineDueDays: 7 }} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const input = await screen.findByLabelText('Fine due after (days)');
+    await user.clear(input);
+    await user.type(input, bad);
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(input.getAttribute('aria-invalid')).toBe('true'));
+    expect(patchBody).not.toHaveBeenCalled();
+  });
+
   it('adding a late-fee config that gets a 403 APPROVAL_REQUIRED surfaces as a save error, not silently dropped', async () => {
     server.use(
       http.patch('/api/v1/schools/:id/settings', () =>

@@ -3,9 +3,9 @@ import { toCsvContent } from '@biddaloy/shared';
 import {
   buildCalendarImportCsvTemplate,
   buildCalendarImportXlsxTemplate,
-  CalendarImportFileError,
   parseCalendarImportFile,
 } from './calendar-import-file.util';
+import { ImportFileError } from '../../../common/errors/import-file.error';
 import { CALENDAR_IMPORT_COLUMNS } from './calendar-import-rows.util';
 import { XLSX_TOO_LARGE_MESSAGE } from '../../../common/utils/xlsx-guard.util';
 
@@ -85,18 +85,19 @@ describe('calendar-import-file.util (17.3.1)', () => {
     ]);
     await expect(
       parseCalendarImportFile(Buffer.from(csv, 'utf8'), 'bad.csv'),
-    ).rejects.toBeInstanceOf(CalendarImportFileError);
+    ).rejects.toBeInstanceOf(ImportFileError);
   });
 
   it('rejects an unsupported file extension', async () => {
-    await expect(parseCalendarImportFile(Buffer.from(''), 'file.txt')).rejects.toBeInstanceOf(
-      CalendarImportFileError,
-    );
+    // The code is what the client maps to its own text (#3042).
+    await expect(parseCalendarImportFile(Buffer.from(''), 'file.txt')).rejects.toMatchObject({
+      code: 'IMPORT_FILE_UNSUPPORTED_TYPE',
+    });
   });
 
   it('rejects an empty file', async () => {
     await expect(parseCalendarImportFile(Buffer.from(''), 'empty.csv')).rejects.toBeInstanceOf(
-      CalendarImportFileError,
+      ImportFileError,
     );
   });
 });

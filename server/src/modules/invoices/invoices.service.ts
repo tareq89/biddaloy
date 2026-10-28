@@ -191,13 +191,11 @@ export class InvoicesService {
       ],
     });
     if (!payment) {
-      throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
+      throw new NotFoundException('Payment not found');
     }
     assertInvoiceable(payment);
     if (!payment.allocations || payment.allocations.length === 0) {
-      throw new BadRequestException(
-        `Payment "${paymentId}" has no allocations to build an invoice from`,
-      );
+      throw new BadRequestException('This payment has no allocations to build an invoice from');
     }
 
     // [15.5.5] Frozen at the moment of issue — same reasoning as
@@ -267,7 +265,7 @@ export class InvoicesService {
       where: { id: paymentId, tenant_id: tenantId },
     });
     if (!payment) {
-      throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
+      throw new NotFoundException('Payment not found');
     }
     // Before the idempotent "already invoiced" return: a payment invoiced
     // and later reversed must 409, not hand back its stale invoice.
@@ -331,7 +329,7 @@ export class InvoicesService {
       where: { payment_id: paymentId, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
     });
     if (!original) {
-      throw new NotFoundException(`No invoice found for payment "${paymentId}" to reverse`);
+      throw new NotFoundException('No invoice found for this payment to reverse');
     }
 
     const creditNoteNumber = await generateCreditNoteNumber(manager, original.tenant_id);
@@ -369,7 +367,7 @@ export class InvoicesService {
       withDeleted: true,
     });
     if (!invoice) {
-      throw new NotFoundException(`Invoice with ID "${id}" not found`);
+      throw new NotFoundException('Invoice not found');
     }
     // [15.5.5] `resolveIssuer` falls back to the live school profile for
     // any invoice created before this feature (null `issuer_snapshot`).
@@ -473,7 +471,7 @@ export class InvoicesService {
       withDeleted: true,
     });
     if (!invoice) {
-      throw new NotFoundException(`Invoice with ID "${id}" not found`);
+      throw new NotFoundException('Invoice not found');
     }
 
     // [15.5.7] live school profile is `resolveIssuer`'s fallback.

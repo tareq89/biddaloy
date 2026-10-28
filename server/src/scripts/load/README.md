@@ -6,4 +6,4 @@ Manual only, throwaway database only, never in CI.
 - `run-dashboard-load.ts` exercises the endpoints of each role's default layout with 50 users by default and prints p95 by phase, role and endpoint against 300 ms. A route that answers 404 fails the run.
 
 The run guide (diagram, exact commands, how to read the table) is
-[`docs/architecture/26-dashboard-load-test.md`](../../../../docs/architecture/26-dashboard-load-test.md).
+[`docs/architecture/37-dashboard-load-test.md`](../../../../docs/architecture/37-dashboard-load-test.md).

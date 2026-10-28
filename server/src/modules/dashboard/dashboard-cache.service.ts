@@ -1,13 +1,22 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type Redis from 'ioredis';
-import type { DashboardWidgetKey } from '@biddaloy/shared';
+import { DashboardWidgetKey } from '@biddaloy/shared';
 import { TENANT_STATUS_REDIS } from '../schools/tenant-status.service';
 
 export const DASHBOARD_CACHE_TTL_SECONDS = 60;
 
 /**
+ * Cache-key version per widget. Bump a widget's number when its cached payload
+ * changes shape, so a deploy never serves the old shape. A widget not listed is v1.
+ */
+const WIDGET_CACHE_VERSION: Partial<Record<DashboardWidgetKey, number>> = {
+  // #2941 added months[].year (#3032).
+  [DashboardWidgetKey.COLLECTION_BY_MONTH]: 2,
+};
+
+/**
  * 60-second widget cache on the shared fail-fast Redis client
- * (`TENANT_STATUS_REDIS`, global). Keys are `tenant:<id>:dash:v1:<widget>:<scope>` (bump `v1` when a cached payload changes shape);
+ * (`TENANT_STATUS_REDIS`, global). Keys are `tenant:<id>:dash:v<n>:<widget>:<scope>`; `<n>` comes from `WIDGET_CACHE_VERSION` (bump a widget's entry when its cached payload changes shape);
  * `scope` is chosen by the caller (`school`, `user:<id>`, `section:<id>`), so a
  * per-user or per-section widget never leaks to another user or tenant.
  *
@@ -21,7 +30,7 @@ export class DashboardCacheService {
   constructor(@Inject(TENANT_STATUS_REDIS) private readonly redis: Redis) {}
 
   key(tenantId: string, widget: DashboardWidgetKey, scope: string): string {
-    return `tenant:${tenantId}:dash:v1:${widget}:${scope}`;
+    return `tenant:${tenantId}:dash:v${WIDGET_CACHE_VERSION[widget] ?? 1}:${widget}:${scope}`;
   }
 
   async getOrLoad<T>(

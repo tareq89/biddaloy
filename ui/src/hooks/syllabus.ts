@@ -1,10 +1,13 @@
-import type { SyllabusTopicStatus } from '@biddaloy/shared';
+import { hasTenantScope, Permission, UserRole, type SyllabusTopicStatus } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 
+import { useActiveRole, useCurrentUserId } from './auth-state';
+import { useHasPermission } from './permissions';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
+import { teachersQueryOptions, useTeacherAssignments } from './teachers';
 
 // TODO(schema): swap for components['schemas'][...] once schema.d.ts is
 // regenerated for 22.3.4 — same reasoning as ui/src/hooks/homework.ts.
@@ -127,4 +130,31 @@ export function useReorderSyllabusTopics() {
       void queryClient.invalidateQueries({ queryKey: syllabusTopicKeys.lists() });
     },
   });
+}
+
+/**
+ * Client mirror of the server's `assertCanWrite` (syllabus.service.ts): SYLLABUS_MANAGE, and a
+ * TEACHER only for a class x subject they hold a SUBJECT_TEACHER row for. Tenant-scope roles
+ * (admins) write everywhere. False while the teacher's assignments load. Display only; the
+ * server (403 SYLLABUS_OUT_OF_SCOPE) is the real boundary.
+ */
+export function useCanWriteSyllabus(classId: string, subjectId: string): boolean {
+  const canManage = useHasPermission(Permission.SYLLABUS_MANAGE);
+  const role = useActiveRole();
+  const userId = useCurrentUserId();
+  const isTeacher = role === UserRole.TEACHER;
+  const teacherQuery = useQuery({
+    ...teachersQueryOptions({ user_id: userId ?? '', limit: 1 }),
+    enabled: isTeacher && userId !== null,
+  });
+  const assignments = useTeacherAssignments(teacherQuery.data?.data[0]?.id);
+  if (!canManage) return false;
+  if (hasTenantScope(role)) return true;
+  if (!isTeacher) return false;
+  return (assignments.data ?? []).some(
+    (a) =>
+      a.assignment_type === 'SUBJECT_TEACHER' &&
+      a.class_id === classId &&
+      a.subject_id === subjectId,
+  );
 }

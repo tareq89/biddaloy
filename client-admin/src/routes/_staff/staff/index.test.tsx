@@ -297,6 +297,51 @@ describe('/staff', () => {
     );
   });
 
+  it('[#2865] promote dialog searches members on the server, so a member beyond the first 100 can be picked', async () => {
+    const first = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
+    const far = userResponseFactory({ id: 'user-999', full_name: 'Zakir Hossain' });
+    const searches: (string | null)[] = [];
+    let postBody: unknown = null;
+    server.use(
+      http.get('/api/v1/users', ({ request }) => {
+        const search = new URL(request.url).searchParams.get('search');
+        searches.push(search);
+        // `far` is only ever returned by a search for it.
+        return HttpResponse.json(paginated(search === 'Zakir' ? [far] : [first]));
+      }),
+      http.get('/api/v1/users/:id', ({ params }) =>
+        HttpResponse.json(params.id === 'user-999' ? far : first),
+      ),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+      http.post('/api/v1/teachers', async ({ request }) => {
+        postBody = await request.json();
+        return HttpResponse.json(teacherFactory(), { status: 201 });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Give teacher profile' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Give a teacher profile' });
+    const picker = within(dialog).getByRole('combobox', { name: 'Member' });
+    await user.click(picker);
+    await user.type(picker, 'Zakir');
+
+    await waitFor(() => expect(searches).toContain('Zakir'));
+    await user.click(await screen.findByRole('option', { name: 'Zakir Hossain' }));
+    // The chosen name stays in the input after the search text is cleared.
+    await waitFor(() => expect(picker.getAttribute('value')).toBe('Zakir Hossain'));
+
+    await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-99');
+    await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
+    await waitFor(() => expect(postBody).toMatchObject({ user_id: 'user-999' }));
+  });
+
   it('promote dialog tells an already-promoted member apart by details.code', async () => {
     const member = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
     server.use(
@@ -326,6 +371,7 @@ describe('/staff', () => {
     const picker = within(dialog).getByRole('combobox', { name: 'Member' });
     await user.click(picker);
     await user.type(picker, 'Abdul');
+    await screen.findByRole('option', { name: 'Abdul Karim' });
     await user.keyboard('{ArrowDown}{Enter}');
     await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-42');
     await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
@@ -364,6 +410,7 @@ describe('/staff', () => {
     const picker = within(dialog).getByRole('combobox', { name: 'Member' });
     await user.click(picker);
     await user.type(picker, 'Abdul');
+    await screen.findByRole('option', { name: 'Abdul Karim' });
     await user.keyboard('{ArrowDown}{Enter}');
     await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-42');
     await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
@@ -401,6 +448,7 @@ describe('/staff', () => {
     const picker = within(dialog).getByRole('combobox', { name: 'Member' });
     await user.click(picker);
     await user.type(picker, 'Abdul');
+    await screen.findByRole('option', { name: 'Abdul Karim' });
     await user.keyboard('{ArrowDown}{Enter}');
     await user.type(within(dialog).getByLabelText('Employee ID'), 'EMP-42');
     await user.click(within(dialog).getByRole('button', { name: 'Give teacher profile' }));
@@ -431,6 +479,7 @@ describe('/staff', () => {
     await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText(/^Full name/), 'New Person');
+    await user.type(within(dialog).getByLabelText(/^Email/), 'dup@example.com');
     await user.click(within(dialog).getByRole('combobox', { name: /^Role/ }));
     await user.click(await screen.findByRole('option', { name: /^Accountant/ }));
     await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
@@ -637,7 +686,7 @@ describe('/staff', () => {
     await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale.
-    await user.click(await screen.findByRole('option', { name: '৫০' }));
+    await user.click(await screen.findByRole('option', { name: '50' }));
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 50, page: 1 }));
   });
@@ -811,7 +860,40 @@ describe('/staff', () => {
     expect(
       within(dialog).getByRole('combobox', { name: /^Role/ }).getAttribute('aria-invalid'),
     ).toBe('true');
-    expect(within(dialog).getAllByRole('alert')).toHaveLength(2);
+    // Name, role and (with no email or phone) the contact.
+    expect(within(dialog).getAllByRole('alert')).toHaveLength(3);
+  });
+
+  it('[#2864] add-user dialog asks for an email or phone and sends no request without one', async () => {
+    let posts = 0;
+    server.use(
+      http.get('/api/v1/users', () => HttpResponse.json(paginated([userResponseFactory()]))),
+      http.post('/api/v1/users', () => {
+        posts += 1;
+        return HttpResponse.json(userResponseFactory(), { status: 201 });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add staff member' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^Full name/), 'New Person');
+    await user.click(within(dialog).getByRole('combobox', { name: /^Role/ }));
+    await user.click(await screen.findByRole('option', { name: /^Accountant/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
+
+    expect(
+      await within(dialog).findByText(
+        'Enter an email or a phone number so we can send the invitation.',
+      ),
+    ).toBeTruthy();
+    expect(posts).toBe(0);
   });
 
   // [13.5.9] Former members.

@@ -1,4 +1,10 @@
-import { adminApiSession, createClassSection, createTeacherForSection, post } from '../api';
+import {
+  adminApiSession,
+  createClassSection,
+  createTeacherForSection,
+  currentAcademicYear,
+  post,
+} from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { selectByTypeahead, tabUntilFocused } from './keyboard-utils';
@@ -24,7 +30,12 @@ test.use(loggedIn('admin'));
 
 test('keyboard-only: filter by class, then unassign a teacher', async ({ page, request }) => {
   const session = await adminApiSession(request);
-  const chain = await createClassSection(request, session);
+  // The class picker lists only the current academic year's classes (#2867).
+  const chain = await createClassSection(
+    request,
+    session,
+    await currentAcademicYear(request, session),
+  );
   const teacher = await createTeacherForSection(request, session, 'Keyboard Teacher', chain);
   await post(request, session, `/classes/${chain.classId}/sections/${chain.sectionId}/teachers`, {
     teacher_id: teacher.teacherId,

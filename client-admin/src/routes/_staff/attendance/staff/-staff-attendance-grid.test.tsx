@@ -1,6 +1,6 @@
 import { AttendanceStatus } from '@biddaloy/shared';
-import type { StaffUser } from '@biddaloy/ui/hooks';
-import { cleanupTestState, renderWithProviders, userResponseFactory } from '@biddaloy/ui/test';
+import type { StaffAttendanceRosterRow } from '@biddaloy/ui/hooks';
+import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -13,8 +13,16 @@ afterEach(async () => {
   await cleanupTestState();
 });
 
-function staffWithProfile(overrides: Partial<StaffUser> & { staff_profile_id: string }): StaffUser {
-  return { ...userResponseFactory(overrides), ...overrides };
+function staffWithProfile(
+  overrides: Partial<StaffAttendanceRosterRow> & { staff_profile_id: string },
+): StaffAttendanceRosterRow {
+  return {
+    user_id: 'user-x',
+    full_name: 'Staff',
+    role: 'TEACHER',
+    status: null,
+    ...overrides,
+  };
 }
 
 describe('StaffAttendanceGrid', () => {
@@ -22,8 +30,8 @@ describe('StaffAttendanceGrid', () => {
     const user = userEvent.setup();
     const onStatusChange = vi.fn();
     const staff = [
-      staffWithProfile({ id: 'user-1', staff_profile_id: 'profile-1', full_name: 'Karim' }),
-      staffWithProfile({ id: 'user-2', staff_profile_id: 'profile-2', full_name: 'Rahima' }),
+      staffWithProfile({ user_id: 'user-1', staff_profile_id: 'profile-1', full_name: 'Karim' }),
+      staffWithProfile({ user_id: 'user-2', staff_profile_id: 'profile-2', full_name: 'Rahima' }),
     ];
 
     const { localeReady } = renderWithProviders(
@@ -44,8 +52,8 @@ describe('StaffAttendanceGrid', () => {
   it('Tab moves focus across rows in DOM order (native tab order, no roving tabindex)', async () => {
     const user = userEvent.setup();
     const staff = [
-      staffWithProfile({ id: 'user-1', staff_profile_id: 'profile-1', full_name: 'Karim' }),
-      staffWithProfile({ id: 'user-2', staff_profile_id: 'profile-2', full_name: 'Rahima' }),
+      staffWithProfile({ user_id: 'user-1', staff_profile_id: 'profile-1', full_name: 'Karim' }),
+      staffWithProfile({ user_id: 'user-2', staff_profile_id: 'profile-2', full_name: 'Rahima' }),
     ];
 
     const { localeReady } = renderWithProviders(
@@ -66,7 +74,7 @@ describe('StaffAttendanceGrid', () => {
     const onStatusChange = vi.fn();
     const staff = [
       staffWithProfile({
-        id: 'user-1',
+        user_id: 'user-1',
         staff_profile_id: 'profile-1',
         full_name: 'Karim',
         role: 'TEACHER',
@@ -97,7 +105,7 @@ describe('StaffAttendanceGrid', () => {
     const user = userEvent.setup();
     const onStatusChange = vi.fn();
     const staff = [
-      staffWithProfile({ id: 'user-1', staff_profile_id: 'profile-1', full_name: 'Karim' }),
+      staffWithProfile({ user_id: 'user-1', staff_profile_id: 'profile-1', full_name: 'Karim' }),
     ];
     const { localeReady } = renderWithProviders(
       <StaffAttendanceGrid
@@ -119,13 +127,13 @@ describe('StaffAttendanceGrid', () => {
   it('shows the role caption under the name and counts that follow the draft', async () => {
     const staff = [
       staffWithProfile({
-        id: 'user-1',
+        user_id: 'user-1',
         staff_profile_id: 'profile-1',
         full_name: 'Karim',
         role: 'TEACHER',
       }),
       staffWithProfile({
-        id: 'user-2',
+        user_id: 'user-2',
         staff_profile_id: 'profile-2',
         full_name: 'Rahima',
         role: 'TEACHER',
@@ -147,21 +155,5 @@ describe('StaffAttendanceGrid', () => {
     expect(screen.getByText('Leave 1')).toBeTruthy();
     expect(screen.getByText('Unmarked 1')).toBeTruthy();
     expect(screen.getByText('Present 0')).toBeTruthy();
-  });
-
-  it('skips a user with no staff profile id (never crashes, never renders a row for them)', async () => {
-    const staff = [
-      staffWithProfile({ id: 'user-1', staff_profile_id: 'profile-1', full_name: 'Karim' }),
-      { ...userResponseFactory({ id: 'user-2', full_name: 'No Profile' }) },
-    ] as StaffUser[];
-
-    const { localeReady } = renderWithProviders(
-      <StaffAttendanceGrid staff={staff} draft={{}} onStatusChange={vi.fn()} />,
-      { locale: 'en', tenantId: 'tenant-1' },
-    );
-    await localeReady;
-
-    expect(await screen.findByRole('button', { name: 'Karim' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'No Profile' })).toBeNull();
   });
 });
