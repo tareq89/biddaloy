@@ -16,6 +16,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import { useExamProgress, useProcessResults } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -52,7 +53,10 @@ export function ProcessDialog({ open, onOpenChange, examId }: ProcessDialogProps
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
-          <DialogTitle>{t('processDialog.title')}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('processDialog.title')}</DialogTitle>
+            <HelpHint helpId="examsResults.results.action.process" />
+          </div>
           <DialogDescription>{t('processDialog.description')}</DialogDescription>
         </DialogHeader>
 

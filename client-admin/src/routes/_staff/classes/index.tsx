@@ -214,6 +214,7 @@ function ClassesListPage() {
         actions={[
           {
             id: 'add',
+            helpId: 'academics.classes.action.add',
             label: t('list.addClass'),
             icon: <PlusIcon aria-hidden="true" />,
             priority: 'primary',

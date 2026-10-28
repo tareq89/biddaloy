@@ -29,6 +29,27 @@ describe('/invoices/$invoiceId', () => {
     await cleanupTestState();
   });
 
+  // [44.4 / #3014] The (?) beside the Print and Send cards (finance.invoices.action.*).
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(
+        http.get('/api/v1/invoices/:id', () =>
+          HttpResponse.json(invoiceFactory({ id: 'invoice-1' })),
+        ),
+      );
+      renderDetail();
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.invoices.action.print"]'),
+        ).not.toBeNull(),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('renders the invoice number, student, status, amounts and dates', async () => {
     const invoice = invoiceFactory({
       id: 'invoice-1',

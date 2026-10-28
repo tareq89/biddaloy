@@ -1,4 +1,4 @@
-import { Button } from '@biddaloy/ui/components';
+import { Button, HelpHint } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { CreditCardIcon, PhoneIcon, PrinterIcon, RotateCwIcon } from 'lucide-react';
 
@@ -81,10 +81,13 @@ export function AdmitCardPanel({
         <span className="font-semibold">{t('examSchedule.admitCard.ready')}</span>{' '}
         {t('examSchedule.admitCard.readyHelp')}
       </p>
-      <Button onClick={onPrint} loading={busy} className="min-h-11 w-full md:w-auto md:shrink-0">
-        <PrinterIcon aria-hidden="true" />
-        {t('examSchedule.admitCard.print')}
-      </Button>
+      <div className="flex items-center gap-1 md:shrink-0">
+        <Button onClick={onPrint} loading={busy} className="min-h-11 w-full md:w-auto">
+          <PrinterIcon aria-hidden="true" />
+          {t('examSchedule.admitCard.print')}
+        </Button>
+        <HelpHint helpId="portal.examSchedule.action.printAdmitCard" />
+      </div>
     </div>
   );
 }

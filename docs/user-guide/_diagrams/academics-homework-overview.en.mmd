@@ -1,0 +1,12 @@
+%% title: Homework: from creating it to a section
+%% desc: An admin or teacher picks a class and subject and creates the homework. Then it is given to a section or to one student, with an assigned date and a due date. The same homework can later be given to more sections. Students and guardians see it on their own pages.
+flowchart LR
+  T["Teacher or<br/>admin"]:::teacher --> H["Homework<br/>class + subject"]:::teacher
+  H --> S["Give to a section"]:::teacher
+  H --> P["Give to one student"]:::teacher
+  S --> G["Students and<br/>guardians see it"]:::guardian
+  P --> G
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

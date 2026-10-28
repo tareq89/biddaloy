@@ -1,0 +1,11 @@
+%% title: When a ready-made curriculum can be added
+%% desc: When the page opens, the app looks at the school. If a curriculum was added before, it shows what was created. If there is an academic year, class, subject, student, exam, grading scale or exam structure, one cannot be added. In a brand-new school, choose a curriculum, set the options and type the name to confirm, and everything is created at once. You cannot undo it yourself; only a platform administrator can undo it, and only while the school has no working data.
+flowchart TD
+  O["Open Ready-made curriculum"]:::admin --> Q{"What does the school<br/>already have?"}:::note
+  Q -->|"already added"| AP["Curriculum applied<br/>list of what was created"]
+  Q -->|"classes, subjects, students<br/>or exams exist"| CU["Cannot be added any more<br/>carry on in your own way"]
+  Q -->|"nothing"| P["Choose · options<br/>type the name to confirm"]:::admin
+  P --> C["Academic year, classes, subjects,<br/>grading, exam templates created"]
+  C --> R["You cannot undo it yourself<br/>only a platform administrator undoes it"]:::note
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

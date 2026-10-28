@@ -1,0 +1,12 @@
+%% title: Where alerts come from and go
+%% desc: The school's rules create alerts on their own. An alert shows in the dashboard summary, on the bell and in the To-do list of the Alerts and notifications page. When the work is done the alert becomes Fixed and moves to History.
+flowchart LR
+  R["School rules"]:::sys --> A["Alert"]:::sys
+  A --> D["Dashboard summary"]:::teacher
+  A --> T["To-do"]:::teacher
+  A -.-> N["Push notification"]:::sys
+  T --> W["Work done"]:::admin
+  W --> H["History"]:::sys
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef sys fill:#f1f3f5,stroke:#868e96,color:#343a40

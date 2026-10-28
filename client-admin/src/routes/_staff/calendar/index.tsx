@@ -274,6 +274,7 @@ function CalendarPage() {
           },
           {
             id: 'import',
+            helpId: 'people.calendar.action.import',
             label: tImport('toolbar.import'),
             icon: <UploadIcon />,
             priority: 'secondary',
@@ -282,6 +283,7 @@ function CalendarPage() {
           },
           {
             id: 'add',
+            helpId: 'people.calendar.action.addEvent',
             label: t('page.addEvent'),
             icon: <PlusIcon />,
             priority: 'primary',

@@ -7,6 +7,7 @@ import {
   PushOptInCard,
   RoutePending,
   Skeleton,
+  HelpHint,
   StatusBadge,
   StudentPicker,
   toast,
@@ -334,16 +335,19 @@ function PortalFees() {
           the same rule itself (it renders nothing below two items), so a
           guardian of one child sees no switching UI either way. */}
       {students.length > 1 && (
-        <StudentPicker
-          label={t('fees.pickerLabel')}
-          items={students.map((student) => ({
-            id: student.id,
-            name: student.full_name,
-            meta: studentMeta(student),
-          }))}
-          selectedId={selected.id}
-          to="/portal/fees"
-        />
+        <div className="flex items-center gap-1">
+          <StudentPicker
+            label={t('fees.pickerLabel')}
+            items={students.map((student) => ({
+              id: student.id,
+              name: student.full_name,
+              meta: studentMeta(student),
+            }))}
+            selectedId={selected.id}
+            to="/portal/fees"
+          />
+          <HelpHint helpId="portal.fees.action.pickStudent" />
+        </div>
       )}
       <div className="grid gap-6 md:grid-cols-3 md:items-start">
         <div className="min-w-0 space-y-6 md:col-span-2">
@@ -710,7 +714,10 @@ function InvoicesCard({
   return (
     <Card className="overflow-hidden p-0">
       <div className="px-4 py-3 md:px-5">
-        <h2 className="text-h2">{t('fees.invoicesTitle')}</h2>
+        <div className="flex items-center gap-1">
+          <h2 className="text-h2">{t('fees.invoicesTitle')}</h2>
+          <HelpHint helpId="portal.fees.action.print" />
+        </div>
         <p className="text-text-secondary">{t('fees.newestFirst')}</p>
       </div>
       {truncated && (

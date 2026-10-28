@@ -8,6 +8,7 @@ import { AttendanceStatus, Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  HelpHint,
   DatePicker,
   Dialog,
   DialogContent,
@@ -554,7 +555,10 @@ function SectionRegisterPage() {
           </p>
         </div>
         <div className="grid gap-1.5 md:w-64">
-          <Label htmlFor="attendance-date">{t('mark.dateLabel')}</Label>
+          <span className="inline-flex items-center gap-1">
+            <Label htmlFor="attendance-date">{t('mark.dateLabel')}</Label>
+            <HelpHint helpId="attendance.attendance.field.date" />
+          </span>
           <DatePicker
             id="attendance-date"
             aria-label={t('mark.dateLabel')}
@@ -624,18 +628,21 @@ function SectionRegisterPage() {
           </p>
           {editable && (
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1 md:flex-none"
-                onClick={handleAllPresent}
-                disabled={Boolean(
-                  allowedStatuses && !allowedStatuses.includes(AttendanceStatus.PRESENT),
-                )}
-              >
-                <CheckCheck aria-hidden="true" />
-                {t('mark.allPresent')}
-              </Button>
+              <span className="inline-flex flex-1 items-center gap-1 md:flex-none">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 md:flex-none"
+                  onClick={handleAllPresent}
+                  disabled={Boolean(
+                    allowedStatuses && !allowedStatuses.includes(AttendanceStatus.PRESENT),
+                  )}
+                >
+                  <CheckCheck aria-hidden="true" />
+                  {t('mark.allPresent')}
+                </Button>
+                <HelpHint helpId="attendance.attendance.action.allPresent" />
+              </span>
               <Button type="button" variant="ghost" onClick={handleReset}>
                 <RotateCcw aria-hidden="true" />
                 {t('mark.reset')}
@@ -693,19 +700,22 @@ function SectionRegisterPage() {
           <span className="shrink-0 text-text-secondary">
             {t('mark.unmarkedRemaining', { n: counts.unmarked })}
           </span>
-          <Button
-            type="button"
-            className="flex-1 md:ms-auto md:flex-none"
-            loading={submitRegister.isPending}
-            onClick={handleSubmit}
-          >
-            <Send aria-hidden="true" />
-            {submitRegister.isPending
-              ? t('mark.submitting')
-              : online
-                ? t('mark.submitOnline')
-                : t('mark.submitOffline')}
-          </Button>
+          <>
+            <Button
+              type="button"
+              className="flex-1 md:ms-auto md:flex-none"
+              loading={submitRegister.isPending}
+              onClick={handleSubmit}
+            >
+              <Send aria-hidden="true" />
+              {submitRegister.isPending
+                ? t('mark.submitting')
+                : online
+                  ? t('mark.submitOnline')
+                  : t('mark.submitOffline')}
+            </Button>
+            <HelpHint helpId="attendance.attendance.action.submit" />
+          </>
         </div>
       )}
 

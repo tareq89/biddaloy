@@ -15,6 +15,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  HelpHint,
   RecordNotFoundState,
   RoutePending,
   Skeleton,
@@ -288,6 +289,7 @@ function ScaleEditorPage() {
         actions={[
           {
             id: 'copy',
+            helpId: 'examsResults.gradingScales.action.copy',
             label: t('detail.copy'),
             icon: <CopyIcon />,
             onClick: () => setCopyOpen(true),
@@ -295,6 +297,7 @@ function ScaleEditorPage() {
           },
           {
             id: 'save',
+            helpId: 'examsResults.gradingScales.action.save',
             label: t('detail.save'),
             priority: 'primary',
             icon: <SaveIcon />,
@@ -335,9 +338,14 @@ function ScaleEditorPage() {
 
         <section className="space-y-3" aria-labelledby="bands-title">
           <div>
-            <h2 id="bands-title" className="text-h2">
-              {t('bandEditor.title')}
-            </h2>
+            <div className="flex items-center gap-1">
+              <h2 id="bands-title" className="text-h2">
+                {t('bandEditor.title')}
+              </h2>
+              {canManage && bands.length === 0 && (
+                <HelpHint helpId="examsResults.gradingScales.action.startFromNctb" />
+              )}
+            </div>
             <p className="mt-1 text-text-secondary">{t('bandEditor.help')}</p>
           </div>
           {bands.length === 0 ? (

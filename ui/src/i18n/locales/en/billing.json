@@ -66,5 +66,17 @@
   "actions": {
     "settings": "Seats and billing settings",
     "buy": "Buy seats"
+  },
+  "fields": {
+    "seats": "Seats (students)",
+    "months": "Months"
+  },
+  "help": {
+    "seats": "A whole number from 1 to 100,000. Filled in for you: as many as the students who have no seat, but at least 100.",
+    "months": "A whole number from 1 to 24."
+  },
+  "helpRequired": {
+    "seats": "Yes",
+    "months": "Yes"
   }
 }

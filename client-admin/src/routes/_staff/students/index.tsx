@@ -468,6 +468,7 @@ function StudentsListPage() {
         actions={[
           {
             id: 'import',
+            helpId: 'people.students.action.import',
             label: t('list.importStudents'),
             icon: <UploadIcon className="size-4" aria-hidden />,
             priority: 'secondary',
@@ -484,6 +485,7 @@ function StudentsListPage() {
           },
           {
             id: 'add',
+            helpId: 'people.students.action.add',
             label: t('list.addStudent'),
             icon: <PlusIcon className="size-4" aria-hidden />,
             priority: 'primary',

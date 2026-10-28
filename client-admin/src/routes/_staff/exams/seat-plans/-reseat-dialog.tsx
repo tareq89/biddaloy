@@ -15,6 +15,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Input,
   Label,
   Select,
@@ -63,7 +64,10 @@ export function ReseatDialog({ open, onOpenChange, planId, allocation, rooms }: 
     event.preventDefault();
     if (!allocation || roomId === '' || seatNumber.trim() === '') return;
     editAllocation.mutate(
-      { allocationId: allocation.id, input: { room_id: roomId, seat_number: toLatinDigits(seatNumber).trim() } },
+      {
+        allocationId: allocation.id,
+        input: { room_id: roomId, seat_number: toLatinDigits(seatNumber).trim() },
+      },
       { onSuccess: () => onOpenChange(false) },
     );
   }
@@ -84,7 +88,10 @@ export function ReseatDialog({ open, onOpenChange, planId, allocation, rooms }: 
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>{t('reseat.title')}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('reseat.title')}</DialogTitle>
+            <HelpHint helpId="examsResults.seatPlans.action.reseat" />
+          </div>
           <DialogDescription>
             {allocation ? t('reseat.description', { name: allocation.student_name }) : ''}
           </DialogDescription>

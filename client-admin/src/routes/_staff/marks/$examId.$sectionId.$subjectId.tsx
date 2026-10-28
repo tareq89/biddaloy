@@ -15,6 +15,7 @@ import {
   cellKey,
   ConfirmDialog,
   ErrorState,
+  HelpHint,
   MarksGrid,
   MarksStepper,
   RoutePending,
@@ -291,6 +292,7 @@ function MarksEntryPage() {
               <SendIcon aria-hidden="true" />
               {t('submitDialog.confirm')}
             </Button>
+            <HelpHint helpId="examsResults.marksEntry.action.submit" />
           </div>
         )}
       </header>
@@ -313,14 +315,17 @@ function MarksEntryPage() {
               </p>
             )}
             {canReopen && (
-              <Button
-                type="button"
-                variant="outline"
-                loading={reopenGrid.isPending}
-                onClick={() => reopenGrid.mutate()}
-              >
-                {tg('marksSheet.reopen')}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  loading={reopenGrid.isPending}
+                  onClick={() => reopenGrid.mutate()}
+                >
+                  {tg('marksSheet.reopen')}
+                </Button>
+                <HelpHint helpId="examsResults.marksEntry.action.reopen" />
+              </div>
             )}
           </div>
         </div>

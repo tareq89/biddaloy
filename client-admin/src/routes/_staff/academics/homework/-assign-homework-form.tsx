@@ -8,6 +8,7 @@
 import { HomeworkGradingMode } from '@biddaloy/shared';
 import {
   Button,
+  HelpHint,
   Card,
   DatePicker,
   DialogClose,
@@ -325,9 +326,12 @@ export function AssignHomeworkForm({
         <FieldError id="homework-form-assignedDate-error" message={fieldErrors.assignedDate} />
       </div>
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="homework-form-due" className="text-label text-text-primary">
-          {t('form.dueDateLabel')} <Required />
-        </label>
+        <span className="inline-flex items-center gap-1">
+          <label htmlFor="homework-form-due" className="text-label text-text-primary">
+            {t('form.dueDateLabel')} <Required />
+          </label>
+          <HelpHint helpId="academics.homework.field.dueDate" />
+        </span>
         <DatePicker
           id="homework-form-due"
           aria-label={t('form.dueDateLabel')}
@@ -415,12 +419,15 @@ export function AssignHomeworkForm({
               </div>
 
               <div className="flex flex-col gap-1.5 md:col-span-2">
-                <label
-                  htmlFor="homework-form-grading-mode"
-                  className="text-label text-text-primary"
-                >
-                  {t('form.gradingModeLabel')} <Required />
-                </label>
+                <span className="inline-flex items-center gap-1">
+                  <label
+                    htmlFor="homework-form-grading-mode"
+                    className="text-label text-text-primary"
+                  >
+                    {t('form.gradingModeLabel')} <Required />
+                  </label>
+                  <HelpHint helpId="academics.homework.field.gradingMode" />
+                </span>
                 <Select value={gradingMode} onValueChange={setGradingMode}>
                   <SelectTrigger
                     id="homework-form-grading-mode"

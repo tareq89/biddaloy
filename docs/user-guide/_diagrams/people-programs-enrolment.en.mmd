@@ -1,0 +1,12 @@
+%% title: A student's status in a program
+%% desc: A newly enrolled student is Active. From Active you can mark the student Completed or Withdrawn, and from either you can reactivate. Achievements can be recorded only while Active.
+flowchart LR
+  N["Enrol"]:::admin --> A["Active<br/>achievements can be recorded"]:::teacher
+  A -->|"Mark complete"| C["Completed"]:::guardian
+  A -->|"Withdraw"| W["Withdrawn"]:::note
+  C -->|"Reactivate"| A
+  W -->|"Reactivate"| A
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

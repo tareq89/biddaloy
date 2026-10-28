@@ -1,5 +1,6 @@
 /** Step 1: Class → Section → Subject → Term. Every field has a visible label. */
 import {
+  HelpHint,
   Select,
   SelectContent,
   SelectItem,
@@ -30,6 +31,7 @@ function Field({
   onChange,
   options,
   disabled,
+  help,
 }: {
   id: string;
   label: string;
@@ -37,15 +39,19 @@ function Field({
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   disabled?: boolean;
+  help?: { helpId: string };
 }) {
   // No ns arg = default namespace. check:i18n resolves one namespace per file (the first
   // explicit one), so naming it here would mis-resolve the studyPlans keys further down.
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-label text-text-primary">
-        {label}
-      </label>
+      <span className="inline-flex items-center gap-1">
+        <label htmlFor={id} className="text-label text-text-primary">
+          {label}
+        </label>
+        {help && <HelpHint helpId={help.helpId} />}
+      </span>
       <Select value={value} onValueChange={onChange} disabled={disabled ?? false}>
         <SelectTrigger id={id}>
           <SelectValue placeholder={t('form.selectPlaceholder', { ns: 'common' })} />
@@ -106,6 +112,7 @@ export function ScopeStep({
       />
       <Field
         id="plan-term"
+        help={{ helpId: 'academics.syllabus.field.term' }}
         label={t('list.filters.term')}
         value={scope.termId}
         onChange={(termId) => onChange({ ...scope, termId })}

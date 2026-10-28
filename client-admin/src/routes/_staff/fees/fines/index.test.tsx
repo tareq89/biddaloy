@@ -14,7 +14,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
@@ -76,6 +76,23 @@ describe('/fees/fines', () => {
     server.use(finesHandler([]), ...referenceHandlers());
     render('EXECUTIVE', '/fees/fines/rules');
     expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+  });
+
+  // [44.4 / #3014] The (?) beside the header actions (finance.fines.action.*).
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(finesHandler([]), ...referenceHandlers());
+      render();
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.fines.action.generate"]'),
+        ).not.toBeNull(),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('renders fine rows and the totals footer', async () => {

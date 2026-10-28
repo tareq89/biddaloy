@@ -4,8 +4,12 @@ import * as React from 'react';
 import { cn } from '../../primitives/lib/utils';
 import { Button } from '../button';
 import { Card } from '../card';
+import { HelpHint } from '../help-hint';
 import { Menu, MenuContent, MenuTrigger } from '../menu';
 import { Skeleton } from '../skeleton';
+
+/** [44.2.02] WidgetSlot sets this to `widget.<key>`, so no widget file passes a help id (E23). */
+export const WidgetHelpContext = React.createContext<string | null>(null);
 
 /**
  * [169.1-02] Frame of every dashboard widget: full (desktop) and compact
@@ -16,6 +20,8 @@ import { Skeleton } from '../skeleton';
  */
 export interface WidgetCardProps {
   title: string;
+  /** Help id of the (?) beside the title; defaults to `WidgetHelpContext`. */
+  helpId?: string;
   variant?: 'full' | 'compact';
   headingLevel?: 2 | 3;
   updatedLabel?: string;
@@ -43,6 +49,7 @@ export interface WidgetCardProps {
 
 export function WidgetCard({
   title,
+  helpId,
   variant = 'full',
   headingLevel = 2,
   updatedLabel,
@@ -63,6 +70,9 @@ export function WidgetCard({
   className,
 }: WidgetCardProps) {
   const id = React.useId();
+  const ctxHelpId = React.useContext(WidgetHelpContext);
+  // Labelled with the card title: every widget shares one guide page, so its title would repeat (WCAG 2.4.6).
+  const helpEl = <HelpHint size="sm" helpId={helpId ?? ctxHelpId} label={title} />;
   const [inner, setInner] = React.useState(defaultExpanded ?? false);
   const open = expanded ?? inner;
   const Heading: 'h2' | 'h3' = headingLevel === 3 ? 'h3' : 'h2';
@@ -104,38 +114,41 @@ export function WidgetCard({
     return (
       <Card asChild className={cn('flex flex-col', className)}>
         <section aria-labelledby={id}>
-          <Heading id={id} className="m-0">
-            <button
-              type="button"
-              aria-expanded={open}
-              onClick={toggle}
-              className="flex min-h-11 w-full items-center gap-3 rounded-lg p-3 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-label text-text-secondary">{title}</span>
-                {value ? <span className="text-h2 tabular-nums">{value}</span> : null}
-                {summary ? (
-                  <span className="text-caption text-text-secondary">{summary}</span>
-                ) : null}
-                {/* Collapsed: the body is hidden, so surface loading/error here (retry lives in the body). */}
-                {!open && loading && loadingLabel ? (
-                  <span aria-busy="true" className="text-caption text-text-secondary">
-                    {loadingLabel}
-                  </span>
-                ) : null}
-                {!open && !loading && error ? (
-                  <span className="text-caption text-destructive">{error.message}</span>
-                ) : null}
-              </span>
-              <ChevronDownIcon
-                aria-hidden="true"
-                className={cn(
-                  'size-5 shrink-0 motion-safe:transition-transform',
-                  open && 'rotate-180',
-                )}
-              />
-            </button>
-          </Heading>
+          <div className="flex items-center">
+            <Heading id={id} className="m-0 min-w-0 flex-1">
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={toggle}
+                className="flex min-h-11 w-full items-center gap-3 rounded-lg p-3 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-label text-text-secondary">{title}</span>
+                  {value ? <span className="text-h2 tabular-nums">{value}</span> : null}
+                  {summary ? (
+                    <span className="text-caption text-text-secondary">{summary}</span>
+                  ) : null}
+                  {/* Collapsed: the body is hidden, so surface loading/error here (retry lives in the body). */}
+                  {!open && loading && loadingLabel ? (
+                    <span aria-busy="true" className="text-caption text-text-secondary">
+                      {loadingLabel}
+                    </span>
+                  ) : null}
+                  {!open && !loading && error ? (
+                    <span className="text-caption text-destructive">{error.message}</span>
+                  ) : null}
+                </span>
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className={cn(
+                    'size-5 shrink-0 motion-safe:transition-transform',
+                    open && 'rotate-180',
+                  )}
+                />
+              </button>
+            </Heading>
+            {helpEl}
+          </div>
           {open ? (
             <div className="flex flex-col px-3 pb-3">
               {body}
@@ -151,9 +164,10 @@ export function WidgetCard({
     <Card asChild padded className={cn('flex h-full flex-col', className)}>
       <section aria-labelledby={id}>
         <div className="flex items-start justify-between gap-2">
-          <Heading id={id} className="text-h3">
+          <Heading id={id} className="me-auto text-h3">
             {title}
           </Heading>
+          {helpEl}
           {menu ? (
             <Menu>
               <MenuTrigger asChild>

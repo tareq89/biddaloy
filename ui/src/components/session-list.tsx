@@ -51,6 +51,8 @@ export interface SessionListProps {
   /** `full` (default): the framed `/security` list. `compact`: unframed, one
    * meta line and icon sign-out buttons, for inside a host card. */
   variant?: 'full' | 'compact';
+  /** A (?) drawn beside "Sign out all", so it shows only when that button does. */
+  signOutAllHint?: React.ReactNode;
 }
 
 function DeviceIcon({ userAgent, className }: { userAgent: string | null; className?: string }) {
@@ -75,6 +77,7 @@ export function SessionList({
   config,
   locale,
   variant = 'full',
+  signOutAllHint,
 }: SessionListProps) {
   const { t } = useTranslation('auth');
   const { t: tc } = useTranslation('common');
@@ -122,16 +125,19 @@ export function SessionList({
   }
 
   const signOutAll = (
-    <Button
-      type="button"
-      variant="outline"
-      className="text-destructive"
-      loading={revokingAll}
-      onClick={() => setConfirmingAll(true)}
-    >
-      <LogOutIcon aria-hidden="true" />
-      {t('sessions.signOutAll')}
-    </Button>
+    <div className="flex items-center gap-1">
+      <Button
+        type="button"
+        variant="outline"
+        className="flex-1 text-destructive md:flex-none"
+        loading={revokingAll}
+        onClick={() => setConfirmingAll(true)}
+      >
+        <LogOutIcon aria-hidden="true" />
+        {t('sessions.signOutAll')}
+      </Button>
+      {signOutAllHint}
+    </div>
   );
 
   const list = (

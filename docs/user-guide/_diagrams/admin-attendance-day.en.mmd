@@ -1,0 +1,9 @@
+%% title: A day of attendance
+%% desc: A teacher fills in the section's attendance register and submits it. The attendance reports and the monthly register are built from it. If it is not taken on time, an alert goes to the teacher.
+flowchart LR
+  T["Teacher<br/>marks attendance"]:::teacher --> R["Attendance register<br/>one per day"]
+  R --> RP["Attendance<br/>reports"]
+  R --> MR["Monthly<br/>register"]
+  W["Not taken on time<br/>alert"]:::warn -.-> T
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef warn fill:#f1f3f5,stroke:#868e96,color:#343a40

@@ -165,5 +165,28 @@
       "previewFailed": "Could not preview invitations. Please try again.",
       "dispatchFailed": "Could not send invitations. Please try again."
     }
+  },
+  "fields": {
+    "fullName": "Full name",
+    "relationship": "Relationship",
+    "phone": "Phone",
+    "email": "Email",
+    "alternatePhone": "Alternate phone",
+    "occupation": "Occupation",
+    "preferredChannel": "Preferred channel",
+    "address": "Address"
+  },
+  "help": {
+    "fullName": "The guardian's full name.",
+    "relationship": "Relationship to the student, for example Father, Mother, Uncle. What you type stays as typed; the list filter catches only Father, Mother, Brother, Sister, Grandfather, Grandmother, Uncle, Aunt and Other.",
+    "phone": "In English digits, for example 01712345678. If there is no email, the invitation goes to this number by SMS. If the guardian signs in on their own, it cannot be changed from here.",
+    "email": "The invitation goes here first. If the guardian signs in on their own, it cannot be changed from here.",
+    "alternatePhone": "A second number. If there is no phone but this one is filled in, the details do not count as incomplete.",
+    "occupation": "The guardian's work. Free text.",
+    "preferredChannel": "SMS, WhatsApp, Email, Phone call or Messenger. If you choose none, it stays SMS. It does not decide how the invitation is sent.",
+    "address": "The guardian's address. Free text."
+  },
+  "helpRequired": {
+    "fullName": "Yes"
   }
 }

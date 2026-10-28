@@ -7,6 +7,7 @@ import {
   ContactChangeDialog,
   ErrorState,
   GuardianContactForm,
+  HelpHint,
   ProfileForm,
   PushNotificationSettings,
   SessionList,
@@ -464,6 +465,7 @@ function PortalAccount() {
           <div className="mt-3">
             <SessionList
               variant="compact"
+              signOutAllHint={<HelpHint helpId="start.account.action.signOutAll" />}
               sessions={showAllDevices ? sortedSessions : sortedSessions.slice(0, 5)}
               loading={sessionsQuery.isPending}
               error={sessionsQuery.isError ? tAuth('sessions.error') : null}
@@ -508,16 +510,19 @@ function PortalAccount() {
 
       <CalendarFeedCard />
 
-      <Button
-        type="button"
-        variant="outline"
-        loading={signingOut}
-        onClick={() => void handleSignOut()}
-        className="w-full md:w-auto md:self-start"
-      >
-        <LogOutIcon className="size-4" aria-hidden="true" />
-        {signingOut ? t('account.signOut.signingOut') : t('account.signOut.action')}
-      </Button>
+      <div className="flex items-center gap-1 md:self-start">
+        <Button
+          type="button"
+          variant="outline"
+          loading={signingOut}
+          onClick={() => void handleSignOut()}
+          className="flex-1 md:flex-none"
+        >
+          <LogOutIcon className="size-4" aria-hidden="true" />
+          {signingOut ? t('account.signOut.signingOut') : t('account.signOut.action')}
+        </Button>
+        <HelpHint helpId="start.account.action.signOutDevice" />
+      </div>
     </PageContainer>
   );
 }

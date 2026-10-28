@@ -119,7 +119,8 @@ test('invite guardians in bulk from the guardians list', async ({ page, request 
     const dispatchResponse = page.waitForResponse(
       (res) => res.url().includes('/users/invitations/batch') && res.request().method() === 'POST',
     );
-    await dialog.getByRole('button', { name: t('guardians.invite.confirm') }).click();
+    // exact: the guardians page (?) is named "Help: … আমন্ত্রণ পাঠানো" and matches a substring (Epic 44).
+    await dialog.getByRole('button', { name: t('guardians.invite.confirm'), exact: true }).click();
     const response = await dispatchResponse;
     const body = (await response.json()) as { batch_id: string; queued: number };
     batchId = body.batch_id;
