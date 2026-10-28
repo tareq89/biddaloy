@@ -150,7 +150,7 @@ Every role has its own starting layout. The list below is generated from the app
 2. [Collection this month](widgets.md#widget.collection-month) — How much came in against this month's bills (shown as a small tile on a phone)
 3. [Fee generation](widgets.md#widget.fee-generation-status) — Whether this month's bills are made
 4. [Reminders waiting](widgets.md#widget.reminders-pending) — Fee reminders ready to send (shown as a small tile on a phone)
-5. [Collection by month](widgets.md#widget.collection-by-month) — Collection for each month this year
+5. [Collection by month](widgets.md#widget.collection-by-month) — Collection for each month of this academic year
 6. [Unpaid bills by age](widgets.md#widget.dues-ageing) — Unpaid amount by how long it is overdue (shown as a small tile on a phone)
 7. [Recent payments](widgets.md#widget.recent-payments) — The latest payments received
 8. [Dues by class](widgets.md#widget.dues-by-class) — Which classes owe the most

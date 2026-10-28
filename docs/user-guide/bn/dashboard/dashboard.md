@@ -150,7 +150,7 @@ knownIssues: []
 2. [এ মাসের আদায়](widgets.md#widget.collection-month) — লক্ষ্যের কতটা আদায় হলো, গত মাসের তুলনায় (ফোনে ছোট ঘর হিসেবে দেখায়)
 3. [ফি তৈরির অবস্থা](widgets.md#widget.fee-generation-status) — এ মাসের বিল তৈরি হয়েছে কি না
 4. [অপেক্ষায় থাকা রিমাইন্ডার](widgets.md#widget.reminders-pending) — পাঠানোর জন্য তৈরি ফি রিমাইন্ডার (ফোনে ছোট ঘর হিসেবে দেখায়)
-5. [মাস অনুযায়ী আদায়](widgets.md#widget.collection-by-month) — এ বছরের প্রতি মাসের আদায়
+5. [মাস অনুযায়ী আদায়](widgets.md#widget.collection-by-month) — এই শিক্ষাবর্ষের প্রতি মাসের আদায়
 6. [বকেয়া কত দিনের](widgets.md#widget.dues-ageing) — কত দিন ধরে বকেয়া, সেই অনুযায়ী টাকার পরিমাণ (ফোনে ছোট ঘর হিসেবে দেখায়)
 7. [সাম্প্রতিক পেমেন্ট](widgets.md#widget.recent-payments) — সবশেষ যে পেমেন্টগুলো এসেছে
 8. [শ্রেণি অনুযায়ী বকেয়া](widgets.md#widget.dues-by-class) — কোন শ্রেণির বকেয়া সবচেয়ে বেশি

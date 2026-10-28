@@ -46,10 +46,7 @@ keywords:
 appVersion: 0.1.0 (a25ab3344)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: retain-class-always-required, checked: 2026-10-25, issue: 2924 }
-  - { id: graduate-selectable-in-normal-run, checked: 2026-10-25, issue: 2925 }
-  - { id: override-placement-error-hidden, checked: 2026-10-25, issue: 2926 }
+knownIssues: []
 -->
 
 # Promoting students
@@ -77,7 +74,6 @@ The work has two steps. First a **Draft** promotion list is made. Nothing change
   - [Graduate the last class](#task-graduate)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -221,21 +217,21 @@ If the new academic year has no class of the next level (for example after Class
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                                          | What to do                                                                                                                                                                                                                                                             | Who can help |
-| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **This class has no published exams yet.**                                                            | First [publish](results.md#task-publish) the results of at least one exam of this class.                                                                                                                                                                               | Admin        |
-| **Choose a target class, or graduate the source class.**                                              | The class has no level (number) set, so the next class could not be guessed. Choose **Next class** yourself.                                                                                                                                                           | Admin        |
-| **The target class has no sections yet — create at least one before running this.**                   | Create a section in the new class ([Arranging classes, sections and subjects](../academics/classes.md)), then try again.                                                                                                                                               | Admin        |
-| **No class is set up to retain students who didn't pass — add one first.**                            | Create a class of the same level in the new academic year (for example Class 7 again, same shift and version). It is needed even if nobody failed ([Known issues](#known-issues)).                                                                                     | Admin        |
-| **Couldn't create the list. Please try again.**                                                       | Check that the new academic year starts after the current class's academic year; check your internet.                                                                                                                                                                  | Admin        |
-| Red **No room in any section**                                                                        | The new sections are full to capacity. Raise the section capacity or open a new section, then press **Update from results**. Or change that student's decision.                                                                                                        | Admin        |
-| Red **No matching section**                                                                           | The new class has no section that matches the student's group. Change the **Group**, or open a section for that group and update.                                                                                                                                      | Admin        |
-| **Results changed since this preview — refresh**                                                      | Press **Update from results** beside it, check the list again, then finalise.                                                                                                                                                                                          | Admin        |
-| **Some students left or joined this class since the list was last refreshed. …**                      | Press **Update from results** beside it, check the list, and finalise again.                                                                                                                                                                                           | Admin        |
-| **Could not finalise this list. Please try again.**                                                   | Check that the approval was completed and your internet. It can also appear if a student is already enrolled in the new academic year, or if a decision changed by hand to **Promote** has a hidden placement problem ([Known issues](#known-issues)) (from the code). | Admin        |
-| **Could not save this change. Please try again.**                                                     | Choose the decision again. If it was changed by hand, check that a reason is written.                                                                                                                                                                                  | —            |
-| **This list can't be deleted any more — someone may have finalised it. The page has been refreshed.** | The list has been finalised in the meantime. Now you can only view it.                                                                                                                                                                                                 | —            |
-| **Couldn't load promotion lists.** or **Couldn't load this promotion list.**                          | Check your internet and try again.                                                                                                                                                                                                                                     | —            |
+| What you see                                                                                          | What to do                                                                                                                                                                            | Who can help |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **This class has no published exams yet.**                                                            | First [publish](results.md#task-publish) the results of at least one exam of this class.                                                                                              | Admin        |
+| **Choose a target class, or graduate the source class.**                                              | The class has no level (number) set, so the next class could not be guessed. Choose **Next class** yourself.                                                                          | Admin        |
+| **The target class has no sections yet — create at least one before running this.**                   | Create a section in the new class ([Arranging classes, sections and subjects](../academics/classes.md)), then try again.                                                              | Admin        |
+| **No class is set up to retain students who didn't pass — add one first.**                            | Create a class of the same level in the new academic year (for example Class 7 again, same shift and version). It is needed only when the list keeps some students in the same class. | Admin        |
+| **Couldn't create the list. Please try again.**                                                       | Check that the new academic year starts after the current class's academic year; check your internet.                                                                                 | Admin        |
+| Red **No room in any section**                                                                        | The new sections are full to capacity. Raise the section capacity or open a new section, then press **Update from results**. Or change that student's decision.                       | Admin        |
+| Red **No matching section**                                                                           | The new class has no section that matches the student's group. Change the **Group**, or open a section for that group and update.                                                     | Admin        |
+| **Results changed since this preview — refresh**                                                      | Press **Update from results** beside it, check the list again, then finalise.                                                                                                         | Admin        |
+| **Some students left or joined this class since the list was last refreshed. …**                      | Press **Update from results** beside it, check the list, and finalise again.                                                                                                          | Admin        |
+| **Could not finalise this list. Please try again.**                                                   | Check that approval is complete and that you have an internet connection. It can also appear if a student is already enrolled in the new academic year.                               | Admin        |
+| **Could not save this change. Please try again.**                                                     | Choose the decision again. If it was changed by hand, check that a reason is written.                                                                                                 | —            |
+| **This list can't be deleted any more — someone may have finalised it. The page has been refreshed.** | The list has been finalised in the meantime. Now you can only view it.                                                                                                                | —            |
+| **Couldn't load promotion lists.** or **Couldn't load this promotion list.**                          | Check your internet and try again.                                                                                                                                                    | —            |
 
 ---
 
@@ -247,18 +243,6 @@ If the new academic year has no class of the next level (for example after Class
 | All others | No                              | No                                            |
 
 **Class promotion** is not in the left menu of the other roles. The mark for a promotion changed by hand on a student's page can still be seen by anyone who is allowed to view students.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. This part will be removed once fixed.
-
-| Problem                                                                                                                                                                                                                                                                                                                                                                        | Whose, when                | Data saved?         | What to do for now                                                                                                                         |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Even if nobody failed, the list is not made when the new academic year has no class of the same level (**No class is set up to retain students who didn't pass …**)                                                                                                                                                                                                            | Whoever makes a new list   | —                   | Keep a class of the same level created in the new academic year too.                                                                       |
-| Even in a normal list (not a graduation one), **Graduate** can be chosen in **Final decision**; if you finalise, that student graduates from the school                                                                                                                                                                                                                        | Whoever changes a decision | Yes                 | Do not choose **Graduate** (or press G) unless you mean it; if you did, change it back before finalising.                                  |
-| When you change a decision by hand to **Promote** or **Promote on condition**, a placement problem (**No room in any section**, **No matching section**) is not shown in red and does not stop the **Finalise** window; the server then refuses and you see **Could not finalise this list. Please try again.** In a graduation list, **Promote** (or P) always ends like this | Whoever finalises          | — (nothing changes) | Check that the row's **New section and roll** shows a real section and roll, not "—". Otherwise free a place, or change the decision back. |
 
 ---
 

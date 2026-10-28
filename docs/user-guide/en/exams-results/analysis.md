@@ -41,8 +41,7 @@ keywords:
 appVersion: 0.1.0 (a25ab3344)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: overall-row-absent-zero, checked: 2026-10-25, issue: 2923 }
+knownIssues: []
 -->
 
 # Merit list and result analysis
@@ -67,7 +66,6 @@ This page is for viewing only. Nothing you press here changes any marks or resul
   - [Print or download a CSV](#task-print)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -196,16 +194,6 @@ These two buttons are not there for an exam whose results are not ready.
 | Accountant, Office staff, Committee member | No             | —                                           | No            |
 
 If a Teacher asks for the list of another section, it shows "not found". Even with **All sections**, a Teacher sees only the students of their own sections, but the **Position** column still has the position in the whole class.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked in the code in version 0.1.0, 2026-10-25. Not tried in the running app. This part will be removed once fixed.
-
-| Problem                                                                                                     | Whose, when                     | Data saved? | What to do for now                                                                         |
-| ----------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------- | ------------------------------------------------------------------------------------------ |
-| In the **Overall** row of **Pass/fail by subject**, **Absent** always shows 0, even when someone was absent | Whoever views the pass/fail tab | —           | See the number of absent students in the subject's row or in the **Failed or absent** tab. |
 
 ---
 

@@ -64,10 +64,7 @@ keywords:
 appVersion: 0.1.0 (dd9119702)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: exam-delete-no-button, checked: 2026-10-25, issue: 2912 }
-  - { id: exam-edit-published-kind-message, checked: 2026-10-25, issue: 2913 }
-  - { id: exam-template-no-grade-message, checked: 2026-10-25, issue: 2914 }
+knownIssues: []
 -->
 
 # Creating and setting up exams
@@ -97,7 +94,6 @@ Every exam belongs to one class and one academic year, for example the **Half Ye
   - [The exam page: the tabs](#task-detail)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -240,7 +236,7 @@ You can change the date, time or venue by pressing the cell in the list. To take
 
 2. Make your changes and press **Save**.
 
-When the results are **Published**, only the name and deadline can be changed; if you change the **Kind**, it does not save. The message for this is wrong: [Known issues](#known-issues).
+When the results are **Published**, only the name and deadline can be changed; if you change the **Kind**, it does not save and shows **This exam's results are published. Reopen the results before changing its type.**
 
 ### Exam states: draft to published <a href="#task-status" id="task-status"></a>
 
@@ -256,7 +252,17 @@ Pressing **Reopen** makes the exam **Processed** again. The full rules for proce
 
 ### Delete an exam <a href="#task-delete" id="task-delete"></a>
 
-At the moment the app has no button to delete an exam ([Known issues](#known-issues)). Keep an exam made by mistake, or rename it to make that clear, for example `Half Yearly (mistake, do not use)`. The school's system does not allow deleting an exam whose results have been processed even once.
+Only a **Draft** exam can be deleted, for example one made by mistake. Once its results have been processed, the exam cannot be deleted; **Reopen** and correct the results instead.
+
+1. Open the exam's page and, at the top, press **Delete exam**.
+
+   → The **Delete this exam?** dialog opens: "The exam, its marks breakdown, schedule and any marks entered are removed. This can't be undone from the app."
+
+2. Press **Delete**.
+
+   → The exam is deleted and the exam list opens.
+
+If **This exam has results. Reopen and correct them instead of deleting the exam.** or **Couldn't delete the exam. Please try again.** appears in the dialog, the exam was not deleted.
 
 ### Filter the list <a href="#task-find" id="task-find"></a>
 
@@ -287,8 +293,10 @@ Press the exam name in the list, or **View**, to open its page. At the top are t
 | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | **You don't have access to this page.**                                                            | Only the Admin and the exam controller see this page. Press **Back to dashboard**.                                                                                          | Admin        |
 | **Couldn't load exams.** or **Couldn't load this exam.**                                           | Check the internet and reload the page.                                                                                                                                     | Admin        |
-| **An exam with this name already exists.**                                                         | An exam with this name already exists for the same class and year. Give another name. It also shows when you change the kind of a published exam: [Known issues](#known-issues). | Admin        |
-| **Couldn't save the exam.**                                                                        | Check the internet. If you picked a structure, see whether the class has a **grade** set ([Edit a class](../academics/classes.md#task-edit)).                                | Admin        |
+| **An exam with this name already exists.**                                                         | An exam with this name already exists for the same class and year. Give another name. | Admin        |
+| **This exam's results are published. Reopen the results before changing its type.**              | Keep the **Kind** as it was, or first **Reopen** the results ([Exam states](#task-status)). | Admin        |
+| **This class has no grade set, so an exam structure can't be used. …**                             | Give the class a **grade** ([Edit a class](../academics/classes.md#task-edit)), or pick **No exam structure**. | Admin        |
+| **Couldn't save the exam.**                                                                        | Check the internet and press **Save** again.                                | Admin        |
 | The **Class** list is empty                                                                        | The picked year has no classes. First [add a class](../academics/classes.md#task-main).                                                                                     | Admin        |
 | **Exam created — the structure had nothing for this class's subjects. Add the parts yourself.**    | The structure has no grade or subjects for this class, or the subject codes did not match. [Set the parts](#task-components) yourself, or fix the [structure](exam-templates.md#task-grid). | Admin        |
 | **Couldn't save the part.**                                                                        | See whether a part with the same name or a second attendance part already exists in the subject, and whether pass marks are more than full marks.                          | Admin        |
@@ -308,18 +316,6 @@ Press the exam name in the list, or **View**, to open its page. At the top are t
 | Academic coordinator, teacher, accountant, office assistant, governing board member        | No                         | No                            | No                               | No        |
 
 For other roles, **Exams** is not in the left menu; if they open the page, they see **You don't have access to this page.** A teacher and an academic coordinator see the exam name only in the exam picker on the [marks entry](marks-entry.md) and [result analysis](analysis.md) pages.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked by reading the code in version 0.1.0, 2026-10-25. Not run in the app. It will be removed from this section once fixed.
-
-| Problem                                                                                                                                             | Whose, when                                  | Data saved?                | What to do for now                                                       |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------- | ------------------------------------------------------------------------ |
-| There is no button to delete an exam, although the school's system allows deleting an exam before its results are processed                         | Whoever makes an exam by mistake, at any time | —                          | Keep the exam or rename it. If needed, tell support                      |
-| Changing the **Kind** of a published exam and saving shows **An exam with this name already exists.**, although the real reason is that the results are published | Whoever edits a published exam               | No, nothing changed        | Keep the kind as it was. To change it, first **Reopen** the results      |
-| Adding an exam with a structure for a class that has no **grade** shows only **Couldn't save the exam.**, without a reason                          | Whoever adds an exam from a structure        | No, the exam is not made   | Give the class a grade, or pick **No exam structure** and save           |
 
 ---
 

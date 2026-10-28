@@ -234,7 +234,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/guardians',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'people.guardians.action.invite': {
     title: {
@@ -247,7 +247,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/guardians',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'people.guardians.action.editLinkedStudents': {
     title: {
@@ -260,7 +260,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/guardians',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'people.guardians.action.recordPayment': {
     title: {
@@ -273,7 +273,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/guardians',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'people.guardians.field.relationship': {
     title: {
@@ -283,7 +283,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'people/guardians',
     anchor: 'more',
-    knownIssues: 1,
+    knownIssues: 0,
     field: { ns: 'guardians', key: 'relationship' },
   },
   'people.guardians.field.phone': {
@@ -294,7 +294,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'people/guardians',
     anchor: 'more',
-    knownIssues: 1,
+    knownIssues: 0,
     field: { ns: 'guardians', key: 'phone' },
   },
   'people.calendar': {
@@ -308,7 +308,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/calendar',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.calendar.action.addEvent': {
     title: {
@@ -321,7 +321,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/calendar',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.calendar.action.publish': {
     title: {
@@ -334,7 +334,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/calendar',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.calendar.action.delete': {
     title: {
@@ -347,7 +347,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/calendar',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.calendar.action.import': {
     title: {
@@ -360,7 +360,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/calendar',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.calendar.action.regenerateFeed': {
     title: {
@@ -373,7 +373,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/calendar',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.staff': {
     title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
@@ -383,7 +383,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/staff',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.staff.action.add': {
     title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
@@ -393,7 +393,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/staff',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.staff.action.remove': {
     title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
@@ -403,7 +403,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/staff',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.staff.action.resetPassword': {
     title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
@@ -413,7 +413,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/staff',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.staff.action.promoteTeacher': {
     title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
@@ -423,14 +423,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/staff',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.staff.field.role': {
     title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
     summary: { bn: '', en: '' },
     path: 'people/staff',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'staff', key: 'role' },
   },
   'people.staff.field.designations': {
@@ -438,7 +438,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'people/staff',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'staff', key: 'designations' },
   },
   'people.staffImport': {
@@ -556,7 +556,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/admission-intakes',
     anchor: '',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.admissionIntakes.action.add': {
     title: {
@@ -569,7 +569,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/admission-intakes',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.admissionIntakes.field.classSection': {
     title: {
@@ -579,7 +579,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'people/admission-intakes',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'admission-staff-intakes', key: 'classSection' },
   },
   'people.admissionIntakes.field.seatCount': {
@@ -590,7 +590,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'people/admission-intakes',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'admission-staff-intakes', key: 'seatCount' },
   },
   'people.admissionIntakes.field.requiredDocuments': {
@@ -601,7 +601,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'people/admission-intakes',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'admission-staff-intakes', key: 'requiredDocuments' },
   },
   'people.admissionIntakes.section.publicForm': {
@@ -615,7 +615,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/admission-intakes',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.admissionIntakes.section.status': {
     title: {
@@ -628,7 +628,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/admission-intakes',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.admissionApplicants': {
     title: {
@@ -641,7 +641,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/admission-applicants',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'people.admissionApplicants.action.shortlist': {
     title: {
@@ -654,7 +654,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/admission-applicants',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'people.admissionApplicants.action.admit': {
     title: {
@@ -667,7 +667,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/admission-applicants',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'people.admissionApplicants.action.reject': {
     title: {
@@ -680,7 +680,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/admission-applicants',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'people.admissionApplicants.action.deleteDocuments': {
     title: {
@@ -693,7 +693,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/admission-applicants',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'people.admissionReports': {
     title: { bn: 'ভর্তি প্রতিবেদন', en: 'Admission reports' },
@@ -703,14 +703,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/admission-reports',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'people.admissionReports.field.academicYear': {
     title: { bn: 'ভর্তি প্রতিবেদন', en: 'Admission reports' },
     summary: { bn: '', en: '' },
     path: 'people/admission-reports',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'admission-reports', key: 'academicYear' },
   },
   'people.admissionReports.field.class': {
@@ -718,7 +718,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'people/admission-reports',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'admission-reports', key: 'class' },
   },
   'people.teachingAssignments': {
@@ -782,7 +782,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/evaluations',
     anchor: '',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.evaluations.action.startAcr': {
     title: {
@@ -795,7 +795,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/evaluations',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.evaluations.action.completeAcr': {
     title: {
@@ -808,7 +808,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/evaluations',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.evaluations.action.reopenAcr': {
     title: {
@@ -821,7 +821,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/evaluations',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.evaluations.action.publishSurvey': {
     title: {
@@ -834,7 +834,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/evaluations',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.evaluations.action.closeSurvey': {
     title: {
@@ -847,7 +847,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/evaluations',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.evaluations.action.reportIncident': {
     title: {
@@ -860,7 +860,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'people/evaluations',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'people.evaluations.field.anonymous': {
     title: {
@@ -870,7 +870,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'people/evaluations',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'evaluations', key: 'anonymous' },
   },
   'academics.academicYears': {
@@ -881,7 +881,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/academic-years',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.academicYears.action.add': {
     title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
@@ -891,7 +891,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/academic-years',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.academicYears.action.setCurrent': {
     title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
@@ -901,7 +901,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/academic-years',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.academicYears.action.delete': {
     title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
@@ -911,7 +911,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/academic-years',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.academicYears.action.addTerm': {
     title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
@@ -921,7 +921,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/academic-years',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.classes': {
     title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
@@ -931,7 +931,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/classes',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'academics.classes.action.add': {
     title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
@@ -941,7 +941,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/classes',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'academics.classes.action.delete': {
     title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
@@ -951,7 +951,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/classes',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'academics.classes.action.addSection': {
     title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
@@ -961,7 +961,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/classes',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'academics.classes.action.deleteSection': {
     title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
@@ -971,7 +971,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/classes',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'academics.classes.action.attachSubject': {
     title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
@@ -981,7 +981,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/classes',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'academics.classes.action.assignTeacher': {
     title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
@@ -991,14 +991,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/classes',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'academics.classes.field.grade': {
     title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
     summary: { bn: '', en: '' },
     path: 'academics/classes',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'classes', key: 'grade' },
   },
   'academics.classes.field.shift': {
@@ -1006,7 +1006,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'academics/classes',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'classes', key: 'shift' },
   },
   'academics.classes.field.version': {
@@ -1014,7 +1014,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'academics/classes',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'classes', key: 'version' },
   },
   'academics.classes.field.group': {
@@ -1022,7 +1022,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'academics/classes',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'classes', key: 'group' },
   },
   'academics.classes.field.capacity': {
@@ -1030,7 +1030,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'academics/classes',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'classes', key: 'capacity' },
   },
   'academics.routineSetup': {
@@ -1044,7 +1044,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-setup',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'academics.routineSetup.action.deleteShift': {
     title: {
@@ -1057,7 +1057,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-setup',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'academics.routineSetup.action.savePeriods': {
     title: {
@@ -1070,7 +1070,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-setup',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'academics.routineBuilder': {
     title: { bn: 'শ্রেণির সাপ্তাহিক রুটিন সাজানো', en: "Arranging a class's weekly routine" },
@@ -1080,7 +1080,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-builder',
     anchor: '',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'academics.routineBuilder.action.fillAssist': {
     title: { bn: 'শ্রেণির সাপ্তাহিক রুটিন সাজানো', en: "Arranging a class's weekly routine" },
@@ -1090,7 +1090,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-builder',
     anchor: 'task-main',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'academics.routineBuilder.action.clearCell': {
     title: { bn: 'শ্রেণির সাপ্তাহিক রুটিন সাজানো', en: "Arranging a class's weekly routine" },
@@ -1100,7 +1100,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-builder',
     anchor: 'task-main',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'academics.routineReview': {
     title: { bn: 'রুটিন পর্যালোচনা ও প্রকাশ করা', en: 'Reviewing and publishing the routine' },
@@ -1110,7 +1110,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-review',
     anchor: '',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.routineReview.action.submitForReview': {
     title: { bn: 'রুটিন পর্যালোচনা ও প্রকাশ করা', en: 'Reviewing and publishing the routine' },
@@ -1120,7 +1120,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-review',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.routineReview.action.publish': {
     title: { bn: 'রুটিন পর্যালোচনা ও প্রকাশ করা', en: 'Reviewing and publishing the routine' },
@@ -1130,7 +1130,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-review',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.routineReview.action.copyYear': {
     title: { bn: 'রুটিন পর্যালোচনা ও প্রকাশ করা', en: 'Reviewing and publishing the routine' },
@@ -1140,7 +1140,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-review',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.routineReview.action.requestChange': {
     title: { bn: 'রুটিন পর্যালোচনা ও প্রকাশ করা', en: 'Reviewing and publishing the routine' },
@@ -1150,7 +1150,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-review',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.routineReview.action.resolveRequest': {
     title: { bn: 'রুটিন পর্যালোচনা ও প্রকাশ করা', en: 'Reviewing and publishing the routine' },
@@ -1160,7 +1160,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-review',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.routineSubstitutions': {
     title: { bn: 'বদলি শিক্ষক রেকর্ড করা', en: 'Recording a substitute teacher' },
@@ -1170,7 +1170,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-substitutions',
     anchor: '',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.routineSubstitutions.action.add': {
     title: { bn: 'বদলি শিক্ষক রেকর্ড করা', en: 'Recording a substitute teacher' },
@@ -1180,7 +1180,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/routine-substitutions',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.myRoutine': {
     title: {
@@ -1193,7 +1193,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/my-routine',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.myRoutine.action.allTaught': {
     title: {
@@ -1206,7 +1206,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/my-routine',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.myRoutine.action.reportPast': {
     title: {
@@ -1219,7 +1219,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/my-routine',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.myClass': {
     title: { bn: 'নিজের শ্রেণির খবর এক পাতায় দেখা', en: 'Seeing your own class on one page' },
@@ -1229,7 +1229,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/my-class',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.myClass.action.takeAttendance': {
     title: { bn: 'নিজের শ্রেণির খবর এক পাতায় দেখা', en: 'Seeing your own class on one page' },
@@ -1239,54 +1239,54 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/my-class',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.homework': {
     title: { bn: 'বাড়ির কাজ দেওয়া', en: 'Giving homework' },
     summary: {
-      bn: 'শ্রেণি ও বিষয়ের জন্য বাড়ির কাজ তৈরি করে কোনো শাখা বা একজন শিক্ষার্থীকে দিন, একই কাজ আরও শাখায় দিন, আর অনেক কাজ একসঙ্গে ফাইল থেকে আমদানি করুন।',
-      en: 'Create homework for a class and subject, give it to a section or one student, give the same homework to more sections, and import many homework from a file at once.',
+      bn: 'শ্রেণি ও বিষয়ের জন্য বাড়ির কাজ তৈরি করে কোনো শাখা বা একজন শিক্ষার্থীকে দিন, একই কাজ আরও শাখায় দিন, দেওয়া কাজ বদলান বা নিষ্ক্রিয় করুন, প্রত্যেক শিক্ষার্থীর কাজ দেখুন, আর অনেক কাজ একসঙ্গে ফাইল থেকে আমদানি করুন।',
+      en: "Create homework for a class and subject, give it to a section or one student, give the same homework to more sections, change or deactivate what was given, check each student's work, and import many homework from a file at once.",
     },
     path: 'academics/homework',
     anchor: '',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.homework.action.assign': {
     title: { bn: 'বাড়ির কাজ দেওয়া', en: 'Giving homework' },
     summary: {
-      bn: 'শ্রেণি ও বিষয়ের জন্য বাড়ির কাজ তৈরি করে কোনো শাখা বা একজন শিক্ষার্থীকে দিন, একই কাজ আরও শাখায় দিন, আর অনেক কাজ একসঙ্গে ফাইল থেকে আমদানি করুন।',
-      en: 'Create homework for a class and subject, give it to a section or one student, give the same homework to more sections, and import many homework from a file at once.',
+      bn: 'শ্রেণি ও বিষয়ের জন্য বাড়ির কাজ তৈরি করে কোনো শাখা বা একজন শিক্ষার্থীকে দিন, একই কাজ আরও শাখায় দিন, দেওয়া কাজ বদলান বা নিষ্ক্রিয় করুন, প্রত্যেক শিক্ষার্থীর কাজ দেখুন, আর অনেক কাজ একসঙ্গে ফাইল থেকে আমদানি করুন।',
+      en: "Create homework for a class and subject, give it to a section or one student, give the same homework to more sections, change or deactivate what was given, check each student's work, and import many homework from a file at once.",
     },
     path: 'academics/homework',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.homework.action.assignAgain': {
     title: { bn: 'বাড়ির কাজ দেওয়া', en: 'Giving homework' },
     summary: {
-      bn: 'শ্রেণি ও বিষয়ের জন্য বাড়ির কাজ তৈরি করে কোনো শাখা বা একজন শিক্ষার্থীকে দিন, একই কাজ আরও শাখায় দিন, আর অনেক কাজ একসঙ্গে ফাইল থেকে আমদানি করুন।',
-      en: 'Create homework for a class and subject, give it to a section or one student, give the same homework to more sections, and import many homework from a file at once.',
+      bn: 'শ্রেণি ও বিষয়ের জন্য বাড়ির কাজ তৈরি করে কোনো শাখা বা একজন শিক্ষার্থীকে দিন, একই কাজ আরও শাখায় দিন, দেওয়া কাজ বদলান বা নিষ্ক্রিয় করুন, প্রত্যেক শিক্ষার্থীর কাজ দেখুন, আর অনেক কাজ একসঙ্গে ফাইল থেকে আমদানি করুন।',
+      en: "Create homework for a class and subject, give it to a section or one student, give the same homework to more sections, change or deactivate what was given, check each student's work, and import many homework from a file at once.",
     },
     path: 'academics/homework',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.homework.action.import': {
     title: { bn: 'বাড়ির কাজ দেওয়া', en: 'Giving homework' },
     summary: {
-      bn: 'শ্রেণি ও বিষয়ের জন্য বাড়ির কাজ তৈরি করে কোনো শাখা বা একজন শিক্ষার্থীকে দিন, একই কাজ আরও শাখায় দিন, আর অনেক কাজ একসঙ্গে ফাইল থেকে আমদানি করুন।',
-      en: 'Create homework for a class and subject, give it to a section or one student, give the same homework to more sections, and import many homework from a file at once.',
+      bn: 'শ্রেণি ও বিষয়ের জন্য বাড়ির কাজ তৈরি করে কোনো শাখা বা একজন শিক্ষার্থীকে দিন, একই কাজ আরও শাখায় দিন, দেওয়া কাজ বদলান বা নিষ্ক্রিয় করুন, প্রত্যেক শিক্ষার্থীর কাজ দেখুন, আর অনেক কাজ একসঙ্গে ফাইল থেকে আমদানি করুন।',
+      en: "Create homework for a class and subject, give it to a section or one student, give the same homework to more sections, change or deactivate what was given, check each student's work, and import many homework from a file at once.",
     },
     path: 'academics/homework',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'academics.homework.field.gradingMode': {
     title: { bn: 'বাড়ির কাজ দেওয়া', en: 'Giving homework' },
     summary: { bn: '', en: '' },
     path: 'academics/homework',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'homework', key: 'gradingMode' },
   },
   'academics.homework.field.dueDate': {
@@ -1294,7 +1294,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'academics/homework',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'homework', key: 'dueDate' },
   },
   'academics.syllabus': {
@@ -1305,7 +1305,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/syllabus',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.syllabus.action.deleteTopic': {
     title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
@@ -1315,7 +1315,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/syllabus',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.syllabus.action.createPlan': {
     title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
@@ -1325,7 +1325,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/syllabus',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.syllabus.action.deletePlan': {
     title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
@@ -1335,7 +1335,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/syllabus',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.syllabus.action.copyToSection': {
     title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
@@ -1345,14 +1345,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'academics/syllabus',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'academics.syllabus.field.term': {
     title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
     summary: { bn: '', en: '' },
     path: 'academics/syllabus',
     anchor: 'more',
-    knownIssues: 1,
+    knownIssues: 0,
     field: { ns: 'syllabus', key: 'term' },
   },
   'attendance.attendance': {
@@ -1363,7 +1363,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'attendance/attendance',
     anchor: '',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'attendance.attendance.action.allPresent': {
     title: { bn: 'উপস্থিতি নেওয়া', en: 'Taking attendance' },
@@ -1373,7 +1373,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'attendance/attendance',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'attendance.attendance.action.submit': {
     title: { bn: 'উপস্থিতি নেওয়া', en: 'Taking attendance' },
@@ -1383,14 +1383,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'attendance/attendance',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'attendance.attendance.field.date': {
     title: { bn: 'উপস্থিতি নেওয়া', en: 'Taking attendance' },
     summary: { bn: '', en: '' },
     path: 'attendance/attendance',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'attendance', key: 'date' },
   },
   'attendance.attendanceReports': {
@@ -1401,7 +1401,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'attendance/attendance-reports',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'attendance.attendanceReports.action.sendReminder': {
     title: { bn: 'উপস্থিতি প্রতিবেদন', en: 'Attendance reports' },
@@ -1411,7 +1411,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'attendance/attendance-reports',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'attendance.attendanceRegister': {
     title: { bn: 'উপস্থিতির খাতা', en: 'Attendance register' },
@@ -1461,7 +1461,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'attendance/staff-attendance',
     anchor: '',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'attendance.staffAttendance.action.submit': {
     title: { bn: 'কর্মীর উপস্থিতি ও ছুটি', en: 'Staff attendance and leave' },
@@ -1471,7 +1471,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'attendance/staff-attendance',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'attendance.staffAttendance.action.requestLeave': {
     title: { bn: 'কর্মীর উপস্থিতি ও ছুটি', en: 'Staff attendance and leave' },
@@ -1481,7 +1481,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'attendance/staff-attendance',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'attendance.staffAttendance.action.approveLeave': {
     title: { bn: 'কর্মীর উপস্থিতি ও ছুটি', en: 'Staff attendance and leave' },
@@ -1491,14 +1491,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'attendance/staff-attendance',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'attendance.staffAttendance.field.date': {
     title: { bn: 'কর্মীর উপস্থিতি ও ছুটি', en: 'Staff attendance and leave' },
     summary: { bn: '', en: '' },
     path: 'attendance/staff-attendance',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'staffAttendance', key: 'date' },
   },
   'examsResults.exams': {
@@ -1509,7 +1509,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exams',
     anchor: '',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.exams.action.add': {
     title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
@@ -1519,7 +1519,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exams',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.exams.action.edit': {
     title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
@@ -1529,7 +1529,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exams',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.exams.action.addComponent': {
     title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
@@ -1539,7 +1539,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exams',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.exams.action.copyComponents': {
     title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
@@ -1549,7 +1549,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exams',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.exams.action.addSchedule': {
     title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
@@ -1559,14 +1559,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exams',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.exams.field.deadline': {
     title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
     summary: { bn: '', en: '' },
     path: 'exams-results/exams',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'exams', key: 'deadline' },
   },
   'examsResults.exams.field.template': {
@@ -1574,7 +1574,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'exams-results/exams',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'exams', key: 'template' },
   },
   'examsResults.examTemplates': {
@@ -1585,7 +1585,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exam-templates',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'examsResults.examTemplates.action.add': {
     title: { bn: 'পরীক্ষার কাঠামো বানানো', en: 'Building an exam structure' },
@@ -1595,7 +1595,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exam-templates',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'examsResults.examTemplates.action.delete': {
     title: { bn: 'পরীক্ষার কাঠামো বানানো', en: 'Building an exam structure' },
@@ -1605,7 +1605,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exam-templates',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'examsResults.examTemplates.action.addGrade': {
     title: { bn: 'পরীক্ষার কাঠামো বানানো', en: 'Building an exam structure' },
@@ -1615,7 +1615,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exam-templates',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'examsResults.examTemplates.action.addSubject': {
     title: { bn: 'পরীক্ষার কাঠামো বানানো', en: 'Building an exam structure' },
@@ -1625,7 +1625,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exam-templates',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'examsResults.examTemplates.action.save': {
     title: { bn: 'পরীক্ষার কাঠামো বানানো', en: 'Building an exam structure' },
@@ -1635,14 +1635,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/exam-templates',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'examsResults.examTemplates.field.grade': {
     title: { bn: 'পরীক্ষার কাঠামো বানানো', en: 'Building an exam structure' },
     summary: { bn: '', en: '' },
     path: 'exams-results/exam-templates',
     anchor: 'more',
-    knownIssues: 1,
+    knownIssues: 0,
     field: { ns: 'examTemplates', key: 'grade' },
   },
   'examsResults.examTemplates.field.fullMarks': {
@@ -1650,7 +1650,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'exams-results/exam-templates',
     anchor: 'more',
-    knownIssues: 1,
+    knownIssues: 0,
     field: { ns: 'examTemplates', key: 'fullMarks' },
   },
   'examsResults.examTemplates.field.passMarks': {
@@ -1658,7 +1658,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'exams-results/exam-templates',
     anchor: 'more',
-    knownIssues: 1,
+    knownIssues: 0,
     field: { ns: 'examTemplates', key: 'passMarks' },
   },
   'examsResults.marksEntry': {
@@ -1669,7 +1669,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/marks-entry',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'examsResults.marksEntry.action.submit': {
     title: { bn: 'পরীক্ষার নম্বর দেওয়া ও জমা দেওয়া', en: 'Entering and submitting exam marks' },
@@ -1679,7 +1679,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/marks-entry',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'examsResults.marksEntry.action.reopen': {
     title: { bn: 'পরীক্ষার নম্বর দেওয়া ও জমা দেওয়া', en: 'Entering and submitting exam marks' },
@@ -1689,7 +1689,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/marks-entry',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'examsResults.seatPlans': {
     title: { bn: 'সিট প্ল্যান তৈরি ও প্রকাশ', en: 'Making and publishing seat plans' },
@@ -1699,7 +1699,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/seat-plans',
     anchor: '',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.seatPlans.action.generate': {
     title: { bn: 'সিট প্ল্যান তৈরি ও প্রকাশ', en: 'Making and publishing seat plans' },
@@ -1709,7 +1709,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/seat-plans',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.seatPlans.action.publish': {
     title: { bn: 'সিট প্ল্যান তৈরি ও প্রকাশ', en: 'Making and publishing seat plans' },
@@ -1719,7 +1719,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/seat-plans',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.seatPlans.action.unpublish': {
     title: { bn: 'সিট প্ল্যান তৈরি ও প্রকাশ', en: 'Making and publishing seat plans' },
@@ -1729,7 +1729,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/seat-plans',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.seatPlans.action.reshuffle': {
     title: { bn: 'সিট প্ল্যান তৈরি ও প্রকাশ', en: 'Making and publishing seat plans' },
@@ -1739,7 +1739,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/seat-plans',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.seatPlans.action.reseat': {
     title: { bn: 'সিট প্ল্যান তৈরি ও প্রকাশ', en: 'Making and publishing seat plans' },
@@ -1749,7 +1749,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/seat-plans',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.seatPlans.action.delete': {
     title: { bn: 'সিট প্ল্যান তৈরি ও প্রকাশ', en: 'Making and publishing seat plans' },
@@ -1759,14 +1759,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/seat-plans',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.seatPlans.field.rooms': {
     title: { bn: 'সিট প্ল্যান তৈরি ও প্রকাশ', en: 'Making and publishing seat plans' },
     summary: { bn: '', en: '' },
     path: 'exams-results/seat-plans',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'seatPlans', key: 'rooms' },
   },
   'examsResults.seatPlans.field.seatOrder': {
@@ -1774,7 +1774,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'exams-results/seat-plans',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'seatPlans', key: 'seatOrder' },
   },
   'examsResults.seatPlans.field.invigilator': {
@@ -1782,7 +1782,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'exams-results/seat-plans',
     anchor: 'more',
-    knownIssues: 3,
+    knownIssues: 0,
     field: { ns: 'seatPlansDetail', key: 'invigilator' },
   },
   'examsResults.gradingScales': {
@@ -1859,7 +1859,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/results',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'examsResults.results.action.process': {
     title: { bn: 'ফলাফল প্রক্রিয়া ও প্রকাশ', en: 'Processing and publishing results' },
@@ -1869,7 +1869,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/results',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'examsResults.results.action.publish': {
     title: { bn: 'ফলাফল প্রক্রিয়া ও প্রকাশ', en: 'Processing and publishing results' },
@@ -1879,7 +1879,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/results',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'examsResults.results.action.reopen': {
     title: { bn: 'ফলাফল প্রক্রিয়া ও প্রকাশ', en: 'Processing and publishing results' },
@@ -1889,7 +1889,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/results',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'examsResults.results.action.sendSms': {
     title: { bn: 'ফলাফল প্রক্রিয়া ও প্রকাশ', en: 'Processing and publishing results' },
@@ -1899,7 +1899,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/results',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'examsResults.results.action.printReportCard': {
     title: { bn: 'ফলাফল প্রক্রিয়া ও প্রকাশ', en: 'Processing and publishing results' },
@@ -1909,7 +1909,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/results',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'examsResults.analysis': {
     title: { bn: 'মেধা তালিকা ও ফলাফল বিশ্লেষণ', en: 'Merit list and result analysis' },
@@ -1919,7 +1919,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/analysis',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'examsResults.analysis.action.print': {
     title: { bn: 'মেধা তালিকা ও ফলাফল বিশ্লেষণ', en: 'Merit list and result analysis' },
@@ -1929,7 +1929,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/analysis',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'examsResults.analysis.action.downloadCsv': {
     title: { bn: 'মেধা তালিকা ও ফলাফল বিশ্লেষণ', en: 'Merit list and result analysis' },
@@ -1939,7 +1939,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/analysis',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'examsResults.promotion': {
     title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
@@ -1949,7 +1949,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/promotion',
     anchor: '',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.promotion.action.create': {
     title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
@@ -1959,7 +1959,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/promotion',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.promotion.action.refresh': {
     title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
@@ -1969,7 +1969,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/promotion',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.promotion.action.commit': {
     title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
@@ -1979,7 +1979,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/promotion',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'examsResults.promotion.action.delete': {
     title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
@@ -1989,7 +1989,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'exams-results/promotion',
     anchor: 'task-main',
-    knownIssues: 3,
+    knownIssues: 0,
   },
   'finance.dues': {
     title: { bn: 'শিক্ষার্থীর বকেয়া', en: 'Student dues' },
@@ -2119,7 +2119,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'finance/fee-structures',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'finance.feeStructures.action.add': {
     title: { bn: 'ফি কাঠামো ঠিক করা', en: 'Setting up fee structures' },
@@ -2129,7 +2129,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'finance/fee-structures',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'finance.feeStructures.action.edit': {
     title: { bn: 'ফি কাঠামো ঠিক করা', en: 'Setting up fee structures' },
@@ -2139,7 +2139,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'finance/fee-structures',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'finance.feeStructures.action.delete': {
     title: { bn: 'ফি কাঠামো ঠিক করা', en: 'Setting up fee structures' },
@@ -2149,14 +2149,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'finance/fee-structures',
     anchor: 'task-main',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'finance.feeStructures.field.amount': {
     title: { bn: 'ফি কাঠামো ঠিক করা', en: 'Setting up fee structures' },
     summary: { bn: '', en: '' },
     path: 'finance/fee-structures',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'feeStructures', key: 'amount' },
   },
   'finance.feeStructures.field.feeType': {
@@ -2164,7 +2164,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'finance/fee-structures',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'feeStructures', key: 'feeType' },
   },
   'finance.feeStructures.field.academicYear': {
@@ -2172,7 +2172,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'finance/fee-structures',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'feeStructures', key: 'academicYear' },
   },
   'finance.feeStructures.field.class': {
@@ -2180,7 +2180,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'finance/fee-structures',
     anchor: 'more',
-    knownIssues: 2,
+    knownIssues: 0,
     field: { ns: 'feeStructures', key: 'class' },
   },
   'finance.generateFees': {
@@ -2613,14 +2613,14 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'reports/applications',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'reports.applications.field.academicYear': {
     title: { bn: 'আবেদনপত্রের প্রতিবেদন', en: 'Application reports' },
     summary: { bn: '', en: '' },
     path: 'reports/applications',
     anchor: 'more',
-    knownIssues: 1,
+    knownIssues: 0,
     field: { ns: 'applicationsReports', key: 'academicYear' },
   },
   'reports.applications.field.submitted': {
@@ -2628,7 +2628,7 @@ export const HELP_INDEX: HelpIndex = {
     summary: { bn: '', en: '' },
     path: 'reports/applications',
     anchor: 'more',
-    knownIssues: 1,
+    knownIssues: 0,
     field: { ns: 'applicationsReports', key: 'submitted' },
   },
   'reports.alertsReport': {
@@ -2649,7 +2649,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'communications/send-message',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'communications.sendMessage.action.send': {
     title: { bn: 'বার্তা পাঠান', en: 'Send a message' },
@@ -2659,7 +2659,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'communications/send-message',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'communications.sendAlert': {
     title: { bn: 'সতর্কতা পাঠান', en: 'Send an alert' },
@@ -2669,7 +2669,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'communications/send-alert',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 0,
   },
   'communications.feeReminders': {
     title: { bn: 'ফি রিমাইন্ডার', en: 'Fee reminders' },
@@ -2925,7 +2925,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.logo': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -2935,7 +2935,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.organisation': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -2945,7 +2945,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.attendance': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -2955,7 +2955,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.autoAbsent': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -2965,7 +2965,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.approvalMode': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -2975,7 +2975,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.secondApprover': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -2985,7 +2985,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.lateFees': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -2995,7 +2995,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.buySeats': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -3005,7 +3005,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.smsProvider': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -3015,7 +3015,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.smsCredit': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -3025,7 +3025,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.guardianSmsFallback': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -3035,7 +3035,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.printers': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -3045,7 +3045,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.otpLogin': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -3055,7 +3055,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.backup': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -3065,7 +3065,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.backupSchedule': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -3075,7 +3075,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.settings.restore': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -3085,7 +3085,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'administration/settings',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'administration.curriculumPreset': {
     title: { bn: 'তৈরি শিক্ষাক্রম', en: 'Ready-made curriculum' },
@@ -3458,7 +3458,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'start/phone',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'start.phone.action.install': {
     title: {
@@ -3471,7 +3471,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'start/phone',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'start.language': {
     title: { bn: 'ভাষা বদলানো', en: 'Changing the language' },
@@ -3501,7 +3501,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'start/account',
     anchor: '',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'start.account.action.signOutDevice': {
     title: { bn: 'নিজের অ্যাকাউন্ট', en: 'Your account' },
@@ -3511,7 +3511,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'start/account',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'start.account.action.signOutAll': {
     title: { bn: 'নিজের অ্যাকাউন্ট', en: 'Your account' },
@@ -3521,7 +3521,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'start/account',
     anchor: 'task-main',
-    knownIssues: 1,
+    knownIssues: 0,
   },
   'start.findAnything': {
     title: { bn: 'যেকোনো পাতা খুঁজে পাওয়া', en: 'Finding any page' },
@@ -3633,7 +3633,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.attendance-today',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.staff-today': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3643,7 +3643,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.staff-today',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.collection-month': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3653,7 +3653,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.collection-month',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.mark-entry-progress': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3663,7 +3663,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.mark-entry-progress',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.syllabus-progress': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3673,7 +3673,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.syllabus-progress',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.at-risk-students': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3683,7 +3683,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.at-risk-students',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.sms-balance': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3693,7 +3693,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.sms-balance',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.failed-messages': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3703,7 +3703,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.failed-messages',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.upcoming': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3713,7 +3713,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.upcoming',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.homework-submission-rate': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3723,7 +3723,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.homework-submission-rate',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.recent-activity': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3733,7 +3733,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.recent-activity',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.my-routine-today': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3743,7 +3743,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.my-routine-today',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.my-pending-sections': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3753,7 +3753,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.my-pending-sections',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.my-mark-deadlines': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3763,7 +3763,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.my-mark-deadlines',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.homework-to-check': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3773,7 +3773,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.homework-to-check',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.class-teacher-streaks': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3783,7 +3783,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.class-teacher-streaks',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.my-leave-balance': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3793,7 +3793,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.my-leave-balance',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.my-syllabus-progress': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3803,7 +3803,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.my-syllabus-progress',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.collection-today': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3813,7 +3813,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.collection-today',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.collection-by-month': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3823,7 +3823,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.collection-by-month',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.dues-ageing': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3833,7 +3833,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.dues-ageing',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.dues-by-class': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3843,7 +3843,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.dues-by-class',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.fee-generation-status': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3853,7 +3853,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.fee-generation-status',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.reminders-pending': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3863,7 +3863,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.reminders-pending',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.recent-payments': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3873,7 +3873,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.recent-payments',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.committee-enrollment': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3883,7 +3883,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.committee-enrollment',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.committee-attendance': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3893,7 +3893,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.committee-attendance',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.committee-finance': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3903,7 +3903,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.committee-finance',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.committee-pass-rate': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3913,7 +3913,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.committee-pass-rate',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.seat-plan-status': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3923,7 +3923,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.seat-plan-status',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.results-state': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3933,7 +3933,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.results-state',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.admissions-today': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3943,7 +3943,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.admissions-today',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.guardians-incomplete': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3953,7 +3953,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.guardians-incomplete',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.students-added-today': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3963,7 +3963,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.students-added-today',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.approvals-pending': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3973,7 +3973,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.approvals-pending',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.print-queue': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3983,7 +3983,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.print-queue',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.setup-checklist': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -3993,7 +3993,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.setup-checklist',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.syllabus-vs-plan': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -4003,7 +4003,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.syllabus-vs-plan',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'widget.my-lessons-to-mark': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
@@ -4013,7 +4013,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/widgets',
     anchor: 'widget.my-lessons-to-mark',
-    knownIssues: 4,
+    knownIssues: 0,
   },
   'dashboard.customise': {
     title: { bn: 'ড্যাশবোর্ড নিজের মতো সাজানো', en: 'Customising your dashboard' },
@@ -4209,6 +4209,7 @@ export const HELP_ROUTES = {
   '/communications/reminders': 'communications.feeReminders',
   '/communications/batches': 'communications.reminderHistory',
   '/communications/batches/$batchId': 'communications.reminderHistory',
+  '/communications/message-log': 'communications.reminderHistory',
   '/print-templates': 'administration.printTemplates',
   '/print-templates/$templateId/edit': 'administration.printTemplates',
   '/print/document': 'administration.printTemplates',

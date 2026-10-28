@@ -44,9 +44,7 @@ keywords:
 appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: period-times-locked-by-history, checked: 2026-10-24, issue: 2893 }
-  - { id: no-edit-shift-room, checked: 2026-10-24, issue: 2894 }
+knownIssues: []
 -->
 
 # Setting up shifts, period times, rooms and rules for the routine
@@ -68,10 +66,10 @@ This page has three tabs: **Shifts and periods**, **Rooms** and **Routine rules*
   - [Set the period times of a shift](#task-periods)
   - [Add a room](#task-rooms)
   - [Set the routine rules](#task-rules)
+  - [Change a shift or a room](#task-edit)
   - [Delete a shift or a room](#task-delete)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -143,9 +141,9 @@ Nothing on this page can be kept on a phone or computer and sent later. It is sa
 
 > **Remember:** nothing reaches the system until you press **Save**. If you try to leave without saving, the app warns you. You cannot place a period of the class routine in a **Break** row.
 
-![Period times section, with the timeline, one Break row and the Save button](img/routine-setup-02.png)
+You can change the times later too, even after periods are placed in the class routine. Under the rows it says: **Changing a time also changes it on past days.** But if you remove a row, or turn a **Lesson** row into a **Break**, and that period is already used in a routine or in lesson records, it does not save: **A period you removed or made a break is used in a routine or in lesson records. Put it back. If only the class routine uses it, you can clear it from the routine first.**
 
-Once any period of a shift has been placed in a class routine, its times can no longer be changed: **Periods of this shift are already placed in a routine, so their times can't be replaced. Remove those periods from the class routine first.** So check the times carefully before you build routines. More: [Known issues](#known-issues).
+![Period times section, with the timeline, one Break row and the Save button](img/routine-setup-02.png)
 
 ### Add a room <a href="#task-rooms" id="task-rooms"></a>
 
@@ -163,7 +161,7 @@ Once any period of a shift has been placed in a class routine, its times can no 
 
    → The dialog closes and **Room {number}** appears in the list.
 
-> **Remember:** the list of rooms is also used for exam seat plans. When you fill a cell of the class routine, there is no field for choosing a room right now; see [Known issues](#known-issues).
+> **Remember:** the list of rooms is also used for exam seat plans.
 
 ### Set the routine rules <a href="#task-rules" id="task-rules"></a>
 
@@ -182,6 +180,18 @@ Once any period of a shift has been placed in a class routine, its times can no 
    → The **Saved** message appears. If you enter a wrong number, the field shows **Enter a whole number of at least 1, or leave it empty for no limit.** or **Enter a whole number from 0 to 120.**
 
 > **Remember:** a new rule is checked only against periods you place or change from now on. Periods already placed do not move by themselves. (Read from the code; not tried in the app.)
+
+### Change a shift or a room <a href="#task-edit" id="task-edit"></a>
+
+1. In the **Shifts** list or the **Rooms** list, press **Edit** at the end of the row.
+
+   → The **Edit shift** or **Edit room** dialog opens, with the earlier details filled in.
+
+2. Change the name, the times, or the room's details, and press **Save**.
+
+   → The dialog closes and the list shows the change.
+
+A shift's day cannot be made shorter than its periods. If a period would fall outside the new times, it shows **Some periods of this shift fall outside these times. Change the period times first.**
 
 ### Delete a shift or a room <a href="#task-delete" id="task-delete"></a>
 
@@ -207,7 +217,8 @@ Once any period of a shift has been placed in a class routine, its times can no 
 | **Couldn't add the shift. Try again.**                                                                                                          | Check your internet and press **Add** again. What you typed stays in the dialog. | Admin        |
 | **This name isn't valid. Check it and try again.**                                                                                              | Type a different name.                                                           | Admin        |
 | **Some rows have a time problem. Fix the red notes and save again.**                                                                            | Fix the time of the rows with red notes, then press **Save**.                    | Admin        |
-| **Periods of this shift are already placed in a routine, so their times can't be replaced. Remove those periods from the class routine first.** | See [Known issues](#known-issues).                                               | Admin        |
+| **A period you removed or made a break is used in a routine or in lesson records. …**                                                          | Put the row back as it was. If only the class routine uses it, clear it there first ([Class routine](routine-builder.md#task-clear)). | Admin        |
+| **Some periods of this shift fall outside these times. Change the period times first.**                                                        | Make the shift's day wider, or first change the [period times](#task-periods).  | Admin        |
 | **Couldn't save the period times. Try again.**                                                                                                  | Check your internet and press **Save** again. The rows stay on screen.           | Admin        |
 | **Couldn't add the room. Try again.**                                                                                                           | Check your internet and try again.                                               | Admin        |
 | **Couldn't save the rules. Check the numbers and try again.**                                                                                   | Check that the numbers are within the limits, then press **Save** again.         | Admin        |
@@ -223,17 +234,6 @@ Once any period of a shift has been placed in a class routine, its times can no 
 | Academic coordinator, Teacher, Accountant, Office staff, Exam controller, Committee member | No                            |
 
 People without permission do not have **Routine setup** in their left menu.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. This section will drop an item once it is fixed.
-
-| Problem                                                                                                                                                                                                                | Who, when                               | Is the data saved?      | What to do for now                                                            |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------- | ----------------------------------------------------------------------------- |
-| Once a period of a shift is placed in a routine (even after it is removed from a published routine, its old record stays), or a teacher has reported a lesson, the period times of that shift can no longer be changed | Admin, after routine building has begun | Yes, the old times stay | Check the times before you build. If you must change them later, tell support |
-| There is no button to change a shift's or a room's name and times later; you can only add and delete                                                                                                                   | Admin, any time                         | Not applicable          | If it is wrong, delete it and add it again (if it is not in use)              |
 
 ---
 

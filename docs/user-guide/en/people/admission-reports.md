@@ -28,9 +28,7 @@ keywords:
 appVersion: 0.1.0 (fb8af6c63)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: admitted-online-only, checked: 2026-10-24, issue: 2881 }
-  - { id: filters-not-in-url, checked: 2026-10-24, issue: 2882 }
+knownIssues: []
 -->
 
 # Admission reports
@@ -40,7 +38,7 @@ Count, on one page, who joined and who left in an academic year.
 **Go to:** **People → Admission reports** in the left menu. View this page on a computer.
 **Before you start:** be an Admin or Academic coordinator ([who can do what](#roles)). This page is view-only; nothing changes from here.
 
-The report combines two sources: students who are **Admitted** on the [Admission applicants](admission-applicants.md) page, and the leaving and readmission events recorded on a [student's](students.md) profile. A student added by hand or imported from Excel does not count in **Admitted** ([Known issues](#known-issues)).
+The report combines two sources: students who are **Admitted** on the [Admission applicants](admission-applicants.md) page, and the leaving and readmission events recorded on a [student's](students.md) profile. A student added by hand or imported from Excel is not counted in **Admitted from online applications**.
 
 [See the year's totals](#task-main) · [Look at one class](#task-class) · [Problems and fixes](#trouble)
 
@@ -55,7 +53,6 @@ The report combines two sources: students who are **Admitted** on the [Admission
   - [When there are more than 500 records](#task-truncated)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -72,14 +69,14 @@ The report combines two sources: students who are **Admitted** on the [Admission
 
    | Card           | What is counted                                                                                                     |
    | -------------- | ------------------------------------------------------------------------------------------------------------------- |
-   | **Admitted**   | Students admitted from an online application with **Admit**, into a class of this year                              |
+   | **Admitted from online applications** | Students admitted from an online application with **Admit**, into a class of this year                              |
    | **Left**       | Students who were withdrawn plus those who transferred out; written separately below, "Withdrawn 3 · Transferred 2" |
    | **Graduated**  | Students whose profile records that they finished their studies                                                     |
    | **Readmitted** | Students who were **Readmit**ted after leaving the school                                                           |
 
 3. In the list below, every event is one row, newest on top: **Name**, **Reg. no.**, **Class**, **Event**, **Date**, **Reason**, **Destination**.
 
-   → The **Event** column shows **Admitted**, **Withdrawn**, **Transferred out**, **Graduated** or **Readmitted**. An empty box shows **—**. On an online-admission row, **Reg. no.**, **Reason** and **Destination** are always **—**.
+   → The **Event** column shows **Admitted (online application)**, **Withdrawn**, **Transferred out**, **Graduated** or **Readmitted**. An empty box shows **—**. On an online-admission row, **Reg. no.**, **Reason** and **Destination** are always **—**.
 
 If nothing happened this year, it says **No records for this year**: "Admissions, leavers and graduations recorded in this year show up here."
 
@@ -126,9 +123,8 @@ Under the list it says: "Showing the first 500 records only. Pick a class to nar
 | **You don't have access to this page.**                   | Only Admin and Academic coordinator see the report. Press **Back to dashboard**.                                                      | Admin        |
 | **Could not load the report**                             | Check your internet and reload the page.                                                                                              | Admin        |
 | **No records for this year**                              | Check that the right academic year is chosen. If a class is chosen, set it to **All classes**.                                        | —            |
-| The **Admitted** number is lower than the real admissions | It counts only admissions from online applications. Students added by hand or imported are not in it ([Known issues](#known-issues)). | —            |
+| **Admitted from online applications** is lower than the real admissions | It counts only admissions from online applications. Students added by hand or imported are not in it; see the [Students](students.md) list. | —            |
 | Someone left the school but is not in the list            | Check that their leaving was recorded with **Record leaving** on their profile: [Students](students.md).                              | Office staff |
-| After a reload the filters are not as they were           | The filters are not kept in the page address; choose them again ([Known issues](#known-issues)).                                      | —            |
 
 ---
 
@@ -144,17 +140,6 @@ Under the list it says: "Showing the first 500 records only. Pick a class to nar
 
 ---
 
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
-
-| Issue                                                                                                                              | Who, when                                   | Data saved? | What to do for now                                                                           |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------- |
-| **Admitted** counts only students admitted from online applications; students added by hand or imported from Excel are not counted | A school that admits in ways besides online | Yes         | To get the total number of students, look at the [Students](students.md) list class by class |
-| The **Academic year** and **Class** choices are lost when you reload the page or share the link                                    | Anyone, on reload                           | —           | Choose them again after reloading                                                            |
-
----
-
 ## Learn more <a href="#more" id="more"></a>
 
 <details>
@@ -162,7 +147,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 
 1. **Admission reports** — the heading, and under it the chosen academic year and class.
 2. **Filters** — **Academic year**, **Class**.
-3. **Totals** — four cards: **Admitted**, **Left**, **Graduated**, **Readmitted**.
+3. **Totals** — four cards: **Admitted from online applications**, **Left**, **Graduated**, **Readmitted**.
 4. **The list** — one row per event; **View student** at the end.
 
 ![the four parts of the admission report](img/admission-reports-02.png)
@@ -191,7 +176,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
   <figcaption><em>The report combines two sources</em></figcaption>
 </figure>
 
-- **Admitted** comes from [Admission applicants](admission-applicants.md); the date is the day **Admit** was pressed.
+- **Admitted from online applications** comes from [Admission applicants](admission-applicants.md); the date is the day **Admit** was pressed.
 - The other events come from **Record leaving** and **Readmit** on a student's profile: [Students](students.md).
 - The year is decided by the class's academic year, not by the date of the event.
 
@@ -199,7 +184,7 @@ Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each 
 
 **Related pages**
 
-- [**Admission applicants**](admission-applicants.md) — review online applications and admit; the **Admitted** number here comes from there.
+- [**Admission applicants**](admission-applicants.md) — review online applications and admit; the **Admitted from online applications** number here comes from there.
 - [**Admission rounds**](admission-intakes.md) — which class takes how many seats for online admission.
 
 ---

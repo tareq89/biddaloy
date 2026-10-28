@@ -44,8 +44,7 @@ keywords:
 appVersion: 0.1.0 (fb8af6c63)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: list-no-search, checked: 2026-10-24, issue: 2880 }
+knownIssues: []
 -->
 
 # Reviewing admission applications and admitting students
@@ -74,7 +73,6 @@ Every application has a **Status**: **Awaiting review** (new), **Shortlisted**, 
   - [What the guardian can learn](#task-notify)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -157,7 +155,7 @@ Two fields above the list:
 | **Admission round** | One round. If you choose none, it says **All admission rounds**                                                  |
 | **Status**          | **Awaiting review**, **Shortlisted**, **Admitted** or **Rejected**. If you choose none, it says **All statuses** |
 
-Before you start work, choose **Awaiting review** under **Status** to see only the applications nobody has looked at yet. There is no search box for names ([Known issues](#known-issues)). With no applications at all, it says **No applications yet**.
+Before you start work, choose **Awaiting review** under **Status** to see only the applications nobody has looked at yet. To find one application, type a name, reference number or phone in **Search**. With no applications at all, it says **No applications yet**.
 
 ### When the phone number matches an earlier guardian <a href="#task-guardian" id="task-guardian"></a>
 
@@ -273,16 +271,6 @@ If the school has no SMS balance, the message does not go, but the decision is s
 | Academic coordinator, Teacher, Accountant, Exam controller, Committee member | No                            | No                             | No               |
 
 **Admin** and **Office staff** can do exactly the same on this page. Someone without permission who opens the page sees **You don't have access to this page.**, and **Admission applicants** is not in their left menu.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code on version 0.1.0, 2026-10-24. Not run in the app. Each line is removed once the fix ships.
-
-| Issue                                                            | Who, when                                                  | Data saved? | What to do for now                                                                                      |
-| ---------------------------------------------------------------- | ---------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
-| The list has no box to search by name, reference number or phone | A guardian who tells you the reference number on the phone | Yes         | Narrow the list with **Admission round** and **Status**, then search the page with the browser's Ctrl+F |
 
 ---
 

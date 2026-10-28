@@ -27,8 +27,7 @@ keywords: [উপস্থিতি প্রতিবেদন, হাজির
 appVersion: 0.1.0 (a5fdbd4ba)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: teacher-low-attendance-tab-error, checked: 2026-10-25, issue: 2908 }
+knownIssues: []
 -->
 
 # Attendance reports
@@ -53,7 +52,6 @@ A report never writes anything itself. Teachers take attendance every day, and t
   - [Attendance by subject](#task-subjects)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -133,7 +131,6 @@ When the school turns on per-period attendance under **Settings › Attendance p
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | **Pick a section**                                    | Choose both **Class** and **Section**. The month summary shows one section at a time.                   | —                                     |
 | **Could not load the attendance report.** (teacher)   | You can only see sections assigned to you. Choosing another section gives this message. Pick your own.  | Admin (**Teacher assignments**)       |
-| **Low attendance** tab does not load (teacher)        | This list is not meant for teachers. See [Known issues](#known-issues).                                 | —                                     |
 | **No attendance records for this filter.**            | Attendance was not taken that month. Ask the teacher to [take it](attendance.md), or pick another month. | Teacher                               |
 | The percentage looks wrong                            | A day's mark is wrong. Correct it in the [Attendance register](attendance-register.md#task-edit).       | Teacher or admin                      |
 
@@ -151,16 +148,6 @@ When the school turns on per-period attendance under **Settings › Attendance p
 | Teacher              | Only sections assigned to them | No           | No            |
 
 This page is view-only. Nobody can change attendance here, and there is no download or print button. If you need paper, print the [Attendance register](attendance-register.md#task-print).
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked in the code for version 0.1.0 on 2026-10-25. Not run in the app. Each line is removed once the fix ships.
-
-| Issue                                                                                                              | Who, when                | Data saved? | What to do for now                                              |
-| ------------------------------------------------------------------------------------------------------------------ | ------------------------ | ----------- | --------------------------------------------------------------- |
-| A teacher sees the **Low attendance** tab, but pressing it shows **Could not load the attendance report.**        | Teachers, every time     | Not applicable | See your section's percentages on the **Month summary** tab. |
 
 ---
 

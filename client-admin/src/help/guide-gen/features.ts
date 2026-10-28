@@ -21,13 +21,7 @@ import { STAFF_NAV_GROUPS, STAFF_TOP_NAV_ITEMS } from '../../nav-tree';
 import { PORTAL_NAV_ITEMS } from '../../routes/portal';
 
 export type FeatureKind =
-  | 'nav'
-  | 'portal'
-  | 'start'
-  | 'admin'
-  | 'administration'
-  | 'dashboard'
-  | 'help';
+  'nav' | 'portal' | 'start' | 'admin' | 'administration' | 'dashboard' | 'help';
 
 export interface Feature {
   id: string;
@@ -138,6 +132,7 @@ const OWNED: Record<string, string[]> = {
   'academics.syllabus': ['/academics/study-plans/$planId'],
   'people.evaluations': ['/staff/$userId/acr/$assessmentId'],
   'people.admissionIntakes': ['/admission/$slug', '/admission/$slug/status'],
+  'communications.reminderHistory': ['/communications/message-log'],
 };
 
 const pathOf = (id: string) => {
