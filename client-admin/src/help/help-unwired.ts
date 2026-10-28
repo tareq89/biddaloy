@@ -48,13 +48,11 @@ export const HELP_UNWIRED: Record<string, string> = {
   'academics.routineReview.action.requestChange': PAGE_FIX,
   'academics.routineReview.action.resolveRequest': PAGE_FIX,
   'attendance.attendanceReports.action.sendReminder': PAGE_FIX,
-  'reports.printables.field.validity': TERRITORY,
   'people.programs.action.archive': NO_DIALOG,
   'people.students.action.printIdCard': NO_DIALOG,
 
   // 44.3.07-44.3.11
   'administration.printTemplates.action.revoke': SAME_ELEMENT,
-  'administration.printTemplates.field.kind': PRINT_FIX,
   'portal.notifications.action.close': ROW_CONTROL,
   'portal.notifications.action.snooze': ROW_CONTROL,
 
