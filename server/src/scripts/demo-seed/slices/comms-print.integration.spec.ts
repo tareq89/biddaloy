@@ -117,8 +117,8 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
       `SELECT count(*)::int AS n,
               count(*) FILTER (WHERE status = 'FAILED')::int AS failed,
               count(*) FILTER (WHERE status <> 'FAILED'
-                  AND provider_message_id NOT LIKE 'demo-log-%')::int AS other_provider,
-              count(*) FILTER (WHERE metadata->>'provider' IS DISTINCT FROM 'demo-log')::int AS no_tag
+                  AND provider_message_id NOT LIKE 'mailpit-sink-%')::int AS other_provider,
+              count(*) FILTER (WHERE metadata->>'provider' IS DISTINCT FROM 'mailpit-sink')::int AS no_tag
          FROM communication_logs`,
     );
     facts.batches = await q(
@@ -165,7 +165,7 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
     }
   });
 
-  it('tags every message as demo-log so nothing implies a real provider', () => {
+  it('tags every message as mailpit-sink so nothing implies a real provider', () => {
     expect(facts.logs[0].n).toBeGreaterThan(0);
     expect(facts.logs[0].other_provider).toBe(0);
     expect(facts.logs[0].no_tag).toBe(0);

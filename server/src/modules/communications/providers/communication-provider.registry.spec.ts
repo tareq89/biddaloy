@@ -1,13 +1,13 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { CommunicationProviderRegistryService } from './communication-provider.registry';
 import { CommunicationMedium } from '@biddaloy/shared';
+import { MailpitSinkProvider } from './sink/mailpit-sink.provider';
 
 describe('CommunicationProviderRegistryService', () => {
   const smsProviderFactory = { send: () => Promise.resolve() } as any;
   const whatsAppCloudProvider = { send: () => Promise.resolve() } as any;
   const smtpEmailProvider = { send: () => Promise.resolve() } as any;
   const messengerProvider = { send: () => Promise.resolve() } as any;
-  const demoLogProvider = { send: () => Promise.resolve() } as any;
 
   const build = () =>
     new CommunicationProviderRegistryService(
@@ -15,29 +15,34 @@ describe('CommunicationProviderRegistryService', () => {
       whatsAppCloudProvider,
       smtpEmailProvider,
       messengerProvider,
-      demoLogProvider,
     );
   const registry = build();
 
   afterEach(() => vi.unstubAllEnvs());
 
-  // [58.1.02, D2] Demo: nothing leaves the server, whatever the tenant or env config says.
-  it('with DEMO_MODE, every medium resolves to the demo-log provider', () => {
-    vi.stubEnv('DEMO_MODE', 'true');
-    const demo = build();
+  // Epic 87: with the sink on, nothing leaves the server, whatever tenant or env config says.
+  it('with MESSAGE_SINK=mailpit, every medium resolves to the sink, not the real providers', () => {
+    vi.stubEnv('MESSAGE_SINK', 'mailpit');
+    const sink = build();
     for (const medium of [
       CommunicationMedium.SMS,
       CommunicationMedium.WHATSAPP,
       CommunicationMedium.EMAIL,
       CommunicationMedium.MESSENGER,
     ]) {
-      expect(demo.resolve(medium)).toBe(demoLogProvider);
+      expect(sink.resolve(medium)).toBeInstanceOf(MailpitSinkProvider);
     }
-    expect(demo.resolve(CommunicationMedium.PHONE_CALL)).toBeUndefined();
+    expect(sink.resolve(CommunicationMedium.PHONE_CALL)).toBeUndefined();
   });
 
-  it('without DEMO_MODE, the real providers are untouched', () => {
-    vi.stubEnv('DEMO_MODE', '');
+  it('with MESSAGE_SINK unset, the real providers are untouched', () => {
+    vi.stubEnv('MESSAGE_SINK', '');
+    expect(build().resolve(CommunicationMedium.SMS)).toBe(smsProviderFactory);
+  });
+
+  it('DEMO_MODE=true alone no longer swaps providers', () => {
+    vi.stubEnv('MESSAGE_SINK', '');
+    vi.stubEnv('DEMO_MODE', 'true');
     expect(build().resolve(CommunicationMedium.SMS)).toBe(smsProviderFactory);
   });
 

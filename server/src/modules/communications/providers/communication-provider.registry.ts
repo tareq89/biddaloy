@@ -8,8 +8,8 @@ import { SmsProviderFactory } from './sms/sms-provider.factory';
 import { WhatsAppCloudProvider } from './whatsapp/whatsapp-cloud.provider';
 import { SmtpEmailProvider } from './email/smtp-email.provider';
 import { MessengerProvider } from './messenger/messenger.provider';
-import { DemoLogProvider } from './demo/demo-log.provider';
-import { isDemoMode } from '../../demo/demo-mode';
+import { MailpitSinkProvider } from './sink/mailpit-sink.provider';
+import { isMessageSink } from './sink/message-sink';
 
 /**
  * Maps CommunicationMedium -> the provider that handles it. This is the
@@ -25,18 +25,17 @@ export class CommunicationProviderRegistryService {
     whatsAppCloudProvider: WhatsAppCloudProvider,
     smtpEmailProvider: SmtpEmailProvider,
     messengerProvider: MessengerProvider,
-    demoLogProvider: DemoLogProvider,
   ) {
-    // [58.1.02, D2] Demo: every medium logs and nothing leaves the server. Checked here, before
-    // any tenant/env provider config is read, so the resolver can never throw "unconfigured".
-    if (isDemoMode()) {
+    // Epic 87: with MESSAGE_SINK=mailpit every medium goes to the Mailpit test inbox. Checked
+    // here, before any tenant/env provider config is read, so the resolver can never throw "unconfigured".
+    if (isMessageSink()) {
       this.registry = Object.fromEntries(
         [
           CommunicationMedium.SMS,
           CommunicationMedium.WHATSAPP,
           CommunicationMedium.EMAIL,
           CommunicationMedium.MESSENGER,
-        ].map((medium) => [medium, demoLogProvider]),
+        ].map((medium) => [medium, MailpitSinkProvider.forMedium(medium)]),
       );
       return;
     }

@@ -433,3 +433,25 @@ one that's expected to require a human: reconciliation tooling looks for
 (reusing 15.1.4's queue-failure telemetry — see
 `CommunicationsProcessor.flagAmbiguousSettlement`) to find these and
 resolve them manually.
+
+## Test inbox sink (`MESSAGE_SINK=mailpit`) [Epic 87]
+
+With `MESSAGE_SINK=mailpit`, the registry skips every real provider. Each medium (SMS, WhatsApp, email, Messenger) is sent to Mailpit as an email with the real body, so you can read OTP codes in a browser. `DEMO_MODE` alone does **not** do this.
+
+```mermaid
+flowchart LR
+  P[CommunicationsProcessor] --> R[Provider registry]
+  R -- "MESSAGE_SINK unset" --> Real[SMS / WhatsApp / SMTP / Messenger]
+  R -- "MESSAGE_SINK=mailpit" --> S[MailpitSinkProvider]
+  S -- SMTP --> M[(Mailpit inbox)]
+```
+
+Example: an SMS to `01711111111` arrives as an email to `01711111111@sms.sink.invalid`, subject `[SMS] to 01711111111`, header `X-Tags: SMS`.
+
+| Variable                  | Default               | Meaning                                                  |
+| ------------------------- | --------------------- | -------------------------------------------------------- |
+| `MESSAGE_SINK`            | unset                 | `mailpit` turns the sink on. Anything else is off.       |
+| `MESSAGE_SINK_SMTP_URL`   | `smtp://mailpit:1025` | Where the sink sends. Operator config only.              |
+| `MESSAGE_SINK_PUBLIC_URL` | unset                 | Browser URL of the Mailpit UI, for links in docs and UI. |
+
+If Mailpit is down, the send fails at once (`Test inbox unreachable`, not retryable) and the log row ends FAILED.

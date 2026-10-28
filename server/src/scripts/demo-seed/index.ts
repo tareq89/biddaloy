@@ -144,11 +144,11 @@ async function main(): Promise<void> {
   // Before the guards read DEMO_MODE / DEMO_PASSWORD / DATABASE_URL. Exported vars still win.
   config({ path: resolve(__dirname, '..', '..', '..', '..', '.env') });
   const args = parseArgs(process.argv.slice(2));
-  if (process.env.DEMO_MODE !== 'true') {
+  if (process.env.MESSAGE_SINK !== 'mailpit') {
     console.warn(
-      '\n*** WARNING: DEMO_MODE is not "true". The applications slice decides requests through the real\n' +
+      '\n*** WARNING: MESSAGE_SINK is not "mailpit". The applications slice decides requests through the real\n' +
         '*** notify services, which then use the real SMS / push providers and SMS credit.\n' +
-        '*** Set DEMO_MODE=true so every message becomes a log row.\n',
+        '*** Set MESSAGE_SINK=mailpit so every message lands in the test inbox.\n',
     );
   }
   const { app, ctx } = await runDemoSeed(args, demoPassword(process.env));

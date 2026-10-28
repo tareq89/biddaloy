@@ -2,7 +2,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ALERT_RULES, CommunicationStatus } from '@biddaloy/shared';
 import { CommunicationsProcessor } from '../../communications/worker/communications.processor';
 import { CommunicationProviderRegistryService } from '../../communications/providers/communication-provider.registry';
-import { DemoLogProvider } from '../../communications/providers/demo/demo-log.provider';
 import {
   GuardianSmsFallbackService,
   fallbackReferenceKey,
@@ -12,6 +11,10 @@ import {
 const S1 = 'student-1';
 const S2 = 'student-2';
 const G = 'guardian-1';
+
+vi.mock('nodemailer', () => ({
+  createTransport: () => ({ sendMail: async () => ({ messageId: 'm' }) }),
+}));
 
 describe('toldAboutStudent', () => {
   it('matches the log student, or any student named in metadata.student_ids', () => {
@@ -108,13 +111,13 @@ describe('GuardianSmsFallbackService gates', () => {
   });
 });
 
-describe('GuardianSmsFallbackService in DEMO_MODE [58.1.02]', () => {
+describe('GuardianSmsFallbackService in MESSAGE_SINK=mailpit [58.1.02]', () => {
   afterEach(() => vi.unstubAllEnvs());
 
   // A school whose SMS provider is only a placeholder still gets its fallback delivered as a
-  // SENT demo-log row: the registry swaps every medium for DemoLogProvider.
-  it('ends a fallback SMS as a SENT demo-log row', async () => {
-    vi.stubEnv('DEMO_MODE', 'true');
+  // SENT mailpit-sink row: the registry swaps every medium for MailpitSinkProvider.
+  it('ends a fallback SMS as a SENT mailpit-sink row', async () => {
+    vi.stubEnv('MESSAGE_SINK', 'mailpit');
     const ruleKey = ALERT_RULES.find(
       (r) => r.guardianSmsFallback && r.key !== 'child.absent_today',
     )!.key;
@@ -181,13 +184,7 @@ describe('GuardianSmsFallbackService in DEMO_MODE [58.1.02]', () => {
         manager: { transaction: async (cb: any) => cb({ save: txSave, query: vi.fn() }) },
       } as any,
       { findOne: async () => null } as any,
-      new CommunicationProviderRegistryService(
-        {} as any,
-        {} as any,
-        {} as any,
-        {} as any,
-        new DemoLogProvider(),
-      ),
+      new CommunicationProviderRegistryService({} as any, {} as any, {} as any, {} as any),
       { isActive: async () => true } as any,
       { settlePart: vi.fn(), isMetered: async () => false } as any,
       { sendToUser: async () => ({ accepted: 0, transient: 0, pruned: 0 }) } as any,
@@ -202,8 +199,8 @@ describe('GuardianSmsFallbackService in DEMO_MODE [58.1.02]', () => {
     expect(txSave).toHaveBeenCalledWith(
       expect.objectContaining({
         status: CommunicationStatus.SENT,
-        provider_message_id: expect.stringMatching(/^demo-log-/),
-        metadata: expect.objectContaining({ raw: { provider: 'demo-log' } }),
+        provider_message_id: expect.stringMatching(/^mailpit-sink-/),
+        metadata: expect.objectContaining({ raw: { provider: 'mailpit-sink' } }),
       }),
     );
   });

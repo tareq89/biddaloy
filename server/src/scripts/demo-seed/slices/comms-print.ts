@@ -22,7 +22,7 @@ import { insertChunked } from '../bulk';
 import { orgIds, type OrgTenant } from './org';
 import { studentIds } from './students';
 
-const DEMO_PROVIDER = 'demo-log';
+const DEMO_PROVIDER = 'mailpit-sink';
 /** Issue comment on #2176: reminders spend credit, so every branch keeps this much after the history. */
 const CREDIT_FLOOR = 10_000;
 const CONDUCT = 'সন্তোষজনক';
