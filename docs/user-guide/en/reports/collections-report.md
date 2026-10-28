@@ -21,6 +21,9 @@ helpIds:
     reports.collectionsReport.action.print,
     reports.collectionsReport.field.preset,
     reports.collectionsReport.field.collector,
+    reports.collectionsReport.section.byMethod,
+    reports.collectionsReport.section.byCollector,
+    reports.collectionsReport.section.byFeeType,
   ]
 devices: [desktop, phone]
 entry: [sidebar, palette]
@@ -81,10 +84,10 @@ The report's money comes from the [payments](../finance/payments.md) taken. When
 
 ## How to know the count is right <a href="#confirm" id="confirm"></a>
 
-| State                          | How you know                                                                  | What next                          |
-| ------------------------------ | ----------------------------------------------------------------------------- | ---------------------------------- |
-| **Only picked on screen**      | When you change a filter, the numbers change at once; nothing is saved        | —                                  |
-| **Loaded from the school's system** | The three boxes show money, with no grey placeholder                     | Match it; print or download a CSV if needed |
+| State                               | How you know                                                           | What next                                   |
+| ----------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------- |
+| **Only picked on screen**           | When you change a filter, the numbers change at once; nothing is saved | —                                           |
+| **Loaded from the school's system** | The three boxes show money, with no grey placeholder                   | Match it; print or download a CSV if needed |
 
 This page does not keep anything on your phone or computer, so there is no "saved on this device" state. The filters you pick are kept in the page address, so a reload shows the same count.
 
@@ -99,13 +102,13 @@ This page does not keep anything on your phone or computer, so there is no "save
 1. From **Date range** choose **Yesterday**, **This week**, **This month** or **Custom**.
 2. If you choose **Custom**, the **Custom range** box appears. Enter the **From** and **To** dates.
 
-| You choose     | Days covered                                  |
-| -------------- | --------------------------------------------- |
-| **Today**      | Today only                                    |
-| **Yesterday**  | Yesterday only                                |
-| **This week**  | From this week's Monday up to today           |
-| **This month** | From the 1st of this month up to today        |
-| **Custom**     | **From** and **To**, both days included       |
+| You choose     | Days covered                            |
+| -------------- | --------------------------------------- |
+| **Today**      | Today only                              |
+| **Yesterday**  | Yesterday only                          |
+| **This week**  | From this week's Monday up to today     |
+| **This month** | From the 1st of this month up to today  |
+| **Custom**     | **From** and **To**, both days included |
 
 Days are counted in Bangladesh time, by the date the payment was taken.
 
@@ -127,25 +130,25 @@ Days are counted in Bangladesh time, by the date the payment was taken.
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                              | What to do                                                                                                                                                | Who can help |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Could not load the collections report.**                | Press **Try again**, or reload the page.                                                                                                                  | Admin        |
-| **No rows for this range.**                               | There are no payments in this time. Choose another **Date range** or filter.                                                                              | —            |
-| **Could not download the CSV. Please try again.**         | Press it again after a little while.                                                                                                                      | Admin        |
+| What you see                                                | What to do                                                                                                                                                                                   | Who can help |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Could not load the collections report.**                  | Press **Try again**, or reload the page.                                                                                                                                                     | Admin        |
+| **No rows for this range.**                                 | There are no payments in this time. Choose another **Date range** or filter.                                                                                                                 | —            |
+| **Could not download the CSV. Please try again.**           | Press it again after a little while.                                                                                                                                                         | Admin        |
 | The method table's total does not match **Total collected** | The method and collector tables show the money that reached the hand: the part taken from credit is left out, the part kept as credit is added. See [How the money is counted](#more) below. | Accountant   |
-| A collector named **Unknown**                             | The payment does not say who took the money. Open the payment's details.                                                                                  | Accountant   |
-| **Fee collection report** is not in the left menu         | Your role cannot see this page. See [who can do what](#roles).                                                                                            | Admin        |
+| A collector named **Unknown**                               | The payment does not say who took the money. Open the payment's details.                                                                                                                     | Accountant   |
+| **Fee collection report** is not in the left menu           | Your role cannot see this page. See [who can do what](#roles).                                                                                                                               | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                          | View the report | Print and CSV |
-| ------------------------------------------------------------- | --------------- | ------------- |
-| Admin                                                         | Yes             | Yes           |
-| Accountant                                                    | Yes             | Yes           |
-| Academic coordinator                                          | Yes             | Yes           |
-| Teacher, Office staff, Exam controller, Committee member      | No              | No            |
+| Role                                                     | View the report | Print and CSV |
+| -------------------------------------------------------- | --------------- | ------------- |
+| Admin                                                    | Yes             | Yes           |
+| Accountant                                               | Yes             | Yes           |
+| Academic coordinator                                     | Yes             | Yes           |
+| Teacher, Office staff, Exam controller, Committee member | No              | No            |
 
 **Admin, Accountant and Academic coordinator:** all three see the same page, the same filters and the same tables; there is no difference in the code. The **Collector** list comes from the report itself, so you do not need permission to view the staff list.
 

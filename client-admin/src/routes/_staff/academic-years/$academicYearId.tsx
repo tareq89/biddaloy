@@ -156,6 +156,7 @@ function AcademicYearDetailPage() {
         actions={[
           {
             id: 'edit',
+            helpId: 'academics.academicYears.action.edit',
             label: t('list.edit'),
             icon: <PencilIcon />,
             onClick: openEdit,

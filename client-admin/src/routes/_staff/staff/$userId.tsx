@@ -312,6 +312,7 @@ function StaffDetailPage() {
               },
               {
                 id: 'editUser',
+                helpId: 'people.staff.action.edit',
                 label: t('detail.actions.editUser'),
                 icon: <PencilIcon />,
                 allowed: canUpdate,

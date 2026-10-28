@@ -183,9 +183,12 @@ export function PromoteTeacherDialog({ open, onOpenChange }: PromoteTeacherDialo
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="promote-employee-id" className="text-sm font-medium">
-              {t('teacherForm.employeeIdLabel')}
-            </label>
+            <div className="flex items-center gap-1">
+              <label htmlFor="promote-employee-id" className="text-sm font-medium">
+                {t('teacherForm.employeeIdLabel')}
+              </label>
+              <HelpHint helpId="people.staff.field.employeeId" />
+            </div>
             <Input
               id="promote-employee-id"
               value={employeeId}

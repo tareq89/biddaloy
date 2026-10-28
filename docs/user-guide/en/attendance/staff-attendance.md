@@ -32,6 +32,7 @@ helpIds:
     attendance.staffAttendance.action.requestLeave,
     attendance.staffAttendance.action.approveLeave,
     attendance.staffAttendance.field.date,
+    attendance.staffAttendance.section.leaveBalance,
   ]
 devices: [desktop]
 entry: [sidebar, palette]
@@ -101,10 +102,10 @@ Admins and academic coordinators see all staff. Everyone else sees only their ow
 
 ## How to know attendance was saved <a href="#confirm" id="confirm"></a>
 
-| State                           | How you can tell                                                                              | What next                       |
-| ------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------- |
-| **Changed on screen only**      | A mark sits next to the name, and the bottom says "… unmarked". You lose it if you change the date or leave the page. | Press **Save attendance**.  |
-| **Reached the school's system** | At the bottom left it says **Attendance saved**.                                              | Done.                           |
+| State                           | How you can tell                                                                                                      | What next                  |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| **Changed on screen only**      | A mark sits next to the name, and the bottom says "… unmarked". You lose it if you change the date or leave the page. | Press **Save attendance**. |
+| **Reached the school's system** | At the bottom left it says **Attendance saved**.                                                                      | Done.                      |
 
 This page cannot save without internet. If saving fails it says **Couldn't save attendance. Try again.** The marks stay on screen; press save again.
 
@@ -157,11 +158,11 @@ Admins and academic coordinators only. Nobody can approve their own request.
 
 When you press **Approve**, the app checks:
 
-| Check                                              | If it fails          |
-| -------------------------------------------------- | -------------------- |
-| At least one of the dates is a school day          | Not approved         |
-| It is no more than the year's remaining leave      | Not approved         |
-| It does not overlap other leave already approved   | Not approved         |
+| Check                                            | If it fails  |
+| ------------------------------------------------ | ------------ |
+| At least one of the dates is a school day        | Not approved |
+| It is no more than the year's remaining leave    | Not approved |
+| It does not overlap other leave already approved | Not approved |
 
 Once approved, those days become **Leave** in **Staff attendance**; if they were marked **Absent** before, they become **Leave** too. If the person is a teacher, arrange cover for their classes: [Substitute teachers](../academics/routine-substitutions.md).
 
@@ -173,15 +174,15 @@ An admin or academic coordinator can open the request and press **Cancel leave**
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                         | What to do                                                                                                                    | Who can help |
-| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Couldn't load staff for this day.**                                | Check your internet and reload the page.                                                                                       | Admin        |
-| **Write a reason of at least 3 characters.**                         | The day is older than the correction window. Write why you are changing it in the box, then save.                              | —            |
-| **No staff yet**                                                     | Press **Add staff**, or give people a staff profile ([Staff](../people/staff.md)).                                             | Admin        |
-| One staff member is missing from the list                            | They have no staff profile. Add one from the [Staff](../people/staff.md) page.                                                 | Admin        |
-| **You have no staff profile**                                        | Leave is tracked for staff only. Ask an admin to create your staff profile.                                                    | Admin        |
-| **No leave rules yet**                                               | The school has not set up leave types and quotas.                                                                              | Admin        |
-| **Couldn't save attendance. Try again.** when saving                 | Check your internet. It will not save for a day the school is closed, or a mark other than Leave on a future day. | Admin |
+| What you see                                         | What to do                                                                                                        | Who can help |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Couldn't load staff for this day.**                | Check your internet and reload the page.                                                                          | Admin        |
+| **Write a reason of at least 3 characters.**         | The day is older than the correction window. Write why you are changing it in the box, then save.                 | —            |
+| **No staff yet**                                     | Press **Add staff**, or give people a staff profile ([Staff](../people/staff.md)).                                | Admin        |
+| One staff member is missing from the list            | They have no staff profile. Add one from the [Staff](../people/staff.md) page.                                    | Admin        |
+| **You have no staff profile**                        | Leave is tracked for staff only. Ask an admin to create your staff profile.                                       | Admin        |
+| **No leave rules yet**                               | The school has not set up leave types and quotas.                                                                 | Admin        |
+| **Couldn't save attendance. Try again.** when saving | Check your internet. It will not save for a day the school is closed, or a mark other than Leave on a future day. | Admin        |
 
 <!-- unverified: ছুটির কোটা কোন পাতা থেকে বদলায় (server PUT /leave/policies/:type আছে; UI পাতা খোঁজা হয়নি) -->
 
@@ -189,14 +190,14 @@ An admin or academic coordinator can open the request and press **Cancel leave**
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                 | Take staff attendance                          | Own leave balance and requests | Approve and cancel leave |
-| -------------------- | ---------------------------------------------- | ------------------------------ | ------------------------ |
-| Admin                | Yes, all staff, any day                        | Yes                            | Yes, except their own    |
-| Academic coordinator | Yes, all staff, any day                        | Yes                            | Yes, except their own    |
-| Teacher              | Only their own, only today                     | Yes                            | No                       |
-| Accountant           | Only their own, only today                     | Yes                            | No                       |
-| Office staff         | Only their own, only today                     | Yes                            | No                       |
-| Exam controller      | Only their own, only today                     | Yes                            | No                       |
+| Role                 | Take staff attendance      | Own leave balance and requests | Approve and cancel leave |
+| -------------------- | -------------------------- | ------------------------------ | ------------------------ |
+| Admin                | Yes, all staff, any day    | Yes                            | Yes, except their own    |
+| Academic coordinator | Yes, all staff, any day    | Yes                            | Yes, except their own    |
+| Teacher              | Only their own, only today | Yes                            | No                       |
+| Accountant           | Only their own, only today | Yes                            | No                       |
+| Office staff         | Only their own, only today | Yes                            | No                       |
+| Exam controller      | Only their own, only today | Yes                            | No                       |
 
 **Staff attendance** is in every role's menu. Teachers, accountants, office staff and exam controllers can give only their own attendance, only for today, and only once. The **Pending leave applications** link is seen only by admins and academic coordinators.
 
@@ -223,12 +224,12 @@ An admin or academic coordinator can open the request and press **Cancel leave**
 
 While on a name:
 
-| Key     | What it does       |
-| ------- | ------------------ |
-| `Enter` | Present            |
-| `L`     | Leave              |
-| `Space` | Present ↔ absent   |
-| `Tab`   | Next cell          |
+| Key     | What it does     |
+| ------- | ---------------- |
+| `Enter` | Present          |
+| `L`     | Leave            |
+| `Space` | Present ↔ absent |
+| `Tab`   | Next cell        |
 
 </details>
 

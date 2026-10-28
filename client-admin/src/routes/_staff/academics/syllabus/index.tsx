@@ -113,6 +113,7 @@ function SyllabusPage() {
               ? [
                   {
                     id: 'addTemplate',
+                    helpId: 'academics.syllabus.action.addTemplate',
                     label: tPlans('library.add'),
                     icon: <Plus />,
                     priority: 'primary',
@@ -120,6 +121,7 @@ function SyllabusPage() {
                   },
                   {
                     id: 'addTemplateCsv',
+                    helpId: 'academics.syllabus.action.addTemplateCsv',
                     label: tPlans('library.addFromCsv'),
                     icon: <Upload />,
                     priority: 'secondary',

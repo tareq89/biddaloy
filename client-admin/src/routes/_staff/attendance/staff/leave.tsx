@@ -121,9 +121,12 @@ function LeavePage() {
       />
 
       <section aria-labelledby="leave-balance" className="space-y-3">
-        <h2 id="leave-balance" className="text-h2">
-          {t('myLeave.title')}
-        </h2>
+        <div className="flex items-center gap-1">
+          <h2 id="leave-balance" className="text-h2">
+            {t('myLeave.title')}
+          </h2>
+          <HelpHint helpId="attendance.staffAttendance.section.leaveBalance" />
+        </div>
         {currentUserQuery.isPending ? (
           <DataTable {...tableProps} data={[]} totalCount={0} loading />
         ) : staffProfileId === null ? (

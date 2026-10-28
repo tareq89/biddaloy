@@ -1,6 +1,7 @@
 /** Step 3: the lessons that will be saved. Untick a row to leave it out; nothing is saved before Save. */
 import {
   Checkbox,
+  HelpHint,
   Table,
   TableBody,
   TableCell,
@@ -69,7 +70,10 @@ export function PreviewStep({
             </TableHead>
             <TableHead className="h-10 px-4 font-medium">{t('create.preview.title')}</TableHead>
             <TableHead className="h-10 px-4 text-end font-medium">
-              {t('create.preview.periods')}
+              <span className="inline-flex items-center gap-1">
+                {t('create.preview.periods')}
+                <HelpHint helpId="academics.syllabus.field.periods" />
+              </span>
             </TableHead>
           </TableRow>
         </TableHeader>

@@ -354,9 +354,12 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
         </section>
 
         <section className={CARD} aria-labelledby="survey-targets-title">
-          <h2 id="survey-targets-title" className="text-h2">
-            <Req>{t('surveys.form.targetsLabel')}</Req>
-          </h2>
+          <div className="flex items-center gap-1">
+            <h2 id="survey-targets-title" className="text-h2">
+              <Req>{t('surveys.form.targetsLabel')}</Req>
+            </h2>
+            <HelpHint helpId="people.evaluations.field.targets" />
+          </div>
           <p className={HELP}>{t('surveys.form.targetsHelp')}</p>
           <ul className="mt-4 divide-y divide-border-subtle">
             {targets.map((row, i) => {
@@ -511,9 +514,12 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
               <FieldError id="survey-dates-error">{errors.dates}</FieldError>
             </div>
             <div className="grid min-w-0 gap-1.5">
-              <Label htmlFor="survey-min">
-                <Req>{t('surveys.form.minResponsesLabel')}</Req>
-              </Label>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="survey-min">
+                  <Req>{t('surveys.form.minResponsesLabel')}</Req>
+                </Label>
+                <HelpHint helpId="people.evaluations.field.minResponses" />
+              </div>
               <Input
                 id="survey-min"
                 type="number"
