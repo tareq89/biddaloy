@@ -313,10 +313,14 @@ export async function arrivalLogs(ctx: DemoSeedContext): Promise<number> {
          OR (a.status = 'OFF' AND a.consumed_at IS NOT NULL)
       ORDER BY a.tenant_id, a.id`,
   );
+  // The minute comes from the child's name and the day, never the row order: the row ids are
+  // drawn at random by Postgres, so two seeds list the rows in different orders.
+  const minuteOf = (name: string, date: string) =>
+    parseInt(createHash('sha1').update(`${name}:${date}`).digest('hex').slice(0, 8), 16);
   const firstBranch = orgIds(ctx).tenants[0].id;
   const logs: Record<string, unknown>[] = [];
   const debits: { tenant: string; id: string; at: Date }[] = [];
-  for (const [i, sub] of subs.entries()) {
+  for (const sub of subs) {
     const sms = sub.channel === 'SMS';
     if (sms ? !sub.phone : !sub.guardian_user_id) continue;
     let sends: { date: string; when: Date }[];
@@ -330,10 +334,10 @@ export async function arrivalLogs(ctx: DemoSeedContext): Promise<number> {
           ORDER BY 1 DESC LIMIT 10`,
         [sub.tenant_id, sub.student_id, ctx.anchor],
       );
-      sends = days.map(({ date }, d) => ({
-        date,
-        when: at(date, 7 + ((i + d) % 2), 5 + ((i * 7 + d * 11) % 50)),
-      }));
+      sends = days.map(({ date }) => {
+        const n = minuteOf(sub.name, date);
+        return { date, when: at(date, 7 + (n % 2), 5 + (n % 50)) };
+      });
     }
     for (const { date, when } of sends) {
       const time = formatArrivalTime(when, 'Asia/Dhaka', 'bn');
