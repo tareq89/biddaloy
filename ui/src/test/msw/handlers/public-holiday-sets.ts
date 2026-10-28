@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
  * `schoolSettingsStore` documents — the detail page's save/publish flows
  * need to see their own prior mutation.
  */
-export interface HolidayEntryFixture {
+interface HolidayEntryFixture {
   id: string;
   date: string;
   end_date: string;
@@ -14,7 +14,7 @@ export interface HolidayEntryFixture {
   name_bn: string | null;
 }
 
-export interface HolidaySetFixture {
+interface HolidaySetFixture {
   id: string;
   country: string;
   year: number;
