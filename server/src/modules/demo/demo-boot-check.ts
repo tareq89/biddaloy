@@ -32,7 +32,7 @@ async function loadSchools(env: NodeJS.ProcessEnv): Promise<SchoolRow[]> {
  * Called from `main.ts` and `createScriptAppContext` BEFORE Nest builds the app. It cannot be a
  * Nest lifecycle hook: every module's `onModuleInit` runs first, and on a wrong Redis that already
  * removes the real trial and backup schedulers and starts BullMQ workers that would settle real
- * queued SMS as SENT through the demo-log provider.
+ * queued SMS as SENT through the (now retired) demo provider swap.
  */
 export async function assertDemoDatabase(
   env: NodeJS.ProcessEnv = process.env,

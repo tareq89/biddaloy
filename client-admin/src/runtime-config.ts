@@ -6,6 +6,8 @@ export interface RuntimeConfig {
   sentryEnvironment: string;
   sentryTracesSampleRate: number;
   release: string;
+  /** Test inbox URL; empty on prod, so no notice there. */
+  messageSinkUrl: string;
 }
 
 declare global {
@@ -28,5 +30,6 @@ export function runtimeConfig(): RuntimeConfig {
     sentryEnvironment: c.sentryEnvironment ?? '',
     sentryTracesSampleRate: c.sentryTracesSampleRate ?? 0.1,
     release: c.release ?? '',
+    messageSinkUrl: c.messageSinkUrl ?? '',
   };
 }

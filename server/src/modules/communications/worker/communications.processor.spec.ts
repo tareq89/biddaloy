@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CommunicationsProcessor } from './communications.processor';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
-import { DemoLogProvider } from '../providers/demo/demo-log.provider';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 
 // [15.1.4] captureException/captureMessage/withScope are spied so onFailed/
@@ -9,6 +8,10 @@ import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '
 const sentryCaptureException = vi.fn();
 const sentryCaptureMessage = vi.fn();
 const sentrySetTags = vi.fn();
+vi.mock('nodemailer', () => ({
+  createTransport: () => ({ sendMail: async () => ({ messageId: 'm' }) }),
+}));
+
 vi.mock('@sentry/node', () => ({
   withScope: (cb: (scope: { setTags: typeof sentrySetTags }) => void) =>
     cb({ setTags: sentrySetTags }),
@@ -129,16 +132,15 @@ describe('CommunicationsProcessor', () => {
     );
   });
 
-  // [58.1.02] Acceptance: in DEMO_MODE a notification ends as a SENT row whose provider is
-  // demo-log. Wires the real registry + DemoLogProvider, so no gateway can be reached.
-  it('in DEMO_MODE settles the log SENT through the demo-log provider', async () => {
-    vi.stubEnv('DEMO_MODE', 'true');
+  // [58.1.02] Acceptance: in MESSAGE_SINK=mailpit a notification ends as a SENT row whose provider is
+  // mailpit-sink. Wires the real registry + MailpitSinkProvider, so no gateway can be reached.
+  it('in MESSAGE_SINK=mailpit settles the log SENT through the mailpit-sink provider', async () => {
+    vi.stubEnv('MESSAGE_SINK', 'mailpit');
     const registry = new CommunicationProviderRegistryService(
       {} as any,
       {} as any,
       {} as any,
       {} as any,
-      new DemoLogProvider(),
     );
     processor = new CommunicationsProcessor(
       repo as any,
@@ -154,8 +156,8 @@ describe('CommunicationsProcessor', () => {
     expect(txManager.save).toHaveBeenCalledWith(
       expect.objectContaining({
         status: CommunicationStatus.SENT,
-        provider_message_id: expect.stringMatching(/^demo-log-/),
-        metadata: expect.objectContaining({ raw: { provider: 'demo-log' } }),
+        provider_message_id: expect.stringMatching(/^mailpit-sink-/),
+        metadata: expect.objectContaining({ raw: { provider: 'mailpit-sink' } }),
       }),
     );
   });

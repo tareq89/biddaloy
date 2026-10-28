@@ -157,6 +157,45 @@ describe('runStackConfigCheck', () => {
     expect(await runStackConfigCheck('demo', demo)).toEqual({ ok: true, output: 'config ok' });
   });
 
+  it('MESSAGE_SINK pairing errors (87 D3, D10, D22)', async () => {
+    const out = async (stack: 'prod' | 'staging' | 'demo', env: Record<string, string>) =>
+      (await runStackConfigCheck(stack, env)).output;
+    const onProd = await out('prod', { ...prod, MESSAGE_SINK: 'mailpit' });
+    expect(onProd).toContain('MESSAGE_SINK must not be mailpit on prod');
+    for (const [stack, file] of [
+      ['staging', staging],
+      ['demo', demo],
+    ] as const) {
+      const bad = await out(stack, { ...file, MESSAGE_SINK: '', MESSAGE_SINK_PUBLIC_URL: '' });
+      expect(bad).toContain(`MESSAGE_SINK must be mailpit on ${stack}`);
+      expect(bad).toContain(`MESSAGE_SINK_PUBLIC_URL must be set on ${stack}`);
+      // each line appears once (stack check and runConfigCheck agree)
+      expect(bad.split('\n').filter((l) => l.startsWith('MESSAGE_SINK must')).length).toBe(1);
+      expect(await out(stack, { ...file, SMTP_HOST: 'smtp.real.example' })).toContain(
+        `SMTP_HOST must be empty on ${stack}`,
+      );
+    }
+    expect(await out('prod', prod)).not.toContain('MESSAGE_SINK');
+  });
+
+  // Without the `sink` profile a manual `up -d` (and the doctor) would miss mailpit; prod never
+  // runs it.
+  it('staging and demo need the sink profile; prod refuses it (87 F6)', async () => {
+    for (const [stack, file] of [
+      ['staging', staging],
+      ['demo', demo],
+    ] as const) {
+      expect(file.COMPOSE_PROFILES).toBe('sink'); // the example sets it
+      const { output } = await runStackConfigCheck(stack, { ...file, COMPOSE_PROFILES: '' });
+      expect(output).toContain(`COMPOSE_PROFILES must contain sink on ${stack}`);
+    }
+    const onProd = await runStackConfigCheck('prod', {
+      ...prod,
+      COMPOSE_PROFILES: 'replica,backup,sink',
+    });
+    expect(onProd.output).toContain('COMPOSE_PROFILES must not contain sink on prod');
+  });
+
   // The part of deploy/stack.yml that makes the app container: x-s3, x-db-url and x-app.
   const stackYml = readFileSync(join(repoRoot, 'deploy/stack.yml'), 'utf8');
   const appBlock = stackYml.slice(stackYml.indexOf('\nx-s3:'), stackYml.indexOf('\nx-jobs-env:'));
@@ -166,6 +205,18 @@ describe('runStackConfigCheck', () => {
       .map((m) => m[1])
       .filter((k) => k !== 'PG_TLS_DIR'); // a path the deploy sets, not in the .env
     expect([...new Set(fromCompose)].sort()).toEqual([...COMMON_REQUIRED].sort());
+  });
+
+  // [87 F2] The nightly demo rebuild (seed + temporary :3999 app) must send through the test inbox
+  // too. Without ENV_NAME the boot guard never runs; without MESSAGE_SINK it uses real providers.
+  it('demo-reset passes ENV_NAME and the sink keys, never MESSAGE_SINK_SMTP_URL', () => {
+    const start = stackYml.indexOf('\n  demo-reset:');
+    expect(start).toBeGreaterThan(0);
+    const block = stackYml.slice(start, stackYml.indexOf('\n    volumes:', start));
+    expect(block).toContain('ENV_NAME: ${ENV_NAME:?ENV_NAME must be set}');
+    expect(block).toContain('MESSAGE_SINK: ${MESSAGE_SINK:-}');
+    expect(block).toContain('MESSAGE_SINK_PUBLIC_URL: ${MESSAGE_SINK_PUBLIC_URL:-}');
+    expect(block).not.toMatch(/^\s+MESSAGE_SINK_SMTP_URL:/m);
   });
 
   // What really keeps a provider key out of the staging app is that stack.yml passes an explicit
@@ -179,6 +230,8 @@ describe('runStackConfigCheck', () => {
     const notProvider = new Set([
       'NODE_ENV',
       'ENV_NAME',
+      'MESSAGE_SINK',
+      'MESSAGE_SINK_PUBLIC_URL',
       'DATABASE_URL',
       'NODE_EXTRA_CA_CERTS',
       'DB_SSL',

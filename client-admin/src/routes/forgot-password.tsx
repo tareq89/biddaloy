@@ -45,6 +45,8 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { TestInboxHint } from '../features/demo/test-environment-notice';
+
 import { GuestStatus } from './-guest-status';
 
 export const Route = createFileRoute('/forgot-password')({
@@ -255,6 +257,7 @@ function CodeStep({ phone, onContinue }: { phone: string; onContinue: (otp: stri
           value={otp}
           onValueChange={setOtp}
         />
+        <TestInboxHint />
       </div>
 
       <Button
@@ -348,6 +351,7 @@ function ForgotPasswordPage() {
           title={t('forgot.sent')}
           explanation={t('forgot.sentExplanation')}
         >
+          <TestInboxHint />
           <Button asChild variant="outline" className="w-full">
             <Link to="/login">{t('forgot.backToLogin')}</Link>
           </Button>

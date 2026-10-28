@@ -13,6 +13,8 @@ export function buildRuntimeConfig(env: Record<string, string | undefined>) {
     sentryEnvironment: env.SENTRY_ENVIRONMENT ?? env.NODE_ENV ?? '',
     sentryTracesSampleRate: Number(env.SENTRY_TRACES_SAMPLE_RATE || 0.1),
     release: env.APP_VERSION ?? '',
+    // [87 D8] the test inbox link, only where the sink is on
+    messageSinkUrl: env.MESSAGE_SINK === 'mailpit' ? (env.MESSAGE_SINK_PUBLIC_URL ?? '') : '',
   };
 }
 

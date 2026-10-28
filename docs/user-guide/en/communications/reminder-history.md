@@ -66,6 +66,8 @@ A reminder sent for one student, and a message from [**Send a message**](send-me
 
 ## See who a round reached <a href="#task-main" id="task-main"></a>
 
+On the demo and staging sites nothing is really sent: the messages of a round land in the **test inbox** (see [Where do codes and messages go on the demo?](../start/sign-in.md#task-test-inbox)).
+
 1. In the left menu press **Communications**, then press **Reminder History**.
 
    → The **Reminder History** list opens: **Every round of reminders sent together, newest first.** Columns: **Name**, **Created**, **Status**, **Recipients**, **Delivered**, **Failed**.

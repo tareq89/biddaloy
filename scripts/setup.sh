@@ -40,8 +40,8 @@ export POSTGRES_USER="${creds%%:*}"
 export POSTGRES_PASSWORD="${creds#*:}"
 export POSTGRES_DB="${db_name%%\?*}"
 
-echo "==> Starting Postgres, Redis and SeaweedFS (S3)..."
-docker compose up -d --wait db redis seaweedfs
+echo "==> Starting Postgres, Redis, SeaweedFS (S3) and Mailpit (test inbox)..."
+docker compose up -d --wait db redis seaweedfs mailpit
 
 echo "==> Building @biddaloy/shared..."
 yarn build:shared

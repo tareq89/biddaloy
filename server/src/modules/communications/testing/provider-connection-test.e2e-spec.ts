@@ -148,6 +148,24 @@ describe('Provider connection test E2E', () => {
     expect(settingsText).not.toContain('99999');
   });
 
+  it('returns the fixed test-site message when the message sink is on', async () => {
+    process.env.MESSAGE_SINK = 'mailpit';
+    try {
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/schools/${TENANT_ID}/settings/test`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ medium: 'WHATSAPP', config: { accessToken: 'x' } })
+        .expect(200);
+      expect(res.body).toEqual({
+        success: true,
+        message: 'Test site: messages go to the test inbox',
+      });
+    } finally {
+      delete process.env.MESSAGE_SINK;
+    }
+  });
+
   it('rejects an unauthenticated request', async () => {
     await supertest(app.getHttpServer())
       .post(`/api/v1/schools/${TENANT_ID}/settings/test`)

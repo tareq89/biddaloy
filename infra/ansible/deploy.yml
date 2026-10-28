@@ -67,14 +67,19 @@
     images: '{{ images_by_stack[stack] | default([]) }}'
     version_key: "{{ 'LANDING_VERSION' if stack == 'edge' else 'APP_VERSION' }}"
     rollout: "{{ ['app', 'app2'] if stack == 'prod' else ['app'] }}"
-    # Named on every app-stack `up`: staging and demo set COMPOSE_PROFILES for their one-off
-    # jobs (jobs, demo-reset), and a bare `up` would try to start those.
+    # Named on every app-stack `up`, so it starts exactly these: a bare `up` starts whatever the
+    # .env's COMPOSE_PROFILES enable, while a named service starts even when its profile is off.
     # Prod's hourly `backup` is held back while the database had no user before this deploy (a
     # fresh VM): it would upload empty dumps into the live R2 prefixes, push real hourlies out of
     # retention and maybe write today's daily. The next prod deploy (after restore-prod) starts it.
+    # Staging and demo name `mailpit` (Epic 87 test inbox): a profile only makes a service
+    # eligible, so an unnamed one never starts. --wait covers its healthcheck too.
     app_services: >-
       {{ ('db redis seaweedfs app app2' ~ ('' if (db_users_before | default(1) | int) == 0 else ' backup'))
-         if stack == 'prod' else 'db redis seaweedfs app' }}
+         if stack == 'prod' else 'db redis seaweedfs mailpit app' }}
+    # The rollback runs the previous compose file, which may predate mailpit ("no such service").
+    # A mailpit already running is left as it is.
+    rollback_services: "{{ app_services | replace(' mailpit', '') }}"
     # Users in the database, in one psql call; a missing table counts as 0 (query_to_xml keeps a
     # missing table from failing at parse time). Run with `dc exec db`, the query as $1.
     users_sql: >-
@@ -471,7 +476,7 @@
               ansible.builtin.include_tasks: tasks/compose-up.yml
               vars:
                 up_wait: '{{ stack != "edge" }}'
-                up_services: "{{ app_services if stack in app_stacks else '' }}"
+                up_services: "{{ rollback_services if stack in app_stacks else '' }}"
                 dc: '{{ dc_rollback }}'
             # The templates are bind mounts rendered at start: recreate so nginx renders the old ones.
             - name: Recreate nginx on the previous nginx files (edge)

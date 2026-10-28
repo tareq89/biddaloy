@@ -27,6 +27,8 @@ services:
       APP_DOMAIN: ${APP_DOMAIN:-app.invalid}
       STAGING_DOMAIN: ${STAGING_DOMAIN:-staging.invalid}
       DEMO_DOMAIN: ${DEMO_DOMAIN:-demo.invalid}
+      INBOX_DEMO_DOMAIN: ${INBOX_DEMO_DOMAIN:-inbox-demo.invalid}
+      INBOX_STAGING_DOMAIN: ${INBOX_STAGING_DOMAIN:-inbox-staging.invalid}
       LANDING_DOMAIN: ${LANDING_DOMAIN:-landing.invalid}
       KUMA_DOMAIN: ${KUMA_DOMAIN:-kuma.invalid}
       BESZEL_DOMAIN: ${BESZEL_DOMAIN:-beszel.invalid}

@@ -143,6 +143,8 @@
         KUMA_DOMAIN,
         BESZEL_DOMAIN,
         LOGS_DOMAIN,
+        INBOX_DEMO_DOMAIN,
+        INBOX_STAGING_DOMAIN,
       ]
     edge_tunnel_keys:
       [

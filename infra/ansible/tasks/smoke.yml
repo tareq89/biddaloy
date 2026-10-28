@@ -4,6 +4,7 @@
 # The script is not in the image (it holds server/dist and the SPA only); the checkout's copy
 # (at this deploy's sha) is mounted read-only. Credentials are passed by name (-e NAME) with the values in the task
 # environment, so they never appear in the process list. Demo runs health only.
+# Every SMOKE_* key is forwarded, so SMOKE_INBOX_API_URL (staging only) adds the test-inbox check.
 #
 # First deploy: a database that had no user before this deploy's migration (deploy.yml,
 # db_users_before: a fresh VM, before restore-prod or the first staging refresh) and still has
@@ -41,12 +42,13 @@
   failed_when: false
   when: stack in ['prod', 'staging'] and not smoke_login_skipped | bool
 # no_log hides the output (it sits next to the credentials), so print the script's own last
-# verdict line. smoke-post-deploy.mjs prints PASS/FAIL lines and never a credential.
+# FAIL line (else the last summary line). smoke-post-deploy.mjs prints PASS/FAIL lines and never a credential.
 - name: Stop when the smoke test failed
   ansible.builtin.fail:
     msg: >-
-      {{ (smoke.stdout_lines | default([]) | select('search', 'FAIL|usage|smoke:') | list | last)
-         | default('the smoke test failed') }}
+      {{ ((smoke.stdout_lines | default([]) | select('search', '^FAIL') | list | last)
+          | default((smoke.stdout_lines | default([]) | select('search', 'FAIL|usage|smoke:') | list | last)
+          | default('the smoke test failed'))) }}
   when: stack in ['prod', 'staging'] and not smoke_login_skipped | bool and smoke.rc | default(0) != 0
 
 - name: Health over the edge network (demo, and a first deploy)

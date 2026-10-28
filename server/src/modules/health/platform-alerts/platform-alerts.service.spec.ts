@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
 import { queueWorkers } from '../../../common/queue-workers';
+import { MailpitSinkProvider } from '../../communications/providers/sink/mailpit-sink.provider';
 import { PlatformAlertsService } from './platform-alerts.service';
 
 const OPENED = new Date('2026-11-02T08:02:10Z');
@@ -151,6 +152,53 @@ describe('PlatformAlertsService', () => {
       });
       expect(await f.service.recipients()).toEqual(['01711111111']);
       expect(f.sql.some((q) => q.includes('FROM users u'))).toBe(false);
+    });
+  });
+
+  describe('test inbox (Epic 87, D23)', () => {
+    const open = { hourlyRows: [{ opened_at: OPENED }], phones: ['01711111111', '01722222222'] };
+    afterEach(() => {
+      delete process.env.MESSAGE_SINK;
+    });
+
+    it('sends each recipient one SMS through the sink and writes no warn log, with no SMS key', async () => {
+      process.env.MESSAGE_SINK = 'mailpit';
+      const send = vi.spyOn(MailpitSinkProvider.prototype, 'send').mockResolvedValue({
+        success: true,
+        providerMessageId: 'x',
+        outcome: 'ACCEPTED',
+      });
+      const f = fakes({ ...open, env: {} });
+      for (let i = 0; i < 3; i++) await f.service.tick();
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(send).toHaveBeenCalledWith({
+        to: '01711111111',
+        body: expect.stringContaining('Redis is down'),
+      });
+      expect(Logger.prototype.warn).not.toHaveBeenCalled();
+      expect(f.greenweb.sendSms).not.toHaveBeenCalled();
+    });
+
+    it('never reaches a real gateway under the sink, even when a real SMS key is present', async () => {
+      // Business-critical: a real PLATFORM_SMS_API_KEY copied onto staging must not send real SMS.
+      process.env.MESSAGE_SINK = 'mailpit';
+      const send = vi.spyOn(MailpitSinkProvider.prototype, 'send').mockResolvedValue({
+        success: true,
+        providerMessageId: 'x',
+        outcome: 'ACCEPTED',
+      });
+      const f = fakes({ ...open, env: { PLATFORM_SMS_API_KEY: 'real-key' } });
+      for (let i = 0; i < 3; i++) await f.service.tick();
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(f.greenweb.sendSms).not.toHaveBeenCalled();
+    });
+
+    it('is unchanged with the sink off', async () => {
+      const send = vi.spyOn(MailpitSinkProvider.prototype, 'send');
+      const f = fakes({ ...open, env: {} });
+      for (let i = 0; i < 3; i++) await f.service.tick();
+      expect(send).not.toHaveBeenCalled();
+      expect(Logger.prototype.warn).toHaveBeenCalled();
     });
   });
 

@@ -273,7 +273,8 @@ rendered from git by the deploy (`infra/ansible/templates/cloudflared-config.yml
 ```bash
 for h in schoolmanagerp.com app.schoolmanagerp.com demo.schoolmanagerp.com \
          staging.schoolmanagerp.com kuma.schoolmanagerp.com \
-         beszel.schoolmanagerp.com logs.schoolmanagerp.com; do
+         beszel.schoolmanagerp.com logs.schoolmanagerp.com \
+         inbox-demo.schoolmanagerp.com inbox-staging.schoolmanagerp.com; do
   cloudflared tunnel route dns biddaloy "$h"
 done
 # Added CNAME app.schoolmanagerp.com which will route to this tunnel
@@ -282,7 +283,7 @@ done
 Check in the dashboard (DNS > Records): each name is a **Proxied** CNAME to
 `5b1c7a52-0f3e-4c34-9a77-3d1d5a0c1f10.cfargotunnel.com`.
 
-> `www.schoolmanagerp.com` is not in the list above because it is not one of the seven
+> `www.schoolmanagerp.com` is not in the list above because it is not one of the nine
 > names. The tunnel config routes it too, and nginx redirects it to the apex. If you want
 > it to work, add a proxied `www` CNAME to the same tunnel target.
 
@@ -292,7 +293,7 @@ Check in the dashboard (DNS > Records): each name is a **Proxied** CNAME to
    (your login page becomes `myteam.cloudflareaccess.com`). That name is
    `CF_ACCESS_TEAM`.
 2. **Access > Applications > Add an application > Self-hosted.**
-3. Application 1, name `Staging`, hostname `staging.schoolmanagerp.com`, session 24 hours.
+3. Application 1, name `Staging`, hostnames `staging.schoolmanagerp.com` and `inbox-staging.schoolmanagerp.com` (Mailpit's test inbox, Epic 87), session 24 hours.
    Policy `Owner only`: action **Allow**, include **Emails** = your email. Identity
    provider: Google (or One-time PIN if you have not set Google up). Save, then open the
    application and copy **Application Audience (AUD) Tag**: that is `CF_ACCESS_AUD_STAGING`.
@@ -307,6 +308,20 @@ Check in the dashboard (DNS > Records): each name is a **Proxied** CNAME to
    The tunnel config already skips the Access check for that path on the VM side (first
    `ingress` rule of `cloudflared-config.yml.j2`); this is the Cloudflare-side half. The
    push URL carries a secret token, and Kuma checks it.
+
+Owner steps for the test inbox (Epic 87): add the two proxied CNAMEs in 4c, put
+`inbox-staging` on the `Staging` Access app (step 3), and set the two `INBOX_*` keys in
+`edge.enc.env` (the cloudflared template needs both). Optional: a Kuma HTTP monitor on
+`https://inbox-demo.schoolmanagerp.com/readyz`. The names are single-level (`inbox-demo.`, `inbox-staging.`)
+on purpose: Cloudflare's free Universal certificate covers `*.schoolmanagerp.com` only, so a two-level
+name like `inbox.demo.` would fail TLS without a paid Advanced Certificate.
+
+The staging inbox has **one** login, the Access app above (basic auth in direct mode); Mailpit
+itself has none. This is a written exception to Rule 12
+([08-security](08-security.md#rule-12-the-origin-is-reachable-only-through-the-edge)): anyone
+past Access can read and delete every staging sign-in code and reset link. So keep staging free
+of real contacts except your own: the staging refresh keeps the platform admins' and the smoke
+school admin's emails, and those must be your addresses.
 
 **If it fails.** Open `https://staging.schoolmanagerp.com` in a private window after part 10:
 it must show the Cloudflare login. A page with no login means the Access application does
@@ -872,6 +887,8 @@ Every key of the five example files. "From" says which part gives you the value.
 | `APP_DOMAIN`                         | `edge.enc.env`    | part 4               | `app.schoolmanagerp.com`                                                          |
 | `STAGING_DOMAIN`                     | `edge.enc.env`    | part 4               | `staging.schoolmanagerp.com`                                                      |
 | `DEMO_DOMAIN`                        | `edge.enc.env`    | part 4               | `demo.schoolmanagerp.com`                                                         |
+| `INBOX_DEMO_DOMAIN`                  | `edge.enc.env`    | part 4               | `inbox-demo.schoolmanagerp.com` (public Mailpit UI, no login)                     |
+| `INBOX_STAGING_DOMAIN`               | `edge.enc.env`    | part 4               | `inbox-staging.schoolmanagerp.com` (behind the Staging Access app)                |
 | `LANDING_DOMAIN`                     | `edge.enc.env`    | part 4               | `schoolmanagerp.com`                                                              |
 | `KUMA_DOMAIN`                        | `edge.enc.env`    | part 4               | `kuma.schoolmanagerp.com`                                                         |
 | `BESZEL_DOMAIN`                      | `edge.enc.env`    | part 4               | `beszel.schoolmanagerp.com`                                                       |

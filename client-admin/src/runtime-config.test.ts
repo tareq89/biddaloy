@@ -15,6 +15,7 @@ describe('runtimeConfig', () => {
       sentryEnvironment: '',
       sentryTracesSampleRate: 0.1,
       release: '',
+      messageSinkUrl: '',
     });
   });
 

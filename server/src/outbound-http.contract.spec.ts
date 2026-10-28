@@ -91,6 +91,8 @@ const REVIEWED_OUTBOUND: Record<string, string> = {
     'web-push to the subscription endpoint; CreatePushSubscriptionDto allowlists known push-service hosts over https',
   'modules/communications/providers/email/smtp-email.provider.ts':
     'SMTP host is checked by assertSafeSmtpDestination before the transport is created',
+  'modules/communications/providers/sink/mailpit-sink.provider.ts':
+    'fixed compose alias mailpit:1025 or operator env MESSAGE_SINK_SMTP_URL; never tenant-influenced; only reached when MESSAGE_SINK=mailpit, which boot refuses on prod (D5, D22)',
   'modules/storage/storage.service.ts': 'S3_ENDPOINT env, operator config',
   'common/sentry.ts': 'SENTRY_DSN env, operator config',
 };

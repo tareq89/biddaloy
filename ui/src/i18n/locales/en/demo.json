@@ -35,5 +35,16 @@
   "errors": {
     "DEMO_DISABLED": "This is turned off in the demo school.",
     "DEMO_UPLOAD_LIMIT": "The demo school allows only small uploads."
+  },
+  "testInbox": {
+    "bar": "This is the {{environment}}. Messages and codes are not really sent. They land in the test inbox.",
+    "open": "Open test inbox",
+    "collapse": "Hide",
+    "expand": "Open test inbox (new tab)",
+    "environment": {
+      "demo": "demo site",
+      "staging": "staging site",
+      "other": "test site"
+    }
   }
 }

@@ -92,6 +92,8 @@ The usual problems with signing in, installing on a phone, offline attendance, f
   2. If it is an email, look in the spam folder.
   3. If it still does not come after a few tries, try again in an hour.
 
+On the demo site or the staging site no code goes to a phone or an email. Find it in the **test inbox** instead: tap **Open test inbox** in the bar at the top of the page, or in the line under the code box. Steps: [Where do codes and messages go on the demo?](../start/sign-in.md#task-test-inbox) <!-- source: ui/src/i18n/locales/en/auth.json help.testInbox -->
+
 ### "This link has expired."
 
 - **Why:** The invitation link is too old. A password reset link that is too old or already used says **This link has expired or has already been used.** instead. <!-- source: client-admin/src/routes/activate.tsx; client-admin/src/routes/reset-password.tsx; ui/src/i18n/locales/en/auth.json activate.expired, forgot.linkExpired -->

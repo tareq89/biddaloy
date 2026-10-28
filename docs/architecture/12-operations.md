@@ -396,6 +396,8 @@ The loop runs in the API process only (not in scripts, not under `NODE_ENV=test`
 and sends SMS straight to the provider with the platform's own key, not a school's credits. With no
 `PLATFORM_SMS_API_KEY` it logs `platform alert SMS not configured; would text N phone(s): ...`.
 
+On staging and demo (`MESSAGE_SINK=mailpit`) these alerts go to the test inbox as SMS-tagged messages instead of the provider.
+
 ### 3.7 Demo reset failed (Sentry cron alert)
 
 **What the alert means.** The `demo-rebuild-nightly` Kuma push went `down` (or
@@ -525,16 +527,17 @@ Smoke-check variables (read by `scripts/smoke-post-deploy.mjs`, see §7). The
 deploy passes them by name from the project's secrets file into a throwaway
 container; the app itself never reads them. For a run from your own machine:
 
-| Variable                                         | What it does                                                                           |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `SMOKE_BASE_URL`                                 | Base URL when `--base-url` is not passed.                                              |
-| `SMOKE_ADMIN_EMAIL` / `SMOKE_ADMIN_PASSWORD`     | Login for the ADMIN smoke account.                                                     |
-| `SMOKE_TEACHER_EMAIL` / `SMOKE_TEACHER_PASSWORD` | Login for the TEACHER smoke account.                                                   |
-| `SMOKE_SUPER_ADMIN_EMAIL` / `_PASSWORD`          | Login for the SUPER_ADMIN smoke account.                                               |
-| `SMOKE_PAID_STUDENT_FEE_ID`                      | Optional. An already-paid student fee id; adds the `#2592` checkout 409 row.           |
-| `SMOKE_OPEN_STUDENT_FEE_ID`                      | Optional. An outstanding student fee id; adds the `#2636` over-balance 400 row.        |
-| `SMOKE_PARENT_EMAIL` / `SMOKE_PARENT_PASSWORD`   | Optional. A PARENT smoke account; adds the `#2639` step-up 403 row.                    |
-| `SMOKE_HEALTH_TOKEN`                             | Optional. Adds a `/api/health/ready` check (internal URL only; nginx 404s it outside). |
+| Variable                                         | What it does                                                                            |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `SMOKE_BASE_URL`                                 | Base URL when `--base-url` is not passed.                                               |
+| `SMOKE_ADMIN_EMAIL` / `SMOKE_ADMIN_PASSWORD`     | Login for the ADMIN smoke account.                                                      |
+| `SMOKE_TEACHER_EMAIL` / `SMOKE_TEACHER_PASSWORD` | Login for the TEACHER smoke account.                                                    |
+| `SMOKE_SUPER_ADMIN_EMAIL` / `_PASSWORD`          | Login for the SUPER_ADMIN smoke account.                                                |
+| `SMOKE_PAID_STUDENT_FEE_ID`                      | Optional. An already-paid student fee id; adds the `#2592` checkout 409 row.            |
+| `SMOKE_OPEN_STUDENT_FEE_ID`                      | Optional. An outstanding student fee id; adds the `#2636` over-balance 400 row.         |
+| `SMOKE_PARENT_EMAIL` / `SMOKE_PARENT_PASSWORD`   | Optional. A PARENT smoke account; adds the `#2639` step-up 403 row.                     |
+| `SMOKE_HEALTH_TOKEN`                             | Optional. Adds a `/api/health/ready` check (internal URL only; nginx 404s it outside).  |
+| `SMOKE_INBOX_API_URL`                            | Optional. Mailpit API (staging: `http://staging-mailpit:8025`); adds the `inbox` check. |
 
 ## 5. Web push (VAPID keys)
 
@@ -707,11 +710,14 @@ check before writing, so if the "paid" fee ever becomes payable again (its
 payment reversed, the bill regenerated) the row fails with a 403. It never
 records a real payment.
 
-| Row     | Runs when                                      | Expects                                                     |
-| ------- | ---------------------------------------------- | ----------------------------------------------------------- |
-| `#2592` | `SMOKE_PAID_STUDENT_FEE_ID`                    | checkout of an already-paid fee: 409 `CHECKOUT_FEE_SETTLED` |
-| `#2636` | `SMOKE_OPEN_STUDENT_FEE_ID`                    | checkout of `99999999.99`: 400 "outstanding balance"        |
-| `#2639` | `SMOKE_PARENT_EMAIL` + `SMOKE_PARENT_PASSWORD` | parent asks for a step-up OTP: 403                          |
+| Row     | Runs when                                      | Expects                                                                      |
+| ------- | ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| `#2592` | `SMOKE_PAID_STUDENT_FEE_ID`                    | checkout of an already-paid fee: 409 `CHECKOUT_FEE_SETTLED`                  |
+| `#2636` | `SMOKE_OPEN_STUDENT_FEE_ID`                    | checkout of `99999999.99`: 400 "outstanding balance"                         |
+| `#2639` | `SMOKE_PARENT_EMAIL` + `SMOKE_PARENT_PASSWORD` | parent asks for a step-up OTP: 403                                           |
+| `inbox` | `SMOKE_INBOX_API_URL` (staging only)           | forgot-password for the admin, then the message shows in Mailpit within 30 s |
+
+The `inbox` row is not a rejection check: it asks for a password reset and polls Mailpit every 2 s for up to 30 s, printing `inbox: ok`. Unset (prod), it prints `inbox: skipped (no SMOKE_INBOX_API_URL)`. A stopped Mailpit fails the deploy on the `inbox` line. If the password-reset cooldown is still running from a deploy just before, the app answers 202 but sends no mail, and the check fails with `message not found`; wait out the cooldown and redeploy.
 
 The `#2638` deleted-student invoice row is added by #2651 (Wave 2).
 

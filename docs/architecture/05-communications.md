@@ -433,3 +433,44 @@ one that's expected to require a human: reconciliation tooling looks for
 (reusing 15.1.4's queue-failure telemetry — see
 `CommunicationsProcessor.flagAmbiguousSettlement`) to find these and
 resolve them manually.
+
+## Test inbox sink (`MESSAGE_SINK=mailpit`) [Epic 87]
+
+With `MESSAGE_SINK=mailpit`, the registry skips every real provider. Each medium (SMS, WhatsApp, email, Messenger) is sent to Mailpit as an email with the real body, so you can read OTP codes in a browser. `DEMO_MODE` alone does **not** do this.
+
+```mermaid
+flowchart LR
+  P[CommunicationsProcessor] --> R[Provider registry]
+  R -- "MESSAGE_SINK unset" --> Real[SMS / WhatsApp / SMTP / Messenger]
+  R -- "MESSAGE_SINK=mailpit" --> S[MailpitSinkProvider]
+  S -- SMTP --> M[(Mailpit inbox)]
+```
+
+Example: an SMS to `01711111111` arrives as an email to `01711111111@sms.sink.invalid`, subject `[SMS]`, header `X-Tags: SMS`. The number stays out of the subject, because the demo inbox is public and lists subjects; search by `to:` instead.
+
+| Variable                  | Default               | Meaning                                                                   |
+| ------------------------- | --------------------- | ------------------------------------------------------------------------- |
+| `MESSAGE_SINK`            | unset                 | `mailpit` turns the sink on. Anything else is off.                        |
+| `MESSAGE_SINK_SMTP_URL`   | `smtp://mailpit:1025` | Where the sink sends. Dev `.env` only: the deploy stacks use the default. |
+| `MESSAGE_SINK_PUBLIC_URL` | unset                 | Browser URL of the Mailpit UI, for links in docs and UI.                  |
+
+If Mailpit cannot be reached (connection refused, reset, timed out, or its name does not resolve, e.g. during the nightly restart), the send fails with `Test inbox unreachable` and the queue retries it. The log row ends FAILED only when the retries run out. Any other sink error is final at once.
+
+### Test inbox: deploy and learning [87.1.06]
+
+Hostnames are single level: `inbox-demo.<domain>` and `inbox-staging.<domain>`. Cloudflare Universal SSL covers one level only, so `inbox.demo.<domain>` would have no cert.
+
+Deploy prerequisites on demo and staging:
+
+- `MESSAGE_SINK=mailpit` and `COMPOSE_PROFILES=sink` (config:check refuses either one missing). The deploy names `mailpit` in its `up` on staging and demo, because a profile alone never starts a service.
+- `INBOX_*` keys in `edge.enc.env`.
+- The edge nginx has a separate block for Mailpit's send API (`/api/v1/send`); it is not exposed like the UI.
+
+Dated learning (2026-10-28):
+
+- **Surprise:** test-env starts db, redis and seaweedfs only, so there is no Mailpit locally. Cost: the "OTP in Mailpit" proof could not run in CI. Fix: `mailpit-sink.smtp.spec.ts` runs the real provider against an in-test SMTP socket. Rule candidate: prove a sink with a socket listener, keep the live-inbox check as a manual step.
+- **Surprise:** the existing provider spec mocks `nodemailer`, so it never checked the wire format (`X-Tags`, `To`, `Subject`). Fix: a second spec file with no mock. Rule candidate: one mocked spec plus one real-transport spec per provider.
+- **Surprise:** a down inbox must fail the log row (D10). Covered by the closed-port case in the same spec.
+- **Surprise:** a two-level host like `inbox.demo.<domain>` is outside Cloudflare's free Universal certificate, which covers one level only. Cost: the planned names would have failed TLS. Fix: single-level `inbox-demo.` and `inbox-staging.`. Rule candidate: new public hostnames are one label under the apex.
+- **Surprise:** a shared nginx `map` lived in `ops.conf.template`, which the edge deletes when ops is off; the new inbox block then stopped nginx booting. Fix: the inbox template owns its own map. Rule candidate: a template never uses a variable defined in an optional template.
+- **Surprise:** vitest does not type-check, so a stray `, null` argument passed 23 tests and failed `yarn lint`. Rule candidate: run `tsc` on the touched package before committing.

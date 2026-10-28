@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CommunicationMedium } from '@biddaloy/shared';
 import { ConnectionTestService } from './connection-test.service';
 import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
@@ -90,5 +90,29 @@ describe('ConnectionTestService', () => {
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/configure it/);
     expect(whatsapp.testConnection).not.toHaveBeenCalled();
+  });
+
+  describe('test inbox (Epic 87, D24)', () => {
+    afterEach(() => {
+      delete process.env.MESSAGE_SINK;
+    });
+
+    it.each([
+      CommunicationMedium.WHATSAPP,
+      CommunicationMedium.EMAIL,
+      CommunicationMedium.MESSENGER,
+      CommunicationMedium.SMS,
+    ])('returns the fixed success text for %s without resolving any config', async (medium) => {
+      process.env.MESSAGE_SINK = 'mailpit';
+
+      const result = await service.test(tenantId, medium as never, { accessToken: 'x' });
+
+      expect(result).toEqual({
+        success: true,
+        message: 'Test site: messages go to the test inbox',
+      });
+      for (const fn of Object.values(configResolver)) expect(fn).not.toHaveBeenCalled();
+      expect(sms.testConnection).not.toHaveBeenCalled();
+    });
   });
 });

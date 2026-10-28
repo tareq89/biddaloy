@@ -71,6 +71,12 @@ const TURNSTILE_TEST = [
   'TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA',
 ];
 const MEM_SMALL = ['APP_MEM=768m', 'PG_MEM=1g', 'REDIS_MEM=128m', 'S3_MEM=256m'];
+// Test inbox values (Epic 87): the compose profile and a placeholder public URL, no secrets.
+const sinkLines = (stack) => [
+  'COMPOSE_PROFILES=sink',
+  'MESSAGE_SINK=mailpit',
+  `MESSAGE_SINK_PUBLIC_URL=https://inbox-${stack}.school.example`,
+];
 const EXAMPLE_VALUES_ALLOWED = {
   prod: [
     'ENV_NAME=prod',
@@ -80,8 +86,15 @@ const EXAMPLE_VALUES_ALLOWED = {
     'REDIS_MEM=256m',
     'S3_MEM=512m',
   ],
-  staging: ['ENV_NAME=staging', 'DEMO_MODE=false', ...MEM_SMALL, ...TURNSTILE_TEST],
-  demo: ['ENV_NAME=demo', 'DEMO_MODE=true', ...MEM_SMALL, ...TURNSTILE_TEST],
+  staging: [
+    'ENV_NAME=staging',
+    'DEMO_MODE=false',
+    ...MEM_SMALL,
+    ...TURNSTILE_TEST,
+    ...sinkLines('staging'),
+    'SMOKE_INBOX_API_URL=http://staging-mailpit:8025',
+  ],
+  demo: ['ENV_NAME=demo', 'DEMO_MODE=true', ...MEM_SMALL, ...TURNSTILE_TEST, ...sinkLines('demo')],
   edge: ['EDGE_MODE=tunnel'],
 };
 const EXAMPLE_VALUE_ALLOWED = new Set(

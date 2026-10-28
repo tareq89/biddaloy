@@ -4,6 +4,7 @@ import {
   ConnectionTestResult,
   TestableCommunicationMedium,
 } from '../providers/shared/connection-test.types';
+import { isMessageSink } from '../providers/sink/message-sink';
 import { WhatsAppCloudProvider } from '../providers/whatsapp/whatsapp-cloud.provider';
 import { SmtpEmailProvider } from '../providers/email/smtp-email.provider';
 import { SmsProviderFactory } from '../providers/sms/sms-provider.factory';
@@ -51,6 +52,10 @@ export class ConnectionTestService {
     medium: TestableCommunicationMedium,
     override?: Record<string, unknown>,
   ): Promise<ConnectionTestResult> {
+    // Epic 87 (D24): on a sink stack nothing real is configured; fixed text, no tenant data read.
+    if (isMessageSink()) {
+      return { success: true, message: 'Test site: messages go to the test inbox' };
+    }
     try {
       switch (medium) {
         case CommunicationMedium.WHATSAPP: {

@@ -117,7 +117,7 @@ The layers diagram above shows where most of these rules sit on a request's way 
 
 - **Rule.** A URL that a user or tenant can influence (a webhook, an SMS gateway `apiUrl`, a push endpoint) is called only through `fetchPinnedJson` (`server/src/modules/communications/providers/shared/pinned-http.ts`), after `assertSafeHttpDestination` has checked the address. Any other outbound call (`fetch`, `ws`, `net`, `tls`, an SDK client) goes to a fixed host, a code constant or operator config, and its file is on the reviewed `REVIEWED_OUTBOUND` list in the contract spec, with the host and who controls it.
 - **Why.** A configurable URL could be pointed at internal addresses (75.24, #2332).
-- **Example.** `turnstile.service.ts` calls the constant host `challenges.cloudflare.com` with a plain `fetch`, and is listed in `REVIEWED_OUTBOUND`. The SMS gateways resolve a tenant's `apiUrl` once, refuse private, loopback and metadata addresses, and connect to exactly the checked address (no second DNS answer can sneak in).
+- **Example.** `turnstile.service.ts` calls the constant host `challenges.cloudflare.com` with a plain `fetch`, and is listed in `REVIEWED_OUTBOUND`. The SMS gateways resolve a tenant's `apiUrl` once, refuse private, loopback and metadata addresses, and connect to exactly the checked address (no second DNS answer can sneak in). `mailpit-sink.provider.ts` is also listed: its SMTP host is the compose alias `mailpit` (or operator env `MESSAGE_SINK_SMTP_URL`), never tenant input, and it is reached only when `MESSAGE_SINK=mailpit`.
 - **Test.** `server/src/outbound-http.contract.spec.ts`.
 
 ### Rule 8: Suspend, remove or reset bumps tokens_valid_after
@@ -165,10 +165,11 @@ flowchart LR
   - **tunnel:** no web port is published. `cloudflared` dials out and reaches nginx on the private `biddaloy-edge` network, plain HTTP on :80.
   - **direct:** nginx publishes 80 and 443. :80 only answers the Let's Encrypt challenge and redirects to HTTPS. This is deliberately public, so protected hosts carry their own login.
   - **Protected hosts** (`staging.`, `kuma.`, `beszel.`, `logs.`) carry two auth layers (D14). Outer: Cloudflare Access in tunnel mode, nginx basic auth in direct mode. Inner: the tool's own login. Kuma's `/api/push/` skips the outer layer only; its URL token is the login.
+  - **Exception: `inbox-staging.` has the outer layer only** (Epic 87, PR #3212 review F3). Cloudflare Access (`Owner only`) in tunnel mode, nginx basic auth in direct mode. Mailpit runs without its own login on purpose: its login is HTTP basic auth too, so in direct mode it and nginx would both claim the one `Authorization` header. Accepted because the inbox holds only staging mail, and staging data must carry no real contacts except the owner's. The staging refresh replaces everyone's contacts but keeps the platform admins and the smoke school admin, so those must be the owner's own addresses.
   - Readiness (`/api/health/ready`) is a bare `404` at the edge, in both modes.
 - **Why.** A direct hit on the origin IP skips Cloudflare's WAF and rate limits when Cloudflare is in front, and exposes internal tools when it is not (D14, D17, 75.5, Epic 79.0 D8).
-- **Example.** `curl -H 'Host: evil.test' http://<origin-ip>/` → empty reply. `curl https://kuma.<domain>/` in direct mode → `401`. See [30-deployment-target](30-deployment-target.md#edge-two-modes-same-nginx).
-- **Test.** `nginx/test/edge-mode.infra.test.sh` (both modes, bad `EDGE_MODE`, unknown host, auth layers, two app upstreams), `nginx/test/landing.infra.test.sh`.
+- **Example.** `curl -H 'Host: evil.test' http://<origin-ip>/` → empty reply. `curl https://kuma.<domain>/` or `https://inbox-staging.<domain>/` in direct mode → `401` (`inbox-demo.<domain>` is public by design, noindex). See [30-deployment-target](30-deployment-target.md#edge-two-modes-same-nginx).
+- **Test.** `nginx/test/edge-mode.infra.test.sh` (both modes, bad `EDGE_MODE`, unknown host, auth layers, two app upstreams), `nginx/test/landing.infra.test.sh`, `nginx/test/inbox.infra.test.sh` (staging inbox behind the outer layer).
 
 ### Rule 13: Logs never carry secrets
 
@@ -949,7 +950,7 @@ flowchart LR
 
 `default-school` counts only while it has no students: a pre-multi-tenant install moved all its real data into that row.
 
-Why not a Nest `onApplicationBootstrap` hook: every module's `onModuleInit` runs first. On a real Redis that already removes the real trial and backup schedulers and starts the BullMQ workers, and a worker could settle a real queued SMS as SENT through the demo-log provider. Example: a copied env file with `DEMO_MODE=true` pointed at the real `biddaloy` database stops with `DEMO_MODE refuses to start: database holds non-demo schools (...)` before any of that runs.
+Why not a Nest `onApplicationBootstrap` hook: every module's `onModuleInit` runs first. On a real Redis that already removes the real trial and backup schedulers and starts the BullMQ workers, and a worker could settle a real queued SMS as SENT through the test-inbox sink. Example: a copied env file with `DEMO_MODE=true` pointed at the real `biddaloy` database stops with `DEMO_MODE refuses to start: database holds non-demo schools (...)` before any of that runs.
 
 ## CSRF posture
 
