@@ -37,7 +37,10 @@ import { defineConfig, devices, type ReporterDescription } from '@playwright/tes
  *    it proves nothing and hides regressions.
  * 3. **Never set `serviceWorkers: 'block'`** (or
  *    `PLAYWRIGHT_DISABLE_SERVICE_WORKER_NETWORK`). Both silently switch
- *    off the exact machinery this suite exists to exercise.
+ *    off the exact machinery this suite exists to exercise. One exception:
+ *    `csp-inline-style.spec.ts` tests the CSP, not the service worker,
+ *    and needs every page to pass through `page.route` (it lives here
+ *    because only this suite serves the built app).
  */
 const CI = !!process.env.CI;
 

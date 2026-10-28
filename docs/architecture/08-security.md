@@ -951,6 +951,34 @@ flowchart LR
 
 Why not a Nest `onApplicationBootstrap` hook: every module's `onModuleInit` runs first. On a real Redis that already removes the real trial and backup schedulers and starts the BullMQ workers, and a worker could settle a real queued SMS as SENT through the demo-log provider. Example: a copied env file with `DEMO_MODE=true` pointed at the real `biddaloy` database stops with `DEMO_MODE refuses to start: database holds non-demo schools (...)` before any of that runs.
 
+## No runtime styles under the CSP (#3214)
+
+helmet sends `style-src 'self'` (`server/src/security-headers.ts`). The browser then loads CSS only from our own `.css` files. It blocks a `<style>` tag or a `style="..."` attribute made by JavaScript. Setting one property, like `el.style.width = '10px'`, is still allowed.
+
+```mermaid
+flowchart LR
+  L["library adds a &lt;style&gt; tag"] -->|blocked by CSP| X["its CSS is lost"]
+  B["vite build: csp-no-runtime-style"] -->|removes that code| OK["CSS comes from globals.css"]
+  S["e2e/pwa/csp-inline-style.spec.ts"] -->|adds the CSP, fails on a violation| L
+```
+
+Two libraries did this, and both were lost in production:
+
+| Library                                   | What broke                                                | Fix                                                               |
+| ----------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------- |
+| sonner (toasts)                           | Toasts had no styles. The list was not fixed to a corner. | `@import "sonner/dist/styles.css"` in `ui/src/styles/globals.css` |
+| react-style-singleton (Radix scroll lock) | The page scrolled behind an open dialog.                  | `body[data-scroll-locked] { overflow: hidden }` in globals.css    |
+
+The plugin in `client-admin/vite.config.ts` removes each library's injector. If an upgrade changes that code, the build fails. One gap remains: when a dialog opens, the page does not reserve the scrollbar's width, so content can move a little on a desktop with a visible scrollbar.
+
+Example failure from the spec, before the fix:
+
+```text
+style-src-elem: [data-sonner-toaster][dir=ltr],html[dir= (.../assets/use-sync-queue-CD_BqAWJ.js:65)
+```
+
+Nothing before this spec saw the bug, because `vite dev` and `vite preview` send no CSP. Only the deployed server does.
+
 ## CSRF posture
 
 The API splits cleanly into two authentication modes, and the CSRF argument
