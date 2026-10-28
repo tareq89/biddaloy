@@ -36,7 +36,7 @@ import type { StaffNavGroupId } from './nav-tree';
 export type ActionContext = 'student' | 'guardian' | 'invoice' | 'gradingScale' | 'exam';
 
 /** How the palette presents the action once triggered. */
-export type ActionKind = 'modal' | 'navigate' | 'inline';
+export type ActionKind = 'modal' | 'navigate' | 'inline' | 'external';
 
 /** What `run()` receives — currently just a TanStack Router navigate. */
 export interface ActionRunContext {
@@ -46,12 +46,15 @@ export interface ActionRunContext {
     readonly studentId?: string | undefined;
     readonly examId?: string | undefined;
   };
+  /** [44.2.01] The guide URL of the current page, or null when it has none (E17). */
+  readonly helpHref?: string | null;
 }
 
 export interface PaletteAction {
   readonly id: string;
   readonly label: { readonly en: string; readonly bn: string };
-  readonly permission: Permission;
+  /** `null` = any role (not a route: E17 `help.thisPage`). */
+  readonly permission: Permission | null;
   /** Extra permissions the action needs on top of the route's `permission` (all must hold). */
   readonly alsoRequires?: readonly Permission[];
   readonly kind: ActionKind;
@@ -70,6 +73,17 @@ export interface PaletteAction {
  * verbatim from `route-permissions.ts`'s entry for the same route.
  */
 export const ACTIONS: readonly PaletteAction[] = [
+  // [44.2.01] E17: opens the guide page in a new tab; the launcher hides it when the page has none.
+  {
+    id: 'help.thisPage',
+    label: { en: 'Help for this page', bn: 'এই পাতার সাহায্য' },
+    permission: null,
+    kind: 'external',
+    group: 'top',
+    run: (ctx) => {
+      if (ctx.helpHref) window.open(ctx.helpHref, '_blank', 'noopener');
+    },
+  },
   // [52.4.1] Applications (D25). Decide rights come from the catalogue, so these only need submit.
   {
     id: 'applications.new',

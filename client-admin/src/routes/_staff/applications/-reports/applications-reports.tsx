@@ -8,7 +8,7 @@ import {
   PageHeader,
   type FilterFieldDescriptor,
 } from '@biddaloy/ui/shells';
-import { formatDateRange, formatNumber } from '@biddaloy/ui/utils';
+import { formatDate, formatDateRange, formatNumber } from '@biddaloy/ui/utils';
 import { getRouteApi } from '@tanstack/react-router';
 
 import {
@@ -37,6 +37,7 @@ export function ApplicationsReports() {
   if (search.to) filters.to = search.to;
   const hasFilter = Object.keys(filters).length > 0;
 
+  const yearApplies = Boolean(search.academic_year_id) || !(search.from || search.to);
   const query = useApplicationReports(filters);
   const report = query.data;
 
@@ -45,7 +46,10 @@ export function ApplicationsReports() {
       kind: 'select',
       key: 'academic_year_id',
       label: t('filterYear'),
-      allLabel: t('filterCurrentYear', { name: current?.name ?? '' }),
+      // Dates with no year: the server counts every year, so say so.
+      allLabel: !(search.from || search.to)
+        ? t('filterCurrentYear', { name: current?.name ?? '' })
+        : t('filterAllYears'),
       options: years.map((y) => ({ value: y.id, label: y.name })),
     },
     {
@@ -95,10 +99,18 @@ export function ApplicationsReports() {
     },
   ];
 
-  const subtitle = year
-    ? t('subtitle', { year: year.name }) +
-      (search.from && search.to ? ` · ${formatDateRange(search.from, search.to, config)}` : '')
-    : undefined;
+  const range =
+    search.from && search.to
+      ? formatDateRange(search.from, search.to, config)
+      : search.from
+        ? t('rangeFrom', { date: formatDate(search.from, config) })
+        : search.to
+          ? t('rangeTo', { date: formatDate(search.to, config) })
+          : undefined;
+  const subtitle =
+    [yearApplies && year ? t('subtitle', { year: year.name }) : undefined, range]
+      .filter(Boolean)
+      .join(' · ') || undefined;
 
   return (
     <PageContainer>

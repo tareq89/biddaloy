@@ -94,6 +94,7 @@ describe('/calendar', () => {
     mockCalendar();
   });
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -107,6 +108,16 @@ describe('/calendar', () => {
     expect(screen.getByRole('button', { name: /^(Import|আমদানি)$/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^(Agenda|এজেন্ডা)$/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^(Month|মাস)$/ })).toBeNull();
+  });
+
+  it('shows a (?) after the Add event header action [44.3.03]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    renderCalendar();
+    await screen.findByTestId('day-cell-2026-10-05');
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(
+      document.querySelector('[data-help-id="people.calendar.action.addEvent"]'),
+    ).not.toBeNull();
   });
 
   it('labels the month with the month name and year, not "2026-10"', async () => {
@@ -135,6 +146,42 @@ describe('/calendar', () => {
     const upcoming = screen.getByRole('heading', { name: /^(Upcoming|আসন্ন)$/ }).closest('div')!;
     expect(within(upcoming).queryByText('Yesterday fair')).toBeNull();
     expect(within(upcoming).getByText('Sports day')).toBeTruthy();
+  });
+
+  it('lists events from today to today + 60 days even when a past month is on screen', async () => {
+    const requests: URLSearchParams[] = [];
+    server.use(
+      http.get('/api/v1/calendar/events', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        requests.push(params);
+        const upcoming = params.get('from') === '2026-10-05';
+        return HttpResponse.json({
+          data: upcoming
+            ? [
+                event({
+                  id: 'ev-far',
+                  name: 'Founders day',
+                  start_date: '2026-11-24',
+                  end_date: '2026-11-24',
+                }),
+              ]
+            : [],
+          total: upcoming ? 1 : 0,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        });
+      }),
+    );
+    renderCalendar('/calendar?month=2026-01');
+
+    const upcoming = (await screen.findByRole('heading', { name: /^(Upcoming|আসন্ন)$/ })).closest(
+      'div',
+    )!;
+    expect(await within(upcoming).findByText('Founders day')).toBeTruthy();
+    expect(
+      requests.some((p) => p.get('from') === '2026-10-05' && p.get('to') === '2026-12-04'),
+    ).toBe(true);
   });
 
   it('opens the full-page event form from ?panel=new-event', async () => {

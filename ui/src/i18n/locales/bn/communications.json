@@ -300,5 +300,21 @@
     "reminderMessage": "হ্যাঁ",
     "bulkBatchName": "হ্যাঁ",
     "bulkMediums": "হ্যাঁ, অন্তত একটি"
+  },
+  "messageLog": {
+    "title": "বার্তার তালিকা",
+    "subtitle": "স্কুল থেকে পাঠানো প্রতিটি বার্তা, নতুনটা আগে।",
+    "tableCaption": "পাঠানো বার্তা",
+    "statusFilterLabel": "অবস্থা",
+    "allStatuses": "সব অবস্থা",
+    "mediumFilterLabel": "মাধ্যম",
+    "allMediums": "সব মাধ্যম",
+    "dateRangeLabel": "পাঠানো",
+    "fromDateLabel": "যে তারিখ থেকে পাঠানো",
+    "toDateLabel": "যে তারিখ পর্যন্ত পাঠানো",
+    "sentHeader": "পাঠানো হয়েছে",
+    "empty": "কোনো বার্তা পাওয়া যায়নি।",
+    "emptyHelp": "অন্য অবস্থা বা তারিখের পরিসর বেছে দেখুন।",
+    "error": "বার্তার তালিকা লোড করা যায়নি।"
   }
 }

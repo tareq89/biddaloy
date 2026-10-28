@@ -138,6 +138,10 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'student-notes',
         'performance',
         'student-lifecycle',
+        // The readmit dialog's seat-limit 409 message (`MutationErrorMessage`) reads 'trial'.
+        'trial',
+        // The seat-limit action (`SeatLimitReachedAction`) reads 'billing'.
+        'billing',
         'printHistory',
         // [48] The Documents tab reads 'certificates'; the issue-certificate
         // modal (`?issue=`) also reads 'printPreview' and 'printEditor'. Same
@@ -353,6 +357,7 @@ function StudentDetailPage() {
               // buried in "More actions". Status changes only via these events.
               {
                 id: 'record-leaving',
+                helpId: 'people.students.action.recordLeaving',
                 label: t('detail.actions.recordLeaving'),
                 icon: <LogOutIcon />,
                 allowed: canManageLifecycle && isActive,
@@ -364,6 +369,7 @@ function StudentDetailPage() {
               },
               {
                 id: 'readmit',
+                helpId: 'people.students.action.readmit',
                 label: t('detail.actions.readmit'),
                 icon: <RotateCcwIcon />,
                 allowed: canManageLifecycle && !isActive,
@@ -375,6 +381,7 @@ function StudentDetailPage() {
               },
               {
                 id: 'collect-fees',
+                helpId: 'people.students.action.collectFees',
                 label: t('detail.actions.collectFees'),
                 icon: <HandCoinsIcon />,
                 allowed: canCollectFees,

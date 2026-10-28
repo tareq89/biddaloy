@@ -177,6 +177,30 @@ describe('GenerateSeatPlanModal (full page)', () => {
     expect(screen.queryByText(/db exploded/)).toBeNull();
   });
 
+  it('a 409 SCHEDULE_ALREADY_CLAIMED names the subject, not a generic error', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    server.use(
+      http.post('/api/v1/seat-plans/generate', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'Raw server text', '/api/v1/seat-plans/generate'),
+            details: { code: 'SCHEDULE_ALREADY_CLAIMED', exam_schedule_ids: [SCHEDULE.id] },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    await openModalAndPickBasics(user);
+    await user.click(await screen.findByRole('checkbox', { name: /101/ }));
+    await user.click(screen.getByRole('button', { name: 'Generate' }));
+
+    expect(await screen.findByText(/already in a published seat plan: Mathematics/)).toBeTruthy();
+    expect(screen.queryByText('Something went wrong. Please try again.')).toBeNull();
+    expect(screen.queryByText(/Raw server text/)).toBeNull();
+  });
+
   it('lists conflicts by room label and plan name, then opens the plan', async () => {
     const user = userEvent.setup();
     mockBaseline();

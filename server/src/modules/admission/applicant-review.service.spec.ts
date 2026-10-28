@@ -78,6 +78,7 @@ describe('ApplicantReviewService', () => {
       findOne: vi.fn(),
       update: vi.fn(async () => ({ affected: 1 })),
       find: vi.fn(),
+      findAndCount: vi.fn(),
       count: vi.fn(async () => 0),
       manager: {
         transaction: vi.fn(async (cb: (manager: unknown) => Promise<unknown>) =>
@@ -487,33 +488,46 @@ describe('ApplicantReviewService', () => {
 
   describe('list', () => {
     it('scopes to tenant and passes through intake/status filters', async () => {
-      applicantRepo.find.mockResolvedValueOnce([makeApplicant()]);
+      applicantRepo.findAndCount.mockResolvedValueOnce([[makeApplicant()], 1]);
 
       await service.list(TENANT_A, {
         intakeId: 'intake-1',
         status: AdmissionApplicantStatus.SHORTLISTED,
       });
 
-      expect(applicantRepo.find).toHaveBeenCalledWith({
+      expect(applicantRepo.findAndCount).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_A,
           deleted_at: expect.anything(),
           intake_id: 'intake-1',
           status: AdmissionApplicantStatus.SHORTLISTED,
         },
-        order: { created_at: 'DESC' },
+        order: { created_at: 'DESC', id: 'ASC' },
+        skip: 0,
+        take: 50,
       });
     });
 
+    it('pages with skip/take and reports the total', async () => {
+      applicantRepo.findAndCount.mockResolvedValueOnce([[makeApplicant()], 3]);
+
+      const result = await service.list(TENANT_A, { page: 2, limit: 2 });
+
+      expect(applicantRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 2, take: 2 }),
+      );
+      expect(result).toMatchObject({ total: 3, page: 2, limit: 2, totalPages: 2 });
+    });
+
     it('does not leak a tenant-B applicant into tenant-A results', async () => {
-      applicantRepo.find.mockResolvedValueOnce([]);
+      applicantRepo.findAndCount.mockResolvedValueOnce([[], 0]);
 
       const result = await service.list(TENANT_A, {});
 
-      expect(applicantRepo.find).toHaveBeenCalledWith(
+      expect(applicantRepo.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ tenant_id: TENANT_A }) }),
       );
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
     });
   });
 

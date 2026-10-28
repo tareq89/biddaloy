@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  HelpHint,
   Label,
   Select,
   SelectContent,
@@ -59,16 +60,24 @@ export interface ExamFormDialogProps {
 function FieldLabel({
   required,
   children,
+  helpId,
   ...props
-}: React.ComponentProps<typeof Label> & { required?: boolean }) {
+}: React.ComponentProps<typeof Label> & { required?: boolean; helpId?: string }) {
   // Asterisk via CSS content: visual only, so the label text stays exactly the field name.
-  return (
+  const label = (
     <Label
       {...props}
       className={required ? "after:ms-0.5 after:text-destructive after:content-['*']" : undefined}
     >
       {children}
     </Label>
+  );
+  if (!helpId) return label;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <HelpHint helpId={helpId} />
+    </span>
   );
 }
 
@@ -231,7 +240,9 @@ export function ExamFormDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <FieldLabel htmlFor="exam-form-deadline">{t('examForm.deadlineLabel')}</FieldLabel>
+            <FieldLabel htmlFor="exam-form-deadline" helpId="examsResults.exams.field.deadline">
+              {t('examForm.deadlineLabel')}
+            </FieldLabel>
             <div className="flex items-center gap-2">
               <DatePicker
                 id="exam-form-deadline"
@@ -309,7 +320,12 @@ export function ExamFormDialog({
 
               {templates.length > 0 && (
                 <div className="flex flex-col gap-1.5">
-                  <FieldLabel htmlFor="exam-form-template">{tt('label')}</FieldLabel>
+                  <FieldLabel
+                    htmlFor="exam-form-template"
+                    helpId="examsResults.exams.field.template"
+                  >
+                    {tt('label')}
+                  </FieldLabel>
                   <Select value={templateId} onValueChange={setTemplateId}>
                     <SelectTrigger id="exam-form-template" className="w-full">
                       <SelectValue />
@@ -335,9 +351,7 @@ export function ExamFormDialog({
           )}
           {mutation.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {mutation.error instanceof ApiError && mutation.error.statusCode === 409
-                ? t('examForm.duplicateMessage')
-                : t('examForm.errorMessage')}
+              {t(errorKey(mutation.error))}
             </p>
           )}
 
@@ -355,4 +369,16 @@ export function ExamFormDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/** Fixed sentence per server error code; never the server text (Rule 23). */
+const ERROR_KEYS: Record<string, string> = {
+  EXAM_PUBLISHED: 'examForm.errorPublished',
+  EXAM_NAME_TAKEN: 'examForm.duplicateMessage',
+  CLASS_HAS_NO_GRADE: 'examForm.errorClassNoGrade',
+};
+
+function errorKey(error: unknown): string {
+  const code = error instanceof ApiError ? (error.details?.code as string | undefined) : undefined;
+  return (code && ERROR_KEYS[code]) || 'examForm.errorMessage';
 }

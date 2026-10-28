@@ -5,6 +5,7 @@ import {
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
+import { ImportFileError } from '../errors/import-file.error';
 
 /**
  * Maps errors that are not HttpExceptions but are the client's fault to a
@@ -18,7 +19,8 @@ export function mapKnownError(exception: unknown): HttpException | null {
     mapUniqueViolation(exception) ??
     mapStudentFeeCheckViolation(exception) ??
     mapInvalidDate(exception) ??
-    mapMulterError(exception)
+    mapMulterError(exception) ??
+    mapImportFileError(exception)
   );
 }
 
@@ -67,6 +69,16 @@ function mapStudentFeeCheckViolation(exception: unknown): HttpException | null {
 // (2026-02-30) that a shape-only DTO check let through to Postgres. The message
 // would echo the value, so the text is fixed. `@IsRealDate` still gives a per-field one.
 const INVALID_DATE_CODES = new Set(['22007', '22008']);
+
+// Parser-written fixed sentences (no input in them, see ImportFileError); the code is
+// what clients branch on (#3020).
+function mapImportFileError(exception: unknown): HttpException | null {
+  if (!(exception instanceof ImportFileError)) return null;
+  return new BadRequestException({
+    message: exception.message,
+    details: { code: exception.code },
+  });
+}
 
 function mapInvalidDate(exception: unknown): HttpException | null {
   if (!(exception instanceof QueryFailedError)) return null;

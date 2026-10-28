@@ -296,6 +296,9 @@ describe('ExamsService.create with template_id', () => {
     const { service, examRepo } = await buildService();
     examRepo.manager.getRepository = vi.fn(() => ({ findOne: vi.fn(async () => ({ id: 't1' })) }));
     await expect(service.create(base, TENANT_ID)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.create(base, TENANT_ID)).rejects.toMatchObject({
+      response: { details: { code: 'CLASS_HAS_NO_GRADE' } },
+    });
     expect(examRepo.save).not.toHaveBeenCalled();
   });
 
@@ -308,6 +311,24 @@ describe('ExamsService.create with template_id', () => {
 });
 
 describe('ExamsService tenant-reference guard (IDOR)', () => {
+  it('unknown class: fixed message without the id (#3000)', async () => {
+    const { service, classRepo } = await buildService();
+    classRepo.findOne = vi.fn(async () => null);
+    const err: any = await service
+      .create(
+        {
+          name: 'Term 1',
+          kind: ExamKind.TERM,
+          academic_year_id: 'y1',
+          class_id: 'secret-class-id',
+        } as any,
+        TENANT_ID,
+      )
+      .catch((e) => e);
+    expect(err.message).toMatch(/^Class not found for this tenant\.$/);
+    expect(err.message).not.toContain('secret-class-id');
+  });
+
   it("rejects a class_id that doesn't belong to the tenant", async () => {
     const { service, classRepo } = await buildService();
     classRepo.findOne = vi.fn(async () => null);
@@ -404,6 +425,25 @@ describe('ExamsService duplicate-name mapping', () => {
         TENANT_ID,
       ),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('the create 409 carries EXAM_NAME_TAKEN and never echoes the submitted name', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.save = vi.fn(async () => {
+      throw new QueryFailedError(
+        'insert',
+        [],
+        Object.assign(new Error('duplicate'), { code: '23505' }),
+      );
+    });
+    const err: any = await service
+      .create(
+        { name: 'Secret Name', kind: ExamKind.TERM, academic_year_id: 'y1', class_id: 'c1' } as any,
+        TENANT_ID,
+      )
+      .catch((e) => e);
+    expect(err.response.details.code).toBe('EXAM_NAME_TAKEN');
+    expect(JSON.stringify(err.response)).not.toContain('Secret Name');
   });
 });
 

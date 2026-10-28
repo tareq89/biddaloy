@@ -5,6 +5,7 @@
  */
 import {
   Button,
+  HelpHint,
   ConfirmDialog,
   Dialog,
   DialogContent,
@@ -106,20 +107,31 @@ export function EventDetailsSheet({
           {canManage && (
             <DialogFooter>
               {canEdit && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="text-destructive"
-                  onClick={() => setConfirmOpen(true)}
-                >
-                  <Trash2Icon aria-hidden="true" />
-                  {t('eventDetails.delete')}
-                </Button>
+                <span className="inline-flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 text-destructive md:flex-none"
+                    onClick={() => setConfirmOpen(true)}
+                  >
+                    <Trash2Icon aria-hidden="true" />
+                    {t('eventDetails.delete')}
+                  </Button>
+                  <HelpHint helpId="people.calendar.action.delete" />
+                </span>
               )}
               {!event.published && (
-                <Button type="button" variant="outline" onClick={onPublish}>
-                  {t('eventDetails.publish')}
-                </Button>
+                <span className="inline-flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 md:flex-none"
+                    onClick={onPublish}
+                  >
+                    {t('eventDetails.publish')}
+                  </Button>
+                  <HelpHint helpId="people.calendar.action.publish" />
+                </span>
               )}
               {canEdit && (
                 <Button type="button" onClick={onEdit}>

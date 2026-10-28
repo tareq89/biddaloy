@@ -66,9 +66,7 @@ keywords:
 appVersion: 0.1.0 (1798f8b1f)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: class-delete-blocked-message, checked: 2026-10-24, issue: 2884 }
-  - { id: class-name-reuse-after-delete, checked: 2026-10-24, issue: 2885 }
+knownIssues: []
 -->
 
 # Arranging classes, sections and subjects
@@ -98,7 +96,6 @@ A class lives inside one academic year, for example **Class 6** in the year **20
   - [The class page: the tabs](#task-detail)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -279,7 +276,15 @@ Only a section or class made by mistake and still empty can be deleted.
 
 **A section that cannot be deleted:** one that still has students or ever had them (the records of students who left are counted too), or that has records such as attendance, marks or routine. Then it shows **This section still has students, so it can't be deleted. Move them to another section first.** A section's teacher assignments do not block a delete; they go with the section.
 
-**A class that cannot be deleted:** one that has students or sections, or records such as exams, fee structures or homework. Then the dialog shows **This class still has students or sections, so it can't be deleted. Move the students and delete the sections first.**, with two buttons: **Move students** (opens the class's **Students** tab) and **Close**. There is no chance to press **Delete** again, because it would be blocked again. The message has a limit: [Known issues](#known-issues).
+**A class that cannot be deleted:** one that has students or sections, or records such as exams, fee structures or homework. Then the dialog names the reason:
+
+| Reason                                    | The dialog shows                                                                                                   | Buttons                       |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| It has students                           | **This class still has students. Move them to another class first.**                                               | **Move students**, **Close**  |
+| No students, but it has sections          | **This class still has sections. Delete the sections first.**                                                      | **Close**                     |
+| Other records (for example exams, homework) | **This class is still used by {records}. Remove or move them first.**, for example "used by exams and homework" | **Close**                     |
+
+**Move students** opens the class's **Students** tab. There is no chance to press **Delete** again, because it would be blocked again.
 
 ### The class page: the tabs <a href="#task-detail" id="task-detail"></a>
 
@@ -304,9 +309,9 @@ Press the class name in the list, or **View**, to open its page. At the top are 
 | **You don't have access to this page.**                                                                                   | Only the Admin sees this page. Press **Back to dashboard**.                                                                                             | Admin        |
 | **Failed to load classes**                                                                                                | Check the internet and reload the page.                                                                                                                 | Admin        |
 | **Academic year is required**, and the **Academic year** list is empty                                                    | First [add an academic year](academic-years.md#task-main).                                                                                              | Admin        |
-| **Failed to save class**                                                                                                  | Check the internet. See whether a class with the same name, shift and version already exists in the same year (capital and small letters count as the same, and a deleted class's name also counts); if so, change the name or shift.        | Admin        |
+| **Failed to save class**                                                                                                  | Check the internet. See whether a class with the same name, shift and version already exists in the same year (capital and small letters count as the same; the name of a deleted class can be used again); if so, change the name or shift.        | Admin        |
 | **Failed to save section**                                                                                                | Check the internet and press **Save** again. See whether a section with the same name already exists in this class (capital and small letters count as the same, so `a` clashes with `A`).                                                   | Admin        |
-| **This class still has students or sections, so it can't be deleted. Move the students and delete the sections first.**   | See [Delete a section or a class](#task-delete). Usually it is right to keep the class.                                                                 | Admin        |
+| **This class still has students. …**, **This class still has sections. …** or **This class is still used by …**          | See [Delete a section or a class](#task-delete). Usually it is right to keep the class.                                                                 | Admin        |
 | **This section still has students, so it can't be deleted. Move them to another section first.**                          | Move the students to another section ([Students](../people/students.md)), or keep the section.                                                          | Admin        |
 | **Failed to delete class** or **Failed to delete section**                                                                | Check the internet and press **Delete** again.                                                                                                          | Admin        |
 | **Failed to attach subject**                                                                                              | Check the internet and press **Add** again.                                                                                                             | Admin        |
@@ -327,17 +332,6 @@ Press the class name in the list, or **View**, to open its page. At the top are 
 | Academic coordinator, teacher, accountant, office assistant, exam controller, governing board member | No                          | No                                              | No                               |
 
 For other roles, **Classes** is not in the left menu. If they open the page, they see **You don't have access to this page.** A teacher sees their own sections on their own pages, not here.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It will be removed from this section once fixed.
-
-| Problem                                                                                                                                                                                                                                      | Whose, when                          | Data saved?              | What to do for now                                          |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------ | ----------------------------------------------------------- |
-| A delete is blocked if a class has exams, fee structures or homework, even with no students or sections, yet the message says only "students or sections" and the **Move students** button shows                                            | Whoever deletes a class, at any time | Yes, nothing was deleted | Keep the class. If it was made by pure mistake, tell support |
-| A deleted class's name cannot be used again in the same year with the same shift and version: saving shows **Failed to save class** | Whoever adds a class after deleting one | No, the new class is not saved | Use a slightly different name, for example `Class 6 (new)` |
 
 ---
 

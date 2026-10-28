@@ -31,9 +31,16 @@ import { YearFormDialog, type YearFormPayload } from './-year-form-dialog';
 // ponytail: one page of 100 years, add paging if a tenant ever has more
 const YEARS_LIMIT = 100;
 
-// `z.looseObject`, not `z.object`: a plain object would strip the list-state params.
+// `z.object`, not `z.looseObject`: a param not listed here is stripped, so a stray
+// `?foo=1` is not a filter chip. Declare every key the page reads.
 export const Route = createFileRoute('/_staff/academic-years/')({
-  validateSearch: z.looseObject({ new: z.coerce.string().optional().catch(undefined) }),
+  validateSearch: z.object({
+    page: z.number().int().positive().optional().catch(undefined),
+    limit: z.number().int().positive().max(100).optional().catch(undefined),
+    sort: z.string().optional().catch(undefined),
+    order: z.enum(['asc', 'desc']).optional().catch(undefined),
+    new: z.coerce.string().optional().catch(undefined),
+  }),
   // [8.14.5]: no search-string filters here (unlike `students/index.tsx`),
   // so no `loaderDeps` — the list's full first page is the same query on
   // every visit.
@@ -169,6 +176,7 @@ function AcademicYearsListPage() {
         actions={[
           {
             id: 'add',
+            helpId: 'academics.academicYears.action.add',
             label: t('list.addYear'),
             icon: <PlusIcon />,
             priority: 'primary',

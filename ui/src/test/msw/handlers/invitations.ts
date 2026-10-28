@@ -43,6 +43,7 @@ const dispatchInvitations = http.post('/api/v1/users/invitations/batch', () =>
     {
       batch_id: 'batch-1',
       queued: 2,
+      next_after: null,
       skipped: [
         { guardian_id: 'guardian-3', full_name: 'No Contact Guardian', reason: 'no_contact' },
       ],

@@ -1,6 +1,7 @@
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  HelpHint,
   Card,
   Dialog,
   DialogClose,
@@ -37,7 +38,7 @@ import {
   useTranslation,
 } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
-import { formatPhone } from '@biddaloy/ui/utils';
+import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { CircleAlertIcon, SendIcon } from 'lucide-react';
 import * as React from 'react';
@@ -159,6 +160,16 @@ function SendMessageBody() {
   }
 
   function errorText(error: unknown): string {
+    if (
+      error instanceof ApiError &&
+      error.statusCode === 409 &&
+      error.details?.['code'] === 'INSUFFICIENT_SMS_CREDIT'
+    ) {
+      return t('bulk.review.projection.insufficientCredit', {
+        required: formatNumber(Number(error.details['required']), config),
+        available: formatNumber(Number(error.details['available']), config),
+      });
+    }
     if (error instanceof ApiError && error.statusCode === 400) {
       const code = error.details?.['code'];
       if (code === 'GUARDIAN_NO_ADDRESS') return t('send.errorNoAddress');
@@ -418,10 +429,13 @@ function SendMessageBody() {
           </div>
 
           <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:justify-end">
-            <Button type="submit" disabled={!canSend}>
-              <SendIcon aria-hidden />
-              {t('send.submit')}
-            </Button>
+            <span className="inline-flex items-center gap-1">
+              <Button type="submit" className="flex-1 md:flex-none" disabled={!canSend}>
+                <SendIcon aria-hidden />
+                {t('send.submit')}
+              </Button>
+              <HelpHint helpId="communications.sendMessage.action.send" />
+            </span>
           </div>
         </Card>
       </form>

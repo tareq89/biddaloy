@@ -5,11 +5,13 @@
  * screen), Marks breakdown, Schedule, Results.
  */
 import { Permission } from '@biddaloy/shared';
-import { ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import { ConfirmDialog, ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
 import {
   examQueryOptions,
   useAcademicYear,
   useClass,
+  useDeleteExam,
   useExam,
   useHasPermission,
 } from '@biddaloy/ui/hooks';
@@ -17,7 +19,7 @@ import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -71,6 +73,9 @@ function ExamDetailPage() {
   const resultActions = useResultActions(examId, exam?.status);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
   const [editOpen, setEditOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const deleteExam = useDeleteExam();
+  const navigate = Route.useNavigate();
 
   if (examQuery.isPending) return <ExamHeaderSkeleton />;
   if (examQuery.isError || !exam) {
@@ -120,6 +125,15 @@ function ExamDetailPage() {
             priority: 'tertiary',
             allowed: canManage,
             onClick: () => setEditOpen(true),
+          },
+          {
+            id: 'delete',
+            label: t('detail.delete.button'),
+            icon: <Trash2 aria-hidden className="size-4" />,
+            priority: 'destructive',
+            // Only a DRAFT exam can have no results; the server refuses the rest with 409.
+            allowed: canManage && exam.status === 'DRAFT',
+            onClick: () => setDeleteOpen(true),
           },
         ]}
         activeTab={activeTab}
@@ -171,6 +185,31 @@ function ExamDetailPage() {
         ]}
       />
       {resultActions.dialogs}
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          if (!open && deleteExam.isPending) return;
+          if (!open) deleteExam.reset();
+          setDeleteOpen(open);
+        }}
+        title={t('detail.delete.title')}
+        description={`${t('detail.delete.description')}${
+          deleteExam.isError
+            ? ` ${
+                deleteExam.error instanceof ApiError &&
+                (deleteExam.error.details as { code?: string } | undefined)?.code ===
+                  'EXAM_HAS_RESULTS'
+                  ? t('detail.delete.errorHasResults')
+                  : t('detail.delete.errorMessage')
+              }`
+            : ''
+        }`}
+        confirmLabel={t('detail.delete.confirm')}
+        busy={deleteExam.isPending}
+        onConfirm={() =>
+          deleteExam.mutate(examId, { onSuccess: () => void navigate({ to: '/exams' }) })
+        }
+      />
       {canManage && (
         <ExamFormDialog
           open={editOpen}

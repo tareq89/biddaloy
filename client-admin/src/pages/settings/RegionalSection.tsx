@@ -355,7 +355,9 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
         advancedOpen={hasAdvancedError}
       >
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          {selectField('locale', 'regional-locale', t('regional.locale'), localeChoices)}
+          {selectField('locale', 'regional-locale', t('regional.locale'), localeChoices, {
+            help: t('regional.localeHelp'),
+          })}
           {selectField('numerals', 'regional-numerals', t('regional.numerals'), numeralChoices)}
           {selectField(
             'date.firstDayOfWeek',

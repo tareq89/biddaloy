@@ -9,6 +9,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { ensureFeeStructure } from '@test/helpers/fee-fixture.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
+import { DashboardCacheService } from '../dashboard/dashboard-cache.service';
 import { TENANT_STATUS_REDIS } from '../schools/tenant-status.service';
 import {
   SEED_TENANT_ID,
@@ -146,7 +147,8 @@ describe('GET /dashboard/widgets/collection-month', () => {
         .set('X-Role', role);
       return tenantId === null ? req : req.set('X-Tenant-ID', tenantId);
     };
-    const clear = () => redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${key}:school`);
+    const clear = () =>
+      redis.del(app.get(DashboardCacheService).key(SEED_TENANT_ID, key, 'school'));
 
     afterAll(clear);
 
@@ -219,10 +221,18 @@ describe('GET /dashboard/widgets/collection-month', () => {
       const clearBoth = () =>
         Promise.all(
           [DashboardWidgetKey.COLLECTION_TODAY, DashboardWidgetKey.COLLECTION_BY_MONTH].map((k) =>
-            redis.del(`tenant:${SEED_TENANT_ID}:dash:v1:${k}:school`),
+            redis.del(app.get(DashboardCacheService).key(SEED_TENANT_ID, k, 'school')),
           ),
         );
+      const setYear = (a: string, b: string) =>
+        dataSource.query(`UPDATE academic_years SET start_date = $2, end_date = $3 WHERE id = $1`, [
+          SEED_ACADEMIC_YEAR_ID,
+          a,
+          b,
+        ]);
       try {
+        // The widget follows the school's current academic year.
+        await setYear('2032-01-01', '2032-12-31');
         vi.useFakeTimers({ toFake: ['Date'] });
         vi.setSystemTime(new Date('2032-01-14T06:00:00Z')); // 12:00 Dhaka, 14 Jan
         await clearBoth();
@@ -245,8 +255,10 @@ describe('GET /dashboard/widgets/collection-month', () => {
           // 1-14 Dec 2031: the 10 Dec payment.
           previous_month_same_days_net: 250,
         });
+        expect(month.months[0].year).toBe(2032);
         expect(month.months[1].net).toBeNull();
       } finally {
+        await setYear('2026-01-01', '2026-12-31');
         await clearBoth();
         await dataSource.query(`DELETE FROM payments WHERE student_id = $1`, [studentId]);
         await dataSource.query(`DELETE FROM students WHERE id = $1`, [studentId]);

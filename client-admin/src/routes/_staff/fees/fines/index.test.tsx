@@ -14,7 +14,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
@@ -59,6 +59,40 @@ function render(role: 'ADMIN' | 'ACCOUNTANT' | 'EXECUTIVE' = 'ADMIN', entry = '/
 describe('/fees/fines', () => {
   afterEach(async () => {
     await cleanupTestState();
+  });
+
+  it('shows the Fine rules button to ACCOUNTANT but not EXECUTIVE', async () => {
+    server.use(finesHandler([]), ...referenceHandlers());
+    const first = render('ACCOUNTANT');
+    expect(await screen.findByRole('button', { name: 'Fine rules' })).toBeTruthy();
+    first.unmount();
+
+    render('EXECUTIVE');
+    await screen.findByRole('heading', { level: 1, name: 'Fines' });
+    expect(screen.queryByRole('button', { name: 'Fine rules' })).toBeNull();
+  });
+
+  it('refuses EXECUTIVE on /fees/fines/rules with the forbidden state', async () => {
+    server.use(finesHandler([]), ...referenceHandlers());
+    render('EXECUTIVE', '/fees/fines/rules');
+    expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
+  });
+
+  // [44.4 / #3014] The (?) beside the header actions (finance.fines.action.*).
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(finesHandler([]), ...referenceHandlers());
+      render();
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.fines.action.generate"]'),
+        ).not.toBeNull(),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('renders fine rows and the totals footer', async () => {

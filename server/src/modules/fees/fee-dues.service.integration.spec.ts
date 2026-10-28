@@ -301,6 +301,21 @@ describe('FeeDuesService (integration)', () => {
       expect(dues.find((d) => d.month === 2)!.status).toBe(FeeStatus.OVERDUE);
     });
 
+    it('returns total_due_sum across every matched student, not just the page', async () => {
+      // Three owing students (makeFee default balance), page size 1.
+      for (let i = 0; i < 3; i++) {
+        const st = await studentRepo.save(makeStudent());
+        await studentFeeRepo.save(makeFee(st.id, { total_amount: 100.1, paid_amount: 0 }));
+      }
+
+      const result = await service.getDues({ page: 1, limit: 1 }, TENANT_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(3);
+      // 3 x 100.10 in whole paisa: 300.30 exactly (float sum would be 300.29999...).
+      expect(result.total_due_sum).toBe(300.3);
+    });
+
     it('computes total_due as the sum of balances across all open fees for a student', async () => {
       const student = await studentRepo.save(makeStudent());
       await studentFeeRepo.save(
@@ -609,7 +624,14 @@ describe('FeeDuesService (integration)', () => {
     it('returns an empty page when no students have open dues', async () => {
       const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
 
-      expect(result).toEqual({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 });
+      expect(result).toEqual({
+        data: [],
+        total: 0,
+        total_due_sum: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 0,
+      });
     });
 
     it('excludes a soft-deleted student', async () => {
@@ -771,7 +793,14 @@ describe('FeeDuesService (integration)', () => {
       const restricted = await service.getDues({ page: 1, limit: 10 }, TENANT_ID, []);
       const unrestricted = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
 
-      expect(restricted).toEqual({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 });
+      expect(restricted).toEqual({
+        data: [],
+        total: 0,
+        total_due_sum: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 0,
+      });
       expect(unrestricted.total).toBe(1);
     });
 

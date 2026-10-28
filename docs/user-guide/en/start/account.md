@@ -33,8 +33,7 @@ keywords: [account, sign out, security, lost phone, change password, change emai
 appVersion: 0.1.0 (c08a9eb19)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: cannot-change-existing-password, checked: 2026-10-24, issue: 2949 }
+knownIssues: []
 -->
 
 # Your account
@@ -61,7 +60,6 @@ Sign out from the account menu, sign out a lost phone, manage your password and 
   - [School invitations](#task-invites)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -132,7 +130,7 @@ If your phone is stolen, or you think someone knows your password, also get a ne
 
 On the **Security** page, in the **Sign-in methods** section:
 
-- **Password** — If your account has no password yet, tap **Set or change password**, type the new password twice, and tap **Set a password**. → The message **Your password is set.** appears. If you already have a password, see [Known issues](#known-issues).
+- **Password** — If your account has no password yet, tap **Set or change password**, type the new password twice, and tap **Set a password**. → The message **Your password is set.** appears. If you already have a password, the dialog then says **You already have a password. Enter it, then choose a new one.** Type your current password and the new one, and confirm. → The message **Your password is changed.** appears. If the current password is wrong, it shows **That password is not correct.**
 - **A code by SMS or email** — **Always on**. You can also sign in with a code, without a password.
 - **Google** / **Facebook** — Shown when the school turns them on. Tap **Connect**, type your **Current password** and tap **Continue**, then sign in to Google or Facebook. → When you come back, the message **(Google/Facebook) is now connected.** appears. After that, **Continue with Google** or **Continue with Facebook** on the sign in page works.
 
@@ -190,7 +188,6 @@ If another school invites you to join, **Account menu** shows **School invitatio
 | What you see                                                         | What to do                                                                                                                        | Who can help |
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | **Couldn't load your sessions. Please try again.**                   | Tap **Try again**. Check your internet.                                                                                           | —            |
-| **You already have a password.**                                     | Your password did not change. See [Known issues](#known-issues).                                                                  | —            |
 | **That password is not correct.** (while connecting Google/Facebook) | Type your current password, not a new one.                                                                                        | —            |
 | **That account is already connected to someone else.**               | This Google or Facebook account is connected to someone else's SchoolManager account. Use a different Google or Facebook account. | School admin |
 | **This link has expired or has already been used.**                  | Ask the admin to make the change again; a new link will come.                                                                     | School admin |
@@ -208,16 +205,6 @@ If another school invites you to join, **Account menu** shows **School invitatio
 | ----------------------------- | ------------------------------------------------------------- | ------------------------------------------------- | ---------------------------- |
 | Teachers and all staff, admin | Yes                                                           | No, the admin changes it (approval may be needed) | Yes                          |
 | Guardians, students           | Yes; **Security** in the menu opens the portal's account page | Yourself, from the portal's account page          | On the portal's account page |
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked on version 0.1.0, 2026-10-24. When fixed, this is removed from here.
-
-| Issue                                                                                                                | Who, when                                      | Data saved?                        | What to do for now                                                                                           |
-| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| **Set or change password** does not change a password that already exists; it shows **You already have a password.** | Teachers and staff who already have a password | No — the new password is not saved | Sign out, then use **Forgot password?** on the [sign in](sign-in.md#task-forgot) page to set a new password. |
 
 ---
 

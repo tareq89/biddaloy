@@ -304,10 +304,37 @@ describe('ExamFormDialog mark entry deadline', () => {
       expect(api.bodies).toHaveLength(1);
     });
 
-    it('a 409 says it already exists, a 500 says it could not be saved', async () => {
-      mockApi({
-        post: () => HttpResponse.json(apiErrorBody(409, 'dup', '/api/v1/exams'), { status: 409 }),
+    const coded = (status: number, code: string) => () =>
+      HttpResponse.json(
+        { ...apiErrorBody(status, 'x', '/api/v1/exams'), details: { code } },
+        { status },
+      );
+
+    it('a 409 EXAM_PUBLISHED on edit says the results are published, not a name clash', async () => {
+      server.use(http.patch('/api/v1/exams/:id', coded(409, 'EXAM_PUBLISHED')));
+      const user = userEvent.setup();
+      renderDialog({
+        mode: 'edit',
+        examId: 'exam-1',
+        initialValues: { name: 'Half Yearly', kind: ExamKind.TERM, mark_entry_deadline: null },
       });
+      await screen.findByLabelText('Name');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        "This exam's results are published. Reopen the results before changing its type.",
+      );
+    });
+
+    it('a 400 CLASS_HAS_NO_GRADE on create says the class needs a grade', async () => {
+      mockApi({ post: coded(400, 'CLASS_HAS_NO_GRADE') });
+      const user = userEvent.setup();
+      renderDialog();
+      await fillAndSubmit(user);
+      expect((await screen.findByRole('alert')).textContent).toMatch(/has no grade set/);
+    });
+
+    it('a 409 EXAM_NAME_TAKEN says it already exists', async () => {
+      mockApi({ post: coded(409, 'EXAM_NAME_TAKEN') });
       const user = userEvent.setup();
       renderDialog();
       await fillAndSubmit(user);

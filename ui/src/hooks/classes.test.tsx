@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
@@ -9,6 +10,7 @@ import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { createTestQueryClient } from '../test/render-with-providers';
 
 import {
+  allClassesQueryOptions,
   classKeys,
   useAssignTeacher,
   useAssignTeacherAssignment,
@@ -25,6 +27,31 @@ import {
   useUpdateClass,
   useUpdateSection,
 } from './classes';
+
+describe('allClassesQueryOptions scopes the all-pages fetch by academic year', () => {
+  async function requestedYear(filters?: { academic_year_id?: string }) {
+    let seen: string | null | undefined;
+    server.use(
+      http.get('/api/v1/classes', ({ request }) => {
+        seen = new URL(request.url).searchParams.get('academic_year_id');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useQuery(allClassesQueryOptions(filters)), {
+      tenantId: 'tenant-1',
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    return seen;
+  }
+
+  it('sends academic_year_id when a year is given', async () => {
+    expect(await requestedYear({ academic_year_id: 'y' })).toBe('y');
+  });
+
+  it('sends none without filters, so every year is listed', async () => {
+    expect(await requestedYear()).toBeNull();
+  });
+});
 
 describe("useClasses resolves the tenant's class list for a filter dropdown", () => {
   it('resolves with every class the handler returns', async () => {

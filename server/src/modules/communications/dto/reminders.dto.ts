@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
 import { CommunicationMedium, CommunicationStatus, ReminderBatchStatus } from '@biddaloy/shared';
 import { ReminderPreviewRecipientDto } from './single-reminder.dto';
 import { CommunicationLogMedium, PUSH_MEDIUM } from '../entities/communication-log.entity';
@@ -273,4 +274,40 @@ export class ReminderBatchLogDto {
 
 export class ReminderBatchLogListResponseDto extends ReminderPaginatedResponseDto {
   data: ReminderBatchLogDto[];
+}
+
+/**
+ * [87.SD] `GET /communications/logs` — the tenant-wide message log the
+ * dashboard's Failed messages / SMS balance widgets open. Same row shape as
+ * a batch's logs (`ReminderBatchLogDto`), filtered by outcome and channel.
+ */
+export class QueryCommunicationLogsDto {
+  @IsOptional()
+  @IsEnum(CommunicationStatus)
+  status?: CommunicationStatus;
+
+  @IsOptional()
+  @IsEnum(CommunicationMedium)
+  medium?: CommunicationMedium;
+
+  @IsOptional()
+  @IsRealDate()
+  from_date?: string;
+
+  @IsOptional()
+  @IsRealDate()
+  to_date?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 25;
 }

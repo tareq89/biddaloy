@@ -594,6 +594,11 @@
       "archetype": "detail"
     },
     {
+      "path": "/communications/message-log",
+      "role": "accountant",
+      "archetype": "list"
+    },
+    {
       "path": "/students",
       "role": "admin",
       "archetype": "list",

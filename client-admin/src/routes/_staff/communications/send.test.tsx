@@ -7,7 +7,7 @@
  * rule lives in the confirm dialog here — the first test pins that
  * nothing posts before the dialog's own confirm.
  */
-import { REGION_BD_BN, REGION_BD_EN } from '@biddaloy/ui/i18n';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -21,12 +21,12 @@ import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
 /** Counts render in the tenant region's numerals (Bangla by default). */
-const n = (value: number) => formatNumber(value, REGION_BD_BN);
+const n = (value: number) => formatNumber(value, REGION_BD_EN);
 
 const GUARDIAN = guardianFactory({
   id: 'guardian-1',
@@ -85,6 +85,7 @@ async function fillBasicSmsMessage(user: ReturnType<typeof userEvent.setup>) {
 
 describe('/communications/send', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
@@ -136,6 +137,17 @@ describe('/communications/send', () => {
       message_body: 'School closed tomorrow.',
     });
     expect(screen.getByText('Queued')).toBeTruthy();
+  });
+
+  it('shows a (?) after the Review and send button [44.3.06]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(studentSearchHandler());
+    render();
+    await screen.findByRole('heading', { name: 'Send Message' });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(
+      document.querySelector('[data-help-id="communications.sendMessage.action.send"]'),
+    ).not.toBeNull();
   });
 
   it('keeps Send disabled until a guardian is picked', async () => {

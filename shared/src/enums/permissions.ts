@@ -68,6 +68,9 @@ export enum Permission {
   INVOICE_CREATE = 'INVOICE_CREATE',
   INVOICE_READ = 'INVOICE_READ',
   INVOICE_PRINT = 'INVOICE_PRINT',
+  // [#3033] Send / share an invoice link. The send/share routes and the
+  // client gate both check this permission alone (no @Roles narrowing).
+  INVOICE_SEND = 'INVOICE_SEND',
   INVOICE_DELETE = 'INVOICE_DELETE',
 
   // Payment
@@ -311,6 +314,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.INVOICE_CREATE,
     Permission.INVOICE_READ,
     Permission.INVOICE_PRINT,
+    Permission.INVOICE_SEND,
     // [10.4] G17 — reserved for the refunds/void endpoint (#291); no route
     // consumes it yet.
     Permission.INVOICE_DELETE,
@@ -444,6 +448,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.INVOICE_CREATE,
     Permission.INVOICE_READ,
     Permission.INVOICE_PRINT,
+    Permission.INVOICE_SEND,
     Permission.PAYMENT_RECORD,
     Permission.PAYMENT_READ,
     Permission.COMMUNICATION_SEND,

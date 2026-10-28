@@ -19,8 +19,7 @@ keywords: [phone, mobile, install app, home screen, Chrome, iPhone, Safari]
 appVersion: 0.1.0 (c08a9eb19)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: ios-sheet-old-name, checked: 2026-10-24, issue: 2950 }
+knownIssues: []
 -->
 
 # Open on your phone and install as an app
@@ -45,7 +44,6 @@ SchoolManager runs in the browser. You do not download it from the Play Store or
   - [Using the app on a phone](#task-use)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -169,16 +167,6 @@ More help with this: [What to do when something goes wrong](../help/troubleshoot
 | All roles | Yes                 | Yes         |
 
 Teachers and staff get the staff app on a phone; guardians and students get the portal. The install steps are the same for both.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked on version 0.1.0, 2026-10-24. When fixed, this is removed from here.
-
-| Issue                                                                                     | Who, when                 | Data saved?    | What to do for now                                               |
-| ----------------------------------------------------------------------------------------- | ------------------------- | -------------- | ---------------------------------------------------------------- |
-| The iPhone **Install this app** card shows the app name as "বিদ্যালয়", not SchoolManager | Safari users on an iPhone | Not applicable | Nothing. The icon on the home screen is named **SchoolManager**. |
 
 ---
 

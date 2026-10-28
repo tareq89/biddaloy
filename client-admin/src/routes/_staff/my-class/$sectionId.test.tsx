@@ -1,7 +1,7 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -50,9 +50,10 @@ function mockAll(overrides: Parameters<typeof server.use> = []) {
       }),
     ),
     http.get('/api/v1/fees/dues', () =>
-      HttpResponse.json(
-        paged([{ student_id: 's1', full_name: 'Rafi Absent', total_due: 500, dues: [] }]),
-      ),
+      HttpResponse.json({
+        ...paged([{ student_id: 's1', full_name: 'Rafi Absent', total_due: 500, dues: [] }]),
+        total_due_sum: 500,
+      }),
     ),
     http.get('/api/v1/homework/analytics/section/section-1', () =>
       HttpResponse.json({
@@ -121,7 +122,19 @@ function render(entry = '/my-class/section-1') {
 
 describe('/my-class/$sectionId', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
+  });
+
+  it('shows a (?) after the take-attendance button [44.3.05]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    mockAll();
+    render();
+    await screen.findByRole('link', { name: "Take today's attendance" });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(
+      document.querySelector('[data-help-id="academics.myClass.action.takeAttendance"]'),
+    ).not.toBeNull();
   });
 
   it('renders all six cards and focuses the attendance button first', async () => {
@@ -239,6 +252,23 @@ describe('/my-class/$sectionId', () => {
     const dues = (await screen.findByRole('heading', { name: 'Dues' })).closest('section')!;
     expect(await within(dues).findByText('Rafi Absent')).toBeTruthy();
     expect(within(dues).queryByRole('link', { name: 'See all' })).toBeNull();
+  });
+
+  it('shows the server-wide dues total, not the sum of the rows on the page', async () => {
+    mockAll([
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({
+          ...paged([
+            { student_id: 's1', full_name: 'Rafi Absent', total_due: 500, dues: [] },
+            { student_id: 's2', full_name: 'Mina Present', total_due: 700, dues: [] },
+          ]),
+          total_due_sum: 123456,
+        }),
+      ),
+    ]);
+    render();
+    const dues = (await screen.findByRole('heading', { name: 'Dues' })).closest('section')!;
+    expect(await within(dues).findByText(/1,23,456|123,456|১,২৩,৪৫৬/)).toBeTruthy();
   });
 
   it('says attendance is not taken yet when no student has a status', async () => {

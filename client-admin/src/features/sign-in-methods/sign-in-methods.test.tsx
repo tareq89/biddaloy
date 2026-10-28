@@ -174,23 +174,73 @@ describe('sign-in methods', () => {
     await waitFor(() => expect(spy).toHaveBeenCalledWith('Your password is set.'));
   });
 
-  it('a 409 on set-password says one already exists', async () => {
-    mockPage();
-    const spy = vi.spyOn(toast, 'success');
-    server.use(
-      http.post('/api/v1/account/first-password', () =>
-        HttpResponse.json({ statusCode: 409, message: 'set', requestId: 'r1' }, { status: 409 }),
-      ),
-    );
-    renderAt('/security');
-
+  async function reachChangeFlow() {
     await userEvent.click(await screen.findByRole('button', { name: 'Set or change password' }));
     const dialog = await screen.findByRole('dialog');
     const fields = within(dialog).getAllByLabelText(/password/i, { selector: 'input' });
     for (const field of fields) await userEvent.type(field, 'Correct-Horse-9-Battery');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Set a password' }));
+    expect(await within(dialog).findByText(/You already have a password/)).toBeTruthy();
+    return dialog;
+  }
 
-    await waitFor(() => expect(spy).toHaveBeenCalledWith('You already have a password.'));
+  async function fillChange(dialog: HTMLElement, current: string) {
+    await userEvent.type(within(dialog).getByLabelText('Current password'), current);
+    const others = within(dialog)
+      .getAllByLabelText(/password/i, { selector: 'input' })
+      .filter((el) => (el as HTMLInputElement).value === '');
+    for (const field of others) await userEvent.type(field, 'Correct-Horse-9-Battery');
+    const submit = dialog.querySelector('button[type="submit"]') as HTMLElement;
+    await userEvent.click(submit);
+  }
+
+  function mock409() {
+    server.use(
+      http.post('/api/v1/account/first-password', () =>
+        HttpResponse.json({ statusCode: 409, message: 'set', requestId: 'r1' }, { status: 409 }),
+      ),
+    );
+  }
+
+  it('a 409 on set-password switches to the change flow and changes the password', async () => {
+    mockPage();
+    mock409();
+    const spy = vi.spyOn(toast, 'success');
+    let body: unknown;
+    server.use(
+      http.post('/api/v1/auth/change-password', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ access_token: 'a.b.c' });
+      }),
+    );
+    renderAt('/security');
+
+    const dialog = await reachChangeFlow();
+    await fillChange(dialog, 'old-pw-1');
+
+    await waitFor(() =>
+      expect(body).toEqual({
+        current_password: 'old-pw-1',
+        new_password: 'Correct-Horse-9-Battery',
+      }),
+    );
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('Your password is changed.'));
+  });
+
+  it('a 403 from change-password shows the wrong-password line on the field', async () => {
+    mockPage();
+    mock409();
+    server.use(
+      http.post('/api/v1/auth/change-password', () =>
+        HttpResponse.json({ statusCode: 403, message: 'no', requestId: 'r2' }, { status: 403 }),
+      ),
+    );
+    renderAt('/security');
+
+    const dialog = await reachChangeFlow();
+    await fillChange(dialog, 'bad-pw-1');
+
+    expect(await within(dialog).findByText('That password is not correct.')).toBeTruthy();
   });
 
   it.each([

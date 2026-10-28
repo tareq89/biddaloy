@@ -25,6 +25,7 @@ import {
   Button,
   Checkbox,
   ConfirmDialog,
+  HelpHint,
   Input,
   Label,
   RadioGroup,
@@ -80,6 +81,15 @@ function isShortfallDetails(details: unknown): details is SeatCapacityShortfallD
     details !== null &&
     (details as { code?: unknown }).code === 'SEAT_CAPACITY_SHORTFALL'
   );
+}
+
+function claimedScheduleIds(details: unknown): string[] | undefined {
+  const d = details as { code?: unknown; exam_schedule_ids?: unknown } | undefined;
+  return d?.code === 'SCHEDULE_ALREADY_CLAIMED' &&
+    Array.isArray(d.exam_schedule_ids) &&
+    d.exam_schedule_ids.every((id) => typeof id === 'string')
+    ? d.exam_schedule_ids
+    : undefined;
 }
 
 export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
@@ -170,7 +180,19 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
     generate.error instanceof ApiError && isShortfallDetails(generate.error.details)
       ? generate.error.details
       : undefined;
-  const genericError = generate.error && !shortfall ? t('errors.unknown') : undefined;
+  const claimedIds =
+    generate.error instanceof ApiError ? claimedScheduleIds(generate.error.details) : undefined;
+  const claimedSubjects = claimedIds
+    ?.map((id) => schedules.find((s) => s.id === id)?.subject)
+    .map((subject) => (subject ? subjectLabel(subject, i18n.language) : undefined))
+    .filter((label): label is string => !!label);
+  const genericError = !generate.error
+    ? undefined
+    : shortfall
+      ? undefined
+      : claimedSubjects && claimedSubjects.length > 0
+        ? t('errors.scheduleClaimed', { subjects: claimedSubjects.join(', ') })
+        : t('errors.unknown');
 
   const seatsSelected = rooms
     .filter((room) => selectedRooms.has(room.id))
@@ -191,7 +213,10 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
         <section className={CARD}>
           <StatusBadge tone="warning" label={t('generate.conflictBadge')} />
           <p role="alert" className="mt-2">
-            {t('generate.conflictsNotice', { count: result.conflicts.length, n: formatNumber(result.conflicts.length, config) })}
+            {t('generate.conflictsNotice', {
+              count: result.conflicts.length,
+              n: formatNumber(result.conflicts.length, config),
+            })}
           </p>
           <ul className="mt-3 divide-y divide-border-subtle">
             {result.conflicts.map((conflict, index) => (
@@ -290,7 +315,12 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
             </div>
 
             <fieldset className="md:col-span-2">
-              <legend className="text-label">{t('generate.seatOrderLabel')}</legend>
+              {/* The (?) sits outside the legend so it stays out of the group's name. */}
+              <legend className="sr-only">{t('generate.seatOrderLabel')}</legend>
+              <div className="flex items-center gap-1 text-label">
+                <span aria-hidden="true">{t('generate.seatOrderLabel')}</span>
+                <HelpHint helpId="examsResults.seatPlans.field.seatOrder" />
+              </div>
               <RadioGroup
                 value={seatOrderMode}
                 onValueChange={(value) => setSeatOrderMode(value as 'SEQUENTIAL' | 'RANDOM')}
@@ -399,7 +429,10 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
         <section className={CARD} data-testid="room-picker">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className={`text-h2 ${REQUIRED}`}>{t('generate.roomsLabel')}</h2>
+              <div className="flex items-center gap-1">
+                <h2 className={`text-h2 ${REQUIRED}`}>{t('generate.roomsLabel')}</h2>
+                <HelpHint helpId="examsResults.seatPlans.field.rooms" />
+              </div>
               <p className="mt-1 text-text-secondary">
                 {t('generate.roomsSummary', {
                   n: formatNumber(selectedRooms.size, config),
@@ -455,10 +488,7 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
         </section>
 
         {shortfall && (
-          <div
-            role="alert"
-            className="rounded-lg border border-destructive bg-surface p-4 md:p-5"
-          >
+          <div role="alert" className="rounded-lg border border-destructive bg-surface p-4 md:p-5">
             <p>
               {t('generate.shortfallMessage', {
                 needed: formatNumber(shortfall.seats_needed, config),

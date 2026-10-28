@@ -34,9 +34,9 @@ import {
   type CreateCalendarEventInput,
   type UpdateCalendarEventInput,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell, PageContainer, PageHeader } from '@biddaloy/ui/shells';
-import { toIsoDate } from '@biddaloy/ui/utils';
+import { tenantTodayIso, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { CopyIcon, DownloadIcon, FlagIcon, PlusIcon, UploadIcon } from 'lucide-react';
 import * as React from 'react';
@@ -74,6 +74,14 @@ function splitMonth(month: string): { year: number; mo: number } {
   return { year: parts[0] ?? 0, mo: parts[1] ?? 1 };
 }
 
+const UPCOMING_WINDOW_DAYS = 60;
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
 function monthRange(month: string): { from: string; to: string } {
   const { year, mo } = splitMonth(month);
   const from = new Date(Date.UTC(year, mo - 1, 1));
@@ -107,6 +115,7 @@ function CalendarPage() {
   const { t: tImport } = useTranslation('calendarImport');
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
+  const regionConfig = useTenantRegionConfig();
 
   const month = search.month ?? currentMonth();
   // Local calendar day (B20): `toISOString()` would read the UTC day.
@@ -124,6 +133,13 @@ function CalendarPage() {
 
   const { from, to } = monthRange(month);
   const eventsQuery = useCalendarEvents({ from, to, types, classId, includeDrafts: canManage });
+  // The Upcoming card is a fixed window from today, whatever month is on screen.
+  const upcomingQuery = useCalendarEvents({
+    from: today,
+    to: toIsoDate(addDays(new Date(), UPCOMING_WINDOW_DAYS)),
+    types,
+    classId,
+  });
   const settingsQuery = useCalendarSettings();
   const academicYearId = settingsQuery.data?.currentAcademicYear?.id;
   const termsQuery = useTerms(academicYearId);
@@ -258,6 +274,7 @@ function CalendarPage() {
           },
           {
             id: 'import',
+            helpId: 'people.calendar.action.import',
             label: tImport('toolbar.import'),
             icon: <UploadIcon />,
             priority: 'secondary',
@@ -266,6 +283,7 @@ function CalendarPage() {
           },
           {
             id: 'add',
+            helpId: 'people.calendar.action.addEvent',
             label: t('page.addEvent'),
             icon: <PlusIcon />,
             priority: 'primary',
@@ -325,7 +343,11 @@ function CalendarPage() {
               events={eventsOn(selectedDate)}
               onEventClick={setDetailsId}
             />
-            <UpcomingPanel events={events} today={today} onEventClick={setDetailsId} />
+            <UpcomingPanel
+              events={upcomingQuery.data?.data ?? []}
+              today={today}
+              onEventClick={setDetailsId}
+            />
           </div>
         </div>
       )}
@@ -395,6 +417,8 @@ function CalendarPage() {
 
       {canManage && (
         <GovernmentHolidaysDialog
+          // The server skips past dates on the school's clock, not the browser's.
+          today={tenantTodayIso(regionConfig)}
           open={search.panel === 'holidays'}
           onOpenChange={(open) => {
             if (!open) {

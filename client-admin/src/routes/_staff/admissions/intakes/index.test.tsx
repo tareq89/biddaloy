@@ -68,6 +68,27 @@ describe('/admissions/intakes', () => {
     );
   }
 
+  it('copies the public admission link for the school', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    server.use(
+      http.get('/api/v1/admission-intakes', () => HttpResponse.json([])),
+      http.get('/api/v1/schools/me/profile', () =>
+        HttpResponse.json({ name: 'Demo', slug: 'demo-school' }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/intakes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await user.click((await screen.findAllByRole('button', { name: 'Copy public link' }))[0]!);
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/admission/demo-school`),
+    );
+  });
+
   it('creates an intake and shows it in the list', async () => {
     mockClassAndSection();
     let intakes: unknown[] = [];
@@ -191,7 +212,7 @@ describe('/admissions/intakes', () => {
     };
     server.use(
       http.get('/api/v1/admission/applicants', () =>
-        HttpResponse.json([{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }]),
+        HttpResponse.json({ data: [{ id: 'a1' }], total: 3, page: 1, limit: 1, totalPages: 3 }),
       ),
       http.get('/api/v1/admission-intakes/:id', () => HttpResponse.json(intake)),
       http.patch('/api/v1/admission-intakes/:id', async ({ request }) => {
@@ -232,7 +253,7 @@ describe('/admissions/intakes', () => {
     mockClassAndSection();
     server.use(
       http.get('/api/v1/admission/applicants', () =>
-        HttpResponse.json([{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }]),
+        HttpResponse.json({ data: [{ id: 'a1' }], total: 3, page: 1, limit: 1, totalPages: 3 }),
       ),
       http.get('/api/v1/admission-intakes/:id', () =>
         HttpResponse.json({
@@ -276,7 +297,9 @@ describe('/admissions/intakes', () => {
         }),
       ),
       http.get('/api/v1/admission-intakes', () => HttpResponse.json([])),
-      http.get('/api/v1/admission/applicants', () => HttpResponse.json([])),
+      http.get('/api/v1/admission/applicants', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 50, totalPages: 0 }),
+      ),
     );
 
     renderWithRouter(routeTree, {

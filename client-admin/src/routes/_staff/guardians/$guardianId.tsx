@@ -146,6 +146,7 @@ function GuardianDetailPage() {
                 },
                 {
                   id: 'record-payment',
+                  helpId: 'people.guardians.action.recordPayment',
                   label: t('recordAction', { ns: 'payments' }),
                   icon: <HandCoinsIcon aria-hidden="true" />,
                   allowed: canRecord,

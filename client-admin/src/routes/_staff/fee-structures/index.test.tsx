@@ -83,6 +83,23 @@ describe('/fee-structures', () => {
     await cleanupTestState();
   });
 
+  // [44.4 / #3014] The (?) beside "Add structure" resolves the generated guide entry.
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(listHandler([]), ...referenceHandlers());
+      render();
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.feeStructures.action.add"]'),
+        ).not.toBeNull(),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('renders every column, formatting the server’s decimal-string amount for the region', async () => {
     const row = feeStructureFactory({
       id: 'structure-1',
@@ -263,6 +280,21 @@ describe('/fee-structures', () => {
     );
   });
 
+  it('says bills are made by Create bills or a billing rule, not monthly', async () => {
+    server.use(
+      listHandler([feeStructureFactory({ id: 'structure-1', class: KLASS })]),
+      ...referenceHandlers(),
+    );
+
+    render();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add fee structure' }));
+
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.getByText(/Create bills/)).toBeTruthy();
+    expect(dialog.queryByText(/each month/i)).toBeNull();
+  });
+
   it('refuses to submit the create form without a name', async () => {
     server.use(
       listHandler([feeStructureFactory({ id: 'structure-1', class: KLASS })]),
@@ -434,7 +466,7 @@ describe('/fee-structures', () => {
     // The dialog closes (ConfirmDialog has no error slot) and the message shows as a toast.
     await waitFor(() =>
       expect(toastSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/payments have already been recorded/i),
+        expect.stringMatching(/fine rule or an automatic billing rule/i),
       ),
     );
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());

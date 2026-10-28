@@ -43,8 +43,7 @@ keywords:
 appVersion: 0.1.0 (1798f8b1f)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: year-delete-reason-incomplete, checked: 2026-10-24, issue: 2883 }
+knownIssues: []
 -->
 
 # Creating and managing academic years
@@ -71,7 +70,6 @@ Almost everything in the school lives inside an academic year: [classes](classes
   - [The year page: the tabs](#task-detail)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -205,7 +203,7 @@ Only a year made by mistake and still empty can be deleted. Do not delete old ye
 | **Delete**     | The year leaves the list and cannot be brought back. If you delete from the year page, you return to the list | Yes    |
 | **Cancel**     | Nothing changes                                                                                               | No     |
 
-**A year that cannot be deleted:** the current year, and a year that still has classes (even deleted ones), fee structures, student enrolments, exams, student bills, staff evaluations (ACR) or any other record linked to it. Its terms do not block a delete; they go with the year. Then the dialog shows **This year is current or still has classes or fee structures, so it can't be deleted.** If it is current, first [set another year as current](#task-current). If it has data inside, keep the year.
+**A year that cannot be deleted:** the current year, and a year that still has classes, fee structures, student enrolments, exams, student bills, staff evaluations (ACR) or any other record linked to it. Its terms do not block a delete; they go with the year. Then the dialog says why. For the current year: **This is the current year. Make another year current first.** For a year with data it names what is inside, for example **This year still has classes and exams. Remove them first.** For other records: **This year is still used by other records. Remove or move them first.** If it is current, first [set another year as current](#task-current). If it has data inside, keep the year.
 
 ### The year page: the tabs <a href="#task-detail" id="task-detail"></a>
 
@@ -227,7 +225,7 @@ Press the year's name in the list, or **View**, to open its page. At the top are
 | **Failed to load academic years**                                                        | Check the internet and reload the page.                                                                  | Admin        |
 | **Failed to save academic year**                                                         | Check the internet and press **Save** again. What you typed stays.                                       | Admin        |
 | **End date must be after the start date**                                                | Give an end date that is some day after the start.                                                       | Admin        |
-| **This year is current or still has classes or fee structures, so it can't be deleted.** | See [Delete an academic year](#task-delete). Usually it is right to keep the year.                       | Admin        |
+| **This is the current year. …**, **This year still has … Remove them first.** or **This year is still used by other records. …** | See [Delete an academic year](#task-delete). Usually it is right to keep the year.                       | Admin        |
 | **Failed to delete academic year**                                                       | Check the internet and press **Delete** again.                                                           | Admin        |
 | **Term dates must fall within the academic year (…)**                                    | Give term dates inside the year's dates in the brackets, or first [change the year's dates](#task-edit). | Admin        |
 | **"{name}" overlaps an existing term in this academic year**                             | Give dates that do not clash with the term named in the message.                                         | Admin        |
@@ -247,16 +245,6 @@ If a page or button is missing, see [Why can't I see this?](../help/cant-see-thi
 | Academic coordinator, teacher, accountant, office assistant, exam controller, governing board member | No                         | No                                    | No                   |
 
 For other roles, **Academic years** is not in the left menu. If they open the page, they see **You don't have access to this page.**
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked by reading the code in version 0.1.0, 2026-10-24. Not run in the app. It will be removed from this section once fixed.
-
-| Problem                                                                                                                                                                                                                       | Whose, when                         | Data saved?              | What to do for now                                          |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------ | ----------------------------------------------------------- |
-| When a delete is blocked, the message says only "current year, classes or fee structures". But the same message appears if enrolments, exams, bills, ACRs or other records exist, and classes that were deleted still count, so a delete can be blocked even when the year shows no classes | Whoever deletes a year, at any time | Yes, nothing was deleted | Keep the year. If it was made by pure mistake, tell support |
 
 ---
 

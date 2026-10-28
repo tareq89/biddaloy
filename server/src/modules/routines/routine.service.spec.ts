@@ -45,6 +45,18 @@ describe('RoutineService [21.6.1]', () => {
     expect(ctx.repo.save).not.toHaveBeenCalled();
   });
 
+  it('error messages do not echo the submitted academic-year id (Rule 23)', async () => {
+    const ctx = buildService(null);
+    await expect(
+      ctx.service.create({ academic_year_id: 'secret-year-id', name: 'T' } as any, TENANT_ID),
+    ).rejects.toThrow(/^Academic year not found$/);
+    const ctx2 = buildService();
+    ctx2.repo.findOne = vi.fn(async () => ({ id: 'existing' }));
+    await expect(
+      ctx2.service.create({ academic_year_id: 'secret-year-id', name: 'T' } as any, TENANT_ID),
+    ).rejects.toThrow(/^A routine already exists for this academic year\.?$/);
+  });
+
   it('refuses a second routine for the same academic year', async () => {
     const ctx = buildService();
     ctx.repo.findOne = vi.fn(async () => ({ id: 'existing' }));

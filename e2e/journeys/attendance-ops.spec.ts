@@ -8,7 +8,6 @@ import {
   get,
   isFridayAnywhere,
   markableDateIso,
-  post,
   put,
   type ApiSession,
 } from '../api';
@@ -113,14 +112,8 @@ test.describe('check-list', () => {
     await attendance.submit();
     await expect(page.getByText(t('attendance.mark.savedToast'))).toBeVisible();
 
-    // Submitting leaves the register a DRAFT, which is still "pending"; the
-    // screen has no Finalize button, so the final step goes through the API.
-    await attendance.gotoPending(MARK_DATE);
-    await expect(attendance.sectionLink(chain.className)).toBeVisible();
-    await post(request, admin, `/attendance/sections/${chain.sectionId}/register/finalize`, {
-      date: MARK_DATE,
-    });
-
+    // Submit finalizes the register (#2904), so the section leaves the
+    // pending list straight away.
     await attendance.gotoPending(MARK_DATE);
     await expect(attendance.sectionLink(chain.className)).toHaveCount(0);
     // ...and it is listed as done instead.

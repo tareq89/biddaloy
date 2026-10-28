@@ -93,7 +93,10 @@ test.describe('keyboard journey: admin', () => {
 
     await test.step('at-risk "see all" expands the list in place; focus stays on the button', async () => {
       const atRisk = card(page, 'at-risk-students');
-      const seeAll = atRisk.getByRole('button', { expanded: false });
+      // The widget's help (?) is also a collapsed popover trigger; skip it.
+      const seeAll = atRisk
+        .getByRole('button', { expanded: false })
+        .and(page.locator(':not([data-help-id])'));
       if ((await seeAll.count()) === 0) {
         test.info().annotations.push({
           type: 'not-exercised',
@@ -111,7 +114,7 @@ test.describe('keyboard journey: admin', () => {
       await expect(rows).not.toHaveCount(before);
       await expectFocusRing(page);
       await page.keyboard.press('Space'); // and back
-      await expect(atRisk.getByRole('button', { expanded: false })).toBeFocused();
+      await expect(seeAll).toBeFocused();
       await expect(rows).toHaveCount(before);
     });
   });
@@ -280,14 +283,18 @@ test.describe('keyboard journey: teacher on a phone', () => {
     await openDashboard(page);
     await skipToMain(page);
 
-    const tile = page.getByTestId('grid-phone').getByRole('button', {
-      name: new RegExp(
-        t('dashboard.widgets.my-pending-sections.compactTitle').replace(
-          /[.*+?^${}()|[\]\\]/g,
-          '\\$&',
+    const tile = page
+      .getByTestId('grid-phone')
+      .getByRole('button', {
+        name: new RegExp(
+          t('dashboard.widgets.my-pending-sections.compactTitle').replace(
+            /[.*+?^${}()|[\]\\]/g,
+            '\\$&',
+          ),
         ),
-      ),
-    });
+      })
+      // A closed day's compact card has a help (?) named after the same title.
+      .and(page.locator(':not([data-help-id])'));
     if ((await tile.count()) === 0) {
       test.info().annotations.push({
         type: 'not-exercised',

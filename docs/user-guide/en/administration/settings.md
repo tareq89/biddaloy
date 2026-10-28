@@ -54,8 +54,7 @@ keywords:
 appVersion: 0.1.0 (94db6def4)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: kept-backup-expires-30-days, checked: 2026-10-25, issue: 2946 } # a backup kept forever still cannot be downloaded 30 days after it finishes
+knownIssues: []
 -->
 
 # Changing the school's settings
@@ -151,13 +150,13 @@ To add a logo, press **Upload logo** and pick an image. It is saved as soon as y
 
 **3. Language, numbers and dates.** "How numbers, money and dates appear on every page."
 
-| Field                          | What to choose                                                                                                                           |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Language and number format** | **Bangla (Bangladesh)** or **English (Bangladesh)**                                                                                      |
-| **Numeral system**             | **Bengali (০-৯)** or **Latin (0-9)**                                                                                                     |
-| **First day of week**          | The day the week starts                                                                                                                  |
-| **Academic year start month**  | A month from 1 to 12                                                                                                                     |
-| **Currency**                   | The symbol, **Symbol position**, **Decimal places** (0 to 4), **Number grouping** (**Lakh/crore** or **Thousand**); a sample shows below |
+| Field                                     | What to choose                                                                                                                                                                                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Language of messages the school sends** | **Bangla (Bangladesh)** or **English (Bangladesh)**. SMS, emails, letters and alerts from this school use this language. It does not change anyone's screen: each person picks their own ([Changing the language](../start/language.md)). |
+| **Numeral system**                        | **Bengali (০-৯)** or **Latin (0-9)**                                                                                                                                                                                                      |
+| **First day of week**                     | The day the week starts                                                                                                                                                                                                                   |
+| **Academic year start month**             | A month from 1 to 12                                                                                                                                                                                                                      |
+| **Currency**                              | The symbol, **Symbol position**, **Decimal places** (0 to 4), **Number grouping** (**Lakh/crore** or **Thousand**); a sample shows below                                                                                                  |
 
 Press **Advanced settings** for more fields: **Timezone**, **Currency code**, the phone number rule, the address parts and the ID number check rules. The app itself says: "Time zone, phone, address and ID rules. You rarely need to change these; a wrong value can stop phone or ID checks from working." If a field has a mistake, the part opens by itself.
 
@@ -209,7 +208,7 @@ See: [**Dashboard**](../dashboard/dashboard.md).
 
 - **Status deadline** — on the same school day; reporting after this still counts, but late.
 - **Teacher reminder** — on the next school day, only if something is still open.
-- **Tell the head teacher and admin after** — this many school days not reported; 1 to 10, holidays are not counted.
+- **Tell the academic coordinator and admin after** — this many school days not reported; 1 to 10, holidays are not counted.
 - **Weekly summary time** — on the last working day of the week, to guardians and the committee.
 - **Also send the guardians' weekly summary by SMS** — push is always sent, at no cost. If you turn SMS on, it uses credit every week.
 
@@ -452,15 +451,15 @@ This category has two parts: **Backup** and **Restore from a backup**. To see th
 
 **How long things are kept**
 
-| Rule                            | What happens                                                                                              |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Download time                   | 30 days after the backup finishes. After that it shows **Download expired**.                              |
-| Backups you took yourself       | The newest 3 are kept; older ones are deleted by themselves.                                              |
-| Automatic backups               | The newest 8 are kept.                                                                                    |
-| The copy taken before a restore | Kept for 30 days.                                                                                         |
-| Total space                     | 500 MB for each school. If it goes over, the oldest backup is deleted. The **Space** field shows the use. |
+| Rule                            | What happens                                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Download time                   | 30 days after the backup finishes (not for a backup you pressed **Keep forever**). After that it shows **Download expired**. |
+| Backups you took yourself       | The newest 3 are kept; older ones are deleted by themselves.                                                                 |
+| Automatic backups               | The newest 8 are kept.                                                                                                       |
+| The copy taken before a restore | Kept for 30 days.                                                                                                            |
+| Total space                     | 500 MB for each school. If it goes over, the oldest backup is deleted. The **Space** field shows the use.                    |
 
-Press **Keep forever** and that backup is not deleted by itself. But 30 days later it too can no longer be downloaded; download the files you need earlier and keep them yourself.
+Press **Keep forever** and that backup is not deleted by itself.
 
 #### Restore from a backup <a href="#task-restore" id="task-restore"></a>
 

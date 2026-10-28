@@ -328,6 +328,66 @@ describe('ApplicationReportsService (integration)', () => {
       expect(old.by_type_status).toEqual([]);
     });
 
+    it('no academic_year_id counts the current year plus rows with no year; an explicit id counts only that year', async () => {
+      const [py] = await dataSource.query(
+        `INSERT INTO academic_years (name, start_date, end_date, is_current, tenant_id, created_at, updated_at)
+         VALUES ('Reports Past', '2018-01-01', '2018-12-31', false, $1, NOW(), NOW()) RETURNING id`,
+        [SEED_TENANT_ID],
+      );
+      await testimonial();
+      const old = await testimonial();
+      await setRow(old.id, `academic_year_id = '${py.id}'`);
+      const noYear = await testimonial();
+      await setRow(noYear.id, 'academic_year_id = NULL');
+      const total = (r: { by_type_status: Array<{ count: number }> }) =>
+        r.by_type_status.reduce((n, x) => n + x.count, 0);
+      try {
+        expect(total(await reports.reports(SEED_TENANT_ID, callers.admin, {}))).toBe(2);
+        const picked = await reports.reports(SEED_TENANT_ID, callers.admin, {
+          academic_year_id: py.id,
+        });
+        expect(total(picked)).toBe(1);
+      } finally {
+        await dataSource.query(`UPDATE applications SET academic_year_id = NULL WHERE id = $1`, [
+          old.id,
+        ]);
+        await dataSource.query(`DELETE FROM academic_years WHERE id = $1`, [py.id]);
+      }
+    });
+
+    it('from/to without a year search every year (#3034)', async () => {
+      const [py] = await dataSource.query(
+        `INSERT INTO academic_years (name, start_date, end_date, is_current, tenant_id, created_at, updated_at)
+         VALUES ('Reports Past 2', '2018-01-01', '2018-12-31', false, $1, NOW(), NOW()) RETURNING id`,
+        [SEED_TENANT_ID],
+      );
+      const [cur] = await dataSource.query(
+        `SELECT id FROM academic_years WHERE tenant_id = $1 AND is_current AND deleted_at IS NULL`,
+        [SEED_TENANT_ID],
+      );
+      const old = await testimonial();
+      await setRow(old.id, `academic_year_id = '${py.id}', created_at = '2018-06-01T06:00:00Z'`);
+      const total = (r: { by_type_status: Array<{ count: number }> }) =>
+        r.by_type_status.reduce((n, x) => n + x.count, 0);
+      try {
+        const range = { from: '2018-06-01', to: '2018-06-01' };
+        expect(total(await reports.reports(SEED_TENANT_ID, callers.admin, range))).toBe(1);
+        expect(
+          total(
+            await reports.reports(SEED_TENANT_ID, callers.admin, {
+              ...range,
+              academic_year_id: cur.id,
+            }),
+          ),
+        ).toBe(0);
+      } finally {
+        await dataSource.query(`UPDATE applications SET academic_year_id = NULL WHERE id = $1`, [
+          old.id,
+        ]);
+        await dataSource.query(`DELETE FROM academic_years WHERE id = $1`, [py.id]);
+      }
+    });
+
     it('from/to match by school-timezone day, like by_month', async () => {
       const a = await testimonial();
       // 20:00 UTC on 2026-03-31 is 02:00 on 2026-04-01 in Asia/Dhaka (+06).

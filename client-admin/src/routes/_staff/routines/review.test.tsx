@@ -133,7 +133,7 @@ function mockRoutine(state: 'DRAFT' | 'REVIEW' | 'PUBLISHED', slots: unknown[] =
 }
 
 function renderReview(
-  role: 'ADMIN' | 'TEACHER' = 'ADMIN',
+  role: 'ADMIN' | 'TEACHER' | 'EXECUTIVE' = 'ADMIN',
   locale: 'en' | 'bn' = 'en',
   entry = '/routines/review',
 ) {
@@ -232,6 +232,29 @@ describe('/routines/review', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Routine review' })).toBeTruthy();
   });
 
+  it('an admin can create the routine for the current year; a teacher sees no button', async () => {
+    mockLookups();
+    const created: string[] = [];
+    server.use(
+      http.get('/api/v1/routines', () => HttpResponse.json([])),
+      http.post('/api/v1/routines', async ({ request }) => {
+        created.push(((await request.json()) as { academic_year_id: string }).academic_year_id);
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    renderReview();
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Create routine' }));
+    await waitFor(() => expect(created).toEqual(['year-1']));
+  });
+
+  it('a teacher gets no Create routine button on the no-routine state', async () => {
+    mockLookups();
+    server.use(http.get('/api/v1/routines', () => HttpResponse.json([])));
+    renderReview('TEACHER');
+    expect(await screen.findByRole('heading', { name: 'No routine yet' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Create routine' })).toBeNull();
+  });
+
   it('a REVIEW routine offers withdraw (outline) and publish (primary), and an empty period list shows its empty state', async () => {
     mockLookups();
     mockRoutine('REVIEW', []);
@@ -265,6 +288,69 @@ describe('/routines/review', () => {
     renderReview('TEACHER');
 
     expect(await screen.findByRole('heading', { name: 'No periods for you' })).toBeTruthy();
+  });
+
+  it('an academic coordinator without a teacher record sees the whole PUBLISHED routine, read-only', async () => {
+    mockLookups();
+    mockRoutine('PUBLISHED');
+    mockTeachers([]);
+    renderReview('EXECUTIVE');
+
+    expect(await screen.findByRole('table', { name: 'Periods of the routine' })).toBeTruthy();
+    expect((await screen.findAllByText('Math')).length).toBeGreaterThan(0);
+    expect(screen.getByRole('combobox', { name: 'Class and section' })).toBeTruthy();
+    // No state actions and no request-change action.
+    expect(screen.queryByRole('button', { name: /withdraw|publish|submit/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /request a change/i })).toBeNull();
+  });
+
+  it('an academic coordinator sees a "still a draft" state on a DRAFT routine', async () => {
+    mockLookups();
+    mockRoutine('DRAFT');
+    mockTeachers([]);
+    renderReview('EXECUTIVE');
+
+    expect(
+      await screen.findByRole('heading', { name: 'The routine is still a draft' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('table', { name: 'Periods of the routine' })).toBeNull();
+  });
+
+  it('a teacher sees their own change requests with status and the admin reply; an admin does not', async () => {
+    mockLookups();
+    mockRoutine('PUBLISHED');
+    mockTeachers([{ id: 'teacher-1', user: { id: 'current-user', full_name: 'Ms Nahar' } }]);
+    server.use(
+      http.get('/api/v1/routines/routine-1/change-requests/mine', () =>
+        HttpResponse.json([
+          {
+            id: 'cr-1',
+            routine_slot_id: 'slot-1',
+            requested_by: 'current-user',
+            note: 'Please move it',
+            state: 'REJECTED',
+            resolution_note: 'Hall is booked',
+            created_at: '2026-03-01T00:00:00Z',
+          },
+        ]),
+      ),
+    );
+    renderReview('TEACHER');
+
+    expect(await screen.findByRole('heading', { name: 'My change requests' })).toBeTruthy();
+    expect(await screen.findByText('Rejected')).toBeTruthy();
+    expect(screen.getByText('Hall is booked')).toBeTruthy();
+    expect(screen.getByText('Please move it')).toBeTruthy();
+  });
+
+  it('an admin does not see the My change requests section', async () => {
+    mockLookups();
+    mockRoutine('PUBLISHED');
+    mockTeachers([]);
+    renderReview();
+
+    await screen.findByRole('table', { name: 'Periods of the routine' });
+    expect(screen.queryByRole('heading', { name: 'My change requests' })).toBeNull();
   });
 
   it('a teacher can open the change-request dialog only for a PUBLISHED routine', async () => {

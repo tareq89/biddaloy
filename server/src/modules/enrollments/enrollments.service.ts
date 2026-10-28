@@ -116,7 +116,7 @@ export class EnrollmentService {
       where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!cls) {
-      throw new NotFoundException(`Class with ID "${dto.class_id}" not found`);
+      throw new NotFoundException('Class not found');
     }
 
     // Verify academic year exists for tenant
@@ -124,7 +124,7 @@ export class EnrollmentService {
       where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!academicYear) {
-      throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
 
     // Verify section exists and belongs to tenant/class when provided
@@ -138,7 +138,7 @@ export class EnrollmentService {
         },
       });
       if (!section) {
-        throw new NotFoundException(`Section with ID "${dto.section_id}" not found in this class`);
+        throw new NotFoundException('Section not found in this class');
       }
     }
 
@@ -151,9 +151,7 @@ export class EnrollmentService {
       },
     });
     if (existing) {
-      throw new ConflictException(
-        `Student is already actively enrolled in academic year "${dto.academic_year_id}"`,
-      );
+      throw new ConflictException('Student is already actively enrolled in this academic year');
     }
 
     // [8.11.3] `create()` always defaults to ACTIVE (this DTO has no
@@ -279,12 +277,12 @@ export class EnrollmentService {
       lock: { mode: 'pessimistic_write', tables: ['enrollments'] },
     });
     if (!enrollment) {
-      throw new NotFoundException(`Enrollment with ID "${id}" not found`);
+      throw new NotFoundException('Enrollment not found');
     }
 
     // Verify the enrollment's class belongs to this tenant
     if (enrollment.class.tenant_id !== tenantId) {
-      throw new NotFoundException(`Enrollment with ID "${id}" not found`);
+      throw new NotFoundException('Enrollment not found');
     }
 
     const classChanging = dto.class_id !== undefined && dto.class_id !== enrollment.class_id;
@@ -310,7 +308,7 @@ export class EnrollmentService {
         where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (!cls) {
-        throw new NotFoundException(`Class with ID "${dto.class_id}" not found`);
+        throw new NotFoundException('Class not found');
       }
       if (cls.academic_year_id !== enrollment.academic_year_id) {
         throw new BadRequestException(
@@ -338,7 +336,7 @@ export class EnrollmentService {
         },
       });
       if (!section) {
-        throw new NotFoundException(`Section with ID "${dto.section_id}" not found in this class`);
+        throw new NotFoundException('Section not found in this class');
       }
     }
 
@@ -362,9 +360,7 @@ export class EnrollmentService {
         },
       });
       if (conflictingActive) {
-        throw new ConflictException(
-          `Student is already actively enrolled in academic year "${enrollment.academic_year_id}"`,
-        );
+        throw new ConflictException('Student is already actively enrolled in this academic year');
       }
     }
 

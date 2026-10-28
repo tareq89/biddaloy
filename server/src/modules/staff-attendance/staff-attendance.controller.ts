@@ -13,6 +13,8 @@ import { StaffAttendanceService } from './staff-attendance.service';
 import { StaffAttendanceSummaryService } from './staff-attendance-summary.service';
 import {
   PutStaffAttendanceRegisterDto,
+  QueryStaffAttendanceRegisterDto,
+  StaffAttendanceDayDto,
   QueryStaffAttendanceSummaryDto,
   StaffAttendanceRegisterResponseDto,
   StaffAttendanceSummaryDto,
@@ -55,6 +57,26 @@ export class StaffAttendanceController {
       userId: user.sub,
       ip: req.ip ?? null,
       userAgent: req.headers['user-agent'] ?? null,
+    });
+  }
+
+  @Get('register')
+  @RequirePermissions(Permission.STAFF_ATTENDANCE_READ)
+  @ApiOperation({
+    summary:
+      'The roster the caller may mark on a day, with saved marks. Admin-level callers get every staff member; anyone else gets only their own row.',
+  })
+  @ApiOkResponse({ type: StaffAttendanceDayDto })
+  async getDay(
+    @Query() query: QueryStaffAttendanceRegisterDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    return this.staffAttendanceService.getDay({
+      tenantId: tenant.id,
+      role: tenant.role,
+      userId: user.sub,
+      date: query.date,
     });
   }
 

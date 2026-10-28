@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { PeriodSlotKind, SlotRecurrence } from '@biddaloy/shared';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  EnrollmentStatus,
+  PeriodSlotKind,
+  RoutineState,
+  SlotRecurrence,
+  UserRole,
+} from '@biddaloy/shared';
 import { RoutineSlotsService } from './routine-slots.service';
 import { Routine } from './entities/routine.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
@@ -10,6 +16,7 @@ import { Room } from './entities/room.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
+import { RoutineSubstitution } from './entities/routine-substitution.entity';
 
 const TENANT_ID = 'tenant-1';
 const ROUTINE_ID = 'routine-1';
@@ -69,8 +76,11 @@ function buildService() {
   };
   const roomRepo: any = { findOne: vi.fn(async () => null) };
   const teacherRepo: any = {
+    findOne: vi.fn(async () => ({ id: 'teacher-1', tenant_id: TENANT_ID })),
     find: vi.fn(async () => [{ id: 'teacher-1', tenant_id: TENANT_ID }]),
   };
+
+  const enrollmentRepo: any = { find: vi.fn(async () => []) };
 
   const reposByEntity = new Map<unknown, any>([
     [RoutineSlot, slotRepo],
@@ -82,10 +92,21 @@ function buildService() {
     [Room, roomRepo],
     [Teacher, teacherRepo],
   ]);
+  // #3022: how many substitutions / open change requests reference the slot.
+  // `substitutionsFrom` answers a count bounded by date (the split path).
+  const refs = { substitutions: 0, substitutionsFrom: 0, openRequests: 0 };
   const manager: any = {
+    count: vi.fn(async (entity: unknown, opts: any) => {
+      if (entity === RoutineSubstitution) {
+        return opts.where.date ? refs.substitutionsFrom : refs.substitutions;
+      }
+      // Only OPEN change requests block an edit.
+      return opts.where.state === 'OPEN' ? refs.openRequests : 0;
+    }),
     query: vi.fn(async () => []), // [58.0.03] cross-branch lookup: no other branch
     getRepository: (entity: unknown) => reposByEntity.get(entity),
     findOne: (entity: unknown, opts: any) => reposByEntity.get(entity).findOne(opts),
+    findOneOrFail: (entity: unknown, opts: any) => reposByEntity.get(entity).findOne(opts),
     find: (entity: unknown, opts: any) => reposByEntity.get(entity).find(opts),
     update: (entity: unknown, where: any, patch: any) =>
       reposByEntity.get(entity).update(where, patch),
@@ -105,6 +126,8 @@ function buildService() {
     dataSource,
     schoolsService,
     auditService,
+    teacherRepo,
+    enrollmentRepo,
   );
   return {
     schoolsService,
@@ -120,6 +143,8 @@ function buildService() {
     subjectRepo,
     roomRepo,
     teacherRepo,
+    enrollmentRepo,
+    refs,
     slots,
   };
 }
@@ -242,16 +267,85 @@ describe('RoutineSlotsService [21.4.1]', () => {
     expect(newRow.valid_from).toBe('2026-06-01');
   });
 
-  it("update() rejects a valid_from at or before the old row's valid_from", async () => {
+  it('update() with a valid_from at or before the old row replaces it in place', async () => {
     const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    const result = await ctx.service.update(
+      created.slot.id,
+      { ...baseDto, subject_id: 'subject-2' } as any,
+      TENANT_ID,
+      'user-1',
+    );
+    // Same id, one row only, new subject, valid_to unchanged.
+    expect(result.slot.id).toBe(created.slot.id);
+    expect(ctx.slots).toHaveLength(1);
+    expect(ctx.slots[0].subject_id).toBe('subject-2');
+    expect(ctx.slots[0].valid_to).toBe(created.slot.valid_to);
+  });
+
+  it('update() in place is refused (409) when a substitution references the slot', async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    ctx.refs.substitutions = 1;
+    const err: any = await ctx.service
+      .update(created.slot.id, { ...baseDto, subject_id: 'subject-2' } as any, TENANT_ID, 'u')
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS');
+    expect(ctx.slots[0].subject_id).toBe(baseDto.subject_id);
+  });
+
+  it('update() in place is refused (409) when an open change request references the slot', async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    ctx.refs.openRequests = 1;
     await expect(
       ctx.service.update(
         created.slot.id,
-        { ...baseDto, valid_from: baseDto.valid_from } as any,
+        { ...baseDto, subject_id: 'subject-2' } as any,
         TENANT_ID,
-        'user-1',
+        'u',
       ),
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('update() with a later valid_from still splits the row when substitutions exist', async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    ctx.refs.substitutions = 2;
+    await ctx.service.update(
+      created.slot.id,
+      { ...baseDto, valid_from: '2026-06-01' } as any,
+      TENANT_ID,
+      'u',
+    );
+    expect(ctx.slots).toHaveLength(2);
+  });
+
+  it('update() with a later valid_from is refused (409) when a substitution falls on or after it', async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    ctx.refs.substitutionsFrom = 1;
+    const err: any = await ctx.service
+      .update(created.slot.id, { ...baseDto, valid_from: '2026-06-01' } as any, TENANT_ID, 'u')
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS');
+    // Nothing split: the old row stays open and no successor was inserted.
+    expect(ctx.slots).toHaveLength(1);
+  });
+
+  it('update() in place never reopens a row an earlier edit already closed', async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    const oldId = created.slot.id;
+    // Split: the old row is closed on 2026-05-31, a successor starts 2026-06-01.
+    await ctx.service.update(
+      oldId,
+      { ...baseDto, valid_from: '2026-06-01' } as any,
+      TENANT_ID,
+      'u',
+    );
+    // Re-edit the closed row in place, moved to another weekday (no clash with
+    // the successor), with no valid_to in the dto.
+    await ctx.service.update(oldId, { ...baseDto, weekday: 2 } as any, TENANT_ID, 'u');
+    const oldRow = ctx.slots.find((s: any) => s.id === oldId);
+    expect(oldRow.weekday).toBe(2);
+    expect(oldRow.valid_to).toBe('2026-05-31');
   });
 
   it('update() rejects re-editing a row that was already superseded by a later edit', async () => {
@@ -274,5 +368,168 @@ describe('RoutineSlotsService [21.4.1]', () => {
         'user-1',
       ),
     ).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('RoutineSlotsService.findForRoutine visibility [86.1]', () => {
+  const seed = (ctx: ReturnType<typeof buildService>, state: RoutineState) => {
+    ctx.routineRepo.findOne = vi.fn(async () => ({
+      id: ROUTINE_ID,
+      tenant_id: TENANT_ID,
+      state,
+      academic_year_id: 'ay-1',
+    }));
+    ctx.slots.push({ id: 's1', section_id: 'sec-A' }, { id: 's2', section_id: 'sec-B' });
+    ctx.slotTeacherRepo.find = vi.fn(async () => [
+      { routine_slot_id: 's1', teacher_id: 'teacher-1' },
+      { routine_slot_id: 's2', teacher_id: 'teacher-2' },
+    ]);
+  };
+  const as = (role: UserRole) => ({ role, userId: 'u1' });
+
+  it('DRAFT + TEACHER returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.DRAFT);
+    expect(await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.TEACHER))).toEqual(
+      [],
+    );
+  });
+  it('DRAFT + ADMIN returns all slots', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.DRAFT);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.ADMIN)),
+    ).toHaveLength(2);
+  });
+  it('REVIEW + TEACHER returns only own slots', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.TEACHER));
+    expect(r.map((x) => x.slot.id)).toEqual(['s1']);
+  });
+  it('REVIEW + PARENT returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    expect(await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.PARENT))).toEqual(
+      [],
+    );
+  });
+  it('REVIEW + non-TEACHER staff with a teacher profile returns own slots (same rule as resolve)', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.OFFICE_STAFF));
+    expect(r.map((x) => x.slot.id)).toEqual(['s1']);
+  });
+  it('REVIEW + non-TEACHER staff without a teacher profile returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    ctx.teacherRepo.findOne = vi.fn(async () => null);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.OFFICE_STAFF)),
+    ).toEqual([]);
+  });
+  it('REVIEW + EXECUTIVE (academic coordinator) returns every slot', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.EXECUTIVE)),
+    ).toHaveLength(2);
+  });
+  it('DRAFT + EXECUTIVE returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.DRAFT);
+    expect(await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.EXECUTIVE))).toEqual(
+      [],
+    );
+  });
+  it('PUBLISHED + TEACHER returns all slots', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.PUBLISHED);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.TEACHER)),
+    ).toHaveLength(2);
+  });
+  it('PUBLISHED + ADMIN returns all slots and never reads enrollments', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.PUBLISHED);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.ADMIN)),
+    ).toHaveLength(2);
+    // Staff path must stay untouched by the family filter.
+    expect(ctx.enrollmentRepo.find).not.toHaveBeenCalled();
+  });
+  it('REVIEW + TEACHER role with no teacher row returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    // No teacher profile means no "own" slots; must not fall through to all.
+    ctx.teacherRepo.findOne = vi.fn(async () => null);
+    expect(await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.TEACHER))).toEqual(
+      [],
+    );
+  });
+  it('REVIEW + empty userId returns [] without looking up a teacher', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    ctx.teacherRepo.findOne = vi.fn(async () => null);
+    const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, {
+      role: UserRole.OFFICE_STAFF,
+      userId: '',
+    });
+    expect(r).toEqual([]);
+    expect(ctx.teacherRepo.findOne).not.toHaveBeenCalled();
+  });
+  it.each([UserRole.PARENT, UserRole.STUDENT])(
+    'PUBLISHED + %s sees only linked students sections',
+    async (role) => {
+      const ctx = buildService();
+      seed(ctx, RoutineState.PUBLISHED);
+      ctx.enrollmentRepo.find = vi.fn(async () => [{ section_id: 'sec-A' }]);
+      const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, {
+        role,
+        userId: 'u1',
+        familyStudentIds: ['stu-1'],
+      });
+      expect(r.map((x) => x.slot.id)).toEqual(['s1']);
+      // Tenant, the routine's year and ACTIVE status bound the lookup.
+      expect(ctx.enrollmentRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            academic_year_id: 'ay-1',
+            enrollment_status: EnrollmentStatus.ACTIVE,
+          }),
+        }),
+      );
+    },
+  );
+  it('PUBLISHED + PARENT with no linked students returns [] and never reads slots', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.PUBLISHED);
+    const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, {
+      role: UserRole.PARENT,
+      userId: 'u1',
+      familyStudentIds: [],
+    });
+    expect(r).toEqual([]);
+    expect(ctx.enrollmentRepo.find).not.toHaveBeenCalled();
+    expect(ctx.slotRepo.find).not.toHaveBeenCalled();
+  });
+  it('PUBLISHED + PARENT without familyStudentIds fails closed', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.PUBLISHED);
+    expect(await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.PARENT))).toEqual(
+      [],
+    );
+  });
+  it('PUBLISHED + PARENT whose child has no enrollment this year returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.PUBLISHED);
+    ctx.enrollmentRepo.find = vi.fn(async () => [{ section_id: null }]);
+    const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, {
+      role: UserRole.PARENT,
+      userId: 'u1',
+      familyStudentIds: ['stu-1'],
+    });
+    expect(r).toEqual([]);
   });
 });

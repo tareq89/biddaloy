@@ -60,7 +60,7 @@ export class ExamSchedulesService {
       where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!exam) {
-      throw new NotFoundException(`Exam "${examId}" not found`);
+      throw new NotFoundException('Exam not found');
     }
     return exam;
   }
@@ -71,7 +71,7 @@ export class ExamSchedulesService {
       where: { id: subjectId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!subject) {
-      throw new BadRequestException(`Subject "${subjectId}" not found for this tenant.`);
+      throw new BadRequestException('Subject not found for this tenant.');
     }
   }
 
@@ -81,7 +81,7 @@ export class ExamSchedulesService {
   private async assertDateInsideAcademicYear(exam: Exam, date: string): Promise<void> {
     const year = await this.yearRepo.findOne({ where: { id: exam.academic_year_id } });
     if (!year) {
-      throw new NotFoundException(`Academic year "${exam.academic_year_id}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
     const yearStart = toIsoDate(year.start_date);
     const yearEnd = toIsoDate(year.end_date);
@@ -332,7 +332,7 @@ export class ExamSchedulesService {
       where: { id, exam_id: examId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!entity) {
-      throw new NotFoundException(`Exam schedule "${id}" not found`);
+      throw new NotFoundException('Exam schedule not found');
     }
     return entity;
   }

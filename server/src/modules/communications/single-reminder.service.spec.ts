@@ -197,7 +197,7 @@ describe('SingleReminderService', () => {
 
       await expect(
         service.preview(STUDENT_ID, { ...dto, guardian_ids: ['g-unrelated'] } as any, TENANT),
-      ).rejects.toThrow(/not linked to student/);
+      ).rejects.toThrow(/not linked to this student/);
     });
 
     it('treats an explicit empty guardian_ids the same as omitting it', async () => {
@@ -326,7 +326,7 @@ describe('SingleReminderService', () => {
 
       await expect(
         service.preview(STUDENT_ID, { ...dto, guardian_ids: ['g-1'] } as any, TENANT),
-      ).rejects.toThrow(/not linked to student/);
+      ).rejects.toThrow(/not linked to this student/);
     });
   });
 

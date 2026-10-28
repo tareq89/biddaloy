@@ -364,7 +364,10 @@ function ExamTableCard({
       onError: (error) => {
         if (error instanceof ApiError && error.details?.['code'] === 'ADMIT_CARD_WITHHELD') {
           setCardState(examId, 'withheld');
-        } else if (error instanceof ApiError && error.statusCode === 404) {
+        } else if (
+          error instanceof ApiError &&
+          (error.statusCode === 404 || error.details?.['code'] === 'NO_ADMIT_CARD_TEMPLATE')
+        ) {
           setCardState(examId, 'not-ready');
         } else if (error.message === 'POPUP_BLOCKED') {
           toast.error(t('examSchedule.admitCard.popupBlocked'));

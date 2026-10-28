@@ -56,6 +56,23 @@ describe('/fees/schedules', () => {
     await cleanupTestState();
   });
 
+  // [44.4 / #3014] The (?) beside "Add rule" (finance.recurringSchedules.action.add).
+  it('shows the (?) for a declared id when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    try {
+      server.use(listHandler([]));
+      render();
+      // By id: the page-level (?) carries the same "Help: <page title>" name.
+      await waitFor(() =>
+        expect(
+          document.querySelector('[data-help-id="finance.recurringSchedules.action.add"]'),
+        ).not.toBeNull(),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('shows plain-language rows: when, last billed month, status badge, a never-billed muted label', async () => {
     server.use(
       listHandler([
@@ -135,6 +152,56 @@ describe('/fees/schedules', () => {
 
     await user.click(dialog.getByRole('button', { name: 'Deactivate' }));
     await waitFor(() => expect(patched).toEqual({ is_active: false }));
+  });
+
+  it('deleting a rule asks first, then sends DELETE and the row is gone after the refetch', async () => {
+    let rows = [rule()];
+    let deleted = false;
+    server.use(
+      http.get('/api/v1/fees/schedules', () => HttpResponse.json(rows)),
+      http.delete('/api/v1/fees/schedules/:id', () => {
+        deleted = true;
+        rows = [];
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    render();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+
+    const dialog = within(await screen.findByRole('alertdialog'));
+    expect(dialog.getByText('Delete this rule?')).toBeTruthy();
+    expect(deleted).toBe(false);
+
+    await user.click(dialog.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(deleted).toBe(true));
+    await waitFor(() => expect(screen.queryByText('Monthly tuition')).toBeNull());
+  });
+
+  it('closes the confirm and shows a translated error when deleting a rule fails', async () => {
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      listHandler([rule()]),
+      http.delete('/api/v1/fees/schedules/:id', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    render();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }),
+    );
+
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith("Couldn't delete this rule. Try again."),
+    );
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    toastSpy.mockRestore();
   });
 
   it('B10: a role without PROGRAM_READ makes no programs request', async () => {

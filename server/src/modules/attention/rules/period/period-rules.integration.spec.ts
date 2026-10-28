@@ -9,6 +9,7 @@ import { SchoolCalendarService } from '../../../calendar/school-calendar.service
 import { ResolveRoutineService } from '../../../routines/resolve-routine.service';
 import { SchoolsService } from '../../../schools/schools.service';
 import { DEFAULT_ATTENDANCE_SETTINGS } from '../../../schools/settings/tenant-settings-defaults';
+import { AuditService } from '../../../audit/audit.service';
 import { SubstitutionsService } from '../../../routines/substitutions.service';
 import { TeacherBusyService } from '../../../routines/teacher-busy.service';
 import { AlertWriterService } from '../../engine/alert-writer.service';
@@ -175,6 +176,7 @@ describe('Period rules (integration)', () => {
           },
         },
         SubstitutionsService,
+        AuditService,
         // These specs test attention rules, not clash detection: nobody is busy.
         { provide: TeacherBusyService, useValue: { busyAt: async () => null } },
         // Only the school calendar is stubbed (every day is a working day).

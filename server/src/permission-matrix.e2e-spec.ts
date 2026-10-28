@@ -498,6 +498,14 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
     controller: 'HomeworkController',
     method: 'GET',
+    path: '/homework/:id/assignments',
+    reason:
+      '[#1013] same narrowing as GET /homework/:id — staff assignment rows, not a family view' +
+      ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
     path: '/students/:studentId/homework',
     reason:
       "[8.10.7.4.14] family view of one linked child's homework — ADMIN/TEACHER also hold HOMEWORK_READ, but staff use the unscoped /homework list; this route is PARENT/STUDENT only and enforces the guardian link (FamilyAccessService.assertLinked)",
@@ -531,7 +539,7 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     method: 'POST',
     path: '/homework-assignments/:id/submissions',
     reason:
-      '[22.3.2] uploading a submission is the STUDENT/PARENT-only self-service action (D26 ownership-scoped) — ADMIN/TEACHER also hold HOMEWORK_READ but grade via PATCH /homework-submissions/:id, not this route' +
+      '[22.3.2] uploading a submission is the STUDENT/PARENT-only self-service action (D26 ownership-scoped) — ADMIN/TEACHER also hold HOMEWORK_READ but grade via PATCH /homework-assignments/:id/submissions (#2899), not this route' +
       ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
   },
   {
@@ -576,45 +584,6 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
       'the staff billing-automation config. Still narrower than FEE_READ: TEACHER is excluded, ' +
       'since a teacher has no fee-schedule surface at all' +
       ' #1364 new roles excluded on purpose: OFFICE_STAFF holds FEE_READ but billing-automation and run history are accountant/admin work (no money-moving); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'POST',
-    path: '/invoices/:id/share',
-    reason:
-      '[#666] minting/listing/revoking a public share link is staff-only, although every role (incl. SUPER_ADMIN/PARENT/STUDENT) holds INVOICE_READ — a guardian who can read their own invoice has no business publishing an unauthenticated link to it' +
-      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'GET',
-    path: '/invoices/:id/share',
-    reason:
-      '[#666] same narrowing as POST /invoices/:id/share' +
-      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'POST',
-    path: '/invoices/:id/share/regenerate',
-    reason:
-      '[75.19-b, D9] same narrowing as POST /invoices/:id/share: regenerating kills every older link of the invoice and mints a new public one, so it is accountant/admin work.',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'DELETE',
-    path: '/invoices/:id/share/:tokenId',
-    reason:
-      '[#666] same narrowing as POST /invoices/:id/share' +
-      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
-  },
-  {
-    controller: 'InvoicesController',
-    method: 'POST',
-    path: '/invoices/:id/send',
-    reason:
-      '[16.5.4] sending the receipt out (WhatsApp/SMS, spends SMS credit) is staff-only, although every role (incl. SUPER_ADMIN/PARENT/STUDENT) holds INVOICE_READ — a guardian who can read their own invoice has no business sending it to another guardian, same narrowing as POST /invoices/:id/share' +
-      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
   },
   {
     controller: 'StudentController',
@@ -833,6 +802,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason:
       "[21.6.1]/[21.9.1] D11 — raising a change request is the requesting teacher's own action against their own published slot; every other ROUTINE_READ holder (ADMIN, PARENT, STUDENT, EXECUTIVE) reads the routine but has no reason to flag one of a teacher's slots for review" +
       " #1364 new roles excluded: raising a change request is the teacher's own action.",
+  },
+  {
+    controller: 'ChangeRequestsController',
+    method: 'GET',
+    path: '/routines/:id/change-requests/mine',
+    reason:
+      '[86.3] The requesting teacher reads back their own change requests and the admin reply; the service filters by the token user. Managers use GET /routines/:id/change-requests (ROUTINE_MANAGE), and no other ROUTINE_READ holder raises requests.',
   },
   {
     controller: 'ProgramEnrollmentsController',
@@ -1337,6 +1313,7 @@ describe('Permission matrix (regression)', () => {
       Permission.INVOICE_CREATE,
       Permission.INVOICE_READ,
       Permission.INVOICE_PRINT,
+      Permission.INVOICE_SEND,
       Permission.INVOICE_DELETE,
       Permission.REPORT_COLLECTIONS_READ,
       Permission.SCHEDULE_MANAGE,
@@ -1368,6 +1345,7 @@ describe('Permission matrix (regression)', () => {
         Permission.INVOICE_CREATE,
         Permission.INVOICE_READ,
         Permission.INVOICE_PRINT,
+        Permission.INVOICE_SEND,
         Permission.REPORT_COLLECTIONS_READ,
         Permission.SCHEDULE_MANAGE,
         Permission.DISCOUNT_RULE_MANAGE,

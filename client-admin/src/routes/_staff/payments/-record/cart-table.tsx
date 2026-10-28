@@ -9,7 +9,7 @@
  * at read time, and `formatCurrency` renders minor units directly.
  */
 import { FeeStatus, PeriodType } from '@biddaloy/shared';
-import { Checkbox, MoneyInput, StatusBadge } from '@biddaloy/ui/components';
+import { Checkbox, HelpHint, MoneyInput, StatusBadge } from '@biddaloy/ui/components';
 import type { CartBill, CartStudent } from '@biddaloy/ui/hooks';
 import type { RegionConfig } from '@biddaloy/ui/i18n';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -96,12 +96,17 @@ export function CartTable({
               <h3 className="px-4 pt-4 text-h3 md:px-5">{student.full_name}</h3>
             )}
             <div
-              aria-hidden="true"
               className={`hidden gap-x-4 border-y border-border-subtle bg-muted px-5 py-2 text-label text-text-secondary md:grid ${ROW_GRID}`}
             >
               {headers.map((header, index) => (
-                <span key={header} className={index >= 4 ? 'text-right' : undefined}>
-                  {header}
+                <span
+                  key={header}
+                  className={index >= 4 ? 'flex items-center justify-end gap-1' : undefined}
+                >
+                  <span aria-hidden="true">{header}</span>
+                  {index === headers.length - 1 && (
+                    <HelpHint helpId="finance.recordPayment.field.discount" />
+                  )}
                 </span>
               ))}
             </div>
@@ -176,7 +181,14 @@ export function CartTable({
                       )}
                     </div>
                     <div className="col-span-2 flex flex-col md:col-span-1">
-                      <CellLabel>{t('record.cart.columnDiscount')}</CellLabel>
+                      <div className="flex items-center gap-1">
+                        <CellLabel>{t('record.cart.columnDiscount')}</CellLabel>
+                        {/* Phone only: on desktop the header row carries this (?). */}
+                        <HelpHint
+                          helpId="finance.recordPayment.field.discount"
+                          className="md:hidden"
+                        />
+                      </div>
                       <DiscountCell
                         value={line.discountMinorUnits}
                         balance={balanceMinorUnits}
@@ -204,7 +216,7 @@ export function CartTable({
         </div>
         {walletBalanceMinorUnits > 0 && (
           <div className="flex items-center justify-between gap-2">
-            <dt>
+            <dt className="flex items-center gap-1">
               <label className="flex min-h-11 items-center gap-3 md:min-h-8">
                 <Checkbox
                   checked={walletUseMinorUnits > 0}
@@ -218,6 +230,7 @@ export function CartTable({
                   amount: formatCurrency(walletBalanceMinorUnits, config),
                 })}
               </label>
+              <HelpHint helpId="finance.recordPayment.field.walletUse" />
             </dt>
             <dd className="tabular-nums">{formatCurrency(walletUseMinorUnits, config)}</dd>
           </div>

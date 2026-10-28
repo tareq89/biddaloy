@@ -24,6 +24,7 @@
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  HelpHint,
   Card,
   EmptyState,
   Input,
@@ -39,6 +40,7 @@ import {
 import {
   useReplacePeriodSlots,
   usePeriodSlots,
+  type PeriodSlot,
   type PeriodSlotItem,
   type PeriodSlotKind,
   type Shift,
@@ -62,6 +64,22 @@ function minutesToTime(minutes: number): string {
 }
 
 type RowError = 'endBeforeStart' | 'outsideShift' | 'overlapsPrevious';
+
+/** Server rows → editor rows, keeping each id. Numbered 1..n by order, so every
+ * screen (this editor, the routine table, the phone list) shows the same
+ * period numbers. */
+function toRows(slots: PeriodSlot[]): PeriodSlotItem[] {
+  return [...slots]
+    .sort((a, b) => a.sequence - b.sequence)
+    .map((slot, index) => ({
+      id: slot.id,
+      sequence: index + 1,
+      kind: slot.kind,
+      name: slot.name,
+      starts_at: slot.starts_at,
+      ends_at: slot.ends_at,
+    }));
+}
 
 export interface PeriodSlotsPanelProps {
   shifts: Shift[];
@@ -98,17 +116,7 @@ export function PeriodSlotsPanel({
     }
     if (slotsQuery.data === undefined || loadedShiftId.current === shift.id) return;
     loadedShiftId.current = shift.id;
-    // Numbered 1..n by order, so every screen (this editor, the routine
-    // table, the phone list) shows the same period numbers.
-    const loaded = [...slotsQuery.data]
-      .sort((a, b) => a.sequence - b.sequence)
-      .map((slot, index) => ({
-        sequence: index + 1,
-        kind: slot.kind,
-        name: slot.name,
-        starts_at: slot.starts_at,
-        ends_at: slot.ends_at,
-      }));
+    const loaded = toRows(slotsQuery.data);
     loadedRows.current = loaded;
     setRows(loaded);
   }, [shift, slotsQuery.data]);
@@ -150,10 +158,13 @@ export function PeriodSlotsPanel({
 
   function handleSave() {
     if (!ready) return;
-    const saved = rows;
     replaceSlots.mutate(rows, {
-      onSuccess: () => {
-        loadedRows.current = saved;
+      // Reseed from the server's rows: a period added here has no id until
+      // saved, and the next save must send that id or the server removes it.
+      onSuccess: (saved) => {
+        const fresh = toRows(saved);
+        loadedRows.current = fresh;
+        setRows(fresh);
         toast.success(t('save.success'));
       },
       onError: (error) =>
@@ -367,6 +378,10 @@ export function PeriodSlotsPanel({
               </table>
             </div>
 
+            <p className="px-4 pt-3 text-caption text-text-secondary md:px-5">
+              {t('periodSlotsPanel.editNote')}
+            </p>
+
             <ul className="divide-y divide-border-subtle border-t border-border-subtle md:hidden">
               {rows.map((row, index) => {
                 const error = rowErrors[index];
@@ -497,14 +512,18 @@ export function PeriodSlotsPanel({
                   <PlusIcon aria-hidden="true" />
                   {t('periodSlotsPanel.addRowAction')}
                 </Button>
-                <Button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={!ready || hasErrors}
-                  loading={replaceSlots.isPending}
-                >
-                  {t('save.action')}
-                </Button>
+                <span className="inline-flex items-center gap-1">
+                  <Button
+                    type="button"
+                    className="flex-1 md:flex-none"
+                    onClick={handleSave}
+                    disabled={!ready || hasErrors}
+                    loading={replaceSlots.isPending}
+                  >
+                    {t('save.action')}
+                  </Button>
+                  <HelpHint helpId="academics.routineSetup.action.savePeriods" />
+                </span>
               </div>
             </div>
           </>

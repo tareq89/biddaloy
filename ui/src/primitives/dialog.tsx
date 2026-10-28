@@ -46,6 +46,7 @@ function DialogContent({
   size = 'md',
   closeLabel = 'Close',
   fullScreenOnPhone = false,
+  onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
@@ -78,6 +79,20 @@ function DialogContent({
             'max-md:inset-0 max-md:h-dvh max-md:max-h-none max-md:w-full max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0',
           className,
         )}
+        onOpenAutoFocus={(event) => {
+          onOpenAutoFocus?.(event);
+          if (event.defaultPrevented) return;
+          // [Epic 44] A (?) beside a title or label must not take first focus: Radix
+          // picks the first tabbable right after this event, so take the (?) out of
+          // the tab order for that one pick.
+          // ponytail: borrows Radix's own picker via a tabindex flip; replace with
+          // a FocusScope option if Radix ever exposes a candidate filter.
+          const hints = (event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(
+            '[data-help-id]:not([tabindex])',
+          );
+          hints.forEach((el) => el.setAttribute('tabindex', '-1'));
+          queueMicrotask(() => hints.forEach((el) => el.removeAttribute('tabindex')));
+        }}
         {...props}
       >
         {children}
@@ -121,7 +136,7 @@ function DialogFooter({
         // `sticky bottom-0` (plus `shrink-0` so a tall body can't squeeze
         // it) keeps this reachable when `DialogContent` above scrolls —
         // see that component's own comment on why.
-        'sticky bottom-0 -mx-5 -mb-5 flex shrink-0 flex-col-reverse gap-2 bg-surface px-5 pt-3 pb-5 md:flex-row md:justify-end',
+        'sticky bottom-0 -mx-5 -mb-5 flex shrink-0 flex-col-reverse gap-2 bg-surface px-5 pt-3 pb-5 md:flex-row md:flex-wrap md:justify-end',
         className,
       )}
       {...props}

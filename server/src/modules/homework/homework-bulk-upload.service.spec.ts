@@ -3,7 +3,12 @@ import ExcelJS from 'exceljs';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { HomeworkBulkUploadService } from './homework-bulk-upload.service';
 import { REQUIRED_HEADERS, BulkUploadHeader } from './homework-bulk-upload.parser';
-import { HomeworkGradingMode, HomeworkAssignmentStatus, UserRole } from '@biddaloy/shared';
+import {
+  HomeworkGradingMode,
+  HomeworkAssignmentStatus,
+  ImportFileErrorCode,
+  UserRole,
+} from '@biddaloy/shared';
 
 /**
  * Unit tests for HomeworkBulkUploadService, with every repository and
@@ -89,16 +94,14 @@ describe('HomeworkBulkUploadService', () => {
     staging = { stage: vi.fn(), consume: vi.fn() };
 
     const classRepo = {
-      find: vi
-        .fn()
-        .mockResolvedValue([
-          {
-            id: CLASS_ID,
-            name: 'Class One',
-            tenant_id: TENANT_ID,
-            academic_year_id: ACADEMIC_YEAR_ID,
-          },
-        ]),
+      find: vi.fn().mockResolvedValue([
+        {
+          id: CLASS_ID,
+          name: 'Class One',
+          tenant_id: TENANT_ID,
+          academic_year_id: ACADEMIC_YEAR_ID,
+        },
+      ]),
     };
     const sectionRepo = {
       find: vi
@@ -202,7 +205,9 @@ describe('HomeworkBulkUploadService', () => {
         row: 2,
         column: 'subject',
         value: 'No Such Subject',
+        code: 'SUBJECT_NOT_FOUND',
       });
+      expect(result.errors[0].message).not.toContain('No Such Subject');
     });
 
     it('throws a parse error when a required column is missing', async () => {
@@ -212,9 +217,9 @@ describe('HomeworkBulkUploadService', () => {
         [rowValues(headersMissingSubject as unknown as readonly BulkUploadHeader[])],
       );
 
-      await expect(service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN)).rejects.toThrow(
-        'Missing required columns: subject',
-      );
+      const result = service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN);
+      await expect(result).rejects.toThrow('Missing required columns: subject');
+      await expect(result).rejects.toMatchObject({ code: ImportFileErrorCode.MISSING_COLUMNS });
     });
 
     it('reports a malformed date as a row-level error', async () => {

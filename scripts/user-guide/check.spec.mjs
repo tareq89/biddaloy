@@ -37,7 +37,8 @@ const expectProblem = (code, mutate) => {
     `expected (${code}), got ${JSON.stringify(problems)}`,
   );
 };
-const json = (rel, edit) => (edit2) => edit2(rel, (s) => JSON.stringify(edit(JSON.parse(s)), null, 2));
+const json = (rel, edit) => (edit2) =>
+  edit2(rel, (s) => JSON.stringify(edit(JSON.parse(s)), null, 2));
 
 test('clean tree passes with no warnings', () => {
   const r = run();
@@ -62,48 +63,77 @@ test('cli exits 0 on clean and 1 on a broken tree', () => {
 test('(a) features id missing from coverage', () =>
   expectProblem('a', (w) => json(`${G}/coverage.json`, (c) => ({ 'demo.one': c['demo.one'] }))(w)));
 test('(b) done id lacks a page', () =>
-  expectProblem('b', (w) => json(`${G}/coverage.json`, (c) => ({ ...c, 'demo.three': 'done' }))(w)));
+  expectProblem('b', (w) =>
+    json(`${G}/coverage.json`, (c) => ({ ...c, 'demo.three': 'done' }))(w),
+  ));
 test('(c) bn/en roles differ', () =>
-  expectProblem('c', (w) => w(`${G}/en/demo/one.md`, (s) => s.replace('roles: [ADMIN, TEACHER]', 'roles: [ADMIN]'))));
+  expectProblem('c', (w) =>
+    w(`${G}/en/demo/one.md`, (s) => s.replace('roles: [ADMIN, TEACHER]', 'roles: [ADMIN]')),
+  ));
 test('(d) broken image path', () =>
-  expectProblem('d', (w) => w(`${G}/en/demo/one.md`, (s) => s.replace('img/dot.png', 'img/nope.png'))));
+  expectProblem('d', (w) =>
+    w(`${G}/en/demo/one.md`, (s) => s.replace('img/dot.png', 'img/nope.png')),
+  ));
 test('(e) labels glob matches nothing', () =>
-  expectProblem('e', (w) => w(`${G}/bn/demo/one.md`, (s) => s.replace('demo:list.*', 'demo:nope.*'))));
+  expectProblem('e', (w) =>
+    w(`${G}/bn/demo/one.md`, (s) => s.replace('demo:list.*', 'demo:nope.*')),
+  ));
 test('(f) page without a diagram', () =>
-  expectProblem('f', (w) => w(`${G}/bn/demo/two.md`, (s) => s.replace('![flow](diagrams/demo-flow.svg)\n', ''))));
+  expectProblem('f', (w) =>
+    w(`${G}/bn/demo/two.md`, (s) => s.replace('![flow](diagrams/demo-flow.svg)\n', '')),
+  ));
 test('(g) stale svg', () =>
   expectProblem('g', (w) => w(`${G}/_diagrams/demo-flow.en.mmd`, (s) => s + '  B --> C\n')));
 test('(h) oversized png', () =>
-  expectProblem('h', (w, root) => writeFileSync(path.join(root, G, 'en/demo/img/big.png'), Buffer.alloc(301 * 1024))));
+  expectProblem('h', (w, root) =>
+    writeFileSync(path.join(root, G, 'en/demo/img/big.png'), Buffer.alloc(301 * 1024)),
+  ));
 test('(i) video file', () =>
   expectProblem('i', (w, root) => writeFileSync(path.join(root, 'docs/clip.mp4'), 'x')));
 test('(j) page outside features.json', () =>
   expectProblem('j', (w) => json(`${G}/_generated/features.json`, (f) => f.slice(0, 1))(w)));
 test('(k) generated block differs', () =>
-  expectProblem('k', (w) => json(`${G}/_generated/blocks.json`, (b) => ({ ...b, en: { 'fields:demo.one': 'Old' } }))(w)));
+  expectProblem('k', (w) =>
+    json(`${G}/_generated/blocks.json`, (b) => ({ ...b, en: { 'fields:demo.one': 'Old' } }))(w),
+  ));
 test('(k) video marker is a failure (D48)', () =>
   expectProblem('k', (w) =>
-    w(`${G}/en/demo/two.md`, (s) => s + '\n<!-- guide:generated:video:x -->\n<!-- /guide:generated -->\n'),
+    w(
+      `${G}/en/demo/two.md`,
+      (s) => s + '\n<!-- guide:generated:video:x -->\n<!-- /guide:generated -->\n',
+    ),
   ));
 test('(l) route with no feature', () =>
-  expectProblem('l', (w) => json('e2e/route-manifest.json', (m) => ({ routes: [...m.routes, { path: '/three' }] }))(w)));
+  expectProblem('l', (w) =>
+    json('e2e/route-manifest.json', (m) => ({ routes: [...m.routes, { path: '/three' }] }))(w),
+  ));
 test('(m) page missing #confirm', () =>
   expectProblem('m', (w) =>
-    w(`${G}/en/demo/one.md`, (s) => s.replace('## Confirm <a href="#confirm" id="confirm"></a>\n', '')),
+    w(`${G}/en/demo/one.md`, (s) =>
+      s.replace('## Confirm <a href="#confirm" id="confirm"></a>\n', ''),
+    ),
   ));
 test('(m) bn and en anchor sets differ', () =>
   expectProblem('m', (w) =>
     w(`${G}/en/demo/one.md`, (s) => s + '\n## Extra <a href="#extra" id="extra"></a>\n'),
   ));
 test('(n) entry beyond sidebar with no #arrive', () =>
-  expectProblem('n', (w) => w(`${G}/bn/demo/one.md`, (s) => s.replace('entry: [sidebar]', 'entry: [notification:x]'))));
+  expectProblem('n', (w) =>
+    w(`${G}/bn/demo/one.md`, (s) => s.replace('entry: [sidebar]', 'entry: [notification:x]')),
+  ));
 test('(o) bolded title without a link', () =>
-  expectProblem('o', (w) => w(`${G}/bn/demo/two.md`, (s) => s.replace('[**পাতা এক**](one.md).', '**পাতা এক**.'))));
+  expectProblem('o', (w) =>
+    w(`${G}/bn/demo/two.md`, (s) => s.replace('[**পাতা এক**](one.md).', '**পাতা এক**.')),
+  ));
 test('(p) one-way related link', () =>
-  expectProblem('p', (w) => w(`${G}/en/demo/two.md`, (s) => s.replace('- [**Page One**](one.md) - related.\n', ''))));
+  expectProblem('p', (w) =>
+    w(`${G}/en/demo/two.md`, (s) => s.replace('- [**Page One**](one.md) - related.\n', '')),
+  ));
 test('(q) stale knownIssues date and null issue warn but do not fail', () => {
   const r = run((w) =>
-    w(`${G}/en/demo/one.md`, (s) => s.replace('checked: 2026-10-20, issue: 1', 'checked: 2026-01-01, issue: null')),
+    w(`${G}/en/demo/one.md`, (s) =>
+      s.replace('checked: 2026-10-20, issue: 1', 'checked: 2026-01-01, issue: null'),
+    ),
   );
   assert.deepEqual(r.problems, []);
   assert.equal(r.warnings.length, 2);
@@ -114,11 +144,48 @@ test('(r) leftover --- frontmatter', () =>
 test('(s) image without meaningful alt text', () =>
   expectProblem('s', (w) => w(`${G}/en/demo/one.md`, (s) => s + '\n![](img/dot.png)\n')));
 test('(t) a planned id fails (strict coverage, D16)', () =>
-  expectProblem('t', (w) => json(`${G}/coverage.json`, (c) => ({ ...c, 'demo.three': 'planned' }))(w)));
+  expectProblem('t', (w) =>
+    json(`${G}/coverage.json`, (c) => ({ ...c, 'demo.three': 'planned' }))(w),
+  ));
+const setHelpIds = (w, id) => {
+  for (const l of ['bn', 'en'])
+    w(`${G}/${l}/demo/one.md`, (s) => s.replace('helpIds: [demo.one]', `helpIds: [${id}]`));
+};
+test('(u) a helpIds #anchor that is not on the page fails (E20), exit 1 from the cli', () => {
+  expectProblem('u', (w) => setHelpIds(w, 'demo.one#nope'));
+  const root = mkdtempSync(path.join(tmpdir(), 'guide-check-'));
+  try {
+    cpSync(CLEAN, root, { recursive: true });
+    setHelpIds((rel, fn) => {
+      const f = path.join(root, rel);
+      writeFileSync(f, fn(readFileSync(f, 'utf8')));
+    }, 'demo.one#nope');
+    const r = spawnSync('node', [path.join(here, 'check.mjs'), root], { encoding: 'utf8' });
+    assert.equal(r.status, 1);
+    assert.match(r.stdout, /"problem":"\(u\)/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+test('(u) a data-id="x" is not an anchor', () =>
+  expectProblem('u', (w) => {
+    setHelpIds(w, 'demo.one#only-data');
+    for (const l of ['bn', 'en'])
+      w(`${G}/${l}/demo/one.md`, (s) => s + '\n<p data-id="only-data"></p>\n');
+  }));
+test('(u) a helpIds #anchor that exists passes', () => {
+  assert.deepEqual(run((w) => setHelpIds(w, 'demo.one#more')).problems, []);
+});
 test('deleting a page fails the check (the epic-close experiment)', () => {
   const r = run((w, root) => rmSync(path.join(root, G, 'en/demo/two.md')));
-  assert.ok(r.problems.some((p) => p.problem.startsWith('(b)')), JSON.stringify(r.problems));
-  assert.ok(r.problems.some((p) => p.problem.startsWith('(c)')), JSON.stringify(r.problems));
+  assert.ok(
+    r.problems.some((p) => p.problem.startsWith('(b)')),
+    JSON.stringify(r.problems),
+  );
+  assert.ok(
+    r.problems.some((p) => p.problem.startsWith('(c)')),
+    JSON.stringify(r.problems),
+  );
 });
 
 test('missing features.json and blocks.json skip their checks with a warning', () => {

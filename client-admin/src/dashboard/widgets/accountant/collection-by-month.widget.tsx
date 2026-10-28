@@ -75,7 +75,7 @@ export function CollectionByMonthView({
       ? tw('peak', {
           amount: amount(months[peakIdx]!.net as number),
           month: formatMonth(
-            `${data.year}-${String(months[peakIdx]!.month).padStart(2, '0')}`,
+            `${months[peakIdx]!.year}-${String(months[peakIdx]!.month).padStart(2, '0')}`,
             region,
           ),
         })
@@ -102,7 +102,7 @@ export function CollectionByMonthView({
           caption: title,
           columns: [tw('colMonth'), tw('colAmount')],
           rows: months.map((m) => [
-            formatMonth(`${data.year}-${String(m.month).padStart(2, '0')}`, region),
+            formatMonth(`${m.year}-${String(m.month).padStart(2, '0')}`, region),
             m.net === null ? '—' : amount(m.net),
           ]),
           numeric: [false, true],

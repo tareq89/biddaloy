@@ -35,6 +35,7 @@ export {
 } from './invoice-print-format';
 export { groupDigits } from './grouping';
 export { csvCell, downloadCsv, toCsvContent } from './csv';
+export { importFileErrorKey } from './import-file-error';
 export { detectLoginIdentifier, type LoginIdentifier } from './login-identifier';
 export { formatName } from './name';
 export { formatNumber, formatScore, parseNumber } from './number';

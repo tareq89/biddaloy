@@ -4,10 +4,11 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import type { Queue } from 'bullmq';
 import type Redis from 'ioredis';
 import { DataSource } from 'typeorm';
-import { AttendanceStatus, DashboardRiskThresholds } from '@biddaloy/shared';
+import { AttendanceStatus, DashboardRiskThresholds, DashboardWidgetKey } from '@biddaloy/shared';
 import { AttendanceSummaryService } from '../../attendance/attendance-summary.service';
 import { sectionRosterIdsBySection } from '../../enrollments/section-roster';
 import { OPEN_FEE_STATUSES } from '../../fees/fees.constants';
+import { DashboardCacheService } from '../dashboard-cache.service';
 import { SchoolsService } from '../../schools/schools.service';
 import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
 import { DEFAULT_DASHBOARD_SETTINGS } from '../../schools/settings/tenant-settings-defaults';
@@ -62,14 +63,15 @@ export class AtRiskService {
     @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
     private readonly schools: SchoolsService,
     private readonly attendance: AttendanceSummaryService,
+    private readonly cache: DashboardCacheService,
   ) {}
 
   listKey(tenantId: string): string {
-    return `tenant:${tenantId}:dash:v1:at-risk-students:list`;
+    return this.cache.key(tenantId, DashboardWidgetKey.AT_RISK_STUDENTS, 'list');
   }
 
   idsKey(tenantId: string, date: string): string {
-    return `tenant:${tenantId}:dash:v1:at-risk-students:ids:${date}`;
+    return this.cache.key(tenantId, DashboardWidgetKey.AT_RISK_STUDENTS, `ids:${date}`);
   }
 
   private async thresholdsFor(tenantId: string): Promise<DashboardRiskThresholds> {

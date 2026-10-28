@@ -1,4 +1,4 @@
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   apiErrorBody,
   cleanupTestState,
@@ -719,7 +719,7 @@ describe('/students/$studentId', () => {
     await user.click(await screen.findByRole('option', { name: 'B' }));
 
     expect((await dialog.findByRole('status')).textContent).toContain(
-      `${formatNumber(5, REGION_BD_BN)}/${formatNumber(5, REGION_BD_BN)}`,
+      `${formatNumber(5, REGION_BD_EN)}/${formatNumber(5, REGION_BD_EN)}`,
     );
 
     // Warns, does not block — submit still succeeds.

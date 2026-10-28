@@ -51,6 +51,17 @@ export interface PublicIntakeDto {
 const DUPLICATE_MESSAGE =
   'We could not accept this application. If you already applied for this child, contact the school with your reference number.';
 
+/**
+ * Public refusal with a fixed machine code so the form can say why. The code
+ * only restates what the status already reveals (intake dates and seats are
+ * public; every duplicate path shares one code, PUB-09).
+ */
+type PublicRefusalCode =
+  'INTAKE_NOT_OPEN' | 'INTAKE_CLOSED' | 'INTAKE_FULL' | 'DUPLICATE_APPLICATION';
+const refusalBody = (message: string, code: PublicRefusalCode) => ({ message, details: { code } });
+const duplicateRefusal = () =>
+  new ConflictException(refusalBody(DUPLICATE_MESSAGE, 'DUPLICATE_APPLICATION'));
+
 const EXT_BY_MIME: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
@@ -212,10 +223,14 @@ export class AdmissionApplicantService {
         if (!intake) throw new NotFoundException('Admission intake not found');
 
         if (intake.open_date > today) {
-          throw new BadRequestException('This admission intake is not open yet');
+          throw new BadRequestException(
+            refusalBody('This admission intake is not open yet', 'INTAKE_NOT_OPEN'),
+          );
         }
         if (intake.close_date < today) {
-          throw new BadRequestException('This admission intake is closed');
+          throw new BadRequestException(
+            refusalBody('This admission intake is closed', 'INTAKE_CLOSED'),
+          );
         }
 
         // Compared normalized rather than with a raw exact match — the same
@@ -254,7 +269,7 @@ export class AdmissionApplicantService {
         // Correcting one row by reference must not turn it into a different
         // live row's child (e.g. renaming into a reviewed sibling).
         if (byRef && candidates.some((c) => c.id !== byRef.id && sameChild(c))) {
-          throw new ConflictException(DUPLICATE_MESSAGE);
+          throw duplicateRefusal();
         }
 
         // One generic message for every duplicate (reviewed, or pending
@@ -267,7 +282,7 @@ export class AdmissionApplicantService {
           (existing.status !== AdmissionApplicantStatus.PENDING ||
             quotedRef !== existing.reference_number)
         ) {
-          throw new ConflictException(DUPLICATE_MESSAGE);
+          throw duplicateRefusal();
         }
 
         // Merge by document type rather than replacing the whole list — a
@@ -309,7 +324,9 @@ export class AdmissionApplicantService {
           },
         });
         if (admittedCount >= intake.seat_count) {
-          throw new BadRequestException('This admission intake has no seats left');
+          throw new BadRequestException(
+            refusalBody('This admission intake has no seats left', 'INTAKE_FULL'),
+          );
         }
 
         const referenceNumber = await this.generateReferenceNumber(applicantRepo, school.id, today);
@@ -361,7 +378,7 @@ export class AdmissionApplicantService {
         driver?.code === '23505' &&
         driver.constraint === 'IDX_admission_applicants_intake_child'
       ) {
-        throw new ConflictException(DUPLICATE_MESSAGE);
+        throw duplicateRefusal();
       }
       throw err;
     }

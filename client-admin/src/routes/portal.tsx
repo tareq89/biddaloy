@@ -27,6 +27,7 @@ import { StaffUserMenu } from '../components/staff-user-menu';
 import { useAttentionCenter } from '../features/attention/attention-center';
 import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
 import { useDemoMode } from '../features/demo/use-demo-mode';
+import { AppHelpProvider } from '../help/help-provider';
 import { MORE_ICON, PORTAL_NAV_ICONS } from '../nav-icons';
 import { isPathUnder } from '../nav-tree';
 import { loadRouteNamespaces } from '../route-loaders';
@@ -239,77 +240,79 @@ function PortalLayout() {
   const attention = useAttentionCenter({ todoTo: '/portal/notifications' });
 
   return (
-    <DemoCornerFrame>
-      <RequireRole allow={GUARDIAN_ROLES} redirectTo="/dashboard">
-        <AppShell
-          reserveCorner={demo.enabled}
-          navItems={navItems}
-          brand={t('brand')}
-          // Desktop-only, as in the staff shell: below `md` the phone row
-          // (`mobileTitle` / `mobileActions`) carries these controls (D12).
-          topBar={
-            <div className="hidden md:flex">
-              <AppHeader
-                reserveCorner={demo.enabled}
-                start={<TenantBar />}
-                end={
-                  <>
-                    <SyncStatusIndicator />
-                    <CommandPaletteLauncher pages={portalPages} />
-                    <NotificationBell
-                      viewAllTo="/portal/notifications"
-                      attention={attention.bell}
-                    />
-                    <LocaleSwitcher />
-                    <ThemeToggle />
-                    <StaffUserMenu securityTo="/portal/account" invites={schoolInvites} />
-                  </>
-                }
+    <AppHelpProvider>
+      <DemoCornerFrame>
+        <RequireRole allow={GUARDIAN_ROLES} redirectTo="/dashboard">
+          <AppShell
+            reserveCorner={demo.enabled}
+            navItems={navItems}
+            brand={t('brand')}
+            // Desktop-only, as in the staff shell: below `md` the phone row
+            // (`mobileTitle` / `mobileActions`) carries these controls (D12).
+            topBar={
+              <div className="hidden md:flex">
+                <AppHeader
+                  reserveCorner={demo.enabled}
+                  start={<TenantBar />}
+                  end={
+                    <>
+                      <SyncStatusIndicator />
+                      <CommandPaletteLauncher pages={portalPages} />
+                      <NotificationBell
+                        viewAllTo="/portal/notifications"
+                        attention={attention.bell}
+                      />
+                      <LocaleSwitcher />
+                      <ThemeToggle />
+                      <StaffUserMenu securityTo="/portal/account" invites={schoolInvites} />
+                    </>
+                  }
+                />
+              </div>
+            }
+            openMenuLabel={t('openMenuLabel')}
+            closeMenuLabel={t('closeMenuLabel')}
+            navLabel={t('navLabel')}
+            skipLinkLabel={t('skipToContent')}
+            // [19.11.1] Seven destinations overflow `BottomNav`'s 5-cell cap at
+            // 320px (WCAG 1.4.10), so the bar keeps the four a parent opens most
+            // plus `more`, which opens the drawer holding the full list — the
+            // staff shell's pattern. `mobileTitle` / `mobileActions` give the one
+            // 56 px phone row (D12).
+            mobileTitle={schoolName}
+            mobileActions={
+              <>
+                <CommandPaletteLauncher pages={portalPages} />
+                <NotificationBell viewAllTo="/portal/notifications" attention={attention.bell} />
+                <StaffUserMenu securityTo="/portal/account" invites={schoolInvites} />
+              </>
+            }
+            bottomNav={
+              <BottomNav
+                items={bottomItems}
+                label={t('bottomNavLabel')}
+                more={{
+                  label: t('items.more'),
+                  icon: <MORE_ICON className="size-5" aria-hidden="true" />,
+                  active: moreActive,
+                }}
               />
-            </div>
-          }
-          openMenuLabel={t('openMenuLabel')}
-          closeMenuLabel={t('closeMenuLabel')}
-          navLabel={t('navLabel')}
-          skipLinkLabel={t('skipToContent')}
-          // [19.11.1] Seven destinations overflow `BottomNav`'s 5-cell cap at
-          // 320px (WCAG 1.4.10), so the bar keeps the four a parent opens most
-          // plus `more`, which opens the drawer holding the full list — the
-          // staff shell's pattern. `mobileTitle` / `mobileActions` give the one
-          // 56 px phone row (D12).
-          mobileTitle={schoolName}
-          mobileActions={
-            <>
-              <CommandPaletteLauncher pages={portalPages} />
-              <NotificationBell viewAllTo="/portal/notifications" attention={attention.bell} />
-              <StaffUserMenu securityTo="/portal/account" invites={schoolInvites} />
-            </>
-          }
-          bottomNav={
-            <BottomNav
-              items={bottomItems}
-              label={t('bottomNavLabel')}
-              more={{
-                label: t('items.more'),
-                icon: <MORE_ICON className="size-5" aria-hidden="true" />,
-                active: moreActive,
-              }}
-            />
-          }
-        >
-          {attention.bar}
-          {attention.modal}
-          {breadcrumbItems.length > 0 && (
-            <Breadcrumbs
-              items={breadcrumbItems}
-              aria-label={t('breadcrumb.navLabel')}
-              className="mb-4"
-            />
-          )}
-          <SchoolInvitesCard {...schoolInvites.cardProps} />
-          <Outlet />
-        </AppShell>
-      </RequireRole>
-    </DemoCornerFrame>
+            }
+          >
+            {attention.bar}
+            {attention.modal}
+            {breadcrumbItems.length > 0 && (
+              <Breadcrumbs
+                items={breadcrumbItems}
+                aria-label={t('breadcrumb.navLabel')}
+                className="mb-4"
+              />
+            )}
+            <SchoolInvitesCard {...schoolInvites.cardProps} />
+            <Outlet />
+          </AppShell>
+        </RequireRole>
+      </DemoCornerFrame>
+    </AppHelpProvider>
   );
 }

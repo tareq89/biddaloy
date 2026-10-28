@@ -46,7 +46,7 @@ export class FeeStructureService {
         where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (!cls) {
-        throw new NotFoundException(`Class with ID "${dto.class_id}" not found`);
+        throw new NotFoundException('Class not found');
       }
     }
 
@@ -55,7 +55,7 @@ export class FeeStructureService {
     // class via the `class_id IS NULL` picker rule below, which is not a
     // real school-wide structure.
     if (dto.section_id && !dto.class_id) {
-      throw new NotFoundException(`Section with ID "${dto.section_id}" not found`);
+      throw new NotFoundException('Section not found');
     }
 
     // Validate section belongs to tenant when provided. `dto.class_id` is
@@ -71,7 +71,7 @@ export class FeeStructureService {
         },
       });
       if (!section) {
-        throw new NotFoundException(`Section with ID "${dto.section_id}" not found`);
+        throw new NotFoundException('Section not found');
       }
     }
 
@@ -84,7 +84,7 @@ export class FeeStructureService {
         lock: { mode: 'pessimistic_read' },
       });
       if (!academicYear) {
-        throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+        throw new NotFoundException('Academic year not found');
       }
 
       const repo = manager.getRepository(FeeStructure);
@@ -273,12 +273,12 @@ export class FeeStructureService {
           where: { id: effectiveClassId, tenant_id: tenantId, deleted_at: IsNull() },
         });
         if (!cls) {
-          throw new NotFoundException(`Class with ID "${effectiveClassId}" not found`);
+          throw new NotFoundException('Class not found');
         }
       }
       if (effectiveSectionId) {
         if (!effectiveClassId) {
-          throw new NotFoundException(`Section with ID "${effectiveSectionId}" not found`);
+          throw new NotFoundException('Section not found');
         }
         if (changedKeys.includes('section_id') || changedKeys.includes('class_id')) {
           const section = await manager.getRepository(ClassSection).findOne({
@@ -290,7 +290,7 @@ export class FeeStructureService {
             },
           });
           if (!section) {
-            throw new NotFoundException(`Section with ID "${effectiveSectionId}" not found`);
+            throw new NotFoundException('Section not found');
           }
         }
       }

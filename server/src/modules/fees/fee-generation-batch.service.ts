@@ -366,7 +366,7 @@ export class FeeGenerationBatchService {
   private async findBatch(id: string, tenantId: string): Promise<FeeGeneration> {
     const batch = await this.generationRepo.findOne({ where: { id, tenant_id: tenantId } });
     if (!batch) {
-      throw new NotFoundException(`Fee generation batch "${id}" not found`);
+      throw new NotFoundException('Fee generation batch not found');
     }
     return batch;
   }

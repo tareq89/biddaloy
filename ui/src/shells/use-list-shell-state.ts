@@ -13,7 +13,7 @@
  * `setFilters` call; nothing computed here, just an explicit, always-on
  * default a caller has no chance to forget.
  */
-import { useLocation } from '@tanstack/react-router';
+import { useLocation, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { getActiveTenant } from '../api/auth-state';
@@ -56,7 +56,10 @@ export function useListShellState(
   // A different path or tenant starts from what is stored for it.
   const selectedIds = held.key === key ? held.ids : getSelection(key);
 
-  const hasLegacy = urlState.filters[LEGACY_SELECTED_KEY] !== undefined;
+  // Raw search, not `urlState.filters`: on a route whose `validateSearch` does not
+  // declare `selected`, filters no longer carry it (#2999), but the URL still does.
+  const rawSearch = useSearch({ strict: false }) as unknown as Record<string, unknown>;
+  const hasLegacy = rawSearch[LEGACY_SELECTED_KEY] !== undefined;
   useEffect(() => {
     if (!hasLegacy) return;
     navigateSearch(

@@ -21,6 +21,7 @@ export * from './dto/evaluations';
 export * from './auth/password-rules';
 export * from './types/onboarding';
 export * from './enums/billing';
+export * from './enums/import-file';
 export * from './types/billing';
 export * from './enums/attention';
 export * from './attention/rule-catalogue';

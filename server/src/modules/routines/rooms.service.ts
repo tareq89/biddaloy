@@ -48,7 +48,7 @@ export class RoomsService {
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!room) {
-      throw new NotFoundException(`Room with ID "${id}" not found`);
+      throw new NotFoundException('Room not found');
     }
     return room;
   }
@@ -76,7 +76,7 @@ export class RoomsService {
         .where('p.id = :id AND p.tenant_id = :tenantId AND p.deleted_at IS NULL', { id, tenantId })
         .getOne();
       if (!locked) {
-        throw new NotFoundException(`Room with ID "${id}" not found`);
+        throw new NotFoundException('Room not found');
       }
 
       // `RoutineSlot.room_id` is `ON DELETE SET NULL` at the DB level, but

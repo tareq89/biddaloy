@@ -141,7 +141,8 @@
     "select": {
       "allGuardians": "Every guardian in this school without an active account will be previewed.",
       "importedCohort": "The guardians of the {{count}} just-imported student(s) will be previewed.",
-      "runPreview": "Preview invitations"
+      "runPreview": "Preview invitations",
+      "moreRemain": "This list shows the first 1000 guardians. After they are sent, you can go on to the next 1000."
     },
     "preview": {
       "runFirst": "Check the preview to see who will be invited.",
@@ -157,7 +158,8 @@
     },
     "done": {
       "inProgress": "Sending… {{queued}} of {{total}} still in progress.",
-      "finished": "Done — {{sent}} sent, {{failed}} failed, {{skipped}} skipped."
+      "finished": "Done — {{sent}} sent, {{failed}} failed, {{skipped}} skipped.",
+      "next": "Next 1000"
     },
     "errors": {
       "previewFailed": "Could not preview invitations. Please try again.",

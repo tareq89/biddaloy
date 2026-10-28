@@ -20,6 +20,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   DialogFooter,
 } from '@biddaloy/ui/components';
 import { useSendResultSms } from '@biddaloy/ui/hooks';
@@ -58,7 +59,10 @@ export function SendResultSmsDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
-          <DialogTitle>{t('smsDialog.title')}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('smsDialog.title')}</DialogTitle>
+            <HelpHint helpId="examsResults.results.action.sendSms" />
+          </div>
           <DialogDescription>
             {isPublished
               ? tg('resultsPage.smsDescription', { n: formatNumber(resultCount, config) })

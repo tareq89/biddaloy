@@ -8,7 +8,7 @@
  */
 import type { UserRole } from '@biddaloy/shared';
 import { decodeAccessTokenMemberships } from '@biddaloy/ui/api';
-import { ErrorState, RoutePending, SessionList, toast } from '@biddaloy/ui/components';
+import { ErrorState, HelpHint, RoutePending, SessionList, toast } from '@biddaloy/ui/components';
 import {
   logoutAll,
   sessionsQueryOptions,
@@ -39,7 +39,15 @@ export const Route = createFileRoute('/_staff/security')({
   // `CalendarFeedCard` never suspends into a blank namespace on first
   // visit — same rule `loadRouteNamespaces`'s own docstring documents.
   loader: () =>
-    loadRouteNamespaces('auth', 'calendarFeed', 'nav', 'signInMethods', 'attention', 'dashboard'),
+    loadRouteNamespaces(
+      'auth',
+      'calendarFeed',
+      'nav',
+      'signInMethods',
+      'attention',
+      'dashboard',
+      'portal',
+    ),
   pendingComponent: SecurityPending,
   component: SecurityRoute,
 });
@@ -123,6 +131,7 @@ function SecurityPage() {
             )}
             <SessionList
               sessions={sessions}
+              signOutAllHint={<HelpHint helpId="start.account.action.signOutAll" />}
               loading={sessionsQuery.isPending}
               onRevoke={(id) => {
                 const target = sessions.find((session) => session.id === id);

@@ -94,7 +94,7 @@ export async function lockSchoolForSnapshot(
     .setLock('pessimistic_read')
     .getOne();
   if (!school) {
-    throw new NotFoundException(`School with ID "${schoolId}" not found`);
+    throw new NotFoundException('School not found');
   }
   return school;
 }

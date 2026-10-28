@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   HomeworkAssignmentStatus,
   HomeworkGradingMode,
@@ -20,7 +20,11 @@ import { FamilyAccessService } from '../students/family-access.service';
 import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { matchesDeclaredType } from '../storage/file-signature';
-import { UpdateHomeworkSubmissionDto } from './dto/homework-submission.dto';
+import {
+  GradeSubmissionsDto,
+  HomeworkSubmissionRosterRowDto,
+  UpdateHomeworkSubmissionDto,
+} from './dto/homework-submission.dto';
 import { SchoolsService } from '../schools/schools.service';
 import { localToday } from '../attendance/attendance-policy.util';
 import { attentionEvents } from '../attention/attention.constants';
@@ -303,40 +307,155 @@ export class HomeworkSubmissionService {
     return saved;
   }
 
-  /** `GET /homework-assignments/:id/submissions` — teacher grid view. */
-  async findAllForAssignment(
+  /** Loads an assignment + its homework and applies the Rule 2 scope. Every miss is one text
+   * (Rule 23): a teacher cannot tell "other section" from "no such id". 403s pass through. */
+  private async loadForGrading(
     assignmentId: string,
     ctx: CallerContext,
-  ): Promise<HomeworkSubmission[]> {
-    const assignment = await this.loadAssignment(assignmentId, ctx.tenantId);
+  ): Promise<{ assignment: HomeworkAssignment; homework: Homework }> {
+    const miss = () => new NotFoundException('Homework assignment not found');
+    const assignment = await this.assignmentRepo.findOne({
+      where: { id: assignmentId, tenant_id: ctx.tenantId },
+    });
+    if (!assignment) throw miss();
     const homework = await this.homeworkRepo.findOne({
       where: { id: assignment.homework_id, tenant_id: ctx.tenantId },
     });
-    if (!homework) {
-      throw new NotFoundException('Homework not found');
+    if (!homework) throw miss();
+    try {
+      if (assignment.section_id) {
+        await this.access.assertCanManageSection(
+          ctx.role,
+          ctx.userId,
+          assignment.section_id,
+          homework.subject_id,
+          ctx.tenantId,
+        );
+      } else {
+        await this.access.assertCanManageStudent(
+          ctx.role,
+          ctx.userId,
+          assignment.student_id as string,
+          homework.subject_id,
+          ctx.tenantId,
+        );
+      }
+    } catch (e) {
+      throw e instanceof NotFoundException ? miss() : e;
+    }
+    return { assignment, homework };
+  }
+
+  /**
+   * D5 roster: every existing submission row is always listed (a student who moved still shows
+   * their work; `dashboard-reconciliation` counts these rows). On top of that, with no row yet:
+   * a section row adds live ACTIVE students of that section, a student row adds that student.
+   * A SUPERSEDED assignment adds nobody (the new row owns the roster).
+   */
+  private async roster(
+    assignment: HomeworkAssignment,
+    tenantId: string,
+  ): Promise<HomeworkSubmissionRosterRowDto[]> {
+    const rows: HomeworkSubmissionRosterRowDto[] = await this.submissionRepo.manager.query(
+      `SELECT st.id AS student_id, st.full_name AS student_name, st.roll_number,
+              hs.id AS submission_id,
+              COALESCE(hs.status::text, 'NOT_SUBMITTED') AS status,
+              hs.marks,
+              COALESCE(jsonb_array_length(hs.attachments), 0)::int AS attachment_count
+         FROM students st
+         LEFT JOIN homework_submissions hs
+                ON hs.assignment_id = $2 AND hs.student_id = st.id AND hs.tenant_id = $1
+        WHERE st.tenant_id = $1
+          AND ( hs.id IS NOT NULL
+                OR ( $3::text <> 'SUPERSEDED'
+                     AND st.deleted_at IS NULL
+                     AND st.enrollment_status = 'ACTIVE'
+                     AND (st.class_section_id = $4::uuid OR st.id = $5::uuid) ) )
+        ORDER BY st.roll_number ASC, st.full_name ASC, st.id ASC`,
+      [tenantId, assignment.id, assignment.status, assignment.section_id, assignment.student_id],
+    );
+    return rows;
+  }
+
+  /** `GET /homework-assignments/:id/submissions` — teacher check-work view (#2899). */
+  async findAllForAssignment(
+    assignmentId: string,
+    ctx: CallerContext,
+  ): Promise<HomeworkSubmissionRosterRowDto[]> {
+    const { assignment } = await this.loadForGrading(assignmentId, ctx);
+    return this.roster(assignment, ctx.tenantId);
+  }
+
+  /**
+   * `PATCH /homework-assignments/:id/submissions` — grade many students in one transaction,
+   * creating the row for a student who never uploaded. All checks run before any write; each
+   * text is fixed and echoes nothing (Rule 23). No idempotency key (Rule 25 exception): the
+   * unique (assignment_id, student_id) index stops a second row and the route sets values.
+   */
+  async grade(
+    assignmentId: string,
+    dto: GradeSubmissionsDto,
+    ctx: CallerContext,
+  ): Promise<HomeworkSubmissionRosterRowDto[]> {
+    const { assignment, homework } = await this.loadForGrading(assignmentId, ctx);
+    const ids = dto.items.map((i) => i.student_id);
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException('Each student can appear only once');
+    }
+    if (dto.items.some((i) => i.status === undefined && i.marks === undefined)) {
+      throw new BadRequestException('Nothing to change');
+    }
+    if (
+      homework.grading_mode !== HomeworkGradingMode.MARKS &&
+      dto.items.some((i) => i.marks !== undefined)
+    ) {
+      throw new BadRequestException(
+        'Marks can only be set when the homework grading mode is MARKS',
+      );
+    }
+    const onList = new Set((await this.roster(assignment, ctx.tenantId)).map((r) => r.student_id));
+    if (ids.some((id) => !onList.has(id))) {
+      throw new BadRequestException('A student in this list is not on this homework');
     }
 
-    if (assignment.section_id) {
-      await this.access.assertCanManageSection(
-        ctx.role,
-        ctx.userId,
-        assignment.section_id,
-        homework.subject_id,
-        ctx.tenantId,
-      );
-    } else {
-      await this.access.assertCanManageStudent(
-        ctx.role,
-        ctx.userId,
-        assignment.student_id as string,
-        homework.subject_id,
-        ctx.tenantId,
-      );
-    }
-
-    return this.submissionRepo.find({
-      where: { assignment_id: assignmentId, tenant_id: ctx.tenantId },
-      order: { created_at: 'ASC' },
+    await this.submissionRepo.manager.transaction(async (m) => {
+      await m
+        .createQueryBuilder()
+        .insert()
+        .into(HomeworkSubmission)
+        // Sorted: two Saves inserting the same students in different orders would deadlock.
+        .values(
+          [...ids].sort().map((student_id) => ({
+            tenant_id: ctx.tenantId,
+            assignment_id: assignment.id,
+            student_id,
+          })),
+        )
+        .orIgnore()
+        .execute();
+      const rows = await m.find(HomeworkSubmission, {
+        where: { tenant_id: ctx.tenantId, assignment_id: assignment.id, student_id: In(ids) },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const byStudent = new Map(rows.map((r) => [r.student_id, r]));
+      for (const item of dto.items) {
+        const row = byStudent.get(item.student_id);
+        if (!row) continue;
+        if (item.status !== undefined) {
+          row.status =
+            item.status === HomeworkSubmissionStatus.NOT_SUBMITTED
+              ? (row.attachments as unknown[]).length > 0
+                ? HomeworkSubmissionStatus.SUBMITTED
+                : HomeworkSubmissionStatus.NOT_SUBMITTED
+              : item.status;
+        }
+        if (item.marks !== undefined) row.marks = item.marks;
+      }
+      await m.save(rows);
     });
+    for (const ruleKey of ['homework.not_submitted', 'homework.to_grade'] as const) {
+      emitRecheck(attentionEvents, { tenantId: ctx.tenantId, ruleKey, actorUserId: ctx.userId });
+    }
+    return this.roster(assignment, ctx.tenantId);
   }
 }

@@ -19,9 +19,7 @@ keywords: [alert, send alert, warning, reminder, announce, notice to parents, wi
 appVersion: 0.1.0 (fb209bd7c)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: named-people-first-100-staff, checked: 2026-10-25, issue: 2969 }
-  - { id: portal-link-list-misses-pages, checked: 2026-10-25, issue: 2970 }
+knownIssues: []
 -->
 
 # Send an alert
@@ -46,7 +44,6 @@ An alert is not an SMS. To text one guardian, use [**Send a message**](send-mess
   - [Withdraw an alert](#task-withdraw)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -159,15 +156,6 @@ You can use several groups together. If nobody matches, the box says **Nobody ma
 | Academic coordinator | Yes                   | Yes                  |
 
 For other roles, **Send an alert** is not in the left menu. They only receive alerts, on [**Seeing and settling alerts**](../dashboard/alerts.md) (staff) or [**Alerts and notifications (parent and student)**](../portal/notifications.md).
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-| Issue                                                                                                                                           | Who, when                                 | Is data saved? | What to do for now                                  |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | -------------- | --------------------------------------------------- |
-| **Named people** offers only the first 100 staff members, so some staff cannot be found by name                                                 | Schools with more than 100 staff accounts | —              | Use **By role** instead                             |
-| **Page to open** for parents and students does not offer [**Homework**](../portal/homework.md) or [**Applications**](../portal/applications.md) | Alerts to parents or students             | —              | Pick **No page** and say in the message where to go |
 
 ---
 

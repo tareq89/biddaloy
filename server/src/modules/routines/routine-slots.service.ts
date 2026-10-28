@@ -2,15 +2,16 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { Routine } from './entities/routine.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
 import { PeriodSlot } from './entities/period-slot.entity';
+import { RoutineSubstitution } from './entities/routine-substitution.entity';
+import { RoutineChangeRequest } from './entities/routine-change-request.entity';
 import { Room } from './entities/room.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
@@ -20,7 +21,16 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
 import { SchoolsService } from '../schools/schools.service';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
-import { AuditAction, RoutineState, SlotRecurrence } from '@biddaloy/shared';
+import {
+  AuditAction,
+  ChangeRequestState,
+  EnrollmentStatus,
+  RoutineState,
+  SlotRecurrence,
+  isGuardianRole,
+} from '@biddaloy/shared';
+import { Enrollment } from '../students/entities/enrollment.entity';
+import { routineSlotScope } from './routine-visibility';
 import { UpsertRoutineSlotDto } from './dto/routine-slots.dto';
 import { checkSlot, SlotLike, Violation, Warning } from './constraint-check';
 import { actorIsStaffIn } from './teacher-busy.service';
@@ -39,7 +49,8 @@ export interface RoutineSlotWithWarnings {
  * `section_id` etc in place. It closes the existing row (`valid_to` set
  * to the day before the new row's `valid_from`) and inserts a new one —
  * the old row stays readable with its original dates, the way a mid-year
- * subject swap or teacher change actually happened in time.
+ * subject swap or teacher change actually happened in time. A row that has
+ * not started before the new date is replaced in place (no past to keep).
  *
  * D16: no cascading collection saves. `RoutineSlot` carries no
  * `@OneToMany` to `RoutineSlotTeacher`; teacher rows are written through
@@ -60,6 +71,8 @@ export class RoutineSlotsService {
     private readonly dataSource: DataSource,
     private readonly schoolsService: SchoolsService,
     private readonly auditService: AuditService,
+    @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
+    @InjectRepository(Enrollment) private readonly enrollmentRepo: Repository<Enrollment>,
   ) {}
 
   private async today(tenantId: string): Promise<string> {
@@ -67,8 +80,24 @@ export class RoutineSlotsService {
     return localToday(settings.region?.timezone ?? 'UTC');
   }
 
-  async findForRoutine(routineId: string, tenantId: string): Promise<RoutineSlotWithWarnings[]> {
-    await this.getRoutine(routineId, tenantId);
+  async findForRoutine(
+    routineId: string,
+    tenantId: string,
+    caller: { role: string; userId: string; familyStudentIds?: string[] },
+  ): Promise<RoutineSlotWithWarnings[]> {
+    const routine = await this.getRoutine(routineId, tenantId);
+    // Same visibility rule as ResolveRoutineService (one helper, D14).
+    const scope = await routineSlotScope(this.teacherRepo, routine, caller, tenantId);
+    if (scope === 'none') return [];
+    // [#3003] A family caller sees only the sections their linked students are
+    // enrolled in for this routine's year — never the whole school. The linkage
+    // itself is FamilyAccessService's (done in the controller); a guardian with no
+    // ids passed fails closed.
+    const familySections = isGuardianRole(caller.role)
+      ? await this.familySectionIds(routine, caller.familyStudentIds ?? [], tenantId)
+      : null;
+    if (familySections && familySections.size === 0) return [];
+    const ownTeacherId = scope === 'all' ? null : scope.teacherId;
     const slots = await this.slotRepo.find({
       where: { routine_id: routineId, tenant_id: tenantId },
       order: { weekday: 'ASC' },
@@ -77,11 +106,33 @@ export class RoutineSlotsService {
       slots.map((s) => s.id),
       tenantId,
     );
-    return slots.map((slot) => ({
-      slot,
-      teacher_ids: teacherRows.get(slot.id) ?? [],
-      warnings: [],
-    }));
+    return slots
+      .filter((slot) => !familySections || familySections.has(slot.section_id))
+      .filter((slot) => !ownTeacherId || (teacherRows.get(slot.id) ?? []).includes(ownTeacherId))
+      .map((slot) => ({
+        slot,
+        teacher_ids: teacherRows.get(slot.id) ?? [],
+        warnings: [],
+      }));
+  }
+
+  // By the routine's year (not latest enrollment, unlike resolve): a routine belongs to one year.
+  private async familySectionIds(
+    routine: Routine,
+    studentIds: string[],
+    tenantId: string,
+  ): Promise<Set<string>> {
+    if (studentIds.length === 0) return new Set();
+    const rows = await this.enrollmentRepo.find({
+      where: {
+        student_id: In(studentIds),
+        tenant_id: tenantId,
+        academic_year_id: routine.academic_year_id,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      },
+      select: { section_id: true },
+    });
+    return new Set(rows.flatMap((r) => (r.section_id ? [r.section_id] : [])));
   }
 
   async create(
@@ -123,7 +174,8 @@ export class RoutineSlotsService {
    * the new dto. The old row's id is never reused. Close, validation,
    * slot insertion and teacher-row insertion all run in one transaction —
    * a failure at any step rolls every one of them back together, so
-   * there's no manual "undo the close" path to keep in sync.
+   * there's no manual "undo the close" path to keep in sync. A row that has
+   * not started before the new `valid_from` is replaced in place instead.
    */
   async update(
     id: string,
@@ -132,9 +184,15 @@ export class RoutineSlotsService {
     userId: string | null,
   ): Promise<RoutineSlotWithWarnings> {
     return this.dataSource.transaction(async (manager) => {
-      const oldSlot = await manager.findOne(RoutineSlot, { where: { id, tenant_id: tenantId } });
+      // FOR UPDATE (#3022): a substitution or change-request insert takes FOR KEY SHARE on
+      // this row through its FK, so it waits for this edit instead of slipping past the
+      // reference check below.
+      const oldSlot = await manager.findOne(RoutineSlot, {
+        where: { id, tenant_id: tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!oldSlot) {
-        throw new NotFoundException(`Routine slot with ID "${id}" not found`);
+        throw new NotFoundException('Routine slot not found');
       }
 
       const routine = await manager.findOne(Routine, {
@@ -146,9 +204,6 @@ export class RoutineSlotsService {
       // row's own `valid_from` — otherwise the new row's `valid_to`
       // (computed below as the day before `dto.valid_from`) ends up
       // before its `valid_from`, an empty/invalid range.
-      if (dto.valid_from <= oldSlot.valid_from) {
-        throw new BadRequestException("valid_from must be after the current row's valid_from");
-      }
       // The old row may already have been closed by an earlier edit
       // (`valid_to` set) — don't silently reopen/overwrite that.
       if (oldSlot.valid_to !== null && oldSlot.valid_to < dto.valid_from) {
@@ -157,6 +212,15 @@ export class RoutineSlotsService {
 
       await this.validateTenantReferences(manager, dto, tenantId);
       const periodSlot = await this.getPeriodSlot(dto.period_slot_id, tenantId, manager);
+
+      // The row has not been in effect before the new date: no past to keep,
+      // so replace it in place (same reasoning as `remove()` for slots that
+      // never became active).
+      if (dto.valid_from <= oldSlot.valid_from) {
+        return this.updateInPlace(manager, oldSlot, dto, periodSlot, tenantId, userId);
+      }
+      // #3022: substitutions from the new date on would stay on the closed row and stop applying.
+      await this.assertNoSlotRefs(manager, oldSlot.id, tenantId, dto.valid_from);
       const closeDate = dayBefore(dto.valid_from);
 
       // Close the old row first so the overlap check below sees it as
@@ -195,6 +259,114 @@ export class RoutineSlotsService {
     });
   }
 
+  /**
+   * #3022: refuse an edit while substitutions (from `fromDate` on, when given) or open
+   * change requests reference the slot. In place: all of them. Split: only substitutions
+   * on or after the new row's start; earlier ones stay true history on the closed row.
+   */
+  private async assertNoSlotRefs(
+    manager: EntityManager,
+    slotId: string,
+    tenantId: string,
+    fromDate?: string,
+  ): Promise<void> {
+    const [subs, openRequests] = await Promise.all([
+      manager.count(RoutineSubstitution, {
+        where: {
+          routine_slot_id: slotId,
+          tenant_id: tenantId,
+          ...(fromDate ? { date: MoreThanOrEqual(fromDate) } : {}),
+        },
+      }),
+      fromDate
+        ? 0
+        : manager.count(RoutineChangeRequest, {
+            where: { routine_slot_id: slotId, tenant_id: tenantId, state: ChangeRequestState.OPEN },
+          }),
+    ]);
+    if (subs > 0 || openRequests > 0) {
+      throw new ConflictException({
+        message:
+          'This period has substitutions or open change requests; resolve them before editing it.',
+        details: { code: 'SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS' },
+      });
+    }
+  }
+
+  private async updateInPlace(
+    manager: EntityManager,
+    oldSlot: RoutineSlot,
+    dto: UpsertRoutineSlotDto,
+    periodSlot: PeriodSlot,
+    tenantId: string,
+    userId: string | null,
+  ): Promise<RoutineSlotWithWarnings> {
+    const id = oldSlot.id;
+    // #3022: the in-place edit keeps the slot id, so substitutions and open change
+    // requests would silently point at the changed lesson. Refuse instead.
+    await this.assertNoSlotRefs(manager, id, tenantId);
+    // Exclude the row itself so it does not clash with itself.
+    const existing = (
+      await this.loadExisting(oldSlot.routine_id, tenantId, manager, dto, userId)
+    ).filter((s) => s.id !== id);
+    const { violations, warnings } = await this.check(
+      this.toSlotLike(dto, periodSlot),
+      existing,
+      periodSlot,
+      tenantId,
+    );
+    if (violations.length > 0) {
+      throw new ConflictException({
+        message: 'Slot violates hard constraints',
+        details: { violations },
+      });
+    }
+    await manager.update(
+      RoutineSlot,
+      { id, tenant_id: tenantId },
+      {
+        section_id: dto.section_id,
+        period_slot_id: dto.period_slot_id,
+        weekday: dto.weekday,
+        subject_id: dto.subject_id,
+        room_id: dto.room_id ?? null,
+        recurrence: dto.recurrence,
+        recurrence_offset: dto.recurrence_offset ?? 0,
+        valid_from: dto.valid_from,
+        // A row an earlier edit already closed stays closed: never reopen it
+        // next to its successor; only an earlier end is taken from the dto.
+        valid_to: earliestEnd(oldSlot.valid_to, dto.valid_to ?? null),
+      },
+    );
+    // D16: explicit child-row writes, never a collection.
+    const oldTeacherIds = (
+      await manager.find(RoutineSlotTeacher, {
+        where: { routine_slot_id: id, tenant_id: tenantId },
+      })
+    ).map((row) => row.teacher_id);
+    await manager.delete(RoutineSlotTeacher, { routine_slot_id: id, tenant_id: tenantId });
+    const slotTeacherRepo = manager.getRepository(RoutineSlotTeacher);
+    await slotTeacherRepo.save(
+      dto.teacher_ids.map((teacherId) =>
+        slotTeacherRepo.create({ routine_slot_id: id, tenant_id: tenantId, teacher_id: teacherId }),
+      ),
+    );
+    const slot = await manager.findOneOrFail(RoutineSlot, { where: { id, tenant_id: tenantId } });
+    await this.auditService.record(
+      {
+        action: AuditAction.UPDATE,
+        entity_type: 'RoutineSlot',
+        entity_id: id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        old_values: { ...slotAuditValues(oldSlot), teacher_ids: oldTeacherIds },
+        new_values: { ...slotAuditValues(slot), teacher_ids: dto.teacher_ids, in_place: true },
+      },
+      manager,
+    );
+    return { slot, teacher_ids: dto.teacher_ids, warnings };
+  }
+
   /** IDOR guard: every foreign id in the payload must resolve to a row
    * in this tenant, not just exist somewhere in the database. */
   private async validateTenantReferences(
@@ -211,10 +383,10 @@ export class RoutineSlotsService {
       manager.find(Teacher, { where: { id: In(dto.teacher_ids), tenant_id: tenantId } }),
     ]);
 
-    if (!section) throw new NotFoundException(`Section with ID "${dto.section_id}" not found`);
-    if (!subject) throw new NotFoundException(`Subject with ID "${dto.subject_id}" not found`);
+    if (!section) throw new NotFoundException('Section not found');
+    if (!subject) throw new NotFoundException('Subject not found');
     if (dto.room_id && !room) {
-      throw new NotFoundException(`Room with ID "${dto.room_id}" not found`);
+      throw new NotFoundException('Room not found');
     }
 
     const teacherIds = new Set(teachers.map((teacher) => teacher.id));
@@ -234,7 +406,7 @@ export class RoutineSlotsService {
     await this.dataSource.transaction(async (manager) => {
       const slot = await manager.findOne(RoutineSlot, { where: { id, tenant_id: tenantId } });
       if (!slot) {
-        throw new NotFoundException(`Routine slot with ID "${id}" not found`);
+        throw new NotFoundException('Routine slot not found');
       }
       const routine = await this.getRoutine(slot.routine_id, tenantId);
       const today = await this.today(tenantId);
@@ -306,7 +478,7 @@ export class RoutineSlotsService {
       where: { id: routineId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!routine) {
-      throw new NotFoundException(`Routine with ID "${routineId}" not found`);
+      throw new NotFoundException('Routine not found');
     }
     return routine;
   }
@@ -327,7 +499,7 @@ export class RoutineSlotsService {
       ...(manager ? { lock: { mode: 'pessimistic_read' as const } } : {}),
     });
     if (!periodSlot) {
-      throw new NotFoundException(`Period slot with ID "${periodSlotId}" not found`);
+      throw new NotFoundException('Period slot not found');
     }
     return periodSlot;
   }
@@ -591,6 +763,13 @@ function dayBefore(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
+}
+
+/** The earlier of two optional end dates (`null` = open-ended). */
+function earliestEnd(a: string | null, b: string | null): string | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return a < b ? a : b;
 }
 
 function slotAuditValues(slot: RoutineSlot): Record<string, unknown> {

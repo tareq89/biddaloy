@@ -55,7 +55,7 @@ export class StudyPlanTemplatesService {
     const t = await this.repo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (!t) throw new NotFoundException(`Study plan template with ID "${id}" not found`);
+    if (!t) throw new NotFoundException('Study plan template not found');
     return t;
   }
 
@@ -153,7 +153,7 @@ export class StudyPlanTemplatesService {
         lesson_count: lessons.length,
       });
       return row;
-    }, name);
+    });
     return this.get(saved.id, tenantId);
   }
 
@@ -173,7 +173,7 @@ export class StudyPlanTemplatesService {
         where: { id, tenant_id: tenantId, deleted_at: IsNull() },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!live) throw new NotFoundException(`Study plan template with ID "${id}" not found`);
+      if (!live) throw new NotFoundException('Study plan template not found');
       const patch: Partial<StudyPlanTemplate> = {};
       if (name !== undefined) patch.name = name;
       if (dto.class_grade !== undefined) patch.class_grade = dto.class_grade;
@@ -202,7 +202,7 @@ export class StudyPlanTemplatesService {
           ...(lessons && { lesson_count: lessons.length }),
         },
       );
-    }, name);
+    });
     return this.get(id, tenantId);
   }
 
@@ -217,7 +217,7 @@ export class StudyPlanTemplatesService {
         where: { id, tenant_id: tenantId, deleted_at: IsNull() },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!live) throw new NotFoundException(`Study plan template with ID "${id}" not found`);
+      if (!live) throw new NotFoundException('Study plan template not found');
       await manager.getRepository(StudyPlanTemplate).softDelete({ id, tenant_id: tenantId });
       await this.audit(
         manager,
@@ -347,13 +347,13 @@ export class StudyPlanTemplatesService {
   }
 
   /** Runs `fn` in a transaction; a unique violation (23505) becomes a 409. */
-  private async run<T>(fn: (m: EntityManager) => Promise<T>, name?: string): Promise<T> {
+  private async run<T>(fn: (m: EntityManager) => Promise<T>): Promise<T> {
     try {
       return await this.repo.manager.transaction(fn);
     } catch (err) {
       if ((err as { code?: string } | null)?.code === '23505') {
         throw new ConflictException({
-          message: `A study plan template named "${name ?? ''}" already exists.`,
+          message: 'A study plan template with this name already exists.',
           details: { code: 'STUDY_PLAN_TEMPLATE_NAME_TAKEN' },
         });
       }

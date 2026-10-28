@@ -341,6 +341,13 @@ describe('FineSweepService (integration)', () => {
     expect(await feeRepo.find({ where: { student_id: studentId } })).toHaveLength(1);
   });
 
+  it('a month outside every academic year rejects with a fixed sentence (#3000)', async () => {
+    const { tenantId } = await setupTenant('2026-01-01', '2026-12-31');
+    await expect(service.preview(tenantId, '2020-01', {}, '2026-07-15')).rejects.toThrow(
+      /^No academic year covers this month for this tenant$/,
+    );
+  });
+
   it('generate rejects the current and a future month, accepts the previous one (F-150)', async () => {
     const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
     const structureId = await makeStructure(tenantId, yearId, 20);

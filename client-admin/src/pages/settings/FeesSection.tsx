@@ -70,6 +70,7 @@ const feesSchema = z.object({
   notifyOnManualGenerationDefault: z.boolean(),
   notifyOnScheduleDefault: z.boolean(),
   requireSecondApprover: z.boolean(),
+  fineDueDays: latinBounded(1, 60),
   lateFees: z.record(z.string(), lateFeeSchema),
 });
 
@@ -90,6 +91,7 @@ function toFormValues(fees: FeesSettings | undefined): FeesFormValues {
     notifyOnManualGenerationDefault: fees?.notifyOnManualGenerationDefault ?? false,
     notifyOnScheduleDefault: fees?.notifyOnScheduleDefault ?? true,
     requireSecondApprover: fees?.requireSecondApprover ?? false,
+    fineDueDays: String(fees?.fineDueDays ?? 7),
     lateFees: Object.fromEntries(
       LATE_FEE_TYPES.map((type) => {
         const setting = fees?.late_fees?.[type];
@@ -143,6 +145,7 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
           notifyOnManualGenerationDefault: values.notifyOnManualGenerationDefault,
           notifyOnScheduleDefault: values.notifyOnScheduleDefault,
           requireSecondApprover: values.requireSecondApprover,
+          fineDueDays: Number(values.fineDueDays),
           late_fees: lateFees,
         },
       },
@@ -344,6 +347,23 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
             'notifyOnManualGenerationDefault',
             t('fees.notifyOnManualGenerationDefault'),
           )}
+        </div>
+
+        <div className="mt-6 grid gap-4 border-t border-border-subtle pt-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="fineDueDays"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="fees-fineDueDays">{t('fees.fineDueDaysLabel')}</FormLabel>
+                <FormControl>
+                  <Input id="fees-fineDueDays" inputMode="numeric" {...field} />
+                </FormControl>
+                <FormDescription>{t('fees.fineDueDaysHelp')}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">

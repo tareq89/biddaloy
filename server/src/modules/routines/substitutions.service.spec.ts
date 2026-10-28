@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { RoutineState, SlotRecurrence } from '@biddaloy/shared';
+import { QueryFailedError } from 'typeorm';
 import { SubstitutionsService } from './substitutions.service';
+import { attentionEvents } from '../attention/attention.constants';
+import { ATTENTION_RECHECK } from '../attention/engine/attention-events';
 
 const TENANT_ID = 'tenant-1';
 const YEAR = { id: 'year-1', start_date: '2026-01-04' };
@@ -20,9 +23,14 @@ function buildService() {
   const substitutionRepo: any = {
     findOne: vi.fn(async () => null),
     update: vi.fn(async () => undefined),
+    delete: vi.fn(async () => undefined),
     create: vi.fn((v: any) => v),
     save: vi.fn(async (v: any) => ({ id: 'sub-1', ...v })),
     createQueryBuilder: vi.fn(() => qb),
+  };
+  // `remove()` runs in a transaction; its manager hands back the same mock.
+  substitutionRepo.manager = {
+    transaction: (cb: any) => cb({ getRepository: () => substitutionRepo }),
   };
   const qb: any = {
     innerJoin: vi.fn().mockReturnThis(),
@@ -31,14 +39,17 @@ function buildService() {
     orderBy: vi.fn().mockReturnThis(),
     getMany: vi.fn(async () => []),
   };
-  const slotRepo: any = { findOne: vi.fn(async () => SLOT) };
+  const slotRepo: any = { findOne: vi.fn(async () => SLOT), find: vi.fn(async () => []) };
   const routineRepo: any = { findOne: vi.fn(async () => ROUTINE) };
   const yearRepo: any = { findOne: vi.fn(async () => YEAR) };
   const teacherRepo: any = {
     findOne: vi.fn(async () => ({ id: 't-2', tenant_id: TENANT_ID, user_id: 'u-2' })),
   };
   const slotTeacherRepo: any = { find: vi.fn(async () => [{ teacher_id: 't-1' }]) };
+  const sectionRepo: any = { find: vi.fn(async () => []) };
+  const subjectRepo: any = { find: vi.fn(async () => []) };
   const periodSlotRepo: any = {
+    find: vi.fn(async () => []),
     findOne: vi.fn(async () => ({
       shift_id: 'shift-1',
       sequence: 1,
@@ -48,7 +59,12 @@ function buildService() {
   };
   const busy: any = { busyAt: vi.fn(async () => null) };
   const settings: any = { attendance: { specialTimings: [] } };
-  const schools: any = { getResolvedSettings: vi.fn(async () => settings) };
+  // The school's today (#3022): rows before it are history.
+  const schools: any = {
+    getResolvedSettings: vi.fn(async () => settings),
+    todayFor: vi.fn(async () => '2026-01-01'),
+  };
+  const audit: any = { record: vi.fn(async () => undefined) };
   const service = new SubstitutionsService(
     substitutionRepo,
     slotRepo,
@@ -59,9 +75,17 @@ function buildService() {
     periodSlotRepo,
     busy,
     schools,
+    audit,
+    sectionRepo,
+    subjectRepo,
   );
   return {
     service,
+    audit,
+    schools,
+    sectionRepo,
+    subjectRepo,
+    periodSlotRepo,
     settings,
     slotTeacherRepo,
     busy,
@@ -81,6 +105,98 @@ describe('SubstitutionsService [21.5.1]', () => {
     ctx = buildService();
   });
 
+  it('list() returns the slot summary from any year, batch-loaded, with no year filter [2897]', async () => {
+    // The slot belongs to an old year's routine: nothing here knows or cares which year is current.
+    ctx.qb.getMany = vi.fn(async () => [
+      { id: 'sub-1', routine_slot_id: 'slot-old' },
+      { id: 'sub-2', routine_slot_id: 'slot-gone' },
+    ]);
+    ctx.slotRepo.find = vi.fn(async () => [
+      { id: 'slot-old', section_id: 'sec-1', period_slot_id: 'p-1', subject_id: 'subj-1' },
+    ]);
+    ctx.periodSlotRepo.find = vi.fn(async () => [
+      { id: 'p-1', sequence: 3, starts_at: '09:30:00' },
+    ]);
+    ctx.sectionRepo.find = vi.fn(async () => [
+      { id: 'sec-1', section_name: 'B', class: { name: 'Class 5' } },
+    ]);
+    ctx.subjectRepo.find = vi.fn(async () => [{ id: 'subj-1', name_en: 'Math', name_bn: null }]);
+    ctx.slotTeacherRepo.find = vi.fn(async () => [
+      { routine_slot_id: 'slot-old', teacher_id: 't-1' },
+    ]);
+
+    const result = await ctx.service.list({} as any, TENANT_ID);
+
+    expect(result[0]!.slot).toEqual({
+      section_id: 'sec-1',
+      class_name: 'Class 5',
+      section_name: 'B',
+      period_sequence: 3,
+      starts_at: '09:30:00',
+      subject_name_en: 'Math',
+      subject_name_bn: null,
+      teacher_ids: ['t-1'],
+    });
+    // A row whose slot is gone comes back with `slot: null`, not a crash.
+    expect(result[1]!.slot).toBeNull();
+    // Archived sections / subjects of an old year are still found.
+    expect(ctx.sectionRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ withDeleted: true }),
+    );
+    expect(ctx.subjectRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ withDeleted: true }),
+    );
+  });
+
+  describe('remove', () => {
+    const ROW = {
+      id: 'sub-1',
+      routine_slot_id: 'slot-1',
+      date: '2099-01-01', // future: still deletable
+      substitute_teacher_id: 't-2',
+      is_cancelled: false,
+    };
+
+    it('deletes the row, writes a DELETE audit and emits the rechecks', async () => {
+      ctx.substitutionRepo.findOne = vi.fn(async () => ROW);
+      const seen: string[] = [];
+      const listener = (e: { ruleKey: string }) => seen.push(e.ruleKey);
+      attentionEvents.on(ATTENTION_RECHECK, listener);
+      await ctx.service.remove('sub-1', TENANT_ID, 'user-1');
+      attentionEvents.off(ATTENTION_RECHECK, listener);
+      expect(seen).toEqual(['routine.substitution_today', 'routine.changed_today']);
+      expect(ctx.substitutionRepo.delete).toHaveBeenCalledWith({
+        id: 'sub-1',
+        tenant_id: TENANT_ID,
+      });
+      expect(ctx.audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'DELETE',
+          entity_type: 'RoutineSubstitution',
+          entity_id: 'sub-1',
+          old_values: expect.objectContaining({ routine_slot_id: 'slot-1', date: '2099-01-01' }),
+        }),
+        expect.anything(), // the transaction manager: delete and audit commit together
+      );
+    });
+
+    it('refuses (409) to delete a past-dated substitution and keeps the row', async () => {
+      ctx.substitutionRepo.findOne = vi.fn(async () => ({ ...ROW, date: '2000-01-01' }));
+      const err: any = await ctx.service.remove('sub-1', TENANT_ID, 'user-1').catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('SUBSTITUTION_IN_PAST');
+      expect(ctx.substitutionRepo.delete).not.toHaveBeenCalled();
+    });
+
+    it("another tenant's id is a 404 whose text carries no id", async () => {
+      ctx.substitutionRepo.findOne = vi.fn(async () => null);
+      const err: any = await ctx.service.remove('sub-9', TENANT_ID, 'user-1').catch((e) => e);
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect(err.message).not.toContain('sub-9');
+      expect(ctx.substitutionRepo.delete).not.toHaveBeenCalled();
+    });
+  });
+
   it('throws NotFoundException for a slot outside the tenant', async () => {
     ctx.slotRepo.findOne = vi.fn(async () => null);
     await expect(
@@ -90,6 +206,24 @@ describe('SubstitutionsService [21.5.1]', () => {
         'user-1',
       ),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('refuses (409) to overwrite an existing past-dated substitution (#3022)', async () => {
+    // The unique index says a row for (slot, date) exists: an update would rewrite history.
+    ctx.substitutionRepo.save = vi.fn(async () => {
+      throw Object.assign(new QueryFailedError('INSERT', [], new Error('dup')), { code: '23505' });
+    });
+    ctx.schools.todayFor = vi.fn(async () => '2026-02-01');
+    const err: any = await ctx.service
+      .record(
+        { routine_slot_id: 'slot-1', date: '2026-01-05', is_cancelled: true } as any,
+        TENANT_ID,
+        'u',
+      )
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse().details.code).toBe('SUBSTITUTION_IN_PAST');
+    expect(ctx.substitutionRepo.update).not.toHaveBeenCalled();
   });
 
   it('records a cover for an occurring date', async () => {

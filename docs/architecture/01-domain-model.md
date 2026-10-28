@@ -513,7 +513,7 @@ composition should extend the promotion mean the same way.
   recent `ACTIVE` row — `Student.class_section` is the fast-path pointer,
   `Enrollment` is the audit trail.
 
-### Programs & milestones (`modules/programs`) — see [17-programs.md](17-programs.md) for the full model
+### Programs & milestones (`modules/programs`) — see [32-programs.md](32-programs.md) for the full model
 
 - **`Program`** — a tenant-wide track (hifz, a vocational trade, a club) with
   no `academic_year_id` — it can span years. `show_on_report_card` opts it

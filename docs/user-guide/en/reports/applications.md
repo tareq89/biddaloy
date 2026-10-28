@@ -28,8 +28,7 @@ keywords:
 appVersion: 0.1.0 (3f7e424fc)
 owner: tareq89
 lastVerified: 2026-10-25
-knownIssues:
-  - { id: year-default-counts-all, checked: 2026-10-25, issue: 2945 }
+knownIssues: []
 -->
 
 # Application reports
@@ -53,7 +52,6 @@ The numbers come from the school's [applications](../applications/applications.m
   - [Who is on leave today, and how many days each took](#task-leave)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -72,8 +70,6 @@ The numbers come from the school's [applications](../applications/applications.m
 4. Look at the **By type and status** and **By month** tables.
 
 ![Application reports with the Academic year and Submitted on filters, four summary boxes, and the By type and status and By month sections](img/applications-02-reports.png)
-
-> **Remember:** if you do not choose an **Academic year**, applications of all years are counted for now, even though it says "Current year". To see only this year, choose the year yourself from **Academic year** ([Known issues](#known-issues)).
 
 ---
 
@@ -105,7 +101,13 @@ If there is nothing, it says **No application has been waiting more than 3 days.
 1. From **Academic year** choose a year.
 2. If needed, enter the **From** and **To** days under **Submitted on**.
 
-   → The dates are added under the title too. If no application matches, it says **No applications in this period**; press **Clear all filters** to remove the filters.
+   → The dates are added under the title too; with only one date it says **From {date}** or **Up to {date}**. If no application matches, it says **No applications in this period**; press **Clear all filters** to remove the filters.
+
+| You pick                     | Which applications are counted                                                      | The **Academic year** box says |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ------------------------------ |
+| Nothing                      | The current year, plus applications that have no year                               | **Current year (…)**           |
+| A year                       | Only that year                                                                      | The year's name                |
+| Only dates, no year          | Every year, within the dates; the year is not shown under the title                 | **All years**                  |
 
 ### Who is on leave today, and how many days each took <a href="#task-leave" id="task-leave"></a>
 
@@ -123,7 +125,6 @@ If there is nothing, it says **No application has been waiting more than 3 days.
 | **Could not load the report.**                            | Press **Try again**, or reload the page.                                                                             | Admin        |
 | **No applications in this period**                        | Press **Clear all filters**, or choose another year.                                                                 | —            |
 | **Average time to decide** shows **—**                    | No application was decided in this time.                                                                             | —            |
-| This year's count looks too high                          | Choose the **Academic year** yourself; if you do not, all years are counted ([Known issues](#known-issues)).        | —            |
 | Staff leave days do not change when the year changes      | Leave days are filtered by **Submitted on** only, by the day the leave starts; not by academic year.                 | —            |
 | **Application reports** is not in the left menu           | Your role cannot see this page. See [who can do what](#roles).                                                       | Admin        |
 
@@ -141,16 +142,6 @@ If there is nothing, it says **No application has been waiting more than 3 days.
 **Admin, Academic coordinator and Office staff:** all three see the same count for the whole school; there is no difference in the code. All applications are counted, not only your own share.
 
 Other roles may be able to submit applications, but they do not get **Application reports** in the left menu.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked from the code in version 0.1.0, 2026-10-25. Not tried in the running app. When it is fixed, this part will be removed.
-
-| Issue                                                                                                                       | Who, when                      | Is data saved? | What to do for now                        |
-| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | -------------- | ----------------------------------------- |
-| If you do not choose an **Academic year**, it says "Current year" and **This academic year**, but applications of all years are counted | Anyone, when the page first opens | Yes            | Choose the year yourself from **Academic year** |
 
 ---
 

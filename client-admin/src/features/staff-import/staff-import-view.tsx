@@ -8,6 +8,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { importFileErrorKey } from '@biddaloy/ui/utils';
 import { Link, useSearch } from '@tanstack/react-router';
 import { DownloadIcon } from 'lucide-react';
 import * as React from 'react';
@@ -41,6 +42,15 @@ export function rowErrorKey(error: { column: string | null; message: string }): 
 }
 
 /**
+ * Maps the server's `details.code` on a whole-file 400 to `staffImport:fileErrors.*`.
+ * No code (or an unknown one) is `other`, so no server English reaches the screen.
+ * Exported for the test.
+ */
+export function fileErrorKey(error: unknown): string {
+  return importFileErrorKey(error) ?? 'other';
+}
+
+/**
  * The staff version of the student import: sample file, column guide, upload,
  * problems, preview, "send invitations now", confirm. A component only —
  * `/staff/import` mounts it. Nothing is written until the person confirms.
@@ -60,7 +70,19 @@ export function StaffImportView() {
 
   const validate = React.useCallback(
     async (file: File, onProgress: (percent: number) => void): Promise<Result> => {
-      const result = await validateAsync({ file, onProgress });
+      let result;
+      try {
+        result = await validateAsync({ file, onProgress });
+      } catch (err) {
+        // Whole-file failures carry `details.code`; show our text for it, never
+        // the server's English.
+        const key =
+          // The hook rethrows as `Error` with the HTTP code in `status`.
+          (err as { status?: number }).status === 429 ? 'rateLimited' : fileErrorKey(err);
+        throw new Error(t(`fileErrors.${key}`), {
+          cause: err,
+        });
+      }
       return {
         ...result,
         errors: result.errors.map((error) => ({

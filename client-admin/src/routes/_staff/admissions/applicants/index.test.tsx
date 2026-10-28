@@ -47,7 +47,11 @@ describe('/admissions/applicants', () => {
 
   it('lists applicants and links to the detail screen', async () => {
     mockIntakes();
-    server.use(http.get('/api/v1/admission/applicants', () => HttpResponse.json([applicant])));
+    server.use(
+      http.get('/api/v1/admission/applicants', () =>
+        HttpResponse.json({ data: [applicant], total: 1, page: 1, limit: 50, totalPages: 1 }),
+      ),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/admissions/applicants'],
@@ -78,7 +82,13 @@ describe('/admissions/applicants', () => {
     server.use(
       http.get('/api/v1/admission/applicants', ({ request }) => {
         seen.push(new URL(request.url).searchParams.get('status'));
-        return HttpResponse.json([applicant]);
+        return HttpResponse.json({
+          data: [applicant],
+          total: 1,
+          page: 1,
+          limit: 50,
+          totalPages: 1,
+        });
       }),
     );
     renderWithRouter(routeTree, {
@@ -94,9 +104,73 @@ describe('/admissions/applicants', () => {
     await waitFor(() => expect(seen.at(-1)).toBe('SHORTLISTED'));
   });
 
+  it('[#2880] sends the typed search text to the server', async () => {
+    mockIntakes();
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get('/api/v1/admission/applicants', ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get('search'));
+        return HttpResponse.json({
+          data: [applicant],
+          total: 1,
+          page: 1,
+          limit: 50,
+          totalPages: 1,
+        });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('REF-001');
+    const user = userEvent.setup();
+    await user.type(screen.getByPlaceholderText('Name, reference number or phone'), 'jane');
+    await waitFor(() => expect(seen.at(-1)).toBe('jane'));
+  });
+
+  it('[#2995] pages the list: sends page/limit and offers a next page when more rows exist', async () => {
+    mockIntakes();
+    const seen: { page: string | null; limit: string | null }[] = [];
+    server.use(
+      http.get('/api/v1/admission/applicants', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        seen.push({ page: params.get('page'), limit: params.get('limit') });
+        return HttpResponse.json({
+          data: [applicant],
+          total: 120,
+          page: Number(params.get('page') ?? 1),
+          limit: Number(params.get('limit') ?? 50),
+          totalPages: 3,
+        });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('REF-001');
+    expect(screen.getByText('Rows per page')).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Next' }).disabled).toBe(false);
+    expect(seen.at(-1)?.page).toBe('1');
+    expect(Number(seen.at(-1)?.limit)).toBeLessThanOrEqual(100);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(seen.at(-1)?.page).toBe('2'));
+  });
+
   it('shows a real empty state when there are no applications', async () => {
     mockIntakes();
-    server.use(http.get('/api/v1/admission/applicants', () => HttpResponse.json([])));
+    server.use(
+      http.get('/api/v1/admission/applicants', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 50, totalPages: 0 }),
+      ),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/admissions/applicants'],
@@ -111,7 +185,11 @@ describe('/admissions/applicants', () => {
 
   it('refuses the whole route for TEACHER, who lacks ADMISSION_REVIEW', async () => {
     mockIntakes();
-    server.use(http.get('/api/v1/admission/applicants', () => HttpResponse.json([])));
+    server.use(
+      http.get('/api/v1/admission/applicants', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 50, totalPages: 0 }),
+      ),
+    );
 
     renderWithRouter(routeTree, {
       initialEntries: ['/admissions/applicants'],

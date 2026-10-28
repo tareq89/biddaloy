@@ -56,7 +56,9 @@
     "deadlineLabel": "Mark entry deadline",
     "deadlinePlaceholder": "Pick a date",
     "deadlineHelp": "Teachers see the days left on their dashboard. Leave empty if there is none.",
-    "deadlineClear": "Clear date"
+    "deadlineClear": "Clear date",
+    "errorPublished": "This exam's results are published. Reopen the results before changing its type.",
+    "errorClassNoGrade": "This class has no grade set, so an exam structure can't be used. Set the class grade first, or create the exam without a structure."
   },
   "detail": {
     "loadError": "Couldn't load this exam.",
@@ -74,6 +76,14 @@
       "academicYear": "Academic year",
       "kind": "Type",
       "publishedAt": "Results published"
+    },
+    "delete": {
+      "button": "Delete exam",
+      "title": "Delete this exam?",
+      "description": "The exam, its marks breakdown, schedule and any marks entered are removed. This can't be undone from the app.",
+      "confirm": "Delete",
+      "errorHasResults": "This exam has results. Reopen and correct them instead of deleting the exam.",
+      "errorMessage": "Couldn't delete the exam. Please try again."
     }
   },
   "schedulePanel": {

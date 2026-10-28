@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Not, Repository } from 'typeorm';
+import { Brackets, Not, Repository, SelectQueryBuilder } from 'typeorm';
 import { HomeworkAssignmentStatus } from '@biddaloy/shared';
 import { Homework } from './entities/homework.entity';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
@@ -8,10 +8,13 @@ import { HomeworkAccessService } from './homework-access.service';
 import { teacherAssignments } from '../classes/teacher-scope.service';
 import { HomeworkNoticeService } from './homework-notice.service';
 import { HomeworkToCheckDto } from './dto/homework-dashboard.dto';
+import { attentionEvents } from '../attention/attention.constants';
+import { emitRecheck } from '../attention/engine/attention-events';
 import {
   AssignHomeworkDto,
   CreateHomeworkDto,
   FamilyHomeworkListDto,
+  HomeworkAssignmentListItemDto,
   QueryHomeworkDto,
   UpdateHomeworkAssignmentDto,
 } from './dto/homework.dto';
@@ -183,37 +186,9 @@ export class HomeworkService {
     }
 
     // Same object-level gate as mutations: tenant-wide managers see everything in the
-    // tenant; a TEACHER only homework for their current-year assignments (a homeroom row
-    // covers any subject of its class, a subject row only that subject). No rows = nothing.
-    if (!this.access.canManageTenantWide(ctx.role)) {
-      const rows = await teacherAssignments(this.homeworkRepo.manager, {
-        userId: ctx.userId,
-        tenantId: ctx.tenantId,
-      });
-      if (rows.length === 0) return [];
-      const homeroomClassIds = [
-        ...new Set(rows.filter((r) => r.subject_id === null).map((r) => r.class_id)),
-      ];
-      qb.andWhere(
-        new Brackets((w) => {
-          // `1 = 0` keeps the OR chain valid when there is no homeroom row.
-          if (homeroomClassIds.length)
-            w.where('h.class_id IN (:...homeroomClassIds)', { homeroomClassIds });
-          else w.where('1 = 0');
-          // One term per distinct (class, subject), skipping classes the homeroom already covers.
-          const subjectTerms = new Map(
-            rows
-              .filter((r) => r.subject_id !== null && !homeroomClassIds.includes(r.class_id))
-              .map((r) => [`${r.class_id}:${r.subject_id}`, r] as const),
-          );
-          [...subjectTerms.values()].forEach((r, i) =>
-            w.orWhere(`(h.class_id = :c${i} AND h.subject_id = :s${i})`, {
-              [`c${i}`]: r.class_id,
-              [`s${i}`]: r.subject_id,
-            }),
-          );
-        }),
-      );
+    // tenant; anyone else only what `applyTeacherScope` lets through. No rows = nothing.
+    if (!this.access.canManageTenantWide(ctx.role) && !(await this.applyTeacherScope(qb, ctx))) {
+      return [];
     }
 
     return qb.orderBy('h.created_at', 'DESC').getMany();
@@ -266,6 +241,78 @@ export class HomeworkService {
     };
   }
 
+  /**
+   * [86.1/#2861] Narrows `qb` (alias `h`) to what a non-manager may see, or returns false
+   * when they have no current-year assignment (caller shows nothing). A homework is visible
+   * if (A) it has an assignment in one of their sections (a homeroom row covers any subject,
+   * a subject row only that subject), or (B) it has no assignment yet and sits in their
+   * class/subject scope, so a just-created homework stays visible to the teacher who will
+   * assign it. Shared by the list and `findOne` so both answer the same (Rule 2).
+   */
+  private async applyTeacherScope(
+    qb: SelectQueryBuilder<Homework>,
+    ctx: CallerContext,
+  ): Promise<boolean> {
+    const rows = await teacherAssignments(this.homeworkRepo.manager, {
+      userId: ctx.userId,
+      tenantId: ctx.tenantId,
+    });
+    if (rows.length === 0) return false;
+    const homeroomClassIds = [
+      ...new Set(rows.filter((r) => r.subject_id === null).map((r) => r.class_id)),
+    ];
+    qb.andWhere(
+      new Brackets((w) => {
+        // A: assigned in one of my sections (section from the row, else the student's).
+        w.where(
+          `EXISTS (
+             SELECT 1 FROM homework_assignments hax
+             LEFT JOIN students stx ON stx.id = hax.student_id AND stx.tenant_id = :scopeTenant
+             JOIN unnest(CAST(:scopeSections AS uuid[]), CAST(:scopeSubjects AS uuid[]))
+                  AS sc(section_id, subject_id)
+               ON sc.section_id = COALESCE(hax.section_id, stx.class_section_id)
+            WHERE hax.homework_id = h.id AND hax.tenant_id = :scopeTenant
+              AND (sc.subject_id IS NULL OR sc.subject_id = h.subject_id))`,
+          {
+            scopeTenant: ctx.tenantId,
+            scopeSections: rows.map((r) => r.section_id),
+            scopeSubjects: rows.map((r) => r.subject_id),
+          },
+        );
+        // B: not assigned yet AND in my class/subject scope.
+        w.orWhere(
+          new Brackets((u) => {
+            u.where(
+              `NOT EXISTS (SELECT 1 FROM homework_assignments han
+                WHERE han.homework_id = h.id AND han.tenant_id = :scopeTenant)`,
+            );
+            u.andWhere(
+              new Brackets((c) => {
+                // `1 = 0` keeps the OR chain valid when there is no homeroom row.
+                if (homeroomClassIds.length)
+                  c.where('h.class_id IN (:...homeroomClassIds)', { homeroomClassIds });
+                else c.where('1 = 0');
+                // One term per distinct (class, subject), skipping homeroom-covered classes.
+                const subjectTerms = new Map(
+                  rows
+                    .filter((r) => r.subject_id !== null && !homeroomClassIds.includes(r.class_id))
+                    .map((r) => [`${r.class_id}:${r.subject_id}`, r] as const),
+                );
+                [...subjectTerms.values()].forEach((r, i) =>
+                  c.orWhere(`(h.class_id = :c${i} AND h.subject_id = :s${i})`, {
+                    [`c${i}`]: r.class_id,
+                    [`s${i}`]: r.subject_id,
+                  }),
+                );
+              }),
+            );
+          }),
+        );
+      }),
+    );
+    return true;
+  }
+
   async findOne(id: string, ctx: CallerContext): Promise<Homework> {
     const homework = await this.homeworkRepo.findOne({
       where: { id, tenant_id: ctx.tenantId },
@@ -285,7 +332,82 @@ export class HomeworkService {
       .catch((e: unknown) => {
         throw e instanceof NotFoundException ? new NotFoundException('Homework not found') : e;
       });
+    // Rule 2: what the list hides (homework assigned only to another section) is 404 here too.
+    if (!this.access.canManageTenantWide(ctx.role)) {
+      const scoped = this.homeworkRepo
+        .createQueryBuilder('h')
+        .where('h.id = :id AND h.tenant_id = :tenantId', { id, tenantId: ctx.tenantId });
+      if (!(await this.applyTeacherScope(scoped, ctx)) || !(await scoped.getExists())) {
+        throw new NotFoundException('Homework not found');
+      }
+    }
     return homework;
+  }
+
+  /**
+   * Every assignment row of one homework, with its target as names. `findOne` is the
+   * 404/tenant/scope gate. A teacher sees only rows passing the same section + subject
+   * rule as `assertCanManageSection`, so every listed row can be reassigned.
+   */
+  async findAssignments(
+    homeworkId: string,
+    ctx: CallerContext,
+  ): Promise<HomeworkAssignmentListItemDto[]> {
+    const homework = await this.findOne(homeworkId, ctx);
+    const qb = this.assignmentRepo
+      .createQueryBuilder('ha')
+      .leftJoin(
+        'students',
+        'st',
+        'st.id = ha.student_id AND st.tenant_id = :tenantId AND st.deleted_at IS NULL',
+      )
+      .innerJoin(
+        'class_sections',
+        'cs',
+        'cs.id = COALESCE(ha.section_id, st.class_section_id) AND cs.tenant_id = :tenantId AND cs.deleted_at IS NULL',
+      )
+      .select([
+        'ha.id AS id',
+        'ha.homework_id AS homework_id',
+        'ha.section_id AS section_id',
+        'ha.student_id AS student_id',
+        'ha.status AS status',
+        'cs.id AS target_section_id',
+        'cs.section_name AS section_name',
+        'st.full_name AS student_name',
+      ])
+      // Raw `date` columns would come back as shifted JS Dates; see findForStudent.
+      .addSelect("to_char(ha.assigned_date, 'YYYY-MM-DD')", 'assigned_date')
+      .addSelect("to_char(ha.due_date, 'YYYY-MM-DD')", 'due_date')
+      .where('ha.homework_id = :homeworkId AND ha.tenant_id = :tenantId', {
+        homeworkId: homework.id,
+        tenantId: ctx.tenantId,
+      });
+    if (!this.access.canManageTenantWide(ctx.role)) {
+      const rows = await teacherAssignments(this.homeworkRepo.manager, {
+        userId: ctx.userId,
+        tenantId: ctx.tenantId,
+      });
+      if (rows.length === 0) return [];
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM unnest(CAST(:scopeSections AS uuid[]), CAST(:scopeSubjects AS uuid[]))
+                   AS sc(section_id, subject_id)
+                 WHERE sc.section_id = cs.id
+                   AND (sc.subject_id IS NULL OR sc.subject_id = :hwSubject))`,
+        {
+          scopeSections: rows.map((r) => r.section_id),
+          scopeSubjects: rows.map((r) => r.subject_id),
+          hwSubject: homework.subject_id,
+        },
+      );
+    }
+    return qb
+      .orderBy("CASE ha.status WHEN 'ACTIVE' THEN 0 WHEN 'DEACTIVATED' THEN 1 ELSE 2 END", 'ASC')
+      .addOrderBy('ha.due_date', 'DESC')
+      .addOrderBy('ha.created_at', 'DESC')
+      .addOrderBy('ha.id', 'ASC')
+      .limit(100)
+      .getRawMany<HomeworkAssignmentListItemDto>();
   }
 
   async assign(
@@ -383,27 +505,56 @@ export class HomeworkService {
     });
   }
 
-  /** `PATCH /homework-assignments/:id` — deactivate/reactivate only (Q10 D22). */
+  /** `PATCH /homework-assignments/:id`: status and/or due date, in place (#2900). Every miss
+   * (unknown id, homework or target out of the teacher's scope) is one 404 text (Rule 23). */
   async updateAssignment(
     assignmentId: string,
     dto: UpdateHomeworkAssignmentDto,
     ctx: CallerContext,
   ): Promise<HomeworkAssignment> {
+    if (dto.status === undefined && dto.due_date === undefined) {
+      throw new BadRequestException('Nothing to change');
+    }
+    const miss = () => new NotFoundException('Homework assignment not found');
     const assignment = await this.assignmentRepo.findOne({
       where: { id: assignmentId, tenant_id: ctx.tenantId },
     });
-    if (!assignment) {
-      throw new NotFoundException('Homework assignment not found');
+    if (!assignment) throw miss();
+    try {
+      const homework = await this.findOne(assignment.homework_id, ctx);
+      await this.assertCanManageTarget(assignment, homework, ctx);
+    } catch (e) {
+      throw e instanceof NotFoundException ? miss() : e;
     }
-    const homework = await this.findOne(assignment.homework_id, ctx);
-
-    await this.assertCanManageTarget(assignment, homework, ctx);
 
     if (assignment.status === HomeworkAssignmentStatus.SUPERSEDED) {
       throw new BadRequestException('A superseded assignment cannot be changed');
     }
-
-    assignment.status = dto.status;
-    return this.assignmentRepo.save(assignment);
+    if (dto.due_date !== undefined && dto.due_date < assignment.assigned_date) {
+      throw new BadRequestException('due_date must be on or after assigned_date');
+    }
+    const patch: Pick<Partial<HomeworkAssignment>, 'due_date' | 'status'> = {
+      ...(dto.due_date !== undefined ? { due_date: dto.due_date } : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+    };
+    // Conditional update: a reassign racing this PATCH must not be overwritten (0 rows = lost race).
+    const result = await this.assignmentRepo.update(
+      {
+        id: assignment.id,
+        tenant_id: ctx.tenantId,
+        status: Not(HomeworkAssignmentStatus.SUPERSEDED),
+      },
+      patch,
+    );
+    if (!result.affected) {
+      throw new BadRequestException('A superseded assignment cannot be changed');
+    }
+    // The not-submitted alert keys on status + due_date: a deactivate or date move clears it now.
+    emitRecheck(attentionEvents, {
+      tenantId: ctx.tenantId,
+      ruleKey: 'homework.not_submitted',
+      actorUserId: ctx.userId,
+    });
+    return Object.assign(assignment, patch);
   }
 }

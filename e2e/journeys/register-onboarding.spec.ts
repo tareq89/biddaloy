@@ -12,7 +12,6 @@ import { RegisterPage, WelcomePage } from '../pages';
  * what the confirm dialog wants typed; the Bangla names are what the default
  * (bn) UI renders — same constants as `keyboard/curriculum-preset.spec.ts`.
  */
-const NCTB_NAME_EN = 'Bangladesh NCTB curriculum';
 const NCTB_NAME_BN = 'বাংলাদেশ এনসিটিবি পাঠ্যক্রম';
 const NCTB_STAGES_BN = ['প্রাথমিক', 'নিম্ন মাধ্যমিক', 'মাধ্যমিক', 'উচ্চ মাধ্যমিক'];
 const NCTB_VERSION_BANGLA_BN = 'বাংলা';
@@ -116,11 +115,12 @@ test.describe('register and set up a school', () => {
       await page.getByRole('checkbox', { name: NCTB_VERSION_BANGLA_BN, exact: true }).check();
       await next.click();
       await page.getByRole('button', { name: t('curriculumPreset.submit') }).click();
+      // The dialog names the preset in the UI language (bn) since #2948.
       const typed = page.getByRole('textbox', {
-        name: t('curriculumPreset.confirm.typeLabel', { name: NCTB_NAME_EN }),
+        name: t('curriculumPreset.confirm.typeLabel', { name: NCTB_NAME_BN }),
       });
       await typed.click();
-      await page.keyboard.type(NCTB_NAME_EN);
+      await page.keyboard.type(NCTB_NAME_BN);
       await page.getByRole('button', { name: t('curriculumPreset.confirm.apply') }).click();
       await expect(
         page.getByRole('heading', { name: t('curriculumPreset.applied.title') }),

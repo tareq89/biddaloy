@@ -5,6 +5,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { withMigrationsReverted } from '@test/helpers/db.helper';
 import { CaseInsensitiveAcademicNames1791900000400 } from '../src/migrations/1791900000400-CaseInsensitiveAcademicNames';
+import { ClassNameUniqueLiveOnly1791900000500 } from '../src/migrations/1791900000500-ClassNameUniqueLiveOnly';
 
 /**
  * [2657] Year, class and section names that differ only by letter case clash inside one
@@ -22,6 +23,15 @@ describe('CaseInsensitiveAcademicNames migration (integration)', { timeout: 1500
   }, 60000);
 
   afterAll(async () => {
+    // Re-running this migration's up() rebuilds the class name index without the live-only
+    // predicate that the later 1791900000500 adds; put it back so later files in this
+    // worker's database (class-name-live-only, classes.service) see the real schema.
+    const qr = ds.createQueryRunner();
+    try {
+      await new ClassNameUniqueLiveOnly1791900000500().up(qr);
+    } finally {
+      await qr.release();
+    }
     // Years cascade to classes and sections.
     if (schoolIds.length) {
       await ds.query(`DELETE FROM class_sections WHERE tenant_id = ANY($1)`, [schoolIds]);

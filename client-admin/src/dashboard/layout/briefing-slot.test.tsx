@@ -44,11 +44,11 @@ describe('BriefingSlot (attention summary, Epic 67 D1)', () => {
       }),
     );
     renderSlot();
-    expect(await screen.findByText(/১ urgent · ২ warnings/)).toBeTruthy();
+    expect(await screen.findByText(/1 urgent · 2 warnings/)).toBeTruthy();
     expect(screen.getByText('most urgent: Section 7B attendance not taken')).toBeTruthy();
     const links = screen.getAllByRole('link');
     expect(links).toHaveLength(1);
-    expect(links[0]!.textContent).toBe('See all to-do (৩)');
+    expect(links[0]!.textContent).toBe('See all to-do (3)');
   });
 
   it('count 0 → all-clear line, no button', async () => {

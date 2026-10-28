@@ -94,3 +94,16 @@ export function hasTenantScope(role: string | null | undefined): boolean {
 export function hasTenantDataScope(role: string | null | undefined): boolean {
   return role !== UserRole.SUPER_ADMIN && hasTenantScope(role);
 }
+
+/**
+ * Roles `GET /attendance/flags/low` accepts (SUPER_ADMIN passes `RolesGuard`
+ * separately). The one list the route and the Attendance reports UI share, so
+ * the "Low attendance" tab is hidden from exactly the roles the server refuses.
+ */
+export const LOW_ATTENDANCE_FLAG_ROLES: readonly UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.EXECUTIVE,
+  UserRole.ACCOUNTANT,
+  UserRole.OFFICE_STAFF,
+  UserRole.EXAM_CONTROLLER,
+];

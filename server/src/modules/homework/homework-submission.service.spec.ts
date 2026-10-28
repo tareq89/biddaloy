@@ -273,4 +273,82 @@ describe('HomeworkSubmissionService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  describe('check work: findAllForAssignment / grade (#2899)', () => {
+    const SID_A = '22222222-2222-4222-8222-222222222222';
+    const SID_B = '33333333-3333-4333-8333-333333333333';
+    const transaction = vi.fn();
+    const query = vi.fn();
+
+    beforeEach(() => {
+      transaction.mockReset();
+      query.mockReset();
+      query.mockResolvedValue([{ student_id: SID_A }]);
+      (submissionRepo as unknown as { manager: unknown }).manager = { query, transaction };
+    });
+
+    // Rule 23: a teacher cannot tell "other section" from "no such id".
+    for (const call of ['get', 'grade'] as const) {
+      const run = () =>
+        call === 'get'
+          ? service.findAllForAssignment('assign-1', teacherCtx)
+          : service.grade(
+              'assign-1',
+              { items: [{ student_id: SID_A, status: 'DONE' }] },
+              teacherCtx,
+            );
+
+      it(`${call}: scope miss answers the same single 404 text`, async () => {
+        access.assertCanManageSection.mockRejectedValueOnce(
+          new NotFoundException('You do not have access to this section'),
+        );
+        await expect(run()).rejects.toThrow(new NotFoundException('Homework assignment not found'));
+      });
+
+      it(`${call}: missing homework answers the same single 404 text`, async () => {
+        homeworkRepo.findOne.mockResolvedValue(null);
+        await expect(run()).rejects.toThrow(new NotFoundException('Homework assignment not found'));
+      });
+
+      it(`${call}: a 403 passes through`, async () => {
+        access.assertCanManageSection.mockRejectedValueOnce(new ForbiddenException('no'));
+        await expect(run()).rejects.toBeInstanceOf(ForbiddenException);
+      });
+    }
+
+    const rejectsBeforeWrite = async (items: unknown[], message: string) => {
+      await expect(service.grade('assign-1', { items } as never, teacherCtx)).rejects.toThrow(
+        new BadRequestException(message),
+      );
+      expect(transaction).not.toHaveBeenCalled();
+    };
+
+    it('rejects a duplicate student before any write', async () => {
+      await rejectsBeforeWrite(
+        [
+          { student_id: SID_A, status: 'DONE' },
+          { student_id: SID_A, status: 'PARTIAL' },
+        ],
+        'Each student can appear only once',
+      );
+    });
+
+    it('rejects an item with neither field before any write', async () => {
+      await rejectsBeforeWrite([{ student_id: SID_A }], 'Nothing to change');
+    });
+
+    it('rejects marks on a TICK homework before any write', async () => {
+      await rejectsBeforeWrite(
+        [{ student_id: SID_A, marks: 3 }],
+        'Marks can only be set when the homework grading mode is MARKS',
+      );
+    });
+
+    it('rejects a student not on the roster before any write', async () => {
+      await rejectsBeforeWrite(
+        [{ student_id: SID_B, status: 'DONE' }],
+        'A student in this list is not on this homework',
+      );
+    });
+  });
 });

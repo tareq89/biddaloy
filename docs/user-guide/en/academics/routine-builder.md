@@ -46,11 +46,7 @@ keywords:
 appVersion: 0.1.0 (e81ef857f)
 owner: tareq89
 lastVerified: 2026-10-24
-knownIssues:
-  - { id: no-create-routine-button, checked: 2026-10-24, issue: 2887 }
-  - { id: edit-cell-same-day-fails, checked: 2026-10-24, issue: 2888 }
-  - { id: no-room-in-cell-picker, checked: 2026-10-24, issue: 2889 }
-  - { id: clear-cell-silent, checked: 2026-10-24, issue: 2890 }
+knownIssues: []
 -->
 
 # Arranging a class's weekly routine
@@ -62,7 +58,7 @@ In each section's weekly routine, place which subject is taught in which period 
 
 - Shifts and their period times: [**Routine setup**](routine-setup.md).
 - Classes and sections, and a shift for the class (set on the class page).
-- A routine for the current academic year. You cannot create one from this page yet: [Known issues](#known-issues).
+- A routine for the current academic year. If there is none, opening a section shows **No routine yet**; press **Create routine** there, and a new **Draft** routine is made.
 - Teachers given duties for the section and subject: [**Giving teachers class and section duties**](../people/teaching-assignments.md). You can place a teacher without a duty, but a warning appears, and **Fill empty periods** picks only teachers who have the duty.
 
 On this page you work on one **routine table** per section. The table's columns are the days of the week (except the school's weekly off days) and its rows are periods. Each cell holds one subject and one or more teachers. The routines of all the school's sections together make one routine, and its state (**Draft**, **In review**, **Published**) is shown above the table.
@@ -82,7 +78,6 @@ On this page you work on one **routine table** per section. The table's columns 
   - [See teacher workload](#task-workload)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -112,6 +107,8 @@ On this page you work on one **routine table** per section. The table's columns 
 6. From the **Teacher(s)** list, pick one or more teachers.
 
    → **Save** stays off until you have picked a subject and at least one teacher.
+
+   If you want, pick a room under **Room (optional)**. Rooms come from [Routine setup](routine-setup.md#task-rooms); if you pick none, it stays **No room**.
 
 7. Under **Recurrence**, keep **Weekly** in most cases. (For the others, see [A period every two weeks or once a month](#task-recurrence).)
 
@@ -201,11 +198,18 @@ Weeks are counted from the start date of the academic year. Whether two periods 
 
 ### Change or clear a cell <a href="#task-clear" id="task-clear"></a>
 
-**To change:** press a filled cell. The dialog opens with the earlier subject and teachers picked. Change them and press **Save**. The change takes effect from today; for earlier days the old period stays. If you try to change a cell that was itself placed today, it gets stuck: [Known issues](#known-issues).
+**To change:** press a filled cell. The dialog opens with the earlier subject and teachers picked. Change them and press **Save**. The change takes effect from today; for earlier days the old period stays.
+
+A change is refused, with **This period has substitutions or open change requests. Resolve them first, or edit from a later date.**, when:
+
+- the period has a [substitute teacher](routine-substitutions.md) recorded for today or a later day, or
+- the period was placed today and a teacher's change request about it is still open.
+
+Delete those substitutions first ([remove a substitution](routine-substitutions.md#task-correct)), or settle the request ([accept or reject a change request](routine-review.md#task-resolve)). Then change the cell again.
 
 **To clear:** move to the cell with the keyboard and press Delete.
 
-→ The cell becomes **Empty** with no question asked.
+→ The cell becomes **Empty** with no question asked, and the **Period cleared** message appears. If **Could not clear this period — try again.** appears, the period stays; check your internet and press Delete again.
 
 > **Remember:** there is no undo after Delete. If you clear one by mistake, place it again. While the routine is a **Draft** or **In review**, the period is deleted completely. In a **Published** routine, a period that has already been running is not deleted; it ends as of yesterday, so that earlier days stay correct.
 
@@ -230,11 +234,12 @@ Below the table is the **Teacher workload** section: each teacher's **Periods / 
 | **No classes yet**                                                              | Press **Go to classes** and add a class and its sections first.                                                                 | Admin          |
 | **No sections**                                                                 | Press **Open class** and add sections to the class.                                                                             | Admin          |
 | **This class has no shift**                                                     | Press **Open class** and give the class a shift. If there is no shift, do [Routine setup](routine-setup.md) first.              | Admin          |
-| **No routine yet**                                                              | This academic year's routine has not been created. See [Known issues](#known-issues).                                           | Admin, support |
+| **No routine yet**                                                              | Press **Create routine**. A new **Draft** routine is made for the current academic year. If **Could not create the routine — try again.** appears, check your internet and press again. | Admin          |
 | **Which section?**                                                              | You came from an old link. Press **Class routine** and open the section from the list.                                          | Admin          |
 | **Section not found.**                                                          | The section may have been removed. Press **Class routine** and pick it again.                                                   | Admin          |
 | **Couldn't load the classes. Check your connection and try again.**             | Check your internet and try again.                                                                                              | Admin          |
-| **Could not save — try again.**                                                 | Check your internet and press **Save** again. If it came while changing a cell placed today, see [Known issues](#known-issues). | Admin          |
+| **Could not save — try again.**                                                 | Check your internet and press **Save** again. | Admin          |
+| **This period has substitutions or open change requests. Resolve them first, or edit from a later date.** | Delete the period's substitutions for today and later, or settle the open change request. See [Change or clear a cell](#task-clear). | Admin          |
 | **This can't be saved**                                                         | See the reason written below it: [Clashes and warnings](#task-conflicts).                                                       | Admin          |
 | **Couldn't work out the periods to fill. Close this and try again.**            | Close the dialog and press **Fill empty periods** again.                                                                        | Admin          |
 | **This routine table needs a wider screen — try landscape or a bigger window.** | Open it on a computer, or make the window bigger.                                                                               | —              |
@@ -251,19 +256,6 @@ Below the table is the **Teacher workload** section: each teacher's **Periods / 
 | Academic coordinator, Teacher, Accountant, Office staff, Exam controller, Committee member | No                                 |
 
 People without permission do not have **Class routine** in their left menu. A teacher sees their own routine on the [**My routine**](my-routine.md) page.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Checked against the code for version 0.1.0 on 2026-10-24. Not tried in the app. This section will drop an item once it is fixed.
-
-| Problem                                                                                                                                      | Who, when                                                       | Is the data saved?         | What to do for now                                                                                                                 |
-| -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| There is no button to create the routine for a new academic year; with no routine, opening a section shows **No routine yet**                | A new school, or after a new academic year begins               | Not applicable             | If last year's routine exists, use **Copy to another year** on [Routine review](routine-review.md#task-copy). If not, tell support |
-| Changing a cell that was placed today, on the same day, gives **Could not save — try again.**; trying again does not help                    | The person arranging, when placing and changing on the same day | No, the earlier picks stay | Move to the cell and press Delete to clear it, then place it again                                                                 |
-| The **Assign a period** dialog has no place to choose a room, even though rooms can be added in [Routine setup](routine-setup.md#task-rooms) | The person arranging, always                                    | Not applicable             | Arrange the routine without rooms for now                                                                                          |
-| If clearing a cell with Delete fails, no message appears; the cell stays as it was                                                           | The person arranging, when offline                              | No, the period stays       | If the cell still shows filled, check your internet and press Delete again                                                         |
 
 ---
 

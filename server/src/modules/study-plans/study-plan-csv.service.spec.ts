@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { STUDY_PLAN_LIMITS, UserRole, type StudyPlanLesson } from '@biddaloy/shared';
+import {
+  ImportFileErrorCode,
+  STUDY_PLAN_LIMITS,
+  UserRole,
+  type StudyPlanLesson,
+} from '@biddaloy/shared';
 import { StudyPlanCsvService } from './study-plan-csv.service';
 import { parseLessonSheet, StudyPlanParseError } from './study-plan-csv.parser';
 import type { StudyPlanCaller } from './study-plans.service';
@@ -117,9 +122,9 @@ describe('StudyPlanCsvService', () => {
     it('rejects a file of 401 lessons', async () => {
       const text =
         'title,periods\r\n' + Array.from({ length: 401 }, (_, i) => `L${i},1`).join('\r\n');
-      await expect(service.validate(file(text), planPair, TENANT, caller)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.validate(file(text), planPair, TENANT, caller)).rejects.toMatchObject({
+        code: ImportFileErrorCode.TOO_MANY_ROWS,
+      });
     });
 
     it('links a known topic by name and warns (not errors) on an unknown one', async () => {

@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute } from '@tanstack/react-router';
+import { createRootRoute, createRoute, Outlet } from '@tanstack/react-router';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
@@ -16,6 +16,7 @@ function Probe({ defaults }: { defaults?: { page?: number; limit?: number } }) {
       <p>limit: {state.limit}</p>
       <p>order: {state.order}</p>
       <p>sort: {state.sort ?? 'none'}</p>
+      <p>filters: {JSON.stringify(state.filters)}</p>
       <button onClick={() => update({ limit: 25 })}>Set limit</button>
       <button onClick={() => update({ order: 'desc' })}>Sort descending</button>
       <button onClick={() => update({ filters: { page: '999', order: 'desc', class_id: 'c-1' } })}>
@@ -140,5 +141,65 @@ describe('useListUrlState', () => {
     expect(router.state.location.searchStr).not.toContain('order=');
     expect(await screen.findByText('sort: none')).toBeTruthy();
     expect(screen.getByText('order: asc')).toBeTruthy();
+  });
+
+  describe('validateSearch (#2999)', () => {
+    const pickClass = (s: Record<string, unknown>) => ({
+      class_id: typeof s.class_id === 'string' ? s.class_id : undefined,
+    });
+
+    function schemaTree() {
+      const rootRoute = createRootRoute();
+      const feesRoute = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/fees',
+        validateSearch: pickClass,
+        component: () => <Probe />,
+      });
+      return rootRoute.addChildren([feesRoute]);
+    }
+
+    it("a param the route's validateSearch strips is not a filter (#2999)", async () => {
+      renderWithRouter(schemaTree(), {
+        initialEntries: ['/fees?class_id=c-1&date=2026-10-22'],
+      });
+      expect(await screen.findByText('filters: {"class_id":"c-1"}')).toBeTruthy();
+    });
+
+    it('a schema that does not declare page/sort still reads them from the URL', async () => {
+      renderWithRouter(schemaTree(), { initialEntries: ['/fees?page=3&sort=full_name'] });
+      expect(await screen.findByText('page: 3')).toBeTruthy();
+      expect(screen.getByText('sort: full_name')).toBeTruthy();
+    });
+
+    it('a route without validateSearch keeps every non-reserved param as a filter', async () => {
+      renderWithRouter(routeTree, {
+        initialEntries: ['/students?class_id=c-1&date=2026-10-22'],
+      });
+      const el = await screen.findByText(/^filters:/);
+      expect(el.textContent).toContain('"class_id":"c-1"');
+      expect(el.textContent).toContain('"date":"2026-10-22"');
+    });
+
+    it('a schema on a parent layout only does not narrow a leaf without one', async () => {
+      const rootRoute = createRootRoute();
+      const layout = createRoute({
+        getParentRoute: () => rootRoute,
+        id: '_layout',
+        validateSearch: pickClass,
+        component: Outlet,
+      });
+      const list = createRoute({
+        getParentRoute: () => layout,
+        path: '/list',
+        component: () => <Probe />,
+      });
+      renderWithRouter(rootRoute.addChildren([layout.addChildren([list])]), {
+        initialEntries: ['/list?class_id=c-1&date=2026-10-22'],
+      });
+      const el = await screen.findByText(/^filters:/);
+      expect(el.textContent).toContain('"class_id":"c-1"');
+      expect(el.textContent).toContain('"date":"2026-10-22"');
+    });
   });
 });

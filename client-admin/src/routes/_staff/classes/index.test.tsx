@@ -10,7 +10,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -21,7 +21,30 @@ import { routeTree } from '../../../routeTree.gen';
  */
 describe('/classes', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
+  });
+
+  it('shows a (?) after the Add header action [44.3.04]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(
+      classHandlers.vocabularyPopulated,
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Classes' });
+    await screen.findAllByRole('button', { name: /^Help:/ });
+    expect(document.querySelector('[data-help-id="academics.classes.action.add"]')).not.toBeNull();
   });
 
   it('lists classes, with grade/sections/students columns', async () => {
@@ -89,10 +112,10 @@ describe('/classes', () => {
     // tenant's region numerals (Bengali by default here) — same fix as
     // `communications/batches/index.tsx`'s recipient counts, not raw
     // ASCII digits regardless of UI language.
-    expect(within(row).getByText('১')).toBeTruthy();
+    expect(within(row).getByText('1')).toBeTruthy();
     // Students column reads `student_count`, same list payload — no
     // per-row request.
-    expect(within(row).getByText('৫')).toBeTruthy();
+    expect(within(row).getByText('5')).toBeTruthy();
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
@@ -251,6 +274,7 @@ describe('/classes', () => {
             timestamp: new Date().toISOString(),
             path: '/api/v1/classes/class-1',
             requestId: 'req-1',
+            details: { code: 'CLASS_IN_USE', students_count: 3 },
           },
           { status: 409 },
         ),
@@ -269,12 +293,49 @@ describe('/classes', () => {
     const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
-    await dialog.findByText(/still has students or sections/);
+    await dialog.findByText(/still has students\./);
     // The server sentence (English, embeds the class id) is never shown.
     expect(dialog.queryByText(/class-1/)).toBeNull();
     expect(dialog.queryByText(/unenroll/)).toBeNull();
     expect(dialog.getByRole('link', { name: 'Move students' })).toBeTruthy();
     expect(dialog.queryByRole('button', { name: 'Delete' })).toBeNull();
+  });
+
+  it('deleting a class blocked by exams and fee structures names them and offers no Move students', async () => {
+    const klass = classFactory({ id: 'class-1', name: 'Class 6' });
+    server.use(
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 25, totalPages: 1 }),
+      ),
+      http.delete('/api/v1/classes/:id', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'in use',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/classes/class-1',
+            requestId: 'req-1',
+            details: { code: 'CLASS_IN_USE', dependents: { exams: 2, fee_structures: 1 } },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = within(await screen.findByRole('alertdialog'));
+    await user.click(dialog.getByRole('button', { name: 'Delete' }));
+
+    await dialog.findByText(/used by exams and fee structures/);
+    expect(dialog.queryByRole('link', { name: 'Move students' })).toBeNull();
   });
 
   it('deleting a class that fails with a non-409 error keeps the normal retry path, not the blocked state', async () => {

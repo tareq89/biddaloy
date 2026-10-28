@@ -12,7 +12,10 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loa
 export const Route = createFileRoute('/_staff/admissions/applicants/')({
   loader: ({ context: { queryClient } }) =>
     Promise.all([
-      queryClient.ensureQueryData(applicantsQueryOptions()).catch(swallowUnlessOffline),
+      // Same key `ApplicantList` asks for with no search params (page 1, default limit 25).
+      queryClient
+        .ensureQueryData(applicantsQueryOptions({ page: 1, limit: 25 }))
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('admission-staff-applicants', 'common'),
     ]),
   component: ApplicantList,

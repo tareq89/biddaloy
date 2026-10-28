@@ -99,11 +99,11 @@ export class ResultsController {
       (await this.teacherScope.sectionScope(input)) &&
       !(await this.teacherScope.canSeeStudent({ ...input, studentId }))
     ) {
-      throw new NotFoundException(`No result for student "${studentId}" on exam "${examId}"`);
+      throw new NotFoundException('No result for this student on this exam');
     }
     const detail = await this.resultsService.getStudentResult(examId, studentId, tenant.id);
     if (!detail) {
-      throw new NotFoundException(`No result for student "${studentId}" on exam "${examId}"`);
+      throw new NotFoundException('No result for this student on this exam');
     }
     return detail;
   }
@@ -241,7 +241,7 @@ export class StudentResultsController {
       isGuardianRole(tenant.role),
     );
     if (!card) {
-      throw new NotFoundException(`No result for student "${studentId}" on exam "${examId}"`);
+      throw new NotFoundException('No result for this student on this exam');
     }
     return card;
   }

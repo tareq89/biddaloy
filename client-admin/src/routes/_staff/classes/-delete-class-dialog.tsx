@@ -36,6 +36,16 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { Link } from '@tanstack/react-router';
 import { Trash2Icon } from 'lucide-react';
 
+const KIND_KEYS = new Set([
+  'exams',
+  'fee_structures',
+  'homework',
+  'syllabus_topics',
+  'fine_rules',
+  'promotion_runs',
+  'grading_scales',
+]);
+
 export interface DeleteClassDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -51,7 +61,7 @@ export function DeleteClassDialog({
   className,
   onDeleted,
 }: DeleteClassDialogProps) {
-  const { t } = useTranslation('classes');
+  const { t, i18n } = useTranslation('classes');
   const deleteClass = useDeleteClass();
 
   // Callers mount this dialog only while it is open (fresh mutation state).
@@ -68,6 +78,33 @@ export function DeleteClassDialog({
     deleteClass.error instanceof ApiError &&
     deleteClass.error.statusCode === 409;
   const failedNonBlocked = deleteClass.isError && !blocked;
+
+  // Name the real blocker from the 409's `details` (classes.service remove).
+  const details = (blocked ? (deleteClass.error as ApiError).details : undefined) ?? {};
+  // The Students tab lists current students only, so link there only when some
+  // exist; enrollment history alone blocks with its own reason and no link.
+  const hasStudents = (Number(details.students_count) || 0) > 0;
+  const hasEnrollments = (Number(details.enrollments_count) || 0) > 0;
+  const hasSections = (Number(details.sections_count) || 0) > 0;
+  let blockedText = '';
+  if (blocked) {
+    if (hasStudents) blockedText = t('deleteClassDialog.blockedStudents');
+    else if (hasEnrollments) blockedText = t('deleteClassDialog.blockedEnrollments');
+    else if (hasSections) blockedText = t('deleteClassDialog.blockedSections');
+    else {
+      const dependents = (details.dependents ?? {}) as Record<string, unknown>;
+      const names = Object.keys(dependents).map((k) =>
+        KIND_KEYS.has(k) ? t(`deleteClassDialog.kinds.${k}`) : null,
+      );
+      const kinds = [
+        ...names.filter((n): n is string => n !== null),
+        ...(names.includes(null) || names.length === 0 ? [t('deleteClassDialog.kinds.other')] : []),
+      ];
+      blockedText = t('deleteClassDialog.blockedKinds', {
+        kinds: new Intl.ListFormat(i18n.language, { type: 'conjunction' }).format(kinds),
+      });
+    }
+  }
 
   return (
     <Dialog
@@ -92,7 +129,7 @@ export function DeleteClassDialog({
 
         {blocked && (
           <div className="rounded-md bg-status-overdue-bg p-3 text-status-overdue-fg">
-            <p role="alert">{t('deleteClassDialog.blockedMessage')}</p>
+            <p role="alert">{blockedText}</p>
           </div>
         )}
 
@@ -107,16 +144,18 @@ export function DeleteClassDialog({
         <DialogFooter>
           {blocked ? (
             <>
-              <Button asChild variant="outline">
-                <Link
-                  to="/classes/$classId"
-                  params={{ classId }}
-                  search={{ tab: 'students' }}
-                  onClick={() => onOpenChange(false)}
-                >
-                  {t('deleteClassDialog.moveStudents')}
-                </Link>
-              </Button>
+              {hasStudents && (
+                <Button asChild variant="outline">
+                  <Link
+                    to="/classes/$classId"
+                    params={{ classId }}
+                    search={{ tab: 'students' }}
+                    onClick={() => onOpenChange(false)}
+                  >
+                    {t('deleteClassDialog.moveStudents')}
+                  </Link>
+                </Button>
+              )}
               <DialogClose asChild>
                 <Button type="button">{t('deleteClassDialog.close')}</Button>
               </DialogClose>

@@ -12,11 +12,10 @@
  * year, not a section — every section on that year shares one document,
  * and a slot's own `section_id` is what narrows it down. This page picks
  * the section's academic year's `PUBLISHED` routine if one exists,
- * otherwise its most-recently-created `DRAFT` (no routine-creation UI
- * exists yet in this codebase, out of this ticket's `## Files` list —
- * flagged in the PR description).
+ * otherwise its most-recently-created `DRAFT`. With neither, the empty state
+ * offers to create the year's draft routine.
  */
-import { getActiveTenant } from '@biddaloy/ui/api';
+import { ApiError, getActiveTenant } from '@biddaloy/ui/api';
 import {
   Card,
   EmptyState,
@@ -28,8 +27,10 @@ import {
   type RoutineGridCell,
 } from '@biddaloy/ui/components';
 import {
+  useAcademicYears,
   useClassSections,
   useCalendarSettings,
+  useCreateRoutine,
   useCreateRoutineSlot,
   useDeleteRoutineSlot,
   usePeriodSlots,
@@ -110,6 +111,8 @@ function RoutineBuilderPage() {
   const teachersQuery = useTeachers({});
   useWorkload(routine?.id); // warms the cache `WorkloadPanel` reads
 
+  const academicYearsQuery = useAcademicYears({});
+  const createRoutine = useCreateRoutine();
   const createSlot = useCreateRoutineSlot(routine?.id ?? '');
   const updateSlot = useUpdateRoutineSlot(routine?.id ?? '');
   const deleteSlot = useDeleteRoutineSlot(routine?.id ?? '');
@@ -203,7 +206,25 @@ function RoutineBuilderPage() {
     return problem(
       t('builder.noRoutineTitle'),
       t('builder.noRoutineExplanation'),
-      { label: t('builder.openReview'), onClick: () => void navigate({ to: '/routines/review' }) },
+      {
+        label: t('builder.createRoutineAction'),
+        onClick: () => {
+          if (createRoutine.isPending) return; // a double click must not POST twice
+          const year =
+            academicYearsQuery.data?.data.find((y) => y.id === section.class.academic_year_id)
+              ?.name ?? '';
+          createRoutine.mutate(
+            {
+              academic_year_id: section.class.academic_year_id,
+              name: t('builder.createRoutineName', { year }),
+            },
+            {
+              onSuccess: () => toast.success(t('builder.createRoutineToast')),
+              onError: () => toast.error(t('builder.createRoutineError')),
+            },
+          );
+        },
+      },
       { name: sectionTitle },
     );
   }
@@ -276,8 +297,9 @@ function RoutineBuilderPage() {
       teacher_ids: value.teacherIds,
       recurrence: value.recurrence,
       recurrence_offset: value.recurrenceOffset,
-      // An edit replaces the row from today on (the server closes the old one the day before and
-      // refuses a date at or before the old row's start); a new slot starts today.
+      room_id: value.roomId,
+      // An edit replaces the row from today on (the server closes the old one the day before, or
+      // updates it in place when it starts today or later); a new slot starts today.
       valid_from: today,
       valid_to: existing?.slot.valid_to ?? null,
     };
@@ -302,6 +324,13 @@ function RoutineBuilderPage() {
           if (activeCellRef.current === savingCell) setViolations(found);
           return;
         }
+        if (
+          error instanceof ApiError &&
+          error.details?.['code'] === 'SLOT_HAS_SUBSTITUTIONS_OR_REQUESTS'
+        ) {
+          toast.error(t('builder.slotInUseToast'));
+          return;
+        }
         toast.error(t('builder.saveErrorToast'));
       });
   }
@@ -313,7 +342,17 @@ function RoutineBuilderPage() {
     );
     if (!entry) return;
     deleteSlot.mutate(entry.slot.id, {
-      onSuccess: () => setViolations([]),
+      onSuccess: () => {
+        setViolations([]);
+        toast.success(t('builder.clearedToast'));
+      },
+      // The global handler only toasts 403s and 5xx; any other failure
+      // (404, 409 ROUTINE_SLOT_ALREADY_ENDED) would otherwise be silent.
+      onError: (error) => {
+        if (error instanceof ApiError && error.statusCode !== 403 && error.statusCode < 500) {
+          toast.error(t('builder.clearErrorToast'));
+        }
+      },
     });
   }
 
@@ -359,6 +398,7 @@ function RoutineBuilderPage() {
         },
         {
           id: 'fill',
+          helpId: 'academics.routineBuilder.action.fillAssist',
           label: t('builder.fillAssistAction'),
           icon: <WandSparklesIcon />,
           priority: 'primary',
@@ -432,6 +472,7 @@ function RoutineBuilderPage() {
                     teacherIds: activeCellSlot()!.teacher_ids,
                     recurrence: activeCellSlot()!.slot.recurrence,
                     recurrenceOffset: activeCellSlot()!.slot.recurrence_offset,
+                    roomId: activeCellSlot()!.slot.room_id ?? null,
                   }
                 : undefined
             }

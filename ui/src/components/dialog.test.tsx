@@ -106,6 +106,8 @@ describe('Dialog', () => {
     const footer = screen.getByRole('button', { name: 'Generate' }).closest('div');
     expect(footer?.className).toContain('sticky');
     expect(footer?.className).toContain('bottom-0');
+    // Long (bn) button labels wrap onto a new line instead of overflowing the dialog.
+    expect(footer?.className).toContain('md:flex-wrap');
   });
 
   it('sizes: md default 560, sm 400, lg 720; a caller max-w replaces the size class', async () => {
@@ -180,5 +182,29 @@ describe('Dialog', () => {
     );
     await localeReady;
     expect(await screen.findByRole('button', { name: 'বন্ধ করুন' })).toBeTruthy();
+  });
+
+  it('[Epic 44] opens on the first field, not on a (?) before it, and keeps the (?) tabbable', async () => {
+    const user = userEvent.setup();
+    render(
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button>Open</Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogTitle>Reverse payment</DialogTitle>
+          <button type="button" data-help-id="finance.payments.action.reverse">
+            ?
+          </button>
+          <input aria-label="Reason" />
+        </DialogContent>
+      </Dialog>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Open' }));
+    const reason = await screen.findByRole('textbox', { name: 'Reason' });
+    await waitFor(() => expect(document.activeElement).toBe(reason));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '?' }).hasAttribute('tabindex')).toBe(false),
+    );
   });
 });

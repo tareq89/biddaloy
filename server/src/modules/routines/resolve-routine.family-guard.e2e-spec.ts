@@ -60,6 +60,7 @@ describe('GET /routines/resolve family guard (e2e)', () => {
   let studentB: string;
   let sectionBSlotId: string;
   let sectionASlotId: string;
+  let routineId: string;
 
   async function login(email: string): Promise<string> {
     const res = await supertest(app.getHttpServer())
@@ -185,6 +186,7 @@ describe('GET /routines/resolve family guard (e2e)', () => {
       createdBy: SEED_ADMIN_USER_ID,
     });
     sectionASlotId = slots[0].routineSlot.id;
+    routineId = slots[0].routineSlot.routine_id;
     const { id: _id, ...copy } = slots[0].routineSlot;
     sectionBSlotId = (
       await ds.getRepository(RoutineSlot).save({ ...copy, section_id: SEED_SECTION_2_ID })
@@ -265,6 +267,55 @@ describe('GET /routines/resolve family guard (e2e)', () => {
 
     it('a tenant the caller is not a member of is 401', async () => {
       await get(`student_id=${studentA}`, tokens[UserRole.STUDENT], TENANT_2).expect(401);
+    });
+  });
+
+  describe('GET /routines/:id/slots family scope [#3003]', () => {
+    const getSlots = (id: string, token: string, tenant = SEED_TENANT_ID) =>
+      supertest(app.getHttpServer())
+        .get(`${API}/routines/${id}/slots`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', tenant);
+    const ids = (res: supertest.Response) =>
+      (res.body as Array<{ slot: { id: string } }>).map((s) => s.slot.id);
+
+    it('P sees only the linked child section, never the whole school', async () => {
+      const res = await getSlots(routineId, tokens[UserRole.PARENT]).expect(200);
+      expect(ids(res)).toContain(sectionASlotId);
+      expect(ids(res)).not.toContain(sectionBSlotId);
+    });
+
+    it('S sees only own section', async () => {
+      const res = await getSlots(routineId, tokens[UserRole.STUDENT]).expect(200);
+      expect(ids(res)).toContain(sectionASlotId);
+      expect(ids(res)).not.toContain(sectionBSlotId);
+    });
+
+    it.each([UserRole.ADMIN, UserRole.TEACHER])('%s still sees every section', async (role) => {
+      const res = await getSlots(routineId, tokens[role]).expect(200);
+      expect(ids(res)).toEqual(expect.arrayContaining([sectionASlotId, sectionBSlotId]));
+    });
+
+    it("tenant 2 ADMIN asking for tenant 1's routine gets a fixed-text 404 that does not echo the id", async () => {
+      const res = await getSlots(routineId, tokens[UserRole.ADMIN], TENANT_2).expect(404);
+      expect(res.body.message).toBe('Routine not found');
+      expect(res.body.message).not.toContain(routineId);
+    });
+
+    it('an unknown routine id gets the same fixed text', async () => {
+      const res = await getSlots(NONEXISTENT, tokens[UserRole.PARENT]).expect(404);
+      expect(res.body.message).toBe('Routine not found');
+      expect(res.body.message).not.toContain(NONEXISTENT);
+    });
+
+    it('P with no linked student gets 200 []', async () => {
+      await ds.query(`DELETE FROM student_guardians`);
+      const res = await getSlots(routineId, tokens[UserRole.PARENT]).expect(200);
+      expect(res.body).toEqual([]);
+    });
+
+    it('a non-UUID id is 400', async () => {
+      await getSlots('not-a-uuid', tokens[UserRole.PARENT]).expect(400);
     });
   });
 });

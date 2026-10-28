@@ -31,6 +31,7 @@ import {
   ConfirmDialog,
   DataTable,
   Input,
+  HelpHint,
   Label,
   Textarea,
   type DataTableColumn,
@@ -640,9 +641,12 @@ export function BulkReminderWizard() {
                     <PlaceholderButtons labels={labels} onInsert={insertPlaceholder} />
 
                     <fieldset>
-                      <legend className="mb-1.5 text-label text-text-primary">
-                        {t('bulk.message.mediumsLabel')}
-                      </legend>
+                      {/* The (?) sits outside the legend so it stays out of the group's name. */}
+                      <legend className="sr-only">{t('bulk.message.mediumsLabel')}</legend>
+                      <div className="mb-1.5 flex items-center gap-1 text-label text-text-primary">
+                        <span aria-hidden="true">{t('bulk.message.mediumsLabel')}</span>
+                        <HelpHint helpId="communications.feeReminders.field.bulkMediums" />
+                      </div>
                       <div className="divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle">
                         {BULK_MEDIUMS.map((medium) => (
                           <label

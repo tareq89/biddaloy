@@ -169,13 +169,13 @@
     },
     "homework-submission-rate": {
       "title": "Homework submission rate",
-      "description": "Share of homework handed in this week",
-      "value": "handed in this week",
+      "description": "Share of homework handed in over the last 7 days",
+      "value": "handed in, last 7 days",
       "sentence": "{{submitted}} of {{expected}} expected submissions came in.",
       "lowest": "Lowest: class {{class}} ({{percent}}).",
       "colClass": "Class",
       "colRate": "Handed in",
-      "emptyReason": "No homework was due this week.",
+      "emptyReason": "No homework was due in the last 7 days.",
       "link": "See homework",
       "compactTitle": "Homework handed in"
     },
@@ -339,8 +339,8 @@
     },
     "collection-by-month": {
       "title": "Collection by month",
-      "description": "Collection for each month this year",
-      "value": "this year so far",
+      "description": "Collection for each month of this academic year",
+      "value": "this academic year so far",
       "vsLastMonthMore": "{{amount}} in the first {{days}} days of {{month}} — {{diff}} more than the same days of {{prevMonth}}.",
       "vsLastMonthLess": "{{amount}} in the first {{days}} days of {{month}} — {{diff}} less than the same days of {{prevMonth}}.",
       "legendDone": "Finished month",
@@ -348,7 +348,7 @@
       "peak": "{{amount}}, {{month}}",
       "colMonth": "Month",
       "colAmount": "Collected",
-      "emptyReason": "Nothing collected this year yet.",
+      "emptyReason": "Nothing collected this academic year yet.",
       "link": "Open collections report"
     },
     "dues-ageing": {
@@ -677,12 +677,12 @@
       "sms-balance": {
         "means": "How many more SMS your school can send, and how many are held for messages being sent right now. Some schools are not metered.",
         "source": "It comes from your school's SMS credit, which goes down as messages are sent.",
-        "action": "If the balance is low, top up before sending reminders. View sent messages opens Reminder history."
+        "action": "If the balance is low, top up before sending reminders. View sent messages opens the Message log, showing only SMS."
       },
       "failed-messages": {
         "means": "How many SMS could not be sent in the last 7 days, counting today.",
         "source": "It comes from the record of every SMS the school sent, such as fee reminders and alerts.",
-        "action": "Check the phone numbers and the SMS balance, then send again. See which ones opens Reminder history."
+        "action": "Check the phone numbers and the SMS balance, then send again. See which ones opens the Message log, showing the failed SMS of the same 7 days."
       },
       "upcoming": {
         "means": "The next holiday and up to five published events in the next 60 days.",
@@ -717,10 +717,10 @@
       "homework-to-check": {
         "means": "How many homework submissions are waiting for your check, and in how many homework they are.",
         "source": "It comes from homework that students handed in for your sections and subjects.",
-        "action": "Check the work and give feedback. See submissions opens that homework's page."
+        "action": "Check the work and give feedback. See submissions opens the Check work list of the first homework on the card."
       },
       "class-teacher-streaks": {
-        "means": "Students of your own section who have been absent 3 or more school days in a row, up to the last register.",
+        "means": "Students of your own section who have been absent several school days in a row, up to the last register. The number of days comes from the Absent in a row (days) setting; it is 3 unless changed.",
         "source": "It comes from the whole-day attendance registers of the section where you are class teacher.",
         "action": "Call the guardian today. Tell guardian and the link both open your section page in My class."
       },
@@ -740,7 +740,7 @@
         "action": "Check the cash in hand against this total at day end. Collections report opens Fee collection report."
       },
       "collection-by-month": {
-        "means": "Money collected in each month of this calendar year, January onward. This month's figure is still running and is compared with the same days of last month.",
+        "means": "Money collected in each month of the current academic year, from its first month (the calendar year if no year is current). This month's figure is still running and is compared with the same days of last month.",
         "source": "It comes from recorded payments, minus reversed payments.",
         "action": "Look for months that fall behind. Open collections report opens Fee collection report."
       },

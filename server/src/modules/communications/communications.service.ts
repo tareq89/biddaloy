@@ -241,7 +241,7 @@ export class CommunicationsService {
     const log = await this.repo.findOne({ where: { id, tenant_id: tenantId } });
 
     if (!log) {
-      throw new NotFoundException(`Communication log with ID "${id}" not found`);
+      throw new NotFoundException('Communication log not found');
     }
 
     return toResponseDto(log);

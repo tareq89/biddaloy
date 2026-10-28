@@ -124,7 +124,7 @@ export class ClassService {
         lock: { mode: 'pessimistic_read' },
       });
       if (!year) {
-        throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+        throw new NotFoundException('Academic year not found');
       }
       const repo = manager.getRepository(Class);
       const entity = repo.create({
@@ -253,7 +253,7 @@ export class ClassService {
       relations: ['sections', 'academic_year'],
     });
     if (!entity) {
-      throw new NotFoundException(`Class with ID "${id}" not found`);
+      throw new NotFoundException('Class not found');
     }
     return entity;
   }
@@ -327,7 +327,7 @@ export class ClassService {
         .where('p.id = :id AND p.tenant_id = :tenantId AND p.deleted_at IS NULL', { id, tenantId })
         .getOne();
       if (!existing) {
-        throw new NotFoundException(`Class with ID "${id}" not found`);
+        throw new NotFoundException('Class not found');
       }
 
       // [68.2.12] Any student or enrollment row of any status blocks the delete:
@@ -475,7 +475,7 @@ export class SectionService {
       where: { id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!cls) {
-      throw new NotFoundException(`Class with ID "${classId}" not found`);
+      throw new NotFoundException('Class not found');
     }
 
     const organisation = await this.settingsReader.organisationVocabulary(tenantId);
@@ -522,7 +522,7 @@ export class SectionService {
       where: { id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!cls) {
-      throw new NotFoundException(`Class with ID "${classId}" not found`);
+      throw new NotFoundException('Class not found');
     }
 
     const sections = await this.repo.find({
@@ -573,7 +573,7 @@ export class SectionService {
       where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!section) {
-      throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
+      throw new NotFoundException('Section not found in this class');
     }
 
     // `dto.group_name !== undefined`, not `'group_name' in dto` — same
@@ -636,9 +636,7 @@ export class SectionService {
         )
         .getOne();
       if (!section) {
-        throw new NotFoundException(
-          `Section with ID "${sectionId}" not found in class "${classId}"`,
-        );
+        throw new NotFoundException('Section not found in this class');
       }
 
       // [68.2.12] Any status counts, not only ACTIVE: students who left still
@@ -728,14 +726,14 @@ export class SectionService {
       where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!section) {
-      throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
+      throw new NotFoundException('Section not found in this class');
     }
 
     const teacher = await this.teacherRepo.findOne({
       where: { id: dto.teacher_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!teacher) {
-      throw new NotFoundException(`Teacher with ID "${dto.teacher_id}" not found`);
+      throw new NotFoundException('Teacher not found');
     }
 
     if (subjectId !== null) {
@@ -743,7 +741,7 @@ export class SectionService {
         where: { id: subjectId, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (!subject) {
-        throw new NotFoundException(`Subject with ID "${subjectId}" not found`);
+        throw new NotFoundException('Subject not found');
       }
     }
 
@@ -810,7 +808,7 @@ export class SectionService {
           });
           if (homeroom) {
             throw conflict(
-              `Teacher "${dto.teacher_id}" already holds a class-teacher role in section "${sectionId}"`,
+              'This teacher already holds a class-teacher role in this section',
               'TEACHER_ALREADY_HOMEROOM',
             );
           }
@@ -826,7 +824,7 @@ export class SectionService {
           });
           if (duplicate) {
             throw conflict(
-              `Teacher "${dto.teacher_id}" is already the subject-teacher for subject "${subjectId}" in section "${sectionId}"`,
+              'This teacher is already the subject-teacher for this subject in this section',
               'TEACHER_ALREADY_SUBJECT_TEACHER',
             );
           }
@@ -878,7 +876,7 @@ export class SectionService {
         isUniqueViolationOn(error, 'IDX_tcs_teacher_section_subject')
       ) {
         throw conflict(
-          `This teacher assignment conflicts with an existing one in section "${sectionId}"`,
+          'This teacher assignment conflicts with an existing one in this section',
           'TEACHER_ASSIGNMENT_CONFLICT',
         );
       }
@@ -899,14 +897,14 @@ export class SectionService {
       where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!section) {
-      throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
+      throw new NotFoundException('Section not found in this class');
     }
 
     const assignment = await this.teacherClassSectionRepo.findOne({
       where: { id: assignmentId, section_id: sectionId, tenant_id: tenantId },
     });
     if (!assignment) {
-      throw new NotFoundException(`Assignment with ID "${assignmentId}" not found`);
+      throw new NotFoundException('Assignment not found');
     }
 
     await this.teacherClassSectionRepo.manager.transaction(async (manager) => {
@@ -951,7 +949,7 @@ export class SectionService {
       where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!section) {
-      throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
+      throw new NotFoundException('Section not found in this class');
     }
 
     const rows = await this.teacherClassSectionRepo

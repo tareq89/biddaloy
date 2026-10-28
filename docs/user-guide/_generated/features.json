@@ -441,7 +441,11 @@
     "path": "communications/reminder-history",
     "route": "/communications/batches",
     "roles": ["ADMIN", "ACCOUNTANT", "OFFICE_STAFF"],
-    "routes": ["/communications/batches", "/communications/batches/$batchId"]
+    "routes": [
+      "/communications/batches",
+      "/communications/batches/$batchId",
+      "/communications/message-log"
+    ]
   },
   {
     "id": "administration.printTemplates",

@@ -1,6 +1,7 @@
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  HelpHint,
   Card,
   Checkbox,
   Label,
@@ -314,6 +315,7 @@ function SingleReminderForm() {
       actions={[
         {
           id: 'bulk',
+          helpId: 'communications.feeReminders.action.bulkSend',
           label: t('bulk.entryAction'),
           icon: <UsersIcon aria-hidden />,
           priority: 'secondary',
@@ -587,20 +589,24 @@ function SingleReminderForm() {
                 ) : (
                   <p className="text-text-secondary md:me-auto">{t('reminders.sendHint')}</p>
                 ))}
-              <Button
-                type="button"
-                variant={previewMatchesInputs ? 'outline' : 'default'}
-                disabled={!canPreview}
-                loading={preview.isPending}
-                onClick={handlePreview}
-              >
-                {previewMatchesInputs && <RefreshCwIcon aria-hidden />}
-                {preview.isPending
-                  ? t('reminders.previewing')
-                  : previewMatchesInputs
-                    ? t('reminders.previewAgain')
-                    : t('reminders.previewAction')}
-              </Button>
+              <span className="inline-flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant={previewMatchesInputs ? 'outline' : 'default'}
+                  className="flex-1 md:flex-none"
+                  disabled={!canPreview}
+                  loading={preview.isPending}
+                  onClick={handlePreview}
+                >
+                  {previewMatchesInputs && <RefreshCwIcon aria-hidden />}
+                  {preview.isPending
+                    ? t('reminders.previewing')
+                    : previewMatchesInputs
+                      ? t('reminders.previewAgain')
+                      : t('reminders.previewAction')}
+                </Button>
+                <HelpHint helpId="communications.feeReminders.action.preview" />
+              </span>
             </div>
             {preview.isError && (
               <p
@@ -630,20 +636,24 @@ function SingleReminderForm() {
               <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 md:flex-row md:items-center md:justify-between">
                 <p className="text-text-secondary">{t('reminders.irreversibleNote')}</p>
                 {acceptedPreview.result.recipients.length > 0 && (
-                  <Button
-                    type="button"
-                    disabled={!canSend}
-                    loading={send.isPending}
-                    onClick={handleSend}
-                  >
-                    <SendIcon aria-hidden />
-                    {send.isPending
-                      ? t('reminders.sending')
-                      : t('reminders.sendToCount', {
-                          count: acceptedPreview.result.recipients.length,
-                          n: formatNumber(acceptedPreview.result.recipients.length, config),
-                        })}
-                  </Button>
+                  <span className="inline-flex items-center gap-1">
+                    <Button
+                      type="button"
+                      className="flex-1 md:flex-none"
+                      disabled={!canSend}
+                      loading={send.isPending}
+                      onClick={handleSend}
+                    >
+                      <SendIcon aria-hidden />
+                      {send.isPending
+                        ? t('reminders.sending')
+                        : t('reminders.sendToCount', {
+                            count: acceptedPreview.result.recipients.length,
+                            n: formatNumber(acceptedPreview.result.recipients.length, config),
+                          })}
+                    </Button>
+                    <HelpHint helpId="communications.feeReminders.action.send" />
+                  </span>
                 )}
               </div>
               {send.isError && (
@@ -652,9 +662,16 @@ function SingleReminderForm() {
                   className="mt-3 flex items-center gap-1 text-caption text-destructive"
                 >
                   <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
-                  {send.error instanceof ApiError && send.error.statusCode === 400
-                    ? t('reminders.sendInvalid')
-                    : t('reminders.errorMessage')}
+                  {send.error instanceof ApiError &&
+                  send.error.statusCode === 409 &&
+                  send.error.details?.['code'] === 'INSUFFICIENT_SMS_CREDIT'
+                    ? t('bulk.review.projection.insufficientCredit', {
+                        required: formatNumber(Number(send.error.details['required']), config),
+                        available: formatNumber(Number(send.error.details['available']), config),
+                      })
+                    : send.error instanceof ApiError && send.error.statusCode === 400
+                      ? t('reminders.sendInvalid')
+                      : t('reminders.errorMessage')}
                 </p>
               )}
             </Card>

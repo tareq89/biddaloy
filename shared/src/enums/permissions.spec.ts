@@ -1052,3 +1052,18 @@ describe('arrival notice permissions (84.1.1, D15/D16)', () => {
     }
   });
 });
+
+describe('INVOICE_SEND [#3033]', () => {
+  it.each([UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTANT])('%s holds it', (role) => {
+    expect(roleHasPermission(role, Permission.INVOICE_SEND)).toBe(true);
+  });
+
+  it('no other role holds it (OFFICE_STAFF reads invoices but cannot send)', () => {
+    const holders = Object.values(UserRole).filter((r) =>
+      roleHasPermission(r, Permission.INVOICE_SEND),
+    );
+    expect(holders.sort()).toEqual(
+      [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTANT].sort(),
+    );
+  });
+});

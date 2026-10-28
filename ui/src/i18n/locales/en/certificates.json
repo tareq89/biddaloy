@@ -46,7 +46,7 @@
   "serial": {
     "title": "Serial number",
     "next": "Next",
-    "help": "The number belongs to this certificate once you confirm the print. Closing before that uses no number.",
+    "help": "This certificate gets its number when you press Print. Closing before that uses no number.",
     "issuedThisYear_other": "{{n}} issued in {{year}} so far",
     "issuedThisYear_one": "{{n}} issued in {{year}} so far",
     "openRegister": "Open the register"

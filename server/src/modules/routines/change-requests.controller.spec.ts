@@ -20,6 +20,13 @@ describe('ChangeRequestsController [21.6.1]', () => {
     expect(service.findForRoutine).toHaveBeenCalledWith('routine-1', 'tenant-1');
   });
 
+  it('findOwnForRoutine uses the tenant and the token user, nothing from the request', async () => {
+    const service: any = { findOwnForRoutine: vi.fn(async () => []) };
+    const controller = new ChangeRequestsController(service);
+    await controller.findOwnForRoutine('routine-1', TENANT, USER);
+    expect(service.findOwnForRoutine).toHaveBeenCalledWith('routine-1', 'tenant-1', 'user-1');
+  });
+
   it('resolve delegates to the service with a request context', async () => {
     const service: any = { resolve: vi.fn(async () => ({ id: 'cr-1' })) };
     const controller = new ChangeRequestsController(service);

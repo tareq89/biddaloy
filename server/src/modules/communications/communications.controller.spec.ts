@@ -46,6 +46,7 @@ describe('CommunicationsController', () => {
       previewBulk: vi.fn(),
       findBatches: vi.fn(),
       findBatchLogs: vi.fn(),
+      findLogs: vi.fn(),
     };
     singleReminderService = { preview: vi.fn(), sendSingle: vi.fn() };
     familyAccess = { assertLinked: vi.fn() };
@@ -90,9 +91,7 @@ describe('CommunicationsController', () => {
 
   describe('error propagation', () => {
     it('should propagate NotFoundException from service.sendToGuardian', async () => {
-      service.sendToGuardian.mockRejectedValue(
-        new NotFoundException('Student with ID "bad" not found'),
-      );
+      service.sendToGuardian.mockRejectedValue(new NotFoundException('Student not found'));
 
       await expect(
         controller.send(
@@ -110,9 +109,7 @@ describe('CommunicationsController', () => {
     });
 
     it('should propagate NotFoundException from service.findOne', async () => {
-      service.findOne.mockRejectedValue(
-        new NotFoundException('Communication log with ID "bad" not found'),
-      );
+      service.findOne.mockRejectedValue(new NotFoundException('Communication log not found'));
 
       await expect(controller.findOne('bad', TENANT, USER)).rejects.toThrow(NotFoundException);
     });
@@ -217,6 +214,19 @@ describe('CommunicationsController', () => {
       const result = await controller.findReminderBatches(query as any, TENANT);
 
       expect(bulkReminderService.findBatches).toHaveBeenCalledWith(query, TENANT.id);
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('findLogs', () => {
+    it('should call bulkReminderService.findLogs with query and tenant id', async () => {
+      const query = { status: 'FAILED', medium: 'SMS' };
+      const expected = { data: [], total: 0, page: 1, limit: 25, totalPages: 0 };
+      bulkReminderService.findLogs.mockResolvedValue(expected);
+
+      const result = await controller.findLogs(query as any, TENANT);
+
+      expect(bulkReminderService.findLogs).toHaveBeenCalledWith(query, TENANT.id);
       expect(result).toEqual(expected);
     });
   });

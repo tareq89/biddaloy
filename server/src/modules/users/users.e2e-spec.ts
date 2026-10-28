@@ -511,6 +511,46 @@ describe('Users & Teachers E2E [8.11.8]', () => {
       await dataSource.query('DELETE FROM users WHERE id = $1', [id]);
     });
 
+    it('[#2864] a passwordless user with no email and no phone is a 400 CONTACT_REQUIRED, nothing saved', async () => {
+      const name = 'Contactless 2864';
+      const res = await request()
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ full_name: name, role: UserRole.TEACHER })
+        .expect(400);
+      expect(res.body.details).toMatchObject({ code: 'CONTACT_REQUIRED' });
+      const rows = await dataSource.query('SELECT id FROM users WHERE full_name = $1', [name]);
+      expect(rows).toHaveLength(0);
+    });
+
+    it('[#2864] promoting someone who already has a teacher profile is a 409 without their id', async () => {
+      const promote = (employee_id: string) =>
+        request()
+          .post('/api/v1/teachers')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_A)
+          .send({ user_id: MEMBER_A_ID, employee_id });
+      // First call may 201 or (if an earlier case promoted member A) already 409.
+      await promote('E2E-2864-A');
+      const res = await promote('E2E-2864-B').expect(409);
+      expect(res.body.details).toMatchObject({ code: 'ALREADY_TEACHER_HERE' });
+      expect(JSON.stringify(res.body)).not.toContain(MEMBER_A_ID);
+    });
+
+    it("[Rule 23] promoting another school's member answers exactly like an unknown id", async () => {
+      const promote = (user_id: string) =>
+        request()
+          .post('/api/v1/teachers')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .set('X-Tenant-ID', TENANT_A)
+          .send({ user_id, employee_id: 'E2E-R23' });
+      // MEMBER_B is a real account, but only in school B.
+      const otherSchool = await promote(MEMBER_B_ID).expect(404);
+      const unknown = await promote('00000000-0000-4000-8000-0000000009ff').expect(404);
+      expect(otherSchool.body.message).toBe(unknown.body.message);
+    });
+
     describe('[68.2.02] POST /users/join-requests', () => {
       const send = (token: string, body: object, tenant: string | null = TENANT_A) => {
         const r = request()

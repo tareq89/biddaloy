@@ -230,20 +230,20 @@ export class StudentLifecycleService {
         where: { id: dto.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (!section) {
-        throw new NotFoundException(`Class section "${dto.class_section_id}" not found`);
+        throw new NotFoundException('Class section not found');
       }
       const cls = await manager.getRepository(Class).findOne({
         where: { id: section.class_id, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (!cls) {
-        throw new NotFoundException(`Class "${section.class_id}" not found`);
+        throw new NotFoundException('Class not found');
       }
       const yearId = cls.academic_year_id;
       const year = await manager.getRepository(AcademicYear).findOne({
         where: { id: yearId, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (!year) {
-        throw new NotFoundException(`Academic year "${yearId}" not found`);
+        throw new NotFoundException('Academic year not found');
       }
       if (dto.academic_year_id && dto.academic_year_id !== yearId) {
         throw new BadRequestException('class_section_id does not belong to academic_year_id');
@@ -259,9 +259,7 @@ export class StudentLifecycleService {
         },
       });
       if (activeInYear) {
-        throw new ConflictException(
-          `Student is already actively enrolled in academic year "${yearId}"`,
-        );
+        throw new ConflictException('Student is already actively enrolled in this academic year');
       }
 
       const studentRepo = manager.getRepository(Student);

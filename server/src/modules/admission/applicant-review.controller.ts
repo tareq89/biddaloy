@@ -31,6 +31,7 @@ import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
 import { ListApplicantsDto } from './dto/list-applicants.dto';
 import { GuardianMatchResponseDto } from './dto/guardian-match.dto';
+import { ApplicantListResponseDto } from './dto/applicant-list-response.dto';
 
 /** [27.5] Staff review/evaluate/admit/reject over `admission_applicants` —
  * same guard stack as `IntakeController` (#27.3). */
@@ -46,6 +47,7 @@ export class ApplicantReviewController {
   @ApiOperation({
     summary: 'List admission applicants, optionally filtered by intake and/or status.',
   })
+  @ApiOkResponse({ type: ApplicantListResponseDto })
   findAll(
     @Query() filters: ListApplicantsDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -119,7 +121,10 @@ export class ApplicantReviewController {
     // Documents can be deleted, so never cache; nosniff + sandbox for uploaded content.
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    );
     res.setHeader('Content-Type', object.contentType ?? 'application/octet-stream');
     return new StreamableFile(object.body);
   }

@@ -4,7 +4,7 @@ Read this before you write or change any page under `docs/user-guide/`. It tells
 you **how to write**. The shape of a page (the blocks, their order, their ids) is
 in [`page-template.md`](page-template.md), which is locked (Epic 42, D44). Diagrams
 are in [`diagram-style.md`](diagram-style.md). How the whole guide is built and
-checked is in [`../architecture/25-user-guide.md`](../architecture/25-user-guide.md).
+checked is in [`../architecture/39-user-guide.md`](../architecture/39-user-guide.md).
 Terms the guide uses are in the glossary
 ([bn](../user-guide/bn/help/glossary.md), [en](../user-guide/en/help/glossary.md)).
 

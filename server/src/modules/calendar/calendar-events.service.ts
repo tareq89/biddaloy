@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { CalendarEvent } from './entities/calendar-event.entity';
 import { CalendarEventClass } from './entities/calendar-event-class.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
@@ -161,8 +161,11 @@ export class CalendarEventsService {
       qb.andWhere('event.audience = :audience', { audience: query.audience });
     }
     if (query.class_id) {
+      // An event with no class link belongs to every class (same rule as
+      // calendar-visibility.util.ts), so it matches any class filter too.
       qb.andWhere(
-        `EXISTS (SELECT 1 FROM calendar_event_classes cec WHERE cec.event_id = event.id AND cec.class_id = :classId)`,
+        `(EXISTS (SELECT 1 FROM calendar_event_classes cec WHERE cec.event_id = event.id AND cec.class_id = :classId)
+          OR NOT EXISTS (SELECT 1 FROM calendar_event_classes cec3 WHERE cec3.event_id = event.id))`,
         { classId: query.class_id },
       );
     }
@@ -252,6 +255,9 @@ export class CalendarEventsService {
      * silently land the event in the wrong one. Never sourced from client
      * input. */
     expectedAcademicYearId?: string,
+    /** Write through this transaction's manager (bulk holiday add), so a
+     * later failure rolls the event back. */
+    manager?: EntityManager,
   ): Promise<CalendarEventWithClassIds> {
     if (dto.end_date < dto.start_date) {
       throw new UnprocessableEntityException({
@@ -304,7 +310,9 @@ export class CalendarEventsService {
     // A past closure is always live at once and never announced (no SMS
     // about a day that is over).
     const publish = isPastClosure ? true : (dto.publish ?? true);
-    const event = this.eventRepo.create({
+    const eventRepo = manager?.getRepository(CalendarEvent) ?? this.eventRepo;
+    const eventClassRepo = manager?.getRepository(CalendarEventClass) ?? this.eventClassRepo;
+    const event = eventRepo.create({
       tenant_id: tenantId,
       academic_year_id: academicYear.id,
       type: dto.type,
@@ -320,27 +328,32 @@ export class CalendarEventsService {
       created_by_user_id: userId,
       updated_by_user_id: userId,
     });
-    const saved = await this.eventRepo.save(event);
+    const saved = await eventRepo.save(event);
 
     if (classIds.length > 0) {
-      await this.eventClassRepo.save(
+      await eventClassRepo.save(
         classIds.map((classId) => ({ event_id: saved.id, class_id: classId, tenant_id: tenantId })),
       );
     }
 
-    await this.auditService.record({
-      action: AuditAction.CREATE,
-      entity_type: 'CalendarEvent',
-      entity_id: saved.id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      old_values: null,
-      new_values: {
-        ...saved,
-        class_ids: classIds,
-        ...(isPastClosure ? { reason } : {}),
+    await this.auditService.record(
+      {
+        action: AuditAction.CREATE,
+        entity_type: 'CalendarEvent',
+        entity_id: saved.id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        old_values: null,
+        new_values: {
+          ...saved,
+          class_ids: classIds,
+          ...(isPastClosure ? { reason } : {}),
+        },
       },
-    });
+      // Same transaction as the insert: a rolled-back bulk add leaves no
+      // audit row for an event that never existed.
+      manager,
+    );
 
     const [withClassIds] = await this.withClassIds([saved], tenantId);
     // D9: a draft (`publish: false`) is never notified — `publish()` sends

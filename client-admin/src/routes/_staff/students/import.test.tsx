@@ -1,6 +1,6 @@
 import { File as NodeFile } from 'node:buffer';
 
-import { REGION_BD_BN } from '@biddaloy/ui/i18n';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -199,7 +199,7 @@ describe('/students/import', () => {
     renderImportPage();
     await uploadFile(makeFile('students.csv'));
 
-    await screen.findByText(`${formatNumber(1, REGION_BD_BN)} student will be created.`);
+    await screen.findByText(`${formatNumber(1, REGION_BD_EN)} student will be created.`);
     const previewTable = await screen.findByRole('table', { name: /First [\d০-৯]+ rows?/ });
     expect(within(previewTable).getByText('Karim Rahman')).toBeTruthy();
     // Phones go through formatPhone, never the raw international form.
@@ -215,7 +215,7 @@ describe('/students/import', () => {
   });
 
   it('shows the trial seat-limit error in the app language, not the server text', async () => {
-    const n = (value: number) => formatNumber(value, REGION_BD_BN);
+    const n = (value: number) => formatNumber(value, REGION_BD_EN);
     server.use(
       validateHandler({
         ...cleanPreviewBody,
@@ -264,7 +264,7 @@ describe('/students/import', () => {
     renderImportPage();
     await uploadFile(makeFile('students.csv'));
 
-    await screen.findByText(`${formatNumber(3, REGION_BD_BN)} students will be created.`);
+    await screen.findByText(`${formatNumber(3, REGION_BD_EN)} students will be created.`);
     // Preview shown, nothing committed yet.
     expect(commitCalled).toBe(false);
 
@@ -273,7 +273,7 @@ describe('/students/import', () => {
     expect(importButton.hasAttribute('disabled')).toBe(false);
     await user.click(importButton);
 
-    await screen.findByText(`All ${formatNumber(3, REGION_BD_BN)} students were imported.`);
+    await screen.findByText(`All ${formatNumber(3, REGION_BD_EN)} students were imported.`);
     expect(commitCalled).toBe(true);
     // The invite-guardians checkbox only appears once students exist.
     expect(screen.getByLabelText("Invite the imported students' guardians now")).toBeTruthy();
@@ -297,6 +297,24 @@ describe('/students/import', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('Missing required columns: roll, section');
+  });
+
+  it('[#3042] shows our own text for a whole-file code, never the server sentence', async () => {
+    server.use(
+      validateHandler(
+        {
+          ...apiErrorBody(400, 'Server English sentence', '/api/v1/students/bulk-upload/validate'),
+          details: { code: 'IMPORT_FILE_MISSING_COLUMNS' },
+        },
+        400,
+      ),
+    );
+    renderImportPage();
+    await uploadFile(makeFile('students.csv'));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain("Some columns are missing. Use the sample file's columns.");
+    expect(alert.textContent).not.toContain('Server English sentence');
   });
 
   // [8.11.8] The server route admits ACCOUNTANT and EXECUTIVE, so the page
@@ -362,7 +380,7 @@ describe('/students/import', () => {
     );
     const { container } = renderImportPage();
     await uploadFile(makeFile('students.csv'));
-    await screen.findByText(`${formatNumber(1, REGION_BD_BN)} student will be created.`);
+    await screen.findByText(`${formatNumber(1, REGION_BD_EN)} student will be created.`);
     await expect(container).toHaveNoViolations();
   });
 });

@@ -9,6 +9,6 @@ export const ALLOW_WHEN_READ_ONLY_KEY = 'allowWhenReadOnly';
  *
  * Method-level only (ContextGuard reads the handler). The allowlist is pinned by
  * `allow-when-suspended-for-billing.decorator.spec.ts`; listed in
- * docs/architecture/22-onboarding.md, "Writes that stay open".
+ * docs/architecture/34-onboarding.md, "Writes that stay open".
  */
 export const AllowWhenReadOnly = () => SetMetadata(ALLOW_WHEN_READ_ONLY_KEY, true);

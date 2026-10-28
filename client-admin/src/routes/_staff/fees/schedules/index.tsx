@@ -24,6 +24,7 @@ import {
 import {
   recurringSchedulesQueryOptions,
   useHasPermission,
+  useDeleteRecurringSchedule,
   useRecurringSchedules,
   useUpdateRecurringSchedule,
   type RecurringSchedule,
@@ -106,6 +107,42 @@ function ToggleScheduleConfirm({
   );
 }
 
+/** Deleting a rule stops new bills only — bills already made stay (server soft delete). */
+function DeleteScheduleConfirm({
+  schedule,
+  onDone,
+}: {
+  schedule: RecurringSchedule;
+  onDone: () => void;
+}) {
+  const { t } = useTranslation('fees');
+  const deleteSchedule = useDeleteRecurringSchedule();
+
+  return (
+    <ConfirmDialog
+      open
+      tone="danger"
+      onOpenChange={(open) => {
+        if (!open) onDone();
+      }}
+      title={t('schedules.deleteConfirmTitle')}
+      description={t('schedules.deleteConfirmDescription')}
+      confirmLabel={t('schedules.delete')}
+      busy={deleteSchedule.isPending}
+      onConfirm={() =>
+        deleteSchedule.mutate(schedule.id, {
+          onSuccess: onDone,
+          // Close the confirm and say so — nothing else reports a failed delete.
+          onError: () => {
+            onDone();
+            toast.error(t('schedules.deleteErrorMessage'));
+          },
+        })
+      }
+    />
+  );
+}
+
 function SchedulesListPage() {
   const { t, i18n } = useTranslation('fees');
   const regionConfig = useRegionConfig();
@@ -120,6 +157,7 @@ function SchedulesListPage() {
   const canManage = useHasPermission(Permission.SCHEDULE_MANAGE);
   const [cloning, setCloning] = React.useState<RecurringSchedule | null>(null);
   const [toggling, setToggling] = React.useState<RecurringSchedule | null>(null);
+  const [deleting, setDeleting] = React.useState<RecurringSchedule | null>(null);
   const now = React.useMemo(() => dhakaNow(), []);
 
   const openNew = () => void navigate({ search: (prev) => ({ ...prev, new: 1 }) });
@@ -203,6 +241,7 @@ function SchedulesListPage() {
         actions={[
           {
             id: 'add',
+            helpId: 'finance.recurringSchedules.action.add',
             label: t('schedules.addSchedule'),
             icon: <PlusIcon />,
             priority: 'primary',
@@ -244,6 +283,12 @@ function SchedulesListPage() {
                 allowed: canManage,
                 onClick: () => setToggling(row),
               },
+          {
+            intent: 'delete',
+            label: t('schedules.delete'),
+            allowed: canManage,
+            onClick: () => setDeleting(row),
+          },
         ]}
         sorting={null}
         onSortingChange={() => {}}
@@ -296,6 +341,10 @@ function SchedulesListPage() {
 
       {canManage && toggling && (
         <ToggleScheduleConfirm schedule={toggling} onDone={() => setToggling(null)} />
+      )}
+
+      {canManage && deleting && (
+        <DeleteScheduleConfirm schedule={deleting} onDone={() => setDeleting(null)} />
       )}
     </>
   );

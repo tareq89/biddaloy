@@ -11,6 +11,7 @@ import {
   ConfirmDialog,
   DataTable,
   ErrorState,
+  HelpHint,
   Input,
   Label,
   Select,
@@ -158,17 +159,20 @@ export function ComponentsPanel({
           </Select>
         </div>
         {canManage && (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full md:w-auto"
-            onClick={() =>
-              void navigate({ search: (prev) => ({ ...prev, copy: '1' }), replace: true })
-            }
-          >
-            <Copy aria-hidden className="size-4" />
-            {t('componentsPanel.copyComponents')}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full md:w-auto"
+              onClick={() =>
+                void navigate({ search: (prev) => ({ ...prev, copy: '1' }), replace: true })
+              }
+            >
+              <Copy aria-hidden className="size-4" />
+              {t('componentsPanel.copyComponents')}
+            </Button>
+            <HelpHint helpId="examsResults.exams.action.copyComponents" />
+          </div>
         )}
       </div>
 
@@ -317,14 +321,17 @@ export function ComponentsPanel({
                 </div>
               </>
             )}
-            <Button
-              type="submit"
-              variant="outline"
-              className="w-full md:col-span-1"
-              loading={createComponent.isPending}
-            >
-              {t('componentsPanel.add')}
-            </Button>
+            <div className="flex items-center gap-1 md:col-span-1">
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full"
+                loading={createComponent.isPending}
+              >
+                {t('componentsPanel.add')}
+              </Button>
+              <HelpHint helpId="examsResults.exams.action.addComponent" />
+            </div>
           </div>
           {isAttendance && (
             <p className="mt-3 text-text-secondary">{t('componentsPanel.attendanceHint')}</p>

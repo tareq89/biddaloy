@@ -61,21 +61,17 @@ export class ExamsService {
       where: { id: refs.classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!cls) {
-      throw new BadRequestException(`Class "${refs.classId}" not found for this tenant.`);
+      throw new BadRequestException('Class not found for this tenant.');
     }
     if (cls.academic_year_id !== refs.academicYearId) {
-      throw new BadRequestException(
-        `Class "${refs.classId}" does not belong to academic year "${refs.academicYearId}".`,
-      );
+      throw new BadRequestException('This class does not belong to the chosen academic year.');
     }
 
     const year = await this.yearRepo.findOne({
       where: { id: refs.academicYearId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!year) {
-      throw new BadRequestException(
-        `Academic year "${refs.academicYearId}" not found for this tenant.`,
-      );
+      throw new BadRequestException('Academic year not found for this tenant.');
     }
 
     if (refs.academicTermId) {
@@ -88,9 +84,7 @@ export class ExamsService {
         },
       });
       if (!term) {
-        throw new BadRequestException(
-          `Academic term "${refs.academicTermId}" not found for this tenant/year.`,
-        );
+        throw new BadRequestException('Academic term not found for this tenant/year.');
       }
     }
   }
@@ -114,13 +108,16 @@ export class ExamsService {
         where: { id: dto.template_id, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (!template) {
-        throw new NotFoundException(`Exam template "${dto.template_id}" not found`);
+        throw new NotFoundException('Exam template not found');
       }
       const cls = await this.classRepo.findOne({
         where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
       });
       if (cls?.numeric_grade == null) {
-        throw new BadRequestException('Class has no numeric grade; templates need one');
+        throw new BadRequestException({
+          message: 'This class has no grade set, so an exam structure cannot be used.',
+          details: { code: 'CLASS_HAS_NO_GRADE' },
+        });
       }
       numericGrade = cls.numeric_grade;
     }
@@ -176,9 +173,10 @@ export class ExamsService {
       });
     } catch (err) {
       if (isUniqueViolation(err)) {
-        throw new ConflictException(
-          `An exam named "${dto.name}" already exists for this class and academic year.`,
-        );
+        throw new ConflictException({
+          message: 'An exam with this name already exists for this class and academic year.',
+          details: { code: 'EXAM_NAME_TAKEN' },
+        });
       }
       throw err;
     }
@@ -277,7 +275,7 @@ export class ExamsService {
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!entity) {
-      throw new NotFoundException(`Exam with ID "${id}" not found`);
+      throw new NotFoundException('Exam not found');
     }
     return entity;
   }
@@ -306,7 +304,7 @@ export class ExamsService {
     if (changesClass || changesYear) {
       if (await this.hasMarks(id, tenantId)) {
         throw new ConflictException(
-          `Cannot change class or academic year on exam "${id}": marks already exist for it.`,
+          'Cannot change class or academic year on this exam: marks already exist for it.',
         );
       }
     }
@@ -386,9 +384,10 @@ export class ExamsService {
         });
       } catch (err) {
         if (isUniqueViolation(err)) {
-          throw new ConflictException(
-            `An exam with this name already exists for this class and academic year.`,
-          );
+          throw new ConflictException({
+            message: 'An exam with this name already exists for this class and academic year.',
+            details: { code: 'EXAM_NAME_TAKEN' },
+          });
         }
         throw err;
       }

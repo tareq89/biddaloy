@@ -15,7 +15,10 @@
     "viewApplicants": "View applicants",
     "edit": "Edit",
     "emptyTitle": "No admission rounds yet",
-    "emptyText": "Add a round so guardians can apply online."
+    "emptyText": "Add a round so guardians can apply online.",
+    "copyPublicLink": "Copy public link",
+    "linkCopied": "Public admission link copied.",
+    "linkCopyFailed": "Could not copy the link."
   },
   "createDialog": {
     "title": "Add admission round",
@@ -38,6 +41,11 @@
     "documentsHelp": "Guardians must upload these when applying."
   },
   "detail": {
+    "closeNow": "Close now",
+    "closeConfirmTitle": "Close this admission round now?",
+    "closeConfirmBody": "The public form stops taking applications for this round today. Applications already sent are kept.",
+    "closed": "Admission round closed.",
+    "closeFailed": "Could not close the round. Please try again.",
     "save": "Save",
     "saving": "Saving…",
     "errorMessage": "Failed to save admission round",

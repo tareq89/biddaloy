@@ -70,7 +70,7 @@ export class SubjectChoicesService {
       where: { id: student.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!section) {
-      throw new NotFoundException(`Class section for student "${studentId}" not found`);
+      throw new NotFoundException('Class section not found');
     }
 
     const base = {
@@ -122,7 +122,7 @@ export class SubjectChoicesService {
       where: { id: student.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!section) {
-      throw new NotFoundException(`Class section for student "${studentId}" not found`);
+      throw new NotFoundException('Class section not found');
     }
 
     const classSubject = await this.classSubjectRepo.findOne({
@@ -137,18 +137,14 @@ export class SubjectChoicesService {
       ],
     });
     if (!classSubject) {
-      throw new NotFoundException(
-        `Optional class-subject offering "${dto.class_subject_id}" not found`,
-      );
+      throw new NotFoundException('Optional subject not found');
     }
     // listOptions only ever shows a student offerings from their own
     // class (via section.class_id) — setChoice must reject the same
     // cross-class case rather than silently accepting a choice
     // listOptions would never have shown the caller in the first place.
     if (classSubject.class_id !== section.class_id) {
-      throw new NotFoundException(
-        `Optional class-subject offering "${dto.class_subject_id}" not found`,
-      );
+      throw new NotFoundException('Optional subject not found');
     }
 
     const isFourth = dto.is_fourth ?? false;

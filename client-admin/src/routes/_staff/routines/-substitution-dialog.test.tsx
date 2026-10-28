@@ -1,4 +1,6 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { formatTime } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -180,7 +182,7 @@ describe('SubstitutionDialog', () => {
         HttpResponse.json(
           {
             statusCode: 422,
-            message: 'Routine slot "slot-1" does not occur on 2026-02-02',
+            message: 'This routine slot does not occur on 2026-02-02',
             requestId: 'req-1',
             details: { code: 'SLOT_NOT_ON_DATE' },
           },
@@ -201,6 +203,49 @@ describe('SubstitutionDialog', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain("This period doesn't happen on the date you picked");
     expect(alert.textContent).not.toContain('does not occur on');
+  });
+
+  async function saveWith409(details: Record<string, unknown>, message: string) {
+    mockPickerData();
+    server.use(
+      http.post('/api/v1/routines/substitutions', () =>
+        HttpResponse.json(
+          { statusCode: 409, message, requestId: 'req-3', details },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderDialog();
+    await pickSection(user);
+    await user.click(await screen.findByRole('combobox', { name: 'Period' }));
+    await user.click(await screen.findByRole('option', { name: /Math/ }));
+    await user.click(screen.getByRole('combobox', { name: 'Substitute teacher' }));
+    await user.click(await screen.findByRole('option', { name: 'Mr Karim' }));
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+    return screen.findByRole('alert');
+  }
+
+  it('says why when the substitute is busy, with the clash times', async () => {
+    const alert = await saveWith409(
+      { code: 'TEACHER_BUSY', from: '09:00', to: '09:40' },
+      'Teacher busy server text',
+    );
+    expect(alert.textContent).toContain('This teacher has another class from');
+    expect(alert.textContent).toContain(formatTime('09:00', REGION_BD_BN));
+    expect(alert.textContent).toContain(formatTime('09:40', REGION_BD_BN));
+    expect(alert.textContent).not.toContain('Could not save');
+    expect(alert.textContent).not.toContain('server text');
+  });
+
+  it("says so when the substitute is the period's own teacher", async () => {
+    const alert = await saveWith409(
+      { code: 'SUBSTITUTE_IS_SLOT_TEACHER' },
+      'Own teacher server text',
+    );
+    expect(alert.textContent).toContain('This teacher already teaches this period');
+    expect(alert.textContent).not.toContain('Could not save');
+    expect(alert.textContent).not.toContain('server text');
   });
 
   it('shows the generic error, not the not-on-date sentence, for any other 422', async () => {

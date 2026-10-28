@@ -146,7 +146,7 @@ The layers diagram above shows where most of these rules sit on a request's way 
 - **Rule.** Code reads the client IP only from `req.ip` (via `requestContext()`). Express trusts exactly one hop: nginx. nginx decides the address by edge mode (`EDGE_MODE`, written by `nginx/edge-mode.sh`):
   - **tunnel:** from `CF-Connecting-IP`, but only when the TCP peer is on the `biddaloy-edge` network (where `cloudflared` lives).
   - **direct:** the TCP peer. There are no `real_ip` lines, so the header is ignored.
-  Never read `X-Forwarded-For` yourself.
+    Never read `X-Forwarded-For` yourself.
 - **Why.** A client can write any `X-Forwarded-For` or `CF-Connecting-IP`; rate limits and audit rows would trust it (75.4, D1, Epic 79.0 D8).
 - **Example.** `requestContext(request).ip` in the Turnstile check.
 
@@ -255,13 +255,14 @@ flowchart LR
 
 - **Rule.** An error on an identity field (email, phone, employee ID) names the kind of field, never the value. Within one operation, every failure path uses the same text, and no message echoes the submitted value.
 - **Known exception.** `UserService.update()` and `contact-change.service.ts` say "That email address is already in use" or "That phone number is already in use" on the pre-check, and "That email address or phone number is already in use" on the unique-index race path. The caller chose which field to change, so the field name tells them nothing new; left as is.
+- **Known exception (#3000).** Validation messages the caller authored themselves (a date range, a template placeholder, a vocabulary value they just typed) still quote that input so they can fix it; they are not record ids. Record ids never appear in a message a client sees. The `ContextGuard` 401 texts and the SMS-credit ledger invariants were the last known leftovers; both are fixed sentences since #3080.
 - **Why.** An echoed address, or two different texts, tells a caller which accounts exist (75.19, #2327).
 - **Example.** `POST /users` with a taken email or phone → `409 This person already has an account. Send them a join request instead.` (`details.code: ACCOUNT_EXISTS`), the same text on the pre-check and the unique-index race; `409 That employee ID is already in use`.
 - **Test.** `users.e2e-spec.ts` (create), `users.service.integration.spec.ts` and `staff-profiles.service.spec.ts` (employee ID).
 
 ### Rule 24: Errors are mapped in one place and never echo input
 
-- **Rule.** Known database and parser failures (`23505`, `22001`, `22003`, oversized body, multer codes) become fixed 4xx sentences in `server/src/common/filters/known-errors.ts`. A service does not catch them one by one, and no sentence holds the submitted value or a constraint name. Removing an echo in one service means grepping its sibling services for the same message shape.
+- **Rule.** Known database and parser failures (`23505`, `22001`, `22003`, oversized body, multer codes, import file errors: `ImportFileError` → 400 with `details.code`) become fixed 4xx sentences in `server/src/common/filters/known-errors.ts`. A service does not catch them one by one, and no sentence holds the submitted value or a constraint name. Removing an echo in one service means grepping its sibling services for the same message shape.
 - **Why.** A raw 500 paged Sentry and showed the constraint name (#2634, #2612, #2616). A sibling service kept echoing an id after checkout stopped (Wave 1 log).
 - **Example.** `POST /classes` with a taken name returns `409` with a fixed sentence, not `duplicate key value violates unique constraint "UQ_..."`.
 
@@ -270,7 +271,7 @@ flowchart LR
   E["DB or parser error<br/>23505, 22001, 22003, 413, multer"] --> K["known-errors.ts"] --> R["fixed 4xx sentence<br/>no value, no constraint name"]
 ```
 
-- **Test.** `server/src/common/filters/known-errors.spec.ts`, `known-errors.e2e-spec.ts` (the cases of #2634, #2612, #2616).
+- **Test.** `server/src/common/filters/known-errors.spec.ts`, `known-errors.e2e-spec.ts` (the cases of #2634, #2612, #2616), `server/src/not-found-echo.contract.spec.ts` (no NotFound message interpolates, #3000).
 
 ### Rule 25: Writes never auto-retry, and sending and billing routes carry an Idempotency-Key
 
@@ -684,7 +685,7 @@ flowchart TD
 | Consent          | Terms acceptance is stored in the audit log with the school id.                                                                                                                                                                                             |
 
 Gaps: the server has no captcha-specific error code (#1700) and does not
-normalise phone numbers (#1701). See [22-onboarding.md](22-onboarding.md).
+normalise phone numbers (#1701). See [34-onboarding.md](34-onboarding.md).
 
 ## Connecting a social account (75.3)
 

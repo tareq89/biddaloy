@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, SelectQueryBuilder } from 'typeorm';
+import { DataSource, IsNull, SelectQueryBuilder } from 'typeorm';
 import { ApplicationStatus, ApplicationType, LeaveStatus } from '@biddaloy/shared';
 import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Application } from './entities/application.entity';
 import { formatApplicationSerial } from './application-serial';
 import { ReviewerScopeService, type ApplicationCaller } from './reviewer-scope';
@@ -63,9 +64,27 @@ export class ApplicationReportsService {
     _user: ApplicationCaller,
     q: ReportsQueryDto,
   ): Promise<ApplicationReportsDto> {
+    // An explicit year filters to that year. Otherwise, with no dates, the school's
+    // current year applies, plus rows that have no year (submitted when none was
+    // current, or whose year was deleted). Dates without a year search every year.
+    const explicitYearId = q.academic_year_id;
+    const datesGiven = q.from !== undefined || q.to !== undefined;
+    const defaultYearId =
+      explicitYearId || datesGiven
+        ? undefined
+        : (
+            await this.dataSource.getRepository(AcademicYear).findOne({
+              where: { tenant_id: tenantId, is_current: true, deleted_at: IsNull() },
+              select: { id: true },
+            })
+          )?.id;
     const filtered = () => {
       const qb = this.apps(tenantId);
-      if (q.academic_year_id) qb.andWhere('a.academic_year_id = :yr', { yr: q.academic_year_id });
+      if (explicitYearId) qb.andWhere('a.academic_year_id = :yr', { yr: explicitYearId });
+      else if (defaultYearId)
+        qb.andWhere('(a.academic_year_id = :yr OR a.academic_year_id IS NULL)', {
+          yr: defaultYearId,
+        });
       if (q.from)
         qb.andWhere(`(a.created_at AT TIME ZONE '${SCHOOL_TZ}')::date >= :from`, { from: q.from });
       if (q.to)

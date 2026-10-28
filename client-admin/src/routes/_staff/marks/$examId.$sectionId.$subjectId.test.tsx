@@ -1,10 +1,10 @@
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, examFactory, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -35,7 +35,27 @@ const baseGrid = {
 
 describe('/marks/$examId/$sectionId/$subjectId', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
+  });
+
+  // [44.4 / #3012] The (?) after "Submit" resolves the generated guide entry.
+  it('shows the (?) after the submit button when a handbook URL is set', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(http.get(GRID_URL, () => HttpResponse.json(baseGrid)));
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+    await screen.findByLabelText('Rafi Ahmed — Written');
+    // By id: the page-level (?) carries the same "Help: <page title>" name.
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-help-id="examsResults.marksEntry.action.submit"]'),
+      ).not.toBeNull(),
+    );
   });
 
   it('shows the save-state header and moves saving -> saved after a batch commits', async () => {
@@ -431,6 +451,52 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     await screen.findByRole('button', { name: 'Reopen' });
   });
 
+  const mathDraft = {
+    section_id: 'sec-1',
+    section_name: 'Six - A',
+    subject_id: 'subj-1',
+    subject_name: 'Math',
+    subject_name_bn: null,
+    state: 'DRAFT',
+  };
+  const englishDraft = { ...mathDraft, subject_id: 'subj-other', subject_name: 'English' };
+
+  it('a submitted grid listed only in grids names its subject and section, with no save line', async () => {
+    const exam = examFactory({ id: 'exam-1', name: 'Half Yearly 2026' });
+    server.use(
+      http.get(GRID_URL, () =>
+        HttpResponse.json({
+          ...baseGrid,
+          state: 'SUBMITTED',
+          submitted_by: 'user-1',
+          submitted_at: '2026-01-01T00:00:00.000Z',
+        }),
+      ),
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [exam], total: 1, page: 1, limit: 50, totalPages: 1 }),
+      ),
+      http.get('/api/v1/exams/exam-1/marks/progress', () =>
+        HttpResponse.json({
+          counts: { DRAFT: 0, SUBMITTED: 1 },
+          outstanding: [],
+          grids: [{ ...mathDraft, state: 'SUBMITTED' }],
+        }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText(
+      `Math · Section Six - A · Half Yearly 2026 · ${formatNumber(1, REGION_BD_BN)} student`,
+    );
+    expect(screen.queryByText('No changes yet')).toBeNull();
+    expect(screen.queryByTestId('save-state-line')).toBeNull();
+  });
+
   it('names the subject, section and exam in the subtitle', async () => {
     const exam = examFactory({ id: 'exam-1', name: 'Half Yearly 2026' });
     server.use(
@@ -441,16 +507,8 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
       http.get('/api/v1/exams/exam-1/marks/progress', () =>
         HttpResponse.json({
           counts: { DRAFT: 1, SUBMITTED: 0 },
-          outstanding: [
-            {
-              section_id: 'sec-1',
-              section_name: 'Six - A',
-              subject_id: 'subj-1',
-              subject_name: 'Math',
-              subject_name_bn: null,
-              state: 'DRAFT',
-            },
-          ],
+          outstanding: [mathDraft],
+          grids: [mathDraft],
         }),
       ),
     );
@@ -480,16 +538,8 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
       http.get('/api/v1/exams/exam-1/marks/progress', () =>
         HttpResponse.json({
           counts: { DRAFT: 1, SUBMITTED: 1 },
-          outstanding: [
-            {
-              section_id: 'sec-1',
-              section_name: 'Six - A',
-              subject_id: 'subj-other',
-              subject_name: 'English',
-              subject_name_bn: null,
-              state: 'DRAFT',
-            },
-          ],
+          outstanding: [englishDraft],
+          grids: [englishDraft],
         }),
       ),
     );

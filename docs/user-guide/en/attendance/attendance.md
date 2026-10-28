@@ -34,10 +34,7 @@ keywords:
 appVersion: 0.1.0 (7b776974b)
 owner: tareq89
 lastVerified: 2026-10-23
-knownIssues:
-  - { id: submit-stays-draft, checked: 2026-10-23, issue: 2904 }
-  - { id: admin-old-register-save, checked: 2026-10-23, issue: 2905 }
-  - { id: bn-cancel-button-cut, checked: 2026-10-23, issue: 2906 }
+knownIssues: []
 -->
 
 # Taking attendance
@@ -64,7 +61,6 @@ Every section (for example Class 6, section B) has one **register** per day. Thi
   - [Attendance without internet](#task-offline)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
-- [Known issues](#known-issues)
 - [Learn more](#more)
 
 ---
@@ -139,10 +135,6 @@ A mark can be in one of three states. This is how to tell which:
   <figcaption><em>The section list after submitting: the section is no longer "Not started"</em></figcaption>
 </figure>
 
-{% hint style="warning" %}
-**Known issue (version 0.1.0):** after submitting, the section shows **Draft** instead of **Submitted** and is still counted as pending. **Draft** already means your attendance reached the system — do not submit again. [Details](#known-issues)
-{% endhint %}
-
 **No message?** See [Problems and fixes](#trouble). Your marks are not lost.
 
 ---
@@ -193,7 +185,7 @@ Within the school's correction window (usually 2 days) you can fix it yourself:
 3. Press the name or the **status button** of the student whose mark is wrong, and set it right.
 4. Press **Submit attendance**. When you see **Attendance saved**, the correction is in the system.
 
-After the window, the top of the register says "This register is older than 2 days. Ask an administrator to correct it." You can only look at it then; ask an admin to make the change. The **⋮** button on each row shows the **History**: who changed what, and when.
+After the window, the top of the register says "This register is older than 2 days. Ask an administrator to correct it." You can only look at it then; ask an admin to make the change. When an admin changes such a register, a **Why are you changing this register?** box appears; they write a reason of at least 3 characters, which other staff can see. The **⋮** button on each row shows the **History**: who changed what, and when.
 
 <figure>
   <img src="img/attendance-09-old-register.png" alt="A register past the correction window: 1 the message for teachers, 2 the ⋮ button on a row">
@@ -233,7 +225,6 @@ More help with this: [What to do when something goes wrong](../help/troubleshoot
 | The button says **Save on device**                           | No internet. See [Attendance without internet](#task-offline).                                                                            | —                                    |
 | **This register changed since you loaded it**                | See below.                                                                                                                                | —                                    |
 | **This register is older than 2 days…**                      | The correction window has passed. Tell an admin which student, which date, and what to change.                                            | Admin                                |
-| The section still shows **Draft** / pending after submitting | The attendance is in the system; this is a [known issue](#known-issues). Do not submit again.                                             | —                                    |
 
 **If "This register changed" appears:** someone else (for example an admin) submitted this register after you opened it. A list shows only the students whose mark differs between you and them, **Your mark** next to **Current mark**.
 
@@ -254,23 +245,11 @@ It is worth a word with that person about the listed students before you decide.
 | Role                                      | Sections seen | Can take attendance | Can correct                                                                       | Gets late alerts    |
 | ----------------------------------------- | ------------- | ------------------- | --------------------------------------------------------------------------------- | ------------------- |
 | Teacher                                   | Own assigned  | Yes                 | Within the window (usually 2 days)                                                | Yes, own sections   |
-| Admin                                     | All           | Yes, any day        | Any day, with a reason — not working right now, see [known issues](#known-issues) | Yes, when very late |
+| Admin                                     | All           | Yes, any day        | Any day, with a reason | Yes, when very late |
 | Headmaster / principal                    | All           | No                  | No                                                                                | Yes, when very late |
 | Accountant, office staff, exam controller | All           | No                  | No                                                                                | No                  |
 
 For those who cannot take attendance, the register has no **All present** and no **Submit attendance** button.
-
----
-
-## Known issues <a href="#known-issues" id="known-issues"></a>
-
-Verified on version 0.1.0 on 2026-10-23. Each line is removed once the fix ships.
-
-| Issue                                                                                                  | Who, when                               | Data saved?                      | What to do for now                                                                |
-| ------------------------------------------------------------------------------------------------------ | --------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
-| After submitting, the section shows **Draft** instead of **Submitted** and is still counted as pending | Everyone, after every submit            | Yes                              | Nothing. **Draft** means the attendance is in the system.                         |
-| Changing a register past the correction window and submitting shows **Could not save attendance**      | Admins, when correcting an old register | No — the correction is not saved | No workaround yet. Note the correction down; this page will say when it is fixed. |
-| The **বাতিল** (Cancel) button under the "unmarked" question is cut off and cannot be pressed           | Users of the Bangla interface           | Yes                              | Press **✕** at the top; it does the same.                                         |
 
 ---
 

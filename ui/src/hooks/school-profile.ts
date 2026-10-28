@@ -13,6 +13,7 @@ import { shouldRetryQuery } from './retry';
  */
 export interface SchoolProfile {
   name: string;
+  slug: string;
   name_bn: string | null;
   address: string | null;
   phone: string | null;
