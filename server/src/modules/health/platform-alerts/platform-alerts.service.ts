@@ -158,6 +158,9 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
       // directly, not through CommunicationsModule, which would pull BullMQ into this
       // Redis-outage path. It never throws (returns a failed result), and the tick catches anyway.
       const sink = MailpitSinkProvider.forMedium(CommunicationMedium.SMS);
+      // No recipients means no inbox message; say so, or the alert drops without a trace.
+      if (phones.length === 0)
+        this.logger.log('platform alert: no operator phones, nothing sent to the test inbox');
       for (const phone of phones) await sink.send({ to: phone, body: text });
       return;
     }

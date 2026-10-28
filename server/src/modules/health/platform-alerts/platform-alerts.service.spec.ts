@@ -179,6 +179,20 @@ describe('PlatformAlertsService', () => {
       expect(f.greenweb.sendSms).not.toHaveBeenCalled();
     });
 
+    it('never reaches a real gateway under the sink, even when a real SMS key is present', async () => {
+      // Business-critical: a real PLATFORM_SMS_API_KEY copied onto staging must not send real SMS.
+      process.env.MESSAGE_SINK = 'mailpit';
+      const send = vi.spyOn(MailpitSinkProvider.prototype, 'send').mockResolvedValue({
+        success: true,
+        providerMessageId: 'x',
+        outcome: 'ACCEPTED',
+      });
+      const f = fakes({ ...open, env: { PLATFORM_SMS_API_KEY: 'real-key' } });
+      for (let i = 0; i < 3; i++) await f.service.tick();
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(f.greenweb.sendSms).not.toHaveBeenCalled();
+    });
+
     it('is unchanged with the sink off', async () => {
       const send = vi.spyOn(MailpitSinkProvider.prototype, 'send');
       const f = fakes({ ...open, env: {} });
