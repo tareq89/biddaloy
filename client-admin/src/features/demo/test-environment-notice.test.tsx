@@ -5,6 +5,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TestEnvironmentNotice, TestInboxHint } from './test-environment-notice';
 
+// Records every namespace the components ask for, then hands over to the real hook.
+const requestedNamespaces = vi.hoisted(() => [] as unknown[]);
+vi.mock('@biddaloy/ui/i18n', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@biddaloy/ui/i18n')>();
+  return {
+    ...real,
+    useTranslation: ((...args: Parameters<typeof real.useTranslation>) => {
+      requestedNamespaces.push(args[0]);
+      return real.useTranslation(...args);
+    }) as typeof real.useTranslation,
+  };
+});
+
 const INBOX = 'https://inbox-demo.example.com';
 const setConfig = (sentryEnvironment: string, messageSinkUrl = INBOX) => {
   window.__BIDDALOY_CONFIG__ = { sentryEnvironment, messageSinkUrl };
@@ -97,6 +110,30 @@ describe('TestEnvironmentNotice', () => {
     );
     await screen.findAllByRole('link');
     expect(container.textContent).not.toMatch(/mailpit|sink|smtp|provider/i);
+  });
+});
+
+// [87 F5] i18n loads `demo` lazily with Suspense: asking for it on prod would make every shell and
+// the sign-in page fetch and wait on a chunk that renders nothing.
+describe('prod (no inbox URL)', () => {
+  it('never asks for the demo namespace; with a URL it does (control)', async () => {
+    setConfig('prod', '');
+    requestedNamespaces.length = 0;
+    const prod = renderWithProviders(
+      <>
+        <TestEnvironmentNotice />
+        <TestInboxHint />
+      </>,
+      { locale: 'en' },
+    );
+    expect(prod.container.textContent).toBe('');
+    expect(requestedNamespaces).not.toContain('demo');
+    prod.unmount();
+
+    setConfig('demo');
+    renderWithProviders(<TestInboxHint />, { locale: 'en' });
+    await screen.findByRole('link');
+    expect(requestedNamespaces).toContain('demo');
   });
 });
 

@@ -50,6 +50,11 @@ export function inboxSearchUrl(base, email) {
   return `${base.replace(/\/+$/, '')}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`;
 }
 
+/** Pure. Mailpit search for messages the sink tagged SMS (its X-Tags header). */
+export function inboxSmsSearchUrl(base) {
+  return `${base.replace(/\/+$/, '')}/api/v1/search?query=${encodeURIComponent('tag:SMS')}`;
+}
+
 /** Pure. True when a Mailpit search body holds a message created at/after `sinceMs`. */
 // `messages_count` is the match count (`total` is every message in the box), and the age
 // check stops an old run's message from passing this one.
@@ -236,6 +241,7 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     const started = Date.now();
     let found = false;
     let refused = false;
+    let limited = false;
     try {
       const res = await fetch(`${baseUrl}/api/v1/auth/forgot-password`, {
         method: 'POST',
@@ -244,26 +250,41 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
         signal: AbortSignal.timeout(10_000),
       });
       if (res.status === 202) {
-        const url = inboxSearchUrl(env.SMOKE_INBOX_API_URL, env.SMOKE_ADMIN_EMAIL);
-        found = await pollUntil(async () => {
+        // An admin with an unverified email and a verified phone gets the reset as an SMS code
+        // (recovery.service.ts), so a fresh SMS-tagged message also proves the inbox works.
+        const urls = [
+          inboxSearchUrl(env.SMOKE_INBOX_API_URL, env.SMOKE_ADMIN_EMAIL),
+          inboxSmsSearchUrl(env.SMOKE_INBOX_API_URL),
+        ];
+        const fresh = async (url) => {
           try {
             const r = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(5000) });
             return r.status === 200 && hasFreshMessage(await r.json(), started - 5000);
           } catch {
             return false;
           }
-        });
+        };
+        found = await pollUntil(async () => (await fresh(urls[0])) || (await fresh(urls[1])));
+      } else if (res.status === 429) {
+        // forgot-password is STRICT_RATE_LIMIT: a quick re-run of the deploy is not an inbox fault.
+        limited = true;
       } else {
         refused = true;
       }
     } catch {
       // falls through to FAIL
     }
-    out(
-      `${found ? 'PASS' : 'FAIL'}  inbox: ${found ? 'ok' : refused ? 'reset request refused' : 'message not found'}  ${Date.now() - started}ms`,
-    );
-    if (found) result.passed++;
-    else result.failed++;
+    if (limited) {
+      out('inbox: skipped (reset not mailed: rate limited)');
+    } else {
+      // ponytail: a re-run inside the SMS code's cooldown sends nothing and still FAILs here;
+      // it looks the same as a broken inbox from outside.
+      out(
+        `${found ? 'PASS' : 'FAIL'}  inbox: ${found ? 'ok' : refused ? 'reset request refused' : 'message not found'}  ${Date.now() - started}ms`,
+      );
+      if (found) result.passed++;
+      else result.failed++;
+    }
   }
   return done();
 }

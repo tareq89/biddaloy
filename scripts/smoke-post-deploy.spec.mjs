@@ -4,6 +4,7 @@ import {
   exitCode,
   hasFreshMessage,
   inboxSearchUrl,
+  inboxSmsSearchUrl,
   pollUntil,
   resolveBaseUrl,
   runSmoke,
@@ -323,6 +324,29 @@ describe('smoke-post-deploy', () => {
       expect(r.failed).toBe(0);
       expect(r.lines.find((l) => l.includes('inbox:'))).toMatch(/^PASS {2}inbox: ok/);
       expect(r.lines.join('\n')).not.toContain('adm@x.test');
+    });
+
+    it('passes on a fresh SMS-tagged message (reset sent as an SMS code)', async () => {
+      expect(inboxSmsSearchUrl('http://staging-mailpit:8025/')).toBe(
+        'http://staging-mailpit:8025/api/v1/search?query=tag%3ASMS',
+      );
+      const f = fakeFetch({
+        'POST /api/v1/auth/forgot-password': json(202, {}),
+        'GET http://staging-mailpit:8025/api/v1/search?query=to%3Aadm%40x.test': json(200, {
+          messages_count: 0,
+          messages: [],
+        }),
+        'GET http://staging-mailpit:8025/api/v1/search?query=tag%3ASMS': json(200, fresh),
+      });
+      const r = await run(f, INBOX);
+      expect(r.failed).toBe(0);
+      expect(r.lines.find((l) => l.includes('inbox:'))).toMatch(/^PASS {2}inbox: ok/);
+    });
+
+    it('skips, not fails, when the reset request is rate limited (429)', async () => {
+      const r = await run(fakeFetch({ 'POST /api/v1/auth/forgot-password': json(429, {}) }), INBOX);
+      expect(r.failed).toBe(0);
+      expect(r.lines).toContain('inbox: skipped (reset not mailed: rate limited)');
     });
 
     it('fails with a line naming the inbox check when the reset request is refused', async () => {

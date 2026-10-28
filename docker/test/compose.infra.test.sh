@@ -13,7 +13,7 @@ export APP_VERSION=test POSTGRES_USER=x POSTGRES_PASSWORD=x POSTGRES_DB=x JWT_SE
   LANDING_VERSION=test EDGE_MODE=tunnel OPS_DIR=./.ops APP_DOMAIN=app.example.test \
   BACKUP_AGE_PUBLIC_KEY=age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 
-# Dev compose (db, redis, seaweedfs only) must stay valid.
+# Dev compose (db, redis, seaweedfs, mailpit) must stay valid.
 docker compose config -q && pass "dev compose config is valid" || fail "dev compose config is invalid"
 
 # [79.0] The stack is one file started once per env; every env must merge.
@@ -33,11 +33,11 @@ EDGE_MODE=direct docker compose -f deploy/edge.yml -f deploy/edge.direct.yml con
 docker compose -f deploy/ops.yml config -q \
   && pass "ops config is valid" || fail "ops config is invalid"
 
-# Only app / app2 join the edge network; no host ports on any stack service; no docker socket
-# in the stack (the demo rebuild runs without one, D11).
+# Only app / app2 and the test inbox (mailpit, Epic 87) join the edge network; no host ports on
+# any stack service; no docker socket in the stack (the demo rebuild runs without one, D11).
 stack_json="$(ENV_NAME=prod docker compose "${STACK[@]}" --profile '*' config --format json)"
 on_edge="$(jq -r '.services | to_entries[] | select(.value.networks | has("edge")) | .key' <<<"$stack_json" | sort | tr '\n' ' ')"
-[ "$on_edge" = "app app2 " ] && pass "only app and app2 join the edge network" || fail "edge network members: $on_edge"
+[ "$on_edge" = "app app2 mailpit " ] && pass "only app, app2 and mailpit join the edge network" || fail "edge network members: $on_edge"
 ports="$(jq -r '.services | to_entries[] | select(.value.ports) | .key' <<<"$stack_json")"
 [ -z "$ports" ] && pass "stack publishes no host ports" || fail "stack services with host ports: $ports"
 jq -e '[.services[].volumes[]? | select(.source | tostring | test("docker\\.sock"))] | length == 0' <<<"$stack_json" >/dev/null \

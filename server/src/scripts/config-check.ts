@@ -23,7 +23,8 @@ import { verifyPassword } from '../modules/auth/password-hash';
  * the ENABLE_API_DOCS credentials check (main.ts).
  * `--env prod|staging|demo` adds that stack's rules (runStackConfigCheck): required vars, ENV_NAME,
  * no prod database or bucket outside prod, DEMO_MODE, the Turnstile key pair, no one-off runner
- * profile, and on staging what the nightly refresh needs. From the app image:
+ * profile, the test inbox (MESSAGE_SINK and the `sink` profile on staging/demo, neither on prod),
+ * and on staging what the nightly refresh needs. From the app image:
  * `node server/dist/scripts/config-check.js --env <e> --file /dev/stdin`.
  * Every failing check is listed. Error text names variables only, never
  * their values.
@@ -194,7 +195,13 @@ export async function runStackConfigCheck(
   if (stack === 'prod' && val('MESSAGE_SINK') === 'mailpit') {
     errors.push('MESSAGE_SINK must not be mailpit on prod');
   }
+  // The `sink` profile makes the mailpit container part of the stack (a long-running service,
+  // not a one-off runner).
+  if (stack === 'prod' && profiles.includes('sink')) {
+    errors.push('COMPOSE_PROFILES must not contain sink on prod');
+  }
   if (stack !== 'prod') {
+    if (!profiles.includes('sink')) errors.push(`COMPOSE_PROFILES must contain sink on ${stack}`);
     if (val('MESSAGE_SINK') !== 'mailpit') errors.push(`MESSAGE_SINK must be mailpit on ${stack}`);
     if (!set('MESSAGE_SINK_PUBLIC_URL')) {
       errors.push(`MESSAGE_SINK_PUBLIC_URL must be set on ${stack}`);

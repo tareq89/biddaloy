@@ -84,12 +84,14 @@ describe('MailpitSinkProvider over a real SMTP socket', () => {
     expect(received[0]).toContain('Code 654321');
   });
 
-  it('inbox down gives REJECTED (the FAILED log row, D10)', async () => {
+  it('inbox down gives a retryable REJECTED (FAILED once the retries run out, D10)', async () => {
     await closeServer();
     const result = await MailpitSinkProvider.forMedium(CommunicationMedium.EMAIL).send({
       to: 'a@b.c',
       body: 'x',
     });
     expect(result).toMatchObject({ success: false, outcome: 'REJECTED' });
+    // A refused connection is Mailpit restarting: the queue retries it (F4).
+    expect(result.retryable).toBeUndefined();
   });
 });

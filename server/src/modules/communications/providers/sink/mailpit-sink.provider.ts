@@ -7,9 +7,14 @@ import {
   CommunicationSendParams,
   CommunicationSendResult,
 } from '../communication-provider.interface';
+import { maskEmail, maskPhone } from '../../../account-access/contact-mask.util';
 import { MESSAGE_SINK_PROVIDER } from './message-sink';
 
 const DEFAULT_SMTP_URL = 'smtp://mailpit:1025';
+
+// nodemailer's codes for "never reached Mailpit" (it rewrites ECONNREFUSED / ECONNRESET to
+// ESOCKET or ECONNECTION, EAI_AGAIN to EDNS, and keeps ETIMEDOUT): Mailpit restarting.
+const TRANSIENT_CODES = new Set(['ECONNECTION', 'ESOCKET', 'ETIMEDOUT', 'EDNS']);
 
 /**
  * Test-inbox provider (Epic 87): with `MESSAGE_SINK=mailpit` every medium is delivered to Mailpit
@@ -32,13 +37,14 @@ export class MailpitSinkProvider implements CommunicationProvider {
       ? `[WhatsApp template ${params.templateName}]`
       : isEmail
         ? (params.subject ?? '')
-        : `[${this.medium}] to ${params.to}`;
+        : // No recipient here: the public demo inbox lists subjects; it is searchable by To.
+          `[${this.medium}]`;
     const text = isTemplate
       ? [`language: ${params.templateLanguage ?? ''}`, ...(params.templateParams ?? [])].join('\n')
       : params.body;
     try {
       const transport = nodemailer.createTransport({
-        url: process.env.MESSAGE_SINK_SMTP_URL ?? DEFAULT_SMTP_URL,
+        url: process.env.MESSAGE_SINK_SMTP_URL || DEFAULT_SMTP_URL,
         connectionTimeout: 5000,
         greetingTimeout: 5000,
         socketTimeout: 10000,
@@ -50,13 +56,18 @@ export class MailpitSinkProvider implements CommunicationProvider {
         text,
         headers: { 'X-Tags': this.medium },
       });
-    } catch {
+    } catch (err) {
       // Never log the body or the full recipient.
       this.logger.warn(`sink send failed (${this.medium}) to ${maskRecipient(params.to)}`);
+      const code = (err as { code?: unknown } | null)?.code;
+      const transient = typeof code === 'string' && TRANSIENT_CODES.has(code);
       return {
         success: false,
         error: 'Test inbox unreachable',
-        retryable: false,
+        // A connection-level failure (Mailpit restarting) stays retryable; anything else is final.
+        retryable: transient ? undefined : false,
+        // REJECTED even when retryable, unlike a real gateway: nothing was delivered, so on the
+        // last attempt the SMS reservation is released, not left for reconciliation.
         outcome: 'REJECTED',
         providerMessageId: null,
       };
@@ -74,7 +85,6 @@ export class MailpitSinkProvider implements CommunicationProvider {
   }
 }
 
-/** Keeps the last 3 characters: `01711111111` -> `********111`. */
 function maskRecipient(to: string): string {
-  return to.length <= 3 ? '***' : '*'.repeat(to.length - 3) + to.slice(-3);
+  return to.includes('@') ? maskEmail(to) : maskPhone(to);
 }

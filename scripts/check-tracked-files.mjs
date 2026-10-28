@@ -71,10 +71,10 @@ const TURNSTILE_TEST = [
   'TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA',
 ];
 const MEM_SMALL = ['APP_MEM=768m', 'PG_MEM=1g', 'REDIS_MEM=128m', 'S3_MEM=256m'];
-// Test inbox values (Epic 87): fixed compose alias and a placeholder public URL, no secrets.
+// Test inbox values (Epic 87): the compose profile and a placeholder public URL, no secrets.
 const sinkLines = (stack) => [
+  'COMPOSE_PROFILES=sink',
   'MESSAGE_SINK=mailpit',
-  'MESSAGE_SINK_SMTP_URL=smtp://mailpit:1025',
   `MESSAGE_SINK_PUBLIC_URL=https://inbox-${stack}.school.example`,
 ];
 const EXAMPLE_VALUES_ALLOWED = {

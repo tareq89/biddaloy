@@ -25,7 +25,9 @@ describe('MailpitSinkProvider', () => {
       subject: 'Hello',
       body: 'Your code is 123456',
     });
-    expect(nodemailer.createTransport).toHaveBeenCalledWith(expect.objectContaining({ url: 'smtp://mailpit:1025', connectionTimeout: 5000 }));
+    expect(nodemailer.createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ url: 'smtp://mailpit:1025', connectionTimeout: 5000 }),
+    );
     expect(sendMail).toHaveBeenCalledWith({
       from: 'email@sink.invalid',
       to: 'g@example.com',
@@ -45,7 +47,9 @@ describe('MailpitSinkProvider', () => {
   it('honours MESSAGE_SINK_SMTP_URL', async () => {
     vi.stubEnv('MESSAGE_SINK_SMTP_URL', 'smtp://localhost:2525');
     await new MailpitSinkProvider(CommunicationMedium.EMAIL).send({ to: 'a@b.c', body: 'x' });
-    expect(nodemailer.createTransport).toHaveBeenCalledWith(expect.objectContaining({ url: 'smtp://localhost:2525', connectionTimeout: 5000 }));
+    expect(nodemailer.createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ url: 'smtp://localhost:2525', connectionTimeout: 5000 }),
+    );
   });
 
   it('SMS maps the number to a sink address, tags SMS and counts segments', async () => {
@@ -56,7 +60,7 @@ describe('MailpitSinkProvider', () => {
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: '01711111111@sms.sink.invalid',
-        subject: '[SMS] to 01711111111',
+        subject: '[SMS]', // the number stays out of the public inbox's subject list
         text: 'Code 123456',
         headers: { 'X-Tags': 'SMS' },
       }),
@@ -81,7 +85,7 @@ describe('MailpitSinkProvider', () => {
     );
   });
 
-  it('transport error -> REJECTED, not retryable, and logs neither body nor full recipient', async () => {
+  it('uncoded transport error -> REJECTED, not retryable, and logs neither body nor full recipient', async () => {
     sendMail.mockRejectedValue(new Error('ECONNREFUSED'));
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
@@ -99,5 +103,30 @@ describe('MailpitSinkProvider', () => {
     const logged = JSON.stringify([...warn.mock.calls, ...log.mock.calls]);
     expect(logged).not.toContain('SECRET-OTP-987654');
     expect(logged).not.toContain('01711111111');
+  });
+
+  // Mailpit restarting (the nightly restart): nodemailer tags the refused connection ESOCKET.
+  // Left retryable, so the queue tries again instead of failing the sign-in code for good.
+  it.each(['ESOCKET', 'ECONNECTION', 'ETIMEDOUT', 'EDNS'])(
+    'connection-level error %s -> retryable (undefined), still REJECTED',
+    async (code) => {
+      vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      sendMail.mockRejectedValue(Object.assign(new Error('connect failed'), { code }));
+      const result = await MailpitSinkProvider.forMedium(CommunicationMedium.SMS).send({
+        to: '01711111111',
+        body: 'x',
+      });
+      expect(result.success).toBe(false);
+      expect(result.retryable).toBeUndefined();
+      expect(result.outcome).toBe('REJECTED');
+    },
+  );
+
+  it('an empty MESSAGE_SINK_SMTP_URL falls back to the default alias', async () => {
+    vi.stubEnv('MESSAGE_SINK_SMTP_URL', '');
+    await new MailpitSinkProvider(CommunicationMedium.EMAIL).send({ to: 'a@b.c', body: 'x' });
+    expect(nodemailer.createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ url: 'smtp://mailpit:1025' }),
+    );
   });
 });

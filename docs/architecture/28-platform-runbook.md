@@ -316,6 +316,13 @@ Owner steps for the test inbox (Epic 87): add the two proxied CNAMEs in 4c, put
 on purpose: Cloudflare's free Universal certificate covers `*.schoolmanagerp.com` only, so a two-level
 name like `inbox.demo.` would fail TLS without a paid Advanced Certificate.
 
+The staging inbox has **one** login, the Access app above (basic auth in direct mode); Mailpit
+itself has none. This is a written exception to Rule 12
+([08-security](08-security.md#rule-12-the-origin-is-reachable-only-through-the-edge)): anyone
+past Access can read and delete every staging sign-in code and reset link. So keep staging free
+of real contacts except your own: the staging refresh keeps the platform admins' and the smoke
+school admin's emails, and those must be your addresses.
+
 **If it fails.** Open `https://staging.schoolmanagerp.com` in a private window after part 10:
 it must show the Cloudflare login. A page with no login means the Access application does
 not cover that hostname. Next: edit the application's hostnames.

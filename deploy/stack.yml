@@ -6,8 +6,10 @@
 #   ENV_NAME=demo    docker compose -p demo    -f deploy/stack.yml --env-file /opt/biddaloy/demo/.env up -d
 #
 # No container_name and no host ports: the project name scopes every name, and
-# data stores are reached with `docker compose -p <env> exec`. Only app / app2
-# join the shared `biddaloy-edge` network, where edge nginx finds them by alias.
+# data stores are reached with `docker compose -p <env> exec`. Only app / app2 and
+# (staging, demo) mailpit join the shared `biddaloy-edge` network, where edge nginx finds them by
+# alias. Every container on that network can reach mailpit's ports, nginx's blocks aside: an
+# accepted defence-in-depth gap (outbound HTTP to private addresses is refused, Rule 7).
 # Prod's .env sets COMPOSE_PROFILES=replica,backup; staging and demo set sink (mailpit).
 x-logging: &logging
   driver: json-file
@@ -343,6 +345,12 @@ services:
       <<: *s3-env
       NODE_ENV: production
       DEMO_MODE: 'true'
+      # [87 F2] As in x-app: the seed and the temporary :3999 app send through the test inbox, and
+      # with ENV_NAME set boot refuses a missing MESSAGE_SINK. The SMTP URL is the code default
+      # (smtp://mailpit:1025), as for app.
+      ENV_NAME: ${ENV_NAME:?ENV_NAME must be set}
+      MESSAGE_SINK: ${MESSAGE_SINK:-}
+      MESSAGE_SINK_PUBLIC_URL: ${MESSAGE_SINK_PUBLIC_URL:-}
       # `:-`, not `:?`: compose resolves this service on prod and staging too (inactive
       # profile). reset.sh and env validation refuse an empty one under DEMO_MODE.
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}

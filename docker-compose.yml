@@ -1,4 +1,4 @@
-# LOCAL DEV ONLY: db, redis and seaweedfs on loopback ports. The production stack lives in
+# LOCAL DEV ONLY: db, redis, seaweedfs and mailpit on loopback ports. The production stack lives in
 # deploy/ (stack.yml, edge.yml, ops.yml); docker-compose.build.yml builds it locally.
 # Rotate container logs: 3 x 10 MB per service.
 x-logging: &logging
@@ -8,19 +8,18 @@ x-logging: &logging
     max-file: '3'
 
 services:
-  # Test inbox (Epic 87): catches every email/SMS the app sends while MESSAGE_SINK=mailpit.
-  # Non-prod only: the `sink` profile (COMPOSE_PROFILES=sink in staging/demo .env), prod omits it.
-  # In memory on purpose (D12): the demo rebuild restarts it, which empties the inbox.
+  # Test inbox (Epic 87): catches every email/SMS the app sends while MESSAGE_SINK=mailpit, which
+  # .env.example turns on. No profile here, so `docker compose up` starts it with the rest; UI at
+  # http://localhost:8025. In memory: a restart empties it.
   mailpit:
     logging: *logging
     image: axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
-    profiles: [sink]
     restart: unless-stopped
     environment:
       MP_MAX_MESSAGES: '1000'
     ports:
-      - '1025:1025'
-      - '8025:8025'
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
     # The image is scratch-based (no wget/curl): the binary has its own readiness probe.
     healthcheck:
       test: ['CMD', '/mailpit', 'readyz']

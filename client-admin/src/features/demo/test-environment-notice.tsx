@@ -33,13 +33,28 @@ function environmentKey(sentryEnvironment: string): 'demo' | 'staging' | 'other'
     : 'other';
 }
 
-/** One help-text line with the inbox link, for the sign-in and forgot-password screens (D14). */
+/**
+ * One help-text line with the inbox link, for the sign-in and forgot-password screens (D14).
+ * The URL check runs before any useTranslation: prod (no URL) never loads, nor waits on, the
+ * `demo` translations.
+ */
 export function TestInboxHint({ className }: { className?: string }) {
   const { messageSinkUrl } = runtimeConfig();
+  return messageSinkUrl ? (
+    <TestInboxHintLine messageSinkUrl={messageSinkUrl} className={className} />
+  ) : null;
+}
+
+function TestInboxHintLine({
+  messageSinkUrl,
+  className,
+}: {
+  messageSinkUrl: string;
+  className?: string | undefined;
+}) {
   // The i18n key check resolves one namespace per file (the first useTranslation), so the one
   // auth key below carries an explicit `ns`.
   const { t } = useTranslation('demo');
-  if (!messageSinkUrl) return null;
   return (
     <p className={className ?? 'text-caption text-text-secondary'}>
       {t('help.testInbox', { ns: 'auth' })}{' '}
@@ -57,10 +72,21 @@ export function TestInboxHint({ className }: { className?: string }) {
  */
 export function TestEnvironmentNotice() {
   const { messageSinkUrl, sentryEnvironment } = runtimeConfig();
+  // Before any useTranslation, as in TestInboxHint: a normal school's shell never waits on `demo`.
+  return messageSinkUrl ? (
+    <TestEnvironmentBar messageSinkUrl={messageSinkUrl} sentryEnvironment={sentryEnvironment} />
+  ) : null;
+}
+
+function TestEnvironmentBar({
+  messageSinkUrl,
+  sentryEnvironment,
+}: {
+  messageSinkUrl: string;
+  sentryEnvironment: string;
+}) {
   const { t } = useTranslation('demo');
   const [collapsed, setCollapsed] = React.useState(readCollapsed);
-
-  if (!messageSinkUrl) return null;
 
   const setState = (next: boolean) => {
     setCollapsed(next);
@@ -103,7 +129,13 @@ export function TestEnvironmentNotice() {
             {t('testInbox.open')}
             <ExternalLink aria-hidden="true" className="size-3.5" />
           </a>
-          <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={() => setState(true)}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-11"
+            onClick={() => setState(true)}
+          >
             {t('testInbox.collapse')}
           </Button>
         </span>
