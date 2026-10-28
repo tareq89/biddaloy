@@ -68,13 +68,22 @@ function fakeRedis() {
   };
 }
 
+/** Codes are HMAC'd with the server secret; the stub config serves one as JWT_SECRET. */
+function newService(redis: ReturnType<typeof fakeRedis>, secret: string): OtpService {
+  const config = { get: (key: string) => (key === 'JWT_SECRET' ? secret : undefined) };
+  return new OtpService(
+    redis as unknown as import('ioredis').default,
+    config as unknown as import('@nestjs/config').ConfigService,
+  );
+}
+
 describe('OtpService', () => {
   let redis: ReturnType<typeof fakeRedis>;
   let service: OtpService;
 
   beforeEach(() => {
     redis = fakeRedis();
-    service = new OtpService(redis as unknown as import('ioredis').default);
+    service = newService(redis, 'test-secret');
   });
 
   afterEach(() => {
@@ -284,5 +293,14 @@ describe('OtpService', () => {
       );
       expect(redis.store.has('otp-cooldown:LOGIN:user@test.com')).toBe(false);
     });
+  });
+
+  it('a code hashed under another server secret does not verify', async () => {
+    // Same Redis record, different key: the stored HMAC cannot match, so a
+    // leaked store without the env secret gives nothing away.
+    const { code } = await service.request('LOGIN', 'user@test.com');
+    const other = newService(redis, 'other-secret');
+    expect(await other.verify('LOGIN', 'user@test.com', code)).toBe('invalid');
+    expect(await service.verify('LOGIN', 'user@test.com', code)).toBe('ok');
   });
 });

@@ -242,5 +242,7 @@ describe('formatMax', () => {
   it('drops trailing zeros but keeps a real fraction', () => {
     expect(formatMax(component('100.00'), REGION_BD_EN)).toBe('100');
     expect(formatMax(component('12.5'), REGION_BD_EN)).toBe('12.5');
+    // Trailing zeros after a real fraction are dropped, the fraction itself is kept.
+    expect(formatMax(component('12.50'), REGION_BD_EN)).toBe('12.5');
   });
 });

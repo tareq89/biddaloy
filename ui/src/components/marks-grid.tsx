@@ -65,7 +65,9 @@ export function toStagedMark(raw: string): string | null {
 /** Full marks in the tenant's numerals. The server may send "100.00" (shown as
  * 100); a real fraction like "12.5" keeps its digits instead of rounding to 13. */
 export function formatMax(component: MarksGridComponent, config: RegionConfig): string {
-  const fraction = component.full_marks.split('.')[1]?.replace(/0+$/, '') ?? '';
+  // A loop, not /0+$/: CodeQL flags that regex as polynomial on long runs of zeros.
+  let fraction = component.full_marks.split('.')[1] ?? '';
+  while (fraction.endsWith('0')) fraction = fraction.slice(0, -1);
   return formatNumber(Number(component.full_marks), config, { decimals: fraction.length });
 }
 

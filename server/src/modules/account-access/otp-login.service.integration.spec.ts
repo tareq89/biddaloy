@@ -94,7 +94,14 @@ describe('OtpLoginService (integration)', () => {
       {
         provide: ConfigService,
         useValue: {
-          get: (key: string) => (key === 'ACCOUNT_ACCESS_ECHO_SECRETS' ? 'true' : undefined),
+          // JWT_SECRET: OtpService HMACs codes with it.
+          get: (key: string) =>
+            (
+              ({ ACCOUNT_ACCESS_ECHO_SECRETS: 'true', JWT_SECRET: 'test-secret' }) as Record<
+                string,
+                string
+              >
+            )[key],
         },
       },
     ]);
