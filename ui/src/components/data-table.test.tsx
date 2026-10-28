@@ -14,6 +14,7 @@ import {
   type DataTableProps,
   type DataTableSort,
 } from './data-table';
+import { HelpProvider } from './help-hint';
 
 /** `DEFAULT_LOCALE` (`locale-storage.ts`) is Bengali, not English — same
  * reason `cached-data-notice.test.tsx` forces `locale: 'en'` and awaits
@@ -68,6 +69,7 @@ function Controlled({
   sortMenuLabel,
   sortOptionLabel,
   rowActions,
+  expandHelpId,
 }: {
   data?: Student[];
   totalCount?: number;
@@ -85,6 +87,7 @@ function Controlled({
   sortMenuLabel?: string;
   sortOptionLabel?: DataTableProps<Student>['sortOptionLabel'];
   rowActions?: DataTableProps<Student>['rowActions'];
+  expandHelpId?: string;
 }) {
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -120,6 +123,7 @@ function Controlled({
         ? {
             expandRowLabel: (row: Student) => `Details for ${row.name}`,
             renderExpandedRow: (row: Student) => <p>Expanded details for {row.name}</p>,
+            expandHelpId,
           }
         : {})}
       {...(layout !== undefined ? { layout } : {})}
@@ -894,6 +898,26 @@ describe('DataTable page-size control [8.14.10]', () => {
 
 describe('DataTable expandable rows', () => {
   afterEach(() => window.localStorage.clear());
+
+  it('expandHelpId draws one (?) in the expand column header', async () => {
+    const index = {
+      open: {
+        title: { bn: 'খুলুন', en: 'Opening a row' },
+        summary: { bn: 's', en: 's' },
+        path: 'p',
+        anchor: 'task-diff',
+        knownIssues: 0,
+      },
+    };
+    await renderInEnglish(
+      <HelpProvider index={index} lang="en" baseUrl="https://g.test">
+        <Controlled expandable layout="table" expandHelpId="open" />
+      </HelpProvider>,
+    );
+    const hints = await screen.findAllByRole('button', { name: 'Help: Opening a row' });
+    expect(hints).toHaveLength(1);
+    expect(hints[0]!.closest('th')).toBeTruthy();
+  });
 
   it('is absent when renderExpandedRow is not supplied', async () => {
     await renderInEnglish(<Controlled />);

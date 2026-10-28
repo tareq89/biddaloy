@@ -62,6 +62,7 @@ export function DeleteStructureDialog({
       onOpenChange={onOpenChange}
       tone="danger"
       title={t('deleteDialog.title')}
+      helpId="finance.feeStructures.action.delete"
       description={`${t('deleteDialog.description', { name: feeStructureName })} ${t('deleteDialog.sideEffect')}`}
       confirmLabel={t('deleteDialog.confirm')}
       busy={deleteStructure.isPending}

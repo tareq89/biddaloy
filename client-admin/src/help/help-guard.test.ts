@@ -44,7 +44,8 @@ const SOURCE_DIRS = ['client-admin/src', 'ui/src'];
 // ponytail: literals only; a helpId built from a variable is not seen (spread props, ternaries),
 // and a literal inside a comment counts as used. Strip comments if that ever hides a dead id.
 const SKIP = /\.(test|stories|gen)\.tsx?$|\.d\.ts$|help-hint\.tsx$/;
-const LITERAL = /\bhelpId(?:=\{?\s*["']|:\s*["'])([^"']+)["']/g;
+// `helpId` or a prefixed slot prop such as DataTable's `expandHelpId`.
+const LITERAL = /\b(?:helpId|[a-z]\w*HelpId)(?:=\{?\s*["']|:\s*["'])([^"']+)["']/g;
 
 const walk = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
@@ -191,6 +192,9 @@ describe('help guard', () => {
     expect(unknownIn('<PageHeader helpId="nope.page" />', HELP_INDEX)).toEqual(['nope.page']);
     expect(unknownIn("<FormField helpId={'nope.field'} />", HELP_INDEX)).toEqual(['nope.field']);
     expect(unknownIn("const a = { helpId: 'nope.action' }", HELP_INDEX)).toEqual(['nope.action']);
+    expect(unknownIn('<DataTable expandHelpId="nope.expand" />', HELP_INDEX)).toEqual([
+      'nope.expand',
+    ]);
     expect(
       unknownIn('<PageHeader helpId="students.students" />', { 'students.students': {} }),
     ).toEqual([]);

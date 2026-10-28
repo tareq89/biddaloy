@@ -36,6 +36,7 @@ import { Button } from './button';
 import { Checkbox } from './checkbox';
 import { DataTableCards, type DataTableCardRow } from './data-table-cards';
 import { EmptyState, type EmptyStateProps } from './empty-state';
+import { HelpHint } from './help-hint';
 import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuTrigger } from './menu';
 import { RowActions, RowActionsLayoutContext, type RowAction } from './row-actions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
@@ -185,6 +186,9 @@ export interface DataTableProps<TData extends RowData> {
    * `(row) => \`Sections for ${row.name}\`` — since "Expand row" alone
    * wouldn't distinguish rows for screen-reader users. */
   expandRowLabel?: (row: TData) => string;
+  /** A (?) in the expand column's header, once per table, explaining what opening a row
+   * shows (Epic 44). Desktop table only: card mode has no header row. */
+  expandHelpId?: string | undefined;
 
   /** [8.14.7] `'auto'` (default) measures this table's own root element
    * (not the viewport — see `use-container-width.ts`) and renders cards
@@ -265,6 +269,7 @@ export function DataTable<TData extends RowData>({
   columnsMenuLabel,
   renderExpandedRow,
   expandRowLabel,
+  expandHelpId,
   layout = 'auto',
   sortMenuLabel,
   sortOptionLabel,
@@ -825,6 +830,7 @@ export function DataTable<TData extends RowData>({
                       {expandable && (
                         <th scope="col" className="w-8 p-2 text-start">
                           <span className="sr-only">{t('table.expand')}</span>
+                          <HelpHint helpId={expandHelpId} />
                         </th>
                       )}
                       {selectable && (
