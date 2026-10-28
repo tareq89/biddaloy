@@ -8,7 +8,7 @@
 # No container_name and no host ports: the project name scopes every name, and
 # data stores are reached with `docker compose -p <env> exec`. Only app / app2
 # join the shared `biddaloy-edge` network, where edge nginx finds them by alias.
-# Prod's .env sets COMPOSE_PROFILES=replica,backup.
+# Prod's .env sets COMPOSE_PROFILES=replica,backup; staging and demo set sink (mailpit).
 x-logging: &logging
   driver: json-file
   options:
@@ -41,6 +41,9 @@ x-app: &app
     DB_SSL: 'true'
     DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
     REDIS_URL: redis://redis:6379
+    # Test inbox (Epic 87): empty = off. The SMTP URL is the code default (smtp://mailpit:1025).
+    MESSAGE_SINK: ${MESSAGE_SINK:-}
+    MESSAGE_SINK_PUBLIC_URL: ${MESSAGE_SINK_PUBLIC_URL:-}
     JWT_SECRET: ${JWT_SECRET}
     # Rotation grace window (12-operations.md section 8): verify-only, empty = off.
     JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
@@ -159,6 +162,30 @@ services:
       default: {}
       edge:
         aliases: ['${ENV_NAME:?ENV_NAME must be set}-app2']
+
+  # Test inbox (Epic 87): catches every email/SMS the app sends while MESSAGE_SINK=mailpit.
+  # Non-prod only: the `sink` profile (COMPOSE_PROFILES=sink in staging/demo .env), prod omits it.
+  # In memory on purpose (D12): the demo rebuild restarts it, which empties the inbox.
+  mailpit:
+    logging: *logging
+    image: axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
+    profiles: [sink]
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: '1000'
+    expose:
+      - '1025'
+      - '8025'
+    networks:
+      default: {}
+      edge:
+        aliases: ['${ENV_NAME:?ENV_NAME must be set}-mailpit']
+    # The image is scratch-based (no wget/curl): the binary has its own readiness probe.
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     logging: *logging

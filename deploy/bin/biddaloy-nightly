@@ -151,6 +151,7 @@ demo_rebuild() {
     *) fail reset ;;                           # nothing swapped: yesterday's demo keeps running
   esac
   run_step restart-app dc demo restart app
+  run_step restart-mailpit dc demo restart mailpit # empties the in-memory inbox (D12)
   echo "step: ready"; wait_ready demo || fail ready
 }
 
