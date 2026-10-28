@@ -1008,3 +1008,23 @@ no shared tables, no shared code, just the same status enum reused. See
   (period sessions), so "last 10 present days" made duplicate `reference_key`s.
   Cost: a unique-index crash in the demo seed. Fix: `SELECT DISTINCT` the date.
   Rule candidate: day-level seed queries over `attendance_records` dedupe dates.
+- **2026-10-29 · Epic 84 W4 close — a push notice has no screen to assert on.**
+  Surprise: the plan had the guardian see the message in `/portal/notifications`,
+  but a `PUSH` arrival notice goes to a browser push device and never to the alerts
+  worklist; the e2e guardian has no device, so the log ends `FAILED`
+  (`NO_PUSH_DEVICE`). Cost: the last leg of the journey could not be written as
+  planned. Fix: assert the push row in `GET /communications/student/:id`. Rule
+  candidate: a notification ticket names the screen that really renders it.
+- **2026-10-29 · Epic 84 W4 close — specs written but never run hide wrong locators.**
+  Surprise: `#my-class-arrival` is the card's `<h2>`, not the card, so the "answer a
+  request" spec could never click anything, and the bell spec silently skipped
+  because it used a teacher session under an admin login. Cost: two W3 specs were
+  green only by skipping. Fix: locate by `getByRole('region', ...)`, and seed one
+  ACTIVE row so the specs need no setup. Rule candidate: a spec ticket is not done
+  until the spec has run once, with zero skips.
+- **2026-10-29 · Epic 84 W4 close — a notice that fires once per day cannot be a shared fixture.**
+  Surprise: the notice is sent only when today's register is finalized, and other
+  attendance specs finalize the same Class 6 / A register. Cost: the journey cannot
+  rerun on one database and may be pre-empted. Fix: it skips (with a reason) when
+  the register is already finalized, and keeps each seeded student's streak when it
+  finalizes. Rule candidate: give a once-per-day journey its own section.
