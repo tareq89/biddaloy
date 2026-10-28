@@ -425,6 +425,9 @@ export function CommandPalette({
           role="tabpanel"
           id={`${listboxId}-panel-${activeTabData.id}`}
           aria-labelledby={tabElementId(activeTabData.id)}
+          // [#3145] A scrollable region must be keyboard-reachable (axe
+          // scrollable-region-focusable); tabpanel with tabIndex 0 is the ARIA tabs pattern.
+          tabIndex={0}
           className="h-[min(60dvh,28rem)] overflow-y-auto border-t border-border-subtle p-2"
         >
           {/* `role="combobox"` requires `aria-controls` to name a real

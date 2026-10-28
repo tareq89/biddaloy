@@ -1,7 +1,15 @@
 import type { Page } from '@playwright/test';
 import { expect, request } from '@playwright/test';
 
-import { adminApiSession, apiSession, findSeedSectionA, get, rawRequest } from '../api';
+import {
+  adminApiSession,
+  apiSession,
+  createGuardian,
+  createStudentWithDues,
+  findSeedSectionA,
+  get,
+  rawRequest,
+} from '../api';
 import { makeT, type Locale } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
 import { ListShellPage } from '../pages/list-shell';
@@ -71,18 +79,36 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.sendReminder');
     await expectDialogOpen(page);
   },
-  // [8.11.9] Send Message's confirm dialog — the page's review step. The
-  // form's three required fields must be filled first or the submit is
-  // blocked by native validation and no dialog opens.
+  // [8.11.9] Send Message's confirm dialog — the page's review step. Since [#2259] the
+  // recipient is a student + guardian picked from the school's own records, so the opener
+  // creates a pair through the API first ([#3086]: the old free name field is gone).
   '/communications/send::confirm-send': async (page, locale) => {
     const t = makeT(locale);
-    await page.getByLabel(t('communications.send.recipientNameLabel')).fill('Rahima Begum');
-    await page.getByLabel(t('communications.send.recipientAddressLabel')).fill('+8801700000001');
+    const apiCtx = await request.newContext({ baseURL: new URL(page.url()).origin });
+    try {
+      const session = await adminApiSession(apiCtx);
+      const stamp = Date.now();
+      const studentName = `A11y Send Student ${stamp}`;
+      const guardianName = `A11y Send Guardian ${stamp}`;
+      const guardian = await createGuardian(apiCtx, session, guardianName, '01712345678');
+      await createStudentWithDues(apiCtx, session, studentName, { guardianId: guardian.id });
+      await page
+        .getByRole('textbox', { name: t('communications.send.linkStudentTitle') })
+        .fill(studentName);
+      await page.getByRole('button', { name: new RegExp(studentName) }).click();
+      await page.getByRole('radio', { name: new RegExp(guardianName) }).check();
+    } finally {
+      await apiCtx.dispose();
+    }
     // textbox, not getByLabel: the Send (?) is named "Help: Send a message" and also matches (Epic 44).
     await page
       .getByRole('textbox', { name: t('communications.send.messageLabel') })
       .fill('School closed tomorrow.');
-    await page.getByRole('button', { name: t('communications.send.submit') }).click();
+    // [#3086] The page's (?) can also match the Send name; the real submit has no help id.
+    await page
+      .getByRole('button', { name: t('communications.send.submit') })
+      .and(page.locator(':not([data-help-id])'))
+      .click();
     await expectDialogOpen(page);
   },
   '/students/$studentId::delete-student': async (page, locale) => {

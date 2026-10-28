@@ -119,6 +119,8 @@ export function CustomisePanel({
       >
         <Checkbox
           id={checkId}
+          // [#3144] axe target-size: the 16px box beside its own label needs a 24px target.
+          className="size-6"
           ref={(el: HTMLButtonElement | null) => {
             if (el) boxes.current.set(item.key, el);
             else boxes.current.delete(item.key);
