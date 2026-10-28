@@ -184,7 +184,9 @@ test.describe.serial('staff leave: file -> approve -> balance moves', () => {
       await expect(page.getByText(created.serial).first()).toBeVisible();
       // A15: nobody decides their own application.
       await expect(
-        page.getByRole('button', { name: t('applicationsDetail.actions.approve') }),
+        page
+          .getByRole('button', { name: t('applicationsDetail.actions.approve') })
+          .and(page.locator(':not([data-help-id])')),
       ).toHaveCount(0);
     });
   });
@@ -194,7 +196,10 @@ test.describe.serial('staff leave: file -> approve -> balance moves', () => {
 
     test('the detail page shows Approve and the status becomes approved', async ({ page }) => {
       await page.goto(`/applications/${applicationId}`);
-      await page.getByRole('button', { name: t('applicationsDetail.actions.approve') }).click();
+      await page
+        .getByRole('button', { name: t('applicationsDetail.actions.approve') })
+        .and(page.locator(':not([data-help-id])'))
+        .click();
       await page
         .getByRole('button', { name: t('applicationsDetail.dialogs.approve.submit') })
         .click();
@@ -330,7 +335,10 @@ test.describe('bulk approve (teacher)', () => {
     for (const { serial } of [...leaves, waiver]) {
       await rowFor(page, serial).getByRole('checkbox').check();
     }
-    await page.getByRole('button', { name: t('applicationsList.bulk.approve') }).click();
+    await page
+      .getByRole('button', { name: t('applicationsList.bulk.approve') })
+      .and(page.locator(':not([data-help-id])'))
+      .click();
     const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'));
     await expect(dialog).toContainText(t('applicationsList.bulk.confirmBodyExcluded', { n: 1 }));
     const [request3] = await Promise.all([

@@ -394,7 +394,14 @@ function NewApplicationPage() {
             />
           )}
 
-          {step === 'attachments' && <AttachmentsStep files={files} onChange={setFiles} />}
+          {step === 'attachments' && (
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-end">
+                <HelpHint helpId="applications.field.attachments" />
+              </div>
+              <AttachmentsStep files={files} onChange={setFiles} />
+            </div>
+          )}
 
           {step === 'preview' && type && (
             <div className="flex flex-col gap-4">

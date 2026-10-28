@@ -22,6 +22,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  HelpHint,
   Input,
   Select,
   SelectContent,
@@ -159,6 +160,7 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
     name: 'notifyOnScheduleDefault' | 'notifyOnManualGenerationDefault' | 'requireSecondApprover',
     label: string,
     description?: string,
+    hint?: React.ReactNode,
   ) => (
     <FormField
       control={form.control}
@@ -178,6 +180,7 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
             </FormLabel>
             {description ? <FormDescription>{description}</FormDescription> : null}
           </div>
+          {hint}
         </FormItem>
       )}
     />
@@ -310,7 +313,12 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
             name="approvalMode"
             render={({ field }) => (
               <FormItem>
-                <FormLabel htmlFor="fees-approvalMode">{t('fees.approvalModeLabel')}</FormLabel>
+                <FormLabel
+                  htmlFor="fees-approvalMode"
+                  helpId="administration.settings.field.approvalMode"
+                >
+                  {t('fees.approvalModeLabel')}
+                </FormLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger id="fees-approvalMode">
@@ -335,6 +343,7 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
             'requireSecondApprover',
             t('fees.requireSecondApprover'),
             t('fees.requireSecondApproverHelp'),
+            <HelpHint helpId="administration.settings.field.requireSecondApprover" />,
           )}
         </div>
 
@@ -366,9 +375,10 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
           />
         </div>
 
-        <h3 className="mt-6 border-t border-border-subtle pt-4 text-h3">
-          {t('fees.lateFeeLegend')}
-        </h3>
+        <div className="mt-6 flex items-center gap-1 border-t border-border-subtle pt-4">
+          <h3 className="text-h3">{t('fees.lateFeeLegend')}</h3>
+          <HelpHint helpId="administration.settings.section.lateFees" />
+        </div>
         <p className="mt-1 text-text-secondary">
           {t('fees.lateFeeIntro')} {t('fees.lateFeeAppliesFromTomorrow')}
         </p>

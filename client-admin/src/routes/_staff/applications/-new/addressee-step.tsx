@@ -4,7 +4,7 @@ import {
   ApplicationAddressee,
   type ApplicationStep,
 } from '@biddaloy/shared';
-import { Card, ChoiceCards, MultiCombobox } from '@biddaloy/ui/components';
+import { Card, ChoiceCards, HelpHint, MultiCombobox } from '@biddaloy/ui/components';
 import { useApplicationAddressees, useApplicationTagOptions } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -77,6 +77,9 @@ export function AddresseeStep({
   return (
     <div className="flex flex-col gap-4">
       <Card padded className="flex flex-col gap-3">
+        <div className="flex justify-end">
+          <HelpHint helpId="applications.field.addressee" />
+        </div>
         {type === ApplicationType.GENERAL ? (
           <>
             {addressees.isError && (

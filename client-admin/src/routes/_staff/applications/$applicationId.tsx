@@ -149,6 +149,7 @@ function ApplicationDetailPage() {
       allowed: app.can.decide,
       priority: 'primary',
       onClick: () => setDialog('approve'),
+      helpId: 'applications.action.approve',
     },
     {
       id: 'reject',
@@ -157,6 +158,7 @@ function ApplicationDetailPage() {
       allowed: app.can.decide,
       priority: 'secondary',
       onClick: () => setDialog('reject'),
+      helpId: 'applications.action.reject',
     },
     {
       id: 'consider',
@@ -173,6 +175,7 @@ function ApplicationDetailPage() {
       allowed: app.can.withdraw,
       priority: 'secondary',
       onClick: () => setDialog('withdraw'),
+      helpId: 'applications.action.withdraw',
     },
     {
       id: 'cancel',

@@ -78,6 +78,7 @@ export function SmsCreditSectionView({
     <SettingsSection
       id="sms-credit-section"
       title={t('smsCredit.legend')}
+      helpId="administration.settings.section.smsCredit"
       description={loaded && !platform ? t('smsCredit.descriptionOff') : t('smsCredit.description')}
       badge={
         loaded ? (

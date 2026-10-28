@@ -1,5 +1,5 @@
 /** [35.4.3] Step 2: stages (>=1), versions (>=1 when the pack has any), start year. */
-import { Checkbox, Input, Label } from '@biddaloy/ui/components';
+import { Checkbox, HelpHint, Input, Label } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
 import { usePickText, type PresetSummary } from './use-presets';
@@ -43,6 +43,7 @@ export function ApplyOptionsForm({ summary, value, onChange }: ApplyOptionsFormP
       hint: t('options.stagesHint'),
       items: summary.stages,
       field: 'stages' as const,
+      helpId: 'administration.curriculumPreset.field.stages',
     },
     ...(summary.versions?.length
       ? [
@@ -66,7 +67,18 @@ export function ApplyOptionsForm({ summary, value, onChange }: ApplyOptionsFormP
       )}
       {groups.map((group) => (
         <fieldset key={group.id} className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">{group.legend}</legend>
+          {group.helpId ? (
+            <>
+              {/* The (?) sits outside the legend so it stays out of the group's name. */}
+              <legend className="sr-only">{group.legend}</legend>
+              <div className="flex items-center gap-1 text-sm font-medium">
+                <span aria-hidden="true">{group.legend}</span>
+                <HelpHint helpId={group.helpId} />
+              </div>
+            </>
+          ) : (
+            <legend className="text-sm font-medium">{group.legend}</legend>
+          )}
           {group.items.map((item) => {
             const id = `preset-${group.id}-${item.key}`;
             return (

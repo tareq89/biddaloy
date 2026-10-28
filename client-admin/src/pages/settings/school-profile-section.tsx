@@ -10,6 +10,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  HelpHint,
   Input,
 } from '@biddaloy/ui/components';
 import {
@@ -218,7 +219,10 @@ export function SchoolProfileSection() {
           </>
         }
       >
-        <SchoolLogoField logoUrl={profileQuery.data?.logo_url} />
+        <SchoolLogoField
+          logoUrl={profileQuery.data?.logo_url}
+          helpId="administration.settings.field.logo"
+        />
 
         <div className="mt-4 grid gap-4 border-t border-border-subtle pt-4 md:grid-cols-2">
           {field('name', t('profile.name'))}
@@ -237,7 +241,14 @@ export function SchoolProfileSection() {
  * [13.5.4] The logo row (preview, upload, remove + confirm), exported so the guided
  * onboarding setup shows the exact same control. Own state, own mutations.
  */
-export function SchoolLogoField({ logoUrl }: { logoUrl: string | null | undefined }) {
+export function SchoolLogoField({
+  logoUrl,
+  helpId,
+}: {
+  logoUrl: string | null | undefined;
+  /** A (?) after the "Logo" label; the settings page passes one, the setup wizard does not. */
+  helpId?: string | undefined;
+}) {
   const { t } = useTranslation('settings');
   const uploadLogo = useUploadSchoolLogo();
   const removeLogo = useRemoveSchoolLogo();
@@ -300,7 +311,10 @@ export function SchoolLogoField({ logoUrl }: { logoUrl: string | null | undefine
           />
         )}
         <div className="min-w-0">
-          <p className="font-medium">{t('profile.logo.legend')}</p>
+          <div className="flex items-center gap-1">
+            <p className="font-medium">{t('profile.logo.legend')}</p>
+            <HelpHint helpId={helpId} />
+          </div>
           <p className="text-caption text-text-secondary">{t('profile.logo.help')}</p>
         </div>
         <div className="flex flex-col gap-2 md:ms-auto md:flex-row">

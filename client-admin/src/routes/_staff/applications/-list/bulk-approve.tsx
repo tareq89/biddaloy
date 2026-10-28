@@ -3,7 +3,7 @@
  * step-up on their own); every failed row is explained with a translated code, never a server string.
  */
 import { ApplicationType } from '@biddaloy/shared';
-import { Button, Card, ConfirmDialog } from '@biddaloy/ui/components';
+import { Button, Card, ConfirmDialog, HelpHint } from '@biddaloy/ui/components';
 import {
   useBulkApproveApplications,
   type ApplicationListItemDto,
@@ -97,6 +97,7 @@ export function BulkApproveButton({
         <CircleCheckIcon className="size-4 text-status-paid-fg" aria-hidden />
         {t('bulk.approve')}
       </Button>
+      <HelpHint helpId="applications.action.bulkApprove" />
       {tooMany && (
         <p id={reasonId} className="text-caption text-muted-foreground">
           {t('bulk.limit')}

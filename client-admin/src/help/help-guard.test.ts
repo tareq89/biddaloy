@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 import { readMeta } from './guide-gen/help-index';
 import { HELP_GAPS, HELP_INDEX } from './help-index.gen';
-import { HELP_UNWIRED, OFF_GRAMMAR, PUBLIC } from './help-unwired';
+import { HELP_UNWIRED, PUBLIC } from './help-unwired';
 
 /** Guide pages whose feature id is not in their own helpIds yet (gap for #3017); shrink, never grow. */
 const NO_PAGE_ENTRY_YET = new Set([
@@ -305,10 +305,8 @@ describe('help guard', () => {
     expect(unused).toEqual([]);
   });
 
-  it('every HELP_INDEX id follows the helpId grammar, bar the #3148 list (shrink-only)', () => {
-    const off = Object.keys(HELP_INDEX).filter((id) => !inGrammar(id));
-    const allowed = Object.keys(HELP_UNWIRED).filter((id) => HELP_UNWIRED[id] === OFF_GRAMMAR);
-    expect(off.sort()).toEqual(allowed.sort());
+  it('every HELP_INDEX id follows the helpId grammar', () => {
+    expect(Object.keys(HELP_INDEX).filter((id) => !inGrammar(id))).toEqual([]);
     expect(inGrammar('attendance.attendance.action.submit')).toBe(true);
     expect(inGrammar('widget.attendance-today')).toBe(true);
     expect(inGrammar('administration.settings.logo')).toBe(false);

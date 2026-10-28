@@ -132,6 +132,7 @@ export function PrintersSection() {
     <SettingsSection
       id="printers-section"
       title={t('printers.title')}
+      helpId="administration.settings.section.printers"
       description={t('printers.explainer')}
       // With no printers the EmptyState's own button is the only add action.
       actions={

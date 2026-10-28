@@ -17,14 +17,6 @@ const UI_SLOT = '#3078: no helpId slot in ui/';
 const MENU_ITEM = '#3078: header More-menu item has no (?) slot';
 /** The element lives in a file outside the wave-3 lane territory. */
 const TERRITORY = '#3079: element outside the wave-3 territory';
-/**
- * The guide declared the id after its wave-3 ticket ran; #3143 wires all 11. The 7 `applications.*`
- * ids also need the Epic 52 e2e locators fixed (D14); the 4 curriculum-preset and setup-order ids
- * only need the wiring.
- */
-const LATE = '#3143: declared after the wave-3 pass';
-/** The guide id is outside the helpId grammar (no .action./.field./.section.); see the grammar test. */
-export const OFF_GRAMMAR = '#3148: settings id outside the helpId grammar';
 
 /** In HELP_GAPS: the guide declares the field but no `help.<key>` text exists, so it is not indexed. */
 const GAP = '#3017: guide gap, field help not written yet';
@@ -109,38 +101,9 @@ export const HELP_UNWIRED: Record<string, string> = {
 
   // 44.3.12: declared in the guide after the wave-3 pass ran
   'applications.action.cancelLeave': MENU_ITEM,
-  'applications.action.approve': LATE,
-  'applications.action.reject': LATE,
-  'applications.action.withdraw': LATE,
-  'applications.action.bulkApprove': LATE,
-  'applications.field.addressee': LATE,
-  'applications.field.applicant': LATE,
-  'applications.field.attachments': LATE,
-  'administration.curriculumPreset.action.apply': LATE,
-  'administration.curriculumPreset.field.stages': LATE,
-  'administration.curriculumPreset.field.confirmName': LATE,
-  'admin.setupOrder.action.continueSetup': LATE,
   'administration.auditLogs.action.expand': UI_SLOT,
   'administration.printTemplates.action.create': PRINT_FIX,
   'administration.printTemplates.action.archive': PRINT_FIX,
-
-  // 44.3.12 review: declared by the settings page outside the grammar, so the guard missed them
-  'administration.settings.logo': OFF_GRAMMAR,
-  'administration.settings.organisation': OFF_GRAMMAR,
-  'administration.settings.attendance': OFF_GRAMMAR,
-  'administration.settings.autoAbsent': OFF_GRAMMAR,
-  'administration.settings.approvalMode': OFF_GRAMMAR,
-  'administration.settings.secondApprover': OFF_GRAMMAR,
-  'administration.settings.lateFees': OFF_GRAMMAR,
-  'administration.settings.buySeats': OFF_GRAMMAR,
-  'administration.settings.smsProvider': OFF_GRAMMAR,
-  'administration.settings.smsCredit': OFF_GRAMMAR,
-  'administration.settings.guardianSmsFallback': OFF_GRAMMAR,
-  'administration.settings.printers': OFF_GRAMMAR,
-  'administration.settings.otpLogin': OFF_GRAMMAR,
-  'administration.settings.backup': OFF_GRAMMAR,
-  'administration.settings.backupSchedule': OFF_GRAMMAR,
-  'administration.settings.restore': OFF_GRAMMAR,
 
   // Guide gaps (HELP_GAPS): declared, not indexable, so not wireable yet
   'people.students.field.rollNumber': GAP,

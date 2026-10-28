@@ -3,6 +3,7 @@ import {
   Button,
   DataTable,
   ErrorState,
+  HelpHint,
   StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
@@ -198,10 +199,11 @@ export function SeatsBillingSectionView({
             </p>
           )}
 
-          <div className="mt-4">
+          <div className="mt-4 flex items-center gap-1">
             <Button onClick={onBuy} className="w-full md:w-auto">
               {t('buy.action')}
             </Button>
+            <HelpHint helpId="administration.settings.action.buySeats" />
           </div>
 
           <h3 className="mt-6 text-h3">{t('orders.title')}</h3>
