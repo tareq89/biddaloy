@@ -415,6 +415,19 @@ Only an admin can do this. For a student who has left the school, [record leavin
 | **Cancel**    | Nothing happens.                                                                                                    | No         |
 | **Delete**    | The student is deleted and the app returns to the list. If fees are due or credit remains, it is not deleted (see the message below). | Yes / No   |
 
+### Set a guardian's arrival notice <a href="#task-arrival" id="task-arrival"></a>
+
+On the student's **Guardians** tab, the **Arrival notice** column shows each guardian's state: **Not asked**, **Waiting for teacher**, **Once**, **Every day**, **Done**, **Stopped**, or **Set by admin: always** / **Set by admin: never**. The channel (**App** or **SMS**) and the date of the last change show beside it.
+
+1. Press the three-dot button on the guardian's row (**Arrival notice for** the guardian's name).
+2. Choose **Once**, **Every day** or **Stop**.
+
+   → The mark changes. If it fails you see **Could not save. Try again.**
+
+Only an admin sees the second group in the menu: **Always** (fixes the notice on), **Never** (fixes it off) and **Clear lock**. While a lock is on, **Once**, **Every day** and **Stop** are greyed out with the note **An admin has fixed this. It cannot be changed here.** The lock works only on a guardian who has already asked; for others the choices are greyed out. If you cannot see the three-dot button, your role may not change arrival notices.
+
+A request from a guardian waits for the class teacher, who answers it in [**My class**](../academics/my-class.md#task-arrival). Setting **Once** or **Every day** here answers it yourself.
+
 ---
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>

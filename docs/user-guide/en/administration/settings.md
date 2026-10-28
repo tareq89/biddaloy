@@ -192,6 +192,8 @@ Each part saves on its own.
 
 When you tick **Automatic absence message**, a question comes up: **Turn on automatic absence messages?** — "Enabling this sends every absent student's guardian a notification automatically, every school day. Are you sure?" Press **Yes, enable it**, then **Save**.
 
+**Arrival notices.** Two switches, both off at first: **Send arrival notices** lets guardians ask to be told when their child reaches school (the **Arrival notices** card then shows on their Attendance page), and **Allow SMS for arrival notices** lets the message go by SMS, which uses the school's SMS credit. With only the first on, messages go in the app. Press **Save**. How guardians and teachers use it: [guardian](../portal/attendance.md#task-arrival), [class teacher](../academics/my-class.md#task-arrival).
+
 To add a **special timing**, press **Add special timing**. Give a name (up to 60 characters), **From**, **To**, the shift, and the periods whose time you want to change. It will not save if two entries for the same shift have dates that overlap. How daily attendance is taken: [**Attendance**](../attendance/attendance.md).
 
 **Evaluations.** **Send an SMS when a new incident report is filed**. The SMS only says that a new report exists, not what it says. Push notifications are always on. See: [**Evaluations**](../people/evaluations.md).
