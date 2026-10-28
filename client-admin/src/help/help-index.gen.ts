@@ -4209,6 +4209,7 @@ export const HELP_ROUTES = {
   '/communications/reminders': 'communications.feeReminders',
   '/communications/batches': 'communications.reminderHistory',
   '/communications/batches/$batchId': 'communications.reminderHistory',
+  '/communications/message-log': 'communications.reminderHistory',
   '/print-templates': 'administration.printTemplates',
   '/print-templates/$templateId/edit': 'administration.printTemplates',
   '/print/document': 'administration.printTemplates',
