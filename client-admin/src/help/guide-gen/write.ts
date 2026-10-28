@@ -9,6 +9,7 @@
  *   docs/user-guide/_generated/features.json   (consumed by scripts/user-guide/check.mjs)
  *   docs/user-guide/_generated/blocks.json     { "<lang>": { "<kind>:<id>": content }, "roleAnchors": ... }
  *   every <!-- guide:generated:<kind>:<id> --> block inside docs/user-guide/<lang>/**.md
+ *   client-admin/src/help/help-index.gen.ts      HELP_INDEX + HELP_ROUTES (Epic 44, E14)
  *   the `appVersion:` line of every page's <!-- guide:meta --> comment
  *
  * Block kinds: `fields:<i18n namespace>`, `roles:<role-kebab>` (`roles:exam-controller`),
@@ -24,6 +25,7 @@ import { format, resolveConfig } from 'prettier';
 import { buildRoleDashboards, buildWidgetSections } from './dashboard';
 import { buildFeatures, type Feature } from './features';
 import { buildFieldTable, type GuideLang } from './field-table';
+import { buildHelpIndex, renderHelpIndexModule } from './help-index';
 import { buildRoleIndex } from './role-index';
 
 export const LANGS: readonly GuideLang[] = ['bn', 'en'];
@@ -135,6 +137,18 @@ export async function generate(root: string, env: { GUIDE_SHA?: string } = {}): 
   const gen = path.join(guide, '_generated');
   files.set(path.join(gen, 'features.json'), await json(features));
   files.set(path.join(gen, 'blocks.json'), await json({ ...blocks, roleAnchors }));
+  // The index reads the pages as they are on disk, before this run's rewrites. helpIds, title
+  // and summary are never rewritten, but anchors inside generated blocks are (widgets:sections
+  // writes the `id="widget.<key>"` headings). ponytail: a helpIds `#suffix` pointing at an anchor
+  // that a generated block adds in this same run is a gap on the first run and settles on the
+  // second; read the rewritten text from `files` if that ever bites.
+  files.set(
+    path.join(root, 'client-admin/src/help/help-index.gen.ts'),
+    await format(renderHelpIndexModule(buildHelpIndex(root, features, { strict: false })), {
+      ...config,
+      parser: 'typescript',
+    }),
+  );
   return { files, features };
 }
 

@@ -1,0 +1,9 @@
+{
+  "ariaLabel": "Help: {{title}}",
+  "caption": "Help",
+  "openGuide": "Open the guide",
+  "knownIssues": "Known issues →",
+  "watchVideo": "Watch the video · {{duration}}",
+  "paletteAction": "Help for this page",
+  "shortcutF1": "Open help for this page"
+}

@@ -91,8 +91,10 @@ export async function prepare(page: Page, opts: { pointer?: boolean } = {}): Pro
   if (opts.pointer) await installPointer(page, test.info().project.metadata.device === 'phone');
   // The ribbon says "demo site"; a school's own app never shows it.
   const labels = [bnDemo.ribbonLabel, enDemo.ribbonLabel].map((l) => JSON.stringify(l));
+  // The in-app help (?) is chrome too: the guide's own screenshots must not show it (E24).
   const css =
-    labels.map((l) => `[role="note"][aria-label=${l}]`).join(',') + '{display:none!important}';
+    [...labels.map((l) => `[role="note"][aria-label=${l}]`), '[data-help-id]'].join(',') +
+    '{display:none!important}';
   await page.addInitScript((rule) => {
     const add = () => {
       const style = document.createElement('style');

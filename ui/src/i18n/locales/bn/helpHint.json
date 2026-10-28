@@ -1,0 +1,9 @@
+{
+  "ariaLabel": "সাহায্য: {{title}}",
+  "caption": "সাহায্য",
+  "openGuide": "গাইড দেখুন",
+  "knownIssues": "জানা সমস্যা আছে →",
+  "watchVideo": "ভিডিও দেখুন · {{duration}}",
+  "paletteAction": "এই পাতার সাহায্য",
+  "shortcutF1": "এই পাতার সাহায্য খুলুন"
+}
