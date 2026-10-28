@@ -4290,7 +4290,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List a routine's slots. */
+        /** List a routine's slots. A PARENT or STUDENT sees only the sections of students they are linked to. */
         get: operations["RoutineSlotsController_findSlots_v1"];
         put?: never;
         /** Create a routine slot (hard constraints enforced server-side). */
@@ -14908,6 +14908,56 @@ export interface components {
             close_date?: string;
             required_document_types?: ("PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT")[];
         };
+        /** @enum {string} */
+        AdmissionDocumentType: "PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT";
+        AdmissionApplicantDocumentDto: {
+            type: components["schemas"]["AdmissionDocumentType"];
+            storage_key: string;
+        };
+        /** @enum {string} */
+        AdmissionApplicantStatus: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
+        AdmissionApplicantResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            intake_id: string;
+            reference_number: string;
+            applicant_name: string;
+            /** Format: date */
+            date_of_birth: string;
+            gender: string;
+            guardian_name: string;
+            guardian_phone: string;
+            guardian_email: string | null;
+            home_address: string | null;
+            documents: components["schemas"]["AdmissionApplicantDocumentDto"][];
+            status: components["schemas"]["AdmissionApplicantStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ApplicantListResponseDto: {
+            data: components["schemas"]["AdmissionApplicantResponseDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        GuardianMatchGuardianDto: {
+            id: string;
+            full_name: string;
+            phone: string;
+            student_names: string[];
+        };
+        GuardianMatchResponseDto: {
+            guardian: components["schemas"]["GuardianMatchGuardianDto"] | null;
+        };
+        EvaluateApplicantDto: {
+            notes: string;
+            /** @enum {string} */
+            decision?: "SHORTLIST" | "ADMIT" | "REJECT";
+        };
         AdmissionIntake: {
             id: string;
             tenant: components["schemas"]["School"];
@@ -14949,20 +14999,6 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
-        };
-        GuardianMatchGuardianDto: {
-            id: string;
-            full_name: string;
-            phone: string;
-            student_names: string[];
-        };
-        GuardianMatchResponseDto: {
-            guardian: components["schemas"]["GuardianMatchGuardianDto"] | null;
-        };
-        EvaluateApplicantDto: {
-            notes: string;
-            /** @enum {string} */
-            decision?: "SHORTLIST" | "ADMIT" | "REJECT";
         };
         AdmitApplicantDto: {
             notes?: string;
@@ -15011,8 +15047,6 @@ export interface components {
             /** @description True when more than 500 rows matched and the list was cut. */
             truncated: boolean;
         };
-        /** @enum {string} */
-        AdmissionApplicantStatus: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
         AdmissionLatestApplicantDto: {
             id: string;
             /** @example ADM-2026-0042 */
@@ -33211,17 +33245,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        data: components["schemas"]["AdmissionApplicant"][];
-                        /** @description Total rows matching the query, across all pages. */
-                        total: number;
-                        /** @description 1-based index of the page returned. */
-                        page: number;
-                        /** @description Maximum rows per page. */
-                        limit: number;
-                        /** @description Number of pages at this `limit`. */
-                        totalPages: number;
-                    };
+                    "application/json": components["schemas"]["ApplicantListResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

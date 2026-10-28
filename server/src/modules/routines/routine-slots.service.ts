@@ -19,7 +19,14 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
 import { SchoolsService } from '../schools/schools.service';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
-import { AuditAction, RoutineState, SlotRecurrence } from '@biddaloy/shared';
+import {
+  AuditAction,
+  EnrollmentStatus,
+  RoutineState,
+  SlotRecurrence,
+  isGuardianRole,
+} from '@biddaloy/shared';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { routineSlotScope } from './routine-visibility';
 import { UpsertRoutineSlotDto } from './dto/routine-slots.dto';
 import { checkSlot, SlotLike, Violation, Warning } from './constraint-check';
@@ -62,6 +69,7 @@ export class RoutineSlotsService {
     private readonly schoolsService: SchoolsService,
     private readonly auditService: AuditService,
     @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
+    @InjectRepository(Enrollment) private readonly enrollmentRepo: Repository<Enrollment>,
   ) {}
 
   private async today(tenantId: string): Promise<string> {
@@ -72,12 +80,20 @@ export class RoutineSlotsService {
   async findForRoutine(
     routineId: string,
     tenantId: string,
-    caller: { role: string; userId: string },
+    caller: { role: string; userId: string; familyStudentIds?: string[] },
   ): Promise<RoutineSlotWithWarnings[]> {
     const routine = await this.getRoutine(routineId, tenantId);
     // Same visibility rule as ResolveRoutineService (one helper, D14).
     const scope = await routineSlotScope(this.teacherRepo, routine, caller, tenantId);
     if (scope === 'none') return [];
+    // [#3003] A family caller sees only the sections their linked students are
+    // enrolled in for this routine's year — never the whole school. The linkage
+    // itself is FamilyAccessService's (done in the controller); a guardian with no
+    // ids passed fails closed.
+    const familySections = isGuardianRole(caller.role)
+      ? await this.familySectionIds(routine, caller.familyStudentIds ?? [], tenantId)
+      : null;
+    if (familySections && familySections.size === 0) return [];
     const ownTeacherId = scope === 'all' ? null : scope.teacherId;
     const slots = await this.slotRepo.find({
       where: { routine_id: routineId, tenant_id: tenantId },
@@ -88,12 +104,32 @@ export class RoutineSlotsService {
       tenantId,
     );
     return slots
+      .filter((slot) => !familySections || familySections.has(slot.section_id))
       .filter((slot) => !ownTeacherId || (teacherRows.get(slot.id) ?? []).includes(ownTeacherId))
       .map((slot) => ({
         slot,
         teacher_ids: teacherRows.get(slot.id) ?? [],
         warnings: [],
       }));
+  }
+
+  // By the routine's year (not latest enrollment, unlike resolve): a routine belongs to one year.
+  private async familySectionIds(
+    routine: Routine,
+    studentIds: string[],
+    tenantId: string,
+  ): Promise<Set<string>> {
+    if (studentIds.length === 0) return new Set();
+    const rows = await this.enrollmentRepo.find({
+      where: {
+        student_id: In(studentIds),
+        tenant_id: tenantId,
+        academic_year_id: routine.academic_year_id,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      },
+      select: { section_id: true },
+    });
+    return new Set(rows.flatMap((r) => (r.section_id ? [r.section_id] : [])));
   }
 
   async create(

@@ -40,7 +40,7 @@ export class ChangeRequestsService {
   ): Promise<RoutineChangeRequest> {
     const slot = await this.slotRepo.findOne({ where: { id: slotId, tenant_id: tenantId } });
     if (!slot) {
-      throw new NotFoundException(`Routine slot with ID "${slotId}" not found`);
+      throw new NotFoundException('Routine slot not found');
     }
     const routine = await this.routineRepo.findOne({
       where: { id: slot.routine_id, tenant_id: tenantId, deleted_at: IsNull() },
@@ -97,7 +97,7 @@ export class ChangeRequestsService {
   ): Promise<RoutineChangeRequest> {
     const request = await this.requestRepo.findOne({ where: { id, tenant_id: tenantId } });
     if (!request) {
-      throw new NotFoundException(`Change request with ID "${id}" not found`);
+      throw new NotFoundException('Change request not found');
     }
 
     // Resolution + its audit row commit atomically: an audit-write failure
@@ -120,7 +120,7 @@ export class ChangeRequestsService {
         },
       );
       if (result.affected === 0) {
-        throw new ConflictException(`Change request "${id}" is already resolved`);
+        throw new ConflictException('This change request is already resolved');
       }
       const saved = await requestRepo.findOneOrFail({ where: { id, tenant_id: tenantId } });
 

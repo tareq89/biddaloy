@@ -15,6 +15,7 @@ import { resolveTenantSettings } from '../../schools/settings/tenant-settings-re
 import { todayInSchoolTz } from '../../../common/time';
 import { round2, toPaisa } from '../../../common/constants/money';
 import { FeeGenerationService } from '../fee-generation.service';
+import { OPEN_FEE_STATUSES } from '../fees.constants';
 import { ApprovalService } from '../../auth/guards/approval.guard';
 import { AuditService } from '../../audit/audit.service';
 import { FeeGenerationSource, PeriodType } from '@biddaloy/shared';
@@ -165,7 +166,9 @@ export class FinesService {
 
       const outstandingPaisa =
         toPaisa(bill.total_amount) - toPaisa(bill.discount_amount) - toPaisa(bill.paid_amount);
-      if (outstandingPaisa <= 0) {
+      // A settled bill (PAID / WAIVED / ADVANCE, or nothing left) cannot be waived again (#3001),
+      // same check as checkout.service.ts. One fixed text for both reasons, no bill id (Rule 23).
+      if (!OPEN_FEE_STATUSES.includes(bill.status) || outstandingPaisa <= 0) {
         throw new ConflictException({
           message: 'This fee has no outstanding balance',
           details: { code: 'FINE_WAIVE_NOTHING_OUTSTANDING' },

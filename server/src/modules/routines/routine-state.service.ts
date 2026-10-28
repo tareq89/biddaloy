@@ -73,7 +73,7 @@ export class RoutineStateService {
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!routine) {
-      throw new NotFoundException(`Routine ID "${id}" not found`);
+      throw new NotFoundException('Routine not found');
     }
 
     const allowed = LEGAL_TRANSITIONS[routine.state] ?? [];

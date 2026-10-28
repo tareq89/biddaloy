@@ -77,7 +77,7 @@ export class PeriodSlotsService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!shift) {
-        throw new NotFoundException(`Shift with ID "${shiftId}" not found`);
+        throw new NotFoundException('Shift not found');
       }
 
       // Validate every problem once, rather than failing on the first (Step
@@ -218,7 +218,7 @@ export class PeriodSlotsService {
       where: { id: shiftId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!shift) {
-      throw new NotFoundException(`Shift with ID "${shiftId}" not found`);
+      throw new NotFoundException('Shift not found');
     }
     return shift;
   }

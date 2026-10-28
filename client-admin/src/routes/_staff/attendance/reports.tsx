@@ -153,13 +153,7 @@ function ReportsPageContent() {
   const { t } = useTranslation('attendance');
   const regionConfig = useRegionConfig();
   const [state, actions] = useListShellState();
-  // The router keeps unvalidated parent search on `useSearch({ strict: false })`,
-  // so a stray `?date=` still reaches `state.filters`; keep only what this page owns.
-  const filters = Object.fromEntries(
-    Object.entries(state.filters).filter(([key]) =>
-      Object.hasOwn(reportsSearchSchema.shape, key),
-    ),
-  ) as ReportsFilters;
+  const filters = state.filters as ReportsFilters;
   // Tenant switch + low-attendance threshold, read the way AttendanceSection's
   // page does: the active tenant's settings. Unreadable (no SETTINGS_MANAGE) =
   // switch treated as off, so `?view=subjects` falls back to summary.
@@ -445,7 +439,7 @@ function ReportsPageContent() {
         <TabsContent value={view} className="mt-4 space-y-6">
           <FilterBar
             fields={filterFields}
-            values={filters as Record<string, string>}
+            values={state.filters}
             onChange={handleFilterChange}
             {...(view === 'subjects' ? {} : { resultCount: totalCount })}
           />

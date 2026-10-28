@@ -27,12 +27,7 @@ import {
   StaffImportResultDto,
   StaffImportValidateResultDto,
 } from './dto/staff-bulk-upload.dto';
-import {
-  StaffUploadParseError,
-  parseDesignation,
-  parseRole,
-  parseStaffSpreadsheet,
-} from './staff-bulk-upload.parser';
+import { parseDesignation, parseRole, parseStaffSpreadsheet } from './staff-bulk-upload.parser';
 
 /** Plain JSON only — this round-trips through Redis. */
 interface StagedRow {
@@ -73,13 +68,7 @@ export class StaffBulkUploadService {
     tenantId: string,
     actorId: string,
   ): Promise<StaffImportValidateResultDto> {
-    let parsed;
-    try {
-      parsed = await parseStaffSpreadsheet(file.buffer, file.originalname);
-    } catch (err) {
-      if (err instanceof StaffUploadParseError) throw new BadRequestException(err.message);
-      throw err;
-    }
+    const parsed = await parseStaffSpreadsheet(file.buffer, file.originalname);
 
     // Accounts are global (email/phone are unique across schools), so the lookup is by
     // identifier; what the file may do with a hit depends on THIS tenant's membership.

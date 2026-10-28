@@ -128,7 +128,7 @@ export class CopyRoutineService {
       where: { id: sourceRoutineId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!source) {
-      throw new NotFoundException(`Routine ID "${sourceRoutineId}" not found`);
+      throw new NotFoundException('Routine not found');
     }
 
     const sourceYear = await this.yearRepo.findOne({
@@ -136,21 +136,21 @@ export class CopyRoutineService {
       withDeleted: true,
     });
     if (!sourceYear) {
-      throw new NotFoundException(`Academic year ID "${source.academic_year_id}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
 
     const targetYear = await this.yearRepo.findOne({
       where: { id: dto.target_academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!targetYear) {
-      throw new NotFoundException(`Academic year ID "${dto.target_academic_year_id}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
 
     const existingTarget = await this.routineRepo.findOne({
       where: { tenant_id: tenantId, academic_year_id: targetYear.id, deleted_at: IsNull() },
     });
     if (existingTarget) {
-      throw new ConflictException(`A routine already exists for academic year "${targetYear.id}"`);
+      throw new ConflictException('A routine already exists for this academic year');
     }
 
     const sourceSlots = await this.slotRepo.find({

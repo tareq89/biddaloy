@@ -28,7 +28,6 @@ import {
 } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -52,7 +51,6 @@ import { toFamilyInvoice, FamilyInvoiceDto } from '../fees/dto/family.dto';
 import { Invoice } from './entities/invoice.entity';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
 import {
-  UserRole,
   AuditAction,
   isGuardianRole,
   Permission,
@@ -292,10 +290,8 @@ export class InvoicesController {
 
   @Post(':id/share')
   // Staff only: sharing a receipt link outward is a step above merely
-  // reading it in-app, but the ticket names `INVOICE_READ` explicitly and
-  // there's no separate share-scoped permission in this codebase yet.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
-  @RequirePermissions(Permission.INVOICE_READ)
+  // reading it in-app, so it needs `INVOICE_SEND` (#3033), not `INVOICE_READ`.
+  @RequirePermissions(Permission.INVOICE_SEND)
   @ApiOperation({
     summary:
       'Mints a public share link for this invoice ({ url, token_id, expires_at }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one.',
@@ -320,8 +316,7 @@ export class InvoicesController {
   }
 
   @Post(':id/share/regenerate')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
-  @RequirePermissions(Permission.INVOICE_READ)
+  @RequirePermissions(Permission.INVOICE_SEND)
   @ApiOperation({
     summary:
       'Revokes every live share link of this invoice and mints a new one ({ url, token_id, expires_at }).',
@@ -347,11 +342,8 @@ export class InvoicesController {
 
   @Post(':id/send')
   @UseInterceptors(IdempotencyInterceptor)
-  // [16.5.4] Ticket names `INVOICE_READ` explicitly (same rationale as
-  // `createShareLink` above — no separate share/send-scoped permission
-  // exists yet).
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
-  @RequirePermissions(Permission.INVOICE_READ)
+  // [16.5.4] Same `INVOICE_SEND` gate as `createShareLink` above (#3033).
+  @RequirePermissions(Permission.INVOICE_SEND)
   @ApiOperation({
     summary:
       'Sends the invoice receipt to a guardian over WhatsApp or SMS: mints a fresh share link ' +
@@ -469,8 +461,7 @@ export class InvoicesController {
   }
 
   @Get(':id/share')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
-  @RequirePermissions(Permission.INVOICE_READ)
+  @RequirePermissions(Permission.INVOICE_SEND)
   @ApiOperation({ summary: "Lists this invoice's share tokens (never exposes token_hash)." })
   async listShareLinks(
     @Param('id', ParseUUIDPipe) id: string,
@@ -480,8 +471,7 @@ export class InvoicesController {
   }
 
   @Delete(':id/share/:tokenId')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
-  @RequirePermissions(Permission.INVOICE_READ)
+  @RequirePermissions(Permission.INVOICE_SEND)
   @ApiOperation({ summary: 'Revokes a share token — permanent, no un-revoke.' })
   async revokeShareLink(
     @Param('id', ParseUUIDPipe) id: string,

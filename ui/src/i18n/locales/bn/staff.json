@@ -464,6 +464,7 @@
       "INVOICE_CREATE": "চালান তৈরি",
       "INVOICE_READ": "চালান দেখা",
       "INVOICE_PRINT": "চালান প্রিন্ট",
+      "INVOICE_SEND": "চালান পাঠানো ও শেয়ার",
       "INVOICE_DELETE": "চালান মোছা",
       "PAYMENT_RECORD": "পেমেন্ট রেকর্ড",
       "PAYMENT_READ": "সব পেমেন্ট দেখা",

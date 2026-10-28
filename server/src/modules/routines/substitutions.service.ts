@@ -73,7 +73,7 @@ export class SubstitutionsService {
       where: { id: dto.routine_slot_id, tenant_id: tenantId },
     });
     if (!slot) {
-      throw new NotFoundException(`Routine slot with ID "${dto.routine_slot_id}" not found`);
+      throw new NotFoundException('Routine slot not found');
     }
 
     // IDOR guard: `dto.substitute_teacher_id` is caller-controlled and
@@ -85,7 +85,7 @@ export class SubstitutionsService {
         where: { id: dto.substitute_teacher_id, tenant_id: tenantId },
       });
       if (!teacher) {
-        throw new NotFoundException(`Teacher with ID "${dto.substitute_teacher_id}" not found`);
+        throw new NotFoundException('Teacher not found');
       }
       substituteUserId = teacher.user_id;
     }
@@ -153,10 +153,8 @@ export class SubstitutionsService {
       await this.auditService.record(
         {
           action: AuditAction.DELETE,
-          // `RoutineSubstitution` is not in the shared audit catalog (outside this
-          // lane), so the row is logged against the slot it overlays.
-          entity_type: 'RoutineSlot',
-          entity_id: row.routine_slot_id,
+          entity_type: 'RoutineSubstitution',
+          entity_id: id,
           tenant_id: tenantId,
           performed_by_user_id: userId,
           old_values: {
