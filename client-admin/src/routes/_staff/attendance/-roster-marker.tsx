@@ -16,8 +16,9 @@
  */
 import { AttendanceStatus } from '@biddaloy/shared';
 import { AttendanceStatusControl } from '@biddaloy/ui/components';
-import type { RegisterStudent } from '@biddaloy/ui/hooks';
+import { useArrivalSubscriptions, type RegisterStudent } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { Bell } from 'lucide-react';
 import * as React from 'react';
 
 export interface DraftEntry {
@@ -44,6 +45,22 @@ export interface RosterMarkerProps {
    * register is outside its editable window. `undefined` renders nothing
    * extra, same as every pre-9.7 caller. */
   renderRowActions?: (student: RegisterStudent) => React.ReactNode;
+  /** [84.3.3] Students whose guardian waits for the arrival notice. Absent → no bell. */
+  arrivalSubscribed?: ReadonlySet<string> | undefined;
+}
+
+/** Fetches the section's ACTIVE arrival subscriptions, then renders the roster with bells.
+ * Mount only for a caller holding `ATTENDANCE_ARRIVAL_NOTICE_MANAGE` (the list route needs it). */
+export function ArrivalAwareRosterMarker({
+  sectionId,
+  ...props
+}: Omit<RosterMarkerProps, 'arrivalSubscribed'> & { sectionId: string }) {
+  const query = useArrivalSubscriptions({ sectionId, status: 'ACTIVE' });
+  const subscribed = React.useMemo(
+    () => (query.data ? new Set(query.data.map((s) => s.student_id)) : undefined),
+    [query.data],
+  );
+  return <RosterMarker {...props} arrivalSubscribed={subscribed} />;
 }
 
 const STATUS_SHORTCUT: Record<string, AttendanceStatus> = {
@@ -68,6 +85,7 @@ export function RosterMarker({
   disabled = false,
   allowedStatuses,
   renderRowActions,
+  arrivalSubscribed,
 }: RosterMarkerProps) {
   const { t } = useTranslation('attendance');
   const [focusedIndex, setFocusedIndex] = React.useState(0);
@@ -203,6 +221,15 @@ export function RosterMarker({
                   {t('mark.rollNumber', { roll: student.roll_number })}
                 </span>
                 <span className="truncate font-medium">{student.full_name}</span>
+                {arrivalSubscribed?.has(student.student_id) && (
+                  <Bell
+                    className="size-4 shrink-0 text-text-secondary"
+                    role="img"
+                    aria-label={t('mark.arrivalSubscribed')}
+                  >
+                    <title>{t('mark.arrivalSubscribed')}</title>
+                  </Bell>
+                )}
               </button>
               <AttendanceStatusControl
                 value={status}

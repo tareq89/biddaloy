@@ -78,6 +78,7 @@
     "requestCorrection": "Request correction",
     "futureDateBanner": "Future date — only Leave can be marked ahead of time.",
     "rollNumber": "Roll {{roll}}",
+    "arrivalSubscribed": "Guardian waits for the arrival notice",
     "rowMenuLabel": "More actions for {{name}}",
     "correctAction": "Correct",
     "historyAction": "History",
