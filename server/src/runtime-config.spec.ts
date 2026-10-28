@@ -6,6 +6,7 @@ describe('buildRuntimeConfig', () => {
   it('exposes exactly the public keys, never a secret', () => {
     const cfg = buildRuntimeConfig({ TURNSTILE_SECRET_KEY: 'secret', JWT_SECRET: 'x' });
     expect(Object.keys(cfg).sort()).toEqual([
+      'messageSinkUrl',
       'release',
       'sentryDsn',
       'sentryEnvironment',
@@ -24,7 +25,19 @@ describe('buildRuntimeConfig', () => {
       sentryEnvironment: 'production',
       sentryTracesSampleRate: 0.1,
       release: '',
+      messageSinkUrl: '',
     });
+  });
+
+  it('exposes the inbox URL only when MESSAGE_SINK=mailpit', () => {
+    const url = 'https://inbox.demo.school.example';
+    expect(
+      buildRuntimeConfig({ MESSAGE_SINK: 'mailpit', MESSAGE_SINK_PUBLIC_URL: url }).messageSinkUrl,
+    ).toBe(url);
+    expect(buildRuntimeConfig({ MESSAGE_SINK_PUBLIC_URL: url }).messageSinkUrl).toBe('');
+    expect(
+      buildRuntimeConfig({ MESSAGE_SINK: 'real', MESSAGE_SINK_PUBLIC_URL: url }).messageSinkUrl,
+    ).toBe('');
   });
 
   it('treats an empty sample rate as unset, but keeps an explicit 0', () => {

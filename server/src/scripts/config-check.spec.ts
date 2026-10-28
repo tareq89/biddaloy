@@ -157,6 +157,27 @@ describe('runStackConfigCheck', () => {
     expect(await runStackConfigCheck('demo', demo)).toEqual({ ok: true, output: 'config ok' });
   });
 
+  it('MESSAGE_SINK pairing errors (87 D3, D10, D22)', async () => {
+    const out = async (stack: 'prod' | 'staging' | 'demo', env: Record<string, string>) =>
+      (await runStackConfigCheck(stack, env)).output;
+    const onProd = await out('prod', { ...prod, MESSAGE_SINK: 'mailpit' });
+    expect(onProd).toContain('MESSAGE_SINK must not be mailpit on prod');
+    for (const [stack, file] of [
+      ['staging', staging],
+      ['demo', demo],
+    ] as const) {
+      const bad = await out(stack, { ...file, MESSAGE_SINK: '', MESSAGE_SINK_PUBLIC_URL: '' });
+      expect(bad).toContain(`MESSAGE_SINK must be mailpit on ${stack}`);
+      expect(bad).toContain(`MESSAGE_SINK_PUBLIC_URL must be set on ${stack}`);
+      // each line appears once (stack check and runConfigCheck agree)
+      expect(bad.split('\n').filter((l) => l.startsWith('MESSAGE_SINK must')).length).toBe(1);
+      expect(await out(stack, { ...file, SMTP_HOST: 'smtp.real.example' })).toContain(
+        `SMTP_HOST must be empty on ${stack}`,
+      );
+    }
+    expect(await out('prod', prod)).not.toContain('MESSAGE_SINK');
+  });
+
   // The part of deploy/stack.yml that makes the app container: x-s3, x-db-url and x-app.
   const stackYml = readFileSync(join(repoRoot, 'deploy/stack.yml'), 'utf8');
   const appBlock = stackYml.slice(stackYml.indexOf('\nx-s3:'), stackYml.indexOf('\nx-jobs-env:'));

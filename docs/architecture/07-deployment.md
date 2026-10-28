@@ -205,14 +205,15 @@ flowchart LR
 app, outside `/api`, with `no-store`. It carries only public values, and a
 spec pins the exact key list:
 
-| Key in `window.__BIDDALOY_CONFIG__` | Read from env                         | Used for                                        |
-| ----------------------------------- | ------------------------------------- | ----------------------------------------------- |
-| `turnstileSiteKey`                  | `TURNSTILE_SITE_KEY`                  | the captcha widget on public forms              |
-| `supportUrl`                        | `SUPPORT_CONTACT_URL`                 | the "Contact us" link on the trial-ended screen |
-| `sentryDsn`                         | `SENTRY_DSN_WEB`                      | browser error reports; empty = nothing is sent  |
-| `sentryEnvironment`                 | `SENTRY_ENVIRONMENT`, else `NODE_ENV` | tags events `prod` / `staging` / `demo`         |
-| `sentryTracesSampleRate`            | `SENTRY_TRACES_SAMPLE_RATE`           | default `0.1`                                   |
-| `release`                           | `APP_VERSION`                         | ties a Sentry issue to the deploy               |
+| Key in `window.__BIDDALOY_CONFIG__` | Read from env                         | Used for                                             |
+| ----------------------------------- | ------------------------------------- | ---------------------------------------------------- |
+| `turnstileSiteKey`                  | `TURNSTILE_SITE_KEY`                  | the captcha widget on public forms                   |
+| `supportUrl`                        | `SUPPORT_CONTACT_URL`                 | the "Contact us" link on the trial-ended screen      |
+| `messageSinkUrl`                    | `MESSAGE_SINK_PUBLIC_URL`             | test inbox link; empty unless `MESSAGE_SINK=mailpit` |
+| `sentryDsn`                         | `SENTRY_DSN_WEB`                      | browser error reports; empty = nothing is sent       |
+| `sentryEnvironment`                 | `SENTRY_ENVIRONMENT`, else `NODE_ENV` | tags events `prod` / `staging` / `demo`              |
+| `sentryTracesSampleRate`            | `SENTRY_TRACES_SAMPLE_RATE`           | default `0.1`                                        |
+| `release`                           | `APP_VERSION`                         | ties a Sentry issue to the deploy                    |
 
 The secrets files, one per project:
 
@@ -236,13 +237,14 @@ unquoted `.env` value. The staging password hash is a bcrypt string full of
 
 Public values the sign-up form needs, in one place:
 
-| Variable                                               | Read by                                                   | Missing means                                                                |
-| ------------------------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `TURNSTILE_SECRET_KEY`                                 | server                                                    | dev and test skip the captcha; **production refuses every sign-up with 503** |
-| `TURNSTILE_SITE_KEY`                                   | server, served to the browser through `runtime-config.js` | no captcha widget is drawn                                                   |
-| `SUPPORT_CONTACT_URL`                                  | server, same route                                        | no support link                                                              |
-| `OTP_SMS_ALLOWED_PREFIXES`                             | server                                                    | `+880`                                                                       |
-| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | server                                                    | Google is not offered                                                        |
+| Variable                                                           | Read by                                                   | Missing means                                                                                             |
+| ------------------------------------------------------------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `TURNSTILE_SECRET_KEY`                                             | server                                                    | dev and test skip the captcha; **production refuses every sign-up with 503**                              |
+| `TURNSTILE_SITE_KEY`                                               | server, served to the browser through `runtime-config.js` | no captcha widget is drawn                                                                                |
+| `SUPPORT_CONTACT_URL`                                              | server, same route                                        | no support link                                                                                           |
+| `MESSAGE_SINK`, `MESSAGE_SINK_SMTP_URL`, `MESSAGE_SINK_PUBLIC_URL` | server (`PUBLIC_URL` also to the browser)                 | real providers; set `mailpit` on staging and demo, unset on prod (config:check refuses the wrong pairing) |
+| `OTP_SMS_ALLOWED_PREFIXES`                                         | server                                                    | `+880`                                                                                                    |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`             | server                                                    | Google is not offered                                                                                     |
 
 Set `TURNSTILE_SECRET_KEY` and `TURNSTILE_SITE_KEY` together or not at all: a
 secret with no site key rejects every sign-up. The content-security-policy
@@ -486,8 +488,9 @@ flowchart LR
   the "Smoke Test School" users keep their email (D20), so the smoke test can
   sign in.
 - Files: uploaded files are not copied. Missing images on staging are expected.
-- Providers: no SMS, email, OAuth or push keys; Turnstile uses Cloudflare's
-  public always-pass test pair.
+- Providers: the test inbox (`MESSAGE_SINK=mailpit`); see
+  [05-communications](05-communications.md). No OAuth or push keys; Turnstile uses
+  Cloudflare's public always-pass test pair.
 - Every prod SHA must pass here first (the staging gate above).
 
 ## Demo
@@ -496,6 +499,8 @@ The public demo is the `demo` project: its own database and bucket on the same
 VM, `DEMO_MODE=true`, rebuilt every night at 03:00 (Asia/Dhaka) by the
 `biddaloy-nightly@demo-rebuild` timer. How the rebuild works and how to run it
 by hand: [22-demo-seed.md](22-demo-seed.md#running-the-demo-site).
+Providers: the test inbox (`MESSAGE_SINK=mailpit`); see
+[05-communications](05-communications.md).
 
 ```mermaid
 flowchart LR

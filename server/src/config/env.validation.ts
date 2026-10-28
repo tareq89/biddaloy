@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   Matches,
   MinLength,
   ValidateIf,
@@ -46,6 +47,25 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   HEALTH_TOKEN?: string;
+
+  // Deploy stack name (prod | staging | demo); set by deploy/stack.yml. Free text here:
+  // config-check --env judges the value, assertMessageSinkAllowed reads it.
+  @IsOptional()
+  @IsString()
+  ENV_NAME?: string;
+
+  // Test inbox (Epic 87). `mailpit` sends every message to the Mailpit sink; prod leaves it unset.
+  @ValidateIf((o: EnvironmentVariables) => !!o.MESSAGE_SINK)
+  @IsIn(['mailpit', 'real'])
+  MESSAGE_SINK?: 'mailpit' | 'real';
+
+  @ValidateIf((o: EnvironmentVariables) => !!o.MESSAGE_SINK_SMTP_URL)
+  @IsUrl({ protocols: ['smtp'], require_protocol: true, require_tld: false })
+  MESSAGE_SINK_SMTP_URL?: string;
+
+  @ValidateIf((o: EnvironmentVariables) => !!o.MESSAGE_SINK_PUBLIC_URL)
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_tld: false })
+  MESSAGE_SINK_PUBLIC_URL?: string;
 
   @IsOptional()
   @IsIn(NODE_ENVS)
@@ -383,6 +403,23 @@ const PLACEHOLDER_KEYS = [
   'SMTP_PASSWORD',
   'HEALTH_TOKEN',
 ] as const;
+
+/**
+ * [87 D22] The test inbox lives only on non-prod stacks: prod must never use it, and staging
+ * and demo must always use it (so no real message leaves them). Names the variable, never a
+ * value. An unknown `envName` (dev, CI, tests) passes.
+ */
+export function assertMessageSinkAllowed(
+  envName: string | undefined,
+  messageSink: string | undefined,
+): void {
+  if (envName === 'prod' && messageSink === 'mailpit') {
+    throw new Error('MESSAGE_SINK must not be mailpit on prod');
+  }
+  if ((envName === 'staging' || envName === 'demo') && messageSink !== 'mailpit') {
+    throw new Error(`MESSAGE_SINK must be mailpit on ${envName}`);
+  }
+}
 
 /**
  * Production-only boot guard (D21): collects every problem and throws one

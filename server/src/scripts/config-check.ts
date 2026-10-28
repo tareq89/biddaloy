@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { config, parse } from 'dotenv';
 import { ConfigService } from '@nestjs/config';
-import { validate } from '../config/env.validation';
+import { assertMessageSinkAllowed, validate } from '../config/env.validation';
 import { assertSecretEchoAllowed } from '../modules/account-access/account-access-echo';
 import { buildDatabaseSsl } from '../db-ssl';
 import {
@@ -34,6 +34,7 @@ export function runConfigCheck(env: Record<string, unknown>): { ok: boolean; out
   const checks = [
     () => validate(env),
     () => assertSecretEchoAllowed(get('NODE_ENV'), get('ACCOUNT_ACCESS_ECHO_SECRETS')),
+    () => assertMessageSinkAllowed(get('ENV_NAME'), get('MESSAGE_SINK')),
     () => buildDatabaseSsl(get('NODE_ENV'), get('DB_SSL'), get('DB_SSL_REJECT_UNAUTHORIZED')),
     // An unset key or URL is already reported by validate(); these add the shape checks.
     () =>
@@ -189,6 +190,16 @@ export async function runStackConfigCheck(
   for (const p of ['jobs', 'demo-jobs']) {
     if (profiles.includes(p)) errors.push(`COMPOSE_PROFILES must not contain ${p}`);
   }
+  // [87 D3, D10] the test inbox: never on prod, always on every other stack.
+  if (stack === 'prod' && val('MESSAGE_SINK') === 'mailpit') {
+    errors.push('MESSAGE_SINK must not be mailpit on prod');
+  }
+  if (stack !== 'prod') {
+    if (val('MESSAGE_SINK') !== 'mailpit') errors.push(`MESSAGE_SINK must be mailpit on ${stack}`);
+    if (!set('MESSAGE_SINK_PUBLIC_URL')) {
+      errors.push(`MESSAGE_SINK_PUBLIC_URL must be set on ${stack}`);
+    }
+  }
   if (stack === 'prod' && val('DEMO_MODE') === 'true') {
     errors.push('DEMO_MODE must not be true on prod');
   }
@@ -211,6 +222,17 @@ export async function runStackConfigCheck(
     for (const p of ['backup', 'replica']) {
       if (profiles.includes(p)) errors.push(`COMPOSE_PROFILES must not contain ${p} on ${stack}`);
     }
+    // No real SMS / WhatsApp / email / push provider (nor, on staging, real alert phones or
+    // social sign-in credentials) on a non-prod stack: the test inbox takes every message.
+    errors.push(
+      ...Object.keys(env)
+        .filter(
+          (k) => (PROVIDER_VAR.test(k) || (stack === 'staging' && EXTRA_REFUSED.test(k))) && set(k),
+        )
+        .map(
+          (k) => `${k} must be empty on ${stack} (no real SMS / WhatsApp / email / push provider)`,
+        ),
+    );
     // No offsite backup target on a non-prod stack (it could overwrite prod's backups).
     if (stack === 'demo') {
       errors.push(
@@ -226,13 +248,6 @@ export async function runStackConfigCheck(
     if (set('STAGING_PASSWORD') && val('STAGING_PASSWORD').length < 12) {
       errors.push('STAGING_PASSWORD must be at least 12 characters');
     }
-    errors.push(
-      ...Object.keys(env)
-        .filter((k) => (PROVIDER_VAR.test(k) || EXTRA_REFUSED.test(k)) && set(k))
-        .map(
-          (k) => `${k} must be empty on staging (no real SMS / WhatsApp / email / push provider)`,
-        ),
-    );
     if (val('TURNSTILE_SITE_KEY') !== TURNSTILE_TEST_SITE_KEY) {
       errors.push("TURNSTILE_SITE_KEY must be Cloudflare's always-pass test key on staging");
     }
@@ -243,7 +258,7 @@ export async function runStackConfigCheck(
   }
   if (stack === 'demo' && val('DEMO_MODE') !== 'true')
     errors.push('DEMO_MODE must be true on demo');
-  const all = [...(base.ok ? [] : [base.output]), ...errors];
+  const all = [...new Set([...(base.ok ? [] : base.output.split('\n')), ...errors])];
   return all.length === 0
     ? { ok: true, output: 'config ok' }
     : { ok: false, output: all.join('\n') };

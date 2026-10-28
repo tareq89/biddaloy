@@ -30,9 +30,11 @@ import { buildSpaFallback } from './spa-fallback';
 import { assertSecretEchoAllowed } from './modules/account-access/account-access-echo';
 import * as Sentry from '@sentry/node';
 import { initSentry } from './common/sentry';
+import { assertMessageSinkAllowed } from './config/env.validation';
 
 async function bootstrap() {
   assertSecretEchoAllowed(process.env.NODE_ENV, process.env.ACCOUNT_ACCESS_ECHO_SECRETS);
+  assertMessageSinkAllowed(process.env.ENV_NAME, process.env.MESSAGE_SINK);
 
   // Before Nest even starts building the app graph — every request from
   // here on can hit the exception filter's Sentry.captureException call.

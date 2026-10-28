@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, it, expect } from 'vitest';
-import { validate } from './env.validation';
+import { assertMessageSinkAllowed, validate } from './env.validation';
 
 const validConfig = {
   DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/biddaloy',
@@ -333,5 +333,42 @@ describe('DEMO_MODE / DEMO_PASSWORD', () => {
 
   it('passes with DEMO_MODE unset', () => {
     expect(() => validate(validConfig)).not.toThrow();
+  });
+});
+
+describe('assertMessageSinkAllowed (87 D22)', () => {
+  it('refuses mailpit on prod', () => {
+    expect(() => assertMessageSinkAllowed('prod', 'mailpit')).toThrow('MESSAGE_SINK');
+  });
+  it.each([
+    ['staging', undefined],
+    ['demo', 'real'],
+  ])('requires mailpit on %s (got %s)', (env, sink) => {
+    expect(() => assertMessageSinkAllowed(env, sink)).toThrow(
+      `MESSAGE_SINK must be mailpit on ${env}`,
+    );
+  });
+  it.each([
+    ['prod', undefined],
+    ['prod', 'real'],
+    ['staging', 'mailpit'],
+    ['demo', 'mailpit'],
+    [undefined, 'mailpit'],
+    [undefined, undefined],
+    ['dev', 'real'],
+  ])('passes for (%s, %s)', (env, sink) => {
+    expect(() => assertMessageSinkAllowed(env, sink)).not.toThrow();
+  });
+  it('validates the sink variables', () => {
+    expect(() => validate({ ...validConfig, MESSAGE_SINK: 'bogus' })).toThrow();
+    expect(() => validate({ ...validConfig, MESSAGE_SINK_SMTP_URL: 'http://x:1025' })).toThrow();
+    expect(() =>
+      validate({
+        ...validConfig,
+        MESSAGE_SINK: 'mailpit',
+        MESSAGE_SINK_SMTP_URL: 'smtp://mailpit:1025',
+        MESSAGE_SINK_PUBLIC_URL: 'http://localhost:8025',
+      }),
+    ).not.toThrow();
   });
 });
