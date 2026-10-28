@@ -9,7 +9,9 @@
  *
  * Credentials come from env only (arguments end up in shell history).
  * Exit 0 = all passed, 1 = a check failed (stops at the first), 2 = bad usage.
- * Output never contains a token, password, email or response body.
+ * Output never contains a token, password, email, subject or response body.
+ * Optional SMOKE_INBOX_API_URL (test-inbox stacks): asks for a password reset for the admin
+ * and waits until Mailpit shows the message (Epic 87, D25).
  */
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -41,6 +43,39 @@ export function resolveBaseUrl(argv, env) {
 /** Pure. 0 all passed, 1 a check failed, 2 bad usage. */
 export function exitCode(result) {
   return result.usageError ? 2 : result.failed ? 1 : 0;
+}
+
+/** Pure. Mailpit search URL for messages sent to `email`. */
+export function inboxSearchUrl(base, email) {
+  return `${base.replace(/\/+$/, '')}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`;
+}
+
+/** Pure. True when a Mailpit search body holds a message created at/after `sinceMs`. */
+// `messages_count` is the match count (`total` is every message in the box), and the age
+// check stops an old run's message from passing this one.
+export function hasFreshMessage(body, sinceMs) {
+  return (
+    (body?.messages_count ?? 0) >= 1 &&
+    (body.messages ?? []).some((m) => Date.parse(m.Created) >= sinceMs)
+  );
+}
+
+/** Runs `fn` until it returns truthy, every `intervalMs`, up to `timeoutMs`. Returns true/false. */
+export async function pollUntil(
+  fn,
+  {
+    intervalMs = 2000,
+    timeoutMs = 30_000,
+    sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+    now = Date.now,
+  } = {},
+) {
+  const deadline = now() + timeoutMs;
+  for (;;) {
+    if (await fn()) return true;
+    if (now() + intervalMs > deadline) return false;
+    await sleep(intervalMs);
+  }
 }
 
 export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
@@ -192,6 +227,40 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
       headers: { 'X-Health-Token': env.SMOKE_HEALTH_TOKEN },
       ok: (b) => b.status === 'ok' || b.status === 'degraded',
     });
+  }
+
+  // [Epic 87] Test-inbox stacks only: a password reset for the admin must reach Mailpit.
+  if (!env.SMOKE_INBOX_API_URL) {
+    out('inbox: skipped (no SMOKE_INBOX_API_URL)');
+  } else {
+    const started = Date.now();
+    let found = false;
+    try {
+      const res = await fetch(`${baseUrl}/api/v1/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: env.SMOKE_ADMIN_EMAIL }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (res.status === 202) {
+        const url = inboxSearchUrl(env.SMOKE_INBOX_API_URL, env.SMOKE_ADMIN_EMAIL);
+        found = await pollUntil(async () => {
+          try {
+            const r = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(5000) });
+            return r.status === 200 && hasFreshMessage(await r.json(), started - 5000);
+          } catch {
+            return false;
+          }
+        });
+      }
+    } catch {
+      // falls through to FAIL
+    }
+    out(
+      `${found ? 'PASS' : 'FAIL'}  inbox: ${found ? 'ok' : 'message not found'}  ${Date.now() - started}ms`,
+    );
+    if (found) result.passed++;
+    else result.failed++;
   }
   return done();
 }

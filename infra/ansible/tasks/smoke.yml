@@ -4,6 +4,7 @@
 # The script is not in the image (it holds server/dist and the SPA only); the checkout's copy
 # (at this deploy's sha) is mounted read-only. Credentials are passed by name (-e NAME) with the values in the task
 # environment, so they never appear in the process list. Demo runs health only.
+# Every SMOKE_* key is forwarded, so SMOKE_INBOX_API_URL (staging only) adds the test-inbox check.
 #
 # First deploy: a database that had no user before this deploy's migration (deploy.yml,
 # db_users_before: a fresh VM, before restore-prod or the first staging refresh) and still has

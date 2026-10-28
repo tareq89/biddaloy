@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { exitCode, resolveBaseUrl, runSmoke } from './smoke-post-deploy.mjs';
+import {
+  exitCode,
+  hasFreshMessage,
+  inboxSearchUrl,
+  pollUntil,
+  resolveBaseUrl,
+  runSmoke,
+} from './smoke-post-deploy.mjs';
 
 const ENV = {
   SMOKE_ADMIN_EMAIL: 'adm@x.test',
@@ -253,5 +260,75 @@ describe('smoke-post-deploy', () => {
     };
     const r = await run(fakeFetch({ 'GET /api/health': bad }));
     expect(r.failed).toBe(1);
+  });
+
+  describe('inbox check (Epic 87, D25)', () => {
+    const INBOX = { ...ENV, SMOKE_INBOX_API_URL: 'http://staging-mailpit:8025' };
+    const fresh = {
+      messages_count: 1,
+      messages: [{ Created: new Date(Date.now() + 60_000).toISOString() }],
+    };
+
+    it('encodes the email in the search URL', () => {
+      expect(inboxSearchUrl('http://m:8025/', 'a+b@x.test')).toBe(
+        'http://m:8025/api/v1/search?query=to%3Aa%2Bb%40x.test',
+      );
+    });
+
+    it('pollUntil stops at the first hit', async () => {
+      let calls = 0;
+      const ok = await pollUntil(async () => ++calls === 3, {
+        sleep: async () => {},
+        now: () => 0,
+      });
+      expect(ok).toBe(true);
+      expect(calls).toBe(3);
+    });
+
+    it('pollUntil times out at the deadline', async () => {
+      let t = 0;
+      const ok = await pollUntil(async () => false, {
+        intervalMs: 2000,
+        timeoutMs: 6000,
+        sleep: async (ms) => void (t += ms),
+        now: () => t,
+      });
+      expect(ok).toBe(false);
+      expect(t).toBe(6000);
+    });
+
+    it('hasFreshMessage ignores old messages and the mailbox-wide total', () => {
+      expect(hasFreshMessage({ total: 5, messages_count: 0, messages: [] }, 0)).toBe(false);
+      expect(
+        hasFreshMessage(
+          { messages_count: 1, messages: [{ Created: '2020-01-01T00:00:00Z' }] },
+          Date.now(),
+        ),
+      ).toBe(false);
+      expect(hasFreshMessage(fresh, Date.now())).toBe(true);
+    });
+
+    it('skips with one line when the key is unset', async () => {
+      const r = await run(fakeFetch());
+      expect(r.lines).toContain('inbox: skipped (no SMOKE_INBOX_API_URL)');
+      expect(r.failed).toBe(0);
+    });
+
+    it('passes when the message shows up, without printing the email', async () => {
+      const f = fakeFetch({
+        'POST /api/v1/auth/forgot-password': json(202, {}),
+        'GET http://staging-mailpit:8025/api/v1/search?query=to%3Aadm%40x.test': json(200, fresh),
+      });
+      const r = await run(f, INBOX);
+      expect(r.failed).toBe(0);
+      expect(r.lines.find((l) => l.includes('inbox:'))).toMatch(/^PASS {2}inbox: ok/);
+      expect(r.lines.join('\n')).not.toContain('adm@x.test');
+    });
+
+    it('fails with a line naming the inbox check when the reset request is refused', async () => {
+      const r = await run(fakeFetch({ 'POST /api/v1/auth/forgot-password': json(500, {}) }), INBOX);
+      expect(r.failed).toBe(1);
+      expect(r.lines.find((l) => l.startsWith('FAIL'))).toContain('inbox:');
+    });
   });
 });

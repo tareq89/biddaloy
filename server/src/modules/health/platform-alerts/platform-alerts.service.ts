@@ -1,9 +1,12 @@
+import { CommunicationMedium } from '@biddaloy/shared';
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { queueWorkers } from '../../../common/queue-workers';
 import { GreenwebSmsGateway } from '../../communications/providers/sms/greenweb-sms.gateway';
 import { MimSmsGateway } from '../../communications/providers/sms/mim-sms.gateway';
+import { MailpitSinkProvider } from '../../communications/providers/sink/mailpit-sink.provider';
+import { isMessageSink } from '../../communications/providers/sink/message-sink';
 import { HealthService } from '../health.service';
 import { TenantStatusService } from '../../schools/tenant-status.service';
 import { PlatformAlertsDto } from './dto/platform-alerts.dto';
@@ -150,6 +153,14 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
     const env = process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
     const text = `[${env}] ${body}`;
     const phones = await this.recipients();
+    if (isMessageSink()) {
+      // Epic 87 (D23): staging/demo alerts land in the test inbox. The sink provider is used
+      // directly, not through CommunicationsModule, which would pull BullMQ into this
+      // Redis-outage path. It never throws (returns a failed result), and the tick catches anyway.
+      const sink = MailpitSinkProvider.forMedium(CommunicationMedium.SMS);
+      for (const phone of phones) await sink.send({ to: phone, body: text }, null);
+      return;
+    }
     const apiKey = this.config.get<string>('PLATFORM_SMS_API_KEY');
     if (!apiKey) {
       this.logger.warn(
