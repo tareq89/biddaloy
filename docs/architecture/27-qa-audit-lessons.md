@@ -220,3 +220,12 @@ flowchart LR
   W6[W6 lanes g1 g2 g3] --> Fixed[Fixed: #2684 and the lane tickets]
   W6 --> Skipped[Skipped: see table]
 ```
+
+## Epic 86 — guide bugs
+
+Wave 0 (#2979): five security fixes found while writing the user guide.
+
+- 2026-10-27 — #2975's plan said a zod `validateSearch` on the route is enough. It was not: `useListUrlState` reads `useSearch({ strict: false })`, which keeps unvalidated parent search, so the stray `?date=` chip stayed. Cost: one failing test and a page-level key filter. Fix: filter `filters` to the schema's keys in the page. Rule candidate: a list page with `validateSearch` must also be checked in a render test with a stray param. The shared hook still leaks on every list page (follow-up filed).
+- 2026-10-27 — #2863's planned `rg` for echoed ids missed messages whose template literal sits on the line after `new NotFoundException(`. The reviewer found three more. Rule candidate: grep with `-U` (multiline) for Rule 23 sweeps.
+- 2026-10-27 — #2859: two existing e2e specs treated a tenant-local SUPER_ADMIN as the platform admin and broke once the guard landed. Fix: move their SA onto the platform tenant, as `platform-alerts.controller.e2e-spec.ts` does.
+- 2026-10-27 — Sandbox refused `git commit` inside worktree agents (once). The orchestrator committed the staged files from the parent.

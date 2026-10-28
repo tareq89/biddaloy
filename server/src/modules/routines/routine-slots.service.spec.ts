@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { PeriodSlotKind, SlotRecurrence } from '@biddaloy/shared';
+import { PeriodSlotKind, RoutineState, SlotRecurrence, UserRole } from '@biddaloy/shared';
 import { RoutineSlotsService } from './routine-slots.service';
 import { Routine } from './entities/routine.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
@@ -69,6 +69,7 @@ function buildService() {
   };
   const roomRepo: any = { findOne: vi.fn(async () => null) };
   const teacherRepo: any = {
+    findOne: vi.fn(async () => ({ id: 'teacher-1', tenant_id: TENANT_ID })),
     find: vi.fn(async () => [{ id: 'teacher-1', tenant_id: TENANT_ID }]),
   };
 
@@ -105,6 +106,7 @@ function buildService() {
     dataSource,
     schoolsService,
     auditService,
+    teacherRepo,
   );
   return {
     schoolsService,
@@ -274,5 +276,59 @@ describe('RoutineSlotsService [21.4.1]', () => {
         'user-1',
       ),
     ).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('RoutineSlotsService.findForRoutine visibility [86.1]', () => {
+  const seed = (ctx: ReturnType<typeof buildService>, state: RoutineState) => {
+    ctx.routineRepo.findOne = vi.fn(async () => ({ id: ROUTINE_ID, tenant_id: TENANT_ID, state }));
+    ctx.slots.push({ id: 's1' }, { id: 's2' });
+    ctx.slotTeacherRepo.find = vi.fn(async () => [
+      { routine_slot_id: 's1', teacher_id: 'teacher-1' },
+      { routine_slot_id: 's2', teacher_id: 'teacher-2' },
+    ]);
+  };
+  const as = (role: UserRole) => ({ role, userId: 'u1' });
+
+  it('DRAFT + TEACHER returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.DRAFT);
+    expect(await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.TEACHER))).toEqual(
+      [],
+    );
+  });
+  it('DRAFT + ADMIN returns all slots', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.DRAFT);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.ADMIN)),
+    ).toHaveLength(2);
+  });
+  it('REVIEW + TEACHER returns only own slots', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    const r = await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.TEACHER));
+    expect(r.map((x) => x.slot.id)).toEqual(['s1']);
+  });
+  it('REVIEW + PARENT returns []', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    expect(await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.PARENT))).toEqual(
+      [],
+    );
+  });
+  it('REVIEW + non-TEACHER staff returns [] (same rule as resolve)', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.REVIEW);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.OFFICE_STAFF)),
+    ).toEqual([]);
+  });
+  it('PUBLISHED + TEACHER returns all slots', async () => {
+    const ctx = buildService();
+    seed(ctx, RoutineState.PUBLISHED);
+    expect(
+      await ctx.service.findForRoutine(ROUTINE_ID, TENANT_ID, as(UserRole.TEACHER)),
+    ).toHaveLength(2);
   });
 });

@@ -13,7 +13,7 @@ import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { School } from '../../schools/entities/school.entity';
 import { resolveTenantSettings } from '../../schools/settings/tenant-settings-resolver';
 import { todayInSchoolTz } from '../../../common/time';
-import { round2 } from '../../../common/constants/money';
+import { round2, toPaisa } from '../../../common/constants/money';
 import { FeeGenerationService } from '../fee-generation.service';
 import { ApprovalService } from '../../auth/guards/approval.guard';
 import { AuditService } from '../../audit/audit.service';
@@ -34,8 +34,6 @@ interface RequestLike {
   currentTenant?: { id: string };
   user?: { sub: string };
 }
-
-const EPSILON = 0.01;
 
 @Injectable()
 export class FinesService {
@@ -63,7 +61,7 @@ export class FinesService {
       where: { id: dto.fee_structure_id, tenant_id: tenantId },
     });
     if (!structure) {
-      throw new NotFoundException(`Fee structure "${dto.fee_structure_id}" not found`);
+      throw new NotFoundException('Fee structure not found');
     }
     if (structure.fee_type !== FeeType.FINE) {
       throw new BadRequestException('fee_structure_id must reference a FINE fee structure');
@@ -71,7 +69,7 @@ export class FinesService {
 
     const incidentDate = new Date(`${dto.incident_date}T00:00:00.000Z`);
     if (Number.isNaN(incidentDate.getTime())) {
-      throw new BadRequestException(`Invalid incident_date "${dto.incident_date}"`);
+      throw new BadRequestException('Invalid incident_date');
     }
     const todayKey = todayInSchoolTz();
     if (dto.incident_date > todayKey) {
@@ -82,14 +80,12 @@ export class FinesService {
       where: { id: structure.academic_year_id, tenant_id: tenantId },
     });
     if (!academicYear) {
-      throw new NotFoundException(`Academic year "${structure.academic_year_id}" not found`);
+      throw new NotFoundException('Academic year not found');
     }
     const start = new Date(academicYear.start_date);
     const end = new Date(academicYear.end_date);
     if (incidentDate < start || incidentDate > end) {
-      throw new BadRequestException(
-        `incident_date "${dto.incident_date}" is outside academic year "${academicYear.name}"`,
-      );
+      throw new BadRequestException('incident_date is outside the academic year');
     }
 
     const periodStart = `${dto.incident_date.slice(0, 7)}-01`;
@@ -164,21 +160,27 @@ export class FinesService {
         .setLock('pessimistic_write', undefined, ['sf'])
         .getOne();
       if (!bill) {
-        throw new NotFoundException(`Bill "${id}" not found`);
+        throw new NotFoundException('Bill not found');
       }
 
-      const outstanding = round2(
-        Number(bill.total_amount) - Number(bill.discount_amount) - Number(bill.paid_amount),
-      );
-      if (outstanding <= 0) {
-        throw new ConflictException(`Bill "${id}" has no outstanding balance to waive`);
+      const outstandingPaisa =
+        toPaisa(bill.total_amount) - toPaisa(bill.discount_amount) - toPaisa(bill.paid_amount);
+      if (outstandingPaisa <= 0) {
+        throw new ConflictException({
+          message: 'This fee has no outstanding balance',
+          details: { code: 'FINE_WAIVE_NOTHING_OUTSTANDING' },
+        });
       }
 
-      const requested = dto.amount ?? outstanding;
-      if (requested > outstanding + EPSILON) {
-        throw new BadRequestException('amount exceeds the bill outstanding balance');
+      const requestedPaisa = dto.amount == null ? outstandingPaisa : toPaisa(dto.amount);
+      if (requestedPaisa > outstandingPaisa) {
+        // Fixed text: no submitted amount, no balance (Rule 23).
+        throw new BadRequestException({
+          message: 'The amount is more than the outstanding balance',
+          details: { code: 'FINE_WAIVE_AMOUNT_EXCEEDS_BALANCE' },
+        });
       }
-      const amount = Math.min(round2(requested), outstanding);
+      const amount = requestedPaisa / 100;
 
       // Every validation that can still fail has run — burn the approval
       // token last, same ordering `checkout.service.ts` uses for a one-off
@@ -187,12 +189,10 @@ export class FinesService {
 
       const newOneOffDiscount = round2(Number(bill.one_off_discount_amount) + amount);
       const newDiscount = round2(Number(bill.discount_amount) + amount);
-      const newOutstanding = round2(
-        Number(bill.total_amount) - newDiscount - Number(bill.paid_amount),
-      );
+      const newOutstandingPaisa = outstandingPaisa - requestedPaisa;
 
       let newStatus = bill.status;
-      if (newOutstanding <= 0) {
+      if (newOutstandingPaisa <= 0) {
         newStatus = Number(bill.paid_amount) > 0 ? FeeStatus.PAID : FeeStatus.WAIVED;
       }
 

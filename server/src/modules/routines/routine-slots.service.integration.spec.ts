@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { DataSource } from 'typeorm';
+import { UserRole } from '@biddaloy/shared';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -178,7 +179,10 @@ describe('RoutineSlotsService — tenant isolation (D16)', () => {
       TENANT_A,
     );
 
-    const bSlots = await service.findForRoutine(b.routine.id, TENANT_B);
+    const bSlots = await service.findForRoutine(b.routine.id, TENANT_B, {
+      role: UserRole.ADMIN,
+      userId: 'admin-user',
+    });
     expect(bSlots).toHaveLength(1);
     expect(bSlots[0].slot.id).toBe(bResult.slot.id);
     expect(bSlots[0].teacher_ids).toEqual([b.teacher.id]);

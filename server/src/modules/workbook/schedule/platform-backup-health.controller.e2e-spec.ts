@@ -26,6 +26,7 @@ describe('Platform Backup Health E2E', () => {
   let dataSource: DataSource;
   let adminToken: string;
   let superAdminToken: string;
+  let platformId: string;
 
   const TENANT_ID = SEED_TENANT_ID;
   const SUPER_ADMIN_USER_ID = '00000000-0000-4000-8000-0000000c0c01';
@@ -71,6 +72,21 @@ describe('Platform Backup Health E2E', () => {
       [SUPER_ADMIN_USER_ID, TENANT_ID, UserRole.SUPER_ADMIN],
     );
 
+    // Platform authority = SUPER_ADMIN membership on the 'default-school' tenant.
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       SELECT gen_random_uuid(), 'Platform', 'default-school', NOW(), NOW()
+       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
+    );
+    platformId = (await dataSource.query(`SELECT id FROM schools WHERE slug = 'default-school'`))[0]
+      .id;
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [SUPER_ADMIN_USER_ID, platformId, UserRole.SUPER_ADMIN],
+    );
+
     const loginAs = async (email: string) => {
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/auth/login')
@@ -110,7 +126,7 @@ describe('Platform Backup Health E2E', () => {
     const res = await supertest(app.getHttpServer())
       .get('/api/v1/platform/backups/health')
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Tenant-ID', platformId)
       .expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);

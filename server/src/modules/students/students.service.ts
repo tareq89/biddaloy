@@ -151,7 +151,7 @@ export class StudentService {
       relations: ['class'],
     });
     if (!section) {
-      throw new NotFoundException(`Class section with ID "${dto.class_section_id}" not found`);
+      throw new NotFoundException('Class section not found');
     }
 
     // Guard validations
@@ -548,7 +548,7 @@ export class StudentService {
         relations: ['class'],
       });
       if (!section) {
-        throw new NotFoundException(`Class section with ID "${dto.class_section_id}" not found`);
+        throw new NotFoundException('Class section not found');
       }
     }
 
@@ -1024,7 +1024,7 @@ export class GuardianService {
       relations: ['students', 'students.class_section', 'students.class_section.class'],
     });
     if (!guardian) {
-      throw new NotFoundException(`Guardian with ID "${id}" not found`);
+      throw new NotFoundException('Guardian not found');
     }
     return guardian;
   }

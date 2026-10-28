@@ -72,6 +72,7 @@ import { formatMonth, formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { ChartLine } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
@@ -116,7 +117,21 @@ function monthToRange(month: string): { from: string; to: string } {
   return { from, to };
 }
 
+// Only the params this page understands survive; `z.object` strips the rest,
+// so a stray `?date=` never reaches the shell as a raw filter chip.
+const reportsSearchSchema = z.object({
+  page: z.number().int().positive().optional().catch(undefined),
+  limit: z.number().int().positive().max(100).optional().catch(undefined),
+  month: z.string().optional().catch(undefined),
+  class_id: z.string().optional().catch(undefined),
+  section_id: z.string().optional().catch(undefined),
+  // coerce: the router parses `?threshold=5` to a number first.
+  threshold: z.coerce.string().optional().catch(undefined),
+  view: z.enum(['summary', 'flags', 'subjects']).optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/attendance/reports')({
+  validateSearch: reportsSearchSchema,
   loader: () => loadRouteNamespaces('attendance', 'students', 'common'),
   pendingComponent: ReportsPending,
   component: ReportsPage,
@@ -137,7 +152,13 @@ function ReportsPageContent() {
   const { t } = useTranslation('attendance');
   const regionConfig = useRegionConfig();
   const [state, actions] = useListShellState();
-  const filters = state.filters as ReportsFilters;
+  // The router keeps unvalidated parent search on `useSearch({ strict: false })`,
+  // so a stray `?date=` still reaches `state.filters`; keep only what this page owns.
+  const filters = Object.fromEntries(
+    Object.entries(state.filters).filter(([key]) =>
+      Object.hasOwn(reportsSearchSchema.shape, key),
+    ),
+  ) as ReportsFilters;
   // Tenant switch + low-attendance threshold, read the way AttendanceSection's
   // page does: the active tenant's settings. Unreadable (no SETTINGS_MANAGE) =
   // switch treated as off, so `?view=subjects` falls back to summary.
@@ -415,7 +436,7 @@ function ReportsPageContent() {
         <TabsContent value={view} className="mt-4 space-y-6">
           <FilterBar
             fields={filterFields}
-            values={state.filters}
+            values={filters as Record<string, string>}
             onChange={handleFilterChange}
             {...(view === 'subjects' ? {} : { resultCount: totalCount })}
           />

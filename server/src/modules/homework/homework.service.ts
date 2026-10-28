@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Not, Repository } from 'typeorm';
+import { Brackets, Not, Repository, SelectQueryBuilder } from 'typeorm';
 import { HomeworkAssignmentStatus } from '@biddaloy/shared';
 import { Homework } from './entities/homework.entity';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
@@ -183,37 +183,9 @@ export class HomeworkService {
     }
 
     // Same object-level gate as mutations: tenant-wide managers see everything in the
-    // tenant; a TEACHER only homework for their current-year assignments (a homeroom row
-    // covers any subject of its class, a subject row only that subject). No rows = nothing.
-    if (!this.access.canManageTenantWide(ctx.role)) {
-      const rows = await teacherAssignments(this.homeworkRepo.manager, {
-        userId: ctx.userId,
-        tenantId: ctx.tenantId,
-      });
-      if (rows.length === 0) return [];
-      const homeroomClassIds = [
-        ...new Set(rows.filter((r) => r.subject_id === null).map((r) => r.class_id)),
-      ];
-      qb.andWhere(
-        new Brackets((w) => {
-          // `1 = 0` keeps the OR chain valid when there is no homeroom row.
-          if (homeroomClassIds.length)
-            w.where('h.class_id IN (:...homeroomClassIds)', { homeroomClassIds });
-          else w.where('1 = 0');
-          // One term per distinct (class, subject), skipping classes the homeroom already covers.
-          const subjectTerms = new Map(
-            rows
-              .filter((r) => r.subject_id !== null && !homeroomClassIds.includes(r.class_id))
-              .map((r) => [`${r.class_id}:${r.subject_id}`, r] as const),
-          );
-          [...subjectTerms.values()].forEach((r, i) =>
-            w.orWhere(`(h.class_id = :c${i} AND h.subject_id = :s${i})`, {
-              [`c${i}`]: r.class_id,
-              [`s${i}`]: r.subject_id,
-            }),
-          );
-        }),
-      );
+    // tenant; anyone else only what `applyTeacherScope` lets through. No rows = nothing.
+    if (!this.access.canManageTenantWide(ctx.role) && !(await this.applyTeacherScope(qb, ctx))) {
+      return [];
     }
 
     return qb.orderBy('h.created_at', 'DESC').getMany();
@@ -266,6 +238,78 @@ export class HomeworkService {
     };
   }
 
+  /**
+   * [86.1/#2861] Narrows `qb` (alias `h`) to what a non-manager may see, or returns false
+   * when they have no current-year assignment (caller shows nothing). A homework is visible
+   * if (A) it has an assignment in one of their sections (a homeroom row covers any subject,
+   * a subject row only that subject), or (B) it has no assignment yet and sits in their
+   * class/subject scope, so a just-created homework stays visible to the teacher who will
+   * assign it. Shared by the list and `findOne` so both answer the same (Rule 2).
+   */
+  private async applyTeacherScope(
+    qb: SelectQueryBuilder<Homework>,
+    ctx: CallerContext,
+  ): Promise<boolean> {
+    const rows = await teacherAssignments(this.homeworkRepo.manager, {
+      userId: ctx.userId,
+      tenantId: ctx.tenantId,
+    });
+    if (rows.length === 0) return false;
+    const homeroomClassIds = [
+      ...new Set(rows.filter((r) => r.subject_id === null).map((r) => r.class_id)),
+    ];
+    qb.andWhere(
+      new Brackets((w) => {
+        // A: assigned in one of my sections (section from the row, else the student's).
+        w.where(
+          `EXISTS (
+             SELECT 1 FROM homework_assignments hax
+             LEFT JOIN students stx ON stx.id = hax.student_id AND stx.tenant_id = :scopeTenant
+             JOIN unnest(CAST(:scopeSections AS uuid[]), CAST(:scopeSubjects AS uuid[]))
+                  AS sc(section_id, subject_id)
+               ON sc.section_id = COALESCE(hax.section_id, stx.class_section_id)
+            WHERE hax.homework_id = h.id AND hax.tenant_id = :scopeTenant
+              AND (sc.subject_id IS NULL OR sc.subject_id = h.subject_id))`,
+          {
+            scopeTenant: ctx.tenantId,
+            scopeSections: rows.map((r) => r.section_id),
+            scopeSubjects: rows.map((r) => r.subject_id),
+          },
+        );
+        // B: not assigned yet AND in my class/subject scope.
+        w.orWhere(
+          new Brackets((u) => {
+            u.where(
+              `NOT EXISTS (SELECT 1 FROM homework_assignments han
+                WHERE han.homework_id = h.id AND han.tenant_id = :scopeTenant)`,
+            );
+            u.andWhere(
+              new Brackets((c) => {
+                // `1 = 0` keeps the OR chain valid when there is no homeroom row.
+                if (homeroomClassIds.length)
+                  c.where('h.class_id IN (:...homeroomClassIds)', { homeroomClassIds });
+                else c.where('1 = 0');
+                // One term per distinct (class, subject), skipping homeroom-covered classes.
+                const subjectTerms = new Map(
+                  rows
+                    .filter((r) => r.subject_id !== null && !homeroomClassIds.includes(r.class_id))
+                    .map((r) => [`${r.class_id}:${r.subject_id}`, r] as const),
+                );
+                [...subjectTerms.values()].forEach((r, i) =>
+                  c.orWhere(`(h.class_id = :c${i} AND h.subject_id = :s${i})`, {
+                    [`c${i}`]: r.class_id,
+                    [`s${i}`]: r.subject_id,
+                  }),
+                );
+              }),
+            );
+          }),
+        );
+      }),
+    );
+    return true;
+  }
+
   async findOne(id: string, ctx: CallerContext): Promise<Homework> {
     const homework = await this.homeworkRepo.findOne({
       where: { id, tenant_id: ctx.tenantId },
@@ -285,6 +329,15 @@ export class HomeworkService {
       .catch((e: unknown) => {
         throw e instanceof NotFoundException ? new NotFoundException('Homework not found') : e;
       });
+    // Rule 2: what the list hides (homework assigned only to another section) is 404 here too.
+    if (!this.access.canManageTenantWide(ctx.role)) {
+      const scoped = this.homeworkRepo
+        .createQueryBuilder('h')
+        .where('h.id = :id AND h.tenant_id = :tenantId', { id, tenantId: ctx.tenantId });
+      if (!(await this.applyTeacherScope(scoped, ctx)) || !(await scoped.getExists())) {
+        throw new NotFoundException('Homework not found');
+      }
+    }
     return homework;
   }
 

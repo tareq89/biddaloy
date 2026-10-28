@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { PlatformSuperAdminGuard } from '../../auth/guards/platform-super-admin.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { SchoolsService } from '../../schools/schools.service';
 import { WorkbookJob, WorkbookJobKind, WorkbookJobStatus } from '../jobs/workbook-job.entity';
@@ -16,7 +17,9 @@ import {
 import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 /**
- * [14.12.3/#617] `GET /platform/backups/health` — SUPER_ADMIN only. It
+ * [14.12.3/#617] `GET /platform/backups/health` — platform SUPER_ADMIN only
+ * (`PlatformSuperAdminGuard` is required: `@Roles(SUPER_ADMIN)` alone also
+ * admits a tenant-local SUPER_ADMIN). It
  * reads across every school rather than one tenant's data, but it still
  * runs the same guard chain as `SchoolsController` (the other cross-tenant
  * SUPER_ADMIN surface): `ContextGuard` requires *some* `X-Tenant-ID` to
@@ -47,7 +50,13 @@ import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.deco
  */
 @ApiTags('platform')
 @Controller('platform/backups')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@UseGuards(
+  AuthGuard('jwt'),
+  ContextGuard,
+  RolesGuard,
+  PermissionsGuard,
+  PlatformSuperAdminGuard,
+)
 @Roles(UserRole.SUPER_ADMIN)
 export class PlatformBackupHealthController {
   constructor(
