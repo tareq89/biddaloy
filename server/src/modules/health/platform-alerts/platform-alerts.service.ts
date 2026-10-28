@@ -158,7 +158,7 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
       // directly, not through CommunicationsModule, which would pull BullMQ into this
       // Redis-outage path. It never throws (returns a failed result), and the tick catches anyway.
       const sink = MailpitSinkProvider.forMedium(CommunicationMedium.SMS);
-      for (const phone of phones) await sink.send({ to: phone, body: text }, null);
+      for (const phone of phones) await sink.send({ to: phone, body: text });
       return;
     }
     const apiKey = this.config.get<string>('PLATFORM_SMS_API_KEY');

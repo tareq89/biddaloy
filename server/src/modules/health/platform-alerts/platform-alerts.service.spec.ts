@@ -171,10 +171,10 @@ describe('PlatformAlertsService', () => {
       const f = fakes({ ...open, env: {} });
       for (let i = 0; i < 3; i++) await f.service.tick();
       expect(send).toHaveBeenCalledTimes(2);
-      expect(send).toHaveBeenCalledWith(
-        { to: '01711111111', body: expect.stringContaining('Redis is down') },
-        null,
-      );
+      expect(send).toHaveBeenCalledWith({
+        to: '01711111111',
+        body: expect.stringContaining('Redis is down'),
+      });
       expect(Logger.prototype.warn).not.toHaveBeenCalled();
       expect(f.greenweb.sendSms).not.toHaveBeenCalled();
     });
