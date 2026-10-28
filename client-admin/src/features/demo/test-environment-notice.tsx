@@ -73,7 +73,7 @@ export function TestEnvironmentNotice() {
         {...NEW_TAB}
         aria-label={t('testInbox.expand')}
         title={t('testInbox.expand')}
-        className="absolute top-1 right-16 z-40 inline-flex size-11 items-center justify-center rounded-full bg-status-partial-bg text-status-partial-fg shadow-sm md:right-24 print:hidden"
+        className="absolute top-1 right-16 z-40 inline-flex size-11 items-center justify-center rounded-full bg-status-partial-bg text-status-partial-fg shadow-e1 md:right-24 print:hidden"
       >
         <Inbox aria-hidden="true" className="size-4" />
       </a>
