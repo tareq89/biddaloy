@@ -9,6 +9,7 @@ import { CalendarEventType, PublicHolidaySource } from '@biddaloy/shared';
 import { CalendarModule } from './calendar.module';
 import { AuthModule } from '../auth/auth.module';
 import { PublicHolidaysService } from './public-holidays.service';
+import { CalendarEventsService } from './calendar-events.service';
 import { PublicHolidayFetchService } from './public-holiday-fetch.service';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CalendarEvent } from './entities/calendar-event.entity';
@@ -28,6 +29,7 @@ describe('PublicHolidaysService (integration)', () => {
   let service: PublicHolidaysService;
   let fetchService: PublicHolidayFetchService;
   let dataSource: DataSource;
+  let eventsService: CalendarEventsService;
 
   const TENANT_ID = SEED_TENANT_ID;
 
@@ -40,6 +42,7 @@ describe('PublicHolidaysService (integration)', () => {
     service = module.get<PublicHolidaysService>(PublicHolidaysService);
     fetchService = module.get<PublicHolidayFetchService>(PublicHolidayFetchService);
     dataSource = module.get<DataSource>(getDataSourceToken());
+    eventsService = module.get<CalendarEventsService>(CalendarEventsService);
 
     const yearRepo = dataSource.getRepository(AcademicYear);
     const existing = await yearRepo.findOne({
@@ -236,5 +239,65 @@ describe('PublicHolidaysService (integration)', () => {
       where: { tenant_id: TENANT_ID, type: CalendarEventType.HOLIDAY, start_date: '2030-05-01' },
     });
     expect(events).toHaveLength(1);
+  });
+
+  it('bulkAdd skips an entry dated before today and adds the rest (no CALENDAR_REASON_REQUIRED)', async () => {
+    mockFetch([
+      { date: '2020-06-01', end_date: '2020-06-01', name: 'Long Past' },
+      { date: '2030-03-26', end_date: '2030-03-26', name: 'Independence Day' },
+    ]);
+    const set = await service.fetchIntoSet('BD', 2030, SEED_ADMIN_USER_ID);
+    await service.publish(set.id, SEED_ADMIN_USER_ID);
+
+    const result = await service.bulkAdd(
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+      set.entries.map((e) => e.id),
+    );
+    expect(result.added).toBe(1);
+
+    const events = await dataSource
+      .getRepository(CalendarEvent)
+      .find({ where: { tenant_id: TENANT_ID, type: CalendarEventType.HOLIDAY } });
+    expect(events.map((e) => e.start_date)).toEqual(['2030-03-26']);
+  });
+
+  it('bulkAdd leaves no holiday behind when a later entry fails to save', async () => {
+    mockFetch([
+      { date: '2030-01-01', end_date: '2030-01-01', name: 'Rollback Holiday A' },
+      { date: '2030-02-01', end_date: '2030-02-01', name: 'Rollback Holiday B' },
+      { date: '2030-03-01', end_date: '2030-03-01', name: 'Rollback Holiday C' },
+    ]);
+    const set = await service.fetchIntoSet('BD', 2030, SEED_ADMIN_USER_ID);
+    await service.publish(set.id, SEED_ADMIN_USER_ID);
+
+    const original = eventsService.create.bind(eventsService);
+    let calls = 0;
+    vi.spyOn(eventsService, 'create').mockImplementation(async (...args) => {
+      calls += 1;
+      if (calls === 2) throw new Error('boom');
+      return original(...args);
+    });
+
+    await expect(
+      service.bulkAdd(
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+        set.entries.map((e) => e.id),
+      ),
+    ).rejects.toThrow('boom');
+
+    const events = await dataSource
+      .getRepository(CalendarEvent)
+      .find({ where: { tenant_id: TENANT_ID, type: CalendarEventType.HOLIDAY } });
+    expect(events).toHaveLength(0);
+    // The saved event's audit row rolls back with it (same transaction).
+    const audits = await dataSource.query(
+      `SELECT id FROM audit_logs
+        WHERE tenant_id = $1 AND entity_type = 'CalendarEvent'
+          AND new_values->>'name' LIKE 'Rollback Holiday %'`,
+      [TENANT_ID],
+    );
+    expect(audits).toHaveLength(0);
   });
 });

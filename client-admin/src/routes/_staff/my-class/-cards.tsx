@@ -274,9 +274,7 @@ export function FlagsCard({ sectionId }: { sectionId: string }) {
 
 // --- 3. Dues --------------------------------------------------------------
 
-// ponytail: one page of 100 (the endpoint's cap) summed client-side — the
-// response has no section-wide total. A section with >100 indebted students
-// under-reports the sum; add a server-side aggregate if that ever happens.
+// The list shows the top rows only; the total comes from the server's `total_due_sum`.
 const DUES_PAGE = 100;
 
 export function DuesCard({ sectionId }: { sectionId: string }) {
@@ -292,7 +290,7 @@ export function DuesCard({ sectionId }: { sectionId: string }) {
     limit: DUES_PAGE,
   });
   const rows = query.data?.data ?? [];
-  const total = rows.reduce((sum, r) => sum + Number(r.total_due), 0);
+  const total = query.data?.total_due_sum ?? 0;
   const n = query.data?.total ?? rows.length;
   return (
     <CardFrame

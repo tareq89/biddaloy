@@ -89,16 +89,14 @@ describe('HomeworkBulkUploadService', () => {
     staging = { stage: vi.fn(), consume: vi.fn() };
 
     const classRepo = {
-      find: vi
-        .fn()
-        .mockResolvedValue([
-          {
-            id: CLASS_ID,
-            name: 'Class One',
-            tenant_id: TENANT_ID,
-            academic_year_id: ACADEMIC_YEAR_ID,
-          },
-        ]),
+      find: vi.fn().mockResolvedValue([
+        {
+          id: CLASS_ID,
+          name: 'Class One',
+          tenant_id: TENANT_ID,
+          academic_year_id: ACADEMIC_YEAR_ID,
+        },
+      ]),
     };
     const sectionRepo = {
       find: vi
@@ -202,7 +200,9 @@ describe('HomeworkBulkUploadService', () => {
         row: 2,
         column: 'subject',
         value: 'No Such Subject',
+        code: 'SUBJECT_NOT_FOUND',
       });
+      expect(result.errors[0].message).not.toContain('No Such Subject');
     });
 
     it('throws a parse error when a required column is missing', async () => {

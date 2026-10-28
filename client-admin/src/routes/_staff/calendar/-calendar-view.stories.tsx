@@ -126,6 +126,7 @@ export const GovernmentHolidaysPopulated: StoryObj = {
   render: () => (
     <GovernmentHolidaysDialog
       open
+      today="2026-01-01"
       onOpenChange={() => {}}
       suggestions={SUGGESTIONS}
       existingEvents={[]}
@@ -139,6 +140,7 @@ export const GovernmentHolidaysEmpty: StoryObj = {
   render: () => (
     <GovernmentHolidaysDialog
       open
+      today="2026-01-01"
       onOpenChange={() => {}}
       suggestions={[]}
       existingEvents={[]}

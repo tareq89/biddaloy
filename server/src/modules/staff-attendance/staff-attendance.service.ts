@@ -11,6 +11,7 @@ import {
   AttendanceSource,
   AttendanceStatus,
   AuditAction,
+  GUARDIAN_ROLES,
   Permission,
   roleHasPermission,
 } from '@biddaloy/shared';
@@ -28,6 +29,7 @@ import {
 } from '../attendance/attendance-policy.util';
 import {
   PutStaffAttendanceRegisterDto,
+  StaffAttendanceDayDto,
   StaffAttendanceRegisterResponseDto,
 } from './dto/staff-attendance.dto';
 
@@ -60,6 +62,74 @@ export class StaffAttendanceService {
     private readonly staffProfilesService: StaffProfilesService,
     private readonly schoolCalendarService: SchoolCalendarService,
   ) {}
+
+  /**
+   * The roster the caller may mark on `date`, with that day's saved marks.
+   * Admin-level callers (`LEAVE_APPROVE`, the same test `markDay` uses) see
+   * every staff member; anyone else sees only their own row.
+   */
+  async getDay(params: {
+    tenantId: string;
+    role: string;
+    userId: string;
+    date: string;
+  }): Promise<StaffAttendanceDayDto> {
+    const { tenantId, role, userId, date } = params;
+    if (!DATE_ONLY.test(date)) {
+      throw new BadRequestException('date must be YYYY-MM-DD');
+    }
+    const isAdmin = roleHasPermission(role, Permission.LEAVE_APPROVE);
+
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    const policy = resolveAttendancePolicy(settings);
+    const today = localToday(settings.region?.timezone ?? 'UTC');
+
+    // The member's staff role: one live, non-guardian membership (a person can
+    // hold several roles; the alphabetical first keeps the row unique).
+    // ponytail: no limit param — one tenant's staff, capped in practice by the
+    // PUT's ArrayMaxSize(1000); page it if a school ever outgrows that.
+    const rows: {
+      staff_profile_id: string;
+      user_id: string;
+      full_name: string;
+      role: string;
+      status: AttendanceStatus | null;
+    }[] = await this.dataSource.query(
+      `SELECT sp.id AS staff_profile_id, u.id AS user_id, u.full_name,
+              (SELECT ut.role FROM user_tenants ut
+                WHERE ut.user_id = u.id AND ut.tenant_id = sp.tenant_id
+                  AND ut.deleted_at IS NULL AND ut.role::text <> ALL($3::text[])
+                ORDER BY ut.role::text LIMIT 1) AS role,
+              r.status
+         FROM staff_profiles sp
+         JOIN users u ON u.id = sp.user_id AND u.deleted_at IS NULL
+         LEFT JOIN staff_attendance_sessions s ON s.tenant_id = sp.tenant_id AND s.date = $2
+         LEFT JOIN staff_attendance_records r
+           ON r.session_id = s.id AND r.staff_profile_id = sp.id AND r.tenant_id = sp.tenant_id
+        WHERE sp.tenant_id = $1
+          AND ($4::uuid IS NULL OR sp.user_id = $4::uuid)
+          AND EXISTS (SELECT 1 FROM user_tenants ut
+                WHERE ut.user_id = u.id AND ut.tenant_id = sp.tenant_id
+                  AND ut.deleted_at IS NULL AND ut.role::text <> ALL($3::text[]))
+        ORDER BY u.full_name, sp.id`,
+      [tenantId, date, [...GUARDIAN_ROLES], isAdmin ? null : userId],
+    );
+
+    const sessionRows: { id: string }[] = await this.dataSource.query(
+      `SELECT id FROM staff_attendance_sessions WHERE tenant_id = $1 AND date = $2`,
+      [tenantId, date],
+    );
+    const nonWorking = await this.schoolCalendarService.isNonWorkingDay({ tenantId, date });
+
+    return {
+      date,
+      // Same formula as `markDay`: a saved day older than the correction window.
+      reason_required:
+        sessionRows.length > 0 && daysBetween(date, today) > policy.correctionWindowDays,
+      non_working_day: nonWorking,
+      staff: rows,
+    };
+  }
 
   /**
    * D21: stamp LEAVE on every working day of an approved leave. Runs only on

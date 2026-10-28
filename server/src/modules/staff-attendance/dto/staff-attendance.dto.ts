@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -37,6 +38,7 @@ export class StaffAttendanceEntryDto {
 export class PutStaffAttendanceRegisterDto {
   @IsString()
   @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'date must be a real calendar date' })
   date: string;
 
   /** Required when correcting an already-marked day outside the tenant's
@@ -60,6 +62,14 @@ export class PutStaffAttendanceRegisterDto {
   entries: StaffAttendanceEntryDto[];
 }
 
+/** Query params for `GET /staff-attendance/register`. */
+export class QueryStaffAttendanceRegisterDto {
+  @IsString()
+  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'date must be a real calendar date' })
+  date: string;
+}
+
 /** Query params for `GET /staff-attendance/summary`. */
 export class QueryStaffAttendanceSummaryDto {
   @IsUUID()
@@ -67,10 +77,12 @@ export class QueryStaffAttendanceSummaryDto {
 
   @IsString()
   @Matches(DATE_ONLY, { message: 'from must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'from must be a real calendar date' })
   from: string;
 
   @IsString()
   @Matches(DATE_ONLY, { message: 'to must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'to must be a real calendar date' })
   to: string;
 }
 
@@ -102,4 +114,24 @@ export class StaffAttendanceSummaryDto {
   @ApiProperty() absent_days: number;
   @ApiProperty() leave_days: number;
   @ApiProperty({ type: Number, nullable: true }) attendance_percentage: number | null;
+}
+
+/** One staff member the caller may mark on the requested day. */
+export class StaffAttendanceRosterRowDto {
+  @ApiProperty() staff_profile_id: string;
+  @ApiProperty() user_id: string;
+  @ApiProperty() full_name: string;
+  @ApiProperty() role: string;
+  @ApiProperty({ enum: AttendanceStatus, nullable: true })
+  status: AttendanceStatus | null;
+}
+
+/** `GET /staff-attendance/register` — the day's roster with saved marks. */
+export class StaffAttendanceDayDto {
+  @ApiProperty() date: string;
+  @ApiProperty({ description: 'True when saving a correction needs a `reason`.' })
+  reason_required: boolean;
+  @ApiProperty() non_working_day: boolean;
+  @ApiProperty({ type: StaffAttendanceRosterRowDto, isArray: true })
+  staff: StaffAttendanceRosterRowDto[];
 }

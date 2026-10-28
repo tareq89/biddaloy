@@ -27,6 +27,8 @@ export function SurveyResults({ surveyId, status }: { surveyId: string; status: 
   }
   if (!query.data) return <Skeleton className="h-40 w-full" />;
   const { minResponses, results } = query.data;
+  // The server seals every pair until CLOSED (D10/D13), so below-minimum only applies once closed.
+  const sealedUntilClosed = status !== 'CLOSED';
 
   return (
     <section aria-labelledby="survey-results-heading" className="space-y-4">
@@ -56,10 +58,21 @@ export function SurveyResults({ surveyId, status }: { surveyId: string; status: 
                 </p>
               </div>
               {pair.hidden && (
-                <StatusBadge tone="warning" label={t('surveys.detail.waitingBadge')} />
+                <StatusBadge
+                  tone="warning"
+                  label={t(
+                    sealedUntilClosed
+                      ? 'surveys.detail.sealedBadge'
+                      : 'surveys.detail.waitingBadge',
+                  )}
+                />
               )}
             </div>
-            {pair.hidden ? (
+            {pair.hidden && sealedUntilClosed ? (
+              <p role="status" className="mt-3 text-text-secondary">
+                {t('surveys.detail.sealedOpen')}
+              </p>
+            ) : pair.hidden ? (
               <p role="status" className="mt-3 text-text-secondary">
                 {t('surveys.detail.waiting', {
                   count: formatNumber(pair.count, cfg),

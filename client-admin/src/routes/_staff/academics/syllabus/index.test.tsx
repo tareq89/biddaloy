@@ -6,6 +6,7 @@ import {
   renderWithRouter,
   server,
   subjectFactory,
+  teacherFactory,
 } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -187,6 +188,75 @@ describe('/academics/syllabus', () => {
         status: SyllabusTopicStatus.DONE,
       }),
     );
+  });
+
+  it('a TEACHER sees topic write controls only for a class x subject they teach', async () => {
+    const science = subjectFactory({ id: 'subject-2', name_en: 'Science', name_bn: 'বিজ্ঞান' });
+    server.use(
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/subjects', () =>
+        HttpResponse.json({
+          data: [subject, science],
+          total: 2,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/syllabus-topics', () => HttpResponse.json([topic()])),
+      http.get('/api/v1/teachers', () =>
+        HttpResponse.json({
+          data: [teacherFactory({ id: 'teacher-1' })],
+          total: 1,
+          page: 1,
+          limit: 1,
+          totalPages: 1,
+        }),
+      ),
+      // One SUBJECT_TEACHER row: Class 6 x Mathematics only.
+      http.get('/api/v1/teachers/teacher-1/assignments', () =>
+        HttpResponse.json([
+          {
+            teacher_id: 'teacher-1',
+            employee_id: 'E1',
+            full_name: 'T',
+            section_id: 'sec-1',
+            section_name: 'A',
+            class_id: klass.id,
+            class_name: klass.name,
+            subject_id: subject.id,
+            subject_name: 'Mathematics',
+            assignment_type: 'SUBJECT_TEACHER',
+          },
+        ]),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/syllabus'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+      accessToken: `h.${btoa(JSON.stringify({ sub: 'user-t' }))}.s`,
+    });
+
+    const user = userEvent.setup();
+    await pickClassAndSubject(user);
+    await screen.findByText('Algebra basics');
+    // Taught: controls show once the assignments load.
+    expect(await screen.findByRole('button', { name: 'Edit Algebra basics' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add topic' })).toBeTruthy();
+
+    // Not taught: Science has no assignment row, so no write controls.
+    await user.click(screen.getByRole('combobox', { name: 'Subject' }));
+    await user.click(await screen.findByRole('option', { name: 'Science' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Edit Algebra basics' })).toBeNull(),
+    );
+    expect(screen.queryByRole('button', { name: 'Add topic' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete Algebra basics' })).toBeNull();
   });
 
   it('confirming delete calls the delete endpoint', async () => {

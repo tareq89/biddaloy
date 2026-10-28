@@ -867,6 +867,7 @@ describe('GovernmentHolidaysDialog', () => {
 
     const { user } = renderWithProviders(
       <GovernmentHolidaysDialog
+        today="2026-01-01"
         open
         onOpenChange={() => {}}
         suggestions={[alreadyAdded, notAdded]}
@@ -899,6 +900,7 @@ describe('GovernmentHolidaysDialog', () => {
     const onOpenChange = vi.fn();
     const { user } = renderWithProviders(
       <GovernmentHolidaysDialog
+        today="2026-01-01"
         open
         onOpenChange={onOpenChange}
         suggestions={[suggestion({ id: 'h-2', name: 'Independence Day', date: '2026-03-26' })]}

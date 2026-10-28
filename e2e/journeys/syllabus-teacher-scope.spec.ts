@@ -7,7 +7,8 @@ import { selectByTypeahead } from '../keyboard/keyboard-utils';
  * [66.0 D16] A TEACHER changes syllabus topics only for a class x subject
  * they teach as SUBJECT_TEACHER. Admin sets up a class and two subjects; a
  * fresh teacher is assigned subject one only. Subject one accepts a new
- * topic; subject two answers 403 and the form shows its generic error.
+ * topic; for subject two the Add topic button is hidden (`useCanWriteSyllabus`,
+ * a0792f5a4) — the server would answer 403 anyway.
  * Local e2e runs in `bn`, so labels go through `t()`.
  */
 
@@ -74,12 +75,11 @@ test('teacher adds a topic for the subject they teach, is refused for another', 
       await expect(page.getByRole('cell', { name: 'Taught topic', exact: true })).toBeVisible();
     });
 
-    await test.step('other subject: refused, nothing appears', async () => {
+    await test.step('other subject: refused, no Add topic button', async () => {
+      // The button was visible for subject one above; switching to a subject
+      // this teacher does not teach hides it.
       await pick(subjectTwoName);
-      await addTopic('Forbidden topic');
-      await expect(page.getByRole('alert')).toContainText(t('syllabus.form.genericError'));
-      await page.keyboard.press('Escape');
-      await expect(page.getByRole('cell', { name: 'Forbidden topic', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: t('syllabus.list.addTopic') })).toHaveCount(0);
     });
   } finally {
     await context.close();

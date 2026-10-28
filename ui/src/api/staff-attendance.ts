@@ -16,6 +16,8 @@ export type PutStaffAttendanceRegisterInput =
 export type StaffAttendanceRecord = components['schemas']['StaffAttendanceRecordDto'];
 export type StaffAttendanceRegisterResponse =
   components['schemas']['StaffAttendanceRegisterResponseDto'];
+export type StaffAttendanceRosterRow = components['schemas']['StaffAttendanceRosterRowDto'];
+export type StaffAttendanceDay = components['schemas']['StaffAttendanceDayDto'];
 export type StaffAttendanceSummary = components['schemas']['StaffAttendanceSummaryDto'];
 
 export function staffAttendanceSummaryQueryOptions(
@@ -40,6 +42,26 @@ export function useStaffAttendanceSummary(staffProfileId: string, from: string, 
   return useQuery(staffAttendanceSummaryQueryOptions(staffProfileId, from, to));
 }
 
+const DAY_KEY = ['staff-attendance', 'day'] as const;
+
+/** The roster the caller may mark on `date`, with that day's saved marks. */
+export function staffAttendanceDayQueryOptions(date: string) {
+  return queryOptions({
+    queryKey: [...DAY_KEY, date] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<StaffAttendanceDay>('/staff-attendance/register', {
+        params: { date },
+        signal,
+      });
+      return res.data;
+    },
+  });
+}
+
+export function useStaffAttendanceDay(date: string) {
+  return useQuery(staffAttendanceDayQueryOptions(date));
+}
+
 /** Marks/corrects one day's staff attendance in one call. Invalidates
  * every open summary query — a summary's date range is arbitrary, so
  * there is no single key to target the way `userKeys.detail(id)` can. */
@@ -55,6 +77,7 @@ export function useMarkStaffAttendance() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['staff-attendance', 'summary'] });
+      void queryClient.invalidateQueries({ queryKey: DAY_KEY });
     },
   });
 }

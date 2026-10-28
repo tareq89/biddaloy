@@ -307,6 +307,7 @@ GET /schools/me/profile | SchoolProfileController | identity
 GET /search | SearchController | perm: STUDENT_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
 GET /seat-plans | SeatPlansController | perm: SEAT_PLAN_MANAGE
 GET /seat-plans/:id | SeatPlansController | perm: SEAT_PLAN_MANAGE
+GET /staff-attendance/register | StaffAttendanceController | perm: STAFF_ATTENDANCE_READ
 GET /staff-attendance/summary | StaffAttendanceController | perm: STAFF_ATTENDANCE_READ
 GET /staff-documents/:staffUserId | StaffDocumentController | perm: STAFF_HR_READ
 GET /staff-documents/download/:id | StaffDocumentController | perm: STAFF_HR_READ

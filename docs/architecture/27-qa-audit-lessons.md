@@ -236,3 +236,10 @@ Wave 0 (#2979): five security fixes found while writing the user guide.
 - 2026-10-27 — #2995 and #2880 share files, so they were committed as two commits from one tree. Rule candidate: give tickets that share a file one lane and one commit order from the start.
 - 2026-10-27 — #2864: a new "needs a contact" guard broke every fixture that created a user with only a name. Rule candidate: grep fixtures for the factory before tightening a service guard.
 - 2026-10-27 — workers cannot `git commit` through the rtk-wrapped git; `/usr/bin/git -C <worktree>` works.
+
+### Wave 2 — academics, calendar and attendance (#2981)
+
+- 2026-10-27 — #2909: a new route also changes `server/src/__snapshots__/route-permissions.txt`, not only `route-status.snapshot.txt`. The ticket named only the second. Rule candidate: any ticket that adds a route lists both snapshots under Files.
+- 2026-10-27 — #2871: `bulkAdd` ran outside one transaction. The fix passes the transaction manager to `CalendarEventsService.create`, so the holiday and its audit row roll back together. Notifications use their own connections, so a rollback does not undo them.
+- 2026-10-27 — #2872: the test went into `-calendar-route.test.tsx`, which already has the fixed-date route harness, not the file the ticket named.
+- 2026-10-27 — a worker-added prop (`today`) on `GovernmentHolidaysDialog` broke two existing renders; type-check, not tests, would have caught it. `tsc` is unusable in worktrees until the ui `.tsout` is built.

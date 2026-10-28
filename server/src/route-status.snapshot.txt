@@ -536,6 +536,7 @@ PATCH  /api/v1/seat-plans/:id/rooms/:roomId/invigilator                         
 POST   /api/v1/seat-plans/:id/rooms/:roomId/reshuffle                            401 PASS PASS PASS 403 403 403 403 403 403 PASS 403
 POST   /api/v1/seat-plans/:id/unpublish                                          401 PASS PASS PASS 403 403 403 403 403 403 PASS 403
 POST   /api/v1/seat-plans/generate                                               401 PASS PASS PASS 403 403 403 403 403 403 PASS 403
+GET    /api/v1/staff-attendance/register                                         401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403
 PUT    /api/v1/staff-attendance/register                                         401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403
 GET    /api/v1/staff-attendance/summary                                          401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403
 GET    /api/v1/staff-documents/:staffUserId                                      401 PASS PASS PASS 403 403 403 403 403 403 403 403

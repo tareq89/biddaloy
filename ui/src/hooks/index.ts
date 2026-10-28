@@ -26,6 +26,10 @@ export {
 export {
   useMarkStaffAttendance,
   useStaffAttendanceSummary,
+  useStaffAttendanceDay,
+  staffAttendanceDayQueryOptions,
+  type StaffAttendanceDay,
+  type StaffAttendanceRosterRow,
   staffAttendanceSummaryQueryOptions,
   type PutStaffAttendanceRegisterInput,
   type StaffAttendanceEntry,
@@ -1427,6 +1431,7 @@ export {
 } from './programs';
 export {
   syllabusTopicKeys,
+  useCanWriteSyllabus,
   syllabusTopicListQueryOptions,
   useCreateSyllabusTopic,
   useDeleteSyllabusTopic,

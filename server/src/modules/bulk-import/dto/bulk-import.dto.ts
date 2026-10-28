@@ -22,10 +22,15 @@ export class BulkImportErrorDto {
   @ApiProperty({ enum: ['error', 'warning'] })
   severity: 'error' | 'warning';
 
+  @ApiPropertyOptional({ description: 'Stable problem code; the UI translates it' })
+  code?: string;
+
   @ApiPropertyOptional({ description: 'Offending cell value, when available' })
   value?: string;
 
-  @ApiPropertyOptional({ description: 'Sheet/tab name the row was found on, for multi-tab workbooks' })
+  @ApiPropertyOptional({
+    description: 'Sheet/tab name the row was found on, for multi-tab workbooks',
+  })
   tab?: string;
 }
 
@@ -33,6 +38,9 @@ export class StagingRefDto {
   @ApiProperty({ description: 'Opaque id referencing the staged, validated payload' })
   staging_id: string;
 
-  @ApiProperty({ format: 'date-time', description: 'ISO 8601 timestamp the staged payload expires at' })
+  @ApiProperty({
+    format: 'date-time',
+    description: 'ISO 8601 timestamp the staged payload expires at',
+  })
   expires_at: string;
 }
