@@ -293,7 +293,9 @@ describe('help guard', () => {
   });
 
   it('every declared id that is not a page or widget id is used in code or in HELP_UNWIRED', () => {
-    const unused = Object.keys(HELP_INDEX).filter(
+    // HELP_GAPS ids are declared too, just not indexable: they need a HELP_UNWIRED line as well.
+    const declared = new Set([...Object.keys(HELP_INDEX), ...gapIds]);
+    const unused = [...declared].filter(
       (id) =>
         !featureIds.has(id) &&
         !id.startsWith('widget.') &&
