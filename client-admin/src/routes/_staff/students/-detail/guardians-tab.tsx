@@ -1,11 +1,18 @@
 import { Permission } from '@biddaloy/shared';
 import { DataTable, type DataTableColumn } from '@biddaloy/ui/components';
-import { useHasPermission, useStudent, type Guardian } from '@biddaloy/ui/hooks';
+import {
+  useActiveTenant,
+  useHasPermission,
+  useSchoolSettings,
+  useStudent,
+  type Guardian,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatPhone } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
 import { UsersRoundIcon } from 'lucide-react';
 
+import { ArrivalNoticeCell } from './-arrival-notice-cell';
 import { TabQueryState } from './tab-query-state';
 
 export interface GuardiansTabProps {
@@ -32,6 +39,14 @@ export function GuardiansTab({ studentId }: GuardiansTabProps) {
   const config = useRegionConfig();
   const query = useStudent(studentId);
   const canEdit = useHasPermission(Permission.STUDENT_UPDATE);
+  const canManageArrival = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE);
+  const canLockArrival = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_LOCK);
+  // School settings are ADMIN-only on the server, so only a lock holder can learn the switch is
+  // off; everyone else sees the column (the staff list is empty for them when the feature is off).
+  const tenantId = useActiveTenant();
+  const settings = useSchoolSettings(canLockArrival ? (tenantId ?? '') : '');
+  const arrivalOff = settings.data?.attendance?.arrivalNotice?.enabled === false;
+  const showArrival = (canManageArrival || canLockArrival) && !arrivalOff;
 
   // Free text field: known English values are translated, anything else is shown as typed.
   const relationshipLabel = (relationship: string): string => {
@@ -92,6 +107,21 @@ export function GuardiansTab({ studentId }: GuardiansTabProps) {
                 ? t(`form.preferredCommunicationOptions.${guardian.preferred_communication}`)
                 : t('list.emptyValue'),
           },
+          ...(showArrival
+            ? [
+                {
+                  id: 'arrival',
+                  header: t('detail.guardians.columnArrival'),
+                  accessorFn: (guardian: Guardian) => (
+                    <ArrivalNoticeCell
+                      studentId={studentId}
+                      sectionId={student.class_section_id}
+                      guardian={guardian}
+                    />
+                  ),
+                },
+              ]
+            : []),
         ];
         return (
           <div className="flex flex-col gap-3">
