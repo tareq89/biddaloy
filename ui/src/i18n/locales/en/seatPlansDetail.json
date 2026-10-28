@@ -78,5 +78,19 @@
     "description": "This draft plan is deleted. Its exam subjects can then be put into a new seat plan.",
     "confirm": "Delete",
     "errorMessage": "Couldn't delete the seat plan."
+  },
+  "fields": {
+    "invigilator": "Invigilator",
+    "room": "Room",
+    "seatNumber": "Seat number"
+  },
+  "help": {
+    "invigilator": "A staff member who watches the room. Cannot be someone busy at that time.",
+    "room": "The room you move the student to when changing a seat.",
+    "seatNumber": "The number of a free seat in that room."
+  },
+  "helpRequired": {
+    "room": "Yes",
+    "seatNumber": "Yes"
   }
 }

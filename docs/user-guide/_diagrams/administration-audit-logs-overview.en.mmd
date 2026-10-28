@@ -1,0 +1,10 @@
+%% title: How the activity log builds up
+%% desc: When someone creates, changes or deletes something in the app, or signs in, the school's system writes a record. Passwords and secret codes are left out. A written record can never be changed or deleted. The Admin views the list, filters it and opens a row to compare before and after.
+flowchart LR
+  U["Someone does something<br/>create · change · delete · sign in"] --> R["A record is written<br/>without passwords and secret codes"]
+  R --> L["The record never changes<br/>and cannot be deleted"]:::note
+  L --> A["Admin views the list<br/>newest to oldest"]:::admin
+  A --> F["Filters<br/>action · record type · performed by · date"]:::admin
+  A --> D["Open a row<br/>to see before and after"]:::admin
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

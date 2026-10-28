@@ -276,6 +276,7 @@ function FeeStructuresListPage() {
         actions={[
           {
             id: 'add',
+            helpId: 'finance.feeStructures.action.add',
             label: t('list.addStructure'),
             icon: <PlusIcon />,
             priority: 'primary',

@@ -5,7 +5,7 @@
  * published plan's own correction): `change = wallet_use + tendered −
  * Σ lines.amount`, floored at 0. All arithmetic in integer minor units.
  */
-import { Label, MoneyInput, RadioGroup, RadioGroupItem } from '@biddaloy/ui/components';
+import { HelpHint, Label, MoneyInput, RadioGroup, RadioGroupItem } from '@biddaloy/ui/components';
 import type { ChangeHandling } from '@biddaloy/ui/hooks';
 import type { RegionConfig } from '@biddaloy/ui/i18n';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -55,7 +55,10 @@ export function TenderSection({
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={tenderedId}>{t('record.tender.tenderedLabel')}</Label>
+          <span className="inline-flex items-center gap-1">
+            <Label htmlFor={tenderedId}>{t('record.tender.tenderedLabel')}</Label>
+            <HelpHint helpId="finance.recordPayment.field.tendered" />
+          </span>
           <MoneyInput
             id={tenderedId}
             config={config}
@@ -79,8 +82,11 @@ export function TenderSection({
 
       {changeMinorUnits > 0 && (
         <div className="flex flex-col gap-2">
-          <span id={changeLegendId} className="text-sm font-medium">
-            {t('record.changeHandlingLabel')}
+          <span className="inline-flex items-center gap-1">
+            <span id={changeLegendId} className="text-sm font-medium">
+              {t('record.changeHandlingLabel')}
+            </span>
+            <HelpHint helpId="finance.recordPayment.field.changeHandling" />
           </span>
           <RadioGroup
             value={changeHandling}

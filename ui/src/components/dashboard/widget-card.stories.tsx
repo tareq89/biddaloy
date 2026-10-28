@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TableIcon } from 'lucide-react';
 
 import { Button } from '../button';
+import { HelpProvider } from '../help-hint';
 import { MenuItem } from '../menu';
 
 import { WidgetCard } from './widget-card';
@@ -111,3 +112,26 @@ export const Bangla: Story = {
   globals: { locale: 'bn' },
 };
 export const Dark: Story = { args: { children: chart, footer }, globals: { theme: 'dark' } };
+
+export const WithHelp: Story = {
+  args: { helpId: 'widget.attendance-today' },
+  decorators: [
+    (Story) => (
+      <HelpProvider
+        lang="en"
+        baseUrl="https://guide.example"
+        index={{
+          'widget.attendance-today': {
+            title: { bn: 'আজকের হাজিরা', en: 'Attendance today' },
+            summary: { bn: 'আজ কতজন উপস্থিত।', en: 'How many are present today.' },
+            path: 'dashboard/widgets',
+            anchor: 'widget.attendance-today',
+            knownIssues: 0,
+          },
+        }}
+      >
+        <Story />
+      </HelpProvider>
+    ),
+  ],
+};

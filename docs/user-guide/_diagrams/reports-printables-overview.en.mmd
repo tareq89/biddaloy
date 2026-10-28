@@ -1,0 +1,8 @@
+%% title: The copies and status of one card
+%% desc: The first print makes copy 1 with its own QR code. Printing again makes copy 2 with a new QR code; copy 1 stays valid. If an admin revokes a copy, only that copy's QR code shows as no longer valid when scanned.
+flowchart LR
+  P["Print"]:::admin --> C1["Copy 1<br/>own QR · valid"]
+  C1 -->|"Reprint"| C2["Copy 2<br/>new QR · valid<br/>copy 1 stays valid"]
+  C2 -->|"Admin: Revoke + reason"| R["Revoked<br/>QR scan: not valid"]:::note
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

@@ -1,0 +1,14 @@
+%% title: How much each role sees
+%% desc: Every staff member has one role. A teacher sees only the data of their own sections. All other staff roles see the whole school, but each sees only the part that fits their work. Nobody sees another school's data.
+flowchart TD
+  S["Your school"]:::note --> A["Admin<br/>everything, including settings"]:::admin
+  S --> W["Whole school, own work only"]:::note
+  W --> AC["Accountant<br/>fees, payments, finance reports"]
+  W --> EX["Academic coordinator<br/>oversight, leave approval, reports"]
+  W --> EC["Exam controller<br/>exams, results, seats"]
+  W --> OS["Office staff<br/>admissions, student records, printing, SMS"]
+  W --> CM["Committee member<br/>view only: dashboard, evaluations, calendar"]
+  S --> T["Teacher<br/>own sections only"]:::teacher
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d6b
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

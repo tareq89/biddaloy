@@ -1,0 +1,13 @@
+%% title: From the measuring page to the right shift
+%% desc: Print the measuring page. Measure from the top-left corner of the paper to the first cross. If it is exactly 20 mm you are done; choose this printer in the preview. If not, enter the difference as the left-right and up-down shift, between -10 and 10 mm. Save, print the measuring page again and measure again.
+flowchart TD
+  A["Print measuring page"]:::admin --> B["Measure corner<br/>to first cross"]:::admin
+  B --> Q{"Exactly 20 mm?"}:::note
+  Q -->|"Yes"| OK["Done<br/>pick this printer in preview"]:::done
+  Q -->|"No"| X["Enter difference<br/>X and Y, -10 to 10 mm"]:::admin
+  X --> S["Save"]:::admin
+  S --> R["Print page again"]:::admin
+  R --> B
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef done fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

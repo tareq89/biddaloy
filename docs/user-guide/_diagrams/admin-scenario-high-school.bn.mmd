@@ -1,0 +1,10 @@
+%% title: দুই শিফট, দুই ভার্সন
+%% desc: ৬ষ্ঠ থেকে ১০ম শ্রেণির প্রতিটি স্তর চারটি শ্রেণিতে ভাগ: Morning বা Day শিফট, Bangla বা English ভার্সন। প্রতিটিতে শাখা "A"।
+flowchart LR
+  L["শ্রেণি স্তর<br/>Class 6–10"] --> M["Morning<br/>শিফট"]
+  L --> D["Day<br/>শিফট"]
+  M --> V1["Bangla ও<br/>English"]:::label
+  D --> V2["Bangla ও<br/>English"]:::label
+  V1 --> S["প্রতিটিতে<br/>শাখা A"]
+  V2 --> S
+  classDef label fill:#f1f3f5,stroke:#868e96,color:#343a40

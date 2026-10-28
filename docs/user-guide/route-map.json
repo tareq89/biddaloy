@@ -1,0 +1,10 @@
+{
+  "/": "internal: redirect",
+  "/fees": "internal: redirect",
+  "/holiday-sets": "internal: SUPER_ADMIN platform (D15), covered by #2558",
+  "/holiday-sets/$setId": "internal: SUPER_ADMIN platform (D15), covered by #2558",
+  "/schools": "internal: SUPER_ADMIN platform (D15), covered by #2558",
+  "/schools/$schoolId": "internal: SUPER_ADMIN platform (D15), covered by #2558",
+  "/schools/new": "internal: SUPER_ADMIN platform (D15), covered by #2558",
+  "/subscriptions": "internal: SUPER_ADMIN platform (D15), covered by #2558"
+}

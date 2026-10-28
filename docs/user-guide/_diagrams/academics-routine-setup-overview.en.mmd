@@ -1,0 +1,12 @@
+%% title: The three parts of routine setup
+%% desc: A shift sets when the day starts and ends. Each shift gets period and break times. When a class is given a shift, those periods appear in that class's routine table. Rooms and routine rules sit in their own tabs.
+flowchart LR
+  SH["Shift<br/>day starts – day ends"]:::admin --> PS["Period times<br/>lessons and breaks"]:::admin
+  PS --> C["Class shift<br/>on the class page"]:::note
+  C --> G["Class routine table"]:::admin
+  RU["Routine rules<br/>daily limit, in-a-row limit"]:::admin -. "checked against" .-> G
+  RM["Rooms"]:::admin -.-> G
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

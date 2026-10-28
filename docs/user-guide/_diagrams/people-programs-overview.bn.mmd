@@ -1,0 +1,12 @@
+%% title: প্রোগ্রাম তৈরি থেকে অগ্রগতি দেখা
+%% desc: অ্যাডমিন বা পরিচালনা সদস্য প্রোগ্রাম ও মাইলস্টোন ঠিক করেন এবং শিক্ষার্থী তালিকাভুক্ত করেন। শিক্ষক বা অ্যাডমিন অর্জন রেকর্ড করেন। অগ্রগতি প্রোগ্রামের পাতায় দেখা যায়, আর ফলাফলপত্র ও পোর্টালেও আসে।
+flowchart LR
+  A["অ্যাডমিন<br/>প্রোগ্রাম যোগ"]:::admin --> M["মাইলস্টোন<br/>ঠিক করা"]:::admin
+  M --> E["শিক্ষার্থী<br/>তালিকাভুক্ত"]:::admin
+  E --> R["অর্জন রেকর্ড"]:::teacher
+  R --> P["অগ্রগতি<br/>৩ / ৫"]:::note
+  P --> C["ফলাফলপত্র ও<br/>পোর্টাল"]:::guardian
+  classDef teacher fill:#e7f5ff,stroke:#1c7ed6,color:#0b3d66
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef guardian fill:#ebfbee,stroke:#2b8a3e,color:#14411d
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

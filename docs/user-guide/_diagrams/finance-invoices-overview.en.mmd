@@ -1,0 +1,15 @@
+%% title: From payment to invoice, printing and share link
+%% desc: A payment makes an invoice. From the invoice you can print, send to the guardian, or create a share link. A link works for 30 days; making a new link stops the old ones. Reversing a payment makes a credit note.
+flowchart TD
+  P["Payment is recorded"] --> I["Invoice is made"]
+  I --> PR["Print"]:::admin
+  I --> SN["Send to guardian<br/>WhatsApp or SMS"]:::admin
+  I --> SH["Create share link"]:::admin
+  SN --> SH
+  SH --> L["Link works for 30 days<br/>opens without signing in"]
+  L --> N{"Make a new link<br/>or turn it off?"}:::note
+  N -->|"New link"| OLD["Old links stop"]
+  N -->|"Turn off"| OFF["This link stops"]
+  P -->|"Payment reversed"| CN["Credit note against the invoice"]
+  classDef admin fill:#fff4e6,stroke:#e8590c,color:#7a2e05
+  classDef note fill:#f1f3f5,stroke:#868e96,color:#343a40

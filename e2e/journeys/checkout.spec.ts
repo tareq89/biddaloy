@@ -4,6 +4,7 @@ import { t } from '../i18n';
 import { ApprovalModalPage, DetailShellPage } from '../pages';
 
 // [31.4] The footer's primary reads "Record <amount>" (or "Record payment" before any amount), so match the verb.
+// Callers add :not([data-help-id]): every Record-payment (?) is named "Help: Record payment" (Epic 44).
 const RECORD_BUTTON = /রেকর্ড করুন|^Record/;
 
 /**
@@ -104,7 +105,9 @@ test('a partial checkout across two bills leaves a balance, then a CASH top-up c
   // until that lands, same reasoning `record-payment-modal.test.tsx`'s
   // own tests wait on the "Pay" input's value rather than clicking
   // straight through.
-  const submitButton = page.getByRole('button', { name: RECORD_BUTTON });
+  const submitButton = page
+    .getByRole('button', { name: RECORD_BUTTON })
+    .and(page.locator(':not([data-help-id])'));
   await expect(submitButton).toBeEnabled({ timeout: 10_000 });
   await submitButton.click();
   await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();
@@ -132,7 +135,9 @@ test('a partial checkout across two bills leaves a balance, then a CASH top-up c
   await page.getByLabel(t('payments.record.amountReceived.label')).fill('500');
   await page.getByLabel(t('payments.record.tender.tenderedLabel')).fill('600');
   await page.getByLabel(t('payments.record.tender.changeToWallet')).check();
-  const topUpSubmit = page.getByRole('button', { name: RECORD_BUTTON });
+  const topUpSubmit = page
+    .getByRole('button', { name: RECORD_BUTTON })
+    .and(page.locator(':not([data-help-id])'));
   await expect(topUpSubmit).toBeEnabled({ timeout: 10_000 });
   await topUpSubmit.click();
   await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();
@@ -236,7 +241,9 @@ test('a discounted bKash checkout needs step-up approval, then settles', async (
   await page.getByLabel(t('payments.record.method.methods.BKASH')).check();
   await page.getByLabel(t('payments.record.method.referenceLabel')).fill('BKASH-TXN-1');
 
-  const discountSubmit = page.getByRole('button', { name: RECORD_BUTTON });
+  const discountSubmit = page
+    .getByRole('button', { name: RECORD_BUTTON })
+    .and(page.locator(':not([data-help-id])'));
   await expect(discountSubmit).toBeEnabled({ timeout: 10_000 });
   const checkoutRequest = page.waitForRequest(
     (req) => req.method() === 'POST' && req.url().includes('/payments/checkout'),

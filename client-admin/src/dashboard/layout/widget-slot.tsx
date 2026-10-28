@@ -5,7 +5,7 @@
  */
 import type { DashboardWidgetKey, WidgetSize } from '@biddaloy/shared';
 import { isTenantSuspendedError } from '@biddaloy/ui/api';
-import { CachedDataNotice, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import { CachedDataNotice, ErrorState, Skeleton, WidgetHelpContext } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -60,21 +60,23 @@ export function WidgetSlot({
           <ErrorState message={t('states.error')} retryLabel={t('states.retry')} onRetry={reset} />
         )}
       >
-        <React.Suspense
-          fallback={
-            <div data-slot="widget-skeleton" className={SKELETON_HEIGHT[size]}>
-              {/* The skeleton's only text: a phone tile's toggle is labelled by this slot. */}
-              {key && (
-                <span className="sr-only">
-                  {t('states.loading', { title: t(`widgets.${key}.title`) })}
-                </span>
-              )}
-              <Skeleton className="size-full rounded-lg" />
-            </div>
-          }
-        >
-          {children}
-        </React.Suspense>
+        <WidgetHelpContext.Provider value={key ? `widget.${key}` : null}>
+          <React.Suspense
+            fallback={
+              <div data-slot="widget-skeleton" className={SKELETON_HEIGHT[size]}>
+                {/* The skeleton's only text: a phone tile's toggle is labelled by this slot. */}
+                {key && (
+                  <span className="sr-only">
+                    {t('states.loading', { title: t(`widgets.${key}.title`) })}
+                  </span>
+                )}
+                <Skeleton className="size-full rounded-lg" />
+              </div>
+            }
+          >
+            {children}
+          </React.Suspense>
+        </WidgetHelpContext.Provider>
       </Boundary>
     </>
   );

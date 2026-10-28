@@ -96,6 +96,9 @@ jobs:
       # Keeps playwright.config.ts's projects list consistent with the
       # --project flag this matrix entry passes.
       E2E_BROWSERS: ${{ matrix.browser }}
+      # [44.2.03] Same as ci.yml's e2e job: Vite inlines this when `yarn e2e` builds
+      # client-admin; without it every (?) and F1 are hidden and help.spec.ts fails.
+      VITE_HANDBOOK_URL: https://schoolmanagerp.gitbook.io/schoolmanagerp-docs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

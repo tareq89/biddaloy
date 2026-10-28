@@ -10,6 +10,15 @@
 export { Placeholder } from './placeholder';
 
 export { Button, type ButtonProps } from './button';
+export {
+  HelpHint,
+  HelpProvider,
+  useHelp,
+  type HelpEntry,
+  type HelpIndex,
+  type HelpHintProps,
+  type ResolvedHelp,
+} from './help-hint';
 export { Input, type InputProps } from './input';
 export { Textarea, type TextareaProps } from './textarea';
 export {

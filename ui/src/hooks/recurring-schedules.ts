@@ -262,7 +262,8 @@ export function useStudentScheduleCoverage(studentId: string | undefined) {
  * excluded from) is the same request as `-exclusions-table.tsx`'s own
  * "remove exclusion" row action — see `useRemoveScheduleExclusion`'s
  * comment. Aliased under this name at call sites in the student tab for
- * readability; not a second implementation. */
+ * readability; not a second implementation.
+ * @alias */
 export const useIncludeStudentInSchedule = useRemoveScheduleExclusion;
 
 export type FamilyStudentSchedule = components['schemas']['FamilyStudentScheduleDto'];

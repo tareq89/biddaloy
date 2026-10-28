@@ -7,7 +7,7 @@
  * a tenant-wide structure (`class_id: null`) sorts after every
  * class-matching one, then everything else keeps the server's own order.
  */
-import { Card, Checkbox } from '@biddaloy/ui/components';
+import { Card, Checkbox, HelpHint } from '@biddaloy/ui/components';
 import { feeStructuresQueryOptions, type FeeStructure } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatCurrency, formatServerAmount, parseCurrency } from '@biddaloy/ui/utils';
@@ -67,7 +67,10 @@ export function FeePicker({
 
   return (
     <Card padded data-testid="fee-picker">
-      <h2 className="text-h2">{t('fees.heading')}</h2>
+      <div className="flex items-center gap-1">
+        <h2 className="text-h2">{t('fees.heading')}</h2>
+        <HelpHint helpId="finance.generateFees.field.fees" />
+      </div>
       <p className="mt-0.5 text-text-secondary">
         {t('fees.description', { year: academicYearName })}
       </p>
