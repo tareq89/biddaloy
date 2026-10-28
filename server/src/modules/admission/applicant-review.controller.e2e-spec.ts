@@ -198,4 +198,85 @@ describe('ApplicantReviewController guardian match (e2e)', () => {
       await get(UserRole.ADMIN).expect(404);
     });
   });
+
+  describe('[#2880] list search', () => {
+    const LIST = '/api/v1/admission/applicants';
+
+    // Two more applicants beside beforeEach's "Review Child" (ADM-2026-REVWE2, MATCH_PHONE).
+    beforeEach(async () => {
+      const [{ id: intakeId }] = await ds.query(
+        `SELECT id FROM admission_intakes WHERE tenant_id = $1 LIMIT 1`,
+        [SEED_TENANT_ID],
+      );
+      for (const [ref, name, phone] of [
+        ['ADM-2026-ZZTOP1', 'Zubair Rahman', '8801711111111'],
+        ['ADM-2026-ZZTOP2', '100%_Special Kid', '8801722222222'],
+      ]) {
+        await ds.query(
+          `INSERT INTO admission_applicants
+             (id, tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender, guardian_name, guardian_phone, documents, status, created_at, updated_at)
+           VALUES (DEFAULT, $1, $2, $3, $4, '2018-02-02', 'MALE', 'G', $5, '[]'::jsonb, 'PENDING', NOW(), NOW())`,
+          [SEED_TENANT_ID, intakeId, ref, name, phone],
+        );
+      }
+    });
+
+    const search = async (term: string) => {
+      const res = await as(http().get(LIST).query({ search: term }), UserRole.ADMIN).expect(200);
+      return (res.body.data as Array<{ applicant_name: string }>).map((a) => a.applicant_name);
+    };
+
+    it('matches part of the applicant name', async () => {
+      expect(await search('zubair')).toEqual(['Zubair Rahman']);
+    });
+
+    it('matches a reference number fragment', async () => {
+      expect(await search('REVWE2')).toEqual(['Review Child']);
+    });
+
+    it('matches a guardian phone fragment', async () => {
+      expect(await search('01711111')).toEqual(['Zubair Rahman']);
+    });
+
+    it('treats % as a literal, not a wildcard', async () => {
+      // Only the applicant whose name holds a literal "%" matches.
+      expect(await search('%')).toEqual(['100%_Special Kid']);
+    });
+  });
+
+  describe('[#2995] paging', () => {
+    const LIST = '/api/v1/admission/applicants';
+
+    it('limit above 100 is a 400 naming limit', async () => {
+      const res = await as(http().get(LIST).query({ limit: 101 }), UserRole.ADMIN).expect(400);
+      expect(JSON.stringify(res.body)).toContain('limit');
+    });
+
+    it('3 applicants with limit=2 give 2 rows and a total of 3', async () => {
+      // beforeEach made one applicant; add two more.
+      const [{ id: intakeId }] = await ds.query(
+        `SELECT id FROM admission_intakes WHERE tenant_id = $1 LIMIT 1`,
+        [SEED_TENANT_ID],
+      );
+      for (const [ref, phone] of [
+        ['ADM-2026-PAGE01', '8801733333331'],
+        ['ADM-2026-PAGE02', '8801733333332'],
+      ]) {
+        await ds.query(
+          `INSERT INTO admission_applicants
+             (id, tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender, guardian_name, guardian_phone, documents, status, created_at, updated_at)
+           VALUES (DEFAULT, $1, $2, $3, 'Paged Kid', '2018-03-03', 'MALE', 'G', $4, '[]'::jsonb, 'PENDING', NOW(), NOW())`,
+          [SEED_TENANT_ID, intakeId, ref, phone],
+        );
+      }
+      const res = await as(http().get(LIST).query({ limit: 2 }), UserRole.ADMIN).expect(200);
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.total).toBe(3);
+      expect(res.body.totalPages).toBe(2);
+      const page2 = await as(http().get(LIST).query({ limit: 2, page: 2 }), UserRole.ADMIN).expect(
+        200,
+      );
+      expect(page2.body.data).toHaveLength(1);
+    });
+  });
 });

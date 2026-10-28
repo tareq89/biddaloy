@@ -294,6 +294,15 @@ export class UserService {
         'The SUPER_ADMIN role cannot be assigned through this endpoint',
       );
     }
+    // A passwordless user is invited by email or SMS; with neither contact the
+    // invitation would fail after the user was already saved. Refuse up front.
+    // Fixed text, no input echoed (Rule 23).
+    if (!dto.password && !dto.email && !dto.phone) {
+      throw new BadRequestException({
+        message: 'Give an email or a phone number so the person can be invited.',
+        details: { code: 'CONTACT_REQUIRED' },
+      });
+    }
     // Stored lowercased, so this pre-check and the DB's case-sensitive
     // unique index agree with each other and with login. See normalizeEmail.
     const email = dto.email ? normalizeEmail(dto.email) : null;
@@ -1085,7 +1094,7 @@ export class TeacherService {
       where: { id: dto.user_id, deleted_at: IsNull() },
     });
     if (!user) {
-      throw new NotFoundException(`User with ID "${dto.user_id}" not found`);
+      throw new NotFoundException('User not found');
     }
 
     // Verify user is a member of this tenant
@@ -1093,7 +1102,9 @@ export class TeacherService {
       where: { user_id: dto.user_id, tenant_id: tenantId },
     });
     if (!membership) {
-      throw new BadRequestException(`User "${dto.user_id}" is not a member of this tenant`);
+      // Same 404 and text as "no such user" (Rule 23): a different answer would tell
+      // the caller that this id is an account in another school.
+      throw new NotFoundException('User not found');
     }
 
     // A user can hold at most one teacher profile per school (unique index on
@@ -1105,7 +1116,8 @@ export class TeacherService {
     });
     if (existingProfile) {
       throw new ConflictException({
-        message: `User "${dto.user_id}" already has a teacher profile`,
+        // Fixed text: never echoes the submitted id (Rule 23).
+        message: 'This person already has a teacher profile',
         details: { code: 'ALREADY_TEACHER_HERE' },
       });
     }

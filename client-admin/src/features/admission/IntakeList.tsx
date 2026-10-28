@@ -15,12 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
   StatusBadge,
+  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
+import { useSchoolProfile } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { formatDateRange, formatNumber } from '@biddaloy/ui/utils';
-import { DoorOpenIcon, PlusIcon } from 'lucide-react';
+import { DoorOpenIcon, LinkIcon, PlusIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { useCreateIntake, useIntakes, type IntakeListRow } from './hooks/useIntakes';
@@ -37,6 +39,8 @@ export function IntakeList() {
   const [state, actions] = useListShellState();
   const intakesQuery = useIntakes();
   const regionConfig = useRegionConfig();
+  const profile = useSchoolProfile();
+  const slug = profile.data?.slug;
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [form, setForm] = React.useState<IntakeFormValue>(EMPTY_INTAKE_FORM);
@@ -51,6 +55,15 @@ export function IntakeList() {
         setForm(EMPTY_INTAKE_FORM);
       },
     });
+  }
+
+  async function handleCopyLink() {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/admission/${slug}`);
+      toast.success(t('list.linkCopied'));
+    } catch {
+      toast.error(t('list.linkCopyFailed'));
+    }
   }
 
   const columns: DataTableColumn<IntakeListRow>[] = [
@@ -104,6 +117,17 @@ export function IntakeList() {
             priority: 'primary',
             onClick: () => setCreateOpen(true),
           },
+          ...(slug
+            ? [
+                {
+                  id: 'copy-link',
+                  label: t('list.copyPublicLink'),
+                  icon: <LinkIcon aria-hidden />,
+                  priority: 'secondary' as const,
+                  onClick: () => void handleCopyLink(),
+                },
+              ]
+            : []),
         ]}
         tableId="admission-intakes-list"
         caption={t('list.caption')}

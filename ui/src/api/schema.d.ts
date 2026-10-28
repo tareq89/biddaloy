@@ -12104,6 +12104,8 @@ export interface components {
             guardian_ids?: string[];
             student_ids?: string[];
             all?: boolean;
+            /** Format: uuid */
+            after?: string;
         };
         InvitePreviewEntryDto: {
             guardian_id: string;
@@ -12121,12 +12123,14 @@ export interface components {
         };
         InvitePreviewResponseDto: {
             total: number;
+            next_after: string | null;
             to_invite: components["schemas"]["InvitePreviewEntryDto"][];
             skipped: components["schemas"]["InviteSkippedEntryDto"][];
         };
         InviteDispatchResponseDto: {
             batch_id: string;
             queued: number;
+            next_after: string | null;
             skipped: components["schemas"]["InviteSkippedEntryDto"][];
         };
         InviteBatchStatusResponseDto: {
@@ -33062,6 +33066,9 @@ export interface operations {
             query?: {
                 intakeId?: string;
                 status?: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
+                search?: string;
+                page?: number;
+                limit?: number;
             };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
@@ -33079,7 +33086,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdmissionApplicant"][];
+                    "application/json": {
+                        data: components["schemas"]["AdmissionApplicant"][];
+                        /** @description Total rows matching the query, across all pages. */
+                        total: number;
+                        /** @description 1-based index of the page returned. */
+                        page: number;
+                        /** @description Maximum rows per page. */
+                        limit: number;
+                        /** @description Number of pages at this `limit`. */
+                        totalPages: number;
+                    };
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

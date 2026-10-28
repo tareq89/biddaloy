@@ -67,9 +67,9 @@ describe('SchoolsService (integration)', () => {
     // can't express it, so `1789800010700-AddOrganisationDimensions.ts` is
     // the source of truth, not `synchronize: true` above. This module runs
     // no migrations, so it's created by hand, matching that migration's
-    // `up()` (as replaced by `1791900000400-CaseInsensitiveAcademicNames.ts`, `lower("name")` key) — same as `classes.service.integration.spec.ts`.
+    // `up()` (as replaced by `1791900000400-CaseInsensitiveAcademicNames.ts`, `lower("name")` key; live-only via `1791900000500-ClassNameUniqueLiveOnly.ts`) — same as `classes.service.integration.spec.ts`.
     await dataSource.query(
-      `CREATE UNIQUE INDEX "IDX_cl_name_year_tenant_shift_version" ON "classes" (lower("name"), "academic_year_id", "tenant_id", "shift", "version") NULLS NOT DISTINCT`,
+      `CREATE UNIQUE INDEX "IDX_cl_name_year_tenant_shift_version" ON "classes" (lower("name"), "academic_year_id", "tenant_id", "shift", "version") NULLS NOT DISTINCT WHERE "deleted_at" IS NULL`,
     );
 
     const userRepo = dataSource.getRepository(User);

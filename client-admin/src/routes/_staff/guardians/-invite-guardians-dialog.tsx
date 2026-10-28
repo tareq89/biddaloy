@@ -57,7 +57,15 @@ export function InviteGuardiansDialog({
   const [preview, setPreview] = React.useState<InvitePreviewResult | null>(null);
   const [batchId, setBatchId] = React.useState<string | null>(null);
 
-  const selection = studentIds !== undefined ? { student_ids: studentIds } : { all: true };
+  // Keyset cursor for "Next 1000" (only meaningful for the `all` selection).
+  const [after, setAfter] = React.useState<string | undefined>(undefined);
+  // The cursor after the slice actually sent (from dispatch, not the earlier preview).
+  const [sentNextAfter, setSentNextAfter] = React.useState<string | null>(null);
+
+  const selection =
+    studentIds !== undefined
+      ? { student_ids: studentIds }
+      : { all: true, ...(after ? { after } : {}) };
 
   const previewMutation = useInvitationPreview();
   const dispatchMutation = useDispatchInvitations();
@@ -72,11 +80,23 @@ export function InviteGuardiansDialog({
       setStepId('select');
       setPreview(null);
       setBatchId(null);
+      setAfter(undefined);
+      setSentNextAfter(null);
       previewMutation.reset();
       dispatchMutation.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
+
+  function handleNext() {
+    setAfter(sentNextAfter ?? undefined);
+    setSentNextAfter(null);
+    setPreview(null);
+    setBatchId(null);
+    setStepId('select');
+    previewMutation.reset();
+    dispatchMutation.reset();
+  }
 
   function handlePreview() {
     previewMutation.mutate(selection, {
@@ -87,7 +107,10 @@ export function InviteGuardiansDialog({
   function handleSubmit() {
     if (preview === null) return;
     dispatchMutation.mutate(selection, {
-      onSuccess: (result) => setBatchId(result.batch_id),
+      onSuccess: (result) => {
+        setBatchId(result.batch_id);
+        setSentNextAfter(result.next_after);
+      },
     });
   }
 
@@ -154,6 +177,9 @@ export function InviteGuardiansDialog({
                   <p className="text-text-secondary">{t('invite.preview.runFirst')}</p>
                 ) : (
                   <>
+                    {preview.next_after && (
+                      <p className="text-text-secondary">{t('invite.select.moreRemain')}</p>
+                    )}
                     <p>
                       {t('invite.preview.summary', {
                         count: preview.to_invite.length,
@@ -211,6 +237,11 @@ export function InviteGuardiansDialog({
                         total: batch?.total ?? 0,
                       })}
                 </p>
+                {done && sentNextAfter && (
+                  <Button type="button" onClick={handleNext}>
+                    {t('invite.done.next')}
+                  </Button>
+                )}
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   {t('actions.close', { ns: 'common' })}
                 </Button>

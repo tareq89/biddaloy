@@ -60,7 +60,10 @@
       "phone": "Enter a correct mobile number, like 01711-000004.",
       "document": "Please add this file.",
       "email": "Enter a correct email address.",
-      "captcha": "Please complete the check above."
+      "captcha": "Please complete the check above.",
+      "intakeClosed": "This admission round is not taking applications now.",
+      "intakeFull": "This admission round has no seats left.",
+      "duplicate": "This application could not be accepted. If you already applied for this child, contact the school with your reference number."
     }
   },
   "confirmation": {

@@ -12,6 +12,7 @@ import {
 } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { InviteGuardiansDialog } from './-invite-guardians-dialog';
@@ -87,5 +88,54 @@ describe('InviteGuardiansDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Send invitations' }));
 
     expect(await screen.findByText('Done — 2 sent, 0 failed, 0 skipped.')).toBeTruthy();
+  });
+
+  it('with more than 1000 guardians: shows the more-remain text, and "Next 1000" re-runs the preview with `after`', async () => {
+    const bodies: Array<Record<string, unknown>> = [];
+    server.use(
+      http.post('/api/v1/users/invitations/preview', async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        bodies.push(body);
+        return HttpResponse.json({
+          total: 1,
+          // The first slice carries a cursor; the slice asked for with `after` is the last one.
+          next_after: body.after ? null : 'cursor-1',
+          to_invite: [
+            { guardian_id: 'g1', full_name: 'Rahim Uddin', channel: 'SMS', user_exists: false },
+          ],
+          skipped: [],
+        });
+      }),
+      // The "Next 1000" cursor comes from what dispatch sent, not from the preview.
+      http.post('/api/v1/users/invitations/batch', () =>
+        HttpResponse.json(
+          { batch_id: 'batch-1', queued: 1, next_after: 'cursor-sent', skipped: [] },
+          { status: 202 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    const { localeReady } = renderWithProviders(
+      <InviteGuardiansDialog open onOpenChange={vi.fn()} />,
+      { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' },
+    );
+    await localeReady;
+
+    await user.click(screen.getByRole('button', { name: 'Preview invitations' }));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    expect(await screen.findByText(/shows the first 1000 guardians/)).toBeTruthy();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Send invitations' }).hasAttribute('disabled'),
+      ).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Send invitations' }));
+    await user.click(await screen.findByRole('button', { name: 'Next 1000' }));
+    await user.click(await screen.findByRole('button', { name: 'Preview invitations' }));
+
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[0]).toEqual({ all: true });
+    expect(bodies[1]).toEqual({ all: true, after: 'cursor-sent' });
   });
 });

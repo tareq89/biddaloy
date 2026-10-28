@@ -40,6 +40,11 @@ export interface ComboboxProps extends Omit<
   /** Template for the polite live-region announcement on every filter
    * change — defaults to the translated `combobox.results` key. */
   announceResults?: (count: number) => string;
+  /** Called with the input text whenever it changes (typing, seeding on focus,
+   * clearing after a pick). Passing it means the caller searches on the
+   * server, so the combobox shows `options` as given and skips its own
+   * label filter. Omit it for the default client-side filter. */
+  onQueryChange?: (query: string) => void;
 }
 
 export function Combobox({
@@ -49,6 +54,7 @@ export function Combobox({
   placeholder,
   emptyText,
   announceResults,
+  onQueryChange,
   onFocus,
   ...props
 }: ComboboxProps) {
@@ -61,11 +67,17 @@ export function Combobox({
   const [activeIndex, setActiveIndex] = React.useState(-1);
   const listboxId = React.useId();
 
-  const selectedOption = options.find((option) => option.value === value) ?? null;
+  // A server-searching caller may drop the picked option from `options` once the
+  // query clears, so remember the last pick to keep its label in the closed input.
+  const lastPicked = React.useRef<ComboboxOption | null>(null);
+  const selectedOption =
+    options.find((option) => option.value === value) ??
+    (lastPicked.current?.value === value ? lastPicked.current : null);
   // Latin digits on both sides: `৮` typed on a Latin keyboard is `8`.
   const trimmed = toLatinDigits(query.trim().toLowerCase());
   const filtered =
-    trimmed === ''
+    // A caller that searches on the server has already filtered `options`.
+    trimmed === '' || onQueryChange
       ? options
       : options.filter((option) => toLatinDigits(option.label.toLowerCase()).includes(trimmed));
 
@@ -74,8 +86,10 @@ export function Combobox({
   }
 
   function selectOption(option: ComboboxOption) {
+    lastPicked.current = option;
     onValueChange(option.value);
     setQuery('');
+    onQueryChange?.('');
     setOpen(false);
     setActiveIndex(-1);
   }
@@ -100,11 +114,13 @@ export function Combobox({
             // Escape-without-selecting leaves stale leftover text ready to
             // reappear on the next focus.
             setQuery(selectedOption?.label ?? '');
+            onQueryChange?.(selectedOption?.label ?? '');
             setOpen(true);
             onFocus?.(event);
           }}
           onChange={(event) => {
             setQuery(event.target.value);
+            onQueryChange?.(event.target.value);
             setOpen(true);
             setActiveIndex(0);
           }}

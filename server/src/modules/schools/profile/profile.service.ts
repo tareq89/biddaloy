@@ -15,6 +15,7 @@ type ProfileField = (typeof PROFILE_FIELDS)[number];
 
 export type SchoolProfileView = {
   name: string;
+  slug: string;
   name_bn: string | null;
   address: string | null;
   phone: string | null;
@@ -26,6 +27,7 @@ export type SchoolProfileView = {
 function toProfileView(school: School): SchoolProfileView {
   return {
     name: school.name,
+    slug: school.slug,
     name_bn: school.name_bn,
     address: school.address,
     phone: school.phone,

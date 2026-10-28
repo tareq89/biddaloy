@@ -57,6 +57,7 @@
     "roleLabel": "Role",
     "rolePlaceholder": "Choose a role",
     "errorNameRequired": "Enter the person's full name.",
+    "errorContactRequired": "Enter an email or a phone number so we can send the invitation.",
     "errorRoleRequired": "Choose a role.",
     "errorDuplicateEmail": "A user with this email already exists.",
     "accountExists": "This person already has an account. Send them a join request instead.",

@@ -274,6 +274,7 @@ describe('/classes', () => {
             timestamp: new Date().toISOString(),
             path: '/api/v1/classes/class-1',
             requestId: 'req-1',
+            details: { code: 'CLASS_IN_USE', students_count: 3 },
           },
           { status: 409 },
         ),
@@ -292,12 +293,49 @@ describe('/classes', () => {
     const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
-    await dialog.findByText(/still has students or sections/);
+    await dialog.findByText(/still has students\./);
     // The server sentence (English, embeds the class id) is never shown.
     expect(dialog.queryByText(/class-1/)).toBeNull();
     expect(dialog.queryByText(/unenroll/)).toBeNull();
     expect(dialog.getByRole('link', { name: 'Move students' })).toBeTruthy();
     expect(dialog.queryByRole('button', { name: 'Delete' })).toBeNull();
+  });
+
+  it('deleting a class blocked by exams and fee structures names them and offers no Move students', async () => {
+    const klass = classFactory({ id: 'class-1', name: 'Class 6' });
+    server.use(
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 25, totalPages: 1 }),
+      ),
+      http.delete('/api/v1/classes/:id', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'in use',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/classes/class-1',
+            requestId: 'req-1',
+            details: { code: 'CLASS_IN_USE', dependents: { exams: 2, fee_structures: 1 } },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = within(await screen.findByRole('alertdialog'));
+    await user.click(dialog.getByRole('button', { name: 'Delete' }));
+
+    await dialog.findByText(/used by exams and fee structures/);
+    expect(dialog.queryByRole('link', { name: 'Move students' })).toBeNull();
   });
 
   it('deleting a class that fails with a non-409 error keeps the normal retry path, not the blocked state', async () => {

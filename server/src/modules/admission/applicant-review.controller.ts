@@ -15,7 +15,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AdmissionDocumentType, Permission } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
@@ -31,6 +37,8 @@ import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
 import { ListApplicantsDto } from './dto/list-applicants.dto';
 import { GuardianMatchResponseDto } from './dto/guardian-match.dto';
+import { AdmissionApplicant } from './entities/admission-applicant.entity';
+import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
 
 /** [27.5] Staff review/evaluate/admit/reject over `admission_applicants` —
  * same guard stack as `IntakeController` (#27.3). */
@@ -46,6 +54,8 @@ export class ApplicantReviewController {
   @ApiOperation({
     summary: 'List admission applicants, optionally filtered by intake and/or status.',
   })
+  @ApiExtraModels(AdmissionApplicant)
+  @ApiOkResponse({ schema: paginatedSchema([{ $ref: getSchemaPath(AdmissionApplicant) }]) })
   findAll(
     @Query() filters: ListApplicantsDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -119,7 +129,10 @@ export class ApplicantReviewController {
     // Documents can be deleted, so never cache; nosniff + sandbox for uploaded content.
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    );
     res.setHeader('Content-Type', object.contentType ?? 'application/octet-stream');
     return new StreamableFile(object.body);
   }

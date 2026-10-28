@@ -6,6 +6,7 @@ import { isNotFoundError } from '@biddaloy/ui/api';
 import {
   Button,
   Card,
+  ConfirmDialog,
   ErrorState,
   RecordNotFoundState,
   RoutePending,
@@ -22,6 +23,7 @@ import * as React from 'react';
 import { useApplicants } from '../../../../features/admission/hooks/useApplicants';
 import {
   intakeQueryOptions,
+  useCloseIntake,
   useIntake,
   useUpdateIntake,
 } from '../../../../features/admission/hooks/useIntakes';
@@ -54,8 +56,10 @@ function IntakeDetailPage() {
   const regionConfig = useRegionConfig();
   const navigate = Route.useNavigate();
   const intakeQuery = useIntake(intakeId);
-  const applicantsQuery = useApplicants({ intakeId });
+  const applicantsQuery = useApplicants({ intakeId, limit: 1 }); // only the total is shown
   const updateIntake = useUpdateIntake(intakeId);
+  const closeIntake = useCloseIntake(intakeId);
+  const [closeOpen, setCloseOpen] = React.useState(false);
 
   const [form, setForm] = React.useState<IntakeFormValue | null>(null);
 
@@ -87,13 +91,23 @@ function IntakeDetailPage() {
   }
 
   const intake = intakeQuery.data;
-  const count = applicantsQuery.data?.length;
+  const count = applicantsQuery.data?.total;
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (form === null || !isIntakeFormValid(form)) return;
     updateIntake.mutate(toIntakeInput(form), {
       onSuccess: () => toast.success(t('detail.saved')),
+    });
+  }
+
+  function handleClose() {
+    closeIntake.mutate(undefined, {
+      onSuccess: () => {
+        setCloseOpen(false);
+        setForm(null); // re-seed the form from the refetched (closed) intake
+        toast.success(t('detail.closed'));
+      },
     });
   }
 
@@ -116,13 +130,42 @@ function IntakeDetailPage() {
             </p>
           )}
         </div>
-        <Button asChild variant="outline" className="w-full md:w-auto">
-          <Link to="/admissions/applicants" search={{ intakeId }}>
-            <UsersIcon aria-hidden />
-            {t('list.viewApplicants')}
-          </Link>
-        </Button>
+        <div className="flex flex-col gap-2 md:flex-row">
+          {intake.status === 'OPEN' && (
+            <Button
+              variant="outline"
+              className="w-full md:w-auto"
+              onClick={() => {
+                closeIntake.reset();
+                setCloseOpen(true);
+              }}
+            >
+              {t('detail.closeNow')}
+            </Button>
+          )}
+          <Button asChild variant="outline" className="w-full md:w-auto">
+            <Link to="/admissions/applicants" search={{ intakeId }}>
+              <UsersIcon aria-hidden />
+              {t('list.viewApplicants')}
+            </Link>
+          </Button>
+        </div>
       </header>
+
+      <ConfirmDialog
+        open={closeOpen}
+        onOpenChange={setCloseOpen}
+        title={t('detail.closeConfirmTitle')}
+        description={
+          closeIntake.isError
+            ? `${t('detail.closeConfirmBody')} ${t('detail.closeFailed')}`
+            : t('detail.closeConfirmBody')
+        }
+        confirmLabel={t('detail.closeNow')}
+        tone="danger"
+        busy={closeIntake.isPending}
+        onConfirm={handleClose}
+      />
 
       <form onSubmit={handleSubmit} noValidate>
         <Card padded>

@@ -8,7 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { rowErrorKey, StaffImportView } from './staff-import-view';
+import { fileErrorKey, rowErrorKey, StaffImportView } from './staff-import-view';
 
 const preview = {
   staging_id: '11111111-1111-4111-8111-111111111111',
@@ -94,6 +94,47 @@ describe('StaffImportView', () => {
     expect(await screen.findByText(/lost its leading 0/)).toBeTruthy();
     expect(screen.queryByText(/typed as a number/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Confirm' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it.each([
+    ['Could not read file — is it a valid Excel file?', 'unreadable'],
+    ['Could not read file — is it a valid CSV file?', 'unreadable'],
+    ['Unsupported file type: .pdf — upload .xlsx or .csv', 'unsupportedType'],
+    ['Missing required columns: name', 'missingColumns'],
+    ['File has too many rows (max 500)', 'tooManyRows'],
+    ['File contains no data rows', 'noRows'],
+    [
+      'This file is too large or has too many parts to read. Split it into smaller files and upload them one by one.',
+      'tooLarge',
+    ],
+    ['something the server never said', 'other'],
+  ])('[#2866] fileErrorKey maps "%s" to %s', (message, key) => {
+    expect(fileErrorKey(message)).toBe(key);
+  });
+
+  it('[#2866] a whole-file 400 shows our text, not the server sentence', async () => {
+    server.use(
+      http.post('/api/v1/users/bulk-upload/validate', () =>
+        HttpResponse.json(
+          {
+            statusCode: 400,
+            requestId: 'req-1',
+            message: 'Missing required columns: name',
+            error: 'Bad Request',
+            timestamp: '2026-01-01T00:00:00.000Z',
+            path: '/api/v1/users/bulk-upload/validate',
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    renderView();
+    await upload();
+    expect(
+      (await screen.findAllByText("Some columns are missing. Use the sample file's columns."))
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/Missing required columns/)).toBeNull();
   });
 
   it.each([

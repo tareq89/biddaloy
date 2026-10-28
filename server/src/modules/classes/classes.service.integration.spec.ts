@@ -88,10 +88,10 @@ describe('ClassService / SectionService (integration)', () => {
     // can't express it, so `1789800010700-AddOrganisationDimensions.ts`
     // is the source of truth, not `synchronize: true` above. This test
     // module runs no migrations, so the index is created by hand here,
-    // matching `1791900000400-CaseInsensitiveAcademicNames.ts` `up()` exactly (it replaced the index from
+    // matching `1791900000500-ClassNameUniqueLiveOnly.ts` `up()` exactly (after `1791900000400-CaseInsensitiveAcademicNames.ts`, which replaced the index from
     // `1789800010700-AddOrganisationDimensions.ts` with a `lower("name")` key).
     await dataSource.query(
-      `CREATE UNIQUE INDEX "IDX_cl_name_year_tenant_shift_version" ON "classes" (lower("name"), "academic_year_id", "tenant_id", "shift", "version") NULLS NOT DISTINCT`,
+      `CREATE UNIQUE INDEX "IDX_cl_name_year_tenant_shift_version" ON "classes" (lower("name"), "academic_year_id", "tenant_id", "shift", "version") NULLS NOT DISTINCT WHERE "deleted_at" IS NULL`,
     );
 
     const schoolRepo = dataSource.getRepository(School);
@@ -316,6 +316,20 @@ describe('ClassService / SectionService (integration)', () => {
   });
 
   describe('remove (delete class)', () => {
+    it("[2885] frees the name: a new class can reuse a deleted class's name", async () => {
+      const year = await createYear();
+      const old = await classRepo.save({
+        name: 'Reuse Me',
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+      });
+      await classService.remove(old.id, TENANT_ID);
+
+      await expect(
+        classService.create({ name: 'Reuse Me', academic_year_id: year.id } as any, TENANT_ID),
+      ).resolves.toMatchObject({ name: 'Reuse Me' });
+    });
+
     it('deletes a class with no sections and no enrollments', async () => {
       const year = await createYear();
       const klass = await classRepo.save({
