@@ -62,6 +62,9 @@ describe('ArrivalNoticeCard', () => {
     renderPortalCard(<ArrivalNoticeCard />);
     const sms = await screen.findByRole('radio', { name: 'By SMS' });
     expect((sms as HTMLButtonElement).disabled).toBe(true);
+    // The reason is shown outside the faded row, where it keeps full contrast (axe sweep).
+    const why = screen.getByText('Your school sends this in the app only');
+    expect(why.closest('fieldset')).toBeNull();
   });
 
   it('disables the switch under a NEVER lock', async () => {

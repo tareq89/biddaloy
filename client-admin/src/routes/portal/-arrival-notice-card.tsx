@@ -85,14 +85,13 @@ function ChildRow({
             onValueChange={(next) => send(true, next as Channel)}
             options={[
               { value: 'PUSH', title: t('arrivalNotice.channel.push') },
-              {
-                value: 'SMS',
-                title: t('arrivalNotice.channel.sms'),
-                disabled: !smsAllowed,
-                ...(smsAllowed ? {} : { caption: t('arrivalNotice.smsNotAllowed') }),
-              },
+              { value: 'SMS', title: t('arrivalNotice.channel.sms'), disabled: !smsAllowed },
             ]}
           />
+          {!smsAllowed && (
+            // Outside the greyed-out row: inside it the text fades below readable contrast.
+            <p className="text-caption text-text-secondary">{t('arrivalNotice.smsNotAllowed')}</p>
+          )}
           {channel === 'PUSH' && !pushReady && (
             <p className="text-caption text-text-secondary">
               {t('arrivalNotice.noPush')}{' '}
