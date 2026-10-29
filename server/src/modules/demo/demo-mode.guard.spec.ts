@@ -35,6 +35,24 @@ describe('DemoModeGuard', () => {
       },
     );
 
+    // Opened in 88.1.02: Mailpit holds the messages, bulk routes are capped by the row limit.
+    it.each([
+      ['POST', '/api/v1/auth/register/start'],
+      ['POST', '/api/v1/auth/register/resend'],
+      ['POST', '/api/v1/auth/register/verify'],
+      ['POST', '/api/v1/auth/otp/request'],
+      ['POST', '/api/v1/auth/step-up/otp/request'],
+      ['POST', '/api/v1/students/bulk-upload/commit'],
+      ['POST', '/api/v1/students/photos/bulk'],
+      ['POST', '/api/v1/users/bulk-upload/validate'],
+      ['POST', '/api/v1/homework/bulk/commit'],
+      ['POST', '/api/v1/calendar-import/commit'],
+      ['POST', '/api/v1/study-plans/import/commit'],
+    ])('lets the opened route %s %s through', (method, path) => {
+      const { run } = setup('true');
+      expect(run(method, path)).toBe(true);
+    });
+
     it('lets a normal read through', () => {
       const { run } = setup('true');
       expect(run('GET', '/api/v1/students')).toBe(true);
