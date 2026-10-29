@@ -88,22 +88,21 @@ On the demo and staging sites nothing is really sent: the messages of a round la
 
 **Round status**
 
-| Status               | Meaning                                         | What next                                  |
-| -------------------- | ----------------------------------------------- | ------------------------------------------ |
-| **Processing**       | The messages are still being sent               | Wait; the page refreshes by itself         |
-| **Completed**        | All messages sent, none failed                  | Nothing more to do                         |
-| **Partially failed** | Some went, some failed                          | [Retry the failed](#task-retry)            |
-| **Failed**           | None went                                       | See the reason, fix it and send again      |
+| Status               | Meaning                           | What next                             |
+| -------------------- | --------------------------------- | ------------------------------------- |
+| **Processing**       | The messages are still being sent | Wait; the page refreshes by itself    |
+| **Completed**        | All messages sent, none failed    | Nothing more to do                    |
+| **Partially failed** | Some went, some failed            | [Retry the failed](#task-retry)       |
+| **Failed**           | None went                         | See the reason, fix it and send again |
 
 **Status of one message** (in the **Who received it** list)
 
-| Status                  | Meaning                                                  |
-| ----------------------- | -------------------------------------------------------- |
-| **Queued**              | Still waiting to be sent                                 |
-| **Sent**                | The SMS or email service has taken the message           |
+| Status                  | Meaning                                                    |
+| ----------------------- | ---------------------------------------------------------- |
+| **Queued**              | Still waiting to be sent                                   |
+| **Sent**                | The SMS or email service has taken the message             |
 | **Delivered**, **Read** | Not reported yet: the app does not record delivery reports |
-| **Failed**              | It did not go; the reason is in **Why it failed**        |
-
+| **Failed**              | It did not go; the reason is in **Why it failed**          |
 
 The **Delivered** number at the top means how many messages the service has taken; reaching the phone is not counted separately.
 
@@ -142,19 +141,19 @@ In the **Search** box above the list type the round's name. Filter by **Status**
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                    | What to do                                                                              | Who can help |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------ |
-| **No reminder rounds yet.**                                                     | Press **Remind many at once** and send the first round.                                 | —            |
-| **Could not load reminder rounds.** or **Could not load this round.**           | Reload the page.                                                                        | Admin        |
-| **Could not load delivery logs.**                                               | Reload the page.                                                                        | Admin        |
-| **Why it failed**: **Sending by … is not set up for this school. …**            | An Admin turns it on in **Settings › Communication**, then send again.                  | Admin        |
-| **Why it failed**: **… cannot be sent automatically.**                          | The app cannot send by this channel. Send by another channel.                           | —            |
-| No **Retry failed**                                                             | The round is still **Processing**, or nothing failed.                                   | —            |
-| **This round has no stored message template, …**                                | Send again yourself: a new round from [**Fee reminders**](fee-reminders.md#task-bulk).  | —            |
-| **No failed deliveries with a student on file to retry.**                       | The failed messages are not linked to a student; send a new round.                      | —            |
-| **The retry could not be started.**                                             | Try again. For SMS the credit may be low; tell the Admin.                               | Admin        |
-| **Too many bulk requests in a row — …**                                         | Wait a minute and press again.                                                          | —            |
-| A round stays **Processing** for a long time                                    | Some messages are still queued. If it stays long, tell the Admin.                       | Admin        |
+| What you see                                                          | What to do                                                                             | Who can help |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------ |
+| **No reminder rounds yet.**                                           | Press **Remind many at once** and send the first round.                                | —            |
+| **Could not load reminder rounds.** or **Could not load this round.** | Reload the page.                                                                       | Admin        |
+| **Could not load delivery logs.**                                     | Reload the page.                                                                       | Admin        |
+| **Why it failed**: **Sending by … is not set up for this school. …**  | An Admin turns it on in **Settings › Communication**, then send again.                 | Admin        |
+| **Why it failed**: **… cannot be sent automatically.**                | The app cannot send by this channel. Send by another channel.                          | —            |
+| No **Retry failed**                                                   | The round is still **Processing**, or nothing failed.                                  | —            |
+| **This round has no stored message template, …**                      | Send again yourself: a new round from [**Fee reminders**](fee-reminders.md#task-bulk). | —            |
+| **No failed deliveries with a student on file to retry.**             | The failed messages are not linked to a student; send a new round.                     | —            |
+| **The retry could not be started.**                                   | Try again. For SMS the credit may be low; tell the Admin.                              | Admin        |
+| **Too many bulk requests in a row — …**                               | Wait a minute and press again.                                                         | —            |
+| A round stays **Processing** for a long time                          | Some messages are still queued. If it stays long, tell the Admin.                      | Admin        |
 
 More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
 
@@ -162,12 +161,12 @@ More help with this: [What to do when something goes wrong](../help/troubleshoot
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                    | View rounds | Retry |
-| ----------------------------------------------------------------------- | ----------- | ----- |
-| Admin                                                                   | Yes         | Yes   |
-| Accountant                                                              | Yes         | Yes   |
-| Office staff                                                            | Yes         | Yes   |
-| Academic coordinator, Teacher, Exam controller, Committee member        | No          | No    |
+| Role                                                             | View rounds | Retry |
+| ---------------------------------------------------------------- | ----------- | ----- |
+| Admin                                                            | Yes         | Yes   |
+| Accountant                                                       | Yes         | Yes   |
+| Office staff                                                     | Yes         | Yes   |
+| Academic coordinator, Teacher, Exam controller, Committee member | No          | No    |
 
 **Admin, Accountant and Office staff:** all three see all the school's rounds, not only their own; there is no difference in the code.
 
@@ -199,6 +198,25 @@ For the other roles, **Reminder History** is not in the left menu.
 - **How the status is decided:** it is counted as each message finishes. If none failed, **Completed**; if none went, **Failed**; everything else is **Partially failed**.
 - **Retry means a new round:** the old round stays as it was. The new round is sent by student, not by guardian.
 - **Refreshing:** the page fetches new data by itself only while the round is **Processing**.
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:communications -->
+
+| Field                     | What to enter                                                                                                                                                                                                                               | Required?         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Which guardian to send to | One guardian of the chosen student. Their phone or email shows below; without one you cannot send.                                                                                                                                          | Yes               |
+| How to send               | Send message: SMS, WhatsApp or Email; SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. Fee reminder: starts on each guardian’s preferred channel; pick one to send everyone on that channel this time. | No                |
+| Message                   | What to send. For SMS, the characters and the number of SMS it uses show below. In a fee reminder, use the buttons below to put in the name, due amount or month; each guardian gets their real details.                                    | Yes               |
+| Who to remind             | Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.                                                                                                                                    | Yes, at least one |
+| Batch name                | A name for this batch; you find it by this name in Reminder history later.                                                                                                                                                                  | Yes               |
+| Channels (bulk reminder)  | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                                                                                                                                                   | Yes, at least one |
+| Status                    | Shows only the rounds in one state: Processing, Completed, Partially failed or Failed. Leave it on All statuses to see every round.                                                                                                         | No                |
+
+<!-- /guide:generated -->
 
 </details>
 

@@ -101,7 +101,7 @@
     "email": "Email",
     "role": "Role",
     "designation": "Designation",
-    "sendInvitationsNow": "Send invitations now"
+    "sendInvitations": "Send invitations now"
   },
   "help": {
     "name": "The person's full name.",
@@ -109,7 +109,7 @@
     "email": "Email address, for example name@example.com.",
     "role": "Teacher, Accountant or another role of your school. Write the role name as it is in the app (Bangla or English).",
     "designation": "Optional. For example Assistant Teacher. It is used only for teachers; for another role, or if it is not recognised, it is dropped.",
-    "sendInvitationsNow": "If ticked, a link to activate the account goes to new staff by phone or email. Ticked to begin with. People who are brought back do not get it again."
+    "sendInvitations": "If ticked, a link to activate the account goes to new staff by phone or email. Ticked to begin with. People who are brought back do not get it again."
   },
   "helpRequired": {
     "name": "Yes",

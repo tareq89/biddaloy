@@ -54,28 +54,28 @@
   "fields": {
     "nameTopic": "Name (topic)",
     "descriptionTopic": "Description (topic)",
-    "statusTopic": "Status (topic)",
+    "topicStatus": "Status (topic)",
     "term": "Term",
     "lessonTitle": "Lesson title",
-    "periodsNeeded": "Periods needed",
+    "periods": "Periods needed",
     "syllabusTopic": "Syllabus topic",
     "notesOrLinks": "Notes or links"
   },
   "help": {
     "nameTopic": "The name of a part of the syllabus, for example Chapter 3: Fractions.",
     "descriptionTopic": "What the topic contains, in detail.",
-    "statusTopic": "Planned, in progress or done. Planned at the start.",
+    "topicStatus": "Planned, in progress or done. Planned at the start.",
     "term": "Which term the plan is for. If there are no terms, the whole year.",
     "lessonTitle": "The name of one lesson, up to 200 characters.",
-    "periodsNeeded": "How many periods the lesson takes to teach, 1 to 20.",
+    "periods": "How many periods the lesson takes to teach, 1 to 20.",
     "syllabusTopic": "Which topic the lesson belongs to.",
     "notesOrLinks": "A note for yourself or a link, up to 2000 characters."
   },
   "helpRequired": {
     "nameTopic": "Yes",
-    "statusTopic": "Yes",
+    "topicStatus": "Yes",
     "term": "Yes",
     "lessonTitle": "Yes",
-    "periodsNeeded": "Yes"
+    "periods": "Yes"
   }
 }

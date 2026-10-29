@@ -18,8 +18,8 @@ const MENU_ITEM = '#3078: header More-menu item has no (?) slot';
 /** The element lives in a file outside the wave-3 lane territory. */
 const TERRITORY = '#3079: element outside the wave-3 territory';
 
-/** In HELP_GAPS: the guide declares the field but no `help.<key>` text exists, so it is not indexed. */
-const GAP = '#3017: guide gap, field help not written yet';
+/** The guide declares the field and its `help.<key>` text is written; no route puts the (?) there yet. */
+const GAP = '#3017: help text written, (?) not wired yet';
 
 export const HELP_UNWIRED: Record<string, string> = {
   'start.signIn': PUBLIC,
@@ -105,7 +105,7 @@ export const HELP_UNWIRED: Record<string, string> = {
   'administration.printTemplates.action.create': PRINT_FIX,
   'administration.printTemplates.action.archive': PRINT_FIX,
 
-  // Guide gaps (HELP_GAPS): declared, not indexable, so not wireable yet
+  // Help text written (was HELP_GAPS): indexed now, wireable by the route lanes
   'people.students.field.rollNumber': GAP,
   'people.students.field.bloodGroup': GAP,
   'people.students.field.preferredCommunication': GAP,

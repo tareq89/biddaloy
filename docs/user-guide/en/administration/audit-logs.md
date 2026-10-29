@@ -60,13 +60,13 @@ When someone creates, changes or deletes a record in the app, or signs in, the s
 
 **How to read the rows**
 
-| Column         | What it shows                                                                                                                                  |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **When**       | Date and time, in the school's time zone (not your phone's or computer's).                                                                     |
-| **Who**        | The name of the person who did it. The name stays even if the staff member is removed later. If no person did it, it says **System**.         |
-| **Action**     | For example **Created**, **Updated**, **Deleted**, **Signed in**, **Sign-in failed**, **Payment recorded**, **Settings changed**.              |
-| **What**       | The kind of record and its name, for example **Student: …**. If there is no name, only the kind.                                               |
-| **What happened** | One plain line, for example **3 details changed.**                                                                                          |
+| Column            | What it shows                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **When**          | Date and time, in the school's time zone (not your phone's or computer's).                                                            |
+| **Who**           | The name of the person who did it. The name stays even if the staff member is removed later. If no person did it, it says **System**. |
+| **Action**        | For example **Created**, **Updated**, **Deleted**, **Signed in**, **Sign-in failed**, **Payment recorded**, **Settings changed**.     |
+| **What**          | The kind of record and its name, for example **Student: …**. If there is no name, only the kind.                                      |
+| **What happened** | One plain line, for example **3 details changed.**                                                                                    |
 
 ---
 
@@ -74,10 +74,10 @@ When someone creates, changes or deletes a record in the app, or signs in, the s
 
 This page does not save anything; it shows directly what is in the school's system. So there is no "on the screen but not saved" state here.
 
-| What you see                  | What it means                                                         | What next                                        |
-| ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------ |
-| A row for the action you want | The action really happened, at that time, by that person              | Open the row and compare [before and after](#task-diff) |
-| **No activity found**         | No action matches these filters                                       | Press **Clear all filters**, or widen the dates  |
+| What you see                  | What it means                                            | What next                                               |
+| ----------------------------- | -------------------------------------------------------- | ------------------------------------------------------- |
+| A row for the action you want | The action really happened, at that time, by that person | Open the row and compare [before and after](#task-diff) |
+| **No activity found**         | No action matches these filters                          | Press **Clear all filters**, or widen the dates         |
 
 ---
 
@@ -113,15 +113,15 @@ For an event such as a sign-in or a reminder, no field changes. Then it says: "T
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                     | What to do                                                                                                                       | Who can help |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Couldn't load the audit trail.**                               | Reload the page. Check your internet connection.                                                                                 | —            |
-| **Nothing has been recorded for this school yet.**               | This is normal in a new school. A row appears as soon as someone does something.                                                 | —            |
-| **Nothing matches these filters. Change them and look again.**   | Press **Clear all filters**, or widen the date range.                                                                            | —            |
-| A staff member's name is not in the **Performed by** list        | The list holds the first 100 users. If the name is missing, filter by date and record type and look in the **Who** column.       | Admin        |
-| **System** in the **Who** column                                 | No person did it; the school's system did it itself (for example an automatic job).                                              | —            |
-| You want to delete or fix a wrong record                         | You cannot; records are deliberately unchangeable. Fix the original data; that will also show up as a new row.                   | —            |
-| You do not see a row about your own evaluation or about you      | This is on purpose: nobody sees the rows about their own evaluation (ACR) or about a staff incident written about them, not even the Admin. | —         |
+| What you see                                                   | What to do                                                                                                                                  | Who can help |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Couldn't load the audit trail.**                             | Reload the page. Check your internet connection.                                                                                            | —            |
+| **Nothing has been recorded for this school yet.**             | This is normal in a new school. A row appears as soon as someone does something.                                                            | —            |
+| **Nothing matches these filters. Change them and look again.** | Press **Clear all filters**, or widen the date range.                                                                                       | —            |
+| A staff member's name is not in the **Performed by** list      | The list holds the first 100 users. If the name is missing, filter by date and record type and look in the **Who** column.                  | Admin        |
+| **System** in the **Who** column                               | No person did it; the school's system did it itself (for example an automatic job).                                                         | —            |
+| You want to delete or fix a wrong record                       | You cannot; records are deliberately unchangeable. Fix the original data; that will also show up as a new row.                              | —            |
+| You do not see a row about your own evaluation or about you    | This is on purpose: nobody sees the rows about their own evaluation (ACR) or about a staff incident written about them, not even the Admin. | —            |
 
 <!-- unverified: how long records are kept (retention) was not found in the code; no deletion rule is written, so the page states no time limit. -->
 
@@ -129,11 +129,11 @@ For an event such as a sign-in or a reminder, no field changes. Then it says: "T
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                              | See this page | See the **Activity** panel of one record | Change or delete records |
-| ----------------------------------------------------------------- | ------------- | ---------------------------------------- | ------------------------ |
-| Admin                                                             | Yes           | Yes                                      | No, nobody can           |
-| Accountant, Academic coordinator, Teacher                         | No            | Yes, for a record they can see           | No                       |
-| Office staff, Exam controller, Committee member                   | No            | No                                       | No                       |
+| Role                                            | See this page | See the **Activity** panel of one record | Change or delete records |
+| ----------------------------------------------- | ------------- | ---------------------------------------- | ------------------------ |
+| Admin                                           | Yes           | Yes                                      | No, nobody can           |
+| Accountant, Academic coordinator, Teacher       | No            | Yes, for a record they can see           | No                       |
+| Office staff, Exam controller, Committee member | No            | No                                       | No                       |
 
 Only the Admin sees the list for the whole school. A few roles can see the history of one record only, on that record's page (for example one student's). A row from another school never appears in this list.
 
@@ -165,6 +165,19 @@ Only the Admin sees the list for the whole school. A few roles can see the histo
 - **It cannot be changed:** the school's database has a lock that stops records from being changed or deleted. No role in the app can get past it.
 - **Only your own school:** every row belongs to one school; the list brings only your school's rows.
 - **Order:** always newest to oldest. The list cannot be sorted another way, so the real order of the records is never shown wrongly.
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:auditLogs -->
+
+| Field        | What to enter                                                          | Required? |
+| ------------ | ---------------------------------------------------------------------- | --------- |
+| Performed by | Shows only what one person did. Leave it on All users to see everyone. | No        |
+
+<!-- /guide:generated -->
 
 </details>
 

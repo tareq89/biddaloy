@@ -177,19 +177,19 @@ After that, **Record another** opens an empty page; **View invoice** opens the i
 
 ## Troubleshooting <a href="#trouble" id="trouble"></a>
 
-| What you see                                                          | What to do                                                                                                                                    | Who can help |
-| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **This student has no open bills.**                                   | All their bills are paid. If you need new bills, see [**Creating fee bills**](generate-fees.md).                                              | Accountant   |
-| **Couldn't load open bills.**                                         | Press **Retry**.                                                                                                                              | Admin        |
-| **Pay plus discount can't exceed the balance.**                       | Lower that bill's **Pay** or **Discount**.                                                                                                    | —            |
-| **Tendered amount plus credit balance doesn't cover the amount due.** | Correct **Cash handed over**, or clear the box.                                                                                               | —            |
-| **Change can go to credit only when the payment is for one student.** | Give the change back in hand, or take each student's money separately.                                                                        | —            |
-| **Up to 10 students can be paid for in one checkout.**                | Take the first 10 now, the rest next time.                                                                                                    | —            |
-| **Approval was cancelled.**                                           | Nothing was recorded. Bring the admin and press again, or remove the discount.                                                                | Admin        |
+| What you see                                                          | What to do                                                                                                                                                                                                | Who can help |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **This student has no open bills.**                                   | All their bills are paid. If you need new bills, see [**Creating fee bills**](generate-fees.md).                                                                                                          | Accountant   |
+| **Couldn't load open bills.**                                         | Press **Retry**.                                                                                                                                                                                          | Admin        |
+| **Pay plus discount can't exceed the balance.**                       | Lower that bill's **Pay** or **Discount**.                                                                                                                                                                | —            |
+| **Tendered amount plus credit balance doesn't cover the amount due.** | Correct **Cash handed over**, or clear the box.                                                                                                                                                           | —            |
+| **Change can go to credit only when the payment is for one student.** | Give the change back in hand, or take each student's money separately.                                                                                                                                    | —            |
+| **Up to 10 students can be paid for in one checkout.**                | Take the first 10 now, the rest next time.                                                                                                                                                                | —            |
+| **Approval was cancelled.**                                           | Nothing was recorded. Bring the admin and press again, or remove the discount.                                                                                                                            | Admin        |
 | **Recording payment failed.**                                         | Do not close or change the page. First check the [**Payments**](payments.md) list; if the payment is not there, press again once. If someone else took money on the same bill meanwhile, reload the page. | Admin        |
-| **Record …** cannot be pressed                                        | Check that a student is chosen, at least one bill has a Pay or Discount, and the bills have finished loading.                                 | —            |
-| This student has no guardian to send a receipt to.                    | Add a phone number on the [**Guardians**](../people/guardians.md) page, or print it and hand it over.                                         | Admin        |
-| Sending the receipt by SMS fails                                      | The school's SMS credit may have run out. Send by WhatsApp or print. Ask the admin to buy SMS credit.                                                                                   | Admin        |
+| **Record …** cannot be pressed                                        | Check that a student is chosen, at least one bill has a Pay or Discount, and the bills have finished loading.                                                                                             | —            |
+| This student has no guardian to send a receipt to.                    | Add a phone number on the [**Guardians**](../people/guardians.md) page, or print it and hand it over.                                                                                                     | Admin        |
+| Sending the receipt by SMS fails                                      | The school's SMS credit may have run out. Send by WhatsApp or print. Ask the admin to buy SMS credit.                                                                                                     | Admin        |
 
 If the school's system refuses the payment for any reason, the screen shows only **Recording payment failed.**; it does not say which rule was broken.
 
@@ -230,20 +230,15 @@ For other roles, **Record payment** is not in the left menu.
 <details>
 <summary><strong>What the boxes mean</strong></summary>
 
-<!-- guide:generated:fields:payments -->
+<!-- guide:generated:fields:payments:amountReceived,discount,walletUse,tendered,changeHandling -->
 
-| Field                 | What to enter                                                                                                                                                                                      | Required? |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Amount received       | How much money you received in total. When you type it, the money is split across the bills with the oldest due dates first and fills the Pay boxes; or leave it empty and fill each box yourself. | No        |
-| Pay                   | How much money goes on this bill. Pay and discount together cannot be more than what is due on the bill.                                                                                           | No        |
-| Discount              | A one-off discount on this bill. Any discount needs an admin's approval when you submit.                                                                                                           | No        |
-| Use credit balance    | Tick to deduct from the student's earlier credit balance: the smaller of the credit balance and the subtotal comes off; credit balance cannot be used when paying for several students.            | No        |
-| Payment method        | How you received the money. Only with cash can you take more than the amount due and give change.                                                                                                  | No        |
-| Transaction reference | The transaction number for bKash, Nagad, Rocket, bank, cheque or card; this box is not shown for cash.                                                                                             | No        |
-| Cash handed over      | Cash only: how much the payer handed over. Used to work out the change; you can leave it empty. If it falls short of the amount due after credit balance, you cannot submit.                       | No        |
-| Change                | Whether to give the change back in hand or keep it as the student's credit balance. It can be kept as credit only when the payment is for one student.                                             | No        |
-| Remarks               | A note for yourselves, for example who dropped off the money.                                                                                                                                      | No        |
-| Reason                | Why you are reversing the payment; 3 to 500 characters. The reversal entry and the credit note carry this reason.                                                                                  | Required. |
+| Field              | What to enter                                                                                                                                                                                      | Required? |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Amount received    | How much money you received in total. When you type it, the money is split across the bills with the oldest due dates first and fills the Pay boxes; or leave it empty and fill each box yourself. | No        |
+| Discount           | A one-off discount on this bill. Any discount needs an admin's approval when you submit.                                                                                                           | No        |
+| Use credit balance | Tick to deduct from the student's earlier credit balance: the smaller of the credit balance and the subtotal comes off; credit balance cannot be used when paying for several students.            | No        |
+| Cash handed over   | Cash only: how much the payer handed over. Used to work out the change; you can leave it empty. If it falls short of the amount due after credit balance, you cannot submit.                       | No        |
+| Change             | Whether to give the change back in hand or keep it as the student's credit balance. It can be kept as credit only when the payment is for one student.                                             | No        |
 
 <!-- /guide:generated -->
 

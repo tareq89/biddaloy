@@ -167,8 +167,8 @@ If the guardian has not replied to the school on WhatsApp in the last 24 hours, 
 | **Something in the number, email or message isn't right. …**             | Check that the message is not empty and the WhatsApp template details are right.                   | —            |
 | **SMS is not set up for this school, …**                                 | An Admin turns it on in **Settings › Communication**; for now pick another channel.                | Admin        |
 | **This school has no SMS credit left, …**                                | Ask the Admin to add credit; for now pick another channel.                                         | Admin        |
-| **Not enough SMS credit to send: … needed, only … available.**           | Shorten the message, or ask the Admin to add credit; for now pick another channel.                | Admin        |
-| **The message could not be sent.** in the window                         | Check your internet and press **Send message** again.                                             | Admin        |
+| **Not enough SMS credit to send: … needed, only … available.**           | Shorten the message, or ask the Admin to add credit; for now pick another channel.                 | Admin        |
+| **The message could not be sent.** in the window                         | Check your internet and press **Send message** again.                                              | Admin        |
 | **Message not sent** — **Sending by … is not set up for this school. …** | Press **Open Settings › Communication** (Admin).                                                   | Admin        |
 | **Message not sent** — **Could not be sent.**                            | Press **Send another message** and try again.                                                      | Admin        |
 
@@ -210,16 +210,15 @@ For the other roles, **Send Message** is not in the left menu.
 
 <!-- guide:generated:fields:communications -->
 
-| Field                      | What to enter                                                                                                 | Required?         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------- |
-| Which guardian to send to  | One guardian of the chosen student. Their phone or email shows below; without one you cannot send.            | Yes               |
-| How to send (Send message) | SMS, WhatsApp or Email. SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. | No                |
-| Message (Send message)     | What to send. For SMS, the characters and the number of SMS it uses show below.                               | Yes               |
-| Who to remind              | Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.      | Yes, at least one |
-| Message (Fee reminder)     | Use the buttons below to put in the name, due amount or month; each guardian gets their real details.         | Yes               |
-| How to send (Fee reminder) | Starts on each guardian’s preferred channel. Pick one to send everyone on that channel this time.             | No                |
-| Batch name                 | A name for this batch; you find it by this name in Reminder history later.                                    | Yes               |
-| Channels (bulk reminder)   | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                     | Yes, at least one |
+| Field                     | What to enter                                                                                                                                                                                                                               | Required?         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Which guardian to send to | One guardian of the chosen student. Their phone or email shows below; without one you cannot send.                                                                                                                                          | Yes               |
+| How to send               | Send message: SMS, WhatsApp or Email; SMS and WhatsApp go to the guardian’s phone, or the alternate phone if there is none. Fee reminder: starts on each guardian’s preferred channel; pick one to send everyone on that channel this time. | No                |
+| Message                   | What to send. For SMS, the characters and the number of SMS it uses show below. In a fee reminder, use the buttons below to put in the name, due amount or month; each guardian gets their real details.                                    | Yes               |
+| Who to remind             | Every guardian starts ticked. A guardian who turned notifications off does not get it, even when ticked.                                                                                                                                    | Yes, at least one |
+| Batch name                | A name for this batch; you find it by this name in Reminder history later.                                                                                                                                                                  | Yes               |
+| Channels (bulk reminder)  | A guardian whose preferred channel is not ticked here is skipped. All three start ticked.                                                                                                                                                   | Yes, at least one |
+| Status                    | Shows only the rounds in one state: Processing, Completed, Partially failed or Failed. Leave it on All statuses to see every round.                                                                                                         | No                |
 
 <!-- /guide:generated -->
 

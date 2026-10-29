@@ -149,6 +149,10 @@
     "start_date": "Start date",
     "end_date": "End date",
     "is_current": "Current year",
-    "enrollment_status": "Enrollment status"
+    "enrollment_status": "Enrollment status",
+    "performedBy": "Performed by"
+  },
+  "help": {
+    "performedBy": "Shows only what one person did. Leave it on All users to see everyone."
   }
 }

@@ -156,7 +156,9 @@ describe('buildFieldTable', () => {
 
   it('escapes pipes and backslashes so a cell cannot break the table', () => {
     // A backslash in front of a pipe must not swallow the pipe's escape.
-    const row = buildFieldTable({ code: 'A\\|B', help: { code: 'one | two' } }, 'en')!.split('\n')[2];
+    const row = buildFieldTable({ code: 'A\\|B', help: { code: 'one | two' } }, 'en')!.split(
+      '\n',
+    )[2];
     expect(row).toBe('| A\\\\\\|B | one \\| two | No |');
   });
 

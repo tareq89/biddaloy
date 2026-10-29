@@ -3,18 +3,18 @@
     "class": "Class",
     "section": "Section",
     "month": "Month",
-    "reasonForCorrection": "Reason for correction"
+    "reason": "Reason for correction"
   },
   "help": {
     "class": "Which class. Changing it empties the section.",
     "section": "Which section.",
     "month": "Which month's register. The current month is filled in.",
-    "reasonForCorrection": "Why you are changing it. At least 3 letters. The same reason is kept in every change's history."
+    "reason": "Why you are changing it. At least 3 letters. The same reason is kept in every change's history."
   },
   "helpRequired": {
     "class": "Yes",
     "section": "Yes",
     "month": "Yes",
-    "reasonForCorrection": "Only when changing a day outside the window"
+    "reason": "Only when changing a day outside the window"
   }
 }

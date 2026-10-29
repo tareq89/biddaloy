@@ -12,7 +12,7 @@
  *   client-admin/src/help/help-index.gen.ts      HELP_INDEX + HELP_ROUTES (Epic 44, E14)
  *   the `appVersion:` line of every page's <!-- guide:meta --> comment
  *
- * Block kinds: `fields:<i18n namespace>`, `roles:<role-kebab>` (`roles:exam-controller`),
+ * Block kinds: `fields:<i18n namespace>[:<key>,<key>]`, `roles:<role-kebab>` (`roles:exam-controller`),
  * `widgets:roles` (each role's default widgets) and `widgets:sections` (one section per widget).
  * Any other kind throws: the generator for it does not exist yet (video is out, D48).
  */
@@ -102,8 +102,10 @@ export async function generate(root: string, env: { GUIDE_SHA?: string } = {}): 
       for (const m of [...text.matchAll(MARKER)]) {
         const [whole, open, kind, id, current, close] = m as unknown as string[];
         let want: string | null;
-        if (kind === 'fields') want = buildFieldTable(locale(lang, id!), lang, id);
-        else if (kind === 'roles')
+        if (kind === 'fields') {
+          const [nsName, keys] = id!.split(':');
+          want = buildFieldTable(locale(lang, nsName!), lang, nsName, keys?.split(','));
+        } else if (kind === 'roles')
           want = buildRoleIndex(roleOf(id!), lang, {
             features,
             nav: locale(lang, 'nav'),
