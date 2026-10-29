@@ -56,6 +56,7 @@ describe('formatArrivalTime', () => {
 
 describe('ArrivalNoticeService', () => {
   let subs: any[];
+  let nameRow: Record<string, unknown> = { full_name: 'Karim' };
   let saved: any[];
   let saveError: unknown;
   let queue: { add: ReturnType<typeof vi.fn> };
@@ -75,6 +76,7 @@ describe('ArrivalNoticeService', () => {
   };
 
   beforeEach(() => {
+    nameRow = { full_name: 'Karim' };
     subs = [sub()];
     saved = [];
     saveError = null;
@@ -109,7 +111,7 @@ describe('ArrivalNoticeService', () => {
     ]);
     const ds: any = {
       getRepository: (e: unknown) => repos.get(e),
-      query: async () => [{ full_name: 'Karim' }],
+      query: async () => [nameRow],
     };
     const schools: any = {
       getResolvedSettings: async () => ({
@@ -128,6 +130,26 @@ describe('ArrivalNoticeService', () => {
       takenBy: { kind: 'TEACHER', userId: 'tu' },
       ...over,
     } as any);
+
+  it('bn school: taken_by uses the staff Bangla name when set, else the English name', async () => {
+    nameRow = { full_name: 'Karim', name_bn: 'করিম' };
+    await call();
+    expect(saved[0].message_body).toContain('করিম');
+    expect(saved[0].message_body).not.toContain('Karim');
+    nameRow = { full_name: 'Karim', name_bn: null };
+    await call();
+    expect(saved[1].message_body).toContain('Karim');
+  });
+
+  it('a queue.add that never settles (Redis down) is cut off as ENQUEUE_FAILED', async () => {
+    vi.useFakeTimers();
+    queue.add.mockReturnValue(new Promise(() => {}));
+    const pending = call();
+    await vi.advanceTimersByTimeAsync(3100);
+    const r = await pending;
+    vi.useRealTimers();
+    expect(r.skipped[0].reason).toBe('enqueue_failed');
+  });
 
   it('queues one PUSH log with the dedupe key and no SMS reservation', async () => {
     const r = await call();

@@ -896,6 +896,27 @@ describe('CommunicationsProcessor', () => {
       );
     });
 
+    it('PUSH + accepted 0 but transient: throws for retry, log not settled', async () => {
+      arrivalLog('PUSH');
+      guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
+      pushService.sendToUser.mockResolvedValue({ accepted: 0, transient: 1, pruned: 0 });
+
+      await expect(processor.process(job())).rejects.toThrow('Transient push failure');
+      expect(txManager.save).not.toHaveBeenCalled();
+    });
+
+    it('PUSH + transient on the final attempt: FAILED NO_PUSH_DEVICE', async () => {
+      arrivalLog('PUSH');
+      guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
+      pushService.sendToUser.mockResolvedValue({ accepted: 0, transient: 1, pruned: 0 });
+
+      await processor.process(job({ attemptsMade: 2, attempts: 3 }));
+
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: CommunicationStatus.FAILED }),
+      );
+    });
+
     it('PUSH + guardian without a user: FAILED NO_PUSH_DEVICE', async () => {
       arrivalLog('PUSH');
       guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: null });
