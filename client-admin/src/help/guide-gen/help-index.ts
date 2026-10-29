@@ -34,7 +34,8 @@ interface PageMeta {
   helpIds: string[];
   knownIssues: number;
   anchors: Set<string>;
-  fieldNs: string[];
+  /** `only` is the marker's `:<key>,<key>` filter; absent means the whole namespace. */
+  fieldNs: { ns: string; only?: string[] }[];
 }
 
 const scalar = (yaml: string, key: string): string =>
@@ -63,8 +64,8 @@ export function readMeta(file: string): PageMeta {
     knownIssues: issues.split('\n').filter((l) => /^\s+-\s/.test(l)).length,
     // Not `data-id="…"`: the char before `id` must not be a word char or `-`.
     anchors: new Set([...text.matchAll(/(?<![\w-])id="([^"]+)"/g)].map((m) => m[1]!)),
-    fieldNs: [...text.matchAll(/<!-- guide:generated:fields:([^\s:]+)(?::\S+)? -->/g)].map(
-      (m) => m[1]!,
+    fieldNs: [...text.matchAll(/<!-- guide:generated:fields:([^\s:]+)(?::(\S+))? -->/g)].map(
+      (m) => ({ ns: m[1]!, ...(m[2] && { only: m[2].split(',') }) }),
     ),
   };
 }
@@ -156,12 +157,15 @@ export function buildHelpIndex(
       };
       const fieldKey = id.match(/\.field\.(.+)$/)?.[1];
       if (fieldKey) {
-        const ns = meta.bn.fieldNs.find((n) =>
+        // The page's table lists only the marker's keys, so a filtered marker must name this one.
+        const lists = (l: GuideLang, n: string) =>
+          meta[l].fieldNs.some((m) => m.ns === n && (!m.only || m.only.includes(fieldKey)));
+        const ns = meta.bn.fieldNs.find(({ ns: n }) =>
           LANGS.every((l) => {
             const text = locale(l, n).help?.[fieldKey];
-            return typeof text === 'string' && text.trim() !== '';
+            return lists(l, n) && typeof text === 'string' && text.trim() !== '';
           }),
-        );
+        )?.ns;
         if (!ns) {
           problems.push(`${pagePath}: "${id}" has no help.${fieldKey} in any fields:<ns> marker`);
           continue;
