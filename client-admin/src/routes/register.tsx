@@ -3,6 +3,7 @@ import { AuthLayout } from '@biddaloy/ui/components';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 
+import { DemoInboxWarning } from '../features/demo/demo-inbox-warning';
 import { RegisterFlow } from '../features/registration/register-flow';
 import { loadRouteNamespaces } from '../route-loaders';
 
@@ -32,6 +33,7 @@ function RegisterPage() {
   const navigate = useNavigate();
   return (
     <AuthLayout>
+      <DemoInboxWarning className="mb-3" />
       <RegisterFlow
         {...(social === 'google' || social === 'facebook'
           ? { socialTicket: { provider: social } }

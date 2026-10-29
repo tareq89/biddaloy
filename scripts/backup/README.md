@@ -134,13 +134,26 @@ flowchart LR
   A[guard] --> B[wait for<br/>db/daily/DAY.dump.age] --> C[create _next] --> D[restore.sh] --> E[scrub.sql] --> F[verify counts] --> G["staging_next ready"]
 ```
 
+Options (Epic 88, D16):
+
+```bash
+staging-refresh.sh                                   # as above: build <POSTGRES_DB>_next from today's daily
+staging-refresh.sh --target biddaloy_staging_drill   # fill the drill db itself (drop, create, restore, scrub, verify; no swap)
+staging-refresh.sh --target biddaloy_staging --from latest-hourly
+staging-refresh.sh --target biddaloy_staging_drill --from db/daily/2026-10-28.dump.age
+```
+
+- `--target` accepts exactly `biddaloy_staging` and `biddaloy_staging_drill`; anything else exits 2 before any command runs.
+- `--from` is `latest-daily` (default, the only one that waits for the deadline), `latest-hourly`, or an exact key.
+- The scrub always runs. `db-swap.sh` also accepts `biddaloy_staging_dev` (guard only; dev is never renamed).
+
 Needs (all passed by `deploy/stack.yml`, from `infra/secrets/staging.enc.env`):
 
 - `POSTGRES_DB` (must start `biddaloy_staging`), `POSTGRES_USER`, `POSTGRES_PASSWORD`
 - `BACKUP_S3_ENDPOINT` (https), `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`: the **read-only** R2 token
 - the age private key at `/run/age/key.txt` (`BACKUP_AGE_KEY_DIR` mounted read-only)
 - `STAGING_PASSWORD_HASH_B64` (base64 of a bcrypt cost-12 hash), `SMOKE_SCHOOL_SLUG`, `PLATFORM_TENANT_ID` (uuid)
-- optional: `STAGING_REFRESH_PUSH_URL` (Kuma, failures only), `STAGING_REFRESH_DEADLINE` (HH:MM, default 02:50),
+- optional: `STAGING_REFRESH_PUSH_URL` (Kuma, failures only, never with `--target`), `STAGING_REFRESH_DEADLINE` (HH:MM, default 02:50),
   `STAGING_REFRESH_LOCK` (extra lock file; unset by default, the host unit's `flock` is the real lock)
 
 Why base64: compose expands every `$` in a `.env` value, and a bcrypt hash (`$2b$12$...`) is full

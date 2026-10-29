@@ -9870,6 +9870,7 @@ export interface components {
             onboarding: {
                 [key: string]: unknown;
             } | null;
+            created_in_demo: boolean;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */

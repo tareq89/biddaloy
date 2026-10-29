@@ -16,6 +16,8 @@ describe('runtimeConfig', () => {
       sentryTracesSampleRate: 0.1,
       release: '',
       messageSinkUrl: '',
+      envBadge: '',
+      envBadgeDate: '',
     });
   });
 

@@ -276,9 +276,14 @@ export async function runStackConfigCheck(
   if (stack === 'demo' && val('DEMO_MODE') !== 'true')
     errors.push('DEMO_MODE must be true on demo');
   const all = [...new Set([...(base.ok ? [] : base.output.split('\n')), ...errors])];
+  // [88 U3] STAGING_REFRESH_PUSH_URL was renamed; the old name still works for one release.
+  const warning =
+    stack === 'staging' && set('STAGING_REFRESH_PUSH_URL') && !set('RESTORE_DRILL_PUSH_URL')
+      ? '\nwarning: STAGING_REFRESH_PUSH_URL is renamed RESTORE_DRILL_PUSH_URL; the old name is accepted for one more release'
+      : '';
   return all.length === 0
-    ? { ok: true, output: 'config ok' }
-    : { ok: false, output: all.join('\n') };
+    ? { ok: true, output: `config ok${warning}` }
+    : { ok: false, output: all.join('\n') + warning };
 }
 
 /**

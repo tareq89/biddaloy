@@ -1,0 +1,115 @@
+name: Staging
+
+# Runs biddaloy-staging on the VM through its OWN forced-command SSH key (D7, D15, D6-B). That key
+# can run only `biddaloy-staging --from-github`, which accepts exactly these forms (nothing else, no
+# "biddaloy-staging" prefix): `status`, `backups`, `load <key> --yes [--use]`, `use dev|staging --yes`,
+# `clean-dev --yes`. The deploy key cannot run them, and this key cannot deploy (least privilege).
+# No third-party actions are used (Rule 21).
+#
+# OWNER SETUP (docs/architecture/28-platform-runbook.md, "Staging workflow key"): a `staging`
+# Environment that allows only the main branch, with the secrets STAGING_HOST, STAGING_SSH_KEY and
+# STAGING_SSH_KNOWN_HOSTS; the public half of STAGING_SSH_KEY in github_staging_pubkey_pinned
+# (infra/ansible/inventory/prod.yml), then provision.yml once.
+#
+# Rule 13: the log and summary show only fixed lines (FAILED / Why / State / Next, step and done
+# lines, the status fields, the backup list rows) and the exit status. Raw output, ssh's own
+# messages (they can carry the host address) included, never reaches them.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do
+        type: choice
+        required: true
+        default: status
+        options: [status, backups, load, use-dev, use-staging, clean-dev]
+      backup:
+        description: 'Backup for "load": latest-daily, latest-hourly, or a key from "backups" (db/daily/<file>.dump.age)'
+        type: string
+        required: false
+        default: latest-daily
+      use_after_load:
+        description: Switch staging to the loaded database after "load" (only with "load")
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 60
+    steps:
+      - name: Run biddaloy-staging
+        env:
+          # Inputs and secrets only ever travel through env vars, never through ${{ }} in the script.
+          ACTION: ${{ inputs.action }}
+          BACKUP: ${{ inputs.backup }}
+          USE_AFTER_LOAD: ${{ inputs.use_after_load }}
+          REF: ${{ github.ref }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+          LC_ALL: C
+        run: |
+          set -euo pipefail
+          umask 077
+          refuse() { # <at> <why> <next>
+            echo "FAILED at: $1" >&2
+            echo "Why: $2" >&2
+            echo "Next: $3" >&2
+            exit 2
+          }
+          [ "$REF" = refs/heads/main ] || refuse ref "this workflow runs from main only" "run it on main"
+          if [ "$USE_AFTER_LOAD" = true ] && [ "$ACTION" != load ]; then
+            refuse use_after_load "use_after_load only goes with load" "untick it, or pick load"
+          fi
+          # The exact strings biddaloy-staging --from-github accepts (deploy/bin/biddaloy-staging).
+          case "$ACTION" in
+            status|backups) args="$ACTION" ;;
+            use-dev) args="use dev --yes" ;;
+            use-staging) args="use staging --yes" ;;
+            clean-dev) args="clean-dev --yes" ;;
+            load)
+              # Same rule as the VM: starts with a letter or digit, no "..", no "//", not a bare
+              # number (a list number only works on a terminal: scripts/staging.sh).
+              backup_re='^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$'
+              if ! [[ $BACKUP =~ $backup_re ]] || [[ $BACKUP == *..* || $BACKUP == *//* || $BACKUP =~ ^[0-9]+$ ]]; then
+                refuse backup "use latest-daily, latest-hourly or a key from backups (letters, digits and . _ / -)" "fix the backup input"
+              fi
+              args="load $BACKUP --yes"
+              if [ "$USE_AFTER_LOAD" = true ]; then args="$args --use"; fi
+              ;;
+            *) refuse action "unknown action" "pick one from the list" ;;
+          esac
+
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$STAGING_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$STAGING_SSH_KEY" > ~/.ssh/staging_key
+
+          echo "### Staging: $ACTION" >> "$GITHUB_STEP_SUMMARY"
+          rc=0
+          # "--" ends ssh's options. stdout and stderr go to files that are never printed whole.
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes \
+            -o ServerAliveInterval=30 -i ~/.ssh/staging_key -- "deploy@$STAGING_HOST" "$args" \
+            > staging.out 2> staging.err || rc=$?
+          {
+            echo '```text'
+            cat staging.out staging.err | grep -E \
+              -e 'FAILED at:|Why:|State:|Next:|REFUSED:|Nothing was modified|biddaloy-staging: done:' \
+              -e '^step: ' \
+              -e '^(active db|loaded backup|staging sha|last drill): ' \
+              -e '^ *[0-9]+  db/(hourly|daily)/[A-Za-z0-9._-]+\.dump\.age ' || true
+            # 255 is ssh itself (its text is not shown): usually the key or secrets are not set up.
+            if [ "$rc" = 255 ]; then echo "Why: ssh could not log in or lost the connection (runbook part 5e)"; fi
+            echo "exit status: $rc"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "$rc"

@@ -9,13 +9,13 @@ database restore doesn't cover (the object store, in-flight background jobs).
 
 ## The numbers
 
-|                                      |                                                                                                                                                  |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **RPO** (how much data you can lose) | 1 hour: one backup an hour                                                                                                                       |
-| **RTO** (how long a restore takes)   | 4 hours                                                                                                                                          |
-| **Retention**                        | 100 hourly + 30 daily database dumps (D2); deleted or changed files stay 30 days in `files-trash/`; logs 180 days                                |
-| **Restore proof**                    | Every night: the staging refresh restores the day's backup into a scratch database and scrubs it (D5). There is no separate drill any more       |
-| **Backup owner**                     | Whoever holds the offline copy of the `BACKUP_AGE_PRIVATE_KEY` for the environment (see "Key handling"). Set this to a real name per environment |
+|                                      |                                                                                                                                                                                                 |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RPO** (how much data you can lose) | 1 hour: one backup an hour                                                                                                                                                                      |
+| **RTO** (how long a restore takes)   | 4 hours                                                                                                                                                                                         |
+| **Retention**                        | 100 hourly + 30 daily database dumps (D2); deleted or changed files stay 30 days in `files-trash/`; logs 180 days                                                                               |
+| **Restore proof**                    | Every night: the `restore-drill` job restores the day's backup into a throwaway database, scrubs, migrates and smoke-tests it, then drops it (D5). It never touches the database staging serves |
+| **Backup owner**                     | Whoever holds the offline copy of the `BACKUP_AGE_PRIVATE_KEY` for the environment (see "Key handling"). Set this to a real name per environment                                                |
 
 RPO of 1h means: if the database is lost right now, everything written
 since the last hourly backup (up to 1 hour ago) is gone.
@@ -102,33 +102,47 @@ dumps sit on the same disk as the database. Production always sets all six of
 If the network is down at the start, the run probes and waits (up to
 `BACKUP_NET_WAIT_SECS`, default 900) instead of failing at once.
 
-## The nightly staging refresh is the restore drill
+## The nightly restore drill proves restores
 
-A backup nobody restores is a hope, not a backup. So every night staging is
-rebuilt from the prod backup. If that works, last night's backup is proven
-restorable (D5). It replaced the old weekly drill, which only checked row
-counts once a week.
+A backup nobody restores is a hope, not a backup. So every night the host
+restores the newest daily prod backup into a **throwaway** database
+(`biddaloy_staging_drill`), checks it, and drops it (D5). The database staging
+actually serves (`biddaloy_staging_dev` or `biddaloy_staging`, see below) is
+never touched, so the drill can fail without hurting anyone using staging.
+It replaced the old weekly drill (row counts once a week) and, in Epic 88, the
+nightly staging refresh (which swapped a fresh copy into staging every night).
 
 ```mermaid
 sequenceDiagram
   participant T as systemd timer 02:20
-  participant N as biddaloy-nightly staging-refresh
+  participant N as biddaloy-nightly restore-drill
   participant J as jobs container (staging)
   participant R as R2 (read-only token)
   participant P as Postgres (staging)
   participant K as Uptime Kuma
   T->>N: start (holds deploy.lock, then swap lock)
-  N->>J: staging-refresh.sh
+  N->>N: guard: at least 1 GB RAM free, else down "not enough memory"
+  N->>J: staging-refresh.sh --target biddaloy_staging_drill --from latest-daily
   J->>R: wait for db/daily/TODAY.dump.age (until 02:50)
-  J->>P: create biddaloy_staging_next
   J->>R: restore.sh: download, age decrypt, pg_restore
   J->>P: scrub.sql in ONE transaction
   J->>P: verify: schools, users, students not empty
-  N->>P: migrate _next with the staging app image
-  N->>P: stop app, db-swap.sh (rename live to _prev, _next to live)
-  N->>N: flush Redis, start app, ready, smoke
+  N->>P: migrate the drill db with the staging app image
+  N->>P: smoke: one-off app on the drill db
+  N->>P: drop biddaloy_staging_drill
+  N->>N: write /opt/biddaloy/staging/last-drill
   N->>K: push up (or down + failed step)
 ```
+
+A green night looks like this in `/opt/biddaloy/staging/last-drill`
+(one line, written only by a clean run, so a failed night leaves yesterday's):
+
+```text
+2026-10-29T02:31:07+0600 duration=642s schools=12 users=1480 students=9120
+```
+
+`biddaloy-doctor staging` shows it as the `restore drill` line: OK under 26 h,
+WARN when older or never recorded.
 
 **What a green night proves:** the newest daily dump downloads, decrypts with
 the real private key, `pg_restore` loads it, every personal-data column can be
@@ -137,15 +151,39 @@ boots and passes the smoke test on the result.
 
 **What it does not prove:** that the _hourly_ dumps of other hours work (they
 are the same pipe, so unlikely to differ), that uploaded **files** can be
-restored (staging gets no files), or that a restore onto an _empty prod_ VM
-works. That last path is `biddaloy-restore-prod` (below); rehearse it after any
-change to it.
+restored (the drill restores no files), or that a restore onto an _empty prod_
+VM works. That last path is `biddaloy-restore-prod` (below); rehearse it after
+any change to it.
 
 If the 02:00 daily is late, the job waits until `STAGING_REFRESH_DEADLINE`
-(default 02:50) and then fails with a `down` push; staging keeps yesterday's
-copy. A failure after the swap swaps yesterday's database back. The swap itself
-(`scripts/backup/db-swap.sh`) renames by name and accepts only
-`biddaloy_staging*` and `biddaloy_demo*` databases, so it can never touch prod.
+(default 02:50) and then fails with a `down` push. The drill database is
+dropped, and the one-off app's Redis db 15 flushed, on every exit, so nothing is
+left behind; if the drop itself fails the
+push is `up` with `ok, warning: drill db not dropped` and `last-drill` is not
+updated. The swap helper (`scripts/backup/db-swap.sh`) renames by name and
+accepts only `biddaloy_staging*` and `biddaloy_demo*` databases, so it can never
+touch prod.
+
+### Which database does staging serve? (the active db)
+
+Staging keeps two databases side by side. A one-word state file picks which one
+the app uses:
+
+| `/opt/biddaloy/staging/active-db` | Staging serves         | S3 bucket      | Badge in the app header |
+| --------------------------------- | ---------------------- | -------------- | ----------------------- |
+| missing, empty or `dev` (default) | `biddaloy_staging_dev` | `<bucket>-dev` | `DEV`                   |
+| `staging`                         | `biddaloy_staging`     | `<bucket>`     | `STAGING`               |
+
+Any other word fails the next deploy (no guessing a database). The deploy
+derives `POSTGRES_DB`, `S3_BUCKET`, `ENV_BADGE` and `ENV_BADGE_DATE` (the date
+in `/opt/biddaloy/staging/loaded-backup`, shown only when it is `YYYY-MM-DD`)
+from it; they are not operator settings. To load a prod copy into
+`biddaloy_staging` by hand use
+`staging-refresh.sh --target biddaloy_staging --from latest-daily`
+(`--from latest-hourly` or an exact `db/daily|hourly/<name>.dump.age` key also
+work; the only allowed targets are `biddaloy_staging` and
+`biddaloy_staging_drill`). It drops and recreates the target first, so stop the
+app before pointing it at the live database.
 
 ### The scrub (D6) and the column guard
 
@@ -464,8 +502,8 @@ disaster recovery":
 | `BACKUP_AGE_PRIVATE_KEY_FILE`                    | 15.3.3  | Key path inside the container (`/run/age/key.txt`). The key itself is never in a container env; see "Key handling"                             |
 | `BACKUP_AGE_KEY_DIR`                             | Epic 79 | Host dir of that key, mounted read-only at `/run/age`. No default; the deploy sets it for staging, `biddaloy-restore-prod` sets it for its run |
 | `STAGING_PASSWORD_HASH_B64`                      | Epic 79 | Base64 of the bcrypt (cost 12) hash of `STAGING_PASSWORD`; the scrub sets it on every user                                                     |
-| `STAGING_REFRESH_PUSH_URL`                       | Epic 79 | Kuma push URL of the staging refresh (staging `.env`)                                                                                          |
-| `STAGING_REFRESH_DEADLINE`                       | Epic 79 | `HH:MM` Dhaka time to stop waiting for the daily backup (default `02:50`)                                                                      |
+| `RESTORE_DRILL_PUSH_URL`                         | Epic 88 | Kuma push URL of the nightly restore drill (staging `.env`). The old name `STAGING_REFRESH_PUSH_URL` is still read for one release             |
+| `STAGING_REFRESH_DEADLINE`                       | Epic 79 | `HH:MM` Dhaka time to stop waiting for the daily backup (default `02:50`); the drill uses it too                                               |
 | `SMOKE_SCHOOL_SLUG`                              | Epic 79 | The school whose users keep their email in staging (the "Smoke Test School")                                                                   |
 | `LOG_ARCHIVE_PUSH_URL`                           | Epic 79 | Kuma push URL of the log archive (prod `.env`)                                                                                                 |
 | `LOG_ARCHIVE_KEEP_DAYS`                          | Epic 79 | Days of logs kept in R2 (default 180)                                                                                                          |
@@ -502,3 +540,18 @@ disaster recovery":
   files sync, trash purge, push.
 - The `[r2]` remote sets `no_check_bucket = true` so a bucket-scoped R2 token
   (no CreateBucket right) works; the sync excludes `/backups/**` (legacy dumps).
+
+## Learnings (Epic 88, wave 2)
+
+- 2026-10-29: the restore proof moved from "refresh staging every night" to a
+  throwaway-database drill. Staging no longer changes under testers at 02:20,
+  and a broken backup shows up as a red `restore-drill` monitor instead
+  of a stale staging.
+- 2026-10-29: `last-drill` is written only after restore, migrate, smoke and
+  drop all passed. The doctor trusts that file, not the timer, so a night that
+  failed halfway cannot look healthy.
+- 2026-10-29: the drill skips itself (down push) below 1 GB of free memory,
+  because it restores a whole prod dump next to a running staging (D8).
+- 2026-10-29: the push variable was renamed, so the old
+  `STAGING_REFRESH_PUSH_URL` is read as a fallback for one release. Rename it in
+  `staging.enc.env`, then remove the fallback.

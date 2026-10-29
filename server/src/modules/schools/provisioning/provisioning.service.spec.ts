@@ -180,6 +180,26 @@ describe('ProvisioningService', () => {
     expect(result.invitation).toEqual({ id: 'invite-1', status: 'PENDING' });
   });
 
+  // Epic 88 D3: provision() is the one place a school row is inserted (registration and
+  // POST /schools both come through here), so the demo flag is set here for every caller.
+  it.each([
+    ['true', true],
+    [undefined, false],
+  ])('sets created_in_demo from DEMO_MODE=%s', async (demo, flag) => {
+    const prev = process.env.DEMO_MODE;
+    if (demo === undefined) delete process.env.DEMO_MODE;
+    else process.env.DEMO_MODE = demo;
+    try {
+      await service.provision(dto, ACTOR);
+    } finally {
+      if (prev === undefined) delete process.env.DEMO_MODE;
+      else process.env.DEMO_MODE = prev;
+    }
+    expect(schoolRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: dto.slug, created_in_demo: flag }),
+    );
+  });
+
   it('rolls back the whole transaction when the membership insert fails — no rows persisted', async () => {
     userTenantRepo.save.mockRejectedValue(new Error('forced membership insert failure'));
 

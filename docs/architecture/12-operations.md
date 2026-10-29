@@ -83,7 +83,7 @@ as the `deploy` user.
 
 ```mermaid
 flowchart LR
-  B["every hour :00<br/>prod backup to R2<br/>(02:00 run also makes the daily copy)"] --> S["02:20 staging-refresh<br/>restore, scrub, migrate, swap, ready, smoke"]
+  B["every hour :00<br/>prod backup to R2<br/>(02:00 run also makes the daily copy)"] --> S["02:20 restore-drill<br/>restore, scrub, migrate, smoke, drop"]
   S --> D["03:00 demo-rebuild<br/>seed, swap, restart app, ready"]
   D --> A["04:00 log-archive<br/>yesterday's logs to R2"]
   S & D & A & B -.->|"Kuma push: up / down + step"| K["Kuma, then Telegram / SMS"]
@@ -106,21 +106,40 @@ This table is the source of truth. Kuma keeps its config in its own database, so
 if you add or change a monitor in the UI, change this table in the same PR.
 `<domain>` values come from `infra/secrets/edge.enc.env`.
 
-| Name                      | Type           | Target                                                                                  | Interval              | Notifies       |
-| ------------------------- | -------------- | --------------------------------------------------------------------------------------- | --------------------- | -------------- |
-| `app-public`              | HTTP           | `https://<APP_DOMAIN>/api/health`, retries 3                                            | 60 s                  | Telegram + SMS |
-| `login-page`              | HTTP + keyword | `https://<APP_DOMAIN>/login`                                                            | 60 s                  | Telegram       |
-| `demo-public`             | HTTP           | `https://<DEMO_DOMAIN>/api/health`                                                      | 60 s                  | Telegram       |
-| `backup-hourly`           | Push           | `BACKUP_PUSH_URL` (prod `.env`), sent by the prod `backup` container                    | 3600 s, grace 900 s   | Telegram + SMS |
-| `staging-refresh-nightly` | Push           | `STAGING_REFRESH_PUSH_URL` (staging `.env`), sent by `biddaloy-nightly staging-refresh` | 86400 s, grace 3600 s | Telegram       |
-| `demo-rebuild-nightly`    | Push           | `DEMO_RESET_PUSH_URL` (demo `.env`), sent by `biddaloy-nightly demo-rebuild`            | 86400 s, grace 3600 s | Telegram       |
-| `log-archive-nightly`     | Push           | `LOG_ARCHIVE_PUSH_URL` (prod `.env`), sent by `biddaloy-nightly log-archive`            | 86400 s, grace 3600 s | Telegram       |
+| Name                   | Type           | Target                                                                              | Interval                 | Notifies       |
+| ---------------------- | -------------- | ----------------------------------------------------------------------------------- | ------------------------ | -------------- |
+| `app-public`           | HTTP           | `https://<APP_DOMAIN>/api/health`, retries 3                                        | 60 s                     | Telegram + SMS |
+| `login-page`           | HTTP + keyword | `https://<APP_DOMAIN>/login`                                                        | 60 s                     | Telegram       |
+| `demo-public`          | HTTP           | `https://<DEMO_DOMAIN>/api/health`                                                  | 60 s                     | Telegram       |
+| `backup-hourly`        | Push           | `BACKUP_PUSH_URL` (prod `.env`), sent by the prod `backup` container                | 3600 s, grace 900 s      | Telegram + SMS |
+| `restore-drill`        | Push           | `RESTORE_DRILL_PUSH_URL` (staging `.env`), sent by `biddaloy-nightly restore-drill` | heartbeat 26 h (93600 s) | Telegram + SMS |
+| `demo-rebuild-nightly` | Push           | `DEMO_RESET_PUSH_URL` (demo `.env`), sent by `biddaloy-nightly demo-rebuild`        | 86400 s, grace 3600 s    | Telegram       |
+| `log-archive-nightly`  | Push           | `LOG_ARCHIVE_PUSH_URL` (prod `.env`), sent by `biddaloy-nightly log-archive`        | 86400 s, grace 3600 s    | Telegram       |
 
-There is no `drill-weekly` monitor any more: the nightly staging refresh restores
-a real backup every night and is the restore drill (D5). There is no
+There is no `drill-weekly` monitor any more: the nightly `restore-drill` restores
+a real backup every night into a throwaway database (D5). It replaced the
+`staging-refresh-nightly` monitor: delete that one in Kuma. There is no
 `app-internal-ready` monitor either (reason above). TLS expiry is built into
 every HTTPS monitor (warn at 14 days, Telegram). `app-public` retrying 3 times
 at 60 s means the SMS arrives about 3 minutes after the app goes down.
+
+**Who is told when the restore drill fails (Epic 88):**
+
+```mermaid
+flowchart LR
+  J["biddaloy-nightly restore-drill"] -->|"push up / down + step"| M["Kuma monitor restore-drill"]
+  M -->|"no push for 26 h, or down"| T["Telegram: private ops group"]
+  M -->|"same event"| W["Webhook notification"]
+  W -->|"HTTP call to the SMS gateway API"| S["SMS to PLATFORM_ALERT_PHONES"]
+```
+
+Example: the 02:00 backup never ran, so at 02:50 the drill pushes
+`down?msg=refresh`. The Telegram group and the phones in `PLATFORM_ALERT_PHONES`
+(the platform owner's numbers, not any school's) both hear about it within a
+minute. If the VM or the timer is dead, no push comes at all, and Kuma fires on
+its own 26 h later. 26 h is the nightly 24 h plus a 2 h margin for a late daily.
+The SMS webhook notification from step 5 below is shared with `app-public` and
+`backup-hourly`: attach it to `restore-drill` too.
 
 The push URL is public: `https://<KUMA_DOMAIN>/api/push/<token>`. The tunnel
 routes exactly `/api/push/` on the Kuma host without the Access login (D14), and
@@ -164,7 +183,7 @@ flowchart LR
 4. **Kuma monitors.** Add the monitors from the table above. Create the push
    monitors first. Kuma shows each push URL as `http://localhost:3001/api/push/<token>`;
    keep only the token and paste `https://<KUMA_DOMAIN>/api/push/<token>` into
-   `BACKUP_PUSH_URL` (prod), `STAGING_REFRESH_PUSH_URL` (staging),
+   `BACKUP_PUSH_URL` (prod), `RESTORE_DRILL_PUSH_URL` (staging; the old `STAGING_REFRESH_PUSH_URL` is still read for one release),
    `DEMO_RESET_PUSH_URL` (demo) and `LOG_ARCHIVE_PUSH_URL` (prod) in `sops`.
    Commit, push to `main`, then `biddaloy-deploy` each project at that commit.
    Every pusher logs `Kuma push got HTTP <code>, not 2xx` when a push does not
@@ -174,7 +193,7 @@ flowchart LR
    every monitor. SMS notifier: Kuma "Webhook" with a custom body, pointed at the
    SMS gateway's HTTP API (URL shape:
    `server/src/modules/communications/providers/sms/*.gateway.ts`), attached only
-   to `app-public` and `backup-hourly`. The deploy's own Telegram message uses
+   to `app-public`, `backup-hourly` and `restore-drill`. The deploy's own Telegram message uses
    `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `edge.enc.env`; it is separate
    from Kuma's notifier.
 6. **Sentry rules** are listed in [§2](#2-alert-thresholds).
@@ -195,23 +214,23 @@ Known limits:
 
 Where each alert is set up. Kuma monitors and intervals: the table in [§1](#uptime-kuma-monitors).
 
-| Signal                                                       | Threshold                                                                                                                   | Where to configure                                   |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| App down                                                     | `app-public` fails 3 times in a row (~3 min)                                                                                | Uptime Kuma monitor, Telegram + SMS                  |
-| Readiness failing (Postgres down)                            | Not alerted by Kuma. A failed deploy or `biddaloy-doctor prod` shows it; a Postgres outage also fails `app-public`          | `biddaloy-doctor`, deploy report                     |
-| Engine stale reported by readiness                           | Covered by the attention cron check-in below                                                                                | Sentry Cron Monitor (readiness stays 200 when stale) |
-| Backup / staging refresh / demo rebuild / log archive missed | No push inside interval + grace                                                                                             | Uptime Kuma push monitors                            |
-| TLS certificate close to expiry                              | < 14 days                                                                                                                   | Uptime Kuma, built into HTTPS monitors               |
-| CPU                                                          | > 90% for 15 min                                                                                                            | Beszel hub, system `biddaloy-prod`, Telegram         |
-| Memory                                                       | > 90% for 10 min                                                                                                            | Beszel hub, Telegram                                 |
-| Disk                                                         | > 80%, immediate                                                                                                            | Beszel hub, Telegram                                 |
-| Host down (agent unreachable)                                | Immediate (Beszel "Status"). Fires when the agent stops, not when the whole VM dies: that only misses Sentry cron check-ins | Beszel hub, Telegram                                 |
-| Container down                                               | Immediate, for `app`, `db`, `redis`, `seaweedfs`, `nginx`, `backup` (prod). Not yet proven on a real host                   | Beszel hub, per container, Telegram                  |
-| Postgres connections                                         | `biddaloy-doctor` warns above 80% and fails above 95% of `max_connections`. It is a manual check, not an alert              | `biddaloy-doctor prod`                               |
-| 5xx rate                                                     | > 1% of requests over 5 min                                                                                                 | Sentry alert rule on the server project              |
-| `communications job stalled` message                         | any occurrence                                                                                                              | Sentry alert rule (issue alert, not metric)          |
-| Attention cron check-in missed                               | > 15 min                                                                                                                    | Sentry Cron Monitor (5-min schedule, 15-min margin)  |
-| Other cron check-ins                                         | `SENTRY_CRON_MONITOR_URL`, `SENTRY_CRONS_URL`                                                                               | Sentry Cron Monitors                                 |
+| Signal                                                     | Threshold                                                                                                                   | Where to configure                                   |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| App down                                                   | `app-public` fails 3 times in a row (~3 min)                                                                                | Uptime Kuma monitor, Telegram + SMS                  |
+| Readiness failing (Postgres down)                          | Not alerted by Kuma. A failed deploy or `biddaloy-doctor prod` shows it; a Postgres outage also fails `app-public`          | `biddaloy-doctor`, deploy report                     |
+| Engine stale reported by readiness                         | Covered by the attention cron check-in below                                                                                | Sentry Cron Monitor (readiness stays 200 when stale) |
+| Backup / restore drill / demo rebuild / log archive missed | No push inside interval + grace                                                                                             | Uptime Kuma push monitors                            |
+| TLS certificate close to expiry                            | < 14 days                                                                                                                   | Uptime Kuma, built into HTTPS monitors               |
+| CPU                                                        | > 90% for 15 min                                                                                                            | Beszel hub, system `biddaloy-prod`, Telegram         |
+| Memory                                                     | > 90% for 10 min                                                                                                            | Beszel hub, Telegram                                 |
+| Disk                                                       | > 80%, immediate                                                                                                            | Beszel hub, Telegram                                 |
+| Host down (agent unreachable)                              | Immediate (Beszel "Status"). Fires when the agent stops, not when the whole VM dies: that only misses Sentry cron check-ins | Beszel hub, Telegram                                 |
+| Container down                                             | Immediate, for `app`, `db`, `redis`, `seaweedfs`, `nginx`, `backup` (prod). Not yet proven on a real host                   | Beszel hub, per container, Telegram                  |
+| Postgres connections                                       | `biddaloy-doctor` warns above 80% and fails above 95% of `max_connections`. It is a manual check, not an alert              | `biddaloy-doctor prod`                               |
+| 5xx rate                                                   | > 1% of requests over 5 min                                                                                                 | Sentry alert rule on the server project              |
+| `communications job stalled` message                       | any occurrence                                                                                                              | Sentry alert rule (issue alert, not metric)          |
+| Attention cron check-in missed                             | > 15 min                                                                                                                    | Sentry Cron Monitor (5-min schedule, 15-min margin)  |
+| Other cron check-ins                                       | `SENTRY_CRON_MONITOR_URL`, `SENTRY_CRONS_URL`                                                                               | Sentry Cron Monitors                                 |
 
 ## 3. Runbooks
 
@@ -483,27 +502,32 @@ WARN (over 70 min) or FAIL (over 130 min).
    `--skip-backup` while this alert is open unless you accept losing up to the
    age of the last good backup.
 
-### 3.10 Nightly staging refresh or log archive failed
+### 3.10 Restore drill or log archive failed
 
-Symptom: `staging-refresh-nightly` or `log-archive-nightly` red.
+Symptom: `restore-drill` or `log-archive-nightly` red.
 
 ```bash
-journalctl -u biddaloy-nightly@staging-refresh.service -n 200 --no-pager
+journalctl -u biddaloy-nightly@restore-drill.service -n 200 --no-pager
+biddaloy-doctor staging        # the "restore drill" line shows the last clean night
+cat /opt/biddaloy/staging/last-drill
 ```
 
-- The push message is the failed step: `guard`, `refresh`, `migrate`, `stop-app`,
-  `swap`, `flush-redis`, `start-app`, `ready`, `smoke`, `export`, `archive`.
-- `refresh` failed: staging is untouched and still serves yesterday's copy. The
-  usual cause is the day's backup not existing yet (the job waits until 02:50 for
+- The push message is the failed step: `guard`, `not enough memory`, `refresh`,
+  `migrate`, `smoke`, `export`, `archive`.
+- `not enough memory`: under 1 GB was free, so the drill skipped itself. Look at
+  `free -m` and what else is running; nothing was changed.
+- `refresh` failed: the drill database was not built. The usual cause is the
+  day's backup not existing yet (the job waits until 02:50 for
   `db/daily/<today>.dump.age`, so check `backup-hourly` first), or a scrub step
   that hit a new column (the `staging-scrub` spec exists to catch this in CI).
 - `migrate` failed: tonight's prod data does not migrate with staging's code. This
   is a real finding, not noise: it means the same migration would fail on prod.
-- After `swap`, any failure swaps yesterday's database back, restarts the app and
-  pushes `down`; staging keeps serving.
-- Run again: `sudo systemctl start biddaloy-nightly@staging-refresh.service`. A
-  leftover `biddaloy_staging_prev_old` makes the next swap refuse; the job drops
-  it after a good run and warns in Kuma if it cannot.
+- `smoke` failed: the restored data loads but the app cannot serve it.
+- Staging itself is never touched by the drill, so nobody is blocked; only the
+  restore proof is missing for that night.
+- If Kuma says `ok, warning: drill db not dropped`, drop it by hand:
+  `docker compose ... exec db psql -U "$POSTGRES_USER" -d postgres -c 'DROP DATABASE "biddaloy_staging_drill" WITH (FORCE)'`.
+- Run again: `sudo systemctl start biddaloy-nightly@restore-drill.service`.
 
 ## 4. Env var reference
 
@@ -661,7 +685,7 @@ from the app image on the `biddaloy-edge` network and runs the script against
 Cloudflare layer is in the way, and the smoke credentials come from
 `SMOKE_*` keys in `prod.enc.env` / `staging.enc.env`. A failing smoke fails the
 deploy with `FAILED at: smoke`, and the previous version is put back. The nightly
-staging refresh runs the same script after its swap.
+restore drill runs the same script against its throwaway database.
 
 You can still run it by hand against any URL, from a laptop or the VM:
 `yarn smoke:post-deploy --base-url <url>`.
@@ -761,7 +785,7 @@ output never shows a value (`no_log`).
 | Path                                    | Owner         | Mode | Why                                                                                                  |
 | --------------------------------------- | ------------- | ---- | ---------------------------------------------------------------------------------------------------- |
 | `/opt/biddaloy/<project>/.env`          | `root:deploy` | 0640 | `docker compose` reads `.env` on the client side, even for `exec`                                    |
-| `/opt/biddaloy/staging/restore/key.txt` | `10001`       | 0400 | the age private key the staging refresh decrypts prod's backups with                                 |
+| `/opt/biddaloy/staging/restore/key.txt` | `10001`       | 0400 | the age private key the restore drill decrypts prod's backups with                                   |
 | `/opt/biddaloy/<project>/pg-tls/`       | root          | 0755 | holds the per-project self-signed Postgres certificate; only `server.key` is secret (0600, owner 70) |
 | `/opt/biddaloy/keys/host.age`           | root          | 0600 | the VM's own age key, one of the three that can decrypt                                              |
 | `/opt/biddaloy/deploy.lock`             | `deploy`      | 0664 | one deploy at a time                                                                                 |
