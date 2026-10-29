@@ -107,6 +107,8 @@ jobs:
               -e '^step: ' \
               -e '^(active db|loaded backup|staging sha|last drill): ' \
               -e '^ *[0-9]+  db/(hourly|daily)/[A-Za-z0-9._-]+\.dump\.age ' || true
+            # 255 is ssh itself (its text is not shown): usually the key or secrets are not set up.
+            if [ "$rc" = 255 ]; then echo "Why: ssh could not log in or lost the connection (runbook part 5e)"; fi
             echo "exit status: $rc"
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
