@@ -311,10 +311,12 @@ export async function arrivalLogs(ctx: DemoSeedContext): Promise<number> {
        LEFT JOIN users u ON u.id = a.set_by_user_id
       WHERE (a.status = 'ACTIVE' AND a.mode = 'RECURRING')
          OR (a.status = 'OFF' AND a.consumed_at IS NOT NULL)
-      ORDER BY a.tenant_id, a.id`,
+      ORDER BY a.student_id, a.guardian_id`,
   );
-  // The minute comes from the child's name and the day, never the row order: the row ids are
-  // drawn at random by Postgres, so two seeds list the rows in different orders.
+  // Order by student and guardian ids: faker draws them, so they are the same in every seed
+  // (measured: two seeds, same 102 student and 129 guardian ids). Never lead with `tenant_id` (a
+  // real service makes the schools, so those ids differ per seed) or `a.id` (Postgres draws it).
+  // The minute comes from the child's name and the day, never the row order.
   const minuteOf = (name: string, date: string) =>
     parseInt(createHash('sha1').update(`${name}:${date}`).digest('hex').slice(0, 8), 16);
   const firstBranch = orgIds(ctx).tenants[0].id;
