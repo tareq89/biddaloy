@@ -905,7 +905,7 @@ describe('CommunicationsProcessor', () => {
       expect(txManager.save).not.toHaveBeenCalled();
     });
 
-    it('PUSH + transient on the final attempt: FAILED NO_PUSH_DEVICE', async () => {
+    it('PUSH + transient on the final attempt: FAILED PUSH_TRANSIENT_FAILURE, reported', async () => {
       arrivalLog('PUSH');
       guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
       pushService.sendToUser.mockResolvedValue({ accepted: 0, transient: 1, pruned: 0 });
@@ -913,7 +913,10 @@ describe('CommunicationsProcessor', () => {
       await processor.process(job({ attemptsMade: 2, attempts: 3 }));
 
       expect(txManager.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: CommunicationStatus.FAILED }),
+        expect.objectContaining({
+          status: CommunicationStatus.FAILED,
+          metadata: expect.objectContaining({ reason: 'PUSH_TRANSIENT_FAILURE' }),
+        }),
       );
     });
 

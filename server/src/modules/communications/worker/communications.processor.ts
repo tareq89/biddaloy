@@ -360,8 +360,26 @@ export class CommunicationsProcessor extends WorkerHost {
         }
         if (pushed !== true) {
           log.status = CommunicationStatus.FAILED;
-          log.metadata = { ...log.metadata, reason: 'NO_PUSH_DEVICE' };
+          const exhausted = pushed === 'TRANSIENT';
+          log.metadata = {
+            ...log.metadata,
+            reason: exhausted ? 'PUSH_TRANSIENT_FAILURE' : 'NO_PUSH_DEVICE',
+          };
           await this.settle(log, 'failure');
+          if (exhausted) {
+            // Retries ran out on a device that does exist: not the same as "no device", so make it loud.
+            this.reportFailure(
+              {
+                queue: COMMUNICATIONS_QUEUE,
+                job_name: job.name,
+                communication_log_id: log.id,
+                tenant_id: log.tenant_id,
+                medium: log.medium,
+                reason: 'PUSH_TRANSIENT_FAILURE',
+              },
+              new Error(`Push retries exhausted for arrival notice ${log.id}`),
+            );
+          }
         }
         return;
       }

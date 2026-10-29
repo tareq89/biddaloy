@@ -276,9 +276,10 @@ describe('Arrival notice hooks (integration)', () => {
 
     it('a batch of first punches calls the service once, grouped by date', async () => {
       const spy = spySend();
+      const date = TODAY(); // one date for both punches, so UTC midnight can't split the batch
       await devices.ingest(await device(), [
-        punch(studentIds[0], '02:00:00'),
-        punch(studentIds[1], '02:05:00'),
+        punch(studentIds[0], '02:00:00', date),
+        punch(studentIds[1], '02:05:00', date),
       ]);
       expect(spy).toHaveBeenCalledTimes(1);
       expect(spy.mock.calls[0][0].students).toHaveLength(2);
