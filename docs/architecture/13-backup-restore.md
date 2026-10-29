@@ -173,12 +173,6 @@ the app uses:
 | missing, empty or `dev` (default) | `biddaloy_staging_dev` | `<bucket>-dev` | `DEV`                   |
 | `staging`                         | `biddaloy_staging`     | `<bucket>`     | `STAGING`               |
 
-**Known gap (found at the wave-2 close):** `biddaloy-nightly restore-drill` still
-refuses to run (`guard`) unless staging's `POSTGRES_DB` is exactly
-`biddaloy_staging`, so with the default `dev` active db it pushes `down` every
-night. Until the guard accepts `biddaloy_staging_dev` too, set `active-db` to
-`staging` or expect the red monitor.
-
 Any other word fails the next deploy (no guessing a database). The deploy
 derives `POSTGRES_DB`, `S3_BUCKET`, `ENV_BADGE` and `ENV_BADGE_DATE` (the date
 in `/opt/biddaloy/staging/loaded-backup`, shown only when it is `YYYY-MM-DD`)

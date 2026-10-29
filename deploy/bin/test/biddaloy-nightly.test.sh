@@ -130,6 +130,15 @@ run restore-drill
 expect "3d old push var used when the new one is unset" has "OLDTOKEN"
 cp "$WORK/env.keep" "$WORK/opt/staging/.env"
 
+# 3d2 the default staging active db is biddaloy_staging_dev: the guard lets it through; a non-staging db is refused
+sed -i.bak 's/^POSTGRES_DB=.*/POSTGRES_DB=biddaloy_staging_dev/' "$WORK/opt/staging/.env" && rm -f "$WORK/opt/staging/.env.bak"
+run restore-drill
+expect "3d2 biddaloy_staging_dev passes the guard" test "$RC" = 0 -a "$(grep -c 'not a staging db' "$WORK/out")" = 0
+sed -i.bak 's/^POSTGRES_DB=.*/POSTGRES_DB=biddaloy/' "$WORK/opt/staging/.env" && rm -f "$WORK/opt/staging/.env.bak"
+run restore-drill
+expect "3d2 a prod-named db fails the guard" test "$RC" != 0 -a "$(grep -c 'not a staging db' "$WORK/out")" = 1
+cp "$WORK/env.keep" "$WORK/opt/staging/.env"
+
 # 3e a drill db that cannot be dropped after a good night is a warning, not silence
 rm -f "$WORK/opt/staging/last-drill"
 FAIL_MATCH="DROP DATABASE" run restore-drill

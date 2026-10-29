@@ -125,7 +125,8 @@ drill_smoke() {
 restore_drill() {
   load POSTGRES_DB POSTGRES_USER SMOKE_SCHOOL_SLUG SMOKE_ADMIN_EMAIL SMOKE_ADMIN_PASSWORD SMOKE_TEACHER_EMAIL \
     SMOKE_TEACHER_PASSWORD SMOKE_SUPER_ADMIN_EMAIL SMOKE_SUPER_ADMIN_PASSWORD
-  [[ "$POSTGRES_DB" == biddaloy_staging ]] || { say "POSTGRES_DB is not biddaloy_staging"; fail guard; }
+  # staging's active db is biddaloy_staging_dev by default (88.2.04), biddaloy_staging once loaded
+  [[ "$POSTGRES_DB" =~ ^biddaloy_staging(_dev)?$ ]] || { say "POSTGRES_DB is not a staging db"; fail guard; }
 
   # D8: the drill restores a whole prod dump next to a running staging; skip it on a small host.
   local kb
