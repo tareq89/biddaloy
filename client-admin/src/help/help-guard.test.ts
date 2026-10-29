@@ -147,7 +147,7 @@ const KNOWN_GAPS: string[] = [
 ];
 
 /** Pages with knownIssues but no id="known-issues" section in bn or en (guide gap). Shrink-only. */
-const NO_KNOWN_ISSUES_SECTION_YET = new Set(['administration/settings', 'finance/fee-structures']);
+const NO_KNOWN_ISSUES_SECTION_YET = new Set<string>();
 
 /** Index entries whose default anchor (E10) is not an id="" on the bn or en page. Shrink-only. */
 const KNOWN_ANCHOR_GAPS: string[] = [];

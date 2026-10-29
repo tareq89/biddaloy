@@ -307,16 +307,16 @@ field included, but not while one of these dialogs is open. The palette reaches 
 
 ## 4. The correction rules
 
-| Situation                                                                 | Who                                                            | Requires                              |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------- |
-| Marking today's register for the first time                               | Any caller with section access                                 | Nothing extra                         |
-| Editing a register inside the tenant's correction window (default 2 days) | Any caller with section access                                 | Nothing extra                         |
-| Editing a register **outside** the window                                 | A caller holding `ATTENDANCE_CORRECT`                          | A reason (≥ 3 characters)             |
-| Editing a **finalized** register                                          | A caller holding `ATTENDANCE_CORRECT`                          | A reason                              |
-| Marking a **future** date                                                 | A caller with section access, only if `allowFutureDates` is on | Status must be `LEAVE` — nothing else |
-| Marking a date **outside the section's academic year**                      | Nobody                                                         | 422 `ATTENDANCE_OUTSIDE_ACADEMIC_YEAR` |
-| Marking a non-working day (holiday/weekly-off)                            | A caller holding `ATTENDANCE_CORRECT`                          | `force_non_working_day: true`         |
-| Saving several days from the monthly grid                                 | Same rules, per day                                            | One reason for the whole save         |
+| Situation                                                                 | Who                                                            | Requires                               |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------- |
+| Marking today's register for the first time                               | Any caller with section access                                 | Nothing extra                          |
+| Editing a register inside the tenant's correction window (default 2 days) | Any caller with section access                                 | Nothing extra                          |
+| Editing a register **outside** the window                                 | A caller holding `ATTENDANCE_CORRECT`                          | A reason (≥ 3 characters)              |
+| Editing a **finalized** register                                          | A caller holding `ATTENDANCE_CORRECT`                          | A reason                               |
+| Marking a **future** date                                                 | A caller with section access, only if `allowFutureDates` is on | Status must be `LEAVE` — nothing else  |
+| Marking a date **outside the section's academic year**                    | Nobody                                                         | 422 `ATTENDANCE_OUTSIDE_ACADEMIC_YEAR` |
+| Marking a non-working day (holiday/weekly-off)                            | A caller holding `ATTENDANCE_CORRECT`                          | `force_non_working_day: true`          |
+| Saving several days from the monthly grid                                 | Same rules, per day                                            | One reason for the whole save          |
 
 Every correction that touches an existing mark writes an `audit_logs` row
 (`entity_type: 'AttendanceRecord'`, `old_values`, `new_values`, the reason)
@@ -836,6 +836,120 @@ the section). Response:
 roll number. `as_of_date` is `null` when the section has no day-session yet.
 The service loads at most the 15 newest sessions (the longest threshold).
 
+## 10a. Arrival notices (Epic 84)
+
+A guardian asks (or staff set it for them) to be told when their child is
+marked in. One row per (student, guardian) in `arrival_notice_subscriptions`.
+
+```mermaid
+flowchart LR
+  R[Whole-day register finalized via PUT register / device punch] --> S[ACTIVE subscriptions of the present students]
+  S --> N[arrival-notice.service]
+  N --> L[communication_logs ARRIVAL_NOTICE<br/>reference_key dedupes the day]
+  L --> Q[queue]
+  Q --> W[processor]
+  W -->|channel PUSH| P[push]
+  W -->|channel SMS| M[SMS, spends credit]
+```
+
+Example: Anika's guardian is `ACTIVE`, channel `PUSH`. The class teacher
+finalizes 8-A at 08:20. One log
+`arrival:2026-10-12:<anika>:<guardian>` is queued and a push says
+"Anika is present today at 08:20 - Mrs Rahman". The gate reader says
+"reached school ... Main Gate Reader" instead (D12).
+
+### Data model
+
+```mermaid
+erDiagram
+  students ||--o{ arrival_notice_subscriptions : "has"
+  guardians ||--o{ arrival_notice_subscriptions : "has"
+  arrival_notice_subscriptions {
+    enum status "REQUESTED, ACTIVE, OFF"
+    enum mode "ONCE, RECURRING"
+    enum channel "PUSH, SMS"
+    enum lock "NONE, ALWAYS, NEVER"
+    timestamptz consumed_at "set when a ONCE row is used"
+  }
+```
+
+One row per (tenant, student, guardian): a unique index
+(`UQ_arrival_notice_subscriptions_tenant_student_guardian`) refuses a second.
+Deleting the student or guardian deletes the row.
+
+| Column    | Values                       | Plain meaning                                                                     |
+| --------- | ---------------------------- | --------------------------------------------------------------------------------- |
+| `status`  | `REQUESTED`, `ACTIVE`, `OFF` | Asked and waiting for staff / sending / the guardian opted out                    |
+| `mode`    | `ONCE`, `RECURRING`          | Tell me one time ("once") / every school day                                      |
+| `channel` | `PUSH`, `SMS`                | In the app (free) / text message (spends SMS credit, needs the school switch)     |
+| `lock`    | `NONE`, `ALWAYS`, `NEVER`    | Free choice / school forces it on (`ACTIVE` + `RECURRING`) / school forces it off |
+
+### Who may do what
+
+| Who                                         | Can do                                                  | Route                                                                               |
+| ------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Guardian (role `PARENT`) of the child       | Ask, or switch off, for their own linked children       | `GET /portal/arrival-subscriptions`, `PUT /portal/arrival-subscriptions/:studentId` |
+| Class teacher (own section only)            | List, add, confirm or decline a row                     | `/attendance/arrival-subscriptions`                                                 |
+| `ADMIN` or `EXECUTIVE` (any section)        | The same, school-wide, from a student's Guardians tab   | `/attendance/arrival-subscriptions`                                                 |
+| Admin with `ATTENDANCE_ARRIVAL_NOTICE_LOCK` | Set a lock (`ALWAYS` or `NEVER`); only `ADMIN` holds it | `PATCH /attendance/arrival-subscriptions/:id/lock`                                  |
+
+A lock beats the guardian: under `NEVER` the guardian cannot ask, under
+`ALWAYS` they cannot switch off or choose "once". `ALWAYS` rewrites the row to
+`ACTIVE` + `RECURRING` (channel kept); `NEVER` rewrites it to `OFF`; setting
+`NONE` leaves the row as it is.
+
+### The two wordings
+
+| Who marked the child in          | Bangla (as sent)                                        | English                                                   |
+| -------------------------------- | ------------------------------------------------------- | --------------------------------------------------------- |
+| A teacher finalized the register | `আনিকা আজ সকাল ৮:২০-এ উপস্থিত — মিসেস রহমান।`           | `Anika is present today at 08:20 - Mrs Rahman.`           |
+| A gate device read the card      | `আনিকা আজ সকাল ৮:২০-এ স্কুলে পৌঁছেছে — মেইন গেট রিডার।` | `Anika reached school today at 08:20 - Main Gate Reader.` |
+
+The time is `formatArrivalTime` (`arrival-notice.service.ts`, D39): in Bangla a
+day-part word (`সকাল` / `দুপুর` / `বিকাল`) then 12-hour `h:mm` with no leading
+zero; in English 24-hour `HH:mm`, in the school's timezone.
+
+The last part is the teacher's name (or "the office" / `অফিস`) or the device
+name exactly as saved. Text always says "today", so a late upload of an old
+punch, or finalizing an earlier day, sends nothing. Bangla text is kept to
+two SMS segments.
+
+### Rules that always hold
+
+- One message per (student, guardian, day): the unique `reference_key`
+  (`arrival:<date>:<student>:<guardian>`) decides, not a code check (D22). A
+  gate punch in the morning blocks the later register message.
+- `OFF` is never sent, even under an `ALWAYS` lock. `ONCE` flips to used
+  (`consumed_at`) when its message is queued.
+- `SMS` is sent only when the school has turned `arrivalNotice.smsAllowed`
+  on, and the credit is reserved first. No credit means nothing is queued
+  and a `ONCE` row stays unused.
+- Only `PRESENT` and `LATE` students send.
+
+### What a Redis outage does (D26)
+
+It fails open. The register still saves; the notice is skipped, the skip is
+logged, held SMS credit is released, and a `ONCE` row is not used up.
+Nobody gets a half-sent message and the teacher sees no error.
+
+### Known limits
+
+- The school switch `arrivalNotice.enabled` is read only by the send hooks.
+  The subscription routes still accept rows while it is off; they just never
+  send.
+- Both switches default to off (`enabled: false`, `smsAllowed: false`). The
+  e2e dev seed turns `enabled` on (app only, `ensureArrivalNoticeSetting`), so
+  no Playwright spec ever switches it: specs run in parallel, and one spec
+  turning it off would silence another spec's register.
+- Saving Settings with notices off also saves `smsAllowed: false`, so SMS
+  (which spends credit) never comes back on by itself.
+
+Screens: the My class card (guardian requests, answer "once" or "every
+school day"), the register bell, and the two switches in Settings >
+Attendance policy. `Ctrl+K` "arrival" opens My class with the card in focus.
+The processor side is in
+[05-communications](05-communications.md#the-arrival-notice-branch-8413--d44).
+
 ## 11. What this epic deliberately did not build
 
 - **A period check-list** — "Pending" ([§3a](#3a-the-check-list-and-the-month-edit-screens))
@@ -892,3 +1006,44 @@ no shared tables, no shared code, just the same status enum reused. See
   lives in `useIdempotencyKey` (see `reminders.ts`). Cost: a copied hook would
   have replayed an old key for a different body. Fix: `keyFor(body)` per mutation
   and `retry: false`. Rule candidate: new write hooks copy `reminders.ts`.
+- **2026-10-29 · Epic 84 W3 close — a palette action can be stricter than its route.**
+  Surprise: `arrival-notice.requests` needs `ATTENDANCE_ARRIVAL_NOTICE_MANAGE`
+  but lands on `/my-class`, gated by `MY_CLASS_VIEW`; the registry test demands
+  equal permissions. Cost: a red test for a correct design. Fix: keep the
+  stricter permission, list the id in `ROUTE_PERMISSION_EXCEPTIONS`, add
+  `alsoRequires` for the route gate. Rule candidate: a ticket that names a
+  stricter permission also names the exception list.
+- **2026-10-29 · Epic 84 W3 close — attendance records repeat a date per period.**
+  Surprise: a student can have several `attendance_records` for one day
+  (period sessions), so "last 10 present days" made duplicate `reference_key`s.
+  Cost: a unique-index crash in the demo seed. Fix: `SELECT DISTINCT` the date.
+  Rule candidate: day-level seed queries over `attendance_records` dedupe dates.
+- **2026-10-29 · Epic 84 W4 close — a push notice has no screen to assert on.**
+  Surprise: the plan had the guardian see the message in `/portal/notifications`,
+  but a `PUSH` arrival notice goes to a browser push device and never to the alerts
+  worklist; the e2e guardian has no device, so the log ends `FAILED`
+  (`NO_PUSH_DEVICE`). Cost: the last leg of the journey could not be written as
+  planned. Fix: assert the push row in `GET /communications/student/:id`. Rule
+  candidate: a notification ticket names the screen that really renders it.
+- **2026-10-29 · Epic 84 W4 close — specs written but never run hide wrong locators.**
+  Surprise: `#my-class-arrival` is the card's `<h2>`, not the card, so the "answer a
+  request" spec could never click anything, and the bell spec silently skipped
+  because it used a teacher session under an admin login. Cost: two W3 specs were
+  green only by skipping. Fix: locate by `getByRole('region', ...)`, and seed one
+  ACTIVE row so the specs need no setup. Rule candidate: a spec ticket is not done
+  until the spec has run once, with zero skips.
+- **2026-10-29 · Epic 84 W4 close — a notice that fires once per day cannot be a shared fixture.**
+  Surprise: the notice is sent only when today's register is finalized, and other
+  attendance specs finalize the same Class 6 / A register. Cost: the journey cannot
+  rerun on one database and may be pre-empted. Fix (review round 1): the journey
+  builds its own section, child, guardian account (batch invite + first sign-in
+  with a code) and class teacher, and hard-asserts the register is not finalized;
+  the bell spec has its own section too. Rule candidate: give a once-per-day
+  journey its own section.
+- **2026-10-29 · Epic 84 PR 2 review — a skip is not a pass, and a shared switch is a race.**
+  Surprise: the journey's two key legs skipped (green) whenever another spec had
+  finalized Class 6 / A first, and three spec files changed the same seeded row and
+  the school switch in parallel (`fullyParallel`, 4 workers). Cost: the end-to-end
+  proof could stay unrun in CI with the suite green. Fix: own data per spec, the
+  switch set once by the seed, settings restores merge only their own key. Rule
+  candidate: a spec never writes a tenant switch another file depends on.

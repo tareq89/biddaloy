@@ -13,6 +13,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   myStudentsQueryOptions,
+  useActiveRole,
   useMyStudents,
   useStudentAttendanceDays,
   useStudentAttendanceSummary,
@@ -32,6 +33,8 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
+
+import { ArrivalNoticeCard } from './-arrival-notice-card';
 
 /**
  * [9.9] — one guardian, one child, one month: the portal's per-child
@@ -118,6 +121,8 @@ function PortalAttendance() {
   // student and month it was clicked in so changing either resets it.
   const [clicked, setClicked] = React.useState<{ key: string; date: string } | null>(null);
 
+  // D32: guardians only; the card hides itself when the school switch is off.
+  const isParent = useActiveRole() === 'PARENT';
   const studentsQuery = useMyStudents();
   const students: Student[] = studentsQuery.data ?? [];
 
@@ -208,6 +213,7 @@ function PortalAttendance() {
           to="/portal/attendance"
         />
       )}
+      {isParent && <ArrivalNoticeCard />}
       <SummaryCard summary={summaryQuery.data} month={search.month} config={config} t={t} />
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
         <div className="min-w-0 flex-1">

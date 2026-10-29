@@ -4,19 +4,26 @@
  * A section the caller is not a CLASS/ASSISTANT teacher of is a 404, same as
  * an id that does not exist.
  */
+import { Permission } from '@biddaloy/shared';
 import { Button, ErrorState, HelpHint, RoutePending } from '@biddaloy/ui/components';
-import { myClassSectionsQueryOptions, useMyClassSections } from '@biddaloy/ui/hooks';
+import {
+  myClassSectionsQueryOptions,
+  useHasPermission,
+  useMyClassSections,
+} from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, notFound } from '@tanstack/react-router';
 import { ClipboardCheckIcon } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import {
   AbsenteesCard,
+  ArrivalNoticesCard,
   DuesCard,
   FlagsCard,
   HomeworkCard,
@@ -25,7 +32,12 @@ import {
   todayIso,
 } from './-cards';
 
+const searchSchema = z.object({
+  then: z.enum(['arrival']).optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/my-class/$sectionId')({
+  validateSearch: searchSchema,
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       queryClient.ensureQueryData(myClassSectionsQueryOptions()).catch(swallowUnlessOffline),
@@ -42,17 +54,28 @@ function SectionPending() {
 
 function MyClassSectionPage() {
   const { sectionId } = Route.useParams();
+  const { then } = Route.useSearch();
   const { t } = useTranslation('myClass');
   const region = useRegionConfig();
   const query = useMyClassSections();
   const attendanceRef = React.useRef<HTMLAnchorElement>(null);
   const section = query.data?.find((s) => s.section_id === sectionId);
+  // The card's list needs MANAGE; MY_CLASS_VIEW alone must not mount a card that can only fail.
+  const canManageArrival = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE);
+  const resolvedId = section?.section_id;
 
   // First focus: the one thing a class teacher does here every morning.
-  // Runs once the section resolves (the button only exists then).
+  // Runs once per section, when it resolves (the button only exists then). Keyed on the id,
+  // not the object: answering a request refetches the sections (the count changes), and
+  // focus must stay where the teacher is working in the card.
+  // `?then=arrival` (palette / alert link) lands on the arrival card instead.
   React.useEffect(() => {
-    if (section) attendanceRef.current?.focus();
-  }, [section]);
+    if (!resolvedId) return;
+    if (then === 'arrival') document.getElementById('my-class-arrival')?.focus();
+    else attendanceRef.current?.focus();
+    // A count refetch keeps the id and `then`, so it never moves focus; a palette jump to
+    // `?then=arrival` on the section already open does.
+  }, [resolvedId, then]);
 
   if (query.isError && !section) {
     return (
@@ -105,6 +128,7 @@ function MyClassSectionPage() {
       </header>
       <div className="grid items-start gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
         <AbsenteesCard sectionId={sectionId} />
+        {canManageArrival && <ArrivalNoticesCard sectionId={sectionId} />}
         <FlagsCard sectionId={sectionId} />
         <DuesCard sectionId={sectionId} />
         <HomeworkCard sectionId={sectionId} />

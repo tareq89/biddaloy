@@ -57,7 +57,7 @@ import { ConflictDialog } from './-conflict-dialog';
 import { CorrectionDialog } from './-correction-dialog';
 import { PeriodSwitcher } from './-period-switcher';
 import { RecordHistoryPanel } from './-record-history-panel';
-import { RosterMarker, type Draft } from './-roster-marker';
+import { RosterMarker, useArrivalBells, type Draft } from './-roster-marker';
 
 // Browser-local, not `.toISOString()` (UTC), for the search-schema default
 // only: `validateSearch` runs outside React, before the tenant's timezone is
@@ -158,6 +158,8 @@ function SectionRegisterPage() {
   // flag only ever matters for a future role/permission mapping that
   // grants ATTENDANCE_CORRECT without full marking rights.
   const canCorrect = useHasPermission(Permission.ATTENDANCE_CORRECT);
+  const canSeeArrival = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE);
+  const arrivalSubscribed = useArrivalBells(sectionId, canSeeArrival);
   const regionConfig = useTenantRegionConfig();
 
   const registerQuery = useSectionRegister(sectionId, date, period);
@@ -660,6 +662,7 @@ function SectionRegisterPage() {
           disabled={!editable}
           allowedStatuses={allowedStatuses}
           renderRowActions={renderRowActions}
+          arrivalSubscribed={arrivalSubscribed}
         />
         {editable && (
           <p className="hidden border-t border-border-subtle px-5 py-3 text-caption text-text-secondary md:block">

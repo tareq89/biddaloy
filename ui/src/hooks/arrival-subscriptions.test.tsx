@@ -7,6 +7,7 @@ import { apiErrorBody } from '../test/msw/support';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
 import {
+  useArrivalSubscriptions,
   useCreateArrivalSubscription,
   useLockArrivalSubscription,
   usePatchArrivalSubscription,
@@ -115,5 +116,43 @@ describe('usePortalArrivalSubscriptions', () => {
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.school).toEqual({ enabled: true, smsAllowed: false });
+  });
+});
+
+describe('useArrivalSubscriptions', () => {
+  // The My class badge counts every waiting request, so the list must not stop at one page.
+  it('reads page after page until a short page comes back', async () => {
+    const offsets: string[] = [];
+    server.use(
+      http.get('/api/v1/attendance/arrival-subscriptions', ({ request }) => {
+        const url = new URL(request.url);
+        offsets.push(url.searchParams.get('offset') ?? '');
+        const n = url.searchParams.get('offset') === '0' ? 100 : 3;
+        return HttpResponse.json(Array.from({ length: n }, (_, i) => ({ ...sub, id: `s${i}` })));
+      }),
+    );
+    const { result } = renderHookWithProviders(
+      () => useArrivalSubscriptions({ sectionId: 'sec1' }),
+      { tenantId: 't1' },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(offsets).toEqual(['0', '100']);
+    expect(result.current.data).toHaveLength(103);
+  });
+
+  it('does not call the server when disabled', () => {
+    const spy = vi.fn();
+    server.use(
+      http.get('/api/v1/attendance/arrival-subscriptions', () => {
+        spy();
+        return HttpResponse.json([]);
+      }),
+    );
+    const { result } = renderHookWithProviders(
+      () => useArrivalSubscriptions({ sectionId: 'sec1' }, { enabled: false }),
+      { tenantId: 't1' },
+    );
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(spy).not.toHaveBeenCalled();
   });
 });

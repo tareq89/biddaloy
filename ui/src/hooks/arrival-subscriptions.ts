@@ -23,9 +23,10 @@ export type UpsertMyArrivalSubscriptionInput = Schemas['UpsertMyArrivalSubscript
 export interface ArrivalSubscriptionFilters {
   sectionId?: string;
   status?: StaffArrivalSubscription['status'];
-  limit?: number;
-  offset?: number;
 }
+
+/** The server's page cap (`take ≤ 100`). */
+const PAGE = 100;
 
 export const arrivalSubscriptionKeys = {
   ...createEntityKeys<ArrivalSubscriptionFilters, string>('arrival-subscriptions'),
@@ -34,17 +35,30 @@ export const arrivalSubscriptionKeys = {
 
 // ---- Queries ----
 
-/** Staff list; a TEACHER only ever gets their homeroom sections (server-side). */
-export function useArrivalSubscriptions(filters: ArrivalSubscriptionFilters = {}) {
+/**
+ * Staff list; a TEACHER only ever gets their homeroom sections (server-side). Reads every page,
+ * so a section with more rows than one page still shows each waiting request (the My class
+ * badge counts them all).
+ */
+export function useArrivalSubscriptions(
+  filters: ArrivalSubscriptionFilters = {},
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: arrivalSubscriptionKeys.list(filters),
     queryFn: async () => {
-      const res = await apiClient.get<StaffArrivalSubscription[]>(
-        '/attendance/arrival-subscriptions',
-        { params: filters },
-      );
-      return res.data;
+      // ponytail: one call per 100 rows; a section holds a few dozen at most.
+      const all: StaffArrivalSubscription[] = [];
+      for (let offset = 0; ; offset += PAGE) {
+        const res = await apiClient.get<StaffArrivalSubscription[]>(
+          '/attendance/arrival-subscriptions',
+          { params: { ...filters, limit: PAGE, offset } },
+        );
+        all.push(...res.data);
+        if (res.data.length < PAGE) return all;
+      }
     },
+    enabled: options.enabled ?? true,
     retry: shouldRetryQuery,
   });
 }
@@ -66,11 +80,12 @@ export function usePortalArrivalSubscriptions() {
 function useInvalidateArrival() {
   const qc = useQueryClient();
   // My class shows `arrival_request_count`, so it goes stale on a confirm or decline too.
-  return () =>
-    Promise.all([
-      qc.invalidateQueries({ queryKey: arrivalSubscriptionKeys.all }),
-      qc.invalidateQueries({ queryKey: myClassKeys.all }),
-    ]);
+  // Only the arrival list is awaited: a slow sections refetch must not hold up the caller's
+  // own onSuccess (the card moves focus there once the answered row has left the list).
+  return () => {
+    void qc.invalidateQueries({ queryKey: myClassKeys.all });
+    return qc.invalidateQueries({ queryKey: arrivalSubscriptionKeys.all });
+  };
 }
 
 export function useCreateArrivalSubscription() {
