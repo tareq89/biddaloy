@@ -144,9 +144,10 @@ restore_drill() {
   # must not claim a clean night when the drill db survived.
   if ! drill_drop; then WARNING="drill db not dropped"; return 0; fi
   # D13: the doctor reads this. Written only after a clean run, so a failed night leaves yesterday's.
+  # In place, no tmp + mv: deploy cannot create files in the root:deploy 0750 staging dir, so
+  # provision makes last-drill (root:deploy 0660). One short line; an empty file reads as "none yet".
   printf '%s duration=%ss %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(($(date +%s) - started))" "$counts" \
-    > "$ROOT/staging/last-drill.tmp" && mv "$ROOT/staging/last-drill.tmp" "$ROOT/staging/last-drill" \
-    || WARNING="last-drill not written"
+    > "$ROOT/staging/last-drill" || WARNING="last-drill not written"
 }
 
 # --- demo-rebuild -------------------------------------------------------------------------------

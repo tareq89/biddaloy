@@ -252,8 +252,9 @@ nightly_checks() {
   done
   # [88 D13] the drill's own record: written only by a night that restored, migrated and smoked ok.
   local f="$ROOT/staging/last-drill" m age
+  # Provision creates it empty (deploy cannot create files in the staging dir): empty = no drill yet.
   m="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null)" || m=""
-  if [[ ! "$m" =~ ^[0-9]+$ ]]; then emit "restore drill" WARN "no drill recorded yet" "journalctl -u biddaloy-nightly@restore-drill.service -n 50 --no-pager"
+  if [[ ! -s "$f" || ! "$m" =~ ^[0-9]+$ ]]; then emit "restore drill" WARN "no drill recorded yet" "journalctl -u biddaloy-nightly@restore-drill.service -n 50 --no-pager"
   else
     age=$((($(date +%s) - m) / 3600))
     if ((age < 26)); then emit "restore drill" OK "$(tr -d '\n' <"$f") (${age} h ago)"

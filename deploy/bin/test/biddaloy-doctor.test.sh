@@ -135,6 +135,9 @@ defaults; drill_file 30; run
 check "stale drill file WARN" row "restore drill" WARN
 defaults; rm -f "$ROOT/staging/last-drill"; run
 check "missing drill file WARN" row "restore drill" WARN
+# provision touches it empty and fresh: still no drill, never a fresh OK
+defaults; : >"$ROOT/staging/last-drill"; run
+check "empty fresh drill file WARN" row "restore drill" WARN
 defaults; run
 check "no staging-refresh unit expected" nrow "nightly staging-refresh"
 
