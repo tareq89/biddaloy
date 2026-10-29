@@ -13599,14 +13599,14 @@ serialize-javascript@^7.0.3:
   integrity sha512-RNEqWOyhhUQYN9V1GfHwu9AR/g+NTciH6Z5u3/no6X3/w+04J2lVDL+svFQVXgXrEGBMG2puMVN3gq2SNGuTGw==
 
 seroval-plugins@^1.6.2:
-  version "1.6.8"
-  resolved "https://registry.yarnpkg.com/seroval-plugins/-/seroval-plugins-1.6.8.tgz#3187b90331153472bdba83da5be63912e14cd2ac"
-  integrity sha512-N7mWAMydj89EnYTHtRpS3LBrAz3J9O6oVrqpuXuvlAHfAUG8WEKqtbAd7SBiJNY5NfCAFhSdyAh7wI4Shjqy4g==
+  version "1.7.3"
+  resolved "https://registry.yarnpkg.com/seroval-plugins/-/seroval-plugins-1.7.3.tgz#4000e97113e5aa134c84241e8ae53cccb4bc22c2"
+  integrity sha512-gKP1jak0eor3KVHRGAyCAFJ9xKXkf97eWruYK5lcDHimsjr23RJGDuO0B8iOU6rvgYvACHpW+krmn3j2+2vxpQ==
 
 seroval@^1.6.2:
-  version "1.6.8"
-  resolved "https://registry.yarnpkg.com/seroval/-/seroval-1.6.8.tgz#916c4a293cfadcd9e0efdb73a8bfbe061f81866b"
-  integrity sha512-HlSgSAkTk4EqHcje1ptJjfZi1YDv5KbhVJ/d3P7T/nAXua2VmDu+AKDX5VTdFfZf48nDkWB2TKYt0DrCSa+3wg==
+  version "1.7.3"
+  resolved "https://registry.yarnpkg.com/seroval/-/seroval-1.7.3.tgz#2e275d0cb9fc27691f63a27fa3ad510a1426efe9"
+  integrity sha512-fYkZS/GrMJhj1CW+IDoPlILRmYl5/S9L/OYju/sA2K/HQ3G5JBWDZHxaUWVZV/0hfAC2n1+9ysBRDtqMbMXvzA==
 
 serve-handler@6.1.6:
   version "6.1.6"
