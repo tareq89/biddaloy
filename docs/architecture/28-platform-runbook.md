@@ -1471,6 +1471,23 @@ journalctl -u 'biddaloy-nightly@*' --since today --no-pager | tail -20
 systemctl list-timers 'biddaloy-nightly@*'
 ```
 
+### Staging commands: what has been proven (Epic 88, wave 3)
+
+What the `biddaloy-staging` commands (list backups, load, use, clean-dev, `--from-github`) have
+been through so far, in plain words:
+
+- **Proven with stand-ins.** `bash deploy/bin/test/biddaloy-staging.test.sh` runs every verb
+  against fake `docker` and `biddaloy-deploy` programs. Result on 2026-10-29: `122 passed, 0 failed`.
+  It checks the pick list, the refusals (empty staging db, bad key, bad verb) and the exact
+  commands the GitHub key may run.
+- **Learned:** `load` never fills `biddaloy_staging` directly. It builds the copy in the scratch
+  database `biddaloy_staging_drill`, scrubs it, and only then swaps it in. So a failed load leaves the
+  old staging as it was, and unscrubbed data is never in a database the app can reach.
+- **Learned:** `use staging` is refused while `biddaloy_staging` is empty, and a switch that cannot
+  flush Redis is aborted (the app is started again on the old database).
+- **Not proven yet:** a run on a real Docker stack, and on a real VM. Those need the owner's test
+  VM (Docker was not available for this ticket).
+
 ### Where logs live
 
 | What                  | Where                                                          |
