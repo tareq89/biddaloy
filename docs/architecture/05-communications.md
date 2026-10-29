@@ -448,11 +448,11 @@ flowchart LR
 
 Example: an SMS to `01711111111` arrives as an email to `01711111111@sms.sink.invalid`, subject `[SMS]`, header `X-Tags: SMS`. The number stays out of the subject, because the demo inbox is public and lists subjects; search by `to:` instead.
 
-| Variable                  | Default               | Meaning                                                                   |
-| ------------------------- | --------------------- | ------------------------------------------------------------------------- |
-| `MESSAGE_SINK`            | unset                 | `mailpit` turns the sink on. Anything else is off.                        |
-| `MESSAGE_SINK_SMTP_URL`   | `smtp://mailpit:1025` | Where the sink sends. Dev `.env` only: the deploy stacks use the default. |
-| `MESSAGE_SINK_PUBLIC_URL` | unset                 | Browser URL of the Mailpit UI, for links in docs and UI.                  |
+| Variable                  | Default               | Meaning                                                                                                                                                                      |
+| ------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MESSAGE_SINK`            | unset                 | `mailpit` turns the sink on. Anything else is off.                                                                                                                           |
+| `MESSAGE_SINK_SMTP_URL`   | `smtp://mailpit:1025` | Where the sink sends. Dev `.env` sets it; `deploy/stack.yml` sets `smtp://<stack>-mailpit:1025`, since the bare `mailpit` alias is shared across stacks on the edge network. |
+| `MESSAGE_SINK_PUBLIC_URL` | unset                 | Browser URL of the Mailpit UI, for links in docs and UI.                                                                                                                     |
 
 If Mailpit cannot be reached (connection refused, reset, timed out, or its name does not resolve, e.g. during the nightly restart), the send fails with `Test inbox unreachable` and the queue retries it. The log row ends FAILED only when the retries run out. Any other sink error is final at once.
 
