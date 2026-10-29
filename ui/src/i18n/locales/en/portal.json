@@ -553,7 +553,7 @@
       "sms": "By SMS"
     },
     "smsNotAllowed": "Your school sends this in the app only",
-    "noPush": "This phone does not have the app yet. Choose SMS or install the app.",
+    "noPush": "No phone on your account has the app yet. Choose SMS or install the app.",
     "noPushLink": "Turn on app messages"
   }
 }

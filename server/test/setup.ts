@@ -234,12 +234,27 @@ beforeAll(async () => {
   await redis.flushdb();
 }, 60000);
 
+/**
+ * A demo-seed spec leaves a full 3-year dataset behind (hundreds of thousands of rows). The next
+ * file's `setupTestDatabase()` would then `DELETE` it row by row through every ON DELETE CASCADE
+ * (~11 s locally); one `TRUNCATE ... CASCADE` of the two roots empties the same tables in
+ * milliseconds. Only demo-seed files: any other spec leaves a few rows, where DELETE is as cheap.
+ */
+async function dropDemoDataset(): Promise<void> {
+  if (!dataSource?.isInitialized) return;
+  if (!expect.getState().testPath?.includes('/demo-seed/')) return;
+  await dataSource.query('TRUNCATE TABLE schools, users CASCADE');
+  // Leave the baseline rows (seed tenant, admin) the way `setupTestDatabase()` does.
+  await dataSource.query(buildReferenceResetSql());
+}
+
 afterAll(async () => {
+  await dropDemoDataset();
   redis?.disconnect();
   if (dataSource && dataSource.isInitialized) {
     await dataSource.destroy();
   }
-}, 30000);
+}, 300_000);
 
 beforeEach(async () => {
   await clearTransactionalTables();

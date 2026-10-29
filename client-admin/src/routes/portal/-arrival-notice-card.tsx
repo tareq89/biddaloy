@@ -4,6 +4,7 @@
  * teacher confirms. Hidden when the school switch is off (the server still
  * answers, so `school.enabled` is the only gate).
  */
+import { apiClient } from '@biddaloy/ui/api';
 import { Card, RadioRows, StatusBadge, Switch, type StatusTone } from '@biddaloy/ui/components';
 import {
   usePortalArrivalSubscriptions,
@@ -11,7 +12,7 @@ import {
   type MyArrivalChild,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { usePushSubscription } from '@biddaloy/ui/pwa';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
 type Channel = 'PUSH' | 'SMS';
@@ -96,7 +97,7 @@ function ChildRow({
           {channel === 'PUSH' && !pushReady && (
             <p className="text-caption text-text-secondary">
               {t('arrivalNotice.noPush')}{' '}
-              <Link to="/portal/account" className="text-primary underline">
+              <Link to="/portal/account" hash="push-devices" className="text-primary underline">
                 {t('arrivalNotice.noPushLink')}
               </Link>
             </p>
@@ -116,7 +117,13 @@ function ChildRow({
 export function ArrivalNoticeCard() {
   const { t } = useTranslation('portal');
   const query = usePortalArrivalSubscriptions();
-  const push = usePushSubscription();
+  // D10: any device on the account counts, not just this browser (and not just browsers that
+  // can push). While the list loads there is no warning, so it never flashes.
+  const devices = useQuery({
+    queryKey: ['me', 'push', 'subscriptions'],
+    queryFn: async () => (await apiClient.get<unknown[]>('/me/push/subscriptions')).data,
+  });
+  const pushReady = devices.isPending || (devices.data?.length ?? 0) > 0;
   const data = query.data;
   if (data === undefined || !data.school.enabled || data.children.length === 0) return null;
 
@@ -130,7 +137,7 @@ export function ArrivalNoticeCard() {
             key={child.student_id}
             child={child}
             smsAllowed={data.school.smsAllowed}
-            pushReady={push.isSubscribedOnThisDevice}
+            pushReady={pushReady}
           />
         ))}
       </ul>
