@@ -11,7 +11,9 @@
 # schema) and `biddaloy_staging` (a scrubbed prod backup, loaded by hand). /opt/biddaloy/staging/active-db
 # says which one the app serves; ansible reads it when it writes the stack .env (write-env.yml).
 #
-#   load       numbered pick list (24 hourly + 14 daily) or a key; builds a scrubbed copy in the scratch
+#   load       numbered pick list (24 hourly + 14 daily) or a key; a number given as an argument
+#              picks from the list `backups` printed last (saved in backups-list, never listed again,
+#              so a dump that lands in between cannot shift the numbers); builds a scrubbed copy in the scratch
 #              database `biddaloy_staging_drill` with staging-refresh.sh, then SWAPS it in as
 #              `biddaloy_staging` (db-swap.sh). Unscrubbed prod data therefore never sits in a database
 #              the app can reach, and a failed load leaves the old `biddaloy_staging` as it was.
@@ -39,6 +41,7 @@ STAGE="$ROOT/staging"
 ENV_FILE="$STAGE/.env"
 ACTIVE_FILE="$STAGE/active-db"
 LOADED_FILE="$STAGE/loaded-backup"
+LIST_FILE="$STAGE/backups-list" # the list `backups` last printed; `load <number>` picks from it
 HIST="$STAGE/history.log"
 STG_DB=biddaloy_staging DEV_DB=biddaloy_staging_dev SCRATCH_DB=biddaloy_staging_drill
 
@@ -200,7 +203,13 @@ verb_backups() {
   collect || refuse "could not list the backup bucket" "check BACKUP_S3_* in $ENV_FILE and that the staging stack is up"
   [[ ${#KEYS[@]} -gt 0 ]] || refuse "the backup bucket has no dumps under db/hourly/ or db/daily/" "check that backups are running (biddaloy-doctor)"
   print_list
-  echo "Next: biddaloy-staging load <number>   (add --use to switch the app to it)"
+  local i
+  # In place (provision makes the file): deploy cannot create files in the staging dir.
+  if for ((i = 0; i < ${#KEYS[@]}; i++)); do printf '%s %s\n' "${KEYS[$i]}" "${INFO[$i]}"; done 2>/dev/null > "$LIST_FILE"; then
+    echo "Next: biddaloy-staging load <number>   (add --use to switch the app to it)"
+  else
+    say "WARN: could not save the list to $LIST_FILE, so load <number> will refuse: re-run provision, or load <key>"
+  fi
 }
 
 verb_status() {
@@ -241,7 +250,16 @@ resolve_backup() { # sets KEY and KEY_DATE from POS[0]
       read -r KEY_DATE _ <<<"$line"
       KEY="$arg" ;;
     *)
-      [[ ${#KEYS[@]} -gt 0 ]] || { collect || refuse "could not list the backup bucket" "check BACKUP_S3_* in $ENV_FILE"; }
+      # Typed after the list this run printed: KEYS is that list. Given as an argument: the list
+      # `backups` printed and saved. Never a fresh listing: a new hourly dump would shift the numbers.
+      if [[ ${#KEYS[@]} -eq 0 && -s "$LIST_FILE" ]]; then
+        local k d t rest
+        while read -r k d t rest; do
+          [[ "$k" =~ ^db/(daily|hourly)/[A-Za-z0-9._-]+\.dump\.age$ && "$k" != *..* ]] || continue
+          KEYS+=("$k"); INFO+=("$d $t $rest")
+        done < "$LIST_FILE"
+      fi
+      [[ ${#KEYS[@]} -gt 0 ]] || refuse "no saved backup list to pick number $arg from" "run biddaloy-staging backups, then load <number>"
       arg=$((10#$arg)) # no octal for 08 or 010
       ((arg >= 1 && arg <= ${#KEYS[@]})) || refuse "number $arg is not in the list (1 to ${#KEYS[@]})" "run biddaloy-staging backups"
       KEY="${KEYS[$((arg - 1))]}"; KEY_DATE="${INFO[$((arg - 1))]%% *}" ;;
@@ -259,6 +277,7 @@ verb_load() {
   check_consistent # use may have run while we waited for the locks
   act="$(active_name)"
 
+  say "loading $KEY (written $KEY_DATE)"
   step "refresh (into the scratch database $SCRATCH_DB, not $STG_DB)"
   STATE="$STG_DB is untouched; the scratch database $SCRATCH_DB may exist"
   dc run --rm -T jobs /app/staging-refresh.sh --target "$SCRATCH_DB" --from "$KEY" \

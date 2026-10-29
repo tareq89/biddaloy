@@ -10,7 +10,8 @@ kept_file() { if [[ -f "$ROOT/$1/$2" ]]; then printf '%s\n' "$ROOT/$1/$2"; else 
 
 # list_backups <prefix>: the `aws s3 ls` lines of the backup bucket under <prefix> ("db/hourly/",
 # "db/daily/" or one exact key), read inside the jobs container (the only place with the R2 token).
-# Needs the caller's dc(). Line: "<date> <time> <size> <name>" (UTC, TZ=UTC).
+# Needs the caller's dc() in its single-stack form, `dc <compose args...>` (biddaloy-staging,
+# biddaloy-restore-prod); biddaloy-nightly and biddaloy-doctor take `dc <stack> ...` and must not call it. Line: "<date> <time> <size> <name>" (UTC, TZ=UTC).
 # shellcheck disable=SC2016 # runs in the container, where these variables exist
 LIST_SH='set -eu
 export AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto

@@ -28,6 +28,19 @@ export const DEMO_DENY_LIST: readonly DemoDenyEntry[] = [
     reason: 'workbook import: visitors cannot load their own data',
     example: '/backup/validate',
   },
+  // No bulk delete route exists today; these keep any future one closed on the demo.
+  {
+    method: 'DELETE',
+    pathPattern: /(^|\/)bulk(\/|-|$)/,
+    reason: 'bulk delete (none today; a future one stays closed)',
+    example: '/students/bulk-delete',
+  },
+  {
+    method: 'POST',
+    pathPattern: /(^|\/)bulk[-/]?delete/,
+    reason: 'bulk delete (none today; a future one stays closed)',
+    example: '/students/bulk-delete',
+  },
   {
     method: 'DELETE',
     pathPattern: /^\/academic-years\/[^/]+$/,

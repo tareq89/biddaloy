@@ -140,6 +140,11 @@ defaults; : >"$ROOT/staging/last-drill"; run
 check "empty fresh drill file WARN" row "restore drill" WARN
 defaults; run
 check "no staging-refresh unit expected" nrow "nightly staging-refresh"
+# `biddaloy-doctor staging` shows the drill line too (the runbooks tell the operator to run it)
+defaults; drill_file 3; run staging
+check "staging-only run shows the drill line" row "restore drill" OK
+defaults; drill_file 3; run prod
+check "prod-only run has no drill line" nrow "restore drill"
 
 # --- backup age (OK <=70, WARN 71..130, FAIL >130) ----------------------------------------------------
 for c in "69 OK 0" "71 WARN 1" "129 WARN 1" "131 FAIL 2"; do

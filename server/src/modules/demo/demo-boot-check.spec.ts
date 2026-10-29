@@ -6,7 +6,6 @@ type Row = {
   slug: string;
   has_students?: boolean;
   created_in_demo?: boolean;
-  student_count?: number;
 };
 const check = (env: Record<string, string | undefined>, schools: Row[]) => {
   const load = vi.fn().mockResolvedValue(schools);
@@ -84,52 +83,37 @@ describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () =>
     ).rejects.toThrow(/default-school/);
   });
 
-  // The refusal must say why, so a 02:00 exit 1 after the nightly reset (#2178) is not silent.
-  // It must not suggest setting PLATFORM_TENANT_ID as a fix: an empty default-school is already exempt by slug.
-  // Epic 88 D3
-  it('passes a visitor-created school with 3 students', async () => {
+  // Epic 88 D3: the flag alone decides. A visitor can add 100 rows per request, so no student count
+  // may turn a visitor school into "foreign" and stop the public demo from booting. The check reads
+  // no count at all, so a 60- or 5000-student visitor school is the same row as a 3-student one.
+  it.each([3, 60, 5000])('passes a visitor-created school with %i students', async (n) => {
     await expect(
       check({ DEMO_MODE: 'true' }, [
         { id: '1', slug: 'bmsc-high' },
-        {
-          id: '2',
-          slug: 'visitor-school',
-          has_students: true,
-          created_in_demo: true,
-          student_count: 3,
-        },
+        { id: '2', slug: `visitor-school-${n}`, has_students: true, created_in_demo: true },
       ]).run(),
     ).resolves.toBeUndefined();
   });
 
-  it('refuses a visitor-created school with 50 students', async () => {
+  it('passes an empty visitor-created school (a branch with no students yet)', async () => {
     await expect(
       check({ DEMO_MODE: 'true' }, [
-        {
-          id: '2',
-          slug: 'visitor-school',
-          has_students: true,
-          created_in_demo: true,
-          student_count: 50,
-        },
+        { id: '1', slug: 'bmsc-high' },
+        { id: '2', slug: 'visitor-branch', has_students: false, created_in_demo: true },
       ]).run(),
-    ).rejects.toThrow(/visitor-school/);
+    ).resolves.toBeUndefined();
   });
 
   it('refuses a non-demo school without the flag', async () => {
     await expect(
       check({ DEMO_MODE: 'true' }, [
-        {
-          id: '2',
-          slug: 'visitor-school',
-          has_students: true,
-          created_in_demo: false,
-          student_count: 3,
-        },
+        { id: '2', slug: 'visitor-school', has_students: true, created_in_demo: false },
       ]).run(),
     ).rejects.toThrow(/visitor-school/);
   });
 
+  // The refusal must say why, so a 02:00 exit 1 after the nightly reset (#2178) is not silent.
+  // It must not suggest setting PLATFORM_TENANT_ID as a fix: an empty default-school is already exempt by slug.
   it('says why it refuses', async () => {
     await expect(
       check({ DEMO_MODE: 'true' }, [{ id: '1', slug: 'real-school' }]).run(),

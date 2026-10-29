@@ -4,7 +4,8 @@
 #
 #   bash deploy/bin/test/biddaloy-staging.test.sh
 #
-# Cases: 1 backups numbers 24 hourly + 14 daily; 2 load picks by number (argument or stdin), runs
+# Cases: 1 backups numbers 24 hourly + 14 daily and saves the list; 1b load <number> picks from the
+# saved list, not a fresh one; 1c without a saved list a number is refused; 2 load picks by number (argument or stdin), runs
 # the refresh into the scratch db (never biddaloy_staging), swaps it in, writes loaded-backup and a
 # history line; 3 a failed refresh leaves the old db (no swap, no drop of biddaloy_staging), exit 1
 # with a Next line; 4 load while staging is active stops the app only around the swap; 5 use
@@ -87,6 +88,28 @@ expect "1 backups exits 0" test "$RC" = 0
 expect "1 24 hourly + 14 daily = 38 rows" test "$(rows)" = 38
 expect "1 shows date and size" outhas '2026-09-20 02:00:00 5.0 MB'
 expect "1 prints the next step" outhas 'Next: biddaloy-staging load'
+expect "1 saves the printed list for load <number>" test "$(wc -l < "$WORK/opt/staging/backups-list" | tr -d ' ')" = 38
+
+# 1b load <number> uses the saved list, not a fresh one: a dump that lands after `backups` must not
+# shift the numbers (PR #3281 review). The newest hourly here is not in the saved list.
+reset dev
+cp "$WORK/list-hourly" "$WORK/list-hourly.keep"
+printf '2026-10-31 10:00:00  1048576 2026-10-31T100000Z.dump.age\n' >> "$WORK/list-hourly"
+run load 1 --yes
+expect "1b exits 0" test "$RC" = 0
+expect "1b loads the key the operator saw" has 'from db/hourly/2026-10-30T100000Z.dump.age'
+expect "1b not the dump that landed later" hasnt 'from db/hourly/2026-10-31'
+expect "1b no fresh listing of the prefixes" hasnt 'aws s3 ls.* db/hourly/$'
+expect "1b says which backup it loads" outhas 'loading db/hourly/2026-10-30T100000Z.dump.age \(written 2026-10-30\)'
+mv "$WORK/list-hourly.keep" "$WORK/list-hourly"
+# 1c no saved list: a number is refused, nothing runs
+reset dev
+mv "$WORK/opt/staging/backups-list" "$WORK/backups-list.keep"
+run load 1 --yes
+expect "1c number without a saved list refused" test "$RC" = 2
+expect "1c points at backups" outhas 'Next: run biddaloy-staging backups, then load <number>'
+expect "1c nothing ran" hasnt 'staging-refresh'
+mv "$WORK/backups-list.keep" "$WORK/opt/staging/backups-list"
 
 # 2 load by number, dev active
 reset dev

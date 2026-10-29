@@ -20,6 +20,7 @@ import { insertJoinRequest } from '../../account-access/school-invite.service';
 import { generateSecret, hashSecret } from '../../auth/token-hash.util';
 import { AuditService } from '../../audit/audit.service';
 import { TENANT_STATUS_REDIS } from '../tenant-status.service';
+import { isDemoMode } from '../../demo/demo-mode';
 import { ProvisionSchoolDto } from './dto/provision-school.dto';
 
 const IDEMPOTENCY_TTL_SECONDS = 86_400;
@@ -161,6 +162,9 @@ export class ProvisioningService {
             status: SchoolStatus.ACTIVE,
             country_code: dto.country_code ?? null,
             address: dto.address ?? null,
+            // Epic 88 D3: every school made on the public demo (registration or POST /schools)
+            // is marked here, the one insert path, so the demo boot check accepts it.
+            created_in_demo: isDemoMode(),
           }),
         );
 

@@ -105,6 +105,10 @@ migrate_db() { POSTGRES_DB="$1" dc staging run --rm -T --no-deps app node server
 # psql in the db container over its local socket (no password on a command line).
 drill_psql() { dc staging exec -T db psql -U "$POSTGRES_USER" -v ON_ERROR_STOP=1 -tAq "$@"; }
 drill_drop() { drill_psql -d postgres -c "DROP DATABASE IF EXISTS \"$DRILL_DB\" WITH (FORCE)" >/dev/null 2>&1 || { say "could not drop $DRILL_DB: drop it by hand"; return 1; }; }
+# The one-off app registers BullMQ repeatables and queues jobs in db 15 and is then killed: empty it
+# before the smoke and on exit, so the next night never runs jobs that point at last night's rows.
+drill_flush() { [[ "$(dc staging exec -T redis redis-cli -n 15 FLUSHDB 2>/dev/null)" == OK* ]] || { say "could not flush redis db 15"; return 1; }; }
+drill_cleanup() { drill_drop || true; drill_flush || true; }
 # A one-off app on the drill db (own Redis db index 15, so it never consumes the live app's
 # queued jobs), smoked over loopback; the staging app stays up.
 drill_smoke() {
@@ -135,9 +139,10 @@ restore_drill() {
 
   local started counts
   started="$(date +%s)"
-  trap drill_drop EXIT # the drill db never survives a run, whatever fails
+  trap drill_cleanup EXIT # the drill db and its redis db 15 never survive a run, whatever fails
   run_step refresh dc staging run --rm -T jobs /app/staging-refresh.sh --target "$DRILL_DB" --from latest-daily
   run_step migrate migrate_db "$DRILL_DB"
+  run_step flush-redis-15 drill_flush
   run_step smoke drill_smoke
   counts="$(drill_psql -d "$DRILL_DB" -c "SELECT 'schools=' || (SELECT count(*) FROM schools) || ' users=' || (SELECT count(*) FROM users) || ' students=' || (SELECT count(*) FROM students)")" || counts="counts unavailable"
   # Drop now, not only in the trap: a failed drop must reach Kuma as a warning, and the file below

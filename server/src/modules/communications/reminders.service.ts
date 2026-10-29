@@ -558,6 +558,8 @@ export class BulkReminderService {
     // A duplicated ID would otherwise send the same guardian the same
     // reminder twice and inflate total_recipients.
     const studentIds = [...new Set(dto.student_ids)];
+    // The demo cap counts the students picked (the rows of the request), before any DB read.
+    assertDemoRowLimit(studentIds.length);
 
     const students = await this.studentService.findManyWithGuardians(studentIds, tenantId);
     const found = new Set(students.map((s) => s.id));
@@ -570,7 +572,6 @@ export class BulkReminderService {
 
     const skipped: SkippedRecipientDto[] = [];
     const recipients = this.resolveRecipients(students, dueSnapshots, dto, skipped);
-    assertDemoRowLimit(recipients.length);
 
     return { studentIds, students, recipients, skipped };
   }

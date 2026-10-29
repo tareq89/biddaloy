@@ -6,7 +6,7 @@
 #
 # Cases: 1 restore-drill success runs the steps in order, pushes `up`, deploy lock before swap
 # lock, never touches the live staging; 2 migrate and 3 smoke failures push `down` and still drop the
-# drill db; 3b low memory pushes down without restoring; 3c staging-refresh is retired; 4 a busy lock exits 1 before any docker call;
+# drill db and flush its redis db 15; 3b low memory pushes down without restoring; 3c staging-refresh is retired; 4 a busy lock exits 1 before any docker call;
 # 5 demo-rebuild: exit 3 still restarts the app (warning), another code does not and pushes down;
 # 6 log-archive exports (deploy-only), hands the job a tar on stdin, removes the export after
 # success and keeps it after a failure; 7 no secret reaches a shim's arguments;
@@ -31,6 +31,7 @@ if [[ -n "${FAIL_MATCH:-}" && "$line" == *"$FAIL_MATCH"* ]]; then exit "${FAIL_R
 case "$line" in
   "ps --format"*) printf 'prod-app-1\nprod-db-1\n' ;;
   "logs "*) echo "line from $*" ;;
+  *"redis-cli -n 15 FLUSHDB"*) echo OK ;;
 esac
 exit 0
 SHIM
@@ -78,7 +79,7 @@ export NIGHTLY_MEMINFO="$WORK/meminfo"
 run restore-drill
 expect "1 exit 0" test "$RC" = 0
 expect "1 pushed up" has "status=up&msg=ok"
-steps=("staging-refresh.sh --target biddaloy_staging_drill --from latest-daily" migrate.js smoke-post-deploy.mjs "DROP DATABASE IF EXISTS")
+steps=("staging-refresh.sh --target biddaloy_staging_drill --from latest-daily" migrate.js "redis-cli -n 15 FLUSHDB" smoke-post-deploy.mjs "DROP DATABASE IF EXISTS")
 prev=0; inorder=yes
 for s in "${steps[@]}"; do
   n="$(at "$s")"; [[ -n "$n" && "$n" -gt "$prev" ]] || { inorder="no ($s)"; break; }; prev="$n"
@@ -109,6 +110,7 @@ expect "2 down&msg=migrate" has "status=down&msg=migrate"
 expect "2 drill db dropped anyway" has "DROP DATABASE IF EXISTS"
 expect "2 no smoke" hasnt "smoke-post-deploy.mjs"
 expect "2 no last-drill" test ! -e "$WORK/opt/staging/last-drill"
+expect "2 redis db 15 flushed on exit anyway" has "redis-cli -n 15 FLUSHDB"
 
 # 3 smoke fails: down, drill db still dropped
 FAIL_MATCH=smoke-post-deploy.mjs run restore-drill
@@ -116,6 +118,7 @@ expect "3 exit 1" test "$RC" = 1
 expect "3 down&msg=smoke" has "status=down&msg=smoke"
 expect "3 drill db dropped anyway" has "DROP DATABASE IF EXISTS"
 expect "3 no last-drill" test ! -e "$WORK/opt/staging/last-drill"
+expect "3 redis db 15 flushed after the smoke (exit trap)" test "$(grep -c 'redis-cli -n 15 FLUSHDB' "$LOG")" -ge 2
 
 # 3b low memory: down, nothing restored
 printf 'MemAvailable:    500000 kB\n' > "$WORK/meminfo"

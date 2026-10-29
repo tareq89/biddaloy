@@ -22,7 +22,7 @@
 #                   latest-hourly (newest db/hourly/ object, no wait), or an exact key
 #                   `db/daily/<name>.dump.age` / `db/hourly/<name>.dump.age` (no wait).
 #
-# Exit codes: 0 ready, 1 failed (staging is untouched, a `down` push was sent), 2 refused.
+# Exit codes: 0 ready, 1 failed (staging is untouched; a `down` push was sent unless --target), 2 refused.
 #
 # Required env:
 #   POSTGRES_DB (^biddaloy_staging), POSTGRES_USER, POSTGRES_PASSWORD; POSTGRES_HOST (db), POSTGRES_PORT (5432)
@@ -36,7 +36,9 @@
 #   PLATFORM_TENANT_ID     uuid of the platform tenant; its super admins keep their email (D6)
 # Optional env:
 #   STAGING_REFRESH_PUSH_URL    Uptime Kuma push URL. Only failures are pushed here; the `up` push
-#                               is sent by the host after the swap and the smoke test.
+#                               is sent by the host after the swap and the smoke test. Never used with
+#                               --target: its callers (the nightly drill, biddaloy-staging load) report
+#                               the outcome themselves, so a failed hand load never marks the drill down.
 #   STAGING_REFRESH_DEADLINE    HH:MM Dhaka time to stop waiting for the backup (default 02:50)
 #   STAGING_REFRESH_POLL_SECS   seconds between checks (default 60)
 #   STAGING_REFRESH_LOCK        optional lock file; unset = no lock here. The real lock is the host's:
@@ -121,7 +123,7 @@ psql_admin() { psql "$ADMIN_URL" -v ON_ERROR_STOP=1 -tAqc "$1"; }
 push_down() {
   # Same shape as backup.sh's kuma_push: the token is in the path, no query is kept, the URL is
   # never echoed and curl's stderr is discarded. No-op when unset.
-  [[ -n "${STAGING_REFRESH_PUSH_URL:-}" ]] || return 0
+  [[ -z "$TARGET" && -n "${STAGING_REFRESH_PUSH_URL:-}" ]] || return 0
   local code
   code="$(curl -sS -G --connect-timeout 5 --max-time 10 -o /dev/null -w '%{http_code}' \
     --data-urlencode "status=down" --data-urlencode "msg=$1" \

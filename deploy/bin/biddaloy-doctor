@@ -250,7 +250,10 @@ nightly_checks() {
     elif [[ "$res" == success ]]; then emit "nightly $j" OK "last run ok ($ts)"
     else emit "nightly $j" FAIL "last result $res ($ts)" "journalctl -u biddaloy-nightly@$j.service -n 50 --no-pager"; fi
   done
-  # [88 D13] the drill's own record: written only by a night that restored, migrated and smoked ok.
+}
+# [88 D13] the drill's own record: written only by a night that restored, migrated and smoked ok.
+# Its own function so `biddaloy-doctor staging` shows it too, and a host without systemctl still does.
+drill_check() {
   local f="$ROOT/staging/last-drill" m age
   # Provision creates it empty (deploy cannot create files in the staging dir): empty = no drill yet.
   m="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null)" || m=""
@@ -270,6 +273,7 @@ for s in prod staging demo; do
 done
 if [[ -z "$ONLY" || "$ONLY" == prod ]]; then backup_check; fi
 if [[ -z "$ONLY" ]]; then nightly_checks; fi
+if [[ -z "$ONLY" || "$ONLY" == staging ]]; then drill_check; fi
 
 jesc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n\t' '  ' | tr -d '\000-\037'; }
 

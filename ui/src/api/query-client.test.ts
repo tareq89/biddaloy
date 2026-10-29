@@ -177,9 +177,9 @@ describe('createAppQueryClient', () => {
   });
 
   it.each([
-    ['en', 'Demo allows at most 100 rows at a time. Your file has 250.'],
-    ['bn', 'ডেমোতে একবারে সর্বোচ্চ ১০০টা সারি নেওয়া যায়। আপনার ফাইলে ২৫০টা আছে।'],
-  ])('toasts the demo row cap with the file count (%s)', async (lng, text) => {
+    ['en', 'Demo allows at most 100 rows at a time. This request has 250.'],
+    ['bn', 'ডেমোতে একবারে সর্বোচ্চ ১০০টা সারি নেওয়া যায়। এই অনুরোধে ২৫০টা আছে।'],
+  ])('toasts the demo row cap with the request count (%s)', async (lng, text) => {
     await i18n.changeLanguage(lng);
     const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     const queryClient = createAppQueryClient();

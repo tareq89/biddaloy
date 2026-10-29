@@ -7,10 +7,7 @@ type SchoolRow = {
   slug: string;
   has_students?: boolean;
   created_in_demo?: boolean;
-  student_count?: number;
 };
-
-const VISITOR_SCHOOL_MAX_STUDENTS = 50;
 
 /** Every school row, soft-deleted ones included: a deleted real school still means a real DB. */
 async function loadSchools(env: NodeJS.ProcessEnv): Promise<SchoolRow[]> {
@@ -21,8 +18,7 @@ async function loadSchools(env: NodeJS.ProcessEnv): Promise<SchoolRow[]> {
     return await ds.query(
       `SELECT s.id, s.slug,
               EXISTS (SELECT 1 FROM students st WHERE st.tenant_id = s.id) AS has_students,
-              s.created_in_demo,
-              (SELECT count(*)::int FROM students st WHERE st.tenant_id = s.id) AS student_count
+              s.created_in_demo
          FROM schools s`,
     );
   } finally {
@@ -39,8 +35,11 @@ async function loadSchools(env: NodeJS.ProcessEnv): Promise<SchoolRow[]> {
  * tenant, so a students check on the exemption is what refuses it. The seed runner's guard 3
  * exempts `default-school` too; only this boot check adds the no-students condition.
  *
- * D3 (Epic 88): a school a visitor registered on the demo (`created_in_demo`) is not foreign while it
- * holds fewer than 50 students; at 50 or more it looks like real data and the boot refuses.
+ * D3 (Epic 88): a school a visitor registered on the demo (`created_in_demo`) is never foreign, however
+ * many students it holds. No size cap: one visitor can add 100 rows per request, so any cap a visitor
+ * can reach would stop the public demo from booting. The flag is safe to trust on its own: only
+ * `ProvisioningService` writes it, from `isDemoMode()`; the migration default is false and the
+ * workbook import leaves it out, so a real database gets it only through a deliberate `UPDATE`.
  *
  * Called from `main.ts` and `createScriptAppContext` BEFORE Nest builds the app. It cannot be a
  * Nest lifecycle hook: every module's `onModuleInit` runs first, and on a wrong Redis that already
@@ -56,13 +55,13 @@ export async function assertDemoDatabase(
   const foreign = (await load(env)).filter(
     (r) =>
       !demo.has(r.slug) &&
-      !(r.created_in_demo && (r.student_count ?? 0) < VISITOR_SCHOOL_MAX_STUDENTS) &&
+      !r.created_in_demo &&
       (r.has_students || (r.slug !== 'default-school' && r.id !== env.PLATFORM_TENANT_ID)),
   );
   if (foreign.length > 0) {
     throw new Error(
       `DEMO_MODE refuses to start: database holds non-demo schools (${foreign.map((r) => r.slug).join(', ')}). ` +
-        'Only the bmsc-* branches and visitor schools (created_in_demo, under 50 students) may hold students, and besides them only an empty default-school ' +
+        'Only the bmsc-* branches and visitor schools (created_in_demo) may hold students, and besides them only an empty default-school ' +
         '(the platform row every migration creates) or the empty PLATFORM_TENANT_ID row. ' +
         'Anything else means this is not a demo database.',
     );

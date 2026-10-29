@@ -339,9 +339,10 @@
         mode: '0664'
         modification_time: preserve
         access_time: preserve
-    # biddaloy-staging and biddaloy-nightly (both as deploy) write these four in place; the staging dir
+    # biddaloy-staging and biddaloy-nightly (both as deploy) write these five in place; the staging dir
     # is root:deploy 0750, so deploy cannot create files there. Empty active-db = dev, empty
-    # loaded-backup = no badge date, empty last-drill = no drill yet (doctor and status say so).
+    # loaded-backup = no badge date, empty last-drill = no drill yet (doctor and status say so),
+    # empty backups-list = `load <number>` refuses until `backups` has printed a list.
     - name: Staging state files (biddaloy-staging and the restore drill write them)
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/staging/{{ item }}'
@@ -351,7 +352,7 @@
         mode: '0660'
         modification_time: preserve
         access_time: preserve
-      loop: [active-db, loaded-backup, history.log, last-drill]
+      loop: [active-db, loaded-backup, history.log, last-drill, backups-list]
       when: "'staging' in biddaloy_envs"
     - name: Postgres TLS directories
       ansible.builtin.file:

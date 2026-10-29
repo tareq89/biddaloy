@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   BulkReminderService,
   SkipReason,
@@ -309,6 +314,37 @@ describe('BulkReminderService', () => {
 
       expect(studentService.findManyWithGuardians).toHaveBeenCalledWith(['s-1'], TENANT);
       expect(queue.add).toHaveBeenCalledTimes(1);
+    });
+
+    // Epic 88: the demo cap counts the students picked (after the dedupe), not guardians, and is
+    // checked before any DB read.
+    it.each([
+      [100, false],
+      [101, true],
+    ])('demo: %i picked students refused=%s, before any lookup', async (n, refused) => {
+      const prev = process.env.DEMO_MODE;
+      process.env.DEMO_MODE = 'true';
+      const ids = Array.from({ length: n }, (_, i) => `s-${i}`);
+      // Duplicates do not count: the cap is on the deduped list.
+      const err = await service
+        .previewBulk({ ...dto, student_ids: [...ids, ids[0]] } as any, TENANT, USER)
+        .catch((e) => e)
+        .finally(() => {
+          if (prev === undefined) delete process.env.DEMO_MODE;
+          else process.env.DEMO_MODE = prev;
+        });
+      if (refused) {
+        expect(err).toBeInstanceOf(UnprocessableEntityException);
+        expect(err.getResponse().details).toEqual({
+          code: 'DEMO_ROW_LIMIT',
+          limit: 100,
+          count: 101,
+        });
+        expect(studentService.findManyWithGuardians).not.toHaveBeenCalled();
+      } else {
+        expect(err).not.toBeInstanceOf(UnprocessableEntityException);
+        expect(studentService.findManyWithGuardians).toHaveBeenCalled();
+      }
     });
   });
 

@@ -66,6 +66,7 @@ export class StudentPhotoController {
     @Req() request: Request,
   ) {
     if (!files?.length) throw new BadRequestException('At least one "files" entry is required');
+    // Unreachable today (the interceptor stops at 25 files); kept so raising that cap keeps the demo's.
     assertDemoRowLimit(files.length);
     return this.photos.bulkUpload(files, tenant.id, user.sub, requestContext(request));
   }

@@ -22,7 +22,8 @@
 # 3 no daily backup and the deadline passed: exit 1 + `down` push + staging untouched;
 # 4 bucket unreadable: a different message, still `down`; 5 backup present: `staging_next ready`,
 # every user has the staging hash, the live database is untouched; 6 a failing scrub drops _next
-# and pushes `down`; 7 bad --target/--from refused; 8 --target drill from an exact key; 9 latest-hourly.
+# and pushes `down`; 7 bad --target/--from refused; 8 --target drill from an exact key; 9 latest-hourly,
+# a failed --target run pushes nothing.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -241,7 +242,7 @@ live_untouched || fail "--target touched the live database"
 echo "PASS: --target drill restored and scrubbed from an exact key"
 
 # 9. --from latest-hourly picks the newest db/hourly object without waiting; a failing scrub still
-#    drops the target and pushes down.
+#    drops the target, and pushes nothing: with --target the caller reports (PR #3281 review).
 mkdir -p "$FAKE_BUCKET/db/hourly"
 cp "$FAKE_BUCKET/db/daily/$DAY.dump.age" "$FAKE_BUCKET/db/hourly/2026-01-01T01.dump.age"
 cp "$FAKE_BUCKET/db/daily/$DAY.dump.age" "$FAKE_BUCKET/db/hourly/2026-01-01T02.dump.age"
@@ -252,7 +253,7 @@ grep -q "cp .*db/hourly/2026-01-01T02.dump.age" "$SHIM_LOG" || fail "newest hour
 RARGS=(--target "$DRILL" --from latest-hourly); set +e; run_refresh SCRUB_SQL="$WORK/bad-scrub.sql"; code=$?; set -e
 [[ $code -eq 1 ]] || fail "failing scrub must exit 1, got $code"
 [[ "$(pg -d postgres -c "SELECT count(*) FROM pg_database WHERE datname = '$DRILL'")" == 0 ]] || fail "$DRILL survived a failed scrub"
-grep -q 'status=down' "$SHIM_LOG" || fail "no down push"
-echo "PASS: latest-hourly, and a failed scrub drops the target"
+grep -q 'status=down' "$SHIM_LOG" && fail "--target must not push down (the caller reports)"
+echo "PASS: latest-hourly, and a failed scrub drops the target without a push"
 
 echo "staging-refresh.infra.test.sh: all cases passed"

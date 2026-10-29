@@ -470,13 +470,13 @@ Nobody could check these locally (no Docker was allowed while the host was built
 
 What `DEMO_MODE=true` does. The decision numbers are from Epic 58 (#1732).
 
-| Decision | Behaviour                                                                                                                                                                                                                                                                                                                                                                                        |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| D2       | SMS and email go to the Mailpit test inbox (`MESSAGE_SINK`), push is log-only. Register and the OTP are open; password change, forgot / reset password and social link / unlink are closed. No lockout. The trial and backup schedulers are off.                                                                                                                                                 |
-| D23      | Destructive routes answer "disabled in demo" (`demo-deny-list.ts`): workbook restore and import, academic-year delete, removing demo accounts, school danger zone. The settings "Test connection" route (`POST /schools/:id/settings/test`) is blocked too.                                                                                                                                      |
-| D24      | Multipart bodies over 2 MB are refused.                                                                                                                                                                                                                                                                                                                                                          |
-| D27      | Every response carries `X-Robots-Tag: noindex, nofollow`, and the edge nginx serves a disallow-all `robots.txt` (`nginx/templates/demo.conf.template`).                                                                                                                                                                                                                                          |
-| D30      | Logins use the normal password login. The boot guard refuses to start if any school is not a `bmsc-*` branch or a visitor school (`schools.created_in_demo`, under 50 students) (see [08-security.md](08-security.md#demo-boot-check-5801) and [Demo seed safety](08-security.md#demo-seed-safety-5813)). It runs after the BullMQ workers start, so a bad row stops the process a moment later. |
+| Decision | Behaviour                                                                                                                                                                                                                                                                                                                                                                               |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D2       | SMS and email go to the Mailpit test inbox (`MESSAGE_SINK`), push is log-only. Register and the OTP are open; password change, forgot / reset password and social link / unlink are closed. No lockout. The trial and backup schedulers are off.                                                                                                                                        |
+| D23      | Destructive routes answer "disabled in demo" (`demo-deny-list.ts`): workbook restore and import, academic-year delete, removing demo accounts, school danger zone. The settings "Test connection" route (`POST /schools/:id/settings/test`) is blocked too.                                                                                                                             |
+| D24      | Multipart bodies over 2 MB are refused.                                                                                                                                                                                                                                                                                                                                                 |
+| D27      | Every response carries `X-Robots-Tag: noindex, nofollow`, and the edge nginx serves a disallow-all `robots.txt` (`nginx/templates/demo.conf.template`).                                                                                                                                                                                                                                 |
+| D30      | Logins use the normal password login. The boot guard refuses to start if any school is not a `bmsc-*` branch or a visitor school (`schools.created_in_demo`, any size) (see [08-security.md](08-security.md#demo-boot-check-5801) and [Demo seed safety](08-security.md#demo-seed-safety-5813)). It runs after the BullMQ workers start, so a bad row stops the process a moment later. |
 
 ### Visitors can sign up (Epic 88 wave 1, 2026-10-29)
 
@@ -490,7 +490,7 @@ flowchart LR
   V -->|reads code in inbox| O[register/verify]
   O --> S[(new school, created_in_demo = true)]
   S -->|bulk file over 100 rows| X[422 DEMO_ROW_LIMIT]
-  S -->|02:00 reset swaps the database| G[school gone]
+  S -->|03:00 rebuild swaps the database| G[school gone]
 ```
 
 - **The inbox is the OTP channel.** The demo never echoes the code in the response, so the e2e
@@ -501,7 +501,10 @@ flowchart LR
 - **Bulk routes are capped, not denied.** Over 100 rows is refused whole with `422 DEMO_ROW_LIMIT`
   (example body: `{ "code": "DEMO_ROW_LIMIT", "limit": 100, "count": 101 }`).
 - **Visitor schools must not trip the boot check.** `schools.created_in_demo` marks them; an unmarked
-  foreign school still refuses boot.
+  foreign school still refuses boot. The flag alone decides, with no student cap: a visitor can add
+  100 rows per request, so any cap they can reach would keep the public demo down until the 03:00
+  rebuild. `ProvisioningService` is the one place a school row is inserted, and it sets the flag from
+  `DEMO_MODE` for every caller (sign-up and `POST /schools`).
 - **Proving the reset.** Run the spec, run `reset.sh`, then run it again with `E2E_DEMO_AFTER_RESET=1`:
   the visitor can no longer sign in (401).
 

@@ -20,7 +20,7 @@
     staging_active_raw: '{{ staging_active_raw_v }}'
     staging_bucket_other: '{{ staging_bucket_other_v }}'
   vars:
-    staging_dir: "{{ staging_state_dir | default('/opt/biddaloy/staging') }}"
+    staging_dir: "{{ staging_state_dir | default((biddaloy_root | default('/opt/biddaloy')) ~ '/staging') }}"
     # Missing or empty file = dev. Anything but dev|staging fails below (no guessing a database).
     staging_active_raw_v: "{{ lookup('ansible.builtin.file', staging_dir ~ '/active-db', errors='ignore') | default('', true) | join('') | trim }}"
     staging_active_db: "{{ staging_active_raw_v or 'dev' }}"

@@ -57,6 +57,7 @@ export class ApplicationDecisionsController {
     @CurrentUser() user: Actor,
     @Req() req: Request,
   ): Promise<BulkApproveResultDto[]> {
+    // Unreachable today (@ArrayMaxSize(50) on the DTO); kept so raising that cap keeps the demo's.
     assertDemoRowLimit(dto.ids.length);
     return this.service.bulkApprove(tenant.id, { userId: user.sub, role: tenant.role }, dto, req);
   }
