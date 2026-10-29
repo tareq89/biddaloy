@@ -1,0 +1,100 @@
+name: Staging
+
+# Runs biddaloy-staging on the VM through the same forced-command SSH key as deploy.yml (D7, D15).
+# No third-party actions are used (Rule 21). The environment is `production`, which allows only
+# main, so the workflow runs from main only.
+#
+# OWNER SETUP: the same DEPLOY_HOST, DEPLOY_SSH_KEY and DEPLOY_SSH_KNOWN_HOSTS secrets as
+# deploy.yml. The VM's forced-command wrapper must accept the biddaloy-staging forms below.
+#
+# Rule 13: the summary shows only the last 40 lines of the output; the full output stays on the VM.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do
+        type: choice
+        required: true
+        default: status
+        options: [status, backups, load, use-dev, use-staging, clean-dev]
+      backup:
+        description: 'Backup for "load": latest-daily, latest-hourly, or a key (letters, digits, . _ / -)'
+        type: string
+        required: false
+        default: latest-daily
+      use_after_load:
+        description: Switch staging to the loaded database after "load"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+    steps:
+      - name: Run biddaloy-staging
+        env:
+          # Inputs and secrets only ever travel through env vars, never through ${{ }} in the script.
+          ACTION: ${{ inputs.action }}
+          BACKUP: ${{ inputs.backup }}
+          USE_AFTER_LOAD: ${{ inputs.use_after_load }}
+          REF: ${{ github.ref }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          LC_ALL: C
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ "$REF" != refs/heads/main ]; then
+            echo "FAILED at: ref" >&2
+            echo "Why: this workflow runs from main only" >&2
+            echo "Next: run it on main" >&2
+            exit 2
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          ssh_vm() {
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes \
+              -o ServerAliveInterval=30 -i ~/.ssh/deploy_key -- "deploy@$DEPLOY_HOST" "$1"
+          }
+
+          case "$ACTION" in
+            status|backups) args="$ACTION" ;;
+            use-dev) args="use dev --yes" ;;
+            use-staging) args="use staging --yes" ;;
+            clean-dev) args="clean-dev --yes" ;;
+            load)
+              backup_re='^[A-Za-z0-9._/-]{1,200}$'
+              if ! [[ $BACKUP =~ $backup_re ]]; then
+                echo "FAILED at: backup" >&2
+                echo "Why: use latest-daily, latest-hourly or a key of letters, digits and . _ / -" >&2
+                echo "Next: fix the backup input" >&2
+                exit 2
+              fi
+              args="load $BACKUP --yes"
+              if [ "$USE_AFTER_LOAD" = true ]; then args="$args --use"; fi
+              ;;
+            *) echo "FAILED at: action" >&2; exit 2 ;;
+          esac
+
+          echo "### Staging: $ACTION" >> "$GITHUB_STEP_SUMMARY"
+          rc=0
+          ssh_vm "biddaloy-staging $args" > staging.out 2>&1 || rc=$?
+          {
+            echo '```text'
+            tail -n 40 staging.out
+            if [ "$rc" -ne 0 ]; then echo "ssh exited $rc"; fi
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
