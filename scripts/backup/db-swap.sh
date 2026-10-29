@@ -19,6 +19,8 @@
 # a refused name exits 2.
 set -euo pipefail
 
+# `biddaloy_staging_dev` (Epic 88) matches the staging family; it is never renamed, the guard just
+# must not refuse it.
 NAME_RE='^biddaloy_(staging|demo)[a-z0-9_]*$'
 log() { printf '%s db-swap.sh: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*" >&2; }
 die() { echo "db-swap.sh: $*" >&2; exit 2; }

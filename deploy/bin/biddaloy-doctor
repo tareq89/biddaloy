@@ -239,7 +239,7 @@ backup_check() {
 nightly_checks() {
   need "nightly jobs" systemctl || return
   local j out res ts ls
-  for j in staging-refresh demo-rebuild log-archive; do
+  for j in restore-drill demo-rebuild log-archive; do
     out="$(systemctl show "biddaloy-nightly@$j.service" -p LoadState,Result,ExecMainExitTimestamp 2>/dev/null)"
     # systemctl show exits 0 for a missing unit (Result=success, LoadState=not-found)
     ls="$(printf '%s\n' "$out" | sed -n 's/^LoadState=//p')"
@@ -250,6 +250,15 @@ nightly_checks() {
     elif [[ "$res" == success ]]; then emit "nightly $j" OK "last run ok ($ts)"
     else emit "nightly $j" FAIL "last result $res ($ts)" "journalctl -u biddaloy-nightly@$j.service -n 50 --no-pager"; fi
   done
+  # [88 D13] the drill's own record: written only by a night that restored, migrated and smoked ok.
+  local f="$ROOT/staging/last-drill" m age
+  m="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null)" || m=""
+  if [[ ! "$m" =~ ^[0-9]+$ ]]; then emit "restore drill" WARN "no drill recorded yet" "journalctl -u biddaloy-nightly@restore-drill.service -n 50 --no-pager"
+  else
+    age=$((($(date +%s) - m) / 3600))
+    if ((age < 26)); then emit "restore drill" OK "$(tr -d '\n' <"$f") (${age} h ago)"
+    else emit "restore drill" WARN "last ok drill ${age} h ago: $(tr -d '\n' <"$f")" "journalctl -u biddaloy-nightly@restore-drill.service -n 50 --no-pager"; fi
+  fi
 }
 
 # --- run ----------------------------------------------------------------------------------------

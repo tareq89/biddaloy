@@ -157,6 +157,20 @@ describe('runStackConfigCheck', () => {
     expect(await runStackConfigCheck('demo', demo)).toEqual({ ok: true, output: 'config ok' });
   });
 
+  it('the old STAGING_REFRESH_PUSH_URL name still passes, with a rename warning (88 U3)', async () => {
+    const old = await runStackConfigCheck('staging', {
+      ...staging,
+      STAGING_REFRESH_PUSH_URL: 'https://kuma.example.org/api/push/t',
+    });
+    expect(old.ok).toBe(true);
+    expect(old.output).toContain('RESTORE_DRILL_PUSH_URL');
+    const renamed = await runStackConfigCheck('staging', {
+      ...staging,
+      RESTORE_DRILL_PUSH_URL: 'https://kuma.example.org/api/push/t',
+    });
+    expect(renamed).toEqual({ ok: true, output: 'config ok' });
+  });
+
   it('MESSAGE_SINK pairing errors (87 D3, D10, D22)', async () => {
     const out = async (stack: 'prod' | 'staging' | 'demo', env: Record<string, string>) =>
       (await runStackConfigCheck(stack, env)).output;

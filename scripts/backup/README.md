@@ -134,6 +134,19 @@ flowchart LR
   A[guard] --> B[wait for<br/>db/daily/DAY.dump.age] --> C[create _next] --> D[restore.sh] --> E[scrub.sql] --> F[verify counts] --> G["staging_next ready"]
 ```
 
+Options (Epic 88, D16):
+
+```bash
+staging-refresh.sh                                   # as above: build <POSTGRES_DB>_next from today's daily
+staging-refresh.sh --target biddaloy_staging_drill   # fill the drill db itself (drop, create, restore, scrub, verify; no swap)
+staging-refresh.sh --target biddaloy_staging --from latest-hourly
+staging-refresh.sh --target biddaloy_staging_drill --from db/daily/2026-10-28.dump.age
+```
+
+- `--target` accepts exactly `biddaloy_staging` and `biddaloy_staging_drill`; anything else exits 2 before any command runs.
+- `--from` is `latest-daily` (default, the only one that waits for the deadline), `latest-hourly`, or an exact key.
+- The scrub always runs. `db-swap.sh` also accepts `biddaloy_staging_dev` (guard only; dev is never renamed).
+
 Needs (all passed by `deploy/stack.yml`, from `infra/secrets/staging.enc.env`):
 
 - `POSTGRES_DB` (must start `biddaloy_staging`), `POSTGRES_USER`, `POSTGRES_PASSWORD`

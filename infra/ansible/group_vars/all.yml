@@ -55,7 +55,7 @@ env_hosts:
   demo: "{{ groups['app'][0] }}"
 # Nightly jobs (D11), host time = host_timezone. Order matters: see the nightly diagram.
 nightly_jobs:
-  - { job: staging-refresh, env: staging, at: '02:20:00' }
+  - { job: restore-drill, env: staging, at: '02:20:00' }
   - { job: demo-rebuild, env: demo, at: '03:00:00' }
   - { job: log-archive, env: prod, at: '04:00:00' }
 # DHCP clients (v4, v6) bind the public interface; ufw still filters them.
