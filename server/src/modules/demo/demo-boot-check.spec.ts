@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { assertDemoDatabase } from './demo-boot-check';
 
-type Row = { id: string; slug: string; has_students?: boolean };
+type Row = {
+  id: string;
+  slug: string;
+  has_students?: boolean;
+  created_in_demo?: boolean;
+  student_count?: number;
+};
 const check = (env: Record<string, string | undefined>, schools: Row[]) => {
   const load = vi.fn().mockResolvedValue(schools);
   return { run: () => assertDemoDatabase(env as NodeJS.ProcessEnv, load), load };
@@ -80,6 +86,50 @@ describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () =>
 
   // The refusal must say why, so a 02:00 exit 1 after the nightly reset (#2178) is not silent.
   // It must not suggest setting PLATFORM_TENANT_ID as a fix: an empty default-school is already exempt by slug.
+  // Epic 88 D3
+  it('passes a visitor-created school with 3 students', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: '1', slug: 'bmsc-high' },
+        {
+          id: '2',
+          slug: 'visitor-school',
+          has_students: true,
+          created_in_demo: true,
+          student_count: 3,
+        },
+      ]).run(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('refuses a visitor-created school with 50 students', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        {
+          id: '2',
+          slug: 'visitor-school',
+          has_students: true,
+          created_in_demo: true,
+          student_count: 50,
+        },
+      ]).run(),
+    ).rejects.toThrow(/visitor-school/);
+  });
+
+  it('refuses a non-demo school without the flag', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        {
+          id: '2',
+          slug: 'visitor-school',
+          has_students: true,
+          created_in_demo: false,
+          student_count: 3,
+        },
+      ]).run(),
+    ).rejects.toThrow(/visitor-school/);
+  });
+
   it('says why it refuses', async () => {
     await expect(
       check({ DEMO_MODE: 'true' }, [{ id: '1', slug: 'real-school' }]).run(),
