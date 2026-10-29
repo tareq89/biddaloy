@@ -9,14 +9,6 @@
 export const PUBLIC = 'E11: public page, no shell';
 /** 44.3.x wave 3: the page has no slot for the (?) yet (no element to attach it to). */
 const PAGE_FIX = '#3017: page fix pending';
-/** The print-templates pages have no slot for these (?) yet. */
-const PRINT_FIX = '#3061: page fix pending';
-/** The ui/ component has no helpId slot (DataTable row action or expand toggle, FilterBar field). */
-const UI_SLOT = '#3078: no helpId slot in ui/';
-/** PageHeader puts tertiary/destructive actions in the More menu, which draws no (?). */
-const MENU_ITEM = '#3078: header More-menu item has no (?) slot';
-/** The element lives in a file outside the wave-3 lane territory. */
-const TERRITORY = '#3079: element outside the wave-3 territory';
 /** A More-menu action that opens no dialog, so its (?) has nowhere to go (#3078 puts it on the dialog). */
 const NO_DIALOG = '#3017: More-menu action opens no dialog, no (?) slot';
 /** The section describes the public admission pages, which have no shell and no (?) (E11). */
