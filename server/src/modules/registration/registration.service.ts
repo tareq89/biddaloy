@@ -37,6 +37,8 @@ import { AdminNoticeService } from '../schools/trial/admin-notice.service';
 import { TrialService } from '../schools/trial/trial.service';
 import { TenantStatusService } from '../schools/tenant-status.service';
 import { User } from '../users/entities/user.entity';
+import { School } from '../schools/entities/school.entity';
+import { isDemoMode } from '../demo/demo-mode';
 import { RegisterResendDto } from './dto/register-resend.dto';
 import { RegisterStartDto } from './dto/register-start.dto';
 import { RegisterVerifyDto } from './dto/register-verify.dto';
@@ -336,6 +338,12 @@ export class RegistrationService {
             if (owner ? result.admin.user_id !== owner.id : result.admin.existed) {
               throw contactInUse();
             }
+            // Epic 88 D3: a school made on the public demo is marked so the demo boot check allows it.
+            await manager.update(
+              School,
+              { id: result.school.id },
+              { created_in_demo: isDemoMode() },
+            );
             // Spent only once the registration is past its refusals, so a CONTACT_IN_USE or a
             // slug clash leaves the Google link usable. A missing/expired ticket just means no
             // link: the code already proved the registrant.

@@ -152,6 +152,72 @@ describe('RegistrationService.createSchool contacts', () => {
   });
 });
 
+describe('RegistrationService.createSchool created_in_demo flag (Epic 88 D3)', () => {
+  async function flagWith(demo: string | undefined) {
+    const prev = process.env.DEMO_MODE;
+    if (demo === undefined) delete process.env.DEMO_MODE;
+    else process.env.DEMO_MODE = demo;
+    const update = vi.fn().mockResolvedValue(undefined);
+    const provision = vi.fn(async (_d: unknown, _a: unknown, opts: any) => {
+      await opts.inTransaction({ update }, { school: { id: 'sch-1' }, admin: { existed: false } });
+    });
+    const s = new RegistrationService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { provision } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { findOne: vi.fn().mockResolvedValue(null) } as never,
+      {} as never,
+      {} as never,
+    );
+    const stage = {
+      channel: 'sms',
+      school_name: 'S',
+      admin_name: 'A',
+      country_code: 'BD',
+      address: 'x',
+      phone: '01711000000',
+      email: null,
+    };
+    try {
+      // The rest of the hook hits unmocked services and throws; the flag write comes first.
+      await (s as never as { createSchool: (...a: unknown[]) => Promise<unknown> })
+        .createSchool('reg-1', stage, ctx, undefined)
+        .catch(() => undefined);
+    } finally {
+      if (prev === undefined) delete process.env.DEMO_MODE;
+      else process.env.DEMO_MODE = prev;
+    }
+    return update;
+  }
+
+  it('sets the flag when DEMO_MODE=true', async () => {
+    const update = await flagWith('true');
+    expect(update).toHaveBeenCalledWith(
+      expect.anything(),
+      { id: 'sch-1' },
+      { created_in_demo: true },
+    );
+  });
+
+  it('leaves it false when DEMO_MODE is unset', async () => {
+    const update = await flagWith(undefined);
+    expect(update).toHaveBeenCalledWith(
+      expect.anything(),
+      { id: 'sch-1' },
+      { created_in_demo: false },
+    );
+  });
+});
+
 describe('RegistrationService.start channel', () => {
   it('always uses SMS, even when an email was given', async () => {
     const deliver = vi.fn().mockResolvedValue({ logId: 'l', status: 'SENT' });
