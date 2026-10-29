@@ -200,6 +200,28 @@ Example: Rahim's guardian chose "in the app" but has no device. The log ends
 Dedupe is the log's `reference_key` (`arrival:<date>:<student>:<guardian>`,
 D22): a second notice for the same day is a unique-key conflict, so a skip.
 
+## Arrival-notice log claim [#3286]
+
+`ArrivalNoticeService` bounds `queue.add` with a 3 s timeout, but the add is not cancelled. So the
+enqueue-timeout path and the worker can both reach the same log. One conditional UPDATE decides
+who owns it (`server/src/modules/communications/worker/log-claim.ts`). No new status value and no
+migration: the claim is `metadata.claimed_by` = the BullMQ job id.
+
+```mermaid
+stateDiagram-v2
+    [*] --> QUEUED: log saved, reference_key set
+    QUEUED --> QUEUED: worker claims (claimed_by = job id)<br/>a retry of the same job re-claims
+    QUEUED --> FAILED: enqueue timeout, only if unclaimed<br/>(frees reference_key, releases credit)
+    QUEUED --> SENT: worker delivers
+    QUEUED --> FAILED: worker settles a failure
+    FAILED --> [*]: late worker cannot claim, skips
+    SENT --> [*]
+```
+
+- Worker (ARRIVAL_NOTICE only): `UPDATE ... WHERE status='QUEUED' AND (claimed_by IS NULL OR claimed_by = jobId)`. 0 rows = already settled, skip.
+- Timeout path: `UPDATE ... SET status='FAILED', reference_key=NULL WHERE status='QUEUED' AND claimed_by IS NULL`. 0 rows = a worker owns it, so credit and key are left for the worker.
+- Absence notices, fees and OTP logs never claim; their behaviour is unchanged.
+
 ## Suspended tenants: queued work is cancelled, not paused
 
 A school (tenant) can be suspended by a SUPER_ADMIN

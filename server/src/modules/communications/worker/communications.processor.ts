@@ -13,6 +13,7 @@ import { TenantStatusService } from '../../schools/tenant-status.service';
 import { SmsCreditService } from '../credits/sms-credit.service';
 import { Guardian } from '../../students/entities/guardian.entity';
 import { PushService } from '../../push/push.service';
+import { claimQueuedLog } from './log-claim';
 
 interface SendJobData {
   logId: string;
@@ -330,6 +331,19 @@ export class CommunicationsProcessor extends WorkerHost {
         await this.settleSmsCredit(job, log, 'RELEASE');
       }
       return;
+    }
+
+    // Arrival notices race a bounded `queue.add` in ArrivalNoticeService: claim the log
+    // atomically before any side effect. Losing means the enqueue-timeout path already
+    // failed it (credit released, key freed), so sending now would double-deliver.
+    // A retry of this same job re-claims its own claim. Other producers are untouched.
+    if (log.trigger === CommunicationTrigger.ARRIVAL_NOTICE) {
+      const jobId = String(job.id);
+      if (!(await claimQueuedLog(this.repo, log.id, jobId))) {
+        this.logger.warn(`Arrival log ${log.id} not claimable (settled elsewhere); skipping`);
+        return;
+      }
+      log.metadata = { ...log.metadata, claimed_by: jobId };
     }
 
     // #528: a school can be suspended after work was already queued for it.

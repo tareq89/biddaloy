@@ -62,6 +62,7 @@ describe('ArrivalNoticeService', () => {
   let queue: { add: ReturnType<typeof vi.fn> };
   let credits: { reserveForLog: ReturnType<typeof vi.fn>; releaseForLog: ReturnType<typeof vi.fn> };
   let update: ReturnType<typeof vi.fn>;
+  let failRows: unknown[]; // rows the conditional FAILED update returns (empty = a worker claimed)
   let smsAllowed: boolean;
   let service: ArrivalNoticeService;
 
@@ -82,6 +83,7 @@ describe('ArrivalNoticeService', () => {
     saveError = null;
     smsAllowed = true;
     update = vi.fn();
+    failRows = [{ id: 'L' }];
     queue = { add: vi.fn().mockResolvedValue(undefined) };
     credits = {
       reserveForLog: vi.fn().mockResolvedValue({ batchId: 'L', segments: 1 }),
@@ -101,6 +103,7 @@ describe('ArrivalNoticeService', () => {
         CommunicationLog,
         {
           create: (x: any) => ({ id: 'L', ...x }),
+          query: async () => [failRows, failRows.length],
           save: async (x: any) => {
             if (saveError) throw saveError;
             saved.push({ ...x });
@@ -262,5 +265,14 @@ describe('ArrivalNoticeService', () => {
     expect(r.skipped[0].reason).toBe(ArrivalSkipReason.ENQUEUE_FAILED);
     expect(credits.releaseForLog).toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('add times out but a worker already claimed the log: no FAILED, no credit release, counted queued', async () => {
+    subs = [sub({ channel: ArrivalNoticeChannel.SMS })];
+    queue.add.mockRejectedValue(new Error('queue add timed out'));
+    failRows = []; // conditional UPDATE matched nothing: log is claimed or settled
+    const r = await call();
+    expect(r.queued).toBe(1);
+    expect(credits.releaseForLog).not.toHaveBeenCalled();
   });
 });
