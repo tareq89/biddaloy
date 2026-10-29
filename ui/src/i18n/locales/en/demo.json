@@ -46,5 +46,6 @@
       "staging": "staging site",
       "other": "test site"
     }
-  }
+  },
+  "inboxWarning": "This is a public test inbox that anyone can read. Do not enter a real phone number or email."
 }
