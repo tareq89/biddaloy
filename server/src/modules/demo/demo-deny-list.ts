@@ -13,6 +13,9 @@ export interface DemoDenyEntry {
 }
 
 export const DEMO_DENY_LIST: readonly DemoDenyEntry[] = [
+  // Messages stay in Mailpit (see communications/providers/communication-provider.registry.ts),
+  // so opening register and OTP sends nothing real. Password recovery and social linking stay closed (88.1.02 review).
+  // Bulk routes are capped by the row limit, not denied.
   {
     method: 'POST',
     pathPattern: /^\/backup\/restore$/,
@@ -24,54 +27,6 @@ export const DEMO_DENY_LIST: readonly DemoDenyEntry[] = [
     pathPattern: /^\/backup\/validate$/,
     reason: 'workbook import: visitors cannot load their own data',
     example: '/backup/validate',
-  },
-  {
-    method: 'POST',
-    pathPattern: /^\/students\/bulk-upload\/(validate|commit)$/,
-    reason: 'bulk student upload',
-    example: '/students/bulk-upload/commit',
-  },
-  {
-    method: 'POST',
-    pathPattern: /^\/students\/photos\/bulk$/,
-    reason: 'bulk photo upload',
-    example: '/students/photos/bulk',
-  },
-  {
-    method: 'POST',
-    pathPattern: /^\/users\/bulk-upload\/(validate|commit)$/,
-    reason: 'bulk staff upload',
-    example: '/users/bulk-upload/validate',
-  },
-  {
-    method: 'POST',
-    pathPattern: /^\/homework\/bulk\/(validate|commit)$/,
-    reason: 'bulk homework upload',
-    example: '/homework/bulk/commit',
-  },
-  {
-    method: 'POST',
-    pathPattern: /^\/calendar-import\/(validate|commit)$/,
-    reason: 'calendar import',
-    example: '/calendar-import/commit',
-  },
-  {
-    method: 'POST',
-    pathPattern: /^\/study-plans\/import\/(validate|commit)$/,
-    reason: 'study plan import',
-    example: '/study-plans/import/commit',
-  },
-  {
-    method: 'DELETE',
-    pathPattern: /(^|\/)bulk(\/|-|$)/,
-    reason: 'bulk delete',
-    example: '/students/bulk-delete',
-  },
-  {
-    method: 'POST',
-    pathPattern: /(^|\/)bulk[-/]?delete/,
-    reason: 'bulk delete',
-    example: '/students/bulk-delete',
   },
   {
     method: 'DELETE',
@@ -118,32 +73,8 @@ export const DEMO_DENY_LIST: readonly DemoDenyEntry[] = [
   {
     method: 'POST',
     pathPattern: /^\/auth\/(forgot-password|reset-password)$/,
-    reason: 'no password resets in the demo',
+    reason: 'the reset link lands in the public inbox: a visitor could take over a shared card',
     example: '/auth/forgot-password',
-  },
-  {
-    method: 'POST',
-    pathPattern: /^\/auth\/(step-up\/)?otp\/request$/,
-    reason: 'would send a real OTP',
-    example: '/auth/otp/request',
-  },
-  {
-    method: 'POST',
-    pathPattern: /^\/auth\/register\/start$/,
-    reason: 'new schools cannot be created in the demo',
-    example: '/auth/register/start',
-  },
-  {
-    method: 'POST',
-    pathPattern: /^\/auth\/register\/resend$/,
-    reason: 'new schools cannot be created in the demo',
-    example: '/auth/register/resend',
-  },
-  {
-    method: 'POST',
-    pathPattern: /^\/auth\/register\/verify$/,
-    reason: 'new schools cannot be created in the demo',
-    example: '/auth/register/verify',
   },
   {
     method: 'POST',
