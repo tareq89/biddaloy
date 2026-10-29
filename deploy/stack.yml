@@ -43,8 +43,11 @@ x-app: &app
     DB_SSL: 'true'
     DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
     REDIS_URL: redis://redis:6379
-    # Test inbox (Epic 87): empty = off. The SMTP URL is the code default (smtp://mailpit:1025).
+    # Test inbox (Epic 87): empty = off. The SMTP URL names this stack's mailpit, not the bare
+    # `mailpit` service name: compose puts that alias on the shared edge network too, where every
+    # stack's mailpit carries it, and demo's app once resolved it to staging's inbox.
     MESSAGE_SINK: ${MESSAGE_SINK:-}
+    MESSAGE_SINK_SMTP_URL: smtp://${ENV_NAME:?ENV_NAME must be set}-mailpit:1025
     ALLOW_REAL_PROVIDERS_ON_STAGING: ${ALLOW_REAL_PROVIDERS_ON_STAGING:-}
     MESSAGE_SINK_PUBLIC_URL: ${MESSAGE_SINK_PUBLIC_URL:-}
     JWT_SECRET: ${JWT_SECRET}
@@ -179,8 +182,11 @@ services:
     expose:
       - '1025'
       - '8025'
+    # The unique alias on both networks: the app's MESSAGE_SINK_SMTP_URL uses it, and edge nginx
+    # proxies inbox-<stack> to it. Never rely on the bare `mailpit` name across stacks.
     networks:
-      default: {}
+      default:
+        aliases: ['${ENV_NAME:?ENV_NAME must be set}-mailpit']
       edge:
         aliases: ['${ENV_NAME:?ENV_NAME must be set}-mailpit']
     # The image is scratch-based (no wget/curl): the binary has its own readiness probe.
