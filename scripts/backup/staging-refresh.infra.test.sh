@@ -99,6 +99,7 @@ if [[ "${AWS_SHIM_ERROR:-}" == 1 ]]; then echo "An error occurred (AccessDenied)
 case "${args[0]} ${args[1]}" in
   "s3 ls"|"s3 cp")
     src="$FAKE_BUCKET/$(sed 's#^s3://[^/]*/##' <<<"${args[2]}")"
+    if [[ -d "$src" ]]; then ls "$src" | sed 's/^/2026-01-01 00:00:00 1 /'; exit 0; fi
     [[ -f "$src" ]] || exit 1
     [[ "${args[1]}" == cp ]] && cp "$src" "${args[3]}"
     exit 0 ;;
@@ -136,6 +137,7 @@ EOS
 pg -d postgres -c "CREATE DATABASE \"$LIVE\"" >/dev/null
 pg -d "$LIVE" -c "CREATE TABLE marker (v int); INSERT INTO marker VALUES (42)" >/dev/null
 
+RARGS=() # script arguments (--target ...) for the next run_refresh
 run_refresh() { # run_refresh VAR=value ... ; output goes to $WORK/out
   env PATH="$WORK/bin:$PATH" \
     POSTGRES_DB="$LIVE" POSTGRES_USER="$PG_USER" POSTGRES_PASSWORD="$PG_PASS" POSTGRES_HOST=127.0.0.1 \
@@ -145,7 +147,7 @@ run_refresh() { # run_refresh VAR=value ... ; output goes to $WORK/out
     SMOKE_SCHOOL_SLUG=smoke-test-school PLATFORM_TENANT_ID="$PLATFORM_ID" \
     STAGING_REFRESH_PUSH_URL=https://kuma.invalid/api/push/token STAGING_REFRESH_POLL_SECS=1 \
     STAGING_REFRESH_DEADLINE=23:59 SCRUB_SQL="$WORK/stub-scrub.sql" \
-    "$@" bash "$REFRESH" >"$WORK/out" 2>&1
+    "$@" bash "$REFRESH" ${RARGS[@]+"${RARGS[@]}"} >"$WORK/out" 2>&1
 }
 next_exists() { [[ "$(pg -d postgres -c "SELECT count(*) FROM pg_database WHERE datname = '${LIVE}_next'")" != 0 ]]; }
 live_untouched() { [[ "$(pg -d "$LIVE" -c 'SELECT v FROM marker')" == 42 ]]; }
@@ -202,5 +204,48 @@ grep -q 'status=down' "$SHIM_LOG" || fail "no down push for a failed scrub"
 next_exists && fail "_next left behind after a failed scrub"
 live_untouched || fail "failed scrub touched the live database"
 echo "PASS: failed scrub cleans up and pushes down"
+
+# 7. --target biddaloy_prod is refused (exit 2) before anything runs; so is a staging-looking name that
+#    is not one of the two allowed ones.
+: >"$SHIM_LOG"
+for bad in biddaloy_prod biddaloy biddaloy_staging_other biddaloy_staging_next 'biddaloy_staging_drill;x'; do
+  RARGS=(--target "$bad"); set +e; run_refresh; code=$?; set -e
+  [[ $code -eq 2 ]] || fail "--target $bad must exit 2, got $code"
+done
+[[ ! -s "$SHIM_LOG" ]] || fail "aws or curl ran for a refused --target"
+RARGS=()
+echo "PASS: --target outside the two staging names refused"
+
+# 8. --target biddaloy_staging_drill with an exact --from key: restored, scrubbed, no _next, no swap,
+#    the live database untouched, the dated daily key never asked for.
+DRILL=biddaloy_staging_drill
+[[ "$(pg -d postgres -c "SELECT count(*) FROM pg_database WHERE datname = '$DRILL'")" == 0 ]] || fail "$DRILL already exists on this server; not running case 8"
+trap 'pg -d postgres -c "DROP DATABASE IF EXISTS \"$DRILL\" WITH (FORCE)" >/dev/null 2>&1 || true; cleanup' EXIT
+cp "$FAKE_BUCKET/db/daily/$DAY.dump.age" "$FAKE_BUCKET/db/daily/exact-key.dump.age"
+: >"$SHIM_LOG"
+RARGS=(--target "$DRILL" --from db/daily/exact-key.dump.age); run_refresh || { cat "$WORK/out" >&2; fail "drill refresh failed"; }
+grep -q "^${DRILL} ready$" "$WORK/out" || fail "no '$DRILL ready'"
+grep -q "db/daily/exact-key.dump.age" "$SHIM_LOG" || fail "the exact key was not used"
+if grep -q "$DAY.dump.age" "$SHIM_LOG"; then fail "the dated daily key was used instead"; fi
+bad="$(pg -d "$DRILL" -c "SELECT count(*) FROM users WHERE password_hash IS DISTINCT FROM '$HASH' OR email NOT LIKE '%@staging.invalid'")"
+[[ "$bad" == 0 ]] || fail "$bad drill users were not scrubbed"
+next_exists && fail "_next created in --target mode"
+live_untouched || fail "--target touched the live database"
+echo "PASS: --target drill restored and scrubbed from an exact key"
+
+# 9. --from latest-hourly picks the newest db/hourly object without waiting; a failing scrub still
+#    drops the target and pushes down.
+mkdir -p "$FAKE_BUCKET/db/hourly"
+cp "$FAKE_BUCKET/db/daily/$DAY.dump.age" "$FAKE_BUCKET/db/hourly/2026-01-01T01.dump.age"
+cp "$FAKE_BUCKET/db/daily/$DAY.dump.age" "$FAKE_BUCKET/db/hourly/2026-01-01T02.dump.age"
+: >"$SHIM_LOG"
+RARGS=(--target "$DRILL" --from latest-hourly); run_refresh || { cat "$WORK/out" >&2; fail "hourly refresh failed"; }
+grep -q "cp .*db/hourly/2026-01-01T02.dump.age" "$SHIM_LOG" || fail "newest hourly key not chosen"
+: >"$SHIM_LOG"
+RARGS=(--target "$DRILL" --from latest-hourly); set +e; run_refresh SCRUB_SQL="$WORK/bad-scrub.sql"; code=$?; set -e
+[[ $code -eq 1 ]] || fail "failing scrub must exit 1, got $code"
+[[ "$(pg -d postgres -c "SELECT count(*) FROM pg_database WHERE datname = '$DRILL'")" == 0 ]] || fail "$DRILL survived a failed scrub"
+grep -q 'status=down' "$SHIM_LOG" || fail "no down push"
+echo "PASS: latest-hourly, and a failed scrub drops the target"
 
 echo "staging-refresh.infra.test.sh: all cases passed"

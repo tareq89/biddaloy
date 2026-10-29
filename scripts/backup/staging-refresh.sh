@@ -12,6 +12,13 @@
 #   step 6/7: verify                     schools, users and students are not empty
 #   step 7/7: ready                      prints `staging_next ready`
 #
+# Options (Epic 88, D16):
+#   --target <db>   fill this database itself instead of `<POSTGRES_DB>_next`: drop, create, restore,
+#                   scrub, verify; no swap. Only `biddaloy_staging` and `biddaloy_staging_drill`.
+#   --from <src>    latest-daily (default; waits for today's backup until the deadline),
+#                   latest-hourly (newest db/hourly/ object, no wait), or an exact key
+#                   `db/daily/<name>.dump.age` / `db/hourly/<name>.dump.age` (no wait).
+#
 # Exit codes: 0 ready, 1 failed (staging is untouched, a `down` push was sent), 2 refused.
 #
 # Required env:
@@ -42,6 +49,15 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
+TARGET=""
+FROM="latest-daily"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --target) [[ $# -ge 2 ]] || { echo "--target needs a database name" >&2; exit 2; }; TARGET="$2"; shift 2 ;;
+    --from) [[ $# -ge 2 ]] || { echo "--from needs a value" >&2; exit 2; }; FROM="$2"; shift 2 ;;
+    *) echo "staging-refresh.sh: unknown argument '$1'" >&2; exit 2 ;;
+  esac
+done
 STEPS=7
 log() { printf 'step %s/%s: %s\n' "$1" "$STEPS" "$2"; }
 say() { printf 'staging-refresh.sh: %s\n' "$*" >&2; }
@@ -49,10 +65,18 @@ say() { printf 'staging-refresh.sh: %s\n' "$*" >&2; }
 # --- step 1: guard ----------------------------------------------------------------------------
 log 1 guard
 POSTGRES_DB="${POSTGRES_DB:-}"
-if ! [[ "$POSTGRES_DB" =~ ^biddaloy_staging[a-z0-9_]*$ ]] || [[ "$POSTGRES_DB" =~ _(next|prev|prev_old)$ ]]; then
+if [[ -n "$TARGET" ]]; then
+  # Exact names only: this is the one path that drops a database it was handed on the command line.
+  [[ "$TARGET" =~ ^biddaloy_staging(_drill)?$ ]] || { echo "refusing: not a staging database" >&2; exit 2; }
+  POSTGRES_DB="$TARGET"
+elif ! [[ "$POSTGRES_DB" =~ ^biddaloy_staging[a-z0-9_]*$ ]] || [[ "$POSTGRES_DB" =~ _(next|prev|prev_old)$ ]]; then
   echo "refusing: not a staging database" >&2
   exit 2
 fi
+case "$FROM" in
+  latest-daily | latest-hourly) ;;
+  *) [[ "$FROM" =~ ^db/(daily|hourly)/[A-Za-z0-9._:-]+\.dump\.age$ && "$FROM" != *..* ]] || { echo "staging-refresh.sh: --from must be latest-daily, latest-hourly or a db/daily|hourly/<name>.dump.age key" >&2; exit 2; } ;;
+esac
 for v in POSTGRES_USER POSTGRES_PASSWORD BACKUP_S3_ENDPOINT BACKUP_S3_BUCKET BACKUP_S3_ACCESS_KEY_ID \
   BACKUP_S3_SECRET_ACCESS_KEY STAGING_PASSWORD_HASH_B64 SMOKE_SCHOOL_SLUG PLATFORM_TENANT_ID; do
   [[ -n "${!v:-}" ]] || { say "$v is required"; exit 2; }
@@ -74,7 +98,8 @@ if [[ -n "${STAGING_REFRESH_LOCK:-}" ]]; then
   flock -w "${STAGING_REFRESH_LOCK_WAIT:-600}" 9 || { say "another swap or refresh holds the lock"; exit 1; }
 fi
 
-NEXT="${POSTGRES_DB}_next"
+# With --target the work database is the target itself; otherwise tomorrow's `_next`.
+if [[ -n "$TARGET" ]]; then NEXT="$TARGET"; else NEXT="${POSTGRES_DB}_next"; fi
 HOST="${POSTGRES_HOST:-db}"
 PORT="${POSTGRES_PORT:-5432}"
 export PGPASSWORD="$POSTGRES_PASSWORD"
@@ -132,7 +157,10 @@ log 2 "wait for daily backup"
 # that works with busybox, GNU and BSD date alike.
 fmt_epoch() { date -u -d "@$1" "+$2" 2>/dev/null || date -u -r "$1" "+$2"; }
 DAY="$(fmt_epoch $(($(date +%s) + 21600)) %F)"
-KEY="db/daily/${DAY}.dump.age"
+case "$FROM" in
+  latest-daily) KEY="db/daily/${DAY}.dump.age" ;;
+  latest-hourly | db/*) KEY="" ;;
+esac
 DEADLINE="${STAGING_REFRESH_DEADLINE:-02:50}"
 [[ "$DEADLINE" =~ ^([01][0-9]|2[0-3]):([0-5][0-9])$ ]] || { say "STAGING_REFRESH_DEADLINE must be HH:MM"; exit 2; }
 POLL="${STAGING_REFRESH_POLL_SECS:-60}"
@@ -148,18 +176,31 @@ backup_status() {
   [[ -z "$err" ]] && return 1
   return 2
 }
-while true; do
+if [[ "$FROM" == latest-daily ]]; then
+  while true; do
+    rc=0; backup_status || rc=$?
+    [[ $rc -eq 0 ]] && break
+    if [[ $rc -eq 2 ]]; then BUCKET_ERROR=1; else BUCKET_ERROR=0; fi
+    dhaka_secs=$((($(date +%s) + 21600) % 86400))
+    remaining=$((deadline_secs - dhaka_secs))
+    if ((remaining <= 0)); then
+      [[ $BUCKET_ERROR -eq 0 ]] || fail "cannot read the backup bucket (credentials, permission or network)"
+      fail "no daily backup for ${DAY}"
+    fi
+    sleep $((remaining < POLL ? remaining : POLL))
+  done
+elif [[ "$FROM" == latest-hourly ]]; then
+  listing="$(aws s3 ls --endpoint-url "$BACKUP_S3_ENDPOINT" "s3://${BACKUP_S3_BUCKET}/db/hourly/" 2>/dev/null)" \
+    || fail "cannot read the backup bucket (credentials, permission or network)"
+  # Key names are UTC timestamps, so the last in sort order is the newest.
+  newest="$(awk '{print $NF}' <<<"$listing" | grep '\.dump\.age$' | sort | tail -1 || true)"
+  [[ -n "$newest" ]] || fail "no hourly backup found"
+  KEY="db/hourly/${newest}"
+else
+  KEY="$FROM"
   rc=0; backup_status || rc=$?
-  [[ $rc -eq 0 ]] && break
-  if [[ $rc -eq 2 ]]; then BUCKET_ERROR=1; else BUCKET_ERROR=0; fi
-  dhaka_secs=$((($(date +%s) + 21600) % 86400))
-  remaining=$((deadline_secs - dhaka_secs))
-  if ((remaining <= 0)); then
-    [[ $BUCKET_ERROR -eq 0 ]] || fail "cannot read the backup bucket (credentials, permission or network)"
-    fail "no daily backup for ${DAY}"
-  fi
-  sleep $((remaining < POLL ? remaining : POLL))
-done
+  [[ $rc -eq 0 ]] || fail "backup ${KEY} not found or bucket unreadable"
+fi
 
 # --- step 3: create the next database ---------------------------------------------------------
 log 3 "create ${NEXT}"
@@ -201,5 +242,5 @@ done
 
 # --- step 7: ready ----------------------------------------------------------------------------
 log 7 ready
-NEXT_CREATED=0 # keep it: the host swaps it in
-echo "staging_next ready"
+NEXT_CREATED=0 # keep it: the host swaps it in (or, with --target, it is the destination)
+if [[ -n "$TARGET" ]]; then echo "${TARGET} ready"; else echo "staging_next ready"; fi
