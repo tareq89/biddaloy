@@ -51,12 +51,12 @@ describe('arrival_notice_subscriptions tab (integration)', () => {
     return makeFamily(id, section.id, reg, phone);
   }
 
-  async function makeFamily(id: string, sectionId: string, reg: string, phone: string) {
+  async function makeFamily(id: string, sectionId: string, reg: string, phone: string, roll = 1) {
     const student = await ds.getRepository(Student).save({
       tenant_id: id,
       full_name: 'Kid',
       registration_number: reg,
-      roll_number: 1,
+      roll_number: roll,
       class_section_id: sectionId,
     } as any);
     const guardian = await ds.getRepository(Guardian).save({
@@ -144,6 +144,25 @@ describe('arrival_notice_subscriptions tab (integration)', () => {
     expect(restored[0].consumed_at?.toISOString()).toBe('2026-05-01T09:00:00.000Z');
     // School B untouched.
     expect(await subRepo.count({ where: { tenant_id: B } })).toBe(1);
+  });
+
+  it('leaves out rows whose student or guardian is soft-deleted, instead of failing', async () => {
+    const a = await seedTenant(A, 'arrival-a-8420', 'ARR-A2', '01800000003');
+    const kidGone = await makeFamily(A, a.sectionId, 'ARR-A3', '01800000004', 2);
+    const parentGone = await makeFamily(A, a.sectionId, 'ARR-A4', '01800000005', 3);
+    const subRepo = ds.getRepository(ArrivalNoticeSubscription);
+    for (const f of [a, kidGone, parentGone]) {
+      await subRepo.save({
+        tenant_id: A,
+        student_id: f.student.id,
+        guardian_id: f.guardian.id,
+      } as any);
+    }
+    await ds.getRepository(Student).softDelete({ id: kidGone.student.id });
+    await ds.getRepository(Guardian).softDelete({ id: parentGone.guardian.id });
+
+    const cells = await exportCells(A);
+    expect(cells.map((c) => c.student)).toEqual(['ARR-A2']);
   });
 
   it('reports a row whose student is missing instead of inserting it', () => {

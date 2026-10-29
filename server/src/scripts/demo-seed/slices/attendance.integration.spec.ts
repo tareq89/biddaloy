@@ -349,13 +349,13 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
     // The class-teacher card's section owns exactly the 2 REQUESTED rows.
     const card = DEMO_CARDS.find((c) => c.key === 'class-teacher-8a')!;
     const own = await q(
-      `SELECT DISTINCT a.status FROM arrival_notice_subscriptions a
+      `SELECT DISTINCT a.id FROM arrival_notice_subscriptions a
          JOIN enrollments e ON e.student_id = a.student_id
          JOIN teacher_class_sections tcs ON tcs.section_id = e.section_id AND tcs.assignment_type = 'CLASS_TEACHER'
          JOIN teachers t ON t.id = tcs.teacher_id JOIN users u ON u.id = t.user_id
         WHERE u.email = $1 AND a.status = 'REQUESTED'`,
       [card.email],
     );
-    expect(own).toHaveLength(1);
+    expect(own).toHaveLength(2);
   }, 120_000);
 });

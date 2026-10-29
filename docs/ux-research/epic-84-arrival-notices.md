@@ -12,12 +12,12 @@ Four screens, built from the app's real tokens (`redesign-page` kit). Each
 file is in [`epic-84-mockups/`](epic-84-mockups/): `.html` source, `-1440.png`
 desktop, `-390.png` phone.
 
-| Screen | Task | Mockup | Ticket that builds it |
-|---|---|---|---|
-| Portal › Attendance › "আগমন বার্তা" card, one row per child | T1 | `portal-card` | 84.4.1 |
-| My class › section card (requests, active list, count badge) + "নিজে যোগ করুন" dialog | T2 | `my-class-card` | 84.3.2 |
-| Student › Guardians tab, per-guardian switch + admin menu | T3 | `guardians-tab` | 84.3.3 |
-| Settings › Attendance policy & times, two new switches | T4 | `settings-switches` | 84.3.5 |
+| Screen                                                                                | Task | Mockup              | Ticket that builds it |
+| ------------------------------------------------------------------------------------- | ---- | ------------------- | --------------------- |
+| Portal › Attendance › "আগমন বার্তা" card, one row per child                           | T1   | `portal-card`       | 84.4.1                |
+| My class › section card (requests, active list, count badge) + "নিজে যোগ করুন" dialog | T2   | `my-class-card`     | 84.3.2                |
+| Student › Guardians tab, per-guardian switch + admin menu                             | T3   | `guardians-tab`     | 84.3.3                |
+| Settings › Attendance policy & times, two new switches                                | T4   | `settings-switches` | 84.3.5                |
 
 ```mermaid
 flowchart LR
@@ -34,12 +34,12 @@ would press. The facilitator then shows the next picture.
 
 ## Participants
 
-| # | Who | Must be true | Tasks | Name / date |
-|---|---|---|---|---|
-| P1 | Guardian, **with** the app | has a child in school | T1 | _blank_ |
-| P2 | Guardian, **without** the app | never installed it | T1 | _blank_ |
-| P3 | Class teacher | is class teacher of a section | T2 | _blank_ |
-| P4 | Office staff | works in the school office | T3, T4 | _blank_ |
+| #   | Who                           | Must be true                  | Tasks  | Name / date |
+| --- | ----------------------------- | ----------------------------- | ------ | ----------- |
+| P1  | Guardian, **with** the app    | has a child in school         | T1     | _blank_     |
+| P2  | Guardian, **without** the app | never installed it            | T1     | _blank_     |
+| P3  | Class teacher                 | is class teacher of a section | T2     | _blank_     |
+| P4  | Office staff                  | works in the school office    | T3, T4 | _blank_     |
 
 Use first names only in this file. No phone numbers, no photos, no real child
 names (the repo is public).
@@ -49,12 +49,12 @@ names (the repo is public).
 Target for every task: done **unaided** (no hint from the facilitator) in
 **under 2 minutes**. Mockups stay fixed until all four pass.
 
-| Task | Say this (bn, as read to the tester) | Success = | Screen |
-|---|---|---|---|
-| T1 | "নুসরাত স্কুলে পৌঁছালে SMS-এ জানতে চান।" | Switch on for Nusrat **and** "SMS-এ" chosen. Notices the "app only" sentence on the other child and does not try to fight it. | portal |
-| T2 | "রহিমা অনুরোধ করেছেন, শুধু এক সপ্তাহের জন্য।" (the request in the list; "one week only" = once) | Presses **একবার** on that request. | my class |
-| T3 | "এই অভিভাবককে কখনও পাঠাবেন না।" | Opens the ⋯ menu on the right row, picks **কখনও পাঠাবেন না**. | guardians tab |
-| T4 | "স্কুলের জন্য SMS-এ আগমন বার্তা চালু করুন।" | Turns on the **আগমন বার্তা SMS-এ** switch and presses save. | settings |
+| Task | Say this (bn, as read to the tester)                                                                               | Success =                                                                                                                     | Screen        |
+| ---- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| T1   | "নুসরাত স্কুলে পৌঁছালে SMS-এ জানতে চান।"                                                                           | Switch on for Nusrat **and** "SMS-এ" chosen. Notices the "app only" sentence on the other child and does not try to fight it. | portal        |
+| T2   | "রহিমা অনুরোধ করেছেন, শুধু পরের বার পৌঁছানোর খবরটা চান।" (the request in the list; "only the next arrival" = once) | Presses **একবার** on that request.                                                                                            | my class      |
+| T3   | "এই অভিভাবককে কখনও পাঠাবেন না।"                                                                                    | Opens the ⋯ menu on the right row, picks **কখনও পাঠাবেন না**.                                                                 | guardians tab |
+| T4   | "স্কুলের জন্য SMS-এ আগমন বার্তা চালু করুন।"                                                                        | Turns on the **আগমন বার্তা SMS-এ** switch and presses save.                                                                   | settings      |
 
 ## Test script (about 10 minutes per person)
 
@@ -75,18 +75,18 @@ finding even if they passed.
 ## Results (fill in on the human run)
 
 | Task | Person | Time (m:ss) | Unaided? (y/n) | Where they hesitated | Words they used | Pass (<2:00 and unaided) |
-|---|---|---|---|---|---|---|
-| T1 | P1 | | | | | |
-| T1 | P2 | | | | | |
-| T2 | P3 | | | | | |
-| T3 | P4 | | | | | |
-| T4 | P4 | | | | | |
+| ---- | ------ | ----------- | -------------- | -------------------- | --------------- | ------------------------ |
+| T1   | P1     |             |                |                      |                 |                          |
+| T1   | P2     |             |                |                      |                 |                          |
+| T2   | P3     |             |                |                      |                 |                          |
+| T3   | P4     |             |                |                      |                 |                          |
+| T4   | P4     |             |                |                      |                 |                          |
 
 ## Changes made after testing
 
 | Round | Screen | What was unclear | Change | Re-test result |
-|---|---|---|---|---|
-| | | | | |
+| ----- | ------ | ---------------- | ------ | -------------- |
+|       |        |                  |        |                |
 
 Repeat rounds until every row above is a pass.
 

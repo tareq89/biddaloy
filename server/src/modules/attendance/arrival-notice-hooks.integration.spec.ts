@@ -53,6 +53,8 @@ describe('Arrival notice hooks (integration)', () => {
 
   const TODAY = () => new Date().toISOString().slice(0, 10);
   const YESTERDAY = () => new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const shiftDays = (days: number) =>
+    new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 
   async function setSettings(arrival: object | undefined, extra: object = {}) {
     await dataSource.getRepository(School).update(
@@ -156,8 +158,8 @@ describe('Arrival notice hooks (integration)', () => {
     await setSettings({ enabled: true, smsAllowed: true });
     const year = await dataSource.getRepository(AcademicYear).save({
       name: `Hooks Year ${Date.now()}-${Math.random()}`,
-      start_date: '2026-01-01',
-      end_date: '2026-12-31',
+      start_date: shiftDays(-30),
+      end_date: shiftDays(30),
       tenant_id: T,
     });
     const klass = await dataSource
