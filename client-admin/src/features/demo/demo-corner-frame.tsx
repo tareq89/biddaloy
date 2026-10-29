@@ -37,8 +37,9 @@ function formatBadgeDate(iso: string, language: string): string {
 }
 
 /**
- * [88 U5, D9] Red DEV / STAGING band in the top-right corner. Own markup because the shared
- * `DemoRibbon` hard-codes "DEMO". Nothing on prod (empty `envBadge`); the demo ribbon wins.
+ * [88 U5, D9] Red DEV / STAGING strip across the top. In flow, not a corner overlay: the text
+ * ("STAGING · Oct 29, 2026") is wider than the header's reserved corner and would cover the user
+ * menu and language switcher. Nothing on prod (empty `envBadge`); the demo ribbon wins.
  */
 function EnvRibbon() {
   const { i18n } = useTranslation();
@@ -49,14 +50,11 @@ function EnvRibbon() {
       ? `STAGING · ${formatBadgeDate(envBadgeDate, i18n.language)}`
       : envBadge;
   return (
-    // eslint-disable-next-line logical-properties/no-physical-direction-classes -- physical top-right corner in every locale, like DemoRibbon
-    <div className="pointer-events-none absolute top-0 right-0 z-40 print:hidden">
-      <span
-        role="note"
-        className="block bg-destructive px-3 py-0.5 text-caption font-bold tracking-widest whitespace-nowrap text-destructive-foreground md:text-label"
-      >
-        {text}
-      </span>
+    <div
+      role="note"
+      className="bg-destructive px-3 py-0.5 text-center text-caption font-bold tracking-widest text-destructive-foreground md:text-label print:hidden"
+    >
+      {text}
     </div>
   );
 }
