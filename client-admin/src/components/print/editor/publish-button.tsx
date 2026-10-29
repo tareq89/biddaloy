@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   toast,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import {
   usePrintTemplates,
@@ -90,7 +91,10 @@ export function PublishButton({ templateId, kind, draft, saveStatus }: PublishBu
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('publish.confirmTitle', { n: next })}</DialogTitle>
+            <div className="flex items-center gap-1">
+              <DialogTitle>{t('publish.confirmTitle', { n: next })}</DialogTitle>
+              <HelpHint helpId="administration.printTemplates.action.publish" />
+            </div>
           </DialogHeader>
           <p className="text-sm">{t('publish.confirmBody')}</p>
           {publish.isError ? (

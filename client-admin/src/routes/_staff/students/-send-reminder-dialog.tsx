@@ -11,6 +11,7 @@ import {
   NoticeBar,
   Textarea,
   toast,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import { useSendBulkReminder } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -101,7 +102,10 @@ export function SendReminderDialog({
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>{t('sendReminderDialog.title')}</DialogTitle>
+            <div className="flex items-center gap-1">
+              <DialogTitle>{t('sendReminderDialog.title')}</DialogTitle>
+              <HelpHint helpId="people.students.action.sendReminder" />
+            </div>
             <DialogDescription>
               {t('sendReminderDialog.description', { count: studentIds.length })}
             </DialogDescription>
