@@ -12897,6 +12897,13 @@ export interface components {
         StaffArrivalSubscriptionDto: {
             student_name: string;
             guardian_name: string;
+            notifications_enabled: boolean;
+            set_by_name: string | null;
+            /** Format: date-time */
+            set_at: string | null;
+            locked_by_name: string | null;
+            /** Format: date-time */
+            locked_at: string | null;
             id: string;
             student_id: string;
             guardian_id: string;
@@ -12910,6 +12917,8 @@ export interface components {
             lock: "NONE" | "ALWAYS" | "NEVER";
             /** Format: date-time */
             consumed_at: string | null;
+            /** Format: date-time */
+            declined_at: string | null;
             /** Format: date-time */
             updated_at: string;
         };
@@ -12937,6 +12946,8 @@ export interface components {
             lock: "NONE" | "ALWAYS" | "NEVER";
             /** Format: date-time */
             consumed_at: string | null;
+            /** Format: date-time */
+            declined_at: string | null;
             /** Format: date-time */
             updated_at: string;
         };
@@ -26923,6 +26934,7 @@ export interface operations {
         parameters: {
             query?: {
                 sectionId?: string;
+                studentId?: string;
                 status?: "REQUESTED" | "ACTIVE" | "OFF";
                 limit?: number;
                 offset?: number;

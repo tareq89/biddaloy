@@ -583,8 +583,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   [UserRole.EXECUTIVE]: [
     // [52.1.1] Applications (D22/D45)
-    // [84.1.1] Arrival notices (D15).
+    // [84.1.1] Arrival notices (D15). LOCK too (D16): the principal is an EXECUTIVE.
     Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE,
+    Permission.ATTENDANCE_ARRIVAL_NOTICE_LOCK,
     Permission.APPLICATION_SUBMIT,
     Permission.APPLICATION_MANAGE,
     Permission.STUDENT_READ,

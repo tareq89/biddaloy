@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  Check,
 } from 'typeorm';
 import { School } from '../../schools/entities/school.entity';
 import { Student } from '../../students/entities/student.entity';
@@ -34,6 +35,15 @@ import {
   { unique: true },
 )
 @Index('IDX_arrival_notice_subscriptions_tenant_status', ['tenant_id', 'status'])
+@Index('IDX_arrival_notice_subscriptions_guardian', ['guardian_id'])
+// D35: a lock fixes the row, and only a ONCE row can be spent. `declined_at` marks a staff OFF.
+@Check('CHK_arrival_notice_subscriptions_never_off', `"lock" <> 'NEVER' OR "status" = 'OFF'`)
+@Check(
+  'CHK_arrival_notice_subscriptions_always_active_recurring',
+  `"lock" <> 'ALWAYS' OR ("status" = 'ACTIVE' AND "mode" = 'RECURRING' AND "consumed_at" IS NULL)`,
+)
+@Check('CHK_arrival_notice_subscriptions_consumed_once', `"consumed_at" IS NULL OR "mode" = 'ONCE'`)
+@Check('CHK_arrival_notice_subscriptions_declined_off', `"declined_at" IS NULL OR "status" = 'OFF'`)
 export class ArrivalNoticeSubscription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -85,9 +95,21 @@ export class ArrivalNoticeSubscription {
   @Column({ type: 'uuid', nullable: true })
   locked_by_user_id: string | null;
 
+  /** When `set_by_user_id` last changed the row (a guardian's own change counts). */
+  @Column({ type: 'timestamptz', nullable: true })
+  set_at: Date | null;
+
+  /** When `locked_by_user_id` set the current lock; null while the lock is NONE. */
+  @Column({ type: 'timestamptz', nullable: true })
+  locked_at: Date | null;
+
   /** Set when a ONCE notice has fired. */
   @Column({ type: 'timestamptz', nullable: true })
   consumed_at: Date | null;
+
+  /** Set when staff turned the row OFF (declined a request or switched it off); null otherwise. */
+  @Column({ type: 'timestamptz', nullable: true })
+  declined_at: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

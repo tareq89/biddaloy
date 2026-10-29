@@ -59,7 +59,7 @@ GET    /api/v1/applications/tag-options                                         
 GET    /api/v1/attendance/arrival-subscriptions                                  401 PASS PASS PASS 403 PASS 403 403 PASS 403 403 403
 POST   /api/v1/attendance/arrival-subscriptions                                  401 PASS PASS PASS 403 PASS 403 403 PASS 403 403 403
 PATCH  /api/v1/attendance/arrival-subscriptions/:id                              401 PASS PASS PASS 403 PASS 403 403 PASS 403 403 403
-PATCH  /api/v1/attendance/arrival-subscriptions/:id/lock                         401 PASS PASS PASS 403 403 403 403 403 403 403 403
+PATCH  /api/v1/attendance/arrival-subscriptions/:id/lock                         401 PASS PASS PASS 403 403 403 403 PASS 403 403 403
 POST   /api/v1/attendance/device-events                                          401 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/attendance/devices                                                401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/attendance/devices                                                401 PASS PASS PASS 403 403 403 403 403 403 403 403

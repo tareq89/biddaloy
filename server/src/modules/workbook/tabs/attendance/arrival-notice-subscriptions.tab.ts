@@ -66,9 +66,14 @@ export const arrivalNoticeSubscriptionsTab = createRefChildTab<ArrivalNoticeSubs
       required: true,
       label: { en: 'Lock', bn: 'লক' },
     },
+    {
+      key: 'declined_at',
+      type: 'datetime',
+      label: { en: 'Declined at', bn: 'প্রত্যাখ্যানের সময়' },
+    },
     { key: 'consumed_at', type: 'datetime', label: { en: 'Consumed at', bn: 'ব্যবহারের সময়' } },
   ],
-  excluded: ['set_by_user_id', 'locked_by_user_id'],
+  excluded: ['set_by_user_id', 'locked_by_user_id', 'set_at', 'locked_at'],
   naturalKey: ['student', 'guardian'],
   // The subscription has no soft delete of its own: a soft-deleted student or
   // guardian leaves its rows behind, and their parent is absent from the export.
@@ -95,6 +100,13 @@ export const arrivalNoticeSubscriptionsTab = createRefChildTab<ArrivalNoticeSubs
       if (row.consumed_at) {
         return { column: 'consumed_at', message: 'An ALWAYS lock needs an empty Consumed at.' };
       }
+    }
+    // The DB CHECKs: only a ONCE row is spent, and only an OFF row was declined.
+    if (row.consumed_at && row.mode !== ArrivalNoticeMode.ONCE) {
+      return { column: 'consumed_at', message: 'Consumed at is only for mode ONCE.' };
+    }
+    if (row.declined_at && row.status !== ArrivalNoticeStatus.OFF) {
+      return { column: 'declined_at', message: 'Declined at needs status OFF.' };
     }
     if (row.lock === ArrivalNoticeLock.NEVER && row.status !== ArrivalNoticeStatus.OFF) {
       return { column: 'lock', message: 'A NEVER lock needs status OFF.' };

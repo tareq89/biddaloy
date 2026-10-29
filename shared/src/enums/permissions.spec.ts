@@ -1041,8 +1041,8 @@ describe('arrival notice permissions (84.1.1, D15/D16)', () => {
     );
   });
 
-  it('LOCK goes to exactly ADMIN', () => {
-    expect(holders(LOCK)).toEqual([UserRole.ADMIN]);
+  it('LOCK goes to exactly ADMIN and EXECUTIVE (the principal, D16)', () => {
+    expect(holders(LOCK).sort()).toEqual([UserRole.ADMIN, UserRole.EXECUTIVE].sort());
   });
 
   it('STUDENT, PARENT and ACCOUNTANT have neither', () => {
