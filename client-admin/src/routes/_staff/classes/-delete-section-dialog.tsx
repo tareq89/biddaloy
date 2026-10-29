@@ -38,6 +38,7 @@ export function DeleteSectionDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={t('deleteSectionDialog.title')}
+      helpId="academics.classes.action.deleteSection"
       description={t('deleteSectionDialog.description', { name: sectionName })}
       error={error}
       confirmLabel={

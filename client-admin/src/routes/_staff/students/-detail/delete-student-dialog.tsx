@@ -49,6 +49,7 @@ export function DeleteStudentDialog({
       onOpenChange={onOpenChange}
       tone="danger"
       title={t('detail.deleteDialog.title')}
+      helpId="people.students.action.delete"
       description={t('detail.deleteDialog.description', { name: studentName })}
       confirmLabel={t('detail.deleteDialog.confirm')}
       busy={deleteStudent.isPending}

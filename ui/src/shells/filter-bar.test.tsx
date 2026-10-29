@@ -4,6 +4,7 @@ import type * as React from 'react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { HelpProvider, type HelpIndex } from '../components/help-hint';
 import { renderWithProviders } from '../test';
 import { expectTabOrder } from '../test/a11y/keyboard';
 
@@ -374,5 +375,60 @@ describe('FilterBar', () => {
     expect(screen.getByRole('textbox', { name: 'A' })).toBeTruthy();
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('more than one field'));
     warnSpy.mockRestore();
+  });
+});
+
+describe('FilterBar helpId', () => {
+  const entry = (en: string) => ({
+    title: { bn: en, en },
+    summary: { bn: 's', en: 's' },
+    path: 'p',
+    anchor: 'more',
+    knownIssues: 0,
+  });
+  const index: HelpIndex = { who: entry('Who did it'), when: entry('Date help') };
+  const fields: FilterFieldDescriptor[] = [
+    {
+      kind: 'select',
+      key: 'who',
+      label: 'Performed by',
+      allLabel: 'Everyone',
+      options: [],
+      helpId: 'who',
+    },
+    {
+      kind: 'date-range',
+      fromKey: 'f',
+      toKey: 't',
+      label: 'Date',
+      fromLabel: 'From',
+      toLabel: 'To',
+      helpId: 'when',
+    },
+    { kind: 'checkbox', key: 'x', label: 'Flagged', helpId: 'missing' },
+  ];
+
+  it('draws a (?) after a select label and a range group label; the label still names the control', async () => {
+    const { localeReady } = renderWithProviders(
+      <HelpProvider index={index} lang="en" baseUrl="https://g.test">
+        <FilterBar fields={fields} values={{}} onChange={() => undefined} />
+      </HelpProvider>,
+      { locale: 'en' },
+    );
+    await localeReady;
+    expect(await screen.findByRole('button', { name: 'Help: Who did it' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Help: Date help' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Performed by' })).toBeTruthy();
+    // An id with no index entry draws nothing.
+    expect(screen.getAllByRole('button', { name: /^Help:/ })).toHaveLength(2);
+  });
+
+  it('draws no (?) without a provider', async () => {
+    const { localeReady } = renderWithProviders(
+      <FilterBar fields={fields} values={{}} onChange={() => undefined} />,
+      { locale: 'en' },
+    );
+    await localeReady;
+    expect(screen.queryByRole('button', { name: /^Help:/ })).toBeNull();
   });
 });

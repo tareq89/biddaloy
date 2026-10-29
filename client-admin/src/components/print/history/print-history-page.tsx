@@ -201,6 +201,7 @@ export function PrintHistoryPage({
       kind: 'select',
       key: 'revoked',
       label: t('filters.validity'),
+      helpId: 'reports.printables.field.validity',
       allLabel: t('filters.allValidity'),
       options: [
         { value: 'false', label: t('filters.onlyValid') },

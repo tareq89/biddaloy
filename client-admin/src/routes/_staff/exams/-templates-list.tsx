@@ -148,6 +148,7 @@ export function TemplatesList({
         open={toDelete !== null}
         onOpenChange={(open) => !open && setToDelete(null)}
         title={t('delete.title')}
+        helpId="examsResults.examTemplates.action.delete"
         description={
           remove.isError
             ? `${t('delete.description', { name: toDelete?.name ?? '' })} ${t('delete.errorMessage')}`

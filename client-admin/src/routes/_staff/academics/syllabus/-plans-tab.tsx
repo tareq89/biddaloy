@@ -393,6 +393,7 @@ export function PlansTab({ onCreate }: { onCreate?: (() => void) | undefined }) 
           open
           onOpenChange={(open) => !open && !deletePlan.isPending && setDeleting(null)}
           title={t('actions.deletePlan')}
+          helpId="academics.syllabus.action.deletePlan"
           description={t('actions.deleteConfirm', { name: rowName(deleting) })}
           confirmLabel={t('actions.deletePlan')}
           cancelLabel={tCommon('actions.cancel')}

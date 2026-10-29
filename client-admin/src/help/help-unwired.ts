@@ -9,14 +9,6 @@
 export const PUBLIC = 'E11: public page, no shell';
 /** 44.3.x wave 3: the page has no slot for the (?) yet (no element to attach it to). */
 const PAGE_FIX = '#3017: page fix pending';
-/** The print-templates pages have no slot for these (?) yet. */
-const PRINT_FIX = '#3061: page fix pending';
-/** The ui/ component has no helpId slot (DataTable row action or expand toggle, FilterBar field). */
-const UI_SLOT = '#3078: no helpId slot in ui/';
-/** PageHeader puts tertiary/destructive actions in the More menu, which draws no (?). */
-const MENU_ITEM = '#3078: header More-menu item has no (?) slot';
-/** The element lives in a file outside the wave-3 lane territory. */
-const TERRITORY = '#3079: element outside the wave-3 territory';
 /** A More-menu action that opens no dialog, so its (?) has nowhere to go (#3078 puts it on the dialog). */
 const NO_DIALOG = '#3017: More-menu action opens no dialog, no (?) slot';
 /** The section describes the public admission pages, which have no shell and no (?) (E11). */
@@ -38,50 +30,25 @@ export const HELP_UNWIRED: Record<string, string> = {
   'admin.createSchool.action.verify': PUBLIC,
 
   // 44.3.01-44.3.06
-  'people.teachingAssignments.action.unassign': UI_SLOT,
   'people.evaluations.action.completeAcr': PAGE_FIX,
   'people.evaluations.action.reopenAcr': PAGE_FIX,
   'people.calendar.action.regenerateFeed': PAGE_FIX,
   'people.programs.action.removeMilestone': PAGE_FIX,
   'people.admissionIntakes.section.publicForm': PUBLIC_FORM,
   'people.admissionIntakes.section.status': PUBLIC_FORM,
-  'people.admissionReports.field.academicYear': UI_SLOT,
-  'people.admissionReports.field.class': UI_SLOT,
-  'academics.classes.action.deleteSection': UI_SLOT,
-  'academics.routineSetup.action.deleteShift': UI_SLOT,
   'academics.routineBuilder.action.clearCell': PAGE_FIX,
   'academics.routineReview.action.requestChange': PAGE_FIX,
   'academics.routineReview.action.resolveRequest': PAGE_FIX,
-  'academics.syllabus.action.deleteTopic': UI_SLOT,
   'attendance.attendanceReports.action.sendReminder': PAGE_FIX,
-  'reports.collectionsReport.field.preset': UI_SLOT,
-  'reports.collectionsReport.field.collector': UI_SLOT,
-  'reports.printables.field.validity': TERRITORY,
-  'reports.applications.field.academicYear': UI_SLOT,
-  'reports.applications.field.submitted': UI_SLOT,
-  'academics.academicYears.action.delete': MENU_ITEM,
-  'academics.syllabus.action.deletePlan': MENU_ITEM,
   'people.programs.action.archive': NO_DIALOG,
-  'people.programs.action.delete': MENU_ITEM,
-  'people.students.action.delete': MENU_ITEM,
   'people.students.action.printIdCard': NO_DIALOG,
 
   // 44.3.07-44.3.11
-  'examsResults.examTemplates.action.delete': '#3046: page fix pending',
-  'finance.feeStructures.action.delete': '#3057: page fix pending',
-  'finance.recurringSchedules.action.deactivate': '#3058: page fix pending',
-  'administration.printTemplates.action.makeDefault': PRINT_FIX,
-  'administration.printTemplates.action.print': PRINT_FIX,
   'administration.printTemplates.action.revoke': SAME_ELEMENT,
-  'administration.printTemplates.field.kind': PRINT_FIX,
-  'administration.auditLogs.field.performedBy': '#3062: page fix pending',
   'portal.notifications.action.close': ROW_CONTROL,
   'portal.notifications.action.snooze': ROW_CONTROL,
 
   // 44.3.12: declared in the guide after the wave-3 pass ran
-  'administration.auditLogs.action.expand': UI_SLOT,
-  'administration.printTemplates.action.create': PRINT_FIX,
-  'administration.printTemplates.action.archive': PRINT_FIX,
 
   // Help text written (was HELP_GAPS): indexed now, wireable by the route lanes
   'people.students.field.rollNumber': GAP,

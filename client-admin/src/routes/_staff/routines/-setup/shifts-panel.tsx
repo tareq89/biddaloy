@@ -294,6 +294,7 @@ export function ShiftsPanel() {
         onOpenChange={(open) => !open && setDeleting(null)}
         tone="danger"
         title={t('shiftsPanel.deleteTitle', { name: deleting?.name ?? '' })}
+        helpId="academics.routineSetup.action.deleteShift"
         description={t('shiftsPanel.deleteDescription')}
         confirmLabel={t('shiftsPanel.deleteConfirm')}
         cancelLabel={t('shiftsPanel.cancel')}
