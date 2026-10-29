@@ -14,7 +14,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { Permission, UserRole, roleHasPermission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -71,7 +77,7 @@ export class ArrivalSubscriptionsController {
   @UseInterceptors(IdempotencyInterceptor)
   @RequirePermissions(Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE)
   @ApiOperation({ summary: 'Adds a subscription for a guardian; ACTIVE at once.' })
-  @ApiOkResponse({ type: ArrivalSubscriptionResponseDto })
+  @ApiCreatedResponse({ type: ArrivalSubscriptionResponseDto })
   create(
     @Body() dto: CreateArrivalSubscriptionDto,
     @CurrentTenant() tenant: Tenant,
@@ -132,7 +138,10 @@ export class PortalArrivalSubscriptionsController {
   @UseInterceptors(IdempotencyInterceptor)
   @Roles(UserRole.PARENT)
   @ApiOperation({ summary: 'Request (want=true) or switch off (want=false) arrival notices.' })
-  @ApiOkResponse({ type: ArrivalSubscriptionResponseDto })
+  // null = switched off a subscription that never existed.
+  @ApiOkResponse({
+    schema: { nullable: true, allOf: [{ $ref: getSchemaPath(ArrivalSubscriptionResponseDto) }] },
+  })
   upsert(
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @Body() dto: UpsertMyArrivalSubscriptionDto,

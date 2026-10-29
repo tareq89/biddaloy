@@ -349,6 +349,7 @@ export class TeacherScopeService {
          FROM arrival_notice_subscriptions ans
          JOIN students st ON st.id = ans.student_id AND st.tenant_id = $1 AND st.deleted_at IS NULL
          JOIN student_guardians sg ON sg.student_id = ans.student_id AND sg.guardian_id = ans.guardian_id
+         JOIN guardians g ON g.id = ans.guardian_id AND g.tenant_id = $1 AND g.deleted_at IS NULL
         WHERE ans.tenant_id = $1 AND ans.status = 'REQUESTED'
           AND st.class_section_id = ANY($2::uuid[])
         GROUP BY st.class_section_id`,

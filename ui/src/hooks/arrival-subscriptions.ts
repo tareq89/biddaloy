@@ -147,7 +147,8 @@ export function usePutPortalArrivalSubscription() {
       studentId: string;
       input: UpsertMyArrivalSubscriptionInput;
     }) => {
-      const res = await apiClient.put<ArrivalSubscription>(
+      // null = switched off a subscription that never existed.
+      const res = await apiClient.put<ArrivalSubscription | null>(
         `/portal/arrival-subscriptions/${studentId}`,
         input,
         { headers: { 'Idempotency-Key': keyFor({ studentId, input }) } },

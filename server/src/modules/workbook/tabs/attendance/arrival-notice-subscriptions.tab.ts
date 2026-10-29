@@ -5,6 +5,8 @@ import {
   ArrivalNoticeStatus,
 } from '@biddaloy/shared';
 import { ArrivalNoticeSubscription } from '../../../attendance/entities/arrival-notice-subscription.entity';
+import { Guardian } from '../../../students/entities/guardian.entity';
+import { Student } from '../../../students/entities/student.entity';
 import { createRefChildTab } from '../people/ref-child-tab.factory';
 import { guardiansTab } from '../people/guardians.tab';
 import { studentsTab } from '../people/students.tab';
@@ -68,4 +70,22 @@ export const arrivalNoticeSubscriptionsTab = createRefChildTab<ArrivalNoticeSubs
   ],
   excluded: ['set_by_user_id', 'locked_by_user_id'],
   naturalKey: ['student', 'guardian'],
+  // The subscription has no soft delete of its own: a soft-deleted student or
+  // guardian leaves its rows behind, and their parent is absent from the export.
+  filterRows: async (rows, tenant_id, m) => {
+    const [students, guardians] = await Promise.all([
+      m.find(Student, { select: ['id'], where: { tenant_id } }),
+      m.find(Guardian, { select: ['id'], where: { tenant_id } }),
+    ]);
+    const s = new Set(students.map((x) => x.id));
+    const g = new Set(guardians.map((x) => x.id));
+    return rows.filter((r) => s.has(r.student_id) && g.has(r.guardian_id));
+  },
+  // D35, the rule `ArrivalSubscriptionsService.setLock` enforces. (NEVER needs no
+  // check: the sender drops NEVER rows whatever their status.)
+  checkRow: (row) =>
+    row.lock === ArrivalNoticeLock.ALWAYS &&
+    (row.status !== ArrivalNoticeStatus.ACTIVE || row.mode !== ArrivalNoticeMode.RECURRING)
+      ? { column: 'lock', message: 'An ALWAYS lock needs status ACTIVE and mode RECURRING.' }
+      : null,
 });

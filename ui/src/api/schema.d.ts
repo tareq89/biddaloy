@@ -26972,7 +26972,7 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -27119,7 +27119,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArrivalSubscriptionResponseDto"];
+                    "application/json": components["schemas"]["ArrivalSubscriptionResponseDto"] | null;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

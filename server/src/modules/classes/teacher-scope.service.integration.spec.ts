@@ -444,6 +444,12 @@ describe('TeacherScopeService (integration)', () => {
       await sub(await mkStudent(sec6A, 9), 'ACTIVE');
       // A guardian unlinked from the child: the row survives the unlink but is not a request.
       await sub(await mkStudent(sec6A, 8, false), 'REQUESTED');
+      // A soft-deleted guardian: the staff list hides the row, so the badge must too.
+      const gone = await mkStudent(sec6A, 7);
+      await sub(gone, 'REQUESTED');
+      await dataSource.query(`UPDATE guardians SET deleted_at = now() WHERE id = $1`, [
+        gone.guardian,
+      ]);
       const input = { tenantId: TENANT_A, sectionIds: [sec6A, sec6B] };
       const counts = await service.arrivalRequestCounts(input);
       expect([counts.get(sec6A) ?? 0, counts.get(sec6B) ?? 0]).toEqual([3, 0]);

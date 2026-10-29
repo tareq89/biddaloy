@@ -17,7 +17,7 @@ describe('arrival_notice_subscriptions tab', () => {
       student_id: STUDENT,
       guardian_id: GUARDIAN,
       status: 'ACTIVE',
-      mode: 'ONCE',
+      mode: 'RECURRING',
       channel: 'SMS',
       lock: 'ALWAYS',
       consumed_at: new Date('2026-05-01T09:00:00.000Z'),
@@ -42,6 +42,18 @@ describe('arrival_notice_subscriptions tab', () => {
       { tenantId: 't', ref: () => 'x', warn: () => undefined },
     );
     expect('errors' in res && res.errors[0].column).toBe('status');
+  });
+
+  it.each([
+    ['ALWAYS', 'OFF', 'RECURRING'],
+    ['ALWAYS', 'ACTIVE', 'ONCE'],
+  ])('rejects lock %s with status %s and mode %s (D35)', (lock, status, mode) => {
+    const res = tab.fromRow(
+      { id: ID, student: 'REG-1', guardian: '01711111111', status, mode, channel: 'PUSH', lock },
+      2,
+      { tenantId: 't', ref: () => 'x', warn: () => undefined },
+    );
+    expect('errors' in res && res.errors[0]).toMatchObject({ column: 'lock', severity: 'error' });
   });
 
   it('is registered after its parents', () => {
