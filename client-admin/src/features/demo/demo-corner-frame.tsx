@@ -1,8 +1,10 @@
 import { DemoRibbon } from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
+import { formatDate } from '@biddaloy/ui/utils';
 import type { ReactNode } from 'react';
 
 import { runtimeConfig } from '../../runtime-config';
+
 import { TestEnvironmentNotice } from './test-environment-notice';
 import { useDemoMode } from './use-demo-mode';
 
@@ -29,11 +31,10 @@ function LabelledRibbon() {
   return <DemoRibbon label={t('ribbonLabel')} />;
 }
 
-/** "2026-10-29" in the UI language; anything unparsable is shown as given. */
-function formatBadgeDate(iso: string, language: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeZone: 'UTC' }).format(d);
+/** "2026-10-29" in the school's date style; anything the formatter cannot read is shown as given. */
+function formatBadgeDate(iso: string, region: RegionConfig): string {
+  const text = formatDate(iso, region);
+  return text === '—' ? iso : text;
 }
 
 /**
@@ -42,12 +43,12 @@ function formatBadgeDate(iso: string, language: string): string {
  * menu and language switcher. Nothing on prod (empty `envBadge`); the demo ribbon wins.
  */
 function EnvRibbon() {
-  const { i18n } = useTranslation();
+  const region = useRegionConfig();
   const { envBadge, envBadgeDate } = runtimeConfig();
   if (!envBadge) return null;
   const text =
     envBadge === 'STAGING' && envBadgeDate
-      ? `STAGING · ${formatBadgeDate(envBadgeDate, i18n.language)}`
+      ? `STAGING · ${formatBadgeDate(envBadgeDate, region)}`
       : envBadge;
   return (
     <div

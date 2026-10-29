@@ -290,7 +290,7 @@ export class StudyPlanCsvService {
     }
     const staged = await this.staging.peek<StagedImport>(tenantId, caller.userId, dto.staging_id);
     if (!staged) throw this.stagingGone();
-    assertDemoRowLimit(staged.rows.length);
+    assertDemoRowLimit(staged.lessons.length);
     if (staged.hardErrorCount > 0) {
       throw new ConflictException(
         'This staged upload had validation errors and cannot be committed. Re-validate the file first.',

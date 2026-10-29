@@ -16,7 +16,7 @@ afterEach(async () => {
 const render = () =>
   renderWithProviders(
     <DemoCornerFrame>
-      <p>shell</p>
+      <span data-testid="shell" />
     </DemoCornerFrame>,
     { locale: 'en' },
   );
@@ -28,11 +28,11 @@ describe('DemoCornerFrame env ribbon', () => {
     expect(screen.getByRole('note').textContent).toBe('DEV');
   });
 
-  it('shows STAGING with the date in the UI language', async () => {
+  it('shows STAGING with the date in the region date style', async () => {
     window.__BIDDALOY_CONFIG__ = { envBadge: 'STAGING', envBadgeDate: '2026-10-29' };
     const { localeReady } = render();
     await localeReady;
-    expect(await screen.findByText('STAGING · Oct 29, 2026')).toBeTruthy();
+    expect(await screen.findByText('STAGING · ২৯শে অক্টোবর, ২০২৬')).toBeTruthy();
   });
 
   it('shows nothing on prod', () => {
@@ -62,14 +62,14 @@ describe('DemoCornerFrame env ribbon', () => {
     window.__BIDDALOY_CONFIG__ = { envBadge: 'STAGING', envBadgeDate: '2026-10-29' };
     const { localeReady } = renderWithProviders(
       <DemoCornerFrame>
-        <p>shell</p>
+        <span data-testid="shell" />
       </DemoCornerFrame>,
       { locale: 'bn' },
     );
     await localeReady;
     const text = (await screen.findByRole('note')).textContent ?? '';
     expect(text.startsWith('STAGING · ')).toBe(true);
-    expect(text).not.toContain('Oct 29, 2026');
+    expect(text).not.toContain('October');
   });
 
   it('keeps the demo ribbon in the demo, without the env band', async () => {
