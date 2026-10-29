@@ -204,13 +204,14 @@ verb_backups() {
 }
 
 verb_status() {
-  local a sha
+  local a sha d
   a="$(active_name)"
   echo "active db:     $a ($(db_of "$a" 2>/dev/null || echo '?'))"
   echo "loaded backup: $(cat "$LOADED_FILE" 2>/dev/null | head -1 || true)"
   sha="$("$DEPLOY_BIN" --last-ok staging 2>/dev/null)" || sha="unknown"
   echo "staging sha:   $sha"
-  echo "last drill:    $(cat "$STAGE/last-drill" 2>/dev/null | head -1 || echo 'none yet')"
+  d="$(head -1 "$STAGE/last-drill" 2>/dev/null)" || d="" # provision creates it empty
+  echo "last drill:    ${d:-none yet}"
   echo "history (last 5):"
   tail -n 5 "$HIST" 2>/dev/null | sed 's/^/  /' || true
   [[ "$a" != bad ]] || refuse "active-db holds something but dev or staging" "write dev or staging into $ACTIVE_FILE, or run: biddaloy-staging use dev"

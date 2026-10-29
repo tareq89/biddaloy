@@ -442,6 +442,49 @@ It builds four images for each commit: `biddaloy-app`, `biddaloy-backup`,
 `biddaloy-demo-reset`, `biddaloy-landing`. Do part 8 first if you have not: you will
 publish again after you commit the secrets.
 
+### 5e. Staging workflow key
+
+The **Staging** workflow (`.github/workflows/staging.yml`) loads a backup into staging or
+switches the staging database. It uses its **own** key, not the deploy key. Each key can run
+only one command on the VM:
+
+```mermaid
+flowchart LR
+  D["Deploy workflow<br/>DEPLOY_SSH_KEY"] -->|forced command| BD["biddaloy-deploy --from-github"]
+  S["Staging workflow<br/>STAGING_SSH_KEY"] -->|forced command| BS["biddaloy-staging --from-github"]
+```
+
+So a leaked deploy key cannot wipe staging data, and the staging key cannot deploy (Epic 88 D6-B).
+Until you do the steps below the Staging workflow fails at the ssh step; everything else works.
+
+1. Make a second key pair (not a copy of the deploy one; the playbook stops if both are the same):
+
+   ```bash
+   ssh-keygen -t ed25519 -N '' -C biddaloy-github-staging -f ~/.ssh/biddaloy_github_staging
+   ```
+
+2. Paste the **public** line into `infra/ansible/inventory/prod.yml`, replacing the `UNSET-...`
+   placeholder, commit it, and run `provision.yml` once (part 7c):
+
+   ```yaml
+   github_staging_pubkey_pinned: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIQ9x... biddaloy-github-staging
+   ```
+
+3. Repo **Settings > Environments > New environment** `staging`, **Deployment branches and
+   tags** > **Selected branches** > add `main`. Add three environment secrets. Environment
+   secrets are private to their environment, so the `production` ones are not visible here:
+
+   ```bash
+   gh secret set STAGING_HOST --env staging --body 203.0.113.10
+   gh secret set STAGING_SSH_KEY --env staging < ~/.ssh/biddaloy_github_staging
+   ssh-keyscan -t ed25519 203.0.113.10 | gh secret set STAGING_SSH_KNOWN_HOSTS --env staging
+   ```
+
+   Check the known-hosts line against the VM's fingerprint, the same way as in 5c.
+
+4. Try it: **Actions > Staging > Run workflow**, action `status`. The summary shows
+   `active db: ...` and `exit status: 0`.
+
 ## Part 6. Sentry, Telegram, SMS
 
 ### Sentry

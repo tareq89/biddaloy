@@ -255,6 +255,9 @@ expect "11 loaded backup" outhas '2026-10-27'
 expect "11 sha" outhas '0123456789abcdef'
 expect "11 last drill" outhas 'schools=3'
 expect "11 history" outhas 'me load db/daily/x ok'
+: > "$WORK/opt/staging/last-drill" # provision creates it empty
+run status
+expect "11 empty last-drill is none yet" outhas 'last drill:    none yet'
 
 # 12 --from-github: anchored forms only; mutating verbs run detached and the log is streamed
 # shellcheck disable=SC2016
@@ -276,7 +279,13 @@ reset dev
 gh "use staging --yes"; expect "12 use staging --yes allowed" test "$RC" = 0
 reset dev
 gh "clean-dev --yes"; expect "12 clean-dev --yes allowed" test "$RC" = 0
-for bad in "load db/daily/x.dump.age" "load ../x --yes" "load a//b --yes" "load a..b --yes" "load 3 --yes" "load -x --yes" \
+# The exact strings .github/workflows/staging.yml sends (its case on ACTION). Not prefixed with the
+# command name: the forced command is already biddaloy-staging.
+reset dev; gh "use dev --yes"; expect "12 workflow: use dev --yes allowed" test "$RC" = 0
+reset dev; gh "load latest-daily --yes"; expect "12 workflow: load latest-daily --yes allowed" test "$RC" = 0
+reset dev; gh "load latest-hourly --yes --use"; expect "12 workflow: load latest-hourly --yes --use allowed" test "$RC" = 0
+for bad in "biddaloy-staging status" "biddaloy-staging load latest-daily --yes" "--from-github" \
+  "load db/daily/x.dump.age" "load ../x --yes" "load a//b --yes" "load a..b --yes" "load 3 --yes" "load -x --yes" \
   "load $(printf 'a%.0s' $(seq 1 201)) --yes" "use prod --yes" "use staging" "clean-dev" "status; id" "status
 id" "load db/daily/x --yes --use extra" "" "rm -rf /"; do
   reset dev; : > "$LOG"

@@ -16,7 +16,7 @@ flowchart LR
 | --- | --- | --- |
 | `provision.yml` | your laptop, against the VM | Hardens a fresh Ubuntu LTS VM (key-only SSH, ufw, fail2ban, auto-updates), installs Docker, makes `/opt/biddaloy`, the host age key and the repo deploy key, installs the `biddaloy-*` commands and the nightly timers. Safe to re-run; the second run ends `changed=0`. |
 | `deploy.yml` | **on the VM**, started by `biddaloy-deploy` | Deploys one stack (`prod`, `staging`, `demo`, `edge` or `ops`) at one 40-hex sha. Never run from the laptop. |
-| `inventory/prod.yml` | both | The host, `edge_mode` (`tunnel` or `direct`), the seven hostnames, `github_deploy_pubkey_pinned`. |
+| `inventory/prod.yml` | both | The host, `edge_mode` (`tunnel` or `direct`), the seven hostnames, `github_deploy_pubkey_pinned`, `github_staging_pubkey_pinned`. |
 | `group_vars/all.yml` | both | Non-secret settings: pinned tool versions, nightly job times, ports, locks. |
 | `requirements.yml` | laptop and VM | Pinned Galaxy roles (by commit) and collections. |
 | `tasks/`, `templates/` | included | Pre-flight, env files, smoke test, failure report, the cloudflared config and the nightly systemd units. |
@@ -50,6 +50,9 @@ On the VM the same thing is `biddaloy-deploy <prod|staging|demo|edge|ops|all> <s
 - **GitHub's key** (can run only `biddaloy-deploy`): paste its public line into
   `github_deploy_pubkey_pinned` in `inventory/prod.yml` (it is a placeholder starting with
   `UNSET` until you do), or set `BIDDALOY_GITHUB_DEPLOY_PUBKEY` for one run.
+- **GitHub's staging key** (can run only `biddaloy-staging`, for the Staging workflow): a
+  second, different key. Same rules: `github_staging_pubkey_pinned` or
+  `BIDDALOY_GITHUB_STAGING_PUBKEY`. The play stops if both pins hold the same key.
 - **The hotfix reason** reaches `deploy.yml` in the environment variable
   `BIDDALOY_HOTFIX_REASON`, never as `-e`: Ansible templates extra vars, so a `{{ }}` in one
   would run as root.

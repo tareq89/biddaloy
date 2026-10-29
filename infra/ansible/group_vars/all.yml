@@ -28,9 +28,21 @@ github_deploy_pubkey: "{{ lookup('ansible.builtin.env', 'BIDDALOY_GITHUB_DEPLOY_
 github_key_active: "{{ (github_deploy_pubkey | trim | length > 0) and not (github_deploy_pubkey | trim).startswith('UNSET') }}"
 deploy_forced_key_line: >-
   command="/usr/local/bin/biddaloy-deploy --from-github",restrict {{ github_deploy_pubkey | trim }}
+# A SECOND GitHub key, for the Staging workflow (Epic 88 D6-B, least privilege). It can only run
+# biddaloy-staging --from-github (status, backups, load, use, clean-dev on the staging dbs), never a
+# deploy; the deploy key above can never run those. Same pin / env var / UNSET rules as the deploy
+# key: github_staging_pubkey_pinned in inventory/prod.yml, BIDDALOY_GITHUB_STAGING_PUBKEY overrides.
+# provision.yml refuses one key for both lines: sshd takes the first match, so it would only deploy.
+github_staging_pubkey: "{{ lookup('ansible.builtin.env', 'BIDDALOY_GITHUB_STAGING_PUBKEY') or github_staging_pubkey_pinned | default('') }}"
+github_staging_key_active: "{{ (github_staging_pubkey | trim | length > 0) and not (github_staging_pubkey | trim).startswith('UNSET') }}"
+staging_forced_key_line: >-
+  command="/usr/local/bin/biddaloy-staging --from-github",restrict {{ github_staging_pubkey | trim }}
 # A LIST: the task joins it with real newlines (a folded scalar would keep a literal backslash-n).
-# Operator key(s) plus the forced-command line, written once with exclusive: true.
-deploy_authorized_keys: '{{ [operator_ssh_pubkey | trim] + ([deploy_forced_key_line | trim] if github_key_active else []) }}'
+# Operator key(s) plus the forced-command lines, written once with exclusive: true.
+deploy_authorized_keys: >-
+  {{ [operator_ssh_pubkey | trim]
+  + ([deploy_forced_key_line | trim] if github_key_active else [])
+  + ([staging_forced_key_line | trim] if github_staging_key_active else []) }}
 
 # Pinned tools installed on the VM (D1).
 ansible_core_version: 2.18.6 # same as the CI syntax check

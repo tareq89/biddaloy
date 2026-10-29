@@ -1256,6 +1256,7 @@ jobs:
           bash test/report.infra.test.sh
           bash test/app-services.infra.test.sh
           bash test/staging-active-db.infra.test.sh
+          bash test/authorized-keys.infra.test.sh
           bash test/tunnel-recreate.infra.test.sh
           # The VM-side CLIs (Epic 79 W3). Docker-free shims; ansible-playbook is on PATH here, so
           # the deploy test also proves a Jinja hotfix reason stays text in deploy.yml.
