@@ -87,6 +87,8 @@
       SELECT CASE WHEN to_regclass('public.users') IS NULL THEN 0 ELSE (xpath('/row/c/text()',
       query_to_xml('select count(*) c from public.users', false, true, '')))[1]::text::int END
     psql_users_sh: 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -tAc "$1"'
+    # Same, on the maintenance db (staging: the active db may not exist yet).
+    psql_admin_sh: 'psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -tAc "$1"'
     # The rollback runs the previous version with the compose file(s) its own ok deploy kept
     # (<stack>/stack.yml, edge/release/edge*.yml), not the failing commit's; the checkout's
     # only when no copy exists yet.
@@ -238,6 +240,23 @@
           ansible.builtin.command: '{{ dc }} up -d --wait --wait-timeout 180 db'
           changed_when: false
           when: stack in ['prod', 'staging'] and not ansible_check_mode
+        # Staging: the active db may not exist yet (the db container only creates POSTGRES_DB on an
+        # empty volume). The name is one of two fixed values (write-env asserts it).
+        - name: Does the active staging database exist?
+          ansible.builtin.command:
+            argv: "{{ dc.split() + ['exec', '-T', 'db', 'sh', '-c', psql_admin_sh, 'sh', exists_sql] }}"
+          vars:
+            exists_sql: "SELECT 1 FROM pg_database WHERE datname = '{{ derived_env.POSTGRES_DB }}'"
+          register: staging_db_exists
+          changed_when: false
+          when: stack == 'staging' and not ansible_check_mode
+        - name: Create the active staging database
+          ansible.builtin.command:
+            argv: "{{ dc.split() + ['exec', '-T', 'db', 'sh', '-c', psql_admin_sh, 'sh', create_sql] }}"
+          vars:
+            create_sql: 'CREATE DATABASE "{{ derived_env.POSTGRES_DB }}"'
+          changed_when: true
+          when: stack == 'staging' and not ansible_check_mode and (staging_db_exists.stdout | trim) != '1'
         - name: How many users before the migration?
           ansible.builtin.command:
             argv: "{{ dc.split() + ['exec', '-T', 'db', 'sh', '-c', psql_users_sh, 'sh', users_sql] }}"
@@ -301,6 +320,25 @@
           vars:
             up_services: db redis seaweedfs
           when: stack in app_stacks and not ansible_check_mode
+
+        # Staging keeps one bucket per db; SeaweedFS creates only S3_BUCKET on boot, so make the other
+        # (staging_bucket_other, from write-env). Already there = nothing to do.
+        - name: Step is the other staging bucket
+          ansible.builtin.set_fact:
+            fail_ctx: { step: staging-bucket, next: '{{ dc_hint }} logs --tail 100 seaweedfs' }
+          when: stack == 'staging'
+        - name: Is the other staging bucket there?
+          ansible.builtin.command:
+            argv: "{{ dc.split() + ['exec', '-T', 'seaweedfs', 'curl', '-sf', '-o', '/dev/null', 'http://localhost:8888/buckets/' ~ staging_bucket_other ~ '/'] }}"
+          register: other_bucket_there
+          failed_when: false
+          changed_when: false
+          when: stack == 'staging' and not ansible_check_mode
+        - name: Create the other staging bucket
+          ansible.builtin.command:
+            argv: "{{ dc.split() + ['exec', '-T', 'seaweedfs', 'curl', '-sf', '-o', '/dev/null', '-X', 'POST', 'http://localhost:8888/buckets/' ~ staging_bucket_other ~ '/'] }}"
+          changed_when: true
+          when: stack == 'staging' and not ansible_check_mode and other_bucket_there.rc != 0
 
         # The demo app refuses to start until a rebuild has written default-school's id to the
         # demo-state volume (stack.yml). On a fresh host the deploy runs that first rebuild; after

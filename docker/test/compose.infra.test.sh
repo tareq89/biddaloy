@@ -38,6 +38,13 @@ docker compose -f deploy/ops.yml config -q \
 stack_json="$(ENV_NAME=prod docker compose "${STACK[@]}" --profile '*' config --format json)"
 on_edge="$(jq -r '.services | to_entries[] | select(.value.networks | has("edge")) | .key' <<<"$stack_json" | sort | tr '\n' ' ')"
 [ "$on_edge" = "app app2 mailpit " ] && pass "only app, app2 and mailpit join the edge network" || fail "edge network members: $on_edge"
+# The app must reach its own stack's mailpit by a per-stack name (Epic 87 follow-up): the bare
+# `mailpit` alias sits on the shared edge network for every stack, and demo's mail once landed in
+# staging's inbox. The alias must exist on the stack network too, so the URL resolves on either.
+sink_url="$(jq -r '.services.app.environment.MESSAGE_SINK_SMTP_URL' <<<"$stack_json")"
+[ "$sink_url" = "smtp://prod-mailpit:1025" ] && pass "app sink URL names this stack's mailpit" || fail "app MESSAGE_SINK_SMTP_URL: $sink_url"
+jq -e '.services.mailpit.networks | (.default.aliases // []) == ["prod-mailpit"] and (.edge.aliases // []) == ["prod-mailpit"]' <<<"$stack_json" >/dev/null \
+  && pass "mailpit carries the per-stack alias on both networks" || fail "mailpit aliases: $(jq -c '.services.mailpit.networks' <<<"$stack_json")"
 ports="$(jq -r '.services | to_entries[] | select(.value.ports) | .key' <<<"$stack_json")"
 [ -z "$ports" ] && pass "stack publishes no host ports" || fail "stack services with host ports: $ports"
 jq -e '[.services[].volumes[]? | select(.source | tostring | test("docker\\.sock"))] | length == 0' <<<"$stack_json" >/dev/null \

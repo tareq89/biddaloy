@@ -44,7 +44,7 @@ export const parseTitle = (md) => md.match(/^# (.+)$/m)?.[1].trim() ?? '';
 
 /** The `#tasks` list: [{ name, step }] in order. Throws unless it has exactly 5 items. */
 export function parseTasks(md) {
-  const at = md.search(/^##[^\n]*\bid="tasks"/m);
+  const at = md.search(/^##[^\n]*(?<![\w-])id="tasks"/m);
   if (at < 0) throw new Error('no #tasks heading');
   const rest = md.slice(at).split('\n').slice(1);
   const end = rest.findIndex((l) => /^#{1,6} /.test(l));

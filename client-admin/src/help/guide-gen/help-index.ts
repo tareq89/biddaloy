@@ -100,10 +100,12 @@ export function buildHelpIndex(
   const index: Record<string, HelpIndexEntry> = {};
   const routes: Record<string, string> = {};
   const problems: string[] = [];
-  const seen = new Set<string>(); // declared ids, even ones rejected below (bar a bad #anchor)
+  const seen = new Set<string>(); // ids that were indexed (a rejected declaration does not block a later page)
 
   for (const f of features) {
     for (const r of f.routes ?? []) {
+      // Deliberate throw even when non-strict: routes come from code (D41), not from guide data,
+      // so a clash is a code bug, not a guide gap.
       if (routes[r] && routes[r] !== f.id)
         throw new Error(`HELP_ROUTES: route "${r}" is claimed by ${routes[r]} and ${f.id}`);
       routes[r] = f.id;
@@ -143,7 +145,6 @@ export function buildHelpIndex(
         );
         continue; // not `seen`: a valid declaration on a later page still indexes it
       }
-      seen.add(id);
       const entry: HelpIndexEntry = {
         title: { bn: meta.bn.title, en: meta.en.title },
         summary: { bn: meta.bn.summary, en: meta.en.summary },
@@ -167,6 +168,7 @@ export function buildHelpIndex(
         entry.field = { ns, key: fieldKey };
       }
       if (video) entry.video = video;
+      seen.add(id); // only an id that really indexes blocks a later declaration
       index[id] = entry;
     }
   }

@@ -1255,6 +1255,7 @@ jobs:
           # Here, not only in the infra job: that job has no ansible-playbook, so it skips this one.
           bash test/report.infra.test.sh
           bash test/app-services.infra.test.sh
+          bash test/staging-active-db.infra.test.sh
           bash test/tunnel-recreate.infra.test.sh
           # The VM-side CLIs (Epic 79 W3). Docker-free shims; ansible-playbook is on PATH here, so
           # the deploy test also proves a Jinja hotfix reason stays text in deploy.yml.

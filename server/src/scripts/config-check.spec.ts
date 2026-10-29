@@ -263,6 +263,7 @@ describe('runStackConfigCheck', () => {
       'ENV_NAME',
       'MESSAGE_SINK',
       'MESSAGE_SINK_PUBLIC_URL',
+      'MESSAGE_SINK_SMTP_URL', // fixed to this stack's mailpit by stack.yml, not an operator value
       'ALLOW_REAL_PROVIDERS_ON_STAGING',
       'DATABASE_URL',
       'NODE_EXTRA_CA_CERTS',
