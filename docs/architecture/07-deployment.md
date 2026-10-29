@@ -501,7 +501,8 @@ VM, `DEMO_MODE=true`, rebuilt every night at 03:00 (Asia/Dhaka) by the
 `biddaloy-nightly@demo-rebuild` timer. How the rebuild works and how to run it
 by hand: [22-demo-seed.md](22-demo-seed.md#running-the-demo-site).
 Providers: the test inbox (`MESSAGE_SINK=mailpit`); see
-[05-communications](05-communications.md).
+[05-communications](05-communications.md). First-time deploy steps:
+[28 part 10b](28-platform-runbook.md#10b-deploy-the-test-inbox-epic-87-staging-and-demo).
 
 ```mermaid
 flowchart LR

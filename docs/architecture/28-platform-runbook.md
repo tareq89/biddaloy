@@ -1055,6 +1055,66 @@ ssh deploy@203.0.113.10 biddaloy-doctor
 Exit code: `0` all OK, `1` a WARN, `2` a FAIL. One stack: `biddaloy-doctor prod` (also
 `staging`, `demo`, `edge`). Machine-readable: `biddaloy-doctor --json`.
 
+### 10b. Deploy the test inbox (Epic 87), staging and demo
+
+Staging and demo send every email, SMS, WhatsApp and Messenger message to one Mailpit inbox,
+so nothing reaches a real person. Prod never runs it. Do this once, in this order:
+
+```mermaid
+flowchart TD
+    A["1. Edit staging.enc.env and demo.enc.env"] --> B["2. Edit edge.enc.env: two INBOX_* keys"]
+    B --> C["3. Cloudflare: DNS + Access"]
+    C --> D["4. Merge to main, then deploy edge"]
+    D --> E["5. Deploy staging, then demo"]
+    E --> F["6. Check the inbox"]
+```
+
+**1. Stack env files** (`sops infra/secrets/staging.enc.env`, then `demo.enc.env`). Config-check
+refuses a deploy that is missing any of these:
+
+```text
+MESSAGE_SINK=mailpit
+COMPOSE_PROFILES=sink                     # starts the mailpit container; keep other profiles you have
+MESSAGE_SINK_PUBLIC_URL=https://inbox-staging.schoolmanagerp.com   # demo: https://inbox-demo.schoolmanagerp.com
+SMOKE_INBOX_API_URL=http://staging-mailpit:8025                    # staging only; adds the smoke `inbox` check
+```
+
+**2. Edge env** (`sops infra/secrets/edge.enc.env`): set `INBOX_DEMO_DOMAIN=inbox-demo.schoolmanagerp.com`
+and `INBOX_STAGING_DOMAIN=inbox-staging.schoolmanagerp.com`. Without both, the edge preflight fails.
+
+**3. Cloudflare** (part 4c and 4d): two proxied CNAMEs (`inbox-demo`, `inbox-staging`) to the tunnel,
+and `inbox-staging` added to the `Staging` Access app. `inbox-demo` is public on purpose.
+
+**4. Commit and push to `main`**, then from your laptop:
+
+```bash
+ssh deploy@203.0.113.10 "biddaloy-deploy edge <sha>"
+```
+
+**5. Deploy the stacks.** The deploy starts mailpit itself; no manual `docker compose` needed.
+
+```bash
+ssh deploy@203.0.113.10 "biddaloy-deploy staging <sha>"
+ssh deploy@203.0.113.10 "biddaloy-deploy demo <sha>"
+```
+
+**6. Check.**
+
+| Check                                                  | Expected                                                 |
+| ------------------------------------------------------ | -------------------------------------------------------- |
+| `curl -s https://inbox-demo.schoolmanagerp.com/readyz` | HTTP 200                                                     |
+| `curl -sI https://inbox-staging.schoolmanagerp.com/`   | `302` to `<team>.cloudflareaccess.com` (no page)         |
+| Staging deploy output                                  | `PASS ... inbox: ok`                                     |
+| Open the app's "forgot password" on staging            | the sign-in notice links to the inbox; the code is there |
+
+If a deploy stops at `settings` or config-check, the `Why:` line names the missing key; fix it
+with `sops`, push, rerun the same deploy line. Rolling back leaves mailpit running on purpose.
+
+**Staging with real providers (optional).** Staging alone may skip the inbox and send real
+messages. In `staging.enc.env` set `ALLOW_REAL_PROVIDERS_ON_STAGING=true`, `MESSAGE_SINK=real`,
+fill the provider keys, and remove `sink` from `COMPOSE_PROFILES`. Real contacts get real
+messages, so do not copy prod data into staging while it is on. Demo and prod refuse the flag.
+
 ## Part 11. After the first deploy
 
 ### 11a. Platform super admin
