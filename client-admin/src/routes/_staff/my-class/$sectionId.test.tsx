@@ -103,13 +103,37 @@ function mockAll(overrides: Parameters<typeof server.use> = []) {
             id: 's1',
             full_name: 'Rafi Absent',
             roll_number: 1,
-            guardians: [{ phone: '01700000000', is_primary_contact: true }],
+            guardians: [
+              {
+                id: 'g1',
+                full_name: 'Rafi Parent',
+                relationship: 'Father',
+                phone: '01700000000',
+                is_primary_contact: true,
+              },
+            ],
           },
         ]),
       ),
     ),
+    http.get('/api/v1/attendance/arrival-subscriptions', () => HttpResponse.json([])),
   );
 }
+
+const sub = (over: Record<string, unknown>) => ({
+  id: 'sub-1',
+  student_id: 's1',
+  guardian_id: 'g1',
+  student_name: 'Nusrat Jahan',
+  guardian_name: 'Karim Uddin',
+  status: 'REQUESTED',
+  mode: 'ONCE',
+  channel: 'PUSH',
+  lock: 'NONE',
+  consumed_at: null,
+  updated_at: '2026-10-29T00:00:00Z',
+  ...over,
+});
 
 function render(entry = '/my-class/section-1') {
   return renderWithRouter(routeTree, {
@@ -283,6 +307,130 @@ describe('/my-class/$sectionId', () => {
     expect(await screen.findByText('Attendance not taken yet.')).toBeTruthy();
     expect(screen.getByText('Not taken')).toBeTruthy();
     expect(screen.queryByText('No one is absent today.')).toBeNull();
+  });
+
+  describe('Arrival notices card [84.3.2]', () => {
+    it('shows three buttons per waiting request and PATCHes Every school day', async () => {
+      const patches: { url: string; body: unknown }[] = [];
+      mockAll([
+        http.get('/api/v1/attendance/arrival-subscriptions', () =>
+          HttpResponse.json([
+            sub({ id: 'sub-1' }),
+            sub({ id: 'sub-2', student_name: 'Rima Akter', channel: 'SMS' }),
+          ]),
+        ),
+        http.patch('/api/v1/attendance/arrival-subscriptions/:id', async ({ request, params }) => {
+          patches.push({ url: String(params.id), body: await request.json() });
+          return HttpResponse.json(sub({ id: String(params.id), status: 'ACTIVE' }));
+        }),
+      ]);
+      render();
+      const card = (await screen.findByRole('heading', { name: 'Arrival notices' })).closest(
+        'section',
+      )!;
+      expect(await within(card).findByText('Nusrat Jahan')).toBeTruthy();
+      expect(within(card).getAllByRole('button', { name: 'Once' })).toHaveLength(2);
+      expect(within(card).getAllByRole('button', { name: 'Every school day' })).toHaveLength(2);
+      expect(within(card).getAllByRole('button', { name: 'Not now' })).toHaveLength(2);
+      fireEvent.click(within(card).getAllByRole('button', { name: 'Every school day' })[0]!);
+      await waitFor(() => expect(patches).toHaveLength(1));
+      expect(patches[0]).toEqual({ url: 'sub-1', body: { status: 'ACTIVE', mode: 'RECURRING' } });
+    });
+
+    it('hides the row menu when the school fixed the choice, and shows it otherwise', async () => {
+      mockAll([
+        http.get('/api/v1/attendance/arrival-subscriptions', () =>
+          HttpResponse.json([
+            sub({ id: 'a', status: 'ACTIVE', lock: 'ALWAYS', student_name: 'Fixed Child' }),
+            sub({ id: 'b', status: 'ACTIVE', lock: 'NONE', student_name: 'Free Child' }),
+          ]),
+        ),
+      ]);
+      render();
+      const card = (await screen.findByRole('heading', { name: 'Arrival notices' })).closest(
+        'section',
+      )!;
+      await within(card).findByText('Fixed Child');
+      expect(within(card).getByText('Set by school')).toBeTruthy();
+      // One menu (Change + Stop actions) for the unlocked row only.
+      expect(within(card).getAllByRole('button', { name: 'Stop' })).toHaveLength(1);
+    });
+
+    it('shows the empty sentence, the Add yourself button, and no banned words', async () => {
+      mockAll();
+      render();
+      const card = (await screen.findByRole('heading', { name: 'Arrival notices' })).closest(
+        'section',
+      )!;
+      expect(
+        await within(card).findByText('No guardian has asked for arrival notices yet.'),
+      ).toBeTruthy();
+      expect(within(card).getByRole('button', { name: 'Add yourself' })).toBeTruthy();
+      expect(card.textContent).not.toMatch(
+        /subscription|notification|push|channel|\bmode\b|\block\b|device|sync|decline|recurring/i,
+      );
+    });
+
+    it('keeps focus in the card after answering, while the request count changes', async () => {
+      let answered = false;
+      let sectionsCalls = 0;
+      mockAll([
+        // The badge count drops after an answer, so the sections refetch returns a new object.
+        http.get('/api/v1/my-class/sections', () => {
+          sectionsCalls += 1;
+          return HttpResponse.json([{ ...SECTION, arrival_request_count: answered ? 0 : 1 }]);
+        }),
+        http.get('/api/v1/attendance/arrival-subscriptions', () =>
+          HttpResponse.json([sub(answered ? { status: 'ACTIVE', mode: 'RECURRING' } : {})]),
+        ),
+        http.patch('/api/v1/attendance/arrival-subscriptions/:id', () => {
+          answered = true;
+          return HttpResponse.json(sub({ status: 'ACTIVE', mode: 'RECURRING' }));
+        }),
+      ]);
+      render();
+      const heading = await screen.findByRole('heading', { name: 'Arrival notices' });
+      const card = heading.closest('section')!;
+      const everyDay = await within(card).findByRole('button', { name: 'Every school day' });
+      // First focus went to Take attendance; the teacher then works in the card.
+      const take = await screen.findByRole('link', { name: "Take today's attendance" });
+      await waitFor(() => expect(document.activeElement).toBe(take));
+      const before = sectionsCalls;
+      everyDay.focus();
+      fireEvent.click(everyDay);
+      await waitFor(() => expect(sectionsCalls).toBeGreaterThan(before));
+      await within(card).findByText('Every school day');
+      // Not thrown back to Take attendance (or the body) by the refetch.
+      await waitFor(() => expect(card.contains(document.activeElement)).toBe(true));
+    });
+
+    it('focuses the card heading for ?then=arrival', async () => {
+      mockAll();
+      render('/my-class/section-1?then=arrival');
+      const heading = await screen.findByRole('heading', { name: 'Arrival notices' });
+      await waitFor(() => expect(document.activeElement).toBe(heading));
+    });
+
+    it('adds a guardian as ACTIVE from the dialog', async () => {
+      let posted: unknown;
+      mockAll([
+        http.post('/api/v1/attendance/arrival-subscriptions', async ({ request }) => {
+          posted = await request.json();
+          return HttpResponse.json(sub({ status: 'ACTIVE' }));
+        }),
+      ]);
+      render();
+      fireEvent.click(await screen.findByRole('button', { name: 'Add yourself' }));
+      const dialog = await screen.findByRole('dialog');
+      fireEvent.click(within(dialog).getByLabelText('Student'));
+      fireEvent.click(await screen.findByRole('option', { name: 'Rafi Absent' }));
+      fireEvent.click(within(dialog).getByLabelText('Guardian'));
+      fireEvent.click(await screen.findByRole('option', { name: 'Rafi Parent (Father)' }));
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Add' }));
+      await waitFor(() =>
+        expect(posted).toEqual({ student_id: 's1', guardian_id: 'g1', mode: 'ONCE' }),
+      );
+    });
   });
 
   it('shows the not-found page for a section the teacher does not own', async () => {

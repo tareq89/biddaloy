@@ -531,5 +531,29 @@
   "helpLabels": {
     "pickDay": "Pick a day",
     "changeMonth": "Change month"
+  },
+  "arrivalNotice": {
+    "title": "Arrival notices",
+    "explanation": "Get a message when your child reaches school. The teacher confirms your request.",
+    "want": "Notify me",
+    "switchLabel": "Arrival notice for {{name}}",
+    "status": {
+      "waiting": "Waiting for the teacher",
+      "once": "Once",
+      "everyDay": "Every day",
+      "done": "Done",
+      "locked": "Set by the admin"
+    },
+    "lockedHint": "The admin has set this. It cannot be changed here.",
+    "lockedAlwaysHint": "The admin has turned this on. You can still choose how it is sent.",
+    "saveError": "Could not save. Try again.",
+    "channelLegend": "How to send",
+    "channel": {
+      "push": "In the app",
+      "sms": "By SMS"
+    },
+    "smsNotAllowed": "Your school sends this in the app only",
+    "noPush": "This phone does not have the app yet. Choose SMS or install the app.",
+    "noPushLink": "Turn on app messages"
   }
 }

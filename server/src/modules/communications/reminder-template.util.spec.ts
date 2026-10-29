@@ -32,6 +32,17 @@ describe('renderReminderTemplate', () => {
     expect(result).toBe('Dear Karim Uddin, Rahim Uddin owes 1,500.00 for March 2026.');
   });
 
+  it('renders the arrival-notice placeholders {{time}} and {{taken_by}} [84.1.3]', () => {
+    expect(
+      renderReminderTemplate('{{student_name}} arrived at {{time}} ({{taken_by}}).', {
+        ...VARS,
+        time: '08:05',
+        taken_by: 'Mr Hasan',
+      }),
+    ).toBe('Rahim Uddin arrived at 08:05 (Mr Hasan).');
+    expect(findUnsupportedPlaceholders('{{time}} {{taken_by}} {{nope}}')).toEqual(['nope']);
+  });
+
   it('tolerates padding inside the braces', () => {
     expect(renderReminderTemplate('Hi {{  guardian_name  }}', VARS)).toBe('Hi Karim Uddin');
   });

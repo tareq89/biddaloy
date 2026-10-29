@@ -3,11 +3,14 @@ import type { APIRequestContext } from '@playwright/test';
 import {
   adminApiSession,
   apiSession,
+  createClassSection,
+  createGuardian,
   createStudentsInSection,
   currentAcademicYear,
   get,
   isFridayAnywhere,
   markableDateIso,
+  post,
   put,
   type ApiSession,
 } from '../api';
@@ -512,6 +515,82 @@ test.describe('settings', () => {
         data: {
           version: original.version,
           attendance: { ...rest, periodAttendance: { enabled: true }, shiftTimes: [] },
+        },
+      });
+      expect(response.ok(), `restoring settings failed: ${response.status()}`).toBe(true);
+    }
+  });
+});
+
+test.describe('arrival notices', () => {
+  test.use(loggedIn('admin'));
+
+  // [84.3.6] A student whose guardian waits for the arrival notice shows a bell in the register.
+  // Its own section, student and guardian (no account needed), so no other spec can change the row.
+  test('the register bells a student with an ACTIVE subscription', async ({ page, request }) => {
+    const admin = await adminApiSession(request);
+    const suffix = `${Date.now()}`;
+    const chain = await createClassSection(
+      request,
+      admin,
+      await currentAcademicYear(request, admin),
+    );
+    const guardian = await createGuardian(request, admin, `Bell Guardian ${suffix}`);
+    const student = await post<{ id: string }>(request, admin, '/students', {
+      full_name: `Bell Child ${suffix}`,
+      class_section_id: chain.sectionId,
+      guardian_ids: [guardian.id],
+    });
+    // Staff add = ACTIVE at once (D19); an admin holds MANAGE school-wide.
+    await post(request, admin, '/attendance/arrival-subscriptions', {
+      student_id: student.id,
+      guardian_id: guardian.id,
+      mode: 'RECURRING',
+    });
+    await page.goto(`/attendance/${chain.sectionId}?date=${MARK_DATE}`);
+    await expect(page.getByText(`Bell Child ${suffix}`)).toBeVisible();
+    await expect(page.getByLabel(t('attendance.mark.arrivalSubscribed'))).toHaveCount(1);
+  });
+
+  // The seed turns arrival notices on and no spec turns them off (other specs need them on), so
+  // this toggles the SMS box only and puts back just `arrivalNotice` from a fresh read.
+  test('the arrival SMS switch in Attendance policy holds after a reload', async ({
+    page,
+    request,
+  }) => {
+    const admin = await adminApiSession(request);
+    const settingsPath = `/schools/${admin.tenantId}/settings`;
+    type Settings = {
+      version: number;
+      attendance?: { arrivalNotice?: { enabled: boolean; smsAllowed: boolean } };
+    };
+    const original = (await get<Settings>(request, admin, settingsPath)).attendance?.arrivalNotice;
+    expect(original?.enabled, 'arrival notices are off - re-run `yarn seed`').toBe(true);
+    try {
+      await page.goto('/settings?section=academics');
+      const card = page.locator('#attendance-section');
+      await expect(card).toBeVisible();
+      const sms = card.getByLabel(t('settings.attendance.arrivalSmsAllowed'));
+      await expect(sms).toBeEnabled();
+      const wasOn = await sms.isChecked();
+      await (wasOn ? sms.uncheck() : sms.check());
+      await card.getByRole('button', { name: t('settings.save.action') }).click();
+      await expect(card.getByText(t('settings.save.success'))).toBeVisible();
+      await page.reload();
+      const after = page
+        .locator('#attendance-section')
+        .getByLabel(t('settings.attendance.arrivalSmsAllowed'));
+      await expect(after).toBeChecked({ checked: !wasOn });
+      await expect(
+        page.locator('#attendance-section').getByLabel(t('settings.attendance.arrivalEnabled')),
+      ).toBeChecked();
+    } finally {
+      const fresh = await get<Settings>(request, admin, settingsPath);
+      const response = await request.patch(`/api/v1${settingsPath}`, {
+        headers: { Authorization: `Bearer ${admin.token}`, 'X-Tenant-ID': admin.tenantId },
+        data: {
+          version: fresh.version,
+          attendance: { ...fresh.attendance, arrivalNotice: original },
         },
       });
       expect(response.ok(), `restoring settings failed: ${response.status()}`).toBe(true);

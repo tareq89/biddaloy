@@ -211,9 +211,11 @@ describe('org slice (integration, 2 years)', () => {
     expect(schools).toHaveLength(3);
     for (const s of schools) {
       expect(s.settings.attendance.periodAttendance.enabled).toBe(true);
+      expect(s.settings.attendance.arrivalNotice.enabled).toBe(true);
       expect(s.settings.organisation.shifts).toContain('Morning');
       expect(JSON.stringify(s.settings.region)).toContain('bn');
     }
+    expect(schools.filter((s) => s.settings.attendance.arrivalNotice.smsAllowed)).toHaveLength(1);
     // Every class of every year points at the shift.
     const [{ n }] = await q<{ n: string }>(
       `SELECT count(*) AS n FROM classes c JOIN schools s ON s.id = c.tenant_id

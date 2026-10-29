@@ -70,6 +70,7 @@ GET /applications/addressees | ApplicationsController | perm: APPLICATION_SUBMIT
 GET /applications/pending-count | ApplicationReportsController | perm: APPLICATION_SUBMIT
 GET /applications/reports | ApplicationReportsController | perm: APPLICATION_MANAGE
 GET /applications/tag-options | ApplicationsController | perm: APPLICATION_SUBMIT | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,SUPER_ADMIN,TEACHER
+GET /attendance/arrival-subscriptions | ArrivalSubscriptionsController | perm: ATTENDANCE_ARRIVAL_NOTICE_MANAGE
 GET /attendance/devices | DevicesController | perm: ATTENDANCE_DEVICE_MANAGE
 GET /attendance/devices/me/roster | DeviceIngestController | allowlist: DeviceAuthGuard
 GET /attendance/flags/low | AttendanceSummaryController | perm: ATTENDANCE_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF
@@ -253,6 +254,7 @@ GET /platform/billing/schools | PlatformBillingController | identity | roles: SU
 GET /platform/billing/schools/:id | PlatformBillingController | identity | roles: SUPER_ADMIN
 GET /platform/holiday-sets | PublicHolidaysController | identity | roles: SUPER_ADMIN
 GET /platform/holiday-sets/:id | PublicHolidaysController | identity | roles: SUPER_ADMIN
+GET /portal/arrival-subscriptions | PortalArrivalSubscriptionsController | identity | roles: PARENT
 GET /presets | PresetsController | perm: CURRICULUM_PRESET_APPLY
 GET /presets/:id | PresetsController | perm: CURRICULUM_PRESET_APPLY
 GET /presets/status | PresetsController | perm: CURRICULUM_PRESET_APPLY
@@ -375,6 +377,8 @@ PATCH /academic-years/:id | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 PATCH /acr/assessments/:id | AcrAssessmentsController | perm: ACR_WRITE
 PATCH /admission-intakes/:id | IntakeController | perm: ADMISSION_REVIEW
 PATCH /admission-intakes/:id/close | IntakeController | perm: ADMISSION_REVIEW
+PATCH /attendance/arrival-subscriptions/:id | ArrivalSubscriptionsController | perm: ATTENDANCE_ARRIVAL_NOTICE_MANAGE
+PATCH /attendance/arrival-subscriptions/:id/lock | ArrivalSubscriptionsController | perm: ATTENDANCE_ARRIVAL_NOTICE_LOCK
 PATCH /attendance/records/:recordId | AttendanceController | perm: ATTENDANCE_MARK
 PATCH /backup/jobs/:id/pin | WorkbookController | perm: BACKUP_MANAGE
 PATCH /calendar/events/:id | CalendarEventsController | perm: CALENDAR_MANAGE
@@ -457,6 +461,7 @@ POST /applications/:id/tags | ApplicationsController | perm: APPLICATION_SUBMIT 
 POST /applications/:id/withdraw | ApplicationsController | perm: APPLICATION_SUBMIT
 POST /applications/bulk-approve | ApplicationDecisionsController | perm: APPLICATION_SUBMIT
 POST /applications/letter-preview | ApplicationsController | perm: APPLICATION_SUBMIT
+POST /attendance/arrival-subscriptions | ArrivalSubscriptionsController | perm: ATTENDANCE_ARRIVAL_NOTICE_MANAGE
 POST /attendance/device-events | DeviceIngestController | allowlist: DeviceAuthGuard
 POST /attendance/devices | DevicesController | perm: ATTENDANCE_DEVICE_MANAGE
 POST /attendance/devices/:id/rotate | DevicesController | perm: ATTENDANCE_DEVICE_MANAGE
@@ -662,6 +667,7 @@ PUT /attendance/sections/:sectionId/register-matrix | AttendanceController | per
 PUT /leave/policies/:type | LeaveController | perm: LEAVE_APPROVE
 PUT /lesson-deliveries | LessonDeliveriesController | perm: SYLLABUS_MANAGE
 PUT /platform/holiday-sets/:id/entries | PublicHolidaysController | identity | roles: SUPER_ADMIN
+PUT /portal/arrival-subscriptions/:studentId | PortalArrivalSubscriptionsController | identity | roles: PARENT
 PUT /programs/:id/milestones/order | ProgramsController | perm: PROGRAM_MANAGE
 PUT /routines/shifts/:id/period-slots | ShiftsController | perm: ROUTINE_MANAGE
 PUT /staff-attendance/register | StaffAttendanceController | perm: STAFF_ATTENDANCE_MARK

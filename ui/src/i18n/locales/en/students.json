@@ -230,7 +230,36 @@
       "emptyExplanation": "Add a guardian by editing the student.",
       "editHintBefore": "To add or change guardians,",
       "editHintLink": "edit the student",
-      "editHintAfter": "."
+      "editHintAfter": ".",
+      "columnArrival": "Arrival notice",
+      "arrival": {
+        "menuLabel": "Arrival notice for {{name}}",
+        "status": {
+          "none": "Not asked",
+          "waiting": "Waiting for teacher",
+          "once": "Once",
+          "daily": "Every day",
+          "done": "Done",
+          "off": "Stopped",
+          "adminAlways": "Set by admin: always",
+          "adminNever": "Set by admin: never"
+        },
+        "channel": {
+          "PUSH": "App",
+          "SMS": "SMS"
+        },
+        "action": {
+          "once": "Once",
+          "daily": "Every day",
+          "stop": "Stop",
+          "always": "Always",
+          "never": "Never",
+          "clear": "Let the teacher decide"
+        },
+        "lockedNote": "An admin has fixed this. It cannot be changed here.",
+        "updatedOn": "Changed on {{date}}",
+        "error": "Could not save. Try again."
+      }
     },
     "communication": {
       "columnDate": "Date and time",

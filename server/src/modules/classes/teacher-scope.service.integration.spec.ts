@@ -414,6 +414,50 @@ describe('TeacherScopeService (integration)', () => {
     });
   });
 
+  describe('arrivalRequestCounts', () => {
+    it('counts linked REQUESTED rows per section, not ACTIVE, and is tenant-scoped', async () => {
+      const mkStudent = async (sectionId: string, n: number, linked = true) => {
+        const [st] = await dataSource.query(
+          `INSERT INTO students (full_name, registration_number, roll_number, class_section_id, tenant_id)
+           VALUES ('Arr S', $1, $2, $3, $4) RETURNING id`,
+          [`ARR-${Date.now()}-${n}`, `${n}`, sectionId, TENANT_A],
+        );
+        const [g] = await dataSource.query(
+          `INSERT INTO guardians (full_name, relationship, phone, tenant_id) VALUES ('Arr G', 'FATHER', '01700000000', $1) RETURNING id`,
+          [TENANT_A],
+        );
+        if (linked) {
+          await dataSource.query(
+            `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`,
+            [st.id, g.id],
+          );
+        }
+        return { student: st.id as string, guardian: g.id as string };
+      };
+      const sub = (ids: { student: string; guardian: string }, status: string) =>
+        dataSource.query(
+          `INSERT INTO arrival_notice_subscriptions (tenant_id, student_id, guardian_id, status)
+           VALUES ($1, $2, $3, $4)`,
+          [TENANT_A, ids.student, ids.guardian, status],
+        );
+      for (let i = 0; i < 3; i++) await sub(await mkStudent(sec6A, i), 'REQUESTED');
+      await sub(await mkStudent(sec6A, 9), 'ACTIVE');
+      // A guardian unlinked from the child: the row survives the unlink but is not a request.
+      await sub(await mkStudent(sec6A, 8, false), 'REQUESTED');
+      // A soft-deleted guardian: the staff list hides the row, so the badge must too.
+      const gone = await mkStudent(sec6A, 7);
+      await sub(gone, 'REQUESTED');
+      await dataSource.query(`UPDATE guardians SET deleted_at = now() WHERE id = $1`, [
+        gone.guardian,
+      ]);
+      const input = { tenantId: TENANT_A, sectionIds: [sec6A, sec6B] };
+      const counts = await service.arrivalRequestCounts(input);
+      expect([counts.get(sec6A) ?? 0, counts.get(sec6B) ?? 0]).toEqual([3, 0]);
+      expect((await service.arrivalRequestCounts({ ...input, tenantId: TENANT_B })).size).toBe(0);
+      expect((await service.arrivalRequestCounts({ ...input, sectionIds: [] })).size).toBe(0);
+    });
+  });
+
   describe('teachesSubjectInClass', () => {
     const ask = (classId: string, subjectId: string, tenantId = TENANT_A, user = userId) =>
       service.teachesSubjectInClass({ userId: user, tenantId, classId, subjectId });

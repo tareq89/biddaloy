@@ -33,6 +33,7 @@ import { TeacherBusyService } from '../../../modules/routines/teacher-busy.servi
 import { DEMO_CARDS } from '../../../modules/demo/demo-accounts';
 import { createContext, type DemoSeedContext } from '../context';
 import { validate } from '../validator';
+import { arrivalLogs } from './comms-print';
 import { slice as org } from './org';
 import { slice as staff } from './staff';
 import { slice as students } from './students';
@@ -108,13 +109,23 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
     const t0 = Date.now();
     await slice.run(ctx);
     console.log(`attendance slice: ${Date.now() - t0} ms`);
+    // The comms slice tops up SMS credit (GRANT + balance) before arrivalLogs debits it.
+    for (const sql of [
+      `INSERT INTO sms_credit_ledger (tenant_id, kind, units, reference_type, idempotency_key)
+       SELECT id, 'GRANT', 1000, 'manual', 'test-grant' FROM schools WHERE slug LIKE 'bmsc-%'`,
+      `INSERT INTO sms_credit_balance (tenant_id, available, reserved)
+       SELECT id, 1000, 0 FROM schools WHERE slug LIKE 'bmsc-%'`,
+    ]) {
+      await ds.query(sql);
+    }
+    await arrivalLogs(ctx); // [84.3.6] reads the subscriptions and records just seeded
   }, 600_000);
 
   afterAll(async () => {
     if (ds) await ds.destroy();
   });
 
-  it('writes believable registers, period sessions, today, devices, staff and leave', async () => {
+  it('writes believable registers, period sessions, today, devices, staff, leave and arrival notices', async () => {
     // No register on a Friday (the weekly off-day) or a holiday: the 58.1.05 attendance check.
     expect((await validate(ds)).filter((v) => v.check === 'attendance')).toEqual([]);
     const [{ n: fridays }] = await q(
@@ -261,5 +272,107 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
       `SELECT 100.0 * count(*) FILTER (WHERE status <> 'ABSENT') / count(*) AS "staffPct" FROM staff_attendance_records`,
     );
     expect(Number(staffPct)).toBeGreaterThan(94);
+
+    // [84.3.6] Sent arrival logs shaped like the real service (D4, D23). Same `it` on purpose:
+    // a second `it` re-runs the 3-year seed and makes the suite's per-test reset delete it all,
+    // which took longer than the 30 s hook limit on a slow CI runner.
+    const per = await q(
+      `SELECT a.status, a.mode, a.consumed_at, a.channel,
+              (CASE WHEN a.channel = 'SMS' THEN g.phone IS NOT NULL ELSE g.user_id IS NOT NULL END)
+                AS reachable,
+              count(l.*)::int AS n,
+              min(l.created_at) AS first_at
+         FROM arrival_notice_subscriptions a
+         JOIN guardians g ON g.id = a.guardian_id
+         LEFT JOIN communication_logs l ON l.trigger = 'ARRIVAL_NOTICE'
+          AND l.student_id = a.student_id AND l.guardian_id = a.guardian_id
+        GROUP BY a.id, g.phone, g.user_id`,
+    );
+    // Every school day, reachable guardian: 1..10 messages (one per day the child came in).
+    const recurring = per.filter((r) => r.status === 'ACTIVE' && r.mode === 'RECURRING');
+    expect(recurring.some((r) => r.reachable)).toBe(true);
+    for (const r of recurring) {
+      if (r.reachable) {
+        expect(r.n).toBeGreaterThanOrEqual(1);
+        expect(r.n).toBeLessThanOrEqual(10);
+      } else {
+        // Like the service: no user means no PUSH address, no phone means no SMS.
+        expect(r.n).toBe(0);
+      }
+    }
+    // A used "Once" had exactly the one message that used it, at `consumed_at`.
+    const used = per.filter((r) => r.status === 'OFF' && r.consumed_at !== null);
+    expect(used.length).toBeGreaterThan(0);
+    for (const r of used) {
+      expect(r.n).toBe(r.reachable ? 1 : 0);
+      if (r.reachable) {
+        expect(new Date(r.first_at).getTime()).toBe(new Date(r.consumed_at).getTime());
+      }
+    }
+    // An ACTIVE "Once" has sent nothing yet (the first message would use it up); REQUESTED and
+    // plain OFF rows have none either.
+    for (const r of per.filter((r) => !recurring.includes(r) && !used.includes(r))) {
+      expect(r.n).toBe(0);
+    }
+    const bad = await q(
+      `SELECT count(*)::int AS n FROM communication_logs
+        WHERE trigger = 'ARRIVAL_NOTICE' AND (status <> 'SENT' OR reference_key NOT LIKE 'arrival:%'
+          OR (medium = 'PUSH' AND recipient_address NOT LIKE 'push:%'))`,
+    );
+    expect(bad[0].n).toBe(0);
+    // The Bangla time reads like `formatArrivalTime`: a day-part word, then h:mm (no leading 0).
+    const bodies = await q<{ message_body: string }>(
+      `SELECT message_body FROM communication_logs WHERE trigger = 'ARRIVAL_NOTICE' LIMIT 20`,
+    );
+    for (const { message_body } of bodies) {
+      expect(message_body).toMatch(/আজ (সকাল|দুপুর|বিকাল) [১-৯][০-৯]?:[০-৯]{2}-এ /);
+    }
+
+    // [D43] 15 arrival-notice subscriptions over 3 branches.
+    const count = async (where: string) =>
+      Number(
+        (await q(`SELECT count(*) AS n FROM arrival_notice_subscriptions WHERE ${where}`))[0].n,
+      );
+    expect(await count('true')).toBe(15);
+    expect(await count(`mode = 'RECURRING' AND status = 'ACTIVE' AND lock = 'NONE'`)).toBe(6);
+    expect(await count(`mode = 'ONCE' AND status = 'ACTIVE'`)).toBe(2);
+    expect(await count(`mode = 'ONCE' AND status = 'OFF' AND consumed_at IS NOT NULL`)).toBe(2);
+    expect(await count(`status = 'REQUESTED'`)).toBe(2);
+    expect(
+      await count(`lock = 'ALWAYS' AND status = 'ACTIVE' AND locked_by_user_id IS NOT NULL`),
+    ).toBe(1);
+    expect(await count(`lock = 'NEVER' AND status = 'OFF' AND locked_by_user_id IS NOT NULL`)).toBe(
+      1,
+    );
+    expect(await count(`channel = 'PUSH'`)).toBe(10);
+    expect(await count(`channel = 'SMS'`)).toBe(5);
+    // SMS only in the smsAllowed branch.
+    const sms = await q(
+      `SELECT DISTINCT s.settings->'attendance'->'arrivalNotice'->>'smsAllowed' AS ok
+         FROM arrival_notice_subscriptions a JOIN schools s ON s.id = a.tenant_id
+        WHERE a.channel = 'SMS'`,
+    );
+    expect(sms).toEqual([{ ok: 'true' }]);
+    const branches = await q(`SELECT DISTINCT tenant_id FROM arrival_notice_subscriptions`);
+    expect(branches).toHaveLength(3);
+    // The class-teacher card's section owns exactly the 2 REQUESTED rows.
+    const card = DEMO_CARDS.find((c) => c.key === 'class-teacher-8a')!;
+    const own = await q(
+      `SELECT DISTINCT a.id FROM arrival_notice_subscriptions a
+         JOIN enrollments e ON e.student_id = a.student_id
+         JOIN teacher_class_sections tcs ON tcs.section_id = e.section_id AND tcs.assignment_type = 'CLASS_TEACHER'
+         JOIN teachers t ON t.id = tcs.teacher_id JOIN users u ON u.id = t.user_id
+        WHERE u.email = $1 AND a.status = 'REQUESTED'`,
+      [card.email],
+    );
+    expect(own).toHaveLength(2);
+    // SMS arrival messages spend credit: ledger and balance still agree, and something was spent.
+    const credit: { available: number; ledger: number }[] = await q(
+      `SELECT b.available, (SELECT sum(CASE WHEN l.kind = 'GRANT' THEN l.units ELSE -l.units END)
+                              FROM sms_credit_ledger l WHERE l.tenant_id = b.tenant_id)::int AS ledger
+         FROM sms_credit_balance b`,
+    );
+    expect(credit.every((c) => c.available === c.ledger)).toBe(true);
+    expect(credit.some((c) => c.available < 1000)).toBe(true);
   }, 120_000);
 });

@@ -35,6 +35,11 @@ const R = 'client-admin/src/routes/';
 
 export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   {
+    file: `${R}_staff/my-class/-arrival-add-dialog.tsx`,
+    reason:
+      'opened from the My class card only; the palette action `arrival-notice.requests` lands on the card, so the dialog itself stays out of `Ctrl+K`',
+  },
+  {
     file: `${R}_platform/holiday-sets/$setId.tsx`,
     reason: 'Platform console: its palette is pages-only (31.3.3); `ACTIONS` is staff-scoped',
   },

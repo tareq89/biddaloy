@@ -418,14 +418,61 @@ describe('AbsenceNoticeService', () => {
       batchRepo.save = vi.fn();
     });
 
-    it.each([
-      ['un-notified session', { notified_at: null }],
-      ['period register', { notified_at: new Date(), period_no: 2 }],
-    ])('%s', async (_name, patch) => {
-      sessionRepo.findOne = vi.fn(async () => ({ ...finalizedSession, ...patch }));
-      await service.notifyCorrection(args);
-      expect(dataSource.query).not.toHaveBeenCalled();
+    it.each([['period register', { notified_at: new Date(), period_no: 2 }]])(
+      '%s',
+      async (_name, patch) => {
+        sessionRepo.findOne = vi.fn(async () => ({ ...finalizedSession, ...patch }));
+        await service.notifyCorrection(args);
+        expect(dataSource.query).not.toHaveBeenCalled();
+        expect(batchRepo.save).not.toHaveBeenCalled();
+      },
+    );
+
+    it('un-notified session and nothing told', async () => {
+      sessionRepo.findOne = vi.fn(async () => finalizedSession);
+      schoolsService.getResolvedSettings = vi.fn(async () => ({
+        attendance: { autoAbsentNotification: { enabled: true, cutoffTime: '14:00' } },
+      }));
+      dataSource.query = vi.fn(async () => [{ last_told: null, batches: 0 }]);
+      await service.notifyCorrection({
+        ...args,
+        oldStatus: AttendanceStatus.PRESENT,
+        newStatus: AttendanceStatus.ABSENT,
+      });
       expect(batchRepo.save).not.toHaveBeenCalled();
+    });
+
+    // [84.3.1 / D14] the guardian was last told "reached school"
+    describe('last told = arrival notice', () => {
+      beforeEach(() => {
+        sessionRepo.findOne = vi.fn(async () => finalizedSession);
+        schoolsService.getResolvedSettings = vi.fn(async () => ({
+          attendance: { autoAbsentNotification: { enabled: true, cutoffTime: '14:00' } },
+        }));
+        dataSource.query = vi.fn(async () => [{ last_told: 'ARRIVAL_NOTICE', batches: 0 }]);
+        vi.spyOn(service as any, 'loadSectionContext').mockResolvedValue({
+          sectionName: 'A',
+          schoolName: 'S',
+        });
+        vi.spyOn(service as any, 'resolveAbsentees').mockResolvedValue({
+          recipients: [],
+          template: DEFAULT_ABSENCE_NOTICE_TEMPLATE,
+        });
+      });
+
+      it('PRESENT -> ABSENT goes on to tell the guardian, even with no absence notice before', async () => {
+        await service.notifyCorrection({
+          ...args,
+          oldStatus: AttendanceStatus.PRESENT,
+          newStatus: AttendanceStatus.ABSENT,
+        });
+        expect((service as any).resolveAbsentees).toHaveBeenCalled();
+      });
+
+      it('ABSENT -> PRESENT sends nothing new', async () => {
+        await service.notifyCorrection(args);
+        expect((service as any).resolveAbsentees).not.toHaveBeenCalled();
+      });
     });
 
     it('switch off', async () => {

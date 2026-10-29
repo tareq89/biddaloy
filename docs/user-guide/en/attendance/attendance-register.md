@@ -71,6 +71,8 @@ Daily attendance is taken on the [Taking attendance](attendance.md) page, one re
 
 **From search:** in the search box at the top (Ctrl+K) type "Attendance register" and choose it. How search works: [Finding any page](../start/find-anything.md).
 
+The bell that marks a guardian waiting for an arrival notice shows only when you take attendance, not in this register: [The bell beside a name](attendance.md#task-bell).
+
 ---
 
 ## View a month's register <a href="#task-main" id="task-main"></a>

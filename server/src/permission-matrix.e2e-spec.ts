@@ -55,6 +55,18 @@ interface IdentityScopedEntry {
  */
 export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
   {
+    controller: 'PortalArrivalSubscriptionsController',
+    method: 'GET',
+    path: '/portal/arrival-subscriptions',
+    reason: '84.2 — guardian reads own linked children only; ids come from the JWT',
+  },
+  {
+    controller: 'PortalArrivalSubscriptionsController',
+    method: 'PUT',
+    path: '/portal/arrival-subscriptions/:studentId',
+    reason: '84.2 — guardian changes own child subscription; 404 unless linked by guardian row',
+  },
+  {
     controller: 'UserController',
     method: 'GET',
     path: '/users/me',

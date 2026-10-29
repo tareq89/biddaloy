@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { AttendanceDevice } from './entities/attendance-device.entity';
+import { ArrivalNoticeSubscription } from './entities/arrival-notice-subscription.entity';
 import { AttendanceDeviceEvent } from './entities/attendance-device-event.entity';
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -34,8 +35,14 @@ import { AttendanceDashboardService } from './attendance-dashboard.service';
 import { AttendanceDashboardController } from './attendance-dashboard.controller';
 import { AttendanceSeriesScheduler, ATTENDANCE_SERIES_QUEUE } from './attendance-series.scheduler';
 import { AbsenceNoticeService } from './absence-notice.service';
+import { ArrivalNoticeService } from './arrival-notice.service';
 import { AbsenceNoticeController } from './absence-notice.controller';
 import { AbsenceNoticeScheduler, ABSENCE_NOTICE_SWEEP_QUEUE } from './absence-notice.scheduler';
+import { ArrivalSubscriptionsService } from './arrival-subscriptions.service';
+import {
+  ArrivalSubscriptionsController,
+  PortalArrivalSubscriptionsController,
+} from './arrival-subscriptions.controller';
 import { DeviceService } from './devices/device.service';
 import { DeviceEventsService } from './devices/device-events.service';
 import { DeviceAuthGuard } from './devices/device-auth.guard';
@@ -68,6 +75,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
       AttendanceSession,
       AttendanceRecord,
       AttendanceDevice,
+      ArrivalNoticeSubscription,
       AttendanceDeviceEvent,
       Student,
       ClassSection,
@@ -107,9 +115,11 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     AttendanceAccessService,
     AttendanceSummaryService,
     AbsenceNoticeService,
+    ArrivalNoticeService,
     AbsenceNoticeScheduler,
     AttendanceDashboardService,
     AttendanceSeriesScheduler,
+    ArrivalSubscriptionsService,
     DeviceService,
     DeviceEventsService,
     DeviceAuthGuard,
@@ -119,6 +129,8 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     AttendanceSummaryController,
     AbsenceNoticeController,
     AttendanceDashboardController,
+    ArrivalSubscriptionsController,
+    PortalArrivalSubscriptionsController,
     DevicesController,
     DeviceIngestController,
   ],

@@ -9,10 +9,17 @@
  *
  * The redirect lives in the loader so the picker never flashes.
  */
-import { EmptyState, ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
+import {
+  EmptyState,
+  ErrorState,
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+} from '@biddaloy/ui/components';
 import { myClassSectionsQueryOptions, useMyClassSections } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
 import { BookUserIcon, ChevronRightIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -21,7 +28,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 const searchSchema = z.object({
-  then: z.enum(['attendance']).optional().catch(undefined),
+  then: z.enum(['attendance', 'arrival']).optional().catch(undefined),
 });
 
 // Local getters — `toISOString()` is UTC and would link to yesterday's
@@ -51,7 +58,11 @@ export const Route = createFileRoute('/_staff/my-class/')({
         });
       }
       // eslint-disable-next-line @typescript-eslint/only-throw-error
-      throw redirect({ to: '/my-class/$sectionId', params: { sectionId: only.section_id } });
+      throw redirect({
+        to: '/my-class/$sectionId',
+        params: { sectionId: only.section_id },
+        search: deps.then === 'arrival' ? { then: 'arrival' } : {},
+      });
     }
   },
   pendingComponent: MyClassPending,
@@ -67,8 +78,11 @@ const GRID = 'grid gap-3 md:grid-cols-2 xl:grid-cols-3';
 
 function MyClassPickerPage() {
   const { t } = useTranslation('myClass');
+  const region = useRegionConfig();
   const query = useMyClassSections();
   const sections = query.data ?? [];
+  // The palette's "→ arrival" path picks a section here, then lands on the card.
+  const { then } = Route.useSearch();
 
   let body: ReactNode;
   if (query.isPending) {
@@ -106,6 +120,7 @@ function MyClassPickerPage() {
               <Link
                 to="/my-class/$sectionId"
                 params={{ sectionId: section.section_id }}
+                search={then === 'arrival' ? { then } : {}}
                 className="flex min-h-16 items-center gap-3 rounded-lg border border-border-subtle bg-surface p-4 no-underline shadow-e1 hover:bg-muted md:p-5"
               >
                 <span
@@ -122,6 +137,14 @@ function MyClassPickerPage() {
                     {t(`roles.${section.assignment_type}`)}
                   </span>
                 </span>
+                {section.arrival_request_count > 0 && (
+                  <StatusBadge
+                    tone="warning"
+                    label={t('arrivalCount', {
+                      n: formatNumber(section.arrival_request_count, region),
+                    })}
+                  />
+                )}
                 <ChevronRightIcon
                   aria-hidden="true"
                   className="size-4 shrink-0 text-text-secondary"

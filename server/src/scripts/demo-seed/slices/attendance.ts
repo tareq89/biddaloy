@@ -6,11 +6,16 @@ import {
   AttendanceEventDirection,
   AttendanceSessionState,
   AttendanceSource,
+  ArrivalNoticeChannel,
+  ArrivalNoticeLock,
+  ArrivalNoticeMode,
+  ArrivalNoticeStatus,
   AttendanceStatus,
   LeaveStatus,
   LeaveType,
 } from '@biddaloy/shared';
 import { hashDeviceKey } from '../../../modules/attendance/devices/device.service';
+import { ArrivalNoticeSubscription } from '../../../modules/attendance/entities/arrival-notice-subscription.entity';
 import { AttendanceSession } from '../../../modules/attendance/entities/attendance-session.entity';
 import { AttendanceRecord } from '../../../modules/attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from '../../../modules/attendance/entities/attendance-device.entity';
@@ -24,7 +29,7 @@ import type { DemoSeedContext, DemoSlice } from '../context';
 import { schoolDays, todayAt } from '../dates';
 import { orgIds } from './org';
 import { studentIds } from './students';
-import { teachersByTenant } from './staff';
+import { staffByCardKey, teachersByTenant } from './staff';
 
 const CHUNK = 5000; // 8-11 columns a row stays under Postgres' 65535 parameters
 const BASE = 0.935; // ~92% overall once monsoon, Eid and the chronic pair are in (D36)
@@ -607,6 +612,92 @@ const load = async (ctx: DemoSeedContext) => {
     }
   }
   await flushStaff();
+
+  // --- [84.2.5] arrival-notice subscriptions (D43): 15 rows over the 3 branches ------------
+  const cardTeacher = staffByCardKey(ctx).get('class-teacher-8a')!;
+  const homeroom8a = (
+    await q<{ section_id: string }>(
+      `SELECT tcs.section_id FROM teacher_class_sections tcs JOIN teachers t ON t.id = tcs.teacher_id
+        WHERE tcs.tenant_id = $1 AND tcs.assignment_type = 'CLASS_TEACHER' AND t.user_id = $2`,
+      [cardTeacher.tenantId, cardTeacher.userId],
+    )
+  ).map((r) => r.section_id);
+  const principalOf = new Map(
+    (
+      await q<{ tenant_id: string; user_id: string }>(
+        `SELECT DISTINCT ON (tenant_id) tenant_id, user_id FROM user_tenants
+          WHERE tenant_id = ANY($1) AND role = 'EXECUTIVE' AND deleted_at IS NULL
+          ORDER BY tenant_id, user_id`,
+        [tenantIds],
+      )
+    ).map((r) => [r.tenant_id, r.user_id]),
+  );
+  const byStudent = new Map(st.students.map((s) => [s.id, s]));
+  const used = new Set<string>();
+  /** A student of a current-year section with a guardian, never twice: from the card teacher's
+   * homeroom when `homeroom`, else from any other section (the homeroom stays free for the
+   * REQUESTED rows). Null when none is left, as at a small scale. */
+  const pickChild = (tenantId: string, homeroom: boolean) => {
+    const t = org.tenants.find((x) => x.id === tenantId)!;
+    const pool = t.years
+      .filter((y) => y.isCurrent)
+      .flatMap((y) => y.classes.flatMap((c) => c.sections.map((s) => s.id)))
+      .filter((id) => homeroom8a.includes(id) === homeroom)
+      .flatMap((sectionId) =>
+        (st.bySection.get(sectionId) ?? [])
+          .filter((id) => !used.has(id) && byStudent.get(id)?.guardianIds.length)
+          .map((studentId) => ({ studentId, sectionId })),
+      );
+    // A fixed stride, not `ctx.pick`: drawing from the shared `ctx.rng` here would shift every
+    // later slice's random stream (the fees slice's paid-share check dropped below 50%).
+    if (!pool.length) return null;
+    const c = pool[(used.size * 37) % pool.length];
+    used.add(c.studentId);
+    return { ...c, guardianId: byStudent.get(c.studentId)!.guardianIds[0] };
+  };
+  const [b0, b1, b2] = org.tenants; // b0 is the only `smsAllowed` branch (org slice), so it holds the 5 SMS rows
+  const A = ArrivalNoticeStatus;
+  const M = ArrivalNoticeMode;
+  const L = ArrivalNoticeLock;
+  // [status, mode, lock, consumed, branch]
+  const plan: [ArrivalNoticeStatus, ArrivalNoticeMode, ArrivalNoticeLock, boolean, string][] = [
+    [A.ACTIVE, M.RECURRING, L.NONE, false, b0.id],
+    [A.ACTIVE, M.RECURRING, L.NONE, false, b1.id],
+    [A.ACTIVE, M.RECURRING, L.NONE, false, b2.id],
+    [A.ACTIVE, M.RECURRING, L.NONE, false, b0.id],
+    [A.ACTIVE, M.RECURRING, L.NONE, false, b1.id],
+    [A.ACTIVE, M.RECURRING, L.NONE, false, b2.id],
+    [A.ACTIVE, M.ONCE, L.NONE, false, b0.id],
+    [A.ACTIVE, M.ONCE, L.NONE, false, b1.id],
+    [A.OFF, M.ONCE, L.NONE, true, b2.id],
+    [A.OFF, M.ONCE, L.NONE, true, b0.id],
+    [A.REQUESTED, M.RECURRING, L.NONE, false, high.id],
+    [A.REQUESTED, M.RECURRING, L.NONE, false, high.id],
+    [A.ACTIVE, M.RECURRING, L.ALWAYS, false, b0.id],
+    [A.OFF, M.RECURRING, L.NEVER, false, b1.id],
+    [A.OFF, M.RECURRING, L.NONE, false, b2.id],
+  ];
+  const subs = plan.flatMap(([status, mode, lock, consumed, tenantId], i) => {
+    // The two REQUESTED rows sit in the card teacher's own section, so its badge reads 2.
+    const requested = status === A.REQUESTED;
+    const c = pickChild(tenantId, requested);
+    if (!c) return [];
+    return {
+      tenant_id: tenantId,
+      student_id: c.studentId,
+      guardian_id: c.guardianId,
+      status,
+      mode,
+      channel: tenantId === b0.id ? ArrivalNoticeChannel.SMS : ArrivalNoticeChannel.PUSH,
+      lock,
+      // A guardian's own request has no staff setter yet.
+      set_by_user_id: requested ? null : (classTeacher.get(c.sectionId) ?? org.adminUserId),
+      locked_by_user_id: lock === L.NONE ? null : (principalOf.get(tenantId) ?? org.adminUserId),
+      consumed_at: consumed ? todayAt(addDays(ctx.anchor, -(1 + (i % 3))), 8, 20 + i) : null,
+    };
+  });
+  if (subs.length)
+    rows += await unnestInsert(ctx.ds, 'arrival_notice_subscriptions', Object.keys(subs[0]), subs);
   return rows;
 };
 
@@ -621,6 +712,7 @@ export const slice: DemoSlice = {
     StaffAttendanceRecord,
     LeavePolicy,
     LeaveRecord,
+    ArrivalNoticeSubscription,
   ],
   run: (ctx: DemoSeedContext) =>
     withoutIndexes(ctx.ds, ['attendance_sessions', 'attendance_records'], () => load(ctx)),

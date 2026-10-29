@@ -4,8 +4,11 @@
  * one dead endpoint shows a retry inside that card and the rest still render.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, Card, Skeleton, StatusBadge } from '@biddaloy/ui/components';
+import { Button, Card, RowActions, Skeleton, StatusBadge } from '@biddaloy/ui/components';
 import {
+  usePatchArrivalSubscription,
+  useArrivalSubscriptions,
+  type StaffArrivalSubscription,
   classPerformanceQueryOptions,
   useAttendanceStreaks,
   useDefaultedList,
@@ -22,7 +25,9 @@ import { formatNumber, formatPhone, formatServerAmount } from '@biddaloy/ui/util
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ChevronRightIcon, PhoneIcon, RotateCcwIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+
+import { ArrivalAddDialog } from './-arrival-add-dialog';
 
 const ROWS = 5;
 
@@ -85,7 +90,7 @@ function CardFrame({
     <Card asChild padded>
       <section aria-labelledby={id}>
         <div className="flex items-center justify-between gap-3">
-          <h2 id={id} className="text-h2">
+          <h2 id={id} tabIndex={-1} className="text-h2">
             {title}
           </h2>
           {badge}
@@ -500,6 +505,173 @@ export function RosterCard({ sectionId }: { sectionId: string }) {
           {SEE_ALL_ICON}
         </Link>
       )}
+    </CardFrame>
+  );
+}
+
+// --- 7. Arrival notices ([84.3.2]) ---------------------------------------
+
+type ArrivalPatch = { status?: 'ACTIVE' | 'OFF'; mode?: 'ONCE' | 'RECURRING' };
+
+export function ArrivalNoticesCard({ sectionId }: { sectionId: string }) {
+  const { t } = useTranslation('myClass');
+  const region = useRegionConfig();
+  const query = useArrivalSubscriptions({ sectionId });
+  const patch = usePatchArrivalSubscription();
+  const [adding, setAdding] = useState(false);
+  const rows = query.data ?? [];
+  const waiting = rows.filter((r) => r.status === 'REQUESTED');
+  // A "Once" that already sent shows as Done; a switched-off row with no history is hidden.
+  const on = rows.filter((r) => r.status === 'ACTIVE' || (r.status === 'OFF' && r.consumed_at));
+  const failedId = patch.isError ? patch.variables.id : undefined;
+
+  // A status change (answer a request, or Stop) moves the row out of its list, taking the
+  // pressed button with it: keep the keyboard in the card (its heading), not on the page body.
+  // A mode-only change keeps the row and its button, so focus stays put.
+  const send = (id: string, input: ArrivalPatch) =>
+    patch.mutate(
+      { id, input },
+      {
+        onSuccess: () => {
+          if (input.status) document.getElementById('my-class-arrival')?.focus();
+        },
+      },
+    );
+  const channel = (r: StaffArrivalSubscription) =>
+    t(r.channel === 'SMS' ? 'arrival.smsChannel' : 'arrival.appChannel');
+  const who = (r: StaffArrivalSubscription) => (
+    <>
+      <Name>{r.student_name}</Name>
+      <span className="block truncate text-caption text-text-secondary">{r.guardian_name}</span>
+    </>
+  );
+  const rowError = (id: string) =>
+    failedId === id ? (
+      <p role="alert" className="mt-1 text-caption text-destructive">
+        {t('arrival.rowError')}
+      </p>
+    ) : null;
+
+  function onBadge(r: StaffArrivalSubscription) {
+    if (r.lock !== 'NONE') return <StatusBadge tone="info" label={t('arrival.setBySchool')} />;
+    if (r.consumed_at) return <StatusBadge tone="neutral" label={t('arrival.onceDone')} />;
+    return (
+      <StatusBadge
+        tone="success"
+        label={t(r.mode === 'ONCE' ? 'arrival.once' : 'arrival.everyDay')}
+      />
+    );
+  }
+
+  return (
+    <CardFrame
+      id="my-class-arrival"
+      title={t('cards.arrival')}
+      badge={
+        waiting.length > 0 && !query.isPending && !query.isError ? (
+          <StatusBadge
+            tone="warning"
+            label={t('arrival.waitingBadge', { n: formatNumber(waiting.length, region) })}
+          />
+        ) : undefined
+      }
+      state={{
+        isPending: query.isPending,
+        isError: query.isError,
+        retry: () => void query.refetch(),
+      }}
+    >
+      {waiting.length === 0 && on.length === 0 && (
+        <p className="text-text-secondary">{t('arrival.empty')}</p>
+      )}
+      {waiting.length > 0 && (
+        <div>
+          <h3 className="text-label text-text-secondary">{t('arrival.waiting')}</h3>
+          <ul className="divide-y divide-border-subtle">
+            {waiting.map((r) => (
+              <li key={r.id} className="py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0">{who(r)}</span>
+                  <span className="shrink-0 text-caption text-text-secondary">{channel(r)}</span>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={patch.isPending}
+                    title={t('help.arrivalNotice.once')}
+                    onClick={() => send(r.id, { status: 'ACTIVE', mode: 'ONCE' })}
+                  >
+                    {t('arrival.once')}
+                  </Button>
+                  <Button
+                    disabled={patch.isPending}
+                    title={t('help.arrivalNotice.everyDay')}
+                    onClick={() => send(r.id, { status: 'ACTIVE', mode: 'RECURRING' })}
+                  >
+                    {t('arrival.everyDay')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={patch.isPending}
+                    onClick={() => send(r.id, { status: 'OFF' })}
+                  >
+                    {t('arrival.notNow')}
+                  </Button>
+                </div>
+                {rowError(r.id)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {on.length > 0 && (
+        <div className={waiting.length > 0 ? 'mt-4' : undefined}>
+          <h3 className="text-label text-text-secondary">{t('arrival.on')}</h3>
+          <ul className="divide-y divide-border-subtle">
+            {on.map((r) => (
+              <li key={r.id} className="py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0">{who(r)}</span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <span className="text-caption text-text-secondary">{channel(r)}</span>
+                    {onBadge(r)}
+                    {r.lock === 'NONE' && r.status === 'ACTIVE' && (
+                      <RowActions
+                        actions={[
+                          r.mode === 'ONCE'
+                            ? {
+                                intent: 'edit',
+                                label: t('arrival.switchToEveryDay'),
+                                busy: patch.isPending,
+                                onClick: () => send(r.id, { mode: 'RECURRING' }),
+                              }
+                            : {
+                                intent: 'edit',
+                                label: t('arrival.switchToOnce'),
+                                busy: patch.isPending,
+                                onClick: () => send(r.id, { mode: 'ONCE' }),
+                              },
+                          {
+                            intent: 'remove',
+                            label: t('arrival.stop'),
+                            busy: patch.isPending,
+                            onClick: () => send(r.id, { status: 'OFF' }),
+                          },
+                        ]}
+                      />
+                    )}
+                  </span>
+                </div>
+                {rowError(r.id)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <Button variant="outline" className="mt-3" onClick={() => setAdding(true)}>
+        {t('arrival.addYourself')}
+      </Button>
+      <ArrivalAddDialog open={adding} onOpenChange={setAdding} sectionId={sectionId} />
     </CardFrame>
   );
 }

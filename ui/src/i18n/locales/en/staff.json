@@ -503,6 +503,8 @@
       "ATTENDANCE_MARK": "Take attendance",
       "ATTENDANCE_CORRECT": "Correct attendance",
       "ATTENDANCE_DEVICE_MANAGE": "Manage attendance devices",
+      "ATTENDANCE_ARRIVAL_NOTICE_MANAGE": "Manage arrival notices",
+      "ATTENDANCE_ARRIVAL_NOTICE_LOCK": "Lock arrival notices for a guardian",
       "STAFF_ATTENDANCE_READ": "View staff attendance",
       "STAFF_ATTENDANCE_MARK": "Take staff attendance",
       "LEAVE_APPROVE": "Approve leave",

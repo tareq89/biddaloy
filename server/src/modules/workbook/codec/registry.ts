@@ -31,7 +31,7 @@ import { staffAchievementTab } from '../tabs/people/staff-achievement.tab';
 import { staffLanguageTab } from '../tabs/people/staff-language.tab';
 import { staffDocumentTab } from '../tabs/people/staff-document.tab';
 import { printTabs } from '../tabs/print';
-import { attendanceTabs } from '../tabs/attendance';
+import { arrivalNoticeSubscriptionsTab, attendanceTabs } from '../tabs/attendance';
 import { hrTabs } from '../tabs/hr';
 import { applicationsTabs } from '../tabs/applications';
 import { acrTabs } from '../tabs/people/acr.tab';
@@ -205,6 +205,9 @@ export const EXPECTED_TABS = [
   'study_plan_templates',
   'study_plans',
   'lesson_deliveries',
+  // [84.2.3] Epic 84.0 arrival-notice subscriptions. Depend on `students` and
+  // `guardians`, both earlier in this list.
+  'arrival_notice_subscriptions',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -279,6 +282,8 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   studyPlanTemplatesTab,
   studyPlansTab,
   lessonDeliveriesTab,
+  // [84.2.3]
+  arrivalNoticeSubscriptionsTab,
 ];
 
 export class RegistryError extends Error {

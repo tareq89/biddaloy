@@ -564,21 +564,47 @@ export class AbsenceNoticeService {
     const session = await this.sessionRepo.findOne({
       where: { id: sessionId, tenant_id: tenantId },
     });
-    if (!session || session.period_no !== null || !session.notified_at) return;
+    if (!session || session.period_no !== null) return;
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     if (!resolveAttendancePolicy(settings).autoAbsentNotification.enabled) return;
 
+    // [84.3.1 / D14] An arrival notice ("reached school") counts as a not-absent message, so
+    // PRESENT->ABSENT after one tells the guardian, and ABSENT->PRESENT after one says nothing new.
     const [{ last_told, batches }] = (await this.dataSource.query(
-      `SELECT (array_agg(b.filters_applied->>'purpose' ORDER BY l.created_at DESC)
-                 FILTER (WHERE l.status <> $5))[1] AS last_told,
-              count(DISTINCT l.reminder_batch_id)::int AS batches
-         FROM communication_logs l
-         JOIN reminder_batches b ON b.id = l.reminder_batch_id AND b.tenant_id = $1
-        WHERE l.tenant_id = $1 AND l.metadata->'student_ids' @> to_jsonb($4::text)
-          AND b.filters_applied->>'purpose' IN ('ABSENCE_NOTICE', 'ABSENCE_CORRECTION')
-          AND b.filters_applied->>'section_id' = $2 AND b.filters_applied->>'date' = $3`,
-      [tenantId, session.section_id, session.date, studentId, CommunicationStatus.FAILED],
+      `WITH told AS (
+         SELECT b.filters_applied->>'purpose' AS purpose, l.created_at, l.status, l.reminder_batch_id
+           FROM communication_logs l
+           JOIN reminder_batches b ON b.id = l.reminder_batch_id AND b.tenant_id = $1
+          WHERE l.tenant_id = $1 AND l.metadata->'student_ids' @> to_jsonb($4::text)
+            AND b.filters_applied->>'purpose' IN ('ABSENCE_NOTICE', 'ABSENCE_CORRECTION')
+            AND b.filters_applied->>'section_id' = $2 AND b.filters_applied->>'date' = $3
+         UNION ALL
+         SELECT 'ARRIVAL_NOTICE', l.created_at, l.status, NULL::uuid
+           FROM communication_logs l
+          WHERE l.tenant_id = $1 AND l.trigger = $6 AND l.student_id::text = $4
+            AND l.reference_key LIKE 'arrival:' || $3 || ':%'
+       )
+       SELECT (array_agg(purpose ORDER BY created_at DESC) FILTER (WHERE status <> $5))[1] AS last_told,
+              count(DISTINCT reminder_batch_id)::int AS batches
+         FROM told`,
+      [
+        tenantId,
+        session.section_id,
+        session.date,
+        studentId,
+        CommunicationStatus.FAILED,
+        CommunicationTrigger.ARRIVAL_NOTICE,
+      ],
     )) as { last_told: string | null; batches: number }[];
+    // No absence notice was ever sent and no arrival notice either: nothing to correct.
+    // An arrival notice only counts on a FINALIZED register: on a DRAFT, finalize itself sends
+    // the absence notice, so correcting here too would message the guardian twice.
+    if (
+      !session.notified_at &&
+      (last_told !== 'ARRIVAL_NOTICE' || session.state !== AttendanceSessionState.FINALIZED)
+    ) {
+      return;
+    }
     if ((last_told === 'ABSENCE_NOTICE') === isAbsent) return;
 
     // One key per message in this child's thread (FAILED ones included, so a

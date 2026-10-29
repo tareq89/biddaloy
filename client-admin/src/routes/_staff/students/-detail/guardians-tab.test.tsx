@@ -1,11 +1,13 @@
 import {
+  apiErrorBody,
   cleanupTestState,
   guardianFactory,
   renderWithRouter,
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -17,7 +19,7 @@ describe('students/-detail/guardians-tab', () => {
     await cleanupTestState();
   });
 
-  function renderGuardians(role = 'ADMIN') {
+  function renderGuardians(role = 'ADMIN', subs: unknown[] = [], listStatus = 200) {
     const primary = guardianFactory({
       id: 'g-primary',
       full_name: 'Karim Uddin',
@@ -36,6 +38,14 @@ describe('students/-detail/guardians-tab', () => {
     server.use(
       http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
       http.get('/api/v1/students/:studentId/promotion-overrides', () => HttpResponse.json([])),
+      http.get('/api/v1/attendance/arrival-subscriptions', () =>
+        listStatus === 200
+          ? HttpResponse.json(subs)
+          : HttpResponse.json(
+              apiErrorBody(listStatus, 'no', '/api/v1/attendance/arrival-subscriptions'),
+              { status: listStatus },
+            ),
+      ),
     );
     return renderWithRouter(routeTree, {
       initialEntries: ['/students/student-1?tab=guardians'],
@@ -72,5 +82,102 @@ describe('students/-detail/guardians-tab', () => {
     renderGuardians('TEACHER');
     await screen.findByRole('region', { name: /^Guardians of / });
     expect(screen.queryByRole('link', { name: 'edit the student' })).toBeNull();
+  });
+
+  describe('arrival notice', () => {
+    const sub = (lock: 'NONE' | 'NEVER', over: Record<string, unknown> = {}) => ({
+      id: 'sub-1',
+      student_id: 'student-1',
+      guardian_id: 'g-primary',
+      student_name: 'Rahim',
+      guardian_name: 'Karim Uddin',
+      status: 'ACTIVE',
+      mode: 'RECURRING',
+      channel: 'PUSH',
+      lock,
+      consumed_at: null,
+      updated_at: '2026-10-20T08:00:00.000Z',
+      ...over,
+    });
+
+    async function openMenu() {
+      const user = userEvent.setup();
+      await user.click(
+        await screen.findByRole('button', { name: 'Arrival notice for Karim Uddin' }),
+      );
+      return user;
+    }
+
+    it('gives a TEACHER the manage items and no lock items', async () => {
+      renderGuardians('TEACHER', [sub('NONE')]);
+      await openMenu();
+      expect(await screen.findByRole('menuitem', { name: 'Every day' })).toBeTruthy();
+      expect(screen.getByRole('menuitem', { name: 'Stop' })).toBeTruthy();
+      expect(screen.queryByRole('menuitem', { name: 'Always' })).toBeNull();
+      expect(screen.queryByRole('menuitem', { name: 'Never' })).toBeNull();
+      expect(screen.queryByRole('menuitem', { name: 'Let the teacher decide' })).toBeNull();
+    });
+
+    it('gives an admin the lock items', async () => {
+      renderGuardians('ADMIN', [sub('NONE')]);
+      await openMenu();
+      expect(await screen.findByRole('menuitem', { name: 'Always' })).toBeTruthy();
+      expect(screen.getByRole('menuitem', { name: 'Never' })).toBeTruthy();
+      expect(screen.getByRole('menuitem', { name: 'Let the teacher decide' })).toBeTruthy();
+    });
+
+    it('disables the manage items and says why when the row is locked', async () => {
+      renderGuardians('TEACHER', [sub('NEVER')]);
+      expect(await screen.findByText('Set by admin: never')).toBeTruthy();
+      await openMenu();
+      for (const name of ['Once', 'Every day', 'Stop']) {
+        const item = await screen.findByRole('menuitem', { name });
+        expect(
+          item.getAttribute('aria-disabled') ?? item.getAttribute('data-disabled'),
+        ).not.toBeNull();
+      }
+      // The reason sits beside the badge, not inside role="menu" where readers skip it.
+      const note = screen.getByText('An admin has fixed this. It cannot be changed here.');
+      expect(note.closest('[role="menu"]')).toBeNull();
+    });
+
+    it('shows Done for a used "Once" (OFF with consumed_at), not Stopped', async () => {
+      renderGuardians('TEACHER', [
+        sub('NONE', { status: 'OFF', mode: 'ONCE', consumed_at: '2026-10-20T02:20:00.000Z' }),
+      ]);
+      expect(await screen.findByText('Done')).toBeTruthy();
+      expect(screen.queryByText('Stopped')).toBeNull();
+    });
+
+    it("hides the column when the list answers 404 (not this section's class teacher)", async () => {
+      renderGuardians('TEACHER', [], 404);
+      const table = await screen.findByRole('region', { name: /^Guardians of / });
+      await within(table).findByText('Father');
+      // The probe settles, then the column goes: no "Not asked", no menu that would 404 again.
+      await waitFor(() =>
+        expect(within(table).queryByRole('columnheader', { name: 'Arrival notice' })).toBeNull(),
+      );
+      expect(screen.queryByText('Not asked')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Arrival notice for Karim Uddin' })).toBeNull();
+    });
+
+    it('shows a dash and no menu when the list fails, never "Not asked"', async () => {
+      renderGuardians('TEACHER', [], 403);
+      const table = await screen.findByRole('region', { name: /^Guardians of / });
+      const headers = await within(table).findAllByRole('columnheader');
+      const col = headers.findIndex((h) => h.textContent === 'Arrival notice');
+      expect(col).toBeGreaterThanOrEqual(0);
+      const karim = within(table)
+        .getAllByRole('row')
+        .find((r) => r.textContent?.includes('Karim Uddin'))!;
+      await within(within(karim).getAllByRole('cell')[col]!).findByText('—');
+      expect(screen.queryByText('Not asked')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Arrival notice for Karim Uddin' })).toBeNull();
+    });
+
+    it('shows the last change date', async () => {
+      renderGuardians('TEACHER', [sub('NONE')]);
+      expect(await screen.findByText(/^Changed on /)).toBeTruthy();
+    });
   });
 });

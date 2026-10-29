@@ -130,6 +130,8 @@ export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Per
       Permission.ATTENDANCE_MARK,
       Permission.ATTENDANCE_CORRECT,
       Permission.ATTENDANCE_DEVICE_MANAGE,
+      Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE,
+      Permission.ATTENDANCE_ARRIVAL_NOTICE_LOCK,
       Permission.STAFF_ATTENDANCE_READ,
       Permission.STAFF_ATTENDANCE_MARK,
       Permission.LEAVE_APPROVE,

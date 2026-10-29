@@ -132,6 +132,7 @@ describe('My Class E2E', () => {
         section_id: a,
         section_name: 'A',
         class_name: 'MyClass 6',
+        arrival_request_count: 0,
         assignment_type: TeacherAssignmentType.CLASS_TEACHER,
       }),
       expect.objectContaining({

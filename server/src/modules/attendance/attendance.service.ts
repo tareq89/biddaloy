@@ -58,6 +58,7 @@ import {
 import { Subject } from '../academics/entities/subject.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { AbsenceNoticeService } from './absence-notice.service';
+import { ArrivalNoticeService } from './arrival-notice.service';
 import { attentionEvents } from '../attention/attention.constants';
 import { emitRecheck } from '../attention/engine/attention-events';
 
@@ -129,6 +130,7 @@ export class AttendanceService {
     private readonly schoolsService: SchoolsService,
     private readonly schoolCalendarService: SchoolCalendarService,
     private readonly absenceNoticeService: AbsenceNoticeService,
+    private readonly arrivalNoticeService: ArrivalNoticeService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -375,6 +377,31 @@ export class AttendanceService {
       } catch (err) {
         this.logger.warn(
           `Auto-absent notification failed for section ${sectionId} on ${dto.date}: ${String(err)}`,
+        );
+      }
+      // [84.3.1 / D11, D26] Arrival notices for the PRESENT/LATE students of a finalized
+      // whole-day register. Own try/catch: a failure here never undoes the register. Teacher time
+      // is "now" (the service ignores non-arrived statuses; the DB unique key dedupes a device send).
+      try {
+        const settings = await this.schoolsService.getResolvedSettings(tenantId);
+        if (settings.attendance?.arrivalNotice?.enabled === true && result.session.id) {
+          const records = await this.recordRepo.find({
+            where: { tenant_id: tenantId, session_id: result.session.id },
+          });
+          await this.arrivalNoticeService.sendArrivalNotices({
+            tenantId,
+            date: dto.date,
+            students: records.map((r) => ({
+              studentId: r.student_id,
+              status: r.status,
+              occurredAt: new Date(),
+            })),
+            takenBy: { kind: 'TEACHER', userId },
+          });
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Arrival notice failed for section ${sectionId} on ${dto.date}: ${String(err)}`,
         );
       }
     }

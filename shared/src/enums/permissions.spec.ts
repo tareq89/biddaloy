@@ -1027,6 +1027,32 @@ describe('STEP_UP_REQUEST [2639]', () => {
   });
 });
 
+describe('arrival notice permissions (84.1.1, D15/D16)', () => {
+  const MANAGE = Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE;
+  const LOCK = Permission.ATTENDANCE_ARRIVAL_NOTICE_LOCK;
+  const holders = (p: Permission) =>
+    Object.values(UserRole).filter(
+      (r) => r !== UserRole.SUPER_ADMIN && ROLE_PERMISSIONS[r].includes(p),
+    );
+
+  it('MANAGE goes to exactly TEACHER, ADMIN (school admin) and EXECUTIVE', () => {
+    expect(holders(MANAGE).sort()).toEqual(
+      [UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER].sort(),
+    );
+  });
+
+  it('LOCK goes to exactly ADMIN', () => {
+    expect(holders(LOCK)).toEqual([UserRole.ADMIN]);
+  });
+
+  it('STUDENT, PARENT and ACCOUNTANT have neither', () => {
+    for (const r of [UserRole.STUDENT, UserRole.PARENT, UserRole.ACCOUNTANT]) {
+      expect(ROLE_PERMISSIONS[r]).not.toContain(MANAGE);
+      expect(ROLE_PERMISSIONS[r]).not.toContain(LOCK);
+    }
+  });
+});
+
 describe('INVOICE_SEND [#3033]', () => {
   it.each([UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTANT])('%s holds it', (role) => {
     expect(roleHasPermission(role, Permission.INVOICE_SEND)).toBe(true);
