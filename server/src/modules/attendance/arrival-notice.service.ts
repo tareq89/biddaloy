@@ -42,6 +42,7 @@ export const ARRIVAL_TEMPLATES = {
 } as const;
 
 const OFFICE = { en: 'the office', bn: 'অফিস' } as const;
+const ENQUEUE_TIMEOUT_MS = 3000;
 const PG_UNIQUE_VIOLATION = '23505';
 const BN_DIGITS = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
 
@@ -241,11 +242,15 @@ export class ArrivalNoticeService {
         .findOne({ where: { id: takenBy.deviceId, tenant_id: tenantId } });
       return device?.name ?? OFFICE[locale];
     }
-    const rows: { full_name: string }[] = await this.dataSource.query(
-      `SELECT u.full_name FROM staff_profiles sp JOIN users u ON u.id = sp.user_id
+    // staff_hr_records.name_bn (Epic 32) is optional: bn messages use it, else the English name.
+    const rows: { full_name: string; name_bn: string | null }[] = await this.dataSource.query(
+      `SELECT u.full_name, h.name_bn FROM staff_profiles sp JOIN users u ON u.id = sp.user_id
+        LEFT JOIN staff_hr_records h ON h.user_id = sp.user_id AND h.tenant_id = sp.tenant_id
         WHERE sp.tenant_id = $1 AND sp.user_id = $2`,
       [tenantId, takenBy.userId],
     );
+    const bn = rows[0]?.name_bn?.trim();
+    if (locale === 'bn' && bn) return bn;
     return rows[0]?.full_name ?? OFFICE[locale];
   }
 
@@ -318,7 +323,14 @@ export class ArrivalNoticeService {
     }
 
     try {
-      await this.queue.add('send', { logId: log.id, ...credit });
+      // Measured (Epic 84 follow-up 9): with Redis down this queue's offline queue never rejects
+      // (a single add hung >180s), so N sequential adds would stall finalize. Bound each add.
+      await Promise.race([
+        this.queue.add('send', { logId: log.id, ...credit }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('queue add timed out')), ENQUEUE_TIMEOUT_MS).unref(),
+        ),
+      ]);
     } catch (error) {
       // D26: Redis/BullMQ down fails open. Free the credit and the key so a later call can retry.
       if (credit.segments !== undefined) {

@@ -139,11 +139,13 @@ export class DeviceEventsService {
     let accepted = 0;
     let duplicate = 0;
     let failed = 0;
+    // [84.3.1] first check-ins of the batch, by local date; one notice call per date after the loop.
+    const firstCheckInsByDate = new Map<string, ArrivalStudent[]>();
 
     for (const event of events) {
       let result: DeviceEventResultDto;
       try {
-        result = await this.ingestOne(device, event);
+        result = await this.ingestOne(device, event, firstCheckInsByDate);
       } catch (err) {
         this.logger.error(
           `Device event ingest failed for device ${device.id}, event ${event.device_event_id}: ${
@@ -162,6 +164,8 @@ export class DeviceEventsService {
       else if (result.outcome === 'duplicate') duplicate += 1;
       else failed += 1;
     }
+
+    await this.sendBatchArrivalNotices(device, firstCheckInsByDate);
 
     // Once per batch, not per event — see this service's docstring.
     await this.deviceRepo.update(device.id, { last_seen_at: new Date() });
@@ -191,6 +195,7 @@ export class DeviceEventsService {
   private async ingestOne(
     device: AttendanceDevice,
     event: DeviceEventDto,
+    firstCheckInsByDate: Map<string, ArrivalStudent[]>,
   ): Promise<DeviceEventResultDto> {
     const settings = await this.schoolsService.getResolvedSettings(device.tenant_id);
     const policy = resolveAttendancePolicy(settings);
@@ -328,20 +333,37 @@ export class DeviceEventsService {
         firstCheckIns,
       );
     });
-    // After commit, fire-and-forget (D11, D26): the device answer never waits on or fails with it.
-    if (firstCheckIns.length > 0 && settings.attendance?.arrivalNotice?.enabled === true) {
+    if (firstCheckIns.length > 0) {
+      firstCheckInsByDate.set(eventDate, [
+        ...(firstCheckInsByDate.get(eventDate) ?? []),
+        ...firstCheckIns,
+      ]);
+    }
+    return result;
+  }
+
+  /** After commit, fire-and-forget (D11, D26): the device answer never waits on or fails with it. */
+  private async sendBatchArrivalNotices(
+    device: AttendanceDevice,
+    byDate: Map<string, ArrivalStudent[]>,
+  ): Promise<void> {
+    if (byDate.size === 0) return;
+    const settings = await this.schoolsService
+      .getResolvedSettings(device.tenant_id)
+      .catch(() => null);
+    if (settings?.attendance?.arrivalNotice?.enabled !== true) return;
+    for (const [date, students] of byDate) {
       this.arrivalNoticeService
         .sendArrivalNotices({
           tenantId: device.tenant_id,
-          date: eventDate,
-          students: firstCheckIns,
+          date,
+          students,
           takenBy: { kind: 'DEVICE', deviceId: device.id },
         })
         .catch((err: unknown) =>
           this.logger.warn(`Arrival notice failed for device ${device.id}: ${String(err)}`),
         );
     }
-    return result;
   }
 
   private isOutOfWindow(eventDateIso: string, timezone: string): boolean {
