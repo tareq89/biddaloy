@@ -54,7 +54,7 @@ printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/bin/sleep"
 chmod +x "$WORK/bin/"*
 
 SECRET_PW='sup3r-secret-pw'
-printf 'POSTGRES_DB=biddaloy_staging\nSTAGING_REFRESH_PUSH_URL=https://kuma.test/api/push/STAGINGTOKEN?status=up&msg=OK&ping=\nSMOKE_SCHOOL_SLUG=smoke\nSMOKE_ADMIN_EMAIL=a@x.test\nSMOKE_ADMIN_PASSWORD=%s\nSMOKE_TEACHER_EMAIL=t@x.test\nSMOKE_TEACHER_PASSWORD=%s\nSMOKE_SUPER_ADMIN_EMAIL=s@x.test\nSMOKE_SUPER_ADMIN_PASSWORD=%s\n' \
+printf 'POSTGRES_DB=biddaloy_staging\nRESTORE_DRILL_PUSH_URL=https://kuma.test/api/push/STAGINGTOKEN?status=up&msg=OK&ping=\nSMOKE_SCHOOL_SLUG=smoke\nSMOKE_ADMIN_EMAIL=a@x.test\nSMOKE_ADMIN_PASSWORD=%s\nSMOKE_TEACHER_EMAIL=t@x.test\nSMOKE_TEACHER_PASSWORD=%s\nSMOKE_SUPER_ADMIN_EMAIL=s@x.test\nSMOKE_SUPER_ADMIN_PASSWORD=%s\n' \
   "$SECRET_PW" "$SECRET_PW" "$SECRET_PW" > "$WORK/opt/staging/.env"
 echo 'DEMO_RESET_PUSH_URL=https://kuma.test/api/push/DEMOTOKEN' > "$WORK/opt/demo/.env"
 echo 'LOG_ARCHIVE_PUSH_URL=https://kuma.test/api/push/LOGTOKEN' > "$WORK/opt/prod/.env"
@@ -120,11 +120,22 @@ run staging-refresh
 expect "3c staging-refresh exits 2 with the pointer" test "$RC" = 2 -a "$(grep -c 'biddaloy-staging load' "$WORK/out")" = 1
 expect "3c no docker call" hasnt "docker "
 
-# 3d the old push variable still works for one release
-sed -i.bak 's/^STAGING_REFRESH_PUSH_URL/OLD_PUSH_URL/' "$WORK/opt/staging/.env" && rm -f "$WORK/opt/staging/.env.bak"
+# 3d the old push variable still works for one release; the new one wins when both are set
+cp "$WORK/opt/staging/.env" "$WORK/env.keep"
 printf 'STAGING_REFRESH_PUSH_URL=https://kuma.test/api/push/OLDTOKEN\n' >> "$WORK/opt/staging/.env"
 run restore-drill
+expect "3d new push var wins when both are set" bash -c "grep -qF STAGINGTOKEN '$LOG' && ! grep -qF OLDTOKEN '$LOG'"
+sed -i.bak '/^RESTORE_DRILL_PUSH_URL/d' "$WORK/opt/staging/.env" && rm -f "$WORK/opt/staging/.env.bak"
+run restore-drill
 expect "3d old push var used when the new one is unset" has "OLDTOKEN"
+cp "$WORK/env.keep" "$WORK/opt/staging/.env"
+
+# 3e a drill db that cannot be dropped after a good night is a warning, not silence
+rm -f "$WORK/opt/staging/last-drill"
+FAIL_MATCH="DROP DATABASE" run restore-drill
+expect "3e up with a warning" has "status=up&msg=ok"
+expect "3e warning names the drop" has "drill+db+not+dropped"
+expect "3e no last-drill claimed" test ! -e "$WORK/opt/staging/last-drill"
 
 # 4 a busy lock never reaches docker
 FLOCK_FAIL=1 run restore-drill
@@ -181,7 +192,7 @@ rm -f "$WORK/opt/staging/smoke-post-deploy.mjs"
 expect "7 password not in argv" hasnt "$SECRET_PW"
 expect "7 no hash made on the host (the .env holds STAGING_PASSWORD_HASH_B64)" hasnt "password-hash.js"
 expect "7 no STAGING_PASSWORD_HASH handed to the job" hasnt "STAGING_PASSWORD_HASH"
-expect "7 push URL token not in argv" test "$(grep '^curl' "$LOG" | grep -c OLDTOKEN)" = 0
+expect "7 push URL token not in argv" test "$(grep '^curl' "$LOG" | grep -c STAGINGTOKEN)" = 0
 
 # 8 the unit must not wrap the script in flock: that takes the swap lock before deploy.lock
 UNIT="$HERE/../../../infra/ansible/templates/biddaloy-nightly@.service.j2"

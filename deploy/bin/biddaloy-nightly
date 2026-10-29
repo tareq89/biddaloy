@@ -104,7 +104,7 @@ DRILL_DB=biddaloy_staging_drill
 migrate_db() { POSTGRES_DB="$1" dc staging run --rm -T --no-deps app node server/dist/scripts/migrate.js run; }
 # psql in the db container over its local socket (no password on a command line).
 drill_psql() { dc staging exec -T db psql -U "$POSTGRES_USER" -v ON_ERROR_STOP=1 -tAq "$@"; }
-drill_drop() { drill_psql -d postgres -c "DROP DATABASE IF EXISTS \"$DRILL_DB\" WITH (FORCE)" >/dev/null 2>&1 || say "could not drop $DRILL_DB: drop it by hand"; }
+drill_drop() { drill_psql -d postgres -c "DROP DATABASE IF EXISTS \"$DRILL_DB\" WITH (FORCE)" >/dev/null 2>&1 || { say "could not drop $DRILL_DB: drop it by hand"; return 1; }; }
 # A one-off app on the drill db (own Redis db index 15, so it never consumes the live app's
 # queued jobs), smoked over loopback; the staging app stays up.
 drill_smoke() {
@@ -113,7 +113,7 @@ drill_smoke() {
     -e REDIS_URL=redis://redis:6379/15 \
     -e SMOKE_SCHOOL_SLUG -e SMOKE_ADMIN_EMAIL -e SMOKE_ADMIN_PASSWORD -e SMOKE_TEACHER_EMAIL \
     -e SMOKE_TEACHER_PASSWORD -e SMOKE_SUPER_ADMIN_EMAIL -e SMOKE_SUPER_ADMIN_PASSWORD \
-    app sh -c 'node server/dist/main.js >/dev/null 2>&1 & pid=$!
+    app sh -c 'node server/dist/main.js >&2 & pid=$!
       for i in $(seq 1 60); do
         wget -q -O /dev/null http://127.0.0.1:3000/api/health && break
         kill -0 $pid 2>/dev/null || exit 1
@@ -139,9 +139,13 @@ restore_drill() {
   run_step migrate migrate_db "$DRILL_DB"
   run_step smoke drill_smoke
   counts="$(drill_psql -d "$DRILL_DB" -c "SELECT 'schools=' || (SELECT count(*) FROM schools) || ' users=' || (SELECT count(*) FROM users) || ' students=' || (SELECT count(*) FROM students)")" || counts="counts unavailable"
-  # D13: the doctor reads this. Written last, so a failed night leaves yesterday's (stale) file.
+  # Drop now, not only in the trap: a failed drop must reach Kuma as a warning, and the file below
+  # must not claim a clean night when the drill db survived.
+  if ! drill_drop; then WARNING="drill db not dropped"; return 0; fi
+  # D13: the doctor reads this. Written only after a clean run, so a failed night leaves yesterday's.
   printf '%s duration=%ss %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(($(date +%s) - started))" "$counts" \
-    > "$ROOT/staging/last-drill.tmp" && mv "$ROOT/staging/last-drill.tmp" "$ROOT/staging/last-drill"
+    > "$ROOT/staging/last-drill.tmp" && mv "$ROOT/staging/last-drill.tmp" "$ROOT/staging/last-drill" \
+    || WARNING="last-drill not written"
 }
 
 # --- demo-rebuild -------------------------------------------------------------------------------
