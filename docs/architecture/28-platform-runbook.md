@@ -1100,7 +1100,7 @@ Exit code: `0` all OK, `1` a WARN, `2` a FAIL. One stack: `biddaloy-doctor prod`
 
 ### 10b. Deploy the test inbox (Epic 87), staging and demo
 
-> বাংলায় পড়ুন: [bn/test-inbox-deploy.md](bn/test-inbox-deploy.md).
+> বাংলায় পড়ুন: [bn/test-inbox-deploy.md](bn/test-inbox-deploy.md), আর staging সহ একসাথে: [runbook-bn/staging-and-test-inbox.md](runbook-bn/staging-and-test-inbox.md).
 
 Staging and demo send every email, SMS, WhatsApp and Messenger message to one Mailpit inbox,
 so nothing reaches a real person. Prod never runs it. Do this once, in this order:
@@ -1472,6 +1472,8 @@ systemctl list-timers 'biddaloy-nightly@*'
 ```
 
 ### Staging: dev, staging and the nightly drill
+
+> বাংলায় পড়ুন: [runbook-bn/staging-and-test-inbox.md](runbook-bn/staging-and-test-inbox.md).
 
 Staging used to be replaced with a fresh copy of prod every night. It no longer is (Epic 88).
 Now staging has **two databases**, you choose when to load a prod copy, and a separate **nightly
