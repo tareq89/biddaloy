@@ -116,7 +116,7 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
     if (ds) await ds.destroy();
   });
 
-  it('writes believable registers, period sessions, today, devices, staff and leave', async () => {
+  it('writes believable registers, period sessions, today, devices, staff, leave and arrival notices', async () => {
     // No register on a Friday (the weekly off-day) or a holiday: the 58.1.05 attendance check.
     expect((await validate(ds)).filter((v) => v.check === 'attendance')).toEqual([]);
     const [{ n: fridays }] = await q(
@@ -263,9 +263,10 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
       `SELECT 100.0 * count(*) FILTER (WHERE status <> 'ABSENT') / count(*) AS "staffPct" FROM staff_attendance_records`,
     );
     expect(Number(staffPct)).toBeGreaterThan(94);
-  }, 120_000);
 
-  it('seeds sent arrival logs shaped like the real service (84.3.6, D4, D23)', async () => {
+    // [84.3.6] Sent arrival logs shaped like the real service (D4, D23). Same `it` on purpose:
+    // a second `it` re-runs the 3-year seed and makes the suite's per-test reset delete it all,
+    // which took longer than the 30 s hook limit on a slow CI runner.
     const per = await q(
       `SELECT a.status, a.mode, a.consumed_at, a.channel,
               (CASE WHEN a.channel = 'SMS' THEN g.phone IS NOT NULL ELSE g.user_id IS NOT NULL END)
@@ -317,9 +318,8 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
     for (const { message_body } of bodies) {
       expect(message_body).toMatch(/আজ (সকাল|দুপুর|বিকাল) [১-৯][০-৯]?:[০-৯]{2}-এ /);
     }
-  }, 120_000);
 
-  it('seeds 15 arrival-notice subscriptions over 3 branches (D43)', async () => {
+    // [D43] 15 arrival-notice subscriptions over 3 branches.
     const count = async (where: string) =>
       Number(
         (await q(`SELECT count(*) AS n FROM arrival_notice_subscriptions WHERE ${where}`))[0].n,
