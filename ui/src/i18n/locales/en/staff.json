@@ -503,6 +503,8 @@
       "ATTENDANCE_MARK": "Take attendance",
       "ATTENDANCE_CORRECT": "Correct attendance",
       "ATTENDANCE_DEVICE_MANAGE": "Manage attendance devices",
+      "ATTENDANCE_ARRIVAL_NOTICE_MANAGE": "Manage arrival notices",
+      "ATTENDANCE_ARRIVAL_NOTICE_LOCK": "Lock arrival notices for a guardian",
       "STAFF_ATTENDANCE_READ": "View staff attendance",
       "STAFF_ATTENDANCE_MARK": "Take staff attendance",
       "LEAVE_APPROVE": "Approve leave",
@@ -556,7 +558,7 @@
     "phone": "Phone",
     "role": "Role",
     "member": "Member",
-    "employeeID": "Employee ID",
+    "employeeId": "Employee ID",
     "designations": "Designations",
     "subjectSpecialization": "Subject specialization",
     "joiningDate": "Joining date"
@@ -567,7 +569,7 @@
     "phone": "In English digits, for example 01712345678. If you give no email, the invitation goes to the phone.",
     "role": "Teacher, Accountant, Office staff and so on. The role decides what the person sees in the app. It cannot be changed from here later.",
     "member": "The person you will give a teacher profile. Someone who already has a profile does not appear in the list.",
-    "employeeID": "This teacher's own ID in the school; no two people share one. If they already have an employee ID, that one stays.",
+    "employeeId": "This teacher's own ID in the school; no two people share one. If they already have an employee ID, that one stays.",
     "designations": "One or more of Class teacher, Subject teacher, Head teacher, Assistant teacher, Principal, Vice principal, Coordinator.",
     "subjectSpecialization": "The subject the teacher is strong in, for example Maths. Free text.",
     "joiningDate": "When they joined the school."
@@ -578,6 +580,6 @@
     "phone": "No, but give an email or a phone",
     "role": "Yes",
     "member": "Yes",
-    "employeeID": "Yes"
+    "employeeId": "Yes"
   }
 }

@@ -78,6 +78,7 @@ export const DEFAULT_ATTENDANCE_SETTINGS: AttendancePolicySettings = {
   percentageDenominator: 'WORKING_DAYS',
   allowFutureDates: false,
   autoAbsentNotification: { enabled: false, cutoffTime: '11:00' },
+  arrivalNotice: { enabled: false, smsAllowed: false },
   shiftTimes: [],
   specialTimings: [],
   periodAttendance: { enabled: false },

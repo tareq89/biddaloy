@@ -83,6 +83,8 @@ import { ensureAttentionSeed } from './seed.attention';
 import { ensureAttentionRulesSeed } from './seed.attention-rules';
 import { ensureAttentionW5Seed } from './seed.attention-w5';
 import { ensureDashboardSeed } from './seed.dashboard';
+import { ensureArrivalNoticeSetting, ensureArrivalSeed } from './seed.arrival';
+import { ArrivalNoticeSubscription } from '../modules/attendance/entities/arrival-notice-subscription.entity';
 import { Alert } from '../modules/attention/entities/alert.entity';
 import { AlertRecipient } from '../modules/attention/entities/alert-recipient.entity';
 import { ensureStudyPlansSeed } from './seed.study-plans';
@@ -209,6 +211,11 @@ export async function seed() {
   if (ensureAttendancePeriodSetting(school)) {
     await schoolRepository.save(school);
     console.log(`Turned period attendance on for ${school.name}.`);
+  }
+  // [84.4.4] Arrival notices on (app only), so the e2e arrival journeys never flip the switch.
+  if (ensureArrivalNoticeSetting(school)) {
+    await schoolRepository.save(school);
+    console.log(`Turned arrival notices on for ${school.name}.`);
   }
 
   await seedAccounts(
@@ -396,6 +403,16 @@ export async function seed() {
     // [8.10.7.2.99] Rows that make every dashboard widget non-empty. After the applications seed:
     // that one skips when the school already has any application, and the dashboard seed adds some.
     await ensureDashboardSeed(dataSource, school.id);
+
+    // [84.4.4 / D33] One ACTIVE arrival-notice subscription for the e2e journeys.
+    await ensureArrivalSeed(
+      {
+        studentRepository: dataSource.getRepository(Student),
+        guardianRepository: dataSource.getRepository(Guardian),
+        arrivalSubscriptionRepository: dataSource.getRepository(ArrivalNoticeSubscription),
+      },
+      school.id,
+    );
   }
 
   // [35.5.5] Unapplied tenant for walking the preset flow (after the demo seeds).

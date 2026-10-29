@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
   toast,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import {
   useCertificateAssets,
@@ -170,7 +171,10 @@ export function ReprintDialog({
     <Dialog open={open} onOpenChange={(next) => !(printing && !next) && onOpenChange(next)}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>{t('reprint.title', { name: row.subject_label })}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('reprint.title', { name: row.subject_label })}</DialogTitle>
+            <HelpHint helpId="reports.printables.action.reprint" />
+          </div>
         </DialogHeader>
 
         <p className="text-sm">{t('reprint.explain')}</p>

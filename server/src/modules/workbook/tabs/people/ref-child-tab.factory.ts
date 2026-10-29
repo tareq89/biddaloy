@@ -47,6 +47,8 @@ export interface RefChildTabOptions<E> {
   deleteByAbsence?: boolean;
   /** Drops rows from the export. Runs before refs are stamped, so a dropped row's parent is never needed. */
   filterRows?: (rows: E[], tenantId: string, m: EntityManager) => Promise<E[]>;
+  /** Cross-field check on a parsed row; return `{ column, message }` to reject it. Fixed text, never the cell value. */
+  checkRow?: (row: Record<string, unknown>) => { column: string; message: string } | null;
 }
 
 type Rec = Record<string, unknown>;
@@ -78,6 +80,7 @@ export function createRefChildTab<E extends { id: string }>(
     naturalKey,
     deleteByAbsence = true,
     filterRows,
+    checkRow,
     excluded = [],
   } = opts;
   const typeOf = new Map(fields.map((f) => [f.key, f.type as string]));
@@ -170,6 +173,8 @@ export function createRefChildTab<E extends { id: string }>(
       }
       if (errors.length > 0) return { errors };
       for (const f of fields) out[f.key] = values[f.key] ?? null;
+      const bad = checkRow?.(out);
+      if (bad) return { errors: [{ tab: name, row: rowNo, severity: 'error', ...bad }] };
       return { row: out };
     },
 

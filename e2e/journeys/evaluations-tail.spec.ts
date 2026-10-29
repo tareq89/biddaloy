@@ -12,7 +12,6 @@ import {
   patch,
   post,
 } from '../api';
-import type { AcrResponse } from '../fixtures/evaluations';
 import { acrBody } from '../fixtures/evaluations';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
@@ -94,12 +93,16 @@ test.describe('ACR print', () => {
       scores: criteria.map((c) => ({ criterion_id: c.id, score: 4 })),
     });
     const completed = await completeAcr(request, session, started.id);
-    const [incomplete] = await get<AcrResponse[]>(
+    // Our own INCOMPLETE ACR ([#3135]): the first row of ?status=INCOMPLETE is shared
+    // and evaluations-regression completes it on another worker.
+    const staff2 = await createTeacherForSection(
       request,
       session,
-      '/acr/assessments?status=INCOMPLETE',
+      `Tail ACR Open Staff ${SUFFIX}`,
+      chain,
     );
-    expect(incomplete, 'a seeded INCOMPLETE ACR').toBeTruthy();
+    const incomplete = await createAcr(request, session, acrBody(staff2.userId, yearId));
+    expect(incomplete.status).toBe('INCOMPLETE');
 
     await test.step('COMPLETED: Print opens the preview with the total and criteria', async () => {
       await page.goto(`/staff/${completed.user_id}/acr/${completed.id}`);
@@ -121,7 +124,7 @@ test.describe('ACR print', () => {
     });
 
     await test.step('INCOMPLETE: no Print button', async () => {
-      await page.goto(`/staff/${incomplete!.user_id}/acr/${incomplete!.id}`);
+      await page.goto(`/staff/${incomplete.user_id}/acr/${incomplete.id}`);
       await expect(
         page.getByRole('dialog').getByRole('heading', {
           level: 1,

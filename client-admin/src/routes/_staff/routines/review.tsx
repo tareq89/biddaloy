@@ -42,6 +42,7 @@ import {
   StatusBadge,
   toast,
   type DataTableColumn,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import {
   useAcademicYears,
@@ -670,7 +671,10 @@ function RoutineReviewPage() {
       <Dialog open={copyYearOpen} onOpenChange={setCopyYearOpen}>
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>{t('review.copyYearDialogTitle')}</DialogTitle>
+            <div className="flex items-center gap-1">
+              <DialogTitle>{t('review.copyYearDialogTitle')}</DialogTitle>
+              <HelpHint helpId="academics.routineReview.action.copyYear" />
+            </div>
             <DialogDescription>{t('review.copyYearDialogExplanation')}</DialogDescription>
           </DialogHeader>
 

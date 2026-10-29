@@ -17,6 +17,7 @@ import { Student } from '../../students/entities/student.entity';
 import { StaffAttendanceSession } from '../../staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../../staff-attendance/entities/staff-attendance-record.entity';
 import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
+import { ArrivalNoticeService, ArrivalStudent } from '../arrival-notice.service';
 import { SchoolsService } from '../../schools/schools.service';
 import { AuditService } from '../../audit/audit.service';
 import {
@@ -60,6 +61,7 @@ export class DeviceEventsService {
     private readonly dataSource: DataSource,
     private readonly schoolsService: SchoolsService,
     private readonly auditService: AuditService,
+    private readonly arrivalNoticeService: ArrivalNoticeService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -196,7 +198,9 @@ export class DeviceEventsService {
     const occurredAt = new Date(event.occurred_at);
     const eventDate = localDate(occurredAt, timezone);
 
-    return this.dataSource.transaction(async (manager) => {
+    // [84.3.1] filled by handleCheckIn when check_in_at goes null -> value
+    const firstCheckIns: ArrivalStudent[] = [];
+    const result = await this.dataSource.transaction(async (manager) => {
       const eventRepo = manager.getRepository(AttendanceDeviceEvent);
 
       // 1. Idempotency: the unique index on (device_id, device_event_id)
@@ -321,8 +325,23 @@ export class DeviceEventsService {
         occurredAt,
         policy,
         timezone,
+        firstCheckIns,
       );
     });
+    // After commit, fire-and-forget (D11, D26): the device answer never waits on or fails with it.
+    if (firstCheckIns.length > 0 && settings.attendance?.arrivalNotice?.enabled === true) {
+      this.arrivalNoticeService
+        .sendArrivalNotices({
+          tenantId: device.tenant_id,
+          date: eventDate,
+          students: firstCheckIns,
+          takenBy: { kind: 'DEVICE', deviceId: device.id },
+        })
+        .catch((err: unknown) =>
+          this.logger.warn(`Arrival notice failed for device ${device.id}: ${String(err)}`),
+        );
+    }
+    return result;
   }
 
   private isOutOfWindow(eventDateIso: string, timezone: string): boolean {
@@ -411,6 +430,7 @@ export class DeviceEventsService {
     occurredAt: Date,
     policy: ReturnType<typeof resolveAttendancePolicy>,
     timezone: string,
+    firstCheckIns: ArrivalStudent[],
   ): Promise<DeviceEventResultDto> {
     const sessionRepo = manager.getRepository(AttendanceSession);
     const recordRepo = manager.getRepository(AttendanceRecord);
@@ -482,6 +502,7 @@ export class DeviceEventsService {
       );
       outcome = 'accepted';
       versionBumped = true;
+      firstCheckIns.push({ studentId: student.id, status: record.status, occurredAt });
     } else if (record.source === AttendanceSource.TEACHER) {
       // Contract #4: teacher authority beats device authority. A device
       // may only fill fields the teacher left empty — never touch `status`.
@@ -490,6 +511,7 @@ export class DeviceEventsService {
         record.check_in_at = occurredAt;
         await recordRepo.save(record);
         versionBumped = true;
+        firstCheckIns.push({ studentId: student.id, status: record.status, occurredAt });
       }
     } else if (occurredAt.getTime() < (record.check_in_at?.getTime() ?? Infinity)) {
       // Keep the earliest check-in among repeated device scans.

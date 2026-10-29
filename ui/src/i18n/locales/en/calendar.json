@@ -93,11 +93,11 @@
     "name": "Name",
     "startDate": "Start date",
     "endDate": "End date",
-    "whyIsThisBeingAddedLate": "Why is this being added late?",
+    "lateReason": "Why is this being added late?",
     "description": "Description",
-    "countsAsAWorkingDay": "Counts as a working day",
+    "countsAsWorkingDay": "Counts as a working day",
     "publishImmediately": "Publish immediately",
-    "notifyAffectedFamiliesStaff": "Notify affected families/staff",
+    "notify": "Notify affected families/staff",
     "alsoNotifyBySMS": "Also notify by SMS"
   },
   "help": {
@@ -105,11 +105,11 @@
     "name": "The event's name, for example \"Eid-ul-Fitr holiday\".",
     "startDate": "The day the event starts. It must be inside the current academic year.",
     "endDate": "The day the event ends. For a one-day event, the same as the start date.",
-    "whyIsThisBeingAddedLate": "Shows when the start date has passed and the day is a closed day. At least 3 characters, at most 500.",
+    "lateReason": "Shows when the start date has passed and the day is a closed day. At least 3 characters, at most 500.",
     "description": "A short description of the event. Free text.",
-    "countsAsAWorkingDay": "If ticked, school runs that day. If not ticked, it is a closed day and attendance cannot be taken. For the Holiday type it starts unticked; for other types it is ticked.",
+    "countsAsWorkingDay": "If ticked, school runs that day. If not ticked, it is a closed day and attendance cannot be taken. For the Holiday type it starts unticked; for other types it is ticked.",
     "publishImmediately": "Only when adding. If ticked, everyone sees it. If not, it is a draft.",
-    "notifyAffectedFamiliesStaff": "If ticked, a notice goes to the people who can see the event.",
+    "notify": "If ticked, a notice goes to the people who can see the event.",
     "alsoNotifyBySMS": "An SMS goes to the guardians' phones too. It stays off unless the box above is ticked."
   },
   "helpRequired": {
@@ -117,7 +117,7 @@
     "name": "Yes",
     "startDate": "Yes",
     "endDate": "Yes",
-    "whyIsThisBeingAddedLate": "Yes, then",
+    "lateReason": "Yes, then",
     "publishImmediately": "No, ticked to start with"
   }
 }

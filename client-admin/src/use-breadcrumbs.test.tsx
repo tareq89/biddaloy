@@ -251,6 +251,7 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
           class_name: 'Class 6',
           section_name: 'B',
           assignment_type: 'CLASS_TEACHER',
+          arrival_request_count: 0,
         },
         {
           section_id: 's2',
@@ -258,6 +259,7 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
           class_name: 'Class 7',
           section_name: 'A',
           assignment_type: 'CLASS_TEACHER',
+          arrival_request_count: 0,
         },
       ]);
       const first = renderWithRouter(routeTree, {

@@ -153,6 +153,8 @@ export enum CommunicationTrigger {
   ACCOUNT_ACCESS = 'ACCOUNT_ACCESS',
   /** [19.5.1] A published exam result sent to a guardian by SMS. */
   RESULT_SMS = 'RESULT_SMS',
+  /** [84.1.1] An arrival notice: guardian told when the child is marked in. */
+  ARRIVAL_NOTICE = 'ARRIVAL_NOTICE',
 }
 
 /** Purpose of a row in `auth_tokens` (12.1's D2). */
@@ -242,6 +244,28 @@ export enum AttendanceSource {
   DEVICE = 'DEVICE',
   IMPORT = 'IMPORT',
   SYSTEM = 'SYSTEM',
+}
+
+export enum ArrivalNoticeStatus {
+  REQUESTED = 'REQUESTED',
+  ACTIVE = 'ACTIVE',
+  OFF = 'OFF',
+}
+
+export enum ArrivalNoticeMode {
+  ONCE = 'ONCE',
+  RECURRING = 'RECURRING',
+}
+
+export enum ArrivalNoticeChannel {
+  PUSH = 'PUSH',
+  SMS = 'SMS',
+}
+
+export enum ArrivalNoticeLock {
+  NONE = 'NONE',
+  ALWAYS = 'ALWAYS',
+  NEVER = 'NEVER',
 }
 
 export enum AttendanceSessionState {

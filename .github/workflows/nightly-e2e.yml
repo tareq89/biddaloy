@@ -74,8 +74,26 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # [#3146] The server needs a real S3 at :9000 (seed + the backup/restore
+      # journey). This job had none, so every night died with ECONNREFUSED.
+      # Same service as ci.yml's e2e job.
+      seaweedfs:
+        image: chrislusf/seaweedfs:4.48
+        env:
+          AWS_ACCESS_KEY_ID: ci-access-key
+          AWS_SECRET_ACCESS_KEY: ci-secret-key
+          S3_BUCKET: biddaloy-ci
+        ports:
+          - 9000:8333
+        options: >-
+          --health-cmd "curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/betonboi_e2e
+      # Same flag as ci.yml's e2e job (activation/recovery specs read tokens).
+      ACCOUNT_ACCESS_ECHO_SECRETS: 'true'
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-e2e-jwt-secret-do-not-use-in-production-1234567890
       # Every e2e spec approves as the one seeded admin, so the whole run shares

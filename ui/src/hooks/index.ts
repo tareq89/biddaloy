@@ -734,6 +734,24 @@ export {
   type SkippedRecipient,
 } from './reminders';
 export {
+  arrivalSubscriptionKeys,
+  useArrivalSubscriptions,
+  useCreateArrivalSubscription,
+  useLockArrivalSubscription,
+  usePatchArrivalSubscription,
+  usePortalArrivalSubscriptions,
+  usePutPortalArrivalSubscription,
+  type ArrivalLock,
+  type ArrivalSubscription,
+  type ArrivalSubscriptionFilters,
+  type CreateArrivalSubscriptionInput,
+  type MyArrivalChild,
+  type MyArrivalSubscriptions,
+  type StaffArrivalSubscription,
+  type UpdateArrivalSubscriptionInput,
+  type UpsertMyArrivalSubscriptionInput,
+} from './arrival-subscriptions';
+export {
   academicYearKeys,
   academicYearQueryOptions,
   academicYearsQueryOptions,

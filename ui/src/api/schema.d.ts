@@ -3916,6 +3916,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attendance/arrival-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Arrival-notice subscriptions, optionally by section and status. */
+        get: operations["ArrivalSubscriptionsController_list_v1"];
+        put?: never;
+        /** Adds a subscription for a guardian; ACTIVE at once. */
+        post: operations["ArrivalSubscriptionsController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/arrival-subscriptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Confirm, decline, switch off, or change the mode. */
+        patch: operations["ArrivalSubscriptionsController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/attendance/arrival-subscriptions/{id}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Forces a subscription always on, never on, or clears the lock. */
+        patch: operations["ArrivalSubscriptionsController_lock_v1"];
+        trace?: never;
+    };
+    "/api/v1/portal/arrival-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's linked children with their subscription, if any. */
+        get: operations["PortalArrivalSubscriptionsController_mine_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/arrival-subscriptions/{studentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Request (want=true) or switch off (want=false) arrival notices. */
+        put: operations["PortalArrivalSubscriptionsController_upsert_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/attendance/devices": {
         parameters: {
             query?: never;
@@ -11640,6 +11726,10 @@ export interface components {
         PeriodAttendanceDto: {
             enabled: boolean;
         };
+        ArrivalNoticeDto: {
+            enabled: boolean;
+            smsAllowed: boolean;
+        };
         AttendancePolicyDto: {
             readonly weeklyOffHistory?: {
                 /** Format: date */
@@ -11660,6 +11750,7 @@ export interface components {
             shiftTimes?: components["schemas"]["ShiftTimeDto"][];
             specialTimings?: components["schemas"]["SpecialTimingDto"][];
             periodAttendance?: components["schemas"]["PeriodAttendanceDto"];
+            arrivalNotice?: components["schemas"]["ArrivalNoticeDto"];
         };
         RoutineSettingsDto: {
             defaultChangeoverMinutes: number;
@@ -12145,6 +12236,8 @@ export interface components {
             section_name: string;
             class_id: string;
             class_name: string;
+            /** @description Arrival-notice requests waiting for the class teacher. */
+            arrival_request_count: number;
             assignment_type: components["schemas"]["HomeroomAssignmentType"];
         };
         CreateUserDto: {
@@ -12800,6 +12893,79 @@ export interface components {
             year_percentage: number | null;
             /** @example 90 */
             target_percentage: number;
+        };
+        StaffArrivalSubscriptionDto: {
+            student_name: string;
+            guardian_name: string;
+            id: string;
+            student_id: string;
+            guardian_id: string;
+            /** @enum {string} */
+            status: "REQUESTED" | "ACTIVE" | "OFF";
+            /** @enum {string} */
+            mode: "ONCE" | "RECURRING";
+            /** @enum {string} */
+            channel: "PUSH" | "SMS";
+            /** @enum {string} */
+            lock: "NONE" | "ALWAYS" | "NEVER";
+            /** Format: date-time */
+            consumed_at: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CreateArrivalSubscriptionDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** Format: uuid */
+            guardian_id: string;
+            /** @enum {string} */
+            mode: "ONCE" | "RECURRING";
+            /** @enum {string} */
+            channel?: "PUSH" | "SMS";
+        };
+        ArrivalSubscriptionResponseDto: {
+            id: string;
+            student_id: string;
+            guardian_id: string;
+            /** @enum {string} */
+            status: "REQUESTED" | "ACTIVE" | "OFF";
+            /** @enum {string} */
+            mode: "ONCE" | "RECURRING";
+            /** @enum {string} */
+            channel: "PUSH" | "SMS";
+            /** @enum {string} */
+            lock: "NONE" | "ALWAYS" | "NEVER";
+            /** Format: date-time */
+            consumed_at: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        UpdateArrivalSubscriptionDto: {
+            /** @enum {string} */
+            status?: "ACTIVE" | "OFF";
+            /** @enum {string} */
+            mode?: "ONCE" | "RECURRING";
+        };
+        LockArrivalSubscriptionDto: {
+            /** @enum {string} */
+            lock: "NONE" | "ALWAYS" | "NEVER";
+        };
+        MyArrivalChildDto: {
+            student_id: string;
+            student_name: string;
+            subscription: components["schemas"]["ArrivalSubscriptionResponseDto"] | null;
+        };
+        MyArrivalSubscriptionsDto: {
+            school: {
+                enabled: boolean;
+                smsAllowed: boolean;
+            };
+            children: components["schemas"]["MyArrivalChildDto"][];
+        };
+        UpsertMyArrivalSubscriptionDto: {
+            want: boolean;
+            /** @enum {string} */
+            channel?: "PUSH" | "SMS";
         };
         CreateDeviceDto: {
             name: string;
@@ -26746,6 +26912,219 @@ export interface operations {
             };
             /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ArrivalSubscriptionsController_list_v1: {
+        parameters: {
+            query?: {
+                sectionId?: string;
+                status?: "REQUESTED" | "ACTIVE" | "OFF";
+                limit?: number;
+                offset?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffArrivalSubscriptionDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ArrivalSubscriptionsController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateArrivalSubscriptionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArrivalSubscriptionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ArrivalSubscriptionsController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateArrivalSubscriptionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArrivalSubscriptionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ArrivalSubscriptionsController_lock_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LockArrivalSubscriptionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArrivalSubscriptionResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PortalArrivalSubscriptionsController_mine_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyArrivalSubscriptionsDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PortalArrivalSubscriptionsController_upsert_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertMyArrivalSubscriptionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArrivalSubscriptionResponseDto"] | null;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

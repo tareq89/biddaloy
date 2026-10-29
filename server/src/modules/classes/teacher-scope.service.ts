@@ -337,6 +337,27 @@ export class TeacherScopeService {
       .getRawMany<HomeroomSectionRow>();
   }
 
+  /** REQUESTED arrival-notice subscriptions per section, one grouped query (D18, D37).
+   * Callers pass only sections already scoped to the teacher; sections with none are absent. */
+  async arrivalRequestCounts(input: {
+    tenantId: string;
+    sectionIds: string[];
+  }): Promise<Map<string, number>> {
+    if (input.sectionIds.length === 0) return new Map();
+    const rows: { section_id: string; n: string }[] = await this.tcsRepo.manager.query(
+      `SELECT st.class_section_id AS section_id, count(*) AS n
+         FROM arrival_notice_subscriptions ans
+         JOIN students st ON st.id = ans.student_id AND st.tenant_id = $1 AND st.deleted_at IS NULL
+         JOIN student_guardians sg ON sg.student_id = ans.student_id AND sg.guardian_id = ans.guardian_id
+         JOIN guardians g ON g.id = ans.guardian_id AND g.tenant_id = $1 AND g.deleted_at IS NULL
+        WHERE ans.tenant_id = $1 AND ans.status = 'REQUESTED'
+          AND st.class_section_id = ANY($2::uuid[])
+        GROUP BY st.class_section_id`,
+      [input.tenantId, input.sectionIds],
+    );
+    return new Map(rows.map((r) => [r.section_id, Number(r.n)]));
+  }
+
   /** True when the user holds a live SUBJECT_TEACHER row for `subjectId` in any
    *  live section of live `classId`. Homeroom rows never count (write rule, like marks). */
   async teachesSubjectInClass(input: {

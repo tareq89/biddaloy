@@ -56,6 +56,10 @@ POST   /api/v1/applications/letter-preview                                      
 GET    /api/v1/applications/pending-count                                        401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS 403
 GET    /api/v1/applications/reports                                              401 PASS PASS PASS 403 403 403 403 PASS PASS 403 403
 GET    /api/v1/applications/tag-options                                          401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403
+GET    /api/v1/attendance/arrival-subscriptions                                  401 PASS PASS PASS 403 PASS 403 403 PASS 403 403 403
+POST   /api/v1/attendance/arrival-subscriptions                                  401 PASS PASS PASS 403 PASS 403 403 PASS 403 403 403
+PATCH  /api/v1/attendance/arrival-subscriptions/:id                              401 PASS PASS PASS 403 PASS 403 403 PASS 403 403 403
+PATCH  /api/v1/attendance/arrival-subscriptions/:id/lock                         401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/attendance/device-events                                          401 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/attendance/devices                                                401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/attendance/devices                                                401 PASS PASS PASS 403 403 403 403 403 403 403 403
@@ -412,6 +416,8 @@ POST   /api/v1/platform/holiday-sets/:id/publish                                
 POST   /api/v1/platform/holiday-sets/:id/unpublish                               401 PASS 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/holiday-sets/fetch                                       401 PASS 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/schools/:id/preset/reset                                 401 PASS 403 403 403 403 403 403 403 403 403 403
+GET    /api/v1/portal/arrival-subscriptions                                      401 PASS PASS 403 403 403 PASS 403 403 403 403 403
+PUT    /api/v1/portal/arrival-subscriptions/:studentId                           401 PASS PASS 403 403 403 PASS 403 403 403 403 403
 GET    /api/v1/presets                                                           401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/presets/:id                                                       401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/presets/apply                                                     401 PASS PASS PASS 403 403 403 403 403 403 403 403

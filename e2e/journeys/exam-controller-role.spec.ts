@@ -32,6 +32,8 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
   playwright,
   baseURL,
 }) => {
+  // [#3133] 19-28 s on a normal runner against the 30 s default; slow() triples it.
+  test.slow();
   const suffix = Date.now().toString(36).toUpperCase();
   const examName = `E2E Controller Exam ${suffix}`;
   const planName = `E2E Controller Plan ${suffix}`;

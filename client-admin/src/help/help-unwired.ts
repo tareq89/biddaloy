@@ -17,9 +17,17 @@ const UI_SLOT = '#3078: no helpId slot in ui/';
 const MENU_ITEM = '#3078: header More-menu item has no (?) slot';
 /** The element lives in a file outside the wave-3 lane territory. */
 const TERRITORY = '#3079: element outside the wave-3 territory';
+/** A More-menu action that opens no dialog, so its (?) has nowhere to go (#3078 puts it on the dialog). */
+const NO_DIALOG = '#3017: More-menu action opens no dialog, no (?) slot';
+/** The section describes the public admission pages, which have no shell and no (?) (E11). */
+const PUBLIC_FORM = '#3017: section of a public page, no (?) there (E11)';
+/** The guide declares a second id for an element that already carries one. */
+const SAME_ELEMENT = '#3017: same element as reports.printables.action.revoke';
+/** A per-row control in a list; a (?) on every row is noise (D18), and no dialog opens. */
+const ROW_CONTROL = '#3063: per-row control, no dialog to hold the (?)';
 
-/** In HELP_GAPS: the guide declares the field but no `help.<key>` text exists, so it is not indexed. */
-const GAP = '#3017: guide gap, field help not written yet';
+/** The guide declares the field and its `help.<key>` text is written; no route puts the (?) there yet. */
+const GAP = '#3017: help text written, (?) not wired yet';
 
 export const HELP_UNWIRED: Record<string, string> = {
   'start.signIn': PUBLIC,
@@ -30,24 +38,13 @@ export const HELP_UNWIRED: Record<string, string> = {
   'admin.createSchool.action.verify': PUBLIC,
 
   // 44.3.01-44.3.06
-  'people.staffImport.action.confirm': TERRITORY,
-  'people.staffImport.field.role': TERRITORY,
   'people.teachingAssignments.action.unassign': UI_SLOT,
-  'people.teachingAssignments.field.assignmentType': TERRITORY,
   'people.evaluations.action.completeAcr': PAGE_FIX,
   'people.evaluations.action.reopenAcr': PAGE_FIX,
   'people.calendar.action.regenerateFeed': PAGE_FIX,
   'people.programs.action.removeMilestone': PAGE_FIX,
-  'people.admissionIntakes.action.add': TERRITORY,
-  'people.admissionIntakes.field.classSection': TERRITORY,
-  'people.admissionIntakes.field.seatCount': TERRITORY,
-  'people.admissionIntakes.field.requiredDocuments': TERRITORY,
-  'people.admissionIntakes.section.publicForm': TERRITORY,
-  'people.admissionIntakes.section.status': TERRITORY,
-  'people.admissionApplicants.action.shortlist': UI_SLOT,
-  'people.admissionApplicants.action.admit': UI_SLOT,
-  'people.admissionApplicants.action.reject': UI_SLOT,
-  'people.admissionApplicants.action.deleteDocuments': UI_SLOT,
+  'people.admissionIntakes.section.publicForm': PUBLIC_FORM,
+  'people.admissionIntakes.section.status': PUBLIC_FORM,
   'people.admissionReports.field.academicYear': UI_SLOT,
   'people.admissionReports.field.class': UI_SLOT,
   'academics.classes.action.deleteSection': UI_SLOT,
@@ -59,53 +56,34 @@ export const HELP_UNWIRED: Record<string, string> = {
   'attendance.attendanceReports.action.sendReminder': PAGE_FIX,
   'reports.collectionsReport.field.preset': UI_SLOT,
   'reports.collectionsReport.field.collector': UI_SLOT,
-  'reports.printables.action.reprint': TERRITORY,
-  'reports.printables.action.revoke': TERRITORY,
-  'reports.printables.action.printAdmitCards': TERRITORY,
-  'reports.printables.action.printIdCards': TERRITORY,
-  'reports.printables.action.exportRegister': TERRITORY,
-  'reports.printables.field.revokeReason': TERRITORY,
   'reports.printables.field.validity': TERRITORY,
   'reports.applications.field.academicYear': UI_SLOT,
   'reports.applications.field.submitted': UI_SLOT,
   'academics.academicYears.action.delete': MENU_ITEM,
-  'academics.routineReview.action.copyYear': MENU_ITEM,
-  'academics.syllabus.action.copyToSection': MENU_ITEM,
   'academics.syllabus.action.deletePlan': MENU_ITEM,
-  'people.programs.action.archive': MENU_ITEM,
+  'people.programs.action.archive': NO_DIALOG,
   'people.programs.action.delete': MENU_ITEM,
-  'people.staff.action.remove': MENU_ITEM,
   'people.students.action.delete': MENU_ITEM,
-  'people.students.action.printIdCard': MENU_ITEM,
-  'people.students.action.sendReminder': MENU_ITEM,
+  'people.students.action.printIdCard': NO_DIALOG,
 
   // 44.3.07-44.3.11
-  'examsResults.exams.action.edit': MENU_ITEM,
   'examsResults.examTemplates.action.delete': '#3046: page fix pending',
   'finance.feeStructures.action.delete': '#3057: page fix pending',
   'finance.recurringSchedules.action.deactivate': '#3058: page fix pending',
-  'administration.printTemplates.action.confirmRound': PRINT_FIX,
   'administration.printTemplates.action.makeDefault': PRINT_FIX,
   'administration.printTemplates.action.print': PRINT_FIX,
-  'administration.printTemplates.action.publish': PRINT_FIX,
-  'administration.printTemplates.action.revoke': PRINT_FIX,
-  'administration.printTemplates.field.batchSize': PRINT_FIX,
-  'administration.printTemplates.field.design': PRINT_FIX,
+  'administration.printTemplates.action.revoke': SAME_ELEMENT,
   'administration.printTemplates.field.kind': PRINT_FIX,
-  'administration.printTemplates.field.printer': PRINT_FIX,
   'administration.auditLogs.field.performedBy': '#3062: page fix pending',
-  'portal.notifications.action.close': '#3063: page fix pending',
-  'portal.notifications.action.snooze': '#3063: page fix pending',
-  'start.language.action.switch': '#3064: page fix pending',
-  'start.phone.action.install': '#3065: page fix pending',
+  'portal.notifications.action.close': ROW_CONTROL,
+  'portal.notifications.action.snooze': ROW_CONTROL,
 
   // 44.3.12: declared in the guide after the wave-3 pass ran
-  'applications.action.cancelLeave': MENU_ITEM,
   'administration.auditLogs.action.expand': UI_SLOT,
   'administration.printTemplates.action.create': PRINT_FIX,
   'administration.printTemplates.action.archive': PRINT_FIX,
 
-  // Guide gaps (HELP_GAPS): declared, not indexable, so not wireable yet
+  // Help text written (was HELP_GAPS): indexed now, wireable by the route lanes
   'people.students.field.rollNumber': GAP,
   'people.students.field.bloodGroup': GAP,
   'people.students.field.preferredCommunication': GAP,

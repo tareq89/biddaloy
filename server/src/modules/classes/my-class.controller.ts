@@ -24,10 +24,18 @@ export class MyClassController {
     summary: "The caller's class-teacher / assistant sections in the current academic year.",
   })
   @ApiOkResponse({ type: MyClassSectionDto, isArray: true })
-  listSections(
+  async listSections(
     @CurrentTenant() tenant: { id: string },
     @CurrentUser() user: { sub: string },
   ): Promise<MyClassSectionDto[]> {
-    return this.teacherScope.homeroomSections({ userId: user.sub, tenantId: tenant.id });
+    const sections = await this.teacherScope.homeroomSections({
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    const counts = await this.teacherScope.arrivalRequestCounts({
+      tenantId: tenant.id,
+      sectionIds: sections.map((s) => s.section_id),
+    });
+    return sections.map((s) => ({ ...s, arrival_request_count: counts.get(s.section_id) ?? 0 }));
   }
 }

@@ -5,6 +5,7 @@ summary: See in a calendar which days your child came to school, missed, was lat
 roles: [PARENT, STUDENT]
 sources:
   - client-admin/src/routes/portal/attendance.tsx
+  - client-admin/src/routes/portal/-arrival-notice-card.tsx
   - server/src/modules/attendance/attendance-summary.controller.ts
   - server/src/modules/attendance/attendance-summary.service.ts
   - server/src/modules/attendance/dto/attendance-summary.dto.ts
@@ -14,6 +15,7 @@ labels:
     portal:attendance.*,
     portal:attendanceGrid.*,
     portal:empty.*,
+    portal:arrivalNotice.*,
     nav:items.portalAttendance,
   ]
 helpIds:
@@ -106,6 +108,22 @@ Tap the arrows at the top of the calendar to go to the month before or after. Th
 ### See another child's attendance <a href="#task-pick" id="task-pick"></a>
 
 With more than one child, tap a name in the **Choose a student** row at the top. With one child this row does not appear.
+
+### Get a message when your child reaches school <a href="#task-arrival" id="task-arrival"></a>
+
+Parents only. The **Arrival notices** card shows near the top of the page, only when your school has turned arrival notices on.
+
+1. In the **Arrival notices** card, find your child's name and turn on the **Notify me** switch.
+
+   → A **Waiting for the teacher** mark shows beside the name. The class teacher has to confirm your request.
+
+2. Below the switch, choose **In the app** or **By SMS**. **By SMS** is greyed out, with the text **Your school sends this in the app only**, when the school has not allowed SMS.
+
+   If you choose **In the app** and this phone does not have the app yet, you see **This phone does not have the app yet. Choose SMS or install the app.** Press **Turn on app messages** to set it up.
+
+3. When the teacher confirms, the mark changes to **Once** (one message, then it stops) or **Every day** (a message each school day). After a **Once** message goes, the mark says **Done**.
+
+To stop, turn **Notify me** off. If the mark says **Set by the admin**, the school has fixed it and you cannot turn the switch on or off here. When the admin has turned it on for you, you see **The admin has turned this on. You can still choose how it is sent.** and you can still choose **In the app** or **By SMS**. If a change does not save, you see **Could not save. Try again.**
 
 ---
 

@@ -211,18 +211,18 @@ A shift's day cannot be made shorter than its periods. If a period would fall ou
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                                                                                    | What to do                                                                       | Who can help |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------ |
-| **You don't have access to this page.**                                                                                                         | Only the Admin can set up the routine. Ask the Admin.                            | Admin        |
-| **Couldn't add the shift. Try again.**                                                                                                          | Check your internet and press **Add** again. What you typed stays in the dialog. | Admin        |
-| **This name isn't valid. Check it and try again.**                                                                                              | Type a different name.                                                           | Admin        |
-| **Some rows have a time problem. Fix the red notes and save again.**                                                                            | Fix the time of the rows with red notes, then press **Save**.                    | Admin        |
-| **A period you removed or made a break is used in a routine or in lesson records. …**                                                          | Put the row back as it was. If only the class routine uses it, clear it there first ([Class routine](routine-builder.md#task-clear)). | Admin        |
-| **Some periods of this shift fall outside these times. Change the period times first.**                                                        | Make the shift's day wider, or first change the [period times](#task-periods).  | Admin        |
-| **Couldn't save the period times. Try again.**                                                                                                  | Check your internet and press **Save** again. The rows stay on screen.           | Admin        |
-| **Couldn't add the room. Try again.**                                                                                                           | Check your internet and try again.                                               | Admin        |
-| **Couldn't save the rules. Check the numbers and try again.**                                                                                   | Check that the numbers are within the limits, then press **Save** again.         | Admin        |
-| **Couldn't delete the shift. Try again.** or **Couldn't delete the room. Try again.**                                                           | Check your internet and press **Delete** again.                                  | Admin        |
+| What you see                                                                            | What to do                                                                                                                            | Who can help |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **You don't have access to this page.**                                                 | Only the Admin can set up the routine. Ask the Admin.                                                                                 | Admin        |
+| **Couldn't add the shift. Try again.**                                                  | Check your internet and press **Add** again. What you typed stays in the dialog.                                                      | Admin        |
+| **This name isn't valid. Check it and try again.**                                      | Type a different name.                                                                                                                | Admin        |
+| **Some rows have a time problem. Fix the red notes and save again.**                    | Fix the time of the rows with red notes, then press **Save**.                                                                         | Admin        |
+| **A period you removed or made a break is used in a routine or in lesson records. …**   | Put the row back as it was. If only the class routine uses it, clear it there first ([Class routine](routine-builder.md#task-clear)). | Admin        |
+| **Some periods of this shift fall outside these times. Change the period times first.** | Make the shift's day wider, or first change the [period times](#task-periods).                                                        | Admin        |
+| **Couldn't save the period times. Try again.**                                          | Check your internet and press **Save** again. The rows stay on screen.                                                                | Admin        |
+| **Couldn't add the room. Try again.**                                                   | Check your internet and try again.                                                                                                    | Admin        |
+| **Couldn't save the rules. Check the numbers and try again.**                           | Check that the numbers are within the limits, then press **Save** again.                                                              | Admin        |
+| **Couldn't delete the shift. Try again.** or **Couldn't delete the room. Try again.**   | Check your internet and press **Delete** again.                                                                                       | Admin        |
 
 ---
 
@@ -270,6 +270,27 @@ People without permission do not have **Routine setup** in their left menu.
   <img src="diagrams/academics-routine-flow.svg" alt="Routine setup, then the class routine, review and publish; after publishing, teachers see it in My routine and students and guardians in the portal; if a teacher is absent, a substitute teacher for that day" width="720">
   <figcaption><em>From building a routine to substitute teachers</em></figcaption>
 </figure>
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:routines -->
+
+| Field                                 | What to enter                                                                                                                                         | Required?                           |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Lesson status                         | For each period, choose Taught, Partly or Not taught. Not taught asks you for a reason.                                                               | Yes                                 |
+| Reason (not taught)                   | Teacher absent, School closed, Exam or Other. Write one line when you choose Other. The lesson moves to the next period.                              | Yes, when not taught                |
+| Teachers                              | One or more teachers for this period.                                                                                                                 | Yes                                 |
+| Recurrence                            | Weekly, Biweekly (every other week; pick Week 1 or Week 2) or Monthly (pick the 1st, 2nd, 3rd, 4th, 5th or last occurrence of that day in the month). | Yes                                 |
+| Gap between periods (minutes)         | A new period starts this many minutes after the one before it ends. A whole number from 0 to 120.                                                     | No                                  |
+| Most periods a teacher takes in a day | The most periods one teacher may take in a day. A whole number of at least 1; leave empty for no limit. Checked while you build the routine.          | No                                  |
+| Most periods in a row                 | The most periods in a row for one teacher. A whole number of at least 1; leave empty for no limit. Checked while you build the routine.               | No                                  |
+| Cancel the period                     | Tick it when nobody teaches the period on that date. The weekly routine itself does not change.                                                       | No                                  |
+| Substitute teacher                    | Who teaches the period on that date. It cannot be the teacher already assigned, or someone with another class at that time.                           | Yes, unless the period is cancelled |
+
+<!-- /guide:generated -->
 
 </details>
 

@@ -850,6 +850,98 @@ describe('CommunicationsProcessor', () => {
     });
   });
 
+  describe('arrival notice dispatch [84.1.3]', () => {
+    // The row's medium decides the channel: PUSH = push only, SMS = SMS only.
+    function arrivalLog(medium: string, overrides: Record<string, unknown> = {}) {
+      repo.findOneOrFail.mockResolvedValue({
+        ...baseLog,
+        trigger: CommunicationTrigger.ARRIVAL_NOTICE,
+        guardian_id: 'guardian-1',
+        medium,
+        recipient_address: medium === 'PUSH' ? 'push:user-1' : '01712345678',
+        ...overrides,
+      });
+    }
+
+    it('PUSH + accepted: SENT with a push: recipient, no SMS', async () => {
+      arrivalLog('PUSH');
+      guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
+      pushService.sendToUser.mockResolvedValue({ accepted: 1, transient: 0, pruned: 0 });
+
+      await processor.process(job());
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          medium: 'PUSH',
+          recipient_address: 'push:user-1',
+          status: CommunicationStatus.SENT,
+        }),
+      );
+    });
+
+    it('PUSH + accepted 0: FAILED NO_PUSH_DEVICE, SMS provider never called', async () => {
+      arrivalLog('PUSH');
+      guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
+      pushService.sendToUser.mockResolvedValue({ accepted: 0, transient: 0, pruned: 1 });
+
+      await processor.process(job());
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: CommunicationStatus.FAILED,
+          metadata: expect.objectContaining({ reason: 'NO_PUSH_DEVICE' }),
+        }),
+      );
+    });
+
+    it('PUSH + guardian without a user: FAILED NO_PUSH_DEVICE', async () => {
+      arrivalLog('PUSH');
+      guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: null });
+
+      await processor.process(job());
+
+      expect(pushService.sendToUser).not.toHaveBeenCalled();
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: CommunicationStatus.FAILED,
+          metadata: expect.objectContaining({ reason: 'NO_PUSH_DEVICE' }),
+        }),
+      );
+    });
+
+    it('SMS: push service never called, SMS sent', async () => {
+      arrivalLog(CommunicationMedium.SMS);
+      guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
+      provider.send.mockResolvedValue({ success: true, providerMessageId: 's-1' });
+
+      await processor.process(job());
+
+      expect(pushService.sendToUser).not.toHaveBeenCalled();
+      expect(provider.send).toHaveBeenCalledTimes(1);
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: CommunicationStatus.SENT }),
+      );
+    });
+
+    it('any other medium: FAILED ARRIVAL_MEDIUM, nothing sent', async () => {
+      arrivalLog(CommunicationMedium.EMAIL, { recipient_address: 'g@example.com' });
+
+      await processor.process(job());
+
+      expect(pushService.sendToUser).not.toHaveBeenCalled();
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: CommunicationStatus.FAILED,
+          metadata: expect.objectContaining({ reason: 'ARRIVAL_MEDIUM' }),
+        }),
+      );
+    });
+  });
+
   describe('onFailed / onStalled telemetry [15.1.4]', () => {
     it('reports a final-attempt failure to Sentry with ids only, no recipient/message', async () => {
       const err = new Error('provider rejected');

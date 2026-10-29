@@ -101,17 +101,17 @@
     "matchError": "Could not check for an existing guardian. Try again before admitting."
   },
   "fields": {
-    "note": "Note",
+    "notes": "Note",
     "reasonOptional": "Reason (optional)",
-    "thisPhoneNumberAlreadyBelongsToAGuardian": "This phone number already belongs to a guardian"
+    "guardianChoice": "This phone number already belongs to a guardian"
   },
   "help": {
-    "note": "The reason for the shortlist or note, or the next step. It stays in the history inside the school only.",
+    "notes": "The reason for the shortlist or note, or the next step. It stays in the history inside the school only.",
     "reasonOptional": "Why you are rejecting. The guardian does not see it.",
-    "thisPhoneNumberAlreadyBelongsToAGuardian": "\"Link\" if it is the same family, \"Create a new guardian\" if it is a different family. Appears only when the number matches."
+    "guardianChoice": "\"Link\" if it is the same family, \"Create a new guardian\" if it is a different family. Appears only when the number matches."
   },
   "helpRequired": {
-    "note": "Yes",
-    "thisPhoneNumberAlreadyBelongsToAGuardian": "Yes, when the number matches"
+    "notes": "Yes",
+    "guardianChoice": "Yes, when the number matches"
   }
 }

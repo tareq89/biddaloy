@@ -86,6 +86,8 @@ const attendanceSchema = z
     percentageDenominator: z.enum(['WORKING_DAYS', 'MARKED_DAYS']),
     autoAbsentEnabled: z.boolean(),
     autoAbsentCutoffTime: z.string().regex(HH_MM_PATTERN),
+    arrivalEnabled: z.boolean(),
+    arrivalSmsAllowed: z.boolean(),
     periodEnabled: z.boolean(),
     // Keyed by shift id; '' or missing = not set. Entries for deleted shifts stay in
     // form state but are filtered out on save (see `handleSave`).
@@ -158,6 +160,8 @@ const DEFAULT_VALUES: AttendanceFormValues = {
   percentageDenominator: 'WORKING_DAYS',
   autoAbsentEnabled: false,
   autoAbsentCutoffTime: '11:00',
+  arrivalEnabled: false,
+  arrivalSmsAllowed: false,
   periodEnabled: false,
   shiftTimes: {},
   specialTimings: [],
@@ -181,6 +185,8 @@ function toFormValues(attendance: AttendancePolicySettings | undefined): Attenda
     percentageDenominator: attendance.percentageDenominator,
     autoAbsentEnabled: attendance.autoAbsentNotification.enabled,
     autoAbsentCutoffTime: attendance.autoAbsentNotification.cutoffTime,
+    arrivalEnabled: attendance.arrivalNotice?.enabled ?? false,
+    arrivalSmsAllowed: attendance.arrivalNotice?.smsAllowed ?? false,
     periodEnabled: attendance.periodAttendance?.enabled ?? false,
     shiftTimes: Object.fromEntries(
       (attendance.shiftTimes ?? []).map((row) => [
@@ -230,6 +236,8 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
     setConfirmingAutoAbsent(false);
   }
 
+  const arrivalEnabled = form.watch('arrivalEnabled');
+
   function handleSave(values: AttendanceFormValues) {
     const policy: AttendancePolicySettings = {
       weeklyOffDays: WEEKDAY_FIELD.map((field, day) => (values[field] ? day : -1)).filter(
@@ -247,6 +255,12 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
         enabled: values.autoAbsentEnabled,
         cutoffTime: values.autoAbsentCutoffTime,
       },
+      // SMS is off whenever notices are off, so turning notices back on never brings SMS
+      // (which spends credit) back without anyone ticking it again.
+      arrivalNotice: {
+        enabled: values.arrivalEnabled,
+        smsAllowed: values.arrivalEnabled && values.arrivalSmsAllowed,
+      },
       periodAttendance: { enabled: values.periodEnabled },
       specialTimings: values.specialTimings,
     };
@@ -263,7 +277,13 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
     }
     updateSettings.mutate(
       { version: 1, attendance: policy },
-      { onSuccess: () => form.reset(values, { keepIsSubmitSuccessful: true }) },
+      {
+        onSuccess: () =>
+          form.reset(
+            { ...values, arrivalSmsAllowed: policy.arrivalNotice?.smsAllowed ?? false },
+            { keepIsSubmitSuccessful: true },
+          ),
+      },
     );
   }
 
@@ -336,8 +356,15 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
   );
 
   const checkboxField = (
-    name: 'lateCountsAsPresent' | 'leaveCountsAsWorkingDay' | 'allowFutureDates' | 'periodEnabled',
+    name:
+      | 'lateCountsAsPresent'
+      | 'leaveCountsAsWorkingDay'
+      | 'allowFutureDates'
+      | 'periodEnabled'
+      | 'arrivalEnabled'
+      | 'arrivalSmsAllowed',
     label: string,
+    options: { help?: string; disabled?: boolean } = {},
   ) => (
     <FormField
       control={form.control}
@@ -348,12 +375,14 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
             <Checkbox
               id={`attendance-${name}`}
               checked={field.value}
+              disabled={options.disabled === true}
               onCheckedChange={(checked) => field.onChange(checked === true)}
             />
           </FormControl>
-          <FormLabel htmlFor={`attendance-${name}`} className="flex-1 self-stretch">
-            {label}
-          </FormLabel>
+          <div className="flex-1 self-stretch">
+            <FormLabel htmlFor={`attendance-${name}`}>{label}</FormLabel>
+            {options.help && <FormDescription>{options.help}</FormDescription>}
+          </div>
         </FormItem>
       )}
     />
@@ -466,6 +495,13 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
             )}
           />
           {timeField('autoAbsentCutoffTime', t('attendance.autoAbsentCutoffTime'))}
+          {checkboxField('arrivalEnabled', t('attendance.arrivalEnabled'), {
+            help: t('help.arrivalNoticeEnabled'),
+          })}
+          {checkboxField('arrivalSmsAllowed', t('attendance.arrivalSmsAllowed'), {
+            help: t('help.arrivalNoticeSmsAllowed'),
+            disabled: !arrivalEnabled,
+          })}
         </div>
 
         {shifts.length > 0 && (

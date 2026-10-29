@@ -7,6 +7,7 @@ sources:
   - client-admin/src/routes/_staff/my-class/index.tsx
   - client-admin/src/routes/_staff/my-class/$sectionId.tsx
   - client-admin/src/routes/_staff/my-class/-cards.tsx
+  - client-admin/src/routes/_staff/my-class/-arrival-add-dialog.tsx
   - server/src/modules/classes/my-class.controller.ts
   - server/src/modules/classes/teacher-scope.service.ts
 labels:
@@ -140,6 +141,26 @@ Each card loads on its own. If one fails, it shows **Could not load this card.**
 | **Students**         | The first 5 by name, with roll and the main guardian's phone. With more than 5, **See all** opens the [students](../people/students.md) list filtered to this section                                                                                   | **No students in this section.** |
 
 Homework in detail: [Homework](homework.md). **See all** on the **Dues** card appears only for someone with permission to collect fees; a teacher does not have it, so a teacher sees only the first 5 there.
+
+### Answer arrival notice requests <a href="#task-arrival" id="task-arrival"></a>
+
+A guardian can ask to be told when their child reaches school. You decide how often. The **Arrival notices** card on your section page shows the requests, with a **{n} waiting** mark when some need an answer.
+
+1. Under **Waiting**, find the student and guardian. For each one press **Once** (one message the next time the child arrives), **Every school day**, or **Not now**.
+
+   → A request you accept moves under **On**, with a mark: **Once** or **Every school day**.
+
+2. To change it later, press **Change to every school day** or **Change to once** on the row. **Stop** on the row turns it off. After a **Once** message has gone, the mark says **Done**.
+
+If the card says **Set by school**, an admin fixed it and you cannot change it. If it says **No guardian has asked for arrival notices yet.**, there is nothing to answer.
+
+### Add a guardian yourself <a href="#task-arrival-add" id="task-arrival-add"></a>
+
+1. On the **Arrival notices** card press **Add yourself**.
+2. Choose the **Student** and the **Guardian**, and under **How often** choose how often.
+3. Press **Add**.
+
+   → **Arrival notice turned on**. The guardian now sits under **On**. If the student has no guardian, it says **This student has no guardian yet.**
 
 ### Call a guardian <a href="#task-call" id="task-call"></a>
 

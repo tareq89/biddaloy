@@ -173,7 +173,7 @@
     "email": "Email",
     "alternatePhone": "Alternate phone",
     "occupation": "Occupation",
-    "preferredChannel": "Preferred channel",
+    "preferredCommunication": "Preferred channel",
     "address": "Address"
   },
   "help": {
@@ -183,7 +183,7 @@
     "email": "The invitation goes here first. If the guardian signs in on their own, it cannot be changed from here.",
     "alternatePhone": "A second number. If there is no phone but this one is filled in, the details do not count as incomplete.",
     "occupation": "The guardian's work. Free text.",
-    "preferredChannel": "SMS, WhatsApp, Email, Phone call or Messenger. If you choose none, it stays SMS. It does not decide how the invitation is sent.",
+    "preferredCommunication": "SMS, WhatsApp, Email, Phone call or Messenger. If you choose none, it stays SMS. It does not decide how the invitation is sent.",
     "address": "The guardian's address. Free text."
   },
   "helpRequired": {

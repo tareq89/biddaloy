@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   ErrorState,
+  HelpHint,
   Label,
   RoutePending,
   StatusBadge,
@@ -122,6 +123,7 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
             onClick: () => openEvaluate('SHORTLIST'),
             allowed: shortlistable,
             priority: 'secondary',
+            helpId: 'people.admissionApplicants.action.shortlist',
           },
           {
             id: 'admit',
@@ -130,6 +132,7 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
             onClick: () => setAdmitOpen(true),
             allowed: mutable,
             priority: 'primary',
+            helpId: 'people.admissionApplicants.action.admit',
           },
           {
             id: 'note',
@@ -221,16 +224,18 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
               ) : null}
               {applicant.status === AdmissionApplicantStatus.REJECTED &&
               applicant.documents.length > 0 ? (
-                <Button
-                  variant="danger"
-                  className="mt-3"
-                  onClick={() => {
-                    deleteDocuments.reset();
-                    setDeleteDocsOpen(true);
-                  }}
-                >
-                  {t('detail.deleteDocuments')}
-                </Button>
+                <div className="mt-3 flex items-center gap-1">
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      deleteDocuments.reset();
+                      setDeleteDocsOpen(true);
+                    }}
+                  >
+                    {t('detail.deleteDocuments')}
+                  </Button>
+                  <HelpHint helpId="people.admissionApplicants.action.deleteDocuments" />
+                </div>
               ) : null}
             </Card>
           </div>
@@ -316,7 +321,10 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
             className="flex flex-col gap-4"
           >
             <DialogHeader>
-              <DialogTitle>{t('detail.rejectTitle')}</DialogTitle>
+              <div className="flex items-center gap-1">
+                <DialogTitle>{t('detail.rejectTitle')}</DialogTitle>
+                <HelpHint helpId="people.admissionApplicants.action.reject" />
+              </div>
               <DialogDescription>
                 {t('detail.rejectDescription', { name: applicant.applicant_name })}
               </DialogDescription>

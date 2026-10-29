@@ -132,6 +132,8 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'grading_bands',
   'grading_scales',
   'push_subscriptions',
+  // [84.1.1] FKs students, guardians and users, so it goes before them.
+  'arrival_notice_subscriptions',
   'attendance_device_events',
   'attendance_records',
   'attendance_sessions',

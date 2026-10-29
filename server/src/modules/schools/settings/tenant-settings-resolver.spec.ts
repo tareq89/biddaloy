@@ -424,6 +424,15 @@ describe('resolveTenantSettings', () => {
     expect(resolved.attendance).toEqual({ ...DEFAULT_ATTENDANCE_SETTINGS, lateAfter: '09:00' });
   });
 
+  it('arrivalNotice: both switches off for empty settings, smsAllowed off for a partial patch', () => {
+    expect(resolveTenantSettings({}).attendance?.arrivalNotice).toEqual({
+      enabled: false,
+      smsAllowed: false,
+    });
+    const partial = resolveTenantSettings({ attendance: { arrivalNotice: { enabled: true } } });
+    expect(partial.attendance?.arrivalNotice).toEqual({ enabled: true, smsAllowed: false });
+  });
+
   it('falls back to default region when only communications is configured', () => {
     const resolved = resolveTenantSettings({
       communications: { whatsapp: { phoneNumberId: '123', accessToken: 'enc:abc' } },

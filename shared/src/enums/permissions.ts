@@ -143,6 +143,10 @@ export enum Permission {
   // Attendance
   ATTENDANCE_READ = 'ATTENDANCE_READ',
   ATTENDANCE_MARK = 'ATTENDANCE_MARK',
+  // [84.1.1] Arrival notices (D15/D16): MANAGE = request/set/clear a notice;
+  // LOCK = force a notice always-on / never-on.
+  ATTENDANCE_ARRIVAL_NOTICE_MANAGE = 'ATTENDANCE_ARRIVAL_NOTICE_MANAGE',
+  ATTENDANCE_ARRIVAL_NOTICE_LOCK = 'ATTENDANCE_ARRIVAL_NOTICE_LOCK',
   // Edit a mark outside the tenant's correction window, or on a
   // non-working day. Object scope (which sections) is still enforced
   // server-side.
@@ -347,6 +351,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.DISCOUNT_RULE_MANAGE,
     Permission.ATTENDANCE_READ,
     Permission.ATTENDANCE_MARK,
+    Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE,
+    Permission.ATTENDANCE_ARRIVAL_NOTICE_LOCK,
     Permission.ATTENDANCE_CORRECT,
     Permission.ATTENDANCE_DEVICE_MANAGE,
     // [14.2.1] Backup/restore; see enum comment.
@@ -495,6 +501,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.AUDIT_ENTITY_HISTORY_READ,
     Permission.ATTENDANCE_READ,
     Permission.ATTENDANCE_MARK,
+    Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
     // [19.1.1] Marks entry (scoped further by TeacherClassSection at
@@ -576,6 +583,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   [UserRole.EXECUTIVE]: [
     // [52.1.1] Applications (D22/D45)
+    // [84.1.1] Arrival notices (D15).
+    Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE,
     Permission.APPLICATION_SUBMIT,
     Permission.APPLICATION_MANAGE,
     Permission.STUDENT_READ,

@@ -417,6 +417,14 @@ export class PeriodAttendanceDto {
   enabled: boolean;
 }
 
+export class ArrivalNoticeDto {
+  @IsBoolean()
+  enabled: boolean;
+
+  @IsBoolean()
+  smsAllowed: boolean;
+}
+
 export class AttendancePolicyDto {
   @IsArray()
   @IsInt({ each: true })
@@ -497,6 +505,10 @@ export class AttendancePolicyDto {
   @OptionalSetting()
   @NestedSettings(() => PeriodAttendanceDto)
   periodAttendance?: PeriodAttendanceDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => ArrivalNoticeDto)
+  arrivalNotice?: ArrivalNoticeDto;
 }
 
 /**
