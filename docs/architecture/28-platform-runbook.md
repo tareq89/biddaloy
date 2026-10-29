@@ -1557,11 +1557,15 @@ biddaloy-staging backups
 ```
 
 **`load`**: put a scrubbed copy of one backup into `biddaloy_staging`. Pick by number, by key, or
-`latest-daily` / `latest-hourly`. With no argument it shows the list and asks.
+`latest-daily` / `latest-hourly`. With no argument it shows the list and asks. A number given as an
+argument picks from the list `backups` printed last (saved in `staging/backups-list`), never a fresh
+one, so a dump that lands in between cannot change which backup `3` means. With no saved list a
+number is refused.
 
 ```bash
 biddaloy-staging load latest-daily --use
 # Load db/daily/2026-10-29.dump.age (written 2026-10-29) into biddaloy_staging and switch the app to it. Type yes to go on: yes
+# 2026-10-29T10:05:02+0600 biddaloy-staging: loading db/daily/2026-10-29.dump.age (written 2026-10-29)
 # step: refresh (into the scratch database biddaloy_staging_drill, not biddaloy_staging)
 # step: swap
 # step: migrate biddaloy_staging

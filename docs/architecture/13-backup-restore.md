@@ -157,7 +157,8 @@ any change to it.
 
 If the 02:00 daily is late, the job waits until `STAGING_REFRESH_DEADLINE`
 (default 02:50) and then fails with a `down` push. The drill database is
-dropped on every exit, so nothing is left behind; if the drop itself fails the
+dropped, and the one-off app's Redis db 15 flushed, on every exit, so nothing is
+left behind; if the drop itself fails the
 push is `up` with `ok, warning: drill db not dropped` and `last-drill` is not
 updated. The swap helper (`scripts/backup/db-swap.sh`) renames by name and
 accepts only `biddaloy_staging*` and `biddaloy_demo*` databases, so it can never

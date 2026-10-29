@@ -83,11 +83,12 @@ biddaloy-staging backups
 # Next: biddaloy-staging load <number>   (add --use to switch the app to it)
 ```
 
-**`load`**: একটা backup এর scrub করা কপি `biddaloy_staging` এ বসায়। নম্বর, key, `latest-daily` বা `latest-hourly` দিয়ে বাছুন। কিছু না দিলে তালিকা দেখিয়ে জিজ্ঞেস করে।
+**`load`**: একটা backup এর scrub করা কপি `biddaloy_staging` এ বসায়। নম্বর, key, `latest-daily` বা `latest-hourly` দিয়ে বাছুন। কিছু না দিলে তালিকা দেখিয়ে জিজ্ঞেস করে। নম্বর দিলে সেটা শেষবার `backups` যে তালিকা দেখিয়েছিল (`staging/backups-list` এ রাখা) সেখান থেকে নেয়, নতুন করে তালিকা আনে না। তাই মাঝে নতুন dump এলেও `3` মানে একই backup থাকে। রাখা তালিকা না থাকলে নম্বর নেয় না।
 
 ```bash
 biddaloy-staging load latest-daily --use
 # Load db/daily/2026-10-29.dump.age (written 2026-10-29) into biddaloy_staging and switch the app to it. Type yes to go on: yes
+# 2026-10-29T10:05:02+0600 biddaloy-staging: loading db/daily/2026-10-29.dump.age (written 2026-10-29)
 # step: refresh (into the scratch database biddaloy_staging_drill, not biddaloy_staging)
 # step: swap
 # step: migrate biddaloy_staging
