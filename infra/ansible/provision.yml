@@ -21,9 +21,17 @@
           - >-
             not github_key_active
             or (github_deploy_pubkey | trim) is match('^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( [A-Za-z0-9@._-]+)?$')
+          - >-
+            not github_staging_key_active
+            or (github_staging_pubkey | trim) is match('^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( [A-Za-z0-9@._-]+)?$')
+          # One key for both lines would only ever deploy (sshd takes the first match): two keys.
+          - >-
+            not (github_key_active and github_staging_key_active)
+            or (github_deploy_pubkey | trim).split(' ')[1] != (github_staging_pubkey | trim).split(' ')[1]
         fail_msg: >-
           edge_mode must be tunnel or direct, the host Ubuntu 24.04 or newer, and
-          github_deploy_pubkey a single "ssh-ed25519 <base64> [comment]" line with no options
+          github_deploy_pubkey and github_staging_pubkey each a single "ssh-ed25519 <base64> [comment]"
+          line with no options, and not the same key
       tags: always
     # systemd-journal: the nightly log-archive job (runs as deploy) exports host logs with journalctl.
     - name: Deploy user
@@ -64,8 +72,8 @@
       delegate_to: localhost
       become: false
       changed_when: false
-    # One write of the whole list: operator key(s) plus, when set, the GitHub
-    # forced-command line (group_vars). Anything else is removed.
+    # One write of the whole list: operator key(s) plus, when set, the two GitHub
+    # forced-command lines, deploy and staging (group_vars). Anything else is removed.
     - name: Only the operator keys and the GitHub forced-command key on deploy user
       ansible.posix.authorized_key:
         user: '{{ deploy_user }}'
@@ -331,9 +339,10 @@
         mode: '0664'
         modification_time: preserve
         access_time: preserve
-    # biddaloy-staging (deploy) writes these three; the staging dir is root:deploy 0750, so deploy
-    # cannot create files there. Empty active-db = dev, empty loaded-backup = no badge date.
-    - name: Staging state files (biddaloy-staging writes them)
+    # biddaloy-staging and biddaloy-nightly (both as deploy) write these four in place; the staging dir
+    # is root:deploy 0750, so deploy cannot create files there. Empty active-db = dev, empty
+    # loaded-backup = no badge date, empty last-drill = no drill yet (doctor and status say so).
+    - name: Staging state files (biddaloy-staging and the restore drill write them)
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/staging/{{ item }}'
         state: touch
@@ -342,7 +351,7 @@
         mode: '0660'
         modification_time: preserve
         access_time: preserve
-      loop: [active-db, loaded-backup, history.log]
+      loop: [active-db, loaded-backup, history.log, last-drill]
       when: "'staging' in biddaloy_envs"
     - name: Postgres TLS directories
       ansible.builtin.file:

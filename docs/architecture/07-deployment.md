@@ -392,7 +392,9 @@ From GitHub: Actions, **Deploy**, `workflow_dispatch` with `stack`, `sha`
 `<stack> <sha> [--hotfix "reason"]` or `--last-ok <staging|prod>`, and only for
 a commit that is an ancestor of `origin/main`. The secrets `DEPLOY_HOST`,
 `DEPLOY_SSH_KEY` and `DEPLOY_SSH_KNOWN_HOSTS` belong to the `production`
-Environment, restricted to `main`.
+Environment, restricted to `main`. The **Staging** workflow has its own key that
+can run only `biddaloy-staging --from-github`, with its own `staging` Environment
+and `STAGING_*` secrets ([runbook part 5e](28-platform-runbook.md#5e-staging-workflow-key)).
 
 What `biddaloy-deploy` does, in order:
 

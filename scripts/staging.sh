@@ -17,6 +17,16 @@ usage() {
 [ $# -ge 1 ] || usage
 case "$1" in status|backups|load|use|clean-dev) ;; *) usage ;; esac
 : "${BIDDALOY_HOST:?set BIDDALOY_HOST to the VM address}"
+# A load backup is a list number or a key; a key follows the VM's rule (no "..", no "//").
+if [ "$1" = load ]; then
+  for a in "${@:2}"; do
+    case "$a" in --*) continue ;; esac
+    if ! [[ $a =~ ^[0-9]+$ ]] && { ! [[ $a =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$ ]] || [[ $a == *..* || $a == *//* ]]; }; then
+      echo "not a backup: use a number from the list, latest-daily, latest-hourly or a key from backups" >&2
+      exit 2
+    fi
+  done
+fi
 
 # ssh joins its arguments and the remote shell splits them again, so quote each one.
 cmd="biddaloy-staging $(printf '%q ' "$@")"

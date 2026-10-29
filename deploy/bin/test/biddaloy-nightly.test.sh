@@ -91,6 +91,16 @@ expect "1 smoke app uses its own redis db" has "REDIS_URL=redis://redis:6379/15"
 expect "1 last-drill written with duration and counts" grep -q 'duration=' "$WORK/opt/staging/last-drill"
 expect "1 live staging never stopped, swapped, flushed or dropped" bash -c "! grep -qE 'stop app|db-swap|FLUSHALL|up -d app|IF EXISTS \"biddaloy_staging\" ' '$LOG'"
 
+# 1b like the VM: the staging dir does not let deploy create files, provision made last-drill empty.
+# The drill must write it in place (a tmp file + mv would fail here).
+: > "$WORK/opt/staging/last-drill"
+chmod 0550 "$WORK/opt/staging"
+run restore-drill
+chmod 0750 "$WORK/opt/staging"
+expect "1b exit 0" test "$RC" = 0
+expect "1b last-drill written in place in a read-only dir" grep -q 'duration=' "$WORK/opt/staging/last-drill"
+expect "1b no last-drill warning" hasnt "last-drill+not+written"
+
 # 2 migrate fails: down, drill db still dropped, no smoke
 rm -f "$WORK/opt/staging/last-drill"
 FAIL_MATCH=migrate.js run restore-drill
