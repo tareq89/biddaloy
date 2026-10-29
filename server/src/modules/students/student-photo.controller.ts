@@ -65,7 +65,12 @@ export class StudentPhotoController {
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    if (!files?.length) throw new BadRequestException('At least one "files" entry is required');
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new BadRequestException('At least one "files" entry is required');
+    }
+    if (!files.every((f) => !!f && typeof f === 'object' && Buffer.isBuffer(f.buffer))) {
+      throw new BadRequestException('Invalid "files" payload');
+    }
     // Unreachable today (the interceptor stops at 25 files); kept so raising that cap keeps the demo's.
     assertDemoRowLimit(files.length);
     return this.photos.bulkUpload(files, tenant.id, user.sub, requestContext(request));
