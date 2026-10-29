@@ -83,6 +83,9 @@ x-app: &app
     SENTRY_ENVIRONMENT: ${ENV_NAME}
     SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
     APP_VERSION: ${APP_VERSION}
+    # Staging only (write-env); empty elsewhere, so prod never shows a badge.
+    ENV_BADGE: ${ENV_BADGE:-}
+    ENV_BADGE_DATE: ${ENV_BADGE_DATE:-}
     SENTRY_RELEASE: ${APP_VERSION}
     DEMO_MODE: ${DEMO_MODE:-false}
     DEMO_PASSWORD: ${DEMO_PASSWORD:-}
@@ -249,7 +252,7 @@ services:
     # Over TCP on the service name, as the apps connect: a socket-only check stays healthy
     # while Postgres refuses network clients (and while the init script's temporary server runs).
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -h db -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      test: ['CMD-SHELL', 'pg_isready -h db -U ${POSTGRES_USER} -d postgres']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -324,6 +327,7 @@ services:
       SMOKE_SCHOOL_SLUG: ${SMOKE_SCHOOL_SLUG:-}
       PLATFORM_TENANT_ID: ${PLATFORM_TENANT_ID:-}
       STAGING_REFRESH_PUSH_URL: ${STAGING_REFRESH_PUSH_URL:-}
+      RESTORE_DRILL_PUSH_URL: ${RESTORE_DRILL_PUSH_URL:-}
       STAGING_REFRESH_DEADLINE: ${STAGING_REFRESH_DEADLINE:-}
     volumes:
       - *age-key
