@@ -1100,7 +1100,7 @@ Exit code: `0` all OK, `1` a WARN, `2` a FAIL. One stack: `biddaloy-doctor prod`
 
 ### 10b. Deploy the test inbox (Epic 87), staging and demo
 
-> বাংলায় পড়ুন: [bn/test-inbox-deploy.md](bn/test-inbox-deploy.md).
+> বাংলায় পড়ুন: [bn/test-inbox-deploy.md](bn/test-inbox-deploy.md), আর staging সহ একসাথে: [runbook-bn/staging-and-test-inbox.md](runbook-bn/staging-and-test-inbox.md).
 
 Staging and demo send every email, SMS, WhatsApp and Messenger message to one Mailpit inbox,
 so nothing reaches a real person. Prod never runs it. Do this once, in this order:
@@ -1299,8 +1299,8 @@ prod) can run the same checks.
 4. Write into `prod.enc.env` **and** `staging.enc.env`: `SMOKE_SCHOOL_SLUG` (lowercase
    letters, digits, dashes, e.g. `smoke-test-school`), `SMOKE_ADMIN_EMAIL/PASSWORD`,
    `SMOKE_TEACHER_EMAIL/PASSWORD`, `SMOKE_SUPER_ADMIN_EMAIL/PASSWORD`. In staging the
-   passwords must be the same as `STAGING_PASSWORD`, because the nightly copy resets every
-   password to it.
+   passwords must be the same as `STAGING_PASSWORD`, because the staging load (`biddaloy-staging load`)
+   resets every password to it.
 5. Commit, merge, wait for Publish, then redeploy **prod**, then **staging**, at the new sha.
 
 ### 11c. Uptime Kuma
@@ -1470,6 +1470,227 @@ sudo systemctl start biddaloy-nightly@restore-drill.service    # or demo-rebuild
 journalctl -u 'biddaloy-nightly@*' --since today --no-pager | tail -20
 systemctl list-timers 'biddaloy-nightly@*'
 ```
+
+### Staging: dev, staging and the nightly drill
+
+> বাংলায় পড়ুন: [runbook-bn/staging-and-test-inbox.md](runbook-bn/staging-and-test-inbox.md).
+
+Staging used to be replaced with a fresh copy of prod every night. It no longer is (Epic 88).
+Now staging has **two databases**, you choose when to load a prod copy, and a separate **nightly
+drill** proves that restoring a backup still works. This page is the one place that explains all
+three. The why is in [13-backup-restore.md](13-backup-restore.md#the-nightly-restore-drill-proves-restores).
+
+**Words used here.** _Backup:_ an encrypted prod copy in R2 (24 hourly and 14 daily ones are
+listed). _Scrub:_ replacing real names, phones and emails with fakes. _Active db:_ the database the
+staging app is connected to right now. _Drill:_ restore a backup into a throwaway database and
+throw it away.
+
+```mermaid
+flowchart TD
+  subgraph VM["Staging Postgres (one server, three databases)"]
+    DEV[("biddaloy_staging_dev<br/>empty, migrated<br/>app default")]
+    STG[("biddaloy_staging<br/>scrubbed prod copy<br/>loaded by hand")]
+    DRILL[("biddaloy_staging_drill<br/>throwaway<br/>exists only while a job runs")]
+  end
+  R2[("R2 backups<br/>24 hourly + 14 daily")]
+  R2 -->|"load: restore + scrub into drill db, then swap"| STG
+  R2 -->|"02:20 nightly drill: restore + scrub + migrate + smoke, then drop"| DRILL
+  APP["staging app"] -->|"active-db = dev (default)"| DEV
+  APP -.->|"active-db = staging<br/>(use staging)"| STG
+```
+
+- **dev** (default): empty and migrated. Use it to try new code with no real-looking data. The
+  app header shows a `DEV` badge.
+- **staging**: a scrubbed copy of one prod backup. Use it to see how new code meets real shapes of
+  data. The badge shows `STAGING` and the backup date. It is **empty until you load a backup**, and
+  `use staging` is refused while it is empty.
+- **The drill** never touches either of them. It is the restore proof, not a way to fill staging.
+
+#### The commands
+
+One command does all of it: `biddaloy-staging <verb>`. It runs on the VM, as the `deploy` user.
+There are three ways to reach it. All three run the same code.
+
+| Way         | How                                                                                              | Good for                                       |
+| ----------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| On the VM   | `ssh deploy@$BIDDALOY_HOST`, then `biddaloy-staging status`                                      | everything, with prompts                       |
+| From laptop | `BIDDALOY_HOST=$BIDDALOY_HOST scripts/staging.sh status` (`ssh -t` under the hood)               | everything, with prompts (the pick list works) |
+| From GitHub | **Actions > Staging > Run workflow**, pick an action (needs [part 5e](#5e-staging-workflow-key)) | no terminal; no pick list, so give a key       |
+
+```mermaid
+flowchart LR
+  L["laptop<br/>scripts/staging.sh"] -->|"ssh as deploy"| BS["biddaloy-staging"]
+  V["on the VM"] --> BS
+  G["GitHub Staging workflow<br/>STAGING_SSH_KEY"] -->|"forced command:<br/>--from-github"| BS
+  BS --> P[("staging Postgres, Redis, bucket")]
+```
+
+The GitHub key can run **only** these exact forms, nothing else: `status`, `backups`,
+`load <key> --yes [--use]`, `use dev|staging --yes`, `clean-dev --yes`. A list number is not
+accepted there (use `backups` first, then give the key). Mutating verbs run detached, so closing
+the browser tab does not stop them half way.
+
+Each example below is the shape of the real output. Dates, sizes and shas are made up.
+
+**`status`**: read-only. What is active, what is loaded, the last drill, the last five changes.
+
+```bash
+biddaloy-staging status
+# active db:     dev (biddaloy_staging_dev)
+# loaded backup: 2026-10-28
+# staging sha:   3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+# last drill:    2026-10-29T02:31:07+0600 duration=642s schools=12 users=1480 students=9120
+# history (last 5):
+#   2026-10-28T09:14:02Z deploy load db/daily/2026-10-28.dump.age ok
+```
+
+**`backups`**: read-only. The 24 newest hourly and 14 newest daily dumps, numbered.
+
+```bash
+biddaloy-staging backups
+#  No.  Backup (UTC date, size)
+#    1  db/hourly/20261029T060011Z.dump.age   2026-10-29 06:00:41 41.3 MB
+#    2  db/hourly/20261029T050010Z.dump.age   2026-10-29 05:00:39 41.2 MB
+#   ...
+#   25  db/daily/2026-10-29.dump.age          2026-10-29 02:00:52 41.0 MB
+# Next: biddaloy-staging load <number>   (add --use to switch the app to it)
+```
+
+**`load`**: put a scrubbed copy of one backup into `biddaloy_staging`. Pick by number, by key, or
+`latest-daily` / `latest-hourly`. With no argument it shows the list and asks.
+
+```bash
+biddaloy-staging load latest-daily --use
+# Load db/daily/2026-10-29.dump.age (written 2026-10-29) into biddaloy_staging and switch the app to it. Type yes to go on: yes
+# step: refresh (into the scratch database biddaloy_staging_drill, not biddaloy_staging)
+# step: swap
+# step: migrate biddaloy_staging
+# step: flush-redis
+# step: deploy staging 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+# 2026-10-29T10:12:44+0600 biddaloy-staging: done: the app now serves staging (biddaloy_staging). Next: biddaloy-staging status
+```
+
+What `load` does: it restores and **scrubs in the scratch database first**, then swaps it in as
+`biddaloy_staging`. The old one stays as `biddaloy_staging_prev`. If it fails before the swap,
+nothing changed. If the app is serving staging, it is stopped briefly around the swap. `--use`
+also switches the app to the loaded copy. `--yes` skips the prompt (the GitHub way always uses it).
+
+**`use dev|staging`**: point the app at one database. It migrates that database, flushes Redis,
+writes `/opt/biddaloy/staging/active-db`, then redeploys the same sha.
+
+```bash
+biddaloy-staging use dev
+# Switch the staging app to dev (it restarts and Redis is flushed). Type yes to go on: yes
+# step: migrate biddaloy_staging_dev
+# step: flush-redis
+# step: deploy staging 3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b
+# 2026-10-29T10:20:03+0600 biddaloy-staging: done: the app now serves dev (biddaloy_staging_dev). Next: biddaloy-staging status
+
+biddaloy-staging use staging       # while biddaloy_staging is empty:
+# REFUSED: biddaloy_staging is empty (D18): load a backup first
+# Next: biddaloy-staging load   (pick a backup; add --use to switch right after)
+# Nothing was modified.
+```
+
+**`clean-dev`**: reset dev. It recreates `biddaloy_staging_dev` empty, empties the dev bucket and
+migrates. It cannot touch `biddaloy_staging`. If dev is the active db, the app stops briefly.
+
+```bash
+biddaloy-staging clean-dev --yes
+# step: stop-app
+# step: recreate-db
+# step: empty-bucket
+# step: migrate
+# step: flush-redis
+# 2026-10-29T10:31:10+0600 biddaloy-staging: done: biddaloy_staging_dev is empty and migrated. Next: biddaloy-staging status
+```
+
+Exit codes: `0` ok, `1` a step failed, `2` refused (nothing was changed). Every refusal and failure
+prints four lines you can act on: `FAILED at:` or `REFUSED:`, `Why:`, `State:` (what is changed
+right now), `Next:` (the command to run). Locks: it waits up to an hour for a running deploy or
+nightly job, so two jobs never overlap. Every change adds a line to `/opt/biddaloy/staging/history.log`.
+
+#### The nightly drill
+
+At 02:20 Asia/Dhaka, `biddaloy-nightly restore-drill` restores the newest **daily** backup into
+`biddaloy_staging_drill`, scrubs it, migrates it with the staging image, runs the smoke test on a
+one-off app and drops it. It never stops or swaps the live staging app. It skips itself (and
+reports `down`) if less than 1 GB of RAM is free. It always ends in one Kuma push on the
+`restore-drill` monitor.
+
+```mermaid
+flowchart LR
+  T["02:20 timer"] --> M{"1 GB RAM free?"}
+  M -->|no| D1["Kuma: down, not enough memory"]
+  M -->|yes| S["refresh: restore + scrub"] --> G["migrate"] --> K["smoke"] --> X["drop the drill db"]
+  X --> U["write last-drill, Kuma: up"]
+  S -.->|"any step fails"| D2["Kuma: down + the step name"]
+  G -.-> D2
+  K -.-> D2
+```
+
+A green night leaves one line in `/opt/biddaloy/staging/last-drill`, and `status` and
+`biddaloy-doctor staging` show it. A failed night leaves yesterday's line.
+
+**What an alert looks like.** The Telegram message comes from the Kuma monitor `restore-drill`:
+`restore-drill is DOWN` with the message `refresh`, `migrate`, `smoke`, `guard` or
+`not enough memory`. No push for 26 hours also turns it red (the timer did not run at all).
+
+**When the drill fails.**
+
+1. Read the step in the alert, then the log on the VM:
+
+   ```bash
+   journalctl -u biddaloy-nightly@restore-drill.service -n 200 --no-pager
+   cat /opt/biddaloy/staging/last-drill        # yesterday's green line
+   ```
+
+2. `not enough memory`: nothing was changed. Check `free -m`, free some RAM, run it again.
+3. `refresh`: usually the day's backup is not in R2 yet (the job waits until 02:50), or a new
+   column is not scrubbed. Check `backup-hourly` in Kuma first.
+4. `migrate`: tonight's prod data does not migrate with the staging code. Take it seriously: the
+   same migration would fail on prod.
+5. `smoke`: the data restores but the app cannot serve it.
+6. Run it again by hand:
+
+   ```bash
+   sudo systemctl start biddaloy-nightly@restore-drill.service
+   ```
+
+7. Message `ok, warning: drill db not dropped` is green but needs a hand: drop the leftover
+   `biddaloy_staging_drill` (steps in [12-operations.md, 3.10](12-operations.md)).
+
+Staging users are never blocked by a failed drill. Only the restore proof is missing that night.
+
+#### What is NOT verified on a real VM yet
+
+Nothing in Epic 88 has run on a real VM. The code is tested with stand-ins
+(`deploy/bin/test/biddaloy-staging.test.sh`: 122 checks pass). On go-live, check these first:
+
+| Check this first                        | How                                                                                                                    | Why it is unproven                                                                              |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| The GitHub staging key (forced command) | Run **Actions > Staging** with `status`; it must show `active db: ...` and `exit status: 0`                            | the `authorized_keys` command line and `SSH_ORIGINAL_COMMAND` were only tested with stand-ins   |
+| The `restore-drill` Kuma monitor        | Create the Push monitor (part 11c), set `RESTORE_DRILL_PUSH_URL`, run the drill once by hand, see the monitor go green | a monitor that never got a push is not the same as a monitor that works                         |
+| The old systemd timer is gone           | `systemctl list-timers 'biddaloy-nightly@*'` must not list `staging-refresh`; run `provision.yml` once                 | the ansible task that retires `biddaloy-nightly@staging-refresh.timer` has not run on a real VM |
+| A real `load` with the real backup      | `biddaloy-staging backups`, then `load latest-daily --use`, then open staging and check the `STAGING` badge date       | needs the real R2 token (read-only) and a real prod dump                                        |
+| The memory guard on the real VM size    | run the drill while staging is up; confirm it does not run out of memory                                               | 1 GB free is a guess for the chosen VM size                                                     |
+
+### Staging commands: what has been proven (Epic 88, wave 3)
+
+What the `biddaloy-staging` commands (list backups, load, use, clean-dev, `--from-github`) have
+been through so far, in plain words:
+
+- **Proven with stand-ins.** `bash deploy/bin/test/biddaloy-staging.test.sh` runs every verb
+  against fake `docker` and `biddaloy-deploy` programs. Result on 2026-10-29: `122 passed, 0 failed`.
+  It checks the pick list, the refusals (empty staging db, bad key, bad verb) and the exact
+  commands the GitHub key may run.
+- **Learned:** `load` never fills `biddaloy_staging` directly. It builds the copy in the scratch
+  database `biddaloy_staging_drill`, scrubs it, and only then swaps it in. So a failed load leaves the
+  old staging as it was, and unscrubbed data is never in a database the app can reach.
+- **Learned:** `use staging` is refused while `biddaloy_staging` is empty, and a switch that cannot
+  flush Redis is aborted (the app is started again on the old database).
+- **Not proven yet:** a run on a real Docker stack, and on a real VM. Those need the owner's test
+  VM (Docker was not available for this ticket). The checklist is in [the staging part above](#what-is-not-verified-on-a-real-vm-yet).
 
 ### Where logs live
 

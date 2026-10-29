@@ -3,7 +3,7 @@
 This page takes you from an empty laptop to a running, monitored system:
 
 - **prod** (the real app)
-- **staging** (a scrubbed copy of prod, refreshed every night)
+- **staging** (a scrubbed copy of prod when you load one; a nightly drill proves restores)
 - **demo** (a public demo school, rebuilt every night)
 - **ops** (uptime, server metrics and live logs)
 - **landing** (the marketing site)
@@ -334,10 +334,10 @@ Staging needs no widget: it uses Cloudflare's public always-pass test keys (alre
    `https://<account-id>.r2.cloudflarestorage.com`.
 4. **Manage API tokens → Create API token**, twice. Limit both to the bucket `biddaloy-backups`:
 
-| Token name            | Permission           | Used by                   | Why                                                 |
-| --------------------- | -------------------- | ------------------------- | --------------------------------------------------- |
-| `biddaloy-prod-rw`    | Object Read & Write  | prod backups, log archive | writes backups                                      |
-| `biddaloy-staging-ro` | Object **Read only** | staging's nightly restore | staging can never delete or overwrite a prod backup |
+| Token name            | Permission           | Used by                           | Why                                                 |
+| --------------------- | -------------------- | --------------------------------- | --------------------------------------------------- |
+| `biddaloy-prod-rw`    | Object Read & Write  | prod backups, log archive         | writes backups                                      |
+| `biddaloy-staging-ro` | Object **Read only** | staging's restore drill and loads | staging can never delete or overwrite a prod backup |
 
 Each token shows an **Access Key ID** and a **Secret Access Key**, both 🔴. Cloudflare shows the
 secret once: save it now.
@@ -932,7 +932,7 @@ Log in at `https://app.<DOMAIN>/login` with your account.
 ### 12c. The Smoke Test School
 
 After every prod deploy, the smoke test logs in as an admin and a teacher of a real school. The
-nightly staging copy keeps this school's logins, so staging is tested the same way.
+staging load keeps this school's logins, so staging is tested the same way.
 
 1. Open `https://app.<DOMAIN>/register` and register a school:
    - school name **Smoke Test School**
@@ -962,8 +962,9 @@ nightly staging copy keeps this school's logins, so staging is tested the same w
    else is scrubbed). With the wrong slug, staging's smoke accounts get scrubbed too and staging's
    smoke test fails.
 
-From now on prod deploys run the full login smoke test. Staging runs it after its first nightly
-refresh (the refresh copies these accounts and gives them `STAGING_PASSWORD`).
+From now on prod deploys run the full login smoke test. Staging runs it once a backup is loaded
+(`biddaloy-staging load latest-daily --use`; the load copies these accounts and gives them
+`STAGING_PASSWORD`). Commands: [28-platform-runbook.md](28-platform-runbook.md#staging-dev-staging-and-the-nightly-drill).
 
 ---
 
@@ -1257,7 +1258,7 @@ has every step):
 | `beszel-agent` keeps restarting                                        | `BESZEL_KEY` not set yet                                                                      | Part 13b + 14                                                                   |
 | demo: 502                                                              | demo not deployed yet                                                                         | `scripts/deploy.sh demo "$SHA"`                                                 |
 | prod deploy fails at smoke after users exist                           | the Smoke Test School or its accounts are missing or have other passwords                     | Part 12c, with the passwords from `prod.enc.env`                                |
-| staging smoke fails after the first nightly refresh                    | `SMOKE_SCHOOL_SLUG` is the placeholder, not the real slug (registration adds a random suffix) | Part 12c step 4                                                                 |
+| staging smoke fails after loading a backup                             | `SMOKE_SCHOOL_SLUG` is the placeholder, not the real slug (registration adds a random suffix) | Part 12c step 4                                                                 |
 | GitHub Deploy refuses a SHA                                            | GitHub may deploy only commits on `main`                                                      | merge first, or deploy from the laptop                                          |
 | `FAILED at: lock`                                                      | another deploy or a nightly job is running                                                    | wait, then run again                                                            |
 | `y` / `y.pub` files in the repo folder                                 | `y` typed at ssh-keygen's file-name prompt                                                    | delete them; press Enter at that prompt                                         |
