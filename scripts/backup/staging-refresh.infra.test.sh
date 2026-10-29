@@ -6,7 +6,8 @@
 #
 # Same shape as db-swap.infra.test.sh: it uses the shared stack's db container when one is
 # running, otherwise starts a throwaway Postgres from the image docker-compose.yml pins and
-# removes it on exit. It creates and drops only databases named biddaloy_staging_t<pid>*.
+# removes it on exit. It creates and drops databases named biddaloy_staging_t<pid>*, plus biddaloy_staging_drill
+# (cases 8-9; the case refuses to run if that database already exists).
 #
 # What is faked, and why:
 #   * psql, pg_dump and pg_restore are shims that run inside the Postgres container.
@@ -21,7 +22,7 @@
 # 3 no daily backup and the deadline passed: exit 1 + `down` push + staging untouched;
 # 4 bucket unreadable: a different message, still `down`; 5 backup present: `staging_next ready`,
 # every user has the staging hash, the live database is untouched; 6 a failing scrub drops _next
-# and pushes `down`.
+# and pushes `down`; 7 bad --target/--from refused; 8 --target drill from an exact key; 9 latest-hourly.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -208,6 +209,12 @@ echo "PASS: failed scrub cleans up and pushes down"
 # 7. --target biddaloy_prod is refused (exit 2) before anything runs; so is a staging-looking name that
 #    is not one of the two allowed ones.
 : >"$SHIM_LOG"
+for badfrom in 'db/daily/../x.dump.age' 'db/daily/x.dump.age;rm' 's3://evil/x.dump.age' 'db/weekly/x.dump.age' 'db/daily/a b.dump.age'; do
+  RARGS=(--from "$badfrom"); set +e; run_refresh; code=$?; set -e
+  [[ $code -eq 2 ]] || fail "--from '$badfrom' must exit 2, got $code"
+done
+RARGS=(--target ""); set +e; run_refresh; code=$?; set -e
+[[ $code -eq 2 ]] || fail "empty --target must exit 2, got $code"
 for bad in biddaloy_prod biddaloy biddaloy_staging_other biddaloy_staging_next 'biddaloy_staging_drill;x'; do
   RARGS=(--target "$bad"); set +e; run_refresh; code=$?; set -e
   [[ $code -eq 2 ]] || fail "--target $bad must exit 2, got $code"

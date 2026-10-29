@@ -3,6 +3,9 @@
 # decisions P4, D5, D6, D19, D20, D24). Runs inside the staging `jobs` container, which only sees
 # the staging network. It stops at a ready `<POSTGRES_DB>_next`: the host (W3.04) runs migrations
 # with the staging app image and then calls db-swap.sh, so this script never needs the app code.
+# With --target (Epic 88) it fills that database itself instead and the caller migrates it.
+# WARNING: --target drops and recreates the target first; for biddaloy_staging the caller must
+# stop the app (or refuse while it is live), and a failure leaves no target database.
 #
 #   step 1/7: guard                      POSTGRES_DB must be a staging database
 #   step 2/7: wait for daily backup      db/daily/<today>.dump.age, until 02:50 Dhaka
@@ -53,8 +56,8 @@ TARGET=""
 FROM="latest-daily"
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --target) [[ $# -ge 2 ]] || { echo "--target needs a database name" >&2; exit 2; }; TARGET="$2"; shift 2 ;;
-    --from) [[ $# -ge 2 ]] || { echo "--from needs a value" >&2; exit 2; }; FROM="$2"; shift 2 ;;
+    --target) [[ $# -ge 2 && -n "$2" ]] || { echo "--target needs a database name" >&2; exit 2; }; TARGET="$2"; shift 2 ;;
+    --from) [[ $# -ge 2 && -n "$2" ]] || { echo "--from needs a value" >&2; exit 2; }; FROM="$2"; shift 2 ;;
     *) echo "staging-refresh.sh: unknown argument '$1'" >&2; exit 2 ;;
   esac
 done
