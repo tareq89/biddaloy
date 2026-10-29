@@ -7,6 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
@@ -69,6 +70,7 @@ export class StaffBulkUploadService {
     actorId: string,
   ): Promise<StaffImportValidateResultDto> {
     const parsed = await parseStaffSpreadsheet(file.buffer, file.originalname);
+    assertDemoRowLimit(parsed.length);
 
     // Accounts are global (email/phone are unique across schools), so the lookup is by
     // identifier; what the file may do with a hit depends on THIS tenant's membership.
@@ -243,6 +245,7 @@ export class StaffBulkUploadService {
         'No staged upload found for this id. It may have expired or already been committed.',
       );
     }
+    assertDemoRowLimit(stage.rows.length);
     if (stage.hardErrorCount > 0) {
       throw new ConflictException(
         'This staged upload had validation errors and cannot be committed. Re-validate the file first.',

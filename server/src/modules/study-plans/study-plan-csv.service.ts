@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { In, Repository } from 'typeorm';
@@ -184,6 +185,7 @@ export class StudyPlanCsvService {
     }
 
     const rows: ParsedLessonRow[] = await parseLessonSheet(file.buffer, file.originalname);
+    assertDemoRowLimit(rows.length);
 
     // Plan target: class and subject must be this tenant's; topics resolve by name.
     const topicIdByName = new Map<string, string>();
@@ -288,6 +290,7 @@ export class StudyPlanCsvService {
     }
     const staged = await this.staging.peek<StagedImport>(tenantId, caller.userId, dto.staging_id);
     if (!staged) throw this.stagingGone();
+    assertDemoRowLimit(staged.rows.length);
     if (staged.hardErrorCount > 0) {
       throw new ConflictException(
         'This staged upload had validation errors and cannot be committed. Re-validate the file first.',

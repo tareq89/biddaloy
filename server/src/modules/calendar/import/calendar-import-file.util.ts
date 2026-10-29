@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { assertDemoRowLimit } from '../../demo/demo-row-limit';
 import {
   assertXlsxWithinLimits,
   XLSX_TOO_LARGE_MESSAGE,
@@ -216,6 +217,7 @@ export async function parseCalendarImportFile(
     );
   }
 
+  assertDemoRowLimit(rows.length - 1);
   return rows.slice(1).map((cells) => {
     const reordered = columnIndex.map((index) => cells[index] ?? '');
     return cellsToRawRow(reordered);

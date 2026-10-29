@@ -14,6 +14,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -65,6 +66,7 @@ export class StudentPhotoController {
     @Req() request: Request,
   ) {
     if (!files?.length) throw new BadRequestException('At least one "files" entry is required');
+    assertDemoRowLimit(files.length);
     return this.photos.bulkUpload(files, tenant.id, user.sub, requestContext(request));
   }
 

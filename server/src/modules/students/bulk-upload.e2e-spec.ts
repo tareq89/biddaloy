@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import { ConfigService } from '@nestjs/config';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -184,6 +185,53 @@ describe('Bulk Student Upload E2E', () => {
       const commitRes = await commit(validateRes.body.staging_id).expect(201);
       expect(commitRes.body).toMatchObject({ total_rows: 1, success_count: 1, error_count: 0 });
       expect(commitRes.body.created_student_ids).toHaveLength(1);
+    });
+
+    describe('[3250] demo row cap', () => {
+      const saved = process.env.DEMO_MODE;
+      afterEach(() => {
+        vi.restoreAllMocks();
+        if (saved === undefined) delete process.env.DEMO_MODE;
+        else process.env.DEMO_MODE = saved;
+      });
+
+      const rows101 = () =>
+        Array.from({ length: 101 }, (_, i) =>
+          rowValues(REQUIRED_HEADERS, {
+            roll: String(i + 1),
+            guardian1_phone: `+88017${String(30000000 + i)}`,
+          }),
+        );
+
+      it('refuses 101 rows with 422 DEMO_ROW_LIMIT and writes nothing', async () => {
+        process.env.DEMO_MODE = 'true';
+        // The demo deny-list (DemoModeGuard) still blocks this route today; hide DEMO_MODE from
+        // that guard only, so the cap itself (which reads process.env) is what answers.
+        const config = app.get(ConfigService);
+        const realGet = config.get.bind(config);
+        vi.spyOn(config, 'get').mockImplementation(((k: string, ...a: unknown[]) =>
+          k === 'DEMO_MODE'
+            ? undefined
+            : (realGet as (...x: unknown[]) => unknown)(k, ...a)) as never);
+        const before = Number(
+          (await dataSource.query('SELECT COUNT(*)::int AS n FROM students'))[0].n,
+        );
+        const res = await validate(await buildXlsxBuffer(rows101()));
+        expect(res.status).toBe(422);
+        expect(res.body.details).toEqual({ code: 'DEMO_ROW_LIMIT', limit: 100, count: 101 });
+        expect(res.body.message).toBe('Demo: at most 100 rows per request');
+        const after = Number(
+          (await dataSource.query('SELECT COUNT(*)::int AS n FROM students'))[0].n,
+        );
+        expect(after).toBe(before);
+      });
+
+      it('the same 101-row file is still validated without DEMO_MODE', async () => {
+        delete process.env.DEMO_MODE;
+        const res = await validate(await buildXlsxBuffer(rows101()));
+        expect(res.status).toBe(201);
+        expect(res.body.rows_to_create + res.body.hard_error_count).toBe(101);
+      });
     });
 
     it('allows ACCOUNTANT and EXECUTIVE roles on both steps', async () => {

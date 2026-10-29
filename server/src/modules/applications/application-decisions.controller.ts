@@ -9,6 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -56,6 +57,7 @@ export class ApplicationDecisionsController {
     @CurrentUser() user: Actor,
     @Req() req: Request,
   ): Promise<BulkApproveResultDto[]> {
+    assertDemoRowLimit(dto.ids.length);
     return this.service.bulkApprove(tenant.id, { userId: user.sub, role: tenant.role }, dto, req);
   }
 
