@@ -99,6 +99,7 @@ function EvaluationsPage() {
     },
     surveys: {
       id: 'newSurvey',
+      helpId: 'people.evaluations.action.newSurvey',
       label: t('surveys.new'),
       icon: <PlusIcon />,
       priority: 'primary',

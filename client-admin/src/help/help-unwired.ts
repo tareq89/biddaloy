@@ -9,17 +9,23 @@
 export const PUBLIC = 'E11: public page, no shell';
 /** 44.3.x wave 3: the page has no slot for the (?) yet (no element to attach it to). */
 const PAGE_FIX = '#3017: page fix pending';
-/** A More-menu action that opens no dialog, so its (?) has nowhere to go (#3078 puts it on the dialog). */
-const NO_DIALOG = '#3017: More-menu action opens no dialog, no (?) slot';
-/** The section describes the public admission pages, which have no shell and no (?) (E11). */
-const PUBLIC_FORM = '#3017: section of a public page, no (?) there (E11)';
-/** The guide declares a second id for an element that already carries one. */
-const SAME_ELEMENT = '#3017: same element as reports.printables.action.revoke';
-/** A per-row control in a list; a (?) on every row is noise (D18), and no dialog opens. */
-const ROW_CONTROL = '#3063: per-row control, no dialog to hold the (?)';
+/** The ui/ component has no helpId slot (DataTable row action or expand toggle, FilterBar field). */
+const UI_SLOT = '#3078: no helpId slot in ui/';
 
 /** The guide declares the field and its `help.<key>` text is written; no route puts the (?) there yet. */
 const GAP = '#3017: help text written, (?) not wired yet';
+
+/** A More-menu action that opens no dialog, so its (?) has nowhere to go (#3078 puts it on the dialog). */
+const NO_DIALOG = '#3017: More-menu action opens no dialog, no (?) slot';
+
+/** A per-row control in a list; a (?) on every row is noise (D18), and no dialog opens. */
+const ROW_CONTROL = '#3063: per-row control, no dialog to hold the (?)';
+
+/** The section describes the public admission pages, which have no shell and no (?) (E11). */
+const PUBLIC_FORM = '#3017: section of a public page, no (?) there (E11)';
+
+/** The guide declares a second id for an element that already carries one. */
+const SAME_ELEMENT = '#3017: same element as reports.printables.action.revoke';
 
 export const HELP_UNWIRED: Record<string, string> = {
   'start.signIn': PUBLIC,
@@ -30,6 +36,9 @@ export const HELP_UNWIRED: Record<string, string> = {
   'admin.createSchool.action.verify': PUBLIC,
 
   // 44.3.01-44.3.06
+  'people.staff.action.view': UI_SLOT,
+  'people.staff.action.restore': UI_SLOT,
+  'academics.syllabus.action.copyToMine': UI_SLOT,
   'people.evaluations.action.completeAcr': PAGE_FIX,
   'people.evaluations.action.reopenAcr': PAGE_FIX,
   'people.calendar.action.regenerateFeed': PAGE_FIX,
@@ -58,18 +67,11 @@ export const HELP_UNWIRED: Record<string, string> = {
   'people.calendar.field.countsAsWorkingDay': GAP,
   'people.calendar.field.notify': GAP,
   'people.calendar.field.lateReason': GAP,
-  'people.staff.field.employeeId': GAP,
-  'people.staffImport.field.sendInvitations': GAP,
   'people.admissionIntakes.field.dates': GAP,
   'people.admissionApplicants.field.guardianChoice': GAP,
   'people.admissionApplicants.field.notes': GAP,
-  'people.evaluations.field.minResponses': GAP,
-  'people.evaluations.field.targets': GAP,
   'academics.academicYears.field.isCurrent': GAP,
   'academics.academicYears.field.dates': GAP,
-  'academics.routineSetup.field.changeover': GAP,
-  'academics.routineSetup.field.maxPeriodsPerDay': GAP,
-  'academics.routineSetup.field.maxConsecutive': GAP,
   'academics.routineBuilder.field.teachers': GAP,
   'academics.routineBuilder.field.recurrence': GAP,
   'academics.routineSubstitutions.field.cancelled': GAP,
@@ -77,8 +79,6 @@ export const HELP_UNWIRED: Record<string, string> = {
   'academics.myRoutine.field.lessonStatus': GAP,
   'academics.myRoutine.field.notTaughtReason': GAP,
   'academics.homework.field.target': GAP,
-  'academics.syllabus.field.topicStatus': GAP,
-  'academics.syllabus.field.periods': GAP,
   'attendance.attendanceReports.field.threshold': GAP,
   'attendance.attendanceRegister.field.reason': GAP,
   'examsResults.exams.field.name': GAP,

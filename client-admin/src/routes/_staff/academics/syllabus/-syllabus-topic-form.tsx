@@ -15,6 +15,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Input,
   Select,
   SelectContent,
@@ -152,9 +153,12 @@ export function SyllabusTopicFormDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="syllabus-topic-status" className="text-label text-text-primary">
-              {t('form.statusLabel')}
-            </label>
+            <div className="flex items-center gap-1">
+              <label htmlFor="syllabus-topic-status" className="text-label text-text-primary">
+                {t('form.statusLabel')}
+              </label>
+              <HelpHint helpId="academics.syllabus.field.topicStatus" />
+            </div>
             <Select
               value={status}
               onValueChange={(value) => setStatus(value as SyllabusTopicStatus)}

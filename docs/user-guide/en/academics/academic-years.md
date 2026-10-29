@@ -35,6 +35,7 @@ helpIds:
     academics.academicYears.action.addTerm,
     academics.academicYears.field.isCurrent,
     academics.academicYears.field.dates,
+    academics.academicYears.action.edit,
   ]
 devices: [desktop]
 entry: [sidebar, palette]

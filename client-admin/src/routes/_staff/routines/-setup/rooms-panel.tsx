@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  HelpHint,
   Label,
   toast,
   type DataTableColumn,
@@ -184,7 +185,10 @@ export function RoomsPanel() {
               <DialogDescription>{t('roomsPanel.subtitle')}</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-1">
-              <Label htmlFor="room-no">{t('roomsPanel.roomNo')}</Label>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="room-no">{t('roomsPanel.roomNo')}</Label>
+                <HelpHint helpId="academics.routineSetup.field.roomNumber" />
+              </div>
               <Input
                 id="room-no"
                 value={roomNo}

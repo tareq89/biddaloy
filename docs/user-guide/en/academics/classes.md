@@ -58,6 +58,7 @@ helpIds:
     academics.classes.field.version,
     academics.classes.field.group,
     academics.classes.field.capacity,
+    academics.classes.action.edit,
   ]
 devices: [desktop]
 entry: [sidebar, palette]
@@ -150,9 +151,9 @@ A class lives inside one academic year, for example **Class 6** in the year **20
 
 Class details are saved only when you are online; they cannot be kept on the device and sent later. So there is no **Saved on this device** state here.
 
-| State                           | How to tell                                          | What next                      |
-| ------------------------------- | ---------------------------------------------------- | ------------------------------ |
-| **Changed on screen only**      | The dialog is open and filled in, but has not closed | Press **Save**                 |
+| State                           | How to tell                                            | What next                       |
+| ------------------------------- | ------------------------------------------------------ | ------------------------------- |
+| **Changed on screen only**      | The dialog is open and filled in, but has not closed   | Press **Save**                  |
 | **Reached the school's system** | The dialog has closed and the new class is in the list | [Open sections](#task-sections) |
 
 **To check:** reload the page. If the class does not show, look at the **Academic year** filter at the top and see whether the right year is picked.
@@ -193,11 +194,11 @@ To change a section, press **Edit** at the end of its row; the dialog's title is
 
 All three are optional labels. A field shows only if the school's settings have at least two names for it; with only one name, the field stays hidden.
 
-| Label       | Goes on | Example                                                                                                           |
-| ----------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
+| Label       | Goes on | Example                                                                                                                 |
+| ----------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
 | **Shift**   | Class   | Classes in the morning and at midday in one school: separate **Class 6** classes for the **Morning** and **Day** shifts |
-| **Version** | Class   | The same class in two mediums: a **Bangla** version and an **English** version                                    |
-| **Group**   | Section | In Class 9, section **A** is **Science**, section **B** is **Business Studies**                                  |
+| **Version** | Class   | The same class in two mediums: a **Bangla** version and an **English** version                                          |
+| **Group**   | Section | In Class 9, section **A** is **Science**, section **B** is **Business Studies**                                         |
 
 When the shift or version differs, two classes with the same name can exist in the same year. Where the names are set and how to change them: [If you want to change the names of shifts, versions or groups](../admin/how-it-works.md#task-rename-labels). The whole picture: [Academic year, class, section](../admin/how-it-works.md#task-structure).
 
@@ -245,11 +246,11 @@ To take someone off, press **Remove** beside the name, then press **Remove** in 
 
 ### Filter the list <a href="#task-find" id="task-find"></a>
 
-| Field             | What to pick                                                                                                      |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Academic year** | If you pick none, the current year. To see another year, or all years together, pick **All academic years**       |
-| **Shift**         | One shift, or **All shifts**. The field shows only if the school has two or more shifts                           |
-| **Version**       | One version, or **All versions**. It shows only if there are two or more versions                                 |
+| Field             | What to pick                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Academic year** | If you pick none, the current year. To see another year, or all years together, pick **All academic years** |
+| **Shift**         | One shift, or **All shifts**. The field shows only if the school has two or more shifts                     |
+| **Version**       | One version, or **All versions**. It shows only if there are two or more versions                           |
 
 If nothing matches, it shows **No classes match these filters**. Filters are only for viewing; they change nothing.
 
@@ -269,20 +270,20 @@ Only a section or class made by mistake and still empty can be deleted.
 
 **To delete a class:** in the list, press **Delete** at the end of the row (it is also at the top of the class page). In the **Delete class** dialog, press **Delete**.
 
-| You pressed    | What happens                                                                                           | Saved? |
-| -------------- | ------------------------------------------------------------------------------------------------------ | ------ |
-| **Delete**     | The section or class goes and cannot be brought back. If you delete from the class page, you return to the list | Yes    |
-| **Cancel**     | Nothing changes                                                                                        | No     |
+| You pressed | What happens                                                                                                    | Saved? |
+| ----------- | --------------------------------------------------------------------------------------------------------------- | ------ |
+| **Delete**  | The section or class goes and cannot be brought back. If you delete from the class page, you return to the list | Yes    |
+| **Cancel**  | Nothing changes                                                                                                 | No     |
 
 **A section that cannot be deleted:** one that still has students or ever had them (the records of students who left are counted too), or that has records such as attendance, marks or routine. Then it shows **This section still has students, so it can't be deleted. Move them to another section first.** A section's teacher assignments do not block a delete; they go with the section.
 
 **A class that cannot be deleted:** one that has students or sections, or records such as exams, fee structures or homework. Then the dialog names the reason:
 
-| Reason                                    | The dialog shows                                                                                                   | Buttons                       |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| It has students                           | **This class still has students. Move them to another class first.**                                               | **Move students**, **Close**  |
-| No students, but it has sections          | **This class still has sections. Delete the sections first.**                                                      | **Close**                     |
-| Other records (for example exams, homework) | **This class is still used by {records}. Remove or move them first.**, for example "used by exams and homework" | **Close**                     |
+| Reason                                      | The dialog shows                                                                                                | Buttons                      |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| It has students                             | **This class still has students. Move them to another class first.**                                            | **Move students**, **Close** |
+| No students, but it has sections            | **This class still has sections. Delete the sections first.**                                                   | **Close**                    |
+| Other records (for example exams, homework) | **This class is still used by {records}. Remove or move them first.**, for example "used by exams and homework" | **Close**                    |
 
 **Move students** opens the class's **Students** tab. There is no chance to press **Delete** again, because it would be blocked again.
 
@@ -290,45 +291,45 @@ Only a section or class made by mistake and still empty can be deleted.
 
 Press the class name in the list, or **View**, to open its page. At the top are the name, and the **Grade**, **Academic year**, (**Shift**, **Version** if there are any) and the number of **Sections**.
 
-| Tab                | What is in it                                                                                                        |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| **Sections**       | The list of sections; [Open sections](#task-sections)                                                                |
+| Tab                | What is in it                                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Sections**       | The list of sections; [Open sections](#task-sections)                                                                            |
 | **Students**       | This class's students: **Name**, **Roll**, **Section**, **Status**; press **View** for the [student page](../people/students.md) |
-| **Fee Structures** | This class's fee structures: **Name**, **Type**, **Amount**                                                          |
-| **Teachers**       | Teachers by section; [Give a section its teachers](#task-teachers)                                                   |
-| **Subjects**       | The class's subjects; [Attach subjects](#task-subjects)                                                              |
-| **Homework**       | **Assignments**, **Completion**, **Defaulters**, **Syllabus completion**                                            |
-| **Performance**    | A summary of exam marks; only a person who has permission to see marks sees it                                       |
+| **Fee Structures** | This class's fee structures: **Name**, **Type**, **Amount**                                                                      |
+| **Teachers**       | Teachers by section; [Give a section its teachers](#task-teachers)                                                               |
+| **Subjects**       | The class's subjects; [Attach subjects](#task-subjects)                                                                          |
+| **Homework**       | **Assignments**, **Completion**, **Defaulters**, **Syllabus completion**                                                         |
+| **Performance**    | A summary of exam marks; only a person who has permission to see marks sees it                                                   |
 
 ---
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                                                              | What to do                                                                                                                                              | Who can help |
-| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **You don't have access to this page.**                                                                                   | Only the Admin sees this page. Press **Back to dashboard**.                                                                                             | Admin        |
-| **Failed to load classes**                                                                                                | Check the internet and reload the page.                                                                                                                 | Admin        |
-| **Academic year is required**, and the **Academic year** list is empty                                                    | First [add an academic year](academic-years.md#task-main).                                                                                              | Admin        |
-| **Failed to save class**                                                                                                  | Check the internet. See whether a class with the same name, shift and version already exists in the same year (capital and small letters count as the same; the name of a deleted class can be used again); if so, change the name or shift.        | Admin        |
-| **Failed to save section**                                                                                                | Check the internet and press **Save** again. See whether a section with the same name already exists in this class (capital and small letters count as the same, so `a` clashes with `A`).                                                   | Admin        |
-| **This class still has students. …**, **This class still has sections. …** or **This class is still used by …**          | See [Delete a section or a class](#task-delete). Usually it is right to keep the class.                                                                 | Admin        |
-| **This section still has students, so it can't be deleted. Move them to another section first.**                          | Move the students to another section ([Students](../people/students.md)), or keep the section.                                                          | Admin        |
-| **Failed to delete class** or **Failed to delete section**                                                                | Check the internet and press **Delete** again.                                                                                                          | Admin        |
-| **Failed to attach subject**                                                                                              | Check the internet and press **Add** again.                                                                                                             | Admin        |
-| **This teacher is already a class teacher or assistant class teacher of this section**                                    | One person cannot be both class teacher and assistant of the same section. Pick the other type or another teacher.                                      | Admin        |
-| **This teacher is already assigned to this section for this subject**                                                     | You do not need to give it again. Check on the **Teachers** tab.                                                                                        | Admin        |
-| **Failed to assign teacher**                                                                                              | Check the internet and press **Assign** again.                                                                                                          | Admin        |
-| The teacher you want is not in the **Teacher** list                                                                       | First [give them a teacher profile](../people/staff.md#task-teacher).                                                                                   | Admin        |
-| The class is not in the list                                                                                              | In the **Academic year** filter at the top, pick the right year or **All academic years**.                                                              | Admin        |
-| The **Shift** or **Group** field is not showing                                                                           | The field does not show unless the settings have at least two names. Add names: [Shift, version or group](../admin/how-it-works.md#task-rename-labels). | Admin        |
+| What you see                                                                                                    | What to do                                                                                                                                                                                                                                   | Who can help |
+| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **You don't have access to this page.**                                                                         | Only the Admin sees this page. Press **Back to dashboard**.                                                                                                                                                                                  | Admin        |
+| **Failed to load classes**                                                                                      | Check the internet and reload the page.                                                                                                                                                                                                      | Admin        |
+| **Academic year is required**, and the **Academic year** list is empty                                          | First [add an academic year](academic-years.md#task-main).                                                                                                                                                                                   | Admin        |
+| **Failed to save class**                                                                                        | Check the internet. See whether a class with the same name, shift and version already exists in the same year (capital and small letters count as the same; the name of a deleted class can be used again); if so, change the name or shift. | Admin        |
+| **Failed to save section**                                                                                      | Check the internet and press **Save** again. See whether a section with the same name already exists in this class (capital and small letters count as the same, so `a` clashes with `A`).                                                   | Admin        |
+| **This class still has students. …**, **This class still has sections. …** or **This class is still used by …** | See [Delete a section or a class](#task-delete). Usually it is right to keep the class.                                                                                                                                                      | Admin        |
+| **This section still has students, so it can't be deleted. Move them to another section first.**                | Move the students to another section ([Students](../people/students.md)), or keep the section.                                                                                                                                               | Admin        |
+| **Failed to delete class** or **Failed to delete section**                                                      | Check the internet and press **Delete** again.                                                                                                                                                                                               | Admin        |
+| **Failed to attach subject**                                                                                    | Check the internet and press **Add** again.                                                                                                                                                                                                  | Admin        |
+| **This teacher is already a class teacher or assistant class teacher of this section**                          | One person cannot be both class teacher and assistant of the same section. Pick the other type or another teacher.                                                                                                                           | Admin        |
+| **This teacher is already assigned to this section for this subject**                                           | You do not need to give it again. Check on the **Teachers** tab.                                                                                                                                                                             | Admin        |
+| **Failed to assign teacher**                                                                                    | Check the internet and press **Assign** again.                                                                                                                                                                                               | Admin        |
+| The teacher you want is not in the **Teacher** list                                                             | First [give them a teacher profile](../people/staff.md#task-teacher).                                                                                                                                                                        | Admin        |
+| The class is not in the list                                                                                    | In the **Academic year** filter at the top, pick the right year or **All academic years**.                                                                                                                                                   | Admin        |
+| The **Shift** or **Group** field is not showing                                                                 | The field does not show unless the settings have at least two names. Add names: [Shift, version or group](../admin/how-it-works.md#task-rename-labels).                                                                                      | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                                                  | See the list and class page | Add, change, delete classes, sections, subjects | Give and remove section teachers |
-| ----------------------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------------------- | -------------------------------- |
-| Admin                                                                                                 | Yes                         | Yes                                             | Yes                              |
+| Role                                                                                                 | See the list and class page | Add, change, delete classes, sections, subjects | Give and remove section teachers |
+| ---------------------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------------------- | -------------------------------- |
+| Admin                                                                                                | Yes                         | Yes                                             | Yes                              |
 | Academic coordinator, teacher, accountant, office assistant, exam controller, governing board member | No                          | No                                              | No                               |
 
 For other roles, **Classes** is not in the left menu. If they open the page, they see **You don't have access to this page.** A teacher sees their own sections on their own pages, not here.

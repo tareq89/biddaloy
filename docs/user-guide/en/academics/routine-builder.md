@@ -38,6 +38,7 @@ helpIds:
     academics.routineBuilder.action.clearCell,
     academics.routineBuilder.field.teachers,
     academics.routineBuilder.field.recurrence,
+    academics.routineBuilder.action.review,
   ]
 devices: [desktop]
 entry: [sidebar, palette]
@@ -317,11 +318,15 @@ Arrow keys: move from cell to cell · Enter: open a cell · Delete: clear a cell
 | Reason (not taught)                   | Teacher absent, School closed, Exam or Other. Write one line when you choose Other. The lesson moves to the next period.                              | Yes, when not taught                |
 | Teachers                              | One or more teachers for this period.                                                                                                                 | Yes                                 |
 | Recurrence                            | Weekly, Biweekly (every other week; pick Week 1 or Week 2) or Monthly (pick the 1st, 2nd, 3rd, 4th, 5th or last occurrence of that day in the month). | Yes                                 |
-| Gap between periods (minutes)         | A new period starts this many minutes after the one before it ends. A whole number from 0 to 120.                                                     | No                                  |
-| Most periods a teacher takes in a day | The most periods one teacher may take in a day. A whole number of at least 1; leave empty for no limit. Checked while you build the routine.          | No                                  |
-| Most periods in a row                 | The most periods in a row for one teacher. A whole number of at least 1; leave empty for no limit. Checked while you build the routine.               | No                                  |
+| Gap between periods (minutes)         | 0 to 120. A new period row starts this many minutes after the one before it ends.                                                                     | No                                  |
+| Most periods a teacher takes in a day | 1 or more; leave empty for no limit. Going over this limit stops the routine from saving.                                                             | No                                  |
+| Most periods in a row                 | 1 or more; leave empty for no limit. Going over it still saves; it only shows a warning.                                                              | No                                  |
 | Cancel the period                     | Tick it when nobody teaches the period on that date. The weekly routine itself does not change.                                                       | No                                  |
 | Substitute teacher                    | Who teaches the period on that date. It cannot be the teacher already assigned, or someone with another class at that time.                           | Yes, unless the period is cancelled |
+| Shift name                            | The shift's name, for example Morning or Day.                                                                                                         | Yes                                 |
+| Day starts at                         | When the school day starts in this shift. A new shift starts with 8:00.                                                                               | Yes                                 |
+| Day ends at                           | When the school day ends in this shift. It must be later than the start. A new shift starts with 16:00.                                               | Yes                                 |
+| Room no.                              | The room's number or name, for example 101. Required.                                                                                                 | Yes                                 |
 
 <!-- /guide:generated -->
 

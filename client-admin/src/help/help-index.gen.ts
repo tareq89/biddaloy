@@ -452,6 +452,32 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'calendar', key: 'lateReason' },
   },
+  'people.calendar.action.governmentHolidays': {
+    title: {
+      bn: 'ক্যালেন্ডারে ছুটি ও অনুষ্ঠান দেখা, যোগ করা ও নিজের ফোনে নেওয়া',
+      en: 'Seeing, adding and subscribing to holidays and events in the calendar',
+    },
+    summary: {
+      bn: 'স্কুলের ছুটি, পরীক্ষা, সভা ও অনুষ্ঠান একটি মাসের ক্যালেন্ডারে দেখুন; অ্যাডমিন এগুলো যোগ করেন, ফাইল থেকে আনেন, আগের বছর থেকে কপি করেন; সবাই নিজের ফোনের ক্যালেন্ডার অ্যাপে সাবস্ক্রাইব করতে পারেন।',
+      en: 'See school holidays, exams, meetings and events in a month calendar. The Admin adds them, imports them from a file or copies them from last year. Everyone can subscribe in their own phone calendar app.',
+    },
+    path: 'people/calendar',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'people.calendar.action.clone': {
+    title: {
+      bn: 'ক্যালেন্ডারে ছুটি ও অনুষ্ঠান দেখা, যোগ করা ও নিজের ফোনে নেওয়া',
+      en: 'Seeing, adding and subscribing to holidays and events in the calendar',
+    },
+    summary: {
+      bn: 'স্কুলের ছুটি, পরীক্ষা, সভা ও অনুষ্ঠান একটি মাসের ক্যালেন্ডারে দেখুন; অ্যাডমিন এগুলো যোগ করেন, ফাইল থেকে আনেন, আগের বছর থেকে কপি করেন; সবাই নিজের ফোনের ক্যালেন্ডার অ্যাপে সাবস্ক্রাইব করতে পারেন।',
+      en: 'See school holidays, exams, meetings and events in a month calendar. The Admin adds them, imports them from a file or copies them from last year. Everyone can subscribe in their own phone calendar app.',
+    },
+    path: 'people/calendar',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
   'people.staff': {
     title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
     summary: {
@@ -525,6 +551,36 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'staff', key: 'designations' },
+  },
+  'people.staff.action.edit': {
+    title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
+    summary: {
+      bn: 'স্কুলের কর্মী যোগ করুন, তাঁদের যোগাযোগ বদলান, আমন্ত্রণ পাঠান, শিক্ষক প্রোফাইল দিন, আর কাউকে স্কুল থেকে সরান বা ফিরিয়ে আনুন।',
+      en: 'Add school staff, change their contact details, send invitations, give teacher profiles, and remove people from the school or bring them back.',
+    },
+    path: 'people/staff',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'people.staff.action.view': {
+    title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
+    summary: {
+      bn: 'স্কুলের কর্মী যোগ করুন, তাঁদের যোগাযোগ বদলান, আমন্ত্রণ পাঠান, শিক্ষক প্রোফাইল দিন, আর কাউকে স্কুল থেকে সরান বা ফিরিয়ে আনুন।',
+      en: 'Add school staff, change their contact details, send invitations, give teacher profiles, and remove people from the school or bring them back.',
+    },
+    path: 'people/staff',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'people.staff.action.restore': {
+    title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
+    summary: {
+      bn: 'স্কুলের কর্মী যোগ করুন, তাঁদের যোগাযোগ বদলান, আমন্ত্রণ পাঠান, শিক্ষক প্রোফাইল দিন, আর কাউকে স্কুল থেকে সরান বা ফিরিয়ে আনুন।',
+      en: 'Add school staff, change their contact details, send invitations, give teacher profiles, and remove people from the school or bring them back.',
+    },
+    path: 'people/staff',
+    anchor: 'task-main',
+    knownIssues: 0,
   },
   'people.staffImport': {
     title: { bn: 'এক্সেল থেকে কর্মী যোগ করা', en: 'Adding staff from Excel' },
@@ -1021,6 +1077,19 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'evaluations', key: 'targets' },
   },
+  'people.evaluations.action.newSurvey': {
+    title: {
+      bn: 'মূল্যায়ন: এসিআর, শিক্ষক জরিপ ও ঘটনা',
+      en: 'Evaluations: ACR, teacher surveys and incidents',
+    },
+    summary: {
+      bn: 'কর্মীর বার্ষিক গোপনীয় প্রতিবেদন (এসিআর) লিখুন, শিক্ষার্থী ও অভিভাবকদের কাছে শিক্ষক জরিপ চালান, আর কর্মীর ঘটনা জানান। এই পাতা সবার জন্য নয়।',
+      en: "Write a staff member's Annual Confidential Report (ACR), run teacher surveys with students and guardians, and report staff incidents. This page is not for everyone.",
+    },
+    path: 'people/evaluations',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
   'academics.academicYears': {
     title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
     summary: {
@@ -1086,6 +1155,16 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'academicYears', key: 'dates' },
+  },
+  'academics.academicYears.action.edit': {
+    title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
+    summary: {
+      bn: 'শিক্ষাবর্ষ যোগ করুন, কোনটি চলমান তা ঠিক করুন, বছরের টার্ম সাজান, আর অব্যবহৃত বছর মুছুন।',
+      en: 'Add academic years, set which one is current, arrange the terms of a year, and delete a year nobody uses.',
+    },
+    path: 'academics/academic-years',
+    anchor: 'task-main',
+    knownIssues: 0,
   },
   'academics.classes': {
     title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
@@ -1197,6 +1276,16 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'classes', key: 'capacity' },
   },
+  'academics.classes.action.edit': {
+    title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
+    summary: {
+      bn: 'শিক্ষাবর্ষে শ্রেণি যোগ করুন, শ্রেণিতে শাখা খুলুন, বিষয় যুক্ত করুন আর শাখায় শিক্ষক দিন।',
+      en: 'Add classes to an academic year, open sections in a class, attach subjects, and give sections their teachers.',
+    },
+    path: 'academics/classes',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
   'academics.routineSetup': {
     title: {
       bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
@@ -1269,6 +1358,50 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'routines', key: 'maxConsecutive' },
   },
+  'academics.routineSetup.field.shiftName': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'shiftName' },
+  },
+  'academics.routineSetup.field.shiftStart': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'shiftStart' },
+  },
+  'academics.routineSetup.field.shiftEnd': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'shiftEnd' },
+  },
+  'academics.routineSetup.field.roomNumber': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'roomNumber' },
+  },
   'academics.routineBuilder': {
     title: { bn: 'শ্রেণির সাপ্তাহিক রুটিন সাজানো', en: "Arranging a class's weekly routine" },
     summary: {
@@ -1314,6 +1447,16 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'routines', key: 'recurrence' },
+  },
+  'academics.routineBuilder.action.review': {
+    title: { bn: 'শ্রেণির সাপ্তাহিক রুটিন সাজানো', en: "Arranging a class's weekly routine" },
+    summary: {
+      bn: 'প্রতিটি শাখার সাপ্তাহিক রুটিনের ছকে বিষয় ও শিক্ষক বসান, নিয়মের সংঘাত দেখুন, খালি ঘর একসাথে পূরণ করুন আর শিক্ষকের কর্মভার মিলিয়ে নিন।',
+      en: "Place subjects and teachers in each section's weekly routine table, see rule clashes, fill empty cells in one go, and check teacher workload.",
+    },
+    path: 'academics/routine-builder',
+    anchor: 'task-main',
+    knownIssues: 0,
   },
   'academics.routineReview': {
     title: { bn: 'রুটিন পর্যালোচনা ও প্রকাশ করা', en: 'Reviewing and publishing the routine' },
@@ -1630,6 +1773,36 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'syllabus', key: 'periods' },
   },
+  'academics.syllabus.action.addTemplate': {
+    title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
+    summary: {
+      bn: 'শ্রেণি ও বিষয়ের সিলেবাস টপিক ক্রমে সাজান, প্রতিটি শাখার বিষয়ের জন্য পাঠ পরিকল্পনা বানান, আর দেখুন কোন শাখা পিছিয়ে আছে।',
+      en: "Put a class and subject's syllabus topics in order, make a study plan for each section's subject, and see which section is behind.",
+    },
+    path: 'academics/syllabus',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'academics.syllabus.action.addTemplateCsv': {
+    title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
+    summary: {
+      bn: 'শ্রেণি ও বিষয়ের সিলেবাস টপিক ক্রমে সাজান, প্রতিটি শাখার বিষয়ের জন্য পাঠ পরিকল্পনা বানান, আর দেখুন কোন শাখা পিছিয়ে আছে।',
+      en: "Put a class and subject's syllabus topics in order, make a study plan for each section's subject, and see which section is behind.",
+    },
+    path: 'academics/syllabus',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'academics.syllabus.action.copyToMine': {
+    title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
+    summary: {
+      bn: 'শ্রেণি ও বিষয়ের সিলেবাস টপিক ক্রমে সাজান, প্রতিটি শাখার বিষয়ের জন্য পাঠ পরিকল্পনা বানান, আর দেখুন কোন শাখা পিছিয়ে আছে।',
+      en: "Put a class and subject's syllabus topics in order, make a study plan for each section's subject, and see which section is behind.",
+    },
+    path: 'academics/syllabus',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
   'attendance.attendance': {
     title: { bn: 'উপস্থিতি নেওয়া', en: 'Taking attendance' },
     summary: {
@@ -1791,6 +1964,16 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'staffAttendance', key: 'date' },
+  },
+  'attendance.staffAttendance.section.leaveBalance': {
+    title: { bn: 'কর্মীর উপস্থিতি ও ছুটি', en: 'Staff attendance and leave' },
+    summary: {
+      bn: 'প্রতিদিন শিক্ষক ও কর্মীদের উপস্থিতি সংরক্ষণ করুন, নিজের ছুটির হিসাব দেখুন, ছুটির আবেদন করুন আর অনুমোদন দিন।',
+      en: "Record teachers' and staff attendance every day, check your own leave balance, request leave, and approve requests.",
+    },
+    path: 'attendance/staff-attendance',
+    anchor: 'task-main',
+    knownIssues: 0,
   },
   'examsResults.exams': {
     title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
@@ -2939,6 +3122,36 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'reports', key: 'collector' },
+  },
+  'reports.collectionsReport.section.byMethod': {
+    title: { bn: 'ফি আদায়ের প্রতিবেদন', en: 'Fee collection report' },
+    summary: {
+      bn: 'একটি দিন, সপ্তাহ, মাস বা নিজের বাছা সময়ে কত টাকা আদায় হলো, কত বাতিল হলো আর হাতে নিট কত, তা পদ্ধতি, আদায়কারী, ফির ধরন আর দিন ধরে দেখুন; প্রিন্ট করুন বা সিএসভি নামান।',
+      en: 'See how much money was collected, how much was reversed and the net in hand for a day, week, month or your own dates, by method, collector, fee type and day; print it or download a CSV.',
+    },
+    path: 'reports/collections-report',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'reports.collectionsReport.section.byCollector': {
+    title: { bn: 'ফি আদায়ের প্রতিবেদন', en: 'Fee collection report' },
+    summary: {
+      bn: 'একটি দিন, সপ্তাহ, মাস বা নিজের বাছা সময়ে কত টাকা আদায় হলো, কত বাতিল হলো আর হাতে নিট কত, তা পদ্ধতি, আদায়কারী, ফির ধরন আর দিন ধরে দেখুন; প্রিন্ট করুন বা সিএসভি নামান।',
+      en: 'See how much money was collected, how much was reversed and the net in hand for a day, week, month or your own dates, by method, collector, fee type and day; print it or download a CSV.',
+    },
+    path: 'reports/collections-report',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'reports.collectionsReport.section.byFeeType': {
+    title: { bn: 'ফি আদায়ের প্রতিবেদন', en: 'Fee collection report' },
+    summary: {
+      bn: 'একটি দিন, সপ্তাহ, মাস বা নিজের বাছা সময়ে কত টাকা আদায় হলো, কত বাতিল হলো আর হাতে নিট কত, তা পদ্ধতি, আদায়কারী, ফির ধরন আর দিন ধরে দেখুন; প্রিন্ট করুন বা সিএসভি নামান।',
+      en: 'See how much money was collected, how much was reversed and the net in hand for a day, week, month or your own dates, by method, collector, fee type and day; print it or download a CSV.',
+    },
+    path: 'reports/collections-report',
+    anchor: 'task-main',
+    knownIssues: 0,
   },
   'reports.printables': {
     title: { bn: 'প্রিন্ট ও ডকুমেন্ট', en: 'Print & documents' },

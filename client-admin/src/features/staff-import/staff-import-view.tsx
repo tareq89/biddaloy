@@ -216,17 +216,20 @@ function PreviewSummary({
         <span>{t('summary.willRestore', { count: summary.restore })}</span>
         <span>{t('summary.willSkip', { count: summary.skip })}</span>
       </div>
-      <label
-        htmlFor="staff-import-send-invitations"
-        className="flex min-h-11 items-center gap-3 md:min-h-8"
-      >
-        <Checkbox
-          id="staff-import-send-invitations"
-          checked={sendInvitations}
-          onCheckedChange={(checked) => onSendInvitationsChange(checked === true)}
-        />
-        {t('sendInvitations')}
-      </label>
+      <div className="flex items-center gap-2">
+        <label
+          htmlFor="staff-import-send-invitations"
+          className="flex min-h-11 items-center gap-3 md:min-h-8"
+        >
+          <Checkbox
+            id="staff-import-send-invitations"
+            checked={sendInvitations}
+            onCheckedChange={(checked) => onSendInvitationsChange(checked === true)}
+          />
+          {t('sendInvitations')}
+        </label>
+        <HelpHint helpId="people.staffImport.field.sendInvitations" />
+      </div>
       {shown.length > 0 && (
         <>
           <table className="w-full text-start">

@@ -266,6 +266,7 @@ function CalendarPage() {
         actions={[
           {
             id: 'holidays',
+            helpId: 'people.calendar.action.governmentHolidays',
             label: t('page.governmentHolidays'),
             icon: <FlagIcon />,
             priority: 'secondary',
@@ -292,6 +293,7 @@ function CalendarPage() {
           },
           {
             id: 'clone',
+            helpId: 'people.calendar.action.clone',
             label: tImport('toolbar.clone'),
             icon: <CopyIcon />,
             priority: 'tertiary',
