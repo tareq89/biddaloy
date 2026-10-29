@@ -15,7 +15,9 @@ import { routeTree } from '../../../../routeTree.gen';
 
 /** The Guardians tab, mounted through the real `/students/$studentId` route. */
 describe('students/-detail/guardians-tab', () => {
+  const listUrls: string[] = [];
   afterEach(async () => {
+    listUrls.length = 0;
     await cleanupTestState();
   });
 
@@ -38,14 +40,15 @@ describe('students/-detail/guardians-tab', () => {
     server.use(
       http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
       http.get('/api/v1/students/:studentId/promotion-overrides', () => HttpResponse.json([])),
-      http.get('/api/v1/attendance/arrival-subscriptions', () =>
-        listStatus === 200
+      http.get('/api/v1/attendance/arrival-subscriptions', ({ request }) => {
+        listUrls.push(request.url);
+        return listStatus === 200
           ? HttpResponse.json(subs)
           : HttpResponse.json(
               apiErrorBody(listStatus, 'no', '/api/v1/attendance/arrival-subscriptions'),
               { status: listStatus },
-            ),
-      ),
+            );
+      }),
     );
     return renderWithRouter(routeTree, {
       initialEntries: ['/students/student-1?tab=guardians'],
@@ -96,6 +99,12 @@ describe('students/-detail/guardians-tab', () => {
       channel: 'PUSH',
       lock,
       consumed_at: null,
+      declined_at: null,
+      notifications_enabled: true,
+      set_by_name: null,
+      set_at: null,
+      locked_by_name: null,
+      locked_at: null,
       updated_at: '2026-10-20T08:00:00.000Z',
       ...over,
     });
@@ -175,9 +184,75 @@ describe('students/-detail/guardians-tab', () => {
       expect(screen.queryByRole('button', { name: 'Arrival notice for Karim Uddin' })).toBeNull();
     });
 
-    it('shows the last change date', async () => {
+    it('shows who set the row and who locked it, with dates', async () => {
+      renderGuardians('ADMIN', [
+        sub('NEVER', {
+          set_by_name: 'Nusrat Teacher',
+          set_at: '2026-10-20T08:00:00.000Z',
+          locked_by_name: 'Principal Rahman',
+          locked_at: '2026-10-21T08:00:00.000Z',
+        }),
+      ]);
+      expect(await screen.findByText(/^Set by Nusrat Teacher on /)).toBeTruthy();
+      expect(screen.getByText(/^Locked by Principal Rahman on /)).toBeTruthy();
+      expect(screen.queryByText(/^Changed on /)).toBeNull();
+    });
+
+    it('says the guardian turned notifications off', async () => {
+      renderGuardians('TEACHER', [sub('NONE', { notifications_enabled: false })]);
+      expect(
+        await screen.findByText('The guardian turned off all notifications. Nothing is sent.'),
+      ).toBeTruthy();
+    });
+
+    it('lets an admin lock Always with no row: creates it, then locks it', async () => {
+      const calls: string[] = [];
+      renderGuardians('ADMIN', []);
+      server.use(
+        http.post('/api/v1/attendance/arrival-subscriptions', () => {
+          calls.push('create');
+          return HttpResponse.json(sub('NONE', { id: 'new-1' }), { status: 201 });
+        }),
+        http.patch(
+          '/api/v1/attendance/arrival-subscriptions/:id/lock',
+          async ({ request, params }) => {
+            calls.push(`lock ${String(params.id)} ${JSON.stringify(await request.json())}`);
+            return HttpResponse.json(sub('NONE'));
+          },
+        ),
+      );
+      const user = await openMenu();
+      const always = await screen.findByRole('menuitem', { name: 'Always' });
+      expect(
+        always.getAttribute('aria-disabled') ?? always.getAttribute('data-disabled'),
+      ).toBeNull();
+      await user.click(always);
+      await waitFor(() => expect(calls).toEqual(['create', 'lock new-1 {"lock":"ALWAYS"}']));
+    });
+
+    it('asks for the one student only (studentId filter)', async () => {
       renderGuardians('TEACHER', [sub('NONE')]);
-      expect(await screen.findByText(/^Changed on /)).toBeTruthy();
+      await screen.findByRole('region', { name: /^Guardians of / });
+      await waitFor(() =>
+        expect(listUrls.some((u) => u.includes('studentId=student-1'))).toBe(true),
+      );
+    });
+
+    it('shows the school-off sentence when a write answers that 409', async () => {
+      renderGuardians('TEACHER', [sub('NONE')]);
+      server.use(
+        http.patch('/api/v1/attendance/arrival-subscriptions/:id', () =>
+          HttpResponse.json(
+            apiErrorBody(409, 'Arrival notices are turned off at this school.', '/x'),
+            { status: 409 },
+          ),
+        ),
+      );
+      const user = await openMenu();
+      await user.click(await screen.findByRole('menuitem', { name: 'Once' }));
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        'Arrival notices are turned off at this school.',
+      );
     });
   });
 });

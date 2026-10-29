@@ -7,6 +7,7 @@ import { Permission } from '@biddaloy/shared';
 import { Button, Card, RowActions, Skeleton, StatusBadge } from '@biddaloy/ui/components';
 import {
   usePatchArrivalSubscription,
+  isArrivalDisabledError,
   useArrivalSubscriptions,
   type StaffArrivalSubscription,
   classPerformanceQueryOptions,
@@ -543,12 +544,17 @@ export function ArrivalNoticesCard({ sectionId }: { sectionId: string }) {
     <>
       <Name>{r.student_name}</Name>
       <span className="block truncate text-caption text-text-secondary">{r.guardian_name}</span>
+      {!r.notifications_enabled && (
+        <span className="block text-caption text-text-secondary">
+          {t('arrival.notificationsOff')}
+        </span>
+      )}
     </>
   );
   const rowError = (id: string) =>
     failedId === id ? (
       <p role="alert" className="mt-1 text-caption text-destructive">
-        {t('arrival.rowError')}
+        {t(isArrivalDisabledError(patch.error) ? 'arrival.disabled' : 'arrival.rowError')}
       </p>
     ) : null;
 

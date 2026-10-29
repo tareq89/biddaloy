@@ -257,8 +257,11 @@
           "clear": "Let the teacher decide"
         },
         "lockedNote": "An admin has fixed this. It cannot be changed here.",
-        "updatedOn": "Changed on {{date}}",
-        "error": "Could not save. Try again."
+        "error": "Could not save. Try again.",
+        "setBy": "Set by {{name}} on {{date}}",
+        "lockedBy": "Locked by {{name}} on {{date}}",
+        "notificationsOff": "The guardian turned off all notifications. Nothing is sent.",
+        "disabled": "Arrival notices are turned off at this school."
       }
     },
     "communication": {
