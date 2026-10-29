@@ -64,7 +64,8 @@ function ChildRow({
             <Switch
               checked={on}
               disabled={locked || put.isPending}
-              onCheckedChange={(want) => send(want, channel)}
+              // A stale SMS choice from before the school switched SMS off would be refused.
+              onCheckedChange={(want) => send(want, smsAllowed ? channel : 'PUSH')}
               aria-label={t('arrivalNotice.switchLabel', { name: child.student_name })}
             />
             <span>{t('arrivalNotice.want')}</span>

@@ -73,8 +73,9 @@ function MyClassSectionPage() {
     if (!resolvedId) return;
     if (then === 'arrival') document.getElementById('my-class-arrival')?.focus();
     else attendanceRef.current?.focus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `then` is read on first focus only
-  }, [resolvedId]);
+    // A count refetch keeps the id and `then`, so it never moves focus; a palette jump to
+    // `?then=arrival` on the section already open does.
+  }, [resolvedId, then]);
 
   if (query.isError && !section) {
     return (

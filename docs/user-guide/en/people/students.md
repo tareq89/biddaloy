@@ -424,7 +424,7 @@ On the student's **Guardians** tab, the **Arrival notice** column shows each gua
 
    → The mark changes. If it fails you see **Could not save. Try again.**
 
-Only an admin sees the second group in the menu: **Always** (fixes the notice on), **Never** (fixes it off) and **Let the teacher decide** (takes the admin's choice away again). While **Always** or **Never** is set, **Once**, **Every day** and **Stop** are greyed out, and the note **An admin has fixed this. It cannot be changed here.** shows under the mark. **Always** and **Never** work only on a guardian who has already asked; for others they are greyed out. If you cannot see the three-dot button, your role may not change arrival notices.
+Only an admin sees the second group in the menu: **Always** (fixes the notice on), **Never** (fixes it off) and **Let the teacher decide** (takes the admin's choice away again). While **Always** or **Never** is set, **Once**, **Every day** and **Stop** are greyed out, and the note **An admin has fixed this. It cannot be changed here.** shows under the mark. **Always** and **Never** work on any guardian who already has an arrival notice, whether they asked or staff added it; for a guardian with none they are greyed out. If you cannot see the three-dot button, your role may not change arrival notices.
 
 A request from a guardian waits for the class teacher, who answers it in [**My class**](../academics/my-class.md#task-arrival). Setting **Once** or **Every day** here answers it yourself.
 

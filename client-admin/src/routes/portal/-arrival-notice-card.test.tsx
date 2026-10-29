@@ -67,6 +67,24 @@ describe('ArrivalNoticeCard', () => {
     expect(why.closest('fieldset')).toBeNull();
   });
 
+  it('turns a switched-off SMS row back on by app once the school stopped SMS', async () => {
+    const puts: unknown[] = [];
+    mock(
+      [
+        {
+          student_id: 'kid-a',
+          student_name: 'Fatima',
+          subscription: sub({ status: 'OFF', channel: 'SMS' }),
+        },
+      ],
+      { enabled: true, smsAllowed: false },
+      puts,
+    );
+    renderPortalCard(<ArrivalNoticeCard />);
+    await userEvent.click(await screen.findByRole('switch', { name: /Fatima/ }));
+    await waitFor(() => expect(puts).toEqual([{ want: true, channel: 'PUSH' }]));
+  });
+
   it('disables the switch under a NEVER lock', async () => {
     mock([
       {

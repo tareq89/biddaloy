@@ -262,6 +262,9 @@ describe('AttendanceSection', () => {
       enabled: false,
       smsAllowed: false,
     });
+    // The form keeps the saved value, so switching notices back on shows SMS unticked.
+    await user.click(screen.getByLabelText('Send arrival notices'));
+    expect(isChecked(screen.getByLabelText('Allow SMS for arrival notices'))).toBe(false);
   });
 
   it('shows a translated error, never the server text, when the save fails', async () => {

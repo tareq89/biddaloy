@@ -80,11 +80,12 @@ export function usePortalArrivalSubscriptions() {
 function useInvalidateArrival() {
   const qc = useQueryClient();
   // My class shows `arrival_request_count`, so it goes stale on a confirm or decline too.
-  return () =>
-    Promise.all([
-      qc.invalidateQueries({ queryKey: arrivalSubscriptionKeys.all }),
-      qc.invalidateQueries({ queryKey: myClassKeys.all }),
-    ]);
+  // Only the arrival list is awaited: a slow sections refetch must not hold up the caller's
+  // own onSuccess (the card moves focus there once the answered row has left the list).
+  return () => {
+    void qc.invalidateQueries({ queryKey: myClassKeys.all });
+    return qc.invalidateQueries({ queryKey: arrivalSubscriptionKeys.all });
+  };
 }
 
 export function useCreateArrivalSubscription() {

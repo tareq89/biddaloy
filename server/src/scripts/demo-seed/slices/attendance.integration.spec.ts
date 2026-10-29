@@ -109,6 +109,15 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
     const t0 = Date.now();
     await slice.run(ctx);
     console.log(`attendance slice: ${Date.now() - t0} ms`);
+    // The comms slice tops up SMS credit (GRANT + balance) before arrivalLogs debits it.
+    for (const sql of [
+      `INSERT INTO sms_credit_ledger (tenant_id, kind, units, reference_type, idempotency_key)
+       SELECT id, 'GRANT', 1000, 'manual', 'test-grant' FROM schools WHERE slug LIKE 'bmsc-%'`,
+      `INSERT INTO sms_credit_balance (tenant_id, available, reserved)
+       SELECT id, 1000, 0 FROM schools WHERE slug LIKE 'bmsc-%'`,
+    ]) {
+      await ds.query(sql);
+    }
     await arrivalLogs(ctx); // [84.3.6] reads the subscriptions and records just seeded
   }, 600_000);
 
@@ -357,5 +366,13 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
       [card.email],
     );
     expect(own).toHaveLength(2);
+    // SMS arrival messages spend credit: ledger and balance still agree, and something was spent.
+    const credit: { available: number; ledger: number }[] = await q(
+      `SELECT b.available, (SELECT sum(CASE WHEN l.kind = 'GRANT' THEN l.units ELSE -l.units END)
+                              FROM sms_credit_ledger l WHERE l.tenant_id = b.tenant_id)::int AS ledger
+         FROM sms_credit_balance b`,
+    );
+    expect(credit.every((c) => c.available === c.ledger)).toBe(true);
+    expect(credit.some((c) => c.available < 1000)).toBe(true);
   }, 120_000);
 });

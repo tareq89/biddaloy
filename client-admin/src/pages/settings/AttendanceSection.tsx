@@ -276,7 +276,13 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
     }
     updateSettings.mutate(
       { version: 1, attendance: policy },
-      { onSuccess: () => form.reset(values, { keepIsSubmitSuccessful: true }) },
+      {
+        onSuccess: () =>
+          form.reset(
+            { ...values, arrivalSmsAllowed: policy.arrivalNotice?.smsAllowed ?? false },
+            { keepIsSubmitSuccessful: true },
+          ),
+      },
     );
   }
 

@@ -843,7 +843,7 @@ marked in. One row per (student, guardian) in `arrival_notice_subscriptions`.
 
 ```mermaid
 flowchart LR
-  R[Register finalized / device punch] --> S[ACTIVE subscriptions of the present students]
+  R[Whole-day register finalized via PUT register / device punch] --> S[ACTIVE subscriptions of the present students]
   S --> N[arrival-notice.service]
   N --> L[communication_logs ARRIVAL_NOTICE<br/>reference_key dedupes the day]
   L --> Q[queue]
@@ -886,12 +886,12 @@ Deleting the student or guardian deletes the row.
 
 ### Who may do what
 
-| Who                                         | Can do                                                  | Route                                              |
-| ------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
-| Guardian (role `PARENT`) of the child       | Ask, or switch off, for their own linked children       | `GET` and `PUT /portal/arrival-subscriptions`      |
-| Class teacher (own section only)            | List, add, confirm or decline a row                     | `/attendance/arrival-subscriptions`                |
-| `ADMIN` or `EXECUTIVE` (any section)        | The same, school-wide, from a student's Guardians tab   | `/attendance/arrival-subscriptions`                |
-| Admin with `ATTENDANCE_ARRIVAL_NOTICE_LOCK` | Set a lock (`ALWAYS` or `NEVER`); only `ADMIN` holds it | `PATCH /attendance/arrival-subscriptions/:id/lock` |
+| Who                                         | Can do                                                  | Route                                                                               |
+| ------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Guardian (role `PARENT`) of the child       | Ask, or switch off, for their own linked children       | `GET /portal/arrival-subscriptions`, `PUT /portal/arrival-subscriptions/:studentId` |
+| Class teacher (own section only)            | List, add, confirm or decline a row                     | `/attendance/arrival-subscriptions`                                                 |
+| `ADMIN` or `EXECUTIVE` (any section)        | The same, school-wide, from a student's Guardians tab   | `/attendance/arrival-subscriptions`                                                 |
+| Admin with `ATTENDANCE_ARRIVAL_NOTICE_LOCK` | Set a lock (`ALWAYS` or `NEVER`); only `ADMIN` holds it | `PATCH /attendance/arrival-subscriptions/:id/lock`                                  |
 
 A lock beats the guardian: under `NEVER` the guardian cannot ask, under
 `ALWAYS` they cannot switch off or choose "once". `ALWAYS` rewrites the row to
