@@ -15,6 +15,9 @@ export function buildRuntimeConfig(env: Record<string, string | undefined>) {
     release: env.APP_VERSION ?? '',
     // [87 D8] the test inbox link, only where the sink is on
     messageSinkUrl: env.MESSAGE_SINK === 'mailpit' ? (env.MESSAGE_SINK_PUBLIC_URL ?? '') : '',
+    // [88 U5, D9] the staging ribbon: "DEV" or "STAGING" plus its data date; empty on prod
+    envBadge: env.ENV_BADGE ?? '',
+    envBadgeDate: env.ENV_BADGE_DATE ?? '',
   };
 }
 
