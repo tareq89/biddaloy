@@ -261,6 +261,8 @@ describe('runStackConfigCheck', () => {
     const notProvider = new Set([
       'NODE_ENV',
       'ENV_NAME',
+      'ENV_BADGE',
+      'ENV_BADGE_DATE',
       'MESSAGE_SINK',
       'MESSAGE_SINK_PUBLIC_URL',
       'MESSAGE_SINK_SMTP_URL', // fixed to this stack's mailpit by stack.yml, not an operator value
