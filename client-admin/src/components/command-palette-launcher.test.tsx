@@ -151,6 +151,22 @@ describe('CommandPaletteLauncher', () => {
     await waitFor(() => expect(screen.queryByRole('option', { name: 'Add student' })).toBeNull());
   });
 
+  it('Action tab finds the arrival-notice action by its synonyms', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+    const input = screen.getByRole('combobox', { name: 'Search' });
+    await user.type(input, '>reached school');
+
+    expect(await screen.findByRole('option', { name: 'Arrival notice requests' })).toBeTruthy();
+  });
+
   it('Action tab lists "Switch demo role" only in the demo, and it signs out to /login', async () => {
     let signedOut = false;
     server.use(

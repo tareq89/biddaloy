@@ -360,7 +360,7 @@ export function CommandPaletteLauncher({
               (action.permission === null || hasPermission(activeRole, action.permission)) &&
               (action.id !== HELP_ACTION_ID || helpHref !== null) &&
               (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
-              action.label[locale].toLowerCase().includes(trimmedQuery),
+              matchesNavSearch(action.label[locale], action.synonyms, trimmedQuery),
           )
           .map(toActionRow),
         trimmedQuery,
@@ -377,7 +377,8 @@ export function CommandPaletteLauncher({
               (action) =>
                 action.group === group.id &&
                 (action.permission === null || hasPermission(activeRole, action.permission)) &&
-                action.label[locale].toLowerCase().includes(trimmedQuery),
+                (action.alsoRequires ?? []).every((p) => hasPermission(activeRole, p)) &&
+                matchesNavSearch(action.label[locale], action.synonyms, trimmedQuery),
             )
             .map(toActionRow),
           trimmedQuery,
