@@ -115,6 +115,8 @@
         owner: root
         group: root
         mode: '0644'
+      # deploy.yml recreates cloudflared when this or the credentials changed.
+      register: cloudflared_config
       vars:
         tunnel_id: '{{ secret_env.edge.CLOUDFLARE_TUNNEL_ID }}'
         cf_access_team: '{{ secret_env.edge.CF_ACCESS_TEAM }}'
@@ -130,6 +132,7 @@
         owner: '65532'
         group: '65532'
         mode: '0400'
+      register: cloudflared_credentials
       diff: false
       no_log: true
       when: edge_mode == 'tunnel'

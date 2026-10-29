@@ -1091,6 +1091,17 @@ and `inbox-staging` added to the `Staging` Access app. `inbox-demo` is public on
 ssh deploy@203.0.113.10 "biddaloy-deploy edge <sha>"
 ```
 
+The edge deploy recreates cloudflared when the tunnel config changed, so the two new hostnames
+reach nginx. The tunnel, prod included, drops for a few seconds.
+
+> **Edge deployed before this fix?** Then the config on the VM may already have the inbox
+> hosts while cloudflared still runs the old one, and an inbox host answers an empty `404`. The
+> next edge deploy sees no change, so restart it once by hand:
+>
+> ```bash
+> ssh deploy@203.0.113.10 'docker restart $(docker ps -qf name=cloudflared)'
+> ```
+
 **5. Deploy the stacks.** The deploy starts mailpit itself; no manual `docker compose` needed.
 
 ```bash

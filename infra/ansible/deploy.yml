@@ -16,7 +16,8 @@
 #   -> db redis seaweedfs -> first rebuild (demo, fresh host only) -> app (prod: app, then app2)
 #   -> the rest -> smoke -> keep stack.yml -> log.
 # Order, edge: preflight -> networks -> env -> copy nginx/ to edge/release.new -> nginx -t on it
-#   -> pull -> release.new becomes edge/release (what nginx mounts) -> up -> nginx recreate.
+#   -> pull -> release.new becomes edge/release (what nginx mounts) -> up -> nginx recreate
+#   -> cloudflared recreate (tunnel mode, only when its config or credentials changed).
 # Order, ops: preflight -> networks -> env -> pull -> up.
 # Host scripts never read the live checkout for a running stack: edge nginx mounts edge/release,
 # and nightly / doctor / restore-prod use <stack>/stack.yml, both copied only by an ok deploy.
@@ -95,6 +96,10 @@
       [.env, cloudflared/config.yml, cloudflared/credentials.json, htpasswd, dozzle/users.yml]
     saved_files: []
     release_swapped: false
+    # write-env registers both tunnel files (edge, tunnel mode); skipped elsewhere, so false.
+    tunnel_files_changed: >-
+      {{ (cloudflared_config | default({})) is changed or (cloudflared_credentials | default({})) is changed }}
+    cloudflared_recreated: false
     # The compose command above on one line, for the `Next:` hints (runnable as printed).
     dc_hint: "{{ dc.split() | join(' ') }}"
     deploy_status: failed
@@ -374,6 +379,21 @@
           changed_when: true
           when: stack == 'edge' and not ansible_check_mode
 
+        # cloudflared reads its tunnel config only when it starts, and the config is a bind mount,
+        # so `up` does not recreate it and a new hostname gets cloudflared's catch-all 404.
+        # Recreate it only when write-env changed the config or the credentials, because the
+        # tunnel (prod included) drops for a few seconds. After nginx: it waits for nginx.
+        - name: Step is the cloudflared recreate
+          ansible.builtin.set_fact:
+            fail_ctx:
+              { step: cloudflared-recreate, next: '{{ dc_hint }} logs --tail 200 cloudflared' }
+            cloudflared_recreated: true
+          when: stack == 'edge' and edge_mode == 'tunnel' and tunnel_files_changed | bool and not ansible_check_mode
+        - name: Recreate cloudflared so it reads the new tunnel config (edge)
+          ansible.builtin.command: '{{ dc }} up -d --wait --wait-timeout 60 --no-deps --force-recreate cloudflared'
+          changed_when: true
+          when: stack == 'edge' and edge_mode == 'tunnel' and tunnel_files_changed | bool and not ansible_check_mode
+
         - name: Step is the smoke test
           ansible.builtin.set_fact:
             fail_ctx:
@@ -483,6 +503,11 @@
               ansible.builtin.command: '{{ dc_rollback }} up -d --wait --wait-timeout 120 --no-deps --force-recreate nginx'
               changed_when: true
               when: stack == 'edge' and release_swapped | bool
+            # The old config.yml is back on disk; a cloudflared already on the new one rereads it.
+            - name: Recreate cloudflared on the previous tunnel config (edge)
+              ansible.builtin.command: '{{ dc_rollback }} up -d --wait --wait-timeout 60 --no-deps --force-recreate cloudflared'
+              changed_when: true
+              when: stack == 'edge' and cloudflared_recreated | bool
             - name: Note the rollback
               ansible.builtin.set_fact:
                 deploy_status: rolled-back
