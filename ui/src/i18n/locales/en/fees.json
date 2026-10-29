@@ -420,7 +420,7 @@
     }
   },
   "help": {
-    "flagged": "Shows only the students who have a fee past its reminder date. Leave it off to see everyone with dues.",
+    "flagged": "Shows students with a fee past its due date. Leave it off to see everyone with dues.",
     "rule": "Every month on a day you pick (or the last day), or every week on the days you pick.",
     "dueDays": "How many days after the period starts the bill is due. A number from 0 to 60.",
     "audience": "The whole school, or one class, section or program. Only students who are enrolled now are billed."

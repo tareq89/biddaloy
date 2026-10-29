@@ -186,9 +186,9 @@ For other roles, **Student dues** is not in the left menu.
 
 <!-- guide:generated:fields:fees:flagged -->
 
-| Field        | What to enter                                                                                          | Required? |
-| ------------ | ------------------------------------------------------------------------------------------------------ | --------- |
-| Overdue only | Shows only the students who have a fee past its reminder date. Leave it off to see everyone with dues. | No        |
+| Field        | What to enter                                                                        | Required? |
+| ------------ | ------------------------------------------------------------------------------------ | --------- |
+| Overdue only | Shows students with a fee past its due date. Leave it off to see everyone with dues. | No        |
 
 <!-- /guide:generated -->
 
