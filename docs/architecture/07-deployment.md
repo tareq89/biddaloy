@@ -484,7 +484,7 @@ flowchart LR
 
 - Hostname: `staging.<domain>`, `X-Robots-Tag: noindex`, outer login as above.
 - Data: replaced every night from the 02:00 prod daily backup; see
-  [13-backup-restore.md](13-backup-restore.md#the-nightly-staging-refresh-is-the-restore-drill).
+  [13-backup-restore.md](13-backup-restore.md#the-nightly-restore-drill-proves-restores).
 - Logins: every user has the one `STAGING_PASSWORD`. Platform super admins and
   the "Smoke Test School" users keep their email (D20), so the smoke test can
   sign in.

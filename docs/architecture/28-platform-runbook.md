@@ -320,7 +320,7 @@ The staging inbox has **one** login, the Access app above (basic auth in direct 
 itself has none. This is a written exception to Rule 12
 ([08-security](08-security.md#rule-12-the-origin-is-reachable-only-through-the-edge)): anyone
 past Access can read and delete every staging sign-in code and reset link. So keep staging free
-of real contacts except your own: the staging refresh keeps the platform admins' and the smoke
+of real contacts except your own: the restore drill and any staging load keep the platform admins' and the smoke
 school admin's emails, and those must be your addresses.
 
 **If it fails.** Open `https://staging.schoolmanagerp.com` in a private window after part 10:
@@ -800,7 +800,7 @@ Every key of the five example files. "From" says which part gives you the value.
 | `BACKUP_S3_ACCESS_KEY_ID`            | `staging.enc.env` | part 4               | R2 token 1 (prod, read+write) or token 2 (staging, read-only)                     |
 | `BACKUP_S3_SECRET_ACCESS_KEY`        | `staging.enc.env` | part 4               | same token as the key id above                                                    |
 | `BACKUP_PUSH_URL`                    | `staging.enc.env` | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                |
-| `STAGING_REFRESH_PUSH_URL`           | `staging.enc.env` | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                |
+| `RESTORE_DRILL_PUSH_URL`             | `staging.enc.env` | part 11              | `https://kuma.schoolmanagerp.com/api/push/<token>`                                |
 | `SENTRY_CRON_MONITOR_URL`            | `staging.enc.env` | part 6               | Sentry cron monitor check-in URL (optional)                                       |
 | `BACKUP_SCHEDULE`                    | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
 | `BACKUP_RETENTION_DAYS`              | `staging.enc.env` | the deploy / default | leave empty (default in `deploy/stack.yml`)                                       |
@@ -1270,12 +1270,12 @@ the token from it and build `https://kuma.schoolmanagerp.com/api/push/<token>` (
 public URL, so the VM's timers and containers can reach it; the Access bypass from 4d
 makes it work).
 
-| Monitor name              | Interval | Retries / grace | Token goes to                                            |
-| ------------------------- | -------- | --------------- | -------------------------------------------------------- |
-| `backup-hourly`           | 3600 s   | 900 s grace     | `prod.enc.env` `BACKUP_PUSH_URL`                         |
-| `staging-refresh-nightly` | 86400 s  | 3600 s grace    | `staging.enc.env` `STAGING_REFRESH_PUSH_URL`             |
-| `demo-rebuild-nightly`    | 86400 s  | 3600 s grace    | `demo.enc.env` `DEMO_RESET_PUSH_URL`                     |
-| `log-archive-nightly`     | 86400 s  | 3600 s grace    | `prod.enc.env` and `edge.enc.env` `LOG_ARCHIVE_PUSH_URL` |
+| Monitor name           | Interval | Retries / grace | Token goes to                                            |
+| ---------------------- | -------- | --------------- | -------------------------------------------------------- |
+| `backup-hourly`        | 3600 s   | 900 s grace     | `prod.enc.env` `BACKUP_PUSH_URL`                         |
+| `restore-drill`        | 93600 s  | none (26 h)     | `staging.enc.env` `RESTORE_DRILL_PUSH_URL`               |
+| `demo-rebuild-nightly` | 86400 s  | 3600 s grace    | `demo.enc.env` `DEMO_RESET_PUSH_URL`                     |
+| `log-archive-nightly`  | 86400 s  | 3600 s grace    | `prod.enc.env` and `edge.enc.env` `LOG_ARCHIVE_PUSH_URL` |
 
 `staging.enc.env` also has `BACKUP_PUSH_URL`: leave it empty or give it its own push
 monitor (the staging backup container pushes to it).
@@ -1412,18 +1412,18 @@ flag: `--skip-backup` skips the pre-deploy prod backup (only if you accept the r
 
 All times are Asia/Dhaka. Each ends in one Kuma push, so a silent failure turns into an alert.
 
-| Time       | Job                                                 | Kuma monitor              |
-| ---------- | --------------------------------------------------- | ------------------------- |
-| every hour | prod backup to R2 (02:00 also keeps the daily copy) | `backup-hourly`           |
-| 02:20      | staging refresh (restore, scrub, migrate, swap)     | `staging-refresh-nightly` |
-| 03:00      | demo rebuild                                        | `demo-rebuild-nightly`    |
-| 04:00      | log archive to R2                                   | `log-archive-nightly`     |
+| Time       | Job                                                  | Kuma monitor           |
+| ---------- | ---------------------------------------------------- | ---------------------- |
+| every hour | prod backup to R2 (02:00 also keeps the daily copy)  | `backup-hourly`        |
+| 02:20      | restore drill (restore, scrub, migrate, smoke, drop) | `restore-drill`        |
+| 03:00      | demo rebuild                                         | `demo-rebuild-nightly` |
+| 04:00      | log archive to R2                                    | `log-archive-nightly`  |
 
 Run one by hand and read its result:
 
 ```bash
 ssh deploy@203.0.113.10
-sudo systemctl start biddaloy-nightly@staging-refresh.service    # or demo-rebuild, log-archive
+sudo systemctl start biddaloy-nightly@restore-drill.service    # or demo-rebuild, log-archive
 journalctl -u 'biddaloy-nightly@*' --since today --no-pager | tail -20
 systemctl list-timers 'biddaloy-nightly@*'
 ```
