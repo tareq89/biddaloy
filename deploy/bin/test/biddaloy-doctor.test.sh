@@ -10,13 +10,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCTOR="$HERE/../biddaloy-doctor"
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
-BIN="$T/bin"; ROOT="$T/root"; mkdir -p "$BIN" "$ROOT"
+BIN="$T/bin"; ROOT="$T/root"; mkdir -p "$BIN" "$ROOT" "$ROOT/staging"
 SHA="$(printf 'a%.0s' {1..40})"
 TOKEN="FAKE-HEALTH-TOKEN-0123456789"
 PASS=0; FAIL=0
 
 # Real tools the doctor needs, linked into the private PATH (jq only if the machine has it).
-for t in bash env awk sed grep sort tail head tr wc date cat tee dirname readlink rm jq python3; do
+for t in stat bash env awk sed grep sort tail head tr wc date cat tee dirname readlink rm jq python3; do
   p="$(command -v "$t" 2>/dev/null)" && ln -s "$p" "$BIN/$t"
 done
 
@@ -75,6 +75,7 @@ defaults() {
   export PS_LINES="edge-nginx-1|Up 2 hours (healthy)\nedge-landing-1|Up 2 hours (healthy)\nedge-cloudflared-1|Up 2 hours (healthy)\nstaging-mailpit-1|Up 2 hours (healthy)\ndemo-mailpit-1|Up 2 hours (healthy)\n"
   export BACKUP_LS="$(key_ago 10)"
   set_mode tunnel
+  echo "2026-10-29T02:30:00+0600 duration=420s schools=1 users=2 students=3" >"$ROOT/staging/last-drill"
 }
 
 OUT=""; RC=0
@@ -122,6 +123,20 @@ defaults; export NIGHTLY_RESULT=exit-code; run
 check "nightly result FAIL" row "nightly demo-rebuild" FAIL
 defaults; export NIGHTLY_LOAD=not-found; run
 check "missing nightly unit WARN" row "nightly demo-rebuild" WARN
+
+# --- restore drill record (88 D13): fresh OK, stale WARN, missing WARN ----------------------------------
+drill_file() { # <hours old>
+  echo "2026-10-29T02:30:00+0600 duration=420s schools=1 users=2 students=3" >"$ROOT/staging/last-drill"
+  python3 -c 'import os,sys,time; t=time.time()-int(sys.argv[2])*3600; os.utime(sys.argv[1],(t,t))' "$ROOT/staging/last-drill" "$1"
+}
+defaults; drill_file 3; run
+check "fresh drill file OK" row "restore drill" OK
+defaults; drill_file 30; run
+check "stale drill file WARN" row "restore drill" WARN
+defaults; rm -f "$ROOT/staging/last-drill"; run
+check "missing drill file WARN" row "restore drill" WARN
+defaults; run
+check "no staging-refresh unit expected" nrow "nightly staging-refresh"
 
 # --- backup age (OK <=70, WARN 71..130, FAIL >130) ----------------------------------------------------
 for c in "69 OK 0" "71 WARN 1" "129 WARN 1" "131 FAIL 2"; do
