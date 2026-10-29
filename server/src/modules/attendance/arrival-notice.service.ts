@@ -337,9 +337,17 @@ export class ArrivalNoticeService {
       // Conditional on QUEUED + unclaimed: the add may have landed just before the timeout and a
       // worker may already own the log. Then the worker settles it; leave credit and key alone.
       this.logger.warn(`Failed to enqueue arrival log ${log.id}: ${String(error)}`);
-      if (!(await failUnclaimedLog(repo, log.id, 'Failed to enqueue for delivery'))) {
-        return 'QUEUED';
+      let failed: boolean;
+      try {
+        failed = await failUnclaimedLog(repo, tenantId, log.id, 'Failed to enqueue for delivery');
+      } catch (dbError) {
+        // The log may stay QUEUED with its key and credit held: make it loud for reconciliation.
+        this.logger.error(
+          `needs_reconciliation: could not fail arrival log ${log.id} after an enqueue error: ${String(dbError)}`,
+        );
+        return ArrivalSkipReason.ENQUEUE_FAILED;
       }
+      if (!failed) return 'QUEUED';
       if (credit.segments !== undefined) {
         await this.smsCreditService.releaseForLog(tenantId, log.id, credit.segments);
       }

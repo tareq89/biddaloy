@@ -54,6 +54,7 @@ describe('CommunicationsProcessor', () => {
     } = {},
   ) {
     return {
+      id: 'job-1',
       name: undefined,
       data: {
         logId: 'log-1',
@@ -873,6 +874,7 @@ describe('CommunicationsProcessor', () => {
         await processor.process({ ...job(), id: 'job-7' });
         expect(repo.query).toHaveBeenCalledWith(expect.stringContaining('claimed_by'), [
           'log-1',
+          'tenant-1',
           'job-7',
         ]);
         expect(txManager.save).toHaveBeenCalledWith(

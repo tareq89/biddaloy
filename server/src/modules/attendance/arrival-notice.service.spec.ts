@@ -63,6 +63,7 @@ describe('ArrivalNoticeService', () => {
   let credits: { reserveForLog: ReturnType<typeof vi.fn>; releaseForLog: ReturnType<typeof vi.fn> };
   let update: ReturnType<typeof vi.fn>;
   let failRows: unknown[]; // rows the conditional FAILED update returns (empty = a worker claimed)
+  let queryCalls: unknown[][];
   let smsAllowed: boolean;
   let service: ArrivalNoticeService;
 
@@ -84,6 +85,7 @@ describe('ArrivalNoticeService', () => {
     smsAllowed = true;
     update = vi.fn();
     failRows = [{ id: 'L' }];
+    queryCalls = [];
     queue = { add: vi.fn().mockResolvedValue(undefined) };
     credits = {
       reserveForLog: vi.fn().mockResolvedValue({ batchId: 'L', segments: 1 }),
@@ -103,7 +105,10 @@ describe('ArrivalNoticeService', () => {
         CommunicationLog,
         {
           create: (x: any) => ({ id: 'L', ...x }),
-          query: async () => [failRows, failRows.length],
+          query: async (...args: unknown[]) => {
+            queryCalls.push(args);
+            return [failRows, failRows.length];
+          },
           save: async (x: any) => {
             if (saveError) throw saveError;
             saved.push({ ...x });
@@ -265,6 +270,10 @@ describe('ArrivalNoticeService', () => {
     expect(r.skipped[0].reason).toBe(ArrivalSkipReason.ENQUEUE_FAILED);
     expect(credits.releaseForLog).toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
+    // the FAILED transition is the conditional UPDATE, scoped to this log and tenant
+    expect(queryCalls).toHaveLength(1);
+    expect(String(queryCalls[0][0])).toContain("claimed_by' IS NULL");
+    expect(queryCalls[0][1]).toEqual(['L', 'tenant-1', expect.any(String)]);
   });
 
   it('add times out but a worker already claimed the log: no FAILED, no credit release, counted queued', async () => {
