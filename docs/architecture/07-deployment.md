@@ -173,12 +173,12 @@ writes `:main`, so `:main` always means "what is merged". Deploy that SHA with
 [30-deployment-target.md](30-deployment-target.md)). The pull login is the `GHCR_PULL_USER` /
 `GHCR_PULL_TOKEN` pair in `edge.enc.env` (a token with only `read:packages`).
 
-| Image                                 | Built from                                                                                  | Used by                                                              |
-| ------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `ghcr.io/tareq89/biddaloy-app`        | `Dockerfile`                                                                                | `app`, `app2`, and one-off `config-check`, `migrate`, smoke          |
-| `ghcr.io/tareq89/biddaloy-backup`     | `scripts/backup/Dockerfile`                                                                 | prod `backup`, and the `jobs` service (staging refresh, log archive) |
-| `ghcr.io/tareq89/biddaloy-demo-reset` | `scripts/demo/Dockerfile` (`FROM` the app image, plus `db-swap.sh` from the backup context) | `demo-reset`                                                         |
-| `ghcr.io/tareq89/biddaloy-landing`    | `landing/`                                                                                  | `landing`                                                            |
+| Image                                 | Built from                                                                                  | Used by                                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `ghcr.io/tareq89/biddaloy-app`        | `Dockerfile`                                                                                | `app`, `app2`, and one-off `config-check`, `migrate`, smoke                         |
+| `ghcr.io/tareq89/biddaloy-backup`     | `scripts/backup/Dockerfile`                                                                 | prod `backup`, and the `jobs` service (staging load and restore drill, log archive) |
+| `ghcr.io/tareq89/biddaloy-demo-reset` | `scripts/demo/Dockerfile` (`FROM` the app image, plus `db-swap.sh` from the backup context) | `demo-reset`                                                                        |
+| `ghcr.io/tareq89/biddaloy-landing`    | `landing/`                                                                                  | `landing`                                                                           |
 
 Example: `APP_VERSION=3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b` in
 `/opt/biddaloy/prod/.env` runs `ghcr.io/tareq89/biddaloy-app:3f9c2ab4e1d07a5b6c8f9e0d1a2b3c4d5e6f7a8b`.
@@ -471,7 +471,7 @@ forward migration, not a rollback. The step-by-step version is in
 ## Staging
 
 Staging is the same stack as prod, in its own project (`staging`), on the
-same VM. It runs yesterday's prod data, scrubbed, so a change meets real
+same VM. It can run a scrubbed copy of a prod backup, so a change meets real
 shapes of data before prod does. It can never message a real person: the
 scrub removes contacts and provider keys, and `config-check --env staging`
 refuses a staging file that points at prod's database or bucket.
@@ -481,12 +481,16 @@ flowchart LR
   O[owner] -->|"Access login (tunnel)<br/>or basic auth (direct)"| E[edge nginx]
   E -->|"staging-app:3000"| SA[staging app]
   SA --> SD[("biddaloy_staging")]
-  R2[("R2 daily backup")] -->|"02:20 nightly refresh, scrubbed"| SD
+  R2[("R2 backups")] -->|"biddaloy-staging load, scrubbed"| SD
 ```
 
 - Hostname: `staging.<domain>`, `X-Robots-Tag: noindex`, outer login as above.
-- Data: replaced every night from the 02:00 prod daily backup; see
-  [13-backup-restore.md](13-backup-restore.md#the-nightly-restore-drill-proves-restores).
+- Data: two databases. `biddaloy_staging_dev` (empty, the default) and `biddaloy_staging`
+  (a scrubbed prod backup you load by hand with `biddaloy-staging load`). A nightly drill at
+  02:20 restores the newest daily backup into a throwaway database to prove restores work; it
+  never touches either one. Commands and examples:
+  [28-platform-runbook.md](28-platform-runbook.md#staging-dev-staging-and-the-nightly-drill);
+  the drill itself: [13-backup-restore.md](13-backup-restore.md#the-nightly-restore-drill-proves-restores).
 - Logins: every user has the one `STAGING_PASSWORD`. Platform super admins and
   the "Smoke Test School" users keep their email (D20), so the smoke test can
   sign in.

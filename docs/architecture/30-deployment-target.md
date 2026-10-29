@@ -8,7 +8,7 @@
 > | ----------------------------------------------------------------- | ------------------------------------------------ |
 > | How is it shaped (networks, images, edge modes, deploy sequence)? | [07-deployment.md](07-deployment.md)             |
 > | What do I do at 2 a.m. (monitors, alerts, runbooks)?              | [12-operations.md](12-operations.md)             |
-> | How do backups, the nightly staging copy and restore work?        | [13-backup-restore.md](13-backup-restore.md)     |
+> | How do backups, the nightly restore drill and restore work?       | [13-backup-restore.md](13-backup-restore.md)     |
 > | Which Cloudflare settings does it rely on?                        | [25-cloudflare.md](25-cloudflare.md)             |
 > | Which commands do I type (day 0, deploy, rollback)?               | [28-platform-runbook.md](28-platform-runbook.md) |
 
@@ -83,34 +83,34 @@ the real-VM checklist below). The design
 
 Full text lives in the Epic 79.0 issue ([#2786](https://github.com/tareq89/biddaloy/issues/2786)), with the owner's pre-grill choices P1–P16 and the widen items W1–W7. One line each:
 
-| #   | Decision                                                                           | Chosen over                                         |
-| --- | ---------------------------------------------------------------------------------- | --------------------------------------------------- |
-| D1  | Deploy runs on the VM; laptop and GitHub only SSH in                               | Ansible on the laptop or runner (age key in GitHub) |
-| D2  | Keep 100 hourly + 30 daily backups                                                 | 100 hourly only (≈ 4 days)                          |
-| D3  | Per-env self-signed Postgres TLS, `DB_SSL=true`                                    | a code exemption for private networks               |
-| D4  | Job results go to Kuma push monitors                                               | healthchecks.io (Kuma will move to its own VM)      |
-| D5  | Nightly staging restore replaces the weekly drill                                  | keeping both                                        |
-| D6  | Full staging scrub                                                                 | contacts and secrets only                           |
-| D7  | Logs archived to R2 for 180 days                                                   | other retention                                     |
-| D8  | Tunnel and direct edge modes both built now                                        | seam only                                           |
-| D9  | Dozzle kept at `logs.`                                                             | dropping it                                         |
-| D10 | Prod refuses a SHA staging has not passed; `--hotfix` overrides and is logged      | no override                                         |
-| D11 | Nightly jobs run from host systemd timers; no Docker socket proxy                  | cron inside containers                              |
-| D12 | GitHub's SSH key is a forced command                                               | a full shell                                        |
-| D13 | Memory and CPU limits per env                                                      | none                                                |
-| D14 | Two auth layers on staging/ops; Kuma `/api/push/*` bypasses the outer one          | one layer                                           |
-| D15 | New Epic 79.0; Epic 61 leftovers closed as superseded                              | rewriting #1766                                     |
-| D16 | Production compose moves to `deploy/`; root compose is dev-only                    | one file for both                                   |
-| D17 | Tunnel config in git, credentials in sops                                          | dashboard-managed token                             |
-| D18 | Direct-mode certs via Let's Encrypt HTTP-01                                        | DNS-01                                              |
-| D19 | Staging waits until 02:50 for the daily copy, reads R2 read-only                   | —                                                   |
-| D20 | A "Smoke Test School" in prod lets staging run the full smoke                      | health-only staging smoke                           |
-| D21 | `biddaloy-deploy <env> <sha>` CLI, `all` for a fresh VM                            | —                                                   |
-| D22 | Hostnames as in the table above                                                    | —                                                   |
-| D23 | Starting memory limits; tune from Beszel                                           | —                                                   |
-| D24 | Staging refresh and log archive extend the backup image; one shared DB-swap script | new images                                          |
-| D25 | Prod runs 2 app containers, restarted one at a time                                | load balancer + several VMs                         |
-| D26 | This page holds the summary, decisions and future work                             | chat only                                           |
+| #   | Decision                                                                                                          | Chosen over                                         |
+| --- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| D1  | Deploy runs on the VM; laptop and GitHub only SSH in                                                              | Ansible on the laptop or runner (age key in GitHub) |
+| D2  | Keep 100 hourly + 30 daily backups                                                                                | 100 hourly only (≈ 4 days)                          |
+| D3  | Per-env self-signed Postgres TLS, `DB_SSL=true`                                                                   | a code exemption for private networks               |
+| D4  | Job results go to Kuma push monitors                                                                              | healthchecks.io (Kuma will move to its own VM)      |
+| D5  | Nightly restore drill replaces the weekly drill (Epic 88: the drill is a throwaway db; staging is loaded by hand) | keeping both                                        |
+| D6  | Full staging scrub                                                                                                | contacts and secrets only                           |
+| D7  | Logs archived to R2 for 180 days                                                                                  | other retention                                     |
+| D8  | Tunnel and direct edge modes both built now                                                                       | seam only                                           |
+| D9  | Dozzle kept at `logs.`                                                                                            | dropping it                                         |
+| D10 | Prod refuses a SHA staging has not passed; `--hotfix` overrides and is logged                                     | no override                                         |
+| D11 | Nightly jobs run from host systemd timers; no Docker socket proxy                                                 | cron inside containers                              |
+| D12 | GitHub's SSH key is a forced command                                                                              | a full shell                                        |
+| D13 | Memory and CPU limits per env                                                                                     | none                                                |
+| D14 | Two auth layers on staging/ops; Kuma `/api/push/*` bypasses the outer one                                         | one layer                                           |
+| D15 | New Epic 79.0; Epic 61 leftovers closed as superseded                                                             | rewriting #1766                                     |
+| D16 | Production compose moves to `deploy/`; root compose is dev-only                                                   | one file for both                                   |
+| D17 | Tunnel config in git, credentials in sops                                                                         | dashboard-managed token                             |
+| D18 | Direct-mode certs via Let's Encrypt HTTP-01                                                                       | DNS-01                                              |
+| D19 | Staging waits until 02:50 for the daily copy, reads R2 read-only                                                  | —                                                   |
+| D20 | A "Smoke Test School" in prod lets staging run the full smoke                                                     | health-only staging smoke                           |
+| D21 | `biddaloy-deploy <env> <sha>` CLI, `all` for a fresh VM                                                           | —                                                   |
+| D22 | Hostnames as in the table above                                                                                   | —                                                   |
+| D23 | Starting memory limits; tune from Beszel                                                                          | —                                                   |
+| D24 | Staging refresh and log archive extend the backup image; one shared DB-swap script                                | new images                                          |
+| D25 | Prod runs 2 app containers, restarted one at a time                                                               | load balancer + several VMs                         |
+| D26 | This page holds the summary, decisions and future work                                                            | chat only                                           |
 
 ## How this compares with established companies
 
@@ -185,7 +185,7 @@ flowchart LR
 
 ### Wave 2 (2026-10-22): staging scrub, staging refresh, DB swap, Ansible
 
-W2 added the nightly staging copy: prod backup in, scrub, `_next` database, swap. Four lanes built the pieces alone; the closing sub-wave checked the wiring between them.
+W2 added a nightly staging copy: prod backup in, scrub, `_next` database, swap. **Epic 88 later replaced the nightly swap with a nightly restore drill (a throwaway database) and a hand-run `biddaloy-staging load`**; see [28-platform-runbook.md](28-platform-runbook.md#staging-dev-staging-and-the-nightly-drill). Four lanes built the pieces alone; the closing sub-wave checked the wiring between them.
 
 ```mermaid
 flowchart LR
