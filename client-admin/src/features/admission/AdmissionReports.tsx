@@ -76,6 +76,7 @@ export function AdmissionReports() {
       kind: 'select',
       key: 'academicYearId',
       label: t('filterYear'),
+      helpId: 'people.admissionReports.field.academicYear',
       allLabel: t('filterCurrentYear', {
         name: (years.find((y) => y.is_current) ?? years[0])?.name ?? '',
       }),
@@ -85,6 +86,7 @@ export function AdmissionReports() {
       kind: 'select',
       key: 'classId',
       label: t('filterClass'),
+      helpId: 'people.admissionReports.field.class',
       allLabel: t('filterAllClasses'),
       options: (classesQuery.data?.data ?? []).map((c) => ({ value: c.id, label: c.name })),
     },

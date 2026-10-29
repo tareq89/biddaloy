@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from './dialog';
+import { HelpHint, useHelp } from './help-hint';
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -32,6 +33,9 @@ export interface ConfirmDialogProps {
   busy?: boolean;
   /** Hide the confirm button (e.g. the action is blocked and only Cancel makes sense). */
   hideConfirm?: boolean;
+  /** A (?) beside the title, for the action this dialog confirms (a row or More-menu action
+   * has no (?) of its own, #3078). A sibling of the title, so the dialog's name stays the title. */
+  helpId?: string | undefined;
 }
 
 export function ConfirmDialog({
@@ -45,8 +49,11 @@ export function ConfirmDialog({
   onConfirm,
   busy,
   hideConfirm,
+  helpId,
 }: ConfirmDialogProps) {
   const { t } = useTranslation('common');
+  const { resolve } = useHelp();
+  const titleEl = <DialogTitle>{title}</DialogTitle>;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -59,7 +66,15 @@ export function ConfirmDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          {/* No wrapper when no (?) renders, so the header keeps its DOM. */}
+          {resolve(helpId) ? (
+            <div className="flex items-center gap-1">
+              {titleEl}
+              <HelpHint helpId={helpId} />
+            </div>
+          ) : (
+            titleEl
+          )}
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>

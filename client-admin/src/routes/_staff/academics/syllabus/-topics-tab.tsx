@@ -506,6 +506,7 @@ export function TopicsTab({
           open
           onOpenChange={(open) => !open && !deleteTopic.isPending && setDeleting(null)}
           title={t('list.deleteConfirmTitle')}
+          helpId="academics.syllabus.action.deleteTopic"
           description={t('list.deleteConfirmBody', { name: deleting.name })}
           confirmLabel={t('list.deleteConfirmAction')}
           cancelLabel={tCommon('actions.cancel')}

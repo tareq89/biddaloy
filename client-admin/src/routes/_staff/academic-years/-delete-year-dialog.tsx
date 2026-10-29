@@ -66,6 +66,7 @@ export function DeleteYearDialog({
         if (!deleteYear.isPending) onOpenChange(next);
       }}
       title={t('deleteDialog.title')}
+      helpId="academics.academicYears.action.delete"
       description={
         deleteYear.isError
           ? `${t('deleteDialog.description', { name: academicYearName })} ${failureReason()}`
