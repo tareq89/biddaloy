@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { deliveryErrorCode } from './delivery-error-code';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -569,6 +570,7 @@ export class BulkReminderService {
 
     const skipped: SkippedRecipientDto[] = [];
     const recipients = this.resolveRecipients(students, dueSnapshots, dto, skipped);
+    assertDemoRowLimit(recipients.length);
 
     return { studentIds, students, recipients, skipped };
   }

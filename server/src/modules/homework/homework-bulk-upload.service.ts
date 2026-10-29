@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository, IsNull, In } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
@@ -128,6 +129,7 @@ export class HomeworkBulkUploadService {
     }
 
     const rows: ParsedRow[] = await parseSpreadsheet(file.buffer, file.originalname);
+    assertDemoRowLimit(rows.length);
 
     const classLookup = await this.buildClassLookup(tenantId);
     const subjectLookup = await this.buildSubjectLookup(tenantId);
@@ -212,6 +214,7 @@ export class HomeworkBulkUploadService {
         'No staged upload found for this id. It may have expired or already been committed.',
       );
     }
+    assertDemoRowLimit(staged.rows.length);
     if (staged.hardErrorCount > 0) {
       throw new ConflictException(
         'This staged upload had validation errors and cannot be committed. Re-validate the file first.',
