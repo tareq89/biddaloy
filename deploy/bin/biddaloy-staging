@@ -204,6 +204,8 @@ verb_backups() {
   [[ ${#KEYS[@]} -gt 0 ]] || refuse "the backup bucket has no dumps under db/hourly/ or db/daily/" "check that backups are running (biddaloy-doctor)"
   print_list
   local i
+  # GitHub cannot send a number, and its list must not replace the one the operator saw on the VM.
+  [[ $FROM_GITHUB -eq 0 ]] || return 0
   # In place (provision makes the file): deploy cannot create files in the staging dir.
   if for ((i = 0; i < ${#KEYS[@]}; i++)); do printf '%s %s\n' "${KEYS[$i]}" "${INFO[$i]}"; done 2>/dev/null > "$LIST_FILE"; then
     echo "Next: biddaloy-staging load <number>   (add --use to switch the app to it)"

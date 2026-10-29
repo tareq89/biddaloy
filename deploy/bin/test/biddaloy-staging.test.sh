@@ -291,7 +291,9 @@ gh() { RC=0; env SSH_ORIGINAL_COMMAND="$1" PATH="$WORK/bin:$PATH" BIDDALOY_ROOT=
   BIDDALOY_SWAP_LOCK="$WORK/swap.lock" BIDDALOY_DEPLOY_BIN="$WORK/bin/biddaloy-deploy" bash "$SCRIPT" --from-github > "$WORK/out" 2>&1 < /dev/null || RC=$?; }
 reset dev
 gh "status"; expect "12 status allowed" test "$RC" = 0
+printf 'db/daily/2026-09-01.dump.age 2026-09-01 02:00:00 5.0 MB\n' > "$WORK/opt/staging/backups-list"
 gh "backups"; expect "12 backups allowed" test "$RC" = 0
+expect "12 GitHub backups keeps the operator's saved list" test "$(cat "$WORK/opt/staging/backups-list")" = 'db/daily/2026-09-01.dump.age 2026-09-01 02:00:00 5.0 MB'
 gh "load db/daily/2026-09-20.dump.age --yes --use"
 expect "12 load key --yes --use runs" test "$RC" = 0
 expect "12 it refreshed that key" has 'from db/daily/2026-09-20.dump.age'
