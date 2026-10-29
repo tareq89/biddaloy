@@ -38,6 +38,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { DemoCornerFrame } from '../features/demo/demo-corner-frame';
+import { DemoInboxWarning } from '../features/demo/demo-inbox-warning';
 import { DemoRoleCards } from '../features/demo/demo-role-cards';
 import { TestInboxHint } from '../features/demo/test-environment-notice';
 import { useDemoMode, type DemoRoleCard } from '../features/demo/use-demo-mode';
@@ -299,6 +300,7 @@ function LoginPage() {
           </Link>
         </TabsContent>
         <TabsContent value="otp">
+          <DemoInboxWarning className="mb-3" />
           <OtpSignInForm
             headingLevel={demo.enabled ? 'h2' : 'h1'}
             onRequest={(phone) => otpRequestMutation.mutateAsync(phone).then(() => undefined)}

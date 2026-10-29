@@ -14,6 +14,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -64,7 +65,14 @@ export class StudentPhotoController {
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    if (!files?.length) throw new BadRequestException('At least one "files" entry is required');
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new BadRequestException('At least one "files" entry is required');
+    }
+    if (!files.every((f) => !!f && typeof f === 'object' && Buffer.isBuffer(f.buffer))) {
+      throw new BadRequestException('Invalid "files" payload');
+    }
+    // Unreachable today (the interceptor stops at 25 files); kept so raising that cap keeps the demo's.
+    assertDemoRowLimit(files.length);
     return this.photos.bulkUpload(files, tenant.id, user.sub, requestContext(request));
   }
 

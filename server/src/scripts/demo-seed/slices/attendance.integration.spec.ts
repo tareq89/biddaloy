@@ -344,6 +344,9 @@ describe('attendance slice (integration, 3 years, scale 0.15)', () => {
     expect(await count(`lock = 'NEVER' AND status = 'OFF' AND locked_by_user_id IS NOT NULL`)).toBe(
       1,
     );
+    // One staff-declined row (portal shows "the teacher declined"); locks carry a locked_at.
+    expect(await count(`declined_at IS NOT NULL AND status = 'OFF' AND lock = 'NONE'`)).toBe(1);
+    expect(await count(`lock <> 'NONE' AND locked_at IS NOT NULL`)).toBe(2);
     expect(await count(`channel = 'PUSH'`)).toBe(10);
     expect(await count(`channel = 'SMS'`)).toBe(5);
     // SMS only in the smsAllowed branch.

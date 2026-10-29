@@ -21,12 +21,15 @@ function row(over: Record<string, unknown> = {}) {
     channel: ArrivalNoticeChannel.PUSH,
     lock: ArrivalNoticeLock.NONE,
     consumed_at: null as Date | null,
+    declined_at: null as Date | null,
     updated_at: new Date(),
     ...over,
   };
 }
 
-function build(opts: { existing?: ReturnType<typeof row> | null; smsAllowed?: boolean } = {}) {
+function build(
+  opts: { existing?: ReturnType<typeof row> | null; smsAllowed?: boolean; enabled?: boolean } = {},
+) {
   const existing = opts.existing === undefined ? row() : opts.existing;
   const repo = {
     findOne: vi.fn().mockResolvedValue(existing),
@@ -59,7 +62,9 @@ function build(opts: { existing?: ReturnType<typeof row> | null; smsAllowed?: bo
   } as any;
   const schools = {
     getResolvedSettings: vi.fn().mockResolvedValue({
-      attendance: { arrivalNotice: { enabled: true, smsAllowed: opts.smsAllowed ?? false } },
+      attendance: {
+        arrivalNotice: { enabled: opts.enabled ?? true, smsAllowed: opts.smsAllowed ?? false },
+      },
     }),
   } as any;
   const service = new ArrivalSubscriptionsService(repo, studentRepo, teacherScope, schools);
@@ -235,5 +240,65 @@ describe('ArrivalSubscriptionsService.listForStaff', () => {
     await expect(service.listForStaff(teacher, { sectionId: 'sec-9' })).rejects.toThrow(
       ARRIVAL_ERRORS.notFound,
     );
+  });
+});
+
+describe('ArrivalSubscriptionsService declined_at and the school switch', () => {
+  it('staff OFF sets declined_at; re-confirming clears it', async () => {
+    const { service } = build();
+    const off = await service.update(teacher, 'sub-1', { status: ArrivalNoticeStatus.OFF });
+    expect(off.declined_at).toBeInstanceOf(Date);
+    const { service: s2 } = build({
+      existing: row({ status: ArrivalNoticeStatus.OFF, declined_at: new Date() }),
+    });
+    const on = await s2.update(teacher, 'sub-1', { status: ArrivalNoticeStatus.ACTIVE });
+    expect(on.declined_at).toBeNull();
+  });
+
+  it('a guardian switching off leaves declined_at null', async () => {
+    const { service } = build({ existing: row({ status: ArrivalNoticeStatus.ACTIVE }) });
+    const out = await service.upsertByGuardian({
+      tenantId: TENANT,
+      guardianUserId: 'u-p',
+      studentId: 'st-1',
+      want: false,
+    });
+    expect(out?.declined_at).toBeNull();
+  });
+
+  it('moving a consumed row to RECURRING clears consumed_at (DB CHECK)', async () => {
+    const { service } = build({
+      existing: row({ mode: ArrivalNoticeMode.ONCE, consumed_at: new Date() }),
+    });
+    const out = await service.update(admin, 'sub-1', { mode: ArrivalNoticeMode.RECURRING });
+    expect(out.consumed_at).toBeNull();
+  });
+
+  it('every write refuses with one fixed sentence while the school switch is off', async () => {
+    const { service } = build({ enabled: false });
+    const dto = { student_id: 'st-1', guardian_id: 'g-1', mode: ArrivalNoticeMode.ONCE };
+    await expect(service.createByStaff(admin, dto)).rejects.toThrow(ARRIVAL_ERRORS.disabled);
+    await expect(service.update(admin, 'sub-1', { mode: ArrivalNoticeMode.ONCE })).rejects.toThrow(
+      ARRIVAL_ERRORS.disabled,
+    );
+    await expect(service.setLock(admin, 'sub-1', ArrivalNoticeLock.NEVER)).rejects.toThrow(
+      ARRIVAL_ERRORS.disabled,
+    );
+    await expect(
+      service.upsertByGuardian({
+        tenantId: TENANT,
+        guardianUserId: 'u-p',
+        studentId: 'st-1',
+        want: true,
+      }),
+    ).rejects.toThrow(ARRIVAL_ERRORS.disabled);
+  });
+
+  it('setLock stamps locked_at and clears it on NONE', async () => {
+    const { service, repo } = build();
+    await service.setLock(admin, 'sub-1', ArrivalNoticeLock.ALWAYS);
+    expect(repo.save.mock.calls[0][0].locked_at).toBeInstanceOf(Date);
+    await service.setLock(admin, 'sub-1', ArrivalNoticeLock.NONE);
+    expect(repo.save.mock.calls[1][0].locked_at).toBeNull();
   });
 });

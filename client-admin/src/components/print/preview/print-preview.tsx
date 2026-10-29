@@ -25,6 +25,7 @@ import {
   StatusBadge,
   TemplateRenderer,
   toast,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import {
   useConfirmPrintJob,
@@ -441,7 +442,10 @@ export function PrintPreview({
 
           {printers.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              <span className="text-label">{t('controls.printer')}</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="text-label">{t('controls.printer')}</span>
+                <HelpHint helpId="administration.printTemplates.field.printer" />
+              </span>
               <Select
                 value={printer?.id ?? ''}
                 onValueChange={(id) => {

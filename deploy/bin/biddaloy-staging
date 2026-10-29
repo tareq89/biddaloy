@@ -1,0 +1,419 @@
+#!/usr/bin/env bash
+# One command for the staging databases (Epic 88, #3258; decisions U4, D6, D7, D12, D14, D17, D18, D20).
+#
+#   biddaloy-staging status
+#   biddaloy-staging backups
+#   biddaloy-staging load [<key>|latest-daily|latest-hourly|<number>] [--use] [--yes]
+#   biddaloy-staging use dev|staging [--yes]
+#   biddaloy-staging clean-dev [--yes]
+#
+# Staging Postgres holds two databases (U1): `biddaloy_staging_dev` (app default, empty migrated
+# schema) and `biddaloy_staging` (a scrubbed prod backup, loaded by hand). /opt/biddaloy/staging/active-db
+# says which one the app serves; ansible reads it when it writes the stack .env (write-env.yml).
+#
+#   load       numbered pick list (24 hourly + 14 daily) or a key; a number given as an argument
+#              picks from the list `backups` printed last (saved in backups-list, never listed again,
+#              so a dump that lands in between cannot shift the numbers); builds a scrubbed copy in the scratch
+#              database `biddaloy_staging_drill` with staging-refresh.sh, then SWAPS it in as
+#              `biddaloy_staging` (db-swap.sh). Unscrubbed prod data therefore never sits in a database
+#              the app can reach, and a failed load leaves the old `biddaloy_staging` as it was.
+#              The old one is kept as `biddaloy_staging_prev`. If the app serves staging it is stopped
+#              around the swap, the new db is migrated, Redis flushed, and the app started again.
+#   use        migrate the target with the staging image, flush Redis (fail closed, D20), write
+#              active-db, then `biddaloy-deploy staging <current sha>` so ansible owns the .env.
+#              `use staging` is refused while biddaloy_staging is empty (D18).
+#   clean-dev  recreate `biddaloy_staging_dev` empty, empty its bucket, migrate; the app is stopped
+#              around it when dev is the active db.
+#
+# Nothing here can reach prod: the stack is always `staging` and the only databases named are the
+# three constants below. Mutating verbs take $ROOT/deploy.lock, then the host swap lock (same order as
+# biddaloy-nightly) and append one line to $ROOT/staging/history.log (D14).
+# `use` lets go of both locks before it runs biddaloy-deploy, which takes deploy.lock itself.
+# Exit codes: 0 ok, 1 a step failed (state and next step printed), 2 refused (nothing modified).
+# Secrets stay in the environment and compose interpolation; `set -x` is never used.
+set -euo pipefail
+
+ROOT="${BIDDALOY_ROOT:-/opt/biddaloy}"
+REPO="${BIDDALOY_REPO:-$ROOT/repo}"
+SWAP_LOCK="${BIDDALOY_SWAP_LOCK:-/run/lock/biddaloy-swap.lock}"
+DEPLOY_BIN="${BIDDALOY_DEPLOY_BIN:-biddaloy-deploy}"
+STAGE="$ROOT/staging"
+ENV_FILE="$STAGE/.env"
+ACTIVE_FILE="$STAGE/active-db"
+LOADED_FILE="$STAGE/loaded-backup"
+LIST_FILE="$STAGE/backups-list" # the list `backups` last printed; `load <number>` picks from it
+HIST="$STAGE/history.log"
+STG_DB=biddaloy_staging DEV_DB=biddaloy_staging_dev SCRATCH_DB=biddaloy_staging_drill
+
+say() { printf '%s biddaloy-staging: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*" >&2 || true; }
+step() { echo "step: $*" || true; } # a closed client must not stop a mutating run (PIPE is ignored)
+refuse() { say "REFUSED: $1"; say "Next: ${2:-fix the line above and run it again}"; say "Nothing was modified."; exit 2; }
+
+# shellcheck source=deploy/bin/lib.sh
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib.sh"
+
+# --from-github: the forced command of the workflow's key (D15). SSH_ORIGINAL_COMMAND must match one
+# anchored form; it never reaches eval or a shell string, and the key is checked again below.
+FROM_GITHUB=0
+if [[ "${1:-}" == --from-github ]]; then
+  [[ $# -eq 1 ]] || refuse "command not allowed"
+  FROM_GITHUB=1
+  gh_cmd="${SSH_ORIGINAL_COMMAND:-}"
+  case "$gh_cmd" in *$'\n'* | *$'\r'*) refuse "command not allowed" ;; esac
+  gh_key='[A-Za-z0-9][A-Za-z0-9._/-]{0,199}'
+  gh_load="^load ($gh_key) --yes( --use)?\$"
+  gh_use='^use (dev|staging) --yes$'
+  if [[ "$gh_cmd" =~ ^(status|backups)$ ]]; then set -- "${BASH_REMATCH[1]}"
+  elif [[ "$gh_cmd" == "clean-dev --yes" ]]; then set -- clean-dev --yes
+  elif [[ "$gh_cmd" =~ $gh_use ]]; then set -- use "${BASH_REMATCH[1]}" --yes
+  elif [[ "$gh_cmd" =~ $gh_load ]]; then
+    gh_k="${BASH_REMATCH[1]}"; gh_u="${BASH_REMATCH[2]}"
+    [[ "$gh_k" != *..* && "$gh_k" != *//* && ! "$gh_k" =~ ^[0-9]+$ ]] || refuse "command not allowed"
+    if [[ -n "$gh_u" ]]; then set -- load "$gh_k" --yes --use; else set -- load "$gh_k" --yes; fi
+  else refuse "command not allowed"; fi
+fi
+VERB="${1:-}"; [[ $# -eq 0 ]] || shift
+YES=0 USE=0 POS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --yes) YES=1; shift ;;
+    --use) [[ "$VERB" == load ]] || refuse "--use only goes with load"; USE=1; shift ;;
+    -*) refuse "unknown argument '$1'" "biddaloy-staging with no arguments prints the usage" ;;
+    *) POS+=("$1"); shift ;;
+  esac
+done
+USAGE="biddaloy-staging status | backups | load [key|latest-daily|latest-hourly|number] [--use] [--yes] | use dev|staging [--yes] | clean-dev [--yes]"
+case "$VERB" in
+  status | backups | clean-dev) [[ ${#POS[@]} -eq 0 ]] || refuse "$VERB takes no argument (clean-dev only cleans dev)" "$USAGE" ;;
+  load) [[ ${#POS[@]} -le 1 ]] || refuse "load takes one backup" "$USAGE" ;;
+  use) [[ ${#POS[@]} -eq 1 && "${POS[0]}" =~ ^(dev|staging)$ ]] || refuse "use needs dev or staging" "$USAGE" ;;
+  *) refuse "unknown verb '${VERB}'" "$USAGE" ;;
+esac
+
+# A dropped SSH session sends HUP and closes the pipe; a mutating run goes on to the end.
+case "$VERB" in load | use | clean-dev) trap '' HUP PIPE ;; esac
+# From GitHub a mutating verb runs detached (own session, output in a log) and this process only
+# tails the log, so nothing a closed client does can stop it half way (same as biddaloy-deploy).
+if [[ $FROM_GITHUB -eq 1 && -z "${BIDDALOY_STAGING_CHILD:-}" && "$VERB" =~ ^(load|use|clean-dev)$ ]]; then
+  glog="$ROOT/logs/staging-$$.log" # one log per run: two runs must not overwrite each other
+  rm -f "$glog" "$glog.rc"
+  ( umask 027; : > "$glog" ) || refuse "cannot write $glog" "run the provision play again"
+  setsid --wait env BIDDALOY_STAGING_CHILD=1 bash -c 'rc=0; "$2" --from-github >> "$1" 2>&1 < /dev/null || rc=$?; echo "$rc" > "$1.rc"' \
+    _ "$glog" "$(readlink -f "${BASH_SOURCE[0]}")" > /dev/null 2>&1 < /dev/null &
+  gpid=$!; goff=0
+  while :; do
+    galive=1; if [[ -e "$glog.rc" ]] || ! kill -0 "$gpid" 2> /dev/null; then galive=0; fi
+    gsize=$(wc -c < "$glog" | tr -d ' ')
+    if [[ "$gsize" -gt "$goff" ]]; then tail -c "+$((goff + 1))" "$glog" 2> /dev/null | head -c "$((gsize - goff))" || true; goff=$gsize; fi
+    [[ $galive -eq 1 ]] || break
+    sleep 0.2
+  done
+  wait "$gpid" 2> /dev/null || true
+  grc="$(cat "$glog.rc" 2> /dev/null || echo 1)"
+  cp -f "$glog" "$ROOT/logs/staging-last.log" 2> /dev/null || true
+  rm -f "$glog" "$glog.rc"
+  exit "$grc"
+fi
+
+[[ -f "$ENV_FILE" ]] || refuse "$ENV_FILE not found: is this the staging VM?" "run it on the VM, after biddaloy-deploy staging <sha>"
+envval() {
+  local v
+  v="$(sed -n "s/^$1=//p" "$ENV_FILE" | tail -1)" || true
+  v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
+  printf '%s' "$v"
+}
+POSTGRES_USER="$(envval POSTGRES_USER)"
+ENV_DB="$(envval POSTGRES_DB)"
+[[ -n "$POSTGRES_USER" ]] || refuse "POSTGRES_USER missing in $ENV_FILE"
+[[ "$ENV_DB" =~ ^biddaloy_staging(_dev)?$ ]] || refuse "POSTGRES_DB in $ENV_FILE is '$ENV_DB', not a staging database" "this command only works on the staging stack"
+
+dc() { docker compose -p staging --project-directory "$STAGE" -f "$(kept_file staging stack.yml deploy/stack.yml)" "$@"; }
+# psql in the db container over its local socket (no password on a command line).
+psql_in() { local db="$1"; shift; dc exec -T db psql -U "$POSTGRES_USER" -d "$db" -v ON_ERROR_STOP=1 -tAq "$@"; }
+psql_admin() { psql_in postgres -c "$1"; }
+migrate_db() { POSTGRES_DB="$1" dc run --rm -T --no-deps app node server/dist/scripts/migrate.js run; }
+flush_redis() { [[ "$(dc exec -T redis redis-cli FLUSHALL)" == OK* ]]; }
+
+active_name() { # dev|staging; a missing or empty file means dev (write-env.yml does the same)
+  local v
+  v="$(tr -d ' \t\r\n' < "$ACTIVE_FILE" 2>/dev/null)" || v=""
+  case "$v" in "" | dev) echo dev ;; staging) echo staging ;; *) echo bad ;; esac
+}
+# After the locks: active-db and the stack's .env must agree, or a half-done switch is in the way.
+check_consistent() {
+  local a e
+  a="$(active_name)"
+  [[ "$a" != bad ]] || refuse "$ACTIVE_FILE holds something but dev or staging" "write dev or staging into it"
+  e="$(envval POSTGRES_DB)"
+  [[ "$e" == "$(db_of "$a")" ]] || refuse "active-db says $a but the staging stack runs on $e (a switch did not finish)" \
+    "biddaloy-deploy staging <sha>   (biddaloy-deploy --last-ok staging prints the sha), then run this again"
+}
+db_of() { case "$1" in staging) echo "$STG_DB" ;; dev) echo "$DEV_DB" ;; *) echo '?' ;; esac; }
+
+# --- history and failure blocks -----------------------------------------------------------------
+STATE="nothing was modified" DETAIL="-"
+hist() { # <outcome>
+  local l
+  l="$(date -u '+%Y-%m-%dT%H:%M:%SZ') ${SUDO_USER:-$(id -un)} $VERB $DETAIL $1"
+  { printf '%s\n' "$l" >> "$HIST"; } 2>/dev/null || say "WARN: could not write $HIST; add this line by hand: $l"
+}
+fail() { # <step> <why> <next>
+  say "FAILED at: $1"; say "Why: $2"; say "State: $STATE"; say "Next: $3"
+  hist "failed:$1"
+  exit 1
+}
+
+confirm() { # <what will happen>
+  [[ $YES -eq 1 ]] && return 0
+  [[ -t 0 ]] || refuse "needs confirmation and there is no terminal: $1" "run it again with --yes"
+  local a
+  read -r -p "$1. Type yes to go on: " a || a=""
+  [[ "$a" == yes ]] || refuse "not confirmed" "run it again and type yes"
+}
+lock_all() {
+  exec 8>"$ROOT/deploy.lock"
+  flock -w 3600 8 || refuse "deploy lock busy for an hour" "wait for the running deploy or job, then run it again"
+  exec 9>"$SWAP_LOCK"
+  flock -w 3600 9 || refuse "swap lock busy for an hour" "wait for the running job, then run it again"
+}
+unlock_all() { exec 8>&- 9>&-; }
+
+# --- backups ------------------------------------------------------------------------------------
+human() { awk -v b="$1" 'BEGIN { if (b >= 1048576) printf "%.1f MB", b / 1048576; else printf "%.0f KB", b / 1024 }'; }
+KEYS=() INFO=() # parallel: key, "date time size"
+collect() { # the latest 24 hourly and 14 daily, newest first
+  local spec kind n listing d t sz name
+  KEYS=() INFO=()
+  for spec in "hourly 24" "daily 14"; do
+    kind="${spec% *}" n="${spec#* }"
+    listing="$(list_backups "db/$kind/")" || return 1
+    while read -r d t sz name; do
+      [[ "$name" =~ ^[A-Za-z0-9._-]+\.dump\.age$ && "$sz" =~ ^[0-9]+$ ]] || continue
+      KEYS+=("db/$kind/$name"); INFO+=("$d $t $(human "$sz")")
+    done < <(printf '%s\n' "$listing" | awk 'NF >= 4 && $4 ~ /\.dump\.age$/' | sort -k4 -r | head -n "$n")
+  done
+}
+print_list() {
+  local i
+  printf '%4s  %-52s  %s\n' "No." "Backup (UTC date, size)" ""
+  for ((i = 0; i < ${#KEYS[@]}; i++)); do printf '%4d  %-52s  %s\n' "$((i + 1))" "${KEYS[$i]}" "${INFO[$i]}"; done
+}
+
+verb_backups() {
+  collect || refuse "could not list the backup bucket" "check BACKUP_S3_* in $ENV_FILE and that the staging stack is up"
+  [[ ${#KEYS[@]} -gt 0 ]] || refuse "the backup bucket has no dumps under db/hourly/ or db/daily/" "check that backups are running (biddaloy-doctor)"
+  print_list
+  local i
+  # GitHub cannot send a number, and its list must not replace the one the operator saw on the VM.
+  [[ $FROM_GITHUB -eq 0 ]] || return 0
+  # In place (provision makes the file): deploy cannot create files in the staging dir.
+  if for ((i = 0; i < ${#KEYS[@]}; i++)); do printf '%s %s\n' "${KEYS[$i]}" "${INFO[$i]}"; done 2>/dev/null > "$LIST_FILE"; then
+    echo "Next: biddaloy-staging load <number>   (add --use to switch the app to it)"
+  else
+    say "WARN: could not save the list to $LIST_FILE, so load <number> will refuse: re-run provision, or load <key>"
+  fi
+}
+
+verb_status() {
+  local a sha d
+  a="$(active_name)"
+  echo "active db:     $a ($(db_of "$a" 2>/dev/null || echo '?'))"
+  echo "loaded backup: $(cat "$LOADED_FILE" 2>/dev/null | head -1 || true)"
+  sha="$("$DEPLOY_BIN" --last-ok staging 2>/dev/null)" || sha="unknown"
+  echo "staging sha:   $sha"
+  d="$(head -1 "$STAGE/last-drill" 2>/dev/null)" || d="" # provision creates it empty
+  echo "last drill:    ${d:-none yet}"
+  echo "history (last 5):"
+  tail -n 5 "$HIST" 2>/dev/null | sed 's/^/  /' || true
+  [[ "$a" != bad ]] || refuse "active-db holds something but dev or staging" "write dev or staging into $ACTIVE_FILE, or run: biddaloy-staging use dev"
+}
+
+# --- load ---------------------------------------------------------------------------------------
+resolve_backup() { # sets KEY and KEY_DATE from POS[0]
+  local arg="${POS[0]:-}" line n
+  if [[ -z "$arg" ]]; then
+    collect || refuse "could not list the backup bucket" "check BACKUP_S3_* in $ENV_FILE"
+    [[ ${#KEYS[@]} -gt 0 ]] || refuse "the backup bucket has no dumps" "check that backups are running (biddaloy-doctor)"
+    print_list
+    read -r -p "Number to load: " arg || arg=""
+    [[ "$arg" =~ ^[0-9]+$ ]] || refuse "'$arg' is not a number from the list" "run biddaloy-staging backups, then load <number>"
+  fi
+  case "$arg" in
+    latest-daily | latest-hourly)
+      line="$(list_backups "db/${arg#latest-}/")" || refuse "could not list the backup bucket" "check BACKUP_S3_* in $ENV_FILE (an expired R2 token looks like this)"
+      line="$(pick_latest "$line")"
+      [[ -n "$line" ]] || refuse "no ${arg#latest-} backup found" "run biddaloy-staging backups and pick one"
+      read -r KEY_DATE _ _ n <<<"$line"
+      KEY="db/${arg#latest-}/$n" ;;
+    *[!0-9]* | "")
+      [[ "$arg" =~ ^db/(daily|hourly)/[A-Za-z0-9._-]+\.dump\.age$ && "$arg" != *..* ]] || refuse "'$arg' is not a backup key (db/hourly/<file>.dump.age, db/daily/<file>.dump.age, latest-daily, latest-hourly or a number)" "run biddaloy-staging backups"
+      line="$(list_backups "$arg" | awk -v n="$(basename "$arg")" 'NF >= 4 && $4 == n' | tail -1)" || line=""
+      [[ -n "$line" ]] || refuse "$arg is not in the backup bucket" "run biddaloy-staging backups and pick one"
+      read -r KEY_DATE _ <<<"$line"
+      KEY="$arg" ;;
+    *)
+      # Typed after the list this run printed: KEYS is that list. Given as an argument: the list
+      # `backups` printed and saved. Never a fresh listing: a new hourly dump would shift the numbers.
+      if [[ ${#KEYS[@]} -eq 0 && -s "$LIST_FILE" ]]; then
+        local k d t rest
+        while read -r k d t rest; do
+          [[ "$k" =~ ^db/(daily|hourly)/[A-Za-z0-9._-]+\.dump\.age$ && "$k" != *..* ]] || continue
+          KEYS+=("$k"); INFO+=("$d $t $rest")
+        done < "$LIST_FILE"
+      fi
+      [[ ${#KEYS[@]} -gt 0 ]] || refuse "no saved backup list to pick number $arg from" "run biddaloy-staging backups, then load <number>"
+      arg=$((10#$arg)) # no octal for 08 or 010
+      ((arg >= 1 && arg <= ${#KEYS[@]})) || refuse "number $arg is not in the list (1 to ${#KEYS[@]})" "run biddaloy-staging backups"
+      KEY="${KEYS[$((arg - 1))]}"; KEY_DATE="${INFO[$((arg - 1))]%% *}" ;;
+  esac
+}
+
+verb_load() {
+  local act app_stopped=0 sha
+  act="$(active_name)"
+  [[ "$act" != bad ]] || refuse "$ACTIVE_FILE holds something but dev or staging" "write dev or staging into it"
+  resolve_backup
+  DETAIL="$KEY"
+  confirm "Load $KEY (written $KEY_DATE) into $STG_DB$([[ $USE -eq 1 ]] && echo ' and switch the app to it')$([[ $act == staging ]] && echo '; the app serves staging and stops briefly')"
+  lock_all
+  check_consistent # use may have run while we waited for the locks
+  act="$(active_name)"
+
+  say "loading $KEY (written $KEY_DATE)"
+  step "refresh (into the scratch database $SCRATCH_DB, not $STG_DB)"
+  STATE="$STG_DB is untouched; the scratch database $SCRATCH_DB may exist"
+  dc run --rm -T jobs /app/staging-refresh.sh --target "$SCRATCH_DB" --from "$KEY" \
+    || fail refresh "staging-refresh.sh failed (download, decrypt, restore, scrub or verify)" "nothing changed: fix the cause (R2 token, age key, dump) and run biddaloy-staging load again"
+
+  # Unscrubbed data is gone by now: refresh scrubs in the scratch db. The swap puts it in place.
+  if [[ "$act" == staging ]]; then
+    step "stop-app"
+    dc stop app || fail stop-app "docker compose stop app failed" "nothing changed ($STG_DB is the old one): run biddaloy-staging load again"
+    app_stopped=1
+  fi
+  restart_app() { [[ $app_stopped -eq 0 ]] || { dc start app || say "WARN: app did not start: run biddaloy-deploy staging <sha>"; }; app_stopped=0; }
+  step "swap"
+  STATE="$STG_DB is the old one (the scratch database may still exist)"
+  dc run --rm -T jobs /app/db-swap.sh --drop-prev-old "$STG_DB" >/dev/null 2>&1 || true # a leftover from an earlier failed swap
+  if ! dc run --rm -T jobs /app/db-swap.sh "$STG_DB" "$SCRATCH_DB"; then
+    psql_admin "DROP DATABASE IF EXISTS \"$SCRATCH_DB\" WITH (FORCE)" >/dev/null 2>&1 || true
+    restart_app
+    fail swap "db-swap.sh failed (it rolls back what it can)" "check docker compose -p staging logs db; $STG_DB is the old one: run biddaloy-staging load again"
+  fi
+  dc run --rm -T jobs /app/db-swap.sh --drop-prev-old "$STG_DB" >/dev/null 2>&1 || say "WARN: could not drop ${STG_DB}_prev_old: drop it by hand"
+  STATE="$STG_DB is the new backup; the old one is kept as ${STG_DB}_prev"
+  printf '%s\n' "$KEY_DATE" > "$LOADED_FILE" || say "WARN: could not write $LOADED_FILE (the badge date stays old)"
+
+  if [[ "$act" == staging ]]; then
+    step "migrate"
+    migrate_db "$STG_DB" || fail migrate "migrations failed on the loaded data" "the app is stopped: fix the cause, then biddaloy-deploy staging <sha> (biddaloy-deploy --last-ok staging prints it)"
+    step "flush-redis"
+    flush_redis || fail flush-redis "Redis flush failed" "the app is stopped: check docker compose -p staging logs redis, then biddaloy-deploy staging <sha>"
+    # Restart through deploy so the stack .env (the badge date, D9) is written again with the new backup.
+    sha="$("$DEPLOY_BIN" --last-ok staging 2>/dev/null)" && [[ "$sha" =~ ^[0-9a-f]{40}$ ]] \
+      || fail last-ok "could not read the last ok staging sha" "the app is stopped: deploy staging once (biddaloy-deploy staging <sha>)"
+    app_stopped=0
+    unlock_all
+    step "deploy staging $sha"
+    "$DEPLOY_BIN" staging "$sha" || fail deploy "biddaloy-deploy staging $sha failed" "the new backup is loaded; run biddaloy-deploy staging $sha to start the app"
+  fi
+  if [[ $USE -eq 1 && "$act" != staging ]]; then do_use staging; return; fi
+  hist ok
+  say "done: $KEY loaded into $STG_DB. Next: $([[ $act == staging ]] && echo 'the app is serving it' || echo 'biddaloy-staging use staging   (switches the app to it)')"
+}
+
+# --- use ----------------------------------------------------------------------------------------
+# Needs the locks held. Lets go of them for biddaloy-deploy (it takes deploy.lock itself).
+do_use() { # <dev|staging>
+  local want="$1" old target sha n
+  old="$(active_name)"; target="$(db_of "$want")"
+  if [[ "$old" == "$want" && "$VERB" == use ]]; then
+    say "already on $want ($target): nothing to do"; hist noop; return 0
+  fi
+  n="$(psql_in "$target" -c "SELECT CASE WHEN to_regclass('public.schools') IS NULL THEN 0 ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.schools', false, true, '')))[1]::text::int END" 2>/dev/null)" || n=0
+  [[ "$n" =~ ^[0-9]+$ ]] || n=0
+  if [[ "$want" == staging && "$n" -eq 0 ]]; then
+    hist refused-empty
+    refuse "$STG_DB is empty (D18): load a backup first" "biddaloy-staging load   (pick a backup; add --use to switch right after)"
+  fi
+  if [[ "$want" == dev ]] && ! psql_in "$DEV_DB" -c 'SELECT 1' >/dev/null 2>&1; then
+    hist refused-missing
+    refuse "$DEV_DB does not exist" "biddaloy-staging clean-dev   (creates it empty and migrated)"
+  fi
+  sha="$("$DEPLOY_BIN" --last-ok staging 2>/dev/null)" && [[ "$sha" =~ ^[0-9a-f]{40}$ ]] \
+    || fail last-ok "could not read the last ok staging sha" "deploy staging once (biddaloy-deploy staging <sha>), then run this again"
+
+  step "migrate $target"
+  STATE="nothing changed; the app still serves $old"
+  migrate_db "$target" || fail migrate "migrations failed on $target" "fix the cause; the app still serves $old"
+  step "flush-redis"
+  dc stop app || fail stop-app "docker compose stop app failed" "nothing changed; the app still serves $old"
+  STATE="the app is stopped; active-db is still $old"
+  flush_redis || { dc start app || true; fail flush-redis "Redis flush failed (D20: the switch is aborted)" "check docker compose -p staging logs redis; the app was started again on $old"; }
+  printf '%s\n' "$want" > "$ACTIVE_FILE" || fail write-active "could not write $ACTIVE_FILE" "re-run provision (it makes the file group-writable for deploy); the app is stopped: biddaloy-deploy staging $sha starts it on $old"
+  unlock_all
+  step "deploy staging $sha"
+  STATE="active-db is $want; the app may be stopped"
+  if ! "$DEPLOY_BIN" staging "$sha"; then
+    printf '%s\n' "$old" > "$ACTIVE_FILE" || true
+    fail deploy "biddaloy-deploy staging $sha failed" "active-db was put back to $old; run biddaloy-deploy staging $sha to settle the stack"
+  fi
+  hist ok
+  say "done: the app now serves $want ($target). Next: biddaloy-staging status"
+}
+verb_use() {
+  DETAIL="${POS[0]}"
+  confirm "Switch the staging app to ${POS[0]} (it restarts and Redis is flushed)"
+  lock_all
+  check_consistent
+  do_use "${POS[0]}"
+}
+
+# --- clean-dev ----------------------------------------------------------------------------------
+verb_clean_dev() {
+  local act base bucket
+  act="$(active_name)"
+  [[ "$act" != bad ]] || refuse "$ACTIVE_FILE holds something but dev or staging" "write dev or staging into it"
+  base="$(envval S3_BUCKET)"
+  if [[ "$act" == dev ]]; then bucket="$base"; else bucket="${base}-dev"; fi
+  # The only bucket this verb ever empties is the dev one.
+  [[ "$bucket" =~ ^[a-z0-9][a-z0-9.-]*-dev$ ]] || refuse "cannot work out the dev bucket (got '$bucket')" "check S3_BUCKET in $ENV_FILE"
+  DETAIL="$DEV_DB"
+  confirm "Wipe $DEV_DB and the bucket $bucket$([[ $act == dev ]] && echo ' (the app serving dev stops and starts again)')"
+  lock_all
+  check_consistent # use may have run while we waited for the locks
+  act="$(active_name)"
+  base="$(envval S3_BUCKET)"
+  if [[ "$act" == dev ]]; then bucket="$base"; else bucket="${base}-dev"; fi
+  [[ "$bucket" =~ ^[a-z0-9][a-z0-9.-]*-dev$ ]] || refuse "cannot work out the dev bucket (got '$bucket')" "check S3_BUCKET in $ENV_FILE"
+  if [[ "$act" == dev ]]; then
+    step "stop-app"
+    STATE="nothing changed"
+    dc stop app || fail stop-app "docker compose stop app failed" "run biddaloy-staging clean-dev again"
+  fi
+  STATE="$DEV_DB may be gone or half made"; [[ "$act" != dev ]] || STATE="$STATE; the app is stopped"
+  step "recreate-db"
+  psql_admin "DROP DATABASE IF EXISTS \"$DEV_DB\" WITH (FORCE)" >/dev/null && psql_admin "CREATE DATABASE \"$DEV_DB\"" >/dev/null \
+    || fail recreate-db "could not drop and create $DEV_DB" "check docker compose -p staging logs db, then run biddaloy-staging clean-dev again"
+  step "empty-bucket"
+  dc exec -T seaweedfs curl -sf -o /dev/null -X DELETE "http://localhost:8888/buckets/$bucket/?recursive=true" \
+    && dc exec -T seaweedfs curl -sf -o /dev/null -X POST "http://localhost:8888/buckets/$bucket/" \
+    || fail empty-bucket "could not empty and recreate the bucket $bucket" "check docker compose -p staging logs seaweedfs, then run biddaloy-staging clean-dev again"
+  step "migrate"
+  migrate_db "$DEV_DB" || fail migrate "migrations failed on the new $DEV_DB" "fix the cause, then run biddaloy-staging clean-dev again"
+  if [[ "$act" == dev ]]; then
+    step "flush-redis"
+    flush_redis || fail flush-redis "Redis flush failed" "the app is stopped: check docker compose -p staging logs redis, then run biddaloy-staging clean-dev again"
+    dc start app || fail start-app "docker compose start app failed" "run biddaloy-deploy staging <sha> to start it"
+  fi
+  hist ok
+  say "done: $DEV_DB is empty and migrated. Next: biddaloy-staging status"
+}
+
+case "$VERB" in
+  status) verb_status ;;
+  backups) verb_backups ;;
+  load) verb_load ;;
+  use) verb_use ;;
+  clean-dev) verb_clean_dev ;;
+esac

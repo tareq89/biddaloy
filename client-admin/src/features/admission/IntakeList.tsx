@@ -116,6 +116,7 @@ export function IntakeList() {
             icon: <PlusIcon aria-hidden />,
             priority: 'primary',
             onClick: () => setCreateOpen(true),
+            helpId: 'people.admissionIntakes.action.add',
           },
           ...(slug
             ? [

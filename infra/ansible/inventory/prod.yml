@@ -31,6 +31,9 @@ all:
     # Public key CI uses to run biddaloy-deploy (forced command, D12). Pinned here so every
     # provision run keeps it. UNSET... = placeholder = no key installed yet.
     github_deploy_pubkey_pinned: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO3r2MVN+IDQDvLMzN+/n4YK0WQrxn16Xl90no5URKwE biddaloy-github-deploy
+    # Public key the Staging workflow uses to run biddaloy-staging (forced command, Epic 88 D6-B).
+    # A different key from the one above. UNSET... = placeholder = no key installed yet.
+    github_staging_pubkey_pinned: UNSET-paste-the-biddaloy_github_staging.pub-line-here
     ops_host: "{{ groups['ops'][0] }}"
     # The staging and ops hostnames live in edge.enc.env. They are closed until Access is set up
     # without any switch here: in tunnel mode cloudflared rejects every request to them that has

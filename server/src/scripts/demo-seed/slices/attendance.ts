@@ -694,6 +694,13 @@ const load = async (ctx: DemoSeedContext) => {
       set_by_user_id: requested ? null : (classTeacher.get(c.sectionId) ?? org.adminUserId),
       locked_by_user_id: lock === L.NONE ? null : (principalOf.get(tenantId) ?? org.adminUserId),
       consumed_at: consumed ? todayAt(addDays(ctx.anchor, -(1 + (i % 3))), 8, 20 + i) : null,
+      // A staff OFF on a free row is a decline; a lock or a spent ONCE is not (CHECK: declined => OFF).
+      declined_at:
+        status === A.OFF && lock === L.NONE && !consumed
+          ? todayAt(addDays(ctx.anchor, -(1 + (i % 3))), 9, 10 + i)
+          : null,
+      set_at: requested ? null : todayAt(addDays(ctx.anchor, -(1 + (i % 3))), 9, 10 + i),
+      locked_at: lock === L.NONE ? null : todayAt(addDays(ctx.anchor, -(1 + (i % 3))), 9, 30 + i),
     };
   });
   if (subs.length)

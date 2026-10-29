@@ -77,15 +77,15 @@ This page is for looking only. If a day looks wrong, tell the school.
 
 Each day in the calendar is one of these:
 
-| What it says          | What it means                                          |
-| --------------------- | ------------------------------------------------------ |
-| **Present**           | Came to school that day                                |
-| **Late**              | Came, but late                                         |
-| **Absent**            | Did not come                                           |
-| **Leave**             | Was on leave                                           |
-| **Not a school day**  | A holiday or weekly off day                            |
-| **Not marked**        | A school day, but attendance was not taken             |
-| **Upcoming**          | A day still to come                                    |
+| What it says         | What it means                              |
+| -------------------- | ------------------------------------------ |
+| **Present**          | Came to school that day                    |
+| **Late**             | Came, but late                             |
+| **Absent**           | Did not come                               |
+| **Leave**            | Was on leave                               |
+| **Not a school day** | A holiday or weekly off day                |
+| **Not marked**       | A school day, but attendance was not taken |
+| **Upcoming**         | A day still to come                        |
 
 **How the rate is worked out:** days present ÷ days counted × 100. Whether a late day counts as present, whether leave days are counted, and whether you divide by all school days or only marked days are all set by your school's own rules. So the rate for the same days can differ between two schools.
 
@@ -119,7 +119,7 @@ Parents only. The **Arrival notices** card shows near the top of the page, only 
 
 2. Below the switch, choose **In the app** or **By SMS**. **By SMS** is greyed out, with the text **Your school sends this in the app only**, when the school has not allowed SMS.
 
-   If you choose **In the app** and this phone does not have the app yet, you see **This phone does not have the app yet. Choose SMS or install the app.** Press **Turn on app messages** to set it up.
+   If you choose **In the app** and no phone on your account has the app yet, you see **No phone on your account has the app yet. Choose SMS or install the app.** Press **Turn on app messages** to set it up.
 
 3. When the teacher confirms, the mark changes to **Once** (one message, then it stops) or **Every day** (a message each school day). After a **Once** message goes, the mark says **Done**.
 
@@ -129,13 +129,13 @@ To stop, turn **Notify me** off. If the mark says **Set by the admin**, the scho
 
 ## Troubleshooting <a href="#trouble" id="trouble"></a>
 
-| What you see                                              | What to do                                                                  | Who can help  |
-| --------------------------------------------------------- | --------------------------------------------------------------------------- | ------------- |
-| **Not enough marked days this month**                     | It shows once the teacher takes attendance. Check again in a few days.      | Class teacher |
-| **Could not load this student's attendance.** …           | Check your connection and tap **Try again**.                                | —             |
-| A day's status looks wrong                                | Tell the class teacher or school office; it cannot be changed from here.    | Class teacher |
-| **No students linked to you yet**                         | Ask the school office to link your child, then tap **Check again**.         | School office |
-| Your child is absent today and you want to say so ahead   | Tap **Tell the school** on [**Overview**](overview.md#task-tell).           | —             |
+| What you see                                            | What to do                                                               | Who can help  |
+| ------------------------------------------------------- | ------------------------------------------------------------------------ | ------------- |
+| **Not enough marked days this month**                   | It shows once the teacher takes attendance. Check again in a few days.   | Class teacher |
+| **Could not load this student's attendance.** …         | Check your connection and tap **Try again**.                             | —             |
+| A day's status looks wrong                              | Tell the class teacher or school office; it cannot be changed from here. | Class teacher |
+| **No students linked to you yet**                       | Ask the school office to link your child, then tap **Check again**.      | School office |
+| Your child is absent today and you want to say so ahead | Tap **Tell the school** on [**Overview**](overview.md#task-tell).        | —             |
 
 ---
 

@@ -3,6 +3,10 @@
 - name: Provision biddaloy host
   hosts: all
   become: true
+  vars:
+    # Nightly jobs that no longer exist (Epic 88 U2): a host provisioned earlier still has the
+    # timer, and it would fire every night, exit 2 and show a failed unit.
+    retired_nightly_jobs: [staging-refresh]
   # deploy must exist before docker_users is applied by the docker role
   pre_tasks:
     - name: Supported inputs
@@ -17,9 +21,17 @@
           - >-
             not github_key_active
             or (github_deploy_pubkey | trim) is match('^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( [A-Za-z0-9@._-]+)?$')
+          - >-
+            not github_staging_key_active
+            or (github_staging_pubkey | trim) is match('^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( [A-Za-z0-9@._-]+)?$')
+          # One key for both lines would only ever deploy (sshd takes the first match): two keys.
+          - >-
+            not (github_key_active and github_staging_key_active)
+            or (github_deploy_pubkey | trim).split(' ')[1] != (github_staging_pubkey | trim).split(' ')[1]
         fail_msg: >-
           edge_mode must be tunnel or direct, the host Ubuntu 24.04 or newer, and
-          github_deploy_pubkey a single "ssh-ed25519 <base64> [comment]" line with no options
+          github_deploy_pubkey and github_staging_pubkey each a single "ssh-ed25519 <base64> [comment]"
+          line with no options, and not the same key
       tags: always
     # systemd-journal: the nightly log-archive job (runs as deploy) exports host logs with journalctl.
     - name: Deploy user
@@ -60,8 +72,8 @@
       delegate_to: localhost
       become: false
       changed_when: false
-    # One write of the whole list: operator key(s) plus, when set, the GitHub
-    # forced-command line (group_vars). Anything else is removed.
+    # One write of the whole list: operator key(s) plus, when set, the two GitHub
+    # forced-command lines, deploy and staging (group_vars). Anything else is removed.
     - name: Only the operator keys and the GitHub forced-command key on deploy user
       ansible.posix.authorized_key:
         user: '{{ deploy_user }}'
@@ -327,6 +339,21 @@
         mode: '0664'
         modification_time: preserve
         access_time: preserve
+    # biddaloy-staging and biddaloy-nightly (both as deploy) write these five in place; the staging dir
+    # is root:deploy 0750, so deploy cannot create files there. Empty active-db = dev, empty
+    # loaded-backup = no badge date, empty last-drill = no drill yet (doctor and status say so),
+    # empty backups-list = `load <number>` refuses until `backups` has printed a list.
+    - name: Staging state files (biddaloy-staging and the restore drill write them)
+      ansible.builtin.file:
+        path: '{{ biddaloy_root }}/staging/{{ item }}'
+        state: touch
+        owner: root
+        group: '{{ deploy_user }}'
+        mode: '0660'
+        modification_time: preserve
+        access_time: preserve
+      loop: [active-db, loaded-backup, history.log, last-drill, backups-list]
+      when: "'staging' in biddaloy_envs"
     - name: Postgres TLS directories
       ansible.builtin.file:
         path: '{{ biddaloy_root }}/{{ item }}/pg-tls'
@@ -364,7 +391,7 @@
         dest: /usr/local/bin/{{ item }}
         state: link
         force: true
-      loop: [biddaloy-deploy, biddaloy-doctor, biddaloy-nightly, biddaloy-restore-prod]
+      loop: [biddaloy-deploy, biddaloy-doctor, biddaloy-nightly, biddaloy-restore-prod, biddaloy-staging]
 
     # Host age key (D1): sops decrypts with it. Read-only for deploy.
     - name: Host age key (made once)
@@ -532,6 +559,38 @@
         state: started
       loop: '{{ nightly_jobs }}'
       when: inventory_hostname == env_hosts[item.env]
+
+    # Retired jobs: stop and disable the timer, remove its file, reload systemd. A host that
+    # never had it skips every task, so a re-run changes nothing.
+    - name: Retired nightly timer files present
+      ansible.builtin.stat:
+        path: '/etc/systemd/system/biddaloy-nightly@{{ item }}.timer'
+      loop: '{{ retired_nightly_jobs }}'
+      register: retired_timer_files
+    - name: Retired nightly timers off
+      ansible.builtin.systemd_service:
+        name: 'biddaloy-nightly@{{ item.item }}.timer'
+        enabled: false
+        state: stopped
+      loop: '{{ retired_timer_files.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+      when: item.stat.exists
+    - name: Retired nightly timer files removed
+      ansible.builtin.file:
+        path: '/etc/systemd/system/biddaloy-nightly@{{ item }}.timer'
+        state: absent
+      loop: '{{ retired_nightly_jobs }}'
+      notify: Systemd reload
+    - name: Retired nightly units no longer listed as failed
+      ansible.builtin.command: 'systemctl reset-failed biddaloy-nightly@{{ item.item }}.service biddaloy-nightly@{{ item.item }}.timer'
+      loop: '{{ retired_timer_files.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+      when: item.stat.exists
+      changed_when: true
+    - name: Apply retired-timer removal now
+      ansible.builtin.meta: flush_handlers
 
     # A plain `prune -af --filter until=168h` would also delete the previous
     # release, and a rollback (61.1) would then need GHCR. Our images carry

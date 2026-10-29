@@ -18,6 +18,7 @@ import {
   Form,
   Input,
   Label,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import {
   ApprovalCancelledError,
@@ -250,7 +251,11 @@ function ReasonDialog({ kind, app, onClose, onDone }: DialogProps & { kind: 'rej
         }}
       >
         <DialogHeader>
-          <DialogTitle>{t(`dialogs.${kind}.title`)}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t(`dialogs.${kind}.title`)}</DialogTitle>
+            {/* Only approved leave can be cancelled; reject shares this dialog and has no id. */}
+            {kind === 'cancel' && <HelpHint helpId="applications.action.cancelLeave" />}
+          </div>
           <DialogDescription>
             {t(kind === 'cancel' ? 'dialogs.cancel.description' : 'dialogs.reject.description')}
           </DialogDescription>

@@ -16,7 +16,19 @@
   ansible.builtin.set_fact:
     derived_env: '{{ derived_by_stack[stack] }}'
     dropped_keys: "{{ ['BACKUP_AGE_PRIVATE_KEY'] if stack == 'staging' else [] }}"
+    # Read by the assert below and by deploy.yml (the bucket the app does not use).
+    staging_active_raw: '{{ staging_active_raw_v }}'
+    staging_bucket_other: '{{ staging_bucket_other_v }}'
   vars:
+    staging_dir: "{{ staging_state_dir | default((biddaloy_root | default('/opt/biddaloy')) ~ '/staging') }}"
+    # Missing or empty file = dev. Anything but dev|staging fails below (no guessing a database).
+    staging_active_raw_v: "{{ lookup('ansible.builtin.file', staging_dir ~ '/active-db', errors='ignore') | default('', true) | join('') | trim }}"
+    staging_active_db: "{{ staging_active_raw_v or 'dev' }}"
+    staging_s3_base: "{{ (secret_env | default({})).get('staging', {}).get('S3_BUCKET', 'biddaloy') }}"
+    # staging keeps the secret's bucket (it holds the existing db's files); dev gets <base>-dev.
+    staging_bucket_active: "{{ staging_s3_base if staging_active_db == 'staging' else staging_s3_base ~ '-dev' }}"
+    staging_bucket_other_v: "{{ staging_s3_base ~ '-dev' if staging_active_db == 'staging' else staging_s3_base }}"
+    staging_loaded_raw: "{{ lookup('ansible.builtin.file', staging_dir ~ '/loaded-backup', errors='ignore') | default('', true) | join('') | trim }}"
     derived_by_stack:
       # prod/restore is empty (provision): log-archive's jobs container needs some key dir to mount.
       prod:
@@ -25,12 +37,17 @@
           APP_VERSION: '{{ version }}',
           BACKUP_AGE_KEY_DIR: '{{ project_dir }}/restore',
         }
+      # Staging runs on the active db (Epic 88 U1): dev (default) or staging, from the state file.
+      # Its own bucket per db; the badge date is the last loaded backup (D9). PG_MEM 1536m (D8).
       staging:
-        {
-          PG_TLS_DIR: '{{ project_dir }}/pg-tls',
-          APP_VERSION: '{{ version }}',
-          BACKUP_AGE_KEY_DIR: '{{ project_dir }}/restore',
-        }
+        PG_TLS_DIR: '{{ project_dir }}/pg-tls'
+        APP_VERSION: '{{ version }}'
+        BACKUP_AGE_KEY_DIR: '{{ project_dir }}/restore'
+        POSTGRES_DB: 'biddaloy_staging{{ "" if staging_active_db == "staging" else "_dev" }}'
+        S3_BUCKET: '{{ staging_bucket_active }}'
+        ENV_BADGE: '{{ staging_active_db | upper }}'
+        ENV_BADGE_DATE: "{{ staging_loaded_raw if staging_loaded_raw is match('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') else '' }}"
+        PG_MEM: 1536m
       demo: { PG_TLS_DIR: '{{ project_dir }}/pg-tls', APP_VERSION: '{{ version }}' }
       edge:
         EDGE_DIR: '{{ project_dir }}'
@@ -41,6 +58,12 @@
         EDGE_TRUSTED_CIDR: '{{ edge_subnet_actual | default(edge_subnet) }}'
         LANDING_VERSION: '{{ version }}'
       ops: { OPS_DIR: '{{ project_dir }}' }
+
+- name: Staging active db is dev or staging
+  ansible.builtin.assert:
+    that: staging_active_raw in ['', 'dev', 'staging']
+    fail_msg: 'active-db must hold exactly dev or staging (or be missing)'
+  when: stack == 'staging'
 
 - name: Write the stack .env
   ansible.builtin.copy:

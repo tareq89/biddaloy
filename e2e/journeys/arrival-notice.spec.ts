@@ -99,7 +99,8 @@ test.describe('arrival notice: guardian asks -> teacher answers -> register -> m
         { timeout: 30_000, intervals: [500, 1000] },
       )
       .toBe(0);
-    const teacher = await createTeacher(request, admin, `Arrival Teacher ${suffix}`, chain);
+    const teacherName = `Arrival Teacher ${suffix}`;
+    const teacher = await createTeacher(request, admin, teacherName, chain);
 
     const settings = await get<{ attendance?: { arrivalNotice?: { enabled?: boolean } } }>(
       request,
@@ -197,14 +198,19 @@ test.describe('arrival notice: guardian asks -> teacher answers -> register -> m
         await expect
           .poll(
             async () => {
-              const logs = await get<{ medium: string; recipient_address: string }[]>(
-                request,
-                admin,
-                `/communications/student/${student.id}`,
-              );
+              const logs = await get<
+                { medium: string; recipient_address: string; message_body: string }[]
+              >(request, admin, `/communications/student/${student.id}`);
               // Nothing else messages this new child, so its one PUSH log is the notice.
+              // The text names the child and the teacher who took the register. The wording
+              // itself is in the server unit tests (ARRIVAL_TEMPLATES): it follows the school's
+              // language, so only the two names are asserted here.
               return logs.some(
-                (l) => l.medium === 'PUSH' && l.recipient_address.startsWith('push:'),
+                (l) =>
+                  l.medium === 'PUSH' &&
+                  l.recipient_address.startsWith('push:') &&
+                  l.message_body.includes(childName) &&
+                  l.message_body.includes(teacherName),
               );
             },
             { timeout: 15_000, intervals: [500, 1000] },

@@ -292,3 +292,4 @@ infra/secrets/*
 
 # landing.yml downloads CI artifacts here (infra/ansible/landing.yml)
 .landing-dist/
+/e2e/.demo-visitor.json

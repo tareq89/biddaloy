@@ -52,6 +52,15 @@ function handleMutationError(
   // cap is not a 403, so it always gets the toast.
   const code = error instanceof ApiError ? error.details?.code : undefined;
   const forbiddenHandled = mutation.meta?.handlesForbidden === true;
+  // [88.4] A bulk request (file, picked students, ids) over the demo's 100-row cap is refused whole (422): say how many it had.
+  if (code === 'DEMO_ROW_LIMIT') {
+    const raw = error instanceof ApiError ? error.details?.count : undefined;
+    const count = typeof raw === 'number' ? raw : 0;
+    void i18n.loadNamespaces('errors').then(() => {
+      toast.error(i18n.t('demoRowLimit', { ns: 'errors', count }));
+    });
+    return;
+  }
   if (code === 'DEMO_UPLOAD_LIMIT' || (code === 'DEMO_DISABLED' && !forbiddenHandled)) {
     void i18n.loadNamespaces('demo').then(() => {
       toast.error(

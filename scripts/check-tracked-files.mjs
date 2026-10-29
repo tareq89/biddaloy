@@ -112,6 +112,8 @@ const DEPLOY_SET = new Set([
   'PG_TLS_DIR',
   'EDGE_TRUSTED_CIDR',
   'BACKUP_AGE_KEY_DIR',
+  'ENV_BADGE', // write-env.yml derives both from the staging active db
+  'ENV_BADGE_DATE',
 ]);
 // Which examples must list the variables each compose file reads.
 const COMPOSE_EXAMPLES = {

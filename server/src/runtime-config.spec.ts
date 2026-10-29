@@ -6,6 +6,8 @@ describe('buildRuntimeConfig', () => {
   it('exposes exactly the public keys, never a secret', () => {
     const cfg = buildRuntimeConfig({ TURNSTILE_SECRET_KEY: 'secret', JWT_SECRET: 'x' });
     expect(Object.keys(cfg).sort()).toEqual([
+      'envBadge',
+      'envBadgeDate',
       'messageSinkUrl',
       'release',
       'sentryDsn',
@@ -26,7 +28,14 @@ describe('buildRuntimeConfig', () => {
       sentryTracesSampleRate: 0.1,
       release: '',
       messageSinkUrl: '',
+      envBadge: '',
+      envBadgeDate: '',
     });
+  });
+
+  it('passes the env badge through', () => {
+    const cfg = buildRuntimeConfig({ ENV_BADGE: 'STAGING', ENV_BADGE_DATE: '2026-10-29' });
+    expect([cfg.envBadge, cfg.envBadgeDate]).toEqual(['STAGING', '2026-10-29']);
   });
 
   it('exposes the inbox URL only when MESSAGE_SINK=mailpit', () => {

@@ -41,6 +41,17 @@ describe('Arrival subscriptions (E2E)', () => {
   let parentToken: string;
   let parentUserId: string;
   const tag = randomUUID().slice(0, 8);
+  let savedSettings: unknown;
+
+  /** The school switch gates every write route, so the suite turns it on and restores it. */
+  const setEnabled = (enabled: boolean) =>
+    dataSource.query(
+      `UPDATE schools SET settings = COALESCE(settings, '{}'::jsonb) || jsonb_build_object(
+         'attendance', COALESCE(settings->'attendance', '{}'::jsonb)
+           || jsonb_build_object('arrivalNotice', jsonb_build_object('enabled', $2::boolean)))
+       WHERE id = $1`,
+      [SEED_TENANT_ID, enabled],
+    );
 
   const as = (
     method: 'get' | 'post' | 'put' | 'patch',
@@ -71,6 +82,11 @@ describe('Arrival subscriptions (E2E)', () => {
     await app.init();
     dataSource = app.get(DataSource);
 
+    [{ settings: savedSettings }] = await dataSource.query(
+      `SELECT settings FROM schools WHERE id = $1`,
+      [SEED_TENANT_ID],
+    );
+    await setEnabled(true);
     fx = await createTeacherScopeFixture(app, dataSource);
     teacherToken = await fx.login();
     const admin = await supertest(app.getHttpServer())
@@ -107,6 +123,10 @@ describe('Arrival subscriptions (E2E)', () => {
     ]);
     await dataSource?.query(`DELETE FROM user_tenants WHERE user_id = $1`, [parentUserId]);
     await dataSource?.query(`DELETE FROM users WHERE id = $1`, [parentUserId]);
+    await dataSource?.query(`UPDATE schools SET settings = $2 WHERE id = $1`, [
+      SEED_TENANT_ID,
+      savedSettings,
+    ]);
     await fx?.cleanup();
     await app?.close();
   });
@@ -115,6 +135,7 @@ describe('Arrival subscriptions (E2E)', () => {
     await dataSource.query(`DELETE FROM arrival_notice_subscriptions WHERE tenant_id = $1`, [
       SEED_TENANT_ID,
     ]);
+    await setEnabled(true);
     await fx.seed();
     // The parent is the guardian of student A only.
     await dataSource.query(`UPDATE guardians SET user_id = $1 WHERE id = $2`, [
@@ -184,6 +205,96 @@ describe('Arrival subscriptions (E2E)', () => {
     await asAdmin('patch', `${STAFF}/not-a-uuid/lock`).send({ lock: 'NONE' }).expect(400);
     await asParent('put', `${PORTAL}/not-a-uuid`).send({ want: true }).expect(400);
     await asAdmin('get', `${STAFF}?limit=500`).expect(400);
+  });
+
+  it('staff list shows who set and locked the row, the guardian switch and a studentId filter', async () => {
+    const created = await asAdmin('post', STAFF)
+      .send({ student_id: fx.studentA, guardian_id: fx.guardianA, mode: 'RECURRING' })
+      .expect(201);
+    await asAdmin('post', STAFF)
+      .send({ student_id: fx.studentB, guardian_id: fx.guardianB, mode: 'ONCE' })
+      .expect(201);
+    await asAdmin('patch', `${STAFF}/${created.body.id}/lock`).send({ lock: 'ALWAYS' }).expect(200);
+    await dataSource.query(`UPDATE guardians SET notifications_enabled = false WHERE id = $1`, [
+      fx.guardianA,
+    ]);
+    const list = await asAdmin('get', `${STAFF}?studentId=${fx.studentA}`).expect(200);
+    expect(list.body).toHaveLength(1); // the filter dropped student B
+    expect(list.body[0]).toMatchObject({
+      notifications_enabled: false,
+      set_by_name: expect.any(String),
+      locked_by_name: expect.any(String),
+    });
+    expect(list.body[0].set_at).toBeTruthy();
+    expect(list.body[0].locked_at).toBeTruthy();
+    await asAdmin('get', `${STAFF}?studentId=nope`).expect(400);
+  });
+
+  it('a staff decline sets declined_at, which the portal sees; the guardian own OFF does not', async () => {
+    await makeHomeroom();
+    const asked = await asParent('put', `${PORTAL}/${fx.studentA}`)
+      .send({ want: true })
+      .expect(200);
+    const declined = await asTeacher('patch', `${STAFF}/${asked.body.id}`)
+      .send({ status: 'OFF' })
+      .expect(200);
+    expect(declined.body.declined_at).toBeTruthy();
+    const mine = await asParent('get', PORTAL).expect(200);
+    expect(mine.body.children[0].subscription.declined_at).toBeTruthy();
+    // Asking again is a fresh request: the decline is cleared.
+    const again = await asParent('put', `${PORTAL}/${fx.studentA}`)
+      .send({ want: true })
+      .expect(200);
+    expect(again.body).toMatchObject({ status: 'REQUESTED', declined_at: null });
+    const off = await asParent('put', `${PORTAL}/${fx.studentA}`).send({ want: false }).expect(200);
+    expect(off.body).toMatchObject({ status: 'OFF', declined_at: null });
+  });
+
+  it('every write route is refused with 409 while arrivalNotice.enabled is off', async () => {
+    const created = await asAdmin('post', STAFF)
+      .send({ student_id: fx.studentA, guardian_id: fx.guardianA, mode: 'ONCE' })
+      .expect(201);
+    await setEnabled(false);
+    const off = 'Arrival notices are turned off at this school.';
+    const body = { student_id: fx.studentB, guardian_id: fx.guardianB, mode: 'ONCE' };
+    expect((await asAdmin('post', STAFF).send(body).expect(409)).body.message).toBe(off);
+    await asAdmin('patch', `${STAFF}/${created.body.id}`).send({ status: 'OFF' }).expect(409);
+    await asAdmin('patch', `${STAFF}/${created.body.id}/lock`).send({ lock: 'NEVER' }).expect(409);
+    await asParent('put', `${PORTAL}/${fx.studentA}`).send({ want: true }).expect(409);
+    // Reads still answer; the portal says the school switch is off.
+    const mine = await asParent('get', PORTAL).expect(200);
+    expect(mine.body.school.enabled).toBe(false);
+    await asAdmin('get', STAFF).expect(200);
+  });
+
+  it('a missing or invalid X-Tenant-ID is refused on every route', async () => {
+    const created = await asAdmin('post', STAFF)
+      .send({ student_id: fx.studentA, guardian_id: fx.guardianA, mode: 'ONCE' })
+      .expect(201);
+    const id = created.body.id;
+    const routes: ['get' | 'post' | 'patch' | 'put', string][] = [
+      ['get', STAFF],
+      ['post', STAFF],
+      ['patch', `${STAFF}/${id}`],
+      ['patch', `${STAFF}/${id}/lock`],
+      ['get', PORTAL],
+      ['put', `${PORTAL}/${fx.studentA}`],
+    ];
+    for (const [m, url] of routes) {
+      // Missing header: ContextGuard answers 401 before any handler runs.
+      await supertest(app.getHttpServer())
+        [m](url)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({})
+        .expect(401);
+      // Garbage tenant id: refused too, never a 2xx and never a 500.
+      const bad = await supertest(app.getHttpServer())
+        [m](url)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', 'not-a-tenant')
+        .send({});
+      expect([400, 401, 403]).toContain(bad.status);
+    }
   });
 
   it('a replayed Idempotency-Key returns the same answer and creates one row', async () => {
