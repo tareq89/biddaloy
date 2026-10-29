@@ -1057,17 +1057,32 @@ Exit code: `0` all OK, `1` a WARN, `2` a FAIL. One stack: `biddaloy-doctor prod`
 
 ### 10b. Deploy the test inbox (Epic 87), staging and demo
 
+> বাংলায় পড়ুন: [bn/test-inbox-deploy.md](bn/test-inbox-deploy.md).
+
 Staging and demo send every email, SMS, WhatsApp and Messenger message to one Mailpit inbox,
 so nothing reaches a real person. Prod never runs it. Do this once, in this order:
 
 ```mermaid
 flowchart TD
-    A["1. Edit staging.enc.env and demo.enc.env"] --> B["2. Edit edge.enc.env: two INBOX_* keys"]
+    Z["0. Laptop: pull main, set BIDDALOY_HOST"] --> A["1. Edit staging.enc.env and demo.enc.env"]
+    A --> B["2. Edit edge.enc.env: two INBOX_* keys"]
     B --> C["3. Cloudflare: DNS + Access"]
-    C --> D["4. Merge to main, then deploy edge"]
+    C --> D["4. Merge to main, wait for Publish images, deploy edge"]
     D --> E["5. Deploy staging, then demo"]
     E --> F["6. Check the inbox"]
 ```
+
+**0. Before you start.** Work from an up-to-date `main`, and put your VM's address in a variable
+once. Every command below reads it, so you never type the address again.
+
+```bash
+git checkout main && git pull --ff-only
+export BIDDALOY_HOST=203.0.113.10   # your VM's public IP
+```
+
+> **Never type `<...>` in a command.** In zsh, `<` reads a file, so a pasted
+> `ssh deploy@<vm-ip>` fails with `zsh: no such file or directory: vm-ip`. Every command in
+> this part uses `$BIDDALOY_HOST` and `$SHA` instead of placeholders.
 
 **1. Stack env files** (`sops infra/secrets/staging.enc.env`, then `demo.enc.env`). Config-check
 refuses a deploy that is missing any of these:
@@ -1079,47 +1094,122 @@ MESSAGE_SINK_PUBLIC_URL=https://inbox-staging.schoolmanagerp.com   # demo: https
 SMOKE_INBOX_API_URL=http://staging-mailpit:8025                    # staging only; adds the smoke `inbox` check
 ```
 
+Optional check before you commit (needs `yarn install`; the VM runs the same check anyway):
+
+```bash
+sops -d infra/secrets/staging.enc.env | yarn config:check --env staging --file /dev/stdin
+sops -d infra/secrets/demo.enc.env    | yarn config:check --env demo    --file /dev/stdin
+```
+
 **2. Edge env** (`sops infra/secrets/edge.enc.env`): set `INBOX_DEMO_DOMAIN=inbox-demo.schoolmanagerp.com`
 and `INBOX_STAGING_DOMAIN=inbox-staging.schoolmanagerp.com`. Without both, the edge preflight fails.
 
 **3. Cloudflare** (part 4c and 4d): two proxied CNAMEs (`inbox-demo`, `inbox-staging`) to the tunnel,
-and `inbox-staging` added to the `Staging` Access app. `inbox-demo` is public on purpose.
-
-**4. Commit and push to `main`**, then from your laptop:
+and `inbox-staging` added to the `Staging` Access app. `inbox-demo` is public on purpose. The names
+are single-level: `inbox-demo.`, never `inbox.demo.`.
 
 ```bash
-ssh deploy@203.0.113.10 "biddaloy-deploy edge <sha>"
+for h in inbox-demo.schoolmanagerp.com inbox-staging.schoolmanagerp.com; do
+  cloudflared tunnel route dns biddaloy "$h"
+done
 ```
 
-The edge deploy recreates cloudflared when the tunnel config changed, so the two new hostnames
-reach nginx. The tunnel, prod included, drops for a few seconds.
-
-> **Edge deployed before this fix?** Then the config on the VM may already have the inbox
-> hosts while cloudflared still runs the old one, and an inbox host answers an empty `404`. The
-> next edge deploy sees no change, so restart it once by hand:
->
-> ```bash
-> ssh deploy@203.0.113.10 'docker restart $(docker ps -qf name=cloudflared)'
-> ```
-
-**5. Deploy the stacks.** The deploy starts mailpit itself; no manual `docker compose` needed.
+**4. Merge, wait for images, deploy edge.** Commit the three `.enc.env` files, merge to `main`, and
+wait for **Publish images** to go green. The VM reads the secrets from the checkout of the sha you
+deploy, so that sha must contain your edits.
 
 ```bash
-ssh deploy@203.0.113.10 "biddaloy-deploy staging <sha>"
-ssh deploy@203.0.113.10 "biddaloy-deploy demo <sha>"
+gh run list -w publish-image.yml --limit 1   # wait for: completed success
+git pull --ff-only && SHA=$(git rev-parse HEAD)
+scripts/deploy.sh edge "$SHA"
+```
+
+`scripts/deploy.sh` refuses a sha that is not on GitHub yet, then runs `biddaloy-deploy` on the VM.
+The edge deploy recreates cloudflared when the tunnel config changed (PR #3242), so the two new
+hostnames reach nginx. The tunnel, prod included, drops for a few seconds.
+
+> **Edge deployed before #3242 (merged 2026-10-29)?** Then the VM's tunnel config already has the
+> inbox hosts, but cloudflared still runs the old one. Both inbox hosts answer an **empty** `404`,
+> and the next edge deploy sees no change. Prove it, then restart once by hand:
+>
+> ```bash
+> ssh deploy@$BIDDALOY_HOST 'grep -n inbox /opt/biddaloy/edge/cloudflared/config.yml; stat -c %y /opt/biddaloy/edge/cloudflared/config.yml; docker inspect -f "{{.State.StartedAt}}" $(docker ps -qf name=cloudflared)'
+> ```
+>
+> Two `inbox` lines, and a container start time **older** than the file time, means it is stale:
+>
+> ```bash
+> ssh deploy@$BIDDALOY_HOST 'docker restart $(docker ps -qf name=cloudflared)'
+> ```
+>
+> Real example (2026-10-29): the file changed `2026-10-29 11:12 +0600`, the container started
+> `2026-10-22T17:47Z`. After the restart `/readyz` answered `200`. Prod blips for a few seconds.
+
+**5. Deploy the stacks.** Same `$SHA`, staging first. The deploy starts mailpit itself; no manual
+`docker compose` needed.
+
+```bash
+scripts/deploy.sh staging "$SHA"
+scripts/deploy.sh demo "$SHA"
 ```
 
 **6. Check.**
 
-| Check                                                  | Expected                                                 |
-| ------------------------------------------------------ | -------------------------------------------------------- |
-| `curl -s https://inbox-demo.schoolmanagerp.com/readyz` | HTTP 200                                                     |
-| `curl -sI https://inbox-staging.schoolmanagerp.com/`   | `302` to `<team>.cloudflareaccess.com` (no page)         |
-| Staging deploy output                                  | `PASS ... inbox: ok`                                     |
-| Open the app's "forgot password" on staging            | the sign-in notice links to the inbox; the code is there |
+| Check                                                                                   | Expected                                                 |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `curl -s -o /dev/null -w '%{http_code}\n' https://inbox-demo.schoolmanagerp.com/readyz` | `200`                                                    |
+| `curl -sI https://inbox-staging.schoolmanagerp.com/`                                    | `302` to `<team>.cloudflareaccess.com` (no page)         |
+| Open `https://inbox-staging.schoolmanagerp.com` in a browser, sign in                   | the Mailpit inbox, not a `404`                           |
+| Staging deploy output                                                                   | `PASS ... inbox: ok`                                     |
+| "Forgot password" on staging, with a real active account (see below)                    | the sign-in notice links to the inbox; the code is there |
 
-If a deploy stops at `settings` or config-check, the `Why:` line names the missing key; fix it
-with `sops`, push, rerun the same deploy line. Rolling back leaves mailpit running on purpose.
+The `302` comes from Cloudflare Access, before the tunnel. It does not prove the tunnel routes
+the host, so always open the staging inbox once after signing in.
+
+**What lands in the inbox.** Every medium arrives as an email in Mailpit, tagged by medium.
+Mailpit lists a tag only once at least one message carries it, so an inbox with only SMS shows
+only the `SMS` tag.
+
+| Medium    | Tag         | Subject                                       | To                             |
+| --------- | ----------- | --------------------------------------------- | ------------------------------ |
+| Email     | `EMAIL`     | the real subject                              | the real email address         |
+| SMS       | `SMS`       | `[SMS]`                                       | `<phone>@sms.sink.invalid`     |
+| WhatsApp  | `WHATSAPP`  | `[WHATSAPP]`, or `[WhatsApp template <name>]` | `<phone>@sms.sink.invalid`     |
+| Messenger | `MESSENGER` | `[MESSENGER]`                                 | `<recipient>@sms.sink.invalid` |
+
+"Forgot password" picks the channel from what you typed and what is verified
+(`recovery.service.ts`):
+
+```mermaid
+flowchart TD
+    I["identifier typed"] --> U{"active account<br/>matches?"}
+    U -->|no| N["nothing is sent<br/>(same 202, on purpose: Rule 18)"]
+    U -->|"phone matched"| P{"phone verified, or<br/>no verified email?"}
+    P -->|yes| S["SMS code"]
+    P -->|no| L["email link"]
+    U -->|"email matched"| E{"email verified, or<br/>no verified phone?"}
+    E -->|yes| L
+    E -->|no| S
+```
+
+So a random or unknown address puts nothing in the inbox, and an account with an unverified email
+but a verified phone gets an SMS even when you typed the email. To see an `EMAIL` message, use an
+active account whose email is verified, or one with no phone.
+
+**If it fails.**
+
+| You see                                           | Cause                                              | Fix                                                                                                    |
+| ------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `zsh: no such file or directory: vm-ip`           | a `<placeholder>` was typed literally              | set `BIDDALOY_HOST` (step 0) and use the commands as written                                           |
+| `Unable to create '.git/index.lock': File exists` | a crashed git process left an empty lock           | check `pgrep -fl git` shows nothing, then `rm -f .git/index.lock`                                      |
+| Deploy stops at `settings` or config-check        | a key from step 1 or 2 is missing                  | the `Why:` line names it; fix with `sops`, push, rerun the same deploy                                 |
+| Inbox host answers an **empty** `404`             | cloudflared still runs the old tunnel config       | the check and restart in step 4                                                                        |
+| Inbox host answers `502`                          | nginx reaches the host but not mailpit             | `ssh deploy@$BIDDALOY_HOST 'docker ps --format "{{.Names}} {{.Status}}" \| grep -iE "mailpit\|nginx"'` |
+| Staging inbox: login works, then `404`            | same as the empty `404`                            | the check and restart in step 4                                                                        |
+| Only the `SMS` tag, no email                      | forgot-password picked SMS for that account        | see the flowchart above; try an account with a verified email                                          |
+| A random email puts nothing in the inbox          | no account matched, so nothing is sent (by design) | use a real active account                                                                              |
+
+Rolling back leaves mailpit running on purpose.
 
 **Staging with real providers (optional).** Staging alone may skip the inbox and send real
 messages. In `staging.enc.env` set `ALLOW_REAL_PROVIDERS_ON_STAGING=true`, `MESSAGE_SINK=real`,
