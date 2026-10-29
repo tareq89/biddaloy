@@ -153,6 +153,6 @@
     "performedBy": "Performed by"
   },
   "help": {
-    "performedBy": "Shows only what one person did. Leave it on All users to see everyone."
+    "performedBy": "Show only what one person did. The list holds the first 100 users; if a name is missing, filter by date and record type and look in the Who column."
   }
 }

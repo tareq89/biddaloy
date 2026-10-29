@@ -46,6 +46,7 @@ export function ApplicationsReports() {
       kind: 'select',
       key: 'academic_year_id',
       label: t('filterYear'),
+      helpId: 'reports.applications.field.academicYear',
       // Dates with no year: the server counts every year, so say so.
       allLabel: !(search.from || search.to)
         ? t('filterCurrentYear', { name: current?.name ?? '' })
@@ -57,6 +58,7 @@ export function ApplicationsReports() {
       fromKey: 'from',
       toKey: 'to',
       label: t('filterSubmitted'),
+      helpId: 'reports.applications.field.submitted',
       fromLabel: t('filterFrom'),
       toLabel: t('filterTo'),
     },

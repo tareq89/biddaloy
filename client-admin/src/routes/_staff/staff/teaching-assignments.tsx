@@ -317,6 +317,7 @@ function TeachingAssignmentsPage() {
           }}
           tone="danger"
           title={t('unassignDialog.title')}
+          helpId="people.teachingAssignments.action.unassign"
           description={t('unassignDialog.description', {
             teacherName: unassigning.full_name,
             sectionName: unassigning.section_name,

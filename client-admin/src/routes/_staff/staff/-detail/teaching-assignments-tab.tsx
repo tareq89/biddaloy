@@ -131,6 +131,7 @@ export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProp
           }}
           tone="danger"
           title={t('detail.teachingAssignments.removeConfirmTitle')}
+          helpId="people.teachingAssignments.action.unassign"
           description={t('detail.teachingAssignments.removeConfirmDescription', {
             sectionName: `${removing.class_name} · ${removing.section_name}`,
           })}

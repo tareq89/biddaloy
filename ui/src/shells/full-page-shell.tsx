@@ -20,6 +20,7 @@ import * as React from 'react';
 
 import { Button } from '../components/button';
 import { ConfirmDialog } from '../components/confirm-dialog';
+import { HelpHint, useHelp } from '../components/help-hint';
 import { RoutePending } from '../components/route-pending';
 import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
@@ -31,6 +32,8 @@ export interface FullPageShellAction {
   onClick: () => void;
   busy?: boolean;
   disabled?: boolean;
+  /** A (?) after the button (needs a help index entry, Epic 44). */
+  helpId?: string | undefined;
 }
 
 export interface FullPageShellProps {
@@ -60,6 +63,18 @@ export function FullPageShell({
   const [confirming, setConfirming] = React.useState(false);
   useWarnUnsavedChanges(dirty === true);
   const requestClose = () => (dirty ? setConfirming(true) : onClose());
+  const { resolve } = useHelp();
+  const primaryButton = primary && (
+    <Button
+      type="button"
+      className="h-11"
+      loading={primary.busy ?? false}
+      disabled={primary.disabled ?? false}
+      onClick={primary.onClick}
+    >
+      {primary.label}
+    </Button>
+  );
   const width = size === 'wide' ? 'max-w-5xl' : 'max-w-3xl';
   const bodyClass = cn('mx-auto w-full flex-1 space-y-6 px-4 py-4 md:px-6 md:py-6', width);
   return (
@@ -130,15 +145,15 @@ export function FullPageShell({
                   ) : (
                     <span />
                   )}
-                  <Button
-                    type="button"
-                    className="h-11"
-                    loading={primary.busy ?? false}
-                    disabled={primary.disabled ?? false}
-                    onClick={primary.onClick}
-                  >
-                    {primary.label}
-                  </Button>
+                  {/* No wrapper when no (?) renders, so the footer keeps its DOM. */}
+                  {resolve(primary.helpId) ? (
+                    <div className="flex items-center gap-1">
+                      {primaryButton}
+                      <HelpHint helpId={primary.helpId} />
+                    </div>
+                  ) : (
+                    primaryButton
+                  )}
                 </div>
               </footer>
             )}

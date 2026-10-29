@@ -173,9 +173,9 @@ Only the Admin sees the list for the whole school. A few roles can see the histo
 
 <!-- guide:generated:fields:auditLogs -->
 
-| Field        | What to enter                                                          | Required? |
-| ------------ | ---------------------------------------------------------------------- | --------- |
-| Performed by | Shows only what one person did. Leave it on All users to see everyone. | No        |
+| Field        | What to enter                                                                                                                                       | Required? |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Performed by | Show only what one person did. The list holds the first 100 users; if a name is missing, filter by date and record type and look in the Who column. | No        |
 
 <!-- /guide:generated -->
 

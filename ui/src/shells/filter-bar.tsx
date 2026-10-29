@@ -34,6 +34,7 @@ import { Button } from '../components/button';
 import { Checkbox } from '../components/checkbox';
 import { DatePicker } from '../components/date-picker';
 import { FilterSheet } from '../components/filter-sheet';
+import { HelpHint, useHelp } from '../components/help-hint';
 import { Input } from '../components/input';
 import { Label } from '../components/label';
 import {
@@ -57,7 +58,12 @@ export interface FilterOption {
   label: string;
 }
 
-export interface TextFilterField {
+interface FilterFieldBase {
+  /** A (?) after the field's label (needs a help index entry, Epic 44). */
+  helpId?: string | undefined;
+}
+
+export interface TextFilterField extends FilterFieldBase {
   kind: 'text';
   key: string;
   label: string;
@@ -73,7 +79,7 @@ export interface TextFilterField {
   formatChip?: (value: string) => string;
 }
 
-export interface SelectFilterField {
+export interface SelectFilterField extends FilterFieldBase {
   kind: 'select';
   key: string;
   label: string;
@@ -84,7 +90,7 @@ export interface SelectFilterField {
   options: readonly FilterOption[];
 }
 
-export interface DateRangeFilterField {
+export interface DateRangeFilterField extends FilterFieldBase {
   kind: 'date-range';
   /** Explicit URL keys, not derived from a single `key` — live Zod search
    * schemas already use `from_date`/`to_date`, which no `${key}_from`
@@ -97,13 +103,13 @@ export interface DateRangeFilterField {
   toLabel: string;
 }
 
-export interface CheckboxFilterField {
+export interface CheckboxFilterField extends FilterFieldBase {
   kind: 'checkbox';
   key: string;
   label: string;
 }
 
-export interface NumberRangeFilterField {
+export interface NumberRangeFilterField extends FilterFieldBase {
   kind: 'number-range';
   minKey: string;
   maxKey: string;
@@ -171,6 +177,7 @@ interface RangePart {
 
 export function FilterBar({ fields, values, onChange, debounceMs, resultCount }: FilterBarProps) {
   const { t } = useTranslation();
+  const { resolve } = useHelp();
   const regionConfig = useRegionConfig();
   const baseId = React.useId();
   const [sheetOpen, setSheetOpen] = React.useState(false);
@@ -220,12 +227,33 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
   const collapsibleKeys = new Set(collapsibleFields.flatMap(keysOf));
   const collapsibleActiveCount = chips.filter((chip) => collapsibleKeys.has(chip.key)).length;
 
-  function labelled(label: string, id: string, control: React.ReactNode, srOnlyOnPhone = false) {
+  /** The label, plus a (?) beside it when `helpId` resolves; no wrapper otherwise. */
+  function withHelp(label: React.ReactNode, helpId: string | undefined, hideOnPhone = false) {
+    if (!resolve(helpId)) return label;
+    return (
+      <span className="inline-flex items-center gap-1">
+        {label}
+        <HelpHint helpId={helpId} className={hideOnPhone ? 'hidden md:inline-flex' : undefined} />
+      </span>
+    );
+  }
+
+  function labelled(
+    label: string,
+    id: string,
+    control: React.ReactNode,
+    srOnlyOnPhone = false,
+    helpId?: string,
+  ) {
     return (
       <div className="flex min-w-0 flex-col gap-1.5">
-        <Label htmlFor={id} className={srOnlyOnPhone ? 'sr-only md:not-sr-only' : undefined}>
-          {label}
-        </Label>
+        {withHelp(
+          <Label htmlFor={id} className={srOnlyOnPhone ? 'sr-only md:not-sr-only' : undefined}>
+            {label}
+          </Label>,
+          helpId,
+          srOnlyOnPhone,
+        )}
         {control}
       </div>
     );
@@ -238,11 +266,12 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
     groupLabel: string,
     groupKey: string,
     [from, to]: [RangePart, RangePart],
+    helpId?: string,
   ) {
     if (scope === 'sheet') {
       return (
         <>
-          {labelled(from.label, from.id, from.control)}
+          {labelled(from.label, from.id, from.control, false, helpId)}
           {labelled(to.label, to.id, to.control)}
         </>
       );
@@ -250,9 +279,12 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
     const labelId = `${baseId}-group-${groupKey}`;
     return (
       <div className="flex min-w-0 flex-col gap-1.5">
-        <span id={labelId} className="text-label font-medium">
-          {groupLabel}
-        </span>
+        {withHelp(
+          <span id={labelId} className="text-label font-medium">
+            {groupLabel}
+          </span>,
+          helpId,
+        )}
         <div role="group" aria-labelledby={labelId} className="flex items-center gap-1.5">
           {from.control}
           <span aria-hidden="true" className="text-text-secondary">
@@ -292,6 +324,7 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
             input
           ),
           f.primary === true && scope === 'bar',
+          f.helpId,
         );
       }
       case 'select': {
@@ -329,6 +362,8 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
               ))}
             </SelectContent>
           </Select>,
+          false,
+          f.helpId,
         );
       }
       case 'date-range': {
@@ -346,10 +381,13 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
             />
           ),
         });
-        return range(scope, f.label, f.fromKey, [
-          picker(f.fromKey, f.fromLabel),
-          picker(f.toKey, f.toLabel),
-        ]);
+        return range(
+          scope,
+          f.label,
+          f.fromKey,
+          [picker(f.fromKey, f.fromLabel), picker(f.toKey, f.toLabel)],
+          f.helpId,
+        );
       }
       case 'checkbox':
         return (
@@ -360,7 +398,7 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
               checked={values[f.key] === 'true'}
               onCheckedChange={(checked) => setValue(f.key, checked === true ? 'true' : null)}
             />
-            <Label htmlFor={id(f.key)}>{f.label}</Label>
+            {withHelp(<Label htmlFor={id(f.key)}>{f.label}</Label>, f.helpId)}
           </div>
         );
       case 'number-range': {
@@ -379,10 +417,13 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
             />
           ),
         });
-        return range(scope, f.label, f.minKey, [
-          num(f.minKey, f.minLabel),
-          num(f.maxKey, f.maxLabel),
-        ]);
+        return range(
+          scope,
+          f.label,
+          f.minKey,
+          [num(f.minKey, f.minLabel), num(f.maxKey, f.maxLabel)],
+          f.helpId,
+        );
       }
     }
   }

@@ -110,6 +110,7 @@ export function DangerConfirmDialog({
   confirmLabel,
   busy,
   onConfirm,
+  helpId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -120,6 +121,8 @@ export function DangerConfirmDialog({
   confirmLabel: string;
   busy: boolean;
   onConfirm: () => void;
+  /** A (?) beside the title for the action this confirms (a row action has no (?) of its own). */
+  helpId?: string | undefined;
 }) {
   const { t } = useTranslation('common');
   return (
@@ -136,7 +139,10 @@ export function DangerConfirmDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{title}</DialogTitle>
+            <HelpHint helpId={helpId} />
+          </div>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         {error && (

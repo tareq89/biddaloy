@@ -175,6 +175,7 @@ function CollectionsReportPage() {
       kind: 'select',
       key: 'preset',
       label: t('filters.presetLabel'),
+      helpId: 'reports.collectionsReport.field.preset',
       allLabel: t('filters.presetToday'),
       options: [
         { value: 'yesterday', label: t('filters.presetYesterday') },
@@ -212,6 +213,7 @@ function CollectionsReportPage() {
       kind: 'select',
       key: 'received_by_user_id',
       label: t('filters.collectorLabel'),
+      helpId: 'reports.collectionsReport.field.collector',
       allLabel: t('filters.allCollectors'),
       // [16.6.4 review] Built from the report's own `by_collector` breakdown
       // instead of `GET /users` — that endpoint is ADMIN-only server-side,
