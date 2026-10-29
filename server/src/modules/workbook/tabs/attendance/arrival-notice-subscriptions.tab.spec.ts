@@ -16,14 +16,14 @@ describe('arrival_notice_subscriptions tab', () => {
       id: ID,
       student_id: STUDENT,
       guardian_id: GUARDIAN,
-      status: 'ACTIVE',
-      mode: 'RECURRING',
+      status: 'OFF',
+      mode: 'ONCE',
       channel: 'SMS',
-      lock: 'ALWAYS',
+      lock: 'NEVER',
       consumed_at: new Date('2026-05-01T09:00:00.000Z'),
     });
     const row = roundTrip(tab, entity, stamp, keys);
-    expect(row).toMatchObject({ student_id: STUDENT, guardian_id: GUARDIAN, lock: 'ALWAYS' });
+    expect(row).toMatchObject({ student_id: STUDENT, guardian_id: GUARDIAN, lock: 'NEVER' });
     expect(tab.keyOf(entity)).toBe('REG-1|01711111111');
   });
 
@@ -54,6 +54,45 @@ describe('arrival_notice_subscriptions tab', () => {
       { tenantId: 't', ref: () => 'x', warn: () => undefined },
     );
     expect('errors' in res && res.errors[0]).toMatchObject({ column: 'lock', severity: 'error' });
+  });
+
+  it.each([
+    ['NEVER', 'ACTIVE', 'RECURRING', '', 'lock'],
+    ['NEVER', 'REQUESTED', 'ONCE', '', 'lock'],
+    ['ALWAYS', 'ACTIVE', 'RECURRING', '2026-05-01T09:00:00.000Z', 'consumed_at'],
+  ])(
+    'rejects lock %s with status %s, mode %s, consumed_at "%s" (D35)',
+    (lock, status, mode, consumed_at, column) => {
+      const res = tab.fromRow(
+        {
+          id: ID,
+          student: 'REG-1',
+          guardian: '01711111111',
+          status,
+          mode,
+          channel: 'PUSH',
+          lock,
+          consumed_at,
+        },
+        2,
+        { tenantId: 't', ref: () => 'x', warn: () => undefined },
+      );
+      expect('errors' in res && res.errors[0]).toMatchObject({ column, severity: 'error' });
+    },
+  );
+
+  it('accepts a NEVER lock on an OFF row and an unconsumed ALWAYS row', () => {
+    for (const row of [
+      { lock: 'NEVER', status: 'OFF', mode: 'ONCE' },
+      { lock: 'ALWAYS', status: 'ACTIVE', mode: 'RECURRING' },
+    ]) {
+      const res = tab.fromRow(
+        { id: ID, student: 'REG-1', guardian: '01711111111', channel: 'PUSH', ...row },
+        2,
+        { tenantId: 't', ref: () => 'x', warn: () => undefined },
+      );
+      expect('errors' in res).toBe(false);
+    }
   });
 
   it('is registered after its parents', () => {

@@ -95,7 +95,7 @@ describe('arrival_notice_subscriptions tab (integration)', () => {
       tenant_id: A,
       student_id: a.student.id,
       guardian_id: a.guardian.id,
-      status: 'ACTIVE',
+      status: 'OFF',
       mode: 'ONCE',
       channel: 'SMS',
       lock: 'NEVER',
@@ -136,7 +136,7 @@ describe('arrival_notice_subscriptions tab (integration)', () => {
     expect(restored[0]).toMatchObject({
       student_id: again.student.id,
       guardian_id: again.guardian.id,
-      status: 'ACTIVE',
+      status: 'OFF',
       mode: 'ONCE',
       channel: 'SMS',
       lock: 'NEVER',

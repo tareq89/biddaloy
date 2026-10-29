@@ -81,11 +81,24 @@ export const arrivalNoticeSubscriptionsTab = createRefChildTab<ArrivalNoticeSubs
     const g = new Set(guardians.map((x) => x.id));
     return rows.filter((r) => s.has(r.student_id) && g.has(r.guardian_id));
   },
-  // D35, the rule `ArrivalSubscriptionsService.setLock` enforces. (NEVER needs no
-  // check: the sender drops NEVER rows whatever their status.)
-  checkRow: (row) =>
-    row.lock === ArrivalNoticeLock.ALWAYS &&
-    (row.status !== ArrivalNoticeStatus.ACTIVE || row.mode !== ArrivalNoticeMode.RECURRING)
-      ? { column: 'lock', message: 'An ALWAYS lock needs status ACTIVE and mode RECURRING.' }
-      : null,
+  // D35, the rules `ArrivalSubscriptionsService.setLock` enforces: ALWAYS is
+  // ACTIVE + RECURRING and unconsumed (a consumed row is never sent), NEVER is OFF
+  // (else clearing the lock later would switch notices on by itself).
+  checkRow: (row) => {
+    if (row.lock === ArrivalNoticeLock.ALWAYS) {
+      if (row.status !== ArrivalNoticeStatus.ACTIVE || row.mode !== ArrivalNoticeMode.RECURRING) {
+        return {
+          column: 'lock',
+          message: 'An ALWAYS lock needs status ACTIVE and mode RECURRING.',
+        };
+      }
+      if (row.consumed_at) {
+        return { column: 'consumed_at', message: 'An ALWAYS lock needs an empty Consumed at.' };
+      }
+    }
+    if (row.lock === ArrivalNoticeLock.NEVER && row.status !== ArrivalNoticeStatus.OFF) {
+      return { column: 'lock', message: 'A NEVER lock needs status OFF.' };
+    }
+    return null;
+  },
 });
