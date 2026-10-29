@@ -32,6 +32,7 @@ export const ARRIVAL_ERRORS = {
   lockedNever: 'Arrival notices are turned off for this child by the school.',
   lockedAlways: 'Arrival notices are always on for this child by the school.',
   lockedForTeacher: 'This arrival notice is locked by the school and cannot be changed.',
+  disabled: 'Arrival notices are turned off at this school.',
   smsNotAllowed: 'SMS arrival notices are not available at this school.',
 } as const;
 
@@ -48,6 +49,7 @@ function toDto(r: ArrivalNoticeSubscription): ArrivalSubscriptionResponseDto {
     channel: r.channel,
     lock: r.lock,
     consumed_at: r.consumed_at,
+    declined_at: r.declined_at,
     updated_at: r.updated_at,
   };
 }
@@ -79,6 +81,12 @@ export class ArrivalSubscriptionsService {
     return rows.map((r) => r.section_id);
   }
 
+  /** The school switch gates every write; the portal GET still answers so it can say "off". */
+  private async assertEnabled(tenantId: string) {
+    const s = (await this.schools.getResolvedSettings(tenantId)).attendance?.arrivalNotice;
+    if (!s?.enabled) throw new ConflictException(ARRIVAL_ERRORS.disabled);
+  }
+
   private async assertSmsAllowed(tenantId: string, channel: ArrivalNoticeChannel | undefined) {
     if (channel !== ArrivalNoticeChannel.SMS) return;
     const s = (await this.schools.getResolvedSettings(tenantId)).attendance?.arrivalNotice;
@@ -108,8 +116,11 @@ export class ArrivalSubscriptionsService {
 
     const qb = this.repo
       .createQueryBuilder('s')
-      .innerJoinAndSelect('s.student', 'st', 'st.deleted_at IS NULL')
-      .innerJoinAndSelect('s.guardian', 'g')
+      .innerJoinAndSelect('s.student', 'st', 'st.tenant_id = :tenantId AND st.deleted_at IS NULL')
+      .innerJoinAndSelect('s.guardian', 'g', 'g.tenant_id = :tenantId')
+      .leftJoin('s.set_by', 'sb')
+      .leftJoin('s.locked_by', 'lb')
+      .addSelect(['sb.id', 'sb.full_name', 'lb.id', 'lb.full_name'])
       .where('s.tenant_id = :tenantId', { tenantId: a.tenantId })
       .orderBy('st.full_name', 'ASC')
       .addOrderBy('s.id', 'ASC')
@@ -117,6 +128,7 @@ export class ArrivalSubscriptionsService {
       .skip(q.offset ?? 0);
     if (q.sectionId) qb.andWhere('st.class_section_id = :sectionId', { sectionId: q.sectionId });
     if (ids) qb.andWhere('st.class_section_id IN (:...ids)', { ids });
+    if (q.studentId) qb.andWhere('s.student_id = :studentId', { studentId: q.studentId });
     if (q.status) qb.andWhere('s.status = :status', { status: q.status });
 
     const rows = await qb.getMany();
@@ -124,6 +136,11 @@ export class ArrivalSubscriptionsService {
       ...toDto(r),
       student_name: r.student.full_name,
       guardian_name: r.guardian.full_name,
+      notifications_enabled: r.guardian.notifications_enabled,
+      set_by_name: r.set_by?.full_name ?? null,
+      set_at: r.set_at,
+      locked_by_name: r.locked_by?.full_name ?? null,
+      locked_at: r.locked_at,
     }));
   }
 
@@ -137,6 +154,7 @@ export class ArrivalSubscriptionsService {
       channel?: ArrivalNoticeChannel;
     },
   ): Promise<ArrivalSubscriptionResponseDto> {
+    await this.assertEnabled(a.tenantId);
     const student = await this.studentRepo.findOne({
       where: { id: dto.student_id, tenant_id: a.tenantId },
     });
@@ -176,7 +194,9 @@ export class ArrivalSubscriptionsService {
     row.mode = row.lock === ArrivalNoticeLock.ALWAYS ? ArrivalNoticeMode.RECURRING : dto.mode;
     if (dto.channel) row.channel = dto.channel;
     row.consumed_at = null;
+    row.declined_at = null;
     row.set_by_user_id = a.userId;
+    row.set_at = new Date();
     return toDto(await this.repo.save(row));
   }
 
@@ -204,6 +224,7 @@ export class ArrivalSubscriptionsService {
     id: string,
     dto: { status?: ArrivalNoticeStatus; mode?: ArrivalNoticeMode },
   ): Promise<ArrivalSubscriptionResponseDto> {
+    await this.assertEnabled(a.tenantId);
     const row = await this.findForStaff(a, id);
     this.assertStaffMayChange(row, a.canLock);
     // D35: ALWAYS means ACTIVE + RECURRING; ONCE or OFF would let the row stop on its own.
@@ -217,9 +238,16 @@ export class ArrivalSubscriptionsService {
     if (dto.status) {
       row.status = dto.status;
       row.consumed_at = null;
+      // A staff OFF is a decline; the portal reads it to tell this from the guardian's own OFF.
+      row.declined_at = dto.status === ArrivalNoticeStatus.OFF ? new Date() : null;
     }
-    if (dto.mode) row.mode = dto.mode;
+    if (dto.mode) {
+      row.mode = dto.mode;
+      // Only a ONCE row can be spent (DB CHECK).
+      if (dto.mode !== ArrivalNoticeMode.ONCE) row.consumed_at = null;
+    }
     row.set_by_user_id = a.userId;
+    row.set_at = new Date();
     return toDto(await this.repo.save(row));
   }
 
@@ -229,14 +257,18 @@ export class ArrivalSubscriptionsService {
     id: string,
     lock: ArrivalNoticeLock,
   ): Promise<ArrivalSubscriptionResponseDto> {
+    await this.assertEnabled(a.tenantId);
     const row = await this.findForStaff(a, id);
     row.lock = lock;
     row.locked_by_user_id = lock === ArrivalNoticeLock.NONE ? null : a.userId;
+    row.locked_at = lock === ArrivalNoticeLock.NONE ? null : new Date();
     if (lock === ArrivalNoticeLock.NEVER) {
       row.status = ArrivalNoticeStatus.OFF;
       row.consumed_at = null;
+      row.declined_at = null;
     } else if (lock === ArrivalNoticeLock.ALWAYS) {
       row.status = ArrivalNoticeStatus.ACTIVE;
+      row.declined_at = null;
       row.mode = ArrivalNoticeMode.RECURRING;
       row.consumed_at = null;
     }
@@ -317,6 +349,7 @@ export class ArrivalSubscriptionsService {
       guardian_id: string;
     }>();
     if (!child) throw new NotFoundException(ARRIVAL_ERRORS.studentNotFound);
+    await this.assertEnabled(tenantId);
     if (want) await this.assertSmsAllowed(tenantId, channel);
 
     const row = await this.repo.findOne({
@@ -343,13 +376,16 @@ export class ArrivalSubscriptionsService {
     if (!want) {
       next.status = ArrivalNoticeStatus.OFF;
       next.consumed_at = null;
+      next.declined_at = null; // the guardian's own OFF is not a staff decline
     } else if (next.status === ArrivalNoticeStatus.OFF) {
       // D20: asking again (after a decline or a consumed ONCE) is a fresh request.
       next.status = ArrivalNoticeStatus.REQUESTED;
       next.consumed_at = null;
+      next.declined_at = null;
     }
     if (channel) next.channel = channel;
     next.set_by_user_id = input.guardianUserId;
+    next.set_at = new Date();
     return toDto(await this.repo.save(next));
   }
 }

@@ -870,12 +870,24 @@ erDiagram
     enum channel "PUSH, SMS"
     enum lock "NONE, ALWAYS, NEVER"
     timestamptz consumed_at "set when a ONCE row is used"
+    timestamptz declined_at "set when STAFF turned the row OFF"
+    timestamptz set_at "when set_by_user_id last changed it"
+    timestamptz locked_at "when locked_by_user_id set the lock"
   }
 ```
 
 One row per (tenant, student, guardian): a unique index
 (`UQ_arrival_notice_subscriptions_tenant_student_guardian`) refuses a second.
-Deleting the student or guardian deletes the row.
+Deleting the student or guardian deletes the row. `guardian_id` has its own index.
+
+The database refuses rows that break the lock rules (CHECKs, D35):
+
+| CHECK                         | Meaning                                             |
+| ----------------------------- | --------------------------------------------------- |
+| `..._never_off`               | `NEVER` implies `status = OFF`                      |
+| `..._always_active_recurring` | `ALWAYS` implies `ACTIVE` + `RECURRING`, unconsumed |
+| `..._consumed_once`           | `consumed_at` only on a `ONCE` row                  |
+| `..._declined_off`            | `declined_at` only on an `OFF` row                  |
 
 | Column    | Values                       | Plain meaning                                                                     |
 | --------- | ---------------------------- | --------------------------------------------------------------------------------- |
@@ -886,17 +898,34 @@ Deleting the student or guardian deletes the row.
 
 ### Who may do what
 
-| Who                                         | Can do                                                  | Route                                                                               |
-| ------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Guardian (role `PARENT`) of the child       | Ask, or switch off, for their own linked children       | `GET /portal/arrival-subscriptions`, `PUT /portal/arrival-subscriptions/:studentId` |
-| Class teacher (own section only)            | List, add, confirm or decline a row                     | `/attendance/arrival-subscriptions`                                                 |
-| `ADMIN` or `EXECUTIVE` (any section)        | The same, school-wide, from a student's Guardians tab   | `/attendance/arrival-subscriptions`                                                 |
-| Admin with `ATTENDANCE_ARRIVAL_NOTICE_LOCK` | Set a lock (`ALWAYS` or `NEVER`); only `ADMIN` holds it | `PATCH /attendance/arrival-subscriptions/:id/lock`                                  |
+| Who                                        | Can do                                                                            | Route                                                                               |
+| ------------------------------------------ | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Guardian (role `PARENT`) of the child      | Ask, or switch off, for their own linked children                                 | `GET /portal/arrival-subscriptions`, `PUT /portal/arrival-subscriptions/:studentId` |
+| Class teacher (own section only)           | List, add, confirm or decline a row                                               | `/attendance/arrival-subscriptions`                                                 |
+| `ADMIN` or `EXECUTIVE` (any section)       | The same, school-wide, from a student's Guardians tab                             | `/attendance/arrival-subscriptions`                                                 |
+| Holder of `ATTENDANCE_ARRIVAL_NOTICE_LOCK` | Set a lock (`ALWAYS` or `NEVER`); `ADMIN` and `EXECUTIVE` (the principal) hold it | `PATCH /attendance/arrival-subscriptions/:id/lock`                                  |
 
 A lock beats the guardian: under `NEVER` the guardian cannot ask, under
 `ALWAYS` they cannot switch off or choose "once". `ALWAYS` rewrites the row to
 `ACTIVE` + `RECURRING` (channel kept); `NEVER` rewrites it to `OFF`; setting
 `NONE` leaves the row as it is.
+
+### What the lists show
+
+`GET /attendance/arrival-subscriptions` (staff) takes `sectionId`, `studentId`
+(UUID), `status`, `limit` (max 100), `offset`. Each row adds:
+
+| Field                         | Plain meaning                                                            |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `notifications_enabled`       | `false` = the guardian turned all notifications off; nothing is sent     |
+| `set_by_name`, `set_at`       | Who last changed the row, and when (a guardian's own change counts)      |
+| `locked_by_name`, `locked_at` | Who set the current lock, and when; both `null` while the lock is `NONE` |
+
+Both lists carry `declined_at`. It is set when **staff** turn a row `OFF`
+(decline a request or switch it off) and cleared on any later confirm or new
+request. A guardian's own switch-off leaves it `null`, so the portal tells
+"the teacher declined" (`status: OFF`, `declined_at` set) from "you switched
+it off" (`declined_at: null`).
 
 ### The two wordings
 
@@ -934,9 +963,10 @@ Nobody gets a half-sent message and the teacher sees no error.
 
 ### Known limits
 
-- The school switch `arrivalNotice.enabled` is read only by the send hooks.
-  The subscription routes still accept rows while it is off; they just never
-  send.
+- The school switch `arrivalNotice.enabled` gates the send hooks **and** every
+  write route (`POST`, `PATCH :id`, `PATCH :id/lock`, `PUT /portal/...`): while
+  it is off they answer `409 "Arrival notices are turned off at this school."`.
+  The two `GET` routes still answer, so the portal can read `school.enabled`.
 - Both switches default to off (`enabled: false`, `smsAllowed: false`). The
   e2e dev seed turns `enabled` on (app only, `ensureArrivalNoticeSetting`), so
   no Playwright spec ever switches it: specs run in parallel, and one spec
