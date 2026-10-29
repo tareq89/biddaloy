@@ -26,6 +26,7 @@ export function schoolFactory(overrides: Partial<School> = {}, script?: Script):
     trial_ends_at: null,
     seat_limit: null,
     onboarding: null,
+    created_in_demo: false,
     created_at: faker.date.past({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     updated_at: faker.date.recent({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     deleted_at: null,

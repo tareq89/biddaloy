@@ -84,7 +84,7 @@ export class CommunicationsProcessor extends WorkerHost {
     if (log.trigger !== CommunicationTrigger.AUTOMATED) {
       return false;
     }
-    return this.pushToGuardian(job, log);
+    return (await this.pushToGuardian(job, log)) === true;
   }
 
   /**
@@ -92,7 +92,10 @@ export class CommunicationsProcessor extends WorkerHost {
    * through to SMS on false) and the [84.1.3] arrival branch (push only,
    * false = FAILED). Same contract as `tryPushFirst`'s return value.
    */
-  private async pushToGuardian(job: Job<SendJobData>, log: CommunicationLog): Promise<boolean> {
+  private async pushToGuardian(
+    job: Job<SendJobData>,
+    log: CommunicationLog,
+  ): Promise<boolean | 'TRANSIENT'> {
     if (!log.guardian_id) {
       return false;
     }
@@ -115,7 +118,8 @@ export class CommunicationsProcessor extends WorkerHost {
     // preferred channel. `accepted === 0` (no live subscriptions, or every
     // endpoint came back transient/pruned) falls through unchanged.
     if (result.accepted < 1) {
-      return false;
+      // Nothing accepted but an endpoint failed transiently: not the same as "no device".
+      return result.transient > 0 ? 'TRANSIENT' : false;
     }
 
     // Read BEFORE `log.medium` is rewritten to PUSH below: a metered SMS job
@@ -349,10 +353,33 @@ export class CommunicationsProcessor extends WorkerHost {
     // PUSH = push only (no device = FAILED, never SMS), SMS = no push attempt.
     if (log.trigger === CommunicationTrigger.ARRIVAL_NOTICE) {
       if (log.medium === PUSH_MEDIUM) {
-        if (!(await this.pushToGuardian(job, log))) {
+        const pushed = await this.pushToGuardian(job, log);
+        if (pushed === 'TRANSIENT' && job.attemptsMade + 1 < (job.opts.attempts ?? 1)) {
+          // Transient endpoint failure: let BullMQ retry; the log stays QUEUED.
+          throw new Error(`Transient push failure for arrival notice ${log.id}`);
+        }
+        if (pushed !== true) {
           log.status = CommunicationStatus.FAILED;
-          log.metadata = { ...log.metadata, reason: 'NO_PUSH_DEVICE' };
+          const exhausted = pushed === 'TRANSIENT';
+          log.metadata = {
+            ...log.metadata,
+            reason: exhausted ? 'PUSH_TRANSIENT_FAILURE' : 'NO_PUSH_DEVICE',
+          };
           await this.settle(log, 'failure');
+          if (exhausted) {
+            // Retries ran out on a device that does exist: not the same as "no device", so make it loud.
+            this.reportFailure(
+              {
+                queue: COMMUNICATIONS_QUEUE,
+                job_name: job.name,
+                communication_log_id: log.id,
+                tenant_id: log.tenant_id,
+                medium: log.medium,
+                reason: 'PUSH_TRANSIENT_FAILURE',
+              },
+              new Error(`Push retries exhausted for arrival notice ${log.id}`),
+            );
+          }
         }
         return;
       }

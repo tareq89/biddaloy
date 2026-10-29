@@ -274,6 +274,17 @@ describe('Arrival notice hooks (integration)', () => {
       await waitLogs(1);
     });
 
+    it('a batch of first punches calls the service once, grouped by date', async () => {
+      const spy = spySend();
+      const date = TODAY(); // one date for both punches, so UTC midnight can't split the batch
+      await devices.ingest(await device(), [
+        punch(studentIds[0], '02:00:00', date),
+        punch(studentIds[1], '02:05:00', date),
+      ]);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][0].students).toHaveLength(2);
+    });
+
     it('punch then teacher finalize the same day -> still 1 log for that guardian', async () => {
       const d = await device();
       await devices.ingest(d, [punch(studentIds[0], '02:00:00')]);

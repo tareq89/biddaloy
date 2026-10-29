@@ -363,10 +363,13 @@ export class AttendanceService {
       periodNo === null &&
       result.session.state === AttendanceSessionState.FINALIZED
     ) {
+      // Settings are read once for both notices; a failed read skips both (fail open).
+      const settings = await this.schoolsService.getResolvedSettings(tenantId).catch((err) => {
+        this.logger.warn(`Notice settings unavailable for section ${sectionId}: ${String(err)}`);
+        return null;
+      });
       try {
-        const settings = await this.schoolsService.getResolvedSettings(tenantId);
-        const policy = resolveAttendancePolicy(settings);
-        if (policy.autoAbsentNotification.enabled) {
+        if (settings && resolveAttendancePolicy(settings).autoAbsentNotification.enabled) {
           await this.absenceNoticeService.sendAbsenceNotices({
             tenantId,
             sectionId,
@@ -383,19 +386,15 @@ export class AttendanceService {
       // whole-day register. Own try/catch: a failure here never undoes the register. Teacher time
       // is "now" (the service ignores non-arrived statuses; the DB unique key dedupes a device send).
       try {
-        const settings = await this.schoolsService.getResolvedSettings(tenantId);
-        if (settings.attendance?.arrivalNotice?.enabled === true && result.session.id) {
-          const records = await this.recordRepo.find({
-            where: { tenant_id: tenantId, session_id: result.session.id },
-          });
+        if (settings?.attendance?.arrivalNotice?.enabled === true) {
+          const now = new Date();
           await this.arrivalNoticeService.sendArrivalNotices({
             tenantId,
             date: dto.date,
-            students: records.map((r) => ({
-              studentId: r.student_id,
-              status: r.status,
-              occurredAt: new Date(),
-            })),
+            // The saved register is already in `result`: no second query.
+            students: result.students.flatMap((r) =>
+              r.status ? [{ studentId: r.student_id, status: r.status, occurredAt: now }] : [],
+            ),
             takenBy: { kind: 'TEACHER', userId },
           });
         }
