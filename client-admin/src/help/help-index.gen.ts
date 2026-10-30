@@ -1843,6 +1843,36 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'attendanceReports', key: 'threshold' },
   },
+  'attendance.attendanceReports.section.summary': {
+    title: { bn: 'উপস্থিতি প্রতিবেদন', en: 'Attendance reports' },
+    summary: {
+      bn: 'একটি শাখার মাসের হাজিরার হিসাব দেখুন, কার উপস্থিতি কম তা খুঁজে বের করুন, আর দরকার হলে রিমাইন্ডার পাঠান।',
+      en: "See a section's monthly attendance figures, find who is falling behind, and send a reminder if needed.",
+    },
+    path: 'attendance/attendance-reports',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'attendance.attendanceReports.section.flags': {
+    title: { bn: 'উপস্থিতি প্রতিবেদন', en: 'Attendance reports' },
+    summary: {
+      bn: 'একটি শাখার মাসের হাজিরার হিসাব দেখুন, কার উপস্থিতি কম তা খুঁজে বের করুন, আর দরকার হলে রিমাইন্ডার পাঠান।',
+      en: "See a section's monthly attendance figures, find who is falling behind, and send a reminder if needed.",
+    },
+    path: 'attendance/attendance-reports',
+    anchor: 'task-low',
+    knownIssues: 0,
+  },
+  'attendance.attendanceReports.section.subjects': {
+    title: { bn: 'উপস্থিতি প্রতিবেদন', en: 'Attendance reports' },
+    summary: {
+      bn: 'একটি শাখার মাসের হাজিরার হিসাব দেখুন, কার উপস্থিতি কম তা খুঁজে বের করুন, আর দরকার হলে রিমাইন্ডার পাঠান।',
+      en: "See a section's monthly attendance figures, find who is falling behind, and send a reminder if needed.",
+    },
+    path: 'attendance/attendance-reports',
+    anchor: 'task-subjects',
+    knownIssues: 0,
+  },
   'attendance.attendanceRegister': {
     title: { bn: 'উপস্থিতির খাতা', en: 'Attendance register' },
     summary: {

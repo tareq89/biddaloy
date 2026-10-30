@@ -21,6 +21,9 @@ const NO_DIALOG = '#3017: More-menu action opens no dialog, no (?) slot';
 /** A per-row control in a list; a (?) on every row is noise (D18), and no dialog opens. */
 const ROW_CONTROL = '#3063: per-row control, no dialog to hold the (?)';
 
+/** A report view tab (TabsTrigger); no (?) slot there yet. */
+const TAB_SLOT = '#3017: report view tab, no (?) slot in the tab trigger';
+
 export const HELP_UNWIRED: Record<string, string> = {
   'start.signIn': PUBLIC,
   'start.signIn.action.submit': PUBLIC,
@@ -41,6 +44,9 @@ export const HELP_UNWIRED: Record<string, string> = {
   'academics.routineReview.action.requestChange': PAGE_FIX,
   'academics.routineReview.action.resolveRequest': PAGE_FIX,
   'attendance.attendanceReports.action.sendReminder': PAGE_FIX,
+  'attendance.attendanceReports.section.summary': TAB_SLOT,
+  'attendance.attendanceReports.section.flags': TAB_SLOT,
+  'attendance.attendanceReports.section.subjects': TAB_SLOT,
   'people.programs.action.archive': NO_DIALOG,
   'people.students.action.printIdCard': NO_DIALOG,
 
