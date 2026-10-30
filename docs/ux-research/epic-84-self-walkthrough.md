@@ -144,8 +144,8 @@ No bug was fixed; no app code was changed.
 ## Reproduce
 
 The run harness was a throwaway Playwright spec that was not committed, so these numbers and
-screenshots cannot be regenerated from this repository. The steps below are the full recipe to
-rebuild it.
+screenshots cannot be regenerated from this repository. The setup below plus the task tables above are
+the recipe to rebuild it.
 Setup per run: fresh class section, 2 children, 3 guardians (2 with portal accounts via batch
 invite and first sign-in OTP), 1 class teacher, admin session; seed has arrival notices on and
 SMS off. Run through `yarn test-env run -- ...` against the dev servers.

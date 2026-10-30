@@ -31,6 +31,8 @@ for (const locale of ['bn', 'en'] as const) {
       await trigger.click();
       const menu = page.getByRole('menu');
       await expect(menu).toBeVisible();
+      // Popper holds `animation: none` inline until the menu is positioned.
+      await expect(menu).not.toHaveAttribute('style', /animation:\s*none/);
       await menu.evaluate((el) =>
         Promise.all(el.getAnimations().map((animation) => animation.finished)),
       );
