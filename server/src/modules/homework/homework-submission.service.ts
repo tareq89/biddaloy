@@ -186,47 +186,44 @@ export class HomeworkSubmissionService {
       });
     }
 
-    // ponytail: read-then-create has a race window under concurrent uploads
-    // for the same (assignment_id, student_id) — the DB's UNIQUE index
-    // (IDX_homework_submissions_assignment_student) stops it from ever
-    // creating two rows, so the failure mode is a 500 on the loser's insert,
-    // not silent duplication. Upgrade to a real upsert if concurrent
-    // resubmission from two devices turns out to be common.
-    let submission = await this.submissionRepo.findOne({
-      where: { assignment_id: assignmentId, student_id: studentId, tenant_id: ctx.tenantId },
-    });
-    if (!submission) {
-      submission = this.submissionRepo.create({
-        assignment_id: assignmentId,
-        student_id: studentId,
-        tenant_id: ctx.tenantId,
-        status: HomeworkSubmissionStatus.NOT_SUBMITTED,
-      });
-    }
-
-    // Resubmission replaces the array — the old objects are never referenced
-    // again, so they'd otherwise stay in storage forever. Keep their keys to
-    // delete once the new row is safely saved.
-    const previousKeys =
-      (submission.attachments as SubmissionAttachment[] | null)?.map((a) => a.key) ?? [];
-
-    submission.attachments = attachments;
-    // D9: teacher override (PARTIAL/DONE) always wins — an upload never
-    // resets a status the teacher already set. A brand-new row (or one
-    // still NOT_SUBMITTED) flips to SUBMITTED; PARTIAL/DONE stay put.
-    if (
-      submission.status !== HomeworkSubmissionStatus.PARTIAL &&
-      submission.status !== HomeworkSubmissionStatus.DONE
-    ) {
-      submission.status = HomeworkSubmissionStatus.SUBMITTED;
-    }
-
+    // Insert-if-absent, then read the row FOR UPDATE, in one transaction (same shape as grade()):
+    // a teacher's bulk grade may create this row at any moment, and a find-then-create here
+    // would lose that race on the unique (assignment_id, student_id) index.
+    let previousKeys: string[] = [];
     let saved: HomeworkSubmission;
     try {
-      saved = await this.submissionRepo.save(submission);
+      saved = await this.submissionRepo.manager.transaction(async (m) => {
+        await m
+          .createQueryBuilder()
+          .insert()
+          .into(HomeworkSubmission)
+          .values({ tenant_id: ctx.tenantId, assignment_id: assignmentId, student_id: studentId })
+          .orIgnore()
+          .execute();
+        const submission = await m.findOneOrFail(HomeworkSubmission, {
+          where: { assignment_id: assignmentId, student_id: studentId, tenant_id: ctx.tenantId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        // Resubmission replaces the array — the old objects are never referenced
+        // again, so they'd otherwise stay in storage forever. Keep their keys to
+        // delete once the new row is safely saved.
+        previousKeys = (submission.attachments as SubmissionAttachment[]).map((a) => a.key);
+
+        submission.attachments = attachments;
+        // D9: teacher override (PARTIAL/DONE) always wins — an upload never
+        // resets a status the teacher already set. A brand-new row (or one
+        // still NOT_SUBMITTED) flips to SUBMITTED; PARTIAL/DONE stay put.
+        if (
+          submission.status !== HomeworkSubmissionStatus.PARTIAL &&
+          submission.status !== HomeworkSubmissionStatus.DONE
+        ) {
+          submission.status = HomeworkSubmissionStatus.SUBMITTED;
+        }
+        return m.save(submission);
+      });
     } catch (err) {
-      // The save failed (including the unique-index race described above) —
-      // the objects just uploaded in this call are now orphaned too.
+      // The objects just uploaded in this call are orphaned.
       await Promise.allSettled(
         attachments.map((a) => this.storage.deleteForTenant(a.key, ctx.tenantId)),
       );

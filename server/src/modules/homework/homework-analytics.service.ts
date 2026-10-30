@@ -64,8 +64,42 @@ export class HomeworkAnalyticsService {
     private readonly planDashboard: StudyPlanDashboardService,
   ) {}
 
+  /**
+   * One `{assignment_id, status}` per student on each assignment (#3171). A completion rate
+   * counts the roster, not the submission rows: rows appear only once a student uploads or a
+   * teacher grades, so counting them made the rate move as teachers graded. Every existing row
+   * counts as before; on top of that an ACTIVE assignment adds a NOT_SUBMITTED entry for each
+   * live ACTIVE student of its section / its one student who has no row yet (the D5 roster
+   * of `HomeworkSubmissionService.roster`; a DEACTIVATED assignment is withdrawn, so it adds
+   * nobody). `studentId` narrows to one student.
+   */
+  private async rosterRows(
+    tenantId: string,
+    filter: { assignmentIds?: string[]; studentId?: string },
+  ): Promise<{ assignment_id: string; status: HomeworkSubmissionStatus }[]> {
+    return this.submissionRepo.manager.query(
+      `SELECT hs.assignment_id, hs.status::text AS status
+         FROM homework_submissions hs
+        WHERE hs.tenant_id = $1
+          AND ($2::uuid[] IS NULL OR hs.assignment_id = ANY($2))
+          AND ($3::uuid IS NULL OR hs.student_id = $3)
+       UNION ALL
+       SELECT ha.id, 'NOT_SUBMITTED'
+         FROM homework_assignments ha
+         JOIN students st ON st.tenant_id = ha.tenant_id
+          AND st.deleted_at IS NULL AND st.enrollment_status = 'ACTIVE'
+          AND (st.class_section_id = ha.section_id OR st.id = ha.student_id)
+        WHERE ha.tenant_id = $1 AND ha.status = 'ACTIVE'
+          AND ($2::uuid[] IS NULL OR ha.id = ANY($2))
+          AND ($3::uuid IS NULL OR st.id = $3)
+          AND NOT EXISTS (SELECT 1 FROM homework_submissions x
+                           WHERE x.assignment_id = ha.id AND x.student_id = st.id)`,
+      [tenantId, filter.assignmentIds ?? null, filter.studentId ?? null],
+    );
+  }
+
   private rollupFromSubmissions(
-    submissions: readonly HomeworkSubmission[],
+    submissions: readonly { assignment_id: string; status: HomeworkSubmissionStatus }[],
     dueDateByAssignmentId: Map<string, string>,
     today: string,
   ): CompletionRollup {
@@ -93,14 +127,13 @@ export class HomeworkAnalyticsService {
     tenantId: string,
     timezone = 'UTC',
   ): Promise<CompletionRollup> {
-    const submissions = await this.submissionRepo.find({
-      where: { tenant_id: tenantId, student_id: studentId },
-      relations: ['assignment'],
-    });
-    const dueDateByAssignmentId = new Map(
-      submissions.map((s) => [s.assignment_id, s.assignment.due_date]),
-    );
-    return this.rollupFromSubmissions(submissions, dueDateByAssignmentId, localToday(timezone));
+    const rows = await this.rosterRows(tenantId, { studentId });
+    const ids = [...new Set(rows.map((r) => r.assignment_id))];
+    const assignments = ids.length
+      ? await this.assignmentRepo.find({ where: { tenant_id: tenantId, id: In(ids) } })
+      : [];
+    const dueDateByAssignmentId = new Map(assignments.map((a) => [a.id, a.due_date]));
+    return this.rollupFromSubmissions(rows, dueDateByAssignmentId, localToday(timezone));
   }
 
   /** All submissions against assignments targeting one section directly
@@ -117,10 +150,8 @@ export class HomeworkAnalyticsService {
       return { totalAssignments: 0, completed: 0, defaulters: 0, completionPercent: 0 };
     }
     const dueDateByAssignmentId = new Map(assignments.map((a) => [a.id, a.due_date]));
-    const submissions = await this.submissionRepo.find({
-      where: { tenant_id: tenantId, assignment_id: In(assignments.map((a) => a.id)) },
-    });
-    return this.rollupFromSubmissions(submissions, dueDateByAssignmentId, localToday(timezone));
+    const rows = await this.rosterRows(tenantId, { assignmentIds: assignments.map((a) => a.id) });
+    return this.rollupFromSubmissions(rows, dueDateByAssignmentId, localToday(timezone));
   }
 
   /** Completion + defaulter rollup across every assignment for a class
@@ -144,17 +175,11 @@ export class HomeworkAnalyticsService {
       relations: ['homework'],
     });
     const dueDateByAssignmentId = new Map(assignments.map((a) => [a.id, a.due_date]));
-    const submissions =
+    const rows =
       assignments.length === 0
         ? []
-        : await this.submissionRepo.find({
-            where: { tenant_id: tenantId, assignment_id: In(assignments.map((a) => a.id)) },
-          });
-    const rollup = this.rollupFromSubmissions(
-      submissions,
-      dueDateByAssignmentId,
-      localToday(timezone),
-    );
+        : await this.rosterRows(tenantId, { assignmentIds: assignments.map((a) => a.id) });
+    const rollup = this.rollupFromSubmissions(rows, dueDateByAssignmentId, localToday(timezone));
 
     const topics = await this.syllabusRepo.find({
       where: { tenant_id: tenantId, class_id: classId },
@@ -178,32 +203,52 @@ export class HomeworkAnalyticsService {
   async getSubmissionRateByClass(tenantId: string): Promise<HomeworkSubmissionRateDto> {
     const to = localToday();
     const from = addDays(to, -6);
-    const rows: { class_id: string; class_name: string; assigned: string; submitted: string }[] =
+    const dueAssignments: { assignment_id: string; class_id: string; class_name: string }[] =
       await this.assignmentRepo.manager.query(
-        `SELECT c.id AS class_id, c.name AS class_name, COUNT(*) AS assigned,
-                COUNT(*) FILTER (WHERE hs.status::text = ANY($4::text[])) AS submitted
-           FROM homework_submissions hs
-           JOIN homework_assignments ha ON ha.id = hs.assignment_id AND ha.tenant_id = $1
+        `SELECT ha.id AS assignment_id, c.id AS class_id, c.name AS class_name
+           FROM homework_assignments ha
            JOIN homework h ON h.id = ha.homework_id AND h.tenant_id = $1
            JOIN classes c ON c.id = h.class_id AND c.tenant_id = $1 AND c.deleted_at IS NULL
            JOIN academic_years ay ON ay.id = c.academic_year_id AND ay.tenant_id = $1
              AND ay.is_current = true AND ay.deleted_at IS NULL
-          WHERE hs.tenant_id = $1 AND ha.status = 'ACTIVE' AND ha.due_date BETWEEN $2 AND $3
-          GROUP BY c.id, c.name, c.numeric_grade
-          ORDER BY c.numeric_grade ASC NULLS LAST, c.name ASC, c.id ASC`,
-        [tenantId, from, to, COMPLETE_STATUSES],
+          WHERE ha.tenant_id = $1 AND ha.status = 'ACTIVE' AND ha.due_date BETWEEN $2 AND $3
+          ORDER BY c.numeric_grade ASC NULLS LAST, c.name ASC, c.id ASC, ha.id ASC`,
+        [tenantId, from, to],
       );
-    const classes = rows.map((r) => {
-      const assigned = Number(r.assigned);
-      const submitted = Number(r.submitted);
-      return {
-        class_id: r.class_id,
-        class_name: r.class_name,
-        assigned,
-        submitted,
-        percentage: percent(submitted, assigned),
+    const rosterRows = dueAssignments.length
+      ? await this.rosterRows(tenantId, {
+          assignmentIds: dueAssignments.map((a) => a.assignment_id),
+        })
+      : [];
+    const perAssignment = new Map<string, { assigned: number; submitted: number }>();
+    for (const r of rosterRows) {
+      const t = perAssignment.get(r.assignment_id) ?? { assigned: 0, submitted: 0 };
+      t.assigned += 1;
+      if (COMPLETE_STATUSES.includes(r.status)) t.submitted += 1;
+      perAssignment.set(r.assignment_id, t);
+    }
+    // Rows arrive class-ordered (numeric grade, name, id), so a Map keeps that order.
+    const byClass = new Map<
+      string,
+      { class_id: string; class_name: string; assigned: number; submitted: number }
+    >();
+    for (const a of dueAssignments) {
+      const t = perAssignment.get(a.assignment_id);
+      if (!t) continue;
+      const c = byClass.get(a.class_id) ?? {
+        class_id: a.class_id,
+        class_name: a.class_name,
+        assigned: 0,
+        submitted: 0,
       };
-    });
+      c.assigned += t.assigned;
+      c.submitted += t.submitted;
+      byClass.set(a.class_id, c);
+    }
+    const classes = [...byClass.values()].map((c) => ({
+      ...c,
+      percentage: percent(c.submitted, c.assigned),
+    }));
     const assigned = classes.reduce((n, c) => n + c.assigned, 0);
     const submitted = classes.reduce((n, c) => n + c.submitted, 0);
     return {

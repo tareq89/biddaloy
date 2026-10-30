@@ -257,6 +257,38 @@ describe('Homework Submission E2E', () => {
       .expect(401);
   });
 
+  it('#3171: an upload after the teacher bulk-graded the student keeps the grade and stores the file', async () => {
+    // The bulk grade creates the (assignment, student) row first; upload must not collide on it.
+    await supertest(app.getHttpServer())
+      .patch(`${API}/homework-assignments/${assignmentId}/submissions`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .send({ items: [{ student_id: studentId, status: 'PARTIAL' }] })
+      .expect(200);
+
+    const res = await supertest(app.getHttpServer())
+      .post(`${API}/homework-assignments/${assignmentId}/submissions`)
+      .set('Authorization', `Bearer ${parentToken}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Role', UserRole.PARENT)
+      .field('student_id', studentId)
+      .attach('files', Buffer.from('%PDF-1.4 test'), {
+        filename: 'answer.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(201);
+    // D9: the teacher's PARTIAL wins over the upload.
+    expect(res.body.status).toBe('PARTIAL');
+    expect(res.body.attachments).toHaveLength(1);
+
+    const rows = await dataSource.query(
+      `SELECT count(*)::int AS n FROM homework_submissions WHERE assignment_id = $1 AND student_id = $2`,
+      [assignmentId, studentId],
+    );
+    expect(rows[0].n).toBe(1);
+  });
+
   describe('PATCH /homework-submissions/:id', () => {
     const patchSubmission = (id: string, body: object) =>
       supertest(app.getHttpServer())

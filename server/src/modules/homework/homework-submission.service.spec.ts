@@ -51,6 +51,13 @@ describe('HomeworkSubmissionService', () => {
     find: ReturnType<typeof vi.fn>;
   };
   let studentRepo: { findOne: ReturnType<typeof vi.fn> };
+  // upload() runs insert-if-absent + FOR UPDATE read + save inside one transaction.
+  let tx: {
+    insertValues: ReturnType<typeof vi.fn>;
+    orIgnore: ReturnType<typeof vi.fn>;
+    findOneOrFail: ReturnType<typeof vi.fn>;
+    save: ReturnType<typeof vi.fn>;
+  };
   let access: {
     assertCanManageSection: ReturnType<typeof vi.fn>;
     assertCanManageStudent: ReturnType<typeof vi.fn>;
@@ -68,6 +75,41 @@ describe('HomeworkSubmissionService', () => {
       create: vi.fn((v) => ({ status: HomeworkSubmissionStatus.NOT_SUBMITTED, marks: null, ...v })),
       save: vi.fn(async (v) => ({ id: 'sub-1', ...v })),
       find: vi.fn(async () => []),
+    };
+    tx = {
+      insertValues: vi.fn(),
+      orIgnore: vi.fn(),
+      findOneOrFail: vi.fn(async () => ({
+        id: 'sub-1',
+        assignment_id: 'assign-1',
+        student_id: 'student-1',
+        status: HomeworkSubmissionStatus.NOT_SUBMITTED,
+        marks: null,
+        attachments: [],
+        tenant_id: TENANT_ID,
+      })),
+      save: vi.fn(async (v) => v),
+    };
+    const insertChain = {
+      insert: () => insertChain,
+      into: () => insertChain,
+      values: (v: unknown) => {
+        (tx.insertValues as (v: unknown) => void)(v);
+        return insertChain;
+      },
+      orIgnore: () => {
+        (tx.orIgnore as () => void)();
+        return insertChain;
+      },
+      execute: async () => undefined,
+    };
+    (submissionRepo as unknown as { manager: unknown }).manager = {
+      transaction: async (fn: (m: unknown) => unknown) =>
+        fn({
+          createQueryBuilder: () => insertChain,
+          findOneOrFail: tx.findOneOrFail,
+          save: tx.save,
+        }),
     };
     studentRepo = {
       findOne: vi.fn(async () => ({
@@ -146,8 +188,42 @@ describe('HomeworkSubmissionService', () => {
       expect(storage.put).not.toHaveBeenCalled();
     });
 
+    // The bulk teacher grade can create this row at any time: upload must insert-if-absent
+    // (ON CONFLICT DO NOTHING) and then lock the row, never find-then-create.
+    it('inserts the row with ON CONFLICT DO NOTHING before locking and saving it', async () => {
+      await service.upload('assign-1', 'student-1', [FILE], studentCtx);
+      expect(tx.insertValues).toHaveBeenCalledWith({
+        tenant_id: TENANT_ID,
+        assignment_id: 'assign-1',
+        student_id: 'student-1',
+      });
+      expect(tx.orIgnore).toHaveBeenCalledTimes(1);
+      expect(tx.findOneOrFail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+      );
+      expect(submissionRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('a row a teacher bulk-graded first keeps its status and gains the files', async () => {
+      tx.findOneOrFail.mockResolvedValue({
+        id: 'sub-1',
+        assignment_id: 'assign-1',
+        student_id: 'student-1',
+        status: HomeworkSubmissionStatus.PARTIAL,
+        marks: 4,
+        attachments: [],
+        tenant_id: TENANT_ID,
+      });
+      const result = await service.upload('assign-1', 'student-1', [FILE], studentCtx);
+      expect(result.status).toBe(HomeworkSubmissionStatus.PARTIAL);
+      expect(result.marks).toBe(4);
+      expect(result.attachments).toHaveLength(1);
+      expect(storage.deleteForTenant).not.toHaveBeenCalled();
+    });
+
     it('resubmission replaces attachments while still before the due date', async () => {
-      submissionRepo.findOne.mockResolvedValue({
+      tx.findOneOrFail.mockResolvedValue({
         id: 'sub-1',
         assignment_id: 'assign-1',
         student_id: 'student-1',
@@ -168,7 +244,7 @@ describe('HomeworkSubmissionService', () => {
     });
 
     it('deletes the newly-uploaded objects if the save fails', async () => {
-      submissionRepo.save.mockRejectedValueOnce(new Error('unique violation'));
+      tx.save.mockRejectedValueOnce(new Error('unique violation'));
       await expect(service.upload('assign-1', 'student-1', [FILE], studentCtx)).rejects.toThrow(
         'unique violation',
       );
@@ -176,7 +252,7 @@ describe('HomeworkSubmissionService', () => {
     });
 
     it('does not overwrite a teacher override status back to SUBMITTED (D9)', async () => {
-      submissionRepo.findOne.mockResolvedValue({
+      tx.findOneOrFail.mockResolvedValue({
         id: 'sub-1',
         assignment_id: 'assign-1',
         student_id: 'student-1',
