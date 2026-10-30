@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { HomeworkAssignmentStatus, HomeworkGradingMode, UserRole } from '@biddaloy/shared';
 import { HomeworkService } from './homework.service';
 import { attentionEvents } from '../attention/attention.constants';
@@ -19,6 +24,7 @@ describe('HomeworkService', () => {
     create: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
+    exists: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     manager: { transaction: ReturnType<typeof vi.fn> };
   };
@@ -29,7 +35,10 @@ describe('HomeworkService', () => {
     assertClassAndSubjectInTenant: ReturnType<typeof vi.fn>;
     assertTargetInClass: ReturnType<typeof vi.fn>;
   };
-  let notice: { notifyAssignment: ReturnType<typeof vi.fn> };
+  let notice: {
+    notifyAssignment: ReturnType<typeof vi.fn>;
+    notifyChange: ReturnType<typeof vi.fn>;
+  };
   let service: HomeworkService;
 
   const HOMEWORK = {
@@ -53,6 +62,8 @@ describe('HomeworkService', () => {
       // entity yet) while preserving the id on an update to an existing row.
       save: vi.fn(async (v) => (v.id ? v : { id: `new-assign-${++nextAssignmentId}`, ...v })),
       findOne: vi.fn(),
+      // #3172 one-live-row check: no other ACTIVE row for the target by default.
+      exists: vi.fn(async () => false),
       // `reassign`'s conditional supersede — 1 affected row by default
       // (the happy path); tests exercising the "already superseded"/race
       // case override this to return 0.
@@ -77,7 +88,10 @@ describe('HomeworkService', () => {
       // DB in homework.controller.e2e-spec.ts (section A vs section B).
       canManageTenantWide: vi.fn(() => true),
     };
-    notice = { notifyAssignment: vi.fn(async () => undefined) };
+    notice = {
+      notifyAssignment: vi.fn(async () => undefined),
+      notifyChange: vi.fn(async () => undefined),
+    };
     service = new HomeworkService(
       homeworkRepo as never,
       assignmentRepo as never,
@@ -143,6 +157,14 @@ describe('HomeworkService', () => {
       const dto = { section_id: 'section-1', assigned_date: '2026-01-01', due_date: '2026-01-08' };
       const result = await service.assign('hw-1', dto, ctx);
       expect(result).toMatchObject({ status: HomeworkAssignmentStatus.ACTIVE });
+    });
+
+    it('#3172 refuses a second live assignment of the same homework to the same target', async () => {
+      assignmentRepo.exists.mockResolvedValue(true);
+      const dto = { section_id: 'section-1', assigned_date: '2026-01-01', due_date: '2026-01-08' };
+      await expect(service.assign('hw-1', dto, ctx)).rejects.toBeInstanceOf(ConflictException);
+      expect(assignmentRepo.save).not.toHaveBeenCalled();
+      expect(notice.notifyAssignment).not.toHaveBeenCalled();
     });
 
     it('rejects both section_id and student_id given together (D24)', async () => {
@@ -240,6 +262,127 @@ describe('HomeworkService', () => {
       );
     });
 
+    it('#3172 a target that already has another live row is a 409 and writes nothing', async () => {
+      assignmentRepo.findOne.mockResolvedValue({ ...OLD_ASSIGNMENT });
+      assignmentRepo.exists.mockResolvedValue(true);
+      const dto = { section_id: 'section-2', assigned_date: '2026-02-01', due_date: '2026-02-08' };
+      await expect(service.reassign('assign-1', dto, ctx)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(assignmentRepo.update).not.toHaveBeenCalled();
+      // The row being reassigned is not its own conflict.
+      expect(assignmentRepo.exists).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          homework_id: 'hw-1',
+          section_id: 'section-2',
+          status: HomeworkAssignmentStatus.ACTIVE,
+          id: expect.anything(),
+        }),
+      });
+    });
+
+    // #3172: the UI hides Change on a withdrawn row; the server refuses it too.
+    it('rejects reassigning a DEACTIVATED row and writes nothing', async () => {
+      assignmentRepo.findOne.mockResolvedValue({
+        ...OLD_ASSIGNMENT,
+        status: HomeworkAssignmentStatus.DEACTIVATED,
+      });
+      const dto = { section_id: 'section-2', assigned_date: '2026-02-01', due_date: '2026-02-08' };
+      await expect(service.reassign('assign-1', dto, ctx)).rejects.toThrow(
+        'Reactivate this assignment before reassigning it',
+      );
+      expect(assignmentRepo.update).not.toHaveBeenCalled();
+      expect(assignmentRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('the supersede only wins on an ACTIVE row (a racing deactivate aborts it)', async () => {
+      assignmentRepo.findOne.mockResolvedValue({ ...OLD_ASSIGNMENT });
+      const dto = { section_id: 'section-2', assigned_date: '2026-02-01', due_date: '2026-02-08' };
+      await service.reassign('assign-1', dto, ctx);
+      expect(assignmentRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'assign-1', status: HomeworkAssignmentStatus.ACTIVE }),
+        { status: HomeworkAssignmentStatus.SUPERSEDED },
+      );
+    });
+
+    describe('family notices (#3172)', () => {
+      const OLD_WITH_DATES = {
+        ...OLD_ASSIGNMENT,
+        assigned_date: '2026-01-01',
+        due_date: '2026-01-08',
+      };
+
+      it('another target: the new one is told it is assigned, the old one that it is withdrawn', async () => {
+        assignmentRepo.findOne.mockResolvedValue({ ...OLD_WITH_DATES });
+        const dto = {
+          section_id: 'section-2',
+          assigned_date: '2026-02-01',
+          due_date: '2026-02-08',
+        };
+        const created = await service.reassign('assign-1', dto, ctx);
+        expect(notice.notifyAssignment).toHaveBeenCalledWith(created, HOMEWORK);
+        expect(notice.notifyChange).toHaveBeenCalledWith(
+          expect.objectContaining({ id: 'assign-1', section_id: 'section-1' }),
+          HOMEWORK,
+          'WITHDRAWN',
+        );
+      });
+
+      it('same target, new due date: one due-date notice and no assigned notice', async () => {
+        assignmentRepo.findOne.mockResolvedValue({ ...OLD_WITH_DATES });
+        const dto = {
+          section_id: 'section-1',
+          assigned_date: '2026-01-01',
+          due_date: '2026-01-15',
+        };
+        const created = await service.reassign('assign-1', dto, ctx);
+        expect(notice.notifyChange).toHaveBeenCalledTimes(1);
+        expect(notice.notifyChange).toHaveBeenCalledWith(created, HOMEWORK, 'DUE_CHANGED');
+        expect(notice.notifyAssignment).not.toHaveBeenCalled();
+      });
+
+      it('same target, same due date: nobody is told', async () => {
+        assignmentRepo.findOne.mockResolvedValue({ ...OLD_WITH_DATES });
+        const dto = {
+          section_id: 'section-1',
+          assigned_date: '2026-01-01',
+          due_date: '2026-01-08',
+        };
+        await service.reassign('assign-1', dto, ctx);
+        expect(notice.notifyChange).not.toHaveBeenCalled();
+        expect(notice.notifyAssignment).not.toHaveBeenCalled();
+      });
+
+      it('a failing notice never fails the reassign', async () => {
+        assignmentRepo.findOne.mockResolvedValue({ ...OLD_WITH_DATES });
+        notice.notifyAssignment.mockRejectedValue(new Error('sms provider down'));
+        notice.notifyChange.mockRejectedValue(new Error('sms provider down'));
+        const dto = {
+          section_id: 'section-2',
+          assigned_date: '2026-02-01',
+          due_date: '2026-02-08',
+        };
+        await expect(service.reassign('assign-1', dto, ctx)).resolves.toMatchObject({
+          section_id: 'section-2',
+        });
+      });
+
+      it('no notice when the reassign itself fails (lost race)', async () => {
+        assignmentRepo.findOne.mockResolvedValue({ ...OLD_WITH_DATES });
+        assignmentRepo.update.mockResolvedValueOnce({ affected: 0 });
+        const dto = {
+          section_id: 'section-2',
+          assigned_date: '2026-02-01',
+          due_date: '2026-02-08',
+        };
+        await expect(service.reassign('assign-1', dto, ctx)).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(notice.notifyAssignment).not.toHaveBeenCalled();
+        expect(notice.notifyChange).not.toHaveBeenCalled();
+      });
+    });
+
     // Rule 23: a teacher outside the old target gets the same 404 whether the row is live,
     // superseded or missing: no 400-vs-404 or text oracle.
     it('maps an out-of-scope homework to the one fixed 404 text', async () => {
@@ -301,6 +444,8 @@ describe('HomeworkService', () => {
         homework_id: 'hw-1',
         section_id: 'section-1',
         student_id: null,
+        assigned_date: '2026-01-01',
+        due_date: '2026-01-10',
         status: HomeworkAssignmentStatus.ACTIVE,
         tenant_id: TENANT_ID,
       });
@@ -321,6 +466,100 @@ describe('HomeworkService', () => {
       due_date: '2026-01-10',
       status: HomeworkAssignmentStatus.ACTIVE,
       tenant_id: TENANT_ID,
+    });
+
+    it('#3172 reactivating onto a target that already has a live row is a 409', async () => {
+      assignmentRepo.findOne.mockResolvedValue({
+        ...activeRow(),
+        status: HomeworkAssignmentStatus.DEACTIVATED,
+      });
+      assignmentRepo.exists.mockResolvedValue(true);
+      await expect(
+        service.updateAssignment('assign-1', { status: HomeworkAssignmentStatus.ACTIVE }, ctx),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(assignmentRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('#3172 changing only the due date of a live row does not run the live-row check', async () => {
+      assignmentRepo.findOne.mockResolvedValue(activeRow());
+      await service.updateAssignment('assign-1', { due_date: '2026-01-15' }, ctx);
+      expect(assignmentRepo.exists).not.toHaveBeenCalled();
+    });
+
+    describe('family notices (#3172)', () => {
+      it('deactivating a live row tells families it is withdrawn', async () => {
+        assignmentRepo.findOne.mockResolvedValue(activeRow());
+        await service.updateAssignment(
+          'assign-1',
+          { status: HomeworkAssignmentStatus.DEACTIVATED },
+          ctx,
+        );
+        expect(notice.notifyChange).toHaveBeenCalledTimes(1);
+        expect(notice.notifyChange).toHaveBeenCalledWith(
+          expect.objectContaining({ id: 'assign-1', status: HomeworkAssignmentStatus.DEACTIVATED }),
+          HOMEWORK,
+          'WITHDRAWN',
+        );
+      });
+
+      it('moving the due date of a live row tells families the new date', async () => {
+        assignmentRepo.findOne.mockResolvedValue(activeRow());
+        await service.updateAssignment('assign-1', { due_date: '2026-01-15' }, ctx);
+        expect(notice.notifyChange).toHaveBeenCalledWith(
+          expect.objectContaining({ due_date: '2026-01-15' }),
+          HOMEWORK,
+          'DUE_CHANGED',
+        );
+      });
+
+      it('deactivate plus a new date sends only the withdrawn notice', async () => {
+        assignmentRepo.findOne.mockResolvedValue(activeRow());
+        await service.updateAssignment(
+          'assign-1',
+          { status: HomeworkAssignmentStatus.DEACTIVATED, due_date: '2026-01-15' },
+          ctx,
+        );
+        expect(notice.notifyChange).toHaveBeenCalledTimes(1);
+        expect(notice.notifyChange.mock.calls[0][2]).toBe('WITHDRAWN');
+      });
+
+      it('a repeated PATCH that changes nothing sends nothing', async () => {
+        assignmentRepo.findOne.mockResolvedValue(activeRow());
+        await service.updateAssignment(
+          'assign-1',
+          { status: HomeworkAssignmentStatus.ACTIVE, due_date: '2026-01-10' },
+          ctx,
+        );
+        assignmentRepo.findOne.mockResolvedValue({
+          ...activeRow(),
+          status: HomeworkAssignmentStatus.DEACTIVATED,
+        });
+        await service.updateAssignment(
+          'assign-1',
+          { status: HomeworkAssignmentStatus.DEACTIVATED },
+          ctx,
+        );
+        expect(notice.notifyChange).not.toHaveBeenCalled();
+      });
+
+      it('reactivating alone sends nothing; a failing notice never fails the PATCH', async () => {
+        assignmentRepo.findOne.mockResolvedValue({
+          ...activeRow(),
+          status: HomeworkAssignmentStatus.DEACTIVATED,
+        });
+        await service.updateAssignment(
+          'assign-1',
+          { status: HomeworkAssignmentStatus.ACTIVE },
+          ctx,
+        );
+        expect(notice.notifyChange).not.toHaveBeenCalled();
+
+        assignmentRepo.findOne.mockResolvedValue(activeRow());
+        notice.notifyChange.mockRejectedValue(new Error('sms provider down'));
+        await expect(
+          service.updateAssignment('assign-1', { due_date: '2026-01-15' }, ctx),
+        ).resolves.toMatchObject({ due_date: '2026-01-15' });
+      });
     });
 
     it('moves the due date in place and keeps the status', async () => {

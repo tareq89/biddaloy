@@ -67,6 +67,33 @@ export class HomeworkNoticeService {
     );
   }
 
+  /**
+   * #3172: told to families when a live assignment's due date moves (`DUE_CHANGED`, with the
+   * assignment's new date) or when it is withdrawn by a deactivate or a reassign to someone
+   * else (`WITHDRAWN`). Same school switch and the same recipients as `notifyAssignment`.
+   */
+  async notifyChange(
+    assignment: HomeworkAssignment,
+    homework: Homework,
+    kind: 'DUE_CHANGED' | 'WITHDRAWN',
+  ): Promise<void> {
+    const settings = await this.schoolsService.getResolvedSettings(assignment.tenant_id);
+    if (settings.homework?.notifyOnAssign !== true) return;
+    const students = await this.loadTargetStudents(assignment);
+    const due = assignment.due_date;
+    const bn = resolveFeeNotificationLocale(settings.region?.locale) === 'bn';
+    await this.sendToGuardians(assignment.tenant_id, students, bn, (names) => {
+      if (kind === 'WITHDRAWN') {
+        return bn
+          ? `প্রিয় অভিভাবক, ${names}-এর বাড়ির কাজ "${homework.title}" বাতিল করা হয়েছে। জমা দিতে হবে না।`
+          : `Dear Guardian, homework "${homework.title}" for ${names} has been withdrawn. It does not need to be submitted.`;
+      }
+      return bn
+        ? `প্রিয় অভিভাবক, ${names}-এর বাড়ির কাজ "${homework.title}"-এর জমার শেষ তারিখ এখন ${formatFeeNotificationDueDate('bn', due)}।`
+        : `Dear Guardian, the due date of homework "${homework.title}" for ${names} is now ${due}.`;
+    });
+  }
+
   /** Called by `HomeworkDefaulterScheduler`'s daily sweep — one notice per
    * guardian of every still-`NOT_SUBMITTED` student past `due_date`. */
   async notifyDefaulters(

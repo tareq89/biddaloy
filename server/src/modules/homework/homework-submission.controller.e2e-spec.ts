@@ -264,7 +264,7 @@ describe('Homework Submission E2E', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.ADMIN)
-      .send({ items: [{ student_id: studentId, status: 'PARTIAL' }] })
+      .send({ items: [{ student_id: studentId, status: 'DONE' }] })
       .expect(200);
 
     const res = await supertest(app.getHttpServer())
@@ -278,8 +278,8 @@ describe('Homework Submission E2E', () => {
         contentType: 'application/pdf',
       })
       .expect(201);
-    // D9: the teacher's PARTIAL wins over the upload.
-    expect(res.body.status).toBe('PARTIAL');
+    // D9: the teacher's DONE wins over the upload.
+    expect(res.body.status).toBe('DONE');
     expect(res.body.attachments).toHaveLength(1);
 
     const rows = await dataSource.query(

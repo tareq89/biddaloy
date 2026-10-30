@@ -54,6 +54,19 @@ interface SubmissionAttachment {
   size: number;
 }
 
+/** #3172: PARTIAL is a PARTIAL-mode outcome. TICK and MARKS homework only ever send DONE or
+ * NOT_SUBMITTED (the grid does the same), so the server refuses the rest. Fixed text, no echo. */
+function assertStatusFitsMode(
+  mode: HomeworkGradingMode,
+  status: HomeworkSubmissionStatus | undefined,
+): void {
+  if (status === HomeworkSubmissionStatus.PARTIAL && mode !== HomeworkGradingMode.PARTIAL) {
+    throw new BadRequestException(
+      'Partial can only be set when the homework grading mode is PARTIAL',
+    );
+  }
+}
+
 /**
  * [22.3.2] Student/guardian submission upload + teacher grade/override.
  *
@@ -265,6 +278,7 @@ export class HomeworkSubmissionService {
         'Marks can only be set when the homework grading mode is MARKS',
       );
     }
+    assertStatusFitsMode(homework.grading_mode, dto.status);
 
     if (dto.status !== undefined) {
       submission.status = dto.status;
@@ -390,6 +404,7 @@ export class HomeworkSubmissionService {
         'Marks can only be set when the homework grading mode is MARKS',
       );
     }
+    for (const item of dto.items) assertStatusFitsMode(homework.grading_mode, item.status);
     const onList = new Set((await this.roster(assignment, ctx.tenantId)).map((r) => r.student_id));
     if (ids.some((id) => !onList.has(id))) {
       throw new BadRequestException('A student in this list is not on this homework');

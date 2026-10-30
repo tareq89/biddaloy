@@ -342,6 +342,31 @@ describe('HomeworkSubmissionService', () => {
       );
     });
 
+    // #3172: the old PATCH shares the rule with the bulk grade.
+    it('rejects status PARTIAL when grading_mode is not PARTIAL, and saves nothing', async () => {
+      homeworkRepo.findOne.mockResolvedValue({
+        ...HOMEWORK,
+        grading_mode: HomeworkGradingMode.TICK,
+      });
+      await expect(
+        service.update('sub-1', { status: HomeworkSubmissionStatus.PARTIAL }, teacherCtx),
+      ).rejects.toThrow('Partial can only be set when the homework grading mode is PARTIAL');
+      expect(submissionRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('accepts status PARTIAL when grading_mode is PARTIAL', async () => {
+      homeworkRepo.findOne.mockResolvedValue({
+        ...HOMEWORK,
+        grading_mode: HomeworkGradingMode.PARTIAL,
+      });
+      const result = await service.update(
+        'sub-1',
+        { status: HomeworkSubmissionStatus.PARTIAL },
+        teacherCtx,
+      );
+      expect(result.status).toBe(HomeworkSubmissionStatus.PARTIAL);
+    });
+
     it('throws NotFoundException for an unknown submission', async () => {
       submissionRepo.findOne.mockResolvedValue(null);
       await expect(
@@ -453,6 +478,31 @@ describe('HomeworkSubmissionService', () => {
         [{ student_id: SID_A, marks: 3 }],
         'Marks can only be set when the homework grading mode is MARKS',
       );
+    });
+
+    // #3172: PARTIAL is a PARTIAL-mode outcome; TICK and MARKS only ever send DONE / NOT_SUBMITTED.
+    for (const mode of [HomeworkGradingMode.TICK, HomeworkGradingMode.MARKS]) {
+      it(`rejects status PARTIAL on a ${mode} homework before any write`, async () => {
+        homeworkRepo.findOne.mockResolvedValue({ ...HOMEWORK, grading_mode: mode });
+        await rejectsBeforeWrite(
+          [{ student_id: SID_A, status: 'PARTIAL' }],
+          'Partial can only be set when the homework grading mode is PARTIAL',
+        );
+      });
+    }
+
+    it('accepts status PARTIAL on a PARTIAL homework', async () => {
+      homeworkRepo.findOne.mockResolvedValue({
+        ...HOMEWORK,
+        grading_mode: HomeworkGradingMode.PARTIAL,
+      });
+      transaction.mockResolvedValue(undefined);
+      await service.grade(
+        'assign-1',
+        { items: [{ student_id: SID_A, status: 'PARTIAL' }] },
+        teacherCtx,
+      );
+      expect(transaction).toHaveBeenCalledTimes(1);
     });
 
     it('rejects a student not on the roster before any write', async () => {

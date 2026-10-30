@@ -241,6 +241,48 @@ describe('HomeworkNoticeService', () => {
     });
   });
 
+  // #3172: families are told when a live assignment's due date moves or it is withdrawn.
+  describe('notifyChange', () => {
+    it('DUE_CHANGED: one QUEUED automated notice naming the homework and the new date', async () => {
+      await service.notifyChange(ASSIGNMENT as never, HOMEWORK as never, 'DUE_CHANGED');
+      expect(logRepo.save).toHaveBeenCalledTimes(1);
+      const log = logRepo.save.mock.calls[0][0];
+      expect(log.message_body).toBe(
+        'Dear Guardian, the due date of homework "Chapter 3 exercises" for Rahim Uddin is now 2026-01-08.',
+      );
+      expect(log.status).toBe(CommunicationStatus.QUEUED);
+      expect(log.trigger).toBe(CommunicationTrigger.AUTOMATED);
+      expect(queue.add).toHaveBeenCalledWith('send', { logId: 'log-1' });
+    });
+
+    it('WITHDRAWN: tells the guardian the homework no longer needs submitting', async () => {
+      await service.notifyChange(ASSIGNMENT as never, HOMEWORK as never, 'WITHDRAWN');
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'Dear Guardian, homework "Chapter 3 exercises" for Rahim Uddin has been withdrawn. It does not need to be submitted.',
+      );
+    });
+
+    it('sends nothing while the school has the assignment notice switch off', async () => {
+      schoolsService.getResolvedSettings.mockResolvedValue({
+        homework: { notifyOnAssign: false, notifyDefaulters: true },
+      });
+      await service.notifyChange(ASSIGNMENT as never, HOMEWORK as never, 'WITHDRAWN');
+      expect(studentRepo.find).not.toHaveBeenCalled();
+      expect(logRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('is in Bangla for bn-BD', async () => {
+      schoolsService.getResolvedSettings.mockResolvedValue({
+        homework: { notifyOnAssign: true },
+        region: { locale: 'bn-BD' },
+      });
+      await service.notifyChange(ASSIGNMENT as never, HOMEWORK as never, 'DUE_CHANGED');
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'প্রিয় অভিভাবক, Rahim Uddin-এর বাড়ির কাজ "Chapter 3 exercises"-এর জমার শেষ তারিখ এখন ৮ জানুয়ারি।',
+      );
+    });
+  });
+
   describe('notifyDefaulters', () => {
     it('creates a notice for each defaulting student passed in', async () => {
       await service.notifyDefaulters(ASSIGNMENT as never, HOMEWORK as never, [student()] as never);
