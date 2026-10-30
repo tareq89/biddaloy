@@ -3,9 +3,12 @@ import {
   BadRequestException,
   ConflictException,
   HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -35,6 +38,9 @@ export interface TestMessageRequest {
   userId: string;
 }
 
+/** Per-tenant cap on real test sends in any rolling 24h (every one costs a message or a credit). */
+export const TEST_SENDS_PER_DAY = 20;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const NO_TEST_MESSAGE = 'This provider cannot send a test message.';
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -51,6 +57,8 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 @Injectable()
 export class ConnectionTestService {
+  private readonly logger = new Logger(ConnectionTestService.name);
+
   constructor(
     private readonly registry: CommunicationProviderRegistryService,
     @InjectRepository(CommunicationLog) private readonly logs: Repository<CommunicationLog>,
@@ -66,7 +74,13 @@ export class ConnectionTestService {
   ): Promise<ConnectionTestResultDto> {
     // Epic 87 (D24): on a sink stack nothing real is configured; fixed text, no tenant data read.
     if (isMessageSink()) {
-      return { success: true, message: 'Test site: messages go to the test inbox' };
+      // With `sendTo` the caller expects a message: say plainly none was sent (nothing is logged).
+      return {
+        success: true,
+        message: testMessage
+          ? 'Test site: messages go to the test inbox. No real message was sent.'
+          : 'Test site: messages go to the test inbox',
+      };
     }
     try {
       const { provider, config } = await this.registry.resolveFor(
@@ -79,19 +93,25 @@ export class ConnectionTestService {
         if (!provider.descriptor.supportsTestMessage)
           throw new BadRequestException(NO_TEST_MESSAGE);
         this.assertAddress(medium, testMessage.sendTo);
+        await this.assertDailyCap(tenantId);
       }
       const result = await provider.testConnection(config);
       if (!result.success || !testMessage) return result;
-      return {
-        ...result,
-        testMessage: await this.sendTestMessage(
+      // Its own catch: a credit/DB failure after a passing connection test is not "Connection test failed."
+      let sent: { logId: string; status: CommunicationStatus };
+      try {
+        sent = await this.sendTestMessage(
           tenantId,
           medium as CommunicationMedium,
           provider,
           config,
           testMessage,
-        ),
-      };
+        );
+      } catch (err) {
+        if (err instanceof HttpException) throw err;
+        throw new InternalServerErrorException('The test message could not be sent.');
+      }
+      return { ...result, testMessage: sent };
     } catch (err) {
       if (err instanceof HttpException) throw err;
       // Only ProviderNotConfiguredError carries an actionable, secret-free message. Anything
@@ -101,6 +121,22 @@ export class ConnectionTestService {
         message:
           err instanceof ProviderNotConfiguredError ? err.message : 'Connection test failed.',
       };
+    }
+  }
+
+  /** Rolling-24h cap on real test sends per tenant, counted from the logs the sends themselves wrote. */
+  private async assertDailyCap(tenantId: string): Promise<void> {
+    const used = await this.logs
+      .createQueryBuilder('l')
+      .where('l.tenant_id = :tenantId', { tenantId })
+      .andWhere(`l.metadata->>'test' = 'true'`)
+      .andWhere('l.created_at > :since', { since: new Date(Date.now() - DAY_MS) })
+      .getCount();
+    if (used >= TEST_SENDS_PER_DAY) {
+      throw new HttpException(
+        'Too many test messages today. Try again tomorrow.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
   }
 
@@ -116,6 +152,16 @@ export class ConnectionTestService {
    * Sends straight through the resolved (possibly unsaved) config, not the queue: the queue worker
    * re-reads SAVED settings, and unsaved secrets must never sit in Redis. Writes one terminal log
    * row like any message, and settles credit the way the worker does.
+   *
+   * ponytail: reserve/log/settle mirrors CommunicationsProcessor.settleSmsCredit and
+   * CommunicationsService.enqueue. Not extracted: the worker's copy is tied to a BullMQ job and
+   * mutates its own log + Sentry tags, so a shared helper would be a wide change. Fold in if a third
+   * caller appears.
+   *
+   * The UI must mint a fresh Idempotency-Key per click: a reused key replays the stored response
+   * (no second send), which is intended for retries but would swallow a deliberate second test.
+   * Credit reserved by an AMBIGUOUS send stays reserved; the reconcile script lists it as a
+   * BATCH_REMAINDER after 24h (it walks the ledger, not the logs), so a missing log row is still found.
    */
   private async sendTestMessage(
     tenantId: string,
@@ -173,7 +219,24 @@ export class ConnectionTestService {
           },
         }),
       );
-    } catch {
+    } catch (err) {
+      if (reservation && !(!result.success && result.outcome === 'REJECTED')) {
+        // The send may have gone out and there is no log row: alert ops (ids only, no recipient/body).
+        this.logger.error({
+          msg: 'test sms send left credit reserved and no log row',
+          tenant_id: tenantId,
+          batch_id: reservation.batchId,
+          needs_reconciliation: 'true',
+        });
+        Sentry.withScope((scope) => {
+          scope.setTags({
+            tenant_id: tenantId,
+            batch_id: reservation.batchId,
+            needs_reconciliation: 'true',
+          });
+          Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
+        });
+      }
       // No row to settle against: give the reservation back unless the send may have gone out.
       if (reservation && !result.success && result.outcome === 'REJECTED') {
         await this.smsCredits.releaseForLog(

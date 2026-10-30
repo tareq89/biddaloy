@@ -158,4 +158,13 @@ describe('ProviderConnectionTestController', () => {
     expect(audit).toContain('log-9');
     expect(audit).not.toContain('01712345678');
   });
+
+  it('is throttled at the test tier (3/min); the global tracker buckets per authenticated user', () => {
+    // Tracker is `user:<sub>` (rate-limit-tracker.ts), not per tenant: a tenant key would come from
+    // the unauthenticated URL and let a stranger lock a school out. The tenant-wide abuse cap is the
+    // daily test-send cap in ConnectionTestService.
+    const handler = ProviderConnectionTestController.prototype.testConnection;
+    expect(Reflect.getMetadata('THROTTLER:LIMITdefault', handler)).toBe(3);
+    expect(Reflect.getMetadata('THROTTLER:TTLdefault', handler)).toBe(60_000);
+  });
 });
