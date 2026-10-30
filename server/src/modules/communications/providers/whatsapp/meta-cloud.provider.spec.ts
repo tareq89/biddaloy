@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { WhatsAppCloudProvider } from './whatsapp-cloud.provider';
+import { MetaCloudProvider } from './meta-cloud.provider';
 import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
 
-describe('WhatsAppCloudProvider', () => {
+describe('MetaCloudProvider', () => {
   const tenantId = 'tenant-1';
   let configResolver: Record<string, ReturnType<typeof vi.fn>>;
-  let provider: WhatsAppCloudProvider;
+  let provider: MetaCloudProvider;
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -16,7 +16,7 @@ describe('WhatsAppCloudProvider', () => {
         apiVersion: 'v21.0',
       }),
     };
-    provider = new WhatsAppCloudProvider(configResolver as any);
+    provider = new MetaCloudProvider(configResolver as any);
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
   });
@@ -31,7 +31,10 @@ describe('WhatsAppCloudProvider', () => {
       json: async () => ({ messages: [{ id: 'wamid.1' }] }),
     });
 
-    const result = await provider.send({ to: '01712345678', body: 'Your fee is due' }, tenantId);
+    const result = await provider.sendForTenant(
+      { to: '01712345678', body: 'Your fee is due' },
+      tenantId,
+    );
 
     expect(configResolver.resolveWhatsApp).toHaveBeenCalledWith(tenantId);
     const [url, init] = fetchMock.mock.calls[0];
@@ -51,7 +54,7 @@ describe('WhatsAppCloudProvider', () => {
       json: async () => ({ messages: [{ id: 'wamid.2' }] }),
     });
 
-    await provider.send(
+    await provider.sendForTenant(
       {
         to: '01712345678',
         body: 'ignored',
@@ -80,7 +83,7 @@ describe('WhatsAppCloudProvider', () => {
       json: async () => ({ error: { message: 'Recipient outside the 24-hour window' } }),
     });
 
-    const result = await provider.send({ to: '01712345678', body: 'hi' }, tenantId);
+    const result = await provider.sendForTenant({ to: '01712345678', body: 'hi' }, tenantId);
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('Recipient outside the 24-hour window');
@@ -89,7 +92,7 @@ describe('WhatsAppCloudProvider', () => {
   it('returns success: false instead of throwing on a network error', async () => {
     fetchMock.mockRejectedValue(new Error('network down'));
 
-    const result = await provider.send({ to: '01712345678', body: 'hi' }, tenantId);
+    const result = await provider.sendForTenant({ to: '01712345678', body: 'hi' }, tenantId);
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('network down');
@@ -100,7 +103,7 @@ describe('WhatsAppCloudProvider', () => {
       new ProviderNotConfiguredError('WhatsApp', 'configure it'),
     );
 
-    const result = await provider.send({ to: '01712345678', body: 'hi' }, tenantId);
+    const result = await provider.sendForTenant({ to: '01712345678', body: 'hi' }, tenantId);
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/configure it/);

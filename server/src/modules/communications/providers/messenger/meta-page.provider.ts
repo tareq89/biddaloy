@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { CommunicationMedium, type ProviderDescriptor } from '@biddaloy/shared';
 import {
-  CommunicationProvider,
   CommunicationSendParams,
   CommunicationSendResult,
 } from '../communication-provider.interface';
+import { MessagingProvider } from '../messaging-provider';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import { isValidGraphApiId } from '../shared/graph-api-path-segment.util';
 import { mapMetaGraphError } from '../shared/meta-graph-error.util';
@@ -34,12 +35,42 @@ const REQUEST_TIMEOUT_MS = 10_000;
  * CommunicationLog row stuck QUEUED instead of being recorded FAILED.
  */
 @Injectable()
-export class MessengerProvider implements CommunicationProvider {
-  constructor(private readonly configResolver: TenantProviderConfigResolver) {}
+export class MetaPageProvider extends MessagingProvider<ResolvedMessengerConfig> {
+  readonly descriptor: ProviderDescriptor = {
+    medium: CommunicationMedium.MESSENGER,
+    name: 'meta-page',
+    label: { en: 'Facebook Page (Meta)', bn: 'ফেসবুক পেজ (Meta)' },
+    capabilities: [],
+    fields: [
+      {
+        key: 'pageId',
+        label: { en: 'Facebook Page ID', bn: 'ফেসবুক পেজ আইডি' },
+        kind: 'text',
+        required: true,
+      },
+      {
+        key: 'accessToken',
+        label: { en: 'Access token', bn: 'অ্যাক্সেস টোকেন' },
+        kind: 'secret',
+        required: true,
+      },
+    ],
+    supportsTestMessage: false,
+  };
+  readonly envPrefix = 'MESSENGER';
 
-  async send(_params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult> {
+  constructor(private readonly configResolver: TenantProviderConfigResolver) {
+    super();
+  }
+
+  /** W1 bridge so the registry keeps its (params, tenantId) signature. #3298 deletes it. */
+  async sendForTenant(
+    params: CommunicationSendParams,
+    tenantId: string,
+  ): Promise<CommunicationSendResult> {
+    let config: ResolvedMessengerConfig;
     try {
-      await this.configResolver.resolveMessenger(tenantId);
+      config = await this.configResolver.resolveMessenger(tenantId);
     } catch (err) {
       return {
         success: false,
@@ -49,6 +80,13 @@ export class MessengerProvider implements CommunicationProvider {
         outcome: err instanceof ProviderNotConfiguredError ? 'REJECTED' : 'AMBIGUOUS',
       };
     }
+    return this.send(params, config);
+  }
+
+  async send(
+    _params: CommunicationSendParams,
+    _config: ResolvedMessengerConfig,
+  ): Promise<CommunicationSendResult> {
     // Always-stub failure, never touches the network — REJECTED.
     return {
       success: false,

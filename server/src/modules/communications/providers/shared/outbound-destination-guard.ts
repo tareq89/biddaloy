@@ -4,7 +4,7 @@ import { lookup } from 'node:dns/promises';
 /**
  * Blocks outbound provider requests (SMS gateway `apiUrl`, SMTP `host`)
  * from reaching an internal/private address. A tenant-custom `apiUrl` is
- * an intentionally supported feature (see `greenweb-sms.gateway.spec.ts`'s
+ * an intentionally supported feature (see `greenweb.provider.spec.ts`'s
  * `'uses a tenant-configured apiUrl when given'` test) — a domain
  * allowlist would break it — so this checks the *class* of address
  * (private/loopback/link-local/metadata) rather than the hostname itself.
@@ -18,7 +18,7 @@ import { lookup } from 'node:dns/promises';
  * `169.254.169.254` or another internal address moments later). Callers
  * pin the actual connection to exactly what was validated here — see
  * `pinned-http.ts` for HTTP (undici `connect.lookup`) and
- * `smtp-email.provider.ts` for SMTP (validated IP as `host`, original
+ * `smtp.provider.ts` for SMTP (validated IP as `host`, original
  * hostname kept as `tls.servername` for SNI/cert validation).
  */
 

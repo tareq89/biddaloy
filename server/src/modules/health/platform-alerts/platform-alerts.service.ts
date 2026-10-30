@@ -3,8 +3,8 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { queueWorkers } from '../../../common/queue-workers';
-import { GreenwebSmsGateway } from '../../communications/providers/sms/greenweb-sms.gateway';
-import { MimSmsGateway } from '../../communications/providers/sms/mim-sms.gateway';
+import { GreenwebProvider } from '../../communications/providers/sms/greenweb.provider';
+import { MimsmsProvider } from '../../communications/providers/sms/mimsms.provider';
 import { MailpitSinkProvider } from '../../communications/providers/sink/mailpit-sink.provider';
 import { isMessageSink } from '../../communications/providers/sink/message-sink';
 import { HealthService } from '../health.service';
@@ -39,8 +39,8 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
     private readonly dataSource: DataSource,
     private readonly health: HealthService,
     private readonly config: ConfigService,
-    private readonly greenweb: GreenwebSmsGateway,
-    private readonly mim: MimSmsGateway,
+    private readonly greenweb: GreenwebProvider,
+    private readonly mim: MimsmsProvider,
     private readonly tenantStatus: TenantStatusService,
   ) {}
 
@@ -184,8 +184,14 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
       try {
         const result =
           provider === 'mimsms'
-            ? await this.mim.sendSms(phone, text, { gateway: 'mimsms', apiKey, senderId, apiUrl })
-            : await this.greenweb.sendSms(phone, text, { gateway: 'greenweb', apiKey, apiUrl });
+            ? await this.mim.send(
+                { to: phone, body: text },
+                { gateway: 'mimsms', apiKey, senderId, apiUrl },
+              )
+            : await this.greenweb.send(
+                { to: phone, body: text },
+                { gateway: 'greenweb', apiKey, apiUrl },
+              );
         // Status only: the provider's raw body can echo the full destination number.
         const { success, outcome, providerMessageId, error } = result;
         this.logger.log(

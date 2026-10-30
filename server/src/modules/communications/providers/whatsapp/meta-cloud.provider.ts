@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { CommunicationMedium, type ProviderDescriptor } from '@biddaloy/shared';
 import {
-  CommunicationProvider,
   CommunicationSendParams,
   CommunicationSendResult,
 } from '../communication-provider.interface';
+import { MessagingProvider } from '../messaging-provider';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import { isValidGraphApiId, isValidGraphApiVersion } from '../shared/graph-api-path-segment.util';
@@ -30,16 +31,71 @@ const REQUEST_TIMEOUT_MS = 10_000;
  * Manager — that's an external setup step, not something this code does.
  */
 @Injectable()
-export class WhatsAppCloudProvider implements CommunicationProvider {
-  constructor(private readonly configResolver: TenantProviderConfigResolver) {}
+export class MetaCloudProvider extends MessagingProvider<ResolvedWhatsAppConfig> {
+  readonly descriptor: ProviderDescriptor = {
+    medium: CommunicationMedium.WHATSAPP,
+    name: 'meta-cloud',
+    label: {
+      en: 'WhatsApp Cloud API (Meta)',
+      bn: 'হোয়াটসঅ্যাপ ক্লাউড এপিআই (Meta)',
+    },
+    capabilities: [],
+    fields: [
+      {
+        key: 'phoneNumberId',
+        label: { en: 'Phone number ID', bn: 'ফোন নম্বর আইডি' },
+        kind: 'text',
+        required: true,
+      },
+      {
+        key: 'accessToken',
+        label: { en: 'Access token', bn: 'অ্যাক্সেস টোকেন' },
+        kind: 'secret',
+        required: true,
+      },
+      {
+        key: 'apiVersion',
+        label: { en: 'API version (optional)', bn: 'এপিআই ভার্সন (ঐচ্ছিক)' },
+        kind: 'text',
+        required: false,
+        advanced: true,
+      },
+    ],
+    supportsTestMessage: false,
+  };
+  readonly envPrefix = 'WHATSAPP';
 
-  async send(params: CommunicationSendParams, tenantId: string): Promise<CommunicationSendResult> {
+  constructor(private readonly configResolver: TenantProviderConfigResolver) {
+    super();
+  }
+
+  /** W1 bridge so the registry keeps its (params, tenantId) signature. #3298 deletes it. */
+  async sendForTenant(
+    params: CommunicationSendParams,
+    tenantId: string,
+  ): Promise<CommunicationSendResult> {
+    let config: ResolvedWhatsAppConfig;
     try {
-      // A ProviderNotConfiguredError from this call is caught by the same
-      // catch block as a network failure below — this provider's contract
-      // is "never throw" regardless of which step failed.
-      const { phoneNumberId, accessToken, apiVersion } =
-        await this.configResolver.resolveWhatsApp(tenantId);
+      config = await this.configResolver.resolveWhatsApp(tenantId);
+    } catch (err) {
+      // Same result today's single catch produced for a resolver failure.
+      return {
+        success: false,
+        providerMessageId: null,
+        error: err instanceof Error ? err.message : String(err),
+        retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
+        outcome: err instanceof ProviderNotConfiguredError ? 'REJECTED' : 'AMBIGUOUS',
+      };
+    }
+    return this.send(params, config);
+  }
+
+  async send(
+    params: CommunicationSendParams,
+    config: ResolvedWhatsAppConfig,
+  ): Promise<CommunicationSendResult> {
+    try {
+      const { phoneNumberId, accessToken, apiVersion } = config;
       const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
       const to = normalizeBdPhoneNumber(params.to);
 

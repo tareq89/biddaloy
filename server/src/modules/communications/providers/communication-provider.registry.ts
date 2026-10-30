@@ -5,9 +5,9 @@ import {
   CommunicationProviderRegistry,
 } from './communication-provider.interface';
 import { SmsProviderFactory } from './sms/sms-provider.factory';
-import { WhatsAppCloudProvider } from './whatsapp/whatsapp-cloud.provider';
-import { SmtpEmailProvider } from './email/smtp-email.provider';
-import { MessengerProvider } from './messenger/messenger.provider';
+import { MetaCloudProvider } from './whatsapp/meta-cloud.provider';
+import { SmtpProvider } from './email/smtp.provider';
+import { MetaPageProvider } from './messenger/meta-page.provider';
 import { MailpitSinkProvider } from './sink/mailpit-sink.provider';
 import { isMessageSink } from './sink/message-sink';
 
@@ -22,9 +22,9 @@ export class CommunicationProviderRegistryService {
 
   constructor(
     smsProviderFactory: SmsProviderFactory,
-    whatsAppCloudProvider: WhatsAppCloudProvider,
-    smtpEmailProvider: SmtpEmailProvider,
-    messengerProvider: MessengerProvider,
+    whatsAppCloudProvider: MetaCloudProvider,
+    smtpEmailProvider: SmtpProvider,
+    messengerProvider: MetaPageProvider,
   ) {
     // Epic 87: with MESSAGE_SINK=mailpit every medium goes to the Mailpit test inbox. Checked
     // here, before any tenant/env provider config is read, so the resolver can never throw "unconfigured".
@@ -41,9 +41,13 @@ export class CommunicationProviderRegistryService {
     }
     this.registry = {
       [CommunicationMedium.SMS]: smsProviderFactory,
-      [CommunicationMedium.WHATSAPP]: whatsAppCloudProvider,
-      [CommunicationMedium.EMAIL]: smtpEmailProvider,
-      [CommunicationMedium.MESSENGER]: messengerProvider,
+      [CommunicationMedium.WHATSAPP]: {
+        send: (p, t) => whatsAppCloudProvider.sendForTenant(p, t as string),
+      },
+      [CommunicationMedium.EMAIL]: { send: (p, t) => smtpEmailProvider.sendForTenant(p, t) },
+      [CommunicationMedium.MESSENGER]: {
+        send: (p, t) => messengerProvider.sendForTenant(p, t as string),
+      },
     };
   }
 

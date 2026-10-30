@@ -11,11 +11,11 @@ describe('SmsProviderFactory', () => {
   beforeEach(() => {
     configResolver = { resolveSms: vi.fn() };
     greenweb = {
-      sendSms: vi.fn().mockResolvedValue({ success: true, providerMessageId: 'gw-1' }),
+      send: vi.fn().mockResolvedValue({ success: true, providerMessageId: 'gw-1' }),
       testConnection: vi.fn().mockResolvedValue({ success: true, message: 'gw-ok' }),
     };
     mimSms = {
-      sendSms: vi.fn().mockResolvedValue({ success: true, providerMessageId: 'mim-1' }),
+      send: vi.fn().mockResolvedValue({ success: true, providerMessageId: 'mim-1' }),
       testConnection: vi.fn().mockResolvedValue({ success: true, message: 'mim-ok' }),
     };
   });
@@ -33,12 +33,15 @@ describe('SmsProviderFactory', () => {
     expect(configResolver.resolveSms).toHaveBeenCalledWith(tenantId, undefined, {
       allowPlatformKeys: false,
     });
-    expect(mimSms.sendSms).toHaveBeenCalledWith('01712345678', 'hi', {
-      gateway: 'mimsms',
-      apiKey: 'key',
-      senderId: 'sender',
-    });
-    expect(greenweb.sendSms).not.toHaveBeenCalled();
+    expect(mimSms.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: '01712345678', body: 'hi' }),
+      {
+        gateway: 'mimsms',
+        apiKey: 'key',
+        senderId: 'sender',
+      },
+    );
+    expect(greenweb.send).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
   });
 
@@ -59,11 +62,14 @@ describe('SmsProviderFactory', () => {
 
     const result = await factory.send({ to: '01712345678', body: 'hi' }, tenantId);
 
-    expect(greenweb.sendSms).toHaveBeenCalledWith('01712345678', 'hi', {
-      gateway: 'greenweb',
-      apiKey: 'key',
-    });
-    expect(mimSms.sendSms).not.toHaveBeenCalled();
+    expect(greenweb.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: '01712345678', body: 'hi' }),
+      {
+        gateway: 'greenweb',
+        apiKey: 'key',
+      },
+    );
+    expect(mimSms.send).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
   });
 
@@ -81,8 +87,8 @@ describe('SmsProviderFactory', () => {
     // Segment count must survive even when config resolution fails before
     // a gateway is ever reached (#570).
     expect(result.segments).toBe(1);
-    expect(greenweb.sendSms).not.toHaveBeenCalled();
-    expect(mimSms.sendSms).not.toHaveBeenCalled();
+    expect(greenweb.send).not.toHaveBeenCalled();
+    expect(mimSms.send).not.toHaveBeenCalled();
   });
 
   describe('testConnection', () => {

@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { CommunicationMedium, type ProviderDescriptor } from '@biddaloy/shared';
 import {
-  CommunicationProvider,
   CommunicationSendParams,
   CommunicationSendResult,
 } from '../communication-provider.interface';
+import { MessagingProvider } from '../messaging-provider';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
   assertSafeSmtpDestination,
@@ -86,15 +87,75 @@ async function withPinnedAddressFallback<T>(
  * tenant after it (#8.7.10).
  */
 @Injectable()
-export class SmtpEmailProvider implements CommunicationProvider {
-  constructor(private readonly configResolver: TenantProviderConfigResolver) {}
+export class SmtpProvider extends MessagingProvider<ResolvedEmailConfig> {
+  readonly descriptor: ProviderDescriptor = {
+    medium: CommunicationMedium.EMAIL,
+    name: 'smtp',
+    label: { en: 'SMTP email server', bn: 'এসএমটিপি ইমেইল সার্ভার' },
+    capabilities: [],
+    fields: [
+      {
+        key: 'host',
+        label: { en: 'Email server (SMTP)', bn: 'ইমেইল সার্ভার (SMTP)' },
+        kind: 'text',
+        required: true,
+      },
+      { key: 'port', label: { en: 'Port', bn: 'পোর্ট' }, kind: 'text', required: true },
+      {
+        key: 'user',
+        label: { en: 'Server username', bn: 'সার্ভারের ব্যবহারকারীর নাম' },
+        kind: 'text',
+        required: true,
+      },
+      {
+        key: 'password',
+        label: { en: 'Server password', bn: 'সার্ভারের পাসওয়ার্ড' },
+        kind: 'secret',
+        required: true,
+      },
+      {
+        key: 'from',
+        label: { en: 'Send emails from', bn: 'যে ঠিকানা থেকে ইমেইল যাবে' },
+        kind: 'text',
+        required: true,
+      },
+    ],
+    supportsTestMessage: true,
+  };
+  readonly envPrefix = 'SMTP';
 
-  async send(
+  constructor(private readonly configResolver: TenantProviderConfigResolver) {
+    super();
+  }
+
+  /** W1 bridge so the registry keeps its (params, tenantId) signature. #3298 deletes it. */
+  async sendForTenant(
     params: CommunicationSendParams,
     tenantId: string | null,
   ): Promise<CommunicationSendResult> {
+    let config: ResolvedEmailConfig;
     try {
-      const { host, port, user, password, from } = await this.configResolver.resolveEmail(tenantId);
+      config = await this.configResolver.resolveEmail(tenantId);
+    } catch (err) {
+      const isDefinitelyRejected =
+        err instanceof ProviderNotConfiguredError || err instanceof DestinationBlockedError;
+      return {
+        success: false,
+        providerMessageId: null,
+        error: err instanceof Error ? err.message : String(err),
+        retryable: isDefinitelyRejected ? false : undefined,
+        outcome: isDefinitelyRejected ? 'REJECTED' : 'AMBIGUOUS',
+      };
+    }
+    return this.send(params, config);
+  }
+
+  async send(
+    params: CommunicationSendParams,
+    config: ResolvedEmailConfig,
+  ): Promise<CommunicationSendResult> {
+    try {
+      const { host, port, user, password, from } = config;
       const destination = await assertSafeSmtpDestination(host, port);
       const info = await withPinnedAddressFallback(
         destination,

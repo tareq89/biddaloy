@@ -47,7 +47,7 @@ The original plan specified **Twilio** for both SMS and WhatsApp. What
 shipped instead:
 
 - **SMS** — **Greenweb** and **Mim SMS**, two Bangladeshi SMS gateways
-  (`providers/sms/greenweb-sms.gateway.ts`, `.../mim-sms.gateway.ts`),
+  (`providers/sms/greenweb.provider.ts`, `.../mimsms.provider.ts`),
   selected per-tenant via `sms-provider.factory.ts`. Twilio's per-message
   pricing and lack of local carrier relationships make it a poor fit for a
   Bangladesh-market product; local gateways are both cheaper and more

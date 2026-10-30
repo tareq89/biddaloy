@@ -5,10 +5,10 @@ import {
   TestableCommunicationMedium,
 } from '../providers/shared/connection-test.types';
 import { isMessageSink } from '../providers/sink/message-sink';
-import { WhatsAppCloudProvider } from '../providers/whatsapp/whatsapp-cloud.provider';
-import { SmtpEmailProvider } from '../providers/email/smtp-email.provider';
+import { MetaCloudProvider } from '../providers/whatsapp/meta-cloud.provider';
+import { SmtpProvider } from '../providers/email/smtp.provider';
 import { SmsProviderFactory } from '../providers/sms/sms-provider.factory';
-import { MessengerProvider } from '../providers/messenger/messenger.provider';
+import { MetaPageProvider } from '../providers/messenger/meta-page.provider';
 import {
   EmailOverride,
   MessengerOverride,
@@ -41,10 +41,10 @@ import {
 export class ConnectionTestService {
   constructor(
     private readonly configResolver: TenantProviderConfigResolver,
-    private readonly whatsapp: WhatsAppCloudProvider,
-    private readonly email: SmtpEmailProvider,
+    private readonly whatsapp: MetaCloudProvider,
+    private readonly email: SmtpProvider,
     private readonly sms: SmsProviderFactory,
-    private readonly messenger: MessengerProvider,
+    private readonly messenger: MetaPageProvider,
   ) {}
 
   async test(

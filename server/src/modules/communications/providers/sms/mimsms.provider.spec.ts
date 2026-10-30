@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { MimSmsGateway } from './mim-sms.gateway';
+import { MimsmsProvider } from './mimsms.provider';
 import {
   assertSafeHttpDestination,
   DestinationBlockedError,
@@ -24,7 +24,7 @@ vi.mock('../shared/outbound-destination-guard', () => {
   };
 });
 
-// sendSms's connection-pinning mechanics (undici Client/lookup wiring,
+// send's connection-pinning mechanics (undici Client/lookup wiring,
 // redirect: 'error', client cleanup) are their own unit under test in
 // pinned-http.spec.ts — stub it out here so these tests only assert on
 // gateway-level behavior. testConnection hits a hardcoded, non-tenant-
@@ -32,13 +32,13 @@ vi.mock('../shared/outbound-destination-guard', () => {
 // still exercises the stubbed global fetch below.
 vi.mock('../shared/pinned-http', () => ({ fetchPinnedJson: vi.fn() }));
 
-describe('MimSmsGateway', () => {
-  let gateway: MimSmsGateway;
+describe('MimsmsProvider', () => {
+  let gateway: MimsmsProvider;
   let fetchMock: ReturnType<typeof vi.fn>;
   let pinnedFetchMock: ReturnType<typeof vi.mocked<typeof fetchPinnedJson>>;
 
   beforeEach(() => {
-    gateway = new MimSmsGateway();
+    gateway = new MimsmsProvider();
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     pinnedFetchMock = vi.mocked(fetchPinnedJson);
@@ -52,11 +52,14 @@ describe('MimSmsGateway', () => {
   it('sends a POST request with the resolved config and normalized phone number', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success', transaction_id: 'mim-1' });
 
-    const result = await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'mimsms',
-      apiKey: 'key-1',
-      senderId: 'sender-1',
-    });
+    const result = await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'mimsms',
+        apiKey: 'key-1',
+        senderId: 'sender-1',
+      },
+    );
 
     const [, url, init] = pinnedFetchMock.mock.calls[0]!;
     const body = JSON.parse(init!.body as string);
@@ -82,11 +85,14 @@ describe('MimSmsGateway', () => {
   it('reports the exact GSM-7 segment count for a plain-English message', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success', transaction_id: 'mim-2' });
 
-    const result = await gateway.sendSms('01712345678', 'Dear guardian, fees are due.', {
-      gateway: 'mimsms',
-      apiKey: 'key-1',
-      senderId: 'sender-1',
-    });
+    const result = await gateway.send(
+      { to: '01712345678', body: 'Dear guardian, fees are due.' },
+      {
+        gateway: 'mimsms',
+        apiKey: 'key-1',
+        senderId: 'sender-1',
+      },
+    );
 
     expect(result.segments).toBe(1);
     const [, , init] = pinnedFetchMock.mock.calls[0]!;
@@ -97,9 +103,8 @@ describe('MimSmsGateway', () => {
   it('reports the exact UCS-2 segment count for a Bengali message', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success', transaction_id: 'mim-3' });
 
-    const result = await gateway.sendSms(
-      '01712345678',
-      'প্রিয় অভিভাবক, আপনার সন্তানের ফি বকেয়া আছে।',
+    const result = await gateway.send(
+      { to: '01712345678', body: 'প্রিয় অভিভাবক, আপনার সন্তানের ফি বকেয়া আছে।' },
       { gateway: 'mimsms', apiKey: 'key-1', senderId: 'sender-1' },
     );
 
@@ -112,12 +117,15 @@ describe('MimSmsGateway', () => {
   it('uses a tenant-configured apiUrl when given', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success' });
 
-    await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'mimsms',
-      apiKey: 'key-1',
-      senderId: 'sender-1',
-      apiUrl: 'https://custom.example.com/sms',
-    });
+    await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'mimsms',
+        apiKey: 'key-1',
+        senderId: 'sender-1',
+        apiUrl: 'https://custom.example.com/sms',
+      },
+    );
 
     const [, url] = pinnedFetchMock.mock.calls[0]!;
     expect(url).toBe('https://custom.example.com/sms');
@@ -126,11 +134,14 @@ describe('MimSmsGateway', () => {
   it('returns success: false with the provider error message on API failure', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'error', message: 'Invalid sender id' });
 
-    const result = await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'mimsms',
-      apiKey: 'key-1',
-      senderId: 'sender-1',
-    });
+    const result = await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'mimsms',
+        apiKey: 'key-1',
+        senderId: 'sender-1',
+      },
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('Invalid sender id');
@@ -141,11 +152,14 @@ describe('MimSmsGateway', () => {
   it('returns success: false instead of throwing on a network error', async () => {
     pinnedFetchMock.mockRejectedValue(new Error('network down'));
 
-    const result = await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'mimsms',
-      apiKey: 'key-1',
-      senderId: 'sender-1',
-    });
+    const result = await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'mimsms',
+        apiKey: 'key-1',
+        senderId: 'sender-1',
+      },
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('network down');
@@ -156,11 +170,14 @@ describe('MimSmsGateway', () => {
   it('routes through the pinned dispatcher rather than a bare fetch', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success', transaction_id: 'mim-1' });
 
-    await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'mimsms',
-      apiKey: 'key-1',
-      senderId: 'sender-1',
-    });
+    await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'mimsms',
+        apiKey: 'key-1',
+        senderId: 'sender-1',
+      },
+    );
 
     expect(pinnedFetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -171,11 +188,14 @@ describe('MimSmsGateway', () => {
       new DestinationBlockedError('"10.0.0.5" is a private/reserved address.'),
     );
 
-    const result = await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'mimsms',
-      apiKey: 'key-1',
-      senderId: 'sender-1',
-    });
+    const result = await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'mimsms',
+        apiKey: 'key-1',
+        senderId: 'sender-1',
+      },
+    );
 
     expect(result.success).toBe(false);
     expect(result.retryable).toBe(false);

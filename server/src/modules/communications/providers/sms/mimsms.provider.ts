@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { countSmsSegments } from '@biddaloy/shared';
-import { CommunicationSendResult } from '../communication-provider.interface';
-import { SmsGateway } from './sms-gateway.interface';
+import { CommunicationMedium, countSmsSegments, type ProviderDescriptor } from '@biddaloy/shared';
+import {
+  CommunicationSendParams,
+  CommunicationSendResult,
+} from '../communication-provider.interface';
+import { MessagingProvider } from '../messaging-provider';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
@@ -25,12 +28,37 @@ const REQUEST_TIMEOUT_MS = 10_000;
  * `ConfigService` itself (#8.7.10).
  */
 @Injectable()
-export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
-  async sendSms(
-    to: string,
-    message: string,
+export class MimsmsProvider extends MessagingProvider<ResolvedMimSmsConfig> {
+  readonly descriptor: ProviderDescriptor = {
+    medium: CommunicationMedium.SMS,
+    name: 'mimsms',
+    label: { en: 'MimSMS', bn: 'মিমএসএমএস' },
+    capabilities: [],
+    fields: [
+      { key: 'apiKey', label: { en: 'API key', bn: 'এপিআই কী' }, kind: 'secret', required: true },
+      {
+        key: 'senderId',
+        label: { en: 'Sender name (Sender ID)', bn: 'প্রেরকের নাম (Sender ID)' },
+        kind: 'text',
+        required: true,
+      },
+      {
+        key: 'apiUrl',
+        label: { en: 'API address (optional)', bn: 'এপিআই ঠিকানা (ঐচ্ছিক)' },
+        kind: 'url',
+        required: false,
+        advanced: true,
+      },
+    ],
+    supportsTestMessage: true,
+  };
+  readonly envPrefix = 'MIMSMS';
+
+  async send(
+    params: CommunicationSendParams,
     config: ResolvedMimSmsConfig,
   ): Promise<CommunicationSendResult> {
+    const { to, body: message } = params;
     const segmentInfo = countSmsSegments(message);
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;

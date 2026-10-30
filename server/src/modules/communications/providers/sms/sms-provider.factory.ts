@@ -6,8 +6,8 @@ import {
   CommunicationSendResult,
 } from '../communication-provider.interface';
 import { ConnectionTestResult } from '../shared/connection-test.types';
-import { GreenwebSmsGateway } from './greenweb-sms.gateway';
-import { MimSmsGateway } from './mim-sms.gateway';
+import { GreenwebProvider } from './greenweb.provider';
+import { MimsmsProvider } from './mimsms.provider';
 import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
 import {
   SmsOverride,
@@ -25,8 +25,8 @@ import {
 export class SmsProviderFactory implements CommunicationProvider {
   constructor(
     private readonly configResolver: TenantProviderConfigResolver,
-    private readonly greenwebSmsGateway: GreenwebSmsGateway,
-    private readonly mimSmsGateway: MimSmsGateway,
+    private readonly greenwebSmsGateway: GreenwebProvider,
+    private readonly mimSmsGateway: MimsmsProvider,
   ) {}
 
   async send(
@@ -45,9 +45,9 @@ export class SmsProviderFactory implements CommunicationProvider {
         allowPlatformKeys: params.allowPlatformSms === true,
       });
       if (config.gateway === 'mimsms') {
-        return await this.mimSmsGateway.sendSms(params.to, params.body, config);
+        return await this.mimSmsGateway.send(params, config);
       }
-      return await this.greenwebSmsGateway.sendSms(params.to, params.body, config);
+      return await this.greenwebSmsGateway.send(params, config);
     } catch (err) {
       // A ProviderNotConfiguredError never reaches the network — definite
       // REJECTED. Anything else here is an unexpected throw from a gateway

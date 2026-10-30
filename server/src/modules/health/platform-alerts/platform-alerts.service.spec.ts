@@ -31,8 +31,8 @@ function fakes(opts: {
   const health = { probeRedis: vi.fn(opts.probe ?? (async () => 'fail' as const)) };
   const env = opts.env ?? { PLATFORM_SMS_API_KEY: 'key' };
   const config = { get: (k: string) => env[k] };
-  const greenweb = { sendSms: vi.fn().mockResolvedValue({ success: true }) };
-  const mim = { sendSms: vi.fn().mockResolvedValue({ success: true }) };
+  const greenweb = { send: vi.fn().mockResolvedValue({ success: true }) };
+  const mim = { send: vi.fn().mockResolvedValue({ success: true }) };
   const tenantStatus = {
     platformTenantId: vi.fn(async () =>
       opts.platformTenantId === null ? undefined : (opts.platformTenantId ?? 'platform-tenant'),
@@ -73,8 +73,8 @@ describe('PlatformAlertsService', () => {
     await f.service.tick();
 
     expect(inserts(f.sql)).toHaveLength(1);
-    expect(f.greenweb.sendSms).toHaveBeenCalledTimes(2);
-    expect(f.greenweb.sendSms.mock.calls[0][1]).toContain('ALERT: Redis is down since 08:02 UTC');
+    expect(f.greenweb.send).toHaveBeenCalledTimes(2);
+    expect(f.greenweb.send.mock.calls[0][0].body).toContain('ALERT: Redis is down since 08:02 UTC');
   });
 
   it('2 failures then a success never open an alert, and the counter resets', async () => {
@@ -86,7 +86,7 @@ describe('PlatformAlertsService', () => {
     await f.service.tick();
     await f.service.tick(); // only 2 failures since the reset
     expect(inserts(f.sql)).toHaveLength(0);
-    expect(f.greenweb.sendSms).not.toHaveBeenCalled();
+    expect(f.greenweb.send).not.toHaveBeenCalled();
   });
 
   it('the first good probe closes the alert and sends one "recovered" text', async () => {
@@ -96,8 +96,8 @@ describe('PlatformAlertsService', () => {
       phones: ['01711111111'],
     });
     await f.service.tick();
-    expect(f.greenweb.sendSms).toHaveBeenCalledTimes(1);
-    expect(f.greenweb.sendSms.mock.calls[0][1]).toContain(
+    expect(f.greenweb.send).toHaveBeenCalledTimes(1);
+    expect(f.greenweb.send.mock.calls[0][0].body).toContain(
       'RECOVERED: Redis is back at 08:40 UTC after 38 min',
     );
   });
@@ -105,7 +105,7 @@ describe('PlatformAlertsService', () => {
   it('a second good probe sends nothing (no open row to close)', async () => {
     const f = fakes({ probe: async () => 'ok', closeRows: [], phones: ['01711111111'] });
     await f.service.tick();
-    expect(f.greenweb.sendSms).not.toHaveBeenCalled();
+    expect(f.greenweb.send).not.toHaveBeenCalled();
   });
 
   it('sends no "recovered" text if nobody got the "down" text (sms_count = 0)', async () => {
@@ -115,13 +115,13 @@ describe('PlatformAlertsService', () => {
       phones: ['01711111111'],
     });
     await f.service.tick();
-    expect(f.greenweb.sendSms).not.toHaveBeenCalled();
+    expect(f.greenweb.send).not.toHaveBeenCalled();
   });
 
   it('sends nothing when the hourly UPDATE returns no row (another instance, or < 1 h)', async () => {
     const f = fakes({ hourlyRows: [], phones: ['01711111111'] });
     for (let i = 0; i < 4; i++) await f.service.tick();
-    expect(f.greenweb.sendSms).not.toHaveBeenCalled();
+    expect(f.greenweb.send).not.toHaveBeenCalled();
   });
 
   describe('recipients (D16)', () => {
@@ -176,7 +176,7 @@ describe('PlatformAlertsService', () => {
         body: expect.stringContaining('Redis is down'),
       });
       expect(Logger.prototype.warn).not.toHaveBeenCalled();
-      expect(f.greenweb.sendSms).not.toHaveBeenCalled();
+      expect(f.greenweb.send).not.toHaveBeenCalled();
     });
 
     it('never reaches a real gateway under the sink, even when a real SMS key is present', async () => {
@@ -190,7 +190,7 @@ describe('PlatformAlertsService', () => {
       const f = fakes({ ...open, env: { PLATFORM_SMS_API_KEY: 'real-key' } });
       for (let i = 0; i < 3; i++) await f.service.tick();
       expect(send).toHaveBeenCalledTimes(2);
-      expect(f.greenweb.sendSms).not.toHaveBeenCalled();
+      expect(f.greenweb.send).not.toHaveBeenCalled();
     });
 
     it('is unchanged with the sink off', async () => {
@@ -208,12 +208,11 @@ describe('PlatformAlertsService', () => {
     it('uses Greenweb by default', async () => {
       const f = fakes({ ...open, env: { PLATFORM_SMS_API_KEY: 'key' } });
       for (let i = 0; i < 3; i++) await f.service.tick();
-      expect(f.greenweb.sendSms).toHaveBeenCalledWith(
-        '01711111111',
-        expect.any(String),
+      expect(f.greenweb.send).toHaveBeenCalledWith(
+        { to: '01711111111', body: expect.any(String) },
         expect.objectContaining({ gateway: 'greenweb', apiKey: 'key' }),
       );
-      expect(f.mim.sendSms).not.toHaveBeenCalled();
+      expect(f.mim.send).not.toHaveBeenCalled();
     });
 
     it('uses MimSMS with its sender id when PLATFORM_SMS_PROVIDER=mimsms', async () => {
@@ -226,19 +225,18 @@ describe('PlatformAlertsService', () => {
         },
       });
       for (let i = 0; i < 3; i++) await f.service.tick();
-      expect(f.mim.sendSms).toHaveBeenCalledWith(
-        '01711111111',
-        expect.any(String),
+      expect(f.mim.send).toHaveBeenCalledWith(
+        { to: '01711111111', body: expect.any(String) },
         expect.objectContaining({ gateway: 'mimsms', senderId: 'BIDDALOY' }),
       );
-      expect(f.greenweb.sendSms).not.toHaveBeenCalled();
+      expect(f.greenweb.send).not.toHaveBeenCalled();
     });
 
     // [75.34 review r1, F-2441-3] the raw provider body can echo the full number.
     it('logs the send status only, never the raw provider response', async () => {
       const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
       const f = fakes(open);
-      f.greenweb.sendSms.mockResolvedValue({
+      f.greenweb.send.mockResolvedValue({
         success: true,
         outcome: 'ACCEPTED',
         providerMessageId: 'm-1',
@@ -258,15 +256,15 @@ describe('PlatformAlertsService', () => {
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('platform alert SMS not configured; would text 1 phone(s):'),
       );
-      expect(f.greenweb.sendSms).not.toHaveBeenCalled();
-      expect(f.mim.sendSms).not.toHaveBeenCalled();
+      expect(f.greenweb.send).not.toHaveBeenCalled();
+      expect(f.mim.send).not.toHaveBeenCalled();
     });
   });
 
   describe('never throws', () => {
     it('survives a gateway that rejects', async () => {
       const f = fakes({ hourlyRows: [{ opened_at: OPENED }], phones: ['01711111111'] });
-      f.greenweb.sendSms.mockRejectedValue(new Error('gateway down'));
+      f.greenweb.send.mockRejectedValue(new Error('gateway down'));
       for (let i = 0; i < 3; i++) await expect(f.service.tick()).resolves.toBeUndefined();
     });
 

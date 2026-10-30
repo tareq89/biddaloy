@@ -357,7 +357,7 @@ describe('TenantProviderConfigResolver', () => {
       // EmailOverride — nothing stops a caller (or an un-coerced form
       // input) from sending port as a string. Number.isInteger('465') is
       // false, so this must be rejected here rather than reaching
-      // SmtpEmailProvider, where `secure: config.port === 465` would
+      // SmtpProvider, where `secure: config.port === 465` would
       // silently evaluate false for the string and connect without TLS.
       const resolver = resolverWith({ version: 1 });
 

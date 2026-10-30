@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as nodemailer from 'nodemailer';
-import { SmtpEmailProvider } from './smtp-email.provider';
+import { SmtpProvider } from './smtp.provider';
 import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
 import {
   assertSafeSmtpDestination,
@@ -27,12 +27,12 @@ vi.mock('../shared/outbound-destination-guard', () => {
   };
 });
 
-describe('SmtpEmailProvider', () => {
+describe('SmtpProvider', () => {
   const tenantId = 'tenant-1';
   let configResolver: Record<string, ReturnType<typeof vi.fn>>;
   let sendMail: ReturnType<typeof vi.fn>;
   let verify: ReturnType<typeof vi.fn>;
-  let provider: SmtpEmailProvider;
+  let provider: SmtpProvider;
 
   beforeEach(() => {
     vi.mocked(nodemailer.createTransport).mockReset();
@@ -48,11 +48,11 @@ describe('SmtpEmailProvider', () => {
     sendMail = vi.fn().mockResolvedValue({ messageId: 'msg-1', response: '250 OK' });
     verify = vi.fn().mockResolvedValue(true);
     vi.mocked(nodemailer.createTransport).mockReturnValue({ sendMail, verify } as any);
-    provider = new SmtpEmailProvider(configResolver as any);
+    provider = new SmtpProvider(configResolver as any);
   });
 
   it('builds a transporter from the tenant-resolved config and sends the message', async () => {
-    const result = await provider.send(
+    const result = await provider.sendForTenant(
       { to: 'guardian@example.com', body: 'Fee reminder' },
       tenantId,
     );
@@ -88,7 +88,7 @@ describe('SmtpEmailProvider', () => {
       from: 'noreply@example.com',
     });
 
-    await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+    await provider.sendForTenant({ to: 'guardian@example.com', body: 'hi' }, tenantId);
 
     expect(nodemailer.createTransport).toHaveBeenCalledWith(
       expect.objectContaining({ secure: true }),
@@ -96,7 +96,7 @@ describe('SmtpEmailProvider', () => {
   });
 
   it('builds a fresh transporter per tenant rather than reusing a cached one', async () => {
-    await provider.send({ to: 'a@example.com', body: 'hi' }, tenantId);
+    await provider.sendForTenant({ to: 'a@example.com', body: 'hi' }, tenantId);
 
     configResolver.resolveEmail.mockResolvedValue({
       host: 'smtp.other-tenant.com',
@@ -109,7 +109,7 @@ describe('SmtpEmailProvider', () => {
       addresses: [{ address: '198.51.100.9', family: 4 }],
       servername: 'smtp.other-tenant.com',
     });
-    await provider.send({ to: 'b@example.com', body: 'hi' }, 'tenant-2');
+    await provider.sendForTenant({ to: 'b@example.com', body: 'hi' }, 'tenant-2');
 
     expect(nodemailer.createTransport).toHaveBeenCalledTimes(2);
     expect(nodemailer.createTransport).toHaveBeenLastCalledWith(
@@ -125,7 +125,10 @@ describe('SmtpEmailProvider', () => {
       new ProviderNotConfiguredError('Email', 'configure it'),
     );
 
-    const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+    const result = await provider.sendForTenant(
+      { to: 'guardian@example.com', body: 'hi' },
+      tenantId,
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/configure it/);
@@ -136,7 +139,10 @@ describe('SmtpEmailProvider', () => {
   it('returns success: false instead of throwing when sendMail rejects', async () => {
     sendMail.mockRejectedValue(new Error('SMTP connection refused'));
 
-    const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+    const result = await provider.sendForTenant(
+      { to: 'guardian@example.com', body: 'hi' },
+      tenantId,
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('SMTP connection refused');
@@ -148,7 +154,10 @@ describe('SmtpEmailProvider', () => {
       new DestinationBlockedError('"10.0.0.5" is a private/reserved address.'),
     );
 
-    const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+    const result = await provider.sendForTenant(
+      { to: 'guardian@example.com', body: 'hi' },
+      tenantId,
+    );
 
     expect(result.success).toBe(false);
     expect(result.retryable).toBe(false);
@@ -160,7 +169,7 @@ describe('SmtpEmailProvider', () => {
       servername: undefined,
     });
 
-    await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+    await provider.sendForTenant({ to: 'guardian@example.com', body: 'hi' }, tenantId);
 
     const transportOptions = vi.mocked(nodemailer.createTransport).mock.calls[0]![0] as Record<
       string,
@@ -203,7 +212,10 @@ describe('SmtpEmailProvider', () => {
         .mockReturnValueOnce({ sendMail: failingSendMail, verify } as any)
         .mockReturnValueOnce({ sendMail, verify } as any);
 
-      const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+      const result = await provider.sendForTenant(
+        { to: 'guardian@example.com', body: 'hi' },
+        tenantId,
+      );
 
       expect(result.success).toBe(true);
       expect(nodemailer.createTransport).toHaveBeenCalledTimes(2);
@@ -246,7 +258,10 @@ describe('SmtpEmailProvider', () => {
         verify,
       } as any);
 
-      const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+      const result = await provider.sendForTenant(
+        { to: 'guardian@example.com', body: 'hi' },
+        tenantId,
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('535 auth failed');
@@ -264,7 +279,10 @@ describe('SmtpEmailProvider', () => {
         verify,
       } as any);
 
-      const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, tenantId);
+      const result = await provider.sendForTenant(
+        { to: 'guardian@example.com', body: 'hi' },
+        tenantId,
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('connect ECONNREFUSED');

@@ -16,11 +16,7 @@ import { CommunicationsController } from './communications.controller';
 import { CommunicationsProcessor } from './worker/communications.processor';
 import { CommunicationProviderRegistryService } from './providers/communication-provider.registry';
 import { SmsProviderFactory } from './providers/sms/sms-provider.factory';
-import { GreenwebSmsGateway } from './providers/sms/greenweb-sms.gateway';
-import { MimSmsGateway } from './providers/sms/mim-sms.gateway';
-import { WhatsAppCloudProvider } from './providers/whatsapp/whatsapp-cloud.provider';
-import { SmtpEmailProvider } from './providers/email/smtp-email.provider';
-import { MessengerProvider } from './providers/messenger/messenger.provider';
+import { MESSAGING_PROVIDERS } from './providers/messaging-providers';
 import { TenantProviderConfigResolver } from './config/tenant-provider-config.resolver';
 import { ConnectionTestService } from './testing/connection-test.service';
 import { ProviderConnectionTestController } from './testing/provider-connection-test.controller';
@@ -93,11 +89,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     CommunicationProviderRegistryService,
     TenantProviderConfigResolver,
     SmsProviderFactory,
-    GreenwebSmsGateway,
-    MimSmsGateway,
-    WhatsAppCloudProvider,
-    SmtpEmailProvider,
-    MessengerProvider,
+    ...MESSAGING_PROVIDERS,
     ConnectionTestService,
     FeeNotificationsListener,
     InvoiceNotificationsListener,
@@ -119,6 +111,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     BulkReminderService,
     SingleReminderService,
     CommunicationProviderRegistryService,
+    ...MESSAGING_PROVIDERS,
   ],
 })
 export class CommunicationsModule {}
