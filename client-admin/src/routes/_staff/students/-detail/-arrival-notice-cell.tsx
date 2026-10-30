@@ -11,6 +11,7 @@ import {
   type StatusTone,
 } from '@biddaloy/ui/components';
 import {
+  isArrivalDisabledError,
   useArrivalSubscriptions,
   useCreateArrivalSubscription,
   useHasPermission,
@@ -56,22 +57,25 @@ function badgeKey(sub: StaffArrivalSubscription | undefined): BadgeKey {
 }
 
 /** One guardian's arrival-notice state plus the MANAGE / LOCK menu ([84.3.2], D5, D16, D35).
- * The staff list has no student filter, so it is read per section and narrowed here. */
+ * The list is read with the `studentId` filter (the same filters as the tab's read, so the
+ * query key is shared). Lock-to-create (D35): with no row the create call carries the lock,
+ * so row and lock are saved together. */
 export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNoticeCellProps) {
   const { t } = useTranslation('students');
   const config = useRegionConfig();
   const canManage = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE);
   const canLock = useHasPermission(Permission.ATTENDANCE_ARRIVAL_NOTICE_LOCK);
   // Same query key as the Guardians tab's read, so this is the cached list, not a new call.
-  const list = useArrivalSubscriptions({ sectionId });
+  const list = useArrivalSubscriptions({ sectionId, studentId });
   const create = useCreateArrivalSubscription();
   const patch = usePatchArrivalSubscription();
   const lockMutation = useLockArrivalSubscription();
 
-  const sub = list.data?.find((s) => s.student_id === studentId && s.guardian_id === guardian.id);
+  const sub = list.data?.find((s) => s.guardian_id === guardian.id);
   const key = badgeKey(sub);
   const locked = sub !== undefined && sub.lock !== 'NONE';
   const busy = create.isPending || patch.isPending || lockMutation.isPending;
+  const failure = create.error ?? patch.error ?? lockMutation.error;
   const failed = create.isError || patch.isError || lockMutation.isError;
 
   const setMode = (mode: 'ONCE' | 'RECURRING') => {
@@ -79,7 +83,13 @@ export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNot
     else create.mutate({ student_id: studentId, guardian_id: guardian.id, mode });
   };
   const setLock = (lock: ArrivalLock) => {
-    if (sub) lockMutation.mutate({ id: sub.id, lock });
+    if (sub) {
+      lockMutation.mutate({ id: sub.id, lock });
+      return;
+    }
+    // No row yet: one call makes it already locked (every day), so a failed or abandoned
+    // second call can never leave an unlocked ACTIVE row behind.
+    create.mutate({ student_id: studentId, guardian_id: guardian.id, mode: 'RECURRING', lock });
   };
 
   // No state is known yet (loading) or at all (failed): never claim "Not asked" and never
@@ -132,10 +142,10 @@ export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNot
               {canLock && (
                 <>
                   {canManage && <MenuSeparator />}
-                  <MenuItem disabled={!sub} onSelect={() => setLock('ALWAYS')}>
+                  <MenuItem onSelect={() => setLock('ALWAYS')}>
                     {t('detail.guardians.arrival.action.always')}
                   </MenuItem>
-                  <MenuItem disabled={!sub} onSelect={() => setLock('NEVER')}>
+                  <MenuItem onSelect={() => setLock('NEVER')}>
                     {t('detail.guardians.arrival.action.never')}
                   </MenuItem>
                   <MenuItem disabled={!sub || sub.lock === 'NONE'} onSelect={() => setLock('NONE')}>
@@ -154,16 +164,34 @@ export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNot
           {t('detail.guardians.arrival.lockedNote')}
         </span>
       )}
-      {sub && (
+      {sub && !sub.notifications_enabled && (
         <span className="text-caption text-text-secondary">
-          {t('detail.guardians.arrival.updatedOn', {
-            date: formatDate(new Date(sub.updated_at), config),
+          {t('detail.guardians.arrival.notificationsOff')}
+        </span>
+      )}
+      {sub?.set_by_name && sub.set_at && (
+        <span className="text-caption text-text-secondary">
+          {t('detail.guardians.arrival.setBy', {
+            name: sub.set_by_name,
+            date: formatDate(new Date(sub.set_at), config),
+          })}
+        </span>
+      )}
+      {sub?.locked_by_name && sub.locked_at && sub.lock !== 'NONE' && (
+        <span className="text-caption text-text-secondary">
+          {t('detail.guardians.arrival.lockedBy', {
+            name: sub.locked_by_name,
+            date: formatDate(new Date(sub.locked_at), config),
           })}
         </span>
       )}
       {failed && (
         <span role="alert" className="text-danger text-caption">
-          {t('detail.guardians.arrival.error')}
+          {t(
+            isArrivalDisabledError(failure)
+              ? 'detail.guardians.arrival.disabled'
+              : 'detail.guardians.arrival.error',
+          )}
         </span>
       )}
     </div>

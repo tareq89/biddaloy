@@ -123,7 +123,7 @@ Parents only. The **Arrival notices** card shows near the top of the page, only 
 
 3. When the teacher confirms, the mark changes to **Once** (one message, then it stops) or **Every day** (a message each school day). After a **Once** message goes, the mark says **Done**.
 
-To stop, turn **Notify me** off. If the mark says **Set by the admin**, the school has fixed it and you cannot turn the switch on or off here. When the admin has turned it on for you, you see **The admin has turned this on. You can still choose how it is sent.** and you can still choose **In the app** or **By SMS**. If a change does not save, you see **Could not save. Try again.**
+To stop, turn **Notify me** off. If the mark says **Set by the admin**, the school has fixed it and you cannot turn the switch on or off here. When the admin has turned it on for you, you see **The admin has turned this on. You can still choose how it is sent.** and you can still choose **In the app** or **By SMS**. If your teacher has not turned it on, the line **Your teacher has not turned this on. You can ask again.** shows under your child's name; turn **Notify me** on to ask again. If a change does not save, you see **Could not save. Try again.** If the school has switched this off, you see **Arrival notices are turned off at this school.**
 
 ---
 

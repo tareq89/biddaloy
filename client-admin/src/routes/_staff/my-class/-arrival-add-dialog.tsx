@@ -20,7 +20,11 @@ import {
   SelectValue,
   toast,
 } from '@biddaloy/ui/components';
-import { useCreateArrivalSubscription, useStudents } from '@biddaloy/ui/hooks';
+import {
+  isArrivalDisabledError,
+  useCreateArrivalSubscription,
+  useStudents,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -68,7 +72,8 @@ export function ArrivalAddDialog({ open, onOpenChange, sectionId }: ArrivalAddDi
           onOpenChange(false);
         },
         // Rule 23: a fixed sentence, never the server text.
-        onError: () => setError(t('arrival.dialog.error')),
+        onError: (e) =>
+          setError(t(isArrivalDisabledError(e) ? 'arrival.disabled' : 'arrival.dialog.error')),
       },
     );
   }

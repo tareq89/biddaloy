@@ -735,6 +735,7 @@ export {
 } from './reminders';
 export {
   arrivalSubscriptionKeys,
+  isArrivalDisabledError,
   useArrivalSubscriptions,
   useCreateArrivalSubscription,
   useLockArrivalSubscription,

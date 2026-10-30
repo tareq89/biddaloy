@@ -554,6 +554,8 @@
     },
     "smsNotAllowed": "Your school sends this in the app only",
     "noPush": "No phone on your account has the app yet. Choose SMS or install the app.",
-    "noPushLink": "Turn on app messages"
+    "noPushLink": "Turn on app messages",
+    "declinedHint": "Your teacher has not turned this on. You can ask again.",
+    "disabled": "Arrival notices are turned off at this school."
   }
 }

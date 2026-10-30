@@ -43,7 +43,7 @@ export function GuardiansTab({ studentId }: GuardiansTabProps) {
   // teacher who is not this section's class teacher gets a 404: no column for them at all.
   const sectionId = query.data?.class_section_id ?? '';
   const arrivalList = useArrivalSubscriptions(
-    { sectionId },
+    { sectionId, studentId },
     { enabled: canManageArrival && !arrivalOff && sectionId !== '' },
   );
   const showArrival = canManageArrival && !arrivalOff && !isNotFoundError(arrivalList.error);

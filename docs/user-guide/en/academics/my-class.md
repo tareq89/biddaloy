@@ -152,7 +152,7 @@ A guardian can ask to be told when their child reaches school. You decide how of
 
 2. To change it later, press **Change to every school day** or **Change to once** on the row. **Stop** on the row turns it off. After a **Once** message has gone, the mark says **Done**.
 
-If the card says **Set by school**, an admin fixed it and you cannot change it. If it says **No guardian has asked for arrival notices yet.**, there is nothing to answer.
+If the card says **Set by school**, an admin fixed it and you cannot change it. If it says **No guardian has asked for arrival notices yet.**, there is nothing to answer. Under a guardian's name, **The guardian turned off all notifications. Nothing is sent.** means they switched every notification off. If the school has turned arrival notices off in Settings, a change shows **Arrival notices are turned off at this school.**
 
 ### Add a guardian yourself <a href="#task-arrival-add" id="task-arrival-add"></a>
 

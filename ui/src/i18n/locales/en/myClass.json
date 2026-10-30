@@ -89,7 +89,9 @@
       "noGuardians": "This student has no guardian yet.",
       "error": "Could not add. Try again.",
       "added": "Arrival notice turned on"
-    }
+    },
+    "notificationsOff": "The guardian turned off all notifications. Nothing is sent.",
+    "disabled": "Arrival notices are turned off at this school."
   },
   "arrivalCount": "Arrival requests ({{n}})",
   "help": {

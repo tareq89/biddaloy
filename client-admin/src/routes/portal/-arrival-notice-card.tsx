@@ -7,6 +7,7 @@
 import { apiClient } from '@biddaloy/ui/api';
 import { Card, RadioRows, StatusBadge, Switch, type StatusTone } from '@biddaloy/ui/components';
 import {
+  isArrivalDisabledError,
   usePortalArrivalSubscriptions,
   usePutPortalArrivalSubscription,
   type MyArrivalChild,
@@ -50,6 +51,7 @@ function ChildRow({
   const locked = lock !== 'NONE';
   const channel: Channel = sub?.channel ?? 'PUSH';
   const badge = badgeFor(sub);
+  const declined = sub !== null && sub.status === 'OFF' && sub.declined_at !== null && !locked;
   const send = (want: boolean, next: Channel) =>
     put.mutate({ studentId: child.student_id, input: { want, channel: next } });
 
@@ -77,6 +79,10 @@ function ChildRow({
         <p className="text-caption text-text-secondary">
           {t(lock === 'ALWAYS' ? 'arrivalNotice.lockedAlwaysHint' : 'arrivalNotice.lockedHint')}
         </p>
+      )}
+      {declined && (
+        // D17: the teacher said "not now" (the guardian's own switch-off leaves no hint).
+        <p className="text-caption text-text-secondary">{t('arrivalNotice.declinedHint')}</p>
       )}
       {on && lock !== 'NEVER' && (
         <>
@@ -107,7 +113,11 @@ function ChildRow({
       {put.isError && (
         // One fixed sentence: the server's text is never shown (Rule 23).
         <p role="alert" className="text-caption text-destructive">
-          {t('arrivalNotice.saveError')}
+          {t(
+            isArrivalDisabledError(put.error)
+              ? 'arrivalNotice.disabled'
+              : 'arrivalNotice.saveError',
+          )}
         </p>
       )}
     </li>

@@ -152,9 +152,14 @@ export class ArrivalSubscriptionsService {
       guardian_id: string;
       mode: ArrivalNoticeMode;
       channel?: ArrivalNoticeChannel;
+      lock?: ArrivalNoticeLock;
     },
   ): Promise<ArrivalSubscriptionResponseDto> {
     await this.assertEnabled(a.tenantId);
+    // A lock needs the LOCK permission; refuse before any read so nothing is half-made.
+    if (dto.lock !== undefined && !a.canLock) {
+      throw new ForbiddenException(ARRIVAL_ERRORS.lockedForTeacher);
+    }
     const student = await this.studentRepo.findOne({
       where: { id: dto.student_id, tenant_id: a.tenantId },
     });
@@ -197,6 +202,8 @@ export class ArrivalSubscriptionsService {
     row.declined_at = null;
     row.set_by_user_id = a.userId;
     row.set_at = new Date();
+    // Lock and row land in one save, so a NEVER can never be left half-applied.
+    if (dto.lock !== undefined) this.applyLock(row, dto.lock, a.userId);
     return toDto(await this.repo.save(row));
   }
 
@@ -251,16 +258,9 @@ export class ArrivalSubscriptionsService {
     return toDto(await this.repo.save(row));
   }
 
-  /** D35: NEVER -> OFF, ALWAYS -> ACTIVE + RECURRING, NONE leaves the row as it is. */
-  async setLock(
-    a: Actor,
-    id: string,
-    lock: ArrivalNoticeLock,
-  ): Promise<ArrivalSubscriptionResponseDto> {
-    await this.assertEnabled(a.tenantId);
-    const row = await this.findForStaff(a, id);
+  private applyLock(row: ArrivalNoticeSubscription, lock: ArrivalNoticeLock, userId: string) {
     row.lock = lock;
-    row.locked_by_user_id = lock === ArrivalNoticeLock.NONE ? null : a.userId;
+    row.locked_by_user_id = lock === ArrivalNoticeLock.NONE ? null : userId;
     row.locked_at = lock === ArrivalNoticeLock.NONE ? null : new Date();
     if (lock === ArrivalNoticeLock.NEVER) {
       row.status = ArrivalNoticeStatus.OFF;
@@ -272,6 +272,17 @@ export class ArrivalSubscriptionsService {
       row.mode = ArrivalNoticeMode.RECURRING;
       row.consumed_at = null;
     }
+  }
+
+  /** D35: NEVER -> OFF, ALWAYS -> ACTIVE + RECURRING, NONE leaves the row as it is. */
+  async setLock(
+    a: Actor,
+    id: string,
+    lock: ArrivalNoticeLock,
+  ): Promise<ArrivalSubscriptionResponseDto> {
+    await this.assertEnabled(a.tenantId);
+    const row = await this.findForStaff(a, id);
+    this.applyLock(row, lock, a.userId);
     return toDto(await this.repo.save(row));
   }
 

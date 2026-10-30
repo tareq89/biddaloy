@@ -22,7 +22,15 @@ export type UpsertMyArrivalSubscriptionInput = Schemas['UpsertMyArrivalSubscript
 
 export interface ArrivalSubscriptionFilters {
   sectionId?: string;
+  studentId?: string;
   status?: StaffArrivalSubscription['status'];
+}
+
+/** The school switch is off: every write route answers this one 409 (a lock 409 is a different
+ * sentence). Matched on the fixed server sentence, never shown ([84 follow-up D-client]). */
+export function isArrivalDisabledError(error: unknown): boolean {
+  const e = error as { statusCode?: number; message?: string } | null | undefined;
+  return e?.statusCode === 409 && (e.message ?? '').includes('turned off at this school');
 }
 
 /** The server's page cap (`take ≤ 100`). */

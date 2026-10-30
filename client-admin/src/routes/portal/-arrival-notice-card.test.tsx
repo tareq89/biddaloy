@@ -16,6 +16,7 @@ const sub = (over: Record<string, unknown> = {}) => ({
   channel: 'PUSH',
   lock: 'NONE',
   consumed_at: null,
+  declined_at: null,
   updated_at: '2026-09-15T10:00:00.000Z',
   ...over,
 });
@@ -167,6 +168,47 @@ describe('ArrivalNoticeCard', () => {
     await userEvent.click(await screen.findByRole('switch', { name: /Imran/ }));
     expect((await screen.findByRole('alert')).textContent).toBe('Could not save. Try again.');
     expect(screen.queryByText('secret server text')).toBeNull();
+  });
+
+  it('shows the school-off sentence on the 409 that says so', async () => {
+    mock(kids);
+    server.use(
+      http.put('/api/v1/portal/arrival-subscriptions/:id', () =>
+        HttpResponse.json(
+          apiErrorBody(
+            409,
+            'Arrival notices are turned off at this school.',
+            '/api/v1/portal/arrival-subscriptions/kid-b',
+          ),
+          { status: 409 },
+        ),
+      ),
+    );
+    renderPortalCard(<ArrivalNoticeCard />);
+    await userEvent.click(await screen.findByRole('switch', { name: /Imran/ }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Arrival notices are turned off at this school.',
+    );
+  });
+
+  it('hints when the teacher said not now (declined), but not when the guardian switched off', async () => {
+    mock([
+      {
+        student_id: 'kid-a',
+        student_name: 'Fatima',
+        subscription: sub({ status: 'OFF', declined_at: '2026-09-16T10:00:00.000Z' }),
+      },
+      {
+        student_id: 'kid-b',
+        student_name: 'Imran',
+        subscription: sub({ id: 's2', status: 'OFF' }),
+      },
+    ]);
+    renderPortalCard(<ArrivalNoticeCard />);
+    await screen.findByText('Fatima');
+    expect(
+      screen.getAllByText('Your teacher has not turned this on. You can ask again.'),
+    ).toHaveLength(1);
   });
 
   it('renders nothing when the school switch is off', async () => {
