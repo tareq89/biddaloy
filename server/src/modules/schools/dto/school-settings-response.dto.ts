@@ -70,6 +70,10 @@ export class ProviderConfigFieldResponseDto {
   @ApiProperty({ enum: ['text', 'url', 'secret'] }) kind: 'text' | 'url' | 'secret';
   @ApiProperty() required: boolean;
   @ApiProperty({ required: false }) advanced?: boolean;
+  @ApiProperty({ required: false }) destination?: boolean;
+  @ApiProperty({ required: false }) owned?: boolean;
+  @ApiProperty({ required: false }) sendOnly?: boolean;
+  @ApiProperty({ required: false, enum: ['port'] }) format?: 'port';
 }
 
 export class ProviderDescriptorResponseDto {

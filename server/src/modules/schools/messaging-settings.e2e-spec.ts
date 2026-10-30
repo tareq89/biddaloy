@@ -73,6 +73,8 @@ describe('Messaging settings (e2e)', () => {
         if (f.kind === 'secret')
           values[f.key] = secrets[`${medium}.${f.key}`] = `sec-${n}-abcdefgh`;
         else if (f.kind === 'url') values[f.key] = 'https://vendor.example.test';
+        // The schema says which fields are ports (#3322); any other text would be a 400.
+        else if (f.format === 'port') values[f.key] = '2525';
         else values[f.key] = `t-${n}`;
       }
       communications[medium.toLowerCase()] = { provider: d.name, [d.name]: values };
@@ -244,6 +246,21 @@ describe('Messaging settings (e2e)', () => {
       communications: { [CommunicationMedium.SMS.toLowerCase()]: { provider: 'EVIL-123' } },
     }).expect(400);
     expect(JSON.stringify(res.body)).not.toContain('EVIL-123');
+  });
+
+  // #3322: the old DTO checked the SMTP port (int 1-65535); the generic validator must too.
+  it('an SMTP port that is not 1-65535 is a 400 that never echoes it; a real port saves', async () => {
+    const smtp = { host: 'smtp.example.com', user: 'u', password: 'pw', from: 'a@example.com' };
+    for (const port of ['EVIL-123', '70000']) {
+      const res = await patch(SEED_TENANT_ID, {
+        communications: { email: { provider: 'smtp', smtp: { ...smtp, port } } },
+      }).expect(400);
+      expect(JSON.stringify(res.body)).toContain('port must be a whole number from 1 to 65535.');
+      expect(JSON.stringify(res.body)).not.toContain(port);
+    }
+    await patch(SEED_TENANT_ID, {
+      communications: { email: { provider: 'smtp', smtp: { ...smtp, port: '2525' } } },
+    }).expect(200);
   });
 
   it('metering outside SMS is refused (a tenant must not switch on platform keys)', async () => {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
-import { CommunicationMedium, type ProviderDescriptor } from '@biddaloy/shared';
+import { CommunicationMedium, isValidPort, type ProviderDescriptor } from '@biddaloy/shared';
 import {
   CommunicationSendParams,
   CommunicationSendResult,
@@ -26,20 +26,16 @@ export interface ResolvedEmailConfig {
 
 const DEFAULT_SMTP_PORT = 587;
 
-/** Digits only, 1-65535; anything else is a definite config error (never reaches the network). */
+/** Digits only, 1-65535 (blank = 587); anything else is a definite config error (never reaches the network). */
 function parsePort(raw: string | number | undefined): number {
-  const port = raw === undefined || raw === '' ? DEFAULT_SMTP_PORT : Number(raw);
-  if (
-    !/^\d+$/.test(String(raw === '' ? DEFAULT_SMTP_PORT : (raw ?? DEFAULT_SMTP_PORT))) ||
-    port < 1 ||
-    port > 65535
-  ) {
+  const value = raw === undefined || raw === '' ? DEFAULT_SMTP_PORT : raw;
+  if (!isValidPort(value)) {
     throw new ProviderNotConfiguredError(
       'Email',
       'SMTP port must be an integer between 1 and 65535.',
     );
   }
-  return port;
+  return Number(value);
 }
 
 function mapSmtpError(err: unknown): string {
@@ -130,6 +126,7 @@ export class SmtpProvider extends MessagingProvider<ResolvedEmailConfig> {
         kind: 'text',
         required: false,
         destination: true,
+        format: 'port',
       },
       {
         key: 'user',
@@ -148,6 +145,8 @@ export class SmtpProvider extends MessagingProvider<ResolvedEmailConfig> {
         label: { en: 'Send emails from', bn: 'যে ঠিকানা থেকে ইমেইল যাবে' },
         kind: 'text',
         required: true,
+        // testConnection never reads it, so testing a new server does not need it.
+        sendOnly: true,
       },
     ],
     supportsTestMessage: true,
@@ -196,7 +195,13 @@ export class SmtpProvider extends MessagingProvider<ResolvedEmailConfig> {
       return {
         success: false,
         providerMessageId: null,
-        error: err instanceof Error ? err.message : String(err),
+        // Rule 23: the guard's own message carries the host, so a blocked address stores its fixed text.
+        error:
+          err instanceof OutboundDestinationError
+            ? err.publicMessage
+            : err instanceof Error
+              ? err.message
+              : String(err),
         retryable: isDefinitelyRejected ? false : undefined,
         outcome: isDefinitelyRejected ? 'REJECTED' : 'AMBIGUOUS',
       };

@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { CommunicationMedium, countSmsSegments } from '@biddaloy/shared';
 import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
 import type { MessagingProvider } from './messaging-provider';
@@ -5,6 +6,8 @@ import type {
   CommunicationSendParams,
   CommunicationSendResult,
 } from './communication-provider.interface';
+
+const logger = new Logger('MessagingSend');
 
 // An SMS log always carries its segment count (#549/#570), even when the send failed early.
 const segmentsFor = (medium: CommunicationMedium, params: CommunicationSendParams) =>
@@ -19,10 +22,17 @@ export function failedResult(
   medium: CommunicationMedium,
   params: CommunicationSendParams,
 ): CommunicationSendResult {
+  if (!(err instanceof ProviderNotConfiguredError)) {
+    // The error class only: its text may carry a URL or key (Rule 13).
+    logger.warn(`Send failed with ${err instanceof Error ? err.name : typeof err}`);
+  }
   return {
     success: false,
     providerMessageId: null,
-    error: err instanceof Error ? err.message : String(err),
+    // Rule 24: only our own "not configured" sentence is stored; anything else (a DB or decrypt
+    // error, a provider that threw) may carry raw driver text, so it gets a fixed sentence.
+    error:
+      err instanceof ProviderNotConfiguredError ? err.message : 'The message could not be sent.',
     segments: segmentsFor(medium, params),
     retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
     outcome: 'REJECTED',

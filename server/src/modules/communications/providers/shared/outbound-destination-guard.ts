@@ -35,7 +35,7 @@ export abstract class OutboundDestinationError extends Error {
 // destination will not become valid on retry, so callers may treat it as
 // non-retryable.
 export class DestinationBlockedError extends OutboundDestinationError {
-  readonly publicMessage = 'This server address is not allowed — use a public address.';
+  readonly publicMessage = 'This server address cannot be used — check it and try again.';
   constructor(reason: string) {
     super(`Outbound destination blocked: ${reason}`);
     this.name = 'DestinationBlockedError';

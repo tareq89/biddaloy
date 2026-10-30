@@ -140,6 +140,25 @@ describe('assertSafeHttpDestination', () => {
   });
 });
 
+// Review round 2, item 14: one fixed sentence for every blocked case (private address, http:,
+// bad port), so it must read right for all of them and never echo the address.
+describe('DestinationBlockedError.publicMessage', () => {
+  it('is neutral and carries no submitted value, whatever the reason', async () => {
+    const errors = await Promise.all([
+      assertSafeHttpDestination('http://evil.example/api').catch((e) => e),
+      assertSafeSmtpDestination('evil.example', 70000).catch((e) => e),
+      assertSafeHttpDestination('https://10.0.0.5/api').catch((e) => e),
+    ]);
+    for (const err of errors) {
+      expect(err).toBeInstanceOf(DestinationBlockedError);
+      expect(err.publicMessage).toBe(
+        'This server address cannot be used — check it and try again.',
+      );
+      expect(err.publicMessage).not.toMatch(/evil|10\.0\.0\.5|70000/);
+    }
+  });
+});
+
 describe('assertSafeSmtpDestination', () => {
   it('passes for a publicly-resolving host and valid port, returning the resolved addresses and original hostname as servername', async () => {
     mockLookup.mockResolvedValueOnce([{ address: '203.0.113.5', family: 4 }]);

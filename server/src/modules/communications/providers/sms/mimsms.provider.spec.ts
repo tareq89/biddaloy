@@ -12,7 +12,9 @@ import { fetchPinnedJson } from '../shared/pinned-http';
 // `assertSafeHttpDestination` echoes the input URL back as `url` so the
 // "tenant-configured apiUrl" test below stays meaningful.
 vi.mock('../shared/outbound-destination-guard', () => {
-  class OutboundDestinationError extends Error {}
+  class OutboundDestinationError extends Error {
+    readonly publicMessage = 'This server address cannot be used — check it and try again.';
+  }
   class DestinationBlockedError extends OutboundDestinationError {}
   return {
     assertSafeHttpDestination: vi.fn().mockImplementation(async (rawUrl: string) => ({
@@ -150,7 +152,8 @@ describe('MimsmsProvider', () => {
   });
 
   it('returns success: false instead of throwing on a network error', async () => {
-    pinnedFetchMock.mockRejectedValue(new Error('network down'));
+    // Rule 23: a fetch error can carry the request URL (and Greenweb's token in it).
+    pinnedFetchMock.mockRejectedValue(new Error('network down https://gw.test/?token=key-1'));
 
     const result = await gateway.send(
       { to: '01712345678', body: 'hi' },
@@ -162,7 +165,8 @@ describe('MimsmsProvider', () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe('network down');
+    expect(result.error).toBe('Could not reach MimSMS; the message may or may not have been sent.');
+    expect(result.error).not.toContain('key-1');
     expect(result.retryable).toBeUndefined();
     expect(result.segments).toBe(1);
   });
@@ -199,6 +203,9 @@ describe('MimsmsProvider', () => {
 
     expect(result.success).toBe(false);
     expect(result.retryable).toBe(false);
+    // Review round 2, item 3: the fixed sentence, never the guard's text with the address.
+    expect(result.error).toBe('This server address cannot be used — check it and try again.');
+    expect(result.error).not.toContain('10.0.0.5');
   });
 
   describe('testConnection', () => {

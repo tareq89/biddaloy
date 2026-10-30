@@ -182,7 +182,11 @@ describe('Provider connection test E2E', () => {
 
     vi.mocked(fetchPinnedJson).mockResolvedValueOnce({ message: 'Unauthenticated.' });
     const bad = await test('bad-key-value');
-    expect(bad.body).toEqual({ success: false, message: 'Could not reach OneCodeSoft.' });
+    // A refused key is named as such (not "could not reach"), in a fixed sentence (Rule 23).
+    expect(bad.body).toEqual({
+      success: false,
+      message: 'OneCodeSoft rejected the API key — check it and try again.',
+    });
     expect(JSON.stringify(bad.body)).not.toContain('bad-key-value');
   });
 

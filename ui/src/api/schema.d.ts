@@ -11659,6 +11659,11 @@ export interface components {
             kind: "text" | "url" | "secret";
             required: boolean;
             advanced?: boolean;
+            destination?: boolean;
+            owned?: boolean;
+            sendOnly?: boolean;
+            /** @enum {string} */
+            format?: "port";
         };
         ProviderDescriptorResponseDto: {
             medium: string;

@@ -53,10 +53,11 @@ function deepMergeOmittingUnset(existing: unknown, patch: unknown): unknown {
 
 /**
  * D6 + D31: when exactly one side of a sole-provider medium is nested, lift the
- * flat side so the deep merge keeps stored secrets. Flat + flat stays flat.
+ * flat side so the deep merge keeps stored secrets. Flat + flat stays flat. Also used by the
+ * workbook import (`school.tab.ts`).
  * ponytail: drops with the D6 compat-removal follow-up.
  */
-function alignMediumShapes(current: unknown, patch: unknown) {
+export function alignMediumShapes(current: unknown, patch: unknown) {
   if (!isPlainObject(current) || !isPlainObject(patch)) return { current, patch };
   const cur = { ...current };
   const pat = { ...patch };

@@ -46,7 +46,7 @@ export class SoloChat {
   readonly descriptor = d(CommunicationMedium.WHATSAPP, 'solo', [
     f('phoneNumberId', 'text', true),
     f('accessToken', 'secret', true),
-    f('port', 'text', false),
+    { ...f('port', 'text', false), format: 'port' },
   ]);
 }
 

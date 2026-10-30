@@ -14,7 +14,9 @@ vi.mock('nodemailer', () => ({
 // unit under test in outbound-destination-guard.spec.ts, and does a real
 // DNS lookup — stub it out here so these tests stay hermetic and fast.
 vi.mock('../shared/outbound-destination-guard', () => {
-  class OutboundDestinationError extends Error {}
+  class OutboundDestinationError extends Error {
+    readonly publicMessage = 'This server address cannot be used — check it and try again.';
+  }
   class DestinationBlockedError extends OutboundDestinationError {}
   return {
     assertSafeSmtpDestination: vi.fn().mockResolvedValue({
@@ -161,6 +163,9 @@ describe('SmtpProvider', () => {
 
     expect(result.success).toBe(false);
     expect(result.retryable).toBe(false);
+    // Rule 23: the stored error is the fixed sentence, never the blocked address.
+    expect(result.error).toBe('This server address cannot be used — check it and try again.');
+    expect(result.error).not.toContain('10.0.0.5');
   });
 
   it('omits tls.servername when the tenant host is already a literal IP', async () => {

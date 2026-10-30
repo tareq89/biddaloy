@@ -81,6 +81,8 @@ describe('CommunicationProviderRegistryService', () => {
         retryable: false,
         segments: 1,
       });
+      // Our own "not configured" sentence is the one message kept: it tells the admin what to fix.
+      expect(result.error).toMatch(/is not configured for this tenant/);
     });
 
     it('any other error while resolving config is REJECTED (credit released) but still retryable', async () => {
@@ -92,6 +94,8 @@ describe('CommunicationProviderRegistryService', () => {
 
       expect(result).toMatchObject({ success: false, outcome: 'REJECTED', segments: 1 });
       expect(result.retryable).toBeUndefined();
+      // Rule 24: a driver's own text never reaches the log; only our fixed sentence does.
+      expect(result.error).toBe('The message could not be sent.');
     });
 
     it('a provider that throws becomes an AMBIGUOUS result', async () => {
@@ -101,7 +105,11 @@ describe('CommunicationProviderRegistryService', () => {
         .resolve(CommunicationMedium.SMS)!
         .send({ to: '01712345678', body: 'hello' }, 'tenant-a');
 
-      expect(result).toMatchObject({ success: false, outcome: 'AMBIGUOUS', error: 'boom' });
+      expect(result).toMatchObject({
+        success: false,
+        outcome: 'AMBIGUOUS',
+        error: 'The message could not be sent.',
+      });
       spy.mockRestore();
     });
 

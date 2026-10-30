@@ -8,7 +8,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
-import { CommunicationMedium } from '@biddaloy/shared';
+import { CommunicationMedium, isValidPort } from '@biddaloy/shared';
 import type { ProviderDescriptor } from '@biddaloy/shared';
 import { OptionalSetting } from './optional-setting.decorator';
 import { descriptorsFor, isPlainObject, present, soleDescriptorFor } from './messaging-descriptors';
@@ -36,6 +36,9 @@ function blockProblem(d: ProviderDescriptor, block: unknown): string | null {
       if (!isText(v)) return `${f.key} must be text.`;
     } else if (!isText(v) && !(f.kind === 'text' && typeof v === 'number' && Number.isFinite(v))) {
       return `${f.key} must be text.`;
+    } else if (f.format === 'port' && v !== '' && !isValidPort(v)) {
+      // #3322: blank keeps the provider's default port.
+      return `${f.key} must be a whole number from 1 to 65535.`;
     }
   }
   return null;

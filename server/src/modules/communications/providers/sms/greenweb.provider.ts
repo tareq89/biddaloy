@@ -98,7 +98,12 @@ export class GreenwebProvider extends MessagingProvider<ResolvedGreenwebSmsConfi
       return {
         success: false,
         providerMessageId: null,
-        error: err instanceof Error ? err.message : String(err),
+        // Rule 23: fixed text only. The guard's message carries the address and a fetch error the
+        // request URL (Greenweb's carries the token).
+        error:
+          err instanceof OutboundDestinationError
+            ? err.publicMessage
+            : 'Could not reach Greenweb; the message may or may not have been sent.',
         segments: segmentInfo.segments,
         // Only a resolved-to-a-blocked-destination is permanent; a DNS
         // hiccup or network blip may succeed on retry — and might have

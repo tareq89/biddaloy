@@ -90,6 +90,17 @@ describe('problemWith', () => {
     expect(problemWith({ solo: { ...okWa.solo, port: 587 } }, WA)).toBeNull();
   });
 
+  // #3322: a port field must be a real TCP port, or the save would store a config that never sends.
+  it('port: 1-65535 digits (string or number) or blank; anything else is rejected', () => {
+    const withPort = (port: unknown) => ({ solo: { ...okWa.solo, port } });
+    for (const ok of ['587', 465, '1', '65535', '']) {
+      expect(problemWith(withPort(ok), WA)).toBeNull();
+    }
+    for (const bad of ['abc', '70000', 70000, '0', 0, '-1', '58.7', 58.7, ' 587', '1e3']) {
+      expect(problemWith(withPort(bad), WA)).toBe('port must be a whole number from 1 to 65535.');
+    }
+  });
+
   it('metering: allowed on SMS only, OFF or PLATFORM only', () => {
     expect(problemWith({ ...okSms, metering: 'PLATFORM' }, SMS)).toBeNull();
     expect(problemWith({ ...okSms, metering: 'X' }, SMS)).toMatch(/OFF or PLATFORM/);

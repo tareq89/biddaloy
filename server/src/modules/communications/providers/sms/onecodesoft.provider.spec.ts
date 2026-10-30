@@ -55,7 +55,7 @@ describe('OnecodesoftProvider', () => {
       pinned.mockResolvedValue(sentResponse);
       await provider.send({ to: '01712345678', body: 'hi' }, config);
 
-      expect(assertSafeHttpDestination).toHaveBeenCalledWith('https://sms.example.com/api');
+      expect(assertSafeHttpDestination).toHaveBeenCalledWith('https://sms.example.com/api/');
       const [, url, init] = pinned.mock.calls[0]!;
       expect(url).toBe('https://sms.example.com/api/v3/send-sms');
       expect(init!.method).toBe('POST');
@@ -246,6 +246,26 @@ describe('OnecodesoftProvider', () => {
       );
     });
 
+    // Review round 2, item 7: a refused key is told apart from "could not reach", in a fixed
+    // sentence that never echoes the vendor's text or the key.
+    it('a rejected key: testConnection says the key was rejected, nothing echoed', async () => {
+      pinned.mockResolvedValue({ message: 'Unauthenticated. key-1' });
+      const res = await provider.testConnection(config);
+      expect(res).toEqual({
+        success: false,
+        message: 'OneCodeSoft rejected the API key — check it and try again.',
+      });
+      expect(res.message).not.toContain('key-1');
+    });
+
+    it('a network failure still says "could not reach"', async () => {
+      pinned.mockRejectedValue(new Error('ECONNRESET https://sms.example.com/api?x=key-1'));
+      await expect(provider.testConnection(config)).resolves.toEqual({
+        success: false,
+        message: 'Could not reach OneCodeSoft.',
+      });
+    });
+
     it('default testConnection says connected, without the balance amount', async () => {
       pinned.mockResolvedValue({ balance: 10 });
       await expect(provider.testConnection(config)).resolves.toEqual({
@@ -292,9 +312,7 @@ describe('OnecodesoftProvider', () => {
 
     it('requests the encoded message id', async () => {
       await call({ Status: 'Delivered', ErrorCode: '000' });
-      expect(pinned.mock.calls[0]![1]).toBe(
-        'https://sms.example.com/api/v3/status?message_id=m%201',
-      );
+      expect(pinned.mock.calls[0]![1]).toBe('https://sms.example.com/api/v3/status?message_id=m+1');
     });
 
     it('Delivered -> DELIVERED with the code', async () => {
@@ -322,6 +340,34 @@ describe('OnecodesoftProvider', () => {
         status: 'PENDING',
       });
       await expect(call(undefined)).resolves.toEqual({ status: 'PENDING' });
+    });
+  });
+
+  // Review round 2, item 8 (CodeQL 45): the URL is built with `new URL`, not string joins.
+  describe('API address handling', () => {
+    it('joins the path whatever the slashes on the base', async () => {
+      pinned.mockResolvedValue({ balance: 1 });
+      for (const apiUrl of ['https://sms.example.com/api', 'https://sms.example.com/api//']) {
+        pinned.mockClear();
+        await provider.getBalance({ ...config, apiUrl });
+        expect(pinned.mock.calls[0]![1]).toBe('https://sms.example.com/api/v3/balance');
+      }
+    });
+
+    it('an address with a query or a fragment is refused before any request', async () => {
+      for (const apiUrl of ['https://sms.example.com/api?x=1', 'https://sms.example.com/api#x']) {
+        const res = await provider.send({ to: '01712345678', body: 'hi' }, { ...config, apiUrl });
+        expect(res).toMatchObject({
+          success: false,
+          error: 'OneCodeSoft API address is not allowed.',
+          outcome: 'REJECTED',
+          retryable: false,
+        });
+        await expect(provider.getBalance({ ...config, apiUrl })).rejects.toBeInstanceOf(
+          DestinationBlockedError,
+        );
+      }
+      expect(pinned).not.toHaveBeenCalled();
     });
   });
 });

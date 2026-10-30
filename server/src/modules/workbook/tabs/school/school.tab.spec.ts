@@ -395,3 +395,46 @@ describe('diffFields', () => {
     expect(schoolTab.diffFields(row, existing)).toEqual([]);
   });
 });
+
+// Review round 2, item 1: a school stored flat (pre-D6) WhatsApp credentials, and the workbook
+// carries the nested D6 blob. Without lifting the stored side first, the merge keeps both shapes:
+// the resolver reads the nested block, never finds the stored token, and every send is REJECTED.
+describe('upsert: flat-stored messaging settings + a nested import', () => {
+  const manager = {
+    save: async (_entity: unknown, school: School) => school,
+  } as unknown as Parameters<typeof schoolTab.upsert>[3];
+
+  const nestedImport = (existing: School): SchoolRow => ({
+    ...(schoolTab.fromRow(toCells(existing), 2, importCtx) as { row: SchoolRow }).row,
+    settings: {
+      communications: {
+        whatsapp: { provider: 'meta-cloud', 'meta-cloud': { phoneNumberId: 'NEW' } },
+      },
+    },
+  });
+
+  it('lifts the stored flat block so the stored token sits next to the imported fields', async () => {
+    const existing = makeSchool({
+      settings: { communications: { whatsapp: { phoneNumberId: 'OLD', accessToken: SECRET } } },
+    });
+
+    const saved = await schoolTab.upsert(nestedImport(existing), existing, SCHOOL_ID, manager);
+
+    expect(saved.settings).toEqual({
+      communications: {
+        whatsapp: {
+          provider: 'meta-cloud',
+          'meta-cloud': { phoneNumberId: 'NEW', accessToken: SECRET },
+        },
+      },
+    });
+  });
+
+  it('the diff preview reports the same change upsert makes', () => {
+    const existing = makeSchool({
+      settings: { communications: { whatsapp: { phoneNumberId: 'OLD', accessToken: SECRET } } },
+    });
+
+    expect(schoolTab.diffFields(nestedImport(existing), existing)).toEqual(['settings']);
+  });
+});

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vites
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule, getQueueToken } from '@nestjs/bullmq';
 import { getDataSourceToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { Queue } from 'bullmq';
 import {
   ArrivalNoticeChannel,
@@ -16,6 +16,7 @@ import {
   UserRole,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
+import { localDate, localToday } from '../../common/time';
 import { enrollPlacedStudents } from '@test/helpers/enrollment.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_USER_ID, SEED_TENANT_ID } from '@test/constants';
@@ -51,10 +52,12 @@ describe('Arrival notice hooks (integration)', () => {
   let studentIds: string[];
   let guardianIds: string[];
 
-  const TODAY = () => new Date().toISOString().slice(0, 10);
-  const YESTERDAY = () => new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  // The school below runs on UTC, so "today" is the UTC date: the spec and the app read one zone.
+  const SCHOOL_TZ = 'UTC';
+  const TODAY = () => localToday(SCHOOL_TZ);
   const shiftDays = (days: number) =>
-    new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+    localDate(new Date(Date.now() + days * 86_400_000), SCHOOL_TZ);
+  const YESTERDAY = () => shiftDays(-1);
 
   async function setSettings(arrival: object | undefined, extra: object = {}) {
     await dataSource.getRepository(School).update(
@@ -62,7 +65,7 @@ describe('Arrival notice hooks (integration)', () => {
       {
         settings: {
           version: 1,
-          region: { timezone: 'UTC' },
+          region: { timezone: SCHOOL_TZ },
           attendance: {
             weeklyOffDays: [],
             lateAfter: '08:15',
@@ -77,10 +80,15 @@ describe('Arrival notice hooks (integration)', () => {
     );
   }
 
+  // This test's students only: a log another test left in flight never counts here.
   const logs = () =>
-    dataSource
-      .getRepository(CommunicationLog)
-      .find({ where: { tenant_id: T, trigger: CommunicationTrigger.ARRIVAL_NOTICE } });
+    dataSource.getRepository(CommunicationLog).find({
+      where: {
+        tenant_id: T,
+        trigger: CommunicationTrigger.ARRIVAL_NOTICE,
+        student_id: In(studentIds),
+      },
+    });
 
   async function device(): Promise<AttendanceDevice> {
     const { device: d } = await deviceService.create({
@@ -283,6 +291,8 @@ describe('Arrival notice hooks (integration)', () => {
       ]);
       expect(spy).toHaveBeenCalledTimes(1);
       expect(spy.mock.calls[0][0].students).toHaveLength(2);
+      // The send is fire-and-forget: wait for it, or it lands in the next test (the CI flake).
+      await waitLogs(2);
     });
 
     it('punch then teacher finalize the same day -> still 1 log for that guardian', async () => {

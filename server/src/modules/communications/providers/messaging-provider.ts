@@ -8,6 +8,14 @@ import { ConnectionTestResult } from './shared/connection-test.types';
 import { OutboundDestinationError } from './shared/outbound-destination-guard';
 import { normalizeBdPhoneNumber } from './shared/phone-number.util';
 
+/** A provider answered and refused the credentials (bad key), as opposed to not being reachable. */
+export class ProviderAuthRejectedError extends Error {
+  constructor() {
+    super('The provider rejected the credentials.');
+    this.name = 'ProviderAuthRejectedError';
+  }
+}
+
 /** D24: one base class for every vendor. No constructor, no injected deps: HealthModule builds the SMS ones bare. */
 export abstract class MessagingProvider<TConfig = Record<string, string>> {
   abstract readonly descriptor: ProviderDescriptor;
@@ -37,6 +45,12 @@ export abstract class MessagingProvider<TConfig = Record<string, string>> {
     } catch (err) {
       if (err instanceof OutboundDestinationError) {
         return { success: false, message: err.publicMessage };
+      }
+      if (err instanceof ProviderAuthRejectedError) {
+        return {
+          success: false,
+          message: `${this.descriptor.label.en} rejected the API key — check it and try again.`,
+        };
       }
       return { success: false, message: `Could not reach ${this.descriptor.label.en}.` };
     }

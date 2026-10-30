@@ -685,7 +685,8 @@ async function messagingSettings(ctx: DemoSeedContext, tenants: OrgTenant[]): Pr
   const encryption = new EncryptionService(key, []);
   const encrypt = (s: string) => (key ? encryption.encrypt(s) : undefined);
   for (const t of tenants) {
-    // Merged per medium: a key already stored on a medium block is kept.
+    // One level deep per medium: the seed's keys on a medium block replace the stored ones (a
+    // provider block is replaced whole); stored keys the seed does not set, and other media, stay.
     await ctx.ds.query(
       `UPDATE schools SET settings = COALESCE(settings, '{}'::jsonb) || jsonb_build_object('communications',
          COALESCE(settings->'communications', '{}'::jsonb) || (

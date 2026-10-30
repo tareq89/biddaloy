@@ -4,7 +4,7 @@ import {
   CommunicationSendParams,
   CommunicationSendResult,
 } from '../communication-provider.interface';
-import { MessagingProvider } from '../messaging-provider';
+import { MessagingProvider, ProviderAuthRejectedError } from '../messaging-provider';
 import {
   assertSafeHttpDestination,
   DestinationBlockedError,
@@ -153,6 +153,8 @@ export class OnecodesoftProvider extends MessagingProvider<OnecodesoftConfig> {
       headers: this.headers(config),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })) as Record<string, any>;
+    // A refused key is the one failure the admin can fix by name (testConnection says so).
+    if (AUTH_REJECTED.test(String(data?.message))) throw new ProviderAuthRejectedError();
     const body = data?.data ?? data;
     const raw = body?.balance;
     // Number(null) and Number('') are 0: a missing balance must not read as "empty account".
@@ -167,10 +169,9 @@ export class OnecodesoftProvider extends MessagingProvider<OnecodesoftConfig> {
     providerMessageId: string,
     config: OnecodesoftConfig,
   ): Promise<{ status: 'DELIVERED' | 'FAILED' | 'PENDING'; code?: string }> {
-    const { destination, url } = await this.target(
-      config,
-      `/v3/status?message_id=${encodeURIComponent(providerMessageId)}`,
-    );
+    const { destination, url } = await this.target(config, '/v3/status', {
+      message_id: providerMessageId,
+    });
     const data = (await fetchPinnedJson(destination, url, {
       method: 'GET',
       headers: this.headers(config),
@@ -199,10 +200,23 @@ export class OnecodesoftProvider extends MessagingProvider<OnecodesoftConfig> {
     };
   }
 
-  /** Rule 7: validate the tenant-supplied base address, then pin the request to it. */
-  private async target(config: OnecodesoftConfig, path: string) {
-    const base = config.apiUrl.replace(/\/+$/, '');
-    const destination = await assertSafeHttpDestination(base);
-    return { destination, url: `${base}${path}` };
+  /**
+   * Rule 7: validate the tenant-supplied base address, then pin the request to it. The path is
+   * appended segment by segment, so a trailing slash or a doubled one never matters; an address
+   * with its own query or fragment is refused (it could not be joined safely).
+   */
+  private async target(
+    config: OnecodesoftConfig,
+    path: string,
+    query: Record<string, string> = {},
+  ) {
+    const destination = await assertSafeHttpDestination(config.apiUrl);
+    if (destination.url.search || destination.url.hash) {
+      throw new DestinationBlockedError('the API address must not carry a query or fragment.');
+    }
+    const url = new URL(destination.url);
+    url.pathname = [...url.pathname.split('/'), ...path.split('/')].filter(Boolean).join('/');
+    for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
+    return { destination, url: url.toString() };
   }
 }

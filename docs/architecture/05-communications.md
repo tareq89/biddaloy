@@ -11,7 +11,7 @@ flowchart LR
     CTRL["communications.controller.ts\n(send / reminder/single / reminder/bulk)"]
     REG["CommunicationProviderRegistry\n(picks provider by medium + tenant settings)"]
     IFACE["CommunicationProvider\n(interface: .send())"]
-    SMS["SMS\nGreenweb / Mim SMS gateway"]
+    SMS["SMS\nGreenweb / Mim SMS / OneCodeSoft gateway"]
     WA["WhatsApp\nWhatsApp Cloud API"]
     MSG["Messenger\nprovider"]
     EMAIL["Email\nSMTP"]
@@ -46,8 +46,11 @@ change.
 The original plan specified **Twilio** for both SMS and WhatsApp. What
 shipped instead:
 
-- **SMS** — **Greenweb** and **Mim SMS**, two Bangladeshi SMS gateways
-  (`providers/sms/greenweb.provider.ts`, `.../mimsms.provider.ts`),
+- **SMS** — **Greenweb**, **Mim SMS** and **OneCodeSoft**, three Bangladeshi SMS gateways
+  (`providers/sms/greenweb.provider.ts`, `.../mimsms.provider.ts`,
+  `.../onecodesoft.provider.ts`). A school picks one in Settings › SMS, e.g.
+  `communications.sms = { provider: 'onecodesoft', onecodesoft: { apiKey, apiUrl, senderId } }`.
+  OneCodeSoft also reports delivery status and account balance. The gateway is
   selected per-tenant by `MessagingConfigResolver` (`config/messaging-config.resolver.ts`). Twilio's per-message
   pricing and lack of local carrier relationships make it a poor fit for a
   Bangladesh-market product; local gateways are both cheaper and more

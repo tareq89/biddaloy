@@ -416,6 +416,81 @@ describe('MessagingConfigResolver', () => {
       expect(err.message).toMatch(/requires .* together/);
     });
 
+    // Review round 2, item 4: `from` is send-only, so testing a new SMTP server needs only the
+    // server and its login. Nothing is borrowed: the stored `from` stays out of the result too.
+    it('SMTP override with a new destination needs no `from`', async () => {
+      const stored = settingsWith('email', {
+        smtp: { host: 'smtp.example', user: 'u', password: 'pw', from: 'a@x.com' },
+      });
+      const r = await resolverFor({ t1: stored }).resolve(CommunicationMedium.EMAIL, 't1', {
+        override: { smtp: { host: 'new.example', user: 'nu', password: 'npw' } },
+      });
+      expect(r.config).toEqual({ host: 'new.example', user: 'nu', password: 'npw' });
+    });
+
+    it('a stored send without an override still requires `from`', async () => {
+      const stored = settingsWith('email', {
+        smtp: { host: 'smtp.example', user: 'u', password: 'pw' },
+      });
+      await expect(
+        resolverFor({ t1: stored }).resolve(CommunicationMedium.EMAIL, 't1'),
+      ).rejects.toThrow(/Complete host, user, password, from together/);
+    });
+
+    // Review round 2, item 5: '' is "not filled in", so it neither sets a destination nor claims
+    // the medium; only an explicit null is the "cleared" marker that fails closed.
+    it("a blank override destination ('') does not count as a new destination", async () => {
+      const stored = settingsWith('email', {
+        smtp: { host: 'smtp.example', user: 'u', password: 'pw', from: 'a@x.com' },
+      });
+      const r = await resolverFor({ t1: stored }).resolve(CommunicationMedium.EMAIL, 't1', {
+        override: { smtp: { host: '', port: '' } },
+      });
+      expect(r.config).toEqual({
+        host: 'smtp.example',
+        user: 'u',
+        password: 'pw',
+        from: 'a@x.com',
+      });
+    });
+
+    it("a stored blank optional destination ('') does not claim the medium; null still does", async () => {
+      const env = {
+        SMTP_HOST: 'env.example',
+        SMTP_USER: 'eu',
+        SMTP_PASSWORD: 'epw',
+        SMTP_FROM: 'e@x.com',
+      };
+      const blank = settingsWith('email', { smtp: { port: '' } });
+      const r = await resolverFor({ t1: blank }, env).resolve(CommunicationMedium.EMAIL, 't1');
+      expect(r.config.host).toBe('env.example');
+
+      const cleared = settingsWith('email', { smtp: { password: null } });
+      await expect(
+        resolverFor({ t1: cleared }, env).resolve(CommunicationMedium.EMAIL, 't1'),
+      ).rejects.toThrow(/never falls back to the platform account/);
+    });
+
+    // Review round 2, item 12: a school that saved only its sender id owns the medium (same as
+    // MiMSMS), so the platform key is never used under the school's name: the send fails closed.
+    it('a school storing only onecodesoft.senderId fails closed, the platform key is not borrowed', async () => {
+      const env = {
+        ONECODESOFT_API_KEY: 'env-k',
+        ONECODESOFT_API_URL: 'https://p.example/api',
+      };
+      const settings = settingsWith('sms', {
+        provider: 'onecodesoft',
+        metering: 'PLATFORM',
+        onecodesoft: { senderId: 'SCHOOL' },
+      });
+      const err = await resolverFor({ t1: settings }, env, [new OnecodesoftProvider()])
+        .resolve(CommunicationMedium.SMS, 't1')
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderNotConfiguredError);
+      expect(err.message).toMatch(/never falls back to the platform account/);
+      expect(err.message).not.toContain('env-k');
+    });
+
     it('ignores non-string override values and unknown keys', async () => {
       const err = await resolverFor({})
         .resolve(CommunicationMedium.MESSENGER, 't1', {

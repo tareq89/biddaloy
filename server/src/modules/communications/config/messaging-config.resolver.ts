@@ -45,10 +45,10 @@ const isOwned = (f: ProviderConfigField) => f.required || f.owned === true || is
 const envName = (prefix: string, key: string) =>
   `${prefix}_${key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase()}`;
 
-/** string/number -> string, explicit null stays null (a cleared secret), anything else is unset. */
+/** string/number -> string, explicit null stays null (a cleared secret); '' and anything else is unset. */
 function coerce(v: unknown): string | null | undefined {
   if (v === null) return null;
-  if (typeof v === 'string') return v;
+  if (typeof v === 'string') return v === '' ? undefined : v;
   if (typeof v === 'number' && Number.isFinite(v)) return String(v);
   return undefined;
 }
@@ -68,7 +68,8 @@ function readBlock(src: Record<string, unknown>, name: string, fields: ProviderC
  *
  * Fields do not fall back independently across trust tiers; a medium's source is decided as a unit:
  *   - override sets a destination field (apiUrl, host, port) -> the override must carry every
- *     required field itself; it never borrows stored credentials for a caller-chosen target.
+ *     required field itself (bar `sendOnly` ones, which a connection test never reads); it never
+ *     borrows stored credentials for a caller-chosen target.
  *   - else tenant set any owned field (even an explicit null clear) -> tenant/override only,
  *     never the platform env (a cleared credential fails closed).
  *   - else platform env, only when `platformOk`.
@@ -137,7 +138,10 @@ export class MessagingConfigResolver {
     const tenantOwnsIt =
       !overrideSetsDestination && fields.some((f) => isOwned(f) && tenant[f.key] !== undefined);
 
-    const required = fields.filter((f) => f.required);
+    // A test of a new destination needs every required field itself, except send-only ones (from).
+    const required = fields.filter(
+      (f) => f.required && !(overrideSetsDestination && f.sendOnly === true),
+    );
     const envNames = required.map((f) => envName(provider.envPrefix, f.key)).join('/');
     const requiredKeys = required.map((f) => f.key).join(', ');
 
