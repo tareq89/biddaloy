@@ -27,6 +27,7 @@ import {
   Checkbox,
   ConfirmDialog,
   DatePicker,
+  HelpHint,
   Input,
   Label,
   Select,
@@ -119,8 +120,10 @@ function Field({
   help,
   error,
   className,
+  helpId,
   children,
 }: {
+  helpId?: string;
   id: string;
   label: string;
   required?: boolean;
@@ -132,18 +135,21 @@ function Field({
 }) {
   return (
     <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
-      <Label htmlFor={id}>
-        {label}
-        {required && (
-          <>
-            <span className="text-destructive" aria-hidden="true">
-              {' '}
-              *
-            </span>
-            <span className="sr-only"> {requiredLabel}</span>
-          </>
-        )}
-      </Label>
+      <span className="inline-flex items-center gap-1">
+        <Label htmlFor={id}>
+          {label}
+          {required && (
+            <>
+              <span className="text-destructive" aria-hidden="true">
+                {' '}
+                *
+              </span>
+              <span className="sr-only"> {requiredLabel}</span>
+            </>
+          )}
+        </Label>
+        {helpId && <HelpHint helpId={helpId} />}
+      </span>
       {children}
       {help && <p className="text-caption text-text-secondary">{help}</p>}
       {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
@@ -469,7 +475,10 @@ function ScheduleFormPage({
         </Card>
 
         <Card padded>
-          <h2 className="text-h2">{t('schedules.form.audienceLegend')}</h2>
+          <div className="flex items-center gap-1">
+            <h2 className="text-h2">{t('schedules.form.audienceLegend')}</h2>
+            <HelpHint helpId="finance.recurringSchedules.field.audience" />
+          </div>
           {/* Not a control: `enrollment_status` accepts only `'ACTIVE'`, so this states the fixed
               rule instead of offering a choice the server would reject. */}
           <p className="mt-0.5 text-text-secondary">{t('schedules.form.activeOnlyNotice')}</p>
@@ -542,7 +551,11 @@ function ScheduleFormPage({
         <Card padded>
           <h2 className="text-h2">{t('schedules.form.ruleLegend')}</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <Field id="schedule-form-kind" label={t('schedules.form.ruleKindLabel')}>
+            <Field
+              id="schedule-form-kind"
+              label={t('schedules.form.ruleKindLabel')}
+              helpId="finance.recurringSchedules.field.rule"
+            >
               <Select
                 value={ruleKind}
                 onValueChange={(value) => setRuleKind(value as 'MONTHLY' | 'WEEKLY')}
@@ -626,6 +639,7 @@ function ScheduleFormPage({
 
             <Field
               id="schedule-form-due-days"
+              helpId="finance.recurringSchedules.field.dueDays"
               label={t('schedules.form.dueDaysLabel')}
               help={t('schedules.form.dueDaysHelp')}
               error={errors.dueDays}
