@@ -63,7 +63,11 @@ describe('platform SMS config through the real resolver', () => {
   });
 
   it('an unknown deprecated provider name falls back to the registry default', async () => {
-    const r = await make({ PLATFORM_SMS_PROVIDER: 'nope', PLATFORM_SMS_API_KEY: 'k' }).resolveSms();
+    const r = await make({
+      SMS_PROVIDER: '',
+      PLATFORM_SMS_PROVIDER: 'nope',
+      PLATFORM_SMS_API_KEY: 'k',
+    }).resolveSms();
     expect(r?.provider.descriptor.name).toBe('greenweb');
   });
 
@@ -106,6 +110,12 @@ describe('platform SMS config through the real resolver', () => {
     expect(String(warn.mock.calls[0][0])).toContain('without PLATFORM_SMS_API_KEY');
     warn.mockClear();
     make({ SMS_PROVIDER: 'greenweb', PLATFORM_SMS_API_KEY: 'k' }).onModuleInit();
+    expect(warn.mock.calls.map(String)).toEqual([
+      'PLATFORM_SMS_* ignored because SMS_PROVIDER is set',
+    ]);
+    warn.mockClear();
+    // stack.yml default alone never warns
+    make({ PLATFORM_SMS_PROVIDER: 'greenweb', SMS_PROVIDER: '' }).onModuleInit();
     expect(warn).not.toHaveBeenCalled();
   });
 });

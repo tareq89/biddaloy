@@ -195,15 +195,15 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
   /** Deprecated `PLATFORM_SMS_*` keys: one boot warning, key names only (Rule 13). */
   private warnDeprecatedKeys(): void {
     const get = (k: string) => this.config.get<string>(k);
-    if (get('SMS_PROVIDER')) return;
-    const names = [
-      'PLATFORM_SMS_PROVIDER',
-      'PLATFORM_SMS_API_KEY',
-      'PLATFORM_SMS_SENDER_ID',
-      'PLATFORM_SMS_API_URL',
-    ];
+    // stack.yml defaults PLATFORM_SMS_PROVIDER, so it alone is never a signal.
+    const names = ['PLATFORM_SMS_API_KEY', 'PLATFORM_SMS_SENDER_ID', 'PLATFORM_SMS_API_URL'];
     const setNames = names.filter((k) => get(k));
     if (setNames.length === 0) return;
+    if (get('SMS_PROVIDER')) {
+      this.logger.warn('PLATFORM_SMS_* ignored because SMS_PROVIDER is set');
+      return;
+    }
+    if (get('PLATFORM_SMS_PROVIDER')) setNames.unshift('PLATFORM_SMS_PROVIDER');
     this.logger.warn(
       get('PLATFORM_SMS_API_KEY')
         ? `${setNames.join(', ')} are deprecated and read for one more release; set SMS_PROVIDER and the provider's own keys instead`
@@ -242,7 +242,9 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
       // Only ProviderNotConfiguredError text is safe to log (names fields, never values).
       this.logger.warn(
         error instanceof ProviderNotConfiguredError
-          ? `platform alert SMS config: ${error.message}`
+          ? legacy
+            ? 'platform alert SMS config: the deprecated PLATFORM_SMS_* keys are incomplete (PLATFORM_SMS_API_KEY, plus PLATFORM_SMS_SENDER_ID / PLATFORM_SMS_API_URL for some providers); set SMS_PROVIDER and the provider keys instead'
+            : `platform alert SMS config: ${error.message}`
           : 'platform alert SMS config could not be resolved',
       );
       return undefined;
