@@ -11,7 +11,7 @@ import { HomeworkAssignmentStatus } from '@biddaloy/shared';
 import { Homework } from './entities/homework.entity';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkAccessService } from './homework-access.service';
-import { teacherAssignments } from '../classes/teacher-scope.service';
+import { teacherAssignments, type TeacherAssignmentRow } from '../classes/teacher-scope.service';
 import { HomeworkNoticeService } from './homework-notice.service';
 import { HomeworkToCheckDto } from './dto/homework-dashboard.dto';
 import { attentionEvents } from '../attention/attention.constants';
@@ -281,11 +281,9 @@ export class HomeworkService {
   private async applyTeacherScope(
     qb: SelectQueryBuilder<Homework>,
     ctx: CallerContext,
+    scopeRows?: TeacherAssignmentRow[],
   ): Promise<boolean> {
-    const rows = await teacherAssignments(this.homeworkRepo.manager, {
-      userId: ctx.userId,
-      tenantId: ctx.tenantId,
-    });
+    const rows = scopeRows ?? (await this.teacherScopeRows(ctx));
     if (rows.length === 0) return false;
     const homeroomClassIds = [
       ...new Set(rows.filter((r) => r.subject_id === null).map((r) => r.class_id)),
@@ -342,7 +340,21 @@ export class HomeworkService {
     return true;
   }
 
-  async findOne(id: string, ctx: CallerContext): Promise<Homework> {
+  /** The caller's current-year section duties (`teacherAssignments`, the one teacher join). */
+  private teacherScopeRows(ctx: CallerContext): Promise<TeacherAssignmentRow[]> {
+    return teacherAssignments(this.homeworkRepo.manager, {
+      userId: ctx.userId,
+      tenantId: ctx.tenantId,
+    });
+  }
+
+  /** `scopeRows`: a caller that already read the teacher's duties passes them in, so one
+   * request does not run the same join twice (#3173). */
+  async findOne(
+    id: string,
+    ctx: CallerContext,
+    scopeRows?: TeacherAssignmentRow[],
+  ): Promise<Homework> {
     const homework = await this.homeworkRepo.findOne({
       where: { id, tenant_id: ctx.tenantId },
     });
@@ -366,7 +378,7 @@ export class HomeworkService {
       const scoped = this.homeworkRepo
         .createQueryBuilder('h')
         .where('h.id = :id AND h.tenant_id = :tenantId', { id, tenantId: ctx.tenantId });
-      if (!(await this.applyTeacherScope(scoped, ctx)) || !(await scoped.getExists())) {
+      if (!(await this.applyTeacherScope(scoped, ctx, scopeRows)) || !(await scoped.getExists())) {
         throw new NotFoundException('Homework not found');
       }
     }
@@ -382,7 +394,11 @@ export class HomeworkService {
     homeworkId: string,
     ctx: CallerContext,
   ): Promise<HomeworkAssignmentListItemDto[]> {
-    const homework = await this.findOne(homeworkId, ctx);
+    // A teacher's duties are read once and shared with the `findOne` gate (#3173).
+    const teacherRows = this.access.canManageTenantWide(ctx.role)
+      ? undefined
+      : await this.teacherScopeRows(ctx);
+    const homework = await this.findOne(homeworkId, ctx, teacherRows);
     const qb = this.assignmentRepo
       .createQueryBuilder('ha')
       .leftJoin(
@@ -412,11 +428,8 @@ export class HomeworkService {
         homeworkId: homework.id,
         tenantId: ctx.tenantId,
       });
-    if (!this.access.canManageTenantWide(ctx.role)) {
-      const rows = await teacherAssignments(this.homeworkRepo.manager, {
-        userId: ctx.userId,
-        tenantId: ctx.tenantId,
-      });
+    if (teacherRows) {
+      const rows = teacherRows;
       if (rows.length === 0) return [];
       qb.andWhere(
         `EXISTS (SELECT 1 FROM unnest(CAST(:scopeSections AS uuid[]), CAST(:scopeSubjects AS uuid[]))

@@ -540,7 +540,8 @@ function HomeworkDetailPage() {
             onOpenChange={(open) => {
               if (!open && !update.isPending) setStatusRow(null);
             }}
-            tone={statusRow.status === 'ACTIVE' ? 'danger' : 'default'}
+            // Both ways are undoable: the danger tone would draw a trash icon for Deactivate.
+            tone="default"
             title={t(
               statusRow.status === 'ACTIVE'
                 ? 'detail.assignments.deactivateTitle'

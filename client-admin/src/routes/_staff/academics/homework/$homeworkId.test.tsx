@@ -371,6 +371,37 @@ describe('/academics/homework/$homeworkId', () => {
     await waitFor(() => expect(counter.calls).toBeGreaterThan(1));
   });
 
+  // #3173: Deactivate is undoable (Reactivate), so its confirm must not be drawn as a delete.
+  it('the Deactivate confirm shows no trash icon', async () => {
+    serveDialogs([sectionRow]);
+    renderAdmin();
+
+    const user = userEvent.setup();
+    await openDeactivate(user);
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Deactivate this homework for Section A?',
+    });
+    expect(dialog.querySelector('svg.lucide-trash-2')).toBeNull();
+  });
+
+  // #3173: the server lists at most 100 rows, so a full page says that more may be missing.
+  it('a full page of 100 rows says older rows are not listed; fewer rows say nothing', async () => {
+    const many = Array.from({ length: 100 }, (_, i) => ({ ...sectionRow, id: `a${i}` }));
+    serveDialogs(many);
+    const { unmount } = renderAdmin();
+    expect(
+      await screen.findByText(
+        'Only the first 100 rows are shown, active ones first. Older rows are not listed.',
+      ),
+    ).toBeTruthy();
+    unmount();
+
+    serveDialogs(many.slice(0, 99));
+    renderAdmin();
+    await screen.findAllByText('Section A');
+    expect(screen.queryByText(/Only the first 100 rows/)).toBeNull();
+  });
+
   it('Reactivate sends ACTIVE', async () => {
     let body: unknown;
     serveDialogs([{ ...sectionRow, id: 'a2', status: 'DEACTIVATED' }]);
@@ -616,6 +647,39 @@ describe('/academics/homework/$homeworkId', () => {
 
     await waitFor(() => expect(body).toBeDefined());
     expect(body).toMatchObject({ student_id: 'st-1' });
+  });
+
+  // #3173: a section over one page (100) must not leave students past the first page out.
+  it('the student picker loads every page of the section, not just the first', async () => {
+    const pages: string[] = [];
+    serveDialogs([
+      {
+        ...sectionRow,
+        section_id: null,
+        student_id: 'st-1',
+        student_name: 'Rahim Uddin',
+        section_name: 'A',
+      },
+    ]);
+    server.use(
+      http.get('/api/v1/students', ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page') ?? '1';
+        pages.push(page);
+        return HttpResponse.json({
+          data: [],
+          total: 150,
+          page: Number(page),
+          limit: 100,
+          totalPages: 2,
+        });
+      }),
+    );
+    renderAdmin();
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Change Rahim Uddin · Section A' }));
+    await screen.findByRole('dialog');
+    await waitFor(() => expect(pages.sort()).toEqual(['1', '2']));
   });
 
   it('an empty list says nobody has the homework yet', async () => {

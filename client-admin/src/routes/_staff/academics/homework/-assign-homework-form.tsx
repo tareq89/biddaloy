@@ -24,10 +24,10 @@ import {
   Textarea,
 } from '@biddaloy/ui/components';
 import {
+  useAllStudents,
   useClasses,
   useClassSections,
   useClassSubjects,
-  useStudents,
   type AssignHomeworkInput,
   type CreateHomeworkInput,
 } from '@biddaloy/ui/hooks';
@@ -181,10 +181,12 @@ export function AssignHomeworkForm({
     selectedClass?.academic_year_id,
   );
   const sectionsQuery = useClassSections(classId || undefined);
-  const studentsQuery = useStudents(
-    sectionId !== '' ? { section_id: sectionId, limit: 100 } : { limit: 100 },
-    { enabled: target === 'student' && sectionId !== '' },
-  );
+  // Every page of the section (a page is capped at 100): a student past the first page must
+  // still be pickable, not silently missing from the select (#3173).
+  const studentsQuery = useAllStudents(sectionId !== '' ? { section_id: sectionId } : {}, {
+    enabled: target === 'student' && sectionId !== '',
+  });
+  const students = studentsQuery.data ?? [];
 
   // reassign: a student who moved to another class has a section this class does not list.
   // Clear it (and the student) so "Pick a section." asks for a new pick instead of a 400.
@@ -330,10 +332,10 @@ export function AssignHomeworkForm({
                 studentId !== '' &&
                 studentId === initial?.studentId &&
                 initial.studentName &&
-                !(studentsQuery.data?.data ?? []).some((s) => s.id === studentId) && (
+                !students.some((s) => s.id === studentId) && (
                   <SelectItem value={studentId}>{initial.studentName}</SelectItem>
                 )}
-              {(studentsQuery.data?.data ?? []).map((student) => (
+              {students.map((student) => (
                 <SelectItem key={student.id} value={student.id}>
                   {student.full_name} · {student.registration_number}
                 </SelectItem>

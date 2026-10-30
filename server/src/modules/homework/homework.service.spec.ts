@@ -9,6 +9,10 @@ import { HomeworkAssignmentStatus, HomeworkGradingMode, UserRole } from '@biddal
 import { HomeworkService } from './homework.service';
 import { attentionEvents } from '../attention/attention.constants';
 import { ATTENTION_RECHECK } from '../attention/engine/attention-events';
+import { teacherAssignments } from '../classes/teacher-scope.service';
+
+// Only the teacher-scope join is faked, so a test can count how often a request runs it.
+vi.mock('../classes/teacher-scope.service', () => ({ teacherAssignments: vi.fn() }));
 
 describe('HomeworkService', () => {
   const TENANT_ID = 'tenant-1';
@@ -34,6 +38,7 @@ describe('HomeworkService', () => {
     assertCanManageStudent: ReturnType<typeof vi.fn>;
     assertClassAndSubjectInTenant: ReturnType<typeof vi.fn>;
     assertTargetInClass: ReturnType<typeof vi.fn>;
+    canManageTenantWide: ReturnType<typeof vi.fn>;
   };
   let notice: {
     notifyAssignment: ReturnType<typeof vi.fn>;
@@ -434,6 +439,58 @@ describe('HomeworkService', () => {
         HOMEWORK.subject_id,
         TENANT_ID,
       );
+    });
+  });
+
+  // #3173: a teacher's duties are read once per request, not once for the findOne gate and
+  // again for the row filter.
+  describe('findAssignments', () => {
+    /** Any builder method returns the builder; the two terminals answer. */
+    const chain: unknown = new Proxy(
+      {},
+      {
+        get: (_t, prop) =>
+          prop === 'getRawMany'
+            ? async () => []
+            : prop === 'getExists'
+              ? async () => true
+              : () => chain,
+      },
+    );
+
+    beforeEach(() => {
+      vi.mocked(teacherAssignments).mockReset();
+      vi.mocked(teacherAssignments).mockResolvedValue([
+        {
+          section_id: 'section-1',
+          class_id: 'class-1',
+          assignment_type: 'CLASS_TEACHER',
+          subject_id: null,
+        },
+      ] as never);
+      homeworkRepo.createQueryBuilder.mockReturnValue(chain);
+      (assignmentRepo as unknown as { createQueryBuilder: unknown }).createQueryBuilder = vi.fn(
+        () => chain,
+      );
+    });
+
+    it('a teacher request runs the teacher-scope join once', async () => {
+      access.canManageTenantWide.mockReturnValue(false);
+      await service.findAssignments('hw-1', ctx);
+      expect(teacherAssignments).toHaveBeenCalledTimes(1);
+    });
+
+    it('a teacher with no duties gets the same 404 as a missing homework (one read)', async () => {
+      access.canManageTenantWide.mockReturnValue(false);
+      vi.mocked(teacherAssignments).mockResolvedValue([]);
+      await expect(service.findAssignments('hw-1', ctx)).rejects.toBeInstanceOf(NotFoundException);
+      expect(teacherAssignments).toHaveBeenCalledTimes(1);
+    });
+
+    it('an admin never reads the teacher scope', async () => {
+      access.canManageTenantWide.mockReturnValue(true);
+      await service.findAssignments('hw-1', { ...ctx, role: UserRole.ADMIN });
+      expect(teacherAssignments).not.toHaveBeenCalled();
     });
   });
 

@@ -13,7 +13,7 @@
  *     primary={{ label, onClick: form.handleSubmit(save) }}>...</FullPageShell>}
  * The primary button sits outside the page's <form>; submit via `onClick`.
  */
-import { useRouter } from '@tanstack/react-router';
+import { useBlocker, useRouter } from '@tanstack/react-router';
 import { XIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import * as React from 'react';
@@ -49,6 +49,56 @@ export interface FullPageShellProps {
   children: React.ReactNode;
 }
 
+/** Guards mounted right now, and whether the next history BACK is one the page itself chose
+ * (`useCloseFullPage`'s closer sets it just before `history.back()`). Module-level because the
+ * closer lives in the host page and the guard in the shell. Only set while a guard is mounted,
+ * so it can never go stale and wave through a later browser Back. */
+let mountedGuards = 0;
+let ownBackPending = false;
+
+/**
+ * Browser Back / Forward (a history `POP`) while the shell is `dirty` asks the same "Discard
+ * changes?" question as Close and Esc. Only mounted while dirty. Clicks on links and
+ * `navigate()` calls are never blocked: the page's own save-then-leave flow must not be asked.
+ * A page's own close (`useCloseFullPage`) was already confirmed by the page, so it passes.
+ */
+function BackGuard() {
+  const { t } = useTranslation('common');
+  const blocker = useBlocker({
+    shouldBlockFn: ({ action }) => {
+      if (action !== 'BACK' && action !== 'FORWARD') return false;
+      if (ownBackPending) {
+        ownBackPending = false;
+        return false;
+      }
+      return true;
+    },
+    // `useWarnUnsavedChanges` owns the tab-close / reload prompt.
+    enableBeforeUnload: false,
+    withResolver: true,
+  });
+  React.useEffect(() => {
+    mountedGuards += 1;
+    return () => {
+      mountedGuards -= 1;
+    };
+  }, []);
+  return (
+    <ConfirmDialog
+      open={blocker.status === 'blocked'}
+      onOpenChange={(open) => {
+        if (!open && blocker.status === 'blocked') blocker.reset();
+      }}
+      tone="danger"
+      title={t('fullPage.discardTitle')}
+      description={t('fullPage.discardDescription')}
+      confirmLabel={t('fullPage.discardConfirm')}
+      cancelLabel={t('fullPage.keepEditing')}
+      onConfirm={() => blocker.status === 'blocked' && blocker.proceed()}
+    />
+  );
+}
+
 export function FullPageShell({
   title,
   onClose,
@@ -62,6 +112,9 @@ export function FullPageShell({
   const { t } = useTranslation('common');
   const [confirming, setConfirming] = React.useState(false);
   useWarnUnsavedChanges(dirty === true);
+  // Without a router (a few unit tests mount the shell bare) there is no history to guard.
+  // `useRouter` answers null (typed as a router) outside a RouterProvider.
+  const hasRouter = Boolean(useRouter({ warn: false }) as unknown);
   const requestClose = () => (dirty ? setConfirming(true) : onClose());
   const { resolve } = useHelp();
   const primaryButton = primary && (
@@ -158,6 +211,7 @@ export function FullPageShell({
               </footer>
             )}
           </React.Suspense>
+          {dirty === true && hasRouter && <BackGuard />}
           <ConfirmDialog
             open={confirming}
             onOpenChange={setConfirming}
@@ -184,8 +238,11 @@ export function FullPageShell({
 export function useCloseFullPage(fallback: () => void): () => void {
   // Router types are not registered inside the ui package, so `useRouter()` is `any` here.
   const router = useRouter() as { history: { canGoBack: () => boolean; back: () => void } };
-  return React.useCallback(
-    () => (router.history.canGoBack() ? router.history.back() : fallback()),
-    [router, fallback],
-  );
+  return React.useCallback(() => {
+    if (!router.history.canGoBack()) return fallback();
+    // The page already decided to leave (confirmed, or nothing to lose): the shell's Back
+    // guard must not ask a second time.
+    ownBackPending = mountedGuards > 0;
+    router.history.back();
+  }, [router, fallback]);
 }

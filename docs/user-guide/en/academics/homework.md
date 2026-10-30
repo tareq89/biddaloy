@@ -304,7 +304,7 @@ The buttons on a row depend on its status:
 | **Deactivated** | **Check work**, **Reactivate**                           |
 | **Superseded**  | **Check work** only                                      |
 
-A teacher sees only the rows of their own sections.
+A teacher sees only the rows of their own sections. The card lists at most 100 rows, active ones first. If it shows exactly 100, a line under it says **Only the first 100 rows are shown, active ones first. Older rows are not listed.**
 
 ### Change, move the due date or deactivate <a href="#task-change" id="task-change"></a>
 
@@ -353,7 +353,7 @@ Here you give each student the tick, the completion or the marks, depending on t
 
 - **Save** stays disabled until you change something.
 - If a student uploaded work and you untick them or pick **Not done**, the row goes back to **Submitted**, not **Not submitted**: their upload stays.
-- If you close the list with unsaved changes, the app asks first.
+- If you close the list with unsaved changes, the app asks first. The browser's **Back** button asks the same question; press **Keep editing** to stay.
 - A teacher can open only the rows of their own sections and subjects.
 
 ---
