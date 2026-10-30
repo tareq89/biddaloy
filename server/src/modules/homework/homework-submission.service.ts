@@ -54,8 +54,8 @@ interface SubmissionAttachment {
   size: number;
 }
 
-/** #3172: PARTIAL is a PARTIAL-mode outcome. TICK and MARKS homework only ever send DONE or
- * NOT_SUBMITTED (the grid does the same), so the server refuses the rest. Fixed text, no echo. */
+/** #3172: PARTIAL is a PARTIAL-mode outcome, so TICK and MARKS homework may not be set to
+ * PARTIAL (the grid only sends DONE or NOT_SUBMITTED for them). Fixed text, no echo. */
 function assertStatusFitsMode(
   mode: HomeworkGradingMode,
   status: HomeworkSubmissionStatus | undefined,

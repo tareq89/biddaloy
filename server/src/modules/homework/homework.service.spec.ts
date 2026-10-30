@@ -326,10 +326,12 @@ describe('HomeworkService', () => {
         };
         const created = await service.reassign('assign-1', dto, ctx);
         expect(notice.notifyAssignment).toHaveBeenCalledWith(created, HOMEWORK);
+        // The new target is passed so its students are not told it was withdrawn.
         expect(notice.notifyChange).toHaveBeenCalledWith(
           expect.objectContaining({ id: 'assign-1', section_id: 'section-1' }),
           HOMEWORK,
           'WITHDRAWN',
+          created,
         );
       });
 
@@ -646,12 +648,19 @@ describe('HomeworkService', () => {
       expect(assignmentRepo.update).not.toHaveBeenCalled();
     });
 
-    it('loses a race with reassign: 0 rows updated gives the superseded 400', async () => {
+    it('loses a race (reassign or a second PATCH): 0 rows updated is a 400 and no notice', async () => {
       assignmentRepo.findOne.mockResolvedValue(activeRow());
       assignmentRepo.update.mockResolvedValueOnce({ affected: 0 });
       await expect(
         service.updateAssignment('assign-1', { status: HomeworkAssignmentStatus.DEACTIVATED }, ctx),
-      ).rejects.toThrow('A superseded assignment cannot be changed');
+      ).rejects.toThrow('This assignment has changed. Reload and try again.');
+      // The update only matches the status this request read, so a double deactivate sends
+      // WITHDRAWN once.
+      expect(assignmentRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'assign-1', status: HomeworkAssignmentStatus.ACTIVE }),
+        { status: HomeworkAssignmentStatus.DEACTIVATED },
+      );
+      expect(notice.notifyChange).not.toHaveBeenCalled();
     });
 
     it('rejects an empty body before any lookup', async () => {

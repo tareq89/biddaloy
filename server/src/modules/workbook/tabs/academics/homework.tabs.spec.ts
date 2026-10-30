@@ -118,13 +118,15 @@ describe('homework_assignments: one ACTIVE row per target (#3172)', () => {
     ...over,
   });
 
-  it('secondaryKeyOf names the target only for an ACTIVE row', () => {
+  it('secondaryKeyOf names the target by its sheet keys, only for an ACTIVE row', () => {
     expect(homeworkAssignmentTab.secondaryKeyOf!(row())).toBe(
-      'ACTIVE assignment of homework hw1 to section sec1',
+      'ACTIVE assignment of homework hw-key to section sec-key',
     );
     expect(
-      homeworkAssignmentTab.secondaryKeyOf!(row({ section_id: null, student_id: 'st1' })),
-    ).toBe('ACTIVE assignment of homework hw1 to student st1');
+      homeworkAssignmentTab.secondaryKeyOf!(
+        row({ section_id: null, student_id: 'st1', section_key: '', student_key: 'STU-1' }),
+      ),
+    ).toBe('ACTIVE assignment of homework hw-key to student STU-1');
     expect(
       homeworkAssignmentTab.secondaryKeyOf!(row({ status: HomeworkAssignmentStatus.SUPERSEDED })),
     ).toBeNull();

@@ -63,10 +63,12 @@ describe('HomeworkNoticeService', () => {
     queue = { add: vi.fn(async () => undefined) };
     // Unmetered by default: reserveForLog returns no extra job data.
     smsCredit = { reserveForLog: vi.fn(async () => ({})), releaseForLog: vi.fn() };
-    // Both switches on by default so the existing delivery tests keep their meaning.
+    // Both switches on by default so the existing delivery tests keep their meaning. English
+    // pinned: since #3136 a school with no stored locale gets the bn-BD default.
     schoolsService = {
       getResolvedSettings: vi.fn(async () => ({
         homework: { notifyOnAssign: true, notifyDefaulters: true },
+        region: { locale: 'en-US' },
       })),
     };
     service = new HomeworkNoticeService(studentRepo, logRepo, queue, smsCredit, schoolsService);
@@ -260,6 +262,37 @@ describe('HomeworkNoticeService', () => {
       expect(logRepo.save.mock.calls[0][0].message_body).toBe(
         'Dear Guardian, homework "Chapter 3 exercises" for Rahim Uddin has been withdrawn. It does not need to be submitted.',
       );
+    });
+
+    it('WITHDRAWN on a reassign skips students the new target still covers', async () => {
+      // Section A narrowed to Rahim, who is in Section A: only Karim is told it was withdrawn.
+      studentRepo.find.mockResolvedValue([
+        student({ id: 's-1', full_name: 'Rahim Uddin', guardians: [guardian({ id: 'g-1' })] }),
+        student({ id: 's-2', full_name: 'Karim Ali', guardians: [guardian({ id: 'g-2' })] }),
+      ]);
+      studentRepo.findOne.mockResolvedValue(student({ id: 's-1' }));
+      const newTarget = { ...ASSIGNMENT, id: 'assign-2', section_id: null, student_id: 's-1' };
+      await service.notifyChange(
+        ASSIGNMENT as never,
+        HOMEWORK as never,
+        'WITHDRAWN',
+        newTarget as never,
+      );
+      expect(logRepo.save).toHaveBeenCalledTimes(1);
+      expect(logRepo.save.mock.calls[0][0].message_body).toContain('Karim Ali');
+      expect(logRepo.save.mock.calls[0][0].message_body).not.toContain('Rahim Uddin');
+    });
+
+    it('WITHDRAWN on a student widened to their own section sends nothing', async () => {
+      const oldStudentRow = { ...ASSIGNMENT, section_id: null, student_id: 's-1' };
+      // The new section covers s-1, the only student of the old row.
+      await service.notifyChange(
+        oldStudentRow as never,
+        HOMEWORK as never,
+        'WITHDRAWN',
+        ASSIGNMENT as never,
+      );
+      expect(logRepo.save).not.toHaveBeenCalled();
     });
 
     it('sends nothing while the school has the assignment notice switch off', async () => {

@@ -71,15 +71,23 @@ export class HomeworkNoticeService {
    * #3172: told to families when a live assignment's due date moves (`DUE_CHANGED`, with the
    * assignment's new date) or when it is withdrawn by a deactivate or a reassign to someone
    * else (`WITHDRAWN`). Same school switch and the same recipients as `notifyAssignment`.
+   * `keepFor` is the reassign's new target: its students still have the homework (a section
+   * narrowed to one of its students, or a student widened to their section), so they are not
+   * told it was withdrawn.
    */
   async notifyChange(
     assignment: HomeworkAssignment,
     homework: Homework,
     kind: 'DUE_CHANGED' | 'WITHDRAWN',
+    keepFor?: HomeworkAssignment,
   ): Promise<void> {
     const settings = await this.schoolsService.getResolvedSettings(assignment.tenant_id);
     if (settings.homework?.notifyOnAssign !== true) return;
-    const students = await this.loadTargetStudents(assignment);
+    let students = await this.loadTargetStudents(assignment);
+    if (keepFor) {
+      const keep = new Set((await this.loadTargetStudents(keepFor)).map((s) => s.id));
+      students = students.filter((s) => !keep.has(s.id));
+    }
     const due = assignment.due_date;
     const bn = resolveFeeNotificationLocale(settings.region?.locale) === 'bn';
     await this.sendToGuardians(assignment.tenant_id, students, bn, (names) => {

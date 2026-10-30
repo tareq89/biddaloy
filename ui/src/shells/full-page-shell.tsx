@@ -49,13 +49,6 @@ export interface FullPageShellProps {
   children: React.ReactNode;
 }
 
-/** Guards mounted right now, and whether the next history BACK is one the page itself chose
- * (`useCloseFullPage`'s closer sets it just before `history.back()`). Module-level because the
- * closer lives in the host page and the guard in the shell. Only set while a guard is mounted,
- * so it can never go stale and wave through a later browser Back. */
-let mountedGuards = 0;
-let ownBackPending = false;
-
 /**
  * Browser Back / Forward (a history `POP`) while the shell is `dirty` asks the same "Discard
  * changes?" question as Close and Esc. Only mounted while dirty. Clicks on links and
@@ -65,24 +58,13 @@ let ownBackPending = false;
 function BackGuard() {
   const { t } = useTranslation('common');
   const blocker = useBlocker({
-    shouldBlockFn: ({ action }) => {
-      if (action !== 'BACK' && action !== 'FORWARD') return false;
-      if (ownBackPending) {
-        ownBackPending = false;
-        return false;
-      }
-      return true;
-    },
+    // A page's own close goes through `history.back({ ignoreBlocker: true })`, which skips
+    // every blocker for that one pop, so only a real browser Back / Forward reaches here.
+    shouldBlockFn: ({ action }) => action === 'BACK' || action === 'FORWARD',
     // `useWarnUnsavedChanges` owns the tab-close / reload prompt.
     enableBeforeUnload: false,
     withResolver: true,
   });
-  React.useEffect(() => {
-    mountedGuards += 1;
-    return () => {
-      mountedGuards -= 1;
-    };
-  }, []);
   return (
     <ConfirmDialog
       open={blocker.status === 'blocked'}
@@ -237,12 +219,16 @@ export function FullPageShell({
  * close function to `onClose` instead of this hook, or back would leave the host route. */
 export function useCloseFullPage(fallback: () => void): () => void {
   // Router types are not registered inside the ui package, so `useRouter()` is `any` here.
-  const router = useRouter() as { history: { canGoBack: () => boolean; back: () => void } };
+  const router = useRouter() as {
+    history: {
+      canGoBack: () => boolean;
+      back: (opts?: { ignoreBlocker?: boolean }) => void;
+    };
+  };
   return React.useCallback(() => {
     if (!router.history.canGoBack()) return fallback();
     // The page already decided to leave (confirmed, or nothing to lose): the shell's Back
-    // guard must not ask a second time.
-    ownBackPending = mountedGuards > 0;
-    router.history.back();
+    // guard must not ask a second time. `ignoreBlocker` skips the blockers for this pop only.
+    router.history.back({ ignoreBlocker: true });
   }, [router, fallback]);
 }

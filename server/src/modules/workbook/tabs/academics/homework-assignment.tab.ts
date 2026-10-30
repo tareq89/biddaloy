@@ -76,6 +76,23 @@ const excluded: readonly string[] = [
   'student_id', // exported instead as the `student` ref column, keyed by registration_number
 ];
 
+/** The homework / section / student keys of a sheet row, or of a loaded entity
+ * (its relations, as `load()` fetches them). */
+function refKeys(x: HomeworkAssignmentRow | HomeworkAssignment): {
+  homeworkKey: string;
+  sectionKey: string;
+  studentKey: string;
+} {
+  if (!(x instanceof HomeworkAssignment)) {
+    return { homeworkKey: x.homework_key, sectionKey: x.section_key, studentKey: x.student_key };
+  }
+  return {
+    homeworkKey: x.homework ? homeworkTab.keyOf(x.homework) : '',
+    sectionKey: x.section ? sectionsTab.keyOf(x.section) : '',
+    studentKey: x.student ? studentsTab.keyOf(x.student) : '',
+  };
+}
+
 export const homeworkAssignmentTab: TabSpec<HomeworkAssignment, HomeworkAssignmentRow> = {
   name: 'homework_assignments',
   entity: HomeworkAssignment,
@@ -218,36 +235,22 @@ export const homeworkAssignmentTab: TabSpec<HomeworkAssignment, HomeworkAssignme
   },
 
   keyOf(x: HomeworkAssignmentRow | HomeworkAssignment): string {
-    const homeworkKey =
-      x instanceof HomeworkAssignment
-        ? x.homework
-          ? homeworkTab.keyOf(x.homework)
-          : ''
-        : x.homework_key;
-    const sectionKey =
-      x instanceof HomeworkAssignment
-        ? x.section
-          ? sectionsTab.keyOf(x.section)
-          : ''
-        : x.section_key;
-    const studentKey =
-      x instanceof HomeworkAssignment
-        ? x.student
-          ? studentsTab.keyOf(x.student)
-          : ''
-        : x.student_key;
+    const { homeworkKey, sectionKey, studentKey } = refKeys(x);
     return `${homeworkKey}|${sectionKey}|${studentKey}|${x.assigned_date}`;
   },
 
   // [#3172] One ACTIVE assignment per (homework, target), backed by two partial
   // unique indexes. Two ACTIVE rows for one target in one file is a validation
   // error, and a TEMPLATE import may not add a second ACTIVE row next to the
-  // destination's.
+  // destination's. Named by the sheet's own keys, so the restore error points
+  // at rows a person can find (a backup taken before the #3172 migration can
+  // still hold such a pair).
   secondaryKeyOf(x: HomeworkAssignmentRow | HomeworkAssignment): string | null {
     if (x.status !== HomeworkAssignmentStatus.ACTIVE) return null;
-    return x.section_id
-      ? `ACTIVE assignment of homework ${x.homework_id} to section ${x.section_id}`
-      : `ACTIVE assignment of homework ${x.homework_id} to student ${x.student_id}`;
+    const { homeworkKey, sectionKey, studentKey } = refKeys(x);
+    return sectionKey
+      ? `ACTIVE assignment of homework ${homeworkKey} to section ${sectionKey}`
+      : `ACTIVE assignment of homework ${homeworkKey} to student ${studentKey}`;
   },
 
   diffFields(row: HomeworkAssignmentRow, existing: HomeworkAssignment): string[] {

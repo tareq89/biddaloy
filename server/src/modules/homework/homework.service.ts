@@ -558,7 +558,9 @@ export class HomeworkService {
       old.section_id === created.section_id && old.student_id === created.student_id;
     if (!sameTarget) {
       await this.tryNotice(created.id, () => this.notice.notifyAssignment(created, homework));
-      await this.tryNotice(old.id, () => this.notice.notifyChange(old, homework, 'WITHDRAWN'));
+      await this.tryNotice(old.id, () =>
+        this.notice.notifyChange(old, homework, 'WITHDRAWN', created),
+      );
     } else if (old.due_date.slice(0, 10) !== created.due_date.slice(0, 10)) {
       await this.tryNotice(created.id, () =>
         this.notice.notifyChange(created, homework, 'DUE_CHANGED'),
@@ -607,17 +609,15 @@ export class HomeworkService {
       ...(dto.due_date !== undefined ? { due_date: dto.due_date } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     };
-    // Conditional update: a reassign racing this PATCH must not be overwritten (0 rows = lost race).
+    // Conditional on the status read above: a reassign, or a second PATCH (two tabs, a double
+    // click), that got there first wins and this one changes nothing and tells no one
+    // (0 rows = lost race).
     const result = await this.assignmentRepo.update(
-      {
-        id: assignment.id,
-        tenant_id: ctx.tenantId,
-        status: Not(HomeworkAssignmentStatus.SUPERSEDED),
-      },
+      { id: assignment.id, tenant_id: ctx.tenantId, status: assignment.status },
       patch,
     );
     if (!result.affected) {
-      throw new BadRequestException('A superseded assignment cannot be changed');
+      throw new BadRequestException('This assignment has changed. Reload and try again.');
     }
     // The not-submitted alert keys on status + due_date: a deactivate or date move clears it now.
     emitRecheck(attentionEvents, {
