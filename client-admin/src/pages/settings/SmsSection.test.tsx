@@ -27,7 +27,8 @@ describe('SmsSection', () => {
       OPTS,
     );
 
-    expect(await screen.findByRole('heading', { name: 'SMS' })).toBeTruthy();
+    expect(await screen.findByLabelText('SMS company')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'SMS' })).toBeTruthy();
     expect(screen.getByText('All SMS from this school go through this company.')).toBeTruthy();
     expect(screen.getByLabelText('SMS company')).toBeTruthy();
     expect(screen.getByText('API key')).toBeTruthy();
