@@ -15,7 +15,8 @@ export type ResolvedConfig = Record<string, string>;
 
 /**
  * Same shape as a `communications.<medium>` settings block — `{ provider?, <name>: {...} }`, or
- * the old flat keys. Untrusted (the test-connection body): only descriptor field keys are read.
+ * the old flat keys (single-provider media only). Untrusted (the test-connection body): only
+ * descriptor field keys are read.
  */
 export type MessagingOverride = Record<string, unknown>;
 
@@ -23,6 +24,12 @@ export interface ResolveOptions {
   override?: MessagingOverride;
   /** Account-access sends and platform alerts may use the platform's own SMS keys. */
   allowPlatformKeys?: boolean;
+  /**
+   * The caller only verifies the connection (`testConnection()`), it sends nothing, so an override
+   * with a new destination may leave out `sendOnly` fields (an email `from`). Off by default: a send,
+   * including a test message, needs every required field.
+   */
+  connectionTestOnly?: boolean;
 }
 
 export interface ResolvedMessaging {
@@ -53,10 +60,19 @@ function coerce(v: unknown): string | null | undefined {
   return undefined;
 }
 
-/** D6: the nested `<name>` block, else (old flat shape) the field keys on the medium itself. */
-function readBlock(src: Record<string, unknown>, name: string, fields: ProviderConfigField[]) {
+/**
+ * D6: the nested `<name>` block, else (old flat shape) the field keys on the medium itself. Only a
+ * single-provider medium ever stored the flat shape (SMS was already nested before D6), so a
+ * multi-provider medium reads the nested block only, as the validator accepts.
+ */
+function readBlock(
+  src: Record<string, unknown>,
+  name: string,
+  fields: ProviderConfigField[],
+  flatOk: boolean,
+) {
   const nested = src[name];
-  const from = isPlainObject(nested) ? nested : src;
+  const from = isPlainObject(nested) ? nested : flatOk ? src : {};
   const out: FieldValues = {};
   for (const f of fields) out[f.key] = coerce(from[f.key]);
   return out;
@@ -68,7 +84,7 @@ function readBlock(src: Record<string, unknown>, name: string, fields: ProviderC
  *
  * Fields do not fall back independently across trust tiers; a medium's source is decided as a unit:
  *   - override sets a destination field (apiUrl, host, port) -> the override must carry every
- *     required field itself (bar `sendOnly` ones, which a connection test never reads); it never
+ *     required field itself (bar `sendOnly` ones when `connectionTestOnly`); it never
  *     borrows stored credentials for a caller-chosen target.
  *   - else tenant set any owned field (even an explicit null clear) -> tenant/override only,
  *     never the platform env (a cleared credential fails closed).
@@ -132,16 +148,17 @@ export class MessagingConfigResolver {
     }
 
     const { fields, label } = provider.descriptor;
-    const tenant = readBlock(tenantMedium, provider.descriptor.name, fields);
-    const ov = readBlock(override, provider.descriptor.name, fields);
+    const flatOk = forMedium.length === 1;
+    const tenant = readBlock(tenantMedium, provider.descriptor.name, fields, flatOk);
+    const ov = readBlock(override, provider.descriptor.name, fields, flatOk);
     const overrideSetsDestination = fields.some((f) => isDestination(f) && ov[f.key] != null);
     const tenantOwnsIt =
       !overrideSetsDestination && fields.some((f) => isOwned(f) && tenant[f.key] !== undefined);
 
-    // A test of a new destination needs every required field itself, except send-only ones (from).
-    const required = fields.filter(
-      (f) => f.required && !(overrideSetsDestination && f.sendOnly === true),
-    );
+    // A connection test of a new destination needs every required field itself, except send-only
+    // ones (from); anything that sends (a real send, a test message) needs them all.
+    const skipSendOnly = overrideSetsDestination && opts.connectionTestOnly === true;
+    const required = fields.filter((f) => f.required && !(skipSendOnly && f.sendOnly === true));
     const envNames = required.map((f) => envName(provider.envPrefix, f.key)).join('/');
     const requiredKeys = required.map((f) => f.key).join(', ');
 

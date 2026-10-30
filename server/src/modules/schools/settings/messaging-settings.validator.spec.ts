@@ -60,6 +60,17 @@ describe('problemWith', () => {
     expect(problemWith({ provider: 'alpha' }, SMS)).toMatch(/must include the settings/);
   });
 
+  // Review round 3, item 2: a PLATFORM-metered school uses the platform's account, so it saves no
+  // gateway of its own. A block it does fill in is its own gateway and must be complete.
+  it('PLATFORM metering: no block (or an empty one) is fine; a started block must be complete', () => {
+    expect(problemWith({ provider: 'alpha', metering: 'PLATFORM' }, SMS)).toBeNull();
+    expect(problemWith({ provider: 'alpha', metering: 'PLATFORM', alpha: {} }, SMS)).toBeNull();
+    expect(problemWith({ provider: 'alpha', metering: 'OFF' }, SMS)).toMatch(/must include/);
+    expect(
+      problemWith({ provider: 'alpha', metering: 'PLATFORM', alpha: { apiKey: 'k' } }, SMS),
+    ).toMatch(/missing the required field senderId/);
+  });
+
   it('requires non-secret required fields, not secret ones', () => {
     expect(problemWith({ provider: 'alpha', alpha: { apiKey: 'k' } }, SMS)).toMatch(
       /missing the required field senderId/,

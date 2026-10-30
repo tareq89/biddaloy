@@ -35,7 +35,8 @@ export class ConnectionTestService {
       const { provider, config } = await this.registry.resolveFor(
         medium as CommunicationMedium,
         tenantId,
-        { override },
+        // testConnection() sends nothing, so `sendOnly` fields (an email `from`) are not needed.
+        { override, connectionTestOnly: true },
       );
       return await provider.testConnection(config);
     } catch (err) {

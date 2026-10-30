@@ -24,7 +24,11 @@ describe('ConnectionTestService', () => {
     const result = await service.test(tenantId, medium as never);
 
     // Tenant-scoped: the id the caller passed is the id resolved against.
-    expect(registry.resolveFor).toHaveBeenCalledWith(medium, tenantId, { override: undefined });
+    // connectionTestOnly: a connection test sends nothing, so send-only fields are not needed.
+    expect(registry.resolveFor).toHaveBeenCalledWith(medium, tenantId, {
+      override: undefined,
+      connectionTestOnly: true,
+    });
     expect(provider.testConnection).toHaveBeenCalledWith({ k: 'v' });
     expect(result).toEqual({ success: true, message: 'ok' });
   });
@@ -36,6 +40,7 @@ describe('ConnectionTestService', () => {
 
     expect(registry.resolveFor).toHaveBeenCalledWith(CommunicationMedium.WHATSAPP, tenantId, {
       override,
+      connectionTestOnly: true,
     });
   });
 

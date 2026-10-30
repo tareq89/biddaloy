@@ -21,6 +21,8 @@ export interface ResolvedWhatsAppConfig {
 const DEFAULT_API_VERSION = 'v21.0';
 
 const REQUEST_TIMEOUT_MS = 10_000;
+const SEND_FAILED_ERROR =
+  'Could not reach the WhatsApp Cloud API; the message may or may not have been sent.';
 
 /**
  * Meta WhatsApp Business Cloud API.
@@ -153,7 +155,8 @@ export class MetaCloudProvider extends MessagingProvider<ResolvedWhatsAppConfig>
       return {
         success: false,
         providerMessageId: null,
-        error: err instanceof Error ? err.message : String(err),
+        // Rules 23/24: fixed text; the not-configured sentence is secret-free (deliveryErrorCode reads it).
+        error: err instanceof ProviderNotConfiguredError ? err.message : SEND_FAILED_ERROR,
         retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
         outcome: err instanceof ProviderNotConfiguredError ? 'REJECTED' : 'AMBIGUOUS',
       };

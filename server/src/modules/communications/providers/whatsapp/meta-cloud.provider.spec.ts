@@ -93,7 +93,12 @@ describe('MetaCloudProvider', () => {
     const result = await provider.send({ to: '01712345678', body: 'hi' }, sendConfig);
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe('network down');
+    // Rules 23/24: a fixed sentence, never the thrown text; still AMBIGUOUS (it may have reached Meta).
+    expect(result.error).toBe(
+      'Could not reach the WhatsApp Cloud API; the message may or may not have been sent.',
+    );
+    expect(result.error).not.toContain('network down');
+    expect(result.outcome).toBe('AMBIGUOUS');
   });
 
   // #3315: both values go into the request path, so a stored or overridden bad value must never reach fetch.

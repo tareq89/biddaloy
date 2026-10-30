@@ -51,6 +51,9 @@ function mapSmtpError(err: unknown): string {
   return 'Connection test failed — could not verify the credentials.';
 }
 
+const SEND_FAILED_ERROR =
+  'Could not reach the SMTP server; the message may or may not have been sent.';
+
 const SMTP_CONNECTION_ERROR_CODES = new Set([
   'ECONNECTION',
   'ETIMEDOUT',
@@ -195,13 +198,14 @@ export class SmtpProvider extends MessagingProvider<ResolvedEmailConfig> {
       return {
         success: false,
         providerMessageId: null,
-        // Rule 23: the guard's own message carries the host, so a blocked address stores its fixed text.
+        // Rules 23/24: fixed text only. The guard's message carries the host, nodemailer's the
+        // server's reply; the not-configured sentence is secret-free (deliveryErrorCode reads it).
         error:
           err instanceof OutboundDestinationError
             ? err.publicMessage
-            : err instanceof Error
+            : err instanceof ProviderNotConfiguredError
               ? err.message
-              : String(err),
+              : SEND_FAILED_ERROR,
         retryable: isDefinitelyRejected ? false : undefined,
         outcome: isDefinitelyRejected ? 'REJECTED' : 'AMBIGUOUS',
       };

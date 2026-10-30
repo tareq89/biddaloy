@@ -416,16 +416,48 @@ describe('MessagingConfigResolver', () => {
       expect(err.message).toMatch(/requires .* together/);
     });
 
-    // Review round 2, item 4: `from` is send-only, so testing a new SMTP server needs only the
-    // server and its login. Nothing is borrowed: the stored `from` stays out of the result too.
-    it('SMTP override with a new destination needs no `from`', async () => {
+    // Review round 2, item 4: `from` is send-only, so a connection test of a new SMTP server needs
+    // only the server and its login. Nothing is borrowed: the stored `from` stays out of the result too.
+    it('SMTP connection test with a new destination needs no `from`', async () => {
       const stored = settingsWith('email', {
         smtp: { host: 'smtp.example', user: 'u', password: 'pw', from: 'a@x.com' },
       });
       const r = await resolverFor({ t1: stored }).resolve(CommunicationMedium.EMAIL, 't1', {
         override: { smtp: { host: 'new.example', user: 'nu', password: 'npw' } },
+        connectionTestOnly: true,
       });
       expect(r.config).toEqual({ host: 'new.example', user: 'nu', password: 'npw' });
+    });
+
+    // Review round 3, item 3: a test message really sends, so it needs `from` too; the stored one
+    // is never borrowed for a new destination.
+    it('a send to a new SMTP destination (no connectionTestOnly) still requires `from`', async () => {
+      const stored = settingsWith('email', {
+        smtp: { host: 'smtp.example', user: 'u', password: 'pw', from: 'a@x.com' },
+      });
+      const err = await resolverFor({ t1: stored })
+        .resolve(CommunicationMedium.EMAIL, 't1', {
+          override: { smtp: { host: 'new.example', user: 'nu', password: 'npw' } },
+        })
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderNotConfiguredError);
+      expect(err.message).toMatch(/requires host, user, password, from together \(missing: from\)/);
+    });
+
+    // Review round 3, item 5: SMS has several providers and was never stored flat, so flat vendor
+    // keys on `communications.sms` are not read (the validator rejects them too).
+    it('multi-provider SMS ignores flat vendor keys (tenant and override)', async () => {
+      const env = { GREENWEB_API_KEY: 'env-k' };
+      const flat = settingsWith('sms', { provider: 'greenweb', apiKey: 'flat-k' });
+      const resolver = resolverFor({ t1: flat }, env);
+      await expect(resolver.resolve(CommunicationMedium.SMS, 't1')).rejects.toThrow(
+        /not on prepaid SMS credit/,
+      );
+      const r = await resolver.resolve(CommunicationMedium.SMS, 't1', {
+        allowPlatformKeys: true,
+        override: { provider: 'greenweb', apiKey: 'flat-override' },
+      });
+      expect(r.config.apiKey).toBe('env-k');
     });
 
     it('a stored send without an override still requires `from`', async () => {

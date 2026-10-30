@@ -93,6 +93,11 @@ export function problemWith(value: unknown, medium: CommunicationMedium): string
     ? ((Object.hasOwn(value, selected.name) ? value[selected.name] : flatBlock) as
         Block | undefined)
     : undefined;
+  // D11: a PLATFORM-metered school with no gateway of its own sends on the platform's account, so
+  // its chosen block may be missing or empty. Once it fills in a field it owns the medium (the
+  // resolver never pairs a school's field with the platform key), so that block must be complete.
+  const ownsNothing = !chosen || !Object.values(chosen).some(present);
+  if (selected && metering === 'PLATFORM' && ownsNothing) return null;
   if (!selected || !chosen) return 'must include the settings of the chosen company.';
   // Only the chosen company must be complete: another company's block may be a saved draft.
   for (const f of selected.fields) {

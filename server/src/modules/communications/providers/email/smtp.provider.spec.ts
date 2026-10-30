@@ -150,7 +150,11 @@ describe('SmtpProvider', () => {
     const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, cfg);
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe('SMTP connection refused');
+    // Rules 23/24: a fixed sentence, never nodemailer's text.
+    expect(result.error).toBe(
+      'Could not reach the SMTP server; the message may or may not have been sent.',
+    );
+    expect(result.error).not.toContain('refused');
     expect(result.retryable).toBeUndefined();
   });
 
@@ -263,7 +267,10 @@ describe('SmtpProvider', () => {
       const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, cfg);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('535 auth failed');
+      expect(result.error).toBe(
+        'Could not reach the SMTP server; the message may or may not have been sent.',
+      );
+      expect(result.error).not.toContain('535');
       expect(nodemailer.createTransport).toHaveBeenCalledTimes(1);
     });
 
@@ -281,7 +288,10 @@ describe('SmtpProvider', () => {
       const result = await provider.send({ to: 'guardian@example.com', body: 'hi' }, cfg);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('connect ECONNREFUSED');
+      expect(result.error).toBe(
+        'Could not reach the SMTP server; the message may or may not have been sent.',
+      );
+      expect(result.error).not.toContain('ECONNREFUSED');
       expect(nodemailer.createTransport).toHaveBeenCalledTimes(2);
     });
   });

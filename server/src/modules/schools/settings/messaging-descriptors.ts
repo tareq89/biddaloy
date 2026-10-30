@@ -79,7 +79,11 @@ export function toNestedMedium(block: unknown, medium: CommunicationMedium): Blo
 export const present = (v: unknown): boolean =>
   (typeof v === 'string' && v.length > 0) || (typeof v === 'number' && Number.isFinite(v));
 
-/** D32: schema + selected + configured per medium. Presence only; never a value. */
+/**
+ * D32: schema + selected + configured per medium. Never a value. `configured` is presence only:
+ * the selected company's required fields are saved on the school. It does not look at the
+ * platform env fallback (`<PREFIX>_<FIELD>`), so a school on the platform account reads false.
+ */
 export function buildMessagingProvidersResponse(
   settings: TenantSettings,
 ): MessagingProvidersResponse {

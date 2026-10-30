@@ -88,7 +88,11 @@ export class ProviderDescriptorResponseDto {
 export class MessagingMediumProvidersResponseDto {
   @ApiProperty({ type: [ProviderDescriptorResponseDto] })
   providers: ProviderDescriptorResponseDto[];
-  @ApiProperty() configured: boolean;
+  @ApiProperty({
+    description:
+      "Presence only: the selected company's required fields are saved on this school. It ignores the platform-wide fallback (env keys), so false does not mean a send will fail.",
+  })
+  configured: boolean;
   @ApiProperty({ type: String, nullable: true }) selected: string | null;
 }
 

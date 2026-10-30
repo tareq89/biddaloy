@@ -551,7 +551,9 @@ flowchart LR
   T[school settings<br/>communications.sms] --> R[MessagingConfigResolver]
   E[platform env<br/>ONECODESOFT_API_KEY ...] --> R
   R -->|provider + config| P[OnecodesoftProvider.send]
-  G[grep guard spec] -.fails if a generic file names a vendor.-> X[any file outside the provider folder]
+  G[grep guard spec] -.fails if it names a vendor.-> X[any other file]
+  W[allow-list<br/>provider folders, messaging-providers.ts,<br/>comms-print.ts, specs, stories, example env] -.never checked.-> G
+  K[KNOWN list<br/>still names a vendor, one reason each] -.tolerated, may only shrink.-> G
 ```
 
 Example: a school stores `communications.sms = { provider: 'onecodesoft', onecodesoft: { apiKey, senderId, apiUrl } }`. The demo seed (`comms-print.ts`) writes exactly that shape for every demo school, with fake values and encrypted secrets. It adds no `metering: 'PLATFORM'`: a school on its own gateway pays the vendor itself.

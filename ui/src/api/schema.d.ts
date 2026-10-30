@@ -11675,6 +11675,7 @@ export interface components {
         };
         MessagingMediumProvidersResponseDto: {
             providers: components["schemas"]["ProviderDescriptorResponseDto"][];
+            /** @description Presence only: the selected company's required fields are saved on this school. It ignores the platform-wide fallback (env keys), so false does not mean a send will fail. */
             configured: boolean;
             selected: string | null;
         };
