@@ -1,0 +1,287 @@
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import supertest = require('supertest');
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { CommunicationMedium, UserRole } from '@biddaloy/shared';
+import type { MessagingProvidersResponse, ProviderDescriptor } from '@biddaloy/shared';
+import { AppModule } from '../../app.module';
+import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
+import { buildValidationPipeOptions } from '../../validation-pipe';
+import { TENANT_SETTINGS_SCHEMA_VERSION } from './dto/tenant-settings.dto';
+import { isEncryptedEnvelope } from './settings/encryption.service';
+import { MESSAGING_PROVIDERS } from '../communications/providers/messaging-providers';
+import {
+  SEED_TENANT_ID,
+  SEED_ADMIN_EMAIL,
+  SEED_ADMIN_USER_ID,
+  SEED_ADMIN_PASSWORD,
+} from '@test/constants';
+
+const API = '/api/v1';
+const OTHER_TENANT_ID = '00000000-0000-4000-8000-0000000d9701';
+const VERSION = TENANT_SETTINGS_SCHEMA_VERSION;
+
+/**
+ * [97 / #3299] Schema-driven messaging settings: validation, masking,
+ * encryption at rest, and `GET /schools/:id/settings/messaging/providers`.
+ *
+ * Uses the REAL provider list, so it needs the providers <-> SchoolsService
+ * import cycle to be broken (see the plan, B1). No vendor name is hard-coded:
+ * every body is built from the descriptors the API itself returns.
+ */
+describe('Messaging settings (e2e)', () => {
+  let app: INestApplication;
+  let dataSource: DataSource;
+  let token: string;
+
+  const req = (
+    method: 'get' | 'patch',
+    path: string,
+    tenant: string | null,
+    role: UserRole | null = null,
+  ) => {
+    let r = supertest(app.getHttpServer())
+      [method](`${API}${path}`)
+      .set('Authorization', `Bearer ${token}`);
+    if (tenant) r = r.set('X-Tenant-ID', tenant);
+    return role ? r.set('X-Role', role) : r;
+  };
+  const providers = (tenant: string, school = tenant) =>
+    req('get', `/schools/${school}/settings/messaging/providers`, tenant);
+  const patch = (tenant: string, body: object, school = tenant) =>
+    req('patch', `/schools/${school}/settings`, tenant).send({ version: VERSION, ...body });
+  const storedBlock = async (school: string, key: string) =>
+    (
+      await dataSource.query(`SELECT settings #> $2 AS block FROM schools WHERE id = $1`, [
+        school,
+        ['communications', key],
+      ])
+    )[0].block;
+
+  // First provider of every medium, every field filled (secret fields get a unique value).
+  const fullBody = (res: MessagingProvidersResponse) => {
+    const communications: Record<string, unknown> = {};
+    const secrets: Record<string, string> = {};
+    let n = 0;
+    for (const medium of Object.values(CommunicationMedium)) {
+      const d: ProviderDescriptor | undefined = res[medium]?.providers[0];
+      if (!d) continue;
+      const values: Record<string, unknown> = {};
+      for (const f of d.fields) {
+        n += 1;
+        if (f.kind === 'secret')
+          values[f.key] = secrets[`${medium}.${f.key}`] = `sec-${n}-abcdefgh`;
+        else if (f.kind === 'url') values[f.key] = 'https://vendor.example.test';
+        else values[f.key] = `t-${n}`;
+      }
+      communications[medium.toLowerCase()] = { provider: d.name, [d.name]: values };
+    }
+    return { communications, secrets };
+  };
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
+    app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
+    await app.init();
+    dataSource = app.get(DataSource);
+
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Other Messaging Settings School', 'other-messaging-settings-school', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [OTHER_TENANT_ID],
+    );
+    // One user holds every role on the seed tenant (X-Role) and ADMIN on a second tenant.
+    const memberships: [string, UserRole][] = [
+      ...Object.values(UserRole).map((r): [string, UserRole] => [SEED_TENANT_ID, r]),
+      [OTHER_TENANT_ID, UserRole.ADMIN],
+    ];
+    for (const [tenant, role] of memberships) {
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [SEED_ADMIN_USER_ID, tenant, role],
+      );
+    }
+    token = (
+      await supertest(app.getHttpServer())
+        .post(`${API}/auth/login`)
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200)
+    ).body.access_token;
+  }, 60000);
+
+  beforeEach(async () => {
+    await dataSource.query(`UPDATE schools SET settings = '{}'::jsonb WHERE id = ANY($1)`, [
+      [SEED_TENANT_ID, OTHER_TENANT_ID],
+    ]);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('GET providers on a fresh tenant lists every registered provider, none configured', async () => {
+    const res = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+
+    const total = Object.values(res).reduce((sum, m) => sum + (m?.providers.length ?? 0), 0);
+    expect(total).toBe(MESSAGING_PROVIDERS.length);
+    for (const m of Object.values(res)) expect(m?.configured).toBe(false);
+  });
+
+  it('PATCH from the GET schema: 200, secrets masked, encrypted at rest, GET says configured', async () => {
+    const schema = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    const { communications, secrets } = fullBody(schema);
+
+    const res = await patch(SEED_TENANT_ID, { communications }).expect(200);
+
+    // Rule 13: no plaintext secret ever comes back.
+    for (const secret of Object.values(secrets)) {
+      expect(JSON.stringify(res.body)).not.toContain(secret);
+    }
+    for (const medium of Object.values(CommunicationMedium)) {
+      const d = schema[medium]?.providers[0];
+      if (!d) continue;
+      const block = (await storedBlock(SEED_TENANT_ID, medium.toLowerCase()))[d.name];
+      for (const f of d.fields.filter((x) => x.kind === 'secret')) {
+        expect(isEncryptedEnvelope(block[f.key])).toBe(true);
+        expect(res.body.communications[medium.toLowerCase()][d.name][f.key]).toMatchObject({
+          configured: true,
+          hint: expect.any(String),
+        });
+      }
+    }
+    const after = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    for (const medium of Object.values(CommunicationMedium)) {
+      if (!schema[medium]) continue;
+      expect(after[medium]?.configured).toBe(true);
+      expect(after[medium]?.selected).toBe(schema[medium]?.providers[0].name);
+    }
+  });
+
+  it('omitted secret is kept, null clears it, empty string is a 400 with the fixed sentence', async () => {
+    const schema = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    const medium = Object.values(CommunicationMedium).find((m) =>
+      schema[m]?.providers[0].fields.some((f) => f.kind === 'secret'),
+    )!;
+    const d = schema[medium]!.providers[0];
+    const key = medium.toLowerCase();
+    const secret = d.fields.find((f) => f.kind === 'secret')!.key;
+    const { communications } = fullBody(schema);
+    await patch(SEED_TENANT_ID, { communications: { [key]: communications[key] } }).expect(200);
+    const before = (await storedBlock(SEED_TENANT_ID, key))[d.name][secret];
+
+    // Omit the secret: the stored value is kept untouched.
+    const withoutSecret = {
+      provider: d.name,
+      [d.name]: Object.fromEntries(
+        Object.entries(((communications[key] as any)[d.name] ?? {}) as object).filter(
+          ([k]) => k !== secret,
+        ),
+      ),
+    };
+    await patch(SEED_TENANT_ID, { communications: { [key]: withoutSecret } }).expect(200);
+    expect((await storedBlock(SEED_TENANT_ID, key))[d.name][secret]).toBe(before);
+
+    // Empty string: 400, fixed sentence, nothing stored.
+    const empty = { provider: d.name, [d.name]: { ...withoutSecret[d.name], [secret]: '' } };
+    const bad = await patch(SEED_TENANT_ID, { communications: { [key]: empty } }).expect(400);
+    expect(JSON.stringify(bad.body)).toContain(
+      `${secret} must not be empty: leave it out to keep the saved value, or send null to clear it.`,
+    );
+    expect((await storedBlock(SEED_TENANT_ID, key))[d.name][secret]).toBe(before);
+
+    // null: cleared; masked as not configured and providers says not configured.
+    const cleared = { provider: d.name, [d.name]: { ...withoutSecret[d.name], [secret]: null } };
+    const res = await patch(SEED_TENANT_ID, { communications: { [key]: cleared } }).expect(200);
+    expect(res.body.communications[key][d.name][secret]).toEqual({ configured: false });
+    const after = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    expect(after[medium]?.configured).toBe(false);
+  });
+
+  it('an old flat PATCH on a sole-provider medium is accepted; a later nested PATCH keeps the secret', async () => {
+    const schema = (await providers(OTHER_TENANT_ID).expect(200))
+      .body as MessagingProvidersResponse;
+    const medium = Object.values(CommunicationMedium).find(
+      (m) => schema[m]?.providers.length === 1,
+    );
+    if (!medium) return; // no sole-provider medium registered: nothing to be compatible with
+    const d = schema[medium]!.providers[0];
+    const key = medium.toLowerCase();
+    const secret = d.fields.find((f) => f.kind === 'secret');
+    const flat = Object.fromEntries(
+      d.fields.map((f) => [
+        f.key,
+        f.kind === 'secret'
+          ? 'flat-secret-abcd'
+          : f.kind === 'url'
+            ? 'https://x.example.test'
+            : 'v',
+      ]),
+    );
+
+    await patch(OTHER_TENANT_ID, { communications: { [key]: flat } }).expect(200);
+    expect(Object.keys(await storedBlock(OTHER_TENANT_ID, key))).toContain(d.fields[0].key);
+
+    const nestedNoSecret = Object.fromEntries(
+      Object.entries(flat).filter(([k]) => k !== secret?.key),
+    );
+    await patch(OTHER_TENANT_ID, {
+      communications: { [key]: { [d.name]: nestedNoSecret } },
+    }).expect(200);
+    const block = await storedBlock(OTHER_TENANT_ID, key);
+    expect(Object.keys(block)).toEqual([d.name]);
+    if (secret) expect(isEncryptedEnvelope(block[d.name][secret.key])).toBe(true);
+  });
+
+  it('an unknown provider is a 400 that never echoes the submitted value', async () => {
+    const res = await patch(SEED_TENANT_ID, {
+      communications: { [CommunicationMedium.SMS.toLowerCase()]: { provider: 'EVIL-123' } },
+    }).expect(400);
+    expect(JSON.stringify(res.body)).not.toContain('EVIL-123');
+  });
+
+  it('metering outside SMS is refused (a tenant must not switch on platform keys)', async () => {
+    const schema = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    const { communications } = fullBody(schema);
+    const key = CommunicationMedium.WHATSAPP.toLowerCase();
+    if (!communications[key]) return;
+    await patch(SEED_TENANT_ID, {
+      communications: { [key]: { ...(communications[key] as object), metering: 'PLATFORM' } },
+    }).expect(400);
+  });
+
+  describe('access control and tenant isolation', () => {
+    it('missing X-Tenant-ID is 401', async () => {
+      await req('get', `/schools/${SEED_TENANT_ID}/settings/messaging/providers`, null).expect(401);
+    });
+
+    it('an invalid X-Tenant-ID is refused', async () => {
+      const res = await req(
+        'get',
+        `/schools/${SEED_TENANT_ID}/settings/messaging/providers`,
+        'not-a-uuid',
+      );
+      expect([400, 401, 403]).toContain(res.status);
+    });
+
+    it('a non-UUID :id is 400', async () => {
+      await providers(SEED_TENANT_ID, 'not-a-uuid').expect(400);
+    });
+
+    it("another tenant's ADMIN gets 403", async () => {
+      await providers(OTHER_TENANT_ID, SEED_TENANT_ID).expect(403);
+    });
+
+    it('a role without SETTINGS_MANAGE gets 403, ADMIN gets 200', async () => {
+      const url = `/schools/${SEED_TENANT_ID}/settings/messaging/providers`;
+      await req('get', url, SEED_TENANT_ID, UserRole.TEACHER).expect(403);
+      await req('get', url, SEED_TENANT_ID, UserRole.ADMIN).expect(200);
+    });
+  });
+});

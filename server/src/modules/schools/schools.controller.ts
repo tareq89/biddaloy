@@ -30,7 +30,10 @@ import { SchoolsService } from './schools.service';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { assertCanManageSchool } from './assert-can-manage-school.util';
 import { ListSchoolsQueryDto, SchoolListItemDto } from './dto/school-list-item.dto';
-import { TenantSettingsResponseDto } from './dto/school-settings-response.dto';
+import {
+  MessagingProvidersResponseDto,
+  TenantSettingsResponseDto,
+} from './dto/school-settings-response.dto';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
 import { ReviveSchoolDto } from './dto/revive-school.dto';
 import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
@@ -124,6 +127,26 @@ export class SchoolsController {
   ) {
     assertCanManageSchool(tenant, id);
     return this.schools.getMaskedSettings(id);
+  }
+
+  @Get(':id/settings/messaging/providers')
+  @RequirePermissions(Permission.SETTINGS_MANAGE)
+  @Throttle({ default: SETTINGS_RATE_LIMIT })
+  @ApiOperation({
+    summary:
+      'Per messaging channel: the available companies and their fields, the selected company and whether it is configured. Never returns a setting value.',
+  })
+  @ApiOkResponse({ type: MessagingProvidersResponseDto })
+  @ApiForbiddenResponse({
+    description:
+      'An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school.',
+  })
+  async getMessagingProviders(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    assertCanManageSchool(tenant, id);
+    return this.schools.getMessagingProviders(id);
   }
 
   @Patch(':id/settings')
