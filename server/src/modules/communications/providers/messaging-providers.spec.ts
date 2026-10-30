@@ -53,6 +53,15 @@ describe('MESSAGING_PROVIDERS', () => {
         },
       },
     });
+    const one = resolverFor({
+      version: 1,
+      communications: {
+        sms: {
+          provider: 'onecodesoft',
+          onecodesoft: { apiKey: 'k', senderId: 's', apiUrl: 'https://o.example/api' },
+        },
+      },
+    });
     const other = resolverFor({
       version: 1,
       communications: {
@@ -64,6 +73,7 @@ describe('MESSAGING_PROVIDERS', () => {
     });
     const resolved: Record<string, object> = {
       mimsms: (await mim.resolve(CommunicationMedium.SMS, 't1')).config,
+      onecodesoft: (await one.resolve(CommunicationMedium.SMS, 't3')).config,
       greenweb: (await other.resolve(CommunicationMedium.SMS, 't2')).config,
       'meta-cloud': (await other.resolve(CommunicationMedium.WHATSAPP, 't2')).config,
       smtp: (await other.resolve(CommunicationMedium.EMAIL, 't2')).config,
