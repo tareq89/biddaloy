@@ -21,9 +21,6 @@ const NO_DIALOG = '#3017: More-menu action opens no dialog, no (?) slot';
 /** A per-row control in a list; a (?) on every row is noise (D18), and no dialog opens. */
 const ROW_CONTROL = '#3063: per-row control, no dialog to hold the (?)';
 
-/** The guide declares a second id for an element that already carries one. */
-const SAME_ELEMENT = '#3017: same element as reports.printables.action.revoke';
-
 export const HELP_UNWIRED: Record<string, string> = {
   'start.signIn': PUBLIC,
   'start.signIn.action.submit': PUBLIC,
@@ -48,7 +45,6 @@ export const HELP_UNWIRED: Record<string, string> = {
   'people.students.action.printIdCard': NO_DIALOG,
 
   // 44.3.07-44.3.11
-  'administration.printTemplates.action.revoke': SAME_ELEMENT,
   'portal.notifications.action.close': ROW_CONTROL,
   'portal.notifications.action.snooze': ROW_CONTROL,
 

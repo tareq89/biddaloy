@@ -3484,19 +3484,6 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
-  'administration.printTemplates.action.revoke': {
-    title: {
-      bn: 'পরিচয়পত্র, সনদ ও পরীক্ষার কাগজ ছাপা',
-      en: 'Printing ID cards, certificates and exam papers',
-    },
-    summary: {
-      bn: 'তৈরি নকশা থেকে প্রিন্টের নকশা বানান, প্রকাশ করুন আর ডিফল্ট করুন; প্রিভিউ দেখে নিজের প্রিন্টারে ছাপুন; হারানো কার্ড বাতিল করলে তার কিউআর কোড আর বৈধ দেখায় না।',
-      en: 'Make a print design from a ready-made one, publish it and make it the default; check the preview and print on your own printer; when a card is lost and revoked, its QR code no longer shows as valid.',
-    },
-    path: 'administration/print-templates',
-    anchor: 'task-main',
-    knownIssues: 0,
-  },
   'administration.printTemplates.field.kind': {
     title: {
       bn: 'পরিচয়পত্র, সনদ ও পরীক্ষার কাগজ ছাপা',
