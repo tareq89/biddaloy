@@ -307,10 +307,11 @@ function SendMessageBody() {
             </div>
 
             {student !== null && (
-              <fieldset className="md:col-span-2">
+              // The group is named by the text span only, so the (?) stays out of its name.
+              <fieldset className="md:col-span-2" aria-labelledby="send-guardian-pick-label">
                 <legend className="mb-1.5 text-label text-text-primary">
                   <span className="inline-flex items-center gap-1">
-                    {t('send.guardianPickLabel')}
+                    <span id="send-guardian-pick-label">{t('send.guardianPickLabel')}</span>
                     <HelpHint helpId="communications.sendMessage.field.guardian" />
                   </span>
                 </legend>

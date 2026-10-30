@@ -72,6 +72,35 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     await expectHelp('examsResults.marksEntry.field.mark');
   });
 
+  it('shows the mark (?) once above the stepper on a phone [#3314]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    }));
+    try {
+      server.use(http.get(GRID_URL, () => HttpResponse.json(baseGrid)));
+      renderWithRouter(routeTree, {
+        initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+      await expectHelp('examsResults.marksEntry.field.mark');
+      expect(
+        document.querySelectorAll('[data-help-id="examsResults.marksEntry.field.mark"]'),
+      ).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('shows the save-state header and moves saving -> saved after a batch commits', async () => {
     const user = userEvent.setup();
     server.use(

@@ -133,23 +133,30 @@ function Field({
   className?: string;
   children: React.ReactNode;
 }) {
+  const labelEl = (
+    <Label htmlFor={id}>
+      {label}
+      {required && (
+        <>
+          <span className="text-destructive" aria-hidden="true">
+            {' '}
+            *
+          </span>
+          <span className="sr-only"> {requiredLabel}</span>
+        </>
+      )}
+    </Label>
+  );
   return (
     <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
-      <span className="inline-flex items-center gap-1">
-        <Label htmlFor={id}>
-          {label}
-          {required && (
-            <>
-              <span className="text-destructive" aria-hidden="true">
-                {' '}
-                *
-              </span>
-              <span className="sr-only"> {requiredLabel}</span>
-            </>
-          )}
-        </Label>
-        {helpId && <HelpHint helpId={helpId} />}
-      </span>
+      {helpId ? (
+        <span className="inline-flex items-center gap-1">
+          {labelEl}
+          <HelpHint helpId={helpId} />
+        </span>
+      ) : (
+        labelEl
+      )}
       {children}
       {help && <p className="text-caption text-text-secondary">{help}</p>}
       {error && <FieldError id={`${id}-error`}>{error}</FieldError>}

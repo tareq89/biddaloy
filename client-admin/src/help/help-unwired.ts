@@ -9,20 +9,20 @@
 export const PUBLIC = 'E11: public page, no shell';
 /** 44.3.x wave 3: the page has no slot for the (?) yet (no element to attach it to). */
 const PAGE_FIX = '#3017: page fix pending';
-/** The ui/ component has no helpId slot (DataTable row action or expand toggle, FilterBar field). */
-const UI_SLOT = '#3078: no helpId slot in ui/';
+/** A DataTable row action: no helpId slot there, and a (?) on every row is noise (D18). */
+const UI_SLOT = '#3316: DataTable row action, no helpId slot in ui/';
 
 /** A per-card radio group: one (?) per period card is noise, where the single (?) goes is open. */
 const PER_CARD = '#3313: per-period-card control, no single element for the (?)';
 
-/** A More-menu action that opens no dialog, so its (?) has nowhere to go (#3078 puts it on the dialog). */
-const NO_DIALOG = '#3232: More-menu action runs at once, no dialog, so no (?) here';
+/** A More-menu action that runs at once and opens no dialog to hold the (?). */
+const NO_DIALOG = '#3316: More-menu action runs at once, no dialog, so no (?) here';
 
 /** A per-row control in a list; a (?) on every row is noise (D18), and no dialog opens. */
-const ROW_CONTROL = '#3063: per-row control, no dialog to hold the (?)';
+const ROW_CONTROL = '#3316: per-row control, no dialog to hold the (?)';
 
 /** A report view tab (TabsTrigger); no (?) slot there yet. */
-const TAB_SLOT = '#3017: report view tab, no (?) slot in the tab trigger';
+const TAB_SLOT = '#3317: report view tab, no (?) slot in the tab trigger';
 
 export const HELP_UNWIRED: Record<string, string> = {
   'start.signIn': PUBLIC,
@@ -58,6 +58,4 @@ export const HELP_UNWIRED: Record<string, string> = {
 
   // Help text written, (?) not wired: needs a placement call
   'academics.myRoutine.field.lessonStatus': PER_CARD,
-  // Declared by the guide (#3076); the bulk wizard's message step has no route wiring yet
-  'communications.feeReminders.section.bulkMessage': PAGE_FIX,
 };

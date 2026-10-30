@@ -169,6 +169,20 @@ describe('/promotions/new', () => {
     await expectHelp('examsResults.promotion.field.algorithm');
   });
 
+  it('shows the target class (?) on the read-only graduate branch [#3314]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    stubBase({ suggestion: { target_class: null, retain_class: null, sections: [] } });
+    renderWithRouter(routeTree, {
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('Graduate (no target class)');
+    expect(screen.queryByRole('combobox', { name: 'Next class' })).toBeNull();
+    await expectHelp('examsResults.promotion.field.targetClass');
+  });
+
   it('only lists PUBLISHED exams, preselected', async () => {
     stubBase();
     renderWithRouter(routeTree, {

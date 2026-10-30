@@ -161,6 +161,8 @@ describe('/communications/send', () => {
     await expectHelp('communications.sendMessage.field.guardian');
     await expectHelp('communications.sendMessage.field.medium');
     await expectHelp('communications.sendMessage.field.message');
+    // [#3314] The (?) stays out of the guardian group's name.
+    expect(screen.getByRole('group', { name: 'Which guardian to send to' })).toBeTruthy();
   });
 
   it('keeps Send disabled until a guardian is picked', async () => {

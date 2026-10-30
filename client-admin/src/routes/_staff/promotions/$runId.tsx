@@ -687,9 +687,13 @@ function PromotionRunPage() {
                     <th className="h-10 px-4 text-start font-medium">
                       {t('grid.columnSuggested')}
                     </th>
-                    <th className="h-10 px-4 text-start font-medium">
+                    {/* aria-labelledby keeps the (?) out of the column header name. */}
+                    <th
+                      className="h-10 px-4 text-start font-medium"
+                      aria-labelledby="promotion-col-final"
+                    >
                       <span className="inline-flex items-center gap-1">
-                        {t('grid.columnFinal')}
+                        <span id="promotion-col-final">{t('grid.columnFinal')}</span>
                         <HelpHint helpId="examsResults.promotion.field.finalOutcome" />
                       </span>
                     </th>
@@ -699,9 +703,12 @@ function PromotionRunPage() {
                     <th className="h-10 px-4 text-start font-medium">
                       {t('grid.columnPlacement')}
                     </th>
-                    <th className="h-10 min-w-40 px-4 text-start font-medium">
+                    <th
+                      className="h-10 min-w-40 px-4 text-start font-medium"
+                      aria-labelledby="promotion-col-note"
+                    >
                       <span className="inline-flex items-center gap-1">
-                        {t('grid.columnOverrideNote')}
+                        <span id="promotion-col-note">{t('grid.columnOverrideNote')}</span>
                         <HelpHint helpId="examsResults.promotion.field.overrideNote" />
                       </span>
                     </th>

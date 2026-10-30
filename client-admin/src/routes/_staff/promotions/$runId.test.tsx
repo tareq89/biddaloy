@@ -194,6 +194,8 @@ describe('/promotions/$runId', () => {
     await screen.findByLabelText('Final decision');
     await expectHelp('examsResults.promotion.field.finalOutcome');
     await expectHelp('examsResults.promotion.field.overrideNote');
+    // [#3314] The (?) stays out of the column header names.
+    expect(screen.getByRole('columnheader', { name: 'Final decision' })).toBeTruthy();
   });
 
   it('R on a promoted row marks the override and focuses the note; clearing the note shows the error', async () => {
@@ -696,6 +698,7 @@ describe('/promotions/$runId', () => {
   });
 
   it('on a phone the decision is a radio group and the stepper buttons are named', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: true,
       media: query,
@@ -718,6 +721,9 @@ describe('/promotions/$runId', () => {
       const group = await screen.findByRole('radiogroup', { name: 'Final decision' });
       expect(within(group).getAllByRole('radio')).toHaveLength(3);
       expect(screen.getByRole('button', { name: 'Previous student' })).toBeTruthy();
+      // [#3314] The phone card carries the same two (?) as the desktop header.
+      await expectHelp('examsResults.promotion.field.finalOutcome');
+      await expectHelp('examsResults.promotion.field.overrideNote');
       expect(screen.getByRole('button', { name: 'Next student' })).toBeTruthy();
     } finally {
       vi.unstubAllGlobals();

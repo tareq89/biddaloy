@@ -57,6 +57,7 @@ describe('/attendance/reports', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await cleanupTestState();
   });
 
