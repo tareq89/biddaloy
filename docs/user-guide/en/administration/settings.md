@@ -216,7 +216,7 @@ See: [**Dashboard**](../dashboard/dashboard.md).
 
 The box **What happens with these settings** at the top shows the current rules in plain words.
 
-**Homework.** Two checkboxes; both are off until you turn them on: **Text guardians when homework is assigned** and **Text guardians when homework is not submitted**. See: [**Homework**](../academics/homework.md).
+**Homework.** Two checkboxes; both are off until you turn them on: **Text guardians when homework is assigned or changed** (a new homework, and later a moved due date, a withdrawn row or a hand-over to another section or student) and **Text guardians when homework is not submitted**. See: [**Homework**](../academics/homework.md).
 
 **Applications.** **Tell guardians the decision by SMS** — only the final decision (approved or rejected). The in-app notice always goes. See: [**Applications**](../applications/applications.md).
 

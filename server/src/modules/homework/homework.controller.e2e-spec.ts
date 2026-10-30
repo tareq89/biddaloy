@@ -885,6 +885,8 @@ describe('Homework E2E', () => {
           due_date: '2026-01-08',
         });
         expect(again.status).toBe(409);
+        // The screen shows its own sentence for this code (no echo of the target).
+        expect(again.body.details).toEqual({ code: 'HOMEWORK_TARGET_TAKEN' });
         expect(await rows(h)).toHaveLength(1);
 
         // Deactivate the first, assign the target again, then reactivating the first would
@@ -893,6 +895,7 @@ describe('Homework E2E', () => {
         await assignRow(h, { section_id: MAPPED_SECTION_ID });
         const revive = await patch(first, { status: 'ACTIVE' });
         expect(revive.status).toBe(409);
+        expect(revive.body.details).toEqual({ code: 'HOMEWORK_TARGET_TAKEN' });
         expect((await rows(h)).filter((r) => r.status === 'ACTIVE')).toHaveLength(1);
       }, 20000); // ten requests, each with its own login
     });

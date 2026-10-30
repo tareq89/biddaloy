@@ -179,6 +179,51 @@ describe('/academics/homework/$homeworkId', () => {
     expect(screen.queryByText('internal backend detail')).toBeNull();
   });
 
+  it('#3172 a 409 HOMEWORK_TARGET_TAKEN on assign shows its own sentence', async () => {
+    const klass = classFactory({ id: 'class-1', name: 'Class 6' });
+    const section = classSectionFactory({ id: 'section-1', section_name: 'A', class: klass });
+
+    server.use(
+      http.get('/api/v1/homework/:id', () => HttpResponse.json(homework)),
+      assignmentsHandler(),
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([section])),
+      http.get('/api/v1/subjects', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.post('/api/v1/homework/:id/assign', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(409, 'This homework is already assigned to that target', '/x'),
+            details: { code: 'HOMEWORK_TARGET_TAKEN' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/academics/homework/hw-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Assign to section or student' }));
+    await screen.findByRole('dialog');
+    await user.click(screen.getByRole('combobox', { name: /^Section/ }));
+    await user.click(await screen.findByRole('option', { name: section.section_name }));
+    await user.click(screen.getByRole('button', { name: 'Assign' }));
+
+    expect(
+      await screen.findByText(
+        'This homework is already assigned to that section or student. Pick another one, or change the row that is already there.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText('Something went wrong. Please try again.')).toBeNull();
+  });
+
   const renderAdmin = () =>
     renderWithRouter(routeTree, {
       initialEntries: ['/academics/homework/hw-1'],

@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Not, Repository, SelectQueryBuilder } from 'typeorm';
 import { HomeworkAssignmentStatus } from '@biddaloy/shared';
@@ -13,6 +7,7 @@ import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkAccessService } from './homework-access.service';
 import { teacherAssignments, type TeacherAssignmentRow } from '../classes/teacher-scope.service';
 import { HomeworkNoticeService } from './homework-notice.service';
+import { homeworkTargetTaken } from '../../common/filters/known-errors';
 import { HomeworkToCheckDto } from './dto/homework-dashboard.dto';
 import { attentionEvents } from '../attention/attention.constants';
 import { emitRecheck } from '../attention/engine/attention-events';
@@ -95,7 +90,7 @@ export class HomeworkService {
         ...(exceptId ? { id: Not(exceptId) } : {}),
       },
     });
-    if (live) throw new ConflictException('This homework is already assigned to that target');
+    if (live) throw homeworkTargetTaken();
   }
 
   /** Shared by assign + reassign: exactly-one-target shape (D24), due_date
