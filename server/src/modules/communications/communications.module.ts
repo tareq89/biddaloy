@@ -15,9 +15,11 @@ import { SingleReminderService } from './single-reminder.service';
 import { CommunicationsController } from './communications.controller';
 import { CommunicationsProcessor } from './worker/communications.processor';
 import { CommunicationProviderRegistryService } from './providers/communication-provider.registry';
-import { SmsProviderFactory } from './providers/sms/sms-provider.factory';
 import { MESSAGING_PROVIDERS } from './providers/messaging-providers';
-import { TenantProviderConfigResolver } from './config/tenant-provider-config.resolver';
+import {
+  MessagingConfigResolver,
+  MESSAGING_PROVIDER_INSTANCES,
+} from './config/messaging-config.resolver';
 import { ConnectionTestService } from './testing/connection-test.service';
 import { ProviderConnectionTestController } from './testing/provider-connection-test.controller';
 import {
@@ -87,9 +89,13 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     SingleReminderService,
     CommunicationsProcessor,
     CommunicationProviderRegistryService,
-    TenantProviderConfigResolver,
-    SmsProviderFactory,
+    MessagingConfigResolver,
     ...MESSAGING_PROVIDERS,
+    {
+      provide: MESSAGING_PROVIDER_INSTANCES,
+      useFactory: (...providers: unknown[]) => providers,
+      inject: [...MESSAGING_PROVIDERS],
+    },
     ConnectionTestService,
     FeeNotificationsListener,
     InvoiceNotificationsListener,

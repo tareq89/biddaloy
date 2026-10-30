@@ -11,10 +11,14 @@ import { isValidGraphApiId, isValidGraphApiVersion } from '../shared/graph-api-p
 import { mapMetaGraphError } from '../shared/meta-graph-error.util';
 import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
 import { DEFAULT_WHATSAPP_TEMPLATE_LANGUAGE } from '../../whatsapp-template.util';
-import {
-  ResolvedWhatsAppConfig,
-  TenantProviderConfigResolver,
-} from '../../config/tenant-provider-config.resolver';
+
+export interface ResolvedWhatsAppConfig {
+  phoneNumberId: string;
+  accessToken: string;
+  apiVersion?: string;
+}
+
+const DEFAULT_API_VERSION = 'v21.0';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -65,37 +69,20 @@ export class MetaCloudProvider extends MessagingProvider<ResolvedWhatsAppConfig>
   };
   readonly envPrefix = 'WHATSAPP';
 
-  constructor(private readonly configResolver: TenantProviderConfigResolver) {
-    super();
-  }
-
-  /** W1 bridge so the registry keeps its (params, tenantId) signature. #3298 deletes it. */
-  async sendForTenant(
-    params: CommunicationSendParams,
-    tenantId: string,
-  ): Promise<CommunicationSendResult> {
-    let config: ResolvedWhatsAppConfig;
-    try {
-      config = await this.configResolver.resolveWhatsApp(tenantId);
-    } catch (err) {
-      // Same result today's single catch produced for a resolver failure.
-      return {
-        success: false,
-        providerMessageId: null,
-        error: err instanceof Error ? err.message : String(err),
-        retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
-        outcome: err instanceof ProviderNotConfiguredError ? 'REJECTED' : 'AMBIGUOUS',
-      };
-    }
-    return this.send(params, config);
-  }
-
   async send(
     params: CommunicationSendParams,
     config: ResolvedWhatsAppConfig,
   ): Promise<CommunicationSendResult> {
     try {
-      const { phoneNumberId, accessToken, apiVersion } = config;
+      const { phoneNumberId, accessToken } = config;
+      const apiVersion = config.apiVersion ?? DEFAULT_API_VERSION;
+      // #3315: these go straight into the URL path; a stored/overridden value must be a real Graph shape.
+      if (!isValidGraphApiId(phoneNumberId) || !isValidGraphApiVersion(apiVersion)) {
+        throw new ProviderNotConfiguredError(
+          'WhatsApp',
+          'Phone number ID or API version is not a valid Graph API value.',
+        );
+      }
       const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
       const to = normalizeBdPhoneNumber(params.to);
 
@@ -185,11 +172,12 @@ export class MetaCloudProvider extends MessagingProvider<ResolvedWhatsAppConfig>
     if (!isValidGraphApiId(config.phoneNumberId)) {
       return { success: false, message: 'Phone number ID is not a valid WhatsApp identifier.' };
     }
-    if (!isValidGraphApiVersion(config.apiVersion)) {
+    const apiVersion = config.apiVersion ?? DEFAULT_API_VERSION;
+    if (!isValidGraphApiVersion(apiVersion)) {
       return { success: false, message: 'API version is not a valid Graph API version.' };
     }
     try {
-      const url = `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}?fields=id`;
+      const url = `https://graph.facebook.com/${apiVersion}/${config.phoneNumberId}?fields=id`;
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${config.accessToken}` },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),

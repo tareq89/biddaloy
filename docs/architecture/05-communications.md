@@ -48,7 +48,7 @@ shipped instead:
 
 - **SMS** — **Greenweb** and **Mim SMS**, two Bangladeshi SMS gateways
   (`providers/sms/greenweb.provider.ts`, `.../mimsms.provider.ts`),
-  selected per-tenant via `sms-provider.factory.ts`. Twilio's per-message
+  selected per-tenant by `MessagingConfigResolver` (`config/messaging-config.resolver.ts`). Twilio's per-message
   pricing and lack of local carrier relationships make it a poor fit for a
   Bangladesh-market product; local gateways are both cheaper and more
   reliable for BD phone numbers.

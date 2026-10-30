@@ -139,12 +139,7 @@ describe('CommunicationsProcessor', () => {
   // mailpit-sink. Wires the real registry + MailpitSinkProvider, so no gateway can be reached.
   it('in MESSAGE_SINK=mailpit settles the log SENT through the mailpit-sink provider', async () => {
     vi.stubEnv('MESSAGE_SINK', 'mailpit');
-    const registry = new CommunicationProviderRegistryService(
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
+    const registry = new CommunicationProviderRegistryService({} as any);
     processor = new CommunicationsProcessor(
       repo as any,
       guardianRepo as any,

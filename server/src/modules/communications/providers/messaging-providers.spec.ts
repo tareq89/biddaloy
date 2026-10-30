@@ -1,19 +1,20 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi } from 'vitest';
-import type { TenantSettings } from '@biddaloy/shared';
+import { CommunicationMedium, type TenantSettings } from '@biddaloy/shared';
 import { CommunicationsModule } from '../communications.module';
 import { MessagingProvider } from './messaging-provider';
 import { MESSAGING_PROVIDERS } from './messaging-providers';
-import { TenantProviderConfigResolver } from '../config/tenant-provider-config.resolver';
+import { MessagingConfigResolver } from '../config/messaging-config.resolver';
 
 const build = (P: (typeof MESSAGING_PROVIDERS)[number]) =>
   new (P as unknown as new (r: unknown) => MessagingProvider<unknown>)({});
 
 function resolverFor(settings: TenantSettings) {
-  return new TenantProviderConfigResolver(
+  return new MessagingConfigResolver(
     { getDecryptedSettings: vi.fn().mockResolvedValue(settings) } as any,
     { getOrLoad: vi.fn((_id: string, load: () => Promise<unknown>) => load()) } as any,
     { get: vi.fn() } as any,
+    MESSAGING_PROVIDERS.map((P) => build(P)),
   );
 }
 
@@ -62,17 +63,15 @@ describe('MESSAGING_PROVIDERS', () => {
       },
     });
     const resolved: Record<string, object> = {
-      mimsms: await mim.resolveSms('t1'),
-      greenweb: await other.resolveSms('t2'),
-      'meta-cloud': await other.resolveWhatsApp('t2'),
-      smtp: await other.resolveEmail('t2'),
-      'meta-page': await other.resolveMessenger('t2'),
+      mimsms: (await mim.resolve(CommunicationMedium.SMS, 't1')).config,
+      greenweb: (await other.resolve(CommunicationMedium.SMS, 't2')).config,
+      'meta-cloud': (await other.resolve(CommunicationMedium.WHATSAPP, 't2')).config,
+      smtp: (await other.resolve(CommunicationMedium.EMAIL, 't2')).config,
+      'meta-page': (await other.resolve(CommunicationMedium.MESSENGER, 't2')).config,
     };
     for (const P of MESSAGING_PROVIDERS) {
       const { name, fields } = build(P).descriptor;
-      const keys = Object.keys(resolved[name])
-        .filter((k) => k !== 'gateway')
-        .sort();
+      const keys = Object.keys(resolved[name]).sort();
       expect(keys, name).toEqual(fields.map((f) => f.key).sort());
     }
     const secrets = new Set(

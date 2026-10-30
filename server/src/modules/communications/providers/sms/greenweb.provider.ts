@@ -13,15 +13,20 @@ import {
   OutboundDestinationError,
 } from '../shared/outbound-destination-guard';
 import { fetchPinnedJson } from '../shared/pinned-http';
-import { ResolvedGreenwebSmsConfig } from '../../config/tenant-provider-config.resolver';
+export interface ResolvedGreenwebSmsConfig {
+  apiKey: string;
+  apiUrl?: string;
+  /** Ignored; callers written before the generic resolver still pass it. */
+  gateway?: string;
+}
 
 const DEFAULT_BASE_URL = 'https://api.greenweb.com.bd/api.php';
 const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * Greenweb BD SMS gateway. GET-based REST API, keyed by an account token.
- * `config` is resolved per tenant by `TenantProviderConfigResolver` and
- * passed in by `SmsProviderFactory` — this gateway no longer reads
+ * `config` is resolved per tenant by `MessagingConfigResolver` and
+ * passed in by the registry — this gateway no longer reads
  * `ConfigService` itself (#8.7.10).
  */
 @Injectable()
@@ -54,16 +59,16 @@ export class GreenwebProvider extends MessagingProvider<ResolvedGreenwebSmsConfi
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
       const destination = await assertSafeHttpDestination(baseUrl);
-      const params = new URLSearchParams({
+      const query = new URLSearchParams({
         token: config.apiKey,
         to: normalizeBdPhoneNumber(to),
         message,
       });
       if (segmentInfo.encoding === 'UCS_2') {
-        params.set('unicode', '1');
+        query.set('unicode', '1');
       }
 
-      const data = (await fetchPinnedJson(destination, `${baseUrl}?${params.toString()}`, {
+      const data = (await fetchPinnedJson(destination, `${baseUrl}?${query.toString()}`, {
         method: 'GET',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       })) as Record<string, any>;

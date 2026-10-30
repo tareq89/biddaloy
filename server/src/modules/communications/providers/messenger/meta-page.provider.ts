@@ -8,11 +8,11 @@ import { MessagingProvider } from '../messaging-provider';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import { isValidGraphApiId } from '../shared/graph-api-path-segment.util';
 import { mapMetaGraphError } from '../shared/meta-graph-error.util';
-import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
-import {
-  ResolvedMessengerConfig,
-  TenantProviderConfigResolver,
-} from '../../config/tenant-provider-config.resolver';
+
+export interface ResolvedMessengerConfig {
+  pageId: string;
+  accessToken: string;
+}
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -58,30 +58,6 @@ export class MetaPageProvider extends MessagingProvider<ResolvedMessengerConfig>
     supportsTestMessage: false,
   };
   readonly envPrefix = 'MESSENGER';
-
-  constructor(private readonly configResolver: TenantProviderConfigResolver) {
-    super();
-  }
-
-  /** W1 bridge so the registry keeps its (params, tenantId) signature. #3298 deletes it. */
-  async sendForTenant(
-    params: CommunicationSendParams,
-    tenantId: string,
-  ): Promise<CommunicationSendResult> {
-    let config: ResolvedMessengerConfig;
-    try {
-      config = await this.configResolver.resolveMessenger(tenantId);
-    } catch (err) {
-      return {
-        success: false,
-        providerMessageId: null,
-        error: err instanceof Error ? err.message : String(err),
-        retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
-        outcome: err instanceof ProviderNotConfiguredError ? 'REJECTED' : 'AMBIGUOUS',
-      };
-    }
-    return this.send(params, config);
-  }
 
   async send(
     _params: CommunicationSendParams,

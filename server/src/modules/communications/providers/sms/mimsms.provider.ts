@@ -12,7 +12,13 @@ import {
   DestinationBlockedError,
 } from '../shared/outbound-destination-guard';
 import { fetchPinnedJson } from '../shared/pinned-http';
-import { ResolvedMimSmsConfig } from '../../config/tenant-provider-config.resolver';
+export interface ResolvedMimSmsConfig {
+  apiKey: string;
+  senderId: string;
+  apiUrl?: string;
+  /** Ignored; callers written before the generic resolver still pass it. */
+  gateway?: string;
+}
 
 const DEFAULT_BASE_URL = 'https://api.mimsms.com/api/SmsSending/SMS';
 // MimSMS's balance-check endpoint, a different path under the same host —
@@ -23,8 +29,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * MimSMS BD gateway. POST-JSON REST API, keyed by api_key + senderid.
- * `config` is resolved per tenant by `TenantProviderConfigResolver` and
- * passed in by `SmsProviderFactory` — this gateway no longer reads
+ * `config` is resolved per tenant by `MessagingConfigResolver` and
+ * passed in by the registry — this gateway no longer reads
  * `ConfigService` itself (#8.7.10).
  */
 @Injectable()

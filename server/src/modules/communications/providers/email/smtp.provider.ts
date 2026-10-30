@@ -14,13 +14,32 @@ import {
   SafeSmtpDestination,
 } from '../shared/outbound-destination-guard';
 import { ProviderNotConfiguredError } from '../../config/provider-not-configured.error';
-import {
-  ResolvedEmailConfig,
-  TenantProviderConfigResolver,
-} from '../../config/tenant-provider-config.resolver';
+
+/** `port` arrives as a string from the generic resolver (or a number from older callers). */
+export interface ResolvedEmailConfig {
+  host: string;
+  port: string | number;
+  user: string;
+  password: string;
+  from: string;
+}
+
+const DEFAULT_SMTP_PORT = 587;
+
+/** Digits only, 1-65535; anything else is a definite config error (never reaches the network). */
+function parsePort(raw: string | number | undefined): number {
+  const port = raw === undefined || raw === '' ? DEFAULT_SMTP_PORT : Number(raw);
+  if (!/^\d+$/.test(String(raw ?? DEFAULT_SMTP_PORT)) || port < 1 || port > 65535) {
+    throw new ProviderNotConfiguredError(
+      'Email',
+      'SMTP port must be an integer between 1 and 65535.',
+    );
+  }
+  return port;
+}
 
 function mapSmtpError(err: unknown): string {
-  if (err instanceof OutboundDestinationError) {
+  if (err instanceof ProviderNotConfiguredError || err instanceof OutboundDestinationError) {
     return err.message;
   }
   const code = (err as { code?: string } | null)?.code;
@@ -100,7 +119,8 @@ export class SmtpProvider extends MessagingProvider<ResolvedEmailConfig> {
         kind: 'text',
         required: true,
       },
-      { key: 'port', label: { en: 'Port', bn: 'পোর্ট' }, kind: 'text', required: true },
+      // Optional: parsePort defaults 587. Still destination-owned (see MessagingConfigResolver).
+      { key: 'port', label: { en: 'Port', bn: 'পোর্ট' }, kind: 'text', required: false },
       {
         key: 'user',
         label: { en: 'Server username', bn: 'সার্ভারের ব্যবহারকারীর নাম' },
@@ -124,38 +144,13 @@ export class SmtpProvider extends MessagingProvider<ResolvedEmailConfig> {
   };
   readonly envPrefix = 'SMTP';
 
-  constructor(private readonly configResolver: TenantProviderConfigResolver) {
-    super();
-  }
-
-  /** W1 bridge so the registry keeps its (params, tenantId) signature. #3298 deletes it. */
-  async sendForTenant(
-    params: CommunicationSendParams,
-    tenantId: string | null,
-  ): Promise<CommunicationSendResult> {
-    let config: ResolvedEmailConfig;
-    try {
-      config = await this.configResolver.resolveEmail(tenantId);
-    } catch (err) {
-      const isDefinitelyRejected =
-        err instanceof ProviderNotConfiguredError || err instanceof DestinationBlockedError;
-      return {
-        success: false,
-        providerMessageId: null,
-        error: err instanceof Error ? err.message : String(err),
-        retryable: isDefinitelyRejected ? false : undefined,
-        outcome: isDefinitelyRejected ? 'REJECTED' : 'AMBIGUOUS',
-      };
-    }
-    return this.send(params, config);
-  }
-
   async send(
     params: CommunicationSendParams,
     config: ResolvedEmailConfig,
   ): Promise<CommunicationSendResult> {
     try {
-      const { host, port, user, password, from } = config;
+      const { host, user, password, from } = config;
+      const port = parsePort(config.port);
       const destination = await assertSafeSmtpDestination(host, port);
       const info = await withPinnedAddressFallback(
         destination,
@@ -206,14 +201,15 @@ export class SmtpProvider extends MessagingProvider<ResolvedEmailConfig> {
    */
   async testConnection(config: ResolvedEmailConfig): Promise<ConnectionTestResult> {
     try {
-      const destination = await assertSafeSmtpDestination(config.host, config.port);
+      const port = parsePort(config.port);
+      const destination = await assertSafeSmtpDestination(config.host, port);
       await withPinnedAddressFallback(
         destination,
         (pinnedHost) =>
           nodemailer.createTransport({
             host: pinnedHost,
-            port: config.port,
-            secure: config.port === 465,
+            port,
+            secure: port === 465,
             auth: { user: config.user, pass: config.password },
             ...(destination.servername ? { tls: { servername: destination.servername } } : {}),
           }),

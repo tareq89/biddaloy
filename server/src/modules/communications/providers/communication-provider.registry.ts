@@ -1,57 +1,56 @@
 import { Injectable } from '@nestjs/common';
 import { CommunicationMedium } from '@biddaloy/shared';
+import { CommunicationProvider } from './communication-provider.interface';
 import {
-  CommunicationProvider,
-  CommunicationProviderRegistry,
-} from './communication-provider.interface';
-import { SmsProviderFactory } from './sms/sms-provider.factory';
-import { MetaCloudProvider } from './whatsapp/meta-cloud.provider';
-import { SmtpProvider } from './email/smtp.provider';
-import { MetaPageProvider } from './messenger/meta-page.provider';
+  MessagingConfigResolver,
+  ResolveOptions,
+  ResolvedMessaging,
+} from '../config/messaging-config.resolver';
 import { MailpitSinkProvider } from './sink/mailpit-sink.provider';
 import { isMessageSink } from './sink/message-sink';
+import { failedResult, sendThroughProvider } from './send-through-provider';
+
+const MEDIA = [
+  CommunicationMedium.SMS,
+  CommunicationMedium.WHATSAPP,
+  CommunicationMedium.EMAIL,
+  CommunicationMedium.MESSENGER,
+];
 
 /**
- * Maps CommunicationMedium -> the provider that handles it. This is the
- * only place CommunicationsProcessor needs to route through, so adding a
- * new channel later means registering it here, not touching the processor.
+ * CommunicationMedium -> the provider the tenant chose for it. Resolution is per send, per tenant,
+ * by `MessagingConfigResolver`; adding a vendor is one line in `MESSAGING_PROVIDERS`.
  */
 @Injectable()
 export class CommunicationProviderRegistryService {
-  private readonly registry: CommunicationProviderRegistry;
+  constructor(private readonly resolver: MessagingConfigResolver) {}
 
-  constructor(
-    smsProviderFactory: SmsProviderFactory,
-    whatsAppCloudProvider: MetaCloudProvider,
-    smtpEmailProvider: SmtpProvider,
-    messengerProvider: MetaPageProvider,
-  ) {
-    // Epic 87: with MESSAGE_SINK=mailpit every medium goes to the Mailpit test inbox. Checked
-    // here, before any tenant/env provider config is read, so the resolver can never throw "unconfigured".
-    if (isMessageSink()) {
-      this.registry = Object.fromEntries(
-        [
-          CommunicationMedium.SMS,
-          CommunicationMedium.WHATSAPP,
-          CommunicationMedium.EMAIL,
-          CommunicationMedium.MESSENGER,
-        ].map((medium) => [medium, MailpitSinkProvider.forMedium(medium)]),
-      );
-      return;
-    }
-    this.registry = {
-      [CommunicationMedium.SMS]: smsProviderFactory,
-      [CommunicationMedium.WHATSAPP]: {
-        send: (p, t) => whatsAppCloudProvider.sendForTenant(p, t as string),
-      },
-      [CommunicationMedium.EMAIL]: { send: (p, t) => smtpEmailProvider.sendForTenant(p, t) },
-      [CommunicationMedium.MESSENGER]: {
-        send: (p, t) => messengerProvider.sendForTenant(p, t as string),
-      },
-    };
+  /** The tenant's chosen provider and its resolved config (connection test, readiness). */
+  resolveFor(
+    medium: CommunicationMedium,
+    tenantId: string | null,
+    opts?: ResolveOptions,
+  ): Promise<ResolvedMessaging> {
+    return this.resolver.resolve(medium, tenantId, opts);
   }
 
+  /** `send(params, tenantId)` resolves the tenant's provider, then sends. Never throws. */
   resolve(medium: CommunicationMedium): CommunicationProvider | undefined {
-    return this.registry[medium];
+    if (!MEDIA.includes(medium)) return undefined;
+    // Epic 87 (D9): MESSAGE_SINK=mailpit sends every medium to the test inbox, before any config is read.
+    if (isMessageSink()) return MailpitSinkProvider.forMedium(medium);
+    return {
+      send: async (params, tenantId) => {
+        let resolved: ResolvedMessaging;
+        try {
+          resolved = await this.resolver.resolve(medium, tenantId, {
+            allowPlatformKeys: params.allowPlatformSms === true,
+          });
+        } catch (err) {
+          return failedResult(err, medium, params);
+        }
+        return sendThroughProvider(resolved.provider, params, resolved.config);
+      },
+    };
   }
 }

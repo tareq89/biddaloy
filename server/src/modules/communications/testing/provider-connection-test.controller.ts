@@ -36,7 +36,7 @@ import { ConnectionTestResultDto } from './connection-test-result.dto';
  * `SchoolsController`'s settings endpoints (#8.7.9). `SchoolsModule`
  * already can't import `CommunicationsModule` back (it would be
  * circular — `CommunicationsModule` imports `SchoolsModule` for
- * `TenantProviderConfigResolver`'s dependencies since #8.7.10), so the
+ * `MessagingConfigResolver`'s dependencies since #8.7.10), so the
  * controller has to live on this side.
  */
 @ApiTags('schools')
