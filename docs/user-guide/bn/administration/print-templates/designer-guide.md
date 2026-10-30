@@ -13,7 +13,7 @@ labels:
     printEditor:fields.*,
     printEditor:help.*,
   ]
-helpIds: []
+helpIds: [administration.printDesignerGuide]
 devices: [desktop]
 entry: []
 keywords:

@@ -4307,6 +4307,16 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'dashboard.widgets': {
+    title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
+    summary: {
+      bn: 'ড্যাশবোর্ডের প্রতিটি উইজেট কী বলে, সংখ্যাটি কোথা থেকে আসে, আর দেখে কী করবেন।',
+      en: 'What each dashboard widget says, where its number comes from, and what to do after you read it.',
+    },
+    path: 'dashboard/widgets',
+    anchor: '',
+    knownIssues: 0,
+  },
   'widget.attendance-today': {
     title: { bn: 'উইজেটগুলোর মানে বোঝা', en: 'What the widgets mean' },
     summary: {
@@ -4714,6 +4724,56 @@ export const HELP_INDEX: HelpIndex = {
       en: 'See the alerts you need to act on, finish the work or ask to be reminded later, and choose which alerts push to you.',
     },
     path: 'dashboard/alerts',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'administration.printDesignerGuide': {
+    title: { bn: 'ডিজাইনারের গাইড', en: "Designer's guide" },
+    summary: {
+      bn: 'ডিজাইন কিট নিন, ডিজাইনারকে পাঠান, আঁকা SVG ইমপোর্ট করুন, ঘরগুলো দেখে নিন আর প্রকাশ করুন।',
+      en: 'Get the design kit, send it to a designer, import the drawn SVG, check the fields and publish.',
+    },
+    path: 'administration/print-templates/designer-guide',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'administration.printPrinters': {
+    title: { bn: 'প্রিন্টার ও ক্যালিব্রেশন', en: 'Printers and calibration' },
+    summary: {
+      bn: 'প্রিন্টার আর কাগজের মাপ যোগ করুন, মাপার পাতা ছাপুন, আর সরানো ঠিক করুন যেন ছাপা ঠিক কার্ডের ওপর পড়ে।',
+      en: 'Add a printer and its paper size, print the measuring page and fix the offset so the print lands exactly on the card.',
+    },
+    path: 'administration/print-templates/printers-and-calibration',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'administration.printIdCards': {
+    title: { bn: 'আইডি কার্ড ছাপা', en: 'Printing ID cards' },
+    summary: {
+      bn: 'একজন, কয়েকজন বা পুরো শাখার আইডি কার্ড ছাপুন; হারানো কার্ড বাতিল করলে তার কিউআর আর বৈধ দেখায় না।',
+      en: 'Print ID cards for one student or staff member, a few people or a whole section; revoke a lost card so its QR no longer shows as valid.',
+    },
+    path: 'administration/print-templates/id-cards',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'administration.printExamDocuments': {
+    title: { bn: 'পরীক্ষার কাগজপত্র ছাপা', en: 'Printing exam documents' },
+    summary: {
+      bn: 'পরীক্ষার প্রবেশপত্র, সিট স্লিপ, নম্বরপত্র ও ফলাফলের কাগজ এক এক করে বা ব্যাচে ছাপুন।',
+      en: 'Print admit cards, seat slips, mark sheets and result documents for an exam, one at a time or in batches.',
+    },
+    path: 'administration/print-templates/exam-documents',
+    anchor: '',
+    knownIssues: 0,
+  },
+  'administration.printCertificates': {
+    title: { bn: 'সনদ দেওয়া', en: 'Issuing certificates' },
+    summary: {
+      bn: 'ক্রমিক নম্বরসহ শিক্ষার্থীর সনদ দিন, ডুপ্লিকেট হিসেবে আবার ছাপুন, আর বাতিল করলে কিউআর চেকে বাতিল দেখায়।',
+      en: 'Issue a student certificate with its own serial number, reprint it as a duplicate, and revoke it so the QR check shows revoked.',
+    },
+    path: 'administration/print-templates/certificates',
     anchor: '',
     knownIssues: 0,
   },

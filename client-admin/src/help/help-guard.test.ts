@@ -16,15 +16,8 @@ import { readMeta } from './guide-gen/help-index';
 import { HELP_GAPS, HELP_INDEX } from './help-index.gen';
 import { HELP_UNWIRED, PUBLIC } from './help-unwired';
 
-/** Guide pages whose feature id is not in their own helpIds yet (gap for #3017); shrink, never grow. */
-const NO_PAGE_ENTRY_YET = new Set([
-  'dashboard.widgets',
-  'administration.printDesignerGuide',
-  'administration.printPrinters',
-  'administration.printIdCards',
-  'administration.printExamDocuments',
-  'administration.printCertificates',
-]);
+/** Guide pages whose feature id is not in their own helpIds yet; shrink, never grow. */
+const NO_PAGE_ENTRY_YET = new Set<string>();
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const features = JSON.parse(

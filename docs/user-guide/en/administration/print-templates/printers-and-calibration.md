@@ -12,7 +12,7 @@ labels:
   [
     printPreview:*,
   ]
-helpIds: []
+helpIds: [administration.printPrinters]
 devices: [desktop]
 entry: []
 keywords:

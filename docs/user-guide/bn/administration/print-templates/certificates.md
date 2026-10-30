@@ -15,7 +15,7 @@ labels:
     printHistory:revoke.*,
     verify:*,
   ]
-helpIds: []
+helpIds: [administration.printCertificates]
 devices: [desktop]
 entry: []
 keywords:

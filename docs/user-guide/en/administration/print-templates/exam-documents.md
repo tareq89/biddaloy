@@ -12,7 +12,7 @@ labels:
     examDocuments:help.*,
     printPreview:*,
   ]
-helpIds: []
+helpIds: [administration.printExamDocuments]
 devices: [desktop]
 entry: []
 keywords:
