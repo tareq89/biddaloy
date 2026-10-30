@@ -2,6 +2,7 @@ import { CommunicationStatus } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  ErrorState,
   Form,
   FormControl,
   FormDescription,
@@ -15,6 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Skeleton,
   StatusBadge,
 } from '@biddaloy/ui/components';
 import {
@@ -91,8 +93,33 @@ interface ProviderConfigFormProps {
 
 /** Settings › Communication card for one medium, drawn from the server's company schema. */
 export function ProviderConfigForm(props: ProviderConfigFormProps) {
-  const { data } = useMessagingProviders(props.schoolId);
-  const entry = data?.[props.medium];
+  const { t } = useTranslation('settings');
+  const query = useMessagingProviders(props.schoolId);
+  const entry = query.data?.[props.medium];
+  if (query.isError || query.isPending) {
+    return (
+      <SettingsSection
+        id={props.sectionId}
+        title={props.title}
+        description={props.description}
+        helpId={props.helpId}
+      >
+        <div className="mt-4">
+          {query.isError ? (
+            <ErrorState
+              message={t('messaging.loadError')}
+              onRetry={() => void query.refetch()}
+            />
+          ) : (
+            <div aria-busy="true" className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          )}
+        </div>
+      </SettingsSection>
+    );
+  }
   if (!entry || entry.providers.length === 0) return null;
   return (
     <ProviderConfigFormInner

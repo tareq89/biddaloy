@@ -587,6 +587,7 @@
     "printerName": "Yes"
   },
   "messaging": {
+    "loadError": "Couldn't load the company settings. Try again.",
     "required": "Fill in this field.",
     "invalid": "Check this value."
   },

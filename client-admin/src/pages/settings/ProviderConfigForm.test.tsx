@@ -5,7 +5,7 @@ import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { providersHandler } from './provider-config-form.fixtures';
+import { providersHandler, providersResponse } from './provider-config-form.fixtures';
 import { ProviderConfigForm, type MessagingMedium } from './ProviderConfigForm';
 import { WithTestRouter } from './with-test-router';
 
@@ -233,5 +233,29 @@ describe('ProviderConfigForm', () => {
     await user.click(await screen.findByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Check this value.')).toBeTruthy();
     expect(body).not.toHaveBeenCalled();
+  });
+
+  it('shows a loading skeleton, then the form', async () => {
+    const { container } = renderForm('SMS', SAVED_SMS);
+    expect(await screen.findByRole('heading', { name: CARD })).toBeTruthy();
+    expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(await screen.findByLabelText('SMS company')).toBeTruthy();
+    expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+  });
+
+  it('shows an error with Retry when the providers GET fails, and recovers', async () => {
+    let fail = true;
+    server.use(
+      http.get('/api/v1/schools/:id/settings/messaging/providers', () =>
+        fail
+          ? HttpResponse.json({ message: 'x' }, { status: 400 })
+          : HttpResponse.json(providersResponse({ SMS: true })),
+      ),
+    );
+    const { user } = renderForm('SMS', SAVED_SMS);
+    expect(await screen.findByText(/Couldn't load the company settings/)).toBeTruthy();
+    fail = false;
+    await user.click(screen.getByRole('button', { name: /retry/i }));
+    expect(await screen.findByLabelText('SMS company')).toBeTruthy();
   });
 });
