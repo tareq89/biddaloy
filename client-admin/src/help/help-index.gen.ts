@@ -4931,19 +4931,4 @@ export const HELP_ROUTES = {
 } as const;
 
 /** Declared in the guide but not indexable yet (guide gaps, #3017). */
-export const HELP_GAPS: readonly string[] = [
-  'helpId "administration.printTemplates.action.publish" is declared twice (administration/print-templates/designer-guide)',
-  'helpId "administration.printTemplates.action.makeDefault" is declared twice (administration/print-templates/designer-guide)',
-  'helpId "administration.printTemplates.field.printer" is declared twice (administration/print-templates/printers-and-calibration)',
-  'helpId "administration.printTemplates.field.batchSize" is declared twice (administration/print-templates/printers-and-calibration)',
-  'helpId "administration.printTemplates.action.print" is declared twice (administration/print-templates/id-cards)',
-  'helpId "administration.printTemplates.action.confirmRound" is declared twice (administration/print-templates/id-cards)',
-  'helpId "administration.printTemplates.action.revoke" is declared twice (administration/print-templates/id-cards)',
-  'helpId "administration.printTemplates.field.batchSize" is declared twice (administration/print-templates/id-cards)',
-  'helpId "administration.printTemplates.action.print" is declared twice (administration/print-templates/exam-documents)',
-  'helpId "administration.printTemplates.field.kind" is declared twice (administration/print-templates/exam-documents)',
-  'helpId "administration.printTemplates.field.design" is declared twice (administration/print-templates/exam-documents)',
-  'helpId "administration.printTemplates.action.print" is declared twice (administration/print-templates/certificates)',
-  'helpId "administration.printTemplates.action.revoke" is declared twice (administration/print-templates/certificates)',
-  'helpId "administration.printTemplates.field.kind" is declared twice (administration/print-templates/certificates)',
-];
+export const HELP_GAPS: readonly string[] = [];
