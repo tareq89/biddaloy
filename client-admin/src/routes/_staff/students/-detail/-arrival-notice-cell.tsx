@@ -58,8 +58,8 @@ function badgeKey(sub: StaffArrivalSubscription | undefined): BadgeKey {
 
 /** One guardian's arrival-notice state plus the MANAGE / LOCK menu ([84.3.2], D5, D16, D35).
  * The list is read with the `studentId` filter (the same filters as the tab's read, so the
- * query key is shared). Lock-to-create (D35): the lock route needs a row, so with none the
- * cell creates it first, then locks it. */
+ * query key is shared). Lock-to-create (D35): with no row the create call carries the lock,
+ * so row and lock are saved together. */
 export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNoticeCellProps) {
   const { t } = useTranslation('students');
   const config = useRegionConfig();
@@ -87,11 +87,9 @@ export function ArrivalNoticeCell({ studentId, sectionId, guardian }: ArrivalNot
       lockMutation.mutate({ id: sub.id, lock });
       return;
     }
-    // No row yet: make one (every day), then let the lock force it.
-    create.mutate(
-      { student_id: studentId, guardian_id: guardian.id, mode: 'RECURRING' },
-      { onSuccess: (row) => lockMutation.mutate({ id: row.id, lock }) },
-    );
+    // No row yet: one call makes it already locked (every day), so a failed or abandoned
+    // second call can never leave an unlocked ACTIVE row behind.
+    create.mutate({ student_id: studentId, guardian_id: guardian.id, mode: 'RECURRING', lock });
   };
 
   // No state is known yet (loading) or at all (failed): never claim "Not asked" and never

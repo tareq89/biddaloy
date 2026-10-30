@@ -200,6 +200,24 @@ describe('Arrival subscriptions (E2E)', () => {
     await asParent('put', `${PORTAL}/${fx.studentA}`).send({ want: true }).expect(409);
   });
 
+  it('POST with lock: TEACHER is 403 and makes no row; ADMIN creates the row already locked NEVER', async () => {
+    await makeHomeroom();
+    const body = {
+      student_id: fx.studentA,
+      guardian_id: fx.guardianA,
+      mode: 'ONCE',
+      lock: 'NEVER',
+    };
+    await asTeacher('post', STAFF).send(body).expect(403);
+    const none = await asAdmin('get', `${STAFF}?studentId=${fx.studentA}`).expect(200);
+    expect(none.body).toEqual([]);
+    // One call: the row is OFF and locked at once, so the guardian cannot switch it on.
+    const created = await asAdmin('post', STAFF).send(body).expect(201);
+    expect(created.body.status).toBe('OFF');
+    expect(created.body.lock).toBe('NEVER');
+    await asParent('put', `${PORTAL}/${fx.studentA}`).send({ want: true }).expect(409);
+  });
+
   it('non-UUID id is 400 and limit=500 is 400', async () => {
     await asAdmin('patch', `${STAFF}/not-a-uuid`).send({ status: 'OFF' }).expect(400);
     await asAdmin('patch', `${STAFF}/not-a-uuid/lock`).send({ lock: 'NONE' }).expect(400);

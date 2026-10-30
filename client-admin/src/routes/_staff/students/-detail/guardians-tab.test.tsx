@@ -205,21 +205,18 @@ describe('students/-detail/guardians-tab', () => {
       ).toBeTruthy();
     });
 
-    it('lets an admin lock Always with no row: creates it, then locks it', async () => {
+    it('lets an admin lock Always with no row: one create call carries the lock', async () => {
       const calls: string[] = [];
       renderGuardians('ADMIN', []);
       server.use(
-        http.post('/api/v1/attendance/arrival-subscriptions', () => {
-          calls.push('create');
+        http.post('/api/v1/attendance/arrival-subscriptions', async ({ request }) => {
+          calls.push(`create ${JSON.stringify(await request.json())}`);
           return HttpResponse.json(sub('NONE', { id: 'new-1' }), { status: 201 });
         }),
-        http.patch(
-          '/api/v1/attendance/arrival-subscriptions/:id/lock',
-          async ({ request, params }) => {
-            calls.push(`lock ${String(params.id)} ${JSON.stringify(await request.json())}`);
-            return HttpResponse.json(sub('NONE'));
-          },
-        ),
+        http.patch('/api/v1/attendance/arrival-subscriptions/:id/lock', () => {
+          calls.push('lock');
+          return HttpResponse.json(sub('NONE'));
+        }),
       );
       const user = await openMenu();
       const always = await screen.findByRole('menuitem', { name: 'Always' });
@@ -227,7 +224,10 @@ describe('students/-detail/guardians-tab', () => {
         always.getAttribute('aria-disabled') ?? always.getAttribute('data-disabled'),
       ).toBeNull();
       await user.click(always);
-      await waitFor(() => expect(calls).toEqual(['create', 'lock new-1 {"lock":"ALWAYS"}']));
+      // No second /lock call: row and lock are saved together, so a failure cannot split them.
+      await waitFor(() => expect(calls).toHaveLength(1));
+      expect(calls[0]).toContain('"lock":"ALWAYS"');
+      expect(calls[0]).toContain('"mode":"RECURRING"');
     });
 
     it('asks for the one student only (studentId filter)', async () => {

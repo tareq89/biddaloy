@@ -152,6 +152,40 @@ describe('ArrivalSubscriptionsService.setLock', () => {
   });
 });
 
+describe('ArrivalSubscriptionsService.createByStaff with a lock', () => {
+  const input = { student_id: 'st-1', guardian_id: 'g-1', mode: ArrivalNoticeMode.RECURRING };
+
+  it('NEVER creates the row OFF and locked in a single save', async () => {
+    const { service, repo } = build({ existing: null });
+    const out = await service.createByStaff(admin, { ...input, lock: ArrivalNoticeLock.NEVER });
+    // One save is the whole point: no ACTIVE, unlocked row can exist between two calls.
+    expect(repo.save).toHaveBeenCalledTimes(1);
+    expect(out.status).toBe(ArrivalNoticeStatus.OFF);
+    expect(repo.save.mock.calls[0][0].lock).toBe(ArrivalNoticeLock.NEVER);
+    expect(repo.save.mock.calls[0][0].locked_by_user_id).toBe('u-a');
+  });
+
+  it('ALWAYS creates the row ACTIVE + RECURRING and locked', async () => {
+    const { service, repo } = build({ existing: null });
+    await service.createByStaff(admin, {
+      ...input,
+      mode: ArrivalNoticeMode.ONCE,
+      lock: ArrivalNoticeLock.ALWAYS,
+    });
+    const saved = repo.save.mock.calls[0][0];
+    expect(saved.lock).toBe(ArrivalNoticeLock.ALWAYS);
+    expect(saved.mode).toBe(ArrivalNoticeMode.RECURRING);
+  });
+
+  it('refuses a caller without the lock permission and saves nothing', async () => {
+    const { service, repo } = build({ existing: null });
+    await expect(
+      service.createByStaff(teacher, { ...input, lock: ArrivalNoticeLock.NEVER }),
+    ).rejects.toThrow(ARRIVAL_ERRORS.lockedForTeacher);
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+});
+
 describe('ArrivalSubscriptionsService.upsertByGuardian', () => {
   const input = { tenantId: TENANT, guardianUserId: 'u-g', studentId: 'st-1' };
 

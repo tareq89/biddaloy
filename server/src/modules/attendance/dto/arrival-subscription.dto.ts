@@ -49,6 +49,11 @@ export class CreateArrivalSubscriptionDto {
   @IsOptional()
   @IsEnum(ArrivalNoticeChannel)
   channel?: ArrivalNoticeChannel;
+
+  /** Create the row already locked (needs the LOCK permission); one save, never two calls. */
+  @IsOptional()
+  @IsEnum(ArrivalNoticeLock)
+  lock?: ArrivalNoticeLock;
 }
 
 /** Confirm (`status: ACTIVE`), decline or switch off (`status: OFF`), and/or change `mode`. */

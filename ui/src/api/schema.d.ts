@@ -12931,6 +12931,8 @@ export interface components {
             mode: "ONCE" | "RECURRING";
             /** @enum {string} */
             channel?: "PUSH" | "SMS";
+            /** @enum {string} */
+            lock?: "NONE" | "ALWAYS" | "NEVER";
         };
         ArrivalSubscriptionResponseDto: {
             id: string;
