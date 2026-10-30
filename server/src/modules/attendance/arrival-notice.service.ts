@@ -16,6 +16,7 @@ import {
 import { ArrivalNoticeSubscription } from './entities/arrival-notice-subscription.entity';
 import { AttendanceDevice } from './entities/attendance-device.entity';
 import { CommunicationLog, PUSH_MEDIUM } from '../communications/entities/communication-log.entity';
+import { failUnclaimedLog } from '../communications/worker/log-claim';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { partitionByOptOut } from '../communications/reminder-recipients.util';
 import { renderReminderTemplate } from '../communications/reminder-template.util';
@@ -333,14 +334,23 @@ export class ArrivalNoticeService {
       ]);
     } catch (error) {
       // D26: Redis/BullMQ down fails open. Free the credit and the key so a later call can retry.
+      // Conditional on QUEUED + unclaimed: the add may have landed just before the timeout and a
+      // worker may already own the log. Then the worker settles it; leave credit and key alone.
+      this.logger.warn(`Failed to enqueue arrival log ${log.id}: ${String(error)}`);
+      let failed: boolean;
+      try {
+        failed = await failUnclaimedLog(repo, tenantId, log.id, 'Failed to enqueue for delivery');
+      } catch (dbError) {
+        // The log may stay QUEUED with its key and credit held: make it loud for reconciliation.
+        this.logger.error(
+          `needs_reconciliation: could not fail arrival log ${log.id} after an enqueue error: ${String(dbError)}`,
+        );
+        return ArrivalSkipReason.ENQUEUE_FAILED;
+      }
+      if (!failed) return 'QUEUED';
       if (credit.segments !== undefined) {
         await this.smsCreditService.releaseForLog(tenantId, log.id, credit.segments);
       }
-      this.logger.warn(`Failed to enqueue arrival log ${log.id}: ${String(error)}`);
-      log.status = CommunicationStatus.FAILED;
-      log.reference_key = null;
-      log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
-      await repo.save(log);
       return ArrivalSkipReason.ENQUEUE_FAILED;
     }
     return 'QUEUED';

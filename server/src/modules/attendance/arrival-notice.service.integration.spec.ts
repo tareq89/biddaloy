@@ -4,11 +4,13 @@ import { BullModule, getQueueToken } from '@nestjs/bullmq';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Queue } from 'bullmq';
+import { randomUUID } from 'node:crypto';
 import {
   ArrivalNoticeChannel,
   ArrivalNoticeMode,
   ArrivalNoticeStatus,
   AttendanceStatus,
+  CommunicationStatus,
   CommunicationTrigger,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -18,8 +20,9 @@ import { AttendanceModule } from './attendance.module';
 import { AuthModule } from '../auth/auth.module';
 import { ArrivalNoticeService } from './arrival-notice.service';
 import { ArrivalNoticeSubscription } from './entities/arrival-notice-subscription.entity';
-import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { CommunicationLog, PUSH_MEDIUM } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import { claimQueuedLog, failUnclaimedLog } from '../communications/worker/log-claim';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
 import { SchoolsService } from '../schools/schools.service';
 import { School } from '../schools/entities/school.entity';
@@ -191,5 +194,92 @@ describe('ArrivalNoticeService (integration)', () => {
     );
     expect(ledger).toHaveLength(1);
     expect(ledger[0].kind).toBe('RESERVE');
+  });
+
+  describe('atomic claim vs enqueue timeout (#3286)', () => {
+    const logRepo = () => dataSource.getRepository(CommunicationLog);
+    const metered = async () => {
+      await seed();
+      await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [T]);
+      await dataSource.query(
+        `INSERT INTO sms_credit_balance (tenant_id, available, reserved, updated_at) VALUES ($1, 100, 0, now())`,
+        [T],
+      );
+      await setSettings({ enabled: true, smsAllowed: true }, true);
+    };
+    const one = () =>
+      service.sendArrivalNotices({
+        tenantId: T,
+        date: DATE,
+        students: [
+          { studentId: students[0], status: AttendanceStatus.LATE, occurredAt: new Date() },
+        ],
+        takenBy: { kind: 'TEACHER', userId: SEED_ADMIN_USER_ID },
+      });
+    const findLog = async () =>
+      (await logs()).find(
+        (l) => l.student_id === students[0] && l.trigger === CommunicationTrigger.ARRIVAL_NOTICE,
+      )!;
+    const ledgerKinds = async (id: string) =>
+      (
+        await dataSource.query(
+          `SELECT kind FROM sms_credit_ledger WHERE tenant_id = $1 AND idempotency_key LIKE $2`,
+          [T, `%${id}%`],
+        )
+      ).map((r: { kind: string }) => r.kind);
+
+    it('timeout wins (no claim): FAILED, key freed, credit released', async () => {
+      await metered();
+      vi.spyOn(queue, 'add').mockRejectedValue(new Error('queue add timed out'));
+      const r = await one();
+      expect(r.queued).toBe(0);
+      const log = await findLog();
+      expect(log.status).toBe('FAILED');
+      expect(log.reference_key).toBeNull();
+      expect(await ledgerKinds(log.id)).toContain('RELEASE');
+      // the late worker now loses the claim
+      expect(await claimQueuedLog(logRepo(), T, log.id, 'job-1')).toBe(false);
+    });
+
+    it('claim wins (worker got there first): log stays QUEUED, key and credit untouched', async () => {
+      await metered();
+      vi.spyOn(queue, 'add').mockImplementation((async (_n: string, data: { logId: string }) => {
+        expect(await claimQueuedLog(logRepo(), T, data.logId, 'job-1')).toBe(true);
+        throw new Error('queue add timed out'); // add landed, then the race timed out
+      }) as any);
+      const r = await one();
+      expect(r.queued).toBe(1);
+      const log = await findLog();
+      expect(log.status).toBe('QUEUED');
+      expect(log.reference_key).not.toBeNull();
+      expect(log.metadata).toMatchObject({ claimed_by: 'job-1' });
+      expect(await ledgerKinds(log.id)).not.toContain('RELEASE');
+      // BullMQ retry of the same job re-claims; a different job cannot
+      expect(await claimQueuedLog(logRepo(), T, log.id, 'job-1')).toBe(true);
+      expect(await claimQueuedLog(logRepo(), T, log.id, 'job-2')).toBe(false);
+    });
+
+    it('claim and timeout-fail running together: exactly one wins', async () => {
+      await metered();
+      for (let i = 0; i < 20; i++) {
+        const log = await logRepo().save(
+          logRepo().create({
+            tenant_id: T,
+            medium: PUSH_MEDIUM,
+            trigger: CommunicationTrigger.ARRIVAL_NOTICE,
+            status: CommunicationStatus.QUEUED,
+            recipient_name: 'Race',
+            recipient_address: 'race',
+            message_body: 'race',
+            reference_key: `race:${i}:${randomUUID()}`,
+          } as never),
+        );
+        const [claimed, failed] = await Promise.all([
+          claimQueuedLog(logRepo(), T, log.id, 'job-1'),
+          failUnclaimedLog(logRepo(), T, log.id, 'timeout'),
+        ]);
+        expect(claimed !== failed).toBe(true);
+      }
+    });
   });
 });

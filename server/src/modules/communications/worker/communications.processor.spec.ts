@@ -54,6 +54,7 @@ describe('CommunicationsProcessor', () => {
     } = {},
   ) {
     return {
+      id: 'job-1',
       name: undefined,
       data: {
         logId: 'log-1',
@@ -81,6 +82,8 @@ describe('CommunicationsProcessor', () => {
       findOneOrFail: vi.fn(async () => ({ ...baseLog })),
       findOne: vi.fn(async () => ({ ...baseLog })),
       save: vi.fn(async (log) => log),
+      // Claim UPDATE ... RETURNING: [rows, count]; one row = claim won.
+      query: vi.fn(async () => [[{ id: 'log-1' }], 1]),
       manager: { transaction: vi.fn(async (cb: any) => cb(txManager)) },
     };
     providerRegistry = { resolve: vi.fn(() => provider) };
@@ -862,6 +865,49 @@ describe('CommunicationsProcessor', () => {
         ...overrides,
       });
     }
+
+    describe('atomic claim', () => {
+      it('claims with the job id before delivering', async () => {
+        arrivalLog('PUSH');
+        guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
+        pushService.sendToUser.mockResolvedValue({ accepted: 1, transient: 0, pruned: 0 });
+        await processor.process({ ...job(), id: 'job-7' });
+        expect(repo.query).toHaveBeenCalledWith(expect.stringContaining('claimed_by'), [
+          'log-1',
+          'tenant-1',
+          'job-7',
+        ]);
+        expect(txManager.save).toHaveBeenCalledWith(
+          expect.objectContaining({ metadata: expect.objectContaining({ claimed_by: 'job-7' }) }),
+        );
+      });
+
+      it('claim lost (enqueue timeout already failed it): nothing sent, settled or released', async () => {
+        arrivalLog(CommunicationMedium.SMS);
+        repo.query.mockResolvedValue([[], 0]);
+        await processor.process({ ...job({ batchId: 'log-1', segments: 1 }), id: 'job-7' });
+        expect(provider.send).not.toHaveBeenCalled();
+        expect(pushService.sendToUser).not.toHaveBeenCalled();
+        expect(txManager.save).not.toHaveBeenCalled();
+        expect(smsCredits.settlePart).not.toHaveBeenCalled();
+      });
+
+      it('a retry of the same job re-claims and proceeds', async () => {
+        arrivalLog('PUSH', { metadata: { claimed_by: 'job-7' } });
+        guardianRepo.findOne.mockResolvedValue({ id: 'guardian-1', user_id: 'user-1' });
+        pushService.sendToUser.mockResolvedValue({ accepted: 1, transient: 0, pruned: 0 });
+        await processor.process({ ...job({ attemptsMade: 1 }), id: 'job-7' });
+        expect(txManager.save).toHaveBeenCalledWith(
+          expect.objectContaining({ status: CommunicationStatus.SENT }),
+        );
+      });
+
+      it('other triggers never touch the claim', async () => {
+        provider.send.mockResolvedValue({ success: true, providerMessageId: 'm' });
+        await processor.process({ ...job(), id: 'job-7' });
+        expect(repo.query).not.toHaveBeenCalled();
+      });
+    });
 
     it('PUSH + accepted: SENT with a push: recipient, no SMS', async () => {
       arrivalLog('PUSH');
