@@ -1,7 +1,8 @@
 # Epic 84 arrival notices: self-run task walkthrough
 
 Issue: #3150. Code under test: `origin/followup/84/d-client` at `7714da214`
-(lane D client UI). Dev build (Vite dev server + Nest dev server), fresh test DB, Bangla locale,
+(lane D client UI). This report and its screenshots apply only to that revision, not to the
+head of the PR that carries this file; re-run before relying on them for later changes. Dev build (Vite dev server + Nest dev server), fresh test DB, Bangla locale,
 Chromium via Playwright, at 390 x 844 and 1280 x 800.
 
 ## What this is NOT
@@ -137,12 +138,14 @@ No bug was fixed; no app code was changed.
 | ----------------------- | --------------- | ------------------------------------------------------------------- |
 | Guardian with device    | 5 of 5          | Home discoverability unchecked                                      |
 | Guardian without device | 4 of 4          | Advice contradiction; anchor scroll unconfirmed                     |
-| Class teacher           | 3 of 5          | See locked-off guardians (partial), ask a guardian (does not exist) |
+| Class teacher           | 3 of 6          | See locked-off guardians (partial), ask a guardian (does not exist), school switch off (card still shown) |
 | Office staff            | 4 of 5          | School-off message (does not exist)                                 |
 
 ## Reproduce
 
-The run harness was a throwaway Playwright spec (not committed, saved in the agent scratchpad).
+The run harness was a throwaway Playwright spec that was not committed, so these numbers and
+screenshots cannot be regenerated from this repository. The steps below are the full recipe to
+rebuild it.
 Setup per run: fresh class section, 2 children, 3 guardians (2 with portal accounts via batch
 invite and first sign-in OTP), 1 class teacher, admin session; seed has arrival notices on and
 SMS off. Run through `yarn test-env run -- ...` against the dev servers.

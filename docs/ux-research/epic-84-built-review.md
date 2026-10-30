@@ -25,7 +25,7 @@ Taken on a Friday, so the portal calendar shows "not a school day" for today.
 
 | # | Screen | Heuristic | Finding | Severity (0-4) |
 | --- | --- | --- | --- | --- |
-| 1 | Add yourself dialog, 390 | Visibility of system status; flexibility | The "Every day" option is cut off below "Once"; the dialog body clips mid-option instead of scrolling visibly. A teacher may not see the second choice. | 3 |
+| 1 | Add yourself dialog, 390 | Visibility of system status; flexibility | Unconfirmed, pending manual check: the "Every day" option appears cut off below "Once". This capture records no app revision or viewport height; the self-walkthrough (`7714da214`, 390 x 844) measured the text fully visible with only the card border overlapped by about 4 px. Not an established clipping finding. | 1 |
 | 2 | Add yourself dialog, 390 | Consistency | Footer buttons stack full width with the primary "Add" disabled-looking and above "Cancel"; fine, but the dialog leaves a large empty strip below Cancel. | 1 |
 | 3 | Guardians cell, 390 | Recognition over recall | The menu trigger is a bare 3-dot icon beside the channel word ("App") with no visible label; it is the only way to set the lock. | 2 |
 | 4 | Guardians cell, 390 | Aesthetic and minimalist design | Status badge, channel, date-changed line and menu share one narrow column; the row reads dense. | 2 |

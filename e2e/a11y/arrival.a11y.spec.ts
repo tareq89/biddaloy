@@ -29,7 +29,11 @@ for (const locale of ['bn', 'en'] as const) {
       await expect(trigger).toBeVisible();
       await expectNoAxeViolations(page, '[role="tabpanel"]');
       await trigger.click();
-      await expect(page.getByRole('menu')).toBeVisible();
+      const menu = page.getByRole('menu');
+      await expect(menu).toBeVisible();
+      await menu.evaluate((el) =>
+        Promise.all(el.getAnimations().map((animation) => animation.finished)),
+      );
       await expectNoAxeViolations(page, '[role="menu"]');
     });
   });
