@@ -256,4 +256,27 @@ describe('Homework Submission E2E', () => {
       // on purpose — same contract every other family route uses.
       .expect(401);
   });
+
+  describe('PATCH /homework-submissions/:id', () => {
+    const patchSubmission = (id: string, body: object) =>
+      supertest(app.getHttpServer())
+        .patch(`${API}/homework-submissions/${id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send(body);
+
+    it('rejects marks above the 9999 bound and below 0 with 400', async () => {
+      // Validation runs before any lookup, so a random id is enough.
+      for (const bad of [10000, -1, 1.5]) {
+        expect((await patchSubmission(randomUUID(), { marks: bad })).status).toBe(400);
+      }
+    });
+
+    it('Rule 23: an unknown submission answers one fixed 404 text', async () => {
+      const res = await patchSubmission(randomUUID(), { status: 'DONE' });
+      expect(res.status).toBe(404);
+      expect(res.body.message).toBe('Homework submission not found');
+    });
+  });
 });

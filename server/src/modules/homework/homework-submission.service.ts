@@ -251,37 +251,17 @@ export class HomeworkSubmissionService {
     dto: UpdateHomeworkSubmissionDto,
     ctx: CallerContext,
   ): Promise<HomeworkSubmission> {
+    // Rule 23: every miss (unknown id, other tenant, out-of-scope teacher) is one text.
+    const miss = () => new NotFoundException('Homework submission not found');
     const submission = await this.submissionRepo.findOne({
       where: { id: submissionId, tenant_id: ctx.tenantId },
     });
-    if (!submission) {
-      throw new NotFoundException('Homework submission not found');
-    }
-    const assignment = await this.loadAssignment(submission.assignment_id, ctx.tenantId);
-    const homework = await this.homeworkRepo.findOne({
-      where: { id: assignment.homework_id, tenant_id: ctx.tenantId },
-    });
-    if (!homework) {
-      throw new NotFoundException('Homework not found');
-    }
-
-    if (assignment.section_id) {
-      await this.access.assertCanManageSection(
-        ctx.role,
-        ctx.userId,
-        assignment.section_id,
-        homework.subject_id,
-        ctx.tenantId,
-      );
-    } else {
-      await this.access.assertCanManageStudent(
-        ctx.role,
-        ctx.userId,
-        assignment.student_id as string,
-        homework.subject_id,
-        ctx.tenantId,
-      );
-    }
+    if (!submission) throw miss();
+    const { homework } = await this.loadForGrading(submission.assignment_id, ctx).catch(
+      (e: unknown) => {
+        throw e instanceof NotFoundException ? miss() : e;
+      },
+    );
 
     if (dto.marks !== undefined && homework.grading_mode !== HomeworkGradingMode.MARKS) {
       throw new BadRequestException(

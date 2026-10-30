@@ -457,22 +457,27 @@ export class HomeworkService {
     dto: AssignHomeworkDto,
     ctx: CallerContext,
   ): Promise<HomeworkAssignment> {
+    // Rule 23: unknown id, other tenant and out-of-scope all answer one text; the superseded 400
+    // is only reachable by a caller who may manage the row (same order as updateAssignment).
+    const miss = () => new NotFoundException('Homework assignment not found');
     const old = await this.assignmentRepo.findOne({
       where: { id: assignmentId, tenant_id: ctx.tenantId },
     });
-    if (!old) {
-      throw new NotFoundException('Homework assignment not found');
+    if (!old) throw miss();
+    let homework: Homework;
+    try {
+      homework = await this.findOne(old.homework_id, ctx);
+      // The caller must be able to manage the OLD target too, not just the
+      // new one — otherwise any teacher on the tenant could reassign (and so
+      // supersede) another teacher's assignment by naming their own section
+      // as the new target.
+      await this.assertCanManageTarget(old, homework, ctx);
+    } catch (e) {
+      throw e instanceof NotFoundException ? miss() : e;
     }
     if (old.status === HomeworkAssignmentStatus.SUPERSEDED) {
       throw new BadRequestException('This assignment has already been reassigned');
     }
-    const homework = await this.findOne(old.homework_id, ctx);
-
-    // The caller must be able to manage the OLD target too, not just the
-    // new one — otherwise any teacher on the tenant could reassign (and so
-    // supersede) another teacher's assignment by naming their own section
-    // as the new target.
-    await this.assertCanManageTarget(old, homework, ctx);
     await this.assertValidNewTarget(dto, homework, ctx);
 
     // Both writes in one transaction, and the old row's supersede is a

@@ -240,6 +240,44 @@ describe('HomeworkService', () => {
       );
     });
 
+    // Rule 23: a teacher outside the old target gets the same 404 whether the row is live,
+    // superseded or missing: no 400-vs-404 or text oracle.
+    it('maps an out-of-scope homework to the one fixed 404 text', async () => {
+      assignmentRepo.findOne.mockResolvedValue({ ...OLD_ASSIGNMENT });
+      access.assertCanManageClass.mockRejectedValueOnce(
+        new NotFoundException('You do not have access to this class'),
+      );
+      const dto = { section_id: 'section-2', assigned_date: '2026-02-01', due_date: '2026-02-08' };
+      await expect(service.reassign('assign-1', dto, ctx)).rejects.toThrow(
+        new NotFoundException('Homework assignment not found'),
+      );
+    });
+
+    it('maps an out-of-scope old target to the one fixed 404 text', async () => {
+      assignmentRepo.findOne.mockResolvedValue({ ...OLD_ASSIGNMENT });
+      access.assertCanManageSection.mockRejectedValueOnce(
+        new NotFoundException('You do not have access to this section'),
+      );
+      const dto = { section_id: 'section-2', assigned_date: '2026-02-01', due_date: '2026-02-08' };
+      await expect(service.reassign('assign-1', dto, ctx)).rejects.toThrow(
+        new NotFoundException('Homework assignment not found'),
+      );
+    });
+
+    it('a SUPERSEDED row out of scope is a 404, not the superseded 400', async () => {
+      assignmentRepo.findOne.mockResolvedValue({
+        ...OLD_ASSIGNMENT,
+        status: HomeworkAssignmentStatus.SUPERSEDED,
+      });
+      access.assertCanManageSection.mockRejectedValueOnce(
+        new NotFoundException('You do not have access to this section'),
+      );
+      const dto = { section_id: 'section-2', assigned_date: '2026-02-01', due_date: '2026-02-08' };
+      await expect(service.reassign('assign-1', dto, ctx)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
     it('checks access to the OLD target before creating the new row (IDOR)', async () => {
       assignmentRepo.findOne.mockResolvedValue({ ...OLD_ASSIGNMENT });
       access.assertCanManageSection.mockRejectedValueOnce(new Error('forbidden'));

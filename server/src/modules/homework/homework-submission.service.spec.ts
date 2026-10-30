@@ -272,6 +272,41 @@ describe('HomeworkSubmissionService', () => {
         service.update('missing', { status: HomeworkSubmissionStatus.DONE }, teacherCtx),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
+
+    // Rule 23: every miss on the old PATCH answers the same single text, so a teacher
+    // cannot tell "no such submission" from "another section's submission".
+    describe('one 404 text for every miss', () => {
+      const SAME = new NotFoundException('Homework submission not found');
+      const run = () =>
+        service.update('sub-1', { status: HomeworkSubmissionStatus.DONE }, teacherCtx);
+
+      it('unknown submission', async () => {
+        submissionRepo.findOne.mockResolvedValue(null);
+        await expect(run()).rejects.toThrow(SAME);
+      });
+
+      it('missing assignment', async () => {
+        assignmentRepo.findOne.mockResolvedValue(null);
+        await expect(run()).rejects.toThrow(SAME);
+      });
+
+      it('missing homework', async () => {
+        homeworkRepo.findOne.mockResolvedValue(null);
+        await expect(run()).rejects.toThrow(SAME);
+      });
+
+      it('teacher outside the section', async () => {
+        access.assertCanManageSection.mockRejectedValueOnce(
+          new NotFoundException('You do not have access to this section'),
+        );
+        await expect(run()).rejects.toThrow(SAME);
+      });
+
+      it('a 403 passes through', async () => {
+        access.assertCanManageSection.mockRejectedValueOnce(new ForbiddenException('no'));
+        await expect(run()).rejects.toBeInstanceOf(ForbiddenException);
+      });
+    });
   });
 
   describe('check work: findAllForAssignment / grade (#2899)', () => {
