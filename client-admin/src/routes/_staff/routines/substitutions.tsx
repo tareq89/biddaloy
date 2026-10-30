@@ -34,7 +34,13 @@ import {
   PageHeader,
   type FilterFieldDescriptor,
 } from '@biddaloy/ui/shells';
-import { formatDate, formatNumber, formatTime, formatWeekday } from '@biddaloy/ui/utils';
+import {
+  formatDate,
+  formatNumber,
+  formatTime,
+  formatWeekday,
+  tenantTodayIso,
+} from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { PlusIcon } from 'lucide-react';
 import * as React from 'react';
@@ -198,6 +204,9 @@ function SubstitutionsPage() {
     (a, b) => b.substitution.date.localeCompare(a.substitution.date) || a.sequence - b.sequence,
   );
   const pageSize = 25;
+  // #3022: the server refuses to delete a record dated before the school's today, so
+  // the action is not offered (it would only ever answer 409). Same clock the server uses.
+  const today = tenantTodayIso(config);
 
   function handleDelete() {
     if (!deleting) return;
@@ -334,6 +343,7 @@ function SubstitutionsPage() {
             {
               intent: 'delete',
               label: t('substitutionsPage.deleteAction'),
+              allowed: row.substitution.date >= today,
               onClick: () => setDeleting(row.substitution),
             },
           ]}
