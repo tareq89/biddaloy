@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuditAction, CommunicationMedium, type JwtPayload } from '@biddaloy/shared';
 import { ProviderConnectionTestController } from './provider-connection-test.controller';
@@ -53,9 +53,12 @@ describe('ProviderConnectionTestController', () => {
       REQUEST,
     );
 
-    expect(connectionTest.test).toHaveBeenCalledWith(SCHOOL_A, CommunicationMedium.WHATSAPP, {
-      accessToken: 'draft-token',
-    });
+    expect(connectionTest.test).toHaveBeenCalledWith(
+      SCHOOL_A,
+      CommunicationMedium.WHATSAPP,
+      { accessToken: 'draft-token' },
+      undefined,
+    );
     expect(result).toEqual({ success: true, message: 'ok' });
   });
 
@@ -70,9 +73,12 @@ describe('ProviderConnectionTestController', () => {
       REQUEST,
     );
 
-    expect(connectionTest.test).toHaveBeenCalledWith(SCHOOL_A, CommunicationMedium.WHATSAPP, {
-      accessToken: 'draft-token',
-    });
+    expect(connectionTest.test).toHaveBeenCalledWith(
+      SCHOOL_A,
+      CommunicationMedium.WHATSAPP,
+      { accessToken: 'draft-token' },
+      undefined,
+    );
   });
 
   it('rejects an ADMIN testing a different school, without calling the service at all', async () => {
@@ -121,5 +127,35 @@ describe('ProviderConnectionTestController', () => {
       new_values: { medium: CommunicationMedium.WHATSAPP, success: false },
     });
     expect(JSON.stringify(entry)).not.toContain('draft-token');
+  });
+
+  it('requires an Idempotency-Key when sendTo is set (Rule 25)', async () => {
+    const d = dto();
+    d.sendTo = '01712345678';
+    await expect(
+      controller.testConnection(SCHOOL_A, d, { id: SCHOOL_A, role: 'ADMIN' }, USER, REQUEST),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(connectionTest.test).not.toHaveBeenCalled();
+  });
+
+  it('passes sendTo and the caller to the service, and audits only the log id', async () => {
+    connectionTest.test.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      testMessage: { logId: 'log-9', status: 'SENT' },
+    });
+    const d = dto();
+    d.sendTo = '01712345678';
+    const keyed = { ...REQUEST, headers: { 'idempotency-key': 'k1' } } as unknown as Request;
+    await controller.testConnection(SCHOOL_A, d, { id: SCHOOL_A, role: 'ADMIN' }, USER, keyed);
+    expect(connectionTest.test).toHaveBeenCalledWith(
+      SCHOOL_A,
+      CommunicationMedium.WHATSAPP,
+      { accessToken: 'draft-token' },
+      { sendTo: '01712345678', userId: 'user-1' },
+    );
+    const audit = JSON.stringify(auditService.record.mock.calls[0][0]);
+    expect(audit).toContain('log-9');
+    expect(audit).not.toContain('01712345678');
   });
 });

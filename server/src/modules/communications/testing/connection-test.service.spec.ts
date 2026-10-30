@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CommunicationMedium } from '@biddaloy/shared';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { ConnectionTestService } from './connection-test.service';
 import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
 
@@ -8,11 +9,35 @@ describe('ConnectionTestService', () => {
   let registry: { resolveFor: ReturnType<typeof vi.fn> };
   let provider: { testConnection: ReturnType<typeof vi.fn> };
   let service: ConnectionTestService;
+  let logs: { create: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn> };
+  let credits: { reserveIfMetered: ReturnType<typeof vi.fn>; settlePart: ReturnType<typeof vi.fn> };
+  let sendSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    provider = { testConnection: vi.fn().mockResolvedValue({ success: true, message: 'ok' }) };
+    sendSpy = vi
+      .fn()
+      .mockResolvedValue({ success: true, providerMessageId: 'pm-1', outcome: 'ACCEPTED' });
+    provider = {
+      testConnection: vi.fn().mockResolvedValue({ success: true, message: 'ok' }),
+      send: sendSpy,
+      descriptor: { medium: CommunicationMedium.SMS, supportsTestMessage: true },
+    } as any;
     registry = { resolveFor: vi.fn().mockResolvedValue({ provider, config: { k: 'v' } }) };
-    service = new ConnectionTestService(registry as any);
+    logs = {
+      create: vi.fn((x) => x),
+      save: vi.fn(async (x) => ({ id: 'log-1', ...x })),
+    };
+    credits = {
+      reserveIfMetered: vi.fn().mockResolvedValue('UNMETERED'),
+      settlePart: vi.fn().mockResolvedValue(undefined),
+    };
+    const schools = { findOne: vi.fn().mockResolvedValue({ id: tenantId, name: 'Green School' }) };
+    service = new ConnectionTestService(
+      registry as any,
+      logs as any,
+      schools as any,
+      credits as any,
+    );
   });
 
   it.each([
@@ -49,6 +74,113 @@ describe('ConnectionTestService', () => {
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/configure it/);
     expect(provider.testConnection).not.toHaveBeenCalled();
+  });
+
+  describe('send a test message (97.3.04)', () => {
+    const req = { sendTo: '01712345678', userId: 'user-1' };
+
+    it('refuses sendTo for a provider without test-message support, before any outbound call', async () => {
+      (provider as any).descriptor.supportsTestMessage = false;
+      await expect(
+        service.test(tenantId, CommunicationMedium.SMS as never, undefined, req),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(provider.testConnection).not.toHaveBeenCalled();
+    });
+
+    it('rejects a malformed number with a sentence that does not echo it', async () => {
+      const bad = { sendTo: 'not-a-phone-9999', userId: 'user-1' };
+      const err = await service
+        .test(tenantId, CommunicationMedium.SMS as never, undefined, bad)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(JSON.stringify(err.getResponse())).not.toContain('9999');
+    });
+
+    it('sends nothing when the connection test fails', async () => {
+      provider.testConnection.mockResolvedValue({ success: false, message: 'bad key' });
+      const result = await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+      expect(result.testMessage).toBeUndefined();
+      expect(sendSpy).not.toHaveBeenCalled();
+    });
+
+    it('sends through the resolved override config and logs one test row', async () => {
+      const override = { onecodesoft: { apiKey: 'draft' } };
+      const result = await service.test(tenantId, CommunicationMedium.SMS as never, override, req);
+
+      expect(registry.resolveFor).toHaveBeenCalledWith(CommunicationMedium.SMS, tenantId, {
+        override,
+      });
+      // The config that reaches the provider is the resolved one (override already merged in).
+      expect(sendSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: '01712345678',
+          body: expect.stringContaining('Green School'),
+        }),
+        { k: 'v' },
+      );
+      expect(logs.save).toHaveBeenCalledTimes(1);
+      expect(logs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenant_id: tenantId,
+          recipient_name: 'Test',
+          sent_by_user_id: 'user-1',
+          trigger: 'MANUAL',
+          status: 'SENT',
+          metadata: expect.objectContaining({ test: true }),
+        }),
+      );
+      expect(result.testMessage).toEqual({ logId: 'log-1', status: 'SENT' });
+    });
+
+    it('debits a reserved credit on success and releases it on a rejected send', async () => {
+      credits.reserveIfMetered.mockResolvedValue('RESERVED');
+      await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+      expect(credits.settlePart).toHaveBeenLastCalledWith(
+        tenantId,
+        expect.stringMatching(/^batch:/),
+        'log:log-1',
+        expect.any(Number),
+        'DEBIT',
+      );
+
+      sendSpy.mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'no',
+        outcome: 'REJECTED',
+      });
+      await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+      expect(credits.settlePart).toHaveBeenLastCalledWith(
+        tenantId,
+        expect.any(String),
+        'log:log-1',
+        expect.any(Number),
+        'RELEASE',
+      );
+    });
+
+    it('leaves an ambiguous send unsettled and fails 409 when credit is short', async () => {
+      credits.reserveIfMetered.mockResolvedValue('RESERVED');
+      sendSpy.mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'x',
+        outcome: 'AMBIGUOUS',
+      });
+      await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+      expect(credits.settlePart).not.toHaveBeenCalled();
+
+      credits.reserveIfMetered.mockResolvedValue({ insufficient: true, available: 0 });
+      await expect(
+        service.test(tenantId, CommunicationMedium.SMS as never, undefined, req),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  it('maps an unexpected throw to fixed text that never echoes its message', async () => {
+    registry.resolveFor.mockRejectedValue(new Error('connect ECONNREFUSED key=sk-secret'));
+    const result = await service.test(tenantId, CommunicationMedium.SMS as never);
+    expect(result).toEqual({ success: false, message: 'Connection test failed.' });
   });
 
   describe('test inbox (Epic 87, D24)', () => {
