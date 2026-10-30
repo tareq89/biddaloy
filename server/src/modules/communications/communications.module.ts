@@ -118,6 +118,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     BulkReminderService,
     SingleReminderService,
     CommunicationProviderRegistryService,
+    MessagingConfigResolver,
     ...MESSAGING_PROVIDERS,
   ],
 })

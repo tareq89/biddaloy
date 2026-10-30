@@ -174,6 +174,18 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  ONECODESOFT_API_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  ONECODESOFT_SENDER_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  ONECODESOFT_API_URL?: string;
+
+  @IsOptional()
+  @IsString()
   WHATSAPP_ACCESS_TOKEN?: string;
 
   @IsOptional()
