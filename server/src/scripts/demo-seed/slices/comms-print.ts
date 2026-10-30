@@ -643,9 +643,10 @@ async function printing(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
  */
 export function demoMessagingSettings(
   rng: DemoSeedContext['rng'],
-  encrypt: (s: string) => string | undefined,
+  encrypt: (s: string, iv: Buffer) => string | undefined,
 ) {
-  const token = () => encrypt(rng.string.alphanumeric(32));
+  const token = () =>
+    encrypt(rng.string.alphanumeric(32), Buffer.from(rng.string.alphanumeric(12), 'utf8'));
   const digits = () => rng.string.numeric(15);
   return {
     sms: {
@@ -683,7 +684,8 @@ async function messagingSettings(ctx: DemoSeedContext, tenants: OrgTenant[]): Pr
   // out (JSON drops undefined), so the page shows "Not set up" instead of the seed failing.
   const key = buildEncryptionKey(process.env.NODE_ENV, process.env.SETTINGS_ENCRYPTION_KEY);
   const encryption = new EncryptionService(key, []);
-  const encrypt = (s: string) => (key ? encryption.encrypt(s) : undefined);
+  // A seeded IV keeps the whole seed repeatable (ctx.rng only); the key is a throwaway demo key.
+  const encrypt = (s: string, iv: Buffer) => (key ? encryption.encrypt(s, iv) : undefined);
   for (const t of tenants) {
     // One level deep per medium: the seed's keys on a medium block replace the stored ones (a
     // provider block is replaced whole); stored keys the seed does not set, and other media, stay.

@@ -61,14 +61,15 @@ export class EncryptionService {
     private readonly previousKeys: Buffer[] = [],
   ) {}
 
-  encrypt(plaintext: string): string {
+  /** `iv` is for the demo seed only, which must be repeatable (Epic 58). Real writes leave it out:
+   * reusing an IV under one GCM key breaks the cipher. */
+  encrypt(plaintext: string, iv: Buffer = randomBytes(IV_BYTES)): string {
     if (!this.currentKey) {
       throw new Error(
         'Settings encryption is not configured — set SETTINGS_ENCRYPTION_KEY before writing a tenant secret.',
       );
     }
 
-    const iv = randomBytes(IV_BYTES);
     const cipher = createCipheriv(ALGORITHM, this.currentKey, iv);
     const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
     const tag = cipher.getAuthTag();
