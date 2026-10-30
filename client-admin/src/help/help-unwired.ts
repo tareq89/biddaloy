@@ -16,7 +16,7 @@ const UI_SLOT = '#3078: no helpId slot in ui/';
 const GAP = '#3017: help text written, (?) not wired yet';
 
 /** A More-menu action that opens no dialog, so its (?) has nowhere to go (#3078 puts it on the dialog). */
-const NO_DIALOG = '#3017: More-menu action opens no dialog, no (?) slot';
+const NO_DIALOG = '#3232: More-menu action runs at once, no dialog, so no (?) here';
 
 /** A per-row control in a list; a (?) on every row is noise (D18), and no dialog opens. */
 const ROW_CONTROL = '#3063: per-row control, no dialog to hold the (?)';
