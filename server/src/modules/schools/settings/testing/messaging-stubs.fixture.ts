@@ -2,7 +2,7 @@ import { CommunicationMedium } from '@biddaloy/shared';
 import type { ProviderConfigField, ProviderDescriptor } from '@biddaloy/shared';
 
 // Stub providers for specs: `vi.mock('<rel>/communications/providers/messaging-providers',
-// () => import('<rel>/schools/settings/testing/messaging-stubs'))`. Keeps specs free of the
+// () => import('<rel>/schools/settings/testing/messaging-stubs.fixture'))`. Keeps specs free of the
 // real providers (and of their import cycle with SchoolsService).
 const label = (s: string) => ({ en: s, bn: s });
 const f = (

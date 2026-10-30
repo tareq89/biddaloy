@@ -11,7 +11,7 @@ import { DEFAULT_REGION_SETTINGS } from './tenant-settings-defaults';
 
 vi.mock(
   '../../communications/providers/messaging-providers',
-  () => import('./testing/messaging-stubs'),
+  () => import('./testing/messaging-stubs.fixture'),
 );
 
 function toPatch(plain: Record<string, unknown>): Record<string, unknown> {

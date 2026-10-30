@@ -12,7 +12,7 @@ import {
 
 vi.mock(
   '../../communications/providers/messaging-providers',
-  () => import('../settings/testing/messaging-stubs'),
+  () => import('../settings/testing/messaging-stubs.fixture'),
 );
 
 const commError = (errors: ValidationError[], medium: string) =>

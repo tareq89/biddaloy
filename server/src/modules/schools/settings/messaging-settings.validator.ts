@@ -93,10 +93,22 @@ export function problemWith(value: unknown, medium: CommunicationMedium): string
         Block | undefined)
     : undefined;
   if (!selected || !chosen) return 'must include the settings of the chosen company.';
-  for (const f of selected.fields) {
-    if (f.required && f.kind !== 'secret' && !isNonEmpty(chosen[f.key])) {
-      return `is missing the required field ${f.key}.`;
+  const missing = (d: (typeof descriptors)[number], block: Block): string | null => {
+    for (const f of d.fields) {
+      if (f.required && f.kind !== 'secret' && !isNonEmpty(block[f.key])) {
+        return `is missing the required field ${f.key}.`;
+      }
     }
+    return null;
+  };
+  const p = missing(selected, chosen);
+  if (p) return p;
+  // Any other provider block that is present must be complete too.
+  for (const d of descriptors) {
+    if (d === selected || !Object.hasOwn(value, d.name)) continue;
+    const other = value[d.name];
+    const q = isPlainObject(other) ? missing(d, other) : null;
+    if (q) return q;
   }
   return null;
 }

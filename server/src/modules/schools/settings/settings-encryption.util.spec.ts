@@ -9,7 +9,7 @@ import {
 
 vi.mock(
   '../../communications/providers/messaging-providers',
-  () => import('./testing/messaging-stubs'),
+  () => import('./testing/messaging-stubs.fixture'),
 );
 
 function service(): EncryptionService {

@@ -148,6 +148,7 @@ UPDATE schools SET settings = jsonb_set(jsonb_set(jsonb_set(jsonb_set(
       #- '{communications,whatsapp,meta-cloud,accessToken}'
       #- '{communications,email,smtp,password}'
       #- '{communications,messenger,meta-page,accessToken}'
+      #- '{communications,sms,apiKey}'
       #- '{communications,sms,greenweb,apiKey}'
       #- '{communications,sms,mimsms,apiKey}'
       #- '{communications,whatsapp,accessToken}'

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { getSecretPaths } from './secret-paths.util';
 import { TenantSettingsDto } from '../dto/tenant-settings.dto';
-import { MESSAGING_PROVIDERS, GammaSms } from './testing/messaging-stubs';
+import { MESSAGING_PROVIDERS, GammaSms } from './testing/messaging-stubs.fixture';
 
 vi.mock(
   '../../communications/providers/messaging-providers',
-  () => import('./testing/messaging-stubs'),
+  () => import('./testing/messaging-stubs.fixture'),
 );
 
 describe('getSecretPaths', () => {
@@ -15,10 +15,12 @@ describe('getSecretPaths', () => {
     // This list is the credential inventory: every path here is encrypted at
     // rest, masked in API responses and redacted in the audit trail. The exact
     // set is asserted so a path that stops being reported cannot go unnoticed.
-    // `communications.whatsapp.accessToken` is the flat pre-D6 compat path of a
-    // medium that has exactly one provider.
+    // `communications.whatsapp.accessToken` is the flat pre-D6 compat paths: the
+    // union of every provider's secret keys on the medium.
     expect(paths).toEqual(
       [
+        'communications.sms.apiKey',
+        'communications.sms.token',
         'communications.sms.alpha.apiKey',
         'communications.sms.beta.token',
         'communications.whatsapp.solo.accessToken',

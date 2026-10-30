@@ -3,7 +3,7 @@ import { pickPatchShape, redactSecretPaths } from './settings-audit-redact.util'
 
 vi.mock(
   '../../communications/providers/messaging-providers',
-  () => import('./testing/messaging-stubs'),
+  () => import('./testing/messaging-stubs.fixture'),
 );
 
 describe('pickPatchShape', () => {

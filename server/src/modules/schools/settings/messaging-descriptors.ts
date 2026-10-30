@@ -35,17 +35,17 @@ export const isPlainObject = (v: unknown): v is Block =>
 
 /**
  * Dot-paths of every `kind: 'secret'` field of the medium's providers:
- * `<prefix>.<provider>.<field>`, plus the flat `<prefix>.<field>` while the
- * medium has a single provider.
+ * `<prefix>.<provider>.<field>`, plus the flat `<prefix>.<field>` (legacy shape).
  */
 export function messagingSecretPaths(medium: CommunicationMedium, prefix: string): string[] {
   const paths = new Set<string>();
   for (const d of descriptorsFor(medium)) {
     for (const f of d.fields) if (f.kind === 'secret') paths.add(`${prefix}.${d.name}.${f.key}`);
   }
-  const sole = soleDescriptorFor(medium);
-  // ponytail: flat compat paths exist only while a medium has one provider; drop with the D6 compat-removal follow-up.
-  for (const f of sole?.fields ?? []) if (f.kind === 'secret') paths.add(`${prefix}.${f.key}`);
+  // ponytail: flat compat paths cover every provider's secret keys; drop with the D6 compat-removal follow-up.
+  for (const d of descriptorsFor(medium)) {
+    for (const f of d.fields) if (f.kind === 'secret') paths.add(`${prefix}.${f.key}`);
+  }
   return [...paths];
 }
 

@@ -4,7 +4,7 @@ import { problemWith } from './messaging-settings.validator';
 
 vi.mock(
   '../../communications/providers/messaging-providers',
-  () => import('./testing/messaging-stubs'),
+  () => import('./testing/messaging-stubs.fixture'),
 );
 
 const SMS = CommunicationMedium.SMS;
