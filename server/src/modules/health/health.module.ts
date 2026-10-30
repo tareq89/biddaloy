@@ -13,6 +13,7 @@ import { PlatformAlertsService } from './platform-alerts/platform-alerts.service
 import { CommunicationsModule } from '../communications/communications.module';
 
 @Module({
+  // ponytail: importing the whole CommunicationsModule pulls its providers/queue wiring into health; ceiling = alerts only need the resolver + registry, extract a slim module if this grows.
   // CommunicationsModule gives the alert path its provider + config resolver (never its queue:
   // alerts must keep working while Redis is down). The readiness probe registers its own
   // queue; each registration is its own Queue instance; pass the shared

@@ -814,7 +814,7 @@ Every key of the five example files. "From" says which part gives you the value.
 | `SMOKE_TEACHER_PASSWORD`             | `prod.enc.env`    | part 11              | `openssl rand -hex 16`; staging must equal `STAGING_PASSWORD`                          |
 | `SMOKE_SUPER_ADMIN_EMAIL`            | `prod.enc.env`    | part 11              | the platform super admin login                                                         |
 | `SMOKE_SUPER_ADMIN_PASSWORD`         | `prod.enc.env`    | part 11              | its password; staging must equal `STAGING_PASSWORD`                                    |
-| `ENV_NAME`                           | `staging.enc.env` | part 7               | already filled in the example (`prod`)                                                 |
+| `ENV_NAME`                           | `staging.enc.env` | part 7               | already filled in the example (`staging`)                                              |
 | `DEMO_MODE`                          | `staging.enc.env` | part 8               | leave the example value                                                                |
 | `APP_VERSION`                        | `staging.enc.env` | the deploy / default | leave empty; the deploy sets it                                                        |
 | `APP_MEM`                            | `staging.enc.env` | the deploy / default | leave the example value or empty (D23)                                                 |
@@ -895,7 +895,7 @@ Every key of the five example files. "From" says which part gives you the value.
 | `SMOKE_SUPER_ADMIN_PASSWORD`         | `staging.enc.env` | part 11              | its password; staging must equal `STAGING_PASSWORD`                                    |
 | `STAGING_PASSWORD_HASH_B64`          | `staging.enc.env` | part 8               | base64 of the bcrypt cost-12 hash of `STAGING_PASSWORD` (see part 8, step 4)           |
 | `STAGING_REFRESH_DEADLINE`           | `staging.enc.env` | the deploy / default | leave empty (default 02:50)                                                            |
-| `ENV_NAME`                           | `demo.enc.env`    | part 7               | already filled in the example (`prod`)                                                 |
+| `ENV_NAME`                           | `demo.enc.env`    | part 7               | already filled in the example (`demo`)                                                 |
 | `DEMO_MODE`                          | `demo.enc.env`    | part 8               | leave the example value                                                                |
 | `APP_VERSION`                        | `demo.enc.env`    | the deploy / default | leave empty; the deploy sets it                                                        |
 | `APP_MEM`                            | `demo.enc.env`    | the deploy / default | leave the example value or empty (D23)                                                 |

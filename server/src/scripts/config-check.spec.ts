@@ -550,6 +550,21 @@ describe('runStackConfigCheck', () => {
       expect(r.output).not.toContain('nosuchvendor');
     });
 
+    it('prod refuses a chosen provider missing a required key, naming keys only', async () => {
+      const { ONECODESOFT_API_URL: _u, ...noUrl } = onecode;
+      const r = await runStackConfigCheck('prod', { ...prod, ...noUrl });
+      expect(r.ok).toBe(false);
+      expect(r.output).toContain('ONECODESOFT_API_URL');
+      expect(r.output).not.toContain('k-123');
+      const m = await runStackConfigCheck('prod', {
+        ...prod,
+        SMS_PROVIDER: 'mimsms',
+        MIMSMS_API_KEY: 'k-123',
+      });
+      expect(m.ok).toBe(false);
+      expect(m.output).toContain('MIMSMS_SENDER_ID');
+    });
+
     it('prod refuses provider keys with no SMS_PROVIDER', async () => {
       const r = await runStackConfigCheck('prod', { ...prod, ...onecode, SMS_PROVIDER: '' });
       expect(r.ok).toBe(false);
@@ -558,6 +573,7 @@ describe('runStackConfigCheck', () => {
 
     it('prod with only SMTP keys and no SMS_PROVIDER passes', async () => {
       const r = await runStackConfigCheck('prod', { ...prod, SMTP_HOST: 'smtp.example.com' });
+      expect(r.ok).toBe(true);
       expect(r.output).not.toContain('SMS_PROVIDER');
     });
 

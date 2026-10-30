@@ -16,6 +16,7 @@ import { requireDocsCredentials } from '../swagger';
 import { verifyPassword } from '../modules/auth/password-hash';
 import { CommunicationMedium } from '@biddaloy/shared';
 import { MESSAGING_PROVIDERS } from '../modules/communications/providers/messaging-providers';
+import { envName } from '../modules/communications/config/messaging-config.resolver';
 
 /**
  * `yarn config:check` — runs the boot-time config checks without starting
@@ -84,7 +85,7 @@ export const TURNSTILE_TEST_SECRET = '1x0000000000000000000000000000000AA';
 const INSTANCES = MESSAGING_PROVIDERS.map((P) => new P());
 const REGISTRY_PREFIXES = INSTANCES.map((p) => p.envPrefix);
 const PROVIDER_VAR = new RegExp(
-  `^(${[...REGISTRY_PREFIXES, 'SMS', 'WHATSAPP', 'EMAIL', 'MESSENGER', 'VAPID', 'PLATFORM_SMS'].join('|')})_`,
+  `^(${[...new Set([...REGISTRY_PREFIXES, ...Object.values(CommunicationMedium).map((m) => String(m)), 'MESSENGER', 'VAPID', 'PLATFORM_SMS'])].join('|')})_`,
 );
 // Prod rule only: the platform SMS provider is chosen among SMS providers; a prod with only email keys is fine.
 const SMS_INSTANCES = INSTANCES.filter((p) => p.descriptor.medium === CommunicationMedium.SMS);
@@ -236,6 +237,14 @@ export async function runStackConfigCheck(
     );
     if ((set('SMS_PROVIDER') || smsKey) && !SMS_PROVIDER_NAMES.includes(val('SMS_PROVIDER'))) {
       errors.push('SMS_PROVIDER must name a registered SMS provider');
+    } else if (set('SMS_PROVIDER')) {
+      // Keys only, never values: every required field of the chosen provider must be set.
+      const chosen = SMS_INSTANCES.find((p) => p.descriptor.name === val('SMS_PROVIDER'));
+      const missing = (chosen?.descriptor.fields ?? [])
+        .filter((f) => f.required)
+        .map((f) => envName(chosen!.envPrefix, f.key))
+        .filter((k) => !set(k));
+      if (missing.length > 0) errors.push(`SMS_PROVIDER needs ${missing.join(', ')} on prod`);
     }
   }
   if (stack === 'prod' && val('DEMO_MODE') === 'true') {

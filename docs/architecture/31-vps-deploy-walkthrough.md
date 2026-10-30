@@ -462,13 +462,15 @@ Optional cron monitors: a Sentry cron check-in URL for prod's backup goes in `pr
 
 If you have a GreenWeb or MiM SMS account:
 
-| Key (prod only)          | Value                                                      |
-| ------------------------ | ---------------------------------------------------------- |
-| `PLATFORM_SMS_PROVIDER`  | `greenweb` (default) or `mimsms`                           |
-| `PLATFORM_SMS_API_KEY`   | 🔴 the gateway API key                                     |
-| `PLATFORM_SMS_SENDER_ID` | your sender id (**required** for `mimsms`)                 |
-| `PLATFORM_SMS_API_URL`   | the gateway's HTTP API URL (empty = the gateway's default) |
-| `PLATFORM_ALERT_PHONES`  | your number(s), comma separated, e.g. `+8801XXXXXXXXX`     |
+| Key (prod only)         | Value                                                       |
+| ----------------------- | ----------------------------------------------------------- |
+| `SMS_PROVIDER`          | `greenweb`, `mimsms` or `onecodesoft`                       |
+| `<PROVIDER>_API_KEY`    | 🔴 the gateway API key, e.g. `ONECODESOFT_API_KEY`          |
+| `<PROVIDER>_SENDER_ID`  | your sender id (**required** for `mimsms`, `onecodesoft`)   |
+| `<PROVIDER>_API_URL`    | the gateway's HTTP API URL (**required** for `onecodesoft`) |
+| `PLATFORM_ALERT_PHONES` | your number(s), comma separated, e.g. `+8801XXXXXXXXX`      |
+
+The old `PLATFORM_SMS_*` keys are deprecated (read for one more release, only when `SMS_PROVIDER` is unset). The prod config check fails if a required provider key is missing.
 
 Staging and demo never get SMS keys; their config check refuses them.
 
