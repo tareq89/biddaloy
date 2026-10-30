@@ -64,15 +64,7 @@ export const HELP_UNWIRED: Record<string, string> = {
 
   // Help text written (was HELP_GAPS): indexed now, wireable by the route lanes
   'academics.myRoutine.field.lessonStatus': PER_CARD,
-  'academics.academicYears.field.isCurrent': GAP,
-  'academics.academicYears.field.dates': GAP,
-  'academics.routineBuilder.field.teachers': GAP,
-  'academics.routineBuilder.field.recurrence': GAP,
-  'academics.routineSubstitutions.field.cancelled': GAP,
-  'academics.routineSubstitutions.field.substituteTeacher': GAP,
   'academics.myRoutine.field.lessonStatus': GAP,
-  'academics.myRoutine.field.notTaughtReason': GAP,
-  'academics.homework.field.target': GAP,
   'attendance.attendanceReports.field.threshold': GAP,
   'attendance.attendanceRegister.field.reason': GAP,
   'examsResults.exams.field.name': GAP,

@@ -7,6 +7,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Label,
   RadioRows,
   Textarea,
@@ -107,6 +108,12 @@ export function NotTaughtDialog({
               {t('marking.reason.subtitle', { section, subject, period, title: lessonTitle })}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex items-center gap-1">
+            <span className="text-label" aria-hidden="true">
+              {t('marking.reason.label')}
+            </span>
+            <HelpHint helpId="academics.myRoutine.field.notTaughtReason" />
+          </div>
           <RadioRows
             legend={t('marking.reason.label')}
             legendHidden

@@ -6,6 +6,8 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { expectHelp, withHelp } from '../../../help/test-utils';
+
 import { SubstitutionDialog } from './-substitution-dialog';
 
 // The dialog defaults its date to "today" and only lists periods on that
@@ -326,5 +328,19 @@ describe('SubstitutionDialog', () => {
     expect(screen.queryByRole('combobox', { name: 'Substitute teacher' })).toBeNull();
     expect(document.querySelector('select')).toBeNull();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: /^save$/i }).disabled).toBe(true);
+  });
+});
+
+describe('SubstitutionDialog (?) hints [#3293]', () => {
+  it('shows the cancelled and substitute teacher (?)', async () => {
+    mockPickerData();
+    const { localeReady } = renderWithProviders(
+      withHelp(<SubstitutionDialog open onOpenChange={vi.fn()} onDone={vi.fn()} />),
+      { tenantId: 'tenant-1', locale: 'en' },
+    );
+    await localeReady;
+    await screen.findByRole('combobox', { name: 'Class and section' });
+    await expectHelp('academics.routineSubstitutions.field.cancelled');
+    await expectHelp('academics.routineSubstitutions.field.substituteTeacher');
   });
 });

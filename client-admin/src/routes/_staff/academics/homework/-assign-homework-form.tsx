@@ -274,8 +274,11 @@ export function AssignHomeworkForm({
   const whoFields = (
     <div className="grid gap-4 md:grid-cols-2">
       <div className="flex flex-col gap-1.5 md:col-span-2">
-        <span id="homework-form-target" className="text-label text-text-primary">
-          {t('form.targetLabel')}
+        <span className="inline-flex items-center gap-1">
+          <span id="homework-form-target" className="text-label text-text-primary">
+            {t('form.targetLabel')}
+          </span>
+          <HelpHint helpId="academics.homework.field.target" />
         </span>
         <RadioGroup
           aria-labelledby="homework-form-target"
