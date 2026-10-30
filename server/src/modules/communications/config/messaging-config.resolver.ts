@@ -42,7 +42,7 @@ const isDestination = (f: ProviderConfigField) => f.kind === 'url' || f.destinat
 // credentials and resolve independently.
 const isOwned = (f: ProviderConfigField) => f.required || f.owned === true || isDestination(f);
 
-const envName = (prefix: string, key: string) =>
+export const envName = (prefix: string, key: string) =>
   `${prefix}_${key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase()}`;
 
 /** string/number -> string, explicit null stays null (a cleared secret); '' and anything else is unset. */
@@ -112,7 +112,11 @@ export class MessagingConfigResolver {
       medium !== CommunicationMedium.SMS ||
       tenantMedium.metering === 'PLATFORM' ||
       opts.allowPlatformKeys === true;
-    const env = (name: string) => (platformOk ? this.config.get<string>(name) : undefined);
+    // An empty/blank env value (deploy/stack.yml `${X:-}`) is unset, so the registry default applies.
+    const env = (name: string) => {
+      const v = platformOk ? this.config.get<string>(name) : undefined;
+      return typeof v === 'string' && v.trim() === '' ? undefined : v;
+    };
 
     const forMedium = this.providers.filter((p) => p.descriptor.medium === medium);
     // A medium with one provider has nothing to choose: a stray stored/override `provider` key is ignored.
