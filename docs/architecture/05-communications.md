@@ -579,3 +579,30 @@ Dated learning (2026-10-31, Wave 2 close #3301):
 - **Surprise:** `parsePort('')` failed the digit check even though blank means "use 587" (the settings form saves `''`). Fix: blank passes; `'abc'` stays a config error. Both are pinned in the SMTP spec.
 - **Surprise:** the fee and invoice listeners read the flat `whatsapp.phoneNumberId`, so a school on the D6 nested shape looked like it had no WhatsApp. Fix: one `whatsappConfigured(settings)` helper reads both shapes.
 - **Rule candidate:** a helper that asks "is this medium set up?" goes through `messaging-descriptors.ts`, never a hand-written settings path.
+
+Wave 3 (#3305, #3302, #3303) gave admins a way to prove a provider works, moved platform alerts onto the registry, and made the settings form read the provider list from the server. #3304 (an e2e vendor stub) did not ship.
+
+```mermaid
+flowchart LR
+  F[ProviderConfigForm<br/>schema-driven] -->|POST :id/settings/test<br/>+ Idempotency-Key + sendTo| T[ConnectionTestService]
+  T -->|cap: 20 test sends / tenant / 24h| P[provider.send in-process]
+  P --> LOG[(communication log row)]
+  T -.MESSAGE_SINK on.-> N[fixed 'Test site' note, no vendor call]
+  AL[PlatformAlertsService] -->|SMS_PROVIDER + provider env keys| R[MessagingConfigResolver]
+```
+
+**Test send.** `POST /schools/:id/settings/test` with `sendTo` sends one real message in-process through the same provider code a school uses. No queue. Example: `sendTo: "+8801700000000"` with header `Idempotency-Key: 7f3c...` sends one SMS and writes one log row. Rules:
+
+- The route allows 20 test sends per school per 24 hours (`TEST_SENDS_PER_DAY`). The 21st is refused.
+- `sendTo` without an `Idempotency-Key` is a 400. A repeated key replays the stored answer and sends nothing. The UI mints a fresh key on every click.
+- On a sink stack (`MESSAGE_SINK`, Epic 87) nothing real is configured. The route returns the fixed "Test site" note before any vendor call. So a sink stack can never show a balance, a Sent row or Delivered.
+
+**Platform alerts.** `PlatformAlertsService` now asks the registry. `SMS_PROVIDER` names the provider (for example `onecodesoft`) and that provider's own env keys (`ONECODESOFT_API_KEY`, ...) carry the secrets. The old `PLATFORM_SMS_*` keys still work for one more release, only while `SMS_PROVIDER` is unset and `PLATFORM_SMS_API_KEY` is set. They log one boot warning with key names only. If `SMS_PROVIDER` is set they are ignored and a warning says so. `config-check` fails production when `SMS_PROVIDER` is not a registered name or a required key is missing.
+
+**ProviderConfigForm.** One form renders every provider from the server's descriptors, so a new vendor adds no UI code. Descriptor flags drive it: `owned` (the school's own value, never the platform's), `destination` (a host or URL, treated like `owned`), `sendOnly` (shown only for sending, not for the credential check) and `format` (input type and validation). `SchoolSettingsPage` now asks `useMessagingProviders` whether SMS is configured instead of rebuilding that rule in the client.
+
+Dated learning (2026-10-31, Wave 3 close #3306):
+
+- **Surprise (#3304, issue #3324):** the e2e vendor stub could not work. `outbound-destination-guard.ts` rejects `http:` and loopback or private hosts for send, balance, status and test connection (security Rule 7), and it has no test override. `MESSAGE_SINK` is no substitute because it answers before any vendor call. Nothing was weakened. Rule candidate: an e2e plan that needs a local fake HTTP server checks the SSRF guard first. Vendor flows stay covered by `provider-connection-test.e2e-spec.ts`; the choice between a `NODE_ENV=test` loopback seam and UI-only Playwright is on #3324.
+- **Surprise:** `yarn guide:impact` flagged `communications.sendMessage` and `admin.howItWorks` for pure internal edits (a resolver rename in `credits.controller.ts`, a hook swap in `SchoolSettingsPage.tsx`). Nothing a user sees changed there, so the PR body carries a `User guide: not affected` line. The settings page itself did change and its bn and en guide pages were updated.
+- **Rule candidate:** a wave that adds routes closes with `yarn api:types` and `check-api-types`, unlike Wave 1 where "no diff" was the proof.
