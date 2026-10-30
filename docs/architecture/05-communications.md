@@ -517,3 +517,26 @@ Dated learning (2026-10-28):
 - **Surprise:** a two-level host like `inbox.demo.<domain>` is outside Cloudflare's free Universal certificate, which covers one level only. Cost: the planned names would have failed TLS. Fix: single-level `inbox-demo.` and `inbox-staging.`. Rule candidate: new public hostnames are one label under the apex.
 - **Surprise:** a shared nginx `map` lived in `ops.conf.template`, which the edge deletes when ops is off; the new inbox block then stopped nginx booting. Fix: the inbox template owns its own map. Rule candidate: a template never uses a variable defined in an optional template.
 - **Surprise:** vitest does not type-check, so a stray `, null` argument passed 23 tests and failed `yarn lint`. Rule candidate: run `tsc` on the touched package before committing.
+
+## Epic 97 learning
+
+Wave 1 (#3295, #3296) put one abstract class in front of the five providers. Nothing a user sees changed.
+
+```mermaid
+flowchart LR
+  R[CommunicationProviderRegistry] --> L[messaging-providers.ts<br/>explicit list]
+  L --> S[SmtpProvider]
+  L --> G[GreenwebProvider]
+  L --> M[MimsmsProvider]
+  L --> C[MetaCloudProvider]
+  L --> P[MetaPageProvider]
+  S & G & M & C & P -.extend.-> A[MessagingProvider<br/>abstract class]
+```
+
+Example: adding a provider means one new class that `extends MessagingProvider` plus one line in `messaging-providers.ts`. No decorator, no scanning.
+
+Dated learning (2026-10-31):
+
+- **Surprise:** the old `sms-gateway.interface.ts` and the per-channel names (`SmtpEmailProvider`, `MimSmsGateway`) hid that all five providers do the same job. Cost: each channel had its own factory shape. Fix: one `MessagingProvider` base and a flat provider list. Rule candidate: a new channel reuses the base class, never a new interface.
+- **Surprise:** Wave 1 changed no DTO or route, so `yarn api:types` produced no diff. Fix: none needed; `check-api-types` still passes. Rule candidate: a pure refactor wave closes by proving "no diff", not by committing a regenerated file.
+- **Surprise:** a few Wave 1 bridges were left on purpose (`sendForTenant`, a `MediumSettings` index signature typed `any`, the deprecated `SmsGatewayName` alias). Rule candidate: list deliberate bridges in the wave-close notes so the next wave owns their removal.
