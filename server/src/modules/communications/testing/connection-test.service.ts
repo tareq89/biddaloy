@@ -86,8 +86,9 @@ export class ConnectionTestService {
       const { provider, config } = await this.registry.resolveFor(
         medium as CommunicationMedium,
         tenantId,
-        // testConnection() sends nothing, so `sendOnly` fields (an email `from`) are not needed.
-        { override, connectionTestOnly: true },
+        // A plain connection test sends nothing, so `sendOnly` fields (an email `from`) are not
+        // needed; a test-message send does send, so they still are.
+        { override, connectionTestOnly: !testMessage },
       );
       // Refuse before any outbound call: no support or a bad address is the caller's mistake.
       if (testMessage) {

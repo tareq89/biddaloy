@@ -130,8 +130,10 @@ describe('ConnectionTestService', () => {
       const override = { onecodesoft: { apiKey: 'draft' } };
       const result = await service.test(tenantId, CommunicationMedium.SMS as never, override, req);
 
+      // A test message really sends, so send-only fields (an email `from`) are still required.
       expect(registry.resolveFor).toHaveBeenCalledWith(CommunicationMedium.SMS, tenantId, {
         override,
+        connectionTestOnly: false,
       });
       // The config that reaches the provider is the resolved one (override already merged in).
       expect(sendSpy).toHaveBeenCalledWith(
