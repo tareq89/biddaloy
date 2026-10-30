@@ -8,7 +8,9 @@ import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import {
   schoolSettingsKeys,
   schoolSettingsQueryOptions,
+  useMessagingProviders,
   useSchoolSettings,
+  useTestSchoolConnection,
 } from './school-settings';
 
 describe('schoolSettingsQueryOptions', () => {
@@ -61,5 +63,43 @@ describe('useSchoolSettings', () => {
 
     expect(result.current.fetchStatus).toBe('idle');
     expect(requested).toBe(false);
+  });
+});
+
+describe('useMessagingProviders', () => {
+  it('reads the per-medium company schema for the school', async () => {
+    server.use(
+      http.get('/api/v1/schools/:id/settings/messaging/providers', ({ params }) =>
+        HttpResponse.json({ SMS: { providers: [], configured: true, selected: params.id } }),
+      ),
+    );
+    const { result } = renderHookWithProviders(() => useMessagingProviders('school-1'), {
+      tenantId: 'tenant-1',
+    });
+    await waitFor(() => expect(result.current.data?.SMS?.selected).toBe('school-1'));
+  });
+});
+
+describe('useTestSchoolConnection', () => {
+  it('sends a fresh Idempotency-Key only when sendTo is set', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('/api/v1/schools/:id/settings/test', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        return HttpResponse.json({ success: true, message: 'ok' });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useTestSchoolConnection('school-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current.mutateAsync({ medium: 'SMS' });
+    await result.current.mutateAsync({ medium: 'SMS', sendTo: '01712345678' });
+    await result.current.mutateAsync({ medium: 'SMS', sendTo: '01712345678' });
+
+    expect(keys[0]).toBeNull();
+    expect(keys[1]).toBeTruthy();
+    expect(keys[2]).toBeTruthy();
+    expect(keys[1]).not.toBe(keys[2]);
   });
 });

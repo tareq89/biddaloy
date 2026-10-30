@@ -307,10 +307,13 @@ After saving, a secret key or token is never shown in full again, only **Added �
 
 | Field                       | What to enter                                                                   |
 | --------------------------- | ------------------------------------------------------------------------------- |
-| **SMS company**             | **Greenweb** or **MimSMS**.                                                     |
+| **SMS company**             | **Greenweb**, **MimSMS** or **OneCodeSoft**.                                    |
 | **API key**                 | Copy it from the company's account page.                                        |
-| **Sender name (Sender ID)** | Only for MimSMS, and then it is required. Use the name the company approved.    |
+| **Sender name (Sender ID)** | Required for MimSMS; optional for OneCodeSoft. Use the name the company approved. |
 | **API address (optional)**  | In the **Advanced settings** part. If empty, the company's own address is used. |
+| **API address**             | Only for OneCodeSoft, and then it is required. Copy the base address from OneCodeSoft Dashboard › API; it must end with `/api`. |
+
+Under **Test connection**, the SMS and Email parts also have **Send a test message**. Enter a phone number (or, for Email, an address) and press the button; a real message is sent with the details in the fields now. When it goes, the part says **Sent.** with the link **See it in Message log**. A school can send 20 test messages a day; after that it says so and you can try again the next day.
 
 **SMS credit** — this part is view-only; you cannot change anything here. There are two kinds:
 
@@ -564,7 +567,7 @@ See: [**Roles & access**](roles.md).
 | Always need a second admin to reverse a payment | When on, cancelling a payment always needs a second person. When off, the only admin can approve it themselves.                                                                                 | No        |
 | Grace days                                      | No late fee is charged for this many days after the bill's due date; 0 to 60.                                                                                                                   | No        |
 | Value                                           | For a percentage, 0 to 100. For a flat amount, zero or more taka.                                                                                                                               | No        |
-| SMS company                                     | The company all of this school's SMS go through: Greenweb or MimSMS. Test the connection before you change it.                                                                                  | No        |
+| SMS company                                     | The company all of this school's SMS go through. Test the connection before you change it.                                                                                                      | No        |
 | Sender name (Sender ID)                         | Only for MimSMS, and then it is required. Use the name the company approved.                                                                                                                    | Yes       |
 | Phone number ID                                 | The long number in Meta's WhatsApp Manager, not a phone number. It cannot be left empty.                                                                                                        | Yes       |
 | Facebook Page ID                                | The ID of the school's Facebook page. Find it under the page's About section. It cannot be left empty.                                                                                          | Yes       |
