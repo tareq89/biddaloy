@@ -12,6 +12,9 @@ const PAGE_FIX = '#3017: page fix pending';
 /** The ui/ component has no helpId slot (DataTable row action or expand toggle, FilterBar field). */
 const UI_SLOT = '#3078: no helpId slot in ui/';
 
+/** A per-card radio group: one (?) per period card is noise, where the single (?) goes is open. */
+const PER_CARD = '#3313: per-period-card control, no single element for the (?)';
+
 /** The guide declares the field and its `help.<key>` text is written; no route puts the (?) there yet. */
 const GAP = '#3017: help text written, (?) not wired yet';
 
@@ -60,16 +63,7 @@ export const HELP_UNWIRED: Record<string, string> = {
   // 44.3.12: declared in the guide after the wave-3 pass ran
 
   // Help text written (was HELP_GAPS): indexed now, wireable by the route lanes
-  'people.students.field.rollNumber': GAP,
-  'people.students.field.bloodGroup': GAP,
-  'people.students.field.preferredCommunication': GAP,
-  'people.guardians.field.preferredCommunication': GAP,
-  'people.calendar.field.countsAsWorkingDay': GAP,
-  'people.calendar.field.notify': GAP,
-  'people.calendar.field.lateReason': GAP,
-  'people.admissionIntakes.field.dates': GAP,
-  'people.admissionApplicants.field.guardianChoice': GAP,
-  'people.admissionApplicants.field.notes': GAP,
+  'academics.myRoutine.field.lessonStatus': PER_CARD,
   'academics.academicYears.field.isCurrent': GAP,
   'academics.academicYears.field.dates': GAP,
   'academics.routineBuilder.field.teachers': GAP,
