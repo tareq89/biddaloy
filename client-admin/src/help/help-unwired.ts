@@ -21,9 +21,6 @@ const NO_DIALOG = '#3017: More-menu action opens no dialog, no (?) slot';
 /** A per-row control in a list; a (?) on every row is noise (D18), and no dialog opens. */
 const ROW_CONTROL = '#3063: per-row control, no dialog to hold the (?)';
 
-/** The section describes the public admission pages, which have no shell and no (?) (E11). */
-const PUBLIC_FORM = '#3017: section of a public page, no (?) there (E11)';
-
 /** The guide declares a second id for an element that already carries one. */
 const SAME_ELEMENT = '#3017: same element as reports.printables.action.revoke';
 
@@ -43,8 +40,6 @@ export const HELP_UNWIRED: Record<string, string> = {
   'people.evaluations.action.reopenAcr': PAGE_FIX,
   'people.calendar.action.regenerateFeed': PAGE_FIX,
   'people.programs.action.removeMilestone': PAGE_FIX,
-  'people.admissionIntakes.section.publicForm': PUBLIC_FORM,
-  'people.admissionIntakes.section.status': PUBLIC_FORM,
   'academics.routineBuilder.action.clearCell': PAGE_FIX,
   'academics.routineReview.action.requestChange': PAGE_FIX,
   'academics.routineReview.action.resolveRequest': PAGE_FIX,

@@ -764,32 +764,6 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'admission-staff-intakes', key: 'requiredDocuments' },
   },
-  'people.admissionIntakes.section.publicForm': {
-    title: {
-      bn: 'ভর্তি পর্ব ও অনলাইন ভর্তির ফর্ম',
-      en: 'Admission rounds and the online admission form',
-    },
-    summary: {
-      bn: 'কোন শ্রেণিতে কত আসনে, কবে থেকে কবে পর্যন্ত অনলাইনে আবেদন নেওয়া হবে তা ঠিক করুন; অভিভাবক ফোন থেকে ফর্ম পূরণ করে রেফারেন্স নম্বর পান আর পরে আবেদনের অবস্থা দেখেন।',
-      en: 'Decide which class takes how many seats, and from when to when applications are open online; guardians fill in the form on their phone, get a reference number and check their application status later.',
-    },
-    path: 'people/admission-intakes',
-    anchor: 'task-main',
-    knownIssues: 0,
-  },
-  'people.admissionIntakes.section.status': {
-    title: {
-      bn: 'ভর্তি পর্ব ও অনলাইন ভর্তির ফর্ম',
-      en: 'Admission rounds and the online admission form',
-    },
-    summary: {
-      bn: 'কোন শ্রেণিতে কত আসনে, কবে থেকে কবে পর্যন্ত অনলাইনে আবেদন নেওয়া হবে তা ঠিক করুন; অভিভাবক ফোন থেকে ফর্ম পূরণ করে রেফারেন্স নম্বর পান আর পরে আবেদনের অবস্থা দেখেন।',
-      en: 'Decide which class takes how many seats, and from when to when applications are open online; guardians fill in the form on their phone, get a reference number and check their application status later.',
-    },
-    path: 'people/admission-intakes',
-    anchor: 'task-main',
-    knownIssues: 0,
-  },
   'people.admissionApplicants': {
     title: {
       bn: 'ভর্তির আবেদন যাচাই ও ভর্তি করা',
