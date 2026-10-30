@@ -250,6 +250,13 @@ describe('SubstitutionDialog', () => {
     expect(alert.textContent).not.toContain('server text');
   });
 
+  it('says an earlier-date substitution cannot be changed on SUBSTITUTION_IN_PAST (#3179)', async () => {
+    const alert = await saveWith409({ code: 'SUBSTITUTION_IN_PAST' }, 'Past server text');
+    expect(alert.textContent).toContain('part of the record and cannot be changed');
+    expect(alert.textContent).not.toContain('Could not save');
+    expect(alert.textContent).not.toContain('server text');
+  });
+
   it('shows the generic error, not the not-on-date sentence, for any other 422', async () => {
     mockPickerData();
     server.use(

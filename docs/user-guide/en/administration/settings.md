@@ -244,6 +244,8 @@ This category has one part: **Fee rules**. "Approval, telling families and late 
 
 **Notify families** — two checkboxes: **Notify by default for scheduled fee generation** and **Notify by default for manual fee generation**. They decide whether telling families is on at the start when bills are created ([**Fee bills created**](../finance/generate-fees.md), [**Automatic billing**](../finance/recurring-schedules.md)).
 
+**Fine due after (days)** — a new fine is due this many days after it is made; 1 to 60 (it starts at 7). Press **Save** to apply it. See [**Fines**](../finance/fines.md).
+
 **Late fees** — "Tick the fees that get a late fee." One row for each fee type (except the late fee itself):
 
 | Field          | What to enter                                                      |
