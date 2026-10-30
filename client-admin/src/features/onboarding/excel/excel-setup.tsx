@@ -60,7 +60,7 @@ export function ExcelSetup({ onDone }: { onDone?: () => void } = {}) {
           return result;
         },
         (err: unknown) => {
-          throw translateWorkbookFileError(tb, err);
+          throw translateWorkbookFileError(tb, err, 'starter');
         },
       ),
     [validateAsync, tb],

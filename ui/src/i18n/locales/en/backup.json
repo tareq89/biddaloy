@@ -118,6 +118,13 @@
     "unsupportedVersion": "This file was made by a different version of the app and cannot be read. Create a new backup and use that.",
     "busy": "Another file is being checked right now. Wait a minute and try again."
   },
+  "starterFileErrors": {
+    "notXlsx": "This is not a valid .xlsx file. Save the sample as .xlsx in Excel and upload it again.",
+    "tooLarge": "This file is too large to read. Check that it is the sample file you filled in.",
+    "missingMeta": "This is not the sample file. Download it above and use that one.",
+    "unsupportedVersion": "This sample was made by a different version of the app. Download it again above and use that one.",
+    "busy": "Another file is being checked right now. Wait a minute and try again."
+  },
   "template": {
     "starter": "Download starter file",
     "starterHint": "A small file with only years, classes, sections, subjects and fee structures."

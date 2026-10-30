@@ -119,7 +119,11 @@ describe('ExcelSetup', () => {
     const { user } = await setup();
     await upload(user);
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toMatch(/not a valid \.xlsx workbook/);
+    // The starter wording speaks of the sample, not of a backup.
+    expect(alert.textContent).toContain(
+      'This is not a valid .xlsx file. Save the sample as .xlsx in Excel and upload it again.',
+    );
+    expect(alert.textContent).not.toContain('backup');
     expect(alert.textContent).not.toContain('Server English text');
   });
 

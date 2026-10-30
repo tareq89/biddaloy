@@ -242,14 +242,17 @@ const WORKBOOK_FILE_ERROR_KEY: Readonly<Record<string, string>> = {
 
 /** The translated sentence for a refused workbook; any other error comes back as it was, so
  * the server's English text is never what gets shown for a code we know. Shared with
- * the onboarding Excel setup, which validates through the same route. */
+ * the onboarding Excel setup, which validates through the same route: `'starter'` speaks of
+ * the sample file it uploads (`starterFileErrors.*`), not of a backup. */
 export function translateWorkbookFileError(
   t: ReturnType<typeof useTranslation<'backup'>>['t'],
   error: unknown,
+  file: 'backup' | 'starter' = 'backup',
 ): unknown {
   const code = (error as { details?: { code?: unknown } } | null)?.details?.code;
   if (typeof code !== 'string' || !Object.hasOwn(WORKBOOK_FILE_ERROR_KEY, code)) return error;
-  return new Error(t(`fileErrors.${WORKBOOK_FILE_ERROR_KEY[code]}`), { cause: error });
+  const group = file === 'starter' ? 'starterFileErrors' : 'fileErrors';
+  return new Error(t(`${group}.${WORKBOOK_FILE_ERROR_KEY[code]}`), { cause: error });
 }
 
 /** `renderSummary` — a per-tab create/update/unchanged/delete table (from
