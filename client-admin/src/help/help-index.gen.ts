@@ -3395,6 +3395,16 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'communications', key: 'bulkMediums' },
   },
+  'communications.feeReminders.section.bulkMessage': {
+    title: { bn: 'ফি রিমাইন্ডার', en: 'Fee reminders' },
+    summary: {
+      bn: 'একজন শিক্ষার্থীর অভিভাবকদের, বা একসাথে সর্বোচ্চ ৫০০ জন শিক্ষার্থীর অভিভাবকদের বকেয়ার কথা মনে করিয়ে দিন; নাম আর টাকা নিজে থেকে বসে, পাঠানোর আগে প্রিভিউতে দেখুন কে পাবেন, কে বাদ আর কয়টি এসএমএস লাগবে।',
+      en: 'Remind the guardians of one student, or of up to 500 students at once, about unpaid fees; names and amounts fill in by themselves, and the preview shows who will get it, who is skipped and how many SMS are needed.',
+    },
+    path: 'communications/fee-reminders',
+    anchor: 'task-bulk',
+    knownIssues: 0,
+  },
   'communications.reminderHistory': {
     title: { bn: 'রিমাইন্ডার ইতিহাস', en: 'Reminder history' },
     summary: {

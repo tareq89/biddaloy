@@ -99,5 +99,6 @@ export const HELP_UNWIRED: Record<string, string> = {
   'communications.feeReminders.field.guardians': GAP,
   'communications.feeReminders.field.message': GAP,
   'communications.feeReminders.field.medium': GAP,
+  'communications.feeReminders.section.bulkMessage': PAGE_FIX,
   'communications.reminderHistory.field.status': GAP,
 };
