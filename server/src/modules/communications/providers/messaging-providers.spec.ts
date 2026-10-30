@@ -70,6 +70,8 @@ describe('MESSAGING_PROVIDERS', () => {
     };
     for (const P of MESSAGING_PROVIDERS) {
       const { name, fields } = build(P).descriptor;
+      // Providers the legacy resolver does not know (onecodesoft) are covered by the Wave 2 resolver.
+      if (!resolved[name]) continue;
       const keys = Object.keys(resolved[name])
         .filter((k) => k !== 'gateway')
         .sort();
