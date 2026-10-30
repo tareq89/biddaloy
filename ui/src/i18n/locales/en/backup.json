@@ -111,6 +111,13 @@
   "migrateWholeSchoolLink": "Use the full workbook template",
   "downloadTemplate": "Download blank template",
   "downloadTemplateFailed": "Couldn't download the template. Try again.",
+  "fileErrors": {
+    "notXlsx": "This is not a valid .xlsx workbook. Upload the backup file you downloaded from here.",
+    "tooLarge": "This file is too large to read. Check that it is the backup file you downloaded.",
+    "missingMeta": "This workbook cannot be identified as a backup from here. Upload the file as you downloaded it, with all its sheets.",
+    "unsupportedVersion": "This file was made by a different version of the app and cannot be read. Create a new backup and use that.",
+    "busy": "Another file is being checked right now. Wait a minute and try again."
+  },
   "template": {
     "starter": "Download starter file",
     "starterHint": "A small file with only years, classes, sections, subjects and fee structures."

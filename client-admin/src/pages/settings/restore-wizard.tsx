@@ -101,13 +101,18 @@ export function RestoreWizard({
 
   const validate = React.useCallback(
     (file: File, onProgress: (percent: number) => void) =>
-      validateAsync({ file, onProgress }).then((result) => {
-        setLatestResult(result);
-        setConfirmationText('');
-        setInviteRestoredUsers(false);
-        return result;
-      }),
-    [validateAsync],
+      validateAsync({ file, onProgress }).then(
+        (result) => {
+          setLatestResult(result);
+          setConfirmationText('');
+          setInviteRestoredUsers(false);
+          return result;
+        },
+        (err: unknown) => {
+          throw translateWorkbookFileError(t, err);
+        },
+      ),
+    [validateAsync, t],
   );
 
   const commit = React.useCallback(
@@ -222,6 +227,29 @@ export function sumTabDiffs(tabs: TabSummaryDto[]): TabDiffTotals {
 
 export function tabLabel(t: ReturnType<typeof useTranslation<'backup'>>['t'], tab: string): string {
   return t(`diffTabName.${tab}`, { defaultValue: tab });
+}
+
+// `POST /backup/validate` refuses a whole file with its own `details.code` set
+// (`WorkbookFormatError` and `VALIDATE_BUSY`), apart from `ImportFileErrorCode`, so it
+// has its own map onto `backup:fileErrors.*` (#3174).
+const WORKBOOK_FILE_ERROR_KEY: Readonly<Record<string, string>> = {
+  NOT_XLSX: 'notXlsx',
+  TOO_LARGE: 'tooLarge',
+  MISSING_META: 'missingMeta',
+  UNSUPPORTED_VERSION: 'unsupportedVersion',
+  VALIDATE_BUSY: 'busy',
+};
+
+/** The translated sentence for a refused workbook; any other error comes back as it was, so
+ * the server's English text is never what gets shown for a code we know. Shared with
+ * the onboarding Excel setup, which validates through the same route. */
+export function translateWorkbookFileError(
+  t: ReturnType<typeof useTranslation<'backup'>>['t'],
+  error: unknown,
+): unknown {
+  const code = (error as { details?: { code?: unknown } } | null)?.details?.code;
+  if (typeof code !== 'string' || !Object.hasOwn(WORKBOOK_FILE_ERROR_KEY, code)) return error;
+  return new Error(t(`fileErrors.${WORKBOOK_FILE_ERROR_KEY[code]}`), { cause: error });
 }
 
 /** `renderSummary` — a per-tab create/update/unchanged/delete table (from

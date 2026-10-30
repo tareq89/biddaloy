@@ -102,6 +102,27 @@ afterEach(async () => {
 });
 
 describe('ExcelSetup', () => {
+  it('shows a translated sentence, not the server text, when the file is refused (#3174)', async () => {
+    server.use(
+      http.post('/api/v1/backup/validate', () =>
+        HttpResponse.json(
+          {
+            statusCode: 400,
+            message: 'Server English text',
+            requestId: 'req-1',
+            details: { code: 'NOT_XLSX' },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    const { user } = await setup();
+    await upload(user);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/not a valid \.xlsx workbook/);
+    expect(alert.textContent).not.toContain('Server English text');
+  });
+
   it('downloads the starter variant in the current language', async () => {
     let params: URLSearchParams | undefined;
     server.use(
