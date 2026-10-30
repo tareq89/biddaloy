@@ -396,6 +396,7 @@ function ReportsPageContent() {
             kind: 'text',
             key: 'threshold',
             label: t('reports.thresholdLabel'),
+            helpId: 'attendance.attendanceReports.field.threshold',
             placeholder: t('reports.thresholdPlaceholder'),
             formatChip: (value: string) => formatNumber(Number(value), regionConfig),
           },
