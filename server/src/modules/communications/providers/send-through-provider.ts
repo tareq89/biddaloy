@@ -41,12 +41,7 @@ export async function sendThroughProvider<TConfig>(
       ? { ...result, segments }
       : result;
   } catch (err) {
-    return {
-      success: false,
-      providerMessageId: null,
-      error: err instanceof Error ? err.message : String(err),
-      segments: segmentsFor(medium, params),
-      outcome: 'AMBIGUOUS',
-    };
+    // Unknown whether it reached the network: AMBIGUOUS, never the REJECTED a config error gets.
+    return { ...failedResult(err, medium, params), retryable: undefined, outcome: 'AMBIGUOUS' };
   }
 }

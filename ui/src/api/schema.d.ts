@@ -2234,6 +2234,23 @@ export interface paths {
         patch: operations["SchoolsController_updateSettings_v1"];
         trace?: never;
     };
+    "/api/v1/schools/{id}/settings/messaging/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per messaging channel: the available companies and their fields, the selected company and whether it is configured. Never returns a setting value. */
+        get: operations["SchoolsController_getMessagingProviders_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/schools/me/profile": {
         parameters: {
             query?: never;
@@ -11602,45 +11619,23 @@ export interface components {
             timezone: string;
             calendar?: components["schemas"]["RegionCalendarDto"];
         };
-        MaskedSecretResponseDto: {
-            configured: boolean;
-            hint?: string;
-        };
-        MaskedGreenwebSmsResponseDto: {
-            apiKey: components["schemas"]["MaskedSecretResponseDto"];
-            apiUrl?: string;
-        };
-        MaskedMimSmsResponseDto: {
-            apiKey: components["schemas"]["MaskedSecretResponseDto"];
-            senderId: string;
-            apiUrl?: string;
-        };
-        MaskedSmsSettingsResponseDto: {
-            provider: string;
-            greenweb?: components["schemas"]["MaskedGreenwebSmsResponseDto"];
-            mimsms?: components["schemas"]["MaskedMimSmsResponseDto"];
-        };
-        MaskedWhatsAppSettingsResponseDto: {
-            phoneNumberId: string;
-            apiVersion?: string;
-            accessToken: components["schemas"]["MaskedSecretResponseDto"];
-        };
-        MaskedEmailSettingsResponseDto: {
-            host: string;
-            port: number;
-            user: string;
-            from: string;
-            password: components["schemas"]["MaskedSecretResponseDto"];
-        };
-        MaskedMessengerSettingsResponseDto: {
-            pageId: string;
-            accessToken: components["schemas"]["MaskedSecretResponseDto"];
-        };
         MaskedCommunicationsSettingsResponseDto: {
-            sms?: components["schemas"]["MaskedSmsSettingsResponseDto"];
-            whatsapp?: components["schemas"]["MaskedWhatsAppSettingsResponseDto"];
-            email?: components["schemas"]["MaskedEmailSettingsResponseDto"];
-            messenger?: components["schemas"]["MaskedMessengerSettingsResponseDto"];
+            /** @description D6 shape; each schema secret is a MaskedSecretResponseDto */
+            sms?: {
+                [key: string]: unknown;
+            };
+            /** @description D6 shape; each schema secret is a MaskedSecretResponseDto */
+            whatsapp?: {
+                [key: string]: unknown;
+            };
+            /** @description D6 shape; each schema secret is a MaskedSecretResponseDto */
+            email?: {
+                [key: string]: unknown;
+            };
+            /** @description D6 shape; each schema secret is a MaskedSecretResponseDto */
+            messenger?: {
+                [key: string]: unknown;
+            };
         };
         DocumentsSettingsDto: {
             withholdAdmitCardForDues?: boolean;
@@ -11653,50 +11648,60 @@ export interface components {
             communications?: components["schemas"]["MaskedCommunicationsSettingsResponseDto"];
             documents?: components["schemas"]["DocumentsSettingsDto"];
         };
+        LocalizedLabelResponseDto: {
+            en: string;
+            bn: string;
+        };
+        ProviderConfigFieldResponseDto: {
+            key: string;
+            label: components["schemas"]["LocalizedLabelResponseDto"];
+            /** @enum {string} */
+            kind: "text" | "url" | "secret";
+            required: boolean;
+            advanced?: boolean;
+        };
+        ProviderDescriptorResponseDto: {
+            medium: string;
+            name: string;
+            label: components["schemas"]["LocalizedLabelResponseDto"];
+            capabilities: string[];
+            fields: components["schemas"]["ProviderConfigFieldResponseDto"][];
+            supportsTestMessage: boolean;
+        };
+        MessagingMediumProvidersResponseDto: {
+            providers: components["schemas"]["ProviderDescriptorResponseDto"][];
+            configured: boolean;
+            selected: string | null;
+        };
+        MessagingProvidersResponseDto: {
+            SMS?: components["schemas"]["MessagingMediumProvidersResponseDto"];
+            WHATSAPP?: components["schemas"]["MessagingMediumProvidersResponseDto"];
+            EMAIL?: components["schemas"]["MessagingMediumProvidersResponseDto"];
+            MESSENGER?: components["schemas"]["MessagingMediumProvidersResponseDto"];
+        };
         OrganisationRenameDto: {
             /** @enum {string} */
             list: "shifts" | "versions" | "groups";
             from: string;
             to: string;
         };
-        GreenwebSmsDto: {
-            apiKey?: string | null;
-            apiUrl?: string;
-        };
-        MimSmsDto: {
-            apiKey?: string | null;
-            senderId: string;
-            apiUrl?: string;
-        };
-        SmsSettingsDto: {
-            /** @enum {string} */
-            provider: "greenweb" | "mimsms";
-            greenweb?: components["schemas"]["GreenwebSmsDto"];
-            mimsms?: components["schemas"]["MimSmsDto"];
-            /** @enum {string} */
-            metering?: "OFF" | "PLATFORM";
-        };
-        WhatsAppSettingsDto: {
-            phoneNumberId: string;
-            apiVersion?: string;
-            accessToken?: string | null;
-        };
-        EmailSettingsDto: {
-            host: string;
-            port: number;
-            user: string;
-            from: string;
-            password?: string | null;
-        };
-        MessengerSettingsDto: {
-            pageId: string;
-            accessToken?: string | null;
-        };
         CommunicationsSettingsDto: {
-            sms?: components["schemas"]["SmsSettingsDto"];
-            whatsapp?: components["schemas"]["WhatsAppSettingsDto"];
-            email?: components["schemas"]["EmailSettingsDto"];
-            messenger?: components["schemas"]["MessengerSettingsDto"];
+            /** @description D6: { provider, <company>: {…}, metering? }; fields from GET …/settings/messaging/providers */
+            sms?: {
+                [key: string]: unknown;
+            };
+            /** @description D6: { provider, <company>: {…}, metering? }; fields from GET …/settings/messaging/providers */
+            whatsapp?: {
+                [key: string]: unknown;
+            };
+            /** @description D6: { provider, <company>: {…}, metering? }; fields from GET …/settings/messaging/providers */
+            email?: {
+                [key: string]: unknown;
+            };
+            /** @description D6: { provider, <company>: {…}, metering? }; fields from GET …/settings/messaging/providers */
+            messenger?: {
+                [key: string]: unknown;
+            };
         };
         AutoAbsentNotificationDto: {
             enabled: boolean;
@@ -13192,7 +13197,7 @@ export interface components {
             room: components["schemas"]["Room"] | null;
             room_id: string | null;
             /** @enum {string} */
-            recurrence: "WEEKLY" | "MONTHLY" | "BIWEEKLY";
+            recurrence: "MONTHLY" | "WEEKLY" | "BIWEEKLY";
             recurrence_offset: number;
             valid_from: string;
             valid_to: string | null;
@@ -13264,7 +13269,7 @@ export interface components {
             /** Format: uuid */
             room_id?: string | null;
             /** @enum {string} */
-            recurrence: "WEEKLY" | "MONTHLY" | "BIWEEKLY";
+            recurrence: "MONTHLY" | "WEEKLY" | "BIWEEKLY";
             recurrence_offset?: number;
             valid_from: string;
             valid_to?: string | null;
@@ -13919,7 +13924,7 @@ export interface components {
         CreateExamDto: {
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             /** Format: uuid */
             academic_year_id: string;
             /** Format: uuid */
@@ -13960,7 +13965,7 @@ export interface components {
             academic_term_id: string | null;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             /** @enum {string} */
             status: "DRAFT" | "PROCESSED" | "PUBLISHED";
             /** Format: date-time */
@@ -13985,7 +13990,7 @@ export interface components {
             academic_term_id: string | null;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             /** @enum {string} */
             status: "DRAFT" | "PROCESSED" | "PUBLISHED";
             /** Format: date-time */
@@ -14001,7 +14006,7 @@ export interface components {
         UpdateExamDto: {
             name?: string;
             /** @enum {string} */
-            kind?: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind?: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             /** Format: uuid */
             academic_year_id?: string;
             /** Format: uuid */
@@ -14066,7 +14071,7 @@ export interface components {
             id: string;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             rowCount: number;
             classGrades: number[];
         };
@@ -14088,13 +14093,13 @@ export interface components {
             id: string;
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             rows: components["schemas"]["ExamTemplateRowDto"][];
         };
         CreateExamTemplateDto: {
             name: string;
             /** @enum {string} */
-            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
         };
         ExamTemplateComponentInputDto: {
             name: string;
@@ -14111,7 +14116,7 @@ export interface components {
         UpdateExamTemplateDto: {
             name?: string;
             /** @enum {string} */
-            kind?: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            kind?: "TERM" | "MONTHLY" | "MODEL" | "OTHER";
             rows?: components["schemas"]["ExamTemplateRowInputDto"][];
         };
         SetSubjectChoiceDto: {
@@ -22453,6 +22458,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantSettingsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolsController_getMessagingProviders_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagingProvidersResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

@@ -540,3 +540,24 @@ Dated learning (2026-10-31):
 - **Surprise:** the old `sms-gateway.interface.ts` and the per-channel names (`SmtpEmailProvider`, `MimSmsGateway`) hid that all five providers do the same job. Cost: each channel had its own factory shape. Fix: one `MessagingProvider` base and a flat provider list. Rule candidate: a new channel reuses the base class, never a new interface.
 - **Surprise:** Wave 1 changed no DTO or route, so `yarn api:types` produced no diff. Fix: none needed; `check-api-types` still passes. Rule candidate: a pure refactor wave closes by proving "no diff", not by committing a regenerated file.
 - **Surprise:** a few Wave 1 bridges were left on purpose (`sendForTenant`, a `MediumSettings` index signature typed `any`, the deprecated `SmsGatewayName` alias). Rule candidate: list deliberate bridges in the wave-close notes so the next wave owns their removal.
+
+Wave 2 (#3298 to #3301) made the choice of provider data, not code. A school's settings name the provider, one resolver turns that into a config, and a spec proves a brand-new vendor needs no other edit.
+
+```mermaid
+flowchart LR
+  T[school settings<br/>communications.sms] --> R[MessagingConfigResolver]
+  E[platform env<br/>ONECODESOFT_API_KEY ...] --> R
+  R -->|provider + config| P[OnecodesoftProvider.send]
+  G[grep guard spec] -.fails if a generic file names a vendor.-> X[any file outside the provider folder]
+```
+
+Example: a school stores `communications.sms = { provider: 'onecodesoft', onecodesoft: { apiKey, senderId, apiUrl }, metering: 'PLATFORM' }`. The demo seed (`comms-print.ts`) writes exactly that shape for every demo school, with fake values and encrypted secrets.
+
+Dated learning (2026-10-31, Wave 2 close #3301):
+
+- **Proof:** `stub-provider.proof.spec.ts` adds a `StubSmsProvider` with one `vi.mock` line. The resolver (tenant settings and `STUB_API_KEY`), the settings validator, `getSecretPaths` and the providers response all accept it with no source edit.
+- **Guard:** `messaging-provider-names.guard.spec.ts` fails when a generic file names a vendor. Allowed: the provider folders, `messaging-providers.ts`, the demo seed `comms-print.ts`, specs, stories, example env files. Files that still name a vendor (the hand-built SMS form, platform alerts, locale labels, doc comments) sit in a `KNOWN` list with a reason each. The list may only shrink: a second test fails when an entry stops leaking.
+- **Surprise:** a single-provider medium (WhatsApp, email, messenger) still honoured a stray stored `provider` key, so a bad value broke a school that had nothing to choose. Fix: the resolver ignores it when the medium has one provider.
+- **Surprise:** `parsePort('')` failed the digit check even though blank means "use 587" (the settings form saves `''`). Fix: blank passes; `'abc'` stays a config error. Both are pinned in the SMTP spec.
+- **Surprise:** the fee and invoice listeners read the flat `whatsapp.phoneNumberId`, so a school on the D6 nested shape looked like it had no WhatsApp. Fix: one `whatsappConfigured(settings)` helper reads both shapes.
+- **Rule candidate:** a helper that asks "is this medium set up?" goes through `messaging-descriptors.ts`, never a hand-written settings path.

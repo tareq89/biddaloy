@@ -33,6 +33,10 @@ import { PrintTemplatesService } from '../../../modules/print/templates/print-te
 import { PrintJobsService } from '../../../modules/print/jobs/print-jobs.service';
 import { SchoolSettingsReader } from '../../../modules/schools/settings/school-settings-reader.service';
 
+import { problemWith } from '../../../modules/schools/settings/messaging-settings.validator';
+import { buildMessagingProvidersResponse } from '../../../modules/schools/settings/messaging-descriptors';
+import type { CommunicationMedium } from '@biddaloy/shared';
+
 const ANCHOR = '2026-10-10';
 
 describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
@@ -144,6 +148,9 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
               (SELECT count(*)::int FROM student_lifecycle_events
                 WHERE event_type = 'TRANSFERRED_OUT' AND destination LIKE '%মাধ্যমিক শাখা') AS transfers`,
     );
+    facts.commsSettings = await q(
+      `SELECT settings->'communications' AS c FROM schools WHERE slug LIKE 'bmsc-%'`,
+    );
     facts.counts = await q(
       `SELECT (SELECT count(*)::int FROM calendar_feed_tokens) AS tokens,
               (SELECT count(*)::int FROM printer_profiles) AS printers,
@@ -189,6 +196,26 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
   it('issues one transfer certificate per Primary to High transfer', () => {
     expect(facts.tc[0].transfers).toBeGreaterThan(0);
     expect(facts.tc[0].tcs).toBe(facts.tc[0].transfers);
+  });
+
+  // Epic 97 D6: every demo school is "Set up" on all four media, with OneCodeSoft as its SMS company.
+  it('stores messaging settings in the per-provider shape: valid, set up, secrets encrypted', () => {
+    expect(facts.commsSettings.length).toBe(facts.tenants[0].n);
+    for (const { c } of facts.commsSettings) {
+      expect(c.sms.provider).toBe('onecodesoft');
+      expect(c.sms.metering).toBe('PLATFORM');
+      for (const medium of ['SMS', 'WHATSAPP', 'EMAIL', 'MESSENGER'] as const) {
+        // The same validator the settings form uses accepts the seeded block.
+        expect(problemWith(c[medium.toLowerCase()], medium as CommunicationMedium)).toBeNull();
+      }
+      const res = buildMessagingProvidersResponse({ version: 1, communications: c } as never);
+      expect(res.SMS?.selected).toBe('onecodesoft');
+      for (const medium of ['SMS', 'WHATSAPP', 'EMAIL', 'MESSENGER'] as const) {
+        expect(res[medium]?.configured).toBe(true);
+      }
+      // A secret is an encrypted envelope, never the plain value.
+      expect(c.sms.onecodesoft.apiKey).toMatch(/^gcmv1:/);
+    }
   });
 
   it('adds calendar tokens, printer profiles and certificates', () => {

@@ -259,6 +259,63 @@ describe('secret handling on export', () => {
   });
 });
 
+// Epic 97 D6: a backup may hold the old flat settings or the per-provider blob. Both export, read back
+// and keep every non-secret field; neither ever carries a secret out.
+describe('messaging settings round trip (flat and D6 blobs)', () => {
+  const roundTrip = (settings: Record<string, unknown>) =>
+    (schoolTab.fromRow(toCells(makeSchool({ settings })), 2, importCtx) as { row: SchoolRow }).row
+      .settings;
+
+  it('an old flat WhatsApp / email blob keeps its non-secret fields and drops the secrets', () => {
+    const out = roundTrip({
+      communications: {
+        whatsapp: { phoneNumberId: '123', accessToken: SECRET },
+        email: { host: 'smtp.test', user: 'u', password: SECRET, from: 'a@b.test' },
+      },
+    });
+
+    expect(out).toEqual({
+      communications: {
+        whatsapp: { phoneNumberId: '123' },
+        email: { host: 'smtp.test', user: 'u', from: 'a@b.test' },
+      },
+    });
+    expect(JSON.stringify(out)).not.toContain(SECRET);
+  });
+
+  it('a D6 blob keeps provider, metering and non-secret fields and drops every secret', () => {
+    const out = roundTrip({
+      communications: {
+        sms: {
+          provider: 'onecodesoft',
+          onecodesoft: { apiKey: SECRET, senderId: 'BMSC', apiUrl: 'https://sms.test/api' },
+          metering: 'PLATFORM',
+        },
+        whatsapp: {
+          provider: 'meta-cloud',
+          'meta-cloud': { phoneNumberId: '123', accessToken: SECRET },
+        },
+        email: { provider: 'smtp', smtp: { host: 'smtp.test', password: SECRET } },
+        messenger: { provider: 'meta-page', 'meta-page': { pageId: '456', accessToken: SECRET } },
+      },
+    });
+
+    expect(out).toEqual({
+      communications: {
+        sms: {
+          provider: 'onecodesoft',
+          onecodesoft: { senderId: 'BMSC', apiUrl: 'https://sms.test/api' },
+          metering: 'PLATFORM',
+        },
+        whatsapp: { provider: 'meta-cloud', 'meta-cloud': { phoneNumberId: '123' } },
+        email: { provider: 'smtp', smtp: { host: 'smtp.test' } },
+        messenger: { provider: 'meta-page', 'meta-page': { pageId: '456' } },
+      },
+    });
+    expect(JSON.stringify(out)).not.toContain(SECRET);
+  });
+});
+
 describe('deepMergePresent', () => {
   // Business-critical: an imported settings object never carries secrets
   // (export strips them), so a merge that only overwrites present keys is

@@ -8,14 +8,8 @@ import {
 } from '../config/messaging-config.resolver';
 import { MailpitSinkProvider } from './sink/mailpit-sink.provider';
 import { isMessageSink } from './sink/message-sink';
+import { messagingDescriptors } from '../../schools/settings/messaging-descriptors';
 import { failedResult, sendThroughProvider } from './send-through-provider';
-
-const MEDIA = [
-  CommunicationMedium.SMS,
-  CommunicationMedium.WHATSAPP,
-  CommunicationMedium.EMAIL,
-  CommunicationMedium.MESSENGER,
-];
 
 /**
  * CommunicationMedium -> the provider the tenant chose for it. Resolution is per send, per tenant,
@@ -36,7 +30,8 @@ export class CommunicationProviderRegistryService {
 
   /** `send(params, tenantId)` resolves the tenant's provider, then sends. Never throws. */
   resolve(medium: CommunicationMedium): CommunicationProvider | undefined {
-    if (!MEDIA.includes(medium)) return undefined;
+    // A medium is sendable iff some registered provider serves it (derived, not a second list).
+    if (!messagingDescriptors().some((d) => d.medium === medium)) return undefined;
     // Epic 87 (D9): MESSAGE_SINK=mailpit sends every medium to the test inbox, before any config is read.
     if (isMessageSink()) return MailpitSinkProvider.forMedium(medium);
     return {

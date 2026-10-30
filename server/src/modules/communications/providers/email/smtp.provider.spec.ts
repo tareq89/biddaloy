@@ -47,6 +47,14 @@ describe('SmtpProvider', () => {
     provider = new SmtpProvider();
   });
 
+  it('a blank port falls back to 587; a non-numeric port is a config error', async () => {
+    const ok = await provider.send({ to: 'g@example.com', body: 'x' }, { ...cfg, port: '' });
+    expect(ok.error).toBeUndefined();
+    expect(vi.mocked(nodemailer.createTransport).mock.calls[0][0]).toMatchObject({ port: 587 });
+    const bad = await provider.send({ to: 'g@example.com', body: 'x' }, { ...cfg, port: 'abc' });
+    expect(bad).toMatchObject({ success: false, outcome: 'REJECTED' });
+  });
+
   it('builds a transporter from the tenant-resolved config and sends the message', async () => {
     const result = await provider.send({ to: 'guardian@example.com', body: 'Fee reminder' }, cfg);
 

@@ -118,10 +118,11 @@ export class MessagingConfigResolver {
     const env = (name: string) => (platformOk ? this.config.get<string>(name) : undefined);
 
     const forMedium = this.providers.filter((p) => p.descriptor.medium === medium);
+    // A medium with one provider has nothing to choose: a stray stored/override `provider` key is ignored.
     const selected =
+      (forMedium.length === 1 ? forMedium[0].descriptor.name : undefined) ??
       coerce(override.provider) ??
       coerce(tenantMedium.provider) ??
-      (forMedium.length === 1 ? forMedium[0].descriptor.name : undefined) ??
       env(`${medium}_PROVIDER`) ??
       forMedium[0]?.descriptor.name;
     const provider = forMedium.find((p) => p.descriptor.name === selected);

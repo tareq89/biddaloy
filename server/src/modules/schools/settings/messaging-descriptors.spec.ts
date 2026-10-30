@@ -12,6 +12,7 @@ import {
   messagingDescriptors,
   settingsKeyFor,
   soleDescriptorFor,
+  whatsappConfigured,
 } from './messaging-descriptors';
 import { getSecretPaths } from './secret-paths.util';
 
@@ -89,5 +90,23 @@ describe('buildMessagingProvidersResponse (real providers)', () => {
     const res = buildMessagingProvidersResponse(settings)[d.medium];
     expect(res?.selected).toBeNull();
     expect(res?.configured).toBe(false);
+  });
+});
+
+describe('whatsappConfigured', () => {
+  const cfg = (whatsapp: unknown) =>
+    ({ version: 1, communications: { whatsapp } }) as unknown as TenantSettings;
+
+  it('true for the pre-D6 flat shape', () => {
+    expect(whatsappConfigured(cfg({ phoneNumberId: '1', accessToken: 't' }))).toBe(true);
+  });
+  it('true for the D6 nested shape', () => {
+    expect(
+      whatsappConfigured(cfg({ provider: 'meta-cloud', 'meta-cloud': { phoneNumberId: '1' } })),
+    ).toBe(true);
+  });
+  it('false when absent or phoneNumberId blank', () => {
+    expect(whatsappConfigured(cfg(undefined))).toBe(false);
+    expect(whatsappConfigured(cfg({ 'meta-cloud': { phoneNumberId: '' } }))).toBe(false);
   });
 });

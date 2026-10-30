@@ -83,9 +83,12 @@ export function buildMessagingProvidersResponse(
     const comms = settings.communications as Record<string, unknown> | undefined;
     const block = toNestedMedium(comms?.[settingsKeyFor(medium)], medium);
     const stored = block?.provider;
+    // A stray `provider` is ignored when the medium has one provider (same rule as the resolver).
     const selected =
-      providers.find((d) => d.name === stored) ??
-      (stored === undefined ? soleDescriptorFor(medium) : undefined);
+      providers.length === 1
+        ? providers[0]
+        : (providers.find((d) => d.name === stored) ??
+          (stored === undefined ? soleDescriptorFor(medium) : undefined));
     const inner = selected ? block?.[selected.name] : undefined;
     const values = isPlainObject(inner) ? inner : undefined;
     response[medium] = {
@@ -98,4 +101,19 @@ export function buildMessagingProvidersResponse(
     };
   }
   return response;
+}
+
+/**
+ * Has this school set up WhatsApp (a phone number id, D6 nested or pre-D6 flat)? Same
+ * "tenant opted in" meaning as before; the access token may still come from the platform env.
+ */
+export function whatsappConfigured(settings: TenantSettings): boolean {
+  const comms = settings.communications as Record<string, unknown> | undefined;
+  const sole = soleDescriptorFor(CommunicationMedium.WHATSAPP);
+  const block = toNestedMedium(
+    comms?.[settingsKeyFor(CommunicationMedium.WHATSAPP)],
+    CommunicationMedium.WHATSAPP,
+  );
+  const inner = sole ? block?.[sole.name] : undefined;
+  return isPlainObject(inner) && present(inner.phoneNumberId);
 }

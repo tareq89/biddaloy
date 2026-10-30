@@ -259,6 +259,19 @@ describe('MessagingConfigResolver', () => {
       expect(err.message).not.toContain('nope-vendor');
     });
 
+    it('a single-provider medium ignores a stray provider key (tenant and override)', async () => {
+      const stray = settingsWith('whatsapp', {
+        provider: 'x',
+        'meta-cloud': { phoneNumberId: 'p1', accessToken: 'tok' },
+      });
+      const r = await resolverFor({ t1: stray }).resolve(CommunicationMedium.WHATSAPP, 't1');
+      expect(r.provider.descriptor.name).toBe('meta-cloud');
+      const o = await resolverFor({ t1: stray }).resolve(CommunicationMedium.WHATSAPP, 't1', {
+        override: { provider: 'nope-vendor' },
+      });
+      expect(o.provider.descriptor.name).toBe('meta-cloud');
+    });
+
     it('a provider of another medium is not selectable', async () => {
       await expect(
         resolverFor({}).resolve(CommunicationMedium.SMS, 't1', { override: { provider: 'smtp' } }),
