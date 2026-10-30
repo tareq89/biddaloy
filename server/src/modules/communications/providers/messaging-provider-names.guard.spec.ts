@@ -55,14 +55,11 @@ const KNOWN: Record<string, string> = {
   'ui/src/shells/form-shell-errors.ts': 'doc-comment example',
   'ui/src/test/msw/handlers/schools.ts': 'test fixture',
   // real debt, removed by the Epic 97 UI waves / platform-alert follow-up
-  'client-admin/src/pages/settings/SmsSection.tsx': 'hand-built SMS form (UI wave)',
-  'client-admin/src/pages/settings/connection-test-status.tsx':
-    'hand-built SMS readiness (UI wave)',
-  'ui/src/hooks/school-settings.ts': 'hand-typed SMS settings (UI wave)',
-  'ui/src/i18n/locales/bn/settings.json': 'legacy per-vendor labels outside help.messaging',
   'ui/src/i18n/locales/en/settings.json': 'legacy per-vendor labels outside help.messaging',
 };
-const isTestFile = (p: string) => /\.(spec\.tsx?|test\.tsx?|stories\.tsx|e2e-spec\.ts)$/.test(p);
+// `*.fixtures.ts` is test/story data mirroring the server descriptors, so it names vendors.
+const isTestFile = (p: string) =>
+  /\.(spec\.tsx?|test\.tsx?|stories\.tsx|e2e-spec\.ts|fixtures\.ts)$/.test(p);
 const isExampleEnv = (p: string) => /example\.env$|\.env\.example$/.test(p);
 const isSettingsLocale = (p: string) => /^ui\/src\/i18n\/locales\/[^/]+\/settings\.json$/.test(p);
 

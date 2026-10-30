@@ -120,11 +120,14 @@ describe('PlatformAlertsService', () => {
     await trip(f);
     expect(f.resolver.resolve).toHaveBeenCalledWith('SMS', null, {
       allowPlatformKeys: true,
+      // Nested under the registry default: SMS has several providers, so flat keys are ignored.
       override: {
-        provider: undefined,
-        apiKey: 'secret-key-value',
-        senderId: 'sid',
-        apiUrl: 'https://gw.example/api',
+        provider: 'greenweb',
+        greenweb: {
+          apiKey: 'secret-key-value',
+          senderId: 'sid',
+          apiUrl: 'https://gw.example/api',
+        },
       },
     });
   });

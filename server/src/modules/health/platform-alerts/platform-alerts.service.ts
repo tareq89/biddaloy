@@ -223,16 +223,20 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
     const legacy = !get('SMS_PROVIDER') && !!legacyKey;
     // Old meaning: the named provider if registered (any case), else the registry default.
     const wanted = get('PLATFORM_SMS_PROVIDER')?.trim().toLowerCase();
-    const provider = descriptorsFor(CommunicationMedium.SMS).find((d) => d.name === wanted)?.name;
-    // Old flat override shape: field keys on the medium itself.
-    const override = legacy
-      ? {
-          provider,
-          apiKey: legacyKey,
-          senderId: get('PLATFORM_SMS_SENDER_ID'),
-          apiUrl: get('PLATFORM_SMS_API_URL'),
-        }
-      : undefined;
+    const sms = descriptorsFor(CommunicationMedium.SMS);
+    const provider = (sms.find((d) => d.name === wanted) ?? sms[0])?.name;
+    // Nested under the provider: SMS has several providers, so the resolver ignores flat keys.
+    const override =
+      legacy && provider
+        ? {
+            provider,
+            [provider]: {
+              apiKey: legacyKey,
+              senderId: get('PLATFORM_SMS_SENDER_ID'),
+              apiUrl: get('PLATFORM_SMS_API_URL'),
+            },
+          }
+        : undefined;
     try {
       return await this.resolver.resolve(CommunicationMedium.SMS, null, {
         allowPlatformKeys: true,
