@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -7,9 +7,10 @@ import { fetchPinnedJson } from '../providers/shared/pinned-http';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
 import { DataSource } from 'typeorm';
-import { TENANT_SETTINGS_SCHEMA_VERSION, UserRole } from '@biddaloy/shared';
+import { TENANT_SETTINGS_SCHEMA_VERSION, UserRole, countSmsSegments } from '@biddaloy/shared';
 import { TenantSettingsCache } from '../../schools/settings/tenant-settings-cache.service';
 import { SmsCreditService } from '../credits/sms-credit.service';
+import { INSUFFICIENT_SMS_CREDIT } from '../credits/insufficient-sms-credit.constants';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -338,25 +339,77 @@ describe('Provider connection test E2E', () => {
       await post(smsBody('01712345678'), 'test-send-xt', TENANT_ID, tenantBAdminToken).expect(401);
     });
 
-    it('debits credit for a PLATFORM-metered school', async () => {
-      const credits = app.get(SmsCreditService);
-      await dataSource.query(`UPDATE schools SET settings = $2 WHERE id = $1`, [
-        TENANT_ID,
-        JSON.stringify({ version: 1, communications: { sms: { metering: 'PLATFORM' } } }),
-      ]);
-      await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
-      try {
-        await credits.grant(TENANT_ID, 10, { idempotencyKey: 'test-send-grant' });
+    describe('PLATFORM-metered school', () => {
+      const credits = () => app.get(SmsCreditService);
+      const segmentsOfTestBody = async () => {
+        const [{ name }] = await dataSource.query('SELECT name FROM schools WHERE id = $1', [
+          TENANT_ID,
+        ]);
+        return countSmsSegments(`Biddaloy test message from ${name} — সব ঠিক আছে / all good`)
+          .segments;
+      };
+      const settleRows = (logId: string) =>
+        dataSource.query(
+          `SELECT kind, units FROM sms_credit_ledger
+            WHERE tenant_id = $1 AND idempotency_key = $2`,
+          [TENANT_ID, `log:${logId}:settle`],
+        );
+
+      beforeEach(async () => {
+        await dataSource.query(`UPDATE schools SET settings = $2 WHERE id = $1`, [
+          TENANT_ID,
+          JSON.stringify({ version: 1, communications: { sms: { metering: 'PLATFORM' } } }),
+        ]);
+        await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
+      });
+      afterEach(async () => {
+        await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_ID]);
+        await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
+      });
+
+      it('debits exactly the segment count and writes a DEBIT row keyed log:<id>', async () => {
+        const segments = await segmentsOfTestBody();
+        await credits().grant(TENANT_ID, 10, { idempotencyKey: 'test-send-grant' });
         mockBalanceThenSent();
         const res = await post(smsBody('01712345678'), 'test-send-credit').expect(200);
         expect(res.body.testMessage.status).toBe('SENT');
-        const balance = await credits.getBalance(TENANT_ID);
-        expect(balance.available).toBeLessThan(10);
+        const balance = await credits().getBalance(TENANT_ID);
+        expect(balance.available).toBe(10 - segments);
         expect(balance.reserved).toBe(0);
-      } finally {
-        await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_ID]);
-        await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
-      }
+        expect(await settleRows(res.body.testMessage.logId)).toEqual([
+          { kind: 'DEBIT', units: segments },
+        ]);
+      });
+
+      it('releases the reservation (RELEASE row, balance unchanged) when the gateway rejects', async () => {
+        await credits().grant(TENANT_ID, 10, { idempotencyKey: 'test-send-grant-rej' });
+        vi.mocked(fetchPinnedJson)
+          .mockResolvedValueOnce({ status: 'success', data: { balance: 250 } })
+          .mockResolvedValueOnce({ status: 'error', message: 'Invalid number' });
+        const res = await post(smsBody('01712345678'), 'test-send-reject').expect(200);
+        const segments = await segmentsOfTestBody();
+        expect(res.body.testMessage.status).toBe('FAILED');
+        const balance = await credits().getBalance(TENANT_ID);
+        expect(balance.available).toBe(10);
+        expect(balance.reserved).toBe(0);
+        expect(await settleRows(res.body.testMessage.logId)).toEqual([
+          { kind: 'RELEASE', units: segments },
+        ]);
+      });
+
+      it('answers 409 with the insufficient-credit code at zero balance and sends nothing', async () => {
+        vi.mocked(fetchPinnedJson).mockResolvedValueOnce({
+          status: 'success',
+          data: { balance: 250 },
+        });
+        const before = vi.mocked(fetchPinnedJson).mock.calls.length;
+        const res = await post(smsBody('01712345678'), 'test-send-nocredit').expect(409);
+        expect(res.body.details?.code ?? res.body.message?.details?.code).toBe(
+          INSUFFICIENT_SMS_CREDIT,
+        );
+        // Only the connection test went out; no send, no log row.
+        expect(vi.mocked(fetchPinnedJson).mock.calls.length - before).toBe(1);
+      });
     });
   });
 

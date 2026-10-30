@@ -1,15 +1,28 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CommunicationMedium } from '@biddaloy/shared';
-import { BadRequestException, ConflictException } from '@nestjs/common';
-import { ConnectionTestService } from './connection-test.service';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import * as Sentry from '@sentry/node';
+import { ConnectionTestService, TEST_SENDS_PER_DAY } from './connection-test.service';
 import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
+
+vi.mock('@sentry/node', () => ({ withScope: vi.fn(), captureException: vi.fn() }));
 
 describe('ConnectionTestService', () => {
   const tenantId = 'tenant-1';
   let registry: { resolveFor: ReturnType<typeof vi.fn> };
   let provider: { testConnection: ReturnType<typeof vi.fn> };
   let service: ConnectionTestService;
-  let logs: { create: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn> };
+  let logs: {
+    create: ReturnType<typeof vi.fn>;
+    save: ReturnType<typeof vi.fn>;
+    createQueryBuilder: ReturnType<typeof vi.fn>;
+  };
+  let usedToday: number;
   let credits: { reserveIfMetered: ReturnType<typeof vi.fn>; settlePart: ReturnType<typeof vi.fn> };
   let sendSpy: ReturnType<typeof vi.fn>;
 
@@ -26,7 +39,12 @@ describe('ConnectionTestService', () => {
     logs = {
       create: vi.fn((x) => x),
       save: vi.fn(async (x) => ({ id: 'log-1', ...x })),
+      createQueryBuilder: vi.fn(() => {
+        const qb: any = { where: () => qb, andWhere: () => qb, getCount: async () => usedToday };
+        return qb;
+      }),
     };
+    usedToday = 0;
     credits = {
       reserveIfMetered: vi.fn().mockResolvedValue('UNMETERED'),
       settlePart: vi.fn().mockResolvedValue(undefined),
@@ -164,6 +182,73 @@ describe('ConnectionTestService', () => {
       );
     });
 
+    it('caps real test sends per tenant per day with a fixed 429 sentence, before any outbound call', async () => {
+      usedToday = TEST_SENDS_PER_DAY;
+      const err = await service
+        .test(tenantId, CommunicationMedium.SMS as never, undefined, req)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect(err.getStatus()).toBe(429);
+      expect(JSON.stringify(err.getResponse())).not.toContain('01712345678');
+      expect(provider.testConnection).not.toHaveBeenCalled();
+      expect(sendSpy).not.toHaveBeenCalled();
+      usedToday = TEST_SENDS_PER_DAY - 1;
+      await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+      expect(sendSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('maps a credit/DB error after a passing connection test to its own fixed 500, not "Connection test failed."', async () => {
+      credits.reserveIfMetered.mockRejectedValue(new Error('db down host=secret-db'));
+      const err = await service
+        .test(tenantId, CommunicationMedium.SMS as never, undefined, req)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(InternalServerErrorException);
+      expect(JSON.stringify(err.getResponse())).toBe(
+        JSON.stringify(
+          new InternalServerErrorException('The test message could not be sent.').getResponse(),
+        ),
+      );
+      expect(sendSpy).not.toHaveBeenCalled();
+    });
+
+    it('releases the reservation when the log save fails after a REJECTED send', async () => {
+      credits.reserveIfMetered.mockResolvedValue('RESERVED');
+      sendSpy.mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'no',
+        outcome: 'REJECTED',
+      });
+      logs.save.mockRejectedValue(new Error('db'));
+      credits.releaseForLog = vi.fn().mockResolvedValue(undefined);
+      await expect(
+        service.test(tenantId, CommunicationMedium.SMS as never, undefined, req),
+      ).rejects.toBeInstanceOf(InternalServerErrorException);
+      expect(credits.releaseForLog).toHaveBeenCalledTimes(1);
+    });
+
+    it('alerts ops (Sentry, ids only) and keeps the reservation when an AMBIGUOUS send cannot be logged', async () => {
+      credits.reserveIfMetered.mockResolvedValue('RESERVED');
+      sendSpy.mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'x',
+        outcome: 'AMBIGUOUS',
+      });
+      logs.save.mockRejectedValue(new Error('db'));
+      credits.releaseForLog = vi.fn();
+      const tags = vi.fn();
+      vi.mocked(Sentry.withScope).mockImplementation(((cb: any) => cb({ setTags: tags })) as never);
+      await expect(
+        service.test(tenantId, CommunicationMedium.SMS as never, undefined, req),
+      ).rejects.toBeInstanceOf(InternalServerErrorException);
+      expect(credits.releaseForLog).not.toHaveBeenCalled();
+      expect(tags).toHaveBeenCalledWith(
+        expect.objectContaining({ needs_reconciliation: 'true', tenant_id: tenantId }),
+      );
+      expect(JSON.stringify(tags.mock.calls)).not.toContain('01712345678');
+    });
+
     it('leaves an ambiguous send unsettled and fails 409 when credit is short', async () => {
       credits.reserveIfMetered.mockResolvedValue('RESERVED');
       sendSpy.mockResolvedValue({
@@ -191,6 +276,20 @@ describe('ConnectionTestService', () => {
   describe('test inbox (Epic 87, D24)', () => {
     afterEach(() => {
       delete process.env.MESSAGE_SINK;
+    });
+
+    it('says no real message was sent when sendTo is given on a sink stack, and sends nothing', async () => {
+      process.env.MESSAGE_SINK = 'mailpit';
+      const result = await service.test(tenantId, CommunicationMedium.SMS as never, undefined, {
+        sendTo: '01712345678',
+        userId: 'user-1',
+      });
+      expect(result).toEqual({
+        success: true,
+        message: 'Test site: messages go to the test inbox. No real message was sent.',
+      });
+      expect(sendSpy).not.toHaveBeenCalled();
+      expect(logs.save).not.toHaveBeenCalled();
     });
 
     it.each([
