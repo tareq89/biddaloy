@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { expectHelp } from '../../../help/test-utils';
 import { routeTree } from '../../../routeTree.gen';
 
 const RUN_URL = '/api/v1/promotions/run-1';
@@ -180,8 +181,19 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('/promotions/$runId', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
     await cleanupTestState();
+  });
+
+  it('shows the final decision and override note (?) in the grid header [#3293]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    stubCommon();
+    statefulRun();
+    renderRun();
+    await screen.findByLabelText('Final decision');
+    await expectHelp('examsResults.promotion.field.finalOutcome');
+    await expectHelp('examsResults.promotion.field.overrideNote');
   });
 
   it('R on a promoted row marks the override and focuses the note; clearing the note shows the error', async () => {

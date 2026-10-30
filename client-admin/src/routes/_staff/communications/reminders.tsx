@@ -448,9 +448,12 @@ function SingleReminderForm() {
       {student !== undefined && studentId !== null && (
         <>
           <Card padded aria-labelledby="reminder-guardians-title">
-            <h2 id="reminder-guardians-title" className="text-h2">
-              {t('reminders.guardiansLabel')}
-            </h2>
+            <div className="flex items-center gap-1">
+              <h2 id="reminder-guardians-title" className="text-h2">
+                {t('reminders.guardiansLabel')}
+              </h2>
+              <HelpHint helpId="communications.feeReminders.field.guardians" />
+            </div>
             {student.guardians.length === 0 ? (
               <p
                 role="alert"
@@ -509,7 +512,10 @@ function SingleReminderForm() {
             </h2>
             <div className="mt-4 grid gap-4">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="reminder-template">{t('reminders.messageLabel')}</Label>
+                <span className="inline-flex items-center gap-1">
+                  <Label htmlFor="reminder-template">{t('reminders.messageLabel')}</Label>
+                  <HelpHint helpId="communications.feeReminders.field.message" />
+                </span>
                 <Textarea
                   id="reminder-template"
                   value={template}
@@ -541,9 +547,12 @@ function SingleReminderForm() {
               <PlaceholderButtons labels={labels} onInsert={insertPlaceholder} />
 
               <div className="flex flex-col gap-1.5 md:w-1/2">
-                <Label htmlFor="reminder-medium-override">
-                  {t('reminders.mediumOverrideLabel')}
-                </Label>
+                <span className="inline-flex items-center gap-1">
+                  <Label htmlFor="reminder-medium-override">
+                    {t('reminders.mediumOverrideLabel')}
+                  </Label>
+                  <HelpHint helpId="communications.feeReminders.field.medium" />
+                </span>
                 <Select value={mediumOverride} onValueChange={setMediumOverride}>
                   <SelectTrigger
                     id="reminder-medium-override"

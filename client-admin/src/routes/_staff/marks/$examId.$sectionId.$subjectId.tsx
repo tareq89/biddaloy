@@ -346,7 +346,8 @@ function MarksEntryPage() {
         <div className="space-y-3">
           {!readOnly && (
             <p className="text-caption text-text-secondary">
-              <KeyboardHelp text={tg('marksSheet.keyboardHelp')} />
+              <KeyboardHelp text={tg('marksSheet.keyboardHelp')} />{' '}
+              <HelpHint helpId="examsResults.marksEntry.field.mark" />
             </p>
           )}
           <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">

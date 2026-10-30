@@ -12,8 +12,8 @@ const PAGE_FIX = '#3017: page fix pending';
 /** The ui/ component has no helpId slot (DataTable row action or expand toggle, FilterBar field). */
 const UI_SLOT = '#3078: no helpId slot in ui/';
 
-/** The guide declares the field and its `help.<key>` text is written; no route puts the (?) there yet. */
-const GAP = '#3017: help text written, (?) not wired yet';
+/** A per-card radio group: one (?) per period card is noise, where the single (?) goes is open. */
+const PER_CARD = '#3313: per-period-card control, no single element for the (?)';
 
 /** A More-menu action that opens no dialog, so its (?) has nowhere to go (#3078 puts it on the dialog). */
 const NO_DIALOG = '#3232: More-menu action runs at once, no dialog, so no (?) here';
@@ -56,49 +56,8 @@ export const HELP_UNWIRED: Record<string, string> = {
 
   // 44.3.12: declared in the guide after the wave-3 pass ran
 
-  // Help text written (was HELP_GAPS): indexed now, wireable by the route lanes
-  'people.students.field.rollNumber': GAP,
-  'people.students.field.bloodGroup': GAP,
-  'people.students.field.preferredCommunication': GAP,
-  'people.guardians.field.preferredCommunication': GAP,
-  'people.calendar.field.countsAsWorkingDay': GAP,
-  'people.calendar.field.notify': GAP,
-  'people.calendar.field.lateReason': GAP,
-  'people.admissionIntakes.field.dates': GAP,
-  'people.admissionApplicants.field.guardianChoice': GAP,
-  'people.admissionApplicants.field.notes': GAP,
-  'academics.academicYears.field.isCurrent': GAP,
-  'academics.academicYears.field.dates': GAP,
-  'academics.routineBuilder.field.teachers': GAP,
-  'academics.routineBuilder.field.recurrence': GAP,
-  'academics.routineSubstitutions.field.cancelled': GAP,
-  'academics.routineSubstitutions.field.substituteTeacher': GAP,
-  'academics.myRoutine.field.lessonStatus': GAP,
-  'academics.myRoutine.field.notTaughtReason': GAP,
-  'academics.homework.field.target': GAP,
-  'attendance.attendanceReports.field.threshold': GAP,
-  'attendance.attendanceRegister.field.reason': GAP,
-  'examsResults.exams.field.name': GAP,
-  'examsResults.exams.field.kind': GAP,
-  'examsResults.marksEntry.field.exam': GAP,
-  'examsResults.marksEntry.field.mark': GAP,
-  'examsResults.analysis.field.byPart': GAP,
-  'examsResults.promotion.field.targetClass': GAP,
-  'examsResults.promotion.field.exams': GAP,
-  'examsResults.promotion.field.algorithm': GAP,
-  'examsResults.promotion.field.finalOutcome': GAP,
-  'examsResults.promotion.field.overrideNote': GAP,
-  'finance.dues.field.flagged': GAP,
-  'finance.recurringSchedules.field.rule': GAP,
-  'finance.recurringSchedules.field.dueDays': GAP,
-  'finance.recurringSchedules.field.audience': GAP,
-  'finance.payments.field.includeReversed': GAP,
-  'communications.sendMessage.field.guardian': GAP,
-  'communications.sendMessage.field.medium': GAP,
-  'communications.sendMessage.field.message': GAP,
-  'communications.feeReminders.field.guardians': GAP,
-  'communications.feeReminders.field.message': GAP,
-  'communications.feeReminders.field.medium': GAP,
+  // Help text written, (?) not wired: needs a placement call
+  'academics.myRoutine.field.lessonStatus': PER_CARD,
+  // Declared by the guide (#3076); the bulk wizard's message step has no route wiring yet
   'communications.feeReminders.section.bulkMessage': PAGE_FIX,
-  'communications.reminderHistory.field.status': GAP,
 };

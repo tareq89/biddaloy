@@ -2,8 +2,9 @@ import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { expectHelp } from '../../../help/test-utils';
 import { routeTree } from '../../../routeTree.gen';
 
 /**
@@ -133,6 +134,23 @@ describe('/attendance/reports', () => {
     // Summary is one section, shown whole: a total, not a pager.
     expect(screen.getByText('Total 1')).toBeTruthy();
     expect(screen.queryByText(/Page \d+ of/)).toBeNull();
+  });
+
+  it('shows the threshold filter (?) [#3293]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(
+      http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
+        HttpResponse.json({ dates: [], rows: [registerMatrixRow()] }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports?section_id=section-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('Karim Rahman');
+    await expectHelp('attendance.attendanceReports.field.threshold');
   });
 
   it('drops an unknown query param instead of showing a raw filter chip', async () => {
