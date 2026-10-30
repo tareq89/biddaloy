@@ -46,6 +46,16 @@ describe('problemWith', () => {
     expect(problemWith(okWa, WA)).toBeNull();
   });
 
+  it('ignores an incomplete block of a company that is not chosen (a saved draft)', () => {
+    // alpha is missing its required senderId, but beta is the chosen company.
+    const value = { provider: 'beta', beta: { token: 't' }, alpha: { apiKey: 'k' } };
+    expect(problemWith(value, SMS)).toBeNull();
+    // Its field shapes are still checked.
+    expect(problemWith({ ...value, alpha: { senderId: 5, apiUrl: 7 } }, SMS)).toMatch(
+      /must be text/,
+    );
+  });
+
   it('needs the chosen provider block', () => {
     expect(problemWith({ provider: 'alpha' }, SMS)).toMatch(/must include the settings/);
   });

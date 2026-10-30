@@ -7,6 +7,8 @@ import { MimsmsProvider } from '../providers/sms/mimsms.provider';
 import { MetaCloudProvider } from '../providers/whatsapp/meta-cloud.provider';
 import { SmtpProvider } from '../providers/email/smtp.provider';
 import { MetaPageProvider } from '../providers/messenger/meta-page.provider';
+import { OnecodesoftProvider } from '../providers/sms/onecodesoft.provider';
+import type { MessagingProvider } from '../providers/messaging-provider';
 
 const providers = [
   new GreenwebProvider(),
@@ -19,6 +21,7 @@ const providers = [
 function resolverFor(
   settingsByTenant: Record<string, TenantSettings>,
   env: Record<string, string | undefined> = {},
+  list: MessagingProvider<any>[] = providers,
 ) {
   const schools = {
     getDecryptedSettings: vi.fn(async (id: string) => settingsByTenant[id] ?? { version: 1 }),
@@ -26,7 +29,7 @@ function resolverFor(
   // Pass-through cache: no TTL behaviour under test here.
   const cache = { getOrLoad: vi.fn((_id: string, load: () => Promise<unknown>) => load()) };
   const config = { get: vi.fn((k: string) => env[k]) };
-  return new MessagingConfigResolver(schools as any, cache as any, config as any, providers);
+  return new MessagingConfigResolver(schools as any, cache as any, config as any, list);
 }
 
 const settingsWith = (medium: string, block: Record<string, unknown>): TenantSettings =>
@@ -371,6 +374,46 @@ describe('MessagingConfigResolver', () => {
         { WHATSAPP_PHONE_NUMBER_ID: '1', WHATSAPP_ACCESS_TOKEN: 't' },
       ).resolve(CommunicationMedium.WHATSAPP, 't1');
       expect(r.config).toEqual({ phoneNumberId: '1', accessToken: 't', apiVersion: 'v30.0' });
+    });
+
+    it('owned optional field (senderId): a school with its own key never gets the platform sender id', async () => {
+      // PLATFORM metering makes the env reachable, so only the `owned` flag keeps it out.
+      const env = { ONECODESOFT_API_KEY: 'env-k', ONECODESOFT_SENDER_ID: 'PLATFORM-ID' };
+      const settings = settingsWith('sms', {
+        provider: 'onecodesoft',
+        metering: 'PLATFORM',
+        onecodesoft: { apiKey: 'own-k', apiUrl: 'https://o.example/api' },
+      });
+      const r = await resolverFor({ t1: settings }, env, [new OnecodesoftProvider()]).resolve(
+        CommunicationMedium.SMS,
+        't1',
+      );
+      expect(r.config).toEqual({ apiKey: 'own-k', apiUrl: 'https://o.example/api' });
+    });
+
+    it('owned optional field (senderId): the platform account keeps its own sender id', async () => {
+      const env = {
+        ONECODESOFT_API_KEY: 'env-k',
+        ONECODESOFT_API_URL: 'https://p.example/api',
+        ONECODESOFT_SENDER_ID: 'PLATFORM-ID',
+      };
+      const settings = settingsWith('sms', { provider: 'onecodesoft', metering: 'PLATFORM' });
+      const r = await resolverFor({ t1: settings }, env, [new OnecodesoftProvider()]).resolve(
+        CommunicationMedium.SMS,
+        't1',
+      );
+      expect(r.config.senderId).toBe('PLATFORM-ID');
+    });
+
+    it('SMTP port is a destination: an override port never borrows the stored credentials', async () => {
+      const stored = settingsWith('email', {
+        smtp: { host: 'smtp.example', user: 'u', password: 'pw', from: 'a@x.com' },
+      });
+      const err = await resolverFor({ t1: stored })
+        .resolve(CommunicationMedium.EMAIL, 't1', { override: { smtp: { port: '25' } } })
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(ProviderNotConfiguredError);
+      expect(err.message).toMatch(/requires .* together/);
     });
 
     it('ignores non-string override values and unknown keys', async () => {

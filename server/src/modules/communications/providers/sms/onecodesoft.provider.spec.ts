@@ -246,11 +246,11 @@ describe('OnecodesoftProvider', () => {
       );
     });
 
-    it('default testConnection reports the balance', async () => {
+    it('default testConnection says connected, without the balance amount', async () => {
       pinned.mockResolvedValue({ balance: 10 });
       await expect(provider.testConnection(config)).resolves.toEqual({
         success: true,
-        message: 'Connected — balance 10',
+        message: 'Connected to OneCodeSoft.',
       });
     });
   });

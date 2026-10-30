@@ -43,9 +43,8 @@ function parsePort(raw: string | number | undefined): number {
 }
 
 function mapSmtpError(err: unknown): string {
-  if (err instanceof ProviderNotConfiguredError || err instanceof OutboundDestinationError) {
-    return err.message;
-  }
+  if (err instanceof OutboundDestinationError) return err.publicMessage;
+  if (err instanceof ProviderNotConfiguredError) return err.message;
   const code = (err as { code?: string } | null)?.code;
   if (code === 'EAUTH') {
     return 'Authentication rejected — check the SMTP username and password.';
@@ -122,9 +121,16 @@ export class SmtpProvider extends MessagingProvider<ResolvedEmailConfig> {
         label: { en: 'Email server (SMTP)', bn: 'ইমেইল সার্ভার (SMTP)' },
         kind: 'text',
         required: true,
+        destination: true,
       },
       // Optional: parsePort defaults 587. Still destination-owned (see MessagingConfigResolver).
-      { key: 'port', label: { en: 'Port', bn: 'পোর্ট' }, kind: 'text', required: false },
+      {
+        key: 'port',
+        label: { en: 'Port', bn: 'পোর্ট' },
+        kind: 'text',
+        required: false,
+        destination: true,
+      },
       {
         key: 'user',
         label: { en: 'Server username', bn: 'সার্ভারের ব্যবহারকারীর নাম' },

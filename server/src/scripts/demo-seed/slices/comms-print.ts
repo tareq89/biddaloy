@@ -641,7 +641,10 @@ async function printing(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
  * nothing here is ever called. Raw SQL for the same reason as fees.ts: SchoolsService needs the
  * organisation guards, which the slice specs stub.
  */
-export function demoMessagingSettings(rng: DemoSeedContext['rng'], encrypt: (s: string) => string) {
+export function demoMessagingSettings(
+  rng: DemoSeedContext['rng'],
+  encrypt: (s: string) => string | undefined,
+) {
   const token = () => encrypt(rng.string.alphanumeric(32));
   const digits = () => rng.string.numeric(15);
   return {
@@ -652,7 +655,7 @@ export function demoMessagingSettings(rng: DemoSeedContext['rng'], encrypt: (s: 
         senderId: 'BMSC',
         apiUrl: 'https://sms.bmsc.example/api',
       },
-      metering: 'PLATFORM',
+      // No PLATFORM metering: the school sends on its own gateway, so it pays the vendor itself.
     },
     whatsapp: {
       provider: 'meta-cloud',
@@ -677,14 +680,17 @@ export function demoMessagingSettings(rng: DemoSeedContext['rng'], encrypt: (s: 
 
 async function messagingSettings(ctx: DemoSeedContext, tenants: OrgTenant[]): Promise<number> {
   // Secrets are stored encrypted, like SchoolsService does. No key (a bare local DB): the secret is left
-  // empty, so the page shows "Not set up" instead of the seed failing.
+  // out (JSON drops undefined), so the page shows "Not set up" instead of the seed failing.
   const key = buildEncryptionKey(process.env.NODE_ENV, process.env.SETTINGS_ENCRYPTION_KEY);
   const encryption = new EncryptionService(key, []);
-  const encrypt = (s: string) => (key ? encryption.encrypt(s) : '');
+  const encrypt = (s: string) => (key ? encryption.encrypt(s) : undefined);
   for (const t of tenants) {
+    // Merged per medium: a key already stored on a medium block is kept.
     await ctx.ds.query(
       `UPDATE schools SET settings = COALESCE(settings, '{}'::jsonb) || jsonb_build_object('communications',
-         COALESCE(settings->'communications', '{}'::jsonb) || $2::jsonb)
+         COALESCE(settings->'communications', '{}'::jsonb) || (
+           SELECT jsonb_object_agg(e.key, COALESCE(settings->'communications'->e.key, '{}'::jsonb) || e.value)
+             FROM jsonb_each($2::jsonb) AS e))
         WHERE id = $1`,
       [t.id, JSON.stringify(demoMessagingSettings(ctx.rng, encrypt))],
     );

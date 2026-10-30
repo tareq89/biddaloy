@@ -9,14 +9,20 @@ import { MESSAGING_PROVIDERS } from '../../communications/providers/messaging-pr
 type HasDescriptor = new () => { readonly descriptor: ProviderDescriptor };
 type Block = Record<string, unknown>;
 
+// One descriptor per provider class, built on first use. Keyed by class, so a spec that mocks or
+// extends the list still sees its own providers.
+const built = new WeakMap<object, ProviderDescriptor>();
+
 /**
- * Descriptors of every registered messaging provider. The list is read on
- * every call (no module-level cache) so a spec's `vi.mock` of the list
- * module is seen everywhere. `descriptor` is a field initializer, so no
+ * Descriptors of every registered messaging provider. `descriptor` is a field initializer, so no
  * constructor argument is ever read (D24, cf. `messaging-providers.spec.ts`).
  */
 export function messagingDescriptors(): ProviderDescriptor[] {
-  return MESSAGING_PROVIDERS.map((P) => new (P as unknown as HasDescriptor)().descriptor);
+  return MESSAGING_PROVIDERS.map((P) => {
+    let d = built.get(P);
+    if (!d) built.set(P, (d = new (P as unknown as HasDescriptor)().descriptor));
+    return d;
+  });
 }
 
 export const descriptorsFor = (medium: CommunicationMedium): ProviderDescriptor[] =>
@@ -69,7 +75,8 @@ export function toNestedMedium(block: unknown, medium: CommunicationMedium): Blo
   return nested;
 }
 
-const present = (v: unknown): boolean =>
+/** A non-empty string or a finite number. */
+export const present = (v: unknown): boolean =>
   (typeof v === 'string' && v.length > 0) || (typeof v === 'number' && Number.isFinite(v));
 
 /** D32: schema + selected + configured per medium. Presence only; never a value. */
@@ -104,8 +111,9 @@ export function buildMessagingProvidersResponse(
 }
 
 /**
- * Has this school set up WhatsApp (a phone number id, D6 nested or pre-D6 flat)? Same
- * "tenant opted in" meaning as before; the access token may still come from the platform env.
+ * Has this school set up WhatsApp (a phone number id, D6 nested or pre-D6 flat)? Same "tenant
+ * opted in" meaning as before. Once the phone number id is set the school owns the medium, so the
+ * access token must be its own too: the platform token is never borrowed (the send fails closed).
  */
 export function whatsappConfigured(settings: TenantSettings): boolean {
   const comms = settings.communications as Record<string, unknown> | undefined;

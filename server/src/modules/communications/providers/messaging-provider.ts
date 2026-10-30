@@ -31,10 +31,13 @@ export abstract class MessagingProvider<TConfig = Record<string, string>> {
       );
     }
     try {
-      const { amount } = await this.getBalance(config);
-      return { success: true, message: `Connected — balance ${amount}` };
+      await this.getBalance(config);
+      // No amount: with no school block the config may be the platform's own account (Rule 23).
+      return { success: true, message: `Connected to ${this.descriptor.label.en}.` };
     } catch (err) {
-      if (err instanceof OutboundDestinationError) return { success: false, message: err.message };
+      if (err instanceof OutboundDestinationError) {
+        return { success: false, message: err.publicMessage };
+      }
       return { success: false, message: `Could not reach ${this.descriptor.label.en}.` };
     }
   }

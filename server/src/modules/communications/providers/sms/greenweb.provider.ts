@@ -133,7 +133,7 @@ export class GreenwebProvider extends MessagingProvider<ResolvedGreenwebSmsConfi
       };
     } catch (err) {
       if (err instanceof OutboundDestinationError) {
-        return { success: false, message: err.message };
+        return { success: false, message: err.publicMessage };
       }
       return { success: false, message: 'Could not reach the Greenweb API.' };
     }

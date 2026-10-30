@@ -52,6 +52,8 @@ export class OnecodesoftProvider extends MessagingProvider<OnecodesoftConfig> {
         label: { en: 'Sender name (Sender ID)', bn: 'প্রেরকের নাম (Sender ID)' },
         kind: 'text',
         required: false,
+        // A school with its own key never sends under the platform's sender id.
+        owned: true,
       },
       {
         key: 'apiUrl',

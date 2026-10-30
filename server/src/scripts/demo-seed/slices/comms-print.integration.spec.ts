@@ -203,7 +203,8 @@ describe('comms-print slice (integration, 2 years, scale 0.05)', () => {
     expect(facts.commsSettings.length).toBe(facts.tenants[0].n);
     for (const { c } of facts.commsSettings) {
       expect(c.sms.provider).toBe('onecodesoft');
-      expect(c.sms.metering).toBe('PLATFORM');
+      // Its own gateway, so not PLATFORM-metered (the two together would charge credit for a vendor it pays).
+      expect(c.sms.metering).toBeUndefined();
       for (const medium of ['SMS', 'WHATSAPP', 'EMAIL', 'MESSENGER'] as const) {
         // The same validator the settings form uses accepts the seeded block.
         expect(problemWith(c[medium.toLowerCase()], medium as CommunicationMedium)).toBeNull();

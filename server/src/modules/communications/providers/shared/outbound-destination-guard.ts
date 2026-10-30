@@ -25,13 +25,17 @@ import { lookup } from 'node:dns/promises';
 /** Common base for both error kinds below — callers that only need the
  * human-readable reason (e.g. surfacing a connection-test failure) can
  * catch this instead of the two subclasses individually. */
-export abstract class OutboundDestinationError extends Error {}
+export abstract class OutboundDestinationError extends Error {
+  /** Fixed text to show a user (Rule 23): `message` can carry the submitted address. */
+  abstract readonly publicMessage: string;
+}
 
 // A permanent policy violation — invalid URL, wrong scheme, out-of-range
 // port, or a hostname that resolves to a private/reserved address. This
 // destination will not become valid on retry, so callers may treat it as
 // non-retryable.
 export class DestinationBlockedError extends OutboundDestinationError {
+  readonly publicMessage = 'This server address is not allowed — use a public address.';
   constructor(reason: string) {
     super(`Outbound destination blocked: ${reason}`);
     this.name = 'DestinationBlockedError';
@@ -42,6 +46,7 @@ export class DestinationBlockedError extends OutboundDestinationError {
 // outage). Unlike DestinationBlockedError, this hostname may resolve
 // successfully on a later attempt, so callers should keep it retryable.
 export class DestinationResolutionError extends OutboundDestinationError {
+  readonly publicMessage = 'This server address could not be found — check it and try again.';
   constructor(hostname: string) {
     super(`"${hostname}" could not be resolved.`);
     this.name = 'DestinationResolutionError';

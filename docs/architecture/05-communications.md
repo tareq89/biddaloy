@@ -551,7 +551,9 @@ flowchart LR
   G[grep guard spec] -.fails if a generic file names a vendor.-> X[any file outside the provider folder]
 ```
 
-Example: a school stores `communications.sms = { provider: 'onecodesoft', onecodesoft: { apiKey, senderId, apiUrl }, metering: 'PLATFORM' }`. The demo seed (`comms-print.ts`) writes exactly that shape for every demo school, with fake values and encrypted secrets.
+Example: a school stores `communications.sms = { provider: 'onecodesoft', onecodesoft: { apiKey, senderId, apiUrl } }`. The demo seed (`comms-print.ts`) writes exactly that shape for every demo school, with fake values and encrypted secrets. It adds no `metering: 'PLATFORM'`: a school on its own gateway pays the vendor itself.
+
+A field's descriptor decides how it resolves. `required`, `owned: true` (OneCodeSoft `senderId`) and destination fields (`kind: 'url'`, or `destination: true` on SMTP `host`/`port`) belong to whoever owns the medium. Once the school owns it, they never come from the platform env. Example: a school with its own OneCodeSoft key and no `senderId` sends with no sender id, never under `ONECODESOFT_SENDER_ID`.
 
 Dated learning (2026-10-31, Wave 2 close #3301):
 

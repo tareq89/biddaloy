@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { CommunicationMedium, type ProviderConfigField } from '@biddaloy/shared';
 import { SchoolsService } from '../../schools/schools.service';
 import { TenantSettingsCache } from '../../schools/settings/tenant-settings-cache.service';
+import { isPlainObject } from '../../schools/settings/messaging-descriptors';
 import type { MessagingProvider } from '../providers/messaging-provider';
 import { ProviderNotConfiguredError } from './provider-not-configured.error';
 
@@ -35,13 +36,11 @@ type FieldValues = Record<string, string | null | undefined>;
 const notOnCredit =
   'This school has no SMS gateway of its own and is not on prepaid SMS credit. Add a gateway in Settings › SMS, or ask the platform to turn on SMS credit.';
 
-// ponytail: the descriptor has no "destination" flag, so these are named by key. Add
-// `destination: true` to ProviderConfigField when a provider outside this set appears.
-const isDestination = (f: ProviderConfigField) =>
-  f.kind === 'url' || f.key === 'host' || f.key === 'port';
-// Fields that decide whose account a send uses. Optional non-destination fields (apiVersion)
-// are not credentials and resolve independently.
-const isOwned = (f: ProviderConfigField) => f.required || isDestination(f);
+// A `url` field is always a destination; other kinds say so on the descriptor (`destination: true`).
+const isDestination = (f: ProviderConfigField) => f.kind === 'url' || f.destination === true;
+// Fields that decide whose account a send uses. Other optional fields (apiVersion) are not
+// credentials and resolve independently.
+const isOwned = (f: ProviderConfigField) => f.required || f.owned === true || isDestination(f);
 
 const envName = (prefix: string, key: string) =>
   `${prefix}_${key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase()}`;
@@ -57,10 +56,7 @@ function coerce(v: unknown): string | null | undefined {
 /** D6: the nested `<name>` block, else (old flat shape) the field keys on the medium itself. */
 function readBlock(src: Record<string, unknown>, name: string, fields: ProviderConfigField[]) {
   const nested = src[name];
-  const from =
-    nested && typeof nested === 'object' && !Array.isArray(nested)
-      ? (nested as Record<string, unknown>)
-      : src;
+  const from = isPlainObject(nested) ? nested : src;
   const out: FieldValues = {};
   for (const f of fields) out[f.key] = coerce(from[f.key]);
   return out;

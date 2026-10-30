@@ -9,6 +9,10 @@ export interface ProviderConfigField {
   kind: 'text' | 'url' | 'secret';
   required: boolean;
   advanced?: boolean;
+  /** Decides where a send goes (host, port; every `url` field is one too). An override that sets it never borrows stored credentials. */
+  destination?: boolean;
+  /** Optional, but whose account it is (senderId): never filled from the platform env once the school owns the medium. */
+  owned?: boolean;
 }
 
 export interface ProviderDescriptor {

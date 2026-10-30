@@ -160,7 +160,7 @@ describe('Provider connection test E2E', () => {
     expect(settingsText).not.toContain('99999');
   });
 
-  it('tests unsaved OneCodeSoft SMS config: balance on success, a fixed sentence on a bad key', async () => {
+  it('tests unsaved OneCodeSoft SMS config: connected on success, a fixed sentence on a bad key', async () => {
     const test = (apiKey: string) =>
       supertest(app.getHttpServer())
         .post(`/api/v1/schools/${TENANT_ID}/settings/test`)
@@ -177,7 +177,8 @@ describe('Provider connection test E2E', () => {
 
     vi.mocked(fetchPinnedJson).mockResolvedValueOnce({ status: 'success', data: { balance: 250 } });
     const ok = await test('good-key-value');
-    expect(ok.body).toEqual({ success: true, message: 'Connected — balance 250' });
+    // No balance amount: with no school block this could be the platform's own account.
+    expect(ok.body).toEqual({ success: true, message: 'Connected to OneCodeSoft.' });
 
     vi.mocked(fetchPinnedJson).mockResolvedValueOnce({ message: 'Unauthenticated.' });
     const bad = await test('bad-key-value');

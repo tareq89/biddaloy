@@ -83,6 +83,17 @@ describe('CommunicationProviderRegistryService', () => {
       });
     });
 
+    it('any other error while resolving config is REJECTED (credit released) but still retryable', async () => {
+      // A settings-read failure never reached the network: never AMBIGUOUS (that leaves credit held).
+      const resolver = { resolve: vi.fn().mockRejectedValue(new Error('db down')) };
+      const result = await new CommunicationProviderRegistryService(resolver as any)
+        .resolve(CommunicationMedium.SMS)!
+        .send({ to: '01712345678', body: 'hello' }, 'tenant-a');
+
+      expect(result).toMatchObject({ success: false, outcome: 'REJECTED', segments: 1 });
+      expect(result.retryable).toBeUndefined();
+    });
+
     it('a provider that throws becomes an AMBIGUOUS result', async () => {
       const spy = vi.spyOn(providers[0], 'send').mockRejectedValue(new Error('boom'));
 

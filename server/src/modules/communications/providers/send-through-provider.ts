@@ -10,20 +10,22 @@ import type {
 const segmentsFor = (medium: CommunicationMedium, params: CommunicationSendParams) =>
   medium === CommunicationMedium.SMS ? countSmsSegments(params.body).segments : undefined;
 
-/** A failure before any provider call (config resolution). Missing config never reached the network. */
+/**
+ * A failure before any provider call (config resolution): it never reached the network, so always
+ * REJECTED (the SMS credit is released). Only missing config is final; a settings-read blip retries.
+ */
 export function failedResult(
   err: unknown,
   medium: CommunicationMedium,
   params: CommunicationSendParams,
 ): CommunicationSendResult {
-  const rejected = err instanceof ProviderNotConfiguredError;
   return {
     success: false,
     providerMessageId: null,
     error: err instanceof Error ? err.message : String(err),
     segments: segmentsFor(medium, params),
-    retryable: rejected ? false : undefined,
-    outcome: rejected ? 'REJECTED' : 'AMBIGUOUS',
+    retryable: err instanceof ProviderNotConfiguredError ? false : undefined,
+    outcome: 'REJECTED',
   };
 }
 

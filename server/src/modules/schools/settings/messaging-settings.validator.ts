@@ -11,15 +11,13 @@ import {
 import { CommunicationMedium } from '@biddaloy/shared';
 import type { ProviderDescriptor } from '@biddaloy/shared';
 import { OptionalSetting } from './optional-setting.decorator';
-import { descriptorsFor, isPlainObject, soleDescriptorFor } from './messaging-descriptors';
+import { descriptorsFor, isPlainObject, present, soleDescriptorFor } from './messaging-descriptors';
 
 const MEDIUM_KEY = Symbol('messagingMedium');
 const METERING = ['OFF', 'PLATFORM'];
 type Block = Record<string, unknown>;
 
 const isText = (v: unknown) => typeof v === 'string';
-const isNonEmpty = (v: unknown) =>
-  (typeof v === 'string' && v.length > 0) || (typeof v === 'number' && Number.isFinite(v));
 
 function blockProblem(d: ProviderDescriptor, block: unknown): string | null {
   if (!isPlainObject(block)) return 'company settings must be an object.';
@@ -93,22 +91,11 @@ export function problemWith(value: unknown, medium: CommunicationMedium): string
         Block | undefined)
     : undefined;
   if (!selected || !chosen) return 'must include the settings of the chosen company.';
-  const missing = (d: (typeof descriptors)[number], block: Block): string | null => {
-    for (const f of d.fields) {
-      if (f.required && f.kind !== 'secret' && !isNonEmpty(block[f.key])) {
-        return `is missing the required field ${f.key}.`;
-      }
+  // Only the chosen company must be complete: another company's block may be a saved draft.
+  for (const f of selected.fields) {
+    if (f.required && f.kind !== 'secret' && !present(chosen[f.key])) {
+      return `is missing the required field ${f.key}.`;
     }
-    return null;
-  };
-  const p = missing(selected, chosen);
-  if (p) return p;
-  // Any other provider block that is present must be complete too.
-  for (const d of descriptors) {
-    if (d === selected || !Object.hasOwn(value, d.name)) continue;
-    const other = value[d.name];
-    const q = isPlainObject(other) ? missing(d, other) : null;
-    if (q) return q;
   }
   return null;
 }
