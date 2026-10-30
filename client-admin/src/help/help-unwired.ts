@@ -21,11 +21,8 @@ const NO_DIALOG = '#3232: More-menu action runs at once, no dialog, so no (?) he
 /** A per-row control in a list; a (?) on every row is noise (D18), and no dialog opens. */
 const ROW_CONTROL = '#3063: per-row control, no dialog to hold the (?)';
 
-/** The section describes the public admission pages, which have no shell and no (?) (E11). */
-const PUBLIC_FORM = '#3017: section of a public page, no (?) there (E11)';
-
-/** The guide declares a second id for an element that already carries one. */
-const SAME_ELEMENT = '#3017: same element as reports.printables.action.revoke';
+/** A report view tab (TabsTrigger); no (?) slot there yet. */
+const TAB_SLOT = '#3017: report view tab, no (?) slot in the tab trigger';
 
 export const HELP_UNWIRED: Record<string, string> = {
   'start.signIn': PUBLIC,
@@ -43,17 +40,17 @@ export const HELP_UNWIRED: Record<string, string> = {
   'people.evaluations.action.reopenAcr': PAGE_FIX,
   'people.calendar.action.regenerateFeed': PAGE_FIX,
   'people.programs.action.removeMilestone': PAGE_FIX,
-  'people.admissionIntakes.section.publicForm': PUBLIC_FORM,
-  'people.admissionIntakes.section.status': PUBLIC_FORM,
   'academics.routineBuilder.action.clearCell': PAGE_FIX,
   'academics.routineReview.action.requestChange': PAGE_FIX,
   'academics.routineReview.action.resolveRequest': PAGE_FIX,
   'attendance.attendanceReports.action.sendReminder': PAGE_FIX,
+  'attendance.attendanceReports.section.summary': TAB_SLOT,
+  'attendance.attendanceReports.section.flags': TAB_SLOT,
+  'attendance.attendanceReports.section.subjects': TAB_SLOT,
   'people.programs.action.archive': NO_DIALOG,
   'people.students.action.printIdCard': NO_DIALOG,
 
   // 44.3.07-44.3.11
-  'administration.printTemplates.action.revoke': SAME_ELEMENT,
   'portal.notifications.action.close': ROW_CONTROL,
   'portal.notifications.action.snooze': ROW_CONTROL,
 
@@ -102,5 +99,6 @@ export const HELP_UNWIRED: Record<string, string> = {
   'communications.feeReminders.field.guardians': GAP,
   'communications.feeReminders.field.message': GAP,
   'communications.feeReminders.field.medium': GAP,
+  'communications.feeReminders.section.bulkMessage': PAGE_FIX,
   'communications.reminderHistory.field.status': GAP,
 };
