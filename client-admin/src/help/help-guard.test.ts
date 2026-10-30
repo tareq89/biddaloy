@@ -44,7 +44,8 @@ const SOURCE_DIRS = ['client-admin/src', 'ui/src'];
 // ponytail: literals only; a helpId built from a variable is not seen (spread props, ternaries),
 // and a literal inside a comment counts as used. Strip comments if that ever hides a dead id.
 const SKIP = /\.(test|stories|gen)\.tsx?$|\.d\.ts$|help-hint\.tsx$/;
-const LITERAL = /\bhelpId(?:=\{?\s*["']|:\s*["'])([^"']+)["']/g;
+// `helpId` or a prefixed slot prop such as DataTable's `expandHelpId`.
+const LITERAL = /\b(?:helpId|[a-z]\w*HelpId)(?:=\{?\s*["']|:\s*["'])([^"']+)["']/g;
 
 const walk = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
@@ -76,45 +77,6 @@ const gapMentions = (id: string) => gapIds.includes(id);
  * new gap or a fixed one fails until this list matches.
  */
 const KNOWN_GAPS: string[] = [
-  'academics/academic-years: "academics.academicYears.field.dates" has no help.dates in any fields:<ns> marker',
-  'academics/academic-years: "academics.academicYears.field.isCurrent" has no help.isCurrent in any fields:<ns> marker',
-  'academics/homework: "academics.homework.field.target" has no help.target in any fields:<ns> marker',
-  'academics/my-routine: "academics.myRoutine.field.lessonStatus" has no help.lessonStatus in any fields:<ns> marker',
-  'academics/my-routine: "academics.myRoutine.field.notTaughtReason" has no help.notTaughtReason in any fields:<ns> marker',
-  'academics/routine-builder: "academics.routineBuilder.field.recurrence" has no help.recurrence in any fields:<ns> marker',
-  'academics/routine-builder: "academics.routineBuilder.field.teachers" has no help.teachers in any fields:<ns> marker',
-  'academics/routine-setup: "academics.routineSetup.field.changeover" has no help.changeover in any fields:<ns> marker',
-  'academics/routine-setup: "academics.routineSetup.field.maxConsecutive" has no help.maxConsecutive in any fields:<ns> marker',
-  'academics/routine-setup: "academics.routineSetup.field.maxPeriodsPerDay" has no help.maxPeriodsPerDay in any fields:<ns> marker',
-  'academics/routine-substitutions: "academics.routineSubstitutions.field.cancelled" has no help.cancelled in any fields:<ns> marker',
-  'academics/routine-substitutions: "academics.routineSubstitutions.field.substituteTeacher" has no help.substituteTeacher in any fields:<ns> marker',
-  'academics/syllabus: "academics.syllabus.field.periods" has no help.periods in any fields:<ns> marker',
-  'academics/syllabus: "academics.syllabus.field.topicStatus" has no help.topicStatus in any fields:<ns> marker',
-  'administration/audit-logs: "administration.auditLogs.field.performedBy" has no help.performedBy in any fields:<ns> marker',
-  'attendance/attendance-register: "attendance.attendanceRegister.field.reason" has no help.reason in any fields:<ns> marker',
-  'attendance/attendance-reports: "attendance.attendanceReports.field.threshold" has no help.threshold in any fields:<ns> marker',
-  'communications/fee-reminders: "communications.feeReminders.field.guardians" has no help.guardians in any fields:<ns> marker',
-  'communications/fee-reminders: "communications.feeReminders.field.medium" has no help.medium in any fields:<ns> marker',
-  'communications/fee-reminders: "communications.feeReminders.field.message" has no help.message in any fields:<ns> marker',
-  'communications/reminder-history: "communications.reminderHistory.field.status" has no help.status in any fields:<ns> marker',
-  'communications/send-message: "communications.sendMessage.field.guardian" has no help.guardian in any fields:<ns> marker',
-  'communications/send-message: "communications.sendMessage.field.medium" has no help.medium in any fields:<ns> marker',
-  'communications/send-message: "communications.sendMessage.field.message" has no help.message in any fields:<ns> marker',
-  'exams-results/analysis: "examsResults.analysis.field.byPart" has no help.byPart in any fields:<ns> marker',
-  'exams-results/exams: "examsResults.exams.field.kind" has no help.kind in any fields:<ns> marker',
-  'exams-results/exams: "examsResults.exams.field.name" has no help.name in any fields:<ns> marker',
-  'exams-results/marks-entry: "examsResults.marksEntry.field.exam" has no help.exam in any fields:<ns> marker',
-  'exams-results/marks-entry: "examsResults.marksEntry.field.mark" has no help.mark in any fields:<ns> marker',
-  'exams-results/promotion: "examsResults.promotion.field.algorithm" has no help.algorithm in any fields:<ns> marker',
-  'exams-results/promotion: "examsResults.promotion.field.exams" has no help.exams in any fields:<ns> marker',
-  'exams-results/promotion: "examsResults.promotion.field.finalOutcome" has no help.finalOutcome in any fields:<ns> marker',
-  'exams-results/promotion: "examsResults.promotion.field.overrideNote" has no help.overrideNote in any fields:<ns> marker',
-  'exams-results/promotion: "examsResults.promotion.field.targetClass" has no help.targetClass in any fields:<ns> marker',
-  'finance/dues: "finance.dues.field.flagged" has no help.flagged in any fields:<ns> marker',
-  'finance/payments: "finance.payments.field.includeReversed" has no help.includeReversed in any fields:<ns> marker',
-  'finance/recurring-schedules: "finance.recurringSchedules.field.audience" has no help.audience in any fields:<ns> marker',
-  'finance/recurring-schedules: "finance.recurringSchedules.field.dueDays" has no help.dueDays in any fields:<ns> marker',
-  'finance/recurring-schedules: "finance.recurringSchedules.field.rule" has no help.rule in any fields:<ns> marker',
   'helpId "administration.printTemplates.action.confirmRound" is declared twice (administration/print-templates/id-cards)',
   'helpId "administration.printTemplates.action.makeDefault" is declared twice (administration/print-templates/designer-guide)',
   'helpId "administration.printTemplates.action.print" is declared twice (administration/print-templates/certificates)',
@@ -129,21 +91,6 @@ const KNOWN_GAPS: string[] = [
   'helpId "administration.printTemplates.field.kind" is declared twice (administration/print-templates/certificates)',
   'helpId "administration.printTemplates.field.kind" is declared twice (administration/print-templates/exam-documents)',
   'helpId "administration.printTemplates.field.printer" is declared twice (administration/print-templates/printers-and-calibration)',
-  'people/admission-applicants: "people.admissionApplicants.field.guardianChoice" has no help.guardianChoice in any fields:<ns> marker',
-  'people/admission-applicants: "people.admissionApplicants.field.notes" has no help.notes in any fields:<ns> marker',
-  'people/admission-intakes: "people.admissionIntakes.field.dates" has no help.dates in any fields:<ns> marker',
-  'people/calendar: "people.calendar.field.countsAsWorkingDay" has no help.countsAsWorkingDay in any fields:<ns> marker',
-  'people/calendar: "people.calendar.field.lateReason" has no help.lateReason in any fields:<ns> marker',
-  'people/calendar: "people.calendar.field.notify" has no help.notify in any fields:<ns> marker',
-  'people/evaluations: "people.evaluations.field.minResponses" has no help.minResponses in any fields:<ns> marker',
-  'people/evaluations: "people.evaluations.field.targets" has no help.targets in any fields:<ns> marker',
-  'people/guardians: "people.guardians.field.preferredCommunication" has no help.preferredCommunication in any fields:<ns> marker',
-  'people/staff-import: "people.staffImport.field.sendInvitations" has no help.sendInvitations in any fields:<ns> marker',
-  'people/staff: "people.staff.field.employeeId" has no help.employeeId in any fields:<ns> marker',
-  'people/students: "people.students.field.bloodGroup" has no help.bloodGroup in any fields:<ns> marker',
-  'people/students: "people.students.field.preferredCommunication" has no help.preferredCommunication in any fields:<ns> marker',
-  'people/students: "people.students.field.rollNumber" has no help.rollNumber in any fields:<ns> marker',
-  'start/sign-in: "start.signIn.field.identifier" has no help.identifier in any fields:<ns> marker',
 ];
 
 /** Pages with knownIssues but no id="known-issues" section in bn or en (guide gap). Shrink-only. */
@@ -245,6 +192,9 @@ describe('help guard', () => {
     expect(unknownIn('<PageHeader helpId="nope.page" />', HELP_INDEX)).toEqual(['nope.page']);
     expect(unknownIn("<FormField helpId={'nope.field'} />", HELP_INDEX)).toEqual(['nope.field']);
     expect(unknownIn("const a = { helpId: 'nope.action' }", HELP_INDEX)).toEqual(['nope.action']);
+    expect(unknownIn('<DataTable expandHelpId="nope.expand" />', HELP_INDEX)).toEqual([
+      'nope.expand',
+    ]);
     expect(
       unknownIn('<PageHeader helpId="students.students" />', { 'students.students': {} }),
     ).toEqual([]);

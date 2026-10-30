@@ -439,20 +439,23 @@ function PortalAccount() {
         roles={decodeAccessTokenMemberships(accessToken ?? '').map((m) => m.role)}
       />
 
-      <PushNotificationSettings
-        permission={push.permission}
-        isSubscribedOnThisDevice={push.isSubscribedOnThisDevice}
-        thisDeviceSubscriptionId={push.thisDeviceSubscriptionId}
-        subscriptions={push.subscriptions}
-        loading={push.loading}
-        // The hook returns the key with its namespace prefix
-        // (`push.errors.listFailed`); `tPush` is already the `push` namespace.
-        error={push.error ? tPush(push.error.replace(/^push\./, '')) : null}
-        removingId={removingPushId}
-        onToggle={handlePushToggle}
-        onRemove={handlePushRemove}
-        locale={locale}
-      />
+      {/* Anchor for the arrival-notice "turn on app messages" link (/portal/account#push-devices). */}
+      <div id="push-devices">
+        <PushNotificationSettings
+          permission={push.permission}
+          isSubscribedOnThisDevice={push.isSubscribedOnThisDevice}
+          thisDeviceSubscriptionId={push.thisDeviceSubscriptionId}
+          subscriptions={push.subscriptions}
+          loading={push.loading}
+          // The hook returns the key with its namespace prefix
+          // (`push.errors.listFailed`); `tPush` is already the `push` namespace.
+          error={push.error ? tPush(push.error.replace(/^push\./, '')) : null}
+          removingId={removingPushId}
+          onToggle={handlePushToggle}
+          onRemove={handlePushRemove}
+          locale={locale}
+        />
+      </div>
 
       {role !== null && <NotificationPrefsCard role={role as UserRole} />}
 

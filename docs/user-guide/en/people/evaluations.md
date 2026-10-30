@@ -30,6 +30,7 @@ helpIds:
     people.evaluations.field.anonymous,
     people.evaluations.field.minResponses,
     people.evaluations.field.targets,
+    people.evaluations.action.newSurvey,
   ]
 devices: [desktop]
 entry: [sidebar, palette]
@@ -262,31 +263,31 @@ A wrong incident cannot be deleted, only withdrawn. This is not on the Evaluatio
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                            | What to do                                                                                                                                                      | Who can help |
-| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **You don't have access to this page.**                                                 | The page is only for Admins and committee members ([who can do what](#roles)). Press **Back to dashboard**.                                                     | Admin        |
-| **Couldn't load the ACR register.**                                                     | Check your internet and reload the page.                                                                                                                        | Admin        |
-| **No ACRs** / "No ACRs yet for this filter."                                            | Remove the **Academic year** and **Status** filters and look again.                                                                                             | Admin        |
-| **Save the ACR criteria first, then start an ACR.**                                     | Save the criteria in **Settings** ("ACR criteria"), then press **Start ACR** again. | Admin        |
-| **An ACR already exists for this staff member and year.**                               | Find that staff member and year in the list and press **Open**. You cannot start another. | Admin        |
-| **Couldn't start the ACR.**                                                             | Check your internet and try again.                                                                                                                              | Admin        |
-| **Couldn't load this ACR.**                                                             | Check your internet and press **Retry**. This can also appear if you try to open your own ACR.                                                                  | Admin        |
-| **Score every criterion before completing.**                                            | Give 4, 3, 2 or 1 to every criterion marked **Not scored**.                                                                                                     | Admin        |
-| **Couldn't complete the ACR.**                                                          | Wait for **Saved**, then try again. Someone other than the person who started it cannot complete it.                                                            | Admin        |
-| **Couldn't reopen the ACR.**                                                            | Check your internet and press **Reopen** again.                                                                                                                 | Admin        |
-| **Couldn't save. Retrying…**                                                            | Check your internet. Do not close the page; wait for **Saved**.                                                                                                 | Admin        |
-| **Not saved: fix {n} field(s).**                                                        | Fix the fields with red messages, then save again.                                                                                                              | Admin        |
-| **Add at least one teacher and subject.**                                               | Fill in one row in **Teachers and subjects**.                                                                                                                   | Admin        |
-| **A teacher is not assigned to the chosen subject. Change the teacher or the subject.** | Give the subject on the [Teacher assignments](teaching-assignments.md) page, or choose another subject.                                                         | Admin        |
-| **Minimum answers must be 3 or more.**                                                  | Make **Minimum answers before results show** 3 or more.                                                                                                         | Admin        |
-| **The closing date must be after the opening date.**                                    | Fix the dates.                                                                                                                                                  | Admin        |
-| **Couldn't publish the survey.** / **Couldn't close the survey.**                       | Check your internet and try again.                                                                                                                              | Admin        |
-| **Couldn't load results.**                                                              | Reload the page. You will not get results for a survey in which you are the teacher.                                                                            | Admin        |
-| **Choose a staff member.** / **Choose a type.** / **Choose a severity.**                | Choose the fields.                                                                                                                                              | Admin        |
-| **Describe what happened.**                                                             | Write in **What happened**.                                                                                                                                     | Admin        |
-| **The date cannot be in the future.**                                                   | Give today's date or an earlier one.                                                                                                                            | Admin        |
-| **Couldn't report the incident.** / **Couldn't withdraw the incident.**                 | Check your internet and try again.                                                                                                                              | Admin        |
-| **Give a reason.**                                                                      | Write a reason in **Why is it being withdrawn?**                                                                                                                | Admin        |
+| What you see                                                                            | What to do                                                                                                  | Who can help |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------ |
+| **You don't have access to this page.**                                                 | The page is only for Admins and committee members ([who can do what](#roles)). Press **Back to dashboard**. | Admin        |
+| **Couldn't load the ACR register.**                                                     | Check your internet and reload the page.                                                                    | Admin        |
+| **No ACRs** / "No ACRs yet for this filter."                                            | Remove the **Academic year** and **Status** filters and look again.                                         | Admin        |
+| **Save the ACR criteria first, then start an ACR.**                                     | Save the criteria in **Settings** ("ACR criteria"), then press **Start ACR** again.                         | Admin        |
+| **An ACR already exists for this staff member and year.**                               | Find that staff member and year in the list and press **Open**. You cannot start another.                   | Admin        |
+| **Couldn't start the ACR.**                                                             | Check your internet and try again.                                                                          | Admin        |
+| **Couldn't load this ACR.**                                                             | Check your internet and press **Retry**. This can also appear if you try to open your own ACR.              | Admin        |
+| **Score every criterion before completing.**                                            | Give 4, 3, 2 or 1 to every criterion marked **Not scored**.                                                 | Admin        |
+| **Couldn't complete the ACR.**                                                          | Wait for **Saved**, then try again. Someone other than the person who started it cannot complete it.        | Admin        |
+| **Couldn't reopen the ACR.**                                                            | Check your internet and press **Reopen** again.                                                             | Admin        |
+| **Couldn't save. Retrying…**                                                            | Check your internet. Do not close the page; wait for **Saved**.                                             | Admin        |
+| **Not saved: fix {n} field(s).**                                                        | Fix the fields with red messages, then save again.                                                          | Admin        |
+| **Add at least one teacher and subject.**                                               | Fill in one row in **Teachers and subjects**.                                                               | Admin        |
+| **A teacher is not assigned to the chosen subject. Change the teacher or the subject.** | Give the subject on the [Teacher assignments](teaching-assignments.md) page, or choose another subject.     | Admin        |
+| **Minimum answers must be 3 or more.**                                                  | Make **Minimum answers before results show** 3 or more.                                                     | Admin        |
+| **The closing date must be after the opening date.**                                    | Fix the dates.                                                                                              | Admin        |
+| **Couldn't publish the survey.** / **Couldn't close the survey.**                       | Check your internet and try again.                                                                          | Admin        |
+| **Couldn't load results.**                                                              | Reload the page. You will not get results for a survey in which you are the teacher.                        | Admin        |
+| **Choose a staff member.** / **Choose a type.** / **Choose a severity.**                | Choose the fields.                                                                                          | Admin        |
+| **Describe what happened.**                                                             | Write in **What happened**.                                                                                 | Admin        |
+| **The date cannot be in the future.**                                                   | Give today's date or an earlier one.                                                                        | Admin        |
+| **Couldn't report the incident.** / **Couldn't withdraw the incident.**                 | Check your internet and try again.                                                                          | Admin        |
+| **Give a reason.**                                                                      | Write a reason in **Why is it being withdrawn?**                                                            | Admin        |
 
 ---
 

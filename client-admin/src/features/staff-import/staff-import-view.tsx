@@ -1,4 +1,11 @@
-import { BulkUploadPreview, Button, Card, Checkbox, StatusBadge } from '@biddaloy/ui/components';
+import {
+  BulkUploadPreview,
+  Button,
+  Card,
+  Checkbox,
+  HelpHint,
+  StatusBadge,
+} from '@biddaloy/ui/components';
 import {
   useCommitStaffUpload,
   useValidateStaffUpload,
@@ -142,7 +149,10 @@ export function StaffImportView() {
                   key={column}
                   className="flex flex-col gap-1 py-3 md:grid md:grid-cols-12 md:gap-4"
                 >
-                  <span className="font-medium md:col-span-4">{t(`columns.${column}.label`)}</span>
+                  <span className="inline-flex items-center gap-1 font-medium md:col-span-4">
+                    {t(`columns.${column}.label`)}
+                    {column === 'role' && <HelpHint helpId="people.staffImport.field.role" />}
+                  </span>
                   <span className="md:col-span-8">{t(`columns.${column}.help`)}</span>
                 </li>
               ))}
@@ -166,6 +176,7 @@ export function StaffImportView() {
             maxFileSize={MAX_FILE_SIZE}
             validate={validate}
             commit={commit}
+            helpId="people.staffImport.action.confirm"
             canCommit={(result) =>
               result.hard_error_count === 0 &&
               result.summary.summary.create + result.summary.summary.restore > 0
@@ -205,17 +216,20 @@ function PreviewSummary({
         <span>{t('summary.willRestore', { count: summary.restore })}</span>
         <span>{t('summary.willSkip', { count: summary.skip })}</span>
       </div>
-      <label
-        htmlFor="staff-import-send-invitations"
-        className="flex min-h-11 items-center gap-3 md:min-h-8"
-      >
-        <Checkbox
-          id="staff-import-send-invitations"
-          checked={sendInvitations}
-          onCheckedChange={(checked) => onSendInvitationsChange(checked === true)}
-        />
-        {t('sendInvitations')}
-      </label>
+      <div className="flex items-center gap-2">
+        <label
+          htmlFor="staff-import-send-invitations"
+          className="flex min-h-11 items-center gap-3 md:min-h-8"
+        >
+          <Checkbox
+            id="staff-import-send-invitations"
+            checked={sendInvitations}
+            onCheckedChange={(checked) => onSendInvitationsChange(checked === true)}
+          />
+          {t('sendInvitations')}
+        </label>
+        <HelpHint helpId="people.staffImport.field.sendInvitations" />
+      </div>
       {shown.length > 0 && (
         <>
           <table className="w-full text-start">

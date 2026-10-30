@@ -13,6 +13,8 @@ import { AppShellPage } from '../pages/app-shell';
  * `dashboard-widgets-api.spec.ts` until their cards land.
  */
 
+// [#3134] Cold page loads on a slow runner can take more than the default 5 s.
+const SLOW = 15_000;
 const UPCOMING = () => t('dashboard.widgets.upcoming.title');
 const upcomingCard = (page: Page) =>
   page.getByRole('heading', { name: t('calendar.upcomingPanel.title') });
@@ -41,7 +43,7 @@ test.describe('dashboard', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: t('dashboard.page.title') }),
     ).toBeVisible();
-    await expect(upcomingCard(page)).toBeVisible();
+    await expect(upcomingCard(page)).toBeVisible({ timeout: SLOW });
     await expectNoAxeViolations(page, 'main');
   });
 
@@ -49,7 +51,7 @@ test.describe('dashboard', () => {
     page,
   }) => {
     await page.goto('/dashboard');
-    await expect(upcomingCard(page)).toBeVisible();
+    await expect(upcomingCard(page)).toBeVisible({ timeout: SLOW });
 
     await customiseButton(page).click();
     await expect(page).toHaveURL(/customize=1/);
@@ -117,7 +119,7 @@ test.describe('settings > dashboard', () => {
     try {
       await page.goto('/settings?section=academics');
       const card = page.locator('#dashboard-section');
-      await expect(card).toBeVisible();
+      await expect(card).toBeVisible({ timeout: SLOW });
       const field = card.getByLabel(t('settings.dashboard.risk.absentStreakDays'));
       await field.fill('4');
       await card.getByRole('button', { name: t('settings.save.action') }).click();

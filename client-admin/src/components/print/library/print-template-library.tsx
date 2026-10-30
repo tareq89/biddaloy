@@ -63,6 +63,7 @@ function ArchiveConfirm({
         if (!open && !archive.isPending) onClose();
       }}
       title={t('archive.title', { name: template.name })}
+      helpId="administration.printTemplates.action.archive"
       description={t('archive.explain')}
       confirmLabel={t('archive.confirm')}
       busy={archive.isPending}
@@ -98,6 +99,7 @@ function DefaultConfirm({
         if (!open && !makeDefault.isPending) onClose();
       }}
       title={t('makeDefaultConfirm.title', { name: template.name })}
+      helpId="administration.printTemplates.action.makeDefault"
       description={t('makeDefaultConfirm.explain')}
       confirmLabel={t('actions.makeDefault')}
       busy={makeDefault.isPending}
@@ -199,6 +201,7 @@ export function PrintTemplateLibrary({ onEdit, openNewDialog = false }: PrintTem
       kind: 'select',
       key: 'kind',
       label: t('filters.kind'),
+      helpId: 'administration.printTemplates.field.kind',
       allLabel: t('filters.allKinds'),
       options: PRINT_KIND_ORDER.map((k) => ({
         value: k,
@@ -217,6 +220,7 @@ export function PrintTemplateLibrary({ onEdit, openNewDialog = false }: PrintTem
           icon: <PlusIcon aria-hidden />,
           priority: 'primary' as const,
           onClick: () => openNew(),
+          helpId: 'administration.printTemplates.action.create',
         },
       ]
     : [];

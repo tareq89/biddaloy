@@ -3,7 +3,7 @@
 This page takes you from an empty laptop to a running, monitored system:
 
 - **prod** (the real app)
-- **staging** (a scrubbed copy of prod, refreshed every night)
+- **staging** (a scrubbed copy of prod when you load one; a nightly drill proves restores)
 - **demo** (a public demo school, rebuilt every night)
 - **ops** (uptime, server metrics and live logs)
 - **landing** (the marketing site)
@@ -334,10 +334,10 @@ Staging needs no widget: it uses Cloudflare's public always-pass test keys (alre
    `https://<account-id>.r2.cloudflarestorage.com`.
 4. **Manage API tokens → Create API token**, twice. Limit both to the bucket `biddaloy-backups`:
 
-| Token name            | Permission           | Used by                   | Why                                                 |
-| --------------------- | -------------------- | ------------------------- | --------------------------------------------------- |
-| `biddaloy-prod-rw`    | Object Read & Write  | prod backups, log archive | writes backups                                      |
-| `biddaloy-staging-ro` | Object **Read only** | staging's nightly restore | staging can never delete or overwrite a prod backup |
+| Token name            | Permission           | Used by                           | Why                                                 |
+| --------------------- | -------------------- | --------------------------------- | --------------------------------------------------- |
+| `biddaloy-prod-rw`    | Object Read & Write  | prod backups, log archive         | writes backups                                      |
+| `biddaloy-staging-ro` | Object **Read only** | staging's restore drill and loads | staging can never delete or overwrite a prod backup |
 
 Each token shows an **Access Key ID** and a **Secret Access Key**, both 🔴. Cloudflare shows the
 secret once: save it now.
@@ -727,7 +727,7 @@ sops -d --extract '["SMOKE_SUPER_ADMIN_PASSWORD"]' infra/secrets/prod.enc.env
 | `edge`    | `GHCR_PULL_TOKEN`, `TELEGRAM_*`                       | domains, tunnel id + credentials, Access team + AUD tags, `GHCR_PULL_USER`, `EDGE_MODE`, `OPS_UPSTREAM_HOST`                 | `BESZEL_KEY`, `LOG_ARCHIVE_PUSH_URL` (Part 14)                                      |
 | `ops`     | —                                                     | `DOZZLE_USERS_YML`, `DOZZLE_OWNER_PASSWORD`                                                                                  | `BESZEL_KEY` (Part 14)                                                              |
 | `prod`    | R2 rw keys, Turnstile secret, Sentry DSNs, SMS, OAuth | URLs, DB, S3, JWT, encryption key, health token, backup public key + rclone crypt, Turnstile site key, smoke logins          | `PLATFORM_TENANT_ID` (Part 12), `BACKUP_PUSH_URL`, `LOG_ARCHIVE_PUSH_URL` (Part 14) |
-| `staging` | R2 read-only keys, Sentry DSNs                        | URLs, DB, S3, JWT, encryption key, health token, staging password + hash, backup key pair, test Turnstile keys, smoke logins | `PLATFORM_TENANT_ID` (Part 12), `STAGING_REFRESH_PUSH_URL` (Part 14)                |
+| `staging` | R2 read-only keys, Sentry DSNs                        | URLs, DB, S3, JWT, encryption key, health token, staging password + hash, backup key pair, test Turnstile keys, smoke logins | `PLATFORM_TENANT_ID` (Part 12), `RESTORE_DRILL_PUSH_URL` (Part 14)                  |
 | `demo`    | Turnstile secret, Sentry DSNs                         | URLs, DB, S3, JWT, encryption key, health token, demo password, `DEMO_SKIP_SWEEP`                                            | `DEMO_RESET_PUSH_URL` (Part 14)                                                     |
 
 > **What went wrong for us.**
@@ -932,7 +932,7 @@ Log in at `https://app.<DOMAIN>/login` with your account.
 ### 12c. The Smoke Test School
 
 After every prod deploy, the smoke test logs in as an admin and a teacher of a real school. The
-nightly staging copy keeps this school's logins, so staging is tested the same way.
+staging load keeps this school's logins, so staging is tested the same way.
 
 1. Open `https://app.<DOMAIN>/register` and register a school:
    - school name **Smoke Test School**
@@ -958,12 +958,13 @@ nightly staging copy keeps this school's logins, so staging is tested the same w
    sops set infra/secrets/staging.enc.env '["SMOKE_SCHOOL_SLUG"]' '"smoke-test-school-a1b2c3"'
    ```
 
-   Why it matters: the nightly staging refresh keeps the emails of this school's users (everyone
+   Why it matters: the staging load and the nightly restore drill keep the emails of this school's users (everyone
    else is scrubbed). With the wrong slug, staging's smoke accounts get scrubbed too and staging's
    smoke test fails.
 
-From now on prod deploys run the full login smoke test. Staging runs it after its first nightly
-refresh (the refresh copies these accounts and gives them `STAGING_PASSWORD`).
+From now on prod deploys run the full login smoke test. Staging runs it once a backup is loaded
+(`biddaloy-staging load latest-daily --use`; the load copies these accounts and gives them
+`STAGING_PASSWORD`). Commands: [28-platform-runbook.md](28-platform-runbook.md#staging-dev-staging-and-the-nightly-drill).
 
 ---
 
@@ -977,12 +978,12 @@ refresh (the refresh copies these accounts and gives them `STAGING_PASSWORD`).
    **Default enabled** and **Apply on all existing monitors**. Click **Test**: a message arrives.
 3. **Push monitors** (the nightly jobs report to these). **Add New Monitor → Push**:
 
-| Monitor name              | Heartbeat interval (s) | Retry / grace (s) | Its URL goes to                          |
-| ------------------------- | ---------------------- | ----------------- | ---------------------------------------- |
-| `backup-hourly`           | 3600                   | 900               | prod `BACKUP_PUSH_URL`                   |
-| `staging-refresh-nightly` | 86400                  | 3600              | staging `STAGING_REFRESH_PUSH_URL`       |
-| `demo-rebuild-nightly`    | 86400                  | 3600              | demo `DEMO_RESET_PUSH_URL`               |
-| `log-archive-nightly`     | 86400                  | 3600              | prod **and** edge `LOG_ARCHIVE_PUSH_URL` |
+| Monitor name           | Heartbeat interval (s) | Retry / grace (s) | Its URL goes to                          |
+| ---------------------- | ---------------------- | ----------------- | ---------------------------------------- |
+| `backup-hourly`        | 3600                   | 900               | prod `BACKUP_PUSH_URL`                   |
+| `restore-drill`        | 93600                  | 0                 | staging `RESTORE_DRILL_PUSH_URL`         |
+| `demo-rebuild-nightly` | 86400                  | 3600              | demo `DEMO_RESET_PUSH_URL`               |
+| `log-archive-nightly`  | 86400                  | 3600              | prod **and** edge `LOG_ARCHIVE_PUSH_URL` |
 
 Kuma shows a URL like `https://kuma.<DOMAIN>/api/push/AbC123xyz?status=up&msg=OK&ping=`.
 **Store only the part before `?`**: `https://kuma.<DOMAIN>/api/push/AbC123xyz`. The scripts add
@@ -1042,7 +1043,7 @@ setsecret() { printf "%s → %s: " "$1" "$2"; read -rs v; echo; sops set "infra/
 setsecret prod    BACKUP_PUSH_URL
 setsecret prod    LOG_ARCHIVE_PUSH_URL
 setsecret edge    LOG_ARCHIVE_PUSH_URL
-setsecret staging STAGING_REFRESH_PUSH_URL
+setsecret staging RESTORE_DRILL_PUSH_URL
 setsecret demo    DEMO_RESET_PUSH_URL
 setsecret edge    BESZEL_KEY
 setsecret ops     BESZEL_KEY
@@ -1090,7 +1091,7 @@ prod deploy fails at the smoke step: create the Smoke Test School first.
 | Everything      | `ssh deploy@<VPS_IP> biddaloy-doctor`                               | no `FAIL` lines (exit code 0)                      |
 | Open ports      | `nmap <VPS_IP>` from the laptop                                     | only 22 (tunnel mode)                              |
 
-**Next morning** (the nightly jobs run at 02:20 staging refresh, 03:00 demo rebuild, 04:00 log
+**Next morning** (the nightly jobs run at 02:20 restore drill, 03:00 demo rebuild, 04:00 log
 archive, Asia/Dhaka; prod backs up every hour):
 
 | What                         | Good when                                                                                    |
@@ -1257,7 +1258,7 @@ has every step):
 | `beszel-agent` keeps restarting                                        | `BESZEL_KEY` not set yet                                                                      | Part 13b + 14                                                                   |
 | demo: 502                                                              | demo not deployed yet                                                                         | `scripts/deploy.sh demo "$SHA"`                                                 |
 | prod deploy fails at smoke after users exist                           | the Smoke Test School or its accounts are missing or have other passwords                     | Part 12c, with the passwords from `prod.enc.env`                                |
-| staging smoke fails after the first nightly refresh                    | `SMOKE_SCHOOL_SLUG` is the placeholder, not the real slug (registration adds a random suffix) | Part 12c step 4                                                                 |
+| staging smoke fails after loading a backup                             | `SMOKE_SCHOOL_SLUG` is the placeholder, not the real slug (registration adds a random suffix) | Part 12c step 4                                                                 |
 | GitHub Deploy refuses a SHA                                            | GitHub may deploy only commits on `main`                                                      | merge first, or deploy from the laptop                                          |
 | `FAILED at: lock`                                                      | another deploy or a nightly job is running                                                    | wait, then run again                                                            |
 | `y` / `y.pub` files in the repo folder                                 | `y` typed at ssh-keygen's file-name prompt                                                    | delete them; press Enter at that prompt                                         |

@@ -12,6 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import {
   useClassSections,
@@ -82,7 +83,10 @@ export function CopyToSectionDialog({ open, onOpenChange, plan }: CopyToSectionD
       <DialogContent size="md" closeLabel={tCommon('actions.close')}>
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{t('copy.title')}</DialogTitle>
+            <div className="flex items-center gap-1">
+              <DialogTitle>{t('copy.title')}</DialogTitle>
+              <HelpHint helpId="academics.syllabus.action.copyToSection" />
+            </div>
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5">

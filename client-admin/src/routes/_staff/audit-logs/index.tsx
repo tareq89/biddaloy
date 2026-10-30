@@ -319,6 +319,7 @@ function AuditLogsList() {
       kind: 'select',
       key: 'performed_by_user_id',
       label: t('filters.performedByLabel'),
+      helpId: 'administration.auditLogs.field.performedBy',
       allLabel: t('filters.allUsers'),
       options: (usersQuery.data?.data ?? []).map((user) => ({
         value: user.id,
@@ -387,6 +388,7 @@ function AuditLogsList() {
       }
       // A distinct accessible name per toggle — "Expand row" alone would
       // give every row in the table the same name.
+      expandHelpId="administration.auditLogs.action.expand"
       expandRowLabel={(row) =>
         t('list.expandLabel', { summary: summary(row), when: whenLabel(row) })
       }

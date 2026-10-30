@@ -8,6 +8,10 @@ export interface RuntimeConfig {
   release: string;
   /** Test inbox URL; empty on prod, so no notice there. */
   messageSinkUrl: string;
+  /** "DEV", "STAGING" or empty (prod: no ribbon). */
+  envBadge: string;
+  /** ISO date the staging data was copied; shown beside STAGING. */
+  envBadgeDate: string;
 }
 
 declare global {
@@ -31,5 +35,7 @@ export function runtimeConfig(): RuntimeConfig {
     sentryTracesSampleRate: c.sentryTracesSampleRate ?? 0.1,
     release: c.release ?? '',
     messageSinkUrl: c.messageSinkUrl ?? '',
+    envBadge: c.envBadge ?? '',
+    envBadgeDate: c.envBadgeDate ?? '',
   };
 }

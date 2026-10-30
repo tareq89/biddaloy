@@ -851,11 +851,25 @@ jobs:
 
       - name: Install Playwright browser (${{ matrix.browser }})
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps ${{ matrix.browser }}
+        # [#3085] The apt mirror a runner lands on is sometimes ~30 kB/s (shard 3
+        # spent ~10 min on one package in three runs; shards 1/2 took 2-3 s).
+        # Each attempt is cut at 4 min and retried; a fresh apt run usually
+        # gets a healthy connection. The browser binary itself is cached above.
+        run: |
+          for i in 1 2 3; do
+            timeout 240 npx playwright install --with-deps ${{ matrix.browser }} && exit 0
+            echo "attempt $i failed or timed out"
+          done
+          exit 1
 
       - name: Install Playwright OS dependencies (cache hit)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps ${{ matrix.browser }}
+        run: |
+          for i in 1 2 3; do
+            timeout 240 npx playwright install-deps ${{ matrix.browser }} && exit 0
+            echo "attempt $i failed or timed out"
+          done
+          exit 1
 
       - name: Run migrations
         run: yarn workspace @biddaloy/server migration:run
@@ -1255,6 +1269,8 @@ jobs:
           # Here, not only in the infra job: that job has no ansible-playbook, so it skips this one.
           bash test/report.infra.test.sh
           bash test/app-services.infra.test.sh
+          bash test/staging-active-db.infra.test.sh
+          bash test/authorized-keys.infra.test.sh
           bash test/tunnel-recreate.infra.test.sh
           # The VM-side CLIs (Epic 79 W3). Docker-free shims; ansible-playbook is on PATH here, so
           # the deploy test also proves a Jinja hotfix reason stays text in deploy.yml.

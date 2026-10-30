@@ -20,6 +20,7 @@ import {
   Card,
   DataTable,
   ErrorState,
+  HelpHint,
   RoutePending,
   Skeleton,
   toast,
@@ -174,6 +175,7 @@ function CollectionsReportPage() {
       kind: 'select',
       key: 'preset',
       label: t('filters.presetLabel'),
+      helpId: 'reports.collectionsReport.field.preset',
       allLabel: t('filters.presetToday'),
       options: [
         { value: 'yesterday', label: t('filters.presetYesterday') },
@@ -211,6 +213,7 @@ function CollectionsReportPage() {
       kind: 'select',
       key: 'received_by_user_id',
       label: t('filters.collectorLabel'),
+      helpId: 'reports.collectionsReport.field.collector',
       allLabel: t('filters.allCollectors'),
       // [16.6.4 review] Built from the report's own `by_collector` breakdown
       // instead of `GET /users` — that endpoint is ADMIN-only server-side,
@@ -417,10 +420,18 @@ function CollectionsReportPage() {
     },
   } as const;
 
-  const section = (title: string, help: string, table: React.ReactNode): React.ReactElement => (
+  const section = (
+    title: string,
+    help: string,
+    table: React.ReactNode,
+    opts?: { helpId: string },
+  ): React.ReactElement => (
     <Card className="overflow-hidden print:break-inside-avoid">
       <div className="p-4 md:p-5">
-        <h2 className="text-h2">{title}</h2>
+        <div className="flex items-center gap-1">
+          <h2 className="text-h2">{title}</h2>
+          {opts && <HelpHint helpId={opts.helpId} />}
+        </div>
         <p className="mt-1 text-text-secondary">{help}</p>
       </div>
       {table}
@@ -526,6 +537,7 @@ function CollectionsReportPage() {
                 getRowId={(row) => row.payment_method}
                 totalCount={data?.by_method.length ?? 0}
               />,
+              { helpId: 'reports.collectionsReport.section.byMethod' },
             )}
             {section(
               t('tables.byCollectorTitle'),
@@ -539,6 +551,7 @@ function CollectionsReportPage() {
                 getRowId={(row) => row.user_id ?? 'unknown'}
                 totalCount={data?.by_collector.length ?? 0}
               />,
+              { helpId: 'reports.collectionsReport.section.byCollector' },
             )}
             {section(
               t('tables.byFeeTypeTitle'),
@@ -552,6 +565,7 @@ function CollectionsReportPage() {
                 getRowId={(row) => row.fee_type}
                 totalCount={data?.by_fee_type.length ?? 0}
               />,
+              { helpId: 'reports.collectionsReport.section.byFeeType' },
             )}
             {section(
               t('tables.byDayTitle'),

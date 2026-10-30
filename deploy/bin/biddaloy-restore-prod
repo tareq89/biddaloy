@@ -154,12 +154,8 @@ if [[ "$n_schools" != 0 || "$n_users" != 0 ]]; then
 fi
 
 # --- choose and show the backup -----------------------------------------------------------------
-# shellcheck disable=SC2016 # runs in the container, where these variables exist
-LIST_SH='set -eu
-export AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto
-aws s3 ls --endpoint-url "$BACKUP_S3_ENDPOINT" "s3://$BACKUP_S3_BUCKET/$1"'
 echo "step: choose-backup"
-listing="$(dc run --rm -T --no-deps -e TZ=UTC jobs sh -c "$LIST_SH" sh "$PREFIX")" || fail choose-backup "could not list the backup bucket" "check BACKUP_S3_* in $ENV_FILE; nothing was changed"
+listing="$(list_backups "$PREFIX")" || fail choose-backup "could not list the backup bucket" "check BACKUP_S3_* in $ENV_FILE; nothing was changed"
 # aws s3 ls line: "<date> <time> <size> <name>" (UTC, TZ=UTC above). Newest = highest name (names
 # are timestamps). latest-* skips anything written at or after this VM's prod database volume was
 # made: those are this VM's own hourly dumps of its empty database.
@@ -177,7 +173,7 @@ if [[ "$PICK" == latest ]]; then
     || fail choose-backup "could not read when this VM's prod database volume (prod_pgdata) was made" "pass an exact --from db/hourly/<file>.dump.age; nothing was changed"
   say "skipping dumps written since $cutoff UTC (this VM's own prod database)"
   dumps="$(printf '%s\n' "$listing" | awk 'NF >= 4 && $4 ~ /\.dump\.age$/')"
-  line="$(printf '%s\n' "$dumps" | awk -v c="$cutoff" '($1 " " $2) < c' | sort -k4 | tail -1)"
+  line="$(pick_latest "$listing" "$cutoff")"
   # A planned move (old VM still writing) has real dumps after the cutoff: name the newest, so the
   # operator can pass it as an exact --from instead of restoring older data.
   skipped="$(printf '%s\n' "$dumps" | awk -v c="$cutoff" 'NF >= 4 && ($1 " " $2) >= c' | sort -k4 | tail -1)"

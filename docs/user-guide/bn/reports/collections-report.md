@@ -21,6 +21,9 @@ helpIds:
     reports.collectionsReport.action.print,
     reports.collectionsReport.field.preset,
     reports.collectionsReport.field.collector,
+    reports.collectionsReport.section.byMethod,
+    reports.collectionsReport.section.byCollector,
+    reports.collectionsReport.section.byFeeType,
   ]
 devices: [desktop, phone]
 entry: [sidebar, palette]

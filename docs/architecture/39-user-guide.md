@@ -267,13 +267,13 @@ flowchart LR
 An id is the page's feature id plus an optional kind and name. Without a
 suffix, the link goes to the default spot for its kind (E10):
 
-| Shape                      | Example                                                                   | The card links to                                    |
-| -------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `<feature>`                | `attendance.attendance`                                                   | the page top                                         |
-| `<feature>.action.<name>`  | `attendance.attendance.action.submit`                                     | `#task-main`                                         |
-| `<feature>.section.<name>` | `people.admissionIntakes.section.status` (declared, not wired yet: #3079) | `#task-main`                                         |
-| `<feature>.field.<name>`   | `finance.feeStructures.field.amount`                                      | `#more`; the card text is the i18n key `help.<name>` |
-| `widget.<key>`             | `widget.attendance-today`                                                 | `dashboard/widgets#widget.attendance-today`          |
+| Shape                      | Example                                      | The card links to                                    |
+| -------------------------- | -------------------------------------------- | ---------------------------------------------------- |
+| `<feature>`                | `attendance.attendance`                      | the page top                                         |
+| `<feature>.action.<name>`  | `attendance.attendance.action.submit`        | `#task-main`                                         |
+| `<feature>.section.<name>` | `administration.settings.section.attendance` | `#task-main`                                         |
+| `<feature>.field.<name>`   | `finance.feeStructures.field.amount`         | `#more`; the card text is the i18n key `help.<name>` |
+| `widget.<key>`             | `widget.attendance-today`                    | `dashboard/widgets#widget.attendance-today`          |
 
 **`#anchor` suffix (E20).** In `helpIds` an entry may name its own section.
 No page uses a suffix yet; for example
@@ -326,9 +326,13 @@ A page with `knownIssues` also gets a "Known issues →" link to `#known-issues`
    - page title: nothing to do. `PageHeader` finds the page id from the route
      (`HELP_ROUTES`, E15);
    - header action that `PageHeader` shows inline (primary, the first two
-     secondaries, or a lone destructive): `helpId` on the `PageAction`. An
-     action in the More menu gets no (?): list its id in `help-unwired.ts` (#3078);
-   - field: `helpId` on its `FormField`;
+     secondaries, or a lone destructive): `helpId` on the `PageAction`;
+   - a More-menu item or a table row action draws no (?) itself: put the id on
+     the dialog it opens (`helpId` on `ConfirmDialog`, or `<HelpHint>` beside the
+     `DialogTitle`). An action that opens no dialog stays in `help-unwired.ts`;
+   - field: `helpId` on its `FormField`, or on its `FilterBar` descriptor;
+   - `FullPageShell` footer button: `helpId` on `primary`; `EmptyState` button:
+     `helpId` on `action`; `DataTable` expand toggle: `expandHelpId`;
    - any other button, or a section header: `<HelpHint helpId="…" />` right after it.
 4. **Check:** `npx vitest run client-admin/src/help/` and `yarn guide:check`.
 
@@ -359,7 +363,8 @@ ways** (E6, strict since 44.3.12):
 | fields            | a `.field.` id has no non-blank `help.<name>` in bn and en                                                                                                                                                                                                                                                                                     |
 | baselines         | `HELP_GAPS`, missing anchors or missing `known-issues` sections differ from their checked-in lists (shrink-only)                                                                                                                                                                                                                               |
 
-The guard reads literals only: `helpId="x"`, `helpId={'x'}` and `helpId: 'x'`.
+The guard reads literals only: `helpId="x"`, `helpId={'x'}` and `helpId: 'x'`,
+and the same forms of a prefixed slot prop such as `expandHelpId="x"`.
 An id built from a variable is invisible to it, and a literal inside a comment
 counts as used.
 
@@ -475,6 +480,14 @@ Each bullet: surprise, cost, fix, rule candidate.
   `widget.*` ids, a grammar test pins the 16 to #3148, which renames or drops
   them. Rule candidate: a completeness check names what it skips, not what it
   checks, so an id of a new shape is checked by default.
+
+- **2026-10-29 — a menu item or row action has no room for a (?), its dialog does.**
+  #3078 asked for `helpId` on DataTable row actions; a (?) on every row would
+  repeat one card down the whole table. Fix: the (?) sits beside the title of
+  the confirm or form dialog the action opens (`ConfirmDialog.helpId`), the
+  same place #3013 used for the results actions. The row and the More menu stay
+  clean. Rule candidate: wire an action's (?) where the user decides, not where
+  they click first.
 
 ## Related
 

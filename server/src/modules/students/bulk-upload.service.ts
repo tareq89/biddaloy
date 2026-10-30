@@ -7,6 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, QueryFailedError, EntityManager } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
@@ -150,6 +151,7 @@ export class StudentBulkUploadService {
     }
 
     const rows: ParsedRow[] = await parseSpreadsheet(file.buffer, file.originalname);
+    assertDemoRowLimit(rows.length);
 
     const classSections = await this.buildClassSectionMap(tenantId);
     const rollsSeenThisRequest = new Map<string, Set<number>>();
@@ -381,6 +383,7 @@ export class StudentBulkUploadService {
         'No staged upload found for this id. It may have expired or already been committed.',
       );
     }
+    assertDemoRowLimit(staged.rows.length);
     if (staged.hardErrorCount > 0) {
       throw new ConflictException(
         'This staged upload had validation errors and cannot be committed. Re-validate the file first.',

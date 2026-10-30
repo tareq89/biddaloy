@@ -148,10 +148,10 @@ Every exam belongs to one class and one academic year, for example the **Half Ye
 
 Exam details are saved only when you are online; they cannot be kept on the device and sent later. So there is no **Saved on this device** state here.
 
-| State                           | How to tell                                                         | What next                          |
-| ------------------------------- | ------------------------------------------------------------------- | ---------------------------------- |
-| **Changed on screen only**      | The dialog is open and filled in, but has not closed                | Press **Save**                     |
-| **Reached the school's system** | The dialog has closed and the exam is in the list with **Draft**    | [Set the parts](#task-components)  |
+| State                           | How to tell                                                      | What next                         |
+| ------------------------------- | ---------------------------------------------------------------- | --------------------------------- |
+| **Changed on screen only**      | The dialog is open and filled in, but has not closed             | Press **Save**                    |
+| **Reached the school's system** | The dialog has closed and the exam is in the list with **Draft** | [Set the parts](#task-components) |
 
 **To check:** reload the page. If the exam does not show, look at the **Academic year** and **Class** filters at the top.
 
@@ -242,11 +242,11 @@ When the results are **Published**, only the name and deadline can be changed; i
 
 The state is written at the top of the exam page, and beside it are only the buttons for what comes next.
 
-| State         | What it means                                           | Buttons at the top                                              |
-| ------------- | ------------------------------------------------------- | --------------------------------------------------------------- |
-| **Draft**     | Parts, schedule and marks are being given               | **Process result**                                              |
-| **Processed** | Results worked out from the submitted marks, not yet published | **Result analysis**, **Process again**, **Publish**      |
-| **Published** | Results are published; parts are locked                 | **Result analysis**, **Send result SMS**, **Reopen**            |
+| State         | What it means                                                  | Buttons at the top                                   |
+| ------------- | -------------------------------------------------------------- | ---------------------------------------------------- |
+| **Draft**     | Parts, schedule and marks are being given                      | **Process result**                                   |
+| **Processed** | Results worked out from the submitted marks, not yet published | **Result analysis**, **Process again**, **Publish**  |
+| **Published** | Results are published; parts are locked                        | **Result analysis**, **Send result SMS**, **Reopen** |
 
 Pressing **Reopen** makes the exam **Processed** again. The full rules for processing, publishing and reopening will be on [the results page](results.md).
 
@@ -266,9 +266,9 @@ If **This exam has results. Reopen and correct them instead of deleting the exam
 
 ### Filter the list <a href="#task-find" id="task-find"></a>
 
-| Field             | What to pick                                                                                                                  |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Academic year** | One year, or **All academic years**                                                                                           |
+| Field             | What to pick                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Academic year** | One year, or **All academic years**                                                                                                        |
 | **Class**         | One class, or **All classes**. If no year is picked, it says **Pick an academic year first**. If you change the year, the class is cleared |
 
 If nothing matches, it shows **No exams match these filters**, with a **Clear all** button. Filters are only for viewing; they change nothing.
@@ -277,43 +277,43 @@ If nothing matches, it shows **No exams match these filters**, with a **Clear al
 
 Press the exam name in the list, or **View**, to open its page. At the top are the name, the state, and the **Class**, **Academic year** and **Type**; once the results are published, the date of **Results published** also shows.
 
-| Tab                | What is in it                                                                                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Progress**       | In front when the page opens. **Marks submission progress**, for example **15 of 20 marks lists submitted**, and under **Lists not submitted yet** the section and subject, with **Enter marks** beside each |
-| **Marks breakdown** | The parts of a subject; [Set the parts](#task-components)                                                                                                          |
-| **Schedule**       | The date and time of each subject; [Give a schedule](#task-schedule)                                                                                                |
-| **Results**        | Result by student: **Position**, **Roll · Name**, **Total**, **GPA**, **Grade**, **Status**                                                                         |
-| **Print**          | Admit cards, seat lists, mark sheets and so on; [Exam documents](../administration/print-templates/exam-documents.md). The tab shows only if you have the print permission                |
+| Tab                 | What is in it                                                                                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Progress**        | In front when the page opens. **Marks submission progress**, for example **15 of 20 marks lists submitted**, and under **Lists not submitted yet** the section and subject, with **Enter marks** beside each |
+| **Marks breakdown** | The parts of a subject; [Set the parts](#task-components)                                                                                                                                                    |
+| **Schedule**        | The date and time of each subject; [Give a schedule](#task-schedule)                                                                                                                                         |
+| **Results**         | Result by student: **Position**, **Roll · Name**, **Total**, **GPA**, **Grade**, **Status**                                                                                                                  |
+| **Print**           | Admit cards, seat lists, mark sheets and so on; [Exam documents](../administration/print-templates/exam-documents.md). The tab shows only if you have the print permission                                   |
 
 ---
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                                       | What to do                                                                                                                                                                  | Who can help |
-| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **You don't have access to this page.**                                                            | Only the Admin and the exam controller see this page. Press **Back to dashboard**.                                                                                          | Admin        |
-| **Couldn't load exams.** or **Couldn't load this exam.**                                           | Check the internet and reload the page.                                                                                                                                     | Admin        |
-| **An exam with this name already exists.**                                                         | An exam with this name already exists for the same class and year. Give another name. | Admin        |
-| **This exam's results are published. Reopen the results before changing its type.**              | Keep the **Kind** as it was, or first **Reopen** the results ([Exam states](#task-status)). | Admin        |
-| **This class has no grade set, so an exam structure can't be used. …**                             | Give the class a **grade** ([Edit a class](../academics/classes.md#task-edit)), or pick **No exam structure**. | Admin        |
-| **Couldn't save the exam.**                                                                        | Check the internet and press **Save** again.                                | Admin        |
-| The **Class** list is empty                                                                        | The picked year has no classes. First [add a class](../academics/classes.md#task-main).                                                                                     | Admin        |
-| **Exam created — the structure had nothing for this class's subjects. Add the parts yourself.**    | The structure has no grade or subjects for this class, or the subject codes did not match. [Set the parts](#task-components) yourself, or fix the [structure](exam-templates.md#task-grid). | Admin        |
-| **Couldn't save the part.**                                                                        | See whether a part with the same name or a second attendance part already exists in the subject, and whether pass marks are more than full marks.                          | Admin        |
-| **Results are published. Reopen the results to change the exam parts.**                            | The results are published. To change parts, press **Reopen** at the top.                                                                                                    | Admin        |
-| **Couldn't copy the parts.**                                                                       | Check the internet and press **Copy** again.                                                                                                                                | Admin        |
-| **Couldn't save the schedule change.** or **Couldn't remove it.**                                  | See whether the date is inside the academic year and the start is before the end. If the subject is in a published seat plan, first [unpublish](seat-plans.md#task-unpublish) it. | Admin        |
-| The **Subject** field is not on the **Schedule** tab                                               | Every subject of the class is already in the schedule, or the class has no subjects ([attach subjects](../academics/classes.md#task-subjects)).                              | Admin        |
+| What you see                                                                                    | What to do                                                                                                                                                                                  | Who can help |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **You don't have access to this page.**                                                         | Only the Admin and the exam controller see this page. Press **Back to dashboard**.                                                                                                          | Admin        |
+| **Couldn't load exams.** or **Couldn't load this exam.**                                        | Check the internet and reload the page.                                                                                                                                                     | Admin        |
+| **An exam with this name already exists.**                                                      | An exam with this name already exists for the same class and year. Give another name.                                                                                                       | Admin        |
+| **This exam's results are published. Reopen the results before changing its type.**             | Keep the **Kind** as it was, or first **Reopen** the results ([Exam states](#task-status)).                                                                                                 | Admin        |
+| **This class has no grade set, so an exam structure can't be used. …**                          | Give the class a **grade** ([Edit a class](../academics/classes.md#task-edit)), or pick **No exam structure**.                                                                              | Admin        |
+| **Couldn't save the exam.**                                                                     | Check the internet and press **Save** again.                                                                                                                                                | Admin        |
+| The **Class** list is empty                                                                     | The picked year has no classes. First [add a class](../academics/classes.md#task-main).                                                                                                     | Admin        |
+| **Exam created — the structure had nothing for this class's subjects. Add the parts yourself.** | The structure has no grade or subjects for this class, or the subject codes did not match. [Set the parts](#task-components) yourself, or fix the [structure](exam-templates.md#task-grid). | Admin        |
+| **Couldn't save the part.**                                                                     | See whether a part with the same name or a second attendance part already exists in the subject, and whether pass marks are more than full marks.                                           | Admin        |
+| **Results are published. Reopen the results to change the exam parts.**                         | The results are published. To change parts, press **Reopen** at the top.                                                                                                                    | Admin        |
+| **Couldn't copy the parts.**                                                                    | Check the internet and press **Copy** again.                                                                                                                                                | Admin        |
+| **Couldn't save the schedule change.** or **Couldn't remove it.**                               | See whether the date is inside the academic year and the start is before the end. If the subject is in a published seat plan, first [unpublish](seat-plans.md#task-unpublish) it.           | Admin        |
+| The **Subject** field is not on the **Schedule** tab                                            | Every subject of the class is already in the schedule, or the class has no subjects ([attach subjects](../academics/classes.md#task-subjects)).                                             | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                                       | See the list and exam page | Add, edit, parts and schedule | Process, publish, reopen results | Print tab |
-| ------------------------------------------------------------------------------------------ | -------------------------- | ----------------------------- | -------------------------------- | --------- |
-| Admin                                                                                      | Yes                        | Yes                           | Yes                              | Yes       |
-| Exam controller                                                                            | Yes                        | Yes                           | Yes                              | Yes       |
-| Academic coordinator, teacher, accountant, office assistant, governing board member        | No                         | No                            | No                               | No        |
+| Role                                                                                | See the list and exam page | Add, edit, parts and schedule | Process, publish, reopen results | Print tab |
+| ----------------------------------------------------------------------------------- | -------------------------- | ----------------------------- | -------------------------------- | --------- |
+| Admin                                                                               | Yes                        | Yes                           | Yes                              | Yes       |
+| Exam controller                                                                     | Yes                        | Yes                           | Yes                              | Yes       |
+| Academic coordinator, teacher, accountant, office assistant, governing board member | No                         | No                            | No                               | No        |
 
 For other roles, **Exams** is not in the left menu; if they open the page, they see **You don't have access to this page.** A teacher and an academic coordinator see the exam name only in the exam picker on the [marks entry](marks-entry.md) and [result analysis](analysis.md) pages.
 
@@ -338,18 +338,21 @@ For other roles, **Exams** is not in the left menu; if they open the page, they 
 
 <!-- guide:generated:fields:exams -->
 
-| Field                                   | What to enter                                                                                                    | Required?                    |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| Name (exam)                             | The exam name, e.g. Half Yearly 2026. Two exams of the same class and year cannot share a name.                  | Yes                          |
-| Kind (exam)                             | Term, monthly, model or other. Cannot change once results are published.                                         | No                           |
-| Mark entry deadline                     | Teachers see the days left on their dashboard. Leave empty if there is none.                                     | No                           |
-| Academic year                           | The year the exam belongs to. Chosen only when you add the exam.                                                 | Yes                          |
-| Class                                   | The class that sits the exam. Pick the year first; it cannot change later.                                       | Yes                          |
-| Start from an exam structure (optional) | Pick an exam structure and the parts for the class subjects are made for you. Hidden when there is no structure. | No                           |
-| Name (part)                             | The part name, e.g. Written. Two parts of one subject cannot share a name.                                       | Yes                          |
-| Kind (part)                             | Written, MCQ, viva, practical and so on. Attendance is counted for you.                                          | No                           |
-| Full marks                              | The full marks of the part, e.g. 70; a positive number. Not shown for an attendance part.                        | Yes, except attendance parts |
-| Pass marks                              | The pass mark of the part, e.g. 23. Not more than the full marks. Leave empty if not needed.                     | No                           |
+| Field                                   | What to enter                                                                                                                              | Required?                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| Name (exam)                             | The exam name, e.g. Half Yearly 2026. Two exams of the same class and year cannot share a name.                                            | Yes                                           |
+| Kind (exam)                             | Term, monthly, model or other. Cannot change once results are published.                                                                   | No                                            |
+| Mark entry deadline                     | Teachers see the days left on their dashboard. Leave empty if there is none.                                                               | No                                            |
+| Academic year                           | The year the exam belongs to. Chosen only when you add the exam.                                                                           | Yes                                           |
+| Class                                   | The class that sits the exam. Pick the year first; it cannot change later.                                                                 | Yes                                           |
+| Start from an exam structure (optional) | Pick an exam structure and the parts for the class subjects are made for you. Hidden when there is no structure.                           | No                                            |
+| Name (part)                             | The part name, e.g. Written. Two parts of one subject cannot share a name.                                                                 | Yes                                           |
+| Kind (part)                             | Written, MCQ, viva, practical and so on. Attendance is counted for you.                                                                    | No                                            |
+| Full marks                              | The full marks of the part, e.g. 70; a positive number. Not shown for an attendance part.                                                  | Yes, except attendance parts                  |
+| Pass marks                              | The pass mark of the part, e.g. 23. Not more than the full marks. Leave empty if not needed.                                               | No                                            |
+| Exam (marks entry)                      | The exam you are entering marks for. Its marks lists for the sections and subjects you may enter show below.                               | Yes                                           |
+| Marks (marks entry)                     | The marks for that student and part, up to the maximum shown. Type A for absent and E for exempt. Attendance parts are worked out for you. | Yes, the list cannot be submitted while blank |
+| By part (analysis)                      | On the Pass/fail tab, tick it to see the results for each part of a subject, not only for the whole subject.                               | No                                            |
 
 <!-- /guide:generated -->
 

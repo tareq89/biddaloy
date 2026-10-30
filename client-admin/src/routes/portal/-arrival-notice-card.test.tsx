@@ -85,6 +85,40 @@ describe('ArrivalNoticeCard', () => {
     await waitFor(() => expect(puts).toEqual([{ want: true, channel: 'PUSH' }]));
   });
 
+  describe('no-push warning (D10: any device on the account counts)', () => {
+    const active = [
+      {
+        student_id: 'kid-a',
+        student_name: 'Fatima',
+        subscription: sub({ status: 'ACTIVE', mode: 'RECURRING' }),
+      },
+    ];
+    const noPush = 'No phone on your account has the app yet. Choose SMS or install the app.';
+
+    it('warns, with a link to the devices section, when no device is registered', async () => {
+      mock(active);
+      server.use(http.get('/api/v1/me/push/subscriptions', () => HttpResponse.json([])));
+      renderPortalCard(<ArrivalNoticeCard />);
+      expect(await screen.findByText(noPush, { exact: false })).toBeTruthy();
+      const link = screen.getByRole('link', { name: 'Turn on app messages' });
+      expect(link.getAttribute('href')).toBe('/portal/account#push-devices');
+    });
+
+    it('stays quiet when another device on the account is registered', async () => {
+      mock(active);
+      server.use(
+        http.get('/api/v1/me/push/subscriptions', () =>
+          HttpResponse.json([
+            { id: 'p1', device_label: 'Phone', created_at: '2026-09-01T00:00:00Z' },
+          ]),
+        ),
+      );
+      renderPortalCard(<ArrivalNoticeCard />);
+      await screen.findByRole('switch', { name: /Fatima/ });
+      await waitFor(() => expect(screen.queryByText(noPush, { exact: false })).toBeNull());
+    });
+  });
+
   it('disables the switch under a NEVER lock', async () => {
     mock([
       {

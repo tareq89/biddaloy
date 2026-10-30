@@ -35,6 +35,7 @@ helpIds:
     academics.academicYears.action.addTerm,
     academics.academicYears.field.isCurrent,
     academics.academicYears.field.dates,
+    academics.academicYears.action.edit,
   ]
 devices: [desktop]
 entry: [sidebar, palette]
@@ -198,10 +199,10 @@ Only a year made by mistake and still empty can be deleted. Do not delete old ye
 
 2. Press **Delete**.
 
-| You pressed    | What happens                                                                                                  | Saved? |
-| -------------- | ------------------------------------------------------------------------------------------------------------- | ------ |
-| **Delete**     | The year leaves the list and cannot be brought back. If you delete from the year page, you return to the list | Yes    |
-| **Cancel**     | Nothing changes                                                                                               | No     |
+| You pressed | What happens                                                                                                  | Saved? |
+| ----------- | ------------------------------------------------------------------------------------------------------------- | ------ |
+| **Delete**  | The year leaves the list and cannot be brought back. If you delete from the year page, you return to the list | Yes    |
+| **Cancel**  | Nothing changes                                                                                               | No     |
 
 **A year that cannot be deleted:** the current year, and a year that still has classes, fee structures, student enrolments, exams, student bills, staff evaluations (ACR) or any other record linked to it. Its terms do not block a delete; they go with the year. Then the dialog says why. For the current year: **This is the current year. Make another year current first.** For a year with data it names what is inside, for example **This year still has classes and exams. Remove them first.** For other records: **This year is still used by other records. Remove or move them first.** If it is current, first [set another year as current](#task-current). If it has data inside, keep the year.
 
@@ -209,29 +210,29 @@ Only a year made by mistake and still empty can be deleted. Do not delete old ye
 
 Press the year's name in the list, or **View**, to open its page. At the top are the name, whether it is current, and the **Period**, **Classes**, **Students** and **Fee structures** counts.
 
-| Tab                | What is in it                                                                                                  |
-| ------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **Classes**        | This year's classes (**Name**, **Grade**). Press **View** to open the [class page](classes.md#task-detail)     |
-| **Fee Structures** | This year's fee structures: **Name**, **Type**, **Class** (**Whole school** if for everyone), **Amount**       |
-| **Terms**          | The parts of the year; [Add and arrange terms](#task-terms)                                                    |
+| Tab                | What is in it                                                                                              |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| **Classes**        | This year's classes (**Name**, **Grade**). Press **View** to open the [class page](classes.md#task-detail) |
+| **Fee Structures** | This year's fee structures: **Name**, **Type**, **Class** (**Whole school** if for everyone), **Amount**   |
+| **Terms**          | The parts of the year; [Add and arrange terms](#task-terms)                                                |
 
 ---
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                             | What to do                                                                                               | Who can help |
-| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------ |
-| **You don't have access to this page.**                                                  | Only the Admin sees this page. Press **Back to dashboard**.                                              | Admin        |
-| **Failed to load academic years**                                                        | Check the internet and reload the page.                                                                  | Admin        |
-| **Failed to save academic year**                                                         | Check the internet and press **Save** again. What you typed stays.                                       | Admin        |
-| **End date must be after the start date**                                                | Give an end date that is some day after the start.                                                       | Admin        |
+| What you see                                                                                                                     | What to do                                                                                               | Who can help |
+| -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------ |
+| **You don't have access to this page.**                                                                                          | Only the Admin sees this page. Press **Back to dashboard**.                                              | Admin        |
+| **Failed to load academic years**                                                                                                | Check the internet and reload the page.                                                                  | Admin        |
+| **Failed to save academic year**                                                                                                 | Check the internet and press **Save** again. What you typed stays.                                       | Admin        |
+| **End date must be after the start date**                                                                                        | Give an end date that is some day after the start.                                                       | Admin        |
 | **This is the current year. …**, **This year still has … Remove them first.** or **This year is still used by other records. …** | See [Delete an academic year](#task-delete). Usually it is right to keep the year.                       | Admin        |
-| **Failed to delete academic year**                                                       | Check the internet and press **Delete** again.                                                           | Admin        |
-| **Term dates must fall within the academic year (…)**                                    | Give term dates inside the year's dates in the brackets, or first [change the year's dates](#task-edit). | Admin        |
-| **"{name}" overlaps an existing term in this academic year**                             | Give dates that do not clash with the term named in the message.                                         | Admin        |
-| **Failed to save term**                                                                  | Check the internet and try again.                                                                        | Admin        |
-| **Could not change the order**                                                           | Reload the page and press the arrow again.                                                               | Admin        |
-| A new class or a list shows the old year                                                 | [Set the new year as current](#task-current).                                                            | Admin        |
+| **Failed to delete academic year**                                                                                               | Check the internet and press **Delete** again.                                                           | Admin        |
+| **Term dates must fall within the academic year (…)**                                                                            | Give term dates inside the year's dates in the brackets, or first [change the year's dates](#task-edit). | Admin        |
+| **"{name}" overlaps an existing term in this academic year**                                                                     | Give dates that do not clash with the term named in the message.                                         | Admin        |
+| **Failed to save term**                                                                                                          | Check the internet and try again.                                                                        | Admin        |
+| **Could not change the order**                                                                                                   | Reload the page and press the arrow again.                                                               | Admin        |
+| A new class or a list shows the old year                                                                                         | [Set the new year as current](#task-current).                                                            | Admin        |
 
 If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
 
@@ -239,9 +240,9 @@ If a page or button is missing, see [Why can't I see this?](../help/cant-see-thi
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                                                  | See the list and year page | Add, edit, set current, delete a year | Add and change terms |
-| ----------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------- | -------------------- |
-| Admin                                                                                                 | Yes                        | Yes                                   | Yes                  |
+| Role                                                                                                 | See the list and year page | Add, edit, set current, delete a year | Add and change terms |
+| ---------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------- | -------------------- |
+| Admin                                                                                                | Yes                        | Yes                                   | Yes                  |
 | Academic coordinator, teacher, accountant, office assistant, exam controller, governing board member | No                         | No                                    | No                   |
 
 For other roles, **Academic years** is not in the left menu. If they open the page, they see **You don't have access to this page.**
@@ -274,6 +275,7 @@ For other roles, **Academic years** is not in the left menu. If they open the pa
 | Set as the current academic year | Tick it and this year becomes current, and the mark leaves the other current year. You must confirm if ticked. | No        |
 | Term name                        | For example First term.                                                                                        | Yes       |
 | Term start and end dates         | Inside the year's dates, not clashing with another term.                                                       | Yes       |
+| Start and end dates              | The first and last day of the year. The last day must be after the first.                                      | Yes       |
 
 <!-- /guide:generated -->
 

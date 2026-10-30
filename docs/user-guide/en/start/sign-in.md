@@ -221,20 +221,20 @@ If the bar is in your way, tap **Hide**. It shrinks to a small button at the top
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                           | What to do                                                                                                                              | Who can help |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **That email/phone or password is incorrect.**                         | Check the number or email and the password and type them again. If you cannot remember, see [Forgot your password](#task-forgot).       | —            |
-| **Enter a valid email or an 11-digit phone number.**                   | Start the phone number with 0 and type all 11 digits, for example `01712345678`.                                                        | —            |
-| **Too many attempts. Try again in … seconds.**                         | Wait for the time shown in the message, then try again.                                                                                 | —            |
-| **This account isn't linked to a school yet. …**                       | The account exists, but is not added to any school.                                                                                     | School admin |
-| **You are not in any school yet**                                      | Same reason. Ask the admin to add you.                                                                                                  | School admin |
-| **That number, email or code is incorrect.**                           | Check the code and type it again. If it still does not match, tap **Resend code** to get a new one.                                     | —            |
-| The code does not come                                                 | Check that the number is right. If it still does not come after a few tries, try again after an hour. For email, check the spam folder. | School admin |
+| What you see                                                                     | What to do                                                                                                                                                     | Who can help |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **That email/phone or password is incorrect.**                                   | Check the number or email and the password and type them again. If you cannot remember, see [Forgot your password](#task-forgot).                              | —            |
+| **Enter a valid email or an 11-digit phone number.**                             | Start the phone number with 0 and type all 11 digits, for example `01712345678`.                                                                               | —            |
+| **Too many attempts. Try again in … seconds.**                                   | Wait for the time shown in the message, then try again.                                                                                                        | —            |
+| **This account isn't linked to a school yet. …**                                 | The account exists, but is not added to any school.                                                                                                            | School admin |
+| **You are not in any school yet**                                                | Same reason. Ask the admin to add you.                                                                                                                         | School admin |
+| **That number, email or code is incorrect.**                                     | Check the code and type it again. If it still does not match, tap **Resend code** to get a new one.                                                            | —            |
+| The code does not come                                                           | Check that the number is right. If it still does not come after a few tries, try again after an hour. For email, check the spam folder.                        | School admin |
 | **This account has been suspended.** (only on the page an invitation link opens) | The school has put your account on hold, so the invitation cannot be used. Contact the school office. At the sign-in page itself this message does not appear. | School admin |
-| **This link has expired.**                                             | For an invitation link, see [If you got an invitation link](#task-invite); for a reset link, see [Forgot your password](#task-forgot).  | School admin |
-| **Set password** cannot be tapped                                      | Not all the rules under the box are met, or the two passwords differ (**Passwords do not match.**).                                     | —            |
-| **Use a shorter password — at most 72 letters, or 24 Bangla letters.** | Make the password shorter.                                                                                                              | —            |
-| **Something went wrong. Please try again.**                            | Check your internet and try again. If it keeps happening, tell the admin.                                                               | School admin |
+| **This link has expired.**                                                       | For an invitation link, see [If you got an invitation link](#task-invite); for a reset link, see [Forgot your password](#task-forgot).                         | School admin |
+| **Set password** cannot be tapped                                                | Not all the rules under the box are met, or the two passwords differ (**Passwords do not match.**).                                                            | —            |
+| **Use a shorter password — at most 72 letters, or 24 Bangla letters.**           | Make the password shorter.                                                                                                                                     | —            |
+| **Something went wrong. Please try again.**                                      | Check your internet and try again. If it keeps happening, tell the admin.                                                                                      | School admin |
 
 More help with this: [What to do when something goes wrong](../help/troubleshooting.md#signin).
 
@@ -265,6 +265,20 @@ More help with this: [What to do when something goes wrong](../help/troubleshoot
 - Whether you use a password or a code, both paths end in the same place: one school goes straight into the app, more than one shows **Choose a school**.
 - Signing in with a code for the first time asks for a password; for teachers and staff it is required.
 - After a password reset or an invitation, you do not need to sign in separately.
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:auth -->
+
+| Field                 | What to enter                                                                               | Required? |
+| --------------------- | ------------------------------------------------------------------------------------------- | --------- |
+| Test inbox            | This is a test site, so no code reaches your phone or email. Find it in the test inbox:     | No        |
+| Email or phone number | The email or the 11-digit phone number your account was made with, for example 01712345678. | Yes       |
+
+<!-- /guide:generated -->
 
 </details>
 

@@ -1,5 +1,6 @@
 import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../routeTree.gen';
@@ -45,5 +46,17 @@ describe('/register', () => {
 
     expect(await screen.findByText(/Signing up with that account did not work/)).toBeTruthy();
     expect(screen.queryByText(/Continuing with/)).toBeNull();
+  });
+
+  it('warns in the demo that the test inbox is public', async () => {
+    server.use(
+      authHandlers.refreshFailure,
+      http.get('/api/v1/demo/roles', () =>
+        HttpResponse.json({ enabled: true, password: 'x', cards: [] }),
+      ),
+    );
+    renderWithRouter(routeTree, { initialEntries: ['/register'], locale: 'en' });
+
+    expect(await screen.findByText(/Do not enter a real phone number or email/)).toBeTruthy();
   });
 });

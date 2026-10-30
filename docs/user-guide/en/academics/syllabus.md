@@ -47,6 +47,9 @@ helpIds:
     academics.syllabus.field.topicStatus,
     academics.syllabus.field.term,
     academics.syllabus.field.periods,
+    academics.syllabus.action.addTemplate,
+    academics.syllabus.action.addTemplateCsv,
+    academics.syllabus.action.copyToMine,
   ]
 devices: [desktop, phone]
 entry: [sidebar, palette]
@@ -135,10 +138,10 @@ The page has three tabs. The **Topics** tab holds the syllabus of a class and su
 
 The syllabus is saved only when you are online; it cannot be kept on the device and sent later.
 
-| State                           | How to tell                                                         | What next           |
-| ------------------------------- | ------------------------------------------------------------------- | ------------------- |
-| **Changed on screen only**      | The **Add topic** window is open and the fields are filled in       | Press **Save**      |
-| **Reached the school's system** | The window is closed, the topic is in the list, the progress count went up | Done         |
+| State                           | How to tell                                                                | What next      |
+| ------------------------------- | -------------------------------------------------------------------------- | -------------- |
+| **Changed on screen only**      | The **Add topic** window is open and the fields are filled in              | Press **Save** |
+| **Reached the school's system** | The window is closed, the topic is in the list, the progress count went up | Done           |
 
 **If the window does not close:** it shows **Something went wrong. Please try again.** See [Problems and fixes](#trouble).
 
@@ -152,11 +155,11 @@ The syllabus is saved only when you are online; it cannot be kept on the device 
 - **To change the status or name:** press **Edit**, change it in the **Edit topic** window, and press **Save**.
 - **To delete:** press **Delete**. The app asks **Delete "{name}"? This can't be undone.** Press **Delete** again and it is gone.
 
-| You press         | What happens                            | Can it be undone?               |
-| ----------------- | --------------------------------------- | ------------------------------- |
-| **Up** / **Down** | Swaps place with the neighbouring topic | Yes, press the opposite arrow   |
-| **Save**          | Changes the name, description or status | Yes, edit it again              |
-| **Delete**        | The topic is deleted                    | No                              |
+| You press         | What happens                            | Can it be undone?             |
+| ----------------- | --------------------------------------- | ----------------------------- |
+| **Up** / **Down** | Swaps place with the neighbouring topic | Yes, press the opposite arrow |
+| **Save**          | Changes the name, description or status | Yes, edit it again            |
+| **Delete**        | The topic is deleted                    | No                            |
 
 If study plans exist, small text under the topic shows in how many sections it has been taught, for example **Taught in 2 of 4 sections**.
 
@@ -164,13 +167,13 @@ If study plans exist, small text under the topic shows in how many sections it h
 
 Press the **Study plans** tab. At the top it says, for example, **First term · 18 study plans, 3 behind**.
 
-| Column               | What it shows                                                                          |
-| -------------------- | -------------------------------------------------------------------------------------- |
-| **Section**          | Class and section                                                                      |
-| **Subject**          | The plan's subject                                                                     |
-| **Term**             | Which term the plan is for, or **Whole year**                                          |
-| **Progress**         | How many lessons are done, for example **7/20 lessons**                                |
-| **Behind**           | **On track**, or for example **3 periods behind (≈2 lessons)**                         |
+| Column               | What it shows                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| **Section**          | Class and section                                                                                 |
+| **Subject**          | The plan's subject                                                                                |
+| **Term**             | Which term the plan is for, or **Whole year**                                                     |
+| **Progress**         | How many lessons are done, for example **7/20 lessons**                                           |
+| **Behind**           | **On track**, or for example **3 periods behind (≈2 lessons)**                                    |
 | **Status reporting** | When periods were last reported: **Today**, **Yesterday**, or for example **3 days not reported** |
 
 Filter with **Search** (section or subject name), **Class**, **Subject** and **Term** at the top. Tick **Behind only** to see only plans that are behind. An admin and an academic coordinator can pick a class and a term and press **Progress CSV** to download the progress as a file; if no class or term is picked, the button does not work.
@@ -225,15 +228,15 @@ A plan can hold at most 400 lessons.
 
 The buttons at the top of the plan page:
 
-| Button                           | What it does                                                                                                         | Who sees it                                    |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| **Log extra class**              | Records a class taken outside the routine: **Date**, **Period**, **Note**                                           | Whoever can change the plan                    |
-| **Download CSV**                 | Downloads the lesson list as a file; useful later for **From a CSV file**                                            | Everyone                                       |
-| **Copy to another section**      | Copies the same lesson list to another section of the same year                                                      | Whoever can change the plan                    |
-| **Add to library**               | Keeps this lesson list in the library as a template                                                                  | Admin, academic coordinator                    |
-| **Set exam syllabus marker**     | Marks up to which lesson an exam's syllabus goes; the list shows **{exam} syllabus up to here**                      | Whoever can change the plan                    |
-| **Change owner**                 | Moves the plan's owner from **Routine's teacher** to **A specific teacher**                                          | Admin only                                     |
-| **Delete plan**                  | Deletes the lesson list; recorded periods stay                                                                       | Whoever can change the plan                    |
+| Button                       | What it does                                                                                    | Who sees it                 |
+| ---------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------- |
+| **Log extra class**          | Records a class taken outside the routine: **Date**, **Period**, **Note**                       | Whoever can change the plan |
+| **Download CSV**             | Downloads the lesson list as a file; useful later for **From a CSV file**                       | Everyone                    |
+| **Copy to another section**  | Copies the same lesson list to another section of the same year                                 | Whoever can change the plan |
+| **Add to library**           | Keeps this lesson list in the library as a template                                             | Admin, academic coordinator |
+| **Set exam syllabus marker** | Marks up to which lesson an exam's syllabus goes; the list shows **{exam} syllabus up to here** | Whoever can change the plan |
+| **Change owner**             | Moves the plan's owner from **Routine's teacher** to **A specific teacher**                     | Admin only                  |
+| **Delete plan**              | Deletes the lesson list; recorded periods stay                                                  | Whoever can change the plan |
 
 - **Extra class:** a teacher cannot log a day older than 7 days; only an admin can. If the routine already has that subject in that period, it is not an extra class, and the app asks you to mark it from **My routine**.
 - **Copy to another section:** a teacher can copy only to a section where they teach the subject. If that section already has a plan for this term, nothing is copied.
@@ -252,35 +255,35 @@ The **Template library** tab holds the school's study plan templates, arranged b
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                  | What to do                                                                                                                                                                                       | Who can help |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| **Couldn't load syllabus topics.**                                            | Check your internet and reload the page.                                                                                                                                                         | Admin        |
-| **Something went wrong. Please try again.** in the topic window               | Check your internet. If you are a teacher: check whether you are the subject teacher for this class-subject ([teacher assignments](../people/teaching-assignments.md)). A class teacher alone cannot change topics. | Admin        |
-| **Couldn't delete the topic. Try again.**                                     | Check your internet and press again; if you are a teacher, check your duty as in the row above.                                                                                                  | Admin        |
-| **Couldn't load study plans.**                                                | Check your internet and reload the page.                                                                                                                                                         | Admin        |
-| **{section} already has a plan for {subject} in {term}.**                     | Do not make a new one; press **Open it**.                                                                                                                                                        | —            |
-| **You don't teach {subject} in {section}.**                                   | Whoever can make the plan is the teacher of that section-subject in the routine or duties. Tell an admin.                                                                                        | Admin        |
-| **{class} does not study {subject}.**                                         | The subject is not attached to the class. [Attach a subject](classes.md#task-subjects).                                                                                                          | Admin        |
-| **The plan was created, but its lessons could not be applied. Open the plan to add them.** | The plan exists, the lessons do not. Go to the plan page and press **Add lesson**. Do not make it again.                                                                  | —            |
-| **You can only change plans for the subjects you teach.**                     | You can see it because you are the class teacher, but only the plan's owner can change it.                                                                                                       | Admin        |
-| **Only an admin can record a day older than 7 days.**                         | Ask an admin to log the extra class.                                                                                                                                                             | Admin        |
-| **This period is already recorded for this day.**                             | That period is already recorded; pick another period.                                                                                                                                            | —            |
-| **You don't have permission to view this study plan.**                        | The plan is not for your section or subject.                                                                                                                                                     | Admin        |
-| **Study plan not found.** or a "not found" page                                                     | The link is old, or the plan was deleted. Open it from the list.                                                                                                                                 | Admin        |
-| **Dates appear once the class routine is published.** in place of dates       | The class routine is not published yet. Ask an admin to publish it.                                                                                                                              | Admin        |
-| The **Study plans** list is empty, as a teacher                               | You are not the owner of any plan, and not the class teacher of any section.                                                                                                                     | Admin        |
-| **You don't have access to this page.**                                       | This page is only for admins, teachers, and executives (academic coordinators). Press **Back to dashboard**.                                                                                     | Admin        |
+| What you see                                                                               | What to do                                                                                                                                                                                                          | Who can help |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Couldn't load syllabus topics.**                                                         | Check your internet and reload the page.                                                                                                                                                                            | Admin        |
+| **Something went wrong. Please try again.** in the topic window                            | Check your internet. If you are a teacher: check whether you are the subject teacher for this class-subject ([teacher assignments](../people/teaching-assignments.md)). A class teacher alone cannot change topics. | Admin        |
+| **Couldn't delete the topic. Try again.**                                                  | Check your internet and press again; if you are a teacher, check your duty as in the row above.                                                                                                                     | Admin        |
+| **Couldn't load study plans.**                                                             | Check your internet and reload the page.                                                                                                                                                                            | Admin        |
+| **{section} already has a plan for {subject} in {term}.**                                  | Do not make a new one; press **Open it**.                                                                                                                                                                           | —            |
+| **You don't teach {subject} in {section}.**                                                | Whoever can make the plan is the teacher of that section-subject in the routine or duties. Tell an admin.                                                                                                           | Admin        |
+| **{class} does not study {subject}.**                                                      | The subject is not attached to the class. [Attach a subject](classes.md#task-subjects).                                                                                                                             | Admin        |
+| **The plan was created, but its lessons could not be applied. Open the plan to add them.** | The plan exists, the lessons do not. Go to the plan page and press **Add lesson**. Do not make it again.                                                                                                            | —            |
+| **You can only change plans for the subjects you teach.**                                  | You can see it because you are the class teacher, but only the plan's owner can change it.                                                                                                                          | Admin        |
+| **Only an admin can record a day older than 7 days.**                                      | Ask an admin to log the extra class.                                                                                                                                                                                | Admin        |
+| **This period is already recorded for this day.**                                          | That period is already recorded; pick another period.                                                                                                                                                               | —            |
+| **You don't have permission to view this study plan.**                                     | The plan is not for your section or subject.                                                                                                                                                                        | Admin        |
+| **Study plan not found.** or a "not found" page                                            | The link is old, or the plan was deleted. Open it from the list.                                                                                                                                                    | Admin        |
+| **Dates appear once the class routine is published.** in place of dates                    | The class routine is not published yet. Ask an admin to publish it.                                                                                                                                                 | Admin        |
+| The **Study plans** list is empty, as a teacher                                            | You are not the owner of any plan, and not the class teacher of any section.                                                                                                                                        | Admin        |
+| **You don't have access to this page.**                                                    | This page is only for admins, teachers, and executives (academic coordinators). Press **Back to dashboard**.                                                                                                        | Admin        |
 
 ---
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                             | Topics                              | Study plans                                                                                     | Template library                    |
-| ---------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------- |
-| Admin                                                            | Sees all, changes all               | Sees all, changes all, changes owner                                                            | Views, copies, adds and deletes     |
-| Teacher                                                          | Sees all; changes only their own subject | Sees those they own and those of sections they are class teacher of; changes only those they own | Views, copies                       |
-| Academic coordinator                                             | Sees all, changes nothing           | Sees all, changes nothing                                                                       | Views, adds and deletes             |
-| Accountant, Office assistant, Exam controller, Board member      | No                                  | No                                                                                              | No                                  |
+| Role                                                        | Topics                                   | Study plans                                                                                      | Template library                |
+| ----------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------- |
+| Admin                                                       | Sees all, changes all                    | Sees all, changes all, changes owner                                                             | Views, copies, adds and deletes |
+| Teacher                                                     | Sees all; changes only their own subject | Sees those they own and those of sections they are class teacher of; changes only those they own | Views, copies                   |
+| Academic coordinator                                        | Sees all, changes nothing                | Sees all, changes nothing                                                                        | Views, adds and deletes         |
+| Accountant, Office assistant, Exam controller, Board member | No                                       | No                                                                                               | No                              |
 
 **An admin** sees and changes the topics of all classes and the plans of all sections. Only an admin sees **Change owner**, and only an admin can log extra classes for days older than 7 days.
 

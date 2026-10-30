@@ -36,6 +36,10 @@ helpIds:
     academics.routineSetup.field.changeover,
     academics.routineSetup.field.maxPeriodsPerDay,
     academics.routineSetup.field.maxConsecutive,
+    academics.routineSetup.field.shiftName,
+    academics.routineSetup.field.shiftStart,
+    academics.routineSetup.field.shiftEnd,
+    academics.routineSetup.field.roomNumber,
   ]
 devices: [desktop]
 entry: [sidebar, palette]
@@ -211,18 +215,18 @@ A shift's day cannot be made shorter than its periods. If a period would fall ou
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                                                                                    | What to do                                                                       | Who can help |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------ |
-| **You don't have access to this page.**                                                                                                         | Only the Admin can set up the routine. Ask the Admin.                            | Admin        |
-| **Couldn't add the shift. Try again.**                                                                                                          | Check your internet and press **Add** again. What you typed stays in the dialog. | Admin        |
-| **This name isn't valid. Check it and try again.**                                                                                              | Type a different name.                                                           | Admin        |
-| **Some rows have a time problem. Fix the red notes and save again.**                                                                            | Fix the time of the rows with red notes, then press **Save**.                    | Admin        |
-| **A period you removed or made a break is used in a routine or in lesson records. …**                                                          | Put the row back as it was. If only the class routine uses it, clear it there first ([Class routine](routine-builder.md#task-clear)). | Admin        |
-| **Some periods of this shift fall outside these times. Change the period times first.**                                                        | Make the shift's day wider, or first change the [period times](#task-periods).  | Admin        |
-| **Couldn't save the period times. Try again.**                                                                                                  | Check your internet and press **Save** again. The rows stay on screen.           | Admin        |
-| **Couldn't add the room. Try again.**                                                                                                           | Check your internet and try again.                                               | Admin        |
-| **Couldn't save the rules. Check the numbers and try again.**                                                                                   | Check that the numbers are within the limits, then press **Save** again.         | Admin        |
-| **Couldn't delete the shift. Try again.** or **Couldn't delete the room. Try again.**                                                           | Check your internet and press **Delete** again.                                  | Admin        |
+| What you see                                                                            | What to do                                                                                                                            | Who can help |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **You don't have access to this page.**                                                 | Only the Admin can set up the routine. Ask the Admin.                                                                                 | Admin        |
+| **Couldn't add the shift. Try again.**                                                  | Check your internet and press **Add** again. What you typed stays in the dialog.                                                      | Admin        |
+| **This name isn't valid. Check it and try again.**                                      | Type a different name.                                                                                                                | Admin        |
+| **Some rows have a time problem. Fix the red notes and save again.**                    | Fix the time of the rows with red notes, then press **Save**.                                                                         | Admin        |
+| **A period you removed or made a break is used in a routine or in lesson records. …**   | Put the row back as it was. If only the class routine uses it, clear it there first ([Class routine](routine-builder.md#task-clear)). | Admin        |
+| **Some periods of this shift fall outside these times. Change the period times first.** | Make the shift's day wider, or first change the [period times](#task-periods).                                                        | Admin        |
+| **Couldn't save the period times. Try again.**                                          | Check your internet and press **Save** again. The rows stay on screen.                                                                | Admin        |
+| **Couldn't add the room. Try again.**                                                   | Check your internet and try again.                                                                                                    | Admin        |
+| **Couldn't save the rules. Check the numbers and try again.**                           | Check that the numbers are within the limits, then press **Save** again.                                                              | Admin        |
+| **Couldn't delete the shift. Try again.** or **Couldn't delete the room. Try again.**   | Check your internet and press **Delete** again.                                                                                       | Admin        |
 
 ---
 
@@ -251,6 +255,31 @@ People without permission do not have **Routine setup** in their left menu.
 </details>
 
 <details>
+<summary><strong>What the fields mean</strong></summary>
+
+<!-- guide:generated:fields:routines -->
+
+| Field                                 | What to enter                                                                                                                                         | Required?                           |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Lesson status                         | For each period, choose Taught, Partly or Not taught. Not taught asks you for a reason.                                                               | Yes                                 |
+| Reason (not taught)                   | Teacher absent, School closed, Exam or Other. Write one line when you choose Other. The lesson moves to the next period.                              | Yes, when not taught                |
+| Teachers                              | One or more teachers for this period.                                                                                                                 | Yes                                 |
+| Recurrence                            | Weekly, Biweekly (every other week; pick Week 1 or Week 2) or Monthly (pick the 1st, 2nd, 3rd, 4th, 5th or last occurrence of that day in the month). | Yes                                 |
+| Gap between periods (minutes)         | 0 to 120. A new period row starts this many minutes after the one before it ends.                                                                     | No                                  |
+| Most periods a teacher takes in a day | 1 or more; leave empty for no limit. Going over this limit stops the routine from saving.                                                             | No                                  |
+| Most periods in a row                 | 1 or more; leave empty for no limit. Going over it still saves; it only shows a warning.                                                              | No                                  |
+| Cancel the period                     | Tick it when nobody teaches the period on that date. The weekly routine itself does not change.                                                       | No                                  |
+| Substitute teacher                    | Who teaches the period on that date. It cannot be the teacher already assigned, or someone with another class at that time.                           | Yes, unless the period is cancelled |
+| Shift name                            | The shift's name, for example Morning or Day.                                                                                                         | Yes                                 |
+| Day starts at                         | When the school day starts in this shift. A new shift starts with 8:00.                                                                               | Yes                                 |
+| Day ends at                           | When the school day ends in this shift. It must be later than the start. A new shift starts with 16:00.                                               | Yes                                 |
+| Room no.                              | The room's number or name, for example 101. Required.                                                                                                 | Yes                                 |
+
+<!-- /guide:generated -->
+
+</details>
+
+<details>
 <summary><strong>How routine setup works</strong> — from shift to the class table</summary>
 
 <figure>
@@ -270,6 +299,31 @@ People without permission do not have **Routine setup** in their left menu.
   <img src="diagrams/academics-routine-flow.svg" alt="Routine setup, then the class routine, review and publish; after publishing, teachers see it in My routine and students and guardians in the portal; if a teacher is absent, a substitute teacher for that day" width="720">
   <figcaption><em>From building a routine to substitute teachers</em></figcaption>
 </figure>
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:routines -->
+
+| Field                                 | What to enter                                                                                                                                         | Required?                           |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Lesson status                         | For each period, choose Taught, Partly or Not taught. Not taught asks you for a reason.                                                               | Yes                                 |
+| Reason (not taught)                   | Teacher absent, School closed, Exam or Other. Write one line when you choose Other. The lesson moves to the next period.                              | Yes, when not taught                |
+| Teachers                              | One or more teachers for this period.                                                                                                                 | Yes                                 |
+| Recurrence                            | Weekly, Biweekly (every other week; pick Week 1 or Week 2) or Monthly (pick the 1st, 2nd, 3rd, 4th, 5th or last occurrence of that day in the month). | Yes                                 |
+| Gap between periods (minutes)         | 0 to 120. A new period row starts this many minutes after the one before it ends.                                                                     | No                                  |
+| Most periods a teacher takes in a day | 1 or more; leave empty for no limit. Going over this limit stops the routine from saving.                                                             | No                                  |
+| Most periods in a row                 | 1 or more; leave empty for no limit. Going over it still saves; it only shows a warning.                                                              | No                                  |
+| Cancel the period                     | Tick it when nobody teaches the period on that date. The weekly routine itself does not change.                                                       | No                                  |
+| Substitute teacher                    | Who teaches the period on that date. It cannot be the teacher already assigned, or someone with another class at that time.                           | Yes, unless the period is cancelled |
+| Shift name                            | The shift's name, for example Morning or Day.                                                                                                         | Yes                                 |
+| Day starts at                         | When the school day starts in this shift. A new shift starts with 8:00.                                                                               | Yes                                 |
+| Day ends at                           | When the school day ends in this shift. It must be later than the start. A new shift starts with 16:00.                                               | Yes                                 |
+| Room no.                              | The room's number or name, for example 101. Required.                                                                                                 | Yes                                 |
+
+<!-- /guide:generated -->
 
 </details>
 

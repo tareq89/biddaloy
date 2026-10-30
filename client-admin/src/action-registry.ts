@@ -53,6 +53,8 @@ export interface ActionRunContext {
 export interface PaletteAction {
   readonly id: string;
   readonly label: { readonly en: string; readonly bn: string };
+  /** Extra words the palette search also matches (any language), e.g. what staff call the thing. */
+  readonly synonyms?: readonly string[];
   /** `null` = any role (not a route: E17 `help.thisPage`). */
   readonly permission: Permission | null;
   /** Extra permissions the action needs on top of the route's `permission` (all must hold). */
@@ -485,8 +487,9 @@ export const ACTIONS: readonly PaletteAction[] = [
   // stricter than the route's MY_CLASS_VIEW; both must hold (see `ROUTE_PERMISSION_EXCEPTIONS`).
   {
     id: 'arrival-notice.requests',
-    label: { en: 'Arrival notice requests', bn: 'আগমনের বার্তার অনুরোধ' },
+    label: { en: 'Arrival notice requests', bn: 'আগমন বার্তার অনুরোধ' },
     permission: Permission.ATTENDANCE_ARRIVAL_NOTICE_MANAGE,
+    synonyms: ['আগমন', 'arrival', 'reached school'],
     alsoRequires: [Permission.MY_CLASS_VIEW],
     kind: 'navigate',
     group: 'academics',

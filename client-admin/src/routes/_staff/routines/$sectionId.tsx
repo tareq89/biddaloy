@@ -391,6 +391,7 @@ function RoutineBuilderPage() {
       actions={[
         {
           id: 'review',
+          helpId: 'academics.routineBuilder.action.review',
           label: t('builder.reviewAction'),
           icon: <SendIcon />,
           priority: 'secondary',

@@ -371,4 +371,27 @@ describe('/programs/$programId', () => {
       ),
     ).toBeTruthy();
   });
+
+  it('the delete confirm carries the (?) for the More-menu Delete action [#3078]', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/programs/:id', () =>
+        HttpResponse.json(program({ active_enrollment_count: 0 })),
+      ),
+      http.get('/api/v1/programs/:id/enrollments', () => HttpResponse.json([])),
+    );
+    renderWithRouter(buildRouteTree(true), {
+      initialEntries: ['/p-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('Read 5 books');
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await waitFor(() =>
+      expect(dialog.querySelector('[data-help-id="people.programs.action.delete"]')).not.toBeNull(),
+    );
+  });
 });

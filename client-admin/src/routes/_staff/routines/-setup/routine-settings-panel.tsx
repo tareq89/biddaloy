@@ -130,7 +130,10 @@ export function RoutineSettingsPanel({ schoolId }: RoutineSettingsPanelProps) {
               name="defaultChangeoverMinutes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="routine-settings-defaultChangeoverMinutes">
+                  <FormLabel
+                    htmlFor="routine-settings-defaultChangeoverMinutes"
+                    helpId="academics.routineSetup.field.changeover"
+                  >
                     {t('settingsPanel.defaultChangeoverMinutes')}
                   </FormLabel>
                   <FormControl>
@@ -152,7 +155,10 @@ export function RoutineSettingsPanel({ schoolId }: RoutineSettingsPanelProps) {
               name="maxPeriodsPerTeacherPerDay"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="routine-settings-maxPeriodsPerTeacherPerDay">
+                  <FormLabel
+                    htmlFor="routine-settings-maxPeriodsPerTeacherPerDay"
+                    helpId="academics.routineSetup.field.maxPeriodsPerDay"
+                  >
                     {t('settingsPanel.maxPeriodsPerTeacherPerDay')}
                   </FormLabel>
                   <FormControl>
@@ -175,7 +181,10 @@ export function RoutineSettingsPanel({ schoolId }: RoutineSettingsPanelProps) {
               name="maxConsecutivePeriods"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="routine-settings-maxConsecutivePeriods">
+                  <FormLabel
+                    htmlFor="routine-settings-maxConsecutivePeriods"
+                    helpId="academics.routineSetup.field.maxConsecutive"
+                  >
                     {t('settingsPanel.maxConsecutivePeriods')}
                   </FormLabel>
                   <FormControl>

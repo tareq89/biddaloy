@@ -223,6 +223,39 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'people.students.field.rollNumber': {
+    title: {
+      bn: 'শিক্ষার্থী যোগ করা ও তাদের তথ্য দেখা',
+      en: 'Adding students and viewing their details',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/students',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'students', key: 'rollNumber' },
+  },
+  'people.students.field.bloodGroup': {
+    title: {
+      bn: 'শিক্ষার্থী যোগ করা ও তাদের তথ্য দেখা',
+      en: 'Adding students and viewing their details',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/students',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'students', key: 'bloodGroup' },
+  },
+  'people.students.field.preferredCommunication': {
+    title: {
+      bn: 'শিক্ষার্থী যোগ করা ও তাদের তথ্য দেখা',
+      en: 'Adding students and viewing their details',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/students',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'students', key: 'preferredCommunication' },
+  },
   'people.guardians': {
     title: {
       bn: 'অভিভাবকের তথ্য দেখা, ঠিক করা ও আমন্ত্রণ পাঠানো',
@@ -296,6 +329,17 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'guardians', key: 'phone' },
+  },
+  'people.guardians.field.preferredCommunication': {
+    title: {
+      bn: 'অভিভাবকের তথ্য দেখা, ঠিক করা ও আমন্ত্রণ পাঠানো',
+      en: 'Viewing guardians, fixing their details and sending invitations',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/guardians',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'guardians', key: 'preferredCommunication' },
   },
   'people.calendar': {
     title: {
@@ -375,6 +419,65 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'people.calendar.field.countsAsWorkingDay': {
+    title: {
+      bn: 'ক্যালেন্ডারে ছুটি ও অনুষ্ঠান দেখা, যোগ করা ও নিজের ফোনে নেওয়া',
+      en: 'Seeing, adding and subscribing to holidays and events in the calendar',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/calendar',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'calendar', key: 'countsAsWorkingDay' },
+  },
+  'people.calendar.field.notify': {
+    title: {
+      bn: 'ক্যালেন্ডারে ছুটি ও অনুষ্ঠান দেখা, যোগ করা ও নিজের ফোনে নেওয়া',
+      en: 'Seeing, adding and subscribing to holidays and events in the calendar',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/calendar',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'calendar', key: 'notify' },
+  },
+  'people.calendar.field.lateReason': {
+    title: {
+      bn: 'ক্যালেন্ডারে ছুটি ও অনুষ্ঠান দেখা, যোগ করা ও নিজের ফোনে নেওয়া',
+      en: 'Seeing, adding and subscribing to holidays and events in the calendar',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/calendar',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'calendar', key: 'lateReason' },
+  },
+  'people.calendar.action.governmentHolidays': {
+    title: {
+      bn: 'ক্যালেন্ডারে ছুটি ও অনুষ্ঠান দেখা, যোগ করা ও নিজের ফোনে নেওয়া',
+      en: 'Seeing, adding and subscribing to holidays and events in the calendar',
+    },
+    summary: {
+      bn: 'স্কুলের ছুটি, পরীক্ষা, সভা ও অনুষ্ঠান একটি মাসের ক্যালেন্ডারে দেখুন; অ্যাডমিন এগুলো যোগ করেন, ফাইল থেকে আনেন, আগের বছর থেকে কপি করেন; সবাই নিজের ফোনের ক্যালেন্ডার অ্যাপে সাবস্ক্রাইব করতে পারেন।',
+      en: 'See school holidays, exams, meetings and events in a month calendar. The Admin adds them, imports them from a file or copies them from last year. Everyone can subscribe in their own phone calendar app.',
+    },
+    path: 'people/calendar',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'people.calendar.action.clone': {
+    title: {
+      bn: 'ক্যালেন্ডারে ছুটি ও অনুষ্ঠান দেখা, যোগ করা ও নিজের ফোনে নেওয়া',
+      en: 'Seeing, adding and subscribing to holidays and events in the calendar',
+    },
+    summary: {
+      bn: 'স্কুলের ছুটি, পরীক্ষা, সভা ও অনুষ্ঠান একটি মাসের ক্যালেন্ডারে দেখুন; অ্যাডমিন এগুলো যোগ করেন, ফাইল থেকে আনেন, আগের বছর থেকে কপি করেন; সবাই নিজের ফোনের ক্যালেন্ডার অ্যাপে সাবস্ক্রাইব করতে পারেন।',
+      en: 'See school holidays, exams, meetings and events in a month calendar. The Admin adds them, imports them from a file or copies them from last year. Everyone can subscribe in their own phone calendar app.',
+    },
+    path: 'people/calendar',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
   'people.staff': {
     title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
     summary: {
@@ -433,6 +536,14 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'staff', key: 'role' },
   },
+  'people.staff.field.employeeId': {
+    title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
+    summary: { bn: '', en: '' },
+    path: 'people/staff',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'staff', key: 'employeeId' },
+  },
   'people.staff.field.designations': {
     title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
     summary: { bn: '', en: '' },
@@ -440,6 +551,36 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'staff', key: 'designations' },
+  },
+  'people.staff.action.edit': {
+    title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
+    summary: {
+      bn: 'স্কুলের কর্মী যোগ করুন, তাঁদের যোগাযোগ বদলান, আমন্ত্রণ পাঠান, শিক্ষক প্রোফাইল দিন, আর কাউকে স্কুল থেকে সরান বা ফিরিয়ে আনুন।',
+      en: 'Add school staff, change their contact details, send invitations, give teacher profiles, and remove people from the school or bring them back.',
+    },
+    path: 'people/staff',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'people.staff.action.view': {
+    title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
+    summary: {
+      bn: 'স্কুলের কর্মী যোগ করুন, তাঁদের যোগাযোগ বদলান, আমন্ত্রণ পাঠান, শিক্ষক প্রোফাইল দিন, আর কাউকে স্কুল থেকে সরান বা ফিরিয়ে আনুন।',
+      en: 'Add school staff, change their contact details, send invitations, give teacher profiles, and remove people from the school or bring them back.',
+    },
+    path: 'people/staff',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'people.staff.action.restore': {
+    title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
+    summary: {
+      bn: 'স্কুলের কর্মী যোগ করুন, তাঁদের যোগাযোগ বদলান, আমন্ত্রণ পাঠান, শিক্ষক প্রোফাইল দিন, আর কাউকে স্কুল থেকে সরান বা ফিরিয়ে আনুন।',
+      en: 'Add school staff, change their contact details, send invitations, give teacher profiles, and remove people from the school or bring them back.',
+    },
+    path: 'people/staff',
+    anchor: 'task-main',
+    knownIssues: 0,
   },
   'people.staffImport': {
     title: { bn: 'এক্সেল থেকে কর্মী যোগ করা', en: 'Adding staff from Excel' },
@@ -468,6 +609,14 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'staffImport', key: 'role' },
+  },
+  'people.staffImport.field.sendInvitations': {
+    title: { bn: 'এক্সেল থেকে কর্মী যোগ করা', en: 'Adding staff from Excel' },
+    summary: { bn: '', en: '' },
+    path: 'people/staff-import',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'staffImport', key: 'sendInvitations' },
   },
   'people.programs': {
     title: { bn: 'প্রোগ্রাম ও মাইলস্টোন', en: 'Programs and milestones' },
@@ -593,6 +742,17 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'admission-staff-intakes', key: 'seatCount' },
   },
+  'people.admissionIntakes.field.dates': {
+    title: {
+      bn: 'ভর্তি পর্ব ও অনলাইন ভর্তির ফর্ম',
+      en: 'Admission rounds and the online admission form',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/admission-intakes',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'admission-staff-intakes', key: 'dates' },
+  },
   'people.admissionIntakes.field.requiredDocuments': {
     title: {
       bn: 'ভর্তি পর্ব ও অনলাইন ভর্তির ফর্ম',
@@ -694,6 +854,28 @@ export const HELP_INDEX: HelpIndex = {
     path: 'people/admission-applicants',
     anchor: 'task-main',
     knownIssues: 0,
+  },
+  'people.admissionApplicants.field.guardianChoice': {
+    title: {
+      bn: 'ভর্তির আবেদন যাচাই ও ভর্তি করা',
+      en: 'Reviewing admission applications and admitting students',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/admission-applicants',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'admission-staff-applicants', key: 'guardianChoice' },
+  },
+  'people.admissionApplicants.field.notes': {
+    title: {
+      bn: 'ভর্তির আবেদন যাচাই ও ভর্তি করা',
+      en: 'Reviewing admission applications and admitting students',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/admission-applicants',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'admission-staff-applicants', key: 'notes' },
   },
   'people.admissionReports': {
     title: { bn: 'ভর্তি প্রতিবেদন', en: 'Admission reports' },
@@ -873,6 +1055,41 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'evaluations', key: 'anonymous' },
   },
+  'people.evaluations.field.minResponses': {
+    title: {
+      bn: 'মূল্যায়ন: এসিআর, শিক্ষক জরিপ ও ঘটনা',
+      en: 'Evaluations: ACR, teacher surveys and incidents',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/evaluations',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'evaluations', key: 'minResponses' },
+  },
+  'people.evaluations.field.targets': {
+    title: {
+      bn: 'মূল্যায়ন: এসিআর, শিক্ষক জরিপ ও ঘটনা',
+      en: 'Evaluations: ACR, teacher surveys and incidents',
+    },
+    summary: { bn: '', en: '' },
+    path: 'people/evaluations',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'evaluations', key: 'targets' },
+  },
+  'people.evaluations.action.newSurvey': {
+    title: {
+      bn: 'মূল্যায়ন: এসিআর, শিক্ষক জরিপ ও ঘটনা',
+      en: 'Evaluations: ACR, teacher surveys and incidents',
+    },
+    summary: {
+      bn: 'কর্মীর বার্ষিক গোপনীয় প্রতিবেদন (এসিআর) লিখুন, শিক্ষার্থী ও অভিভাবকদের কাছে শিক্ষক জরিপ চালান, আর কর্মীর ঘটনা জানান। এই পাতা সবার জন্য নয়।',
+      en: "Write a staff member's Annual Confidential Report (ACR), run teacher surveys with students and guardians, and report staff incidents. This page is not for everyone.",
+    },
+    path: 'people/evaluations',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
   'academics.academicYears': {
     title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
     summary: {
@@ -914,6 +1131,32 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
   },
   'academics.academicYears.action.addTerm': {
+    title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
+    summary: {
+      bn: 'শিক্ষাবর্ষ যোগ করুন, কোনটি চলমান তা ঠিক করুন, বছরের টার্ম সাজান, আর অব্যবহৃত বছর মুছুন।',
+      en: 'Add academic years, set which one is current, arrange the terms of a year, and delete a year nobody uses.',
+    },
+    path: 'academics/academic-years',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'academics.academicYears.field.isCurrent': {
+    title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
+    summary: { bn: '', en: '' },
+    path: 'academics/academic-years',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'academicYears', key: 'isCurrent' },
+  },
+  'academics.academicYears.field.dates': {
+    title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
+    summary: { bn: '', en: '' },
+    path: 'academics/academic-years',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'academicYears', key: 'dates' },
+  },
+  'academics.academicYears.action.edit': {
     title: { bn: 'শিক্ষাবর্ষ তৈরি ও পরিচালনা', en: 'Creating and managing academic years' },
     summary: {
       bn: 'শিক্ষাবর্ষ যোগ করুন, কোনটি চলমান তা ঠিক করুন, বছরের টার্ম সাজান, আর অব্যবহৃত বছর মুছুন।',
@@ -1033,6 +1276,16 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'classes', key: 'capacity' },
   },
+  'academics.classes.action.edit': {
+    title: { bn: 'শ্রেণি, শাখা ও বিষয় সাজানো', en: 'Arranging classes, sections and subjects' },
+    summary: {
+      bn: 'শিক্ষাবর্ষে শ্রেণি যোগ করুন, শ্রেণিতে শাখা খুলুন, বিষয় যুক্ত করুন আর শাখায় শিক্ষক দিন।',
+      en: 'Add classes to an academic year, open sections in a class, attach subjects, and give sections their teachers.',
+    },
+    path: 'academics/classes',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
   'academics.routineSetup': {
     title: {
       bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
@@ -1072,6 +1325,83 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'academics.routineSetup.field.changeover': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'changeover' },
+  },
+  'academics.routineSetup.field.maxPeriodsPerDay': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'maxPeriodsPerDay' },
+  },
+  'academics.routineSetup.field.maxConsecutive': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'maxConsecutive' },
+  },
+  'academics.routineSetup.field.shiftName': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'shiftName' },
+  },
+  'academics.routineSetup.field.shiftStart': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'shiftStart' },
+  },
+  'academics.routineSetup.field.shiftEnd': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'shiftEnd' },
+  },
+  'academics.routineSetup.field.roomNumber': {
+    title: {
+      bn: 'রুটিনের শিফট, পিরিয়ড, কক্ষ ও নিয়ম ঠিক করা',
+      en: 'Setting up shifts, period times, rooms and rules for the routine',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-setup',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'roomNumber' },
+  },
   'academics.routineBuilder': {
     title: { bn: 'শ্রেণির সাপ্তাহিক রুটিন সাজানো', en: "Arranging a class's weekly routine" },
     summary: {
@@ -1093,6 +1423,32 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
   },
   'academics.routineBuilder.action.clearCell': {
+    title: { bn: 'শ্রেণির সাপ্তাহিক রুটিন সাজানো', en: "Arranging a class's weekly routine" },
+    summary: {
+      bn: 'প্রতিটি শাখার সাপ্তাহিক রুটিনের ছকে বিষয় ও শিক্ষক বসান, নিয়মের সংঘাত দেখুন, খালি ঘর একসাথে পূরণ করুন আর শিক্ষকের কর্মভার মিলিয়ে নিন।',
+      en: "Place subjects and teachers in each section's weekly routine table, see rule clashes, fill empty cells in one go, and check teacher workload.",
+    },
+    path: 'academics/routine-builder',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'academics.routineBuilder.field.teachers': {
+    title: { bn: 'শ্রেণির সাপ্তাহিক রুটিন সাজানো', en: "Arranging a class's weekly routine" },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-builder',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'teachers' },
+  },
+  'academics.routineBuilder.field.recurrence': {
+    title: { bn: 'শ্রেণির সাপ্তাহিক রুটিন সাজানো', en: "Arranging a class's weekly routine" },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-builder',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'recurrence' },
+  },
+  'academics.routineBuilder.action.review': {
     title: { bn: 'শ্রেণির সাপ্তাহিক রুটিন সাজানো', en: "Arranging a class's weekly routine" },
     summary: {
       bn: 'প্রতিটি শাখার সাপ্তাহিক রুটিনের ছকে বিষয় ও শিক্ষক বসান, নিয়মের সংঘাত দেখুন, খালি ঘর একসাথে পূরণ করুন আর শিক্ষকের কর্মভার মিলিয়ে নিন।',
@@ -1182,6 +1538,22 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'academics.routineSubstitutions.field.cancelled': {
+    title: { bn: 'বদলি শিক্ষক রেকর্ড করা', en: 'Recording a substitute teacher' },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-substitutions',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'cancelled' },
+  },
+  'academics.routineSubstitutions.field.substituteTeacher': {
+    title: { bn: 'বদলি শিক্ষক রেকর্ড করা', en: 'Recording a substitute teacher' },
+    summary: { bn: '', en: '' },
+    path: 'academics/routine-substitutions',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'substituteTeacher' },
+  },
   'academics.myRoutine': {
     title: {
       bn: 'আমার রুটিন দেখা ও পিরিয়ড জানানো',
@@ -1220,6 +1592,28 @@ export const HELP_INDEX: HelpIndex = {
     path: 'academics/my-routine',
     anchor: 'task-main',
     knownIssues: 0,
+  },
+  'academics.myRoutine.field.lessonStatus': {
+    title: {
+      bn: 'আমার রুটিন দেখা ও পিরিয়ড জানানো',
+      en: 'Seeing your routine and reporting periods',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/my-routine',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'lessonStatus' },
+  },
+  'academics.myRoutine.field.notTaughtReason': {
+    title: {
+      bn: 'আমার রুটিন দেখা ও পিরিয়ড জানানো',
+      en: 'Seeing your routine and reporting periods',
+    },
+    summary: { bn: '', en: '' },
+    path: 'academics/my-routine',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'routines', key: 'notTaughtReason' },
   },
   'academics.myClass': {
     title: { bn: 'নিজের শ্রেণির খবর এক পাতায় দেখা', en: 'Seeing your own class on one page' },
@@ -1289,6 +1683,14 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
     field: { ns: 'homework', key: 'gradingMode' },
   },
+  'academics.homework.field.target': {
+    title: { bn: 'বাড়ির কাজ দেওয়া', en: 'Giving homework' },
+    summary: { bn: '', en: '' },
+    path: 'academics/homework',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'homework', key: 'target' },
+  },
   'academics.homework.field.dueDate': {
     title: { bn: 'বাড়ির কাজ দেওয়া', en: 'Giving homework' },
     summary: { bn: '', en: '' },
@@ -1347,6 +1749,14 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'academics.syllabus.field.topicStatus': {
+    title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
+    summary: { bn: '', en: '' },
+    path: 'academics/syllabus',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'syllabus', key: 'topicStatus' },
+  },
   'academics.syllabus.field.term': {
     title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
     summary: { bn: '', en: '' },
@@ -1354,6 +1764,44 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'syllabus', key: 'term' },
+  },
+  'academics.syllabus.field.periods': {
+    title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
+    summary: { bn: '', en: '' },
+    path: 'academics/syllabus',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'syllabus', key: 'periods' },
+  },
+  'academics.syllabus.action.addTemplate': {
+    title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
+    summary: {
+      bn: 'শ্রেণি ও বিষয়ের সিলেবাস টপিক ক্রমে সাজান, প্রতিটি শাখার বিষয়ের জন্য পাঠ পরিকল্পনা বানান, আর দেখুন কোন শাখা পিছিয়ে আছে।',
+      en: "Put a class and subject's syllabus topics in order, make a study plan for each section's subject, and see which section is behind.",
+    },
+    path: 'academics/syllabus',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'academics.syllabus.action.addTemplateCsv': {
+    title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
+    summary: {
+      bn: 'শ্রেণি ও বিষয়ের সিলেবাস টপিক ক্রমে সাজান, প্রতিটি শাখার বিষয়ের জন্য পাঠ পরিকল্পনা বানান, আর দেখুন কোন শাখা পিছিয়ে আছে।',
+      en: "Put a class and subject's syllabus topics in order, make a study plan for each section's subject, and see which section is behind.",
+    },
+    path: 'academics/syllabus',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'academics.syllabus.action.copyToMine': {
+    title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
+    summary: {
+      bn: 'শ্রেণি ও বিষয়ের সিলেবাস টপিক ক্রমে সাজান, প্রতিটি শাখার বিষয়ের জন্য পাঠ পরিকল্পনা বানান, আর দেখুন কোন শাখা পিছিয়ে আছে।',
+      en: "Put a class and subject's syllabus topics in order, make a study plan for each section's subject, and see which section is behind.",
+    },
+    path: 'academics/syllabus',
+    anchor: 'task-main',
+    knownIssues: 0,
   },
   'attendance.attendance': {
     title: { bn: 'উপস্থিতি নেওয়া', en: 'Taking attendance' },
@@ -1413,6 +1861,14 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'attendance.attendanceReports.field.threshold': {
+    title: { bn: 'উপস্থিতি প্রতিবেদন', en: 'Attendance reports' },
+    summary: { bn: '', en: '' },
+    path: 'attendance/attendance-reports',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'attendanceReports', key: 'threshold' },
+  },
   'attendance.attendanceRegister': {
     title: { bn: 'উপস্থিতির খাতা', en: 'Attendance register' },
     summary: {
@@ -1452,6 +1908,14 @@ export const HELP_INDEX: HelpIndex = {
     path: 'attendance/attendance-register',
     anchor: 'task-main',
     knownIssues: 0,
+  },
+  'attendance.attendanceRegister.field.reason': {
+    title: { bn: 'উপস্থিতির খাতা', en: 'Attendance register' },
+    summary: { bn: '', en: '' },
+    path: 'attendance/attendance-register',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'attendanceRegister', key: 'reason' },
   },
   'attendance.staffAttendance': {
     title: { bn: 'কর্মীর উপস্থিতি ও ছুটি', en: 'Staff attendance and leave' },
@@ -1500,6 +1964,16 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'staffAttendance', key: 'date' },
+  },
+  'attendance.staffAttendance.section.leaveBalance': {
+    title: { bn: 'কর্মীর উপস্থিতি ও ছুটি', en: 'Staff attendance and leave' },
+    summary: {
+      bn: 'প্রতিদিন শিক্ষক ও কর্মীদের উপস্থিতি সংরক্ষণ করুন, নিজের ছুটির হিসাব দেখুন, ছুটির আবেদন করুন আর অনুমোদন দিন।',
+      en: "Record teachers' and staff attendance every day, check your own leave balance, request leave, and approve requests.",
+    },
+    path: 'attendance/staff-attendance',
+    anchor: 'task-main',
+    knownIssues: 0,
   },
   'examsResults.exams': {
     title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
@@ -1560,6 +2034,22 @@ export const HELP_INDEX: HelpIndex = {
     path: 'exams-results/exams',
     anchor: 'task-main',
     knownIssues: 0,
+  },
+  'examsResults.exams.field.name': {
+    title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
+    summary: { bn: '', en: '' },
+    path: 'exams-results/exams',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'exams', key: 'name' },
+  },
+  'examsResults.exams.field.kind': {
+    title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
+    summary: { bn: '', en: '' },
+    path: 'exams-results/exams',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'exams', key: 'kind' },
   },
   'examsResults.exams.field.deadline': {
     title: { bn: 'পরীক্ষা তৈরি ও সাজানো', en: 'Creating and setting up exams' },
@@ -1690,6 +2180,22 @@ export const HELP_INDEX: HelpIndex = {
     path: 'exams-results/marks-entry',
     anchor: 'task-main',
     knownIssues: 0,
+  },
+  'examsResults.marksEntry.field.exam': {
+    title: { bn: 'পরীক্ষার নম্বর দেওয়া ও জমা দেওয়া', en: 'Entering and submitting exam marks' },
+    summary: { bn: '', en: '' },
+    path: 'exams-results/marks-entry',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'exams', key: 'exam' },
+  },
+  'examsResults.marksEntry.field.mark': {
+    title: { bn: 'পরীক্ষার নম্বর দেওয়া ও জমা দেওয়া', en: 'Entering and submitting exam marks' },
+    summary: { bn: '', en: '' },
+    path: 'exams-results/marks-entry',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'exams', key: 'mark' },
   },
   'examsResults.seatPlans': {
     title: { bn: 'সিট প্ল্যান তৈরি ও প্রকাশ', en: 'Making and publishing seat plans' },
@@ -1941,6 +2447,14 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'examsResults.analysis.field.byPart': {
+    title: { bn: 'মেধা তালিকা ও ফলাফল বিশ্লেষণ', en: 'Merit list and result analysis' },
+    summary: { bn: '', en: '' },
+    path: 'exams-results/analysis',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'exams', key: 'byPart' },
+  },
   'examsResults.promotion': {
     title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
     summary: {
@@ -1991,6 +2505,46 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'examsResults.promotion.field.targetClass': {
+    title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
+    summary: { bn: '', en: '' },
+    path: 'exams-results/promotion',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'promotions', key: 'targetClass' },
+  },
+  'examsResults.promotion.field.exams': {
+    title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
+    summary: { bn: '', en: '' },
+    path: 'exams-results/promotion',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'promotions', key: 'exams' },
+  },
+  'examsResults.promotion.field.algorithm': {
+    title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
+    summary: { bn: '', en: '' },
+    path: 'exams-results/promotion',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'promotions', key: 'algorithm' },
+  },
+  'examsResults.promotion.field.finalOutcome': {
+    title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
+    summary: { bn: '', en: '' },
+    path: 'exams-results/promotion',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'promotions', key: 'finalOutcome' },
+  },
+  'examsResults.promotion.field.overrideNote': {
+    title: { bn: 'শিক্ষার্থীদের প্রমোশন', en: 'Promoting students' },
+    summary: { bn: '', en: '' },
+    path: 'exams-results/promotion',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'promotions', key: 'overrideNote' },
+  },
   'finance.dues': {
     title: { bn: 'শিক্ষার্থীর বকেয়া', en: 'Student dues' },
     summary: {
@@ -2030,6 +2584,14 @@ export const HELP_INDEX: HelpIndex = {
     path: 'finance/dues',
     anchor: 'task-main',
     knownIssues: 0,
+  },
+  'finance.dues.field.flagged': {
+    title: { bn: 'শিক্ষার্থীর বকেয়া', en: 'Student dues' },
+    summary: { bn: '', en: '' },
+    path: 'finance/dues',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'fees', key: 'flagged' },
   },
   'finance.recordPayment': {
     title: { bn: 'পেমেন্ট রেকর্ড করুন', en: 'Record payment' },
@@ -2327,6 +2889,30 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'finance.recurringSchedules.field.rule': {
+    title: { bn: 'স্বয়ংক্রিয় বিলের নিয়ম', en: 'Automatic billing rules' },
+    summary: { bn: '', en: '' },
+    path: 'finance/recurring-schedules',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'fees', key: 'rule' },
+  },
+  'finance.recurringSchedules.field.dueDays': {
+    title: { bn: 'স্বয়ংক্রিয় বিলের নিয়ম', en: 'Automatic billing rules' },
+    summary: { bn: '', en: '' },
+    path: 'finance/recurring-schedules',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'fees', key: 'dueDays' },
+  },
+  'finance.recurringSchedules.field.audience': {
+    title: { bn: 'স্বয়ংক্রিয় বিলের নিয়ম', en: 'Automatic billing rules' },
+    summary: { bn: '', en: '' },
+    path: 'finance/recurring-schedules',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'fees', key: 'audience' },
+  },
   'finance.fines': {
     title: { bn: 'জরিমানা', en: 'Fines' },
     summary: {
@@ -2422,6 +3008,14 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'payments', key: 'reverseReason' },
+  },
+  'finance.payments.field.includeReversed': {
+    title: { bn: 'পেমেন্ট', en: 'Payments' },
+    summary: { bn: '', en: '' },
+    path: 'finance/payments',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'payments', key: 'includeReversed' },
   },
   'finance.invoices': {
     title: { bn: 'চালান', en: 'Invoices' },
@@ -2528,6 +3122,36 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'more',
     knownIssues: 0,
     field: { ns: 'reports', key: 'collector' },
+  },
+  'reports.collectionsReport.section.byMethod': {
+    title: { bn: 'ফি আদায়ের প্রতিবেদন', en: 'Fee collection report' },
+    summary: {
+      bn: 'একটি দিন, সপ্তাহ, মাস বা নিজের বাছা সময়ে কত টাকা আদায় হলো, কত বাতিল হলো আর হাতে নিট কত, তা পদ্ধতি, আদায়কারী, ফির ধরন আর দিন ধরে দেখুন; প্রিন্ট করুন বা সিএসভি নামান।',
+      en: 'See how much money was collected, how much was reversed and the net in hand for a day, week, month or your own dates, by method, collector, fee type and day; print it or download a CSV.',
+    },
+    path: 'reports/collections-report',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'reports.collectionsReport.section.byCollector': {
+    title: { bn: 'ফি আদায়ের প্রতিবেদন', en: 'Fee collection report' },
+    summary: {
+      bn: 'একটি দিন, সপ্তাহ, মাস বা নিজের বাছা সময়ে কত টাকা আদায় হলো, কত বাতিল হলো আর হাতে নিট কত, তা পদ্ধতি, আদায়কারী, ফির ধরন আর দিন ধরে দেখুন; প্রিন্ট করুন বা সিএসভি নামান।',
+      en: 'See how much money was collected, how much was reversed and the net in hand for a day, week, month or your own dates, by method, collector, fee type and day; print it or download a CSV.',
+    },
+    path: 'reports/collections-report',
+    anchor: 'task-main',
+    knownIssues: 0,
+  },
+  'reports.collectionsReport.section.byFeeType': {
+    title: { bn: 'ফি আদায়ের প্রতিবেদন', en: 'Fee collection report' },
+    summary: {
+      bn: 'একটি দিন, সপ্তাহ, মাস বা নিজের বাছা সময়ে কত টাকা আদায় হলো, কত বাতিল হলো আর হাতে নিট কত, তা পদ্ধতি, আদায়কারী, ফির ধরন আর দিন ধরে দেখুন; প্রিন্ট করুন বা সিএসভি নামান।',
+      en: 'See how much money was collected, how much was reversed and the net in hand for a day, week, month or your own dates, by method, collector, fee type and day; print it or download a CSV.',
+    },
+    path: 'reports/collections-report',
+    anchor: 'task-main',
+    knownIssues: 0,
   },
   'reports.printables': {
     title: { bn: 'প্রিন্ট ও ডকুমেন্ট', en: 'Print & documents' },
@@ -2661,6 +3285,30 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'communications.sendMessage.field.guardian': {
+    title: { bn: 'বার্তা পাঠান', en: 'Send a message' },
+    summary: { bn: '', en: '' },
+    path: 'communications/send-message',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'communications', key: 'guardian' },
+  },
+  'communications.sendMessage.field.medium': {
+    title: { bn: 'বার্তা পাঠান', en: 'Send a message' },
+    summary: { bn: '', en: '' },
+    path: 'communications/send-message',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'communications', key: 'medium' },
+  },
+  'communications.sendMessage.field.message': {
+    title: { bn: 'বার্তা পাঠান', en: 'Send a message' },
+    summary: { bn: '', en: '' },
+    path: 'communications/send-message',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'communications', key: 'message' },
+  },
   'communications.sendAlert': {
     title: { bn: 'সতর্কতা পাঠান', en: 'Send an alert' },
     summary: {
@@ -2711,6 +3359,30 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'communications.feeReminders.field.guardians': {
+    title: { bn: 'ফি রিমাইন্ডার', en: 'Fee reminders' },
+    summary: { bn: '', en: '' },
+    path: 'communications/fee-reminders',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'communications', key: 'guardians' },
+  },
+  'communications.feeReminders.field.message': {
+    title: { bn: 'ফি রিমাইন্ডার', en: 'Fee reminders' },
+    summary: { bn: '', en: '' },
+    path: 'communications/fee-reminders',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'communications', key: 'message' },
+  },
+  'communications.feeReminders.field.medium': {
+    title: { bn: 'ফি রিমাইন্ডার', en: 'Fee reminders' },
+    summary: { bn: '', en: '' },
+    path: 'communications/fee-reminders',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'communications', key: 'medium' },
+  },
   'communications.feeReminders.field.bulkMediums': {
     title: { bn: 'ফি রিমাইন্ডার', en: 'Fee reminders' },
     summary: { bn: '', en: '' },
@@ -2738,6 +3410,14 @@ export const HELP_INDEX: HelpIndex = {
     path: 'communications/reminder-history',
     anchor: 'task-main',
     knownIssues: 0,
+  },
+  'communications.reminderHistory.field.status': {
+    title: { bn: 'রিমাইন্ডার ইতিহাস', en: 'Reminder history' },
+    summary: { bn: '', en: '' },
+    path: 'communications/reminder-history',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'communications', key: 'status' },
   },
   'administration.printTemplates': {
     title: {
@@ -2916,6 +3596,14 @@ export const HELP_INDEX: HelpIndex = {
     path: 'administration/audit-logs',
     anchor: 'task-main',
     knownIssues: 0,
+  },
+  'administration.auditLogs.field.performedBy': {
+    title: { bn: 'কার্যক্রমের রেকর্ড', en: 'Activity log' },
+    summary: { bn: '', en: '' },
+    path: 'administration/audit-logs',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'auditLogs', key: 'performedBy' },
   },
   'administration.settings': {
     title: { bn: 'স্কুলের সেটিংস ঠিক করা', en: "Changing the school's settings" },
@@ -3432,6 +4120,14 @@ export const HELP_INDEX: HelpIndex = {
     path: 'start/sign-in',
     anchor: 'task-main',
     knownIssues: 0,
+  },
+  'start.signIn.field.identifier': {
+    title: { bn: 'সাইন ইন করা', en: 'Signing in' },
+    summary: { bn: '', en: '' },
+    path: 'start/sign-in',
+    anchor: 'more',
+    knownIssues: 0,
+    field: { ns: 'auth', key: 'identifier' },
   },
   'start.phone': {
     title: {
@@ -4236,60 +4932,6 @@ export const HELP_ROUTES = {
 
 /** Declared in the guide but not indexable yet (guide gaps, #3017). */
 export const HELP_GAPS: readonly string[] = [
-  'people/students: "people.students.field.rollNumber" has no help.rollNumber in any fields:<ns> marker',
-  'people/students: "people.students.field.bloodGroup" has no help.bloodGroup in any fields:<ns> marker',
-  'people/students: "people.students.field.preferredCommunication" has no help.preferredCommunication in any fields:<ns> marker',
-  'people/guardians: "people.guardians.field.preferredCommunication" has no help.preferredCommunication in any fields:<ns> marker',
-  'people/calendar: "people.calendar.field.countsAsWorkingDay" has no help.countsAsWorkingDay in any fields:<ns> marker',
-  'people/calendar: "people.calendar.field.notify" has no help.notify in any fields:<ns> marker',
-  'people/calendar: "people.calendar.field.lateReason" has no help.lateReason in any fields:<ns> marker',
-  'people/staff: "people.staff.field.employeeId" has no help.employeeId in any fields:<ns> marker',
-  'people/staff-import: "people.staffImport.field.sendInvitations" has no help.sendInvitations in any fields:<ns> marker',
-  'people/admission-intakes: "people.admissionIntakes.field.dates" has no help.dates in any fields:<ns> marker',
-  'people/admission-applicants: "people.admissionApplicants.field.guardianChoice" has no help.guardianChoice in any fields:<ns> marker',
-  'people/admission-applicants: "people.admissionApplicants.field.notes" has no help.notes in any fields:<ns> marker',
-  'people/evaluations: "people.evaluations.field.minResponses" has no help.minResponses in any fields:<ns> marker',
-  'people/evaluations: "people.evaluations.field.targets" has no help.targets in any fields:<ns> marker',
-  'academics/academic-years: "academics.academicYears.field.isCurrent" has no help.isCurrent in any fields:<ns> marker',
-  'academics/academic-years: "academics.academicYears.field.dates" has no help.dates in any fields:<ns> marker',
-  'academics/routine-setup: "academics.routineSetup.field.changeover" has no help.changeover in any fields:<ns> marker',
-  'academics/routine-setup: "academics.routineSetup.field.maxPeriodsPerDay" has no help.maxPeriodsPerDay in any fields:<ns> marker',
-  'academics/routine-setup: "academics.routineSetup.field.maxConsecutive" has no help.maxConsecutive in any fields:<ns> marker',
-  'academics/routine-builder: "academics.routineBuilder.field.teachers" has no help.teachers in any fields:<ns> marker',
-  'academics/routine-builder: "academics.routineBuilder.field.recurrence" has no help.recurrence in any fields:<ns> marker',
-  'academics/routine-substitutions: "academics.routineSubstitutions.field.cancelled" has no help.cancelled in any fields:<ns> marker',
-  'academics/routine-substitutions: "academics.routineSubstitutions.field.substituteTeacher" has no help.substituteTeacher in any fields:<ns> marker',
-  'academics/my-routine: "academics.myRoutine.field.lessonStatus" has no help.lessonStatus in any fields:<ns> marker',
-  'academics/my-routine: "academics.myRoutine.field.notTaughtReason" has no help.notTaughtReason in any fields:<ns> marker',
-  'academics/homework: "academics.homework.field.target" has no help.target in any fields:<ns> marker',
-  'academics/syllabus: "academics.syllabus.field.topicStatus" has no help.topicStatus in any fields:<ns> marker',
-  'academics/syllabus: "academics.syllabus.field.periods" has no help.periods in any fields:<ns> marker',
-  'attendance/attendance-reports: "attendance.attendanceReports.field.threshold" has no help.threshold in any fields:<ns> marker',
-  'attendance/attendance-register: "attendance.attendanceRegister.field.reason" has no help.reason in any fields:<ns> marker',
-  'exams-results/exams: "examsResults.exams.field.name" has no help.name in any fields:<ns> marker',
-  'exams-results/exams: "examsResults.exams.field.kind" has no help.kind in any fields:<ns> marker',
-  'exams-results/marks-entry: "examsResults.marksEntry.field.exam" has no help.exam in any fields:<ns> marker',
-  'exams-results/marks-entry: "examsResults.marksEntry.field.mark" has no help.mark in any fields:<ns> marker',
-  'exams-results/analysis: "examsResults.analysis.field.byPart" has no help.byPart in any fields:<ns> marker',
-  'exams-results/promotion: "examsResults.promotion.field.targetClass" has no help.targetClass in any fields:<ns> marker',
-  'exams-results/promotion: "examsResults.promotion.field.exams" has no help.exams in any fields:<ns> marker',
-  'exams-results/promotion: "examsResults.promotion.field.algorithm" has no help.algorithm in any fields:<ns> marker',
-  'exams-results/promotion: "examsResults.promotion.field.finalOutcome" has no help.finalOutcome in any fields:<ns> marker',
-  'exams-results/promotion: "examsResults.promotion.field.overrideNote" has no help.overrideNote in any fields:<ns> marker',
-  'finance/dues: "finance.dues.field.flagged" has no help.flagged in any fields:<ns> marker',
-  'finance/recurring-schedules: "finance.recurringSchedules.field.rule" has no help.rule in any fields:<ns> marker',
-  'finance/recurring-schedules: "finance.recurringSchedules.field.dueDays" has no help.dueDays in any fields:<ns> marker',
-  'finance/recurring-schedules: "finance.recurringSchedules.field.audience" has no help.audience in any fields:<ns> marker',
-  'finance/payments: "finance.payments.field.includeReversed" has no help.includeReversed in any fields:<ns> marker',
-  'communications/send-message: "communications.sendMessage.field.guardian" has no help.guardian in any fields:<ns> marker',
-  'communications/send-message: "communications.sendMessage.field.medium" has no help.medium in any fields:<ns> marker',
-  'communications/send-message: "communications.sendMessage.field.message" has no help.message in any fields:<ns> marker',
-  'communications/fee-reminders: "communications.feeReminders.field.guardians" has no help.guardians in any fields:<ns> marker',
-  'communications/fee-reminders: "communications.feeReminders.field.message" has no help.message in any fields:<ns> marker',
-  'communications/fee-reminders: "communications.feeReminders.field.medium" has no help.medium in any fields:<ns> marker',
-  'communications/reminder-history: "communications.reminderHistory.field.status" has no help.status in any fields:<ns> marker',
-  'administration/audit-logs: "administration.auditLogs.field.performedBy" has no help.performedBy in any fields:<ns> marker',
-  'start/sign-in: "start.signIn.field.identifier" has no help.identifier in any fields:<ns> marker',
   'helpId "administration.printTemplates.action.publish" is declared twice (administration/print-templates/designer-guide)',
   'helpId "administration.printTemplates.action.makeDefault" is declared twice (administration/print-templates/designer-guide)',
   'helpId "administration.printTemplates.field.printer" is declared twice (administration/print-templates/printers-and-calibration)',

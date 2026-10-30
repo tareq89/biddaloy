@@ -149,6 +149,10 @@
     "start_date": "Start date",
     "end_date": "End date",
     "is_current": "Current year",
-    "enrollment_status": "Enrollment status"
+    "enrollment_status": "Enrollment status",
+    "performedBy": "Performed by"
+  },
+  "help": {
+    "performedBy": "Show only what one person did. The list holds the first 100 users; if a name is missing, filter by date and record type and look in the Who column."
   }
 }

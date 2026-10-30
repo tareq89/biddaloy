@@ -14,6 +14,10 @@ export class QueryArrivalSubscriptionsDto {
   sectionId?: string;
 
   @IsOptional()
+  @IsUUID()
+  studentId?: string;
+
+  @IsOptional()
   @IsEnum(ArrivalNoticeStatus)
   status?: ArrivalNoticeStatus;
 
@@ -82,12 +86,20 @@ export class ArrivalSubscriptionResponseDto {
   channel: ArrivalNoticeChannel;
   lock: ArrivalNoticeLock;
   consumed_at: Date | null;
+  /** Set when staff turned the row OFF; null when the guardian did, or it is not OFF. */
+  declined_at: Date | null;
   updated_at: Date;
 }
 
 export class StaffArrivalSubscriptionDto extends ArrivalSubscriptionResponseDto {
   student_name: string;
   guardian_name: string;
+  /** D6: the guardian turned all notifications off, so nothing is sent whatever the row says. */
+  notifications_enabled: boolean;
+  set_by_name: string | null;
+  set_at: Date | null;
+  locked_by_name: string | null;
+  locked_at: Date | null;
 }
 
 export class MyArrivalChildDto {

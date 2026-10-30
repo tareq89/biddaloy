@@ -54,28 +54,28 @@
   "fields": {
     "nameTopic": "নাম (টপিক)",
     "descriptionTopic": "বিবরণ (টপিক)",
-    "statusTopic": "অবস্থা (টপিক)",
+    "topicStatus": "অবস্থা (টপিক)",
     "term": "টার্ম",
     "lessonTitle": "পাঠের নাম",
-    "periodsNeeded": "কত পিরিয়ড লাগবে",
+    "periods": "কত পিরিয়ড লাগবে",
     "syllabusTopic": "সিলেবাস টপিক",
     "notesOrLinks": "নোট বা লিংক"
   },
   "help": {
     "nameTopic": "সিলেবাসের একটি অংশের নাম, যেমন অধ্যায় ৩: ভগ্নাংশ।",
     "descriptionTopic": "টপিকে কী আছে, বিস্তারিত।",
-    "statusTopic": "পরিকল্পিত, চলমান বা সম্পন্ন। শুরুতে পরিকল্পিত।",
+    "topicStatus": "পরিকল্পিত, চলমান বা সম্পন্ন। শুরুতে পরিকল্পিত।",
     "term": "কোন টার্মের পরিকল্পনা। টার্ম না থাকলে পুরো বছর।",
     "lessonTitle": "একটি পাঠের নাম, সর্বোচ্চ ২০০ অক্ষর।",
-    "periodsNeeded": "পাঠটি পড়াতে কতটি পিরিয়ড, ১ থেকে ২০।",
+    "periods": "পাঠটি পড়াতে কতটি পিরিয়ড, ১ থেকে ২০।",
     "syllabusTopic": "পাঠটি কোন টপিকের।",
     "notesOrLinks": "নিজের জন্য নোট বা কোনো লিংক, সর্বোচ্চ ২০০০ অক্ষর।"
   },
   "helpRequired": {
     "nameTopic": "হ্যাঁ",
-    "statusTopic": "হ্যাঁ",
+    "topicStatus": "হ্যাঁ",
     "term": "হ্যাঁ",
     "lessonTitle": "হ্যাঁ",
-    "periodsNeeded": "হ্যাঁ"
+    "periods": "হ্যাঁ"
   }
 }

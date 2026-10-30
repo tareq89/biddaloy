@@ -116,6 +116,7 @@ function ClassDetailPage() {
         actions={[
           {
             id: 'edit',
+            helpId: 'academics.classes.action.edit',
             label: t('list.edit'),
             icon: <PencilIcon aria-hidden="true" />,
             onClick: () => setEditOpen(true),

@@ -55,6 +55,8 @@ helpIds:
     people.calendar.field.countsAsWorkingDay,
     people.calendar.field.notify,
     people.calendar.field.lateReason,
+    people.calendar.action.governmentHolidays,
+    people.calendar.action.clone,
   ]
 devices: [desktop]
 entry: [sidebar, palette]
@@ -414,7 +416,7 @@ A holiday or closed day on the calendar takes effect in several places by itself
 | **A make-up school day always counts as a working day.**    | For this type, the **Counts as a working day** tick cannot be removed. If you want a closed day, choose another type.                                    | Admin        |
 | **Couldn't save this event. Try again.**                    | Check your internet and press **Save** again. What you typed stays on the page.                                                                          | Admin        |
 | **Couldn't complete that. Try again.** (in the event panel) | It came up when deleting or publishing. Check your internet and try again. A draft whose date has passed cannot be published.                            | Admin        |
-| **Couldn't add the holidays. Try again.**                   | Check your internet.                              | Admin        |
+| **Couldn't add the holidays. Try again.**                   | Check your internet.                                                                                                                                     | Admin        |
 | **No suggested holidays**                                   | The national holiday list for that year has not been published yet. Add them yourself with **Add event**.                                                | Admin        |
 | **Upload failed**                                           | Check the file is `.xlsx` or `.csv`, and the column names are the same as the template. Check your internet too.                                         | Admin        |
 | **Import failed**                                           | Check your internet. If the preview is more than 30 minutes old, check the file again.                                                                   | Admin        |

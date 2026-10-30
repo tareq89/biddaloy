@@ -172,6 +172,22 @@ describe('buildHelpIndex', () => {
     expect(r.gaps).toEqual([expect.stringContaining('no help.zz')]);
   });
 
+  it('a filtered fields marker indexes only the keys it lists, in both languages', () => {
+    writeAll('demo.one, demo.one.field.date');
+    const filter = (l: 'bn' | 'en', keys: string) =>
+      put(
+        `docs/user-guide/${l}/demo/one.md`,
+        page(l, 'demo.one, demo.one.field.date').replace('fields:demo', `fields:demo:${keys}`),
+      );
+    filter('bn', 'date');
+    filter('en', 'other');
+    const r = buildHelpIndex(root, FEATURES, { strict: false });
+    expect(r.index['demo.one.field.date']).toBeUndefined();
+    expect(r.gaps).toEqual([expect.stringContaining('no help.date')]);
+    filter('en', 'other,date');
+    expect(buildHelpIndex(root, FEATURES).index['demo.one.field.date']).toBeDefined();
+  });
+
   it('throws on an id declared twice', () => {
     writeAll('demo.one, demo.one');
     expect(() => buildHelpIndex(root, FEATURES)).toThrow(/declared twice/);

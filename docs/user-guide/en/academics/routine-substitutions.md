@@ -159,18 +159,18 @@ The columns of the list: **Date**, **Period**, **Class and section**, **Absent t
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                                                            | What to do                                                                                                                                                 | Who can help |
-| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **There is no routine for this academic year yet.**                                                                     | Arrange the routine first: [Class routine](routine-builder.md).                                                                                            | Admin        |
-| **Pick a date first.**                                                                                                  | Enter a date in the **Date** field.                                                                                                                        | Admin        |
-| **This section has no period on {weekday}.**                                                                            | Check the date; the section's routine has no period on that weekday.                                                                                       | Admin        |
-| **This period doesn't happen on the date you picked (it may run every other week or once a month). Pick another date.** | The period is biweekly or monthly; pick a date in a week when it happens.                                                                                  | Admin        |
-| **This teacher already teaches this period. Pick someone else.**                                                        | The teacher you picked is the period's own teacher. Pick another teacher. | Admin        |
-| **This teacher has another class from {from} to {to}. Pick someone else.** or **This teacher is not free at that time. Pick someone else.** | The substitute teacher is busy at that time. Pick another teacher. | Admin        |
-| **Could not save — try again.**                                                                                         | Check your internet and press **Save** again. If you are recording again over a substitution on an earlier date, it cannot be changed: [correct a wrong substitution](#task-correct). | Admin        |
-| **A past substitution is part of the record and cannot be deleted.** | The date is before today. The row stays as the record of who covered the period. | — |
-| **Couldn't load substitute teachers. Check your connection and try again.**                                             | Check your internet and try again.                                                                                                                         | Admin        |
-| The section is not in the **Class and section** list                                                                    | No period of that section is running on that date. Check the date.                                                                                         | Admin        |
+| What you see                                                                                                                                | What to do                                                                                                                                                                            | Who can help |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **There is no routine for this academic year yet.**                                                                                         | Arrange the routine first: [Class routine](routine-builder.md).                                                                                                                       | Admin        |
+| **Pick a date first.**                                                                                                                      | Enter a date in the **Date** field.                                                                                                                                                   | Admin        |
+| **This section has no period on {weekday}.**                                                                                                | Check the date; the section's routine has no period on that weekday.                                                                                                                  | Admin        |
+| **This period doesn't happen on the date you picked (it may run every other week or once a month). Pick another date.**                     | The period is biweekly or monthly; pick a date in a week when it happens.                                                                                                             | Admin        |
+| **This teacher already teaches this period. Pick someone else.**                                                                            | The teacher you picked is the period's own teacher. Pick another teacher.                                                                                                             | Admin        |
+| **This teacher has another class from {from} to {to}. Pick someone else.** or **This teacher is not free at that time. Pick someone else.** | The substitute teacher is busy at that time. Pick another teacher.                                                                                                                    | Admin        |
+| **Could not save — try again.**                                                                                                             | Check your internet and press **Save** again. If you are recording again over a substitution on an earlier date, it cannot be changed: [correct a wrong substitution](#task-correct). | Admin        |
+| **A past substitution is part of the record and cannot be deleted.**                                                                        | The date is before today. The row stays as the record of who covered the period.                                                                                                      | —            |
+| **Couldn't load substitute teachers. Check your connection and try again.**                                                                 | Check your internet and try again.                                                                                                                                                    | Admin        |
+| The section is not in the **Class and section** list                                                                                        | No period of that section is running on that date. Check the date.                                                                                                                    | Admin        |
 
 ---
 
@@ -197,6 +197,31 @@ A substitute teacher sees their substitute period on the [**My routine**](my-rou
 
 - You can give a substitute only for a day when the period really runs in the routine. For a biweekly or monthly period, picking the wrong week gets stuck.
 - A substitution is refused if the substitute teacher is in another period at the same time.
+
+</details>
+
+<details>
+<summary><strong>Short help for the boxes (the (?) button)</strong></summary>
+
+<!-- guide:generated:fields:routines -->
+
+| Field                                 | What to enter                                                                                                                                         | Required?                           |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Lesson status                         | For each period, choose Taught, Partly or Not taught. Not taught asks you for a reason.                                                               | Yes                                 |
+| Reason (not taught)                   | Teacher absent, School closed, Exam or Other. Write one line when you choose Other. The lesson moves to the next period.                              | Yes, when not taught                |
+| Teachers                              | One or more teachers for this period.                                                                                                                 | Yes                                 |
+| Recurrence                            | Weekly, Biweekly (every other week; pick Week 1 or Week 2) or Monthly (pick the 1st, 2nd, 3rd, 4th, 5th or last occurrence of that day in the month). | Yes                                 |
+| Gap between periods (minutes)         | 0 to 120. A new period row starts this many minutes after the one before it ends.                                                                     | No                                  |
+| Most periods a teacher takes in a day | 1 or more; leave empty for no limit. Going over this limit stops the routine from saving.                                                             | No                                  |
+| Most periods in a row                 | 1 or more; leave empty for no limit. Going over it still saves; it only shows a warning.                                                              | No                                  |
+| Cancel the period                     | Tick it when nobody teaches the period on that date. The weekly routine itself does not change.                                                       | No                                  |
+| Substitute teacher                    | Who teaches the period on that date. It cannot be the teacher already assigned, or someone with another class at that time.                           | Yes, unless the period is cancelled |
+| Shift name                            | The shift's name, for example Morning or Day.                                                                                                         | Yes                                 |
+| Day starts at                         | When the school day starts in this shift. A new shift starts with 8:00.                                                                               | Yes                                 |
+| Day ends at                           | When the school day ends in this shift. It must be later than the start. A new shift starts with 16:00.                                               | Yes                                 |
+| Room no.                              | The room's number or name, for example 101. Required.                                                                                                 | Yes                                 |
+
+<!-- /guide:generated -->
 
 </details>
 

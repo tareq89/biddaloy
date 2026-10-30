@@ -13,6 +13,7 @@ import {
   TenantBar,
   ThemeToggle,
   type AppShellNavGroup,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import {
   ApprovalModalHostProvider,
@@ -364,6 +365,7 @@ function StaffLayout() {
                           <CommandPaletteLauncher />
                           {notificationBell}
                           <LocaleSwitcher />
+                          <HelpHint helpId="start.language.action.switch" />
                           <ThemeToggle />
                           <StaffUserMenu invites={schoolInvites} />
                         </>

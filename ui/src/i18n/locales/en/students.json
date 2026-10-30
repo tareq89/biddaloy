@@ -529,5 +529,15 @@
   },
   "documents": {
     "historyTitle": "Printed documents"
+  },
+  "help": {
+    "rollNumber": "A positive whole number. Leave it empty to use the next roll number in the section.",
+    "bloodGroup": "Choose one from the list, or leave it Not set.",
+    "preferredCommunication": "SMS, WhatsApp, Email, Phone call or Messenger. It starts as SMS."
+  },
+  "fields": {
+    "rollNumber": "Roll number",
+    "bloodGroup": "Blood group",
+    "preferredCommunication": "Preferred contact"
   }
 }

@@ -17,6 +17,7 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import { useCreatePrintTemplate, usePrintSuggestions } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -118,8 +119,12 @@ export function NewTemplateDialog({
           </TabsList>
         </Tabs>
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-label">{t('new_dialog.designs')}</legend>
+        {/* The name is set here so the (?) inside the legend stays out of it. */}
+        <fieldset className="flex flex-col gap-2" aria-label={t('new_dialog.designs')}>
+          <legend className="flex items-center gap-1 text-label">
+            {t('new_dialog.designs')}
+            <HelpHint helpId="administration.printTemplates.field.design" />
+          </legend>
           {shown.length === 0 && !suggestionsQuery.isPending ? (
             <p role="status" className="text-sm text-muted-foreground">
               {t('new_dialog.noSuggestions')}

@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  HelpHint,
   Label,
   TimeInput,
   toast,
@@ -229,7 +230,10 @@ export function ShiftsPanel() {
               <DialogDescription>{t('shiftsPanel.subtitle')}</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-1">
-              <Label htmlFor="shift-name">{t('shiftsPanel.name')}</Label>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="shift-name">{t('shiftsPanel.name')}</Label>
+                <HelpHint helpId="academics.routineSetup.field.shiftName" />
+              </div>
               <Input
                 id="shift-name"
                 value={name}
@@ -244,7 +248,10 @@ export function ShiftsPanel() {
               )}
             </div>
             <div className="flex flex-col gap-1">
-              <Label htmlFor="shift-day-starts-at">{t('shiftsPanel.dayStartsAt')}</Label>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="shift-day-starts-at">{t('shiftsPanel.dayStartsAt')}</Label>
+                <HelpHint helpId="academics.routineSetup.field.shiftStart" />
+              </div>
               <TimeInput
                 id="shift-day-starts-at"
                 aria-label={t('shiftsPanel.dayStartsAt')}
@@ -254,7 +261,10 @@ export function ShiftsPanel() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <Label htmlFor="shift-day-ends-at">{t('shiftsPanel.dayEndsAt')}</Label>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="shift-day-ends-at">{t('shiftsPanel.dayEndsAt')}</Label>
+                <HelpHint helpId="academics.routineSetup.field.shiftEnd" />
+              </div>
               <TimeInput
                 id="shift-day-ends-at"
                 aria-label={t('shiftsPanel.dayEndsAt')}
@@ -294,6 +304,7 @@ export function ShiftsPanel() {
         onOpenChange={(open) => !open && setDeleting(null)}
         tone="danger"
         title={t('shiftsPanel.deleteTitle', { name: deleting?.name ?? '' })}
+        helpId="academics.routineSetup.action.deleteShift"
         description={t('shiftsPanel.deleteDescription')}
         confirmLabel={t('shiftsPanel.deleteConfirm')}
         cancelLabel={t('shiftsPanel.cancel')}

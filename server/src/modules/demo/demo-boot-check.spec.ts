@@ -1,7 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { assertDemoDatabase } from './demo-boot-check';
 
-type Row = { id: string; slug: string; has_students?: boolean };
+type Row = {
+  id: string;
+  slug: string;
+  has_students?: boolean;
+  created_in_demo?: boolean;
+};
 const check = (env: Record<string, string | undefined>, schools: Row[]) => {
   const load = vi.fn().mockResolvedValue(schools);
   return { run: () => assertDemoDatabase(env as NodeJS.ProcessEnv, load), load };
@@ -76,6 +81,35 @@ describe('assertDemoDatabase (runs in main.ts before NestFactory.create)', () =>
         { id: '2', slug: 'bmsc-high' },
       ]).run(),
     ).rejects.toThrow(/default-school/);
+  });
+
+  // Epic 88 D3: the flag alone decides. A visitor can add 100 rows per request, so no student count
+  // may turn a visitor school into "foreign" and stop the public demo from booting. The check reads
+  // no count at all, so a 60- or 5000-student visitor school is the same row as a 3-student one.
+  it.each([3, 60, 5000])('passes a visitor-created school with %i students', async (n) => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: '1', slug: 'bmsc-high' },
+        { id: '2', slug: `visitor-school-${n}`, has_students: true, created_in_demo: true },
+      ]).run(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('passes an empty visitor-created school (a branch with no students yet)', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: '1', slug: 'bmsc-high' },
+        { id: '2', slug: 'visitor-branch', has_students: false, created_in_demo: true },
+      ]).run(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('refuses a non-demo school without the flag', async () => {
+    await expect(
+      check({ DEMO_MODE: 'true' }, [
+        { id: '2', slug: 'visitor-school', has_students: true, created_in_demo: false },
+      ]).run(),
+    ).rejects.toThrow(/visitor-school/);
   });
 
   // The refusal must say why, so a 02:00 exit 1 after the nightly reset (#2178) is not silent.

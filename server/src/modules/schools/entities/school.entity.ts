@@ -99,6 +99,10 @@ export class School {
   @Column({ type: 'jsonb', nullable: true })
   onboarding: Record<string, any> | null;
 
+  /** True when a visitor registered this school on the public demo deployment (Epic 88 D3). */
+  @Column({ type: 'boolean', default: false })
+  created_in_demo: boolean;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

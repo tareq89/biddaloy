@@ -21,6 +21,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
 } from '@biddaloy/ui/components';
 import { useRemoveMember, type StaffUser } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -80,7 +81,10 @@ export function RemoveMemberDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('removeMember.title')}</DialogTitle>
+          <div className="flex items-center gap-1">
+            <DialogTitle>{t('removeMember.title')}</DialogTitle>
+            <HelpHint helpId="people.staff.action.remove" />
+          </div>
           <DialogDescription>
             {t('removeMember.description', { name: user.full_name })}
           </DialogDescription>
