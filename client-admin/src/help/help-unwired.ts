@@ -15,9 +15,6 @@ const UI_SLOT = '#3078: no helpId slot in ui/';
 /** A per-card radio group: one (?) per period card is noise, where the single (?) goes is open. */
 const PER_CARD = '#3313: per-period-card control, no single element for the (?)';
 
-/** The guide declares the field and its `help.<key>` text is written; no route puts the (?) there yet. */
-const GAP = '#3017: help text written, (?) not wired yet';
-
 /** A More-menu action that opens no dialog, so its (?) has nowhere to go (#3078 puts it on the dialog). */
 const NO_DIALOG = '#3017: More-menu action opens no dialog, no (?) slot';
 
@@ -62,6 +59,6 @@ export const HELP_UNWIRED: Record<string, string> = {
 
   // 44.3.12: declared in the guide after the wave-3 pass ran
 
-  // Help text written (was HELP_GAPS): indexed now, wireable by the route lanes
+  // Help text written, (?) not wired: needs a placement call
   'academics.myRoutine.field.lessonStatus': PER_CARD,
 };
