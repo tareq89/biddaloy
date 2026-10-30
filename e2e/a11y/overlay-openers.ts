@@ -111,6 +111,11 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
       .click();
     await expectDialogOpen(page);
   },
+  // [84 follow-up] The student Guardians tab and lock menu are in `arrival.a11y.spec.ts`.
+  '/my-class/$sectionId::add-yourself': async (page, locale) => {
+    await page.getByRole('button', { name: makeT(locale)('myClass.arrival.addYourself') }).click();
+    await expectDialogOpen(page);
+  },
   '/students/$studentId::delete-student': async (page, locale) => {
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.delete');
     await expectDialogOpen(page);

@@ -59,6 +59,11 @@ async function freshApiSession(
 
 test.describe('arrival notice: guardian asks -> teacher answers -> register -> message', () => {
   test.use(guest);
+  // Kept on purpose ([84 follow-up]): on a Friday there is no school-day register for "today", and
+  // `ArrivalNoticeService` sends nothing for any other date (the text says "today", see its
+  // "past date sends nothing" tests), so `markableDateIso()`'s Thursday fallback cannot work here.
+  // Making the weekday irrelevant means changing the school's weekend in calendar settings,
+  // which every other spec in the shared e2e school reads - so it is not done from this spec.
   test.skip(isFridayAnywhere(), 'the school is closed on Friday; no register to finalize');
 
   test('the whole story on a section of its own', async ({ browser, playwright, request }) => {

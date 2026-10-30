@@ -753,7 +753,8 @@
         "sectionId": "seeded"
       },
       "role": "teacher",
-      "archetype": "detail"
+      "archetype": "detail",
+      "overlays": ["add-yourself"]
     },
     {
       "path": "/attendance",
