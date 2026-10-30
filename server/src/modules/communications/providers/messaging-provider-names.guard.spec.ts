@@ -55,10 +55,6 @@ const KNOWN: Record<string, string> = {
   'ui/src/shells/form-shell-errors.ts': 'doc-comment example',
   'ui/src/test/msw/handlers/schools.ts': 'test fixture',
   // real debt, removed by the Epic 97 UI waves / platform-alert follow-up
-  'server/src/modules/health/health.module.ts':
-    'platform alerts still wire two SMS providers directly',
-  'server/src/modules/health/platform-alerts/platform-alerts.service.ts':
-    'PLATFORM_SMS_PROVIDER branch',
   'client-admin/src/pages/settings/SmsSection.tsx': 'hand-built SMS form (UI wave)',
   'client-admin/src/pages/settings/connection-test-status.tsx':
     'hand-built SMS readiness (UI wave)',

@@ -16,7 +16,7 @@ export class ProviderAuthRejectedError extends Error {
   }
 }
 
-/** D24: one base class for every vendor. No constructor, no injected deps: HealthModule builds the SMS ones bare. */
+/** D24: one base class for every vendor. No constructor, no injected deps: config-check builds them bare to read `envPrefix` and the descriptor. */
 export abstract class MessagingProvider<TConfig = Record<string, string>> {
   abstract readonly descriptor: ProviderDescriptor;
   abstract readonly envPrefix: string;
