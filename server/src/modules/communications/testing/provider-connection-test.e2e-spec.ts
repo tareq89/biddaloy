@@ -7,6 +7,7 @@ import { fetchPinnedJson } from '../providers/shared/pinned-http';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
 import { DataSource } from 'typeorm';
+import { SmsCreditService } from '../credits/sms-credit.service';
 import { UserRole } from '@biddaloy/shared';
 import {
   SEED_TENANT_ID,
@@ -188,6 +189,129 @@ describe('Provider connection test E2E', () => {
       message: 'OneCodeSoft rejected the API key — check it and try again.',
     });
     expect(JSON.stringify(bad.body)).not.toContain('bad-key-value');
+  });
+
+  // 97.3.04: "Send a test message". Throttle is skipped under NODE_ENV=test, so the 3/min 429 is
+  // covered by app-throttler.guard.e2e-spec.ts and the route's @Throttle metadata, not here.
+  describe('send a test message (sendTo)', () => {
+    const smsBody = (sendTo?: string) => ({
+      medium: 'SMS',
+      ...(sendTo ? { sendTo } : {}),
+      config: {
+        provider: 'onecodesoft',
+        onecodesoft: { apiKey: 'good-key-value', apiUrl: 'https://sms.example.com/api' },
+      },
+    });
+    const post = (body: object, key?: string, tenant = TENANT_ID, bearer = token) => {
+      const req = supertest(app.getHttpServer())
+        .post(`/api/v1/schools/${tenant}/settings/test`)
+        .set('Authorization', `Bearer ${bearer}`)
+        .set('X-Tenant-ID', tenant);
+      return (key ? req.set('Idempotency-Key', key) : req).send(body);
+    };
+    const mockBalanceThenSent = () => {
+      vi.mocked(fetchPinnedJson)
+        .mockResolvedValueOnce({ status: 'success', data: { balance: 250 } })
+        .mockResolvedValueOnce({
+          status: 'success',
+          data: { results: [{ status: 'sent', message_id: 'm-1', sms_count: 2 }] },
+        });
+    };
+
+    it('creates a logged test message visible on GET /communications/logs', async () => {
+      mockBalanceThenSent();
+      const res = await post(smsBody('01712345678'), 'test-send-1').expect(200);
+      expect(res.body).toMatchObject({ success: true });
+      expect(res.body.testMessage).toEqual({ logId: expect.any(String), status: 'SENT' });
+
+      const list = await supertest(app.getHttpServer())
+        .get('/api/v1/communications/logs')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+      const row = list.body.data.find((r: { id: string }) => r.id === res.body.testMessage.logId);
+      expect(row).toBeDefined();
+      expect(row.recipient_name).toBe('Test');
+      // The list DTO does not expose `metadata` (follow-up: the UI badge ticket must); check the row.
+      const [{ metadata }] = await dataSource.query(
+        'SELECT metadata FROM communication_logs WHERE id = $1 AND tenant_id = $2',
+        [res.body.testMessage.logId, TENANT_ID],
+      );
+      expect(metadata.test).toBe(true);
+      // The unsaved key reached the gateway call but was never saved.
+      const [{ settings }] = await dataSource.query('SELECT settings FROM schools WHERE id = $1', [
+        TENANT_ID,
+      ]);
+      expect(JSON.stringify(settings ?? {})).not.toContain('good-key-value');
+    });
+
+    it('replays a repeated Idempotency-Key without a second send', async () => {
+      mockBalanceThenSent();
+      const first = await post(smsBody('01712345679'), 'test-send-replay').expect(200);
+      const calls = vi.mocked(fetchPinnedJson).mock.calls.length;
+      const second = await post(smsBody('01712345679'), 'test-send-replay').expect(200);
+      expect(second.body.testMessage.logId).toBe(first.body.testMessage.logId);
+      expect(vi.mocked(fetchPinnedJson).mock.calls.length).toBe(calls);
+    });
+
+    it('rejects sendTo without an Idempotency-Key (400)', async () => {
+      const res = await post(smsBody('01712345678')).expect(400);
+      expect(res.body.message).toMatch(/Idempotency-Key/);
+    });
+
+    it('rejects a malformed number with a fixed sentence (400)', async () => {
+      const res = await post(smsBody('12345-secret'), 'test-send-bad').expect(400);
+      expect(JSON.stringify(res.body)).not.toContain('12345-secret');
+    });
+
+    it('rejects sendTo for a medium whose provider cannot send a test (400)', async () => {
+      await post(
+        {
+          medium: 'WHATSAPP',
+          sendTo: '01712345678',
+          config: { phoneNumberId: '99999', accessToken: 'x' },
+        },
+        'test-send-wa',
+      ).expect(400);
+    });
+
+    it('rejects a missing or invalid X-Tenant-ID, and another school (401/403)', async () => {
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/schools/${TENANT_ID}/settings/test`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('Idempotency-Key', 'test-send-nt')
+        .send(smsBody('01712345678'))
+        .expect(401);
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/schools/${TENANT_ID}/settings/test`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', 'not-a-uuid')
+        .set('Idempotency-Key', 'test-send-nt')
+        .send(smsBody('01712345678'))
+        .expect(401);
+      await post(smsBody('01712345678'), 'test-send-xt', TENANT_ID, tenantBAdminToken).expect(401);
+    });
+
+    it('debits credit for a PLATFORM-metered school', async () => {
+      const credits = app.get(SmsCreditService);
+      await dataSource.query(`UPDATE schools SET settings = $2 WHERE id = $1`, [
+        TENANT_ID,
+        JSON.stringify({ version: 1, communications: { sms: { metering: 'PLATFORM' } } }),
+      ]);
+      await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
+      try {
+        await credits.grant(TENANT_ID, 10, { idempotencyKey: 'test-send-grant' });
+        mockBalanceThenSent();
+        const res = await post(smsBody('01712345678'), 'test-send-credit').expect(200);
+        expect(res.body.testMessage.status).toBe('SENT');
+        const balance = await credits.getBalance(TENANT_ID);
+        expect(balance.available).toBeLessThan(10);
+        expect(balance.reserved).toBe(0);
+      } finally {
+        await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_ID]);
+        await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
+      }
+    });
   });
 
   it('returns the fixed test-site message when the message sink is on', async () => {

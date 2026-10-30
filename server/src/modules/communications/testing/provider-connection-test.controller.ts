@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   HttpCode,
@@ -8,6 +9,7 @@ import {
   Post,
   Req,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -24,6 +26,7 @@ import { PROVIDER_TEST_RATE_LIMIT } from '../../../rate-limit';
 import { requestContext } from '../../../common/request-context.util';
 import { assertCanManageSchool } from '../../schools/assert-can-manage-school.util';
 import { AuditService } from '../../audit/audit.service';
+import { IdempotencyInterceptor } from '../../../common/idempotency/idempotency.interceptor';
 import { ConnectionTestService } from './connection-test.service';
 import { TestConnectionDto } from '../dto/test-connection.dto';
 import { ConnectionTestResultDto } from './connection-test-result.dto';
@@ -55,9 +58,10 @@ export class ProviderConnectionTestController {
   // Tighter than settings GET/PATCH's STRICT_RATE_LIMIT — this is the one
   // endpoint that makes a real outbound call to a third party per request.
   @Throttle({ default: PROVIDER_TEST_RATE_LIMIT })
+  @UseInterceptors(IdempotencyInterceptor)
   @ApiOperation({
     summary:
-      "Test a communications provider's credentials (SMS/WhatsApp/Email/Messenger) using the provider's cheapest verification call — never sends a real message. Pass `config` to test unsaved values before saving them; omitted fields fall back to what's already stored for this school.",
+      "Test a communications provider's credentials (SMS/WhatsApp/Email/Messenger) using the provider's cheapest verification call. Sends no message unless `sendTo` is given (SMS/EMAIL only, needs an `Idempotency-Key` header): then one logged test message goes to that address. Pass `config` to test unsaved values before saving them; omitted fields fall back to what's already stored for this school.",
   })
   @ApiOkResponse({ type: ConnectionTestResultDto })
   @ApiForbiddenResponse({
@@ -72,7 +76,16 @@ export class ProviderConnectionTestController {
     @Req() request: Request,
   ) {
     assertCanManageSchool(tenant, id);
-    const result = await this.connectionTest.test(id, dto.medium, dto.config);
+    // Rule 25: a real send needs a key. The interceptor validates its shape and replays repeats.
+    if (dto.sendTo && request.headers['idempotency-key'] === undefined) {
+      throw new BadRequestException('Idempotency-Key header is required to send a test message.');
+    }
+    const result = await this.connectionTest.test(
+      id,
+      dto.medium,
+      dto.config,
+      dto.sendTo ? { sendTo: dto.sendTo, userId: user.sub } : undefined,
+    );
 
     // This handler decrypts a school's stored provider credentials and
     // sends them to a third party — the same credential material
@@ -89,7 +102,11 @@ export class ProviderConnectionTestController {
       performed_by_user_id: user.sub,
       ip_address: requestContext(request).ip,
       user_agent: requestContext(request).userAgent,
-      new_values: { medium: dto.medium, success: result.success },
+      new_values: {
+        medium: dto.medium,
+        success: result.success,
+        ...(result.testMessage ? { test_message_log_id: result.testMessage.logId } : {}),
+      },
     });
 
     return result;
