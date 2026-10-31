@@ -163,11 +163,12 @@ export class OnecodesoftProvider extends MessagingProvider<OnecodesoftConfig> {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     const data = json as Record<string, any>;
-    // A refused key is the one failure the admin can fix by name (testConnection says so).
-    if (status === 401 || status === 403 || AUTH_REJECTED.test(String(data?.message))) {
-      throw new ProviderAuthRejectedError();
-    }
+    // A refused key is the one failure the admin can fix by name (testConnection says so). The
+    // status decides first: any other error code is a plain failure, whatever its body says (a 500
+    // with "Unauthenticated." is the vendor failing, not the key). The body is read only on a 2xx.
+    if (status === 401 || status === 403) throw new ProviderAuthRejectedError();
     if (status >= 400) throw new Error('OneCodeSoft balance check failed.');
+    if (AUTH_REJECTED.test(String(data?.message))) throw new ProviderAuthRejectedError();
     const body = data?.data ?? data;
     const raw = body?.balance;
     // Number(null) and Number('') are 0: a missing balance must not read as "empty account".

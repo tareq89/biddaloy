@@ -283,6 +283,25 @@ describe('OnecodesoftProvider', () => {
       expect(r.retryable).toBe(false);
     });
 
+    // Review round 2 on #3347: a 408 is the vendor timing out after it got the request, so the SMS
+    // may have gone out. The credit stays held and nothing is sent again.
+    it('send: 408 -> AMBIGUOUS, not retryable (credit stays held)', async () => {
+      answer(408, { status: 'error', message: 'Request Timeout' });
+      const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        success: false,
+        outcome: 'AMBIGUOUS',
+        retryable: false,
+        error: 'OneCodeSoft did not give a usable answer.',
+      });
+    });
+
+    it('send: 429 stays REJECTED and not retryable', async () => {
+      answer(429, { status: 'error', message: 'Too Many Requests' });
+      const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({ outcome: 'REJECTED', retryable: false });
+    });
+
     it('send: 5xx HTML page -> AMBIGUOUS', async () => {
       answer(502, undefined);
       const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
@@ -310,6 +329,19 @@ describe('OnecodesoftProvider', () => {
       await expect(provider.getBalance(config)).rejects.toThrow(
         'OneCodeSoft balance check failed.',
       );
+    });
+
+    // Review round 2 on #3347: the status decides before the body, so a 500 that says
+    // "Unauthenticated." is a vendor failure, not a refused key.
+    it('getBalance: 5xx with an "Unauthenticated" body is a plain failure, not a refused key', async () => {
+      answer(500, { message: 'Unauthenticated.' });
+      await expect(provider.getBalance(config)).rejects.toThrow(
+        'OneCodeSoft balance check failed.',
+      );
+      answer(500, { message: 'Unauthenticated.' });
+      const res = await provider.testConnection(config);
+      expect(res.success).toBe(false);
+      expect(res.message).not.toBe('OneCodeSoft rejected the API key — check it and try again.');
     });
 
     it('getStatus: 5xx -> throws a fixed sentence (never read as PENDING/FAILED)', async () => {
