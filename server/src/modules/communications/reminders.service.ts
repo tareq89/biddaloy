@@ -12,7 +12,7 @@ import { messagingDescriptors } from '../schools/settings/messaging-descriptors'
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Brackets, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { ReminderBatch } from './entities/reminder-batch.entity';
 import { StudentService } from '../students/students.service';
@@ -46,7 +46,6 @@ import {
 } from './reminder-template.util';
 import { recordBatchOutcome } from './reminder-batch-counters';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
-import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
 import {
   selectReminderGuardians,
@@ -61,7 +60,9 @@ import { SmsCreditService } from './credits/sms-credit.service';
 import { INSUFFICIENT_SMS_CREDIT } from './credits/insufficient-sms-credit.constants';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { endOfLocalDay, localToday, startOfLocalDay } from '../../common/time';
+import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
+import { localToday } from '../../common/time';
+import { applyMessageLogFilters } from './message-log-filters';
 import {
   AuditAction,
   CommunicationMedium,
@@ -563,39 +564,7 @@ export class BulkReminderService {
       .andWhere('log.medium IN (:...media)', {
         media: query.medium ? [query.medium] : Object.values(CommunicationMedium),
       });
-    if (query.status) qb.andWhere('log.status = :status', { status: query.status });
-    if (query.trigger) qb.andWhere('log.trigger = :trigger', { trigger: query.trigger });
-    if (query.sent_by) qb.andWhere('log.sent_by_user_id = :sentBy', { sentBy: query.sent_by });
-    if (query.provider) {
-      qb.andWhere(`log.metadata ->> 'provider' = :provider`, { provider: query.provider });
-    }
-    // School-local days (IsRealDate: always YYYY-MM-DD), the same days the
-    // Failed messages widget counts with, so its link lands on the same rows.
-    if (query.from_date) {
-      qb.andWhere('log.created_at >= :from', { from: startOfLocalDay(query.from_date) });
-    }
-    if (query.to_date) {
-      qb.andWhere('log.created_at <= :to', { to: endOfLocalDay(query.to_date) });
-    }
-    const search = normalizeSearchTerm(query.search);
-    if (search) {
-      // D33: a phone-shaped term also matches by digits with the country code dropped, so
-      // `+880 1712-345678`, `8801712345678` and `01712 345678` all find `01712345678`.
-      // ponytail: no trigram index; add pg_trgm when a school passes 100k logs.
-      const digits = /^[\d\s+()-]+$/.test(search) ? search.replace(/\D/g, '') : '';
-      // Only the country code `880` (`8801…` -> `01…`), not any leading `88`.
-      const local = digits.startsWith('880') ? digits.slice(2) : digits;
-      // At least 4 digits: `880` alone would become `0` and match nearly every number.
-      const phone = local.length >= 4 ? local : '';
-      qb.andWhere(
-        new Brackets((w) => {
-          w.where('log.recipient_name ILIKE :search', { search: `%${search}%` }).orWhere(
-            'log.recipient_address ILIKE :search',
-          );
-          if (phone) w.orWhere('log.recipient_address ILIKE :phone', { phone: `%${phone}%` });
-        }),
-      );
-    }
+    applyMessageLogFilters(qb, query);
 
     const [logs, total] = await qb
       .orderBy('log.created_at', 'DESC')

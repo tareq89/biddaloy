@@ -335,6 +335,16 @@ export class MessageLogFilterOptionsDto {
  * a batch's logs (`ReminderBatchLogDto`), filtered by outcome and channel.
  */
 export class QueryCommunicationLogsDto {
+  /** [3343] Only messages about this student (`student_id`). */
+  @IsOptional()
+  @IsUUID()
+  student_id?: string;
+
+  /** [3343] Only messages sent directly to this guardian (`guardian_id`). */
+  @IsOptional()
+  @IsUUID()
+  guardian_id?: string;
+
   /** [97.4.01] D22/D33: recipient name, phone (any `+880` / `01` / spaced form) or email. */
   @IsOptional()
   @IsString()
