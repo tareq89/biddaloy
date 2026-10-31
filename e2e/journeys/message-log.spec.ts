@@ -77,6 +77,8 @@ test.describe('admin, real rows', () => {
     page,
     request,
   }) => {
+    // Seven page loads plus a worker round trip: 13-17 s alone, past 30 s on a loaded machine.
+    test.setTimeout(90_000);
     const { name, row, session } = await seedMessage(request);
     const list = logPage(page);
     const logsCall = (param: string, value: string) =>
