@@ -32,10 +32,14 @@ export interface ResolveOptions {
   connectionTestOnly?: boolean;
 }
 
+/** Whose account the owned fields came from: the caller's draft, the school's saved settings, or the platform env. */
+export type ConfigSource = 'override' | 'tenant' | 'platform';
+
 export interface ResolvedMessaging {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the provider is picked at runtime; its config type is the descriptor's fields
   provider: MessagingProvider<any>;
   config: ResolvedConfig;
+  source: ConfigSource;
 }
 
 type FieldValues = Record<string, string | null | undefined>;
@@ -88,6 +92,8 @@ function readBlock(
  *     borrows stored credentials for a caller-chosen target.
  *   - else tenant set any owned field (even an explicit null clear) -> tenant/override only,
  *     never the platform env (a cleared credential fails closed).
+ *   - else the override sets any owned field (from, senderId, apiKey) -> same as a destination:
+ *     the override carries every required field itself, never mixed with platform env values.
  *   - else platform env, only when `platformOk`.
  * Reads through `TenantSettingsCache`, so a burst of sends costs one decrypt.
  */
@@ -154,6 +160,12 @@ export class MessagingConfigResolver {
     const overrideSetsDestination = fields.some((f) => isDestination(f) && ov[f.key] != null);
     const tenantOwnsIt =
       !overrideSetsDestination && fields.some((f) => isOwned(f) && tenant[f.key] !== undefined);
+    // Platform tier only: a caller-chosen sender/account never combines with the platform's keys.
+    // Not in the tenant tier, where the form sends the owned text fields and leaves out unchanged
+    // secrets, and mixing with the school's own stored values borrows nothing from the platform.
+    const overrideOnly =
+      overrideSetsDestination ||
+      (!tenantOwnsIt && fields.some((f) => isOwned(f) && ov[f.key] != null));
 
     // A connection test of a new destination needs every required field itself, except send-only
     // ones (from); anything that sends (a real send, a test message) needs them all.
@@ -167,11 +179,11 @@ export class MessagingConfigResolver {
       const e = env(envName(provider.envPrefix, f.key));
       const value = !isOwned(f)
         ? (ov[f.key] ?? tenant[f.key] ?? e)
-        : overrideSetsDestination
+        : overrideOnly
           ? ov[f.key]
           : tenantOwnsIt
             ? (ov[f.key] ?? tenant[f.key])
-            : (ov[f.key] ?? e);
+            : e;
       if (value) resolved[f.key] = value;
     }
 
@@ -181,13 +193,16 @@ export class MessagingConfigResolver {
         label.en,
         overrideSetsDestination
           ? `Testing a new destination requires ${requiredKeys} together (missing: ${missing.join(', ')}) — they aren't filled in from stored settings when the destination changes.`
-          : tenantOwnsIt
-            ? `Complete ${requiredKeys} together on this school's settings — a partially-configured medium never falls back to the platform account.`
-            : platformOk
-              ? `Configure it on this school's settings, or set ${envNames} as a platform-wide fallback.`
-              : notOnCredit,
+          : overrideOnly
+            ? `Unsaved values must carry ${requiredKeys} themselves (missing: ${missing.join(', ')}) — they are never combined with the platform account.`
+            : tenantOwnsIt
+              ? `Complete ${requiredKeys} together on this school's settings — a partially-configured medium never falls back to the platform account.`
+              : platformOk
+                ? `Configure it on this school's settings, or set ${envNames} as a platform-wide fallback.`
+                : notOnCredit,
       );
     }
-    return { provider, config: resolved };
+    const source: ConfigSource = overrideOnly ? 'override' : tenantOwnsIt ? 'tenant' : 'platform';
+    return { provider, config: resolved, source };
   }
 }

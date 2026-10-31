@@ -523,6 +523,88 @@ describe('MessagingConfigResolver', () => {
       expect(err.message).not.toContain('env-k');
     });
 
+    // PR #3325 review, finding 1: an override that sets an owned field on a school with no config of
+    // its own must not mix caller-chosen values (from, senderId, apiKey) with the platform's keys.
+    describe('override sets an owned field on the platform tier', () => {
+      const smtpEnv = {
+        SMTP_HOST: 'env.example',
+        SMTP_USER: 'eu',
+        SMTP_PASSWORD: 'epw',
+        SMTP_FROM: 'e@x.com',
+      };
+
+      it('an override `from` alone never sends through the platform SMTP login', async () => {
+        const err = await resolverFor({}, smtpEnv)
+          .resolve(CommunicationMedium.EMAIL, 't1', {
+            override: { smtp: { from: 'ceo@bank.example' } },
+          })
+          .catch((e) => e);
+        expect(err).toBeInstanceOf(ProviderNotConfiguredError);
+        expect(err.message).toMatch(/must carry .* themselves/);
+        expect(err.message).not.toMatch(/epw|env\.example|ceo@bank/);
+      });
+
+      it('an override senderId alone never borrows the platform API key (PLATFORM-metered)', async () => {
+        const settings = settingsWith('sms', { provider: 'mimsms', metering: 'PLATFORM' });
+        const err = await resolverFor(
+          { t1: settings },
+          { MIMSMS_API_KEY: 'env-k', MIMSMS_SENDER_ID: 'PLATFORM-ID' },
+        )
+          .resolve(CommunicationMedium.SMS, 't1', { override: { mimsms: { senderId: 'ANYBANK' } } })
+          .catch((e) => e);
+        expect(err).toBeInstanceOf(ProviderNotConfiguredError);
+        expect(err.message).toMatch(/must carry .* themselves/);
+      });
+
+      it('a complete override resolves from the override alone and says so (source: override)', async () => {
+        const settings = settingsWith('sms', { provider: 'mimsms', metering: 'PLATFORM' });
+        const r = await resolverFor(
+          { t1: settings },
+          { MIMSMS_API_KEY: 'env-k', MIMSMS_SENDER_ID: 'PLATFORM-ID' },
+        ).resolve(CommunicationMedium.SMS, 't1', {
+          override: { mimsms: { apiKey: 'own-k', senderId: 'OWN' } },
+        });
+        expect(r.config).toEqual({ apiKey: 'own-k', senderId: 'OWN' });
+        expect(r.source).toBe('override');
+      });
+
+      it('an override of only non-owned fields still uses the platform keys (source: platform)', async () => {
+        const r = await resolverFor({}, smtpEnv).resolve(CommunicationMedium.EMAIL, 't1', {
+          override: { smtp: {} },
+        });
+        expect(r.config).toEqual({
+          host: 'env.example',
+          user: 'eu',
+          password: 'epw',
+          from: 'e@x.com',
+        });
+        expect(r.source).toBe('platform');
+      });
+
+      // Deliberately not applied to the tenant tier: the settings form always sends the non-secret
+      // owned fields and leaves out unchanged secrets, so "test my saved config" must keep working.
+      // Mixing an override with the school's OWN stored login borrows nothing from the platform.
+      it("tenant tier: an override `from` still resolves with the school's stored login (source: tenant)", async () => {
+        const stored = settingsWith('email', {
+          smtp: { host: 'smtp.example', user: 'u', password: 'pw', from: 'a@x.com' },
+        });
+        const r = await resolverFor({ t1: stored }, smtpEnv).resolve(
+          CommunicationMedium.EMAIL,
+          't1',
+          {
+            override: { smtp: { from: 'b@x.com' } },
+          },
+        );
+        expect(r.config).toEqual({
+          host: 'smtp.example',
+          user: 'u',
+          password: 'pw',
+          from: 'b@x.com',
+        });
+        expect(r.source).toBe('tenant');
+      });
+    });
+
     it('ignores non-string override values and unknown keys', async () => {
       const err = await resolverFor({})
         .resolve(CommunicationMedium.MESSENGER, 't1', {
