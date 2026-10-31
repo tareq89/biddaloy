@@ -82,5 +82,134 @@
     "customRange": "Shows only when Date range is Custom. Both the From and To days are included.",
     "method": "Show money that came one way only, such as Cash or bKash. Leave empty for all methods.",
     "collector": "Show money taken by one staff member only. The list holds only people who took money in this range."
+  },
+  "studentCount": {
+    "title": "Student count (BANBEIS)",
+    "help": "Take the student numbers for the BANBEIS annual survey from here.",
+    "year": "Academic year {{year}}",
+    "change": "Change",
+    "changeLabel": "Change the academic year",
+    "loadError": "Could not load the student count.",
+    "noYear": {
+      "title": "No academic year chosen yet",
+      "explanation": "Choose a year with “Change” above to see its student count."
+    },
+    "noStudents": {
+      "title": "No students counted for this year",
+      "explanation": "Try another academic year with “Change” above."
+    },
+    "classes": {
+      "title": "Students by class",
+      "caption": "Students by class, gender and religion",
+      "class": "Class",
+      "total": "Total"
+    },
+    "gender": {
+      "MALE": "Boys",
+      "FEMALE": "Girls",
+      "OTHER": "Other"
+    },
+    "notGiven": "Not given",
+    "hidden": "Hidden to protect privacy (fewer than 5)",
+    "hiddenNote": "— means the number is hidden because fewer than 5 students are counted there.",
+    "cardTotal": "Total {{n}}",
+    "staff": {
+      "title": "Teachers and staff",
+      "caption": "Teachers and staff by type",
+      "type": "Type",
+      "count": "People",
+      "total": "Total",
+      "TEACHING": "Teachers",
+      "NON_TEACHING": "Other staff",
+      "UNASSIGNED": "Not given"
+    },
+    "actions": {
+      "download": "Download to Excel",
+      "downloadStaff": "Download the teachers and staff table to Excel",
+      "print": "Print",
+      "downloadError": "The file could not be downloaded. Try again."
+    },
+    "print": {
+      "eiin": "EIIN"
+    }
+  },
+  "prompts": {
+    "title": "Choices for this report",
+    "run": "Show report",
+    "reset": "Start again",
+    "change": "Change",
+    "required": "required",
+    "allClasses": "All classes",
+    "allSections": "All sections",
+    "from": "From",
+    "to": "To",
+    "missing": {
+      "ACADEMIC_YEAR": "Pick an academic year",
+      "CLASS": "Pick a class",
+      "SECTION": "Pick a section",
+      "DATE": "Pick a date",
+      "DATE_RANGE": "Pick the first and last date",
+      "ENUM": "Pick one",
+      "TEXT": "Write something here"
+    }
+  },
+  "hub": {
+    "title": "All reports",
+    "subtitle": "Open a report and the answer is on screen at once.",
+    "searchLabel": "Find a report",
+    "searchPlaceholder": "Type a report name",
+    "folders": {
+      "favourites": "Favourites",
+      "ready": "Ready reports"
+    },
+    "favourite": {
+      "add": "Add {{name}} to favourites",
+      "remove": "Remove {{name}} from favourites"
+    },
+    "definedDescription": "Opens at once with the usual choices.",
+    "loadError": "The ready reports could not be loaded.",
+    "retry": "Try again",
+    "empty": {
+      "title": "No reports yet",
+      "explanation": "Reports your school makes will appear here.",
+      "create": "Create a report",
+      "createSoon": "Making your own reports is coming soon."
+    },
+    "noMatch": {
+      "title": "No report matches",
+      "explanation": "Try another word, or clear the search."
+    },
+    "clearSearch": "Clear search"
+  },
+  "runner": {
+    "notFound": {
+      "title": "This report is not available",
+      "explanation": "It may have been removed, or it is not meant for your role.",
+      "back": "See all reports"
+    },
+    "print": "Print",
+    "exportQueued": "This file is large, so it is being prepared. You will see it under the bell when it is ready.",
+    "truncated": "Showing the first {{n}} rows only. Narrow the choices to see the rest.",
+    "empty": {
+      "title": "Nobody matches these choices",
+      "explanation": "Try another class, or change the choices above."
+    },
+    "errors": {
+      "slow": "This report is taking too long. Narrow the filters and try again.",
+      "missing": "Answer the questions above first, then show the report.",
+      "nothing": "This report has nothing to show yet.",
+      "generic": "The report could not be shown. Try again."
+    },
+    "retry": "Try again",
+    "resultLabel": "Report result",
+    "feedback": {
+      "question": "Was this report useful?",
+      "yes": "Yes",
+      "no": "No",
+      "missing": "What was missing?",
+      "send": "Send",
+      "thanks": "Thank you.",
+      "error": "Could not send your answer."
+    }
   }
 }

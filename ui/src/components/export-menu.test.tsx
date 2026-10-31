@@ -183,6 +183,64 @@ describe('ExportMenu', () => {
     await waitFor(() => expect(button.getAttribute('aria-busy')).toBeNull());
   });
 
+  describe('keep as a report [8.15.52]', () => {
+    it('shows no such item without the prop', async () => {
+      const { user } = renderMenu();
+      await user.click(await screen.findByRole('button', { name: 'More ways to download' }));
+      await screen.findByRole('menu');
+      expect(screen.queryByRole('menuitem', { name: 'Keep this as a report' })).toBeNull();
+    });
+
+    it('adds the item to the arrow menu, below the CSV, and calls the handler once', async () => {
+      const onKeepAsReport = vi.fn();
+      const { user, baseElement } = renderMenu({ onKeepAsReport });
+      await user.click(await screen.findByRole('button', { name: 'More ways to download' }));
+      await expect(baseElement).toHaveNoViolations();
+      const items = await screen.findAllByRole('menuitem');
+      expect(items.map((item) => item.textContent)).toEqual([
+        'For other software (CSV)',
+        'Keep this as a report',
+      ]);
+      await user.click(items[1]!);
+      expect(onKeepAsReport).toHaveBeenCalledTimes(1);
+    });
+
+    it('is operable from the keyboard in the arrow menu', async () => {
+      const onKeepAsReport = vi.fn();
+      const { user } = renderMenu({ onKeepAsReport });
+      screen.getByRole('button', { name: 'More ways to download' }).focus();
+      await user.keyboard('{Enter}');
+      await screen.findByRole('menu');
+      await user.keyboard('{ArrowDown}{Enter}');
+      expect(onKeepAsReport).toHaveBeenCalledTimes(1);
+    });
+
+    it('stays reachable without the download permission (the overdue-only dues view)', async () => {
+      const onKeepAsReport = vi.fn();
+      const { user, container } = renderMenu({ canExportAll: false, onKeepAsReport });
+      expect(screen.queryByRole('button', { name: /Download to Excel/ })).toBeNull();
+      await expect(container).toHaveNoViolations();
+      await user.click(await screen.findByRole('button', { name: 'Keep this as a report' }));
+      expect(onKeepAsReport).toHaveBeenCalledTimes(1);
+    });
+
+    it('sits beside the ticked-rows download when both are all there is', async () => {
+      const { onExportSelected } = renderMenu({
+        canExportAll: false,
+        selectedCount: 2,
+        onKeepAsReport: () => undefined,
+      });
+      expect(await screen.findByRole('button', { name: 'Only the 2 you ticked' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Keep this as a report' })).toBeTruthy();
+      expect(onExportSelected).not.toHaveBeenCalled();
+    });
+
+    it('says it in Bangla under bn', async () => {
+      renderMenu({ canExportAll: false, onKeepAsReport: () => undefined }, 'bn');
+      expect(await screen.findByRole('button', { name: 'রিপোর্ট হিসেবে রাখুন' })).toBeTruthy();
+    });
+  });
+
   it('is reachable and operable from the keyboard', async () => {
     const { onExportAll } = renderMenu();
     const button = await screen.findByRole('button', { name: /Download to Excel/ });

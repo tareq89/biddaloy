@@ -68,6 +68,7 @@
     "reminderHistory": "রিমাইন্ডার ইতিহাস",
     "messageLog": "বার্তার তালিকা",
     "collectionsReport": "ফি আদায়ের প্রতিবেদন",
+    "studentCount": "ছাত্রসংখ্যা (BANBEIS)",
     "marksEntry": "নম্বর দেওয়া",
     "marksEntryGrid": "নম্বর তালিকা",
     "results": "ফলাফল",
@@ -120,6 +121,8 @@
     "studyPlans": "পাঠ পরিকল্পনা",
     "studyPlanDetail": "পাঠ পরিকল্পনা",
     "sendAlert": "সতর্কতা পাঠান",
+    "allReports": "সব রিপোর্ট",
+    "reportDetail": "রিপোর্ট",
     "alertsReport": "সতর্কতা প্রতিবেদন",
     "portalHomework": "হোমওয়ার্ক",
     "committeeReport": "মাসিক সভার রিপোর্ট"

@@ -199,6 +199,32 @@ export {
 } from './menu';
 export { ExportMenu, type ExportMenuFormat, type ExportMenuProps } from './export-menu';
 export {
+  ReportPrompts,
+  PromptSummary,
+  defaultPromptValues,
+  missingPrompts,
+  promptParams,
+  sanitizePromptValues,
+  withDefaults,
+  NO_CHOICES,
+  type PromptChoices,
+  type PromptDateRange,
+  type PromptParameter,
+  type PromptSummaryProps,
+  type PromptValue,
+  type PromptValues,
+  type ReportPromptsProps,
+} from './report-prompts';
+// [8.15.29] The report renderers: the runner picks one by the definition's layout type.
+export {
+  ReportTable,
+  ReportGrouped,
+  type ReportLayoutProps,
+  type ReportRunResult,
+} from './report-view';
+export { ReportCrosstab } from './report-view/report-crosstab';
+export { ReportChart } from './report-view/report-chart';
+export {
   StatusBadge,
   humanizeStatus,
   statusLabelKey,

@@ -1,9 +1,10 @@
 /** Collections report — `GET /reports/collections` (JSON) and `.csv` (same query). Types come from `schema.d.ts`. */
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components, operations } from '../api/schema';
 
+import { useIdempotencyKey } from './idempotency-key';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -240,4 +241,197 @@ export async function downloadStudentCountExport(options: {
       `student-count-${table}.${format}`,
     ),
   );
+}
+
+// ---------------------------------------------------------------------------
+// [8.15.29] Reports hub and runner: the catalogue, one report's definition, a run, an export, and
+// the one-tap "was this useful?" answer.
+// ---------------------------------------------------------------------------
+
+export type ReportCatalogueFolder = S['CatalogueFolderDto'];
+export type ReportCatalogueEntry = S['CatalogueEntryDto'];
+export type ReportDefinitionDetail = S['ReportDefinitionDetailDto'];
+
+export const reportCatalogueKeys = createEntityKeys<Record<string, never>>('report-catalogue');
+export const reportDefinitionKeys = createEntityKeys<Record<string, never>>('report-definition');
+
+/** `GET /reports/catalogue` — the reports this role may run, grouped by folder (folder `null` first). */
+export function reportCatalogueQueryOptions() {
+  return queryOptions({
+    queryKey: reportCatalogueKeys.list(),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ReportCatalogueFolder[]>('/reports/catalogue', { signal });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useReportCatalogue() {
+  return useQuery(reportCatalogueQueryOptions());
+}
+
+/**
+ * `GET /reports/definitions/:id` — the layout and the prompts of one report. The server answers
+ * only a caller who holds `REPORTS_DESIGN` (ADMIN), so everyone else gets a 403 here and the
+ * runner shows a plain table instead. Follow-up: a catalogue-level endpoint for every viewer.
+ */
+export function reportDefinitionQueryOptions(id: string) {
+  return queryOptions({
+    queryKey: reportDefinitionKeys.detail(id),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ReportDefinitionDetail>(`/reports/definitions/${id}`, {
+        signal,
+      });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useReportDefinition(id: string | undefined, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    ...reportDefinitionQueryOptions(id ?? ''),
+    enabled: id !== undefined && options.enabled !== false,
+  });
+}
+
+/** What a run returns. The server does not type it in `schema.d.ts`, so it is written here once. */
+export interface ReportRunResponse {
+  columns: {
+    key: string;
+    label_en: string;
+    label_bn: string;
+    type: 'TEXT' | 'NUMBER' | 'MONEY' | 'PERCENT' | 'DATE' | 'ENUM' | 'BOOLEAN';
+    kind: 'dimension' | 'measure';
+  }[];
+  rows: Record<string, unknown>[];
+  masked: string[];
+  suppressed: boolean;
+  truncated: boolean;
+  total_rows: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  run_id: string;
+}
+
+export interface RunReportInput {
+  definitionId: string;
+  /** The answers to the report's prompts, by parameter key. */
+  params?: Record<string, unknown>;
+  page?: number;
+}
+
+/**
+ * `POST /reports/run`. A mutation, not a query: every run is written to the run log (and its
+ * `run_id` is what "was this useful?" answers), so a refetch on focus or remount must never
+ * start another one. The screen shows the failure in place, so the "could not confirm" toast is off.
+ */
+export function useRunReport() {
+  return useMutation({
+    mutationFn: async (input: RunReportInput) => {
+      const res = await apiClient.post<ReportRunResponse>('/reports/run', {
+        definitionId: input.definitionId,
+        ...(input.params && Object.keys(input.params).length > 0 ? { params: input.params } : {}),
+        ...(input.page && input.page > 1 ? { page: input.page } : {}),
+      });
+      return res.data;
+    },
+    meta: { handlesUnknownOutcome: true },
+    retry: false,
+  });
+}
+
+/** The code the server puts in `details.code` of a 422 run error (e.g. `REPORT_TOO_SLOW`). */
+export function reportErrorCode(error: unknown): string | undefined {
+  const details = (error as { details?: { code?: unknown } } | null | undefined)?.details;
+  return typeof details?.code === 'string' ? details.code : undefined;
+}
+
+export interface ExportReportInput {
+  definitionId: string;
+  params?: Record<string, unknown>;
+  format: ListExportFormat;
+}
+
+/** A file was saved, or the export was queued (HTTP 202) because it is large. */
+export type ExportReportResult = { kind: 'file' } | { kind: 'queued'; runId: string };
+
+async function queuedRunId(body: unknown): Promise<string | null> {
+  try {
+    const text = body instanceof Blob ? await body.text() : JSON.stringify(body);
+    const runId = (JSON.parse(text) as { run_id?: unknown }).run_id;
+    return typeof runId === 'string' ? runId : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `POST /reports/runs/export` — everything the report matches (not only the shown page), as Excel
+ * or CSV. Up to 5,000 rows come back as a file and are saved; more answer 202 and are queued.
+ * Carries an `Idempotency-Key`, so a double click or a lost reply never starts two exports.
+ */
+export function useExportReport() {
+  const { keyFor, rotate } = useIdempotencyKey();
+  return useMutation({
+    mutationFn: async (input: ExportReportInput): Promise<ExportReportResult> => {
+      const body = {
+        definitionId: input.definitionId,
+        ...(input.params ? { params: input.params } : {}),
+        format: input.format.toUpperCase(),
+      };
+      const res = await apiClient.post<Blob>('/reports/runs/export', body, {
+        headers: { 'Idempotency-Key': keyFor(body) },
+        responseType: 'blob',
+      });
+      if (res.status === 202) {
+        const runId = await queuedRunId(res.data);
+        if (runId) return { kind: 'queued', runId };
+      }
+      const blob =
+        res.data instanceof Blob
+          ? res.data
+          : new Blob([res.data], {
+              type: input.format === 'csv' ? 'text/csv' : 'application/octet-stream',
+            });
+      saveBlob(
+        blob,
+        filenameFromContentDisposition(
+          res.headers['content-disposition'] as string | undefined,
+          `report.${input.format}`,
+        ),
+      );
+      return { kind: 'file' };
+    },
+    onSuccess: rotate,
+    // `ExportMenu` says what went wrong beside the button, so no "could not confirm" toast on top.
+    meta: { handlesUnknownOutcome: true },
+    retry: false,
+  });
+}
+
+export interface ReportFeedbackInput {
+  runId: string;
+  helpful: boolean;
+  comment?: string;
+}
+
+/**
+ * `POST /reports/runs/:id/feedback` — "was this report useful?", once per run. A 409 means this run
+ * was already answered; the screen treats it as done. Never retried, and the screen shows no toast.
+ */
+export function useReportFeedback() {
+  return useMutation({
+    mutationFn: async ({ runId, helpful, comment }: ReportFeedbackInput) => {
+      const trimmed = comment?.trim();
+      await apiClient.post(`/reports/runs/${runId}/feedback`, {
+        helpful,
+        ...(trimmed ? { comment: trimmed } : {}),
+      });
+    },
+    meta: { handlesUnknownOutcome: true, handlesForbidden: true },
+    retry: false,
+  });
 }
