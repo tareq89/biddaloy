@@ -303,6 +303,8 @@ The **Test connection** button tests with what is in the fields now, without sav
 
 After saving, a secret key or token is never shown in full again, only **Added — ends …**. Press **Change** to replace it, **Remove** to take it away.
 
+To take a saved value off an optional field (for example **Sender name (Sender ID)**), empty the field and press **Save**. A school on platform credit that presses **Remove** on its own API key and empties the other SMS fields goes back to the platform's SMS company.
+
 **SMS** — "All SMS from this school go through this company."
 
 | Field                       | What to enter                                                                                                                   |
