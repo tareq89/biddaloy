@@ -334,7 +334,8 @@ export class ConnectionTestService {
       );
     } catch (err) {
       if (!result.success && result.outcome === 'REJECTED') {
-        // Nothing went out: give the reservation back; a retry may send.
+        // Nothing went out: give the reservation back and the cap slot; a retry may send.
+        await this.dropClaim(tenantId, claim.id);
         if (reservation) {
           await this.smsCredits.releaseForLog(
             tenantId,
