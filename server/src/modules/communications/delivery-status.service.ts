@@ -143,15 +143,29 @@ export class DeliveryStatusService {
         : result.status === 'FAILED'
           ? CommunicationStatus.FAILED
           : CommunicationStatus.SENT;
-    // jsonb merge in one statement, so a concurrent metadata write (credit settle) is not lost.
-    const [, affected] = (await this.repo.query(
-      `UPDATE communication_logs
-          SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('delivery', $1::jsonb),
-              status = $2,
-              updated_at = now()
-        WHERE id = $3 AND tenant_id = $4 AND status = 'SENT'`,
+    // One statement = one transaction: the row flip and the batch counters move together, so a
+    // reminder batch's counts never disagree with its own log list (#3345, D1: counters only, no
+    // credit refund). jsonb merge, so a concurrent metadata write (credit settle) is not lost.
+    // Counters change only when this statement flipped the row SENT -> FAILED (WHERE status='SENT').
+    const rows = (await this.repo.query(
+      `WITH upd AS (
+         UPDATE communication_logs
+            SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('delivery', $1::jsonb),
+                status = $2,
+                updated_at = now()
+          WHERE id = $3 AND tenant_id = $4 AND status = 'SENT'
+        RETURNING reminder_batch_id
+       ), bump AS (
+         UPDATE reminder_batches b
+            SET successful_count = GREATEST(b.successful_count - 1, 0),
+                failed_count = b.failed_count + 1
+           FROM upd
+          WHERE b.id = upd.reminder_batch_id AND b.tenant_id = $4 AND $2::text = 'FAILED'
+       )
+       SELECT count(*)::int AS n FROM upd`,
       [JSON.stringify(delivery), next, id, tenantId],
-    )) as [unknown, number];
+    )) as { n: number }[];
+    const affected = rows[0]?.n ?? 0;
     if (affected !== 1) throw cannot();
 
     return toBatchLogDto(

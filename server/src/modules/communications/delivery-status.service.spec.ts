@@ -53,7 +53,7 @@ describe('DeliveryStatusService', () => {
     repo = {
       findOne: vi.fn(async () => sentLog()),
       // UPDATE ... : TypeORM's postgres driver answers [rows, affectedCount].
-      query: vi.fn(async () => [[], 1]),
+      query: vi.fn(async (sql: string) => (sql.includes('WITH upd') ? [{ n: 1 }] : [[], 1])),
     };
     // The re-read after the write: the row with the sender's name only (logsWithSender).
     reread = {
@@ -290,7 +290,7 @@ describe('DeliveryStatusService', () => {
     });
 
     it('when the row changed while the vendor answered', async () => {
-      repo.query.mockResolvedValueOnce([[], 1]).mockResolvedValueOnce([[], 0]);
+      repo.query.mockResolvedValueOnce([[], 1]).mockResolvedValueOnce([{ n: 0 }]);
       const err = await service.checkStatus('log-1', TENANT, 'ADMIN').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ConflictException);
       expect((err as ConflictException).message).toBe(CANNOT_CHECK_STATUS);
