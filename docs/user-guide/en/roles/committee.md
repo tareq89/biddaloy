@@ -51,6 +51,7 @@ All your features, in the order of the left menu. The list is built automaticall
 
 **Reports**
 
+- All reports (coming soon)
 - Student count (BANBEIS) (coming soon)
 
 <!-- /guide:generated -->

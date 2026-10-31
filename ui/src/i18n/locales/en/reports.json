@@ -132,5 +132,84 @@
     "print": {
       "eiin": "EIIN"
     }
+  },
+  "prompts": {
+    "title": "Choices for this report",
+    "run": "Show report",
+    "reset": "Start again",
+    "change": "Change",
+    "required": "required",
+    "allClasses": "All classes",
+    "allSections": "All sections",
+    "from": "From",
+    "to": "To",
+    "missing": {
+      "ACADEMIC_YEAR": "Pick an academic year",
+      "CLASS": "Pick a class",
+      "SECTION": "Pick a section",
+      "DATE": "Pick a date",
+      "DATE_RANGE": "Pick the first and last date",
+      "ENUM": "Pick one",
+      "TEXT": "Write something here"
+    }
+  },
+  "hub": {
+    "title": "All reports",
+    "subtitle": "Open a report and the answer is on screen at once.",
+    "searchLabel": "Find a report",
+    "searchPlaceholder": "Type a report name",
+    "folders": {
+      "favourites": "Favourites",
+      "ready": "Ready reports"
+    },
+    "favourite": {
+      "add": "Add {{name}} to favourites",
+      "remove": "Remove {{name}} from favourites"
+    },
+    "definedDescription": "Opens at once with the usual choices.",
+    "loadError": "The ready reports could not be loaded.",
+    "retry": "Try again",
+    "empty": {
+      "title": "No reports yet",
+      "explanation": "Reports your school makes will appear here.",
+      "create": "Create a report",
+      "createSoon": "Making your own reports is coming soon."
+    },
+    "noMatch": {
+      "title": "No report matches",
+      "explanation": "Try another word, or clear the search."
+    },
+    "clearSearch": "Clear search"
+  },
+  "runner": {
+    "notFound": {
+      "title": "This report is not available",
+      "explanation": "It may have been removed, or it is not meant for your role.",
+      "back": "See all reports"
+    },
+    "print": "Print",
+    "exportQueued": "This file is large, so it is being prepared. You will see it under the bell when it is ready.",
+    "truncated": "Showing the first {{n}} rows only. Narrow the choices to see the rest.",
+    "empty": {
+      "title": "Nobody matches these choices",
+      "explanation": "Try another class, or change the choices above."
+    },
+    "errors": {
+      "slow": "This report is taking too long. Narrow the filters and try again.",
+      "missing": "Answer the questions above first, then show the report.",
+      "nothing": "This report has nothing to show yet.",
+      "generic": "The report could not be shown. Try again."
+    },
+    "retry": "Try again",
+    "resultLabel": "Report result",
+    "feedback": {
+      "question": "Was this report useful?",
+      "yes": "Yes",
+      "no": "No",
+      "missing": "What was missing?",
+      "send": "Send",
+      "thanks": "Thank you.",
+      "error": "Could not send your answer."
+    }
   }
 }

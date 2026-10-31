@@ -380,6 +380,14 @@
     "routes": ["/i/$token", "/invoices", "/invoices/$invoiceId"]
   },
   {
+    "id": "reports.hub",
+    "kind": "nav",
+    "path": "reports/hub",
+    "route": "/reports",
+    "roles": ["ADMIN", "ACCOUNTANT", "TEACHER", "EXECUTIVE", "COMMITTEE"],
+    "routes": ["/reports", "/reports/$reportId"]
+  },
+  {
     "id": "reports.collectionsReport",
     "kind": "nav",
     "path": "reports/collections-report",

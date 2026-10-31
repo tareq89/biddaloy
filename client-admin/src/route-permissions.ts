@@ -230,6 +230,10 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // [8.15.54] Early BANBEIS head count — matches `GET /reports/student-count`'s own gate. COMMITTEE
   // holds it too (counts only, cells under 5 hidden); the Excel download adds REPORTS_EXPORT.
   '/_staff/reports/student-count': Permission.REPORTS_VIEW,
+  // [8.15.29] The hub and the runner: `GET /reports/catalogue` and `POST /reports/run` are REPORTS_VIEW.
+  // Each report's own visibility (visible roles) is the server's answer, not a second client gate.
+  '/_staff/reports/': Permission.REPORTS_VIEW,
+  '/_staff/reports/$reportId': Permission.REPORTS_VIEW,
   // [32.4.1] Print module: templates, preview (printing itself) and history.
   '/_staff/print-templates/': Permission.PRINT_TEMPLATE_MANAGE,
   '/_staff/print-templates/$templateId/edit': Permission.PRINT_TEMPLATE_MANAGE,

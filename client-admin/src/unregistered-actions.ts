@@ -282,4 +282,9 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
     file: `${R}_staff/students/-detail/write-off-bill-dialog.tsx`,
     reason: 'Writes off one bill; opened from the Fees tab',
   },
+  {
+    file: `${R}_staff/-save-as-report/save-as-report-dialog.tsx`,
+    reason:
+      "opened from the Export menu of the students, dues and payments lists, with that list's own filters; there is nothing to keep from the palette",
+  },
 ];

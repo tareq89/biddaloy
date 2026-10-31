@@ -40,6 +40,8 @@ import { BanknoteIcon, SendIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
+import { readVisibleColumns } from '../-save-as-report/list-to-definition';
+import { SaveAsReportDialog } from '../-save-as-report/save-as-report-dialog';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
 
@@ -52,6 +54,9 @@ const SORT_FIELD_BY_COLUMN: Partial<Record<string, FeeDuesSortBy>> = {
   class: 'class',
   due: 'due_amount',
 };
+
+/** What the table shows until a person changes it with the Columns menu. */
+const DEFAULT_COLUMN_VISIBILITY = { total: false, paid: false };
 
 interface DuesFilters {
   search?: string | undefined;
@@ -152,7 +157,8 @@ export const Route = createFileRoute('/_staff/fees/dues')({
           ),
         )
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('fees', 'feeStructures'),
+      // 'staff' holds the role names the keep-as-report dialog lists.
+      loadRouteNamespaces('fees', 'feeStructures', 'staff'),
     ]),
   pendingComponent: DuesQueuePending,
   component: DuesQueuePage,
@@ -312,8 +318,12 @@ function DuesQueuePage() {
   // [8.15.17] The export route has no overdue-only mode, so "everything" would not match the
   // flagged list; ticked rows still download.
   const canExportAll = useHasPermission(Permission.REPORTS_EXPORT) && !flagged;
+  // [8.15.52] Keeping the list as a report is a designer's job. It works for the overdue-only view too.
+  const canDesignReports = useHasPermission(Permission.REPORTS_DESIGN);
   const navigate = useNavigate();
 
+  // The columns showing when the dialog was opened (the table keeps them in localStorage).
+  const [keepAsReport, setKeepAsReport] = React.useState<{ columns: string[] } | null>(null);
   const [reminderTarget, setReminderTarget] = React.useState<{
     ids: string[];
     bulk: boolean;
@@ -577,6 +587,18 @@ function DuesQueuePage() {
                 downloadListExport('/fees/dues/export', duesListFilters, format)
               }
               onExportSelected={exportSelectedToCsv}
+              {...(canDesignReports
+                ? {
+                    onKeepAsReport: () =>
+                      setKeepAsReport({
+                        columns: readVisibleColumns(
+                          'fees-dues',
+                          columns.map((column) => column.id),
+                          DEFAULT_COLUMN_VISIBILITY,
+                        ),
+                      }),
+                  }
+                : {})}
             />
             {/* The old "Export CSV" (?) id lives on: the guide ties it to this download. */}
             <HelpHint helpId="finance.dues.action.exportCsv" />
@@ -611,7 +633,7 @@ function DuesQueuePage() {
             onClick: () => setReminderTarget({ ids: [row.student_id], bulk: false }),
           },
         ]}
-        defaultColumnVisibility={{ total: false, paid: false }}
+        defaultColumnVisibility={DEFAULT_COLUMN_VISIBILITY}
         sorting={flagged ? null : state.sorting}
         onSortingChange={actions.setSorting}
         page={state.page}
@@ -657,6 +679,21 @@ function DuesQueuePage() {
           </>
         }
       />
+      {canDesignReports && (
+        <SaveAsReportDialog
+          open={keepAsReport !== null}
+          onOpenChange={(open) => {
+            if (!open) setKeepAsReport(null);
+          }}
+          kind="dues"
+          filters={{ ...filters }}
+          names={{
+            className: classesQuery.data?.data.find((k) => k.id === filters.class_id)?.name,
+            sectionName: sectionsQuery.data?.find((x) => x.id === filters.section_id)?.section_name,
+          }}
+          columns={keepAsReport?.columns ?? []}
+        />
+      )}
       <SendReminderDialog
         open={reminderTarget !== null}
         onOpenChange={(open) => {

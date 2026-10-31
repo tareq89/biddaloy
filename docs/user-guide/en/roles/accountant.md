@@ -72,6 +72,7 @@ All your features, in the order of the left menu. The list is built automaticall
 
 **Reports**
 
+- All reports (coming soon)
 - [Fee collection report](../reports/collections-report.md) — See how much money was collected, how much was reversed and the net in hand for a day, week, month or your own dates, by method, collector, fee type and day; print it or download a CSV.
 - Student count (BANBEIS) (coming soon)
 

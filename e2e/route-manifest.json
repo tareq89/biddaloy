@@ -800,6 +800,19 @@
       "archetype": "list"
     },
     {
+      "path": "/reports",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/reports/$reportId",
+      "params": {
+        "reportId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/communications/send-alert",
       "role": "admin",
       "archetype": "form"

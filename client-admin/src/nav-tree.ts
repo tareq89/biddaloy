@@ -370,6 +370,14 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.ROUTINE_MANAGE,
     label: { key: 'routineSubstitutions' },
   },
+  // [8.15.29] The hub: every report in one place, coded and defined (D1). Same gate as the engine's `/reports/run`.
+  'reports.hub': {
+    id: 'reports.hub',
+    to: '/reports',
+    permission: Permission.REPORTS_VIEW,
+    label: { key: 'allReports' },
+    synonyms: ['report', 'reports', 'catalogue', 'রিপোর্ট', 'প্রতিবেদন'],
+  },
   'reports.collectionsReport': {
     id: 'reports.collectionsReport',
     to: '/reports/collections',
@@ -589,6 +597,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     id: 'reports',
     label: { key: 'reports' },
     items: [
+      STAFF_NAV_ITEMS['reports.hub'],
       STAFF_NAV_ITEMS['reports.collectionsReport'],
       STAFF_NAV_ITEMS['reports.studentCount'],
       STAFF_NAV_ITEMS['reports.printables'],

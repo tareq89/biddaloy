@@ -94,6 +94,8 @@ import { Route as StaffProgramsProgramIdRouteImport } from './routes/_staff/prog
 import { Route as StaffPromotionsIndexRouteImport } from './routes/_staff/promotions/index'
 import { Route as StaffPromotionsRunIdRouteImport } from './routes/_staff/promotions/$runId'
 import { Route as StaffPromotionsNewRouteImport } from './routes/_staff/promotions/new'
+import { Route as StaffReportsIndexRouteImport } from './routes/_staff/reports/index'
+import { Route as StaffReportsReportIdRouteImport } from './routes/_staff/reports/$reportId'
 import { Route as StaffReportsAlertsRouteImport } from './routes/_staff/reports/alerts'
 import { Route as StaffReportsCollectionsRouteImport } from './routes/_staff/reports/collections'
 import { Route as StaffReportsPrintablesRouteImport } from './routes/_staff/reports/printables'
@@ -588,6 +590,16 @@ const StaffPromotionsNewRoute = StaffPromotionsNewRouteImport.update({
   path: '/promotions/new',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffReportsIndexRoute = StaffReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffReportsReportIdRoute = StaffReportsReportIdRouteImport.update({
+  id: '/reports/$reportId',
+  path: '/reports/$reportId',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffReportsAlertsRoute = StaffReportsAlertsRouteImport.update({
   id: '/reports/alerts',
   path: '/reports/alerts',
@@ -966,6 +978,7 @@ export interface FileRoutesByFullPath {
   '/programs/$programId': typeof StaffProgramsProgramIdRoute
   '/promotions/$runId': typeof StaffPromotionsRunIdRoute
   '/promotions/new': typeof StaffPromotionsNewRoute
+  '/reports/$reportId': typeof StaffReportsReportIdRoute
   '/reports/alerts': typeof StaffReportsAlertsRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
   '/reports/printables': typeof StaffReportsPrintablesRoute
@@ -1008,6 +1021,7 @@ export interface FileRoutesByFullPath {
   '/print-templates/': typeof StaffPrintTemplatesIndexRoute
   '/programs/': typeof StaffProgramsIndexRoute
   '/promotions/': typeof StaffPromotionsIndexRoute
+  '/reports/': typeof StaffReportsIndexRoute
   '/results/': typeof StaffResultsIndexRoute
   '/roles/': typeof StaffRolesIndexRoute
   '/routines/': typeof StaffRoutinesIndexRoute
@@ -1106,6 +1120,7 @@ export interface FileRoutesByTo {
   '/programs/$programId': typeof StaffProgramsProgramIdRoute
   '/promotions/$runId': typeof StaffPromotionsRunIdRoute
   '/promotions/new': typeof StaffPromotionsNewRoute
+  '/reports/$reportId': typeof StaffReportsReportIdRoute
   '/reports/alerts': typeof StaffReportsAlertsRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
   '/reports/printables': typeof StaffReportsPrintablesRoute
@@ -1148,6 +1163,7 @@ export interface FileRoutesByTo {
   '/print-templates': typeof StaffPrintTemplatesIndexRoute
   '/programs': typeof StaffProgramsIndexRoute
   '/promotions': typeof StaffPromotionsIndexRoute
+  '/reports': typeof StaffReportsIndexRoute
   '/results': typeof StaffResultsIndexRoute
   '/roles': typeof StaffRolesIndexRoute
   '/routines': typeof StaffRoutinesIndexRoute
@@ -1251,6 +1267,7 @@ export interface FileRoutesById {
   '/_staff/programs/$programId': typeof StaffProgramsProgramIdRoute
   '/_staff/promotions/$runId': typeof StaffPromotionsRunIdRoute
   '/_staff/promotions/new': typeof StaffPromotionsNewRoute
+  '/_staff/reports/$reportId': typeof StaffReportsReportIdRoute
   '/_staff/reports/alerts': typeof StaffReportsAlertsRoute
   '/_staff/reports/collections': typeof StaffReportsCollectionsRoute
   '/_staff/reports/printables': typeof StaffReportsPrintablesRoute
@@ -1293,6 +1310,7 @@ export interface FileRoutesById {
   '/_staff/print-templates/': typeof StaffPrintTemplatesIndexRoute
   '/_staff/programs/': typeof StaffProgramsIndexRoute
   '/_staff/promotions/': typeof StaffPromotionsIndexRoute
+  '/_staff/reports/': typeof StaffReportsIndexRoute
   '/_staff/results/': typeof StaffResultsIndexRoute
   '/_staff/roles/': typeof StaffRolesIndexRoute
   '/_staff/routines/': typeof StaffRoutinesIndexRoute
@@ -1395,6 +1413,7 @@ export interface FileRouteTypes {
     | '/programs/$programId'
     | '/promotions/$runId'
     | '/promotions/new'
+    | '/reports/$reportId'
     | '/reports/alerts'
     | '/reports/collections'
     | '/reports/printables'
@@ -1437,6 +1456,7 @@ export interface FileRouteTypes {
     | '/print-templates/'
     | '/programs/'
     | '/promotions/'
+    | '/reports/'
     | '/results/'
     | '/roles/'
     | '/routines/'
@@ -1535,6 +1555,7 @@ export interface FileRouteTypes {
     | '/programs/$programId'
     | '/promotions/$runId'
     | '/promotions/new'
+    | '/reports/$reportId'
     | '/reports/alerts'
     | '/reports/collections'
     | '/reports/printables'
@@ -1577,6 +1598,7 @@ export interface FileRouteTypes {
     | '/print-templates'
     | '/programs'
     | '/promotions'
+    | '/reports'
     | '/results'
     | '/roles'
     | '/routines'
@@ -1679,6 +1701,7 @@ export interface FileRouteTypes {
     | '/_staff/programs/$programId'
     | '/_staff/promotions/$runId'
     | '/_staff/promotions/new'
+    | '/_staff/reports/$reportId'
     | '/_staff/reports/alerts'
     | '/_staff/reports/collections'
     | '/_staff/reports/printables'
@@ -1721,6 +1744,7 @@ export interface FileRouteTypes {
     | '/_staff/print-templates/'
     | '/_staff/programs/'
     | '/_staff/promotions/'
+    | '/_staff/reports/'
     | '/_staff/results/'
     | '/_staff/roles/'
     | '/_staff/routines/'
@@ -2376,6 +2400,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffPromotionsNewRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/reports/': {
+      id: '/_staff/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof StaffReportsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/reports/$reportId': {
+      id: '/_staff/reports/$reportId'
+      path: '/reports/$reportId'
+      fullPath: '/reports/$reportId'
+      preLoaderRoute: typeof StaffReportsReportIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/reports/alerts': {
       id: '/_staff/reports/alerts'
       path: '/reports/alerts'
@@ -2857,6 +2895,7 @@ interface StaffRouteChildren {
   StaffProgramsProgramIdRoute: typeof StaffProgramsProgramIdRoute
   StaffPromotionsRunIdRoute: typeof StaffPromotionsRunIdRoute
   StaffPromotionsNewRoute: typeof StaffPromotionsNewRoute
+  StaffReportsReportIdRoute: typeof StaffReportsReportIdRoute
   StaffReportsAlertsRoute: typeof StaffReportsAlertsRoute
   StaffReportsCollectionsRoute: typeof StaffReportsCollectionsRoute
   StaffReportsPrintablesRoute: typeof StaffReportsPrintablesRoute
@@ -2891,6 +2930,7 @@ interface StaffRouteChildren {
   StaffPrintTemplatesIndexRoute: typeof StaffPrintTemplatesIndexRoute
   StaffProgramsIndexRoute: typeof StaffProgramsIndexRoute
   StaffPromotionsIndexRoute: typeof StaffPromotionsIndexRoute
+  StaffReportsIndexRoute: typeof StaffReportsIndexRoute
   StaffResultsIndexRoute: typeof StaffResultsIndexRoute
   StaffRolesIndexRoute: typeof StaffRolesIndexRoute
   StaffRoutinesIndexRoute: typeof StaffRoutinesIndexRoute
@@ -2957,6 +2997,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffProgramsProgramIdRoute: StaffProgramsProgramIdRoute,
   StaffPromotionsRunIdRoute: StaffPromotionsRunIdRoute,
   StaffPromotionsNewRoute: StaffPromotionsNewRoute,
+  StaffReportsReportIdRoute: StaffReportsReportIdRoute,
   StaffReportsAlertsRoute: StaffReportsAlertsRoute,
   StaffReportsCollectionsRoute: StaffReportsCollectionsRoute,
   StaffReportsPrintablesRoute: StaffReportsPrintablesRoute,
@@ -2991,6 +3032,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffPrintTemplatesIndexRoute: StaffPrintTemplatesIndexRoute,
   StaffProgramsIndexRoute: StaffProgramsIndexRoute,
   StaffPromotionsIndexRoute: StaffPromotionsIndexRoute,
+  StaffReportsIndexRoute: StaffReportsIndexRoute,
   StaffResultsIndexRoute: StaffResultsIndexRoute,
   StaffRolesIndexRoute: StaffRolesIndexRoute,
   StaffRoutinesIndexRoute: StaffRoutinesIndexRoute,

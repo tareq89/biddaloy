@@ -77,6 +77,7 @@ All your features, in the order of the left menu. The list is built automaticall
 
 **Reports**
 
+- All reports (coming soon)
 - [Fee collection report](../reports/collections-report.md) — See how much money was collected, how much was reversed and the net in hand for a day, week, month or your own dates, by method, collector, fee type and day; print it or download a CSV.
 - Student count (BANBEIS) (coming soon)
 - [Print & documents](../reports/printables.md) — See what was printed, which certificates were issued and what is still waiting to be printed, in three tabs; reprint or revoke a card, or download the certificate list for Excel.

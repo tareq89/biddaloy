@@ -477,5 +477,18 @@ export async function resolvePath(
     if (!id) throw new Error('no application seeded (server/src/scripts/seed.applications.ts)');
     return route.path.replace('$applicationId', id);
   }
+  if (route.path.includes('$reportId')) {
+    // [8.15.29] Opens the first ready report; a school with none (the ready reports land in 8.15.32)
+    // still gets a real screen to scan: the "this report is not available" state.
+    const catalogue = await get<{ reports: { id: string }[] }[]>(
+      request,
+      session,
+      '/reports/catalogue',
+    );
+    const id =
+      catalogue.flatMap((folder) => folder.reports)[0]?.id ??
+      '00000000-0000-4000-8000-000000000000';
+    return route.path.replace('$reportId', id);
+  }
   throw new Error(`no resolver for ${route.path}`);
 }
