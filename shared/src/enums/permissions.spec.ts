@@ -1067,3 +1067,20 @@ describe('INVOICE_SEND [#3033]', () => {
     );
   });
 });
+
+describe('REPORTS_DESIGN [8.15.8]', () => {
+  it('ADMIN and SUPER_ADMIN hold it', () => {
+    expect(roleHasPermission(UserRole.ADMIN, Permission.REPORTS_DESIGN)).toBe(true);
+    expect(roleHasPermission(UserRole.SUPER_ADMIN, Permission.REPORTS_DESIGN)).toBe(true);
+  });
+
+  it.each([
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.COMMITTEE,
+    UserRole.PARENT,
+  ])('%s does not hold it (D9: authoring is ADMIN only)', (role) => {
+    expect(roleHasPermission(role, Permission.REPORTS_DESIGN)).toBe(false);
+  });
+});

@@ -6,6 +6,14 @@ import { ReportsController } from './reports.controller';
 import { ReportsDashboardController } from './reports-dashboard.controller';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { SchoolsModule } from '../schools/schools.module';
+import { ReportExportModule } from './export/report-export.module';
+import {
+  ReportDefinition,
+  ReportDefinitionVersion,
+  ReportRun,
+  ReportSchedule,
+  ReportSnapshot,
+} from './entities';
 
 /** [16.6.2] Reports module — read-only aggregate views over data owned by
  * other modules (fees/payments). Registers `Payment` for `TypeOrmModule`
@@ -15,7 +23,19 @@ import { SchoolsModule } from '../schools/schools.module';
  * migrated by their owning modules, so no entities beyond `Payment` need
  * registering here. */
 @Module({
-  imports: [TypeOrmModule.forFeature([Payment]), DashboardModule, SchoolsModule],
+  imports: [
+    TypeOrmModule.forFeature([
+      Payment,
+      ReportDefinition,
+      ReportDefinitionVersion,
+      ReportRun,
+      ReportSchedule,
+      ReportSnapshot,
+    ]),
+    DashboardModule,
+    SchoolsModule,
+    ReportExportModule,
+  ],
   providers: [CollectionsReportService],
   controllers: [ReportsController, ReportsDashboardController],
 })

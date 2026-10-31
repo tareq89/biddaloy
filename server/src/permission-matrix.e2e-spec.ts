@@ -841,6 +841,8 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   Permission.DASHBOARD_ADMIN,
   Permission.REPORTS_VIEW,
   Permission.REPORTS_EXPORT,
+  // [8.15.8] Consumed by the report routes in [8.15.24]; remove from this list there.
+  Permission.REPORTS_DESIGN,
   // [10.4] G17 — reserved for endpoints that don't exist yet (#291's
   // refund/void work); granted to ADMIN so the value isn't dead weight once
   // that endpoint ships, but nothing consumes it today.

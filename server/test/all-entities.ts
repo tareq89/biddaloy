@@ -94,6 +94,11 @@ import { StaffDocument } from '../src/modules/staff-hr/entities/staff-document.e
 import { ExamTemplate } from '../src/modules/exams/entities/exam-template.entity';
 import { ExamTemplateComponent } from '../src/modules/exams/entities/exam-template-component.entity';
 import { PrintTemplate } from '../src/modules/print/entities/print-template.entity';
+import { ReportDefinition } from '../src/modules/reports/entities/report-definition.entity';
+import { ReportDefinitionVersion } from '../src/modules/reports/entities/report-definition-version.entity';
+import { ReportRun } from '../src/modules/reports/entities/report-run.entity';
+import { ReportSchedule } from '../src/modules/reports/entities/report-schedule.entity';
+import { ReportSnapshot } from '../src/modules/reports/entities/report-snapshot.entity';
 import { PrintTemplateVersion } from '../src/modules/print/entities/print-template-version.entity';
 import { PrintAsset } from '../src/modules/print/entities/print-asset.entity';
 import { PrinterProfile } from '../src/modules/print/entities/printer-profile.entity';
@@ -227,6 +232,11 @@ export const ALL_ENTITIES = [
   ExamTemplate,
   ExamTemplateComponent,
   PrintTemplate,
+  ReportDefinition,
+  ReportDefinitionVersion,
+  ReportRun,
+  ReportSchedule,
+  ReportSnapshot,
   PrintTemplateVersion,
   PrintAsset,
   PrinterProfile,

@@ -131,6 +131,11 @@ import { PrintAsset } from './modules/print/entities/print-asset.entity';
 import { PrinterProfile } from './modules/print/entities/printer-profile.entity';
 import { PrintJob } from './modules/print/entities/print-job.entity';
 import { PrintJobItem } from './modules/print/entities/print-job-item.entity';
+import { ReportDefinition } from './modules/reports/entities/report-definition.entity';
+import { ReportDefinitionVersion } from './modules/reports/entities/report-definition-version.entity';
+import { ReportRun } from './modules/reports/entities/report-run.entity';
+import { ReportSchedule } from './modules/reports/entities/report-schedule.entity';
+import { ReportSnapshot } from './modules/reports/entities/report-snapshot.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -349,6 +354,11 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             PrinterProfile,
             PrintJob,
             PrintJobItem,
+            ReportDefinition,
+            ReportDefinitionVersion,
+            ReportRun,
+            ReportSchedule,
+            ReportSnapshot,
             // [36.1.1] StaffProfile was missing from this list — the
             // TypeORM connection built here only knows the entities named
             // in this array, so `StaffProfilesService` (and anything else

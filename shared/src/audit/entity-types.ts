@@ -68,6 +68,8 @@ export const AUDIT_ENTITY_TYPES = [
   'Registration',
   'ReminderBatch',
   'ReminderBatchPreview',
+  // [8.15.10] One row per report run or export; never carries row data.
+  'ReportRun',
   'Result',
   'Routine',
   'RoutineChangeRequest',
