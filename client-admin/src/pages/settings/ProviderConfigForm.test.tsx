@@ -159,6 +159,73 @@ describe('ProviderConfigForm', () => {
     expect(body.mock.calls[0]![0].communications.sms.greenweb.apiKey).toBe('gw-typed-key');
   });
 
+  // PR #3325 review round 3, finding 1: a school on the platform account saved no company, and its
+  // SMS goes through the platform's SMS_PROVIDER. The first listed company must not override it.
+  describe('school with no saved company (platform account)', () => {
+    const PLATFORM_SMS = { metering: 'PLATFORM' };
+    beforeEach(() => {
+      server.use(providersHandler({ SMS: false }, null));
+    });
+    function captureTest() {
+      const body = vi.fn();
+      server.use(
+        http.post('/api/v1/schools/:id/settings/test', async ({ request }) => {
+          body(await request.json());
+          return HttpResponse.json({ success: true, message: 'ok' });
+        }),
+      );
+      return body;
+    }
+
+    it('Test connection names no company and sends no config, so the live one is tested', async () => {
+      const body = captureTest();
+      const { user } = renderForm('SMS', PLATFORM_SMS);
+
+      await user.click(await screen.findByRole('button', { name: 'Test connection' }));
+
+      await waitFor(() => expect(body).toHaveBeenCalled());
+      expect(body.mock.calls[0]![0]).toEqual({ medium: 'SMS' });
+    });
+
+    it('Save stores no company when nothing was picked or filled in', async () => {
+      const body = captureSave();
+      const { user } = renderForm('SMS', PLATFORM_SMS);
+
+      await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(body).toHaveBeenCalled());
+      expect(body.mock.calls[0]![0]).toEqual({ version: 1, communications: {} });
+    });
+
+    it('a typed key for the shown company names that company', async () => {
+      const body = captureSave();
+      const { user } = renderForm('SMS', PLATFORM_SMS);
+
+      await user.click(await screen.findByRole('button', { name: 'Add' }));
+      await user.type(await screen.findByLabelText('API key'), 'own-key');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(body).toHaveBeenCalled());
+      expect(body.mock.calls[0]![0].communications.sms).toEqual({
+        provider: 'greenweb',
+        greenweb: { apiKey: 'own-key' },
+      });
+    });
+
+    it('picking a company names it in the test', async () => {
+      const body = captureTest();
+      const { user } = renderForm('SMS', PLATFORM_SMS);
+
+      await user.click(await screen.findByLabelText('SMS company'));
+      await user.click(await screen.findByRole('option', { name: 'MimSMS' }));
+      await user.type(screen.getByLabelText(/^Sender name/), 'SCHOOL');
+      await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+      await waitFor(() => expect(body).toHaveBeenCalled());
+      expect(body.mock.calls[0]![0].config.provider).toBe('mimsms');
+    });
+  });
+
   it('sole company: no picker, nested payload without provider', async () => {
     const body = captureSave();
     const { user } = renderForm('WHATSAPP', {

@@ -439,6 +439,31 @@ describe('Provider connection test E2E', () => {
         ]);
       });
 
+      // PR #3325 review round 3, finding 1: the settings form names no company for a school that
+      // saved none, so the test goes to SMS_PROVIDER on the platform keys, not the first company.
+      it('with no company named, sends through SMS_PROVIDER on the platform keys', async () => {
+        process.env.SMS_PROVIDER = 'onecodesoft';
+        try {
+          await credits().grant(TENANT_ID, 10, { idempotencyKey: 'test-send-grant-env' });
+          mockBalanceThenSent();
+          const before = vi.mocked(fetchPinnedJson).mock.calls.length;
+          const res = await post({ medium: 'SMS', sendTo: '01712345678' }, 'test-send-env').expect(
+            200,
+          );
+          expect(res.body.testMessage.status).toBe('SENT');
+          const urls = vi
+            .mocked(fetchPinnedJson)
+            .mock.calls.slice(before)
+            .map((c) => String(c[1]));
+          expect(urls).toHaveLength(2);
+          expect(urls.every((u) => u.startsWith('https://platform-sms.example.com/api'))).toBe(
+            true,
+          );
+        } finally {
+          delete process.env.SMS_PROVIDER;
+        }
+      });
+
       it('releases the reservation (RELEASE row, balance unchanged) when the gateway rejects', async () => {
         await credits().grant(TENANT_ID, 10, { idempotencyKey: 'test-send-grant-rej' });
         vi.mocked(fetchPinnedJson)

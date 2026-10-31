@@ -235,8 +235,28 @@ function ProviderConfigFormInner({
   // A real send: one key per attempt, and a lost reply gets the "could not confirm" toast.
   const sendTest = useSendTestMessage(schoolId);
 
-  /** Only the chosen company's block goes out: other companies' saved blocks stay as they are. */
-  function buildConfig(values: Values): Communications[keyof Communications] {
+  /**
+   * A school with no saved company (one on the platform account) sends through `SMS_PROVIDER`,
+   * which the form can't see. Naming the first listed company would test, and save, the wrong one
+   * (PR #3325 review round 3, finding 1). So a company goes out only when one was saved, or the
+   * admin picked one or filled in any of its fields.
+   */
+  function companyChosen(values: Values): boolean {
+    if (sole || savedSelected !== null || values.provider !== defaults.provider) return true;
+    return current.fields.some((f) => {
+      const key = valueKey(current.name, f.key);
+      return f.kind === 'secret'
+        ? secrets[key] !== undefined
+        : (values[key] ?? '') !== (defaults[key] ?? '');
+    });
+  }
+
+  /**
+   * Only the chosen company's block goes out: other companies' saved blocks stay as they are.
+   * `undefined` when no company was chosen: nothing is saved, and a test uses the live settings.
+   */
+  function buildConfig(values: Values): Communications[keyof Communications] | undefined {
+    if (!companyChosen(values)) return undefined;
     const block: Record<string, unknown> = {};
     for (const f of current.fields) {
       if (f.kind === 'secret') {
@@ -252,8 +272,9 @@ function ProviderConfigFormInner({
   }
 
   function handleSave(values: Values) {
+    const config = buildConfig(values);
     updateSettings.mutate(
-      { version: 1, communications: { [prefix]: buildConfig(values) } },
+      { version: 1, communications: config ? { [prefix]: config } : {} },
       {
         onSuccess: () => {
           setSecrets({});
@@ -273,9 +294,7 @@ function ProviderConfigFormInner({
 
   async function handleTestConnection() {
     const values = await validValues();
-    if (values) {
-      testConnection.mutate({ medium, config: buildConfig(values) as Record<string, unknown> });
-    }
+    if (values) testConnection.mutate({ medium, ...configOf(values) });
   }
 
   async function handleSendTest() {
@@ -283,7 +302,13 @@ function ProviderConfigFormInner({
     if (!values) return;
     // A bn keyboard types Bangla digits; the server's phone check reads ASCII ones.
     const to = medium === 'SMS' ? toLatinDigits(sendTo.trim()) : sendTo.trim();
-    sendTest.mutate({ medium, config: buildConfig(values) as Record<string, unknown>, sendTo: to });
+    sendTest.mutate({ medium, ...configOf(values), sendTo: to });
+  }
+
+  /** The test body's `config`: left out when no company was chosen, so the server tests what is live. */
+  function configOf(values: Values): { config?: Record<string, unknown> } {
+    const config = buildConfig(values) as Record<string, unknown> | undefined;
+    return config ? { config } : {};
   }
 
   const label = (d: { label: { en: string; bn: string } }) => d.label[locale];
