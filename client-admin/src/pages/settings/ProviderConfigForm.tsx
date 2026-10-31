@@ -154,6 +154,9 @@ export function ProviderConfigForm(props: ProviderConfigFormProps) {
   if (!entry || entry.providers.length === 0) return null;
   return (
     <ProviderConfigFormInner
+      // The inner form reads its defaults once: a new school must remount it, or a cached school's
+      // query could hand it another school's values to save (PR #3325 review, round 5).
+      key={props.schoolId}
       {...props}
       providers={entry.providers}
       configured={entry.configured}
@@ -280,8 +283,14 @@ function ProviderConfigFormInner({
         if (s !== undefined) block[f.key] = s;
         continue;
       }
-      const v = values[valueKey(current.name, f.key)] ?? '';
-      if (v === '' && !f.required) continue;
+      const key = valueKey(current.name, f.key);
+      const v = values[key] ?? '';
+      if (v === '') {
+        // A cleared saved value goes out as '': left out, the server's merge would keep it. The
+        // server reads '' as unset, so the company's default applies (port: never Number('') = 0).
+        if (f.required || (defaults[key] ?? '') !== '') block[f.key] = '';
+        continue;
+      }
       block[f.key] = isPort(f) ? Number(toLatinDigits(v)) : v;
     }
     return { ...(sole ? {} : { provider: current.name }), [current.name]: block };

@@ -1,8 +1,9 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The last value the form passed to the unsaved-changes guard (finding 7 of the PR #3325 review).
@@ -295,6 +296,75 @@ describe('ProviderConfigForm', () => {
     expect(body.mock.calls[0]![0].communications.whatsapp).toEqual({
       'meta-cloud': { phoneNumberId: '123' },
     });
+  });
+
+  it('sends a cleared optional field as an empty string, so the saved value does not stay', async () => {
+    const body = captureSave();
+    const { user } = renderForm('WHATSAPP', {
+      'meta-cloud': {
+        phoneNumberId: '123',
+        apiVersion: 'v19.0',
+        accessToken: { configured: true, hint: '••••tok' },
+      },
+    });
+
+    await user.clear(await screen.findByLabelText('API version (optional)'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(body).toHaveBeenCalled());
+    expect(body.mock.calls[0]![0].communications.whatsapp).toEqual({
+      'meta-cloud': { phoneNumberId: '123', apiVersion: '' },
+    });
+  });
+
+  it("remounts for another school, so a cached school never shows (or saves) the last one's values", async () => {
+    const SCHOOL_B = 'school-2';
+    const savedB = {
+      provider: 'mimsms',
+      mimsms: { senderId: 'SCHOOL-B', apiKey: { configured: true, hint: '••••b' } },
+    };
+    server.use(
+      http.get('/api/v1/schools/:id/settings/messaging/providers', ({ params }) =>
+        HttpResponse.json(
+          providersResponse({ SMS: true }, params.id === SCHOOL_B ? 'mimsms' : 'greenweb'),
+        ),
+      ),
+    );
+    // The settings page keeps one card and hands it the picked school (WithTestRouter's children
+    // are static, so the switch happens in here).
+    let pickSchool: (id: string) => void = () => {};
+    function SchoolPicker() {
+      const [schoolId, setSchoolId] = useState(SCHOOL_ID);
+      pickSchool = setSchoolId;
+      return (
+        <ProviderConfigForm
+          medium="SMS"
+          schoolId={schoolId}
+          saved={schoolId === SCHOOL_B ? savedB : SAVED_SMS}
+          sectionId="x-section"
+          title={CARD}
+          description="Card description"
+        />
+      );
+    }
+    const body = captureSave();
+    const { user } = renderWithProviders(
+      <WithTestRouter>
+        <SchoolPicker />
+      </WithTestRouter>,
+      OPTS,
+    );
+    expect(await screen.findByText('Added — ends ••••key1')).toBeTruthy();
+
+    act(() => pickSchool(SCHOOL_B));
+    expect((await screen.findByLabelText<HTMLInputElement>(/^Sender name/)).value).toBe('SCHOOL-B');
+
+    // Back to the first school: both its queries are cached, so the card never unmounts on its own.
+    act(() => pickSchool(SCHOOL_ID));
+    expect(await screen.findByText('Added — ends ••••key1')).toBeTruthy();
+    expect(screen.queryByLabelText(/^Sender name/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(body).toHaveBeenCalled());
+    expect(body.mock.calls[0]![0].communications.sms.provider).toBe('greenweb');
   });
 
   it('reads the old flat saved layout of a sole company', async () => {
