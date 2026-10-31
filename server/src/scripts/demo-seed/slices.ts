@@ -41,4 +41,10 @@ export const EXEMPT: Record<string, string> = {
   UserIdentity: 'login state: sign-in credentials come from the seeded users',
   WorkbookJob: 'backups are off in the demo (D2)',
   AuditLog: 'written by services as a side effect, never seeded directly',
+  ReportSnapshot: 'runtime output: a stored copy of one run (Epic 8.15)',
+  ReportSchedule: 'runtime output: schedules are set up by the school (Epic 8.15)',
+  // Until [8.15.32] adds `slices/reports.ts` (system reports, one custom draft, two runs); then delete these three.
+  ReportDefinition: 'owed by [8.15.32]: slices/reports.ts seeds the system reports',
+  ReportDefinitionVersion: 'owed by [8.15.32]: slices/reports.ts seeds the system reports',
+  ReportRun: 'owed by [8.15.32]: slices/reports.ts seeds two runs',
 };

@@ -97,6 +97,7 @@ GET    /api/v1/attention/students/:studentId                                    
 GET    /api/v1/attention/summary                                                 401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 GET    /api/v1/audit-logs                                                        401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/audit-logs/entity/:entityType/:entityId                           401 PASS PASS PASS PASS PASS 403 403 PASS 403 403 403
+GET    /api/v1/audit-logs/export                                                 401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/auth/activate                                                     PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 POST   /api/v1/auth/activate/resend                                              PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 POST   /api/v1/auth/activate/verify                                              PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
@@ -301,6 +302,7 @@ GET    /api/v1/fee-structures/:id                                               
 PATCH  /api/v1/fee-structures/:id                                                401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 POST   /api/v1/fees/bills/:id/waive                                              401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/fees/dues                                                         401 PASS PASS PASS PASS PASS PASS PASS PASS PASS 403 403
+GET    /api/v1/fees/dues/export                                                  401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/fees/dues/flagged                                                 401 PASS PASS PASS PASS PASS 403 403 PASS PASS 403 403
 GET    /api/v1/fees/fine-rules                                                   401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 POST   /api/v1/fees/fine-rules                                                   401 PASS PASS PASS PASS 403 403 403 403 403 403 403
@@ -344,6 +346,7 @@ POST   /api/v1/guardians                                                        
 DELETE /api/v1/guardians/:id                                                     401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/guardians/:id                                                     401 PASS PASS PASS PASS PASS 403 403 403 PASS 403 403
 PATCH  /api/v1/guardians/:id                                                     401 PASS PASS PASS PASS 403 403 403 403 PASS 403 403
+GET    /api/v1/guardians/export                                                  401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/guardians/mine                                                    401 PASS PASS 403 403 403 PASS 403 403 403 403 403
 PATCH  /api/v1/guardians/mine                                                    401 PASS PASS 403 403 403 PASS 403 403 403 403 403
 GET    /api/v1/homework                                                          401 PASS PASS PASS 403 PASS 403 403 403 403 403 403
@@ -375,6 +378,7 @@ GET    /api/v1/invoices/:id/share                                               
 POST   /api/v1/invoices/:id/share                                                401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 DELETE /api/v1/invoices/:id/share/:tokenId                                       401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 POST   /api/v1/invoices/:id/share/regenerate                                     401 PASS PASS PASS PASS 403 403 403 403 403 403 403
+GET    /api/v1/invoices/export                                                   401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/leave/balance                                                     401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403
 GET    /api/v1/leave/policies                                                    401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403
 PUT    /api/v1/leave/policies/:type                                              401 PASS PASS PASS 403 403 403 403 PASS 403 403 403
@@ -396,6 +400,7 @@ GET    /api/v1/payments/:id                                                     
 POST   /api/v1/payments/:id/reverse                                              401 403 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/payments/cart                                                     401 PASS PASS PASS PASS PASS PASS PASS PASS PASS 403 403
 POST   /api/v1/payments/checkout                                                 401 PASS PASS PASS PASS 403 403 403 403 403 403 403
+GET    /api/v1/payments/export                                                   401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/payments/guardian/:guardianId                                     401 PASS PASS PASS PASS PASS 403 403 PASS 403 403 403
 GET    /api/v1/payments/invoices/student/:studentId                              401 PASS PASS PASS PASS PASS PASS PASS PASS PASS 403 403
 GET    /api/v1/payments/student/:studentId                                       401 PASS PASS PASS PASS PASS PASS PASS PASS PASS 403 403
@@ -612,6 +617,7 @@ PUT    /api/v1/students/:studentId/subject-choices                              
 GET    /api/v1/students/:studentId/transcript                                    401 PASS PASS PASS 403 PASS PASS PASS PASS PASS PASS 403
 POST   /api/v1/students/bulk-upload/commit                                       401 PASS PASS PASS PASS 403 403 403 PASS PASS 403 403
 POST   /api/v1/students/bulk-upload/validate                                     401 PASS PASS PASS PASS 403 403 403 PASS PASS 403 403
+GET    /api/v1/students/export                                                   401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/students/ids                                                      401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS 403
 GET    /api/v1/students/mine                                                     401 PASS PASS 403 403 403 PASS PASS 403 403 403 403
 POST   /api/v1/students/photos/bulk                                              401 PASS PASS PASS PASS 403 403 403 403 PASS 403 403
