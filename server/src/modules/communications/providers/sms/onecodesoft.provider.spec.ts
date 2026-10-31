@@ -4,7 +4,7 @@ import {
   assertSafeHttpDestination,
   DestinationBlockedError,
 } from '../shared/outbound-destination-guard';
-import { fetchPinnedJson } from '../shared/pinned-http';
+import { fetchPinnedJson, fetchPinnedJsonWithStatus } from '../shared/pinned-http';
 
 // Destination-class validation and connection pinning have their own specs;
 // stub both so these tests only assert gateway-level behaviour.
@@ -20,7 +20,18 @@ vi.mock('../shared/outbound-destination-guard', () => {
     DestinationBlockedError,
   };
 });
-vi.mock('../shared/pinned-http', () => ({ fetchPinnedJson: vi.fn() }));
+// Cases that mock only the body (`fetchPinnedJson`) answer as HTTP 200; the status cases
+// (#3320) mock `fetchPinnedJsonWithStatus` directly.
+vi.mock('../shared/pinned-http', () => {
+  const fetchPinnedJson = vi.fn();
+  return {
+    fetchPinnedJson,
+    fetchPinnedJsonWithStatus: vi.fn(async (...args: unknown[]) => ({
+      status: 200,
+      body: await fetchPinnedJson(...args),
+    })),
+  };
+});
 
 const config = { apiKey: 'key-1', senderId: 'School', apiUrl: 'https://sms.example.com/api/' };
 const sentResponse = {
@@ -210,6 +221,91 @@ describe('OnecodesoftProvider', () => {
         error: 'OneCodeSoft API address is not allowed.',
       });
       expect(pinned).not.toHaveBeenCalled();
+    });
+  });
+
+  // #3320: the HTTP status decides before the body. REJECTED releases the SMS credit; AMBIGUOUS
+  // keeps it held (the message may have gone out), so getting these wrong moves money.
+  describe('HTTP status (#3320)', () => {
+    const answer = (status: number, body: unknown) =>
+      vi.mocked(fetchPinnedJsonWithStatus).mockResolvedValueOnce({ status, body });
+
+    it('send: 401 -> REJECTED with the API key sentence, not retryable', async () => {
+      answer(401, { message: 'Unauthenticated.' });
+      const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        success: false,
+        outcome: 'REJECTED',
+        retryable: false,
+        error: 'OneCodeSoft rejected the API key.',
+      });
+    });
+
+    it('send: 403 -> REJECTED with the API key sentence, not retryable', async () => {
+      answer(403, { status: 'error', message: 'Forbidden' });
+      const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        outcome: 'REJECTED',
+        retryable: false,
+        error: 'OneCodeSoft rejected the API key.',
+      });
+    });
+
+    it('send: 404 HTML page (no JSON body) -> REJECTED, not AMBIGUOUS', async () => {
+      answer(404, undefined);
+      const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        outcome: 'REJECTED',
+        retryable: false,
+        error: 'OneCodeSoft rejected the message.',
+      });
+    });
+
+    it('send: 5xx whose JSON says status error -> AMBIGUOUS (credit stays held)', async () => {
+      answer(503, { status: 'error', message: 'Service unavailable' });
+      const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        success: false,
+        outcome: 'AMBIGUOUS',
+        error: 'OneCodeSoft did not give a usable answer.',
+      });
+      expect(r.retryable).toBeUndefined();
+    });
+
+    it('send: 5xx HTML page -> AMBIGUOUS', async () => {
+      answer(502, undefined);
+      const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r.outcome).toBe('AMBIGUOUS');
+    });
+
+    it('send: a timeout -> AMBIGUOUS', async () => {
+      vi.mocked(fetchPinnedJsonWithStatus).mockRejectedValueOnce(
+        new DOMException('timed out', 'TimeoutError'),
+      );
+      const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r.outcome).toBe('AMBIGUOUS');
+    });
+
+    it('getBalance: 401 -> ProviderAuthRejectedError (testConnection names the key)', async () => {
+      answer(401, undefined);
+      await expect(provider.testConnection(config)).resolves.toEqual({
+        success: false,
+        message: 'OneCodeSoft rejected the API key — check it and try again.',
+      });
+    });
+
+    it('getBalance: 5xx with a balance-looking body still fails', async () => {
+      answer(500, { balance: 10 });
+      await expect(provider.getBalance(config)).rejects.toThrow(
+        'OneCodeSoft balance check failed.',
+      );
+    });
+
+    it('getStatus: 5xx -> throws a fixed sentence (never read as PENDING/FAILED)', async () => {
+      answer(503, { Data: { Status: 'Failed', ErrorCode: '999' } });
+      await expect(provider.getStatus('m1', config)).rejects.toThrow(
+        'OneCodeSoft status check failed.',
+      );
     });
   });
 

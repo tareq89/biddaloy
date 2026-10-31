@@ -20,7 +20,17 @@ import {
 
 // OneCodeSoft calls go through the SSRF guard + pinned undici client (not global fetch). Stub both so
 // the SMS case needs no DNS or network; every other export of the guard module stays real.
-vi.mock('../providers/shared/pinned-http', () => ({ fetchPinnedJson: vi.fn() }));
+// The cases mock only the body (`fetchPinnedJson`); it answers as HTTP 200 (#3320).
+vi.mock('../providers/shared/pinned-http', () => {
+  const fetchPinnedJson = vi.fn();
+  return {
+    fetchPinnedJson,
+    fetchPinnedJsonWithStatus: vi.fn(async (...args: unknown[]) => ({
+      status: 200,
+      body: await fetchPinnedJson(...args),
+    })),
+  };
+});
 vi.mock('../providers/shared/outbound-destination-guard', async (importActual) => ({
   ...(await importActual<typeof import('../providers/shared/outbound-destination-guard')>()),
   assertSafeHttpDestination: vi.fn(async (rawUrl: string) => ({
