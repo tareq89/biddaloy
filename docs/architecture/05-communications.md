@@ -279,12 +279,12 @@ flowchart TD
     S["Tenant suspended\n(no provider call)"] --> R
 ```
 
-| Provider outcome             | Meaning                                                                             | Ledger kind | Balance effect                                  | `metadata.credit` |
-| ---------------------------- | ----------------------------------------------------------------------------------- | ----------- | ----------------------------------------------- | ----------------- |
-| `ACCEPTED`                   | Provider took the message                                                           | `DEBIT`     | `reserved -= segments`, credits spent           | `DEBITED`         |
-| `REJECTED`                   | Provider (or a pre-flight check) definitely refused it — 4xx/validation, never sent | `RELEASE`   | `reserved -= segments`, `available += segments` | `RELEASED`        |
-| `AMBIGUOUS`                  | Timeout/5xx/unknown error _after_ the request went out — unclear if it was sent     | none        | untouched — stays reserved                      | `UNSETTLED`       |
-| Tenant suspended before send | No provider call was made                                                           | `RELEASE`   | `reserved -= segments`, `available += segments` | `RELEASED`        |
+| Provider outcome             | Meaning                                                                                      | Ledger kind | Balance effect                                  | `metadata.credit` |
+| ---------------------------- | -------------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------- | ----------------- |
+| `ACCEPTED`                   | Provider took the message                                                                    | `DEBIT`     | `reserved -= segments`, credits spent           | `DEBITED`         |
+| `REJECTED`                   | Provider (or a pre-flight check) definitely refused it — 4xx but 408, validation; never sent | `RELEASE`   | `reserved -= segments`, `available += segments` | `RELEASED`        |
+| `AMBIGUOUS`                  | Timeout/408/5xx/unknown error _after_ the request went out — unclear if it was sent          | none        | untouched — stays reserved                      | `UNSETTLED`       |
+| Tenant suspended before send | No provider call was made                                                                    | `RELEASE`   | `reserved -= segments`, `available += segments` | `RELEASED`        |
 
 A **post-acceptance delivery failure** (the SMS was accepted by the
 gateway but never reaches the handset — bad number on the carrier side,
