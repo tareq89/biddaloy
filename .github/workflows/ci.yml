@@ -93,6 +93,8 @@ jobs:
               - 'scripts/flake-report.mjs'
               - 'scripts/flake-report.spec.mjs'
               - 'scripts/check-arch-docs.spec.mjs'
+              - 'scripts/coderabbit-review-queue.sh'
+              - 'scripts/coderabbit-review-queue.spec.mjs'
               - 'docs/architecture/**'
               - 'CLAUDE.md'
               - 'server/CLAUDE.md'
