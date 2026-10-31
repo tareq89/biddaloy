@@ -71,7 +71,7 @@ On the demo and staging sites nothing is really sent: the messages land in the *
 
 1. In the left menu press **Communications**, then press **Message log**.
 
-   → The **Message log** opens: **Every message the school sent, newest first.** The cursor is in the **Search** box. Columns: **Recipient**, **Sent**, **Channel**, **Mobile or email**, **Kind**, **Company**, **Status**, **Why it failed**.
+   → The **Message log** opens: **Every message the school sent, newest first.** Columns: **Recipient**, **Sent**, **Channel**, **Mobile or email**, **Kind**, **Company**, **Status**, **Why it failed**.
 
 2. In **Search** type the recipient's name, phone number or email. A phone number can be in any form: `01712345678`, `+880 1712-345678` or `8801712345678`.
 

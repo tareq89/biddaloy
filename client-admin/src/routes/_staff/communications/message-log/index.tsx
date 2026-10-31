@@ -241,7 +241,6 @@ function MessageLogList() {
       label: t('messageLog.searchLabel'),
       placeholder: t('messageLog.searchPlaceholder'),
       primary: true,
-      autoFocus: true,
     },
     {
       kind: 'select',

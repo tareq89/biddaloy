@@ -10,7 +10,9 @@ import { ListShellPage } from '../pages/list-shell';
  * [97.4.03] Message log (`/communications/message-log`), Epic 97 D23/D25, rescoped by D10: no
  * vendor stub. Real rows come from the real send route (the e2e school has no SMS company, so the
  * message is recorded and fails); the Check status matrix and the 409 answer use API-layer mocks.
- * Nothing here reaches a company.
+ * Nothing here reaches a company. [#3351 r1] Check status follows the row's own
+ * `can_check_status` (the server decides), and the Company / Sent-by choices come from
+ * `GET /communications/logs/filter-options`, readable by every role that opens the page.
  *
  * Not covered (needs a vendor): a status pull that flips Sent to Delivered, and a SENT row that
  * carries a real `provider_message_id`.
@@ -26,6 +28,8 @@ interface LogRow {
   id: string;
   status: string;
   recipient_name: string;
+  message_body: string;
+  can_check_status: boolean;
 }
 
 /** One guardian (unique name) and one manual SMS to them. Returns what the page will show. */
@@ -48,12 +52,21 @@ async function seedMessage(request: APIRequestContext, withStudent = false) {
     ...(studentId ? { student_id: studentId } : {}),
     message_body: `Message log e2e ${stamp}`,
   });
-  const logs = await get<{ data: LogRow[] }>(
-    request,
-    session,
-    `/communications/logs?search=${encodeURIComponent(name)}`,
-  );
+  const read = () =>
+    get<{ data: LogRow[] }>(
+      request,
+      session,
+      `/communications/logs?search=${encodeURIComponent(name)}`,
+    );
+  // The worker settles the row a moment after the send; the steps below filter by its status, so
+  // wait for the final one instead of reading QUEUED and racing the worker.
+  await expect
+    .poll(async () => (await read()).data[0]?.status ?? 'none')
+    .not.toMatch(/^(QUEUED|none)$/);
+  const logs = await read();
   expect(logs.data).toHaveLength(1);
+  // Never SENT to a company here, so the server says no Check status.
+  expect(logs.data[0]!.can_check_status).toBe(false);
   return { session, name, guardianId: guardian.id, studentId, row: logs.data[0]! };
 }
 
@@ -123,7 +136,7 @@ test.describe('admin, real rows', () => {
       await expect(page).toHaveURL(new RegExp(`status=${other}`));
     });
 
-    await test.step('detail dialog shows the fields; no Check status on this row', async () => {
+    await test.step('detail dialog shows the D22 fields and the message; no Check status', async () => {
       await page.goto(`/communications/message-log?search=${encodeURIComponent(name)}`);
       await list.expectResultCount(1);
       await list.clickRowAction(name, 'communications.messageLog.viewDetail');
@@ -137,13 +150,23 @@ test.describe('admin, real rows', () => {
         'channel',
         'status',
         'kind',
+        'sentBy',
+        'sent',
         'company',
         'providerMessageId',
+        'segments',
+        'batch',
+        'error',
+        'message',
       ]) {
         await expect(
-          dialog.getByText(t(`communications.messageLog.detail.${key}`), { exact: true }),
+          dialog
+            .locator('dt')
+            .getByText(t(`communications.messageLog.detail.${key}`), { exact: true }),
         ).toBeVisible();
       }
+      // The message itself (D22), from the real row.
+      await expect(dialog.getByText(row.message_body, { exact: true })).toBeVisible();
       await expect(
         dialog.getByRole('button', { name: t('communications.messageLog.checkStatus') }),
       ).toHaveCount(0);
@@ -183,7 +206,8 @@ test.describe('admin, real rows', () => {
     await expect(page.getByText(t('communications.messageLog.scopedStudent'))).toBeVisible();
     await list.expectResultCount(1);
 
-    await page.getByRole('button', { name: t('communications.messageLog.scopedClear') }).click();
+    // A real link (it can open in a new tab), not a button.
+    await page.getByRole('link', { name: t('communications.messageLog.scopedClear') }).click();
     await expect(page).not.toHaveURL(/student=/);
     await expect(page.getByText(t('communications.messageLog.scopedStudent'))).toHaveCount(0);
     await expect(
@@ -206,6 +230,14 @@ test.describe('admin, API mocks', () => {
     student_id: null,
     guardian_id: null,
     created_at: '2026-01-15T05:00:00.000Z',
+    message_body: 'Dues reminder',
+    subject: null,
+    segments: 1,
+    batch_id: null,
+    is_test: false,
+    sent_by_user_id: null,
+    sent_by_name: null,
+    can_check_status: false,
   };
   const rows = [
     {
@@ -215,6 +247,12 @@ test.describe('admin, API mocks', () => {
       status: 'SENT',
       provider: 'onecodesoft',
       provider_message_id: 'vendor-1',
+      // The one row the server says can be checked; every other row says no.
+      can_check_status: true,
+      is_test: true,
+      batch_id: 'b0000000-0000-4000-8000-000000000001',
+      sent_by_user_id: 'a0000000-0000-4000-8000-0000000000aa',
+      sent_by_name: 'Rahima Akter',
     },
     {
       ...base,
@@ -258,14 +296,7 @@ test.describe('admin, API mocks', () => {
       provider_message_id: 'vendor-6',
     },
   ];
-  const company = (name: string, capabilities: string[]) => ({
-    medium: 'SMS',
-    name,
-    label: { en: name, bn: name },
-    capabilities,
-    fields: [],
-    supportsTestMessage: false,
-  });
+  const company = (name: string) => ({ medium: 'SMS', name, label: { en: name, bn: name } });
 
   async function mockApi(page: Page, seen: string[]) {
     await page.route('**/api/v1/communications/logs?*', (route) => {
@@ -274,25 +305,23 @@ test.describe('admin, API mocks', () => {
         json: { data: rows, total: rows.length, page: 1, limit: 25, totalPages: 1 },
       });
     });
-    await page.route('**/api/v1/schools/*/settings/messaging/providers', (route) =>
+    await page.route('**/api/v1/communications/logs/filter-options', (route) =>
       route.fulfill({
         json: {
-          SMS: {
-            providers: [company('onecodesoft', ['status']), company('greenweb', [])],
-            configured: true,
-            selected: 'onecodesoft',
-          },
+          companies: [company('onecodesoft'), company('greenweb')],
+          senders: [{ id: 'a0000000-0000-4000-8000-0000000000aa', full_name: 'Rahima Akter' }],
         },
       }),
     );
   }
 
-  test('Check status shows only for SENT + company id + a company that can report; 409 shows the fixed sentence', async ({
+  test('Check status follows the row flag; a 409 shows our sentence, never the server text', async ({
     page,
   }) => {
     await mockApi(page, []);
     const list = logPage(page);
-    const fixed = 'The company cannot check this message right now.';
+    // Server text the page must never show (Rule 23/24): it picks its own translated sentence.
+    const fixed = 'Server English text that must not reach the user.';
     let checks = 0;
     await page.route('**/api/v1/communications/logs/*/check-status', (route) => {
       checks += 1;
@@ -332,10 +361,18 @@ test.describe('admin, API mocks', () => {
       await expect(page.getByRole('dialog')).toBeHidden();
     }
 
-    // Back on the first row: press it, read the server's sentence, page stays usable.
+    // Back on the first row: its D22 detail (Test mark, sender, round link), then press it.
     await list.clickRowAction(`Can Check ${stamp}`, 'communications.messageLog.viewDetail');
-    await checkButton.click();
-    await expect(page.getByText(fixed)).toBeVisible();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText(t('communications.messageLog.detail.test'))).toBeVisible();
+    await expect(dialog.getByText('Rahima Akter', { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByRole('link', { name: t('communications.messageLog.detail.batchLink') }),
+    ).toHaveAttribute('href', /b0000000-0000-4000-8000-000000000001/);
+    await checkButton.dblclick();
+    await expect(page.getByText(t('communications.messageLog.checkStatusCannot'))).toBeVisible();
+    await expect(page.getByText(fixed)).toHaveCount(0);
+    // A double click asks once.
     expect(checks).toBe(1);
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(checkButton).toBeEnabled();
@@ -369,16 +406,32 @@ test.describe('admin, API mocks', () => {
 });
 
 test.describe('who can reach it', () => {
-  test.describe('accountant (has COMMUNICATION_BULK_SEND)', () => {
-    test.use(loggedIn('accountant'));
-    test('nav link and page work', async ({ page }) => {
-      await page.goto('/communications/message-log');
-      await logPage(page).expectLoaded();
-      await expect(
-        page.getByRole('link', { name: t('nav.items.messageLog'), exact: true }),
-      ).toBeVisible();
+  for (const role of ['accountant', 'office_staff'] as const) {
+    test.describe(`${role} (has COMMUNICATION_BULK_SEND, not SETTINGS_MANAGE / USER_READ)`, () => {
+      test.use(loggedIn(role));
+      test('nav link and page work, with the Company filter and no 403 on load', async ({
+        page,
+      }) => {
+        const forbidden: string[] = [];
+        page.on('response', (res) => {
+          if (res.url().includes('/api/') && res.status() === 403) forbidden.push(res.url());
+        });
+        const options = page.waitForResponse(
+          (r) => r.url().includes('/api/v1/communications/logs/filter-options') && r.ok(),
+        );
+        await page.goto('/communications/message-log');
+        await logPage(page).expectLoaded();
+        await options;
+        await expect(
+          page.getByRole('link', { name: t('nav.items.messageLog'), exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole('combobox', { name: t('communications.messageLog.companyLabel') }),
+        ).toBeVisible();
+        expect(forbidden).toEqual([]);
+      });
     });
-  });
+  }
 
   test.describe('teacher (LOG_READ only)', () => {
     test.use(loggedIn('teacher'));

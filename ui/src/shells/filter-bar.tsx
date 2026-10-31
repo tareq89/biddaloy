@@ -75,8 +75,6 @@ export interface TextFilterField extends FilterFieldBase {
    * worth the API complexity for a mistake `console.warn` already flags
    * loudly in development). */
   primary?: boolean;
-  /** Focus this box when the page opens (the bar's copy only, never the sheet's). */
-  autoFocus?: boolean;
   /** Display-only chip text, e.g. a numeric text filter shown in tenant digits; the URL keeps the raw value. */
   formatChip?: (value: string) => string;
 }
@@ -306,8 +304,6 @@ export function FilterBar({ fields, values, onChange, debounceMs, resultCount }:
           <Input
             id={id(f.key)}
             placeholder={f.placeholder}
-            // eslint-disable-next-line jsx-a11y/no-autofocus -- opt-in per page, for a list whose first task is to search
-            autoFocus={f.autoFocus === true && scope === 'bar'}
             className={f.primary ? 'ps-10' : 'w-full'}
             value={localValues[f.key] ?? ''}
             onChange={(event) => setLocalValue(f.key, event.target.value)}

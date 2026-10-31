@@ -148,8 +148,6 @@ describe('/communications/message-log', () => {
     const { router } = render('/communications/message-log');
 
     const box = await screen.findByRole('textbox', { name: 'Search' });
-    // D17: the keyboard path starts at the search box.
-    await waitFor(() => expect(document.activeElement).toBe(box));
     await user.type(box, 'Karim');
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ search: 'Karim' }));
