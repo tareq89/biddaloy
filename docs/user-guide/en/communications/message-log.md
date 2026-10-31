@@ -19,7 +19,7 @@ labels:
     nav:groups.communications,
   ]
 helpIds: [communications.messageLog]
-devices: [desktop]
+devices: [desktop, phone]
 entry: [sidebar, palette, page:people.students, page:people.guardians, dashboard:failed-messages]
 keywords: [message log, sms, delivered, failed, check status, delivery, sent messages]
 appVersion: 0.1.0 (dcf72606a)
@@ -34,7 +34,7 @@ Every message the school sent, in one place: to whom, when, how, who sent it, an
 
 App (push) notifications are not in this log. It is not a record of those.
 
-**Where to go:** in the left menu, **Communications → Message log**. Do the work on this page on a computer.
+**Where to go:** in the left menu, **Communications → Message log**. It works on a computer or a phone ([On a phone](#task-phone)).
 **Before you start:** be an Admin, Accountant or Office staff ([who can do what](#roles)).
 
 [Find a message](#task-main) · [What the statuses mean](#confirm) · [Check status](#task-check) · [Problems and fixes](#trouble)
@@ -49,6 +49,7 @@ App (push) notifications are not in this log. It is not a record of those.
   - [Narrow the list with filters](#task-filter)
   - [One student's or guardian's messages](#task-scoped)
   - [The **Test** mark](#task-test)
+  - [On a phone](#task-phone)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
 - [Learn more](#more)
@@ -140,6 +141,18 @@ Every filter and **Check status** work here too, on that person's messages only.
 ### The **Test** mark <a href="#task-test" id="task-test"></a>
 
 A test message sent from **Settings › Communication** shows a **Test** mark next to **Status** in its details. It is a real message; for SMS it uses credit.
+
+### On a phone <a href="#task-phone" id="task-phone"></a>
+
+On a phone each message is a card: the recipient and the **Sent** time at the top, **Status** on the right, the other columns under them, and **View message** at the bottom of the card.
+
+1. **Search** stays at the top. For the other filters press **Filters** (it shows a number when some are set, such as **Filters (2)**).
+
+   → A sheet opens with every filter. The list changes as you choose.
+
+2. Press **Show … results** at the bottom of the sheet.
+
+   → The sheet closes and the list shows.
 
 ---
 
