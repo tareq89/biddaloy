@@ -452,8 +452,6 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     AcademicYearModule,
     CalendarModule,
     ClassModule,
-    // [83.3.2] My coordination (needs Exams + Attention, so not inside ClassModule).
-    CoordinationModule,
     EnrollmentModule,
     UserModule,
     StudentModule,
@@ -502,6 +500,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     SocialAuthModule,
     TrialModule,
     DemoModule,
+    // [83.3.2] My coordination. Last on purpose: it imports Exams + Attention (so it cannot live
+    // inside ClassModule), and registering it last keeps every other module's route order.
+    CoordinationModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],

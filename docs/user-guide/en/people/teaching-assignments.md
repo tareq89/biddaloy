@@ -249,13 +249,16 @@ Someone without permission who opens the page sees **You don't have access to th
 
 <!-- guide:generated:fields:teacherAssignments -->
 
-| Field           | What to enter                                                                                                                                    | Required?                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| Class           | Which class's sections you will look at. You also choose it when giving from the teacher's page.                                                 | Yes (when giving from the teacher's page)      |
-| Section         | Which section, when giving from the teacher's page. You can choose it after choosing the class.                                                  | Yes (when giving from the teacher's page)      |
-| Teacher         | The person you will give the duty to. The employee ID is beside the name. Only staff who have a teacher profile.                                 | Yes                                            |
-| Assignment type | **Class teacher** (only one per section; a new one replaces the earlier), **Assistant class teacher**, or **Subject teacher** (for one subject). | Yes, **Class teacher** is chosen to begin with |
-| Subject         | Only for a **Subject teacher**: which subject. From the active subjects.                                                                         | Yes, for **Subject teacher**                   |
+| Field           | What to enter                                                                                                                                                | Required?                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| Class           | Which class's sections you will look at. You also choose it when giving from the teacher's page.                                                             | Yes (when giving from the teacher's page)      |
+| Section         | Which section, when giving from the teacher's page. You can choose it after choosing the class.                                                              | Yes (when giving from the teacher's page)      |
+| Teacher         | The person you will give the duty to. The employee ID is beside the name. Only staff who have a teacher profile.                                             | Yes                                            |
+| Assignment type | **Class teacher** (only one per section; a new one replaces the earlier), **Assistant class teacher**, or **Subject teacher** (for one subject).             | Yes, **Class teacher** is chosen to begin with |
+| Subject         | Only for a **Subject teacher**: which subject. From the active subjects.                                                                                     | Yes, for **Subject teacher**                   |
+| Kind            | **Class coordinator** sees every subject of the class. **Subject coordinator** sees only one subject. Both only read; they never change marks or attendance. | Set by the subject choice                      |
+| Classes         | One or more classes of this year. A coordinator sees every section of each class.                                                                            | Yes                                            |
+| Subject         | Leave empty for a **Class coordinator**. Choose a subject for a **Subject coordinator**.                                                                     | No                                             |
 
 <!-- /guide:generated -->
 
