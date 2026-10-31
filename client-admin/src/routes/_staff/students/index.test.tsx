@@ -107,7 +107,7 @@ describe('/students', () => {
     expect(screen.queryByRole('link', { name: 'Collect fees' })).toBeNull();
   });
 
-  it('bulk-selecting rows reveals Send reminder and Export CSV, hides them again once cleared', async () => {
+  it('bulk-selecting rows reveals Send reminder and the ticked-rows download, hides them again once cleared', async () => {
     const students = [
       studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' }),
       studentFactory({ id: 'student-2', full_name: 'Karim Ahmed' }),
@@ -129,7 +129,11 @@ describe('/students', () => {
     await user.click(await screen.findByRole('checkbox', { name: 'Select row 1' }));
 
     expect(await screen.findByRole('button', { name: 'Send reminder' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'More ways to download' }));
+    expect(
+      await screen.findByRole('menuitem', { name: /^Only the .*1.* you ticked$/ }),
+    ).toBeTruthy();
+    await user.keyboard('{Escape}');
 
     await user.click(screen.getByRole('button', { name: 'Clear selection' }));
 
@@ -271,7 +275,8 @@ describe('/students', () => {
       });
 
       const user = userEvent.setup();
-      await user.click(await screen.findByRole('button', { name: 'Export CSV' }));
+      await user.click(await screen.findByRole('button', { name: 'More ways to download' }));
+      await user.click(await screen.findByRole('menuitem', { name: /you ticked/ }));
 
       await waitFor(() => expect(capturedBlob).toBeDefined());
       const csvText = await capturedBlob!.text();

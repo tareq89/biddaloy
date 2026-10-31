@@ -1,6 +1,11 @@
 import { Permission, PaymentMethod } from '@biddaloy/shared';
-import { RoutePending, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
-import { useHasPermission, type Payment } from '@biddaloy/ui/hooks';
+import {
+  ExportMenu,
+  RoutePending,
+  StatusBadge,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
+import { downloadListExport, useHasPermission, type Payment } from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
   useRegionConfig,
@@ -82,12 +87,13 @@ function PaymentsPage() {
 
 function PaymentsList({ canRecord, onRecord }: { canRecord: boolean; onRecord: () => void }) {
   const { t } = useTranslation('payments');
+  const canExportAll = useHasPermission(Permission.REPORTS_EXPORT);
   const regionConfig = useRegionConfig();
   const [state, actions] = useListShellState();
   const filters = state.filters;
   const includeReversed = filters.include_reversed === 'true';
 
-  const query = usePaymentsList({
+  const paymentListParams = {
     page: state.page,
     limit: state.limit,
     ...(filters.search ? { search: filters.search } : {}),
@@ -95,7 +101,8 @@ function PaymentsList({ canRecord, onRecord }: { canRecord: boolean; onRecord: (
     ...(filters.date_from ? { date_from: filters.date_from } : {}),
     ...(filters.date_to ? { date_to: filters.date_to } : {}),
     ...(includeReversed ? { include_reversed: true } : {}),
-  });
+  };
+  const query = usePaymentsList(paymentListParams);
 
   const filterFields: FilterFieldDescriptor[] = [
     {
@@ -202,6 +209,16 @@ function PaymentsList({ canRecord, onRecord }: { canRecord: boolean; onRecord: (
           onClick: onRecord,
         },
       ]}
+      // [8.15.17] Everything matching the filters below, as Excel (or CSV from the arrow).
+      tabs={
+        <ExportMenu
+          totalCount={query.data?.total ?? 0}
+          canExportAll={canExportAll}
+          onExportAll={(format) =>
+            downloadListExport('/payments/export', paymentListParams, format)
+          }
+        />
+      }
       filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
       tableId="payments-list"
       caption={t('list.caption')}

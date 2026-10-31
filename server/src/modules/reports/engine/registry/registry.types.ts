@@ -20,8 +20,10 @@ export interface EntityDef {
   alias: string;
   table: string;
   /**
-   * The column holding the school id, or `null` for a table that has none
-   * (`student_fees`). A table without one MUST name `tenantVia`.
+   * The column holding the school id, or `null` for a table that has none. A table without one
+   * MUST name `tenantVia`: a root (`student_fees`) is scoped through an always-joined table that
+   * has `tenant_id`; a joined lookup (`users`) is reached only from a scoped row, so `tenantVia`
+   * is the alias it joins from.
    */
   tenantColumn: 'tenant_id' | null;
   /**
@@ -69,6 +71,16 @@ export interface MeasureDef {
   sql: string;
   type: ReportFieldType;
   entity: string;
+  /** What the number reveals; a money total is FINANCIAL, a head count PUBLIC. */
+  sensitivity: FieldSensitivity;
+}
+
+/** How a TEACHER's view of an area is narrowed to the sections they teach (D5). */
+export interface AreaScopeDef {
+  /** The row's class-section id, e.g. `e.section_id`. */
+  sectionSql: string;
+  /** Alias of the entity that expression reads, so the compiler joins it. */
+  alias: string;
 }
 
 export interface SubjectAreaDef {
@@ -77,4 +89,12 @@ export interface SubjectAreaDef {
   joins: readonly JoinDef[];
   fields: readonly FieldDef[];
   measures: readonly MeasureDef[];
+  /** Absent when rows have no section (staff): a TEACHER cannot run reports on such an area. */
+  scope?: AreaScopeDef;
+  /**
+   * Predicates (aliases only) that are always part of the area, because they define what one row
+   * of it IS: e.g. payments counts a payment only when it succeeded or is part of a reversal,
+   * exactly as the collections report does. A definition filter can narrow further, never widen.
+   */
+  baseWhere?: readonly string[];
 }

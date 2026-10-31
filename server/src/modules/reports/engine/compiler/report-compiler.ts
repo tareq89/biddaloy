@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, type SelectQueryBuilder } from 'typeorm';
-import type { ReportDefinitionJson, ReportFieldType } from '@biddaloy/shared';
+import type { AggregateFn, ReportDefinitionJson, ReportFieldType } from '@biddaloy/shared';
 import { ReportRegistry } from '../registry/registry';
-import { type ReportRunContext, RoleScopePolicy } from '../security/role-scope.policy';
+import {
+  type ReportRunContext,
+  RoleScopePolicy,
+  type ScopeClause,
+} from '../security/role-scope.policy';
 import { ReportCompileError } from './compiler.errors';
 import { entitiesInQuery, planJoins } from './join-planner';
 import { buildQuery } from './sql-builder';
@@ -15,6 +19,8 @@ export interface CompiledColumn {
   labelBn: string;
   type: ReportFieldType;
   kind: 'dimension' | 'measure';
+  /** Measures only: how it is aggregated (the runner hides small COUNTs from COMMITTEE). */
+  fn?: AggregateFn;
 }
 
 export interface CompiledReport {
@@ -39,11 +45,28 @@ export class ReportCompiler {
     private readonly policy: RoleScopePolicy,
   ) {}
 
-  compile(
+  /** The entry point: asks the policy which rows the runner may see, then builds the query. */
+  async compile(
     definition: ReportDefinitionJson,
     values: Record<string, unknown>,
     ctx: ReportRunContext,
     maxRows: number,
+  ): Promise<CompiledReport> {
+    const area = this.registry.area(definition.subjectArea);
+    // Validate first so a malformed definition is reported as such before any access check.
+    validateDefinition(definition, area, values);
+    if (!area) throw new ReportCompileError('UNKNOWN_AREA', 'subjectArea');
+    const scope = await this.policy.scopeFor(ctx, area);
+    return this.compileWithScope(definition, values, ctx, maxRows, scope);
+  }
+
+  /** Builds the query for a given row scope. Synchronous and pure, so specs can drive it directly. */
+  compileWithScope(
+    definition: ReportDefinitionJson,
+    values: Record<string, unknown>,
+    ctx: ReportRunContext,
+    maxRows: number,
+    scope: readonly ScopeClause[],
   ): CompiledReport {
     const area = this.registry.area(definition.subjectArea);
     const validated = validateDefinition(definition, area, values);
@@ -57,14 +80,11 @@ export class ReportCompiler {
       else masked.push(field.key);
     }
     for (const { measure, alias } of validated.measures) {
-      // A measure carries the sensitivity of the field it adds up; its registry entry is checked the same way.
-      const source = area.fields.find((f) => f.entity === measure.entity && f.sql === measure.sql);
-      if (!source || this.policy.fieldAllowed(ctx, source)) visible.add(alias);
+      if (this.policy.fieldAllowed(ctx, measure)) visible.add(alias);
       else masked.push(alias);
     }
     if (visible.size === 0) throw new ReportCompileError('NOTHING_TO_SHOW', 'dataset');
 
-    const scope = this.policy.scopeFor(ctx);
     const referenced = new Set<string>();
     for (const { field } of validated.dimensions)
       if (visible.has(field.key)) referenced.add(field.entity);
@@ -104,6 +124,7 @@ export class ReportCompiler {
           labelBn: measure.labelBn,
           type: measure.type,
           kind: 'measure' as const,
+          fn: measure.fn,
         })),
     ];
 

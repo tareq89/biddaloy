@@ -384,6 +384,21 @@
       "other": "Other"
     }
   },
+  "export": {
+    "groupLabel": "Download",
+    "excel": "Download to Excel",
+    "people_one": "{{n}} person",
+    "people_other": "{{n}} people",
+    "items_one": "{{n}} item",
+    "items_other": "{{n}} items",
+    "moreOptions": "More ways to download",
+    "selectedOnly": "Only the {{n}} you ticked",
+    "csv": "For other software (CSV)",
+    "tooLargeClass": "Cannot download more than {{n}} people at once yet. Narrow it by class or section.",
+    "tooLargePeople": "Cannot download more than {{n}} people at once yet. Narrow the filters.",
+    "tooLargeItems": "Cannot download more than {{n}} items at once yet. Narrow the filters.",
+    "failed": "The file could not be downloaded. Try again."
+  },
   "noMatches": {
     "title": "No matches",
     "explanation": "Nothing fits the filters you chose. Change or clear them to see more.",

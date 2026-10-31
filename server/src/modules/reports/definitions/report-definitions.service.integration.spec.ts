@@ -1,0 +1,239 @@
+import { DataSource } from 'typeorm';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  AuditAction,
+  ReportDefinitionStatus,
+  ReportLayoutType,
+  ReportSubjectArea,
+  UserRole,
+  type ReportDefinitionJson,
+} from '@biddaloy/shared';
+import { createTestModule } from '@test/helpers/module.helper';
+import { SEED_ADMIN_USER_ID } from '@test/constants';
+import { ALL_ENTITIES } from '@test/all-entities';
+import { AuditService } from '../../audit/audit.service';
+import { AuditLog } from '../../audit/entities/audit-log.entity';
+import { ReportRegistry } from '../engine/registry/registry';
+import { ReportDefinitionVersion } from '../entities/report-definition-version.entity';
+import { ReportDefinition } from '../entities/report-definition.entity';
+import type { CreateReportDefinitionDto } from './dto/report-definition.dto';
+import { ReportDefinitionsService, type DefinitionViewer } from './report-definitions.service';
+
+/**
+ * [8.15.23] The life of a report against the real database: drafts, immutable versions, copies and
+ * the role-filtered catalogue.
+ */
+describe('ReportDefinitionsService (integration)', () => {
+  let ds: DataSource;
+  let service: ReportDefinitionsService;
+  let tenantId: string;
+  let admin: DefinitionViewer;
+
+  const studentsReport = (field = 'name'): ReportDefinitionJson => ({
+    schema: 1,
+    subjectArea: ReportSubjectArea.STUDENTS,
+    parameters: [],
+    dataset: { dimensions: [{ field }], measures: [], filters: [], sort: [] },
+    layout: { type: ReportLayoutType.TABLE },
+    page: { title_en: 'T', title_bn: 'T', orientation: 'portrait' },
+    drill: [],
+    calculated: [],
+    format: [],
+  });
+
+  const dto = (
+    key: string,
+    over: Partial<CreateReportDefinitionDto> = {},
+  ): CreateReportDefinitionDto => ({
+    key,
+    name_en: `Report ${key}`,
+    name_bn: `রিপোর্ট ${key}`,
+    definition: studentsReport(),
+    ...over,
+  });
+
+  beforeAll(async () => {
+    const module = await createTestModule(ALL_ENTITIES, [
+      AuditService,
+      ReportRegistry,
+      ReportDefinitionsService,
+    ]);
+    ds = module.get(DataSource);
+    service = module.get(ReportDefinitionsService);
+  });
+
+  // The suite's setup wipes tenant data before every test, so seed per test.
+  beforeEach(async () => {
+    const [school] = await ds.query(
+      `INSERT INTO schools (name, slug) VALUES ($1, $2) RETURNING id`,
+      [`Defs ${Math.random()}`, `defs-${Math.random()}`],
+    );
+    tenantId = school.id;
+    admin = { tenantId, userId: SEED_ADMIN_USER_ID, role: UserRole.ADMIN };
+  });
+
+  afterAll(async () => {
+    await ds.destroy();
+  });
+
+  it('publishing twice makes versions 1 and 2, and version 1 never changes', async () => {
+    const draft = await service.createDraft(admin, dto('dues'));
+    const v1 = await service.publish(admin, draft.id);
+    await service.updateDraft(admin, draft.id, { definition: studentsReport('class') });
+    const v2 = await service.publish(admin, draft.id);
+
+    expect([v1.version, v2.version]).toEqual([1, 2]);
+    const stored = await ds.getRepository(ReportDefinitionVersion).findOneByOrFail({ id: v1.id });
+    expect(stored.definition.dataset.dimensions).toEqual([{ field: 'name' }]);
+    const current = await ds.getRepository(ReportDefinition).findOneByOrFail({ id: draft.id });
+    expect(current.current_version_id).toBe(v2.id);
+    expect(current.status).toBe(ReportDefinitionStatus.PUBLISHED);
+  });
+
+  it('a published version cannot be edited, even with SQL', async () => {
+    const draft = await service.createDraft(admin, dto('frozen'));
+    const v1 = await service.publish(admin, draft.id);
+    await expect(
+      ds.query(`UPDATE report_definition_versions SET version = 9 WHERE id = $1`, [v1.id]),
+    ).rejects.toThrow(/immutable/);
+  });
+
+  it('two people publishing at once get two different version numbers', async () => {
+    const draft = await service.createDraft(admin, dto('race'));
+    const [a, b] = await Promise.all([
+      service.publish(admin, draft.id),
+      service.publish(admin, draft.id),
+    ]);
+    expect([a.version, b.version].sort()).toEqual([1, 2]);
+  });
+
+  it('a field that does not exist is refused with UNKNOWN_FIELD, naming the place and not the value', async () => {
+    const error = await service
+      .createDraft(admin, dto('bad', { definition: studentsReport("evil'; DROP TABLE students") }))
+      .catch((e) => e);
+    expect(error.getResponse()).toMatchObject({
+      details: { code: 'UNKNOWN_FIELD', path: 'dataset.dimensions[0]' },
+    });
+    expect(JSON.stringify(error.getResponse())).not.toContain('DROP');
+    expect(await ds.getRepository(ReportDefinition).countBy({ tenant_id: tenantId })).toBe(0);
+  });
+
+  it('a draft that asks a question the report never defines is refused when saved', async () => {
+    const bad = studentsReport();
+    bad.dataset.filters = [{ field: 'class', op: 'EQ' as never, value: { param: 'ghost' } }];
+    await expect(
+      service.createDraft(admin, dto('ghost', { definition: bad })),
+    ).rejects.toMatchObject({
+      response: { details: { code: 'UNKNOWN_PARAM' } },
+    });
+  });
+
+  it('a draft with a question is saved without an answer (answers come when it runs)', async () => {
+    const ok = studentsReport();
+    ok.parameters = [{ key: 'cls', type: 'CLASS', label_en: 'C', label_bn: 'C', required: true }];
+    ok.dataset.filters = [{ field: 'class', op: 'EQ' as never, value: { param: 'cls' } }];
+    await expect(service.createDraft(admin, dto('asks', { definition: ok }))).resolves.toBeTruthy();
+  });
+
+  it('refuses a second report with the same key in one school, allows it in another', async () => {
+    await service.createDraft(admin, dto('same'));
+    await expect(service.createDraft(admin, dto('same'))).rejects.toThrow('already exists');
+    const [other] = await ds.query(
+      `INSERT INTO schools (name, slug) VALUES ('O', $1) RETURNING id`,
+      [`o-${Math.random()}`],
+    );
+    await expect(
+      service.createDraft({ ...admin, tenantId: other.id }, dto('same')),
+    ).resolves.toBeTruthy();
+  });
+
+  it('cannot publish without a draft, or touch another school’s report', async () => {
+    const [other] = await ds.query(
+      `INSERT INTO schools (name, slug) VALUES ('O', $1) RETURNING id`,
+      [`o-${Math.random()}`],
+    );
+    const mine = await service.createDraft(admin, dto('mine'));
+    await expect(service.publish({ ...admin, tenantId: other.id }, mine.id)).rejects.toThrow(
+      'Report not found',
+    );
+    await expect(service.get(other.id, mine.id)).rejects.toThrow('Report not found');
+    await ds.getRepository(ReportDefinition).update({ id: mine.id }, { draft: null });
+    await expect(service.publish(admin, mine.id)).rejects.toThrow('no draft');
+  });
+
+  it('a copy is a new draft that keeps the lineage and takes a free key', async () => {
+    const original = await service.createDraft(admin, dto('base'));
+    await ds
+      .getRepository(ReportDefinition)
+      .update({ id: original.id }, { system_template_key: 'student-list' });
+    await service.publish(admin, original.id);
+
+    const first = await service.clone(admin, original.id);
+    const second = await service.clone(admin, original.id);
+    expect([first.key, second.key]).toEqual(['base-copy', 'base-copy-2']);
+    expect(first).toMatchObject({
+      status: ReportDefinitionStatus.DRAFT,
+      system_template_key: 'student-list',
+      current_version_id: null,
+      name_bn: 'রিপোর্ট base (কপি)',
+    });
+    expect(first.draft).toEqual(original.draft);
+  });
+
+  it('the catalogue shows a teacher only what is open to them, and groups by folder', async () => {
+    const make = async (key: string, folder: string | null, roles: string[]) => {
+      const d = await service.createDraft(
+        admin,
+        dto(key, { folder: folder ?? undefined, visible_roles: roles }),
+      );
+      await service.publish(admin, d.id);
+    };
+    await make('admins-only', 'Finance', [UserRole.ADMIN]);
+    await make('for-teachers', 'Classes', [UserRole.TEACHER, UserRole.ADMIN]);
+    await make('for-everyone', null, []);
+    await service.createDraft(admin, dto('unpublished')); // a draft is in no catalogue
+
+    const teacher = await service.catalogue({ ...admin, role: UserRole.TEACHER });
+    expect(teacher.map((f) => [f.folder, f.reports.map((r) => r.key)])).toEqual([
+      [null, ['for-everyone']],
+      ['Classes', ['for-teachers']],
+    ]);
+
+    const everything = await service.catalogue(admin);
+    expect(everything.flatMap((f) => f.reports.map((r) => r.key)).sort()).toEqual([
+      'admins-only',
+      'for-everyone',
+      'for-teachers',
+    ]);
+  });
+
+  it('an archived report leaves the catalogue and cannot be edited or published', async () => {
+    const d = await service.createDraft(admin, dto('old'));
+    await service.publish(admin, d.id);
+    await service.archive(admin, d.id);
+    expect(await service.catalogue(admin)).toEqual([]);
+    await expect(service.updateDraft(admin, d.id, { name_en: 'x' })).rejects.toThrow('archived');
+    await expect(service.publish(admin, d.id)).rejects.toThrow('archived');
+  });
+
+  it('every change leaves an audit entry that names what happened, not the report body', async () => {
+    const d = await service.createDraft(admin, dto('audited'));
+    await service.updateDraft(admin, d.id, { name_en: 'Renamed' });
+    await service.publish(admin, d.id);
+    await service.archive(admin, d.id);
+
+    const logs = await ds.getRepository(AuditLog).find({
+      where: { entity_id: d.id, entity_type: 'ReportDefinition' },
+      order: { created_at: 'ASC' },
+    });
+    expect(
+      logs.map((l) => [l.action, (l.new_values as Record<string, unknown>).change ?? 'create']),
+    ).toEqual([
+      [AuditAction.CREATE, 'create'],
+      [AuditAction.UPDATE, 'draft'],
+      [AuditAction.UPDATE, 'published'],
+      [AuditAction.UPDATE, 'archived'],
+    ]);
+    expect(JSON.stringify(logs.map((l) => l.new_values))).not.toContain('dimensions');
+  });
+});

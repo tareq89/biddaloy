@@ -304,7 +304,7 @@ describe('/fees/dues', () => {
     expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
   });
 
-  it('bulk-selecting a row reveals Send reminder and Export CSV', async () => {
+  it('bulk-selecting a row reveals Send reminder and the ticked-rows download', async () => {
     server.use(
       http.get('/api/v1/fees/dues', () =>
         HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 10, totalPages: 1 }),
@@ -322,7 +322,9 @@ describe('/fees/dues', () => {
     await user.click(await screen.findByRole('checkbox', { name: 'Select row 1' }));
 
     expect(await screen.findByRole('button', { name: 'Send reminder' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'More ways to download' }));
+    expect(await screen.findByRole('menuitem', { name: 'Only the 1 you ticked' })).toBeTruthy();
+    await user.keyboard('{Escape}');
     expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
     // [16.5.1] Bulk "Generate invoice" was removed — invoices can only be
     // created from a real payment now, there's no more arbitrary
@@ -369,7 +371,8 @@ describe('/fees/dues', () => {
 
       const user = userEvent.setup();
       await user.click(await screen.findByRole('checkbox', { name: 'Select row 1' }));
-      await user.click(screen.getByRole('button', { name: 'Export CSV' }));
+      await user.click(screen.getByRole('button', { name: 'More ways to download' }));
+      await user.click(await screen.findByRole('menuitem', { name: 'Only the 1 you ticked' }));
 
       const csv = await capturedBlob!.text();
       expect(csv).toContain("'=cmd|/c calc");

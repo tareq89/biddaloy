@@ -2,11 +2,13 @@ import { EnrollmentStatus, Permission, RoleScope, roleScope } from '@biddaloy/sh
 import {
   Button,
   CachedDataNotice,
+  ExportMenu,
   RoutePending,
   StatusBadge,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
+  downloadListExport,
   studentQueryOptions,
   studentsQueryOptions,
   useClasses,
@@ -24,15 +26,7 @@ import { ListShell, useListShellState, type FilterFieldDescriptor } from '@bidda
 import { downloadCsv, formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import {
-  DownloadIcon,
-  IdCardIcon,
-  ImageUpIcon,
-  PlusIcon,
-  SendIcon,
-  UploadIcon,
-  XIcon,
-} from 'lucide-react';
+import { IdCardIcon, ImageUpIcon, PlusIcon, SendIcon, UploadIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -230,6 +224,7 @@ function StudentsListPage() {
   const canUpdateStudent = useHasPermission(Permission.STUDENT_UPDATE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
+  const canExportAll = useHasPermission(Permission.REPORTS_EXPORT);
   // A section-scoped role (TEACHER) only lists the sections it teaches this year, so an
   // unfiltered empty list means "no section assigned", not "no students yet". Checked by role
   // scope, not a permission: SUPER_ADMIN holds every permission.
@@ -501,6 +496,21 @@ function StudentsListPage() {
             onClick: () => setPhotosDialogOpen(true),
           },
         ]}
+        // [8.15.17] One button downloads every student matching the filters above; the ticked
+        // rows' CSV is the secondary item.
+        tabs={
+          <ExportMenu
+            totalCount={studentsQuery.data?.total ?? 0}
+            selectedCount={state.selectedIds.size}
+            canExportAll={canExportAll}
+            unit="people"
+            narrowByClass
+            onExportAll={(format) =>
+              downloadListExport('/students/export', studentListFilters, format)
+            }
+            onExportSelected={exportSelectedToCsv}
+          />
+        }
         filters={{ fields: filterFields, values: state.filters, onChange: handleFiltersChange }}
         tableId="students-list"
         caption={t('list.caption')}
@@ -592,10 +602,6 @@ function StudentsListPage() {
                 {t('list.printIdCards', { count: state.selectedIds.size })}
               </Button>
             )}
-            <Button type="button" variant="outline" onClick={() => void exportSelectedToCsv()}>
-              <DownloadIcon className="size-4" aria-hidden />
-              {t('list.exportCsv')}
-            </Button>
             <Button type="button" variant="ghost" onClick={() => actions.setSelectedIds(new Set())}>
               <XIcon className="size-4" aria-hidden />
               {t('list.clearSelection')}

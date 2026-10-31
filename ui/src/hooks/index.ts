@@ -575,6 +575,18 @@ export {
   type CollectionsReportFilters,
   type CollectionsReportResponse,
   type CollectionsReportTotals,
+  downloadListExport,
+  downloadStudentCountExport,
+  ExportTooLargeError,
+  studentCountKeys,
+  studentCountQueryOptions,
+  SYNC_EXPORT_MAX_ROWS,
+  useStudentCount,
+  type ListExportFormat,
+  type ListExportPath,
+  type StaffCountRow,
+  type StudentCountResponse,
+  type StudentCountRow,
 } from './reports';
 export {
   certificateRegisterKeys,
