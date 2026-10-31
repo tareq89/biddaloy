@@ -722,6 +722,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   // permission, COMMITTEE_REPORT_READ [8.10.7 D44].
   [UserRole.COMMITTEE]: [
     Permission.DASHBOARD_VIEW,
+    // [8.15.53] D14 — may open reports; the report engine shows it counts only and hides any
+    // count under 5 (small-cell rule), never a person-level column.
+    Permission.REPORTS_VIEW,
     Permission.COMMITTEE_REPORT_READ,
     Permission.ACR_READ,
     Permission.ACADEMIC_STRUCTURE_READ,

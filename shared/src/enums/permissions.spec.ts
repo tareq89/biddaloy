@@ -1084,3 +1084,11 @@ describe('REPORTS_DESIGN [8.15.8]', () => {
     expect(roleHasPermission(role, Permission.REPORTS_DESIGN)).toBe(false);
   });
 });
+
+describe('REPORTS_VIEW for COMMITTEE [8.15.53]', () => {
+  it('COMMITTEE can open reports but cannot export or design them', () => {
+    expect(roleHasPermission(UserRole.COMMITTEE, Permission.REPORTS_VIEW)).toBe(true);
+    expect(roleHasPermission(UserRole.COMMITTEE, Permission.REPORTS_EXPORT)).toBe(false);
+    expect(roleHasPermission(UserRole.COMMITTEE, Permission.REPORTS_DESIGN)).toBe(false);
+  });
+});

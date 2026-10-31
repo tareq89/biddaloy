@@ -487,6 +487,8 @@ GET    /api/v1/public/invoices/:token                                           
 GET    /api/v1/public/verify/:token                                              PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 GET    /api/v1/reports/collections                                               401 PASS PASS PASS PASS 403 403 403 PASS 403 403 403
 GET    /api/v1/reports/collections.csv                                           401 PASS PASS PASS PASS 403 403 403 PASS 403 403 403
+GET    /api/v1/reports/student-count                                             401 PASS PASS PASS PASS 403 403 403 PASS 403 403 PASS
+GET    /api/v1/reports/student-count/export                                      401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/routines                                                          401 PASS PASS PASS 403 PASS PASS PASS PASS PASS PASS 403
 POST   /api/v1/routines                                                          401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/routines/:id                                                      401 PASS PASS PASS 403 PASS PASS PASS PASS PASS PASS 403
