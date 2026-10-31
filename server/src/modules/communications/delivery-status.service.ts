@@ -13,7 +13,7 @@ import { CommunicationProviderRegistryService } from './providers/communication-
 import { ProviderNotConfiguredError } from './config/provider-not-configured.error';
 import { isMessageSink } from './providers/sink/message-sink';
 import { ReminderBatchLogDto } from './dto/reminders.dto';
-import { toBatchLogDto } from './reminders.service';
+import { logsWithSender, toBatchLogDto } from './reminders.service';
 
 /** D23: one check per log per minute. */
 const COOLDOWN_MS = 60_000;
@@ -47,7 +47,7 @@ export class DeliveryStatusService {
     private readonly registry: CommunicationProviderRegistryService,
   ) {}
 
-  async checkStatus(id: string, tenantId: string): Promise<ReminderBatchLogDto> {
+  async checkStatus(id: string, tenantId: string, role: string): Promise<ReminderBatchLogDto> {
     const log = await this.repo.findOne({ where: { id, tenant_id: tenantId } });
     if (!log) throw new NotFoundException('Communication log not found');
 
@@ -155,10 +155,10 @@ export class DeliveryStatusService {
     if (affected !== 1) throw cannot();
 
     return toBatchLogDto(
-      await this.repo.findOneOrFail({
-        where: { id, tenant_id: tenantId },
-        relations: { sent_by: true },
-      }),
+      await logsWithSender(this.repo)
+        .where('log.id = :id AND log.tenant_id = :tenantId', { id, tenantId })
+        .getOneOrFail(),
+      role,
     );
   }
 }

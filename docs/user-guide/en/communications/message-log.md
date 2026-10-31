@@ -98,7 +98,11 @@ On the demo and staging sites nothing is really sent: the messages land in the *
 
 **Kind** says where the message came from: **Sent by staff**, **Reminder (one)**, **Reminder round**, **Automatic**, **Sign-in codes**, **Exam result** or **Arrival notice**.
 
-A **Sign-in codes** message never shows the code or link; the log keeps only the rest of the text.
+What **Message** never shows:
+
+- A **Sign-in codes** message never shows the code or link; the log keeps only the rest of the text.
+- An invoice link (the receipt after a payment, or **Send to guardian** on a receipt) shows as `…/i/••••••`. The guardian got the working link; the log never shows it, because anyone with the link can open the invoice for 30 days.
+- An **Exam result** message shows **Not shown: only staff who can see exam results can read this message.** to an Accountant. Admin and Office staff see it.
 
 This page does not keep anything on your phone or computer, so there is no "saved on this device" state.
 
@@ -129,7 +133,7 @@ Example: to find the SMS sent to a guardian last Tuesday, type their number in *
 
 Pressing **Messages** on a student's or guardian's page shows only that person's messages. The top says **Showing messages for one student.** or **Showing messages for one guardian.**
 
-This view has no filters and no **Check status**. Press **Show all messages** to go back to every message.
+Every filter and **Check status** work here too, on that person's messages only. **Clear all** keeps the view on that person. Press **Show all messages** to go back to every message.
 
 ### The **Test** mark <a href="#task-test" id="task-test"></a>
 
@@ -139,15 +143,16 @@ A test message sent from **Settings › Communication** shows a **Test** mark ne
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                         | What to do                                                                         | Who can help |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------ |
-| **No messages found.**                                               | The school has not sent a message yet.                                             | —            |
-| **No messages match these filters**                                  | Clear a filter or widen the dates.                                                 | —            |
-| **Could not load the message log.**                                  | Reload the page.                                                                   | Admin        |
-| **The delivery status of this message cannot be checked now.**       | Press again after a minute. If it still says this, this message cannot be checked. | —            |
-| **Could not check the status. Try again in a minute.**               | The company did not answer. Press again after a minute.                            | Admin        |
-| No **Check status**                                                  | The message is not **Sent**, or its company does not report delivery.              | —            |
-| **Why it failed**: **Sending by … is not set up for this school. …** | An Admin turns it on in **Settings › Communication**, then send again.             | Admin        |
+| What you see                                                                           | What to do                                                                         | Who can help |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------ |
+| **No messages found.**                                                                 | The school has not sent a message yet.                                             | —            |
+| **No messages match these filters**                                                    | Clear a filter or widen the dates.                                                 | —            |
+| **Could not load the message log.**                                                    | Reload the page.                                                                   | Admin        |
+| **The delivery status of this message cannot be checked now.**                         | Press again after a minute. If it still says this, this message cannot be checked. | —            |
+| **Could not check the status. Try again in a minute.**                                 | The company did not answer. Press again after a minute.                            | Admin        |
+| No **Check status**                                                                    | The message is not **Sent**, or its company does not report delivery.              | —            |
+| **Message**: **Not shown: only staff who can see exam results can read this message.** | An exam result. Ask an Admin or Office staff to read it.                           | Admin        |
+| **Why it failed**: **Sending by … is not set up for this school. …**                   | An Admin turns it on in **Settings › Communication**, then send again.             | Admin        |
 
 More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
 
@@ -162,7 +167,7 @@ More help with this: [What to do when something goes wrong](../help/troubleshoot
 | Office staff                                                     | Yes         | Yes          |
 | Academic coordinator, Teacher, Exam controller, Committee member | No          | No           |
 
-**Admin, Accountant and Office staff:** all three see every message of the school and every filter; there is no difference.
+**Admin, Accountant and Office staff:** all three see every message of the school and every filter. One difference: an Accountant does not see the text of an **Exam result** message.
 
 For the other roles, **Message log** is not in the left menu.
 

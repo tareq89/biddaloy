@@ -29,7 +29,8 @@ const row = (over: Record<string, unknown> = {}) => ({
   provider: 'onecodesoft',
   error: null,
   created_at: '2026-10-20T09:00:00.000Z',
-  message_body: 'Your dues are 500 taka.',
+  message_body: 'Your dues are 500 taka.' as string | null,
+  body_withheld: false,
   subject: null,
   segments: 2,
   batch_id: BATCH,
@@ -131,7 +132,7 @@ describe('/communications/message-log', () => {
       query = q;
     });
     render(
-      `/communications/message-log?search=${'x'.repeat(101)}&sent_by=u-1&provider=${'p'.repeat(41)}&from_date=yesterday`,
+      `/communications/message-log?search=${'x'.repeat(101)}&sent_by=u-1&provider=${'p'.repeat(41)}&from_date=yesterday&to_date=2026-02-31&student=nope`,
     );
 
     expect(await screen.findByText('Karim Uddin')).toBeTruthy();
@@ -139,6 +140,9 @@ describe('/communications/message-log', () => {
     expect(query?.has('sent_by')).toBe(false);
     expect(query?.has('provider')).toBe(false);
     expect(query?.has('from_date')).toBe(false);
+    // The right shape but no such day: the DTO's IsRealDate would 400 on it.
+    expect(query?.has('to_date')).toBe(false);
+    expect(query?.has('student_id')).toBe(false);
   });
 
   it('typing in Search writes it to the URL and asks the API with it', async () => {
@@ -154,10 +158,11 @@ describe('/communications/message-log', () => {
     await waitFor(() => expect(searches).toContain('Karim'));
   });
 
-  it('shows the plain empty state', async () => {
+  it('shows the plain empty state, without telling to change filters nobody set', async () => {
     mockLogs([]);
     render('/communications/message-log');
     expect(await screen.findByText('No messages found.')).toBeTruthy();
+    expect(screen.getByText('The school has not sent a message yet.')).toBeTruthy();
   });
 
   it('says no message matches when a filter is on', async () => {
@@ -244,6 +249,41 @@ describe('/communications/message-log', () => {
     render('/communications/message-log');
     const dialog = await openDetail();
     expect(!!within(dialog).queryByRole('button', { name: 'Check status' })).toBe(shown);
+  });
+
+  // [#3351 r2] The server holds an exam result back from a role without RESULT_READ.
+  it('row detail says the message is not shown when the server withheld it', async () => {
+    mockLogs([row({ trigger: 'RESULT_SMS', message_body: null, body_withheld: true })]);
+    render('/communications/message-log', 'ACCOUNTANT');
+    const dialog = await openDetail();
+    expect(detailValue(dialog, 'Message').textContent).toBe(
+      'Not shown: only staff who can see exam results can read this message.',
+    );
+  });
+
+  it('when the filter choices fail the list still loads, without Sent by or Company', async () => {
+    server.use(
+      http.get('/api/v1/communications/logs', () => HttpResponse.json(page([row()]))),
+      http.get('/api/v1/communications/logs/filter-options', () => apiError(500, 'boom')),
+    );
+    render('/communications/message-log');
+
+    expect(await screen.findByText('Karim Uddin')).toBeTruthy();
+    // No labels: the Company column shows the company's own name.
+    expect(screen.getAllByText('onecodesoft').length).toBeGreaterThan(0);
+    expect(screen.getByRole('combobox', { name: 'Status' })).toBeTruthy();
+    expect(screen.queryByRole('combobox', { name: 'Sent by' })).toBe(null);
+    expect(screen.queryByRole('combobox', { name: 'Company' })).toBe(null);
+  });
+
+  it('a shared link with a sender outside the choices still shows that sender', async () => {
+    const OTHER = '55555555-5555-4555-8555-555555555555';
+    mockLogs([row({ sent_by_user_id: OTHER, sent_by_name: 'Jamal Hossain' })]);
+    render(`/communications/message-log?sent_by=${OTHER}`);
+
+    expect(await screen.findByText('Karim Uddin')).toBeTruthy();
+    const select = await screen.findByRole('combobox', { name: 'Sent by' });
+    expect(await within(select).findByText('Jamal Hossain')).toBeTruthy();
   });
 
   it('Office staff: the Company and Sent-by filters come from the log, no 403 request is made', async () => {
@@ -462,37 +502,46 @@ describe('/communications/message-log', () => {
     expect(detailValue(open, 'Status').textContent).toContain('Delivered');
   });
 
-  it('?student= reads the student endpoint only and offers no Check status', async () => {
-    const hits: string[] = [];
-    server.use(
-      http.get('/api/v1/communications/:any', ({ request }) => {
-        hits.push(new URL(request.url).pathname);
-        return HttpResponse.json([]);
-      }),
-      http.get(`/api/v1/communications/student/${STUDENT}`, ({ request }) => {
-        hits.push(new URL(request.url).pathname);
-        return HttpResponse.json([row({ provider: undefined, trigger: undefined })]);
-      }),
-    );
-    render(`/communications/message-log?student=${STUDENT}`);
+  // [#3343] One person's messages: the same list, narrowed on the server, with every filter and
+  // Check status. The scope survives a filter change and Clear all (it is not a filter).
+  it('?student= asks the log for that student, keeps the scope through filters, offers Check status', async () => {
+    const user = userEvent.setup();
+    const queries: URLSearchParams[] = [];
+    mockLogs([row()], (q) => queries.push(q));
+    const { router } = render(`/communications/message-log?student=${STUDENT}&status=SENT`);
+
     expect(await screen.findByText('Karim Uddin')).toBeTruthy();
-    // No wasted request for the guardian view with an empty id.
-    expect(hits).toEqual([`/api/v1/communications/student/${STUDENT}`]);
+    expect(screen.getByText('Showing messages for one student.')).toBeTruthy();
+    expect(queries.at(-1)?.get('student_id')).toBe(STUDENT);
     expect(screen.getByRole('link', { name: 'Show all messages' })).toBeTruthy();
+
+    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'Karim');
+    await waitFor(() => expect(queries.at(-1)?.get('search')).toBe('Karim'));
+    expect(queries.at(-1)?.get('student_id')).toBe(STUDENT);
+    expect(queries.at(-1)?.get('status')).toBe('SENT');
+    expect(router.state.location.search).toMatchObject({ student: STUDENT, search: 'Karim' });
+    // The scope is no filter: no chip for it, and Clear all keeps it.
+    expect(screen.queryByRole('button', { name: /student/i })).toBe(null);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear all' }));
+    await waitFor(() => expect(queries.at(-1)?.has('search')).toBe(false));
+    expect(queries.at(-1)?.has('status')).toBe(false);
+    expect(queries.at(-1)?.get('student_id')).toBe(STUDENT);
+    expect(router.state.location.search).toMatchObject({ student: STUDENT });
+
     const dialog = await openDetail();
-    expect(within(dialog).queryByRole('button', { name: 'Check status' })).toBe(null);
+    expect(within(dialog).getByRole('button', { name: 'Check status' })).toBeTruthy();
   });
 
-  it('?guardian= reads the guardian endpoint and says so when nothing was sent', async () => {
-    let hit = '';
-    server.use(
-      http.get(`/api/v1/communications/guardian/${GUARDIAN}`, ({ request }) => {
-        hit = new URL(request.url).pathname;
-        return HttpResponse.json([]);
-      }),
-    );
+  it('?guardian= asks the log for that guardian and says so when nothing was sent', async () => {
+    let query: URLSearchParams | null = null;
+    mockLogs([], (q) => {
+      query = q;
+    });
     render(`/communications/message-log?guardian=${GUARDIAN}`);
     expect(await screen.findByText('No message has been sent to this guardian yet.')).toBeTruthy();
-    expect(hit).toContain(GUARDIAN);
+    expect(screen.getByText('Showing messages for one guardian.')).toBeTruthy();
+    expect((query as URLSearchParams | null)?.get('guardian_id')).toBe(GUARDIAN);
+    expect((query as URLSearchParams | null)?.has('student_id')).toBe(false);
   });
 });

@@ -176,7 +176,7 @@ export class CommunicationsController {
     @Query() query: QueryReminderBatchLogsDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
-    return this.bulkReminderService.findBatchLogs(id, query, tenant.id);
+    return this.bulkReminderService.findBatchLogs(id, query, tenant.id, tenant.role);
   }
 
   @Get('reminder/bulk/:id')
@@ -203,7 +203,7 @@ export class CommunicationsController {
     @Query() query: QueryCommunicationLogsDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
-    return this.bulkReminderService.findLogs(query, tenant.id);
+    return this.bulkReminderService.findLogs(query, tenant.id, tenant.role);
   }
 
   // [97.4.02] D22: the Company and Sent-by filter choices, on the log's own permission, so
@@ -232,7 +232,7 @@ export class CommunicationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
-    return this.deliveryStatus.checkStatus(id, tenant.id);
+    return this.deliveryStatus.checkStatus(id, tenant.id, tenant.role);
   }
 
   @Post('send')

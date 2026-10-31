@@ -251,12 +251,10 @@ export class QueryReminderBatchLogsDto extends QueryReminderBatchesDto {
 }
 
 /**
- * One recipient's delivery record within a batch — the batch detail
- * page's per-recipient status table. `student_id` is what a retry
- * composes its fresh `POST /reminder/bulk` from; `error` is a fixed code
- * for the worker's failure reason (CommunicationLog.metadata.error) so
- * "FAILED" is never unexplained. Message bodies are deliberately
- * excluded — `GET /communications/:id` serves the single-log drill-down.
+ * One message-log row: the batch detail page's per-recipient table, the tenant-wide message log
+ * and the check-status answer. `student_id` is what a retry composes its fresh
+ * `POST /reminder/bulk` from; `error` is a fixed code for the worker's failure reason
+ * (CommunicationLog.metadata.error) so "FAILED" is never unexplained.
  */
 export class ReminderBatchLogDto {
   id: string;
@@ -279,12 +277,16 @@ export class ReminderBatchLogDto {
   error: DeliveryErrorCode | null;
   created_at: Date;
   /**
-   * [97.4.02] D22 row detail. The text as stored: ACCOUNT_ACCESS bodies (codes, links) are
-   * already redacted at write (account-access-delivery.service.ts), so no secret is in it.
+   * [97.4.02] D22 row detail, shaped at read time for the caller (`visibleLogBody`,
+   * reminders.service.ts): invoice share links show as `/i/••••••`, sign-in codes and links were
+   * redacted at write, and an exam result is null without RESULT_READ. Never what was sent.
    */
-  message_body: string;
+  message_body: string | null;
+  /** True when `message_body` is held back from this caller (an exam result without RESULT_READ). */
+  body_withheld: boolean;
   subject: string | null;
-  /** SMS parts: what the send counted (`metadata.segments`), else counted from the text. Null for other channels. */
+  /** SMS parts: what the send counted (`metadata.segments`), else counted from the stored text.
+   * Null for other channels, and for a sign-in SMS with no recorded count (its stored text is redacted). */
   segments: number | null;
   /** The reminder round this message belongs to, for the round's page link. */
   batch_id: string | null;
@@ -344,6 +346,16 @@ export class QueryCommunicationLogsDto {
   @IsOptional()
   @IsEnum(CommunicationTrigger)
   trigger?: CommunicationTrigger;
+
+  /** [#3343] One student's messages (the student page's Messages link). */
+  @IsOptional()
+  @IsUUID()
+  student_id?: string;
+
+  /** [#3343] One guardian's messages (the guardian page's Messages link). */
+  @IsOptional()
+  @IsUUID()
+  guardian_id?: string;
 
   /** The staff user who sent it (`sent_by_user_id`). */
   @IsOptional()

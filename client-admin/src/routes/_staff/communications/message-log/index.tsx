@@ -2,8 +2,8 @@
  * `/communications/message-log` — [87.SD] the tenant-wide message log, [97.4.02] now a nav item
  * with every filter in the URL, a row detail and Check status. The dashboard's Failed messages
  * and SMS balance widgets open it with `?medium=SMS&status=FAILED` / `?medium=SMS`.
- * `?student=<id>` / `?guardian=<id>` (linked from their detail pages) show one person's messages
- * from the endpoints those pages already use.
+ * `?student=<id>` / `?guardian=<id>` (linked from their detail pages) show one person's messages:
+ * the same list and filters, narrowed on the server (`student_id` / `guardian_id`, #3343).
  *
  * Gated on COMMUNICATION_BULK_SEND like Reminder history: the endpoint is
  * tenant-wide, and teachers (who hold LOG_READ) must never see it. Every request this page makes
@@ -22,11 +22,10 @@ import {
   communicationLogsQueryOptions,
   useCheckMessageStatus,
   useCommunicationLogs,
-  useGuardianCommunicationLogs,
   useMessageLogFilterOptions,
-  useStudentCommunicationLogs,
   type CommunicationLogListFilters,
   type MessageLogFilterOptions,
+  type ReminderBatchLog,
 } from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
@@ -44,10 +43,13 @@ import { z } from 'zod';
 import { deliveryErrorKey } from '../-shared/delivery-error';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
-import { fromScopedLog, type LogRow } from './-log-row';
 import { RowDetail } from './-row-detail';
 
-const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+// A real calendar day, like the DTO's `@IsRealDate()`: `2026-02-31` is dropped, not sent.
+const isoDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((s) => !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().startsWith(s));
 
 // Each value is limited the way `QueryCommunicationLogsDto` limits it: a hand-edited value the
 // API would 400 on is dropped instead, so the list still loads.
@@ -80,30 +82,35 @@ const FILTER_KEYS = [
 ] as const;
 type FilterValues = Partial<Record<(typeof FILTER_KEYS)[number], string | undefined>>;
 
+/** One student's or guardian's messages: `?student=` / `?guardian=`, kept apart from the filters
+ * so Clear all never widens the view to the whole school. */
+interface Scope {
+  student?: string | undefined;
+  guardian?: string | undefined;
+}
+
 /** URL values -> API params, one place for the loader and the list (so both use one query key). */
-function toLogFilters(values: FilterValues, page: number, limit: number) {
+function toLogFilters(values: FilterValues, page: number, limit: number, scope: Scope) {
   const filters: Record<string, string | number> = { page, limit };
   for (const key of FILTER_KEYS) {
     const value = values[key];
     if (value) filters[key] = value;
   }
+  if (scope.student) filters.student_id = scope.student;
+  else if (scope.guardian) filters.guardian_id = scope.guardian;
   return filters as CommunicationLogListFilters;
 }
 
 export const Route = createFileRoute('/_staff/communications/message-log/')({
   validateSearch: logsSearchSchema,
   loaderDeps: ({ search }) => ({
-    filters: toLogFilters(search, search.page ?? 1, search.limit ?? 25),
-    scoped: Boolean(search.student ?? search.guardian),
+    filters: toLogFilters(search, search.page ?? 1, search.limit ?? 25, search),
   }),
   loader: ({ context: { queryClient }, deps }) =>
     Promise.all([
-      // The scoped views read their own endpoints in the component.
-      deps.scoped
-        ? undefined
-        : queryClient
-            .ensureQueryData(communicationLogsQueryOptions(deps.filters))
-            .catch(swallowUnlessOffline),
+      queryClient
+        .ensureQueryData(communicationLogsQueryOptions(deps.filters))
+        .catch(swallowUnlessOffline),
       loadRouteNamespaces('communications'),
     ]),
   pendingComponent: MessageLogPending,
@@ -112,21 +119,13 @@ export const Route = createFileRoute('/_staff/communications/message-log/')({
 
 function MessageLogPage() {
   const regionConfig = useTenantRegionConfig();
-  const { student, guardian } = Route.useSearch();
   return (
     <RegionConfigProvider value={regionConfig}>
-      {student ? (
-        <ScopedList kind="student" id={student} />
-      ) : guardian ? (
-        <ScopedList kind="guardian" id={guardian} />
-      ) : (
-        <MessageLogList />
-      )}
+      <MessageLogList />
     </RegionConfigProvider>
   );
 }
 
-const NO_COMPANIES = new Map<string, string>();
 const NO_COMPANY_LIST: MessageLogFilterOptions['companies'] = [];
 
 /** Company name -> label in the current language, from the log's own filter-options list. */
@@ -156,10 +155,10 @@ function checkErrorKey(error: unknown): string | null {
   return error.statusCode === 409 ? 'messageLog.checkStatusCannot' : 'messageLog.checkStatusFailed';
 }
 
-function useLogColumns(onView: (row: LogRow) => void, companies: Map<string, string>) {
+function useLogColumns(onView: (row: ReminderBatchLog) => void, companies: Map<string, string>) {
   const { t } = useTranslation('communications');
   const config = useRegionConfig();
-  const columns: DataTableColumn<LogRow>[] = [
+  const columns: DataTableColumn<ReminderBatchLog>[] = [
     {
       id: 'recipient',
       header: t('batches.detail.recipientHeader'),
@@ -187,7 +186,7 @@ function useLogColumns(onView: (row: LogRow) => void, companies: Map<string, str
     {
       id: 'trigger',
       header: t('messageLog.columnTrigger'),
-      accessorFn: (row) => (row.trigger ? t(`messageLog.triggers.${row.trigger}`) : '—'),
+      accessorFn: (row) => t(`messageLog.triggers.${row.trigger}`),
     },
     {
       id: 'company',
@@ -215,7 +214,7 @@ function useLogColumns(onView: (row: LogRow) => void, companies: Map<string, str
       },
     },
   ];
-  const rowActions = (row: LogRow) => [
+  const rowActions = (row: ReminderBatchLog) => [
     { intent: 'view' as const, label: t('messageLog.viewDetail'), onClick: () => onView(row) },
   ];
   return { columns, rowActions };
@@ -223,16 +222,38 @@ function useLogColumns(onView: (row: LogRow) => void, companies: Map<string, str
 
 function MessageLogList() {
   const { t } = useTranslation('communications');
+  const scope = Route.useSearch({
+    select: (s): Scope => ({ student: s.student, guardian: s.guardian }),
+  });
+  const scopeKind = scope.student ? 'student' : scope.guardian ? 'guardian' : null;
   const [state, actions] = useListShellState();
   // The row itself, not its id: a refetch that moves it off this page must not close the dialog
   // in the middle of a check. A fresher copy on the page still wins.
-  const [viewed, setViewed] = React.useState<LogRow | undefined>(undefined);
+  const [viewed, setViewed] = React.useState<ReminderBatchLog | undefined>(undefined);
   const options = useMessageLogFilterOptions().data;
   const companies = useCompanyLabels(options?.companies);
   const check = useCheckMessageStatus();
 
-  const filters = state.filters as FilterValues;
-  const logsQuery = useCommunicationLogs(toLogFilters(filters, state.page, state.limit));
+  // The filter bar sees the filters only, never the scope (its Clear all nulls every value).
+  const filters: Record<string, string> = Object.fromEntries(
+    FILTER_KEYS.flatMap((key) => (state.filters[key] ? [[key, state.filters[key]]] : [])),
+  );
+  const logsQuery = useCommunicationLogs(toLogFilters(filters, state.page, state.limit, scope));
+  const rows: ReminderBatchLog[] = logsQuery.data?.data ?? [];
+
+  // A shared link can name a sender outside the 100 choices: show them, named from their rows.
+  const senders = options?.senders ?? [];
+  const sentBy = filters.sent_by;
+  const senderChoices =
+    sentBy && !senders.some((s) => s.id === sentBy)
+      ? [
+          ...senders,
+          {
+            id: sentBy,
+            full_name: rows.find((r) => r.sent_by_user_id === sentBy)?.sent_by_name ?? sentBy,
+          },
+        ]
+      : senders;
 
   const filterFields: FilterFieldDescriptor[] = [
     {
@@ -272,14 +293,14 @@ function MessageLogList() {
         label: t(`messageLog.triggers.${trigger}`),
       })),
     },
-    ...(options?.senders.length
+    ...(senderChoices.length
       ? [
           {
             kind: 'select' as const,
             key: 'sent_by',
             label: t('messageLog.sentByLabel'),
             allLabel: t('messageLog.allSenders'),
-            options: options.senders.map((user) => ({ value: user.id, label: user.full_name })),
+            options: senderChoices.map((user) => ({ value: user.id, label: user.full_name })),
           },
         ]
       : []),
@@ -304,7 +325,6 @@ function MessageLogList() {
     },
   ];
 
-  const rows: LogRow[] = logsQuery.data?.data ?? [];
   const shown = viewed && (rows.find((row) => row.id === viewed.id) ?? viewed);
   const { columns, rowActions } = useLogColumns(setViewed, companies);
   const filtered = FILTER_KEYS.some((key) => filters[key]);
@@ -333,8 +353,25 @@ function MessageLogList() {
     <>
       <ListShell
         title={t('messageLog.title')}
-        subtitle={t('messageLog.subtitle')}
-        filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
+        subtitle={t(
+          scopeKind === 'student'
+            ? 'messageLog.scopedStudent'
+            : scopeKind === 'guardian'
+              ? 'messageLog.scopedGuardian'
+              : 'messageLog.subtitle',
+        )}
+        {...(scopeKind
+          ? {
+              actions: [
+                {
+                  id: 'all',
+                  label: t('messageLog.scopedClear'),
+                  to: '/communications/message-log',
+                },
+              ],
+            }
+          : {})}
+        filters={{ fields: filterFields, values: filters, onChange: actions.setFilters }}
         tableId="communication-logs"
         caption={t('messageLog.tableCaption')}
         columns={columns}
@@ -356,7 +393,15 @@ function MessageLogList() {
           icon: <MessageSquareIcon aria-hidden />,
           kind: filtered ? 'no-results' : 'empty',
           title: t(filtered ? 'messageLog.noMatch' : 'messageLog.empty'),
-          explanation: t(filtered ? 'messageLog.noMatchHelp' : 'messageLog.emptyHelp'),
+          explanation: t(
+            filtered
+              ? 'messageLog.noMatchHelp'
+              : scopeKind === 'student'
+                ? 'messageLog.scopedEmptyStudent'
+                : scopeKind === 'guardian'
+                  ? 'messageLog.scopedEmptyGuardian'
+                  : 'messageLog.emptyHelp',
+          ),
         }}
       />
       <RowDetail
@@ -366,61 +411,6 @@ function MessageLogList() {
         checking={check.isPending}
         onCheck={() => shown && runCheck(shown.id)}
       />
-    </>
-  );
-}
-
-/** One student's or guardian's messages, from the endpoints their detail pages already use.
- * Those carry no filters yet (#3343), so none are offered here. */
-function ScopedList({ kind, id }: { kind: 'student' | 'guardian'; id: string }) {
-  const { t } = useTranslation('communications');
-  const [state, actions] = useListShellState();
-  const [viewId, setViewId] = React.useState<string | undefined>(undefined);
-  // The hook not in use gets '' and stays idle (`enabled`).
-  const studentQuery = useStudentCommunicationLogs(kind === 'student' ? id : '');
-  const guardianQuery = useGuardianCommunicationLogs(kind === 'guardian' ? id : '');
-  const query = kind === 'student' ? studentQuery : guardianQuery;
-
-  // The server already answers newest first.
-  const all = React.useMemo(() => (query.data ?? []).map(fromScopedLog), [query.data]);
-  const rows = all.slice((state.page - 1) * state.limit, state.page * state.limit);
-  const viewed = all.find((row) => row.id === viewId);
-  const { columns, rowActions } = useLogColumns((row) => setViewId(row.id), NO_COMPANIES);
-
-  return (
-    <>
-      <ListShell
-        title={t('messageLog.title')}
-        subtitle={t(kind === 'student' ? 'messageLog.scopedStudent' : 'messageLog.scopedGuardian')}
-        actions={[
-          { id: 'all', label: t('messageLog.scopedClear'), to: '/communications/message-log' },
-        ]}
-        tableId="communication-logs-scoped"
-        caption={t('messageLog.tableCaption')}
-        columns={columns}
-        rowActions={rowActions}
-        data={rows}
-        getRowId={(row) => row.id}
-        sorting={state.sorting}
-        onSortingChange={actions.setSorting}
-        page={state.page}
-        pageSize={state.limit}
-        totalCount={all.length}
-        onPageChange={actions.setPage}
-        onPageSizeChange={actions.setLimit}
-        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
-        loading={query.isPending}
-        isFetching={query.isFetching}
-        {...(query.isError ? { error: t('messageLog.error') } : {})}
-        emptyState={{
-          icon: <MessageSquareIcon aria-hidden />,
-          title: t('messageLog.empty'),
-          explanation: t(
-            kind === 'student' ? 'messageLog.scopedEmptyStudent' : 'messageLog.scopedEmptyGuardian',
-          ),
-        }}
-      />
-      <RowDetail row={viewed} onClose={() => setViewId(undefined)} companyLabel={() => null} />
     </>
   );
 }

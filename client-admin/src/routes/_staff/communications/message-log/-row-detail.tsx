@@ -14,31 +14,23 @@ import {
   DialogTitle,
   StatusBadge,
 } from '@biddaloy/ui/components';
+import type { ReminderBatchLog } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDateTime, formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
 
 import { deliveryErrorKey } from '../-shared/delivery-error';
 
-import type { LogRow } from './-log-row';
-
 export interface RowDetailProps {
-  row: LogRow | undefined;
+  row: ReminderBatchLog | undefined;
   onClose: () => void;
   /** Company name -> its label in the current language; null when unknown. */
   companyLabel: (name: string | null) => string | null;
-  checking?: boolean;
-  /** Omitted where Check status is never offered (the student / guardian views). */
-  onCheck?: () => void;
+  checking: boolean;
+  onCheck: () => void;
 }
 
-export function RowDetail({
-  row,
-  onClose,
-  companyLabel,
-  checking = false,
-  onCheck,
-}: RowDetailProps) {
+export function RowDetail({ row, onClose, companyLabel, checking, onCheck }: RowDetailProps) {
   const { t } = useTranslation('communications');
   const config = useRegionConfig();
   if (!row) return null;
@@ -59,7 +51,7 @@ export function RowDetail({
         {row.is_test && <StatusBadge tone="info" label={t('messageLog.detail.test')} />}
       </span>,
     ],
-    [t('messageLog.detail.kind'), row.trigger ? t(`messageLog.triggers.${row.trigger}`) : none],
+    [t('messageLog.detail.kind'), t(`messageLog.triggers.${row.trigger}`)],
     [t('messageLog.detail.sentBy'), row.sent_by_name ?? none],
     [t('messageLog.detail.sent'), formatDateTime(new Date(row.created_at), config)],
     [t('messageLog.detail.company'), companyLabel(row.provider) ?? row.provider ?? none],
@@ -90,7 +82,19 @@ export function RowDetail({
     ...(row.subject ? [[t('messageLog.detail.subject'), row.subject] as [string, string]] : []),
     [
       t('messageLog.detail.message'),
-      row.message_body ? <span className="whitespace-pre-wrap">{row.message_body}</span> : none,
+      // Shaped by the server for this user: share links masked, an exam result held back from a
+      // role that may not read results (body_withheld), never a guess here.
+      row.body_withheld ? (
+        <span key="w" className="text-text-secondary">
+          {t('messageLog.detail.messageWithheld')}
+        </span>
+      ) : row.message_body ? (
+        <span key="m" className="whitespace-pre-wrap">
+          {row.message_body}
+        </span>
+      ) : (
+        none
+      ),
     ],
   ];
 
@@ -113,7 +117,7 @@ export function RowDetail({
           <Button variant="outline" onClick={onClose} disabled={checking}>
             {t('messageLog.detail.close')}
           </Button>
-          {row.can_check_status && onCheck && (
+          {row.can_check_status && (
             <Button loading={checking} onClick={onCheck}>
               {t(checking ? 'messageLog.checkStatusBusy' : 'messageLog.checkStatus')}
             </Button>

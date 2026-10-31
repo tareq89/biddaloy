@@ -67,9 +67,12 @@ import {
   CommunicationMedium,
   CommunicationStatus,
   CommunicationTrigger,
+  Permission,
   ReminderBatchStatus,
   countSmsSegments,
+  roleHasPermission,
 } from '@biddaloy/shared';
+import { REDACTED } from '../account-access/account-access-templates';
 
 // Re-exported so existing imports (this file's own spec, in particular)
 // keep working — the shared #18 single-reminder flow needs these too, so
@@ -108,13 +111,56 @@ export function canCheckStatus(log: CommunicationLog): boolean {
   );
 }
 
+/** A raw invoice share token in a stored body (`${PUBLIC_APP_URL}/i/<base64url>`, Rule 16). */
+const SHARE_LINK = /\/i\/[A-Za-z0-9_-]+/g;
+
 /**
- * One message-log row (batch logs, tenant-wide log, check-status answer). `sent_by_name` needs the
- * `sent_by` relation loaded; every caller loads it, so the row reads the same everywhere.
+ * [#3351 r2] What a message-log row may show of the stored text, decided at READ time for the
+ * caller's role. The stored body is never changed: the worker sends `log.message_body` as stored
+ * (communications.processor.ts), so masking at write would send the guardian a dead link.
+ *
+ * | Kind (who writes it)                                                    | Rule                                 |
+ * | ----------------------------------------------------------------------- | ------------------------------------ |
+ * | Invoice receipt / invoice send (invoice-notifications.listener.ts,      | `/i/<token>` -> `/i/••••••`, every   |
+ * | invoices.controller.ts): a live 30-day share link                       | row and role                         |
+ * | RESULT_SMS (exams/result-sms.service.ts): a student's result            | null unless the role has RESULT_READ |
+ * | ACCOUNT_ACCESS (account-access-delivery.service.ts): codes, links       | already redacted at write            |
+ * | Alert SMS fallback (attention/.../guardian-sms-fallback.service.ts):    | kept: only `child.absent_today` and  |
+ * | the alert title                                                         | `fees.overdue_family` fall back      |
+ * | Study-plan digest (study-plan-flags.scheduler.ts): tasks behind         | kept: no marks or results            |
+ * | Application decision (application-notify.service.ts): approved/rejected | kept: no detail of the application   |
+ * | Homework, calendar, admission, absence/arrival, incident (fixed text),  | kept: what these roles already see   |
+ * | fee reminders, trial notice, staff messages, settings test              | elsewhere, or staff-written text     |
  */
-export function toBatchLogDto(log: CommunicationLog): ReminderBatchLogDto {
+export function visibleLogBody(
+  log: Pick<CommunicationLog, 'trigger' | 'message_body'>,
+  role: string,
+): string | null {
+  if (
+    log.trigger === CommunicationTrigger.RESULT_SMS &&
+    !roleHasPermission(role, Permission.RESULT_READ)
+  ) {
+    return null;
+  }
+  return log.message_body.replace(SHARE_LINK, `/i/${REDACTED}`);
+}
+
+/** A log query with the sender's name only (D22), never the rest of the user row. */
+export function logsWithSender(repo: Repository<CommunicationLog>) {
+  return repo
+    .createQueryBuilder('log')
+    .leftJoin('log.sent_by', 'sender')
+    .addSelect(['sender.id', 'sender.full_name']);
+}
+
+/**
+ * One message-log row (batch logs, tenant-wide log, check-status answer), for the caller's `role`
+ * (see `visibleLogBody`). `sent_by_name` needs the sender loaded (`logsWithSender`).
+ */
+export function toBatchLogDto(log: CommunicationLog, role: string): ReminderBatchLogDto {
   const meta = (log.metadata ?? {}) as { provider?: unknown; segments?: unknown; test?: unknown };
   const provider = meta.provider;
+  const body = visibleLogBody(log, role);
   return {
     id: log.id,
     medium: log.medium,
@@ -128,12 +174,16 @@ export function toBatchLogDto(log: CommunicationLog): ReminderBatchLogDto {
     provider: typeof provider === 'string' ? provider : null,
     error: deliveryErrorCode(log.metadata),
     created_at: log.created_at,
-    message_body: log.message_body,
+    message_body: body,
+    body_withheld: body === null,
     subject: log.subject,
+    // Counted from the stored text, never the masked one. ACCOUNT_ACCESS stores the redacted text
+    // and sends the real one, so without `metadata.segments` its count is unknown.
     segments:
       typeof meta.segments === 'number'
         ? meta.segments
-        : log.medium === CommunicationMedium.SMS
+        : log.medium === CommunicationMedium.SMS &&
+            log.trigger !== CommunicationTrigger.ACCOUNT_ACCESS
           ? countSmsSegments(log.message_body).segments
           : null,
     batch_id: log.reminder_batch_id,
@@ -515,6 +565,7 @@ export class BulkReminderService {
     id: string,
     query: QueryReminderBatchLogsDto,
     tenantId: string,
+    role: string,
   ): Promise<ReminderBatchLogListResponseDto> {
     const batch = await this.batchRepo.findOne({ where: { id, tenant_id: tenantId } });
     if (!batch) {
@@ -524,16 +575,18 @@ export class BulkReminderService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 50;
 
-    const [logs, total] = await this.logRepo.findAndCount({
-      where: { reminder_batch_id: id, tenant_id: tenantId },
-      relations: { sent_by: true },
-      order: { created_at: 'DESC', id: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    // offset/limit, not skip/take: the sender join is many-to-one, so one query pages correctly.
+    const [logs, total] = await logsWithSender(this.logRepo)
+      .where('log.tenant_id = :tenantId', { tenantId })
+      .andWhere('log.reminder_batch_id = :id', { id })
+      .orderBy('log.created_at', 'DESC')
+      .addOrderBy('log.id', 'DESC')
+      .offset((page - 1) * limit)
+      .limit(limit)
+      .getManyAndCount();
 
     return {
-      data: logs.map(toBatchLogDto),
+      data: logs.map((log) => toBatchLogDto(log, role)),
       total,
       page,
       limit,
@@ -549,20 +602,24 @@ export class BulkReminderService {
   async findLogs(
     query: QueryCommunicationLogsDto,
     tenantId: string,
+    role: string,
   ): Promise<ReminderBatchLogListResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
 
-    const qb = this.logRepo
-      .createQueryBuilder('log')
-      // The sender's name only (D22 row detail), never the rest of the user row.
-      .leftJoin('log.sent_by', 'sender')
-      .addSelect(['sender.id', 'sender.full_name'])
+    const qb = logsWithSender(this.logRepo)
       .where('log.tenant_id = :tenantId', { tenantId })
       // PUSH rows are app notifications ('push:<user id>'), not messages a school sent.
       .andWhere('log.medium IN (:...media)', {
         media: query.medium ? [query.medium] : Object.values(CommunicationMedium),
       });
+    // [#3343] One student's or guardian's messages (their detail pages' Messages link).
+    if (query.student_id) {
+      qb.andWhere('log.student_id = :studentId', { studentId: query.student_id });
+    }
+    if (query.guardian_id) {
+      qb.andWhere('log.guardian_id = :guardianId', { guardianId: query.guardian_id });
+    }
     if (query.status) qb.andWhere('log.status = :status', { status: query.status });
     if (query.trigger) qb.andWhere('log.trigger = :trigger', { trigger: query.trigger });
     if (query.sent_by) qb.andWhere('log.sent_by_user_id = :sentBy', { sentBy: query.sent_by });
@@ -606,12 +663,13 @@ export class BulkReminderService {
     const [logs, total] = await qb
       .orderBy('log.created_at', 'DESC')
       .addOrderBy('log.id', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit)
+      // offset/limit, not skip/take: the sender join is many-to-one, so one query pages correctly.
+      .offset((page - 1) * limit)
+      .limit(limit)
       .getManyAndCount();
 
     return {
-      data: logs.map(toBatchLogDto),
+      data: logs.map((log) => toBatchLogDto(log, role)),
       total,
       page,
       limit,
@@ -632,6 +690,8 @@ export class BulkReminderService {
       .select('sender.id', 'id')
       .addSelect('sender.full_name', 'full_name')
       .where('log.tenant_id = :tenantId', { tenantId })
+      // The list hides PUSH rows (app notifications), so their senders are no choice here.
+      .andWhere('log.medium IN (:...media)', { media: Object.values(CommunicationMedium) })
       .groupBy('sender.id')
       .addGroupBy('sender.full_name')
       .orderBy(`sender.full_name COLLATE "${BN_COLLATION}"`, 'ASC')

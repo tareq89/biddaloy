@@ -14,6 +14,7 @@ import {
   addressForMedium,
   canCheckStatus,
   toBatchLogDto,
+  visibleLogBody,
 } from './reminders.service';
 import type { CommunicationLog } from './entities/communication-log.entity';
 import { renderReminderTemplate } from './reminder-template.util';
@@ -1555,43 +1556,61 @@ describe('BulkReminderService', () => {
       sent_by: { full_name: 'Rahima Akter' },
     };
 
+    let qb: any;
     beforeEach(() => {
       batchRepo.findOne.mockResolvedValue({ id: 'batch-1', tenant_id: TENANT });
+      qb = {
+        leftJoin: vi.fn().mockReturnThis(),
+        addSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        addOrderBy: vi.fn().mockReturnThis(),
+        offset: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[logRow], 1]),
+      };
+      logRepo.createQueryBuilder = vi.fn(() => qb);
     });
 
     it('throws NotFound for a batch belonging to another tenant, before touching the logs', async () => {
       batchRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.findBatchLogs('batch-1', {}, 'other-tenant')).rejects.toThrow(
+      await expect(service.findBatchLogs('batch-1', {}, 'other-tenant', 'ADMIN')).rejects.toThrow(
         NotFoundException,
       );
       expect(batchRepo.findOne).toHaveBeenCalledWith({
         where: { id: 'batch-1', tenant_id: 'other-tenant' },
       });
-      expect(logRepo.findAndCount).not.toHaveBeenCalled();
+      expect(logRepo.createQueryBuilder).not.toHaveBeenCalled();
     });
 
-    it('pages the batch logs, scoped to both the batch and the tenant', async () => {
-      logRepo.findAndCount.mockResolvedValue([[logRow], 101]);
+    it('pages the batch logs, scoped to both the batch and the tenant, with the sender name only', async () => {
+      qb.getManyAndCount.mockResolvedValue([[logRow], 101]);
 
-      const result = await service.findBatchLogs('batch-1', { page: 2, limit: 50 }, TENANT);
+      const result = await service.findBatchLogs(
+        'batch-1',
+        { page: 2, limit: 50 },
+        TENANT,
+        'ADMIN',
+      );
 
-      expect(logRepo.findAndCount).toHaveBeenCalledWith({
-        where: { reminder_batch_id: 'batch-1', tenant_id: TENANT },
-        // The sender's name, so a batch row reads like a message-log row (D22).
-        relations: { sent_by: true },
-        order: { created_at: 'DESC', id: 'DESC' },
-        skip: 50,
-        take: 50,
-      });
+      expect(qb.where).toHaveBeenCalledWith('log.tenant_id = :tenantId', { tenantId: TENANT });
+      expect(qb.andWhere).toHaveBeenCalledWith('log.reminder_batch_id = :id', { id: 'batch-1' });
+      // The sender's name, never the whole user row (password_hash), #3351 r2.
+      expect(qb.addSelect).toHaveBeenCalledWith(['sender.id', 'sender.full_name']);
+      expect(qb.orderBy).toHaveBeenCalledWith('log.created_at', 'DESC');
+      expect(qb.addOrderBy).toHaveBeenCalledWith('log.id', 'DESC');
+      expect(qb.offset).toHaveBeenCalledWith(50);
+      expect(qb.limit).toHaveBeenCalledWith(50);
       expect(result.total).toBe(101);
       expect(result.totalPages).toBe(3);
     });
 
     it('surfaces the worker failure reason so FAILED rows are never unexplained', async () => {
-      logRepo.findAndCount.mockResolvedValue([[logRow], 1]);
+      qb.getManyAndCount.mockResolvedValue([[logRow], 1]);
 
-      const result = await service.findBatchLogs('batch-1', {}, TENANT);
+      const result = await service.findBatchLogs('batch-1', {}, TENANT, 'ADMIN');
 
       expect(result.data[0]).toEqual({
         id: 'log-1',
@@ -1608,6 +1627,7 @@ describe('BulkReminderService', () => {
         error: 'NO_PROVIDER',
         created_at: logRow.created_at,
         message_body: 'Dear guardian',
+        body_withheld: false,
         subject: null,
         segments: countSmsSegments('Dear guardian').segments,
         batch_id: 'batch-1',
@@ -1620,9 +1640,9 @@ describe('BulkReminderService', () => {
     });
 
     it('returns a null error when the log has no metadata', async () => {
-      logRepo.findAndCount.mockResolvedValue([[{ ...logRow, metadata: null }], 1]);
+      qb.getManyAndCount.mockResolvedValue([[{ ...logRow, metadata: null }], 1]);
 
-      const result = await service.findBatchLogs('batch-1', {}, TENANT);
+      const result = await service.findBatchLogs('batch-1', {}, TENANT, 'ADMIN');
 
       expect(result.data[0].error).toBeNull();
     });
@@ -1693,6 +1713,7 @@ describe('toBatchLogDto / canCheckStatus', () => {
         metadata: { provider: 'onecodesoft', segments: 2, test: true },
         sent_by: { full_name: 'Rahima Akter' } as CommunicationLog['sent_by'],
       }),
+      'ADMIN',
     );
     expect(row).toMatchObject({
       message_body: 'Dues are 500 taka',
@@ -1707,14 +1728,64 @@ describe('toBatchLogDto / canCheckStatus', () => {
   });
 
   it('counts SMS segments from the text when the send did not record them; null for email', () => {
-    expect(toBatchLogDto(log({ metadata: null })).segments).toBe(
+    expect(toBatchLogDto(log({ metadata: null }), 'ADMIN').segments).toBe(
       countSmsSegments('Dues are 500 taka').segments,
     );
-    expect(toBatchLogDto(log({ medium: CommunicationMedium.EMAIL })).segments).toBe(null);
+    expect(toBatchLogDto(log({ medium: CommunicationMedium.EMAIL }), 'ADMIN').segments).toBe(null);
+  });
+
+  it('a sign-in SMS with no recorded count has no SMS parts (its stored text is redacted)', () => {
+    const signIn = { trigger: CommunicationTrigger.ACCOUNT_ACCESS, message_body: 'Code: ••••••' };
+    expect(toBatchLogDto(log({ ...signIn, metadata: null }), 'ADMIN').segments).toBe(null);
+    expect(toBatchLogDto(log({ ...signIn, metadata: { segments: 2 } }), 'ADMIN').segments).toBe(2);
+  });
+
+  // [#3351 r2] Rule 16 + RESULT_READ, at read time only.
+  const TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcd';
+  const receipt = `Invoice INV-1 paid. See it: https://app.example/i/${TOKEN} Thanks`;
+
+  it('masks every invoice share token, whatever the kind; counts parts from the stored text', () => {
+    for (const trigger of [CommunicationTrigger.AUTOMATED, CommunicationTrigger.MANUAL]) {
+      const row = toBatchLogDto(
+        log({ trigger, message_body: receipt, metadata: null }),
+        'ACCOUNTANT',
+      );
+      expect(row.message_body).toBe(
+        'Invoice INV-1 paid. See it: https://app.example/i/•••••• Thanks',
+      );
+      expect(row.message_body).not.toContain(TOKEN);
+      expect(row.body_withheld).toBe(false);
+      expect(row.segments).toBe(countSmsSegments(receipt).segments);
+    }
+    expect(
+      visibleLogBody(
+        { trigger: CommunicationTrigger.MANUAL, message_body: 'a /i/x and /i/y' },
+        'ADMIN',
+      ),
+    ).toBe('a /i/•••••• and /i/••••••');
+  });
+
+  it('an exam result body is withheld without RESULT_READ (Accountant), shown with it', () => {
+    const result = log({
+      trigger: CommunicationTrigger.RESULT_SMS,
+      message_body: 'Karim: GPA 4.50',
+    });
+    expect(toBatchLogDto(result, 'ACCOUNTANT')).toMatchObject({
+      message_body: null,
+      body_withheld: true,
+    });
+    for (const role of ['ADMIN', 'OFFICE_STAFF']) {
+      expect(toBatchLogDto(result, role)).toMatchObject({
+        message_body: 'Karim: GPA 4.50',
+        body_withheld: false,
+      });
+    }
+    // An unknown role holds nothing, so it is withheld too.
+    expect(visibleLogBody(result, 'nope')).toBe(null);
   });
 
   it('an automatic send has no sender, and a row is not a test unless metadata says so', () => {
-    const row = toBatchLogDto(log({ sent_by_user_id: null, metadata: { test: 'yes' } }));
+    const row = toBatchLogDto(log({ sent_by_user_id: null, metadata: { test: 'yes' } }), 'ADMIN');
     expect(row.sent_by_name).toBe(null);
     expect(row.is_test).toBe(false);
   });

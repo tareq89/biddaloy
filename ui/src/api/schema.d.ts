@@ -9567,7 +9567,8 @@ export interface components {
             provider: string | null;
             /** Format: date-time */
             created_at: string;
-            message_body: string;
+            message_body: string | null;
+            body_withheld: boolean;
             subject: string | null;
             segments: number | null;
             batch_id: string | null;
@@ -17457,6 +17458,8 @@ export interface operations {
             query?: {
                 search?: string;
                 trigger?: "MANUAL" | "AUTOMATED" | "BULK_REMINDER" | "SINGLE_REMINDER" | "ACCOUNT_ACCESS" | "RESULT_SMS" | "ARRIVAL_NOTICE";
+                student_id?: string;
+                guardian_id?: string;
                 sent_by?: string;
                 provider?: string;
                 status?: "QUEUED" | "SENT" | "DELIVERED" | "FAILED" | "READ";

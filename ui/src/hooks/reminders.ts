@@ -177,6 +177,9 @@ export function useReminderBatches(filters: ReminderBatchListFilters = {}) {
 // [87.SD] Mirrors `QueryCommunicationLogsDto` (reminders.dto.ts).
 export interface CommunicationLogListFilters {
   search?: string;
+  /** [#3343] One student's or guardian's messages (their detail pages' Messages link). */
+  student_id?: string;
+  guardian_id?: string;
   trigger?: CommunicationTrigger;
   sent_by?: string;
   provider?: string;

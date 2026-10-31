@@ -208,6 +208,16 @@ test.describe('admin, real rows', () => {
     await expect(page.getByText(t('communications.messageLog.scopedStudent'))).toBeVisible();
     await list.expectResultCount(1);
 
+    // [#3343] The filters work inside the view too, and the server keeps it to this student.
+    const other = seeded.row.status === 'SENT' ? 'READ' : 'SENT';
+    await page.goto(`/communications/message-log?student=${seeded.studentId}&status=${other}`);
+    await list.expectResultCount(0);
+    await page.goto(
+      `/communications/message-log?student=${seeded.studentId}&status=${seeded.row.status}`,
+    );
+    await list.expectResultCount(1);
+    await expect(page).toHaveURL(new RegExp(`student=${seeded.studentId}`));
+
     // A real link (it can open in a new tab), not a button.
     await page.getByRole('link', { name: t('communications.messageLog.scopedClear') }).click();
     await expect(page).not.toHaveURL(/student=/);
