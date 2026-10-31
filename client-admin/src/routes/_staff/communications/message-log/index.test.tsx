@@ -163,7 +163,9 @@ describe('/communications/message-log', () => {
     render('/communications/message-log');
     const dialog = await openDetail();
     // The providers list arrives separately; wait for the company label before judging.
-    await within(dialog).findByText(over.provider === 'nostatus' ? 'NoStatus SMS' : 'Greenweb');
+    await within(dialog).findByText(
+      (over as { provider?: string }).provider === 'nostatus' ? 'NoStatus SMS' : 'Greenweb',
+    );
     expect(!!within(dialog).queryByRole('button', { name: 'Check status' })).toBe(shown);
   });
 
