@@ -39,19 +39,21 @@
 # "available in N minutes" and waits exactly that long.
 #
 # Because the state lives on GitHub, the script can be stopped and restarted at
-# any time, and `--once` runs a single tick for cron / launchd / CI.
+# any time without losing its place.
+#
+# Where it runs: your Mac, in a terminal tab you leave open. It is not a CI
+# job: CodeRabbit ignores commands from bot accounts, so the comments must come
+# from your own `gh` login. While it loops it holds `caffeinate -i`, so the Mac
+# does not idle-sleep and stop the queue (closing the lid still sleeps it).
 #
 # Usage
 # -----
-#   scripts/coderabbit-review-queue.sh            # loop forever (laptop)
-#   scripts/coderabbit-review-queue.sh --once     # one tick, then exit
-#   scripts/coderabbit-review-queue.sh --dry-run  # print, never comment
+#   scripts/coderabbit-review-queue.sh            # loop until Ctrl-C
+#   scripts/coderabbit-review-queue.sh --dry-run  # loop, print, never comment
+#   scripts/coderabbit-review-queue.sh --once     # one check, then exit
 #
-#   On a Mac, keep it awake while it runs:
-#     caffeinate -i scripts/coderabbit-review-queue.sh
-#
-# Needs: bash (3.2 is fine, macOS default), gh (logged in as a real user, not
-# a bot: CodeRabbit ignores commands from bot accounts), jq.
+# Needs (macOS): bash 3.2 (the built-in one is fine), and
+#   brew install gh jq && gh auth login
 #
 # Settings (environment variables)
 # --------------------------------
@@ -313,6 +315,11 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   rm -rf "$LOCK_DIR" && mkdir "$LOCK_DIR"
 fi
 echo "$$" >"$LOCK_DIR/pid"
+
+# Keep the Mac from idle-sleeping for as long as this process lives.
+if command -v caffeinate >/dev/null 2>&1; then
+  caffeinate -i -w "$$" &
+fi
 
 log "watching $REPO (scope=$REVIEW_SCOPE, gap=${REVIEW_GAP_MIN}m, dry-run=$DRY_RUN); Ctrl-C to stop"
 while true; do

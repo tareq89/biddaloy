@@ -187,8 +187,9 @@ CodeRabbit only auto-reviews PRs into `main`, `develop`, `feature-*` and
 `claude/...-pr2`) and rate-limited PRs need someone to comment
 `@coderabbitai full review`. `scripts/coderabbit-review-queue.sh` does that one
 PR at a time: it waits for CodeRabbit's "Next included review available in N
-minutes", and 60 minutes after the last review, before it asks again. Run it
-with `--help` for the settings.
+minutes", and 60 minutes after the last review, before it asks again. It runs
+on a developer's Mac, not in CI, because CodeRabbit ignores commands from bot
+accounts. Run it with `--help` for the settings.
 
 ## Deliberately not used
 
