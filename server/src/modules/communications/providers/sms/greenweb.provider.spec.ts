@@ -4,7 +4,7 @@ import {
   assertSafeHttpDestination,
   DestinationBlockedError,
 } from '../shared/outbound-destination-guard';
-import { fetchPinnedJson } from '../shared/pinned-http';
+import { fetchPinnedJson, fetchPinnedJsonWithStatus } from '../shared/pinned-http';
 
 // Destination-class validation (real vs. private-network host) is its own
 // unit under test in outbound-destination-guard.spec.ts, and does a real
@@ -31,7 +31,18 @@ vi.mock('../shared/outbound-destination-guard', () => {
 // pinned-http.spec.ts — stub it out here so these tests only assert on
 // gateway-level behavior (routing through it vs. a bare fetch, request
 // shape, response mapping).
-vi.mock('../shared/pinned-http', () => ({ fetchPinnedJson: vi.fn() }));
+// Cases that mock only the body (`fetchPinnedJson`) answer as HTTP 200; the status cases
+// (#3320) mock `fetchPinnedJsonWithStatus` directly.
+vi.mock('../shared/pinned-http', () => {
+  const fetchPinnedJson = vi.fn();
+  return {
+    fetchPinnedJson,
+    fetchPinnedJsonWithStatus: vi.fn(async (...args: unknown[]) => ({
+      status: 200,
+      body: await fetchPinnedJson(...args),
+    })),
+  };
+});
 
 describe('GreenwebProvider', () => {
   let gateway: GreenwebProvider;
@@ -187,6 +198,68 @@ describe('GreenwebProvider', () => {
     // Review round 2, item 3: the fixed sentence, never the guard's text with the address.
     expect(result.error).toBe('This server address cannot be used — check it and try again.');
     expect(result.error).not.toContain('10.0.0.5');
+  });
+
+  // #3320: the HTTP status decides before the body. REJECTED releases the SMS credit; AMBIGUOUS
+  // keeps it held (the message may have gone out), so getting these wrong moves money.
+  describe('HTTP status (#3320)', () => {
+    const config = { gateway: 'greenweb', apiKey: 'key-1' };
+    const answer = (status: number, body: unknown) =>
+      vi.mocked(fetchPinnedJsonWithStatus).mockResolvedValueOnce({ status, body });
+
+    it('send: 401 -> REJECTED with the API key sentence, not retryable', async () => {
+      answer(401, { status: 'error', error_msg: 'Invalid token key-1' });
+      const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        success: false,
+        outcome: 'REJECTED',
+        retryable: false,
+        error: 'Greenweb rejected the API key.',
+      });
+    });
+
+    it('send: 403 -> REJECTED with the API key sentence', async () => {
+      answer(403, undefined);
+      const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({ outcome: 'REJECTED', error: 'Greenweb rejected the API key.' });
+    });
+
+    it('send: 404 HTML page (no JSON body) -> REJECTED', async () => {
+      answer(404, undefined);
+      const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        outcome: 'REJECTED',
+        retryable: false,
+        error: 'Greenweb rejected the message.',
+      });
+    });
+
+    it('send: 5xx whose JSON says status error -> AMBIGUOUS, never REJECTED (credit stays held)', async () => {
+      answer(500, { status: 'error', error_msg: 'Internal error' });
+      const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        success: false,
+        outcome: 'AMBIGUOUS',
+        error: 'Could not reach Greenweb; the message may or may not have been sent.',
+      });
+      expect(r.retryable).toBeUndefined();
+    });
+
+    it('send: a timeout -> AMBIGUOUS', async () => {
+      vi.mocked(fetchPinnedJsonWithStatus).mockRejectedValueOnce(
+        new DOMException('timed out', 'TimeoutError'),
+      );
+      const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r.outcome).toBe('AMBIGUOUS');
+    });
+
+    it('testConnection: 5xx says "could not reach", not "authentication rejected"', async () => {
+      answer(502, undefined);
+      await expect(gateway.testConnection(config)).resolves.toEqual({
+        success: false,
+        message: 'Could not reach the Greenweb API.',
+      });
+    });
   });
 
   describe('testConnection', () => {
