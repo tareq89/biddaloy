@@ -249,10 +249,19 @@ export function translateWorkbookFileError(
   error: unknown,
   file: 'backup' | 'starter' = 'backup',
 ): unknown {
-  const code = (error as { details?: { code?: unknown } } | null)?.details?.code;
-  if (typeof code !== 'string' || !Object.hasOwn(WORKBOOK_FILE_ERROR_KEY, code)) return error;
+  const e = error as { statusCode?: unknown; details?: { code?: unknown } } | null;
+  const code = e?.details?.code;
+  // A file over the upload limit is refused by the upload interceptor before validation,
+  // with a bare 413 and no code: it is the same "too large" for the person.
+  const key =
+    typeof code === 'string' && Object.hasOwn(WORKBOOK_FILE_ERROR_KEY, code)
+      ? WORKBOOK_FILE_ERROR_KEY[code]
+      : e?.statusCode === 413
+        ? WORKBOOK_FILE_ERROR_KEY.TOO_LARGE
+        : undefined;
+  if (!key) return error;
   const group = file === 'starter' ? 'starterFileErrors' : 'fileErrors';
-  return new Error(t(`${group}.${WORKBOOK_FILE_ERROR_KEY[code]}`), { cause: error });
+  return new Error(t(`${group}.${key}`), { cause: error });
 }
 
 /** `renderSummary` — a per-tab create/update/unchanged/delete table (from

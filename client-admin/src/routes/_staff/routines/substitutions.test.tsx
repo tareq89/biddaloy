@@ -165,6 +165,12 @@ function tomorrowIso(): string {
   return new Date(Date.UTC(y!, m! - 1, d! + 1)).toISOString().slice(0, 10);
 }
 const UPCOMING = { ...COVERED, id: 'sub-upcoming', date: tomorrowIso() };
+/** Yesterday in the school's clock may still be today in another zone, so it keeps Delete. */
+function yesterdayIso(): string {
+  const [y, m, d] = tenantTodayIso(REGION_BD_BN).split('-').map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d! - 1)).toISOString().slice(0, 10);
+}
+const YESTERDAY = { ...COVERED, id: 'sub-yesterday', date: yesterdayIso() };
 
 function render(entry = '/routines/substitutions') {
   return renderWithRouter(routeTree, {
@@ -284,6 +290,17 @@ describe('/routines/substitutions', () => {
     render();
     // Both rows render; only the upcoming one can be deleted (the server answers 409 for past).
     await screen.findByText(formatDate(UPCOMING.date, REGION_BD_BN));
+    expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(1);
+  });
+
+  it('keeps Delete on yesterday: the page may not know the school zone, so the server decides', async () => {
+    mockBaseData();
+    server.use(
+      http.get('/api/v1/routines/substitutions', () => HttpResponse.json([COVERED, YESTERDAY])),
+    );
+    render();
+    await screen.findByText(formatDate(YESTERDAY.date, REGION_BD_BN));
+    // COVERED is weeks old (surely past); YESTERDAY keeps its Delete.
     expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(1);
   });
 

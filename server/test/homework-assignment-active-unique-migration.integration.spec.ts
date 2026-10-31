@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { DataSource } from 'typeorm';
+import { DataSource, type QueryRunner } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -15,6 +15,17 @@ describe('HomeworkAssignmentActiveUnique migration (integration)', { timeout: 30
   let ds: DataSource;
   const migration = new HomeworkAssignmentActiveUnique1791900001100();
   const schoolIds: string[] = [];
+  // A runner holds a pool connection from its first query until release(); an unreleased one
+  // keeps ds.destroy() in afterAll waiting.
+  const withRunner = async (fn: (qr: QueryRunner) => Promise<void>) => {
+    const qr = ds.createQueryRunner();
+    await qr.connect();
+    try {
+      await fn(qr);
+    } finally {
+      await qr.release();
+    }
+  };
 
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
@@ -138,7 +149,7 @@ describe('HomeworkAssignmentActiveUnique migration (integration)', { timeout: 30
       const oldStu = await insert(w, { student: w.student }, 'ACTIVE', '3001-01-01');
       const newStu = await insert(w, { student: w.student }, 'ACTIVE', '3001-01-02');
 
-      await migration.up(ds.createQueryRunner());
+      await withRunner((qr) => migration.up(qr));
 
       expect(await statusOf(newSec)).toBe('ACTIVE');
       expect(await statusOf(midSec)).toBe('DEACTIVATED');
@@ -152,7 +163,7 @@ describe('HomeworkAssignmentActiveUnique migration (integration)', { timeout: 30
       );
       expect(n).toBe(6);
       // The helper runs up() again afterwards; take the indexes down so that re-run is clean.
-      await migration.down(ds.createQueryRunner());
+      await withRunner((qr) => migration.down(qr));
     });
   });
 });

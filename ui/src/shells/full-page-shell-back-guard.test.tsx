@@ -7,7 +7,7 @@ import {
   RouterProvider,
   useNavigate,
 } from '@tanstack/react-router';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -25,7 +25,12 @@ import { FullPageShell, useCloseFullPage } from './full-page-shell';
  * (`?assignment=<id>`), so Back is what removes it.
  */
 describe('FullPageShell Back guard', () => {
+  // Each mount makes a browser history that listens on window and wraps pushState/replaceState;
+  // unmount the tree, then destroy every history so no later test gets its callbacks.
+  const routers: { history: { destroy: () => void } }[] = [];
   afterEach(() => {
+    cleanup();
+    for (const r of routers.splice(0)) r.history.destroy();
     window.history.replaceState({}, '', '/');
   });
 
@@ -66,6 +71,7 @@ describe('FullPageShell Back guard', () => {
       history: createBrowserHistory(),
       context: { queryClient },
     });
+    routers.push(router);
     render(
       <QueryClientProvider client={queryClient}>
         <I18nProvider>
@@ -104,6 +110,23 @@ describe('FullPageShell Back guard', () => {
     await screen.findByRole('alertdialog');
     await user.click(screen.getByRole('button', { name: 'Keep editing' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    await waitFor(() => expect(router.state.location.search).toEqual({ add: 1 }));
+    expect(screen.getByText('grid')).toBeTruthy();
+  });
+
+  it('dirty: a jump of several entries (history GO) asks too', async () => {
+    await i18n.changeLanguage('en');
+    const router = mount(true);
+    // /a, /b, /a, /a?add=1: going back two entries lands on /b in one GO step.
+    await router.navigate({ to: '/b' });
+    await screen.findByText('other page');
+    await router.navigate({ to: '/a' });
+    const user = userEvent.setup();
+    await user.click(await screen.findByText('open'));
+    await screen.findByText('grid');
+    window.history.go(-2);
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
     await waitFor(() => expect(router.state.location.search).toEqual({ add: 1 }));
     expect(screen.getByText('grid')).toBeTruthy();
   });

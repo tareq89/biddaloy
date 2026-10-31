@@ -48,6 +48,7 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+import { addDays } from './-marking/dates';
 import { subjectName } from './-subject-name';
 import { SubstitutionDialog } from './-substitution-dialog';
 
@@ -205,8 +206,12 @@ function SubstitutionsPage() {
   );
   const pageSize = 25;
   // #3022: the server refuses to delete a record dated before the school's today, so
-  // the action is not offered (it would only ever answer 409). Same clock the server uses.
-  const today = tenantTodayIso(config);
+  // the action is not offered (it would only ever answer 409). `config` may be the locale
+  // default rather than the school's own zone (settings not loaded, or a role that cannot
+  // read them), and two zones are never a whole day apart: so only a record older than
+  // yesterday is surely past. Yesterday's stays offered; the server decides, and its 409
+  // has its own sentence (`pastDeleteError`).
+  const surelyPastBefore = addDays(tenantTodayIso(config), -1);
 
   function handleDelete() {
     if (!deleting) return;
@@ -343,7 +348,7 @@ function SubstitutionsPage() {
             {
               intent: 'delete',
               label: t('substitutionsPage.deleteAction'),
-              allowed: row.substitution.date >= today,
+              allowed: row.substitution.date >= surelyPastBefore,
               onClick: () => setDeleting(row.substitution),
             },
           ]}

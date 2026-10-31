@@ -50,7 +50,7 @@ export interface FullPageShellProps {
 }
 
 /**
- * Browser Back / Forward (a history `POP`) while the shell is `dirty` asks the same "Discard
+ * Browser Back / Forward (a history `POP`, one entry or several) while the shell is `dirty` asks the same "Discard
  * changes?" question as Close and Esc. Only mounted while dirty. Clicks on links and
  * `navigate()` calls are never blocked: the page's own save-then-leave flow must not be asked.
  * A page's own close (`useCloseFullPage`) was already confirmed by the page, so it passes.
@@ -60,7 +60,9 @@ function BackGuard() {
   const blocker = useBlocker({
     // A page's own close goes through `history.back({ ignoreBlocker: true })`, which skips
     // every blocker for that one pop, so only a real browser Back / Forward reaches here.
-    shouldBlockFn: ({ action }) => action === 'BACK' || action === 'FORWARD',
+    // `GO` is a jump of more than one entry (the long-press Back menu); no app code calls
+    // `history.go`, so it is always the person leaving.
+    shouldBlockFn: ({ action }) => action === 'BACK' || action === 'FORWARD' || action === 'GO',
     // `useWarnUnsavedChanges` owns the tab-close / reload prompt.
     enableBeforeUnload: false,
     withResolver: true,

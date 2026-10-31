@@ -221,6 +221,21 @@ describe('RestoreWizard', () => {
     expect(alert.textContent).not.toContain('Server English text');
   });
 
+  it('maps a bare 413 from the upload limit (no details.code) to the too-large sentence', async () => {
+    server.use(
+      http.post('/api/v1/backup/validate', () =>
+        HttpResponse.json(
+          { statusCode: 413, message: 'File too large', requestId: 'req-1' },
+          { status: 413 },
+        ),
+      ),
+    );
+    await renderAndUpload();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/too large to read/);
+    expect(alert.textContent).not.toContain('File too large');
+  });
+
   it('Confirm stays disabled until the session school name is typed, and enables on an exact match', async () => {
     mockValidate({
       staging_id: 'staging-1',
