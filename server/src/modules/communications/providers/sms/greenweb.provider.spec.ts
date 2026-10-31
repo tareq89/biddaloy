@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GreenwebSmsGateway } from './greenweb-sms.gateway';
+import { GreenwebProvider } from './greenweb.provider';
 import {
   assertSafeHttpDestination,
   DestinationBlockedError,
@@ -12,7 +12,9 @@ import { fetchPinnedJson } from '../shared/pinned-http';
 // `assertSafeHttpDestination` echoes the input URL back as `url` so the
 // "tenant-configured apiUrl" test below stays meaningful.
 vi.mock('../shared/outbound-destination-guard', () => {
-  class OutboundDestinationError extends Error {}
+  class OutboundDestinationError extends Error {
+    readonly publicMessage = 'This server address cannot be used — check it and try again.';
+  }
   class DestinationBlockedError extends OutboundDestinationError {}
   return {
     assertSafeHttpDestination: vi.fn().mockImplementation(async (rawUrl: string) => ({
@@ -31,13 +33,13 @@ vi.mock('../shared/outbound-destination-guard', () => {
 // shape, response mapping).
 vi.mock('../shared/pinned-http', () => ({ fetchPinnedJson: vi.fn() }));
 
-describe('GreenwebSmsGateway', () => {
-  let gateway: GreenwebSmsGateway;
+describe('GreenwebProvider', () => {
+  let gateway: GreenwebProvider;
   let fetchMock: ReturnType<typeof vi.fn>;
   let pinnedFetchMock: ReturnType<typeof vi.mocked<typeof fetchPinnedJson>>;
 
   beforeEach(() => {
-    gateway = new GreenwebSmsGateway();
+    gateway = new GreenwebProvider();
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     pinnedFetchMock = vi.mocked(fetchPinnedJson);
@@ -51,10 +53,13 @@ describe('GreenwebSmsGateway', () => {
   it('sends a GET request with the resolved config and normalized phone number', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success', msgid: 'gw-1' });
 
-    const result = await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'greenweb',
-      apiKey: 'key-1',
-    });
+    const result = await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'greenweb',
+        apiKey: 'key-1',
+      },
+    );
 
     const [, url] = pinnedFetchMock.mock.calls[0]!;
     expect(url).toContain('token=key-1');
@@ -75,10 +80,13 @@ describe('GreenwebSmsGateway', () => {
   it('reports the exact GSM-7 segment count for a plain-English message', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success', msgid: 'gw-3' });
 
-    const result = await gateway.sendSms('01712345678', 'Dear guardian, fees are due.', {
-      gateway: 'greenweb',
-      apiKey: 'key-1',
-    });
+    const result = await gateway.send(
+      { to: '01712345678', body: 'Dear guardian, fees are due.' },
+      {
+        gateway: 'greenweb',
+        apiKey: 'key-1',
+      },
+    );
 
     expect(result.segments).toBe(1);
     const [, url] = pinnedFetchMock.mock.calls[0]!;
@@ -88,9 +96,8 @@ describe('GreenwebSmsGateway', () => {
   it('reports the exact UCS-2 segment count for a Bengali message', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success', msgid: 'gw-4' });
 
-    const result = await gateway.sendSms(
-      '01712345678',
-      'প্রিয় অভিভাবক, আপনার সন্তানের ফি বকেয়া আছে।',
+    const result = await gateway.send(
+      { to: '01712345678', body: 'প্রিয় অভিভাবক, আপনার সন্তানের ফি বকেয়া আছে।' },
       { gateway: 'greenweb', apiKey: 'key-1' },
     );
 
@@ -102,11 +109,14 @@ describe('GreenwebSmsGateway', () => {
   it('uses a tenant-configured apiUrl when given', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success', msgid: 'gw-2' });
 
-    await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'greenweb',
-      apiKey: 'key-1',
-      apiUrl: 'https://custom.example.com/api.php',
-    });
+    await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'greenweb',
+        apiKey: 'key-1',
+        apiUrl: 'https://custom.example.com/api.php',
+      },
+    );
 
     const [, url] = pinnedFetchMock.mock.calls[0]!;
     expect(url).toMatch(/^https:\/\/custom\.example\.com\/api\.php\?/);
@@ -115,10 +125,13 @@ describe('GreenwebSmsGateway', () => {
   it('returns success: false with the provider error message on API failure', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'error', error_msg: 'Insufficient balance' });
 
-    const result = await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'greenweb',
-      apiKey: 'key-1',
-    });
+    const result = await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'greenweb',
+        apiKey: 'key-1',
+      },
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('Insufficient balance');
@@ -127,15 +140,22 @@ describe('GreenwebSmsGateway', () => {
   });
 
   it('returns success: false instead of throwing on a network error', async () => {
-    pinnedFetchMock.mockRejectedValue(new Error('network down'));
+    // Rule 23: a fetch error can carry the request URL (and Greenweb's token in it).
+    pinnedFetchMock.mockRejectedValue(new Error('network down https://gw.test/?token=key-1'));
 
-    const result = await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'greenweb',
-      apiKey: 'key-1',
-    });
+    const result = await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'greenweb',
+        apiKey: 'key-1',
+      },
+    );
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe('network down');
+    expect(result.error).toBe(
+      'Could not reach Greenweb; the message may or may not have been sent.',
+    );
+    expect(result.error).not.toContain('key-1');
     expect(result.retryable).toBeUndefined();
     expect(result.segments).toBe(1);
   });
@@ -143,7 +163,7 @@ describe('GreenwebSmsGateway', () => {
   it('routes through the pinned dispatcher rather than a bare fetch', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success', msgid: 'gw-1' });
 
-    await gateway.sendSms('01712345678', 'hi', { gateway: 'greenweb', apiKey: 'key-1' });
+    await gateway.send({ to: '01712345678', body: 'hi' }, { gateway: 'greenweb', apiKey: 'key-1' });
 
     expect(pinnedFetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -154,13 +174,19 @@ describe('GreenwebSmsGateway', () => {
       new DestinationBlockedError('"10.0.0.5" is a private/reserved address.'),
     );
 
-    const result = await gateway.sendSms('01712345678', 'hi', {
-      gateway: 'greenweb',
-      apiKey: 'key-1',
-    });
+    const result = await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      {
+        gateway: 'greenweb',
+        apiKey: 'key-1',
+      },
+    );
 
     expect(result.success).toBe(false);
     expect(result.retryable).toBe(false);
+    // Review round 2, item 3: the fixed sentence, never the guard's text with the address.
+    expect(result.error).toBe('This server address cannot be used — check it and try again.');
+    expect(result.error).not.toContain('10.0.0.5');
   });
 
   describe('testConnection', () => {

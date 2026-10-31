@@ -19,6 +19,8 @@ import { SmsCreditBalance } from '../../../modules/communications/credits/entiti
 import { PrintTemplatesService } from '../../../modules/print/templates/print-templates.service';
 import { PrintJobsService } from '../../../modules/print/jobs/print-jobs.service';
 import { formatArrivalTime } from '../../../modules/attendance/arrival-notice.service';
+import { buildEncryptionKey } from '../../../modules/schools/settings/encryption-key';
+import { EncryptionService } from '../../../modules/schools/settings/encryption.service';
 import { insertChunked } from '../bulk';
 import { orgIds, type OrgTenant } from './org';
 import { studentIds } from './students';
@@ -92,7 +94,9 @@ export const slice: DemoSlice = {
       rows += await calendarTokens(ctx, tenant, org.adminUserId);
       rows += await printing(ctx, tenant, org.adminUserId);
     }
-    return rows + (await arrivalLogs(ctx));
+    rows += await arrivalLogs(ctx);
+    // Last, so the extra rng draws shift nothing above.
+    return rows + (await messagingSettings(ctx, org.tenants));
   },
 };
 
@@ -629,4 +633,68 @@ async function printing(ctx: DemoSeedContext, tenant: OrgTenant, adminId: string
     }
   }
   return 2 + jobCount;
+}
+
+/**
+ * Epic 97 (D6): every demo school's Settings > SMS / WhatsApp / Email / Messenger show "Set up", in the
+ * per-provider shape. The values are fake (`ctx.rng`, `example.com`); the message sink delivers, so
+ * nothing here is ever called. Raw SQL for the same reason as fees.ts: SchoolsService needs the
+ * organisation guards, which the slice specs stub.
+ */
+export function demoMessagingSettings(
+  rng: DemoSeedContext['rng'],
+  encrypt: (s: string) => string | undefined,
+) {
+  const token = () => encrypt(rng.string.alphanumeric(32));
+  const digits = () => rng.string.numeric(15);
+  return {
+    sms: {
+      provider: 'onecodesoft',
+      onecodesoft: {
+        apiKey: token(),
+        senderId: 'BMSC',
+        apiUrl: 'https://sms.bmsc.example/api',
+      },
+      // No PLATFORM metering: the school sends on its own gateway, so it pays the vendor itself.
+    },
+    whatsapp: {
+      provider: 'meta-cloud',
+      'meta-cloud': { phoneNumberId: digits(), accessToken: token() },
+    },
+    email: {
+      provider: 'smtp',
+      smtp: {
+        host: 'smtp.bmsc.example',
+        port: '587',
+        user: `demo-${rng.string.alphanumeric(6).toLowerCase()}`,
+        password: token(),
+        from: 'noreply@bmsc.example',
+      },
+    },
+    messenger: {
+      provider: 'meta-page',
+      'meta-page': { pageId: digits(), accessToken: token() },
+    },
+  };
+}
+
+async function messagingSettings(ctx: DemoSeedContext, tenants: OrgTenant[]): Promise<number> {
+  // Secrets are stored encrypted, like SchoolsService does. No key (a bare local DB): the secret is left
+  // out (JSON drops undefined), so the page shows "Not set up" instead of the seed failing.
+  const key = buildEncryptionKey(process.env.NODE_ENV, process.env.SETTINGS_ENCRYPTION_KEY);
+  const encryption = new EncryptionService(key, []);
+  const encrypt = (s: string) => (key ? encryption.encrypt(s) : undefined);
+  for (const t of tenants) {
+    // One level deep per medium: the seed's keys on a medium block replace the stored ones (a
+    // provider block is replaced whole); stored keys the seed does not set, and other media, stay.
+    await ctx.ds.query(
+      `UPDATE schools SET settings = COALESCE(settings, '{}'::jsonb) || jsonb_build_object('communications',
+         COALESCE(settings->'communications', '{}'::jsonb) || (
+           SELECT jsonb_object_agg(e.key, COALESCE(settings->'communications'->e.key, '{}'::jsonb) || e.value)
+             FROM jsonb_each($2::jsonb) AS e))
+        WHERE id = $1`,
+      [t.id, JSON.stringify(demoMessagingSettings(ctx.rng, encrypt))],
+    );
+  }
+  return tenants.length;
 }

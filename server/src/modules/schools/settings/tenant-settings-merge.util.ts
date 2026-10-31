@@ -1,5 +1,7 @@
 import { instanceToPlain } from 'class-transformer';
 import type { OrganisationSettings, PresetSettings, RegionSettings } from '@biddaloy/shared';
+import { CommunicationMedium } from '@biddaloy/shared';
+import { soleDescriptorFor, settingsKeyFor, toNestedMedium } from './messaging-descriptors';
 import { TenantSettingsDto } from '../dto/tenant-settings.dto';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
@@ -47,6 +49,29 @@ function deepMergeOmittingUnset(existing: unknown, patch: unknown): unknown {
     merged[key] = deepMergeOmittingUnset(base[key], value);
   }
   return merged;
+}
+
+/**
+ * D6 + D31: when exactly one side of a sole-provider medium is nested, lift the
+ * flat side so the deep merge keeps stored secrets. Flat + flat stays flat. Also used by the
+ * workbook import (`school.tab.ts`).
+ * ponytail: drops with the D6 compat-removal follow-up.
+ */
+export function alignMediumShapes(current: unknown, patch: unknown) {
+  if (!isPlainObject(current) || !isPlainObject(patch)) return { current, patch };
+  const cur = { ...current };
+  const pat = { ...patch };
+  for (const medium of Object.values(CommunicationMedium)) {
+    const key = settingsKeyFor(medium);
+    const sole = soleDescriptorFor(medium);
+    if (!sole || !isPlainObject(cur[key]) || !isPlainObject(pat[key])) continue;
+    const curNested = Object.hasOwn(cur[key], sole.name);
+    const patNested = Object.hasOwn(pat[key], sole.name);
+    if (curNested === patNested) continue;
+    if (curNested) pat[key] = toNestedMedium(pat[key], medium);
+    else cur[key] = toNestedMedium(cur[key], medium);
+  }
+  return { current: cur, patch: pat };
 }
 
 /**
@@ -149,7 +174,8 @@ export function mergeTenantSettings(
   }
 
   if (patch.communications !== undefined) {
-    merged.communications = deepMergeOmittingUnset(current.communications, patch.communications);
+    const aligned = alignMediumShapes(current.communications, patch.communications);
+    merged.communications = deepMergeOmittingUnset(aligned.current, aligned.patch);
   }
 
   if (patch.backup !== undefined) {

@@ -528,6 +528,7 @@ GET    /api/v1/schools/:id/logo                                                 
 POST   /api/v1/schools/:id/revive                                                401 PASS 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/schools/:id/settings                                              401 PASS PASS PASS 403 403 403 403 403 403 403 403
 PATCH  /api/v1/schools/:id/settings                                              401 PASS PASS PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/schools/:id/settings/messaging/providers                          401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/schools/:id/settings/test                                         401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/schools/:id/sms-credits                                           401 PASS 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/schools/:id/sms-credits                                           401 PASS 403 403 403 403 403 403 403 403 403 403

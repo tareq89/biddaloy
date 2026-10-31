@@ -10,7 +10,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, MoreThan, MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
 import { PromotionRunStatus } from '@biddaloy/shared';
-import type { TenantSettings, OrganisationSettings } from '@biddaloy/shared';
+import type {
+  TenantSettings,
+  OrganisationSettings,
+  MessagingProvidersResponse,
+} from '@biddaloy/shared';
+import { buildMessagingProvidersResponse } from './settings/messaging-descriptors';
 import {
   AuditAction,
   CommunicationStatus,
@@ -193,6 +198,11 @@ export class SchoolsService {
     return resolveTenantSettings(school.settings);
   }
 
+  /** D32: schema + selected + configured per medium. Reads stored (encrypted) settings, presence only. Never returns a value. */
+  async getMessagingProviders(schoolId: string): Promise<MessagingProvidersResponse> {
+    return buildMessagingProvidersResponse(await this.getResolvedSettings(schoolId));
+  }
+
   /** The school's local calendar date (YYYY-MM-DD) from its `region.timezone`.
    * `resolveTenantSettings` always fills the timezone (the `??` only satisfies the optional type). */
   async todayFor(tenantId: string): Promise<string> {
@@ -242,7 +252,7 @@ export class SchoolsService {
    * reencrypt-settings.ts` — hasn't reached yet) is dropped from the
    * result and logged with the school and path, rather than failing the
    * whole call: one bad WhatsApp token shouldn't also take down a
-   * school's working SMS or SMTP settings.
+   * school's working messaging settings.
    */
   async getDecryptedSettings(schoolId: string): Promise<TenantSettings> {
     const resolved = await this.getResolvedSettings(schoolId);

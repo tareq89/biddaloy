@@ -11,7 +11,7 @@ flowchart LR
     CTRL["communications.controller.ts\n(send / reminder/single / reminder/bulk)"]
     REG["CommunicationProviderRegistry\n(picks provider by medium + tenant settings)"]
     IFACE["CommunicationProvider\n(interface: .send())"]
-    SMS["SMS\nGreenweb / Mim SMS gateway"]
+    SMS["SMS\nGreenweb / Mim SMS / OneCodeSoft gateway"]
     WA["WhatsApp\nWhatsApp Cloud API"]
     MSG["Messenger\nprovider"]
     EMAIL["Email\nSMTP"]
@@ -46,9 +46,12 @@ change.
 The original plan specified **Twilio** for both SMS and WhatsApp. What
 shipped instead:
 
-- **SMS** — **Greenweb** and **Mim SMS**, two Bangladeshi SMS gateways
-  (`providers/sms/greenweb-sms.gateway.ts`, `.../mim-sms.gateway.ts`),
-  selected per-tenant via `sms-provider.factory.ts`. Twilio's per-message
+- **SMS** — **Greenweb**, **Mim SMS** and **OneCodeSoft**, three Bangladeshi SMS gateways
+  (`providers/sms/greenweb.provider.ts`, `.../mimsms.provider.ts`,
+  `.../onecodesoft.provider.ts`). A school picks one in Settings › SMS, e.g.
+  `communications.sms = { provider: 'onecodesoft', onecodesoft: { apiKey, apiUrl, senderId } }`.
+  OneCodeSoft also reports delivery status and account balance. The gateway is
+  selected per-tenant by `MessagingConfigResolver` (`config/messaging-config.resolver.ts`). Twilio's per-message
   pricing and lack of local carrier relationships make it a poor fit for a
   Bangladesh-market product; local gateways are both cheaper and more
   reliable for BD phone numbers.
@@ -517,3 +520,62 @@ Dated learning (2026-10-28):
 - **Surprise:** a two-level host like `inbox.demo.<domain>` is outside Cloudflare's free Universal certificate, which covers one level only. Cost: the planned names would have failed TLS. Fix: single-level `inbox-demo.` and `inbox-staging.`. Rule candidate: new public hostnames are one label under the apex.
 - **Surprise:** a shared nginx `map` lived in `ops.conf.template`, which the edge deletes when ops is off; the new inbox block then stopped nginx booting. Fix: the inbox template owns its own map. Rule candidate: a template never uses a variable defined in an optional template.
 - **Surprise:** vitest does not type-check, so a stray `, null` argument passed 23 tests and failed `yarn lint`. Rule candidate: run `tsc` on the touched package before committing.
+
+## Epic 97 learning
+
+Wave 1 (#3295, #3296) put one abstract class in front of the five providers. Nothing a user sees changed.
+
+```mermaid
+flowchart LR
+  R[CommunicationProviderRegistry] --> L[messaging-providers.ts<br/>explicit list]
+  L --> S[SmtpProvider]
+  L --> G[GreenwebProvider]
+  L --> M[MimsmsProvider]
+  L --> C[MetaCloudProvider]
+  L --> P[MetaPageProvider]
+  S & G & M & C & P -.extend.-> A[MessagingProvider<br/>abstract class]
+```
+
+Example: adding a provider means one new class that `extends MessagingProvider` plus one line in `messaging-providers.ts`. No decorator, no scanning.
+
+Dated learning (2026-10-31):
+
+- **Surprise:** the old `sms-gateway.interface.ts` and the per-channel names (`SmtpEmailProvider`, `MimSmsGateway`) hid that all five providers do the same job. Cost: each channel had its own factory shape. Fix: one `MessagingProvider` base and a flat provider list. Rule candidate: a new channel reuses the base class, never a new interface.
+- **Surprise:** Wave 1 changed no DTO or route, so `yarn api:types` produced no diff. Fix: none needed; `check-api-types` still passes. Rule candidate: a pure refactor wave closes by proving "no diff", not by committing a regenerated file.
+- **Surprise:** a few Wave 1 bridges were left on purpose (`sendForTenant`, a `MediumSettings` index signature typed `any`, the deprecated `SmsGatewayName` alias). Rule candidate: list deliberate bridges in the wave-close notes so the next wave owns their removal.
+
+Wave 2 (#3298 to #3301) made the choice of provider data, not code. A school's settings name the provider, one resolver turns that into a config, and a spec proves a brand-new vendor needs no other edit.
+
+```mermaid
+flowchart LR
+  T[school settings<br/>communications.sms] --> R[MessagingConfigResolver]
+  E[platform env<br/>ONECODESOFT_API_KEY ...] --> R
+  R -->|provider + config| P[OnecodesoftProvider.send]
+  G[grep guard spec] -.fails if it names a vendor.-> X[any other file]
+  W[allow-list<br/>provider folders, messaging-providers.ts,<br/>comms-print.ts, specs, stories, example env] -.never checked.-> G
+  K[KNOWN list<br/>still names a vendor, one reason each] -.tolerated, may only shrink.-> G
+```
+
+Example: a school stores `communications.sms = { provider: 'onecodesoft', onecodesoft: { apiKey, senderId, apiUrl } }`. The demo seed (`comms-print.ts`) writes exactly that shape for every demo school, with fake values and encrypted secrets. It adds no `metering: 'PLATFORM'`: a school on its own gateway pays the vendor itself.
+
+A field's descriptor decides how it resolves. `required`, `owned: true` (OneCodeSoft `senderId`) and destination fields (`kind: 'url'`, or `destination: true` on SMTP `host`/`port`) belong to whoever owns the medium. Once the school owns it, they never come from the platform env. Example: a school with its own OneCodeSoft key and no `senderId` sends with no sender id, never under `ONECODESOFT_SENDER_ID`.
+
+The same rule covers unsaved values (the `config` a connection test or test message sends). On a school with no config of its own, an override that sets any owned field must carry every required field itself. It is never mixed with the platform env. Example: `{ smtp: { from: "ceo@bank.example" } }` with `SMTP_*` set on the platform is refused; it does not send through the platform login under a caller-chosen sender. On a school that owns the medium, the override still mixes with the school's own saved values, so "test my saved config" works when the form leaves an unchanged secret out.
+
+A destination in the override (`host`, `port`, `apiUrl`) counts as new only when it differs from the saved one. The form sends the saved destination back, so that is still the school's own target and the saved secret is used. A different destination must carry every required field itself, so a saved password or key never goes to a host the caller picked.
+
+| Saved                         | Override                    | Result                         |
+| ----------------------------- | --------------------------- | ------------------------------ |
+| `smtp.example`, password `pw` | `{ host: 'smtp.example' }`  | uses `pw` (`source: 'tenant'`) |
+| `smtp.example`, password `pw` | `{ host: 'other.example' }` | refused: missing `password`    |
+
+The resolver returns `source: 'override' | 'tenant' | 'platform'` so a caller can tell whose account a send uses.
+
+Dated learning (2026-10-31, Wave 2 close #3301):
+
+- **Proof:** `stub-provider.proof.spec.ts` adds a `StubSmsProvider` with one `vi.mock` line. The resolver (tenant settings and `STUB_API_KEY`), the settings validator, `getSecretPaths` and the providers response all accept it with no source edit.
+- **Guard:** `messaging-provider-names.guard.spec.ts` fails when a generic file names a vendor. Allowed: the provider folders, `messaging-providers.ts`, the demo seed `comms-print.ts`, specs, stories, example env files. Files that still name a vendor (the hand-built SMS form, platform alerts, locale labels, doc comments) sit in a `KNOWN` list with a reason each. The list may only shrink: a second test fails when an entry stops leaking.
+- **Surprise:** a single-provider medium (WhatsApp, email, messenger) still honoured a stray stored `provider` key, so a bad value broke a school that had nothing to choose. Fix: the resolver ignores it when the medium has one provider.
+- **Surprise:** `parsePort('')` failed the digit check even though blank means "use 587" (the settings form saves `''`). Fix: blank passes; `'abc'` stays a config error. Both are pinned in the SMTP spec.
+- **Surprise:** the fee and invoice listeners read the flat `whatsapp.phoneNumberId`, so a school on the D6 nested shape looked like it had no WhatsApp. Fix: one `whatsappConfigured(settings)` helper reads both shapes.
+- **Rule candidate:** a helper that asks "is this medium set up?" goes through `messaging-descriptors.ts`, never a hand-written settings path.

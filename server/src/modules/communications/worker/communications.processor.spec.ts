@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CommunicationsProcessor } from './communications.processor';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
+import { MessagingConfigResolver } from '../config/messaging-config.resolver';
+import { OnecodesoftProvider } from '../providers/sms/onecodesoft.provider';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 
 // [15.1.4] captureException/captureMessage/withScope are spied so onFailed/
@@ -139,12 +141,7 @@ describe('CommunicationsProcessor', () => {
   // mailpit-sink. Wires the real registry + MailpitSinkProvider, so no gateway can be reached.
   it('in MESSAGE_SINK=mailpit settles the log SENT through the mailpit-sink provider', async () => {
     vi.stubEnv('MESSAGE_SINK', 'mailpit');
-    const registry = new CommunicationProviderRegistryService(
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
+    const registry = new CommunicationProviderRegistryService({} as any);
     processor = new CommunicationsProcessor(
       repo as any,
       guardianRepo as any,
@@ -512,6 +509,82 @@ describe('CommunicationsProcessor', () => {
       expect(repo.manager.transaction).not.toHaveBeenCalled();
       expect(txManager.save).not.toHaveBeenCalled();
       expect(txManager.query).not.toHaveBeenCalled();
+    });
+  });
+
+  // Epic 97 (#3301): a tenant on OneCodeSoft goes real registry -> real resolver -> provider, and the
+  // provider's outcome drives the credit settlement exactly as for the other SMS gateways.
+  describe('OneCodeSoft credit settlement', () => {
+    const onecodesoft = new OnecodesoftProvider();
+
+    beforeEach(() => {
+      const settings = {
+        version: 1,
+        communications: {
+          sms: {
+            provider: 'onecodesoft',
+            onecodesoft: { apiKey: 'k', senderId: 'S', apiUrl: 'https://sms.example.com/api' },
+          },
+        },
+      };
+      const resolver = new MessagingConfigResolver(
+        { getDecryptedSettings: async () => settings } as any,
+        { getOrLoad: (_id: string, load: () => Promise<unknown>) => load() } as any,
+        { get: () => undefined } as any,
+        [onecodesoft],
+      );
+      processor = new CommunicationsProcessor(
+        repo as any,
+        guardianRepo as any,
+        new CommunicationProviderRegistryService(resolver),
+        tenantStatus as any,
+        smsCredits as any,
+        pushService as any,
+      );
+    });
+
+    it('ACCEPTED debits the reservation', async () => {
+      vi.spyOn(onecodesoft, 'send').mockResolvedValue({
+        success: true,
+        providerMessageId: 'm-1',
+        outcome: 'ACCEPTED',
+        segments: 2,
+      });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 2 }));
+
+      expect(onecodesoft.send).toHaveBeenCalledWith(
+        expect.objectContaining({ to: '01712345678' }),
+        expect.objectContaining({ apiKey: 'k', senderId: 'S' }),
+      );
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'DEBIT',
+      );
+    });
+
+    it('REJECTED releases the reservation', async () => {
+      vi.spyOn(onecodesoft, 'send').mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'invalid number',
+        outcome: 'REJECTED',
+        retryable: false,
+        segments: 2,
+      });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 2 }));
+
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'RELEASE',
+      );
     });
   });
 

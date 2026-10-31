@@ -307,6 +307,7 @@ GET /schools | SchoolsController | identity | roles: SUPER_ADMIN
 GET /schools/:id/admins | SchoolAdminsController | identity | roles: SUPER_ADMIN
 GET /schools/:id/logo | SchoolLogoController | identity
 GET /schools/:id/settings | SchoolsController | perm: SETTINGS_MANAGE
+GET /schools/:id/settings/messaging/providers | SchoolsController | perm: SETTINGS_MANAGE
 GET /schools/:id/sms-credits | SchoolSmsCreditsController | identity | roles: SUPER_ADMIN
 GET /schools/:id/stats | SchoolsController | identity | roles: SUPER_ADMIN
 GET /schools/me/profile | SchoolProfileController | identity

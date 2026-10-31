@@ -3,16 +3,29 @@ import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../../../app.module';
+import { fetchPinnedJson } from '../providers/shared/pinned-http';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../../validation-pipe';
 import { DataSource } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { TENANT_SETTINGS_SCHEMA_VERSION, UserRole } from '@biddaloy/shared';
+import { TenantSettingsCache } from '../../schools/settings/tenant-settings-cache.service';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
+
+// OneCodeSoft calls go through the SSRF guard + pinned undici client (not global fetch). Stub both so
+// the SMS case needs no DNS or network; every other export of the guard module stays real.
+vi.mock('../providers/shared/pinned-http', () => ({ fetchPinnedJson: vi.fn() }));
+vi.mock('../providers/shared/outbound-destination-guard', async (importActual) => ({
+  ...(await importActual<typeof import('../providers/shared/outbound-destination-guard')>()),
+  assertSafeHttpDestination: vi.fn(async (rawUrl: string) => ({
+    url: new URL(rawUrl),
+    addresses: [{ address: '203.0.113.5', family: 4 }],
+  })),
+}));
 
 /**
  * E2E coverage for POST /schools/:id/settings/test (#8.7.12) — proves the
@@ -146,6 +159,81 @@ describe('Provider connection test E2E', () => {
     const settingsText = JSON.stringify(school[0]?.settings ?? {});
     expect(settingsText).not.toContain('super-secret-token-value');
     expect(settingsText).not.toContain('99999');
+  });
+
+  it('tests unsaved OneCodeSoft SMS config: connected on success, a fixed sentence on a bad key', async () => {
+    const test = (apiKey: string) =>
+      supertest(app.getHttpServer())
+        .post(`/api/v1/schools/${TENANT_ID}/settings/test`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          medium: 'SMS',
+          config: {
+            provider: 'onecodesoft',
+            onecodesoft: { apiKey, apiUrl: 'https://sms.example.com/api' },
+          },
+        })
+        .expect(200);
+
+    vi.mocked(fetchPinnedJson).mockResolvedValueOnce({ status: 'success', data: { balance: 250 } });
+    const ok = await test('good-key-value');
+    // No balance amount: with no school block this could be the platform's own account.
+    expect(ok.body).toEqual({ success: true, message: 'Connected to OneCodeSoft.' });
+
+    vi.mocked(fetchPinnedJson).mockResolvedValueOnce({ message: 'Unauthenticated.' });
+    const bad = await test('bad-key-value');
+    // A refused key is named as such (not "could not reach"), in a fixed sentence (Rule 23).
+    expect(bad.body).toEqual({
+      success: false,
+      message: 'OneCodeSoft rejected the API key — check it and try again.',
+    });
+    expect(JSON.stringify(bad.body)).not.toContain('bad-key-value');
+  });
+
+  // PR #3325 review round 2, finding 1: the settings form sends the saved apiUrl back with the
+  // secret left out. The same apiUrl uses the stored key; a different one never gets it.
+  it('tests a saved OneCodeSoft config when the override repeats the stored apiUrl', async () => {
+    const apiUrl = 'https://sms.example.com/api';
+    const http = supertest(app.getHttpServer());
+    await http
+      .patch(`/api/v1/schools/${TENANT_ID}/settings`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .send({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        communications: {
+          sms: { provider: 'onecodesoft', onecodesoft: { apiKey: 'stored-key-value', apiUrl } },
+        },
+      })
+      .expect(200);
+    const test = (url: string) =>
+      http
+        .post(`/api/v1/schools/${TENANT_ID}/settings/test`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ medium: 'SMS', config: { provider: 'onecodesoft', onecodesoft: { apiUrl: url } } })
+        .expect(200);
+    try {
+      vi.mocked(fetchPinnedJson).mockClear();
+      vi.mocked(fetchPinnedJson).mockResolvedValueOnce({ status: 'success', data: { balance: 9 } });
+      const same = await test(apiUrl);
+      expect(same.body.success).toBe(true);
+      // The stored (decrypted) key went to the stored host.
+      const [, calledUrl, init] = vi.mocked(fetchPinnedJson).mock.calls[0];
+      expect(String(calledUrl)).toContain('sms.example.com');
+      expect(JSON.stringify(init)).toContain('stored-key-value');
+
+      vi.mocked(fetchPinnedJson).mockClear();
+      const other = await test('https://other.example.com/api');
+      expect(other.body.success).toBe(false);
+      expect(other.body.message).toMatch(/Testing a new destination requires/);
+      expect(JSON.stringify(other.body)).not.toContain('stored-key-value');
+      expect(vi.mocked(fetchPinnedJson)).not.toHaveBeenCalled();
+    } finally {
+      await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_ID]);
+      app.get(TenantSettingsCache).invalidate(TENANT_ID);
+    }
   });
 
   it('returns the fixed test-site message when the message sink is on', async () => {

@@ -15,13 +15,11 @@ import { SingleReminderService } from './single-reminder.service';
 import { CommunicationsController } from './communications.controller';
 import { CommunicationsProcessor } from './worker/communications.processor';
 import { CommunicationProviderRegistryService } from './providers/communication-provider.registry';
-import { SmsProviderFactory } from './providers/sms/sms-provider.factory';
-import { GreenwebSmsGateway } from './providers/sms/greenweb-sms.gateway';
-import { MimSmsGateway } from './providers/sms/mim-sms.gateway';
-import { WhatsAppCloudProvider } from './providers/whatsapp/whatsapp-cloud.provider';
-import { SmtpEmailProvider } from './providers/email/smtp-email.provider';
-import { MessengerProvider } from './providers/messenger/messenger.provider';
-import { TenantProviderConfigResolver } from './config/tenant-provider-config.resolver';
+import { MESSAGING_PROVIDERS } from './providers/messaging-providers';
+import {
+  MessagingConfigResolver,
+  MESSAGING_PROVIDER_INSTANCES,
+} from './config/messaging-config.resolver';
 import { ConnectionTestService } from './testing/connection-test.service';
 import { ProviderConnectionTestController } from './testing/provider-connection-test.controller';
 import {
@@ -91,13 +89,13 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     SingleReminderService,
     CommunicationsProcessor,
     CommunicationProviderRegistryService,
-    TenantProviderConfigResolver,
-    SmsProviderFactory,
-    GreenwebSmsGateway,
-    MimSmsGateway,
-    WhatsAppCloudProvider,
-    SmtpEmailProvider,
-    MessengerProvider,
+    MessagingConfigResolver,
+    ...MESSAGING_PROVIDERS,
+    {
+      provide: MESSAGING_PROVIDER_INSTANCES,
+      useFactory: (...providers: unknown[]) => providers,
+      inject: [...MESSAGING_PROVIDERS],
+    },
     ConnectionTestService,
     FeeNotificationsListener,
     InvoiceNotificationsListener,
@@ -119,6 +117,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     BulkReminderService,
     SingleReminderService,
     CommunicationProviderRegistryService,
+    ...MESSAGING_PROVIDERS,
   ],
 })
 export class CommunicationsModule {}

@@ -10,8 +10,8 @@ import { HealthService } from './health.service';
 import { PlatformAlert } from './platform-alerts/platform-alert.entity';
 import { PlatformAlertsController } from './platform-alerts/platform-alerts.controller';
 import { PlatformAlertsService } from './platform-alerts/platform-alerts.service';
-import { GreenwebSmsGateway } from '../communications/providers/sms/greenweb-sms.gateway';
-import { MimSmsGateway } from '../communications/providers/sms/mim-sms.gateway';
+import { GreenwebProvider } from '../communications/providers/sms/greenweb.provider';
+import { MimsmsProvider } from '../communications/providers/sms/mimsms.provider';
 
 @Module({
   // Registering the queue here (rather than importing CommunicationsModule)
@@ -28,6 +28,6 @@ import { MimSmsGateway } from '../communications/providers/sms/mim-sms.gateway';
   controllers: [HealthController, PlatformAlertsController],
   // Both gateways are dependency-free; importing CommunicationsModule would pull BullMQ into
   // the alert path, which must keep working while Redis is down.
-  providers: [HealthService, PlatformAlertsService, GreenwebSmsGateway, MimSmsGateway],
+  providers: [HealthService, PlatformAlertsService, GreenwebProvider, MimsmsProvider],
 })
 export class HealthModule {}

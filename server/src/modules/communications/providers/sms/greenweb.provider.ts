@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { countSmsSegments } from '@biddaloy/shared';
-import { CommunicationSendResult } from '../communication-provider.interface';
-import { SmsGateway } from './sms-gateway.interface';
+import { CommunicationMedium, countSmsSegments, type ProviderDescriptor } from '@biddaloy/shared';
+import {
+  CommunicationSendParams,
+  CommunicationSendResult,
+} from '../communication-provider.interface';
+import { MessagingProvider } from '../messaging-provider';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
@@ -10,38 +13,62 @@ import {
   OutboundDestinationError,
 } from '../shared/outbound-destination-guard';
 import { fetchPinnedJson } from '../shared/pinned-http';
-import { ResolvedGreenwebSmsConfig } from '../../config/tenant-provider-config.resolver';
+export interface ResolvedGreenwebSmsConfig {
+  apiKey: string;
+  apiUrl?: string;
+  /** Ignored; callers written before the generic resolver still pass it. */
+  gateway?: string;
+}
 
 const DEFAULT_BASE_URL = 'https://api.greenweb.com.bd/api.php';
 const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * Greenweb BD SMS gateway. GET-based REST API, keyed by an account token.
- * `config` is resolved per tenant by `TenantProviderConfigResolver` and
- * passed in by `SmsProviderFactory` — this gateway no longer reads
+ * `config` is resolved per tenant by `MessagingConfigResolver` and
+ * passed in by the registry — this gateway no longer reads
  * `ConfigService` itself (#8.7.10).
  */
 @Injectable()
-export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig> {
-  async sendSms(
-    to: string,
-    message: string,
+export class GreenwebProvider extends MessagingProvider<ResolvedGreenwebSmsConfig> {
+  readonly descriptor: ProviderDescriptor = {
+    medium: CommunicationMedium.SMS,
+    name: 'greenweb',
+    label: { en: 'Greenweb', bn: 'গ্রিনওয়েব' },
+    capabilities: [],
+    fields: [
+      { key: 'apiKey', label: { en: 'API key', bn: 'এপিআই কী' }, kind: 'secret', required: true },
+      {
+        key: 'apiUrl',
+        label: { en: 'API address (optional)', bn: 'এপিআই ঠিকানা (ঐচ্ছিক)' },
+        kind: 'url',
+        required: false,
+        advanced: true,
+      },
+    ],
+    supportsTestMessage: true,
+  };
+  readonly envPrefix = 'GREENWEB';
+
+  async send(
+    params: CommunicationSendParams,
     config: ResolvedGreenwebSmsConfig,
   ): Promise<CommunicationSendResult> {
+    const { to, body: message } = params;
     const segmentInfo = countSmsSegments(message);
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
       const destination = await assertSafeHttpDestination(baseUrl);
-      const params = new URLSearchParams({
+      const query = new URLSearchParams({
         token: config.apiKey,
         to: normalizeBdPhoneNumber(to),
         message,
       });
       if (segmentInfo.encoding === 'UCS_2') {
-        params.set('unicode', '1');
+        query.set('unicode', '1');
       }
 
-      const data = (await fetchPinnedJson(destination, `${baseUrl}?${params.toString()}`, {
+      const data = (await fetchPinnedJson(destination, `${baseUrl}?${query.toString()}`, {
         method: 'GET',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       })) as Record<string, any>;
@@ -71,7 +98,12 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
       return {
         success: false,
         providerMessageId: null,
-        error: err instanceof Error ? err.message : String(err),
+        // Rule 23: fixed text only. The guard's message carries the address and a fetch error the
+        // request URL (Greenweb's carries the token).
+        error:
+          err instanceof OutboundDestinationError
+            ? err.publicMessage
+            : 'Could not reach Greenweb; the message may or may not have been sent.',
         segments: segmentInfo.segments,
         // Only a resolved-to-a-blocked-destination is permanent; a DNS
         // hiccup or network blip may succeed on retry — and might have
@@ -106,7 +138,7 @@ export class GreenwebSmsGateway implements SmsGateway<ResolvedGreenwebSmsConfig>
       };
     } catch (err) {
       if (err instanceof OutboundDestinationError) {
-        return { success: false, message: err.message };
+        return { success: false, message: err.publicMessage };
       }
       return { success: false, message: 'Could not reach the Greenweb API.' };
     }

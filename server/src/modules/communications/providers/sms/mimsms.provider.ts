@@ -1,15 +1,25 @@
 import { Injectable } from '@nestjs/common';
-import { countSmsSegments } from '@biddaloy/shared';
-import { CommunicationSendResult } from '../communication-provider.interface';
-import { SmsGateway } from './sms-gateway.interface';
+import { CommunicationMedium, countSmsSegments, type ProviderDescriptor } from '@biddaloy/shared';
+import {
+  CommunicationSendParams,
+  CommunicationSendResult,
+} from '../communication-provider.interface';
+import { MessagingProvider } from '../messaging-provider';
 import { normalizeBdPhoneNumber } from '../shared/phone-number.util';
 import { ConnectionTestResult } from '../shared/connection-test.types';
 import {
   assertSafeHttpDestination,
   DestinationBlockedError,
+  OutboundDestinationError,
 } from '../shared/outbound-destination-guard';
 import { fetchPinnedJson } from '../shared/pinned-http';
-import { ResolvedMimSmsConfig } from '../../config/tenant-provider-config.resolver';
+export interface ResolvedMimSmsConfig {
+  apiKey: string;
+  senderId: string;
+  apiUrl?: string;
+  /** Ignored; callers written before the generic resolver still pass it. */
+  gateway?: string;
+}
 
 const DEFAULT_BASE_URL = 'https://api.mimsms.com/api/SmsSending/SMS';
 // MimSMS's balance-check endpoint, a different path under the same host —
@@ -20,17 +30,42 @@ const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * MimSMS BD gateway. POST-JSON REST API, keyed by api_key + senderid.
- * `config` is resolved per tenant by `TenantProviderConfigResolver` and
- * passed in by `SmsProviderFactory` — this gateway no longer reads
+ * `config` is resolved per tenant by `MessagingConfigResolver` and
+ * passed in by the registry — this gateway no longer reads
  * `ConfigService` itself (#8.7.10).
  */
 @Injectable()
-export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
-  async sendSms(
-    to: string,
-    message: string,
+export class MimsmsProvider extends MessagingProvider<ResolvedMimSmsConfig> {
+  readonly descriptor: ProviderDescriptor = {
+    medium: CommunicationMedium.SMS,
+    name: 'mimsms',
+    label: { en: 'MimSMS', bn: 'মিমএসএমএস' },
+    capabilities: [],
+    fields: [
+      { key: 'apiKey', label: { en: 'API key', bn: 'এপিআই কী' }, kind: 'secret', required: true },
+      {
+        key: 'senderId',
+        label: { en: 'Sender name (Sender ID)', bn: 'প্রেরকের নাম (Sender ID)' },
+        kind: 'text',
+        required: true,
+      },
+      {
+        key: 'apiUrl',
+        label: { en: 'API address (optional)', bn: 'এপিআই ঠিকানা (ঐচ্ছিক)' },
+        kind: 'url',
+        required: false,
+        advanced: true,
+      },
+    ],
+    supportsTestMessage: true,
+  };
+  readonly envPrefix = 'MIMSMS';
+
+  async send(
+    params: CommunicationSendParams,
     config: ResolvedMimSmsConfig,
   ): Promise<CommunicationSendResult> {
+    const { to, body: message } = params;
     const segmentInfo = countSmsSegments(message);
     try {
       const baseUrl = config.apiUrl ?? DEFAULT_BASE_URL;
@@ -73,7 +108,12 @@ export class MimSmsGateway implements SmsGateway<ResolvedMimSmsConfig> {
       return {
         success: false,
         providerMessageId: null,
-        error: err instanceof Error ? err.message : String(err),
+        // Rule 23: fixed text only. The guard's message carries the address and a fetch error the
+        // request URL (Greenweb's carries the token).
+        error:
+          err instanceof OutboundDestinationError
+            ? err.publicMessage
+            : 'Could not reach MimSMS; the message may or may not have been sent.',
         segments: segmentInfo.segments,
         // Only a resolved-to-a-blocked-destination is permanent; a DNS
         // hiccup or network blip may succeed on retry — and might have

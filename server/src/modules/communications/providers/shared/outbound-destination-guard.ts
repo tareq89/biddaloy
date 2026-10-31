@@ -4,7 +4,7 @@ import { lookup } from 'node:dns/promises';
 /**
  * Blocks outbound provider requests (SMS gateway `apiUrl`, SMTP `host`)
  * from reaching an internal/private address. A tenant-custom `apiUrl` is
- * an intentionally supported feature (see `greenweb-sms.gateway.spec.ts`'s
+ * an intentionally supported feature (see `greenweb.provider.spec.ts`'s
  * `'uses a tenant-configured apiUrl when given'` test) — a domain
  * allowlist would break it — so this checks the *class* of address
  * (private/loopback/link-local/metadata) rather than the hostname itself.
@@ -18,20 +18,24 @@ import { lookup } from 'node:dns/promises';
  * `169.254.169.254` or another internal address moments later). Callers
  * pin the actual connection to exactly what was validated here — see
  * `pinned-http.ts` for HTTP (undici `connect.lookup`) and
- * `smtp-email.provider.ts` for SMTP (validated IP as `host`, original
+ * `smtp.provider.ts` for SMTP (validated IP as `host`, original
  * hostname kept as `tls.servername` for SNI/cert validation).
  */
 
 /** Common base for both error kinds below — callers that only need the
  * human-readable reason (e.g. surfacing a connection-test failure) can
  * catch this instead of the two subclasses individually. */
-export abstract class OutboundDestinationError extends Error {}
+export abstract class OutboundDestinationError extends Error {
+  /** Fixed text to show a user (Rule 23): `message` can carry the submitted address. */
+  abstract readonly publicMessage: string;
+}
 
 // A permanent policy violation — invalid URL, wrong scheme, out-of-range
 // port, or a hostname that resolves to a private/reserved address. This
 // destination will not become valid on retry, so callers may treat it as
 // non-retryable.
 export class DestinationBlockedError extends OutboundDestinationError {
+  readonly publicMessage = 'This server address cannot be used — check it and try again.';
   constructor(reason: string) {
     super(`Outbound destination blocked: ${reason}`);
     this.name = 'DestinationBlockedError';
@@ -42,6 +46,7 @@ export class DestinationBlockedError extends OutboundDestinationError {
 // outage). Unlike DestinationBlockedError, this hostname may resolve
 // successfully on a later attempt, so callers should keep it retryable.
 export class DestinationResolutionError extends OutboundDestinationError {
+  readonly publicMessage = 'This server address could not be found — check it and try again.';
   constructor(hostname: string) {
     super(`"${hostname}" could not be resolved.`);
     this.name = 'DestinationResolutionError';
