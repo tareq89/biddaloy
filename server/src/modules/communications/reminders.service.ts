@@ -10,7 +10,7 @@ import { deliveryErrorCode } from './delivery-error-code';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { And, In, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { ReminderBatch } from './entities/reminder-batch.entity';
 import { StudentService } from '../students/students.service';
@@ -86,6 +86,25 @@ export const SkipReason = {
   MISSING_ADDRESS: 'guardian_has_no_address_for_preferred_medium',
   NOTIFICATIONS_DISABLED: 'guardian_notifications_disabled',
 } as const;
+
+/** One message-log row (batch logs, tenant-wide log, check-status answer). */
+export function toBatchLogDto(log: CommunicationLog): ReminderBatchLogDto {
+  const provider = (log.metadata as { provider?: unknown } | null)?.provider;
+  return {
+    id: log.id,
+    medium: log.medium,
+    recipient_address: log.recipient_address,
+    recipient_name: log.recipient_name,
+    status: log.status,
+    trigger: log.trigger,
+    student_id: log.student_id,
+    guardian_id: log.guardian_id,
+    provider_message_id: log.provider_message_id,
+    provider: typeof provider === 'string' ? provider : null,
+    error: deliveryErrorCode(log.metadata),
+    created_at: log.created_at,
+  };
+}
 
 export interface ResolvedRecipient {
   student: Student;
@@ -475,7 +494,7 @@ export class BulkReminderService {
     });
 
     return {
-      data: logs.map((log) => this.toBatchLogDto(log)),
+      data: logs.map(toBatchLogDto),
       total,
       page,
       limit,
@@ -484,9 +503,9 @@ export class BulkReminderService {
   }
 
   /**
-   * [87.SD] Tenant-wide message log (newest first), filtered by status /
-   * medium / created_at range. Same row shape as a batch's logs: no body,
-   * fixed error codes (Rule 23).
+   * [87.SD, 97.4.01] Tenant-wide message log (newest first) with every D22
+   * filter. Same row shape as a batch's logs: no body, fixed error codes
+   * (Rule 23). Every value is a bound parameter (Rule 4).
    */
   async findLogs(
     query: QueryCommunicationLogsDto,
@@ -495,34 +514,53 @@ export class BulkReminderService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
 
+    const qb = this.logRepo
+      .createQueryBuilder('log')
+      .where('log.tenant_id = :tenantId', { tenantId })
+      // PUSH rows are app notifications ('push:<user id>'), not messages a school sent.
+      .andWhere('log.medium IN (:...media)', {
+        media: query.medium ? [query.medium] : Object.values(CommunicationMedium),
+      });
+    if (query.status) qb.andWhere('log.status = :status', { status: query.status });
+    if (query.trigger) qb.andWhere('log.trigger = :trigger', { trigger: query.trigger });
+    if (query.sent_by) qb.andWhere('log.sent_by_user_id = :sentBy', { sentBy: query.sent_by });
+    if (query.provider) {
+      qb.andWhere(`log.metadata ->> 'provider' = :provider`, { provider: query.provider });
+    }
     // School-local days (IsRealDate: always YYYY-MM-DD), the same days the
     // Failed messages widget counts with, so its link lands on the same rows.
-    const from = query.from_date ? startOfLocalDay(query.from_date) : undefined;
-    const to = query.to_date ? endOfLocalDay(query.to_date) : undefined;
-    const created =
-      from && to
-        ? And(MoreThanOrEqual(from), LessThanOrEqual(to))
-        : from
-          ? MoreThanOrEqual(from)
-          : to
-            ? LessThanOrEqual(to)
-            : undefined;
+    if (query.from_date) {
+      qb.andWhere('log.created_at >= :from', { from: startOfLocalDay(query.from_date) });
+    }
+    if (query.to_date) {
+      qb.andWhere('log.created_at <= :to', { to: endOfLocalDay(query.to_date) });
+    }
+    const search = normalizeSearchTerm(query.search);
+    if (search) {
+      // D33: a phone-shaped term also matches by digits with the country code dropped, so
+      // `+880 1712-345678`, `8801712345678` and `01712 345678` all find `01712345678`.
+      // ponytail: no trigram index; add pg_trgm when a school passes 100k logs.
+      const digits = /^[\d\s+()-]+$/.test(search) ? search.replace(/\D/g, '') : '';
+      const phone = digits.startsWith('88') ? digits.slice(2) : digits;
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('log.recipient_name ILIKE :search', { search: `%${search}%` }).orWhere(
+            'log.recipient_address ILIKE :search',
+          );
+          if (phone) w.orWhere('log.recipient_address ILIKE :phone', { phone: `%${phone}%` });
+        }),
+      );
+    }
 
-    const [logs, total] = await this.logRepo.findAndCount({
-      where: {
-        tenant_id: tenantId,
-        ...(query.status ? { status: query.status } : {}),
-        // PUSH rows are app notifications ('push:<user id>'), not messages a school sent.
-        medium: query.medium ?? In(Object.values(CommunicationMedium)),
-        ...(created ? { created_at: created } : {}),
-      },
-      order: { created_at: 'DESC', id: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const [logs, total] = await qb
+      .orderBy('log.created_at', 'DESC')
+      .addOrderBy('log.id', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
     return {
-      data: logs.map((log) => this.toBatchLogDto(log)),
+      data: logs.map(toBatchLogDto),
       total,
       page,
       limit,
@@ -826,21 +864,6 @@ export class BulkReminderService {
       successful_count: batch.successful_count,
       failed_count: batch.failed_count,
       created_at: batch.created_at,
-    };
-  }
-
-  private toBatchLogDto(log: CommunicationLog): ReminderBatchLogDto {
-    return {
-      id: log.id,
-      medium: log.medium,
-      recipient_address: log.recipient_address,
-      recipient_name: log.recipient_name,
-      status: log.status,
-      student_id: log.student_id,
-      guardian_id: log.guardian_id,
-      provider_message_id: log.provider_message_id,
-      error: deliveryErrorCode(log.metadata),
-      created_at: log.created_at,
     };
   }
 

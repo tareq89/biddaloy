@@ -180,6 +180,46 @@ describe('CommunicationsProcessor', () => {
     );
   });
 
+  // [97.4.01] D23: check-status asks the company that sent the message, by this name.
+  it('writes the sending provider name onto metadata.provider on success', async () => {
+    provider.send.mockResolvedValue({
+      success: true,
+      providerMessageId: 'p-3',
+      provider: 'stub-sms',
+      segments: 1,
+    });
+
+    await processor.process(job());
+
+    expect(txManager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ provider: 'stub-sms', segments: 1 }),
+      }),
+    );
+  });
+
+  it('writes metadata.provider on a failure too, for every medium', async () => {
+    repo.findOneOrFail.mockResolvedValue({ ...baseLog, medium: CommunicationMedium.EMAIL });
+    repo.findOne.mockResolvedValue({ ...baseLog, medium: CommunicationMedium.EMAIL });
+    provider.send.mockResolvedValue({
+      success: false,
+      providerMessageId: null,
+      error: 'refused',
+      retryable: false,
+      provider: 'stub-email',
+      outcome: 'REJECTED',
+    });
+
+    await processor.process(job());
+
+    expect(txManager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: CommunicationStatus.FAILED,
+        metadata: expect.objectContaining({ provider: 'stub-email' }),
+      }),
+    );
+  });
+
   it('writes the provider segment count onto metadata.segments on a retryable failure', async () => {
     provider.send.mockResolvedValue({
       success: false,
