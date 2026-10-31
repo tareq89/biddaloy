@@ -84,8 +84,6 @@ const REVIEWED_OUTBOUND: Record<string, string> = {
     'graph.facebook.com constant host; tenant path ids are checked by isValidGraphApiId',
   'modules/communications/providers/messenger/meta-page.provider.ts':
     'graph.facebook.com constant host; tenant pageId is checked by isValidGraphApiId',
-  'modules/communications/providers/sms/mimsms.provider.ts':
-    'BALANCE_URL constant (the tenant apiUrl send path uses the pinned helper; see comment in file)',
   'modules/auth/social/providers/google.provider.ts': 'TOKEN_URL constant (Google OAuth)',
   'modules/auth/social/providers/facebook.provider.ts': 'GRAPH constant (graph.facebook.com)',
   'modules/registration/turnstile.service.ts': 'challenges.cloudflare.com constant',
