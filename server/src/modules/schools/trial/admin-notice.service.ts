@@ -78,11 +78,13 @@ export class AdminNoticeService {
   ): Promise<void> {
     let status = CommunicationStatus.FAILED;
     let providerMessageId: string | null = null;
+    let providerName: string | undefined;
     try {
       const provider = this.registry.resolve(medium);
       if (provider) {
         // Platform notice to the school's own admins: may use the platform SMS keys (#2233, #2340).
         const result = await provider.send({ to, body, subject, allowPlatformSms: true }, tenantId);
+        providerName = result.provider;
         if (result.success) {
           status = CommunicationStatus.SENT;
           providerMessageId = result.providerMessageId;
@@ -103,7 +105,7 @@ export class AdminNoticeService {
           status,
           trigger: CommunicationTrigger.AUTOMATED,
           provider_message_id: providerMessageId,
-          metadata: { kind: key },
+          metadata: { kind: key, ...(providerName ? { provider: providerName } : {}) },
         }),
       );
     } catch {
