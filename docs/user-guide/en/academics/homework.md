@@ -322,7 +322,7 @@ All three work on one row of the **Who has this homework** card.
 
 > **Remember:** **Change** is only for **Active** rows. To give a **Deactivated** row to someone else, press **Reactivate** first. A section or student can have only one **Active** row of the same homework. If it already has one, **Reactivate** or **Give homework** fails; use **Due date** on the row it already has, or **Deactivate** that row first.
 
-**Do parents hear about it?** If the school has **Text guardians when homework is assigned or changed** switched on in [Settings](../administration/settings.md), guardians also get a text when you move a due date, deactivate a row, or give the homework to someone else. The new section or student gets the "new homework" text, and the old one is told it was withdrawn. Pressing **Reactivate** sends no text. If the school has that checkbox off, no text goes.
+**Do parents hear about it?** If the school has **Text guardians when homework is assigned or changed** switched on in [Settings](../administration/settings.md), guardians also get a text when you move a due date, deactivate a row, or give the homework to someone else. The new section or student gets the "new homework" text, and the old one is told it was withdrawn. Pressing **Reactivate** sends a text that the homework is back on, with its due date. If the school has that checkbox off, no text goes.
 
 | You press                       | What happens                                                     | Saved? |
 | ------------------------------- | ---------------------------------------------------------------- | ------ |

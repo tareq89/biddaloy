@@ -625,17 +625,27 @@ export class HomeworkService {
       ruleKey: 'homework.not_submitted',
       actorUserId: ctx.userId,
     });
-    // #3172: tell families about a real change only. Deactivating withdraws the homework; a moved
-    // due date on a live row is news. A repeated PATCH that changes nothing sends nothing.
+    // #3172: tell families about a real change only. Deactivating withdraws the homework;
+    // reactivating puts it back (they were told it no longer needed submitting), with its due
+    // date; a moved due date on a live row is news. A repeated PATCH that changes nothing sends
+    // nothing, and one change sends one notice.
     const updated = Object.assign({}, assignment, patch);
     const deactivated =
       updated.status === HomeworkAssignmentStatus.DEACTIVATED &&
       assignment.status !== HomeworkAssignmentStatus.DEACTIVATED;
+    const reactivated =
+      updated.status === HomeworkAssignmentStatus.ACTIVE &&
+      assignment.status === HomeworkAssignmentStatus.DEACTIVATED;
     const dueMoved = updated.due_date.slice(0, 10) !== assignment.due_date.slice(0, 10);
-    if (deactivated || (dueMoved && updated.status === HomeworkAssignmentStatus.ACTIVE)) {
-      await this.tryNotice(assignment.id, () =>
-        this.notice.notifyChange(updated, homework, deactivated ? 'WITHDRAWN' : 'DUE_CHANGED'),
-      );
+    const kind = deactivated
+      ? 'WITHDRAWN'
+      : reactivated
+        ? 'REACTIVATED'
+        : dueMoved && updated.status === HomeworkAssignmentStatus.ACTIVE
+          ? 'DUE_CHANGED'
+          : null;
+    if (kind) {
+      await this.tryNotice(assignment.id, () => this.notice.notifyChange(updated, homework, kind));
     }
     return Object.assign(assignment, patch);
   }

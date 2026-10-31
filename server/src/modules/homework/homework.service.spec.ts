@@ -601,17 +601,28 @@ describe('HomeworkService', () => {
         expect(notice.notifyChange).not.toHaveBeenCalled();
       });
 
-      it('reactivating alone sends nothing; a failing notice never fails the PATCH', async () => {
+      it('reactivating tells families it is back on (once, even with a new date); a failing notice never fails the PATCH', async () => {
+        // They were told "does not need to be submitted"; without this the defaulter SMS would
+        // be the next thing they hear.
         assignmentRepo.findOne.mockResolvedValue({
           ...activeRow(),
           status: HomeworkAssignmentStatus.DEACTIVATED,
         });
         await service.updateAssignment(
           'assign-1',
-          { status: HomeworkAssignmentStatus.ACTIVE },
+          { status: HomeworkAssignmentStatus.ACTIVE, due_date: '2026-01-20' },
           ctx,
         );
-        expect(notice.notifyChange).not.toHaveBeenCalled();
+        expect(notice.notifyChange).toHaveBeenCalledTimes(1);
+        expect(notice.notifyChange).toHaveBeenCalledWith(
+          expect.objectContaining({
+            status: HomeworkAssignmentStatus.ACTIVE,
+            due_date: '2026-01-20',
+          }),
+          HOMEWORK,
+          'REACTIVATED',
+        );
+        notice.notifyChange.mockClear();
 
         assignmentRepo.findOne.mockResolvedValue(activeRow());
         notice.notifyChange.mockRejectedValue(new Error('sms provider down'));

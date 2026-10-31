@@ -264,6 +264,13 @@ describe('HomeworkNoticeService', () => {
       );
     });
 
+    it('REACTIVATED: tells the guardian the homework is back on, with its due date', async () => {
+      await service.notifyChange(ASSIGNMENT as never, HOMEWORK as never, 'REACTIVATED');
+      expect(logRepo.save.mock.calls[0][0].message_body).toBe(
+        'Dear Guardian, homework "Chapter 3 exercises" for Rahim Uddin is back on. It is due 2026-01-08.',
+      );
+    });
+
     it('WITHDRAWN on a reassign skips students the new target still covers', async () => {
       // Section A narrowed to Rahim, who is in Section A: only Karim is told it was withdrawn.
       studentRepo.find.mockResolvedValue([
