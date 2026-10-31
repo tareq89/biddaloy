@@ -358,6 +358,11 @@ export class StudentService {
     if (query.gender) {
       qb.andWhere('student.gender = :gender', { gender: query.gender });
     }
+    if (query.religion?.trim()) {
+      qb.andWhere('LOWER(student.religion) = LOWER(:religion)', {
+        religion: query.religion.trim(),
+      });
+    }
     if (query.date_of_birth_from) {
       qb.andWhere('student.date_of_birth >= :dobFrom', { dobFrom: query.date_of_birth_from });
     }
