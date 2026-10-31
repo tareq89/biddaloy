@@ -12,9 +12,6 @@ const PAGE_FIX = '#3017: page fix pending';
 /** A DataTable row action: no helpId slot there, and a (?) on every row is noise (D18). */
 const UI_SLOT = '#3316: DataTable row action, no helpId slot in ui/';
 
-/** A per-card radio group: one (?) per period card is noise, where the single (?) goes is open. */
-const PER_CARD = '#3313: per-period-card control, no single element for the (?)';
-
 /** A More-menu action that runs at once and opens no dialog to hold the (?). */
 const NO_DIALOG = '#3316: More-menu action runs at once, no dialog, so no (?) here';
 
@@ -49,7 +46,4 @@ export const HELP_UNWIRED: Record<string, string> = {
   'portal.notifications.action.snooze': ROW_CONTROL,
 
   // 44.3.12: declared in the guide after the wave-3 pass ran
-
-  // Help text written, (?) not wired: needs a placement call
-  'academics.myRoutine.field.lessonStatus': PER_CARD,
 };
