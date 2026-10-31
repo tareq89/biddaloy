@@ -273,6 +273,8 @@ export function EditGuardianDialog({ guardian, config, onClose }: EditGuardianDi
                   ))}
                 </SelectContent>
               </Select>,
+              undefined,
+              { helpId: 'people.guardians.field.preferredCommunication' },
             )}
             {field(
               'guardian-edit-address',

@@ -170,7 +170,9 @@ export function IntakeForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <RequiredLabel htmlFor="intake-open-date">{t('form.openDateLabel')}</RequiredLabel>
+        <RequiredLabel htmlFor="intake-open-date" helpId="people.admissionIntakes.field.dates">
+          {t('form.openDateLabel')}
+        </RequiredLabel>
         <DatePicker
           id="intake-open-date"
           aria-label={t('form.openDateLabel')}

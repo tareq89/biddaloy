@@ -24,6 +24,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  HelpHint,
   Label,
   Select,
   SelectContent,
@@ -305,13 +306,17 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
             >
               {t('substitutionDialog.cancelledLabel')}
             </Label>
+            <HelpHint helpId="academics.routineSubstitutions.field.cancelled" />
           </div>
 
           {!isCancelled && (
             <div className="flex flex-col gap-1">
-              <Label htmlFor="substitution-teacher">
-                {t('substitutionDialog.substituteTeacherLabel')}
-              </Label>
+              <span className="inline-flex items-center gap-1">
+                <Label htmlFor="substitution-teacher">
+                  {t('substitutionDialog.substituteTeacherLabel')}
+                </Label>
+                <HelpHint helpId="academics.routineSubstitutions.field.substituteTeacher" />
+              </span>
               <Select value={substituteTeacherId} onValueChange={setSubstituteTeacherId}>
                 <SelectTrigger id="substitution-teacher" className="w-full">
                   <SelectValue />

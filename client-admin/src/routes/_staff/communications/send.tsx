@@ -307,9 +307,13 @@ function SendMessageBody() {
             </div>
 
             {student !== null && (
-              <fieldset className="md:col-span-2">
+              // The group is named by the text span only, so the (?) stays out of its name.
+              <fieldset className="md:col-span-2" aria-labelledby="send-guardian-pick-label">
                 <legend className="mb-1.5 text-label text-text-primary">
-                  {t('send.guardianPickLabel')}
+                  <span className="inline-flex items-center gap-1">
+                    <span id="send-guardian-pick-label">{t('send.guardianPickLabel')}</span>
+                    <HelpHint helpId="communications.sendMessage.field.guardian" />
+                  </span>
                 </legend>
                 <RadioGroup
                   aria-label={t('send.guardianListLabel', { name: student.full_name })}
@@ -367,7 +371,10 @@ function SendMessageBody() {
           <h2 className="text-h2">{t('send.messageSectionTitle')}</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="send-medium">{t('send.mediumLabel')}</Label>
+              <span className="inline-flex items-center gap-1">
+                <Label htmlFor="send-medium">{t('send.mediumLabel')}</Label>
+                <HelpHint helpId="communications.sendMessage.field.medium" />
+              </span>
               <Select value={medium} onValueChange={(value) => setMedium(value as SendableMedium)}>
                 <SelectTrigger
                   id="send-medium"
@@ -401,7 +408,10 @@ function SendMessageBody() {
             )}
 
             <div className="flex flex-col gap-1.5 md:col-span-2">
-              <Label htmlFor="send-message">{t('send.messageLabel')}</Label>
+              <span className="inline-flex items-center gap-1">
+                <Label htmlFor="send-message">{t('send.messageLabel')}</Label>
+                <HelpHint helpId="communications.sendMessage.field.message" />
+              </span>
               <Textarea
                 id="send-message"
                 value={messageBody}
