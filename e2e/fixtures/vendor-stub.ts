@@ -4,10 +4,11 @@ import { createServer, type IncomingMessage, type Server } from 'node:http';
  * [#3304] A fake OneCodeSoft v3 API on 127.0.0.1 so the settings journeys never reach a real
  * company. The server under test accepts this address only through the test seam
  * `OUTBOUND_TEST_ALLOW_LOOPBACK` (playwright.config.ts; 08-security Rule 7).
- * Paths are served under the `/api` base a school types as its API address.
+ * Paths are served under the `/api` base a school types as its API address. The server under
+ * test must run with that seam on: a dev server started by hand needs `NODE_ENV=test` and
+ * `OUTBOUND_TEST_ALLOW_LOOPBACK=true` (the Playwright config sets both for the server it starts).
  */
-export const VENDOR_STUB_PORT = 4010;
-export const VENDOR_STUB_URL = `http://127.0.0.1:${VENDOR_STUB_PORT}/api`;
+const BASE = 'http://127.0.0.1';
 
 export interface StubRequest {
   method: string;
@@ -16,6 +17,8 @@ export interface StubRequest {
 }
 
 export interface VendorStub {
+  /** What a school types as its API address; the port is whatever the OS gave (no clash between workers). */
+  url: string;
   requests: StubRequest[];
   /** Answer every request with this HTTP status (401 or 500) until set back to null. */
   failWith: 401 | 500 | null;
@@ -23,14 +26,14 @@ export interface VendorStub {
 }
 
 export async function startVendorStub(): Promise<VendorStub> {
-  let statusCalls = 0;
   const stub: VendorStub = {
+    url: '',
     requests: [],
     failWith: null,
     close: () => new Promise((resolve) => server.close(() => resolve())),
   };
   const server: Server = createServer((req: IncomingMessage, res) => {
-    const url = new URL(req.url ?? '/', VENDOR_STUB_URL);
+    const url = new URL(req.url ?? '/', BASE);
     const path = url.pathname.replace(/^\/api/, '');
     stub.requests.push({
       method: req.method ?? 'GET',
@@ -54,18 +57,20 @@ export async function startVendorStub(): Promise<VendorStub> {
       });
     }
     if (path === '/v3/status') {
-      statusCalls += 1;
-      const delivered = statusCalls >= 2;
+      // Delivered at once: Check status waits a minute between two checks of one message.
       return reply(200, {
         status: 'success',
-        data: { Data: { Status: delivered ? 'Delivered' : 'Pending', ErrorCode: '000' } },
+        data: { Data: { Status: 'Delivered', ErrorCode: '000' } },
       });
     }
     return reply(404, { status: 'error', message: 'not found' });
   });
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
-    server.listen(VENDOR_STUB_PORT, '127.0.0.1', resolve);
+    server.listen(0, '127.0.0.1', resolve);
   });
+  const address = server.address();
+  if (address === null || typeof address === 'string') throw new Error('vendor stub has no port');
+  stub.url = `${BASE}:${address.port}/api`;
   return stub;
 }

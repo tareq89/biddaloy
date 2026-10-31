@@ -14,9 +14,12 @@ import { AdminNoticeService } from './admin-notice.service';
 describe('AdminNoticeService (integration)', () => {
   let ds: DataSource;
   let svc: AdminNoticeService;
-  const send = vi
-    .fn()
-    .mockResolvedValue({ success: true, providerMessageId: 'pm-1', provider: 'smtp' });
+  const send = vi.fn().mockResolvedValue({
+    success: true,
+    providerMessageId: 'pm-1',
+    provider: 'smtp',
+    source: 'platform',
+  });
   const registry = { resolve: () => ({ send }) };
 
   beforeAll(async () => {
@@ -90,7 +93,7 @@ describe('AdminNoticeService (integration)', () => {
         recipient_address: admin,
         status: 'SENT',
         tenant_id: a,
-        metadata: { kind: 'welcome', provider: 'smtp' },
+        metadata: { kind: 'welcome', provider: 'smtp', source: 'platform' },
       },
     ]);
   });

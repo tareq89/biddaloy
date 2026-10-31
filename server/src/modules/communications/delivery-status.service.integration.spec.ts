@@ -79,10 +79,10 @@ describe('DeliveryStatusService (integration)', () => {
   const counts = async (batchId: string) =>
     (
       await dataSource.query(
-        `SELECT successful_count, failed_count FROM reminder_batches WHERE id = $1`,
+        `SELECT successful_count, failed_count, status FROM reminder_batches WHERE id = $1`,
         [batchId],
       )
-    )[0] as { successful_count: number; failed_count: number };
+    )[0] as { successful_count: number; failed_count: number; status: string };
 
   const row = async (id: string) =>
     (
@@ -143,11 +143,50 @@ describe('DeliveryStatusService (integration)', () => {
     await addSentLog(tenantA, { provider: 'stub-sms' }, batch);
     getStatus.mockResolvedValue({ status: 'FAILED', code: '1001' });
 
-    await service.checkStatus(id, tenantA);
+    await service.checkStatus(id, tenantA, 'ADMIN');
     // A second click is blocked by the wait (409), so the counters cannot move twice.
-    await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.checkStatus(id, tenantA, 'ADMIN')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
 
-    expect(await counts(batch)).toEqual({ successful_count: 1, failed_count: 1 });
+    // 1 of 2 failed: the batch is PARTIALLY_FAILED, not the COMPLETED it was.
+    expect(await counts(batch)).toEqual({
+      successful_count: 1,
+      failed_count: 1,
+      status: 'PARTIALLY_FAILED',
+    });
+  });
+
+  it('FAILED on the only recipient of a batch makes the batch FAILED', async () => {
+    const batch = await addBatch(tenantA, 1);
+    const id = await addSentLog(tenantA, { provider: 'stub-sms' }, batch);
+    getStatus.mockResolvedValue({ status: 'FAILED', code: '1001' });
+
+    await service.checkStatus(id, tenantA, 'ADMIN');
+
+    expect(await counts(batch)).toEqual({
+      successful_count: 0,
+      failed_count: 1,
+      status: 'FAILED',
+    });
+  });
+
+  it('a batch whose counters cannot move (no successful count left) is left alone', async () => {
+    const batch = await addBatch(tenantA, 1);
+    await dataSource.query(
+      `UPDATE reminder_batches SET successful_count = 0, failed_count = 1, status = 'FAILED' WHERE id = $1`,
+      [batch],
+    );
+    const id = await addSentLog(tenantA, { provider: 'stub-sms' }, batch);
+    getStatus.mockResolvedValue({ status: 'FAILED', code: '1001' });
+
+    await service.checkStatus(id, tenantA, 'ADMIN');
+
+    expect(await counts(batch)).toEqual({
+      successful_count: 0,
+      failed_count: 1,
+      status: 'FAILED',
+    });
   });
 
   it('DELIVERED or PENDING on a batch row leaves the counters alone', async () => {
@@ -158,10 +197,14 @@ describe('DeliveryStatusService (integration)', () => {
       status: 'PENDING',
     });
 
-    await service.checkStatus(a, tenantA);
-    await service.checkStatus(b, tenantA);
+    await service.checkStatus(a, tenantA, 'ADMIN');
+    await service.checkStatus(b, tenantA, 'ADMIN');
 
-    expect(await counts(batch)).toEqual({ successful_count: 2, failed_count: 0 });
+    expect(await counts(batch)).toEqual({
+      successful_count: 2,
+      failed_count: 0,
+      status: 'COMPLETED',
+    });
   });
 
   it('FAILED: a final vendor failure sets status FAILED', async () => {

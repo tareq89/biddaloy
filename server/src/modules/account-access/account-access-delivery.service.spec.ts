@@ -174,6 +174,7 @@ describe('AccountAccessDeliveryService', () => {
         success: false,
         error: 'boom: link was https://x/activate?token=SECRET',
         provider: 'onecodesoft',
+        source: 'platform',
       }),
     };
     registry.resolve.mockReturnValue(provider);
@@ -190,7 +191,11 @@ describe('AccountAccessDeliveryService', () => {
     expect(result.status).toBe(CommunicationStatus.FAILED);
     expect(logRepo.saved.metadata.error).toBe('Delivery failed');
     expect(logRepo.saved.metadata.provider).toBe('onecodesoft');
+    // The platform account is recorded, so Check status asks it and not the school's own (#3350).
+    expect(logRepo.saved.metadata.source).toBe('platform');
     expect(JSON.stringify(logRepo.saved.metadata)).not.toContain('123456');
+    // The text the gateway echoed is what Rule 13 is about.
+    expect(JSON.stringify(logRepo.saved.metadata)).not.toContain('SECRET');
   });
 
   it('marks the log FAILED without persisting the raw error text when the provider throws', async () => {

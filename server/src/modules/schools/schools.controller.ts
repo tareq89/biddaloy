@@ -174,7 +174,8 @@ export class SchoolsController {
       dto,
       user.sub,
       requestContext(request),
-      tenant.role === UserRole.SUPER_ADMIN,
+      // The platform's own SUPER_ADMIN only: a legacy tenant-local SUPER_ADMIN row also has the role.
+      (request as Request & { isPlatformSuperAdmin?: boolean }).isPlatformSuperAdmin === true,
     );
   }
 }

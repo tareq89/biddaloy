@@ -157,13 +157,26 @@ export class DeliveryStatusService {
         RETURNING reminder_batch_id
        ), bump AS (
          UPDATE reminder_batches b
-            SET successful_count = GREATEST(b.successful_count - 1, 0),
-                failed_count = b.failed_count + 1
+            SET successful_count = b.successful_count - 1,
+                failed_count = b.failed_count + 1,
+                -- Same rule as recordBatchOutcome: a batch with every recipient settled is
+                -- COMPLETED / PARTIALLY_FAILED / FAILED by its counters.
+                status = CASE
+                  WHEN b.successful_count - 1 + b.failed_count + 1 >= b.total_recipients THEN
+                    CASE WHEN b.successful_count - 1 = 0
+                      THEN 'FAILED'::"public"."reminder_batches_status_enum"
+                      ELSE 'PARTIALLY_FAILED'::"public"."reminder_batches_status_enum"
+                    END
+                  ELSE b.status
+                END,
+                updated_at = now()
            FROM upd
-          WHERE b.id = upd.reminder_batch_id AND b.tenant_id = $4 AND $2::text = 'FAILED'
+          -- successful_count > 0: both counters move together or not at all (no silent drift).
+          WHERE b.id = upd.reminder_batch_id AND b.tenant_id = $4 AND $5::boolean
+            AND b.successful_count > 0
        )
        SELECT count(*)::int AS n FROM upd`,
-      [JSON.stringify(delivery), next, id, tenantId],
+      [JSON.stringify(delivery), next, id, tenantId, next === CommunicationStatus.FAILED],
     )) as { n: number }[];
     const affected = rows[0]?.n ?? 0;
     if (affected !== 1) throw cannot();

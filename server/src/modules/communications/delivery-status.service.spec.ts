@@ -98,7 +98,8 @@ describe('DeliveryStatusService', () => {
       code: '000',
       checkedAt: NOW.toISOString(),
     });
-    expect(params.slice(1)).toEqual([CommunicationStatus.DELIVERED, 'log-1', TENANT]);
+    // The last param is "did this flip to FAILED": false, so the batch counters stay.
+    expect(params.slice(1)).toEqual([CommunicationStatus.DELIVERED, 'log-1', TENANT, false]);
     expect(result).toMatchObject({ id: 'log-1', status: CommunicationStatus.DELIVERED });
     // Re-read in this tenant, with the sender's name only; the answer masks the share link.
     expect(reread.where).toHaveBeenCalledWith('log.id = :id AND log.tenant_id = :tenantId', {

@@ -19,7 +19,7 @@ flowchart LR
     ENV["Platform env<br/>SMS_PROVIDER, ONECODESOFT_API_KEY ..."]
     API["GET /schools/:id/settings/messaging/providers<br/>descriptors, drives the settings form"]
     ALERT["Platform alerts<br/>direct path: platform keys only"]
-    LOG["communication_logs<br/>metadata.provider on every row"]
+    LOG["communication_logs<br/>metadata.provider and source on every row a provider handled"]
 
     CTRL --> REG --> LIST --> BASE
     CTRL --> RES
@@ -37,7 +37,7 @@ Example: a school stores `communications.sms = { provider: 'onecodesoft', onecod
 - **Who owns a field (D11).** `required`, `owned: true` and destination fields (`url`, or `destination: true`) belong to whoever owns the medium. Once a school owns it, those never come from the platform env. A school that owns nothing sends on the platform account, limited by its SMS credit.
 - **Platform env convention (D11).** `<COMPANY>_<FIELD>`, e.g. `ONECODESOFT_API_KEY`; `SMS_PROVIDER` names the platform's company.
 - **Old settings still read (D6).** The flat pre-Epic-97 keys (`communications.sms.apiKey`) and the old `PLATFORM_SMS_*` env keys are still read for one release, with a boot warning that names keys only. Removing them is tracked as a follow-up.
-- **Check status (D23).** `POST /communications/logs/:id/check-status` asks the company about one SENT row (once a minute per row, idempotent). It needs `metadata.provider`; a row sent on the platform account is resolved from the platform env, never from the school's saved blocks.
+- **Check status (D23).** `POST /communications/logs/:id/check-status` asks the company about one SENT row (once a minute per row, idempotent). It needs `metadata.provider`; a row sent on the platform account (`metadata.source: 'platform'`) is resolved from the platform env, never from the school's saved blocks. The worker and the test send write both keys, and account access and the admin notices do it through `sendOriginMetadata` (`send-through-provider.ts`); a row with no provider (a config error, a sink-mode row, or one sent before this was recorded) offers no Check status.
 - **Platform alerts** take the direct path: they resolve the company from the platform env and call the registered provider, so an alert still goes out when no school has any config.
 - **Outbound HTTP** from a provider goes through `pinned-http.ts` ([Security Rule 7](08-security.md)); an `apiUrl` field is declared in the descriptor, so the guard checks it before any call.
 

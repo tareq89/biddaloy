@@ -138,9 +138,11 @@ export class MimsmsProvider extends MessagingProvider<ResolvedMimSmsConfig> {
    */
   async testConnection(config: ResolvedMimSmsConfig): Promise<ConnectionTestResult> {
     try {
+      // Check the bare address, then add the key: the guard and the pinned fetch put the URL they
+      // are given in their error text, which must never carry the school's key (Rule 13).
+      const destination = await assertSafeHttpDestination(BALANCE_URL);
       const params = new URLSearchParams({ api_key: config.apiKey });
       const url = `${BALANCE_URL}?${params.toString()}`;
-      const destination = await assertSafeHttpDestination(url);
       // Status first (#3342): a vendor 5xx with a JSON body is an outage, not a bad key.
       const { status, body } = await fetchPinnedJsonWithStatus(destination, url, {
         method: 'GET',

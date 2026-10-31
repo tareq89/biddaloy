@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { sendOriginMetadata } from '../communications/providers/send-through-provider';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { isSecretEchoEnabled } from './account-access-echo';
@@ -143,7 +144,7 @@ export class AccountAccessDeliveryService {
       if (result.success) {
         log.status = CommunicationStatus.SENT;
         log.provider_message_id = result.providerMessageId;
-        log.metadata = withProvider(log.metadata, result.provider);
+        log.metadata = withOrigin(log.metadata, result);
         await this.logRepo.save(log);
         return { logId: log.id, status: CommunicationStatus.SENT };
       }
@@ -152,9 +153,9 @@ export class AccountAccessDeliveryService {
       // secret-bearing `real.body`, e.g. an activation link or OTP) back in
       // its error text, which would land in communication_logs.metadata.
       log.status = CommunicationStatus.FAILED;
-      log.metadata = withProvider(
+      log.metadata = withOrigin(
         { ...input.metadata, kind: input.kind, error: 'Delivery failed' },
-        result.provider,
+        result,
       );
       await this.logRepo.save(log);
       return { logId: log.id, status: CommunicationStatus.FAILED };
@@ -194,9 +195,14 @@ export class AccountAccessDeliveryService {
   }
 }
 
-// Only the vendor's name (a descriptor name, never a secret) so Check status can find it (#3344).
-const withProvider = (meta: Record<string, unknown> | null, provider?: string) =>
-  provider ? { ...meta, provider } : meta;
+// Only the vendor's name and account (never a secret) so Check status can find it (#3344).
+const withOrigin = (
+  meta: Record<string, unknown> | null,
+  result: Parameters<typeof sendOriginMetadata>[0],
+) => {
+  const origin = sendOriginMetadata(result);
+  return Object.keys(origin).length ? { ...meta, ...origin } : meta;
+};
 
 /** `EMAIL` if the user has one, else `SMS` if they have a phone, else `null` — the caller's job to decide, per D5/the plan. */
 export function pickChannel(

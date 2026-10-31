@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { CommunicationMedium, UserRole } from '@biddaloy/shared';
 import type { MessagingProvidersResponse, ProviderDescriptor } from '@biddaloy/shared';
@@ -16,6 +17,7 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_USER_ID,
   SEED_ADMIN_PASSWORD,
+  SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
 
 const API = '/api/v1';
@@ -34,6 +36,10 @@ describe('Messaging settings (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let token: string;
+  // A genuine platform SUPER_ADMIN (a membership on the platform school), unlike the seed user,
+  // who is a tenant-local SUPER_ADMIN of the seed school (#3346).
+  let platformToken: string;
+  let platformTenantId: string;
 
   const req = (
     method: 'get' | 'patch',
@@ -49,6 +55,13 @@ describe('Messaging settings (e2e)', () => {
   };
   const providers = (tenant: string, school = tenant) =>
     req('get', `/schools/${school}/settings/messaging/providers`, tenant);
+  /** The platform's own SUPER_ADMIN writing `school`'s settings. */
+  const platformPatch = (body: object, school = SEED_TENANT_ID) =>
+    supertest(app.getHttpServer())
+      .patch(`${API}/schools/${school}/settings`)
+      .set('Authorization', `Bearer ${platformToken}`)
+      .set('X-Tenant-ID', platformTenantId)
+      .send({ version: VERSION, ...body });
   const patch = (tenant: string, body: object, school = tenant) =>
     req('patch', `/schools/${school}/settings`, tenant).send({ version: VERSION, ...body });
   const storedBlock = async (school: string, key: string) =>
@@ -114,6 +127,33 @@ describe('Messaging settings (e2e)', () => {
       await supertest(app.getHttpServer())
         .post(`${API}/auth/login`)
         .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200)
+    ).body.access_token;
+
+    // Platform authority = SUPER_ADMIN on the 'default-school' tenant (ContextGuard, no
+    // PLATFORM_TENANT_ID in tests); same setup as school-admins.controller.e2e-spec.ts.
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       SELECT gen_random_uuid(), 'Platform', 'default-school', NOW(), NOW()
+       WHERE NOT EXISTS (SELECT 1 FROM schools WHERE slug = 'default-school')`,
+    );
+    [{ id: platformTenantId }] = await dataSource.query(
+      `SELECT id FROM schools WHERE slug = 'default-school'`,
+    );
+    const platformEmail = `metering-platform-${randomUUID().slice(0, 8)}@example.test`;
+    const [{ id: platformUserId }] = await dataSource.query(
+      `INSERT INTO users (email, password_hash, full_name, status)
+       VALUES ($1, $2, 'Metering Platform Admin', 'ACTIVE') RETURNING id`,
+      [platformEmail, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ($1, $2, $3)`,
+      [platformUserId, platformTenantId, UserRole.SUPER_ADMIN],
+    );
+    platformToken = (
+      await supertest(app.getHttpServer())
+        .post(`${API}/auth/login`)
+        .send({ email: platformEmail, password: SEED_ADMIN_PASSWORD })
         .expect(200)
     ).body.access_token;
   }, 60000);
@@ -251,12 +291,9 @@ describe('Messaging settings (e2e)', () => {
     if (!sms || sms.providers.length < 2) return; // removal by provider null is the multi-company shape
     const { communications } = fullBody(schema);
     // #3346: only the platform (SUPER_ADMIN) may switch a school onto the platform account.
-    await req('patch', `/schools/${SEED_TENANT_ID}/settings`, SEED_TENANT_ID, UserRole.SUPER_ADMIN)
-      .send({
-        version: VERSION,
-        communications: { sms: { ...(communications.sms as object), metering: 'PLATFORM' } },
-      })
-      .expect(200);
+    await platformPatch({
+      communications: { sms: { ...(communications.sms as object), metering: 'PLATFORM' } },
+    }).expect(200);
 
     // Review round 2 on #3347: `provider: null` alone would leave the saved blocks behind, so it
     // is refused and nothing changes.
@@ -426,6 +463,12 @@ describe('Messaging settings (e2e)', () => {
 
     it('a SUPER_ADMIN may set it', async () => {
       await setStored(null);
+      await platformPatch(sms('PLATFORM')).expect(200);
+      expect(await storedMetering()).toBe('PLATFORM');
+    });
+
+    it('a tenant-local SUPER_ADMIN of the school (the seed user, no platform membership) may not', async () => {
+      await setStored(null);
       await req(
         'patch',
         `/schools/${SEED_TENANT_ID}/settings`,
@@ -433,8 +476,8 @@ describe('Messaging settings (e2e)', () => {
         UserRole.SUPER_ADMIN,
       )
         .send({ version: VERSION, ...sms('PLATFORM') })
-        .expect(200);
-      expect(await storedMetering()).toBe('PLATFORM');
+        .expect(403);
+      expect(await storedMetering()).toBeUndefined();
     });
 
     it('an invalid value is 400; missing X-Tenant-ID is 401; non-UUID id is 400; another school is 403', async () => {

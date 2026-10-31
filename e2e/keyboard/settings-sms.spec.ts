@@ -16,21 +16,22 @@ test('sidebar to Settings, Communication, then every SMS control by Tab', async 
   test.setTimeout(90_000);
   await openFromSidebar(page, t('nav.items.settings'));
 
-  await tabUntilFocused(page, t('settings.communication'), 60, { exact: false });
+  await tabUntilFocused(page, t('settings.categories.communication'), 60, { exact: false });
   await page.keyboard.press('Enter');
   const section = page.locator('#sms-section');
   await expect(section).toBeVisible();
 
+  // DOM order: picker, the company's fields, the test-message block, then the footer buttons.
   await tabToLocator(page, section.getByRole('combobox', { name: t('settings.sms.provider') }));
-  await tabToLocator(
-    page,
-    section.getByRole('button', { name: t('settings.testConnection.action') }),
-  );
   await tabToLocator(page, section.getByLabel(t('settings.sendTestMessage.phone')));
   await page.keyboard.type('01712345678');
   await tabToLocator(
     page,
     section.getByRole('button', { name: t('settings.sendTestMessage.label') }),
+  );
+  await tabToLocator(
+    page,
+    section.getByRole('button', { name: t('settings.testConnection.action') }),
   );
   await tabToLocator(page, section.getByRole('button', { name: t('settings.save.action') }));
 });
