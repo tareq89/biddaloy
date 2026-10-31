@@ -388,6 +388,14 @@
     "routes": ["/reports/collections"]
   },
   {
+    "id": "reports.studentCount",
+    "kind": "nav",
+    "path": "reports/student-count",
+    "route": "/reports/student-count",
+    "roles": ["ADMIN", "ACCOUNTANT", "TEACHER", "EXECUTIVE", "COMMITTEE"],
+    "routes": ["/reports/student-count"]
+  },
+  {
     "id": "reports.printables",
     "kind": "nav",
     "path": "reports/printables",

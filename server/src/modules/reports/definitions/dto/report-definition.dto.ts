@@ -29,6 +29,7 @@ export const REPORT_VISIBLE_ROLES = [
 export class CreateReportDefinitionDto {
   @ApiProperty({ example: 'dues-by-class' })
   @IsString()
+  @MaxLength(80)
   @Matches(/^[a-z0-9][a-z0-9-]{1,78}$/, {
     message: 'key must be lowercase letters, digits and dashes',
   })

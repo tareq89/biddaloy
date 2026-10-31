@@ -1,6 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { ExportTooLargeError } from '../hooks/reports';
 import { REGION_BD_BN, REGION_BD_EN } from '../i18n/region-config';
 import { RegionConfigProvider } from '../i18n/region-config-provider';
 import { expectKeyboardOperable } from '../test/a11y';
@@ -123,6 +124,17 @@ describe('ExportMenu', () => {
       totalCount: 12400,
       narrowByClass: true,
       onExportAll: () => Promise.reject(tooLarge),
+    });
+    await user.click(await screen.findByRole('button', { name: /Download to Excel/ }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Cannot download more than 5,000 people at once yet. Narrow it by class or section.',
+    );
+  });
+
+  it("recognises the hooks' real ExportTooLargeError, by its code and row cap", async () => {
+    const { user } = renderMenu({
+      narrowByClass: true,
+      onExportAll: () => Promise.reject(new ExportTooLargeError(5000)),
     });
     await user.click(await screen.findByRole('button', { name: /Download to Excel/ }));
     expect((await screen.findByRole('alert')).textContent).toBe(

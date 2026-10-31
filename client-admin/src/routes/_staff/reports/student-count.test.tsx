@@ -7,7 +7,6 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
-import { stubExportDownload } from '../../../test/export-download';
 
 const YEAR_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_YEAR_ID = '22222222-2222-4222-8222-222222222222';
@@ -82,9 +81,30 @@ async function classTable() {
   );
 }
 
+/** Answers `.../export` with a file. MSW cannot answer a blob request in this jsdom, so
+ * `apiClient.get` is stubbed for export URLs; every other request still goes to MSW. */
+function stubExport() {
+  const sent: { url: string; params: Record<string, string> }[] = [];
+  const real = apiClient.get.bind(apiClient);
+  vi.spyOn(apiClient, 'get').mockImplementation(((
+    url: string,
+    config?: { params?: Record<string, string> },
+  ) => {
+    if (!url.includes('/export')) return real(url, config);
+    sent.push({ url, params: { ...config?.params } });
+    return Promise.resolve({ status: 200, headers: {}, data: new Blob(['file']) });
+  }) as typeof apiClient.get);
+  URL.createObjectURL = () => 'blob:mock';
+  URL.revokeObjectURL = () => undefined;
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+  return sent;
+}
+
 describe('/reports/student-count [8.15.54]', () => {
   afterEach(async () => {
     vi.restoreAllMocks();
+    delete (URL as { createObjectURL?: unknown }).createObjectURL;
+    delete (URL as { revokeObjectURL?: unknown }).revokeObjectURL;
     await cleanupTestState();
   });
 
@@ -259,24 +279,20 @@ describe('/reports/student-count [8.15.54]', () => {
 
   it('downloads the class table to Excel for the year on screen, and the staff table separately', async () => {
     serveCount();
-    const download = stubExportDownload();
-    try {
-      renderPage();
-      const user = userEvent.setup();
-      await user.click(await screen.findByRole('button', { name: 'Download to Excel' }));
-      await waitFor(() => expect(download.sent).toHaveLength(1));
-      expect(download.sent[0]).toEqual({
-        url: '/reports/student-count/export',
-        params: { academic_year_id: YEAR_ID, format: 'XLSX', table: 'students' },
-      });
-      await user.click(
-        screen.getByRole('button', { name: 'Download the teachers and staff table to Excel' }),
-      );
-      await waitFor(() => expect(download.sent).toHaveLength(2));
-      expect(download.sent[1]?.params.table).toBe('staff');
-    } finally {
-      download.restore();
-    }
+    const sent = stubExport();
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Download to Excel' }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual({
+      url: '/reports/student-count/export',
+      params: { academic_year_id: YEAR_ID, format: 'XLSX', table: 'students' },
+    });
+    await user.click(
+      screen.getByRole('button', { name: 'Download the teachers and staff table to Excel' }),
+    );
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1]?.params.table).toBe('staff');
   });
 
   it('changes the year from the "Change" menu and asks for that year', async () => {

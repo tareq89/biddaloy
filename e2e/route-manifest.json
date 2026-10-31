@@ -795,6 +795,11 @@
       "archetype": "list"
     },
     {
+      "path": "/reports/student-count",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/communications/send-alert",
       "role": "admin",
       "archetype": "form"
