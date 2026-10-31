@@ -123,6 +123,77 @@ describe('ProviderConfigForm', () => {
     expect(body.mock.calls[0]![0].communications.sms.greenweb.apiKey).toBeNull();
   });
 
+  // #3331: the PATCH keeps a left-out field, so a cleared saved optional field must go out as null.
+  describe('clearing a saved optional field', () => {
+    const SAVED_OCS = {
+      provider: 'onecodesoft',
+      onecodesoft: {
+        senderId: 'OLD',
+        apiUrl: 'https://sms.example/api',
+        apiKey: { configured: true, hint: '••••ocs1' },
+      },
+    };
+
+    it('sends null for a cleared saved field, and leaves out one that was never saved', async () => {
+      server.use(providersHandler({ SMS: true }, 'onecodesoft'));
+      const body = captureSave();
+      const { user } = renderForm('SMS', SAVED_OCS);
+
+      await user.clear(await screen.findByLabelText(/^Sender name/));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(body).toHaveBeenCalledTimes(1));
+      expect(body.mock.calls[0]![0].communications.sms).toEqual({
+        provider: 'onecodesoft',
+        onecodesoft: { senderId: null, apiUrl: 'https://sms.example/api' },
+      });
+    });
+
+    // #3338: Remove plus clearing the saved address leaves nothing of the school's own, which the
+    // server reads as "back on the platform account".
+    it('Remove + clear the saved address sends a block of nulls', async () => {
+      const body = captureSave();
+      const { user, container } = renderForm('SMS', {
+        provider: 'greenweb',
+        greenweb: {
+          apiKey: { configured: true, hint: '••••key1' },
+          apiUrl: 'https://g.example/api',
+        },
+      });
+
+      await user.click(await screen.findByRole('button', { name: 'Remove' }));
+      await user.click(container.querySelector('summary')!);
+      await user.clear(screen.getByLabelText('API address (optional)'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(body).toHaveBeenCalledTimes(1));
+      expect(body.mock.calls[0]![0].communications.sms).toEqual({
+        provider: 'greenweb',
+        greenweb: { apiKey: null, apiUrl: null },
+      });
+    });
+
+    it('a value saved in this session and then cleared also goes out as null', async () => {
+      server.use(providersHandler({ SMS: true }, 'onecodesoft'));
+      const body = captureSave();
+      const { user } = renderForm('SMS', {
+        provider: 'onecodesoft',
+        onecodesoft: { apiUrl: 'https://sms.example/api' },
+      });
+
+      const sender = await screen.findByLabelText(/^Sender name/);
+      await user.type(sender, 'NEW');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(body).toHaveBeenCalledTimes(1));
+      expect(body.mock.calls[0]![0].communications.sms.onecodesoft.senderId).toBe('NEW');
+
+      await user.clear(sender);
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(body).toHaveBeenCalledTimes(2));
+      expect(body.mock.calls[1]![0].communications.sms.onecodesoft.senderId).toBeNull();
+    });
+  });
+
   it('shows an inline required error and does not save', async () => {
     server.use(providersHandler({ SMS: false }, 'mimsms'));
     const body = captureSave();

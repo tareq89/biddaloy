@@ -280,8 +280,14 @@ function ProviderConfigFormInner({
         if (s !== undefined) block[f.key] = s;
         continue;
       }
-      const v = values[valueKey(current.name, f.key)] ?? '';
-      if (v === '' && !f.required) continue;
+      const key = valueKey(current.name, f.key);
+      const v = values[key] ?? '';
+      if (v === '' && !f.required) {
+        // #3331: a left-out field keeps its saved value, so clearing a saved one sends null.
+        // The last-saved values (reset after each save), not the mount-time ones.
+        if ((form.formState.defaultValues?.[key] ?? '') !== '') block[f.key] = null;
+        continue;
+      }
       block[f.key] = isPort(f) ? Number(toLatinDigits(v)) : v;
     }
     return { ...(sole ? {} : { provider: current.name }), [current.name]: block };

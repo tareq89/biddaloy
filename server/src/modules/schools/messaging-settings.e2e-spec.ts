@@ -198,12 +198,49 @@ describe('Messaging settings (e2e)', () => {
     );
     expect((await storedBlock(SEED_TENANT_ID, key))[d.name][secret]).toBe(before);
 
-    // null: cleared; masked as not configured and providers says not configured.
+    // null: cleared (#3331: the key is removed); masked as absent and providers says not configured.
     const cleared = { provider: d.name, [d.name]: { ...withoutSecret[d.name], [secret]: null } };
     const res = await patch(SEED_TENANT_ID, { communications: { [key]: cleared } }).expect(200);
-    expect(res.body.communications[key][d.name][secret]).toEqual({ configured: false });
+    expect(res.body.communications[key][d.name]).not.toHaveProperty(secret);
+    expect(await storedBlock(SEED_TENANT_ID, key)).not.toHaveProperty([d.name, secret]);
     const after = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
     expect(after[medium]?.configured).toBe(false);
+  });
+
+  // #3331: a PATCH keeps a left-out field, so the form sends null for a cleared saved optional
+  // field. It must be gone from the stored row and from both GETs; a required one cannot be cleared.
+  it('null removes a saved optional field; a required field cannot be cleared', async () => {
+    const schema = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    const { communications } = fullBody(schema);
+    const found = Object.values(CommunicationMedium)
+      .map((m) => ({ m, d: schema[m]?.providers[0] }))
+      .find(({ d }) => d?.fields.some((f) => f.kind !== 'secret' && !f.required));
+    if (!found) return; // no first provider has an optional text field
+    const { m, d } = found as { m: CommunicationMedium; d: ProviderDescriptor };
+    const key = m.toLowerCase();
+    const optional = d.fields.find((f) => f.kind !== 'secret' && !f.required)!.key;
+    await patch(SEED_TENANT_ID, { communications: { [key]: communications[key] } }).expect(200);
+    expect((await storedBlock(SEED_TENANT_ID, key))[d.name]).toHaveProperty(optional);
+
+    const res = await patch(SEED_TENANT_ID, {
+      communications: { [key]: { provider: d.name, [d.name]: { [optional]: null } } },
+    }).expect(200);
+    expect(res.body.communications[key][d.name]).not.toHaveProperty(optional);
+    expect((await storedBlock(SEED_TENANT_ID, key))[d.name]).not.toHaveProperty(optional);
+    const get = await req('get', `/schools/${SEED_TENANT_ID}/settings`, SEED_TENANT_ID).expect(200);
+    expect(get.body.communications[key][d.name]).not.toHaveProperty(optional);
+    // The rest of the block (secrets included) is untouched.
+    for (const f of d.fields.filter((x) => x.key !== optional)) {
+      expect((await storedBlock(SEED_TENANT_ID, key))[d.name]).toHaveProperty(f.key);
+    }
+
+    const required = d.fields.find((f) => f.kind !== 'secret' && f.required);
+    if (required) {
+      await patch(SEED_TENANT_ID, {
+        communications: { [key]: { provider: d.name, [d.name]: { [required.key]: null } } },
+      }).expect(400);
+      expect((await storedBlock(SEED_TENANT_ID, key))[d.name]).toHaveProperty(required.key);
+    }
   });
 
   it('an old flat PATCH on a sole-provider medium is accepted; a later nested PATCH keeps the secret', async () => {
