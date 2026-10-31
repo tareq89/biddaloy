@@ -230,6 +230,7 @@ export class CommunicationsController {
     @CurrentUser() user: JwtPayload,
   ) {
     // [75.6-d] TEACHER: keep only students in current-year assigned sections (`null` = unrestricted).
+    // [83.0] D5 — teaching-only on purpose; no `includeCoordinated`.
     const scoped = await this.teacherScope.scopedStudentIds({
       role: tenant.role,
       userId: user.sub,
@@ -281,6 +282,7 @@ export class CommunicationsController {
     @CurrentUser() user: JwtPayload,
   ) {
     const caller = { role: tenant.role, userId: user.sub, tenantId: tenant.id };
+    // [83.0] D5 — teaching-only on purpose; no `includeCoordinated`.
     const scope = await this.teacherScope.assertCanSeeGuardian({ ...caller, guardianId });
     const scoped = await this.teacherScope.scopedStudentIds({ ...caller, scope });
     return this.communicationsService.findByGuardian(guardianId, tenant.id, scoped ?? undefined);

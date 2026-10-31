@@ -23,6 +23,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AcademicYearModule } from './modules/academics/academic-year.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { ClassModule } from './modules/classes/classes.module';
+import { CoordinationModule } from './modules/classes/coordination.module';
 import { EnrollmentModule } from './modules/enrollments/enrollments.module';
 import { UserModule } from './modules/users/users.module';
 import { StudentModule } from './modules/students/students.module';
@@ -451,6 +452,8 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     AcademicYearModule,
     CalendarModule,
     ClassModule,
+    // [83.3.2] My coordination (needs Exams + Attention, so not inside ClassModule).
+    CoordinationModule,
     EnrollmentModule,
     UserModule,
     StudentModule,

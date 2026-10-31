@@ -138,6 +138,21 @@ export async function teacherCanSeeStudent(
   return rows.length > 0;
 }
 
+/**
+ * [83.3.1] Live classes of the current year the caller coordinates (class- or subject-level).
+ * For read gates that work per class (homework analytics). Never for writes (D4).
+ */
+export async function teacherCoordinatedClassIds(
+  manager: EntityManager,
+  { userId, tenantId }: TeacherScopeInput,
+): Promise<string[]> {
+  const rows: { class_id: string }[] = await manager.query(
+    `SELECT DISTINCT c.id AS class_id ${COORDINATOR_ROWS_FROM_SQL}`,
+    [tenantId, userId],
+  );
+  return rows.map((r) => r.class_id);
+}
+
 export type HomeroomType =
   TeacherAssignmentType.CLASS_TEACHER | TeacherAssignmentType.ASSISTANT_CLASS_TEACHER;
 

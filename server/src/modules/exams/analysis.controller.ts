@@ -141,6 +141,7 @@ export class AnalysisController {
       role: tenant.role,
       userId: user.sub,
       tenantId: tenant.id,
+      includeCoordinated: true, // [83.3.1] D4 read
     });
     if (!ids) return undefined;
     if (sectionId && !ids.includes(sectionId)) throw new NotFoundException('Section not found');

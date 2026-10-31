@@ -18,6 +18,7 @@ import {
   type RuleFinding,
 } from '../rule.types';
 import { roleRecipients } from '../structure/role-recipients';
+import { coordinatorRecipients, coordinates } from '../structure/coordinator-recipients';
 
 /** `'08:00'` or a Postgres `time` `'08:00:00'` -> minutes since midnight. */
 export function toMinutes(hhmm: string): number {
@@ -210,6 +211,11 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
         : [],
     ]);
 
+    // [83.2.4] D7: class coordinators of each section's class join at level 1 (WARNING, after
+    // grace); heads stay at level 2. One query for every class in the run.
+    const coordinators = await coordinatorRecipients(this.dataSource, t, [
+      ...new Set(sections.map((s) => s.class_id)),
+    ]);
     const userOfTeacher = new Map(teacherUsers.map((r) => [r.id, r.user_id]));
     for (const h of homeroom) userOfTeacher.set(h.teacher_id, h.user_id);
     const onLeave = new Set(leaves.map((l) => l.staff_profile_id));
@@ -280,6 +286,12 @@ export class AttendanceNotTakenRule implements AttentionRuleShape {
         });
         const level = step === 'LEVEL_0' ? null : step;
         const users = teachers.map((id) => userOfTeacher.get(id)).filter((u): u is string => !!u);
+        if (level && level.level >= 1) {
+          for (const c of coordinators) {
+            if (coordinates(c, sec.class_id, null) && !users.includes(c.userId))
+              users.push(c.userId);
+          }
+        }
         if (users.length || level?.addRoles.length) {
           drafts.push({
             dedupeKey: `section:${sec.id}:${ctx.localDate}`,
