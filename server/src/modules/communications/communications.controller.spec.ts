@@ -8,6 +8,11 @@ import { CommunicationMedium, UserRole } from '@biddaloy/shared';
 import { FamilyAccessService } from '../students/family-access.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
 import { DeliveryStatusService } from './delivery-status.service';
+import { STRICT_RATE_LIMIT } from '../../rate-limit';
+
+// @nestjs/throttler's metadata keys (not exported from the package root).
+const THROTTLER_LIMIT = 'THROTTLER:LIMIT';
+const THROTTLER_TTL = 'THROTTLER:TTL';
 
 /**
  * Unit tests for CommunicationsController.
@@ -231,6 +236,16 @@ describe('CommunicationsController', () => {
 
       expect(deliveryStatus.checkStatus).toHaveBeenCalledWith('log-1', TENANT.id);
       expect(result).toBe(expected);
+    });
+
+    // CodeRabbit on #3347: the 60 s cooldown is per log, so the route itself is capped too.
+    // Metadata, not behaviour: app.module.ts skips throttling when NODE_ENV === 'test'.
+    it('carries STRICT_RATE_LIMIT, so many logs in a row cannot flood the vendor', () => {
+      const handler = CommunicationsController.prototype.checkStatus;
+      expect(Reflect.getMetadata(`${THROTTLER_LIMIT}default`, handler)).toBe(
+        STRICT_RATE_LIMIT.limit,
+      );
+      expect(Reflect.getMetadata(`${THROTTLER_TTL}default`, handler)).toBe(STRICT_RATE_LIMIT.ttl);
     });
   });
 

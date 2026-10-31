@@ -206,10 +206,12 @@ export class CommunicationsController {
   }
 
   // [97.4.01] D23/D35: the message log page's permission only. The Idempotency-Key replays a
-  // double click instead of asking the vendor twice (Rule 25).
+  // double click instead of asking the vendor twice (Rule 25). The cooldown is per log, so the
+  // route also carries STRICT_RATE_LIMIT: many logs in a row cannot flood the vendor.
   @Post('logs/:id/check-status')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(IdempotencyInterceptor)
+  @Throttle({ default: STRICT_RATE_LIMIT })
   @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
   @ApiOperation({
     summary: 'Ask the company that sent this SMS/message whether it was delivered (once a minute).',
