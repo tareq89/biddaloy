@@ -520,6 +520,19 @@ describe('homework dashboard widgets (integration)', () => {
       expect(r.totalAssignments).toBe(1);
     });
 
+    it('homework not yet due adds nobody missing; an early hand-in still counts', async () => {
+      // Without this, assigning new homework would drop every completion rate at once.
+      const [early] = [await mkStudent(sec7A), await mkStudent(sec7A)];
+      const a = await mkAssignment(class7, math, { section_id: sec7A }, { due_date: '2999-01-01' });
+      await dataSource
+        .getRepository(HomeworkSubmission)
+        .save({ assignment_id: a.id, student_id: early.id, status: S.DONE, tenant_id: TENANT });
+      const section = await analytics.getSectionRollup(sec7A, TENANT);
+      expect([section.totalAssignments, section.completed, section.defaulters]).toEqual([1, 1, 0]);
+      const cls = await analytics.getClassRollup(class7, TENANT);
+      expect([cls.totalAssignments, cls.completionPercent]).toEqual([1, 100]);
+    });
+
     it('never counts a withdrawn student or one in another section', async () => {
       await mkAssignment(class7, math, { section_id: sec7A }, { due_date: today() });
       await mkStudent(sec7A);

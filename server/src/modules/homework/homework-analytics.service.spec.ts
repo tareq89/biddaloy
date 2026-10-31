@@ -17,7 +17,7 @@ describe('HomeworkAnalyticsService', () => {
   let assignmentRepo: any;
   let submissionRepo: any;
   let syllabusRepo: any;
-  // The roster SQL (`rosterRows`): one { assignment_id, status } per student on an assignment.
+  // The roster SQL (`rosterCounts`): one { assignment_id, total, completed } per assignment.
   let rosterQuery: ReturnType<typeof vi.fn>;
   let service: HomeworkAnalyticsService;
 
@@ -34,9 +34,9 @@ describe('HomeworkAnalyticsService', () => {
   describe('getStudentRollup', () => {
     it('2 submitted, 1 defaulter (past due, not submitted) -> 66% completion', async () => {
       rosterQuery.mockResolvedValue([
-        { assignment_id: 'a1', status: S.SUBMITTED },
-        { assignment_id: 'a2', status: S.DONE },
-        { assignment_id: 'a3', status: S.NOT_SUBMITTED },
+        { assignment_id: 'a1', total: 1, completed: 1 },
+        { assignment_id: 'a2', total: 1, completed: 1 },
+        { assignment_id: 'a3', total: 1, completed: 0 },
       ]);
       assignmentRepo.find.mockResolvedValue([
         { id: 'a1', due_date: '2020-06-01' },
@@ -52,8 +52,12 @@ describe('HomeworkAnalyticsService', () => {
         defaulters: 1,
         completionPercent: 66,
       });
-      // The roster query is narrowed to this one student.
-      expect(rosterQuery.mock.calls[0][1]).toEqual([TENANT_ID, null, 'student-1']);
+      // The roster query is narrowed to this one student, pads only homework due by today, and
+      // counts COMPLETE_STATUSES as completed.
+      const params = rosterQuery.mock.calls[0][1];
+      expect(params.slice(0, 3)).toEqual([TENANT_ID, null, 'student-1']);
+      expect(params[3]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(params[4]).toEqual([S.SUBMITTED, S.PARTIAL, S.DONE]);
     });
 
     it('no assignments -> 0% completion, no division by zero', async () => {
@@ -68,7 +72,7 @@ describe('HomeworkAnalyticsService', () => {
     });
 
     it('not-yet-due, not-submitted is neither completed nor a defaulter', async () => {
-      rosterQuery.mockResolvedValue([{ assignment_id: 'a1', status: S.NOT_SUBMITTED }]);
+      rosterQuery.mockResolvedValue([{ assignment_id: 'a1', total: 1, completed: 0 }]);
       assignmentRepo.find.mockResolvedValue([{ id: 'a1', due_date: '2999-01-01' }]);
       const rollup = await service.getStudentRollup('student-1', TENANT_ID);
       expect(rollup.completed).toBe(0);
@@ -82,7 +86,7 @@ describe('HomeworkAnalyticsService', () => {
       assignmentRepo.find.mockResolvedValue([
         { id: 'a1', due_date: '2020-01-01', status: HomeworkAssignmentStatus.ACTIVE },
       ]);
-      rosterQuery.mockResolvedValue([{ assignment_id: 'a1', status: S.PARTIAL }]);
+      rosterQuery.mockResolvedValue([{ assignment_id: 'a1', total: 1, completed: 1 }]);
       const rollup = await service.getSectionRollup('section-1', TENANT_ID);
       expect(rollup.totalAssignments).toBe(1);
       expect(rollup.completed).toBe(1);
@@ -93,11 +97,7 @@ describe('HomeworkAnalyticsService', () => {
     // are on the roster, so the rate is 1 of 3, not 1 of 1.
     it('students without a row still count in the denominator', async () => {
       assignmentRepo.find.mockResolvedValue([{ id: 'a1', due_date: '2020-01-01' }]);
-      rosterQuery.mockResolvedValue([
-        { assignment_id: 'a1', status: S.DONE },
-        { assignment_id: 'a1', status: S.NOT_SUBMITTED },
-        { assignment_id: 'a1', status: S.NOT_SUBMITTED },
-      ]);
+      rosterQuery.mockResolvedValue([{ assignment_id: 'a1', total: 3, completed: 1 }]);
       const rollup = await service.getSectionRollup('section-1', TENANT_ID);
       expect(rollup).toEqual({
         totalAssignments: 3,
@@ -124,7 +124,7 @@ describe('HomeworkAnalyticsService', () => {
       assignmentRepo.find.mockResolvedValue([
         { id: 'a1', due_date: '2020-01-01', homework: { class_id: 'class-1' } },
       ]);
-      rosterQuery.mockResolvedValue([{ assignment_id: 'a1', status: S.DONE }]);
+      rosterQuery.mockResolvedValue([{ assignment_id: 'a1', total: 1, completed: 1 }]);
       syllabusRepo.find.mockResolvedValue([
         { status: SyllabusTopicStatus.DONE },
         { status: SyllabusTopicStatus.DONE },
