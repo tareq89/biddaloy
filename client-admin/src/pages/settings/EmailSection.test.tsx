@@ -41,9 +41,8 @@ describe('EmailSection', () => {
       'Server password',
       'Port',
     ]) {
-      expect(
-        await screen.findByText(new RegExp(`^${label.replace(/[()]/g, '\\$&')}`)),
-      ).toBeTruthy();
+      // A text matcher, not a RegExp built from the label (CodeQL js/incomplete-sanitization).
+      expect(await screen.findByText((text) => text.startsWith(label))).toBeTruthy();
     }
   });
 

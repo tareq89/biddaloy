@@ -298,9 +298,11 @@ describe('PlatformAlertsService', () => {
       const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
       const f = fakes({ ...open, env: {} });
       for (let i = 0; i < 3; i++) await f.service.tick();
-      expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining('platform alert SMS not configured; would text 1 phone(s):'),
-      );
+      // PR #3325 nit: one warning per alert, naming both the config problem and what was not sent.
+      const lines = warn.mock.calls.map((c) => String(c[0]));
+      const notConfigured = lines.filter((l) => l.startsWith('platform alert SMS not configured'));
+      expect(notConfigured).toHaveLength(1);
+      expect(notConfigured[0]).toContain('would text 1 phone(s):');
       expect(f.provider.send).not.toHaveBeenCalled();
     });
   });

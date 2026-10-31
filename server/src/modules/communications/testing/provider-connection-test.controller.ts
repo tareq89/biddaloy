@@ -3,7 +3,9 @@ import {
   Body,
   Controller,
   HttpCode,
+  HttpException,
   HttpStatus,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -47,6 +49,8 @@ import { ConnectionTestResultDto } from './connection-test-result.dto';
 @Controller('schools')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class ProviderConnectionTestController {
+  private readonly logger = new Logger(ProviderConnectionTestController.name);
+
   constructor(
     private readonly connectionTest: ConnectionTestService,
     private readonly auditService: AuditService,
@@ -80,35 +84,50 @@ export class ProviderConnectionTestController {
     if (dto.sendTo && request.headers['idempotency-key'] === undefined) {
       throw new BadRequestException('Idempotency-Key header is required to send a test message.');
     }
-    const result = await this.connectionTest.test(
-      id,
-      dto.medium,
-      dto.config,
-      dto.sendTo ? { sendTo: dto.sendTo, userId: user.sub } : undefined,
-    );
-
-    // This handler decrypts a school's stored provider credentials and
-    // sends them to a third party — the same credential material
-    // SchoolsController.updateSettings already logs a SETTINGS_CHANGE
-    // entry for, but this endpoint had no audit trail at all. Never the
-    // submitted config or the provider's result message, both of which
-    // can carry secret-adjacent detail — only who tested what, and
-    // whether it passed.
-    await this.auditService.record({
-      action: AuditAction.SETTINGS_TEST,
-      entity_type: 'School',
-      entity_id: id,
-      tenant_id: id,
-      performed_by_user_id: user.sub,
-      ip_address: requestContext(request).ip,
-      user_agent: requestContext(request).userAgent,
-      new_values: {
-        medium: dto.medium,
-        success: result.success,
-        ...(result.testMessage ? { test_message_log_id: result.testMessage.logId } : {}),
-      },
-    });
-
-    return result;
+    // This handler decrypts a school's stored provider credentials and sends them to a third party,
+    // and with `sendTo` it sends a real message. So the audit row is written on every outcome,
+    // including a throw after the credentials were used or a message went out (PR #3325 review,
+    // finding 2). Never the submitted config or the provider's result message, both of which can
+    // carry secret-adjacent detail: only who tested what, and how it ended.
+    let result: ConnectionTestResultDto | undefined;
+    let outcome = 'error:500';
+    try {
+      result = await this.connectionTest.test(
+        id,
+        dto.medium,
+        dto.config,
+        dto.sendTo ? { sendTo: dto.sendTo, userId: user.sub } : undefined,
+      );
+      outcome = result.success ? 'success' : 'failed';
+      return result;
+    } catch (err) {
+      if (err instanceof HttpException) outcome = `error:${err.getStatus()}`;
+      throw err;
+    } finally {
+      await this.auditService
+        .record({
+          action: AuditAction.SETTINGS_TEST,
+          entity_type: 'School',
+          entity_id: id,
+          tenant_id: id,
+          performed_by_user_id: user.sub,
+          ip_address: requestContext(request).ip,
+          user_agent: requestContext(request).userAgent,
+          new_values: {
+            medium: dto.medium,
+            success: result?.success ?? false,
+            outcome,
+            ...(dto.sendTo ? { test_message: true } : {}),
+            ...(result?.testMessage ? { test_message_log_id: result.testMessage.logId } : {}),
+          },
+        })
+        // On a throw, keep the original 409/429/500 for the caller; the audit failure is logged.
+        .catch((auditErr: unknown) => {
+          if (result) throw auditErr;
+          this.logger.error(
+            `SETTINGS_TEST audit row not written: ${auditErr instanceof Error ? auditErr.name : 'error'}`,
+          );
+        });
+    }
   }
 }

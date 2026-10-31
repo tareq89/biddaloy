@@ -10,6 +10,7 @@ import { DataSource } from 'typeorm';
 import { TENANT_SETTINGS_SCHEMA_VERSION, UserRole, countSmsSegments } from '@biddaloy/shared';
 import { TenantSettingsCache } from '../../schools/settings/tenant-settings-cache.service';
 import { SmsCreditService } from '../credits/sms-credit.service';
+import { TenantSettingsCache } from '../../schools/settings/tenant-settings-cache.service';
 import { INSUFFICIENT_SMS_CREDIT } from '../credits/insufficient-sms-credit.constants';
 import {
   SEED_TENANT_ID,
@@ -355,23 +356,41 @@ describe('Provider connection test E2E', () => {
           [TENANT_ID, `log:${logId}:settle`],
         );
 
+      // Platform credit pays for a send through the PLATFORM's gateway: the school has no SMS
+      // config of its own and the override only picks the provider, so the keys come from env.
+      const platformBody = (sendTo: string) => ({
+        medium: 'SMS',
+        sendTo,
+        config: { provider: 'onecodesoft' },
+      });
+      const PLATFORM_ENV = {
+        ONECODESOFT_API_KEY: 'platform-key-value',
+        ONECODESOFT_API_URL: 'https://platform-sms.example.com/api',
+      };
+      // Raw SQL bypasses the settings write path, so the resolver's cached copy is dropped by hand.
+      const invalidate = () => app.get(TenantSettingsCache).invalidate(TENANT_ID);
+
       beforeEach(async () => {
+        Object.assign(process.env, PLATFORM_ENV);
         await dataSource.query(`UPDATE schools SET settings = $2 WHERE id = $1`, [
           TENANT_ID,
           JSON.stringify({ version: 1, communications: { sms: { metering: 'PLATFORM' } } }),
         ]);
         await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
+        invalidate();
       });
       afterEach(async () => {
+        for (const k of Object.keys(PLATFORM_ENV)) delete process.env[k];
         await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_ID]);
         await dataSource.query(`DELETE FROM sms_credit_balance WHERE tenant_id = $1`, [TENANT_ID]);
+        invalidate();
       });
 
       it('debits exactly the segment count and writes a DEBIT row keyed log:<id>', async () => {
         const segments = await segmentsOfTestBody();
         await credits().grant(TENANT_ID, 10, { idempotencyKey: 'test-send-grant' });
         mockBalanceThenSent();
-        const res = await post(smsBody('01712345678'), 'test-send-credit').expect(200);
+        const res = await post(platformBody('01712345678'), 'test-send-credit').expect(200);
         expect(res.body.testMessage.status).toBe('SENT');
         const balance = await credits().getBalance(TENANT_ID);
         expect(balance.available).toBe(10 - segments);
@@ -386,7 +405,7 @@ describe('Provider connection test E2E', () => {
         vi.mocked(fetchPinnedJson)
           .mockResolvedValueOnce({ status: 'success', data: { balance: 250 } })
           .mockResolvedValueOnce({ status: 'error', message: 'Invalid number' });
-        const res = await post(smsBody('01712345678'), 'test-send-reject').expect(200);
+        const res = await post(platformBody('01712345678'), 'test-send-reject').expect(200);
         const segments = await segmentsOfTestBody();
         expect(res.body.testMessage.status).toBe('FAILED');
         const balance = await credits().getBalance(TENANT_ID);
@@ -397,18 +416,79 @@ describe('Provider connection test E2E', () => {
         ]);
       });
 
-      it('answers 409 with the insufficient-credit code at zero balance and sends nothing', async () => {
-        vi.mocked(fetchPinnedJson).mockResolvedValueOnce({
-          status: 'success',
-          data: { balance: 250 },
-        });
+      it('answers 409 with the insufficient-credit code at zero balance and calls no vendor', async () => {
         const before = vi.mocked(fetchPinnedJson).mock.calls.length;
-        const res = await post(smsBody('01712345678'), 'test-send-nocredit').expect(409);
+        const res = await post(platformBody('01712345678'), 'test-send-nocredit').expect(409);
         expect(res.body.details?.code ?? res.body.message?.details?.code).toBe(
           INSUFFICIENT_SMS_CREDIT,
         );
-        // Only the connection test went out; no send, no log row.
-        expect(vi.mocked(fetchPinnedJson).mock.calls.length - before).toBe(1);
+        // PR #3325 finding 9: the credit check runs before the connection test, so nothing went out.
+        expect(vi.mocked(fetchPinnedJson).mock.calls.length - before).toBe(0);
+      });
+
+      // PR #3325 finding 1: an unsaved key of the school's own sends through its own gateway, so
+      // the school is not charged platform credit for it as well.
+      it("never debits platform credit for a send through the school's own unsaved gateway", async () => {
+        await credits().grant(TENANT_ID, 10, { idempotencyKey: 'test-send-grant-own' });
+        mockBalanceThenSent();
+        const res = await post(smsBody('01712345678'), 'test-send-own-gateway').expect(200);
+        expect(res.body.testMessage.status).toBe('SENT');
+        const balance = await credits().getBalance(TENANT_ID);
+        expect(balance.available).toBe(10);
+        expect(balance.reserved).toBe(0);
+        expect(await settleRows(res.body.testMessage.logId)).toEqual([]);
+      });
+
+      it('an override senderId alone is refused, never sent under the platform key', async () => {
+        const before = vi.mocked(fetchPinnedJson).mock.calls.length;
+        const res = await post(
+          {
+            medium: 'SMS',
+            sendTo: '01712345678',
+            config: { provider: 'onecodesoft', onecodesoft: { senderId: 'ANYBANK' } },
+          },
+          'test-send-senderid',
+        ).expect(200);
+        expect(res.body.success).toBe(false);
+        expect(res.body.message).toMatch(/never combined with the platform account/);
+        expect(res.body.testMessage).toBeUndefined();
+        expect(vi.mocked(fetchPinnedJson).mock.calls.length - before).toBe(0);
+      });
+    });
+
+    // PR #3325 finding 1: the platform SMTP login never sends under a caller-chosen `from`.
+    describe('platform SMTP keys set', () => {
+      const SMTP_ENV = {
+        SMTP_HOST: 'platform-smtp.example.com',
+        SMTP_USER: 'platform-user',
+        SMTP_PASSWORD: 'platform-password-value',
+        SMTP_FROM: 'noreply@platform.example.com',
+      };
+      beforeEach(() => {
+        Object.assign(process.env, SMTP_ENV);
+      });
+      afterEach(() => {
+        for (const k of Object.keys(SMTP_ENV)) delete process.env[k];
+      });
+
+      it('an override `from` with sendTo is refused with the fixed sentence, and logs nothing', async () => {
+        const res = await post(
+          {
+            medium: 'EMAIL',
+            sendTo: 'victim@example.com',
+            config: { smtp: { from: 'ceo@bank.example' } },
+          },
+          'test-send-from-only',
+        ).expect(200);
+        expect(res.body.success).toBe(false);
+        // The exact resolver refusal, not a DNS failure that would also be success: false.
+        expect(res.body.message).toMatch(/must carry .* themselves .* never combined/);
+        expect(JSON.stringify(res.body)).not.toMatch(/platform-password-value|ceo@bank/);
+        const rows = await dataSource.query(
+          `SELECT id FROM communication_logs WHERE tenant_id = $1 AND recipient_address = $2`,
+          [TENANT_ID, 'victim@example.com'],
+        );
+        expect(rows).toEqual([]);
       });
     });
   });

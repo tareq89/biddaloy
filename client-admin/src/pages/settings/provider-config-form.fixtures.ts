@@ -107,6 +107,8 @@ export const SMTP: MessagingProviderDescriptor = {
       label: { en: 'Port', bn: 'পোর্ট' },
       kind: 'text',
       required: false,
+      destination: true,
+      format: 'port',
     },
     {
       key: 'user',

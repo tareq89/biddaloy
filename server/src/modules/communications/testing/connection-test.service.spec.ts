@@ -7,7 +7,11 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
-import { ConnectionTestService, TEST_SENDS_PER_DAY } from './connection-test.service';
+import {
+  ConnectionTestService,
+  TEST_SENDS_PER_DAY,
+  TEST_SEND_DAILY_CAP,
+} from './connection-test.service';
 import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
 
 vi.mock('@sentry/node', () => ({ withScope: vi.fn(), captureException: vi.fn() }));
@@ -23,7 +27,13 @@ describe('ConnectionTestService', () => {
     createQueryBuilder: ReturnType<typeof vi.fn>;
   };
   let usedToday: number;
-  let credits: { reserveIfMetered: ReturnType<typeof vi.fn>; settlePart: ReturnType<typeof vi.fn> };
+  let credits: {
+    reserveIfMetered: ReturnType<typeof vi.fn>;
+    settlePart: ReturnType<typeof vi.fn>;
+    releaseForLog: ReturnType<typeof vi.fn>;
+    isMetered: ReturnType<typeof vi.fn>;
+    getBalance: ReturnType<typeof vi.fn>;
+  };
   let sendSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -48,6 +58,10 @@ describe('ConnectionTestService', () => {
     credits = {
       reserveIfMetered: vi.fn().mockResolvedValue('UNMETERED'),
       settlePart: vi.fn().mockResolvedValue(undefined),
+      releaseForLog: vi.fn().mockResolvedValue(undefined),
+      // reserveIfMetered decides metering for the real reservation; this is the pre-check's view.
+      isMetered: vi.fn().mockResolvedValue(true),
+      getBalance: vi.fn().mockResolvedValue({ available: 100, reserved: 0 }),
     };
     const schools = { findOne: vi.fn().mockResolvedValue({ id: tenantId, name: 'Green School' }) };
     service = new ConnectionTestService(
@@ -222,7 +236,6 @@ describe('ConnectionTestService', () => {
         outcome: 'REJECTED',
       });
       logs.save.mockRejectedValue(new Error('db'));
-      credits.releaseForLog = vi.fn().mockResolvedValue(undefined);
       await expect(
         service.test(tenantId, CommunicationMedium.SMS as never, undefined, req),
       ).rejects.toBeInstanceOf(InternalServerErrorException);
@@ -238,7 +251,6 @@ describe('ConnectionTestService', () => {
         outcome: 'AMBIGUOUS',
       });
       logs.save.mockRejectedValue(new Error('db'));
-      credits.releaseForLog = vi.fn();
       const tags = vi.fn();
       vi.mocked(Sentry.withScope).mockImplementation(((cb: any) => cb({ setTags: tags })) as never);
       await expect(
@@ -266,6 +278,90 @@ describe('ConnectionTestService', () => {
       await expect(
         service.test(tenantId, CommunicationMedium.SMS as never, undefined, req),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('review round 1 (PR #3325)', () => {
+    const req = { sendTo: '01712345678', userId: 'user-1' };
+
+    // Finding 3: the server half of the FAILED outcome the form must show as a failure.
+    it('returns testMessage.status FAILED (top-level success stays true) when the gateway rejects', async () => {
+      sendSpy.mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'no',
+        outcome: 'REJECTED',
+      });
+      const result = await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+      expect(result.success).toBe(true);
+      expect(result.testMessage).toEqual({ logId: 'log-1', status: 'FAILED' });
+    });
+
+    // Finding 9: a metered school with too little credit gets its 409 before the vendor is called.
+    it('checks metered credit before the connection test: 409 and no outbound call', async () => {
+      credits.isMetered.mockResolvedValue(true);
+      credits.getBalance.mockResolvedValue({ available: 0, reserved: 0 });
+      const err = await service
+        .test(tenantId, CommunicationMedium.SMS as never, undefined, req)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('INSUFFICIENT_SMS_CREDIT');
+      expect(provider.testConnection).not.toHaveBeenCalled();
+      expect(sendSpy).not.toHaveBeenCalled();
+    });
+
+    // Finding 1: an unsaved key of the school's own goes through its own gateway; no platform debit.
+    it('never reserves platform credit when the config came from the override (own gateway)', async () => {
+      registry.resolveFor.mockResolvedValue({ provider, config: { k: 'v' }, source: 'override' });
+      credits.isMetered.mockResolvedValue(true);
+      const result = await service.test(tenantId, CommunicationMedium.SMS as never, {}, req);
+      expect(result.testMessage?.status).toBe('SENT');
+      expect(credits.isMetered).not.toHaveBeenCalled();
+      expect(credits.reserveIfMetered).not.toHaveBeenCalled();
+    });
+
+    it('reserves platform credit when the send uses the platform account', async () => {
+      registry.resolveFor.mockResolvedValue({ provider, config: { k: 'v' }, source: 'platform' });
+      credits.isMetered.mockResolvedValue(true);
+      credits.getBalance.mockResolvedValue({ available: 10, reserved: 0 });
+      credits.reserveIfMetered.mockResolvedValue('RESERVED');
+      await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+      expect(credits.reserveIfMetered).toHaveBeenCalledTimes(1);
+    });
+
+    // Finding 8: the daily cap carries its own code, so the UI does not mistake the 3/min throttle for it.
+    it('the daily-cap 429 carries details.code TEST_SEND_DAILY_CAP', async () => {
+      usedToday = TEST_SENDS_PER_DAY;
+      const err = await service
+        .test(tenantId, CommunicationMedium.SMS as never, undefined, req)
+        .catch((e) => e);
+      expect(err.getStatus()).toBe(429);
+      expect(err.getResponse()).toEqual({
+        message: 'Too many test messages today. Try again tomorrow.',
+        details: { code: TEST_SEND_DAILY_CAP },
+      });
+    });
+
+    // Finding 4: class-validator's isEmail, not a hand-written (ReDoS-prone) pattern.
+    it.each(['a@b', 'not an email', 'x@@y.com'])('rejects the email address %s', async (sendTo) => {
+      (provider as any).descriptor = {
+        medium: CommunicationMedium.EMAIL,
+        supportsTestMessage: true,
+      };
+      await expect(
+        service.test(tenantId, CommunicationMedium.EMAIL as never, undefined, {
+          sendTo,
+          userId: 'u',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('accepts a valid email address', async () => {
+      const result = await service.test(tenantId, CommunicationMedium.EMAIL as never, undefined, {
+        sendTo: 'head@school.example.com',
+        userId: 'u',
+      });
+      expect(result.testMessage?.status).toBe('SENT');
     });
   });
 

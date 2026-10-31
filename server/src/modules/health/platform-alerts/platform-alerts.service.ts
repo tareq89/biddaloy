@@ -168,13 +168,9 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
       for (const phone of phones) await sink.send({ to: phone, body: text });
       return;
     }
-    const resolved = await this.resolveSms();
-    if (!resolved) {
-      this.logger.warn(
-        `platform alert SMS not configured; would text ${phones.length} phone(s): ${text}`,
-      );
-      return;
-    }
+    // One warning per alert: resolveSms names the config problem and what was not sent.
+    const resolved = await this.resolveSms(`; would text ${phones.length} phone(s): ${text}`);
+    if (!resolved) return;
     const { provider, config } = resolved;
     for (const phone of phones) {
       try {
@@ -217,7 +213,7 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
    * they ride in as the resolver override so `process.env` is never touched.
    * Returns undefined when nothing usable is configured; never throws (the tick must not).
    */
-  private async resolveSms(): Promise<ResolvedMessaging | undefined> {
+  private async resolveSms(notSent = ''): Promise<ResolvedMessaging | undefined> {
     const get = (k: string) => this.config.get<string>(k) || undefined;
     const legacyKey = get('PLATFORM_SMS_API_KEY');
     const legacy = !get('SMS_PROVIDER') && !!legacyKey;
@@ -244,13 +240,13 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
       });
     } catch (error) {
       // Only ProviderNotConfiguredError text is safe to log (names fields, never values).
-      this.logger.warn(
+      const reason =
         error instanceof ProviderNotConfiguredError
           ? legacy
-            ? 'platform alert SMS config: the deprecated PLATFORM_SMS_* keys are incomplete (PLATFORM_SMS_API_KEY, plus PLATFORM_SMS_SENDER_ID / PLATFORM_SMS_API_URL for some providers); set SMS_PROVIDER and the provider keys instead'
-            : `platform alert SMS config: ${error.message}`
-          : 'platform alert SMS config could not be resolved',
-      );
+            ? 'the deprecated PLATFORM_SMS_* keys are incomplete (PLATFORM_SMS_API_KEY, plus PLATFORM_SMS_SENDER_ID / PLATFORM_SMS_API_URL for some providers); set SMS_PROVIDER and the provider keys instead'
+            : error.message
+          : 'the config could not be resolved';
+      this.logger.warn(`platform alert SMS not configured: ${reason}${notSent}`);
       return undefined;
     }
   }

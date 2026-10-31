@@ -174,10 +174,8 @@ export interface MaskedTenantSettings {
 export interface ConnectionTestResult {
   success: boolean;
   message: string;
-  /** Present when `sendTo` was sent and a real message went out. */
+  /** Present when `sendTo` was sent and the connection test passed: SENT, or FAILED if the gateway rejected it. */
   testMessage?: { logId: string; status: string };
-  /** Sink mode: nothing was sent, and this says so. */
-  note?: string;
 }
 
 export type MessagingProviderDescriptor = components['schemas']['ProviderDescriptorResponseDto'];
@@ -311,8 +309,12 @@ export function useMessagingProviders(schoolId: string) {
 }
 
 /** Doesn't touch the settings cache — a connection test changes nothing
- * persisted, whether it passes or fails. */
-export function useTestSchoolConnection(schoolId: string) {
+ * persisted, whether it passes or fails. `sendsMessage`: this instance sends a
+ * real test message (`sendTo`), so it keeps the app's "could not confirm" toast. */
+export function useTestSchoolConnection(
+  schoolId: string,
+  { sendsMessage = false }: { sendsMessage?: boolean } = {},
+) {
   return useMutation({
     mutationFn: async (input: TestConnectionInput) =>
       (
@@ -323,8 +325,9 @@ export function useTestSchoolConnection(schoolId: string) {
           input.sendTo ? { headers: { 'Idempotency-Key': crypto.randomUUID() } } : undefined,
         )
       ).data,
-    // Writes nothing, so "could not confirm it was saved" would be wrong.
-    meta: { handlesUnknownOutcome: true },
+    // A plain connection test writes nothing, so "could not confirm" would be wrong. A test
+    // message is a real (paid) send: a lost reply must say so, or the next click sends again.
+    meta: { handlesUnknownOutcome: !sendsMessage },
   });
 }
 

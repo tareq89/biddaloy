@@ -5,6 +5,13 @@ import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// The last value the form passed to the unsaved-changes guard (finding 7 of the PR #3325 review).
+const warnUnsaved = vi.hoisted(() => vi.fn());
+vi.mock('@biddaloy/ui/shells', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@biddaloy/ui/shells')>()),
+  useWarnUnsavedChanges: warnUnsaved,
+}));
+
 import { providersHandler, providersResponse } from './provider-config-form.fixtures';
 import { ProviderConfigForm, type MessagingMedium } from './ProviderConfigForm';
 import { WithTestRouter } from './with-test-router';
@@ -196,24 +203,59 @@ describe('ProviderConfigForm', () => {
     await user.click(screen.getByRole('button', { name: 'Send a test message' }));
 
     expect(await screen.findByText(/Sent\./)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'See it in Message log' })).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'See it in Message log' }).getAttribute('href'),
+    ).toContain('status=SENT');
     expect(seen.mock.calls[0]![0].body.sendTo).toBe('01712345678');
     expect(seen.mock.calls[0]![0].key).toBeTruthy();
   });
 
-  it('shows the daily-limit sentence on a 429', async () => {
+  const tooMany = (details?: Record<string, unknown>) =>
+    http.post('/api/v1/schools/:id/settings/test', () =>
+      HttpResponse.json(
+        {
+          statusCode: 429,
+          message: 'cap',
+          ...(details ? { details } : {}),
+          timestamp: new Date().toISOString(),
+          path: '/x',
+          requestId: 'r',
+        },
+        { status: 429 },
+      ),
+    );
+
+  it("shows the daily-limit sentence on the cap's 429 (details.code TEST_SEND_DAILY_CAP)", async () => {
+    server.use(tooMany({ code: 'TEST_SEND_DAILY_CAP' }));
+    const { user } = renderForm('SMS', SAVED_SMS);
+
+    await user.type(await screen.findByLabelText('Phone number'), '01712345678');
+    await user.click(screen.getByRole('button', { name: 'Send a test message' }));
+
+    expect(await screen.findByText(/limit for test messages/)).toBeTruthy();
+  });
+
+  // Finding 8: the 3-per-minute throttle also answers 429; a minute is enough, not "tomorrow".
+  it('shows the generic error, not the daily-limit sentence, on the per-minute throttle 429', async () => {
+    server.use(tooMany());
+    const { user } = renderForm('SMS', SAVED_SMS);
+
+    await user.type(await screen.findByLabelText('Phone number'), '01712345678');
+    await user.click(screen.getByRole('button', { name: 'Send a test message' }));
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.queryByText(/limit for test messages/)).toBeNull();
+  });
+
+  // Finding 3: the connection passed but the gateway rejected the send.
+  it('shows a failure and links to the FAILED log rows when the test send was rejected', async () => {
     server.use(
       http.post('/api/v1/schools/:id/settings/test', () =>
-        HttpResponse.json(
-          {
-            statusCode: 429,
-            message: 'cap',
-            timestamp: new Date().toISOString(),
-            path: '/x',
-            requestId: 'r',
-          },
-          { status: 429 },
-        ),
+        HttpResponse.json({
+          success: true,
+          message: 'Connected.',
+          testMessage: { logId: 'log-2', status: 'FAILED' },
+        }),
       ),
     );
     const { user } = renderForm('SMS', SAVED_SMS);
@@ -221,7 +263,47 @@ describe('ProviderConfigForm', () => {
     await user.type(await screen.findByLabelText('Phone number'), '01712345678');
     await user.click(screen.getByRole('button', { name: 'Send a test message' }));
 
-    expect(await screen.findByText(/limit for test messages/)).toBeTruthy();
+    expect(await screen.findByText(/Couldn't send the test message/)).toBeTruthy();
+    expect(screen.queryByText(/Sent\./)).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'See it in Message log' }).getAttribute('href'),
+    ).toContain('status=FAILED');
+  });
+
+  // Finding 10: a bn keyboard types Bangla digits; the server checks ASCII ones.
+  it('sends a Bangla-digit phone number as Latin digits', async () => {
+    const seen = vi.fn();
+    server.use(
+      http.post('/api/v1/schools/:id/settings/test', async ({ request }) => {
+        seen(await request.json());
+        return HttpResponse.json({ success: true, message: 'ok' });
+      }),
+    );
+    const { user } = renderForm('SMS', SAVED_SMS);
+
+    await user.type(await screen.findByLabelText('Phone number'), '০১৭১২৩৪৫৬৭৮');
+    await user.click(screen.getByRole('button', { name: 'Send a test message' }));
+
+    await waitFor(() => expect(seen).toHaveBeenCalled());
+    expect(seen.mock.calls[0]![0].sendTo).toBe('01712345678');
+  });
+
+  // Finding 7: a test saves nothing, so it must not turn off the unsaved-changes warning.
+  it('keeps the unsaved-changes warning on after Test connection', async () => {
+    server.use(
+      http.post('/api/v1/schools/:id/settings/test', () =>
+        HttpResponse.json({ success: true, message: 'ok' }),
+      ),
+    );
+    const { user } = renderForm('EMAIL', {
+      smtp: { host: 'h', user: 'u', from: 'a@x.com', password: { configured: true } },
+    });
+
+    await user.type(await screen.findByLabelText(/Server username/), '2');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByText('Connection works')).toBeTruthy();
+    expect(warnUnsaved).toHaveBeenLastCalledWith(true);
   });
 
   it('keeps the port and from-address checks', async () => {

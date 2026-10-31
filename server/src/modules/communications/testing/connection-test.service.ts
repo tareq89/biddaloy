@@ -11,6 +11,7 @@ import {
 import * as Sentry from '@sentry/node';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { isEmail } from 'class-validator';
 import {
   CommunicationMedium,
   CommunicationStatus,
@@ -25,6 +26,7 @@ import { isMessageSink } from '../providers/sink/message-sink';
 import { CommunicationProviderRegistryService } from '../providers/communication-provider.registry';
 import { sendThroughProvider } from '../providers/send-through-provider';
 import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
+import type { ConfigSource } from '../config/messaging-config.resolver';
 import { CommunicationLog } from '../entities/communication-log.entity';
 import { School } from '../../schools/entities/school.entity';
 import { SmsCreditService } from '../credits/sms-credit.service';
@@ -42,15 +44,29 @@ export interface TestMessageRequest {
 export const TEST_SENDS_PER_DAY = 20;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NO_TEST_MESSAGE = 'This provider cannot send a test message.';
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** `details.code` of the daily-cap 429, so the UI can tell it from the per-minute throttle's 429. */
+export const TEST_SEND_DAILY_CAP = 'TEST_SEND_DAILY_CAP';
+
+const insufficientCredit = (required: number, available: number) =>
+  new ConflictException({
+    message: 'Insufficient SMS credit to send this message.',
+    details: { code: INSUFFICIENT_SMS_CREDIT, required, available },
+  });
+
+interface TestMessageBody {
+  body: string;
+  subject?: string;
+  /** Platform SMS credit pays for it: SMS, and not the school's own unsaved gateway. */
+  metered: boolean;
+}
 
 /**
  * #8.7.12: verifies a medium's credentials against the real provider without sending a message —
  * each provider's own `testConnection()` picks its cheapest verification call.
  *
- * `override` is the unsaved form values (same shape as a `communications.<medium>` block); omitted
- * fields fall through tenant settings then platform env via `MessagingConfigResolver`, the same
- * chain a real send uses.
+ * `override` is the unsaved form values (same shape as a `communications.<medium>` block), resolved
+ * by `MessagingConfigResolver`, the same chain a real send uses: omitted fields come from the
+ * school's saved settings, and from the platform env only when the override sets no owned field.
  *
  * Never lets a raw provider error escape: every path returns `ConnectionTestResult`'s sanitized
  * `message`, including `ProviderNotConfiguredError` thrown before any call is made.
@@ -83,36 +99,37 @@ export class ConnectionTestService {
       };
     }
     try {
-      const { provider, config } = await this.registry.resolveFor(
+      const { provider, config, source } = await this.registry.resolveFor(
         medium as CommunicationMedium,
         tenantId,
         // A plain connection test sends nothing, so `sendOnly` fields (an email `from`) are not
         // needed; a test-message send does send, so they still are.
         { override, connectionTestOnly: !testMessage },
       );
-      // Refuse before any outbound call: no support or a bad address is the caller's mistake.
+      // Refuse before any outbound call: no support, a bad address, the cap or no credit.
+      let message: TestMessageBody | undefined;
       if (testMessage) {
         if (!provider.descriptor.supportsTestMessage)
           throw new BadRequestException(NO_TEST_MESSAGE);
         this.assertAddress(medium, testMessage.sendTo);
         await this.assertDailyCap(tenantId);
+        message = await this.orSendFailed(() =>
+          this.prepareTestMessage(tenantId, medium as CommunicationMedium, source),
+        );
       }
       const result = await provider.testConnection(config);
-      if (!result.success || !testMessage) return result;
+      if (!result.success || !testMessage || !message) return result;
       // Its own catch: a credit/DB failure after a passing connection test is not "Connection test failed."
-      let sent: { logId: string; status: CommunicationStatus };
-      try {
-        sent = await this.sendTestMessage(
+      const sent = await this.orSendFailed(() =>
+        this.sendTestMessage(
           tenantId,
           medium as CommunicationMedium,
           provider,
           config,
           testMessage,
-        );
-      } catch (err) {
-        if (err instanceof HttpException) throw err;
-        throw new InternalServerErrorException('The test message could not be sent.');
-      }
+          message,
+        ),
+      );
       return { ...result, testMessage: sent };
     } catch (err) {
       if (err instanceof HttpException) throw err;
@@ -126,7 +143,24 @@ export class ConnectionTestService {
     }
   }
 
-  /** Rolling-24h cap on real test sends per tenant, counted from the logs the sends themselves wrote. */
+  /** A credit/DB failure on the send path is its own fixed 500, never "Connection test failed." */
+  private async orSendFailed<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      throw new InternalServerErrorException('The test message could not be sent.');
+    }
+  }
+
+  /**
+   * Rolling-24h cap on real test sends per tenant, counted from the logs the sends themselves wrote.
+   *
+   * ponytail: count-then-insert, not atomic. Requests in flight at the same moment (two tabs, two
+   * admins) can each pass at 19 and end at 20 + n. Bounded by the per-user 3/min throttle, and each
+   * send is still logged and credit-checked. Upgrade (#3326): a per-tenant
+   * advisory lock around count + insert of a claim row written before the send.
+   */
   private async assertDailyCap(tenantId: string): Promise<void> {
     const used = await this.logs
       .createQueryBuilder('l')
@@ -136,7 +170,10 @@ export class ConnectionTestService {
       .getCount();
     if (used >= TEST_SENDS_PER_DAY) {
       throw new HttpException(
-        'Too many test messages today. Try again tomorrow.',
+        {
+          message: 'Too many test messages today. Try again tomorrow.',
+          details: { code: TEST_SEND_DAILY_CAP },
+        },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -146,7 +183,7 @@ export class ConnectionTestService {
     const ok =
       medium === CommunicationMedium.SMS
         ? BD_PHONE_REGEX.test(sendTo)
-        : medium === CommunicationMedium.EMAIL && EMAIL_SHAPE.test(sendTo);
+        : medium === CommunicationMedium.EMAIL && isEmail(sendTo);
     if (!ok) throw new BadRequestException('Enter a valid number or address for this channel.');
   }
 
@@ -165,33 +202,47 @@ export class ConnectionTestService {
    * Credit reserved by an AMBIGUOUS send stays reserved; the reconcile script lists it as a
    * BATCH_REMAINDER after 24h (it walks the ledger, not the logs), so a missing log row is still found.
    */
+  /**
+   * The message text, and a credit check before the vendor's connection call: a school with no
+   * credit gets its 409 without an outbound call. The real reservation still happens at send time.
+   * An unsaved override that carries its own key sends through the school's own gateway, so it is
+   * never charged platform credit (PR #3325 review, finding 1).
+   */
+  private async prepareTestMessage(
+    tenantId: string,
+    medium: CommunicationMedium,
+    source: ConfigSource | undefined,
+  ): Promise<TestMessageBody> {
+    const school = await this.schools.findOne({ where: { id: tenantId }, select: ['id', 'name'] });
+    const body = `Biddaloy test message from ${school?.name ?? 'your school'} — সব ঠিক আছে / all good`;
+    const subject = medium === CommunicationMedium.EMAIL ? 'Biddaloy test message' : undefined;
+    const metered =
+      medium === CommunicationMedium.SMS &&
+      source !== 'override' &&
+      (await this.smsCredits.isMetered(tenantId));
+    if (metered) {
+      const segments = countSmsSegments(body).segments;
+      const { available } = await this.smsCredits.getBalance(tenantId);
+      if (available < segments) throw insufficientCredit(segments, available);
+    }
+    return { body, subject, metered };
+  }
+
   private async sendTestMessage(
     tenantId: string,
     medium: CommunicationMedium,
     provider: Parameters<typeof sendThroughProvider>[0],
     config: unknown,
     req: TestMessageRequest,
+    { body, subject, metered }: TestMessageBody,
   ) {
-    const school = await this.schools.findOne({ where: { id: tenantId }, select: ['id', 'name'] });
-    const body = `Biddaloy test message from ${school?.name ?? 'your school'} — সব ঠিক আছে / all good`;
-    const subject = medium === CommunicationMedium.EMAIL ? 'Biddaloy test message' : undefined;
-
     // Metered SMS: reserve first, exactly as CommunicationsService.enqueue does.
     let reservation: { batchId: string; segments: number } | undefined;
-    if (medium === CommunicationMedium.SMS) {
+    if (metered) {
       const segments = countSmsSegments(body).segments;
       const batchId = randomUUID();
       const outcome = await this.smsCredits.reserveIfMetered(tenantId, segments, batchId);
-      if (typeof outcome === 'object') {
-        throw new ConflictException({
-          message: 'Insufficient SMS credit to send this message.',
-          details: {
-            code: INSUFFICIENT_SMS_CREDIT,
-            required: segments,
-            available: outcome.available,
-          },
-        });
-      }
+      if (typeof outcome === 'object') throw insufficientCredit(segments, outcome.available);
       if (outcome === 'RESERVED') reservation = { batchId, segments };
     }
 

@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { AuditAction, CommunicationMedium, type JwtPayload } from '@biddaloy/shared';
 import { ProviderConnectionTestController } from './provider-connection-test.controller';
@@ -18,7 +23,7 @@ function fakeConnectionTestService() {
 }
 
 function fakeAuditService() {
-  return { record: vi.fn() };
+  return { record: vi.fn().mockResolvedValue(undefined) };
 }
 
 describe('ProviderConnectionTestController', () => {
@@ -124,7 +129,7 @@ describe('ProviderConnectionTestController', () => {
       performed_by_user_id: 'user-1',
       ip_address: '127.0.0.1',
       user_agent: 'vitest',
-      new_values: { medium: CommunicationMedium.WHATSAPP, success: false },
+      new_values: { medium: CommunicationMedium.WHATSAPP, success: false, outcome: 'failed' },
     });
     expect(JSON.stringify(entry)).not.toContain('draft-token');
   });
@@ -157,6 +162,40 @@ describe('ProviderConnectionTestController', () => {
     const audit = JSON.stringify(auditService.record.mock.calls[0][0]);
     expect(audit).toContain('log-9');
     expect(audit).not.toContain('01712345678');
+  });
+
+  // PR #3325 review, finding 2: the credentials were already used (and a message may have gone out)
+  // when test() throws, so the audit row is still written, with the status as the outcome.
+  it('still writes the SETTINGS_TEST audit row when the test throws, and rethrows the original error', async () => {
+    const credit = new ConflictException('Insufficient SMS credit to send this message.');
+    connectionTest.test.mockRejectedValue(credit);
+    const d = dto();
+    d.sendTo = '01712345678';
+    const keyed = { ...REQUEST, headers: { 'idempotency-key': 'k2' } } as unknown as Request;
+
+    const err = await controller
+      .testConnection(SCHOOL_A, d, { id: SCHOOL_A, role: 'ADMIN' }, USER, keyed)
+      .catch((e) => e);
+
+    expect(err).toBe(credit);
+    expect(auditService.record).toHaveBeenCalledTimes(1);
+    expect(auditService.record.mock.calls[0][0].new_values).toEqual({
+      medium: CommunicationMedium.WHATSAPP,
+      success: false,
+      outcome: 'error:409',
+      test_message: true,
+    });
+    expect(JSON.stringify(auditService.record.mock.calls[0][0])).not.toContain('01712345678');
+  });
+
+  it('a failing audit write never replaces the original error of a throwing test', async () => {
+    const sendFailed = new InternalServerErrorException('The test message could not be recorded.');
+    connectionTest.test.mockRejectedValue(sendFailed);
+    auditService.record.mockRejectedValue(new Error('audit db down'));
+
+    await expect(
+      controller.testConnection(SCHOOL_A, dto(), { id: SCHOOL_A, role: 'ADMIN' }, USER, REQUEST),
+    ).rejects.toBe(sendFailed);
   });
 
   it('is throttled at the test tier (3/min); the global tracker buckets per authenticated user', () => {

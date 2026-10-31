@@ -594,12 +594,16 @@ flowchart LR
 **Test send.** `POST /schools/:id/settings/test` with `sendTo` sends one real message in-process through the same provider code a school uses. No queue. Example: `sendTo: "+8801700000000"` with header `Idempotency-Key: 7f3c...` sends one SMS and writes one log row. Rules:
 
 - The route allows 20 test sends per school per 24 hours (`TEST_SENDS_PER_DAY`). The 21st is refused.
+  The refusal is a 429 with `details.code: "TEST_SEND_DAILY_CAP"`, so the form can tell it from the 3-per-minute throttle's 429. The count is not atomic: requests in flight at the same moment can each pass at 19 (#3326).
+- Platform SMS credit is checked before the vendor's connection call, so a school with no credit gets its 409 and nothing goes out. A send through an unsaved key of the school's own (`source: 'override'`) is never charged platform credit.
+- A gateway that rejects the send still answers 200 with `testMessage.status: "FAILED"`. The form shows a failure and links to the FAILED rows of the message log.
+- Every call writes one `SETTINGS_TEST` audit row, also when it throws: `new_values.outcome` is `success`, `failed` or `error:<status>`.
 - `sendTo` without an `Idempotency-Key` is a 400. A repeated key replays the stored answer and sends nothing. The UI mints a fresh key on every click.
 - On a sink stack (`MESSAGE_SINK`, Epic 87) nothing real is configured. The route returns the fixed "Test site" note before any vendor call. So a sink stack can never show a balance, a Sent row or Delivered.
 
 **Platform alerts.** `PlatformAlertsService` now asks the registry. `SMS_PROVIDER` names the provider (for example `onecodesoft`) and that provider's own env keys (`ONECODESOFT_API_KEY`, ...) carry the secrets. The old `PLATFORM_SMS_*` keys still work for one more release, only while `SMS_PROVIDER` is unset and `PLATFORM_SMS_API_KEY` is set. They log one boot warning with key names only. If `SMS_PROVIDER` is set they are ignored and a warning says so. `config-check` fails production when `SMS_PROVIDER` is not a registered name or a required key is missing.
 
-**ProviderConfigForm.** One form renders every provider from the server's descriptors, so a new vendor adds no UI code. Descriptor flags drive it: `owned` (the school's own value, never the platform's), `destination` (a host or URL, treated like `owned`), `sendOnly` (shown only for sending, not for the credential check) and `format` (input type and validation). `SchoolSettingsPage` now asks `useMessagingProviders` whether SMS is configured instead of rebuilding that rule in the client.
+**ProviderConfigForm.** One form renders every provider from the server's descriptors, so a new vendor adds no UI code. The form reads `kind` (text, URL or secret input), `required`, `advanced` (under Advanced settings) and `format: 'port'` (a 1 to 65535 check, sent as a number). The `from` email check is still keyed by field name. `owned`, `destination` and `sendOnly` are read only by `MessagingConfigResolver` on the server; the form ignores them. `SchoolSettingsPage` now asks `useMessagingProviders` whether SMS is configured instead of rebuilding that rule in the client.
 
 Dated learning (2026-10-31, Wave 3 close #3306):
 

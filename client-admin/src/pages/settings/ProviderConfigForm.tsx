@@ -56,11 +56,19 @@ type Communications = NonNullable<TenantSettingsInput['communications']>;
 type Values = Record<string, string>;
 type Secrets = Record<string, string | null | undefined>;
 
-/** Shape checks the descriptor can't express, by field key (kept from the old per-channel forms). */
-const FORMAT_OK: Record<string, (v: string) => boolean> = {
-  port: (v) => boundedNumericString(1, 65535).safeParse(toLatinDigits(v)).success,
-  from: (v) => z.email().safeParse(v).success,
-};
+type ProviderField = MessagingProviderDescriptor['fields'][number];
+
+const isPort = (f: ProviderField) => f.format === 'port';
+
+/** Shape checks: the descriptor's `format`, plus the email `from` it can't express yet. */
+function formatOk(f: ProviderField, v: string): boolean {
+  if (isPort(f)) return boundedNumericString(1, 65535).safeParse(toLatinDigits(v)).success;
+  if (f.key === 'from') return z.email().safeParse(v).success;
+  return true;
+}
+
+/** `details.code` of the server's daily test-send cap (the per-minute throttle 429 has none). */
+const TEST_SEND_DAILY_CAP = 'TEST_SEND_DAILY_CAP';
 
 /** One form value per (company, field); `__` because RHF would nest a dot. */
 const valueKey = (provider: string, field: string) => `${provider}__${field}`;
@@ -106,10 +114,7 @@ export function ProviderConfigForm(props: ProviderConfigFormProps) {
       >
         <div className="mt-4">
           {query.isError ? (
-            <ErrorState
-              message={t('messaging.loadError')}
-              onRetry={() => void query.refetch()}
-            />
+            <ErrorState message={t('messaging.loadError')} onRetry={() => void query.refetch()} />
           ) : (
             <div aria-busy="true" className="space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -183,7 +188,7 @@ function ProviderConfigFormInner({
         if (f.kind === 'secret') continue;
         if (f.required && v === '') {
           ctx.addIssue({ code: 'custom', path: [key], message: t('messaging.required') });
-        } else if (v !== '' && FORMAT_OK[f.key] && !FORMAT_OK[f.key]!(v)) {
+        } else if (v !== '' && !formatOk(f, v)) {
           ctx.addIssue({ code: 'custom', path: [key], message: t('messaging.invalid') });
         }
       }
@@ -207,7 +212,8 @@ function ProviderConfigFormInner({
 
   const updateSettings = useUpdateSchoolSettings(schoolId);
   const testConnection = useTestSchoolConnection(schoolId);
-  const sendTest = useTestSchoolConnection(schoolId);
+  // A real send: a lost reply gets the "could not confirm" toast, so a second click is a choice.
+  const sendTest = useTestSchoolConnection(schoolId, { sendsMessage: true });
 
   /** Only the chosen company's block goes out: other companies' saved blocks stay as they are. */
   function buildConfig(values: Values): Communications[keyof Communications] {
@@ -220,7 +226,7 @@ function ProviderConfigFormInner({
       }
       const v = values[valueKey(current.name, f.key)] ?? '';
       if (v === '' && !f.required) continue;
-      block[f.key] = f.key === 'port' ? Number(toLatinDigits(v)) : v;
+      block[f.key] = isPort(f) ? Number(toLatinDigits(v)) : v;
     }
     return { ...(sole ? {} : { provider: current.name }), [current.name]: block };
   }
@@ -237,21 +243,27 @@ function ProviderConfigFormInner({
     );
   }
 
-  // Routed through handleSubmit: the same checks as Save run before the request goes out.
-  function handleTestConnection() {
-    void form.handleSubmit((values) => {
-      testConnection.mutate({ medium, config: buildConfig(values) as Record<string, unknown> });
-    })();
+  /**
+   * The same checks as Save, but not through handleSubmit: that marks the form submitted and so
+   * turns off the unsaved-changes warning, though a test saves nothing.
+   */
+  async function validValues(): Promise<Values | undefined> {
+    return (await form.trigger(undefined, { shouldFocus: true })) ? form.getValues() : undefined;
   }
 
-  function handleSendTest() {
-    void form.handleSubmit((values) => {
-      sendTest.mutate({
-        medium,
-        config: buildConfig(values) as Record<string, unknown>,
-        sendTo: sendTo.trim(),
-      });
-    })();
+  async function handleTestConnection() {
+    const values = await validValues();
+    if (values) {
+      testConnection.mutate({ medium, config: buildConfig(values) as Record<string, unknown> });
+    }
+  }
+
+  async function handleSendTest() {
+    const values = await validValues();
+    if (!values) return;
+    // A bn keyboard types Bangla digits; the server's phone check reads ASCII ones.
+    const to = medium === 'SMS' ? toLatinDigits(sendTo.trim()) : sendTo.trim();
+    sendTest.mutate({ medium, config: buildConfig(values) as Record<string, unknown>, sendTo: to });
   }
 
   const label = (d: { label: { en: string; bn: string } }) => d.label[locale];
@@ -264,7 +276,7 @@ function ProviderConfigFormInner({
   const advancedFields = current.fields.filter((f) => f.advanced);
   const plainFields = current.fields.filter((f) => !f.advanced);
 
-  const textField = (f: MessagingProviderDescriptor['fields'][number]) => {
+  const textField = (f: ProviderField) => {
     const name = valueKey(current.name, f.key);
     const id = `${prefix}-${current.name}-${f.key}`;
     const helpText = help(f.key);
@@ -289,7 +301,7 @@ function ProviderConfigFormInner({
     );
   };
 
-  const secretField = (f: MessagingProviderDescriptor['fields'][number]) => {
+  const secretField = (f: ProviderField) => {
     const key = valueKey(current.name, f.key);
     const masked = savedFields(saved, current.name, sole)[f.key] as MaskedSecret | undefined;
     return (
@@ -307,7 +319,12 @@ function ProviderConfigFormInner({
   };
 
   const sendResult = sendTest.data;
-  const capReached = sendTest.error instanceof ApiError && sendTest.error.statusCode === 429;
+  const sentStatus = sendResult?.testMessage?.status as CommunicationStatus | undefined;
+  // Only the daily cap says "tomorrow"; the per-minute throttle's 429 gets the generic error.
+  const capReached =
+    sendTest.error instanceof ApiError &&
+    sendTest.error.statusCode === 429 &&
+    sendTest.error.details?.code === TEST_SEND_DAILY_CAP;
 
   return (
     <Form {...form}>
@@ -337,7 +354,7 @@ function ProviderConfigFormInner({
               variant="outline"
               className="w-full md:w-auto"
               loading={testConnection.isPending}
-              onClick={handleTestConnection}
+              onClick={() => void handleTestConnection()}
             >
               <PlugZapIcon aria-hidden="true" />
               {t('testConnection.action')}
@@ -419,18 +436,30 @@ function ProviderConfigFormInner({
                 className="w-full md:w-auto"
                 loading={sendTest.isPending}
                 disabled={sendTo.trim() === ''}
-                onClick={handleSendTest}
+                onClick={() => void handleSendTest()}
               >
                 <SendIcon aria-hidden="true" />
                 {t('sendTestMessage.label')}
               </Button>
             </div>
-            {sendResult?.testMessage && (
-              <p role="status" className="text-text-secondary">
-                {t('sendTestMessage.sent')}{' '}
+            {sentStatus && (
+              // The connection passed but the gateway can still reject the send (FAILED).
+              <p
+                role={sentStatus === CommunicationStatus.FAILED ? 'alert' : 'status'}
+                className={
+                  sentStatus === CommunicationStatus.FAILED
+                    ? 'text-destructive'
+                    : 'text-text-secondary'
+                }
+              >
+                {t(
+                  sentStatus === CommunicationStatus.FAILED
+                    ? 'sendTestMessage.failed'
+                    : 'sendTestMessage.sent',
+                )}{' '}
                 <Link
                   to="/communications/message-log"
-                  search={{ status: CommunicationStatus.SENT }}
+                  search={{ status: sentStatus }}
                   className="font-medium text-primary"
                 >
                   {t('sendTestMessage.openLog')}

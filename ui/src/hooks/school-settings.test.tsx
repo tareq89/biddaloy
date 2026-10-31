@@ -102,4 +102,27 @@ describe('useTestSchoolConnection', () => {
     expect(keys[2]).toBeTruthy();
     expect(keys[1]).not.toBe(keys[2]);
   });
+
+  // PR #3325 finding 6: a test message is a real send, so a lost reply must get the app's
+  // "could not confirm" toast. Only the plain connection test (writes nothing) opts out.
+  it('opts out of the unknown-outcome toast only for a plain connection test', async () => {
+    server.use(
+      http.post('/api/v1/schools/:id/settings/test', () =>
+        HttpResponse.json({ success: true, message: 'ok' }),
+      ),
+    );
+    const plain = renderHookWithProviders(() => useTestSchoolConnection('school-1'), {
+      tenantId: 'tenant-1',
+    });
+    await plain.result.current.mutateAsync({ medium: 'SMS' });
+    const send = renderHookWithProviders(
+      () => useTestSchoolConnection('school-1', { sendsMessage: true }),
+      { tenantId: 'tenant-1' },
+    );
+    await send.result.current.mutateAsync({ medium: 'SMS', sendTo: '01712345678' });
+
+    const meta = (c: typeof plain.queryClient) => c.getMutationCache().getAll()[0]?.meta;
+    expect(meta(plain.queryClient)).toEqual({ handlesUnknownOutcome: true });
+    expect(meta(send.queryClient)).toEqual({ handlesUnknownOutcome: false });
+  });
 });
