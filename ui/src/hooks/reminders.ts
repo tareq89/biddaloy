@@ -15,6 +15,7 @@ import {
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import { communicationLogKeys } from './communications';
 import { useIdempotencyKey } from './idempotency-key';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
@@ -209,11 +210,32 @@ export function useCommunicationLogs(filters: CommunicationLogListFilters = {}) 
   return useQuery(communicationLogsQueryOptions(filters));
 }
 
+export type MessageLogFilterOptions = components['schemas']['MessageLogFilterOptionsDto'];
+
+/** [97.4.02] `GET /communications/logs/filter-options` — the Company and Sent-by choices, on the
+ * log's own permission (every role that opens the page can read it). */
+export function useMessageLogFilterOptions() {
+  return useQuery(
+    queryOptions({
+      queryKey: [...messageLogKeys.all, 'filter-options'] as const,
+      queryFn: async ({ signal }) => {
+        const res = await apiClient.get<MessageLogFilterOptions>(
+          '/communications/logs/filter-options',
+          { signal },
+        );
+        return res.data;
+      },
+      retry: shouldRetryQuery,
+      staleTime: 5 * 60_000,
+    }),
+  );
+}
+
 /**
  * [97.4.02] `POST /communications/logs/{id}/check-status` — asks the sending company whether a
- * SENT message arrived. One Idempotency-Key per click (Rule 25), `retry: false`; the server's
- * fixed 409/502 sentence is shown by the caller, never the vendor's text. The fresh row replaces
- * the one in every cached log page.
+ * SENT message arrived. One Idempotency-Key per message until a success (Rule 25), `retry: false`;
+ * the caller picks its own translated sentence from the status code, never the server's or the
+ * vendor's text. The fresh row replaces the one in every cached log page.
  */
 export function useCheckMessageStatus() {
   const queryClient = useQueryClient();
@@ -233,8 +255,13 @@ export function useCheckMessageStatus() {
         { queryKey: messageLogKeys.lists() },
         (old) => old && { ...old, data: old.data.map((r) => (r.id === row.id ? row : r)) },
       );
+      // A new status moves the row between status-filtered pages, and changes the student and
+      // guardian Communication tabs and the dashboard's Failed messages count.
+      void queryClient.invalidateQueries({ queryKey: messageLogKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: communicationLogKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'widget', 'failed-messages'] });
     },
-    // Asks, never writes anything to double: the page shows the server's fixed sentence itself.
+    // Asks, never writes anything to double: the page shows its own sentence for a 5xx.
     meta: { handlesUnknownOutcome: true },
     retry: false,
   });

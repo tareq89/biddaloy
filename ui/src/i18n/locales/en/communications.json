@@ -346,16 +346,25 @@
       "error": "Why it failed",
       "sent": "Sent",
       "none": "—",
-      "close": "Close"
+      "close": "Close",
+      "description": "What the app recorded about this one message.",
+      "message": "Message",
+      "subject": "Subject",
+      "segments": "SMS parts",
+      "batch": "Reminder round",
+      "batchLink": "Open the round",
+      "sentBy": "Sent by",
+      "test": "Test"
     },
     "checkStatus": "Check status",
     "checkStatusBusy": "Checking…",
     "checkStatusDone": "Status updated.",
+    "checkStatusCannot": "The delivery status of this message cannot be checked now.",
     "checkStatusFailed": "Could not check the status. Try again in a minute.",
     "scopedStudent": "Showing messages for one student.",
     "scopedGuardian": "Showing messages for one guardian.",
     "scopedClear": "Show all messages",
-    "scopedNote": "Filters are not available in this view.",
-    "linkLabel": "Messages"
+    "scopedEmptyStudent": "No message has been sent to this student's guardians yet.",
+    "scopedEmptyGuardian": "No message has been sent to this guardian yet."
   }
 }

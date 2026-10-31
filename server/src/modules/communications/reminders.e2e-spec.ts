@@ -444,8 +444,14 @@ describe('Bulk Reminder Read/Preview E2E', () => {
         .expect(200);
 
       expect(res.body.total).toBe(1);
-      expect(res.body.data[0]).toMatchObject({ status: 'FAILED' });
-      expect(res.body.data[0]).not.toHaveProperty('message_body');
+      // [97.4.02] D22: the row detail shows the message itself (the batch text, here).
+      expect(res.body.data[0]).toMatchObject({
+        status: 'FAILED',
+        message_body: 'Dear guardian',
+        batch_id: batchId,
+        is_test: false,
+        can_check_status: false,
+      });
 
       await supertest(app.getHttpServer())
         .get('/api/v1/communications/logs?limit=101')
@@ -492,6 +498,25 @@ describe('Bulk Reminder Read/Preview E2E', () => {
       expect(rows.find((r: { id: string }) => r.id === hit)).toMatchObject({
         trigger: 'MANUAL',
         provider: 'stub-sms',
+        sent_by_user_id: SEED_ADMIN_USER_ID,
+        sent_by_name: expect.any(String),
+        // stub-sms is no real company, so the flag is false, never a guess.
+        can_check_status: false,
+      });
+    });
+
+    it('can_check_status is true for a SENT row from a company that reports delivery', async () => {
+      const id = await createBatchLog(await createBatch(TENANT_ID), TENANT_ID, {
+        status: 'SENT',
+        metadata: { provider: 'onecodesoft' },
+      });
+      await dataSource.query(
+        `UPDATE communication_logs SET provider_message_id = 'vendor-9' WHERE id = $1`,
+        [id],
+      );
+      const rows = (await getLogs('provider=onecodesoft').expect(200)).body.data;
+      expect(rows.find((r: { id: string }) => r.id === id)).toMatchObject({
+        can_check_status: true,
       });
     });
 
@@ -658,6 +683,60 @@ describe('Bulk Reminder Read/Preview E2E', () => {
     });
   });
 
+  // [97.4.02] D22: the Company and Sent-by choices on the log's own permission.
+  describe('GET /communications/logs/filter-options', () => {
+    const getOptions = (t = token, tenant: string | null = TENANT_ID) => {
+      const req = supertest(app.getHttpServer())
+        .get('/api/v1/communications/logs/filter-options')
+        .set('Authorization', `Bearer ${t}`);
+      return tenant ? req.set('X-Tenant-ID', tenant) : req;
+    };
+
+    it('ADMIN: every company, and only this school senders', async () => {
+      const mine = await createBatchLog(await createBatch(TENANT_ID), TENANT_ID);
+      await dataSource.query(`UPDATE communication_logs SET sent_by_user_id = $1 WHERE id = $2`, [
+        OFFICE_USER_ID,
+        mine,
+      ]);
+      const foreign = await createBatchLog(await createBatch(OTHER_TENANT_ID), OTHER_TENANT_ID);
+      await dataSource.query(`UPDATE communication_logs SET sent_by_user_id = $1 WHERE id = $2`, [
+        OTHER_ADMIN_USER_ID,
+        foreign,
+      ]);
+
+      const res = await getOptions().expect(200);
+
+      expect(res.body.companies).toContainEqual({
+        name: 'onecodesoft',
+        medium: 'SMS',
+        label: expect.objectContaining({ en: expect.any(String), bn: expect.any(String) }),
+      });
+      const senderIds = res.body.senders.map((s: { id: string }) => s.id);
+      expect(senderIds).toContain(OFFICE_USER_ID);
+      // Tenant isolation: the other school's sender never shows here.
+      expect(senderIds).not.toContain(OTHER_ADMIN_USER_ID);
+      // One entry per sender, however many messages they sent.
+      expect(new Set(senderIds).size).toBe(senderIds.length);
+    });
+
+    it('OFFICE_STAFF (holds COMMUNICATION_BULK_SEND, not SETTINGS_MANAGE or USER_READ) gets 200', async () => {
+      await getOptions(officeToken).expect(200);
+    });
+
+    it('403 for a TEACHER (no COMMUNICATION_BULK_SEND)', async () => {
+      await getOptions(teacherToken).expect(403);
+    });
+
+    it('401 without an X-Tenant-ID header', async () => {
+      await getOptions(token, null).expect(401);
+    });
+
+    it('401 for an X-Tenant-ID that matches no school, or one the caller is not a member of', async () => {
+      await getOptions(token, '00000000-0000-4000-8000-000000000fff').expect(401);
+      await getOptions(otherTenantAdminToken, TENANT_ID).expect(401);
+    });
+  });
+
   it('GET /communications/logs: 401 without an X-Tenant-ID header', async () => {
     await supertest(app.getHttpServer())
       .get('/api/v1/communications/logs')
@@ -687,8 +766,8 @@ describe('Bulk Reminder Read/Preview E2E', () => {
         status: 'FAILED',
         error: 'NO_PROVIDER',
       });
-      // Row list is a status table, not a message dump.
-      expect(res.body.data[0]).not.toHaveProperty('message_body');
+      // [97.4.02] Same row shape as the message log (D22 row detail), so the body is in it.
+      expect(res.body.data[0]).toMatchObject({ message_body: 'Dear guardian', batch_id: batchId });
     });
 
     it('paginates the logs', async () => {

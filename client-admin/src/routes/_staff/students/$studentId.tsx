@@ -424,6 +424,8 @@ function StudentDetailPage() {
                 priority: 'destructive',
                 onClick: () => setDeleteDialogOpen(true),
               },
+              // Last on purpose: the 3rd secondary goes into More, keeping Edit and the
+              // leave/readmit action inline (PageHeaderActions groups by priority).
               {
                 id: 'messages',
                 label: t('detail.actions.messages'),

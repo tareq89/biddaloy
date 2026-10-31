@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { assertDemoRowLimit } from '../demo/demo-row-limit';
 import { deliveryErrorCode } from './delivery-error-code';
+import { isMessageSink } from './providers/sink/message-sink';
+import { messagingDescriptors } from '../schools/settings/messaging-descriptors';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -31,6 +33,7 @@ import {
   QueryCommunicationLogsDto,
   ReminderBatchLogListResponseDto,
   ReminderBatchLogDto,
+  MessageLogFilterOptionsDto,
 } from './dto/reminders.dto';
 import {
   findUnsupportedPlaceholders,
@@ -87,9 +90,31 @@ export const SkipReason = {
   NOTIFICATIONS_DISABLED: 'guardian_notifications_disabled',
 } as const;
 
-/** One message-log row (batch logs, tenant-wide log, check-status answer). */
+/**
+ * [97.4.02] D23, the part of check-status's 409 rules a list can know: SENT, a company message id,
+ * a company that declares `status`, not the test inbox. Leaves out the 60 s wait and the tenant's
+ * config, so true can still answer 409; false never hides a check that could work.
+ */
+export function canCheckStatus(log: CommunicationLog): boolean {
+  const name = (log.metadata as { provider?: unknown } | null)?.provider;
+  return (
+    log.status === CommunicationStatus.SENT &&
+    !!log.provider_message_id &&
+    typeof name === 'string' &&
+    !isMessageSink() &&
+    messagingDescriptors().some(
+      (d) => d.name === name && d.medium === log.medium && d.capabilities.includes('status'),
+    )
+  );
+}
+
+/**
+ * One message-log row (batch logs, tenant-wide log, check-status answer). `sent_by_name` needs the
+ * `sent_by` relation loaded; every caller loads it, so the row reads the same everywhere.
+ */
 export function toBatchLogDto(log: CommunicationLog): ReminderBatchLogDto {
-  const provider = (log.metadata as { provider?: unknown } | null)?.provider;
+  const meta = (log.metadata ?? {}) as { provider?: unknown; segments?: unknown; test?: unknown };
+  const provider = meta.provider;
   return {
     id: log.id,
     medium: log.medium,
@@ -103,6 +128,19 @@ export function toBatchLogDto(log: CommunicationLog): ReminderBatchLogDto {
     provider: typeof provider === 'string' ? provider : null,
     error: deliveryErrorCode(log.metadata),
     created_at: log.created_at,
+    message_body: log.message_body,
+    subject: log.subject,
+    segments:
+      typeof meta.segments === 'number'
+        ? meta.segments
+        : log.medium === CommunicationMedium.SMS
+          ? countSmsSegments(log.message_body).segments
+          : null,
+    batch_id: log.reminder_batch_id,
+    is_test: meta.test === true,
+    sent_by_user_id: log.sent_by_user_id,
+    sent_by_name: log.sent_by?.full_name ?? null,
+    can_check_status: canCheckStatus(log),
   };
 }
 
@@ -488,6 +526,7 @@ export class BulkReminderService {
 
     const [logs, total] = await this.logRepo.findAndCount({
       where: { reminder_batch_id: id, tenant_id: tenantId },
+      relations: { sent_by: true },
       order: { created_at: 'DESC', id: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -504,8 +543,8 @@ export class BulkReminderService {
 
   /**
    * [87.SD, 97.4.01] Tenant-wide message log (newest first) with every D22
-   * filter. Same row shape as a batch's logs: no body, fixed error codes
-   * (Rule 23). Every value is a bound parameter (Rule 4).
+   * filter. Same row shape as a batch's logs, fixed error codes (Rule 23).
+   * Every value is a bound parameter (Rule 4).
    */
   async findLogs(
     query: QueryCommunicationLogsDto,
@@ -516,6 +555,9 @@ export class BulkReminderService {
 
     const qb = this.logRepo
       .createQueryBuilder('log')
+      // The sender's name only (D22 row detail), never the rest of the user row.
+      .leftJoin('log.sent_by', 'sender')
+      .addSelect(['sender.id', 'sender.full_name'])
       .where('log.tenant_id = :tenantId', { tenantId })
       // PUSH rows are app notifications ('push:<user id>'), not messages a school sent.
       .andWhere('log.medium IN (:...media)', {
@@ -574,6 +616,35 @@ export class BulkReminderService {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * [97.4.02] D22: the message log's Company and Sent-by choices, readable with the page's own
+   * permission (the settings and users lists need permissions Accountant and Office staff lack).
+   * Companies are the static descriptors (no config, no secrets); senders are this school's staff
+   * who sent at least one message.
+   */
+  async findLogFilterOptions(tenantId: string): Promise<MessageLogFilterOptionsDto> {
+    const senders = await this.logRepo
+      .createQueryBuilder('log')
+      .innerJoin('log.sent_by', 'sender')
+      .select('sender.id', 'id')
+      .addSelect('sender.full_name', 'full_name')
+      .where('log.tenant_id = :tenantId', { tenantId })
+      .groupBy('sender.id')
+      .addGroupBy('sender.full_name')
+      .orderBy(`sender.full_name COLLATE "${BN_COLLATION}"`, 'ASC')
+      // ponytail: 100 senders (Rule 5); a school with more needs a searchable picker.
+      .limit(100)
+      .getRawMany<{ id: string; full_name: string }>();
+    return {
+      companies: messagingDescriptors().map((d) => ({
+        name: d.name,
+        medium: d.medium,
+        label: { en: d.label.en, bn: d.label.bn },
+      })),
+      senders,
     };
   }
 

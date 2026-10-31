@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   BadRequestException,
   ConflictException,
@@ -12,7 +12,10 @@ import {
   partitionByOptOut,
   resolveReminderAudience,
   addressForMedium,
+  canCheckStatus,
+  toBatchLogDto,
 } from './reminders.service';
+import type { CommunicationLog } from './entities/communication-log.entity';
 import { renderReminderTemplate } from './reminder-template.util';
 import {
   CommunicationMedium,
@@ -1545,6 +1548,11 @@ describe('BulkReminderService', () => {
       provider_message_id: null,
       metadata: { error: 'No provider registered for medium "SMS"' },
       created_at: new Date('2026-03-01T00:00:00Z'),
+      message_body: 'Dear guardian',
+      subject: null,
+      reminder_batch_id: 'batch-1',
+      sent_by_user_id: 'user-1',
+      sent_by: { full_name: 'Rahima Akter' },
     };
 
     beforeEach(() => {
@@ -1570,6 +1578,8 @@ describe('BulkReminderService', () => {
 
       expect(logRepo.findAndCount).toHaveBeenCalledWith({
         where: { reminder_batch_id: 'batch-1', tenant_id: TENANT },
+        // The sender's name, so a batch row reads like a message-log row (D22).
+        relations: { sent_by: true },
         order: { created_at: 'DESC', id: 'DESC' },
         skip: 50,
         take: 50,
@@ -1597,6 +1607,15 @@ describe('BulkReminderService', () => {
         provider: null,
         error: 'NO_PROVIDER',
         created_at: logRow.created_at,
+        message_body: 'Dear guardian',
+        subject: null,
+        segments: countSmsSegments('Dear guardian').segments,
+        batch_id: 'batch-1',
+        is_test: false,
+        sent_by_user_id: 'user-1',
+        sent_by_name: 'Rahima Akter',
+        // FAILED: nothing to ask the company.
+        can_check_status: false,
       });
     });
 
@@ -1607,5 +1626,96 @@ describe('BulkReminderService', () => {
 
       expect(result.data[0].error).toBeNull();
     });
+  });
+});
+
+// [97.4.02] D22/D23: what one message-log row carries.
+describe('toBatchLogDto / canCheckStatus', () => {
+  // onecodesoft is the one real SMS company that declares the `status` capability.
+  function log(overrides: Partial<CommunicationLog> = {}): CommunicationLog {
+    return {
+      id: 'log-1',
+      medium: CommunicationMedium.SMS,
+      recipient_address: '01712345678',
+      recipient_name: 'Karim',
+      message_body: 'Dues are 500 taka',
+      subject: null,
+      status: CommunicationStatus.SENT,
+      trigger: CommunicationTrigger.MANUAL,
+      student_id: null,
+      guardian_id: null,
+      sent_by_user_id: 'user-1',
+      sent_by: null,
+      reminder_batch_id: 'batch-1',
+      provider_message_id: 'vendor-1',
+      metadata: { provider: 'onecodesoft' },
+      created_at: new Date('2026-10-20T09:00:00Z'),
+      ...overrides,
+    } as CommunicationLog;
+  }
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('a SENT row with a company id from a company that reports delivery can be checked', () => {
+    expect(canCheckStatus(log())).toBe(true);
+  });
+
+  it('a row that is not SENT cannot be checked', () => {
+    expect(canCheckStatus(log({ status: CommunicationStatus.DELIVERED }))).toBe(false);
+    expect(canCheckStatus(log({ status: CommunicationStatus.FAILED }))).toBe(false);
+  });
+
+  it('a row with no company message id cannot be checked', () => {
+    expect(canCheckStatus(log({ provider_message_id: null }))).toBe(false);
+  });
+
+  it('a row with no company, or a company without the status capability, cannot be checked', () => {
+    expect(canCheckStatus(log({ metadata: null }))).toBe(false);
+    expect(canCheckStatus(log({ metadata: { provider: 'greenweb' } }))).toBe(false);
+    // A name the app does not know (an old or made-up value) is false, never a guess.
+    expect(canCheckStatus(log({ metadata: { provider: 'stub-sms' } }))).toBe(false);
+  });
+
+  it('a company name on the wrong channel cannot be checked', () => {
+    expect(canCheckStatus(log({ medium: CommunicationMedium.EMAIL }))).toBe(false);
+  });
+
+  it('nothing can be checked in test-inbox mode (MESSAGE_SINK=mailpit)', () => {
+    vi.stubEnv('MESSAGE_SINK', 'mailpit');
+    expect(canCheckStatus(log())).toBe(false);
+  });
+
+  it('carries the D22 detail fields: body, segments, round, test flag and sender', () => {
+    const row = toBatchLogDto(
+      log({
+        metadata: { provider: 'onecodesoft', segments: 2, test: true },
+        sent_by: { full_name: 'Rahima Akter' } as CommunicationLog['sent_by'],
+      }),
+    );
+    expect(row).toMatchObject({
+      message_body: 'Dues are 500 taka',
+      subject: null,
+      segments: 2,
+      batch_id: 'batch-1',
+      is_test: true,
+      sent_by_user_id: 'user-1',
+      sent_by_name: 'Rahima Akter',
+      can_check_status: true,
+    });
+  });
+
+  it('counts SMS segments from the text when the send did not record them; null for email', () => {
+    expect(toBatchLogDto(log({ metadata: null })).segments).toBe(
+      countSmsSegments('Dues are 500 taka').segments,
+    );
+    expect(toBatchLogDto(log({ medium: CommunicationMedium.EMAIL })).segments).toBe(null);
+  });
+
+  it('an automatic send has no sender, and a row is not a test unless metadata says so', () => {
+    const row = toBatchLogDto(log({ sent_by_user_id: null, metadata: { test: 'yes' } }));
+    expect(row.sent_by_name).toBe(null);
+    expect(row.is_test).toBe(false);
   });
 });

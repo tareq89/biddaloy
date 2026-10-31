@@ -6,10 +6,11 @@
  * from the endpoints those pages already use.
  *
  * Gated on COMMUNICATION_BULK_SEND like Reminder history: the endpoint is
- * tenant-wide, and teachers (who hold LOG_READ) must never see it.
+ * tenant-wide, and teachers (who hold LOG_READ) must never see it. Every request this page makes
+ * (the log, its filter choices, Check status) needs that permission only.
  */
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
-import { ApiError, getActiveTenant } from '@biddaloy/ui/api';
+import { ApiError } from '@biddaloy/ui/api';
 import {
   RoutePending,
   StatusBadge,
@@ -22,9 +23,10 @@ import {
   useCheckMessageStatus,
   useCommunicationLogs,
   useGuardianCommunicationLogs,
-  useMessagingProviders,
+  useMessageLogFilterOptions,
   useStudentCommunicationLogs,
-  useUsers,
+  type CommunicationLogListFilters,
+  type MessageLogFilterOptions,
 } from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
@@ -34,7 +36,7 @@ import {
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDateTime, formatPhone } from '@biddaloy/ui/utils';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { CircleAlertIcon, MessageSquareIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
@@ -42,40 +44,56 @@ import { z } from 'zod';
 import { deliveryErrorKey } from '../-shared/delivery-error';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
-import type { LogRow } from './-log-row';
+import { fromScopedLog, type LogRow } from './-log-row';
 import { RowDetail } from './-row-detail';
 
+const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+// Each value is limited the way `QueryCommunicationLogsDto` limits it: a hand-edited value the
+// API would 400 on is dropped instead, so the list still loads.
 const logsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
   limit: z.number().int().positive().max(100).optional().catch(undefined),
-  // A hand-edited value the API would 400 on is dropped instead.
   status: z.enum(CommunicationStatus).optional().catch(undefined),
   medium: z.enum(CommunicationMedium).optional().catch(undefined),
-  from_date: z.string().optional().catch(undefined),
-  to_date: z.string().optional().catch(undefined),
-  search: z.string().optional().catch(undefined),
+  from_date: isoDay.optional().catch(undefined),
+  to_date: isoDay.optional().catch(undefined),
+  search: z.string().max(100).optional().catch(undefined),
   trigger: z.enum(CommunicationTrigger).optional().catch(undefined),
-  sent_by: z.string().optional().catch(undefined),
-  provider: z.string().optional().catch(undefined),
+  sent_by: z.string().uuid().optional().catch(undefined),
+  provider: z.string().max(40).optional().catch(undefined),
   student: z.string().uuid().optional().catch(undefined),
   guardian: z.string().uuid().optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores selection under.
   selected: z.string().optional().catch(undefined),
 });
 
+const FILTER_KEYS = [
+  'status',
+  'medium',
+  'from_date',
+  'to_date',
+  'search',
+  'trigger',
+  'sent_by',
+  'provider',
+] as const;
+type FilterValues = Partial<Record<(typeof FILTER_KEYS)[number], string | undefined>>;
+
+/** URL values -> API params, one place for the loader and the list (so both use one query key). */
+function toLogFilters(values: FilterValues, page: number, limit: number) {
+  const filters: Record<string, string | number> = { page, limit };
+  for (const key of FILTER_KEYS) {
+    const value = values[key];
+    if (value) filters[key] = value;
+  }
+  return filters as CommunicationLogListFilters;
+}
+
 export const Route = createFileRoute('/_staff/communications/message-log/')({
   validateSearch: logsSearchSchema,
   loaderDeps: ({ search }) => ({
-    page: search.page ?? 1,
-    limit: search.limit ?? 25,
-    status: search.status,
-    medium: search.medium,
-    fromDate: search.from_date,
-    toDate: search.to_date,
-    search: search.search,
-    trigger: search.trigger,
-    sentBy: search.sent_by,
-    provider: search.provider,
+    filters: toLogFilters(search, search.page ?? 1, search.limit ?? 25),
     scoped: Boolean(search.student ?? search.guardian),
   }),
   loader: ({ context: { queryClient }, deps }) =>
@@ -84,20 +102,7 @@ export const Route = createFileRoute('/_staff/communications/message-log/')({
       deps.scoped
         ? undefined
         : queryClient
-            .ensureQueryData(
-              communicationLogsQueryOptions({
-                page: deps.page,
-                limit: deps.limit,
-                ...(deps.status ? { status: deps.status } : {}),
-                ...(deps.medium ? { medium: deps.medium } : {}),
-                ...(deps.fromDate ? { from_date: deps.fromDate } : {}),
-                ...(deps.toDate ? { to_date: deps.toDate } : {}),
-                ...(deps.search ? { search: deps.search } : {}),
-                ...(deps.trigger ? { trigger: deps.trigger } : {}),
-                ...(deps.sentBy ? { sent_by: deps.sentBy } : {}),
-                ...(deps.provider ? { provider: deps.provider } : {}),
-              }),
-            )
+            .ensureQueryData(communicationLogsQueryOptions(deps.filters))
             .catch(swallowUnlessOffline),
       loadRouteNamespaces('communications'),
     ]),
@@ -121,36 +126,37 @@ function MessageLogPage() {
   );
 }
 
-type Companies = Map<string, { label: string; status: boolean }>;
+const NO_COMPANIES = new Map<string, string>();
+const NO_COMPANY_LIST: MessageLogFilterOptions['companies'] = [];
 
-/** Companies the school can send through (label + whether it can report delivery). Empty for a
- * role that cannot read the settings: then the Company filter is simply not offered. */
-function useCompanies(): Companies {
-  const providers = useMessagingProviders(getActiveTenant() ?? '').data;
+/** Company name -> label in the current language, from the log's own filter-options list. */
+function useCompanyLabels(companies: MessageLogFilterOptions['companies'] = NO_COMPANY_LIST) {
   const { i18n } = useTranslation();
   const bn = i18n.language.startsWith('bn');
-  return React.useMemo(() => {
-    const byName: Companies = new Map();
-    for (const medium of Object.values(providers ?? {})) {
-      for (const p of medium.providers) {
-        byName.set(p.name, {
-          label: bn ? p.label.bn : p.label.en,
-          status: p.capabilities.includes('status'),
-        });
-      }
-    }
-    return byName;
-  }, [providers, bn]);
+  return React.useMemo(
+    () => new Map(companies.map((c) => [c.name, bn ? c.label.bn : c.label.en])),
+    [companies, bn],
+  );
 }
 
-/** D23: only a SENT message with a company id, from a company that can report delivery. Without
- * the companies list (a role that cannot read it) the server decides, with its fixed 409. */
-function canCheckStatus(row: LogRow, companies: Companies) {
-  if (row.status !== 'SENT' || !row.provider_message_id || !row.provider) return false;
-  return companies.size === 0 || companies.get(row.provider)?.status === true;
+/**
+ * Check status refusals in the user's language, chosen by status code; never the server's text
+ * (Rule 23/24). null: the app's mutation handler already says it (403, restore freeze, demo).
+ */
+function checkErrorKey(error: unknown): string | null {
+  if (!(error instanceof ApiError)) return 'messageLog.checkStatusFailed';
+  const code = error.details?.code;
+  if (
+    error.statusCode === 403 ||
+    error.statusCode === 423 ||
+    (typeof code === 'string' && code.startsWith('DEMO_'))
+  ) {
+    return null;
+  }
+  return error.statusCode === 409 ? 'messageLog.checkStatusCannot' : 'messageLog.checkStatusFailed';
 }
 
-function useLogColumns(onView: (row: LogRow) => void, companies: Companies) {
+function useLogColumns(onView: (row: LogRow) => void, companies: Map<string, string>) {
   const { t } = useTranslation('communications');
   const config = useRegionConfig();
   const columns: DataTableColumn<LogRow>[] = [
@@ -186,8 +192,7 @@ function useLogColumns(onView: (row: LogRow) => void, companies: Companies) {
     {
       id: 'company',
       header: t('messageLog.columnCompany'),
-      accessorFn: (row) =>
-        row.provider ? (companies.get(row.provider)?.label ?? row.provider) : '—',
+      accessorFn: (row) => (row.provider ? (companies.get(row.provider) ?? row.provider) : '—'),
     },
     {
       id: 'status',
@@ -219,35 +224,15 @@ function useLogColumns(onView: (row: LogRow) => void, companies: Companies) {
 function MessageLogList() {
   const { t } = useTranslation('communications');
   const [state, actions] = useListShellState();
-  const [viewId, setViewId] = React.useState<string | undefined>(undefined);
-  const companies = useCompanies();
+  // The row itself, not its id: a refetch that moves it off this page must not close the dialog
+  // in the middle of a check. A fresher copy on the page still wins.
+  const [viewed, setViewed] = React.useState<LogRow | undefined>(undefined);
+  const options = useMessageLogFilterOptions().data;
+  const companies = useCompanyLabels(options?.companies);
   const check = useCheckMessageStatus();
 
-  const filters = state.filters as {
-    status?: string;
-    medium?: string;
-    from_date?: string;
-    to_date?: string;
-    search?: string;
-    trigger?: string;
-    sent_by?: string;
-    provider?: string;
-  };
-
-  const logsQuery = useCommunicationLogs({
-    page: state.page,
-    limit: state.limit,
-    ...(filters.status ? { status: filters.status as CommunicationStatus } : {}),
-    ...(filters.medium ? { medium: filters.medium as CommunicationMedium } : {}),
-    ...(filters.from_date ? { from_date: filters.from_date } : {}),
-    ...(filters.to_date ? { to_date: filters.to_date } : {}),
-    ...(filters.search ? { search: filters.search } : {}),
-    ...(filters.trigger ? { trigger: filters.trigger as CommunicationTrigger } : {}),
-    ...(filters.sent_by ? { sent_by: filters.sent_by } : {}),
-    ...(filters.provider ? { provider: filters.provider } : {}),
-  });
-  // Staff who can be named as the sender. A role that cannot read /users gets no such filter.
-  const staffQuery = useUsers({ limit: 100 });
+  const filters = state.filters as FilterValues;
+  const logsQuery = useCommunicationLogs(toLogFilters(filters, state.page, state.limit));
 
   const filterFields: FilterFieldDescriptor[] = [
     {
@@ -256,6 +241,7 @@ function MessageLogList() {
       label: t('messageLog.searchLabel'),
       placeholder: t('messageLog.searchPlaceholder'),
       primary: true,
+      autoFocus: true,
     },
     {
       kind: 'select',
@@ -287,14 +273,14 @@ function MessageLogList() {
         label: t(`messageLog.triggers.${trigger}`),
       })),
     },
-    ...(staffQuery.data?.data.length
+    ...(options?.senders.length
       ? [
           {
             kind: 'select' as const,
             key: 'sent_by',
             label: t('messageLog.sentByLabel'),
             allLabel: t('messageLog.allSenders'),
-            options: staffQuery.data.data.map((user) => ({ value: user.id, label: user.full_name })),
+            options: options.senders.map((user) => ({ value: user.id, label: user.full_name })),
           },
         ]
       : []),
@@ -305,7 +291,7 @@ function MessageLogList() {
             key: 'provider',
             label: t('messageLog.companyLabel'),
             allLabel: t('messageLog.allCompanies'),
-            options: [...companies].map(([value, { label }]) => ({ value, label })),
+            options: [...companies].map(([value, label]) => ({ value, label })),
           },
         ]
       : []),
@@ -320,21 +306,29 @@ function MessageLogList() {
   ];
 
   const rows: LogRow[] = logsQuery.data?.data ?? [];
-  const viewed = rows.find((row) => row.id === viewId);
-  const { columns, rowActions } = useLogColumns((row) => setViewId(row.id), companies);
-  const filtered = Object.values(filters).some(Boolean);
+  const shown = viewed && (rows.find((row) => row.id === viewed.id) ?? viewed);
+  const { columns, rowActions } = useLogColumns(setViewed, companies);
+  const filtered = FILTER_KEYS.some((key) => filters[key]);
 
-  const runCheck = (id: string) =>
+  // A fast double click can land before React shows the busy button (21-ui-patterns §6).
+  const inFlight = React.useRef(false);
+  const runCheck = (id: string) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     check.mutate(id, {
-      onSuccess: () => toast.success(t('messageLog.checkStatusDone')),
-      // 409 / 502 carry the server's one fixed sentence; anything else gets ours (Rule 23/24).
-      onError: (error) =>
-        toast.error(
-          error instanceof ApiError && [409, 502].includes(error.statusCode)
-            ? error.message
-            : t('messageLog.checkStatusFailed'),
-        ),
+      onSuccess: (row) => {
+        setViewed(row);
+        toast.success(t('messageLog.checkStatusDone'));
+      },
+      onError: (error) => {
+        const key = checkErrorKey(error);
+        if (key) toast.error(t(key));
+      },
+      onSettled: () => {
+        inFlight.current = false;
+      },
     });
+  };
 
   return (
     <>
@@ -367,12 +361,11 @@ function MessageLogList() {
         }}
       />
       <RowDetail
-        row={viewed}
-        onClose={() => setViewId(undefined)}
-        companyLabel={(name) => (name ? (companies.get(name)?.label ?? null) : null)}
-        canCheck={viewed ? canCheckStatus(viewed, companies) : false}
+        row={shown}
+        onClose={() => setViewed(undefined)}
+        companyLabel={(name) => (name ? (companies.get(name) ?? null) : null)}
         checking={check.isPending}
-        onCheck={() => viewed && runCheck(viewed.id)}
+        onCheck={() => shown && runCheck(shown.id)}
       />
     </>
   );
@@ -382,19 +375,18 @@ function MessageLogList() {
  * Those carry no filters yet (#3343), so none are offered here. */
 function ScopedList({ kind, id }: { kind: 'student' | 'guardian'; id: string }) {
   const { t } = useTranslation('communications');
-  const navigate = useNavigate();
   const [state, actions] = useListShellState();
   const [viewId, setViewId] = React.useState<string | undefined>(undefined);
+  // The hook not in use gets '' and stays idle (`enabled`).
   const studentQuery = useStudentCommunicationLogs(kind === 'student' ? id : '');
   const guardianQuery = useGuardianCommunicationLogs(kind === 'guardian' ? id : '');
   const query = kind === 'student' ? studentQuery : guardianQuery;
 
-  const all: LogRow[] = (query.data ?? [])
-    .map((r) => ({ ...r, trigger: null, student_id: null, guardian_id: null, provider: null }))
-    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  // The server already answers newest first.
+  const all = React.useMemo(() => (query.data ?? []).map(fromScopedLog), [query.data]);
   const rows = all.slice((state.page - 1) * state.limit, state.page * state.limit);
   const viewed = all.find((row) => row.id === viewId);
-  const { columns, rowActions } = useLogColumns((row) => setViewId(row.id), new Map());
+  const { columns, rowActions } = useLogColumns((row) => setViewId(row.id), NO_COMPANIES);
 
   return (
     <>
@@ -402,11 +394,7 @@ function ScopedList({ kind, id }: { kind: 'student' | 'guardian'; id: string }) 
         title={t('messageLog.title')}
         subtitle={t(kind === 'student' ? 'messageLog.scopedStudent' : 'messageLog.scopedGuardian')}
         actions={[
-          {
-            id: 'all',
-            label: t('messageLog.scopedClear'),
-            onClick: () => void navigate({ to: '/communications/message-log', search: {} }),
-          },
+          { id: 'all', label: t('messageLog.scopedClear'), to: '/communications/message-log' },
         ]}
         tableId="communication-logs-scoped"
         caption={t('messageLog.tableCaption')}
@@ -428,17 +416,12 @@ function ScopedList({ kind, id }: { kind: 'student' | 'guardian'; id: string }) 
         emptyState={{
           icon: <MessageSquareIcon aria-hidden />,
           title: t('messageLog.empty'),
-          explanation: t('messageLog.scopedNote'),
+          explanation: t(
+            kind === 'student' ? 'messageLog.scopedEmptyStudent' : 'messageLog.scopedEmptyGuardian',
+          ),
         }}
       />
-      <RowDetail
-        row={viewed}
-        onClose={() => setViewId(undefined)}
-        companyLabel={() => null}
-        canCheck={false}
-        checking={false}
-        onCheck={() => {}}
-      />
+      <RowDetail row={viewed} onClose={() => setViewId(undefined)} companyLabel={() => null} />
     </>
   );
 }

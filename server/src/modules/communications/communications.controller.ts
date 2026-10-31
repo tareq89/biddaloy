@@ -40,6 +40,7 @@ import {
   QueryReminderBatchLogsDto,
   QueryCommunicationLogsDto,
   ReminderBatchLogDto,
+  MessageLogFilterOptionsDto,
 } from './dto/reminders.dto';
 import { DeliveryStatusService } from './delivery-status.service';
 import { SendSingleReminderDto } from './dto/single-reminder.dto';
@@ -203,6 +204,16 @@ export class CommunicationsController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.bulkReminderService.findLogs(query, tenant.id);
+  }
+
+  // [97.4.02] D22: the Company and Sent-by filter choices, on the log's own permission, so
+  // Accountant and Office staff (no SETTINGS_MANAGE / USER_READ) get them too.
+  @Get('logs/filter-options')
+  @RequirePermissions(Permission.COMMUNICATION_BULK_SEND)
+  @ApiOperation({ summary: 'Message log — the Company and Sent-by filter choices.' })
+  @ApiOkResponse({ type: MessageLogFilterOptionsDto })
+  findLogFilterOptions(@CurrentTenant() tenant: { id: string; role: string }) {
+    return this.bulkReminderService.findLogFilterOptions(tenant.id);
   }
 
   // [97.4.01] D23/D35: the message log page's permission only. The Idempotency-Key replays a

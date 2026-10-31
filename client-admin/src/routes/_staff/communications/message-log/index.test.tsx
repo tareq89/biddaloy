@@ -5,12 +5,16 @@
 import { toast } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
 const STUDENT = '11111111-1111-4111-8111-111111111111';
+const GUARDIAN = '22222222-2222-4222-8222-222222222222';
+const SENDER = '33333333-3333-4333-8333-333333333333';
+const BATCH = '44444444-4444-4444-8444-444444444444';
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: 'log-1',
@@ -22,11 +26,20 @@ const row = (over: Record<string, unknown> = {}) => ({
   student_id: 's-1',
   guardian_id: 'g-1',
   provider_message_id: 'vendor-1',
-  provider: 'greenweb',
+  provider: 'onecodesoft',
   error: null,
   created_at: '2026-10-20T09:00:00.000Z',
+  message_body: 'Your dues are 500 taka.',
+  subject: null,
+  segments: 2,
+  batch_id: BATCH,
+  is_test: true,
+  sent_by_user_id: SENDER,
+  sent_by_name: 'Rahima Akter',
+  can_check_status: true,
   ...over,
 });
+type Row = ReturnType<typeof row>;
 
 const page = (data: unknown[]) => ({
   data,
@@ -36,29 +49,12 @@ const page = (data: unknown[]) => ({
   totalPages: data.length ? 1 : 0,
 });
 
-const providers = {
-  SMS: {
-    providers: [
-      {
-        medium: 'SMS',
-        name: 'greenweb',
-        label: { en: 'Greenweb', bn: 'গ্রিনওয়েব' },
-        capabilities: ['status'],
-        fields: [],
-        supportsTestMessage: true,
-      },
-      {
-        medium: 'SMS',
-        name: 'nostatus',
-        label: { en: 'NoStatus SMS', bn: 'নো' },
-        capabilities: [],
-        fields: [],
-        supportsTestMessage: true,
-      },
-    ],
-    configured: true,
-    selected: 'greenweb',
-  },
+const filterOptions = {
+  companies: [
+    { name: 'onecodesoft', medium: 'SMS', label: { en: 'OneCodeSoft', bn: 'ওয়ানকোডসফট' } },
+    { name: 'greenweb', medium: 'SMS', label: { en: 'Greenweb', bn: 'গ্রিনওয়েব' } },
+  ],
+  senders: [{ id: SENDER, full_name: 'Rahima Akter' }],
 };
 
 function mockLogs(data: unknown[], onQuery?: (q: URLSearchParams) => void) {
@@ -67,17 +63,15 @@ function mockLogs(data: unknown[], onQuery?: (q: URLSearchParams) => void) {
       onQuery?.(new URL(request.url).searchParams);
       return HttpResponse.json(page(data));
     }),
-    http.get(/\/api\/v1\/schools\/[^/]+\/settings\/messaging\/providers$/, () =>
-      HttpResponse.json(providers),
-    ),
+    http.get('/api/v1/communications/logs/filter-options', () => HttpResponse.json(filterOptions)),
   );
 }
 
-function render(path: string) {
+function render(path: string, role = 'ADMIN') {
   return renderWithRouter(routeTree, {
     initialEntries: [path],
     tenantId: 'tenant-1',
-    role: 'ADMIN',
+    role,
     locale: 'en',
   });
 }
@@ -87,6 +81,20 @@ async function openDetail() {
   fireEvent.click(button!);
   return await screen.findByRole('dialog');
 }
+
+/** The value shown under one label of the row detail. */
+function detailValue(dialog: HTMLElement, label: string) {
+  const dt = within(dialog)
+    .getAllByText(label)
+    .find((el) => el.tagName === 'DT');
+  return dt?.nextElementSibling as HTMLElement;
+}
+
+const apiError = (status: number, message: string) =>
+  HttpResponse.json(
+    { statusCode: status, message, requestId: 'r-1', path: '/', timestamp: '2026-10-31T00:00:00Z' },
+    { status },
+  );
 
 describe('/communications/message-log', () => {
   afterEach(async () => {
@@ -100,7 +108,7 @@ describe('/communications/message-log', () => {
       query = q;
     });
     render(
-      '/communications/message-log?medium=SMS&status=FAILED&search=Karim&trigger=MANUAL&sent_by=u-1&provider=greenweb&from_date=2026-10-01&to_date=2026-10-31',
+      `/communications/message-log?medium=SMS&status=FAILED&search=Karim&trigger=MANUAL&sent_by=${SENDER}&provider=greenweb&from_date=2026-10-01&to_date=2026-10-31`,
     );
 
     expect(await screen.findByText('Karim Uddin')).toBeTruthy();
@@ -110,11 +118,42 @@ describe('/communications/message-log', () => {
       expect(query?.get('medium')).toBe('SMS');
       expect(query?.get('search')).toBe('Karim');
       expect(query?.get('trigger')).toBe('MANUAL');
-      expect(query?.get('sent_by')).toBe('u-1');
+      expect(query?.get('sent_by')).toBe(SENDER);
       expect(query?.get('provider')).toBe('greenweb');
       expect(query?.get('from_date')).toBe('2026-10-01');
       expect(query?.get('to_date')).toBe('2026-10-31');
     });
+  });
+
+  it('drops hand-edited values the API would refuse, so the list still loads', async () => {
+    let query = null as URLSearchParams | null;
+    mockLogs([row()], (q) => {
+      query = q;
+    });
+    render(
+      `/communications/message-log?search=${'x'.repeat(101)}&sent_by=u-1&provider=${'p'.repeat(41)}&from_date=yesterday`,
+    );
+
+    expect(await screen.findByText('Karim Uddin')).toBeTruthy();
+    expect(query?.has('search')).toBe(false);
+    expect(query?.has('sent_by')).toBe(false);
+    expect(query?.has('provider')).toBe(false);
+    expect(query?.has('from_date')).toBe(false);
+  });
+
+  it('typing in Search writes it to the URL and asks the API with it', async () => {
+    const user = userEvent.setup();
+    const searches: (string | null)[] = [];
+    mockLogs([row()], (q) => searches.push(q.get('search')));
+    const { router } = render('/communications/message-log');
+
+    const box = await screen.findByRole('textbox', { name: 'Search' });
+    // D17: the keyboard path starts at the search box.
+    await waitFor(() => expect(document.activeElement).toBe(box));
+    await user.type(box, 'Karim');
+
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ search: 'Karim' }));
+    await waitFor(() => expect(searches).toContain('Karim'));
   });
 
   it('shows the plain empty state', async () => {
@@ -131,8 +170,9 @@ describe('/communications/message-log', () => {
 
   it('shows an error line when the log cannot load', async () => {
     server.use(
-      http.get('/api/v1/communications/logs', () =>
-        HttpResponse.json({ statusCode: 400, message: 'bad' }, { status: 400 }),
+      http.get('/api/v1/communications/logs', () => apiError(400, 'bad')),
+      http.get('/api/v1/communications/logs/filter-options', () =>
+        HttpResponse.json(filterOptions),
       ),
     );
     render('/communications/message-log');
@@ -143,89 +183,238 @@ describe('/communications/message-log', () => {
     mockLogs([row()]);
     render('/communications/message-log');
     const dialog = await openDetail();
-    const d = within(dialog);
-    expect(d.getByText('Karim Uddin')).toBeTruthy();
-    expect(d.getByText('Sent by staff')).toBeTruthy();
-    expect(d.getByText('Greenweb')).toBeTruthy();
-    expect(d.getByText('vendor-1')).toBeTruthy();
-    expect(d.getByText('Message details')).toBeTruthy();
+    const value = (label: string) => detailValue(dialog, label).textContent;
+
+    expect(value('Recipient')).toBe('Karim Uddin');
+    expect(value('Mobile or email')).toContain('01712');
+    expect(value('Channel')).toBe('SMS');
+    expect(value('Status')).toContain('Sent');
+    expect(value('Status')).toContain('Test');
+    expect(value('Kind')).toBe('Sent by staff');
+    expect(value('Sent by')).toBe('Rahima Akter');
+    expect(value('Sent')).not.toBe('—');
+    expect(value('Company')).toBe('OneCodeSoft');
+    expect(value("Company's message ID")).toBe('vendor-1');
+    expect(value('SMS parts')).toBe('2');
+    expect(value('Why it failed')).toBe('—');
+    expect(value('Message')).toBe('Your dues are 500 taka.');
+    const round = within(detailValue(dialog, 'Reminder round')).getByRole('link', {
+      name: 'Open the round',
+    });
+    expect(round.getAttribute('href')).toContain(BATCH);
+    // No subject on an SMS: the row is left out, not shown empty.
+    expect(within(dialog).queryByText('Subject')).toBe(null);
   });
 
-  it.each([
-    ['SENT with id and capability', {}, true],
-    ['DELIVERED', { status: 'DELIVERED' }, false],
-    ['FAILED', { status: 'FAILED' }, false],
-    ['QUEUED', { status: 'QUEUED' }, false],
-    ['no company message id', { provider_message_id: null }, false],
-    ['company without the capability', { provider: 'nostatus' }, false],
-  ])('Check status button, %s', async (_name, over, shown) => {
+  it('row detail shows a dash for each value the row does not have', async () => {
+    mockLogs([
+      row({
+        trigger: 'AUTOMATED',
+        sent_by_user_id: null,
+        sent_by_name: null,
+        provider: null,
+        provider_message_id: null,
+        segments: null,
+        batch_id: null,
+        is_test: false,
+        status: 'FAILED',
+        error: 'NO_PROVIDER',
+        can_check_status: false,
+      }),
+    ]);
+    render('/communications/message-log');
+    const dialog = await openDetail();
+    const value = (label: string) => detailValue(dialog, label).textContent;
+
+    expect(value('Sent by')).toBe('—');
+    expect(value('Company')).toBe('—');
+    expect(value("Company's message ID")).toBe('—');
+    expect(value('SMS parts')).toBe('—');
+    expect(value('Reminder round')).toBe('—');
+    expect(value('Status')).not.toContain('Test');
+    expect(value('Why it failed')).not.toBe('—');
+  });
+
+  // The server decides with `can_check_status` (D23); the page never guesses from other fields.
+  const checkCases: [string, Partial<Row>, boolean][] = [
+    ['the server says it can', {}, true],
+    ['the server says it cannot (SENT row, company id)', { can_check_status: false }, false],
+    ['a DELIVERED row', { status: 'DELIVERED', can_check_status: false }, false],
+  ];
+  it.each(checkCases)('Check status button, %s', async (_name, over, shown) => {
     mockLogs([row(over)]);
     render('/communications/message-log');
     const dialog = await openDetail();
-    // The providers list arrives separately; wait for the company label before judging.
-    await within(dialog).findByText(
-      (over as { provider?: string }).provider === 'nostatus' ? 'NoStatus SMS' : 'Greenweb',
-    );
     expect(!!within(dialog).queryByRole('button', { name: 'Check status' })).toBe(shown);
   });
 
-  it('Check status posts once with an Idempotency-Key and updates the row in place', async () => {
+  it('Office staff: the Company and Sent-by filters come from the log, no 403 request is made', async () => {
+    const forbidden: string[] = [];
     mockLogs([row()]);
-    const toastSpy = vi.spyOn(toast, 'success').mockImplementation(() => '');
+    server.use(
+      http.get(/\/api\/v1\/schools\/[^/]+\/settings\/messaging\/providers$/, ({ request }) => {
+        forbidden.push(request.url);
+        return apiError(403, 'Forbidden');
+      }),
+      http.get('/api/v1/users', ({ request }) => {
+        forbidden.push(request.url);
+        return apiError(403, 'Forbidden');
+      }),
+    );
+    render('/communications/message-log', 'OFFICE_STAFF');
+
+    expect(await screen.findByText('Karim Uddin')).toBeTruthy();
+    const dialog = await openDetail();
+    // The company label comes from the log's own list, readable by this role.
+    expect(await within(dialog).findByText('OneCodeSoft')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Check status' })).toBeTruthy();
+    expect(forbidden).toEqual([]);
+  });
+
+  it('a fast double click on Check status sends ONE request, with an Idempotency-Key', async () => {
+    // The list answers what the server holds: DELIVERED once the check has run.
+    let current = row();
+    server.use(
+      http.get('/api/v1/communications/logs', () => HttpResponse.json(page([current]))),
+      http.get('/api/v1/communications/logs/filter-options', () =>
+        HttpResponse.json(filterOptions),
+      ),
+    );
+    vi.spyOn(toast, 'success').mockImplementation(() => '');
     const keys: (string | null)[] = [];
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post('/api/v1/communications/logs/log-1/check-status', async ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        await gate;
+        current = row({ status: 'DELIVERED', can_check_status: false });
+        return HttpResponse.json(current);
+      }),
+    );
+    render('/communications/message-log');
+    const dialog = await openDetail();
+    const button = await within(dialog).findByRole('button', { name: 'Check status' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    release();
+
+    await waitFor(() => expect(within(dialog).queryByRole('button', { name: /Check/ })).toBe(null));
+    expect(keys).toHaveLength(1);
+    expect(keys[0]).toBeTruthy();
+    // Updated in place: the dialog now says Delivered.
+    expect(detailValue(screen.getByRole('dialog'), 'Status').textContent).toContain('Delivered');
+  });
+
+  it('after a successful check the next click carries a new key; after a 502 the retry reuses it', async () => {
+    mockLogs([row()]);
+    vi.spyOn(toast, 'success').mockImplementation(() => '');
+    vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const keys: (string | null)[] = [];
+    const answers = [
+      () => HttpResponse.json(row()), // still SENT, can be asked again
+      () => apiError(502, 'Could not get the delivery status. Try again in a minute.'),
+      () => HttpResponse.json(row()),
+    ];
     server.use(
       http.post('/api/v1/communications/logs/log-1/check-status', ({ request }) => {
         keys.push(request.headers.get('Idempotency-Key'));
-        return HttpResponse.json(row({ status: 'DELIVERED' }));
+        return answers[keys.length - 1]!();
       }),
     );
     render('/communications/message-log');
     const dialog = await openDetail();
-    fireEvent.click(await within(dialog).findByRole('button', { name: 'Check status' }));
-    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith('Status updated.'));
-    expect(keys).toHaveLength(1);
-    expect(keys[0]).toBeTruthy();
-    await waitFor(() =>
-      expect(within(screen.getByRole('dialog')).getAllByText('Delivered').length).toBeGreaterThan(
-        0,
+    for (let i = 1; i <= 3; i += 1) {
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Check status' }));
+      await waitFor(() => expect(keys).toHaveLength(i));
+      await within(dialog).findByRole('button', { name: 'Check status' });
+    }
+
+    expect(keys[1]).not.toBe(keys[0]); // rotated after the success
+    expect(keys[2]).toBe(keys[1]); // the 502 freed the key, the retry really runs
+  });
+
+  const errorCases: [number, string, string][] = [
+    [
+      409,
+      'The delivery status of this message cannot be checked now.',
+      'The delivery status of this message cannot be checked now.',
+    ],
+    [502, 'Server English text', 'Could not check the status. Try again in a minute.'],
+  ];
+  it.each(errorCases)(
+    'Check status %s shows our translated sentence once, never the server text, with no retry',
+    async (status, serverText, shown) => {
+      mockLogs([row()]);
+      const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+      let calls = 0;
+      server.use(
+        http.post('/api/v1/communications/logs/log-1/check-status', () => {
+          calls += 1;
+          return apiError(status, serverText);
+        }),
+      );
+      render('/communications/message-log');
+      const dialog = await openDetail();
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Check status' }));
+      await waitFor(() => expect(toastSpy).toHaveBeenCalledWith(shown));
+      expect(toastSpy).toHaveBeenCalledTimes(1);
+      if (serverText !== shown) expect(toastSpy).not.toHaveBeenCalledWith(serverText);
+      expect(calls).toBe(1);
+      // Still SENT: the button stays for another try.
+      expect(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Check status' }),
+      ).toBeTruthy();
+    },
+  );
+
+  it('Check status in Bangla shows the Bangla sentence for a 409', async () => {
+    mockLogs([row()]);
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      http.post('/api/v1/communications/logs/log-1/check-status', () =>
+        apiError(409, 'The delivery status of this message cannot be checked now.'),
       ),
     );
-    expect(within(screen.getByRole('dialog')).queryByRole('button', { name: 'Check status' })).toBe(
-      null,
+    renderWithRouter(routeTree, {
+      initialEntries: ['/communications/message-log'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'bn',
+    });
+    const [view] = await screen.findAllByRole('button', { name: 'বার্তা দেখুন' });
+    fireEvent.click(view!);
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'অবস্থা যাচাই করুন' }));
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith('এই বার্তার অবস্থা এখন যাচাই করা যাবে না।'),
     );
   });
 
-  it.each([
-    [409, 'The delivery status of this message cannot be checked now.'],
-    [502, 'Could not get the delivery status. Try again in a minute.'],
-  ])('Check status %s shows the server sentence, once, with no retry', async (status, message) => {
+  // The app's mutation handler (query-client.ts) owns the 403 toast; the page adds none.
+  it('a 403 on Check status adds no toast of its own (the app-wide one explains it)', async () => {
     mockLogs([row()]);
     const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
-    let calls = 0;
+    let answered = false;
     server.use(
       http.post('/api/v1/communications/logs/log-1/check-status', () => {
-        calls += 1;
-        return HttpResponse.json(
-          {
-            statusCode: status,
-            message,
-            requestId: 'r-1',
-            path: '/',
-            timestamp: '2026-10-31T00:00:00Z',
-          },
-          { status },
-        );
+        answered = true;
+        return apiError(403, 'Forbidden resource');
       }),
     );
     render('/communications/message-log');
     const dialog = await openDetail();
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Check status' }));
-    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith(message));
-    expect(calls).toBe(1);
-    // Still SENT: the button stays for another try.
-    expect(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Check status' }),
-    ).toBeTruthy();
+    await waitFor(() => expect(answered).toBe(true));
+    // Settled: the button is usable again, and the page itself showed nothing.
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole<HTMLButtonElement>('button', { name: 'Check status' }).disabled,
+      ).toBe(false),
+    );
+    expect(toastSpy).not.toHaveBeenCalled();
   });
 
   it('disables Check status while the request is pending', async () => {
@@ -244,28 +433,68 @@ describe('/communications/message-log', () => {
     const dialog = await openDetail();
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Check status' }));
     const busy = await within(dialog).findByRole('button', { name: /Checking/ });
-    expect((busy as HTMLButtonElement).disabled || busy.getAttribute('aria-busy') === 'true').toBe(
-      true,
-    );
+    expect((busy as HTMLButtonElement).disabled).toBe(true);
     release();
     await waitFor(() =>
       expect(within(dialog).queryByRole('button', { name: /Checking/ })).toBe(null),
     );
   });
 
-  it('?student= reads the student endpoint and offers no Check status', async () => {
-    let hit = '';
+  it('the open dialog stays when a refetch moves its row off the page', async () => {
+    let data = [row()];
     server.use(
+      http.get('/api/v1/communications/logs', () => HttpResponse.json(page(data))),
+      http.get('/api/v1/communications/logs/filter-options', () =>
+        HttpResponse.json(filterOptions),
+      ),
+      http.post('/api/v1/communications/logs/log-1/check-status', () => {
+        // New messages arrived: this row is now on page 2.
+        data = [row({ id: 'log-2', recipient_name: 'Someone New' })];
+        return HttpResponse.json(row({ status: 'DELIVERED', can_check_status: false }));
+      }),
+    );
+    vi.spyOn(toast, 'success').mockImplementation(() => '');
+    render('/communications/message-log');
+    const dialog = await openDetail();
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Check status' }));
+
+    expect(await screen.findByText('Someone New')).toBeTruthy();
+    const open = screen.getByRole('dialog');
+    expect(detailValue(open, 'Recipient').textContent).toBe('Karim Uddin');
+    expect(detailValue(open, 'Status').textContent).toContain('Delivered');
+  });
+
+  it('?student= reads the student endpoint only and offers no Check status', async () => {
+    const hits: string[] = [];
+    server.use(
+      http.get('/api/v1/communications/:any', ({ request }) => {
+        hits.push(new URL(request.url).pathname);
+        return HttpResponse.json([]);
+      }),
       http.get(`/api/v1/communications/student/${STUDENT}`, ({ request }) => {
-        hit = new URL(request.url).pathname;
+        hits.push(new URL(request.url).pathname);
         return HttpResponse.json([row({ provider: undefined, trigger: undefined })]);
       }),
     );
     render(`/communications/message-log?student=${STUDENT}`);
     expect(await screen.findByText('Karim Uddin')).toBeTruthy();
-    expect(hit).toContain(STUDENT);
-    expect(screen.getByText('Show all messages')).toBeTruthy();
+    // No wasted request for the guardian view with an empty id.
+    expect(hits).toEqual([`/api/v1/communications/student/${STUDENT}`]);
+    expect(screen.getByRole('link', { name: 'Show all messages' })).toBeTruthy();
     const dialog = await openDetail();
     expect(within(dialog).queryByRole('button', { name: 'Check status' })).toBe(null);
+  });
+
+  it('?guardian= reads the guardian endpoint and says so when nothing was sent', async () => {
+    let hit = '';
+    server.use(
+      http.get(`/api/v1/communications/guardian/${GUARDIAN}`, ({ request }) => {
+        hit = new URL(request.url).pathname;
+        return HttpResponse.json([]);
+      }),
+    );
+    render(`/communications/message-log?guardian=${GUARDIAN}`);
+    expect(await screen.findByText('No message has been sent to this guardian yet.')).toBeTruthy();
+    expect(hit).toContain(GUARDIAN);
   });
 });

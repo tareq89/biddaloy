@@ -154,6 +154,11 @@ export class DeliveryStatusService {
     )) as [unknown, number];
     if (affected !== 1) throw cannot();
 
-    return toBatchLogDto(await this.repo.findOneOrFail({ where: { id, tenant_id: tenantId } }));
+    return toBatchLogDto(
+      await this.repo.findOneOrFail({
+        where: { id, tenant_id: tenantId },
+        relations: { sent_by: true },
+      }),
+    );
   }
 }

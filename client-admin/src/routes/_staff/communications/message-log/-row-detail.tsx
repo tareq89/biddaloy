@@ -1,20 +1,22 @@
 /**
- * [97.4.02] One message of the log: every field the log row carries, plus the Check status button
- * (D23). The button is rendered only when the caller says it can do something; the server still
- * decides (409 when it cannot, 502 when the company did not answer), and its fixed sentence is
- * what the user reads, never the company's own text (Rule 23/24).
+ * [97.4.02] One message of the log (D22): who, how, by whom, the message itself, and the Check
+ * status button (D23). The button shows only when the server's row says it can work
+ * (`can_check_status`); the server still decides, and the page shows its own translated sentence
+ * for a refusal, never the server's or the company's text (Rule 23/24).
  */
 import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   StatusBadge,
 } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDateTime, formatPhone } from '@biddaloy/ui/utils';
+import { formatDateTime, formatNumber, formatPhone } from '@biddaloy/ui/utils';
+import { Link } from '@tanstack/react-router';
 
 import { deliveryErrorKey } from '../-shared/delivery-error';
 
@@ -23,19 +25,18 @@ import type { LogRow } from './-log-row';
 export interface RowDetailProps {
   row: LogRow | undefined;
   onClose: () => void;
-  /** Provider name -> label, from the providers list (empty when the user cannot read it). */
+  /** Company name -> its label in the current language; null when unknown. */
   companyLabel: (name: string | null) => string | null;
-  canCheck: boolean;
-  checking: boolean;
-  onCheck: () => void;
+  checking?: boolean;
+  /** Omitted where Check status is never offered (the student / guardian views). */
+  onCheck?: () => void;
 }
 
 export function RowDetail({
   row,
   onClose,
   companyLabel,
-  canCheck,
-  checking,
+  checking = false,
   onCheck,
 }: RowDetailProps) {
   const { t } = useTranslation('communications');
@@ -53,15 +54,43 @@ export function RowDetail({
     [t('messageLog.detail.channel'), t(`mediums.${row.medium}`)],
     [
       t('messageLog.detail.status'),
-      <StatusBadge key="s" domain="communication" status={row.status} />,
+      <span key="s" className="flex flex-wrap gap-2">
+        <StatusBadge domain="communication" status={row.status} />
+        {row.is_test && <StatusBadge tone="info" label={t('messageLog.detail.test')} />}
+      </span>,
     ],
     [t('messageLog.detail.kind'), row.trigger ? t(`messageLog.triggers.${row.trigger}`) : none],
+    [t('messageLog.detail.sentBy'), row.sent_by_name ?? none],
+    [t('messageLog.detail.sent'), formatDateTime(new Date(row.created_at), config)],
     [t('messageLog.detail.company'), companyLabel(row.provider) ?? row.provider ?? none],
     [t('messageLog.detail.providerMessageId'), row.provider_message_id ?? none],
-    [t('messageLog.detail.sent'), formatDateTime(new Date(row.created_at), config)],
+    [
+      t('messageLog.detail.segments'),
+      row.segments === null ? none : formatNumber(row.segments, config),
+    ],
+    [
+      t('messageLog.detail.batch'),
+      row.batch_id ? (
+        <Link
+          key="b"
+          to="/communications/batches/$batchId"
+          params={{ batchId: row.batch_id }}
+          className="text-primary underline"
+        >
+          {t('messageLog.detail.batchLink')}
+        </Link>
+      ) : (
+        none
+      ),
+    ],
     [
       t('messageLog.detail.error'),
       errorKey ? t(errorKey, { medium: t(`mediums.${row.medium}`) }) : none,
+    ],
+    ...(row.subject ? [[t('messageLog.detail.subject'), row.subject] as [string, string]] : []),
+    [
+      t('messageLog.detail.message'),
+      row.message_body ? <span className="whitespace-pre-wrap">{row.message_body}</span> : none,
     ],
   ];
 
@@ -70,6 +99,7 @@ export function RowDetail({
       <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t('messageLog.detail.title')}</DialogTitle>
+          <DialogDescription>{t('messageLog.detail.description')}</DialogDescription>
         </DialogHeader>
         <dl className="flex flex-col gap-3">
           {fields.map(([label, value]) => (
@@ -80,14 +110,14 @@ export function RowDetail({
           ))}
         </dl>
         <DialogFooter>
-          {canCheck && (
-            <Button variant="secondary" loading={checking} onClick={onCheck}>
+          <Button variant="outline" onClick={onClose} disabled={checking}>
+            {t('messageLog.detail.close')}
+          </Button>
+          {row.can_check_status && onCheck && (
+            <Button loading={checking} onClick={onCheck}>
               {t(checking ? 'messageLog.checkStatusBusy' : 'messageLog.checkStatus')}
             </Button>
           )}
-          <Button variant="secondary" onClick={onClose} disabled={checking}>
-            {t('messageLog.detail.close')}
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
