@@ -71,6 +71,7 @@ export class ResultsController {
       role: tenant.role,
       userId: user.sub,
       tenantId: tenant.id,
+      includeCoordinated: true, // [83.3.1] D4 read
     });
     return scope ? rows.filter((r) => r.section_id && scope.includes(r.section_id)) : rows;
   }
@@ -94,7 +95,13 @@ export class ResultsController {
     @CurrentUser() user: JwtPayload,
   ) {
     // D13: a student outside the teacher's current-year sections is a 404, never a 403.
-    const input = { role: tenant.role, userId: user.sub, tenantId: tenant.id };
+    // [83.3.1] D4 read: coordinators of the student's class may read the result too.
+    const input = {
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+      includeCoordinated: true,
+    };
     if (
       (await this.teacherScope.sectionScope(input)) &&
       !(await this.teacherScope.canSeeStudent({ ...input, studentId }))

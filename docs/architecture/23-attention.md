@@ -180,6 +180,23 @@ The ladder is in `attendanceStep()` in
 leave, the alert goes to the assistant teachers who are not on leave, plus
 whoever is substituting for the class teacher's periods that day.
 
+**Coordinators (Epic 83, D6/D7/D26).** A teacher can coordinate whole classes
+(class coordinator) or one subject in some classes (subject coordinator). Two
+rules add them to `recipients`; the dedupe key never changes, so the alert
+writer just merges the new recipients into the same alert.
+
+| Rule                   | Who joins                                                                                     | When                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `attendance.not_taken` | class coordinators of the section's class                                                     | level 1 (WARNING) and up; heads stay at 2 |
+| `exams.marks_overdue`  | class coordinators of the exam's class, and the subject coordinator of an open grid's subject | always (same as the roles)                |
+
+How recipients beyond roles are added: the rule loads them itself with
+`coordinatorRecipients()` (`rules/structure/coordinator-recipients.ts`, one query
+per run) and picks the rows that fit each finding with `coordinates()`. Nothing in
+the engine or the writer knows about coordinators. Example: a Mathematics subject
+coordinator of Class 9 gets "Term 1 (Class 9): 2 mark sheets still open" when one
+open sheet is Mathematics, and nothing when both open sheets are Bangla.
+
 ## Delivery
 
 Push only. The engine never sends SMS from this path.
