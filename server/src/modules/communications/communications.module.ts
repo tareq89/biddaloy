@@ -7,6 +7,7 @@ import { Guardian } from '../students/entities/guardian.entity';
 import { StudentModule } from '../students/students.module';
 import { FeeModule } from '../fees/fees.module';
 import { AuditModule } from '../audit/audit.module';
+import { School } from '../schools/entities/school.entity';
 import { SchoolsModule } from '../schools/schools.module';
 import { PushModule } from '../push/push.module';
 import { CommunicationsService } from './communications.service';
@@ -39,7 +40,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CommunicationLog, ReminderBatch, Guardian]),
+    TypeOrmModule.forFeature([CommunicationLog, ReminderBatch, Guardian, School]),
     StudentModule,
     DashboardModule,
     // [CodeRabbit review, PR #801] The last of the four edges in the
@@ -117,6 +118,7 @@ import { CommunicationsDashboardService } from './communications-dashboard.servi
     BulkReminderService,
     SingleReminderService,
     CommunicationProviderRegistryService,
+    MessagingConfigResolver,
     ...MESSAGING_PROVIDERS,
   ],
 })

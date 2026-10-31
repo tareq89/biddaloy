@@ -35,6 +35,8 @@ const ALLOWED_FILES = new Set([
   'server/src/modules/communications/providers/messaging-providers.ts',
   // The demo school's seed picks a provider on purpose (Epic 97 D6 shape); it has no other way to name one.
   'server/src/scripts/demo-seed/slices/comms-print.ts',
+  // Test/story data for ProviderConfigForm: copies of the real server descriptors.
+  'client-admin/src/pages/settings/provider-config-form.fixtures.ts',
 ]);
 /**
  * Files that name a vendor today, each with the reason. NOT a free pass: the list may only shrink
@@ -55,15 +57,6 @@ const KNOWN: Record<string, string> = {
   'ui/src/shells/form-shell-errors.ts': 'doc-comment example',
   'ui/src/test/msw/handlers/schools.ts': 'test fixture',
   // real debt, removed by the Epic 97 UI waves / platform-alert follow-up
-  'server/src/modules/health/health.module.ts':
-    'platform alerts still wire two SMS providers directly',
-  'server/src/modules/health/platform-alerts/platform-alerts.service.ts':
-    'PLATFORM_SMS_PROVIDER branch',
-  'client-admin/src/pages/settings/SmsSection.tsx': 'hand-built SMS form (UI wave)',
-  'client-admin/src/pages/settings/connection-test-status.tsx':
-    'hand-built SMS readiness (UI wave)',
-  'ui/src/hooks/school-settings.ts': 'hand-typed SMS settings (UI wave)',
-  'ui/src/i18n/locales/bn/settings.json': 'legacy per-vendor labels outside help.messaging',
   'ui/src/i18n/locales/en/settings.json': 'legacy per-vendor labels outside help.messaging',
 };
 const isTestFile = (p: string) => /\.(spec\.tsx?|test\.tsx?|stories\.tsx|e2e-spec\.ts)$/.test(p);

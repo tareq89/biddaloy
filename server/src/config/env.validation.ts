@@ -166,11 +166,31 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  GREENWEB_API_URL?: string;
+
+  @IsOptional()
+  @IsString()
   MIMSMS_API_KEY?: string;
 
   @IsOptional()
   @IsString()
   MIMSMS_SENDER_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  MIMSMS_API_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  ONECODESOFT_API_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  ONECODESOFT_SENDER_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  ONECODESOFT_API_URL?: string;
 
   @IsOptional()
   @IsString()

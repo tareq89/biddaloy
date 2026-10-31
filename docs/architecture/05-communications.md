@@ -552,7 +552,7 @@ flowchart LR
   E[platform env<br/>ONECODESOFT_API_KEY ...] --> R
   R -->|provider + config| P[OnecodesoftProvider.send]
   G[grep guard spec] -.fails if it names a vendor.-> X[any other file]
-  W[allow-list<br/>provider folders, messaging-providers.ts,<br/>comms-print.ts, specs, stories, example env] -.never checked.-> G
+  W[allow-list<br/>provider folders, messaging-providers.ts,<br/>comms-print.ts, provider-config-form.fixtures.ts,<br/>specs, stories, example env] -.never checked.-> G
   K[KNOWN list<br/>still names a vendor, one reason each] -.tolerated, may only shrink.-> G
 ```
 
@@ -579,3 +579,38 @@ Dated learning (2026-10-31, Wave 2 close #3301):
 - **Surprise:** `parsePort('')` failed the digit check even though blank means "use 587" (the settings form saves `''`). Fix: blank passes; `'abc'` stays a config error. Both are pinned in the SMTP spec.
 - **Surprise:** the fee and invoice listeners read the flat `whatsapp.phoneNumberId`, so a school on the D6 nested shape looked like it had no WhatsApp. Fix: one `whatsappConfigured(settings)` helper reads both shapes.
 - **Rule candidate:** a helper that asks "is this medium set up?" goes through `messaging-descriptors.ts`, never a hand-written settings path.
+
+Wave 3 (#3305, #3302, #3303) gave admins a way to prove a provider works, moved platform alerts onto the registry, and made the settings form read the provider list from the server. #3304 (an e2e vendor stub) did not ship.
+
+```mermaid
+flowchart LR
+  F[ProviderConfigForm<br/>schema-driven] -->|POST :id/settings/test<br/>+ Idempotency-Key + sendTo| T[ConnectionTestService]
+  T -->|cap: 20 test sends / tenant / 24h| P[provider.send in-process]
+  P --> LOG[(communication log row)]
+  T -.MESSAGE_SINK on.-> N[fixed 'Test site' note, no vendor call]
+  AL[PlatformAlertsService] -->|SMS_PROVIDER + provider env keys| R[MessagingConfigResolver]
+```
+
+**Test send.** `POST /schools/:id/settings/test` with `sendTo` sends one real message in-process through the same provider code a school uses. No queue. Example: `sendTo: "+8801700000000"` with header `Idempotency-Key: 7f3c...` sends one SMS and writes one log row. Rules:
+
+- Once 20 test sends are recorded for a school in the last 24 hours (`TEST_SENDS_PER_DAY`), the next one is refused.
+  The refusal is a 429 with `details.code: "TEST_SEND_DAILY_CAP"`, so the form can tell it from the 3-per-minute throttle's 429. The count is not atomic: requests in flight at the same moment can each pass at 19 (#3326).
+- Platform SMS credit is checked before the vendor's connection call, so a school with no credit gets its 409 and nothing goes out. A send through an unsaved key of the school's own (`source: 'override'`) is never charged platform credit.
+- A gateway that rejects the send still answers 200 with `testMessage.status: "FAILED"`. The form shows a failure and links to the FAILED rows of the message log.
+- If the provider throws (`outcome: 'AMBIGUOUS'`), the message may have gone out, so a metered send keeps its credit reserved, the same as the worker. The log row carries `metadata.credit: 'UNSETTLED'` and `metadata.batch_id`, and ops get a `needs_reconciliation` warning (ids only).
+- Every call that reaches the service writes one `SETTINGS_TEST` audit row, also when it throws: `new_values.outcome` is `success`, `failed`, `send_failed` (the connection passed, the gateway rejected the message) or `error:<status>`. A request refused before the service call (no `Idempotency-Key`, another school, the throttle, an idempotent replay) writes none.
+- `sendTo` without an `Idempotency-Key` is a 400. A repeated key replays the stored answer and sends nothing. The UI (`useSendTestMessage`) keeps one key per attempt through `useIdempotencyKey`: a retry after a lost reply, or a reload, reuses it, and a reply rotates it so the next click is a new send.
+- The form says why a send failed, never "Couldn't save": the daily cap, not enough SMS credit (409 `INSUFFICIENT_SMS_CREDIT`), a bad number or address (400), and, on a 5xx or lost reply, "We couldn't confirm it was sent. Check the Message log before trying again."
+- On a sink stack (`MESSAGE_SINK`, Epic 87) nothing real is configured. The route returns the fixed "Test site" note before any vendor call. So a sink stack can never show a balance, a Sent row or Delivered.
+
+**Platform alerts.** `PlatformAlertsService` now asks the registry. `SMS_PROVIDER` names the provider (for example `onecodesoft`) and that provider's own env keys (`ONECODESOFT_API_KEY`, ...) carry the secrets. The old `PLATFORM_SMS_*` keys still work for one more release, only while `SMS_PROVIDER` is unset and `PLATFORM_SMS_API_KEY` is set. They log one boot warning with key names only. If `SMS_PROVIDER` is set they are ignored and a warning says so. `config-check` fails production when `SMS_PROVIDER` is not a registered name or a required key is missing.
+
+**ProviderConfigForm.** One form renders every provider from the server's descriptors, so a new vendor adds no UI code. The form reads `kind` (text, URL or secret input), `required`, `advanced` (under Advanced settings) and `format: 'port'` (a 1 to 65535 check, sent as a number). The `from` email check is still keyed by field name. `owned`, `destination` and `sendOnly` are read only by `MessagingConfigResolver` on the server; the form ignores them. `SchoolSettingsPage` now asks `useMessagingProviders` whether SMS is configured instead of rebuilding that rule in the client. While that query loads or if it fails, the answer is `null` (unknown), and the Evaluations, Study plans, Homework and Applications sections show no "not set up" warning.
+
+Dated learning (2026-10-31, Wave 3 close #3306):
+
+- **Surprise (#3304, issue #3324):** the e2e vendor stub could not work. `outbound-destination-guard.ts` rejects `http:` and loopback or private hosts for send, balance, status and test connection (security Rule 7), and it has no test override. `MESSAGE_SINK` is no substitute because it answers before any vendor call. Nothing was weakened. Rule candidate: an e2e plan that needs a local fake HTTP server checks the SSRF guard first. Vendor flows stay covered by `provider-connection-test.e2e-spec.ts`; the choice between a `NODE_ENV=test` loopback seam and UI-only Playwright is on #3324.
+- **Surprise:** `yarn guide:impact` flagged `communications.sendMessage` and `admin.howItWorks` for pure internal edits (a resolver rename in `credits.controller.ts`, a hook swap in `SchoolSettingsPage.tsx`). Nothing a user sees changed there, so the PR body carries a `User guide: not affected` line. The settings page itself did change and its bn and en guide pages were updated.
+- **Rule candidate:** a wave that adds routes closes with `yarn api:types` and `check-api-types`, unlike Wave 1 where "no diff" was the proof.
+- **Guard shrank:** the schema-driven form removed the vendor names from `SmsSection.tsx`, `connection-test-status.tsx` (deleted), `ui/src/hooks/school-settings.ts` and the bn settings locale, so they left `KNOWN`. Only the en locale's legacy labels and the doc-comment entries remain. The form's test data, `provider-config-form.fixtures.ts`, joined the allow-list because it copies the real descriptors.
+- **Surprise (rebase onto PR #3323 round 3):** the resolver now reads the old flat shape (field keys straight on `communications.sms`) only for a single-provider medium. The deprecated `PLATFORM_SMS_*` override was flat, so platform alerts lost their SMS config. Fix: the override goes under the chosen provider's block, or the registry default's.
