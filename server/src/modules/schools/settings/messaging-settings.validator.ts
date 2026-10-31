@@ -34,6 +34,9 @@ function blockProblem(d: ProviderDescriptor, block: unknown): string | null {
         return `${f.key} must not be empty: leave it out to keep the saved value, or send null to clear it.`;
       }
       if (!isText(v)) return `${f.key} must be text.`;
+    } else if (v === null) {
+      // #3331: null removes a saved optional field; a required one cannot be cleared.
+      if (f.required) return `${f.key} is required and cannot be cleared.`;
     } else if (!isText(v) && !(f.kind === 'text' && typeof v === 'number' && Number.isFinite(v))) {
       return `${f.key} must be text.`;
     } else if (f.format === 'port' && v !== '' && !isValidPort(v)) {

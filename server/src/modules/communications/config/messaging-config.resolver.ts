@@ -3,7 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { CommunicationMedium, type ProviderConfigField } from '@biddaloy/shared';
 import { SchoolsService } from '../../schools/schools.service';
 import { TenantSettingsCache } from '../../schools/settings/tenant-settings-cache.service';
-import { isPlainObject } from '../../schools/settings/messaging-descriptors';
+import {
+  isDestinationField as isDestination,
+  isOwnedField as isOwned,
+  isPlainObject,
+} from '../../schools/settings/messaging-descriptors';
 import type { MessagingProvider } from '../providers/messaging-provider';
 import { ProviderNotConfiguredError } from './provider-not-configured.error';
 
@@ -47,16 +51,14 @@ type FieldValues = Record<string, string | null | undefined>;
 const notOnCredit =
   'This school has no SMS gateway of its own and is not on prepaid SMS credit. Add a gateway in Settings › SMS, or ask the platform to turn on SMS credit.';
 
-// A `url` field is always a destination; other kinds say so on the descriptor (`destination: true`).
-const isDestination = (f: ProviderConfigField) => f.kind === 'url' || f.destination === true;
-// Fields that decide whose account a send uses. Other optional fields (apiVersion) are not
-// credentials and resolve independently.
-const isOwned = (f: ProviderConfigField) => f.required || f.owned === true || isDestination(f);
-
 export const envName = (prefix: string, key: string) =>
   `${prefix}_${key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase()}`;
 
-/** string/number -> string, explicit null stays null (a cleared secret); '' and anything else is unset. */
+/**
+ * string/number -> string; '' and anything else is unset. An explicit null stays null: in an
+ * override it means "cleared" (never the stored or platform value, #3331); a stored null is unset
+ * like a missing key (#3338).
+ */
 function coerce(v: unknown): string | null | undefined {
   if (v === null) return null;
   if (typeof v === 'string') return v === '' ? undefined : v;
@@ -91,11 +93,15 @@ function readBlock(
  *     -> the override must carry every
  *     required field itself (bar `sendOnly` ones when `connectionTestOnly`); it never
  *     borrows stored credentials for a caller-chosen target.
- *   - else tenant set any owned field (even an explicit null clear) -> tenant/override only,
- *     never the platform env (a cleared credential fails closed).
+ *   - else tenant stored a value in any owned field -> tenant/override only, never the platform
+ *     env (a partly filled medium fails closed). A stored null or '' is not a value (#3338): a
+ *     school that removed everything is back on the platform account, as the validator says.
  *   - else the override sets any owned field (from, senderId, apiKey) -> same as a destination:
  *     the override carries every required field itself, never mixed with platform env values.
- *   - else platform env, only when `platformOk`.
+ *   - else platform env, only when `platformOk`. On that tier a stored `provider` counts only
+ *     while the school owns some company block of the medium (#3338); otherwise the platform's
+ *     `<MEDIUM>_PROVIDER` picks the company. An override's `provider` always comes first.
+ *   - an override null on any field is "cleared": it never falls back to stored or env (#3331).
  * Reads through `TenantSettingsCache`, so a burst of sends costs one decrypt.
  */
 @Injectable()
@@ -142,11 +148,18 @@ export class MessagingConfigResolver {
     };
 
     const forMedium = this.providers.filter((p) => p.descriptor.medium === medium);
+    const flatOk = forMedium.length === 1;
+    // #3338: a company name the school stored but holds nothing of is not its own account.
+    const ownsAny = forMedium.some(({ descriptor: d }) => {
+      const b = readBlock(tenantMedium, d.name, d.fields, flatOk);
+      return d.fields.some((f) => isOwned(f) && b[f.key] != null);
+    });
+    const storedProvider = ownsAny || !platformOk ? coerce(tenantMedium.provider) : undefined;
     // A medium with one provider has nothing to choose: a stray stored/override `provider` key is ignored.
     const selected =
       (forMedium.length === 1 ? forMedium[0].descriptor.name : undefined) ??
       coerce(override.provider) ??
-      coerce(tenantMedium.provider) ??
+      storedProvider ??
       env(`${medium}_PROVIDER`) ??
       forMedium[0]?.descriptor.name;
     const provider = forMedium.find((p) => p.descriptor.name === selected);
@@ -159,7 +172,6 @@ export class MessagingConfigResolver {
     }
 
     const { fields, label } = provider.descriptor;
-    const flatOk = forMedium.length === 1;
     const tenant = readBlock(tenantMedium, provider.descriptor.name, fields, flatOk);
     const ov = readBlock(override, provider.descriptor.name, fields, flatOk);
     // A destination equal to the stored one is the school's own target, not a caller-chosen one
@@ -168,7 +180,7 @@ export class MessagingConfigResolver {
       (f) => isDestination(f) && ov[f.key] != null && ov[f.key] !== tenant[f.key],
     );
     const tenantOwnsIt =
-      !overrideSetsDestination && fields.some((f) => isOwned(f) && tenant[f.key] !== undefined);
+      !overrideSetsDestination && fields.some((f) => isOwned(f) && tenant[f.key] != null);
     // Platform tier only: a caller-chosen sender/account never combines with the platform's keys.
     // Not in the tenant tier, where the form sends the owned text fields and leaves out unchanged
     // secrets, and mixing with the school's own stored values borrows nothing from the platform.
@@ -186,13 +198,17 @@ export class MessagingConfigResolver {
     const resolved: ResolvedConfig = {};
     for (const f of fields) {
       const e = env(envName(provider.envPrefix, f.key));
-      const value = !isOwned(f)
-        ? (ov[f.key] ?? tenant[f.key] ?? e)
-        : overrideOnly
-          ? ov[f.key]
-          : tenantOwnsIt
-            ? (ov[f.key] ?? tenant[f.key])
-            : e;
+      // #3331: an override null is a field the caller cleared: unset, never stored or env.
+      const value =
+        ov[f.key] === null
+          ? undefined
+          : !isOwned(f)
+            ? (ov[f.key] ?? tenant[f.key] ?? e)
+            : overrideOnly
+              ? ov[f.key]
+              : tenantOwnsIt
+                ? (ov[f.key] ?? tenant[f.key])
+                : e;
       if (value) resolved[f.key] = value;
     }
 

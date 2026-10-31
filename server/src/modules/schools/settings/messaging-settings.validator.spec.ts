@@ -91,14 +91,44 @@ describe('problemWith', () => {
     expect(problemWith(with_(5), SMS)).toBe('apiKey must be text.');
   });
 
-  it('non-secret: null rejected, number only for text kind', () => {
+  it('non-secret: number only for text kind', () => {
     const with_ = (k: string, v: unknown) => ({
       provider: 'alpha',
       alpha: { apiKey: 'k', senderId: 's', [k]: v },
     });
-    expect(problemWith(with_('apiUrl', null), SMS)).toBe('apiUrl must be text.');
     expect(problemWith(with_('apiUrl', 5), SMS)).toBe('apiUrl must be text.');
     expect(problemWith({ solo: { ...okWa.solo, port: 587 } }, WA)).toBeNull();
+  });
+
+  // #3331: null is how the form clears a saved optional field (the merge then removes the key).
+  // A required field cannot be cleared this way, on the chosen company or a draft.
+  it('non-secret null: accepted for an optional field, refused for a required one', () => {
+    const alpha = (extra: object) => ({
+      provider: 'alpha',
+      alpha: { apiKey: 'k', senderId: 's', ...extra },
+    });
+    expect(problemWith(alpha({ apiUrl: null }), SMS)).toBeNull();
+    expect(problemWith({ solo: { ...okWa.solo, port: null } }, WA)).toBeNull();
+    expect(problemWith(alpha({ senderId: null }), SMS)).toBe(
+      'senderId is required and cannot be cleared.',
+    );
+    expect(
+      problemWith(
+        { ...okSms, provider: 'beta', beta: { token: 't' }, alpha: { senderId: null } },
+        SMS,
+      ),
+    ).toBe('senderId is required and cannot be cleared.');
+  });
+
+  // #3338: a PLATFORM school removing its own key (null) owns nothing, so the save is accepted
+  // (the resolver then sends on the platform account, see messaging-config.resolver.spec).
+  it('PLATFORM: a block of nulls owns nothing and is accepted', () => {
+    expect(
+      problemWith(
+        { provider: 'alpha', metering: 'PLATFORM', alpha: { apiKey: null, apiUrl: null } },
+        SMS,
+      ),
+    ).toBeNull();
   });
 
   // #3322: a port field must be a real TCP port, or the save would store a config that never sends.

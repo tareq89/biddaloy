@@ -285,10 +285,10 @@ function ProviderConfigFormInner({
       }
       const key = valueKey(current.name, f.key);
       const v = values[key] ?? '';
-      if (v === '') {
-        // A cleared saved value goes out as '': left out, the server's merge would keep it. The
-        // server reads '' as unset, so the company's default applies (port: never Number('') = 0).
-        if (f.required || (defaults[key] ?? '') !== '') block[f.key] = '';
+      if (v === '' && !f.required) {
+        // #3331: a left-out field keeps its saved value, so clearing a saved one sends null.
+        // The last-saved values (reset after each save), not the mount-time ones.
+        if ((form.formState.defaultValues?.[key] ?? '') !== '') block[f.key] = null;
         continue;
       }
       block[f.key] = isPort(f) ? Number(toLatinDigits(v)) : v;
