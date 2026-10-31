@@ -253,8 +253,8 @@ describe('/reports/student-count [8.15.54]', () => {
     expect(print).toHaveBeenCalledTimes(1);
     const header = (await screen.findByText('Green Valley School')).closest('header');
     expect(header?.className).toContain('print:block');
-    await waitFor(() => expect(header).toHaveTextContent('EIIN: 123456'));
-    expect(header).toHaveTextContent('Academic year 2026');
+    expect(await screen.findByText('Academic year 2026 · EIIN: 123456')).toBeTruthy();
+    expect(header?.contains(screen.getByText('Academic year 2026 · EIIN: 123456'))).toBe(true);
   });
 
   it('downloads the class table to Excel for the year on screen, and the staff table separately', async () => {

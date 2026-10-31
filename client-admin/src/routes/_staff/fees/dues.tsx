@@ -19,6 +19,7 @@ import {
   useStudentWallet,
   type FeeDueEntry,
   type FeeDueRow,
+  type FeeDuesFilters,
   type FeeDuesSortBy,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -268,12 +269,12 @@ function DuesQueuePage() {
   const filters = state.filters as DuesFilters;
   const flagged = filters.flagged === 'true';
 
-  const duesListFilters = {
+  const duesListFilters: FeeDuesFilters = {
     page: state.page,
     limit: state.limit,
     ...toFeeDuesFilters(filters, state.sorting?.id, flagged),
     ...(state.sorting && !flagged ? { sort_order: state.sorting.desc ? 'DESC' : 'ASC' } : {}),
-  } as const;
+  };
   const duesQuery = useFeeDues(duesListFilters, flagged);
   const classesQuery = useClasses();
   const sectionsQuery = useClassSections(filters.class_id);

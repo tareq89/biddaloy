@@ -121,9 +121,12 @@ describe.each(CASES)('$name list: download everything that matches [8.15.17]', (
     try {
       open(c.entry, c.role);
       const user = userEvent.setup();
-      const button = await screen.findByRole('button', { name: /Download to Excel/ });
       // Some of these pages show the default Bangla digits under the English words.
-      await waitFor(() => expect(button).toHaveTextContent(new RegExp(`(321|৩২১).*${c.unit}`)));
+      const button = await screen.findByRole(
+        'button',
+        { name: new RegExp(`Download to Excel.*(321|৩২১).*${c.unit}`) },
+        { timeout: 5000 },
+      );
       await user.click(button);
       await waitFor(() => expect(download.sent).toHaveLength(1));
       expect(download.sent[0]).toEqual({

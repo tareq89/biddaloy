@@ -98,7 +98,7 @@ function resolveFilter(
   filter: ReportFilter,
   field: FieldDef,
   definition: ReportDefinitionJson,
-  values: Record<string, unknown>,
+  values: Record<string, unknown> | undefined,
   path: string,
 ): ResolvedFilter | null {
   const allowed = OPS_BY_TYPE[field.type];
@@ -112,6 +112,9 @@ function resolveFilter(
     const key = (raw as { param: string }).param;
     const parameter = definition.parameters.find((p) => p.key === key);
     if (!parameter) throw new ReportCompileError('UNKNOWN_PARAM', path);
+    // Structure check (saving a draft): the parameter exists and the condition fits the field; its
+    // answer is only known when someone runs the report.
+    if (values === undefined) return { field, op: filter.op, values: [] };
     raw = values[key] ?? parameter.default ?? undefined;
     if (raw === undefined || raw === null || raw === '') {
       if (parameter.required) throw new ReportCompileError('MISSING_PARAM', path);
@@ -156,7 +159,8 @@ function sortTarget(
 export function validateDefinition(
   definition: ReportDefinitionJson,
   area: SubjectAreaDef | undefined,
-  values: Record<string, unknown>,
+  /** The runner's answers; leave out to check the definition's structure only (saving a draft). */
+  values?: Record<string, unknown>,
 ): ValidatedDefinition {
   if (definition.schema !== REPORT_DEFINITION_SCHEMA_VERSION) {
     throw new ReportCompileError('UNSUPPORTED_SCHEMA', 'schema');
@@ -203,9 +207,9 @@ export function validateDefinition(
     if (resolved) filters.push(resolved);
   });
 
-  // Required parameters must be answered even if no filter uses them.
-  for (const parameter of definition.parameters) {
-    const answer = values[parameter.key] ?? parameter.default;
+  // Required parameters must be answered even if no filter uses them (not when only checking structure).
+  for (const parameter of values ? definition.parameters : []) {
+    const answer = values?.[parameter.key] ?? parameter.default;
     if (parameter.required && (answer === undefined || answer === null || answer === '')) {
       throw new ReportCompileError('MISSING_PARAM', `parameters.${parameter.key}`);
     }

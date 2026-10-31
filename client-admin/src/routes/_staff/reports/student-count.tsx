@@ -85,8 +85,8 @@ export const Route = createFileRoute('/_staff/reports/student-count')({
 });
 
 function StudentCountPending() {
-  const { t } = useTranslation('nav');
-  return <RoutePending variant="list" label={t('routePending.label')} />;
+  const { t } = useTranslation('reports');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }
 
 /** The server's "not given" label (`NOT_GIVEN_BN`): shown through `studentCount.notGiven` instead. */

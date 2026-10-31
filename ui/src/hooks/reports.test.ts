@@ -166,6 +166,7 @@ describe('downloadListExport [8.15.17]', () => {
   it('accepts a 413 as a response so its body can be read', async () => {
     stubGet(() => ({}));
     await withStubbedDownload(() => downloadListExport('/payments/export', {}, 'xlsx'));
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- a spy's recorded calls, never called unbound
     const config = vi.mocked(apiClient.get).mock.calls[0]?.[1];
     expect(config?.responseType).toBe('blob');
     expect(config?.validateStatus?.(413)).toBe(true);

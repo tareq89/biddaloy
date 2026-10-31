@@ -54,7 +54,16 @@ export const WithTickedRows: Story = {
 
 /** A list with no row selection (guardians, invoices, payments, audit logs). */
 export const WithoutRowSelection: Story = {
-  args: { onExportSelected: undefined },
+  args: { selectedCount: 3 },
+  render: (args) => (
+    <ExportMenu
+      totalCount={args.totalCount}
+      selectedCount={args.selectedCount ?? 0}
+      canExportAll={args.canExportAll}
+      onExportAll={args.onExportAll}
+      unit="people"
+    />
+  ),
 };
 
 /** The download is in flight: busy, and a second click does nothing. */

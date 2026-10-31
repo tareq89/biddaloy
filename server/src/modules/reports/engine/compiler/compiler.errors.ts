@@ -1,3 +1,5 @@
+import { UnprocessableEntityException } from '@nestjs/common';
+
 /**
  * [8.15.15] Why a definition could not be compiled. Messages are fixed sentences:
  * no field name, value or parameter the author typed is ever echoed back (Security
@@ -36,12 +38,12 @@ const MESSAGES: Record<CompileErrorCode, string> = {
   NOTHING_TO_SHOW: 'There is nothing to show: pick at least one field to show or add up.',
 };
 
-export class ReportCompileError extends Error {
+export class ReportCompileError extends UnprocessableEntityException {
   constructor(
     readonly code: CompileErrorCode,
     readonly path: string,
   ) {
-    super(MESSAGES[code]);
+    super({ message: MESSAGES[code], details: { code, path } });
     this.name = 'ReportCompileError';
   }
 }

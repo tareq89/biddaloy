@@ -107,16 +107,12 @@ export class ExportTooLargeError extends Error {
 /** Keys an export never sends: it is every match, so the list's paging does not apply. */
 const EXPORT_IGNORED_KEYS = new Set(['page', 'limit', 'format']);
 
-function toExportParams(
-  filters: Record<string, string | number | boolean | undefined | null>,
-  format: ListExportFormat,
-): Record<string, string> {
+function toExportParams(filters: object, format: ListExportFormat): Record<string, string> {
   const params: Record<string, string> = {};
   for (const [key, value] of Object.entries(filters)) {
-    if (EXPORT_IGNORED_KEYS.has(key) || value === undefined || value === null || value === '') {
-      continue;
-    }
-    params[key] = String(value);
+    if (EXPORT_IGNORED_KEYS.has(key)) continue;
+    if (typeof value === 'string' && value !== '') params[key] = value;
+    else if (typeof value === 'number' || typeof value === 'boolean') params[key] = String(value);
   }
   params.format = format.toUpperCase();
   return params;
@@ -163,7 +159,8 @@ function saveBlob(blob: Blob, filename: string): void {
  */
 export async function downloadListExport(
   path: ListExportPath,
-  filters: Record<string, string | number | boolean | undefined | null>,
+  /** The list's own query (any of the list hooks' filter shapes); unset and empty values are dropped. */
+  filters: object,
   format: ListExportFormat,
 ): Promise<void> {
   const res = await apiClient.get<Blob>(path, {
