@@ -12,7 +12,13 @@ vi.mock('@biddaloy/ui/shells', async (importOriginal) => ({
   useWarnUnsavedChanges: warnUnsaved,
 }));
 
-import { providersHandler, providersResponse } from './provider-config-form.fixtures';
+import {
+  GREENWEB,
+  MIMSMS,
+  ONECODESOFT,
+  providersHandler,
+  providersResponse,
+} from './provider-config-form.fixtures';
 import { ProviderConfigForm, type MessagingMedium } from './ProviderConfigForm';
 import { WithTestRouter } from './with-test-router';
 
@@ -223,6 +229,56 @@ describe('ProviderConfigForm', () => {
 
       await waitFor(() => expect(body).toHaveBeenCalled());
       expect(body.mock.calls[0]![0].config.provider).toBe('mimsms');
+    });
+
+    // CodeRabbit on PR #3325 round 3: nothing of the shown company is sent, so its required text
+    // fields (MimSMS senderId here, listed first) must not block Test connection or Save.
+    describe('first listed company has a required text field', () => {
+      beforeEach(() => {
+        const sms = {
+          providers: [MIMSMS, GREENWEB, ONECODESOFT],
+          configured: false,
+          selected: null,
+        };
+        server.use(
+          http.get('/api/v1/schools/:id/settings/messaging/providers', () =>
+            HttpResponse.json({ ...providersResponse(), SMS: sms }),
+          ),
+        );
+      });
+
+      it('Test connection is not blocked and sends no config', async () => {
+        const body = captureTest();
+        const { user } = renderForm('SMS', PLATFORM_SMS);
+
+        await user.click(await screen.findByRole('button', { name: 'Test connection' }));
+
+        await waitFor(() => expect(body).toHaveBeenCalled());
+        expect(body.mock.calls[0]![0]).toEqual({ medium: 'SMS' });
+        expect(screen.queryByText('Fill in this field.')).toBeNull();
+      });
+
+      it('Save is not blocked and stores no company', async () => {
+        const body = captureSave();
+        const { user } = renderForm('SMS', PLATFORM_SMS);
+
+        await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+        await waitFor(() => expect(body).toHaveBeenCalled());
+        expect(body.mock.calls[0]![0]).toEqual({ version: 1, communications: {} });
+      });
+
+      it('a typed key names the company, and then its required field is checked', async () => {
+        const body = captureSave();
+        const { user } = renderForm('SMS', PLATFORM_SMS);
+
+        await user.click(await screen.findByRole('button', { name: 'Add' }));
+        await user.type(await screen.findByLabelText('API key'), 'own-key');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(await screen.findByText('Fill in this field.')).toBeTruthy();
+        expect(body).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -461,6 +517,43 @@ describe('ProviderConfigForm', () => {
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
     expect(await screen.findByText('Connection works')).toBeTruthy();
+    expect(warnUnsaved).toHaveBeenLastCalledWith(true);
+  });
+
+  // CodeRabbit on PR #3325 round 3: `.mutate()` is not awaited, so a failed save must not count
+  // as submitted; the edit is still unsaved.
+  it('keeps the unsaved-changes warning on after a failed save', async () => {
+    const body = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', () => {
+        body();
+        return HttpResponse.json({ message: 'boom' }, { status: 500 });
+      }),
+    );
+    const { user } = renderForm('EMAIL', {
+      smtp: { host: 'h', user: 'u', from: 'a@x.com', password: { configured: true } },
+    });
+
+    await user.type(await screen.findByLabelText(/Server username/), '2');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(body).toHaveBeenCalled());
+    expect(warnUnsaved).toHaveBeenLastCalledWith(true);
+  });
+
+  it('turns the warning on again for an edit after a good save', async () => {
+    const body = captureSave();
+    const { user } = renderForm('EMAIL', {
+      smtp: { host: 'h', user: 'u', from: 'a@x.com', password: { configured: true } },
+    });
+    const username = await screen.findByLabelText(/Server username/);
+
+    await user.type(username, '2');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(body).toHaveBeenCalled());
+    await waitFor(() => expect(warnUnsaved).toHaveBeenLastCalledWith(false));
+
+    await user.type(username, '3');
     expect(warnUnsaved).toHaveBeenLastCalledWith(true);
   });
 

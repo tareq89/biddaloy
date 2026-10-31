@@ -460,15 +460,15 @@ Optional cron monitors: a Sentry cron check-in URL for prod's backup goes in `pr
 
 ### 6c. SMS gateway (prod only; platform alerts)
 
-If you have a GreenWeb or MiM SMS account:
+If you have a GreenWeb, MiM SMS or OneCodeSoft account:
 
-| Key (prod only)         | Value                                                       |
-| ----------------------- | ----------------------------------------------------------- |
-| `SMS_PROVIDER`          | `greenweb`, `mimsms` or `onecodesoft`                       |
-| `<PROVIDER>_API_KEY`    | 🔴 the gateway API key, e.g. `ONECODESOFT_API_KEY`          |
-| `<PROVIDER>_SENDER_ID`  | your sender id (**required** for `mimsms`, `onecodesoft`)   |
-| `<PROVIDER>_API_URL`    | the gateway's HTTP API URL (**required** for `onecodesoft`) |
-| `PLATFORM_ALERT_PHONES` | your number(s), comma separated, e.g. `+8801XXXXXXXXX`      |
+| Key (prod only)         | Value                                                                      |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `SMS_PROVIDER`          | `greenweb`, `mimsms` or `onecodesoft`                                      |
+| `<PROVIDER>_API_KEY`    | 🔴 the gateway API key, e.g. `ONECODESOFT_API_KEY`                         |
+| `<PROVIDER>_SENDER_ID`  | your sender id (**required** for `mimsms`, optional for `onecodesoft`)     |
+| `<PROVIDER>_API_URL`    | the gateway's HTTP API URL (**required** for `onecodesoft`, else optional) |
+| `PLATFORM_ALERT_PHONES` | your number(s), comma separated, e.g. `+8801XXXXXXXXX`                     |
 
 The old `PLATFORM_SMS_*` keys are deprecated (read for one more release, only when `SMS_PROVIDER` is unset). The prod config check fails if a required provider key is missing.
 

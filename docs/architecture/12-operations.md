@@ -412,8 +412,10 @@ alert re-opens and closes about every 2 minutes, so ALERT and RECOVERED texts re
 shows `"redis": "ok"`.
 
 The loop runs in the API process only (not in scripts, not under `NODE_ENV=test`), uses no BullMQ,
-and sends SMS straight to the provider with the platform's own key, not a school's credits. With no
-`PLATFORM_SMS_API_KEY` it logs `platform alert SMS not configured; would text N phone(s): ...`.
+and sends SMS straight to the provider with the platform's own key, not a school's credits. The
+provider is the one `SMS_PROVIDER` names, with that provider's own keys (e.g. `SMS_PROVIDER=onecodesoft`
+plus `ONECODESOFT_API_KEY` and `ONECODESOFT_API_URL`). When they are missing it logs
+`platform alert SMS not configured: <which keys are missing> ...` and texts no one.
 
 On staging and demo (`MESSAGE_SINK=mailpit`) these alerts go to the test inbox as SMS-tagged messages instead of the provider.
 

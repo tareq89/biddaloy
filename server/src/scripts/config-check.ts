@@ -243,7 +243,8 @@ export async function runStackConfigCheck(
       const missing = (chosen?.descriptor.fields ?? [])
         .filter((f) => f.required)
         .map((f) => envName(chosen!.envPrefix, f.key))
-        .filter((k) => !set(k));
+        // Blank or spaces only is missing too: a key of spaces passes no vendor.
+        .filter((k) => val(k).trim() === '');
       if (missing.length > 0) errors.push(`SMS_PROVIDER needs ${missing.join(', ')} on prod`);
     }
   }

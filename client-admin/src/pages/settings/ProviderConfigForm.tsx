@@ -200,6 +200,28 @@ function ProviderConfigFormInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [secrets, setSecrets] = React.useState<Secrets>({});
+
+  /**
+   * A school with no saved company (one on the platform account) sends through `SMS_PROVIDER`,
+   * which the form can't see. Naming the first listed company would test, and save, the wrong one
+   * (PR #3325 review round 3, finding 1). So a company goes out only when one was saved, or the
+   * admin picked one or filled in any of its fields.
+   */
+  const companyChosen = React.useCallback(
+    (values: Values): boolean => {
+      if (sole || savedSelected !== null || values.provider !== defaults.provider) return true;
+      const shown = providers.find((d) => d.name === values.provider) ?? providers[0]!;
+      return shown.fields.some((f) => {
+        const key = valueKey(shown.name, f.key);
+        return f.kind === 'secret'
+          ? secrets[key] !== undefined
+          : (values[key] ?? '') !== (defaults[key] ?? '');
+      });
+    },
+    [sole, savedSelected, defaults, providers, secrets],
+  );
+
   const schema = React.useMemo(() => {
     const shape: Record<string, z.ZodString> = { provider: z.string() };
     for (const d of providers) {
@@ -208,54 +230,42 @@ function ProviderConfigFormInner({
     }
     return z.object(shape).superRefine((values, ctx) => {
       const chosen = providers.find((d) => d.name === values.provider);
+      // No company chosen: nothing of it is sent, so its required fields are not needed (the server
+      // accepts no block for a PLATFORM-metered school). A format check still applies.
+      const needRequired = companyChosen(values);
       for (const f of chosen?.fields ?? []) {
         const key = valueKey(chosen!.name, f.key);
         const v = (values[key] ?? '').trim();
         if (f.kind === 'secret') continue;
-        if (f.required && v === '') {
+        if (f.required && v === '' && needRequired) {
           ctx.addIssue({ code: 'custom', path: [key], message: t('messaging.required') });
         } else if (v !== '' && !formatOk(f, v)) {
           ctx.addIssue({ code: 'custom', path: [key], message: t('messaging.invalid') });
         }
       }
     });
-  }, [providers, t]);
+  }, [providers, t, companyChosen]);
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: defaults,
     ...useFormShellMode(),
   });
-  const [secrets, setSecrets] = React.useState<Secrets>({});
   const [sendTo, setSendTo] = React.useState('');
   const providerName = form.watch('provider') ?? defaults.provider!;
   const current = providers.find((d) => d.name === providerName) ?? providers[0]!;
 
+  // Not `&& !isSubmitSuccessful`: `.mutate()` is not awaited, so that flag would silence the
+  // warning after a failed save, and (kept by the reset) for every edit after a good one.
+  // `onSuccess` resets the form and the secrets, which clears both terms.
   useWarnUnsavedChanges(
-    (form.formState.isDirty || Object.values(secrets).some((v) => v !== undefined)) &&
-      !form.formState.isSubmitSuccessful,
+    form.formState.isDirty || Object.values(secrets).some((v) => v !== undefined),
   );
 
   const updateSettings = useUpdateSchoolSettings(schoolId);
   const testConnection = useTestSchoolConnection(schoolId);
   // A real send: one key per attempt, and a lost reply gets the "could not confirm" toast.
   const sendTest = useSendTestMessage(schoolId);
-
-  /**
-   * A school with no saved company (one on the platform account) sends through `SMS_PROVIDER`,
-   * which the form can't see. Naming the first listed company would test, and save, the wrong one
-   * (PR #3325 review round 3, finding 1). So a company goes out only when one was saved, or the
-   * admin picked one or filled in any of its fields.
-   */
-  function companyChosen(values: Values): boolean {
-    if (sole || savedSelected !== null || values.provider !== defaults.provider) return true;
-    return current.fields.some((f) => {
-      const key = valueKey(current.name, f.key);
-      return f.kind === 'secret'
-        ? secrets[key] !== undefined
-        : (values[key] ?? '') !== (defaults[key] ?? '');
-    });
-  }
 
   /**
    * Only the chosen company's block goes out: other companies' saved blocks stay as they are.

@@ -593,7 +593,7 @@ flowchart LR
 
 **Test send.** `POST /schools/:id/settings/test` with `sendTo` sends one real message in-process through the same provider code a school uses. No queue. Example: `sendTo: "+8801700000000"` with header `Idempotency-Key: 7f3c...` sends one SMS and writes one log row. Rules:
 
-- The route allows 20 test sends per school per 24 hours (`TEST_SENDS_PER_DAY`). The 21st is refused.
+- Once 20 test sends are recorded for a school in the last 24 hours (`TEST_SENDS_PER_DAY`), the next one is refused.
   The refusal is a 429 with `details.code: "TEST_SEND_DAILY_CAP"`, so the form can tell it from the 3-per-minute throttle's 429. The count is not atomic: requests in flight at the same moment can each pass at 19 (#3326).
 - Platform SMS credit is checked before the vendor's connection call, so a school with no credit gets its 409 and nothing goes out. A send through an unsaved key of the school's own (`source: 'override'`) is never charged platform credit.
 - A gateway that rejects the send still answers 200 with `testMessage.status: "FAILED"`. The form shows a failure and links to the FAILED rows of the message log.

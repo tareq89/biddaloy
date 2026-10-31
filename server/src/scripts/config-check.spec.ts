@@ -567,6 +567,17 @@ describe('runStackConfigCheck', () => {
       expect(m.output).toContain('MIMSMS_SENDER_ID');
     });
 
+    // CodeRabbit on PR #3325: a key of spaces only is not a key.
+    it('prod refuses a required key that is only spaces', async () => {
+      const r = await runStackConfigCheck('prod', {
+        ...prod,
+        ...onecode,
+        ONECODESOFT_API_KEY: '   ',
+      });
+      expect(r.ok).toBe(false);
+      expect(r.output).toContain('SMS_PROVIDER needs ONECODESOFT_API_KEY on prod');
+    });
+
     it('prod refuses provider keys with no SMS_PROVIDER', async () => {
       const r = await runStackConfigCheck('prod', { ...prod, ...onecode, SMS_PROVIDER: '' });
       expect(r.ok).toBe(false);
