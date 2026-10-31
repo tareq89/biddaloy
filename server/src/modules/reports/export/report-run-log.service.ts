@@ -14,6 +14,8 @@ export interface StartRunInput {
   definitionVersionId?: string | null;
   format?: ExportFormat | null;
   params?: Record<string, unknown>;
+  /** QUEUED for a job waiting in the queue; RUNNING (default) for work that starts now. */
+  status?: ReportRunStatus;
 }
 
 /**
@@ -34,7 +36,7 @@ export class ReportRunLogService {
         tenant_id: input.tenantId,
         run_by: input.userId,
         kind: input.kind,
-        status: ReportRunStatus.RUNNING,
+        status: input.status ?? ReportRunStatus.RUNNING,
         source_key: input.sourceKey ?? null,
         definition_version_id: input.definitionVersionId ?? null,
         format: input.format ?? null,
@@ -46,13 +48,21 @@ export class ReportRunLogService {
   async finish(
     tenantId: string,
     runId: string,
-    result: { rowCount: number; durationMs: number },
+    result: {
+      rowCount: number;
+      durationMs: number;
+      /** A queued export's stored file and when it stops being downloadable. */
+      storageKey?: string;
+      expiresAt?: Date;
+    },
   ): Promise<void> {
     const run = await this.runs.findOne({ where: { id: runId, tenant_id: tenantId } });
     if (!run) return;
     run.status = ReportRunStatus.DONE;
     run.row_count = result.rowCount;
     run.duration_ms = result.durationMs;
+    if (result.storageKey) run.storage_key = result.storageKey;
+    if (result.expiresAt) run.expires_at = result.expiresAt;
     await this.runs.save(run);
     if (run.kind === ReportRunKind.EXPORT) {
       await this.audit.record({

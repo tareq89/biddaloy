@@ -12,6 +12,7 @@ import {
   Inject,
   ParseUUIDPipe,
   HttpCode,
+  OnModuleInit,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
@@ -77,6 +78,7 @@ import { requestContext } from '../../common/request-context.util';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
 import type { SchemaObject } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
 import { ReportExportService } from '../reports/export/report-export.service';
+import { ReportRowSourceRegistry } from '../reports/export/report-row-sources';
 import { WithExportFormat, exportFilters } from '../reports/export/dto/with-export-format';
 
 /** The paginated envelope plus `GET /fees/dues`'s section-wide money total. */
@@ -117,7 +119,7 @@ class ExportPaymentsQueryDto extends WithExportFormat(QueryPaymentDto) {}
 )
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-export class FeeController {
+export class FeeController implements OnModuleInit {
   constructor(
     @Inject(FeeStructureService) private readonly feeStructureService: FeeStructureService,
     @Inject(PaymentService) private readonly paymentService: PaymentService,
@@ -128,7 +130,22 @@ export class FeeController {
     @Inject(TeacherScopeService) private readonly teacherScope: TeacherScopeService,
     @Inject(FeesDailyScheduler) private readonly feesDailyScheduler: FeesDailyScheduler,
     private readonly reportExport: ReportExportService,
+    private readonly rowSources: ReportRowSourceRegistry,
   ) {}
+
+  /** [8.15.16] A queued export rebuilds these two lists by name. */
+  onModuleInit(): void {
+    this.rowSources.register('dues-list', {
+      header: () => this.feeDuesService.exportHeader(),
+      rows: (tenantId, _userId, query) =>
+        this.feeDuesService.iterateForExport(query as QueryFeeDuesDto, tenantId),
+    });
+    this.rowSources.register('payments-list', {
+      header: () => this.paymentsQueryService.exportHeader(),
+      rows: (tenantId, _userId, query) =>
+        this.paymentsQueryService.iterateForExport(query as QueryPaymentDto, tenantId),
+    });
+  }
 
   // --- Fee Dues endpoints ---
 

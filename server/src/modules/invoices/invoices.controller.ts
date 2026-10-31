@@ -13,6 +13,7 @@ import {
   Inject,
   ConflictException,
   BadRequestException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { randomUUID } from 'node:crypto';
@@ -76,6 +77,7 @@ import { SmsCreditService } from '../communications/credits/sms-credit.service';
 import { INSUFFICIENT_SMS_CREDIT } from '../communications/credits/insufficient-sms-credit.constants';
 import { SchoolsService } from '../schools/schools.service';
 import { ReportExportService } from '../reports/export/report-export.service';
+import { ReportRowSourceRegistry } from '../reports/export/report-row-sources';
 import { WithExportFormat, exportFilters } from '../reports/export/dto/with-export-format';
 
 // findOne (and create, which returns findOne's result) load the issued_by
@@ -107,7 +109,7 @@ class ExportInvoicesQueryDto extends WithExportFormat(QueryInvoiceDto) {}
 @ApiExtraModels(Invoice, StaffInvoiceDto, FamilyInvoiceDto)
 @Controller('invoices')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-export class InvoicesController {
+export class InvoicesController implements OnModuleInit {
   constructor(
     @Inject(InvoicesService) private readonly invoicesService: InvoicesService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
@@ -119,7 +121,17 @@ export class InvoicesController {
     private readonly smsCreditService: SmsCreditService,
     private readonly schoolsService: SchoolsService,
     private readonly reportExport: ReportExportService,
+    private readonly rowSources: ReportRowSourceRegistry,
   ) {}
+
+  /** [8.15.16] A queued export rebuilds this list by name. */
+  onModuleInit(): void {
+    this.rowSources.register('invoices-list', {
+      header: () => this.invoicesService.exportHeader(),
+      rows: (tenantId, _userId, query) =>
+        this.invoicesService.iterateForExport(query as QueryInvoiceDto, tenantId),
+    });
+  }
 
   @Post()
   @RequirePermissions(Permission.INVOICE_CREATE)

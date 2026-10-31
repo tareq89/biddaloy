@@ -14,6 +14,7 @@ import {
   ParseUUIDPipe,
   Req,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { IdempotencyInterceptor } from '../../common/idempotency/idempotency.interceptor';
 import { AuthGuard } from '@nestjs/passport';
@@ -62,6 +63,7 @@ import {
 } from '@biddaloy/shared';
 import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 import { ReportExportService } from '../reports/export/report-export.service';
+import { ReportRowSourceRegistry } from '../reports/export/report-row-sources';
 import { WithExportFormat, exportFilters } from '../reports/export/dto/with-export-format';
 
 const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -76,7 +78,7 @@ class ExportGuardiansQueryDto extends WithExportFormat(QueryGuardianDto) {}
 @ApiTenantAuth()
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-export class StudentController {
+export class StudentController implements OnModuleInit {
   constructor(
     @Inject(StudentService) private readonly studentService: StudentService,
     @Inject(GuardianService) private readonly guardianService: GuardianService,
@@ -84,7 +86,22 @@ export class StudentController {
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
     @Inject(TeacherScopeService) private readonly teacherScope: TeacherScopeService,
     private readonly reportExport: ReportExportService,
+    private readonly rowSources: ReportRowSourceRegistry,
   ) {}
+
+  /** [8.15.16] A queued export rebuilds these two lists by name. */
+  onModuleInit(): void {
+    this.rowSources.register('students-list', {
+      header: () => this.studentService.exportHeader(),
+      rows: (tenantId, _userId, query) =>
+        this.studentService.iterateForExport(query as QueryStudentDto, tenantId),
+    });
+    this.rowSources.register('guardians-list', {
+      header: () => this.guardianService.exportHeader(),
+      rows: (tenantId, _userId, query) =>
+        this.guardianService.iterateForExport(query as QueryGuardianDto, tenantId),
+    });
+  }
 
   // --- Student endpoints ---
 

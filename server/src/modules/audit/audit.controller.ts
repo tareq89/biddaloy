@@ -7,6 +7,7 @@ import {
   UseGuards,
   Inject,
   ParseUUIDPipe,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -24,6 +25,7 @@ import { AuditLogListResponseDto, AuditLogResponseDto } from './dto/audit-log-re
 import { ExportFormat, Permission, ReportRunKind, RoleScope, roleScope } from '@biddaloy/shared';
 import { teacherCanSeeStudent } from '../classes/teacher-scope.service';
 import { ReportExportService } from '../reports/export/report-export.service';
+import { ReportRowSourceRegistry } from '../reports/export/report-row-sources';
 import { WithExportFormat, exportFilters } from '../reports/export/dto/with-export-format';
 
 class ExportAuditLogQueryDto extends WithExportFormat(QueryAuditLogDto) {}
@@ -32,12 +34,22 @@ class ExportAuditLogQueryDto extends WithExportFormat(QueryAuditLogDto) {}
 @ApiTenantAuth()
 @Controller('audit-logs')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-export class AuditController {
+export class AuditController implements OnModuleInit {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly reportExport: ReportExportService,
+    private readonly rowSources: ReportRowSourceRegistry,
   ) {}
+
+  /** [8.15.16] A queued export rebuilds this list by name. */
+  onModuleInit(): void {
+    this.rowSources.register('audit-logs-list', {
+      header: () => this.auditService.exportHeader(),
+      rows: (tenantId, userId, query) =>
+        this.auditService.iterateForExport(query as QueryAuditLogDto, tenantId, userId),
+    });
+  }
 
   @Get()
   @RequirePermissions(Permission.AUDIT_LOG_READ)
