@@ -32,6 +32,7 @@ export const STATUS_CHECK_FAILED = 'Could not get the delivery status. Try again
  *   L --> E{SENT, vendor id, metadata.provider,<br/>no check in 60 s, not sink?}
  *   E -- no --> C[409]
  *   E --> R[resolve that provider with the tenant's config] -- unknown / no status capability --> C
+ *   R -- another account than the one that sent it --> C
  *   R --> K[claim: checkedAt = now, only if SENT and outside the 60 s wait] -- lost --> C
  *   K --> G[getStatus] -- throws --> B[502, status unchanged, wait already started]
  *   G --> W[metadata.delivery + DELIVERED / FAILED / stays SENT]
@@ -84,7 +85,16 @@ export class DeliveryStatusService {
       if (err instanceof ProviderNotConfiguredError) throw cannot();
       throw err;
     }
-    const { provider, config } = resolved;
+    const { provider, config, source } = resolved;
+    // Review round 2 on #3347: never ask another account about this message. A school that removed
+    // its own keys (kept on PLATFORM credit) would otherwise resolve the platform's keys for a row
+    // sent on its own account. Compared as "platform" vs "the school's own" (a test send typed in
+    // the form records `override`, still the school's account). A row with no `source` (older)
+    // keeps the old path.
+    const sentOnPlatform = meta.source === 'platform';
+    if (typeof meta.source === 'string' && sentOnPlatform !== (source === 'platform')) {
+      throw cannot();
+    }
     if (
       provider.descriptor.name !== name ||
       !provider.descriptor.capabilities.includes('status') ||

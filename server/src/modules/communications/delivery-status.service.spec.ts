@@ -97,6 +97,11 @@ describe('DeliveryStatusService', () => {
     repo.findOne.mockResolvedValue(
       sentLog({ metadata: { provider: 'stub-sms', source: 'platform', segments: 1 } }),
     );
+    registry.resolveFor.mockResolvedValue({
+      provider,
+      config: { apiKey: 'p' },
+      source: 'platform',
+    });
 
     await service.checkStatus('log-1', TENANT);
 
@@ -220,6 +225,38 @@ describe('DeliveryStatusService', () => {
       await expectCannotCheck();
     });
 
+    // Review round 2 on #3347: the account that would be asked must be the one that sent it.
+    it("when a row sent on the school's own account would be asked on the platform account", async () => {
+      repo.findOne.mockResolvedValue(
+        sentLog({ metadata: { provider: 'stub-sms', source: 'tenant', segments: 1 } }),
+      );
+      registry.resolveFor.mockResolvedValue({
+        provider,
+        config: { apiKey: 'p' },
+        source: 'platform',
+      });
+      await expectCannotCheck();
+    });
+
+    it('when a test send typed in the form (override) would be asked on the platform account', async () => {
+      repo.findOne.mockResolvedValue(
+        sentLog({ metadata: { provider: 'stub-sms', source: 'override', segments: 1 } }),
+      );
+      registry.resolveFor.mockResolvedValue({
+        provider,
+        config: { apiKey: 'p' },
+        source: 'platform',
+      });
+      await expectCannotCheck();
+    });
+
+    it("when a row sent on the platform account resolves to the school's own account", async () => {
+      repo.findOne.mockResolvedValue(
+        sentLog({ metadata: { provider: 'stub-sms', source: 'platform', segments: 1 } }),
+      );
+      await expectCannotCheck();
+    });
+
     it('in MESSAGE_SINK=mailpit mode (nothing really went to a vendor)', async () => {
       vi.stubEnv('MESSAGE_SINK', 'mailpit');
       await expectCannotCheck();
@@ -240,6 +277,25 @@ describe('DeliveryStatusService', () => {
       expect(err).toBeInstanceOf(ConflictException);
       expect((err as ConflictException).message).toBe(CANNOT_CHECK_STATUS);
     });
+  });
+
+  // A test send with typed details records `override`; once saved, the school's own account answers.
+  it("a test-send row (override) is checked on the school's own account", async () => {
+    repo.findOne.mockResolvedValue(
+      sentLog({ metadata: { provider: 'stub-sms', source: 'override', segments: 1 } }),
+    );
+    await service.checkStatus('log-1', TENANT);
+    expect(provider.getStatus).toHaveBeenCalledWith('vendor-42', { apiKey: 'k' });
+  });
+
+  it('a row with no source (older) keeps the old path, whatever account resolves', async () => {
+    registry.resolveFor.mockResolvedValue({
+      provider,
+      config: { apiKey: 'p' },
+      source: 'platform',
+    });
+    await service.checkStatus('log-1', TENANT);
+    expect(provider.getStatus).toHaveBeenCalledWith('vendor-42', { apiKey: 'p' });
   });
 
   it('a check older than 60 s may run again', async () => {
