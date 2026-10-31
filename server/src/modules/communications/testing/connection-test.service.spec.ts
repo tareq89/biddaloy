@@ -263,6 +263,8 @@ describe('ConnectionTestService', () => {
         service.test(tenantId, CommunicationMedium.SMS as never, undefined, req),
       ).rejects.toBeInstanceOf(InternalServerErrorException);
       expect(credits.releaseForLog).toHaveBeenCalledTimes(1);
+      // #3326: nothing went out, so the claim row does not keep a cap slot.
+      expect(logs.delete).toHaveBeenCalledWith({ id: 'log-1', tenant_id: tenantId });
     });
 
     // #3326: an error here would free the Idempotency-Key and the retry would send again, so an
