@@ -749,6 +749,17 @@ describe('Bulk Reminder Read/Preview E2E', () => {
             .set('Authorization', `Bearer ${t}`)
             .set('X-Tenant-ID', tenant),
       },
+      // Review round 1 on #3347: the message log with the new filters (TEACHER, foreign and
+      // unknown X-Tenant-ID).
+      {
+        name: 'GET /communications/logs (filtered)',
+        call: (t, tenant) =>
+          supertest(app.getHttpServer())
+            .get('/api/v1/communications/logs')
+            .query({ medium: 'SMS', search: '01712', provider: 'stub-sms' })
+            .set('Authorization', `Bearer ${t}`)
+            .set('X-Tenant-ID', tenant),
+      },
     ];
 
     for (const route of routes) {

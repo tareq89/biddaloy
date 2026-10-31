@@ -144,7 +144,7 @@ describe('MimsmsProvider', () => {
     expect(url).toBe('https://custom.example.com/sms');
   });
 
-  it('returns success: false with the provider error message on API failure', async () => {
+  it('returns success: false with a fixed sentence on API failure, never the vendor text', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'error', message: 'Invalid sender id' });
 
     const result = await gateway.send(
@@ -157,7 +157,9 @@ describe('MimsmsProvider', () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe('Invalid sender id');
+    // Rule 23: the fixed sentence; the vendor's own text stays only in `raw`.
+    expect(result.error).toBe('MimSMS rejected the message.');
+    expect(result.raw).toEqual({ status: 'error', message: 'Invalid sender id' });
     expect(result.outcome).toBe('REJECTED');
     expect(result.retryable).toBe(false);
   });
@@ -261,7 +263,9 @@ describe('MimsmsProvider', () => {
         outcome: 'AMBIGUOUS',
         error: 'Could not reach MimSMS; the message may or may not have been sent.',
       });
-      expect(r.retryable).toBeUndefined();
+      // Review round 1 on #3347: a vendor that may have sent is never sent to again (no double
+      // SMS, no double vendor charge). The credit stays held for reconciliation.
+      expect(r.retryable).toBe(false);
     });
 
     it('send: a timeout -> AMBIGUOUS', async () => {

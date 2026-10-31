@@ -4,6 +4,7 @@ import { CommunicationMedium, type ProviderConfigField } from '@biddaloy/shared'
 import { SchoolsService } from '../../schools/schools.service';
 import { TenantSettingsCache } from '../../schools/settings/tenant-settings-cache.service';
 import {
+  countedStoredProvider,
   isDestinationField as isDestination,
   isOwnedField as isOwned,
   isPlainObject,
@@ -99,8 +100,10 @@ function readBlock(
  *   - else the override sets any owned field (from, senderId, apiKey) -> same as a destination:
  *     the override carries every required field itself, never mixed with platform env values.
  *   - else platform env, only when `platformOk`. On that tier a stored `provider` counts only
- *     while the school owns some company block of the medium (#3338); otherwise the platform's
- *     `<MEDIUM>_PROVIDER` picks the company. An override's `provider` always comes first.
+ *     while the school owns that company's own block (#3338, `countedStoredProvider`); otherwise
+ *     the platform's `<MEDIUM>_PROVIDER` picks the company, and then the school's saved block for
+ *     it (a draft) is not read: the platform picked it, so it is the platform's account. An
+ *     override's `provider` always comes first.
  *   - an override null on any field is "cleared": it never falls back to stored or env (#3331).
  * Reads through `TenantSettingsCache`, so a burst of sends costs one decrypt.
  */
@@ -149,19 +152,27 @@ export class MessagingConfigResolver {
 
     const forMedium = this.providers.filter((p) => p.descriptor.medium === medium);
     const flatOk = forMedium.length === 1;
-    // #3338: a company name the school stored but holds nothing of is not its own account.
-    const ownsAny = forMedium.some(({ descriptor: d }) => {
-      const b = readBlock(tenantMedium, d.name, d.fields, flatOk);
-      return d.fields.some((f) => isOwned(f) && b[f.key] != null);
-    });
-    const storedProvider = ownsAny || !platformOk ? coerce(tenantMedium.provider) : undefined;
+    // #3338: a company name the school stored but holds nothing of (in that company's own block)
+    // is not its own account. Multi-provider media are nested only, so `tenantMedium` is the block.
+    const storedProvider = coerce(
+      countedStoredProvider(
+        tenantMedium,
+        forMedium.map((p) => p.descriptor),
+        platformOk,
+      ),
+    );
+    const overrideProvider = coerce(override.provider);
     // A medium with one provider has nothing to choose: a stray stored/override `provider` key is ignored.
     const selected =
-      (forMedium.length === 1 ? forMedium[0].descriptor.name : undefined) ??
-      coerce(override.provider) ??
+      (flatOk ? forMedium[0].descriptor.name : undefined) ??
+      overrideProvider ??
       storedProvider ??
       env(`${medium}_PROVIDER`) ??
       forMedium[0]?.descriptor.name;
+    // Review round 1 on #3347: when the platform picked the company, the school's saved draft for
+    // it is not its account (a partial one would fail closed, a full one send on its own keys).
+    const schoolPicked =
+      flatOk || !platformOk || overrideProvider != null || storedProvider != null;
     const provider = forMedium.find((p) => p.descriptor.name === selected);
     if (!provider) {
       // Rule 23: the submitted/stored name is never echoed.
@@ -172,7 +183,12 @@ export class MessagingConfigResolver {
     }
 
     const { fields, label } = provider.descriptor;
-    const tenant = readBlock(tenantMedium, provider.descriptor.name, fields, flatOk);
+    const tenant = readBlock(
+      schoolPicked ? tenantMedium : {},
+      provider.descriptor.name,
+      fields,
+      flatOk,
+    );
     const ov = readBlock(override, provider.descriptor.name, fields, flatOk);
     // A destination equal to the stored one is the school's own target, not a caller-chosen one
     // (the settings form pre-fills it), so it keeps the stored secrets. Any other value is new.

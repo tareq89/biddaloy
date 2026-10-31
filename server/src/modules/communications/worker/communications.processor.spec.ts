@@ -14,6 +14,20 @@ vi.mock('nodemailer', () => ({
   createTransport: () => ({ sendMail: async () => ({ messageId: 'm' }) }),
 }));
 
+// The OneCodeSoft 5xx case below goes through the real provider's HTTP-status mapping; only the
+// network edge is stubbed (no DNS, no socket).
+vi.mock('../providers/shared/outbound-destination-guard', async (orig) => ({
+  ...(await orig<typeof import('../providers/shared/outbound-destination-guard')>()),
+  assertSafeHttpDestination: vi.fn(async (rawUrl: string) => ({
+    url: new URL(rawUrl),
+    addresses: [{ address: '203.0.113.5', family: 4 }],
+  })),
+}));
+vi.mock('../providers/shared/pinned-http', () => ({
+  fetchPinnedJson: vi.fn(),
+  fetchPinnedJsonWithStatus: vi.fn(),
+}));
+
 vi.mock('@sentry/node', () => ({
   withScope: (cb: (scope: { setTags: typeof sentrySetTags }) => void) =>
     cb({ setTags: sentrySetTags }),
@@ -603,6 +617,37 @@ describe('CommunicationsProcessor', () => {
         'log:log-1',
         2,
         'DEBIT',
+      );
+    });
+
+    // Review round 1 on #3347: a 5xx may come after the vendor sent the SMS. A retry would send it
+    // again (double SMS, double vendor charge), so it ends FAILED on the first attempt with the
+    // credit held for reconciliation, never released and never re-sent.
+    it('a 5xx on a non-final attempt is not retried: FAILED, flagged, credit held, sent once', async () => {
+      const { fetchPinnedJsonWithStatus } = await import('../providers/shared/pinned-http');
+      vi.mocked(fetchPinnedJsonWithStatus).mockResolvedValueOnce({
+        status: 502,
+        body: { status: 'error' },
+      });
+      // The real send (earlier tests left a mocked spy on this shared instance).
+      const send = vi
+        .spyOn(onecodesoft, 'send')
+        .mockImplementation(OnecodesoftProvider.prototype.send);
+
+      await expect(
+        processor.process(job({ batchId: 'batch-1', segments: 1, attemptsMade: 0, attempts: 3 })),
+      ).resolves.toBeUndefined();
+
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(txManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: CommunicationStatus.FAILED,
+          metadata: expect.objectContaining({ credit: 'UNSETTLED' }),
+        }),
+      );
+      expect(smsCredits.settlePart).not.toHaveBeenCalled();
+      expect(sentrySetTags).toHaveBeenCalledWith(
+        expect.objectContaining({ needs_reconciliation: 'true' }),
       );
     });
 

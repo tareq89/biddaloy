@@ -214,6 +214,12 @@ describe('BulkReminderService.findLogs (integration)', () => {
       expect(ids(await service.findLogs({ search: '০১৭১২৩৪৫৬৭৮' }, tenantA))).toEqual([target]);
     });
 
+    // Review round 1 on #3347: `880` alone would become `0` and match nearly every number.
+    it('a phone term under 4 digits after the country code is not a phone search', async () => {
+      expect(ids(await service.findLogs({ search: '880' }, tenantA))).toEqual([]);
+      expect(ids(await service.findLogs({ search: '+880 1' }, tenantA))).toEqual([]);
+    });
+
     it('finds a +880-stored number from the 01… form', async () => {
       const plus = await addLog(tenantA, { address: '+8801999888777' });
       expect(ids(await service.findLogs({ search: '01999888777' }, tenantA))).toEqual([plus]);

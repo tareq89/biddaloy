@@ -59,7 +59,10 @@ export abstract class MessagingProvider<TConfig = Record<string, string>> {
   /**
    * #3320: a send's HTTP status decides before its body. `undefined` for a 2xx (read the body).
    * 401/403 = the key was refused, 4xx = the message was refused: REJECTED, the credit is released.
-   * 5xx = the vendor may have sent before failing: AMBIGUOUS, the credit stays held.
+   * 5xx = the vendor may have sent before failing: AMBIGUOUS, the credit stays held, and never
+   * retried (a retry could send the SMS twice and pay the vendor twice). Reconciliation decides.
+   * 408/429 stay REJECTED and permanent: no vendor here documents that they were not sent, so a
+   * retry is not known to be safe.
    * `error` texts are fixed sentences (Rule 23); the vendor's body only goes in `raw`.
    */
   protected failureForHttpStatus(
@@ -75,7 +78,9 @@ export abstract class MessagingProvider<TConfig = Record<string, string>> {
       raw: raw as CommunicationSendResult['raw'],
       segments,
     };
-    if (status >= 500) return { ...base, error: text.ambiguous, outcome: 'AMBIGUOUS' };
+    if (status >= 500) {
+      return { ...base, error: text.ambiguous, retryable: false, outcome: 'AMBIGUOUS' };
+    }
     const auth = status === 401 || status === 403;
     return {
       ...base,

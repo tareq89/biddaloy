@@ -78,7 +78,8 @@ describe('DeliveryStatusService', () => {
       override: { provider: 'stub-sms' },
     });
     expect(provider.getStatus).toHaveBeenCalledWith('vendor-42', { apiKey: 'k' });
-    const [sql, params] = repo.query.mock.calls[0];
+    // calls[0] is the claim (checkedAt before the vendor call), calls[1] the result.
+    const [sql, params] = repo.query.mock.calls[1];
     // Parameterized, tenant-scoped, and only while the row is still SENT (Rule 4).
     expect(sql).toMatch(/WHERE id = \$3 AND tenant_id = \$4 AND status = 'SENT'/);
     expect(JSON.parse(params[0])).toEqual({
@@ -95,7 +96,7 @@ describe('DeliveryStatusService', () => {
 
     await service.checkStatus('log-1', TENANT);
 
-    expect(repo.query.mock.calls[0][1][1]).toBe(CommunicationStatus.FAILED);
+    expect(repo.query.mock.calls[1][1][1]).toBe(CommunicationStatus.FAILED);
   });
 
   it('PENDING: status stays SENT but checkedAt is written (starts the one-minute wait)', async () => {
@@ -103,19 +104,41 @@ describe('DeliveryStatusService', () => {
 
     await service.checkStatus('log-1', TENANT);
 
-    const params = repo.query.mock.calls[0][1];
+    const params = repo.query.mock.calls[1][1];
     expect(JSON.parse(params[0])).toEqual({ status: 'PENDING', checkedAt: NOW.toISOString() });
     expect(params[1]).toBe(CommunicationStatus.SENT);
   });
 
-  it('a provider error is a 502 with a fixed sentence, never the vendor text; the log is unchanged', async () => {
+  it('a provider error is a 502 with a fixed sentence, never the vendor text; status is unchanged', async () => {
     provider.getStatus!.mockRejectedValue(new Error('vendor said: key abc123 at https://x'));
 
     const err = await service.checkStatus('log-1', TENANT).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(BadGatewayException);
     expect((err as BadGatewayException).message).toBe(STATUS_CHECK_FAILED);
-    expect(repo.query).not.toHaveBeenCalled();
+    // Only the claim ran: no status write.
+    expect(repo.query).toHaveBeenCalledTimes(1);
+  });
+
+  // Review round 1 on #3347: the one-minute wait (D23) starts before the vendor call, so a failing
+  // vendor is not asked again on every click with a new Idempotency-Key.
+  it('claims checkedAt before the vendor call, tenant-scoped and only when outside the wait', async () => {
+    provider.getStatus!.mockImplementation(async () => {
+      expect(repo.query).toHaveBeenCalledTimes(1);
+      return { status: 'PENDING' as const };
+    });
+
+    await service.checkStatus('log-1', TENANT);
+
+    const [sql, params] = repo.query.mock.calls[0];
+    expect(sql).toMatch(/WHERE id = \$2 AND tenant_id = \$3 AND status = 'SENT'/);
+    expect(sql).toMatch(/checkedAt/);
+    expect(params).toEqual([
+      NOW.toISOString(),
+      'log-1',
+      TENANT,
+      new Date(NOW.getTime() - 60_000).toISOString(),
+    ]);
   });
 
   describe('409 with the same fixed sentence (Rule 23), no vendor call', () => {
@@ -177,8 +200,16 @@ describe('DeliveryStatusService', () => {
       expect(registry.resolveFor).not.toHaveBeenCalled();
     });
 
-    it('when the row changed between read and write (lost race)', async () => {
+    it('when another check claimed the row first (lost race): no vendor call', async () => {
       repo.query.mockResolvedValue([[], 0]);
+      const err = await service.checkStatus('log-1', TENANT).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect((err as ConflictException).message).toBe(CANNOT_CHECK_STATUS);
+      expect(provider.getStatus).not.toHaveBeenCalled();
+    });
+
+    it('when the row changed while the vendor answered', async () => {
+      repo.query.mockResolvedValueOnce([[], 1]).mockResolvedValueOnce([[], 0]);
       const err = await service.checkStatus('log-1', TENANT).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ConflictException);
       expect((err as ConflictException).message).toBe(CANNOT_CHECK_STATUS);

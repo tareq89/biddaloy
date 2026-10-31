@@ -593,18 +593,65 @@ describe('MessagingConfigResolver', () => {
         expect(r.config.apiKey).toBe('g-env');
       });
 
-      it('a draft of another company still counts as owning something: the stored company stays', async () => {
+      // Review round 1 on #3347: only the stored company's OWN block decides. A draft for another
+      // company does not keep a stale `greenweb`, and when the platform's SMS_PROVIDER picks that
+      // other company, the school's draft for it is not used either (a partial draft would fail
+      // closed, a full one would send on the school's keys while on platform credit).
+      it.each([
+        [
+          'before the #3339 migration',
+          {
+            provider: 'greenweb',
+            metering: 'PLATFORM',
+            greenweb: {},
+            mimsms: { senderId: 'DRAFT' },
+          },
+        ],
+        ['after the #3339 migration', { metering: 'PLATFORM', mimsms: { senderId: 'DRAFT' } }],
+        [
+          'a full draft of the platform company',
+          {
+            provider: 'greenweb',
+            metering: 'PLATFORM',
+            greenweb: {},
+            mimsms: { apiKey: 'school-k', senderId: 'DRAFT' },
+          },
+        ],
+      ])('a draft of another company (%s): platform company and keys', async (_label, sms) => {
+        const r = await resolverFor(
+          { t1: settingsWith('sms', sms) },
+          { ...env, GREENWEB_API_KEY: 'g-env' },
+        ).resolve(CommunicationMedium.SMS, 't1');
+        expect(r.provider.descriptor.name).toBe('mimsms');
+        expect(r.config).toEqual({ apiKey: 'env-k', senderId: 'PLATFORM-ID' });
+        expect(r.source).toBe('platform');
+      });
+
+      it("an override naming the draft's company still reads the school's saved draft", async () => {
         const settings = settingsWith('sms', {
           provider: 'greenweb',
           metering: 'PLATFORM',
           greenweb: {},
+          mimsms: { apiKey: 'school-k', senderId: 'DRAFT' },
+        });
+        const r = await resolverFor({ t1: settings }, env).resolve(CommunicationMedium.SMS, 't1', {
+          override: { provider: 'mimsms' },
+        });
+        expect(r.config).toEqual({ apiKey: 'school-k', senderId: 'DRAFT' });
+        expect(r.source).toBe('tenant');
+      });
+
+      it('a stored company that owns its own block keeps it on platform credit', async () => {
+        const settings = settingsWith('sms', {
+          provider: 'greenweb',
+          metering: 'PLATFORM',
+          greenweb: { apiKey: 'school-g' },
           mimsms: { senderId: 'DRAFT' },
         });
-        const r = await resolverFor(
-          { t1: settings },
-          { ...env, GREENWEB_API_KEY: 'g-env' },
-        ).resolve(CommunicationMedium.SMS, 't1');
+        const r = await resolverFor({ t1: settings }, env).resolve(CommunicationMedium.SMS, 't1');
         expect(r.provider.descriptor.name).toBe('greenweb');
+        expect(r.config.apiKey).toBe('school-g');
+        expect(r.source).toBe('tenant');
       });
 
       it('a partly removed block (apiUrl still saved) still fails closed, the platform key is not borrowed', async () => {

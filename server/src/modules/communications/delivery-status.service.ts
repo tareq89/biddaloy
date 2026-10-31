@@ -32,7 +32,8 @@ export const STATUS_CHECK_FAILED = 'Could not get the delivery status. Try again
  *   L --> E{SENT, vendor id, metadata.provider,<br/>no check in 60 s, not sink?}
  *   E -- no --> C[409]
  *   E --> R[resolve that provider with the tenant's config] -- unknown / no status capability --> C
- *   R --> G[getStatus] -- throws --> B[502, log unchanged]
+ *   R --> K[claim: checkedAt = now, only if SENT and outside the 60 s wait] -- lost --> C
+ *   K --> G[getStatus] -- throws --> B[502, status unchanged, wait already started]
  *   G --> W[metadata.delivery + DELIVERED / FAILED / stays SENT]
  * ```
  */
@@ -83,6 +84,24 @@ export class DeliveryStatusService {
       throw cannot();
     }
 
+    // Claim before the call (review round 1 on #3347): the wait starts even when the vendor fails,
+    // and two clicks in the same second cannot both reach the vendor. One tenant-scoped statement.
+    const now = new Date();
+    const [, claimed] = (await this.repo.query(
+      `UPDATE communication_logs
+          SET metadata = jsonb_set(
+                COALESCE(metadata, '{}'::jsonb),
+                '{delivery}',
+                COALESCE(metadata -> 'delivery', '{}'::jsonb) || jsonb_build_object('checkedAt', $1::text)
+              ),
+              updated_at = now()
+        WHERE id = $2 AND tenant_id = $3 AND status = 'SENT'
+          AND (metadata #>> '{delivery,checkedAt}' IS NULL
+               OR (metadata #>> '{delivery,checkedAt}')::timestamptz <= $4::timestamptz)`,
+      [now.toISOString(), id, tenantId, new Date(now.getTime() - COOLDOWN_MS).toISOString()],
+    )) as [unknown, number];
+    if (claimed !== 1) throw cannot();
+
     let result: Awaited<ReturnType<NonNullable<typeof provider.getStatus>>>;
     try {
       result = await provider.getStatus(log.provider_message_id, config);
@@ -95,7 +114,7 @@ export class DeliveryStatusService {
     const delivery = {
       status: result.status,
       ...(result.code ? { code: result.code } : {}),
-      checkedAt: new Date().toISOString(),
+      checkedAt: now.toISOString(),
     };
     const next =
       result.status === 'DELIVERED'
@@ -104,8 +123,6 @@ export class DeliveryStatusService {
           ? CommunicationStatus.FAILED
           : CommunicationStatus.SENT;
     // jsonb merge in one statement, so a concurrent metadata write (credit settle) is not lost.
-    // ponytail: two clicks inside the same second can both reach the vendor; the 60 s window and
-    // the Idempotency-Key cover the UI. Claim-before-call if a vendor ever bills per status query.
     const [, affected] = (await this.repo.query(
       `UPDATE communication_logs
           SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('delivery', $1::jsonb),

@@ -6,8 +6,10 @@ import { SmsDropUnownedGreenwebProvider1791900002000 } from '../src/migrations/1
 
 /**
  * [#3339] Schools on the platform SMS account that still store `provider: 'greenweb'` from the old
- * form, with nothing of their own, lose the stale company name (so `SMS_PROVIDER` decides). Every
- * school that holds any SMS value of its own, or is not PLATFORM-metered, keeps its row exactly.
+ * form, with nothing in the `greenweb` block, lose the stale company name (so `SMS_PROVIDER`
+ * decides). Same rule as the runtime (`countedStoredProvider`): only the stored company's own
+ * block counts, so a draft for another company does not keep the name (review round 1 on #3347).
+ * A school with a Greenweb value of its own, or not PLATFORM-metered, keeps its row exactly.
  */
 describe('SmsDropUnownedGreenwebProvider1791900002000 (integration)', () => {
   let dataSource: DataSource;
@@ -70,7 +72,20 @@ describe('SmsDropUnownedGreenwebProvider1791900002000 (integration)', () => {
         sms: { metering: 'PLATFORM', provider: 'greenweb', greenweb: { apiKey: 'enc:v1:abcd' } },
       },
     };
-    // Old flat layout with a URL of its own: untouched.
+    // Owns its own address in the Greenweb block (next to another company's draft): untouched.
+    const ownUrl = {
+      version: 1,
+      communications: {
+        sms: {
+          metering: 'PLATFORM',
+          provider: 'greenweb',
+          greenweb: { apiUrl: 'https://gw.example/api' },
+          mimsms: { senderId: 'SCHOOL' },
+        },
+      },
+    };
+    // Old flat layout: the runtime never reads flat keys for SMS (it has several companies), so the
+    // stale name goes and the flat key stays as it was.
     const flatOwn = {
       version: 1,
       communications: {
@@ -86,7 +101,8 @@ describe('SmsDropUnownedGreenwebProvider1791900002000 (integration)', () => {
       version: 1,
       communications: { sms: { metering: 'OFF', provider: 'greenweb', greenweb: {} } },
     };
-    // A draft for another company counts as owning something: untouched.
+    // A draft for another company does not own Greenweb: the name and the empty block go, the
+    // draft stays.
     const otherDraft = {
       version: 1,
       communications: {
@@ -108,13 +124,14 @@ describe('SmsDropUnownedGreenwebProvider1791900002000 (integration)', () => {
       emptyBlock: await school(emptyBlock),
       clearedBlock: await school(clearedBlock),
       noBlock: await school(noBlock),
+      flatOwn: await school(flatOwn),
+      otherDraft: await school(otherDraft),
     };
     const untouched = {
       ownKey: [await school(ownKey), ownKey],
-      flatOwn: [await school(flatOwn), flatOwn],
+      ownUrl: [await school(ownUrl), ownUrl],
       ownMetering: [await school(ownMetering), ownMetering],
       offMetering: [await school(offMetering), offMetering],
-      otherDraft: [await school(otherDraft), otherDraft],
       otherCompany: [await school(otherCompany), otherCompany],
     } as const;
     const nullSettings = await school({});
@@ -140,6 +157,14 @@ describe('SmsDropUnownedGreenwebProvider1791900002000 (integration)', () => {
     expect(await settingsOf(changed.noBlock)).toEqual({
       version: 1,
       communications: { sms: { metering: 'PLATFORM' } },
+    });
+    expect(await settingsOf(changed.flatOwn)).toEqual({
+      version: 1,
+      communications: { sms: { metering: 'PLATFORM', apiUrl: 'https://gw.example/api' } },
+    });
+    expect(await settingsOf(changed.otherDraft)).toEqual({
+      version: 1,
+      communications: { sms: { metering: 'PLATFORM', mimsms: { senderId: 'SCHOOL' } } },
     });
 
     for (const [id, before] of Object.values(untouched)) {

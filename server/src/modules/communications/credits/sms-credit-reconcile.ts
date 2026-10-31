@@ -376,12 +376,43 @@ async function reconcileTenant(
     });
   }
 
+  // #3326 test-send claims: the row is written QUEUED before the vendor call and finished by the
+  // same request. One still QUEUED after an hour was stranded (a crash during the vendor call, or
+  // the final save failed): the SMS may have gone out, so a human decides. List only, never act.
+  const strandedClaims = (await dataSource.query(
+    `SELECT l.id, l.message_body, r.id AS reserve_id
+       FROM communication_logs l
+       JOIN sms_credit_ledger r
+         ON r.tenant_id = l.tenant_id AND r.kind = 'RESERVE'
+        AND r.idempotency_key = 'batch:' || (l.metadata->>'batch_id')
+      WHERE l.tenant_id = $1 AND l.medium = 'SMS' AND l.status = 'QUEUED'
+        AND l.metadata->>'test' = 'true'
+        AND l.created_at < now() - interval '1 hour'
+        AND NOT EXISTS (
+          SELECT 1 FROM sms_credit_ledger s
+           WHERE s.tenant_id = $1 AND s.idempotency_key = 'log:' || l.id || ':settle')
+      ORDER BY l.created_at, l.id`,
+    [tenantId],
+  )) as Array<{ id: string; message_body: string; reserve_id: string }>;
+  for (const c of strandedClaims) {
+    report.rows.push({
+      tenantId,
+      reserveLedgerId: c.reserve_id,
+      source: 'UNKNOWN',
+      logId: c.id,
+      units: countSmsSegments(c.message_body).segments,
+      action: 'MANUAL_REVIEW',
+      reason: 'TEST_CLAIM_STRANDED',
+    });
+  }
+
   // Post-fix `batch:` reserves (any producer) with units left, older than 24h, and no QUEUED SMS
   // log linked to it (window fallback: created in the 24h after the reserve, may be in flight): crash between
   // settle() and release, calendar SMS push-delivered by an old worker, or an old worker handling
   // a new-key job. List only, never act. A QUEUED log suppresses a reserve only if linked to it
   // (fee generation / payment reference_key); other producers carry no link, so for them the
   // narrow window above applies. ponytail: exact per-batch link for those if it hides rows.
+  // A test-send claim never suppresses: it is never in flight a day later (listed above).
   // Remaining: by reference_id when set; null-reference reserves (payment, `{type:'log'}`) count
   // the `log:<id>:settle` rows of their own logs (reference_key) plus a bare-key settle.
   const alreadyListed = new Set(report.rows.map((x) => x.reserveLedgerId));
@@ -412,6 +443,7 @@ async function reconcileTenant(
                      THEN l.reference_key = substr(r.idempotency_key, 7)
                    ELSE l.created_at >= r.created_at
                     AND l.created_at < r.created_at + interval '24 hours'
+                    AND (l.metadata->>'test') IS DISTINCT FROM 'true'
                  END)
       ORDER BY r.created_at, r.id`,
     [tenantId],

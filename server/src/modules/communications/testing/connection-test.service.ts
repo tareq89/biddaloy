@@ -229,7 +229,8 @@ export class ConnectionTestService {
    * is the claim: a second request counts it while this one is still at the vendor. The lock is
    * per tenant and is never held across the vendor call (no pool connection waits on a vendor).
    * QUEUED is safe for a row with no BullMQ job: nothing re-dispatches QUEUED rows (only a job
-   * does), and the credit reconcile treats a QUEUED SMS row as in flight (held, never released).
+   * does). A claim still QUEUED after an hour was stranded (crash, failed final save): the credit
+   * reconcile lists it as TEST_CLAIM_STRANDED for a human (held, never released by itself).
    */
   private claimTestSend(
     tenantId: string,
@@ -326,6 +327,8 @@ export class ConnectionTestService {
           metadata: {
             test: true,
             ...(result.segments !== undefined ? { segments: result.segments } : {}),
+            // D23: which company sent it, so Check status asks the same one (as the worker does).
+            ...(result.provider ? { provider: result.provider } : {}),
             ...(result.success ? {} : { error: result.error }),
             ...(reservation ? { batch_id: reservation.batchId } : {}),
             ...(unsettled ? { credit: 'UNSETTLED' } : {}),
