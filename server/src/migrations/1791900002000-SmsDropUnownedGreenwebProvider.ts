@@ -7,12 +7,21 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * Removes `provider` and the `greenweb` block from `communications.sms` only when:
  *   - `metering` is `PLATFORM`, and `provider` is `greenweb`, and
- *   - no other key under `communications.sms` holds a non-empty value (an encrypted `apiKey`, an
- *     `apiUrl`, a draft for another company, or the old flat layout all count as the school's own).
- * `metering` and every other setting stay. Idempotent: a cleaned row no longer matches.
+ *   - the `greenweb` block (if any) holds no non-empty value (an encrypted `apiKey` or an `apiUrl`
+ *     is the school's own and keeps the row exactly).
+ * This is the SQL twin of the runtime rule `countedStoredProvider` (messaging-descriptors.ts):
+ * only the stored company's own block counts, so a draft for another company or an old flat key
+ * (never read for SMS) does not keep the stale name (review round 1 on #3347). Every Greenweb
+ * field is owned, so "no value at all" in that block is the same test. `metering`, other
+ * companies' blocks and every other setting stay. Idempotent: a cleaned row no longer matches.
  *
- *   before: { metering: 'PLATFORM', provider: 'greenweb', greenweb: {} }
- *   after:  { metering: 'PLATFORM' }
+ *   before: { metering: 'PLATFORM', provider: 'greenweb', greenweb: {}, mimsms: { senderId: 'X' } }
+ *   after:  { metering: 'PLATFORM', mimsms: { senderId: 'X' } }
+ *
+ * Operator note: the runtime already ignores the stale name, so the change is cleanup and no send
+ * changes because of it. `TenantSettingsCache` is in-memory per process with a 30 s TTL; a process
+ * that read a row before the migration may serve the old copy for up to 30 s, which resolves to
+ * the same company. Nothing to flush.
  */
 export class SmsDropUnownedGreenwebProvider1791900002000 implements MigrationInterface {
   name = 'SmsDropUnownedGreenwebProvider1791900002000';
@@ -28,17 +37,12 @@ export class SmsDropUnownedGreenwebProvider1791900002000 implements MigrationInt
       WHERE s."settings" #>> '{communications,sms,metering}' = 'PLATFORM'
         AND s."settings" #>> '{communications,sms,provider}' = 'greenweb'
         AND jsonb_typeof(s."settings" #> '{communications,sms}') = 'object'
-        AND NOT EXISTS (
-          SELECT 1
-          FROM jsonb_each(
-            CASE WHEN jsonb_typeof(s."settings" #> '{communications,sms}') = 'object'
-                 THEN s."settings" #> '{communications,sms}' ELSE '{}'::jsonb END
-          ) AS e(key, value)
-          WHERE e.key NOT IN ('provider', 'metering')
-            AND jsonb_path_exists(
-              e.value,
-              '$.** ? (@.type() == "number" || @.type() == "boolean" || (@.type() == "string" && @ != ""))'
-            )
+        AND NOT COALESCE(
+          jsonb_path_exists(
+            s."settings" #> '{communications,sms,greenweb}',
+            '$.** ? (@.type() == "number" || @.type() == "boolean" || (@.type() == "string" && @ != ""))'
+          ),
+          false
         )
     `);
   }

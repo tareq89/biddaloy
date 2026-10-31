@@ -272,6 +272,33 @@ describe('Messaging settings (e2e)', () => {
     expect(await storedBlock(SEED_TENANT_ID, 'sms')).toEqual({ metering: 'PLATFORM' });
   });
 
+  // Review round 1 on #3347: "Remove saved details" on a single-company channel (WhatsApp) sends
+  // `{ <sole>: null }` with no provider key. It goes through the real PATCH, the flat/nested shape
+  // alignment and the secret encryption step, and leaves no saved secret behind.
+  it('a single-company channel: { <sole>: null } removes its saved block, secret included', async () => {
+    const schema = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    const medium = CommunicationMedium.WHATSAPP;
+    const entry = schema[medium];
+    if (!entry || entry.providers.length !== 1) return; // the sole-company shape only
+    const d = entry.providers[0];
+    const key = medium.toLowerCase();
+    const { communications } = fullBody(schema);
+    await patch(SEED_TENANT_ID, { communications: { [key]: communications[key] } }).expect(200);
+    expect((await providers(SEED_TENANT_ID).expect(200)).body[medium].configured).toBe(true);
+
+    const res = await patch(SEED_TENANT_ID, { communications: { [key]: { [d.name]: null } } });
+    expect(res.status).toBe(200);
+    expect(res.body.communications[key] ?? {}).not.toHaveProperty(d.name);
+    const stored = (await storedBlock(SEED_TENANT_ID, key)) ?? {};
+    expect(stored).not.toHaveProperty(d.name);
+    for (const f of d.fields) expect(stored).not.toHaveProperty(f.key);
+    const after = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    expect(after[medium]?.configured).toBe(false);
+
+    // Removing again (nothing saved) is still a clean 200.
+    await patch(SEED_TENANT_ID, { communications: { [key]: { [d.name]: null } } }).expect(200);
+  });
+
   it('an old flat PATCH on a sole-provider medium is accepted; a later nested PATCH keeps the secret', async () => {
     const schema = (await providers(OTHER_TENANT_ID).expect(200))
       .body as MessagingProvidersResponse;

@@ -133,7 +133,7 @@ describe('GreenwebProvider', () => {
     expect(url).toMatch(/^https:\/\/custom\.example\.com\/api\.php\?/);
   });
 
-  it('returns success: false with the provider error message on API failure', async () => {
+  it('returns success: false with a fixed sentence on API failure, never the vendor text', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'error', error_msg: 'Insufficient balance' });
 
     const result = await gateway.send(
@@ -145,7 +145,9 @@ describe('GreenwebProvider', () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe('Insufficient balance');
+    // Rule 23: the fixed sentence; the vendor's own text stays only in `raw`.
+    expect(result.error).toBe('Greenweb rejected the message.');
+    expect(result.raw).toEqual({ status: 'error', error_msg: 'Insufficient balance' });
     expect(result.outcome).toBe('REJECTED');
     expect(result.retryable).toBe(false);
   });
@@ -242,7 +244,9 @@ describe('GreenwebProvider', () => {
         outcome: 'AMBIGUOUS',
         error: 'Could not reach Greenweb; the message may or may not have been sent.',
       });
-      expect(r.retryable).toBeUndefined();
+      // Review round 1 on #3347: a vendor that may have sent is never sent to again (no double
+      // SMS, no double vendor charge). The credit stays held for reconciliation.
+      expect(r.retryable).toBe(false);
     });
 
     it('send: a timeout -> AMBIGUOUS', async () => {
@@ -251,6 +255,22 @@ describe('GreenwebProvider', () => {
       );
       const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
       expect(r.outcome).toBe('AMBIGUOUS');
+    });
+
+    it('testConnection: a 404 (mistyped API address) says to check the address, not the token', async () => {
+      answer(404, undefined);
+      await expect(gateway.testConnection(config)).resolves.toEqual({
+        success: false,
+        message: 'Greenweb did not accept the request — check the API address.',
+      });
+    });
+
+    it('testConnection: 401 still names the token', async () => {
+      answer(401, { status: 'error', error_msg: 'Invalid token key-1' });
+      await expect(gateway.testConnection(config)).resolves.toEqual({
+        success: false,
+        message: 'Authentication rejected — check the account token.',
+      });
     });
 
     it('testConnection: 5xx says "could not reach", not "authentication rejected"', async () => {

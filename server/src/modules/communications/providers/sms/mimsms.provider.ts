@@ -108,7 +108,8 @@ export class MimsmsProvider extends MessagingProvider<ResolvedMimSmsConfig> {
       return {
         success: false,
         providerMessageId: null,
-        error: data?.message ?? 'Unknown MimSMS error',
+        // Rule 23: a fixed sentence; the vendor's text stays in `raw`.
+        error: SEND_TEXT.rejected,
         raw: data,
         segments: segmentInfo.segments,
         retryable: false,

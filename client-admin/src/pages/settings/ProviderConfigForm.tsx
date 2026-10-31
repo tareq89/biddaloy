@@ -43,7 +43,7 @@ import { z } from 'zod';
 import { SecretField } from '../../components/SecretField';
 
 import { SettingsSaved, SettingsSection } from './settings-layout';
-import { SettingsMutationError } from './settings-mutation-error';
+import { mutationErrorKey, SettingsMutationError } from './settings-mutation-error';
 
 export type MessagingMedium = 'SMS' | 'WHATSAPP' | 'EMAIL' | 'MESSENGER';
 
@@ -161,7 +161,10 @@ export function ProviderConfigForm(props: ProviderConfigFormProps) {
       // query could hand it another school's values to save, PR #3325 round 5) and after "Remove saved details".
       key={`${props.schoolId}:${generation}`}
       {...props}
-      onRemoved={() => void query.refetch().then(() => setGeneration((g) => g + 1))}
+      // The mutation already invalidated this query: join that fetch, never start a second one.
+      onRemoved={() =>
+        void query.refetch({ cancelRefetch: false }).then(() => setGeneration((g) => g + 1))
+      }
       providers={entry.providers}
       configured={entry.configured}
       selected={entry.selected}
@@ -479,7 +482,11 @@ function ProviderConfigFormInner({
                 type="button"
                 variant="outline"
                 className="w-full md:w-auto"
-                onClick={() => setConfirmingRemove(true)}
+                onClick={() => {
+                  // A failed Save's error belongs to that Save, not to this question.
+                  updateSettings.reset();
+                  setConfirmingRemove(true);
+                }}
               >
                 {t('messaging.removeSaved')}
               </Button>
@@ -610,7 +617,10 @@ function ProviderConfigFormInner({
         open={confirmingRemove}
         onOpenChange={setConfirmingRemove}
         title={t('messaging.removeConfirm')}
-        description={t('messaging.removeConfirmDescription')}
+        // A failed removal says so here: the form's own error line is behind the dialog.
+        description={`${t('messaging.removeConfirmDescription')}${
+          updateSettings.isError ? ` ${t(mutationErrorKey(updateSettings.error))}` : ''
+        }`}
         confirmLabel={t('messaging.removeConfirmYes')}
         busy={updateSettings.isPending}
         onConfirm={handleRemove}

@@ -53,7 +53,7 @@ describe('ConnectionTestService', () => {
     provider = {
       testConnection: vi.fn().mockResolvedValue({ success: true, message: 'ok' }),
       send: sendSpy,
-      descriptor: { medium: CommunicationMedium.SMS, supportsTestMessage: true },
+      descriptor: { medium: CommunicationMedium.SMS, name: 'stub-sms', supportsTestMessage: true },
     } as any;
     registry = { resolveFor: vi.fn().mockResolvedValue({ provider, config: { k: 'v' } }) };
     const createQueryBuilder = vi.fn(() => {
@@ -187,7 +187,9 @@ describe('ConnectionTestService', () => {
           sent_by_user_id: 'user-1',
           trigger: 'MANUAL',
           status: 'SENT',
-          metadata: expect.objectContaining({ test: true }),
+          // Review round 1 on #3347: the sending company, so Check status and the provider
+          // filter work on test sends too (D23).
+          metadata: expect.objectContaining({ test: true, provider: 'stub-sms' }),
         }),
       );
       expect(result.testMessage).toEqual({ logId: 'log-1', status: 'SENT' });

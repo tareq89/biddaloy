@@ -99,7 +99,8 @@ export class GreenwebProvider extends MessagingProvider<ResolvedGreenwebSmsConfi
       return {
         success: false,
         providerMessageId: null,
-        error: data?.error_msg ?? 'Unknown Greenweb error',
+        // Rule 23: a fixed sentence; the vendor's text (it can repeat the token) stays in `raw`.
+        error: SEND_TEXT.rejected,
         raw: data,
         segments: segmentInfo.segments,
         retryable: false,
@@ -142,6 +143,13 @@ export class GreenwebProvider extends MessagingProvider<ResolvedGreenwebSmsConfi
 
       if (status < 400 && data?.status === 'success') {
         return { success: true, message: 'Connected — Greenweb account token verified.' };
+      }
+      // A 404/400 is a wrong address (a mistyped custom apiUrl), not a wrong token.
+      if (status >= 400 && status !== 401 && status !== 403) {
+        return {
+          success: false,
+          message: 'Greenweb did not accept the request — check the API address.',
+        };
       }
       return {
         success: false,

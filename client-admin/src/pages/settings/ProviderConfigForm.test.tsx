@@ -223,6 +223,53 @@ describe('ProviderConfigForm', () => {
       await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     });
 
+    // Review round 1 on #3347: the settings are fetched once after a removal, not twice.
+    it('fetches the providers once after a removal', async () => {
+      server.use(providersHandler({ SMS: true }, 'mimsms'));
+      captureSave();
+      const { user } = renderForm('SMS', {
+        provider: 'mimsms',
+        mimsms: { senderId: 'OLD', apiKey: { configured: true, hint: '••••mim1' } },
+      });
+      await user.click(await screen.findByRole('button', { name: 'Remove saved details' }));
+      const dialog = await screen.findByRole('alertdialog');
+      let gets = 0;
+      server.use(
+        http.get('/api/v1/schools/:id/settings/messaging/providers', () => {
+          gets += 1;
+          return HttpResponse.json(providersResponse({ SMS: false }, null));
+        }),
+      );
+      await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
+
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+      // The form remounts (its "Saved" line goes) only after the refetch has answered, so by then
+      // every GET this removal caused has been made.
+      await waitFor(() => expect(gets).toBeGreaterThan(0));
+      await waitFor(() => expect(screen.queryByText('Saved')).toBeNull());
+      expect(gets).toBe(1);
+    });
+
+    // Review round 1 on #3347: a failed removal says so inside the open dialog, not behind it.
+    it('shows a failed removal inside the dialog and keeps it open', async () => {
+      server.use(providersHandler({ SMS: true }, 'mimsms'));
+      server.use(
+        http.patch('/api/v1/schools/:id/settings', () =>
+          HttpResponse.json({ message: 'boom' }, { status: 500 }),
+        ),
+      );
+      const { user } = renderForm('SMS', {
+        provider: 'mimsms',
+        mimsms: { senderId: 'OLD', apiKey: { configured: true, hint: '••••mim1' } },
+      });
+      await user.click(await screen.findByRole('button', { name: 'Remove saved details' }));
+      const dialog = await screen.findByRole('alertdialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
+
+      expect(await within(dialog).findByText(/Couldn't save\. Try again\./)).toBeTruthy();
+      expect(screen.getByRole('alertdialog')).toBe(dialog);
+    });
+
     it('is not offered when nothing is saved', async () => {
       server.use(providersHandler({ SMS: false }, null));
       renderForm('SMS', undefined);

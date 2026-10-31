@@ -592,7 +592,7 @@
     "invalid": "Check this value.",
     "removeSaved": "Remove saved details",
     "removeConfirm": "Remove this channel's saved details?",
-    "removeConfirmDescription": "Every saved company, key and address for this channel is removed. A school on platform credit then sends through the platform's company.",
+    "removeConfirmDescription": "Every saved company, key and address for this channel is removed. A school on platform credit then sends its messages through the platform's company.",
     "removeConfirmYes": "Remove"
   },
   "sendTestMessage": {

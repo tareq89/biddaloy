@@ -131,6 +131,24 @@ describe('problemWith', () => {
     ).toBeNull();
   });
 
+  // Review round 1 on #3347: the same ownership rule as the resolver and the #3339 migration. Only
+  // the chosen company's own block counts; a draft for another company is not checked as complete.
+  it('PLATFORM: an empty chosen block next to another company draft owns nothing and is accepted', () => {
+    expect(
+      problemWith(
+        { provider: 'beta', metering: 'PLATFORM', beta: {}, alpha: { senderId: 'DRAFT' } },
+        SMS,
+      ),
+    ).toBeNull();
+    // The chosen block started: it must be complete, the draft does not matter.
+    expect(
+      problemWith(
+        { provider: 'alpha', metering: 'PLATFORM', alpha: { apiKey: 'k' }, beta: {} },
+        SMS,
+      ),
+    ).toMatch(/missing the required field senderId/);
+  });
+
   // #3338: a school whose company has a required text field (senderId) can still remove
   // everything it saved, and so get back to the platform account.
   it('remove saved details: provider null with null company blocks is accepted; anything else is not', () => {

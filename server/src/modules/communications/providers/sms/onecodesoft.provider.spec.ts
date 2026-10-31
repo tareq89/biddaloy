@@ -269,7 +269,9 @@ describe('OnecodesoftProvider', () => {
         outcome: 'AMBIGUOUS',
         error: 'OneCodeSoft did not give a usable answer.',
       });
-      expect(r.retryable).toBeUndefined();
+      // Review round 1 on #3347: a vendor that may have sent is never sent to again (no double
+      // SMS, no double vendor charge). The credit stays held for reconciliation.
+      expect(r.retryable).toBe(false);
     });
 
     it('send: 5xx HTML page -> AMBIGUOUS', async () => {

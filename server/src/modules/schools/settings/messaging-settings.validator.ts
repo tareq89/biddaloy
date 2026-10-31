@@ -11,7 +11,13 @@ import {
 import { CommunicationMedium, isValidPort } from '@biddaloy/shared';
 import type { ProviderDescriptor } from '@biddaloy/shared';
 import { OptionalSetting } from './optional-setting.decorator';
-import { descriptorsFor, isPlainObject, present, soleDescriptorFor } from './messaging-descriptors';
+import {
+  descriptorsFor,
+  isPlainObject,
+  ownsBlock,
+  present,
+  soleDescriptorFor,
+} from './messaging-descriptors';
 
 const MEDIUM_KEY = Symbol('messagingMedium');
 const METERING = ['OFF', 'PLATFORM'];
@@ -72,7 +78,8 @@ export function problemWith(value: unknown, medium: CommunicationMedium): string
     return 'metering must be OFF or PLATFORM.';
   }
   // #3338: "remove saved details": provider null (or the sole company's block null) with every
-  // other sent key null too. The merge deletes them; `metering` is the platform's, so it stays.
+  // other sent key null too. The merge deletes them. A `metering` sent alongside is still saved:
+  // a school setting its own metering is a known gap, #3346.
   if (provider === null || (sole && value[sole.name] === null)) {
     const allNull = Object.entries(value).every(([k, v]) => k === 'metering' || v === null);
     return allNull ? null : 'removes the saved company, so every other value sent must be null.';
@@ -105,8 +112,8 @@ export function problemWith(value: unknown, medium: CommunicationMedium): string
   // D11: a PLATFORM-metered school with no gateway of its own sends on the platform's account, so
   // its chosen block may be missing or empty. Once it fills in a field it owns the medium (the
   // resolver never pairs a school's field with the platform key), so that block must be complete.
-  const ownsNothing = !chosen || !Object.values(chosen).some(present);
-  if (selected && metering === 'PLATFORM' && ownsNothing) return null;
+  // Only the chosen company's own block counts (`ownsBlock`, the resolver's rule too).
+  if (selected && metering === 'PLATFORM' && !ownsBlock(selected, chosen)) return null;
   if (!selected || !chosen) return 'must include the settings of the chosen company.';
   // Only the chosen company must be complete: another company's block may be a saved draft.
   for (const f of selected.fields) {

@@ -121,13 +121,36 @@ describe('DeliveryStatusService (integration)', () => {
     expect((await row(id)).status).toBe('FAILED');
   });
 
-  it('a provider error is a 502 and the row is unchanged', async () => {
+  // Review round 1 on #3347: a failed check also starts the one-minute wait (D23), so a vendor
+  // whose status API is down is not asked again on every click.
+  it('a provider error is a 502: status stays SENT, the wait starts, a retry inside it is a 409', async () => {
     const id = await addSentLog(tenantA, { provider: 'stub-sms' });
     getStatus.mockRejectedValue(new Error('raw vendor text'));
 
     await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(BadGatewayException);
 
-    expect(await row(id)).toEqual({ status: 'SENT', metadata: { provider: 'stub-sms' } });
+    expect(await row(id)).toEqual({
+      status: 'SENT',
+      metadata: { provider: 'stub-sms', delivery: { checkedAt: expect.any(String) } },
+    });
+    await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(ConflictException);
+    expect(getStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('a check after the wait runs again and keeps the earlier delivery status until it answers', async () => {
+    const old = new Date(Date.now() - 120_000).toISOString();
+    const id = await addSentLog(tenantA, {
+      provider: 'stub-sms',
+      delivery: { status: 'PENDING', checkedAt: old },
+    });
+    getStatus.mockResolvedValue({ status: 'DELIVERED' });
+
+    await service.checkStatus(id, tenantA);
+
+    expect((await row(id)).metadata.delivery).toEqual({
+      status: 'DELIVERED',
+      checkedAt: expect.any(String),
+    });
   });
 
   it('another school’s log id is a 404 and nothing is written', async () => {

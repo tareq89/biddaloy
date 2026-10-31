@@ -111,9 +111,19 @@ describe('buildMessagingProvidersResponse (real providers)', () => {
       d.name,
     );
     if (other) {
-      // A draft for another company still counts as the school's own.
+      // Review round 1 on #3347: only the stored company's own block counts. A draft for another
+      // company does not keep a stale name selected (the resolver ignores it the same way).
       expect(
-        res({ provider: d.name, metering: 'PLATFORM', [other.name]: filled(other) })?.selected,
+        res({ provider: d.name, metering: 'PLATFORM', [d.name]: {}, [other.name]: filled(other) })
+          ?.selected,
+      ).toBeNull();
+      expect(
+        res({
+          provider: d.name,
+          metering: 'PLATFORM',
+          [d.name]: filled(d),
+          [other.name]: filled(other),
+        })?.selected,
       ).toBe(d.name);
     }
   });
