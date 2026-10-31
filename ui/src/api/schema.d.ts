@@ -15309,7 +15309,7 @@ export interface components {
             seat_count: number;
             open_date: string;
             close_date: string;
-            required_document_types: ("PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT")[];
+            required_document_types: ("TRANSCRIPT" | "PHOTO" | "BIRTH_CERTIFICATE")[];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -16877,7 +16877,7 @@ export interface components {
             status: "DRAFT" | "OPEN" | "CLOSED";
             anonymous: boolean;
             /** @enum {string} */
-            respondent: "STUDENTS" | "GUARDIANS" | "BOTH";
+            respondent: "BOTH" | "STUDENTS" | "GUARDIANS";
             /** Format: date-time */
             opens_at: string | null;
             /** Format: date-time */
@@ -34263,7 +34263,7 @@ export interface operations {
             };
             path: {
                 id: string;
-                type: "PHOTO" | "BIRTH_CERTIFICATE" | "TRANSCRIPT";
+                type: "TRANSCRIPT" | "PHOTO" | "BIRTH_CERTIFICATE";
             };
             cookie?: never;
         };
