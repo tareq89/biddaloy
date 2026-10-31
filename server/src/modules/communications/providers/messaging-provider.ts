@@ -56,6 +56,35 @@ export abstract class MessagingProvider<TConfig = Record<string, string>> {
     }
   }
 
+  /**
+   * #3320: a send's HTTP status decides before its body. `undefined` for a 2xx (read the body).
+   * 401/403 = the key was refused, 4xx = the message was refused: REJECTED, the credit is released.
+   * 5xx = the vendor may have sent before failing: AMBIGUOUS, the credit stays held.
+   * `error` texts are fixed sentences (Rule 23); the vendor's body only goes in `raw`.
+   */
+  protected failureForHttpStatus(
+    status: number,
+    text: { auth: string; rejected: string; ambiguous: string },
+    segments: number,
+    raw: unknown,
+  ): CommunicationSendResult | undefined {
+    if (status < 400) return undefined;
+    const base = {
+      success: false,
+      providerMessageId: null,
+      raw: raw as CommunicationSendResult['raw'],
+      segments,
+    };
+    if (status >= 500) return { ...base, error: text.ambiguous, outcome: 'AMBIGUOUS' };
+    const auth = status === 401 || status === 403;
+    return {
+      ...base,
+      error: auth ? text.auth : text.rejected,
+      retryable: false,
+      outcome: 'REJECTED',
+    };
+  }
+
   protected normalizeBdPhone(to: string): string {
     return normalizeBdPhoneNumber(to);
   }

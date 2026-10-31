@@ -4,7 +4,7 @@ import {
   assertSafeHttpDestination,
   DestinationBlockedError,
 } from '../shared/outbound-destination-guard';
-import { fetchPinnedJson } from '../shared/pinned-http';
+import { fetchPinnedJson, fetchPinnedJsonWithStatus } from '../shared/pinned-http';
 
 // Destination-class validation (real vs. private-network host) is its own
 // unit under test in outbound-destination-guard.spec.ts, and does a real
@@ -32,7 +32,18 @@ vi.mock('../shared/outbound-destination-guard', () => {
 // gateway-level behavior. testConnection hits a hardcoded, non-tenant-
 // controlled balance URL and stays on plain fetch (nothing to pin), so it
 // still exercises the stubbed global fetch below.
-vi.mock('../shared/pinned-http', () => ({ fetchPinnedJson: vi.fn() }));
+// Cases that mock only the body (`fetchPinnedJson`) answer as HTTP 200; the status cases
+// (#3320) mock `fetchPinnedJsonWithStatus` directly.
+vi.mock('../shared/pinned-http', () => {
+  const fetchPinnedJson = vi.fn();
+  return {
+    fetchPinnedJson,
+    fetchPinnedJsonWithStatus: vi.fn(async (...args: unknown[]) => ({
+      status: 200,
+      body: await fetchPinnedJson(...args),
+    })),
+  };
+});
 
 describe('MimsmsProvider', () => {
   let gateway: MimsmsProvider;
@@ -206,6 +217,60 @@ describe('MimsmsProvider', () => {
     // Review round 2, item 3: the fixed sentence, never the guard's text with the address.
     expect(result.error).toBe('This server address cannot be used — check it and try again.');
     expect(result.error).not.toContain('10.0.0.5');
+  });
+
+  // #3320: the HTTP status decides before the body. REJECTED releases the SMS credit; AMBIGUOUS
+  // keeps it held (the message may have gone out), so getting these wrong moves money.
+  describe('HTTP status (#3320)', () => {
+    const config = { gateway: 'mimsms', apiKey: 'key-1', senderId: 'sender-1' };
+    const answer = (status: number, body: unknown) =>
+      vi.mocked(fetchPinnedJsonWithStatus).mockResolvedValueOnce({ status, body });
+
+    it('send: 401 -> REJECTED with the API key sentence, not retryable', async () => {
+      answer(401, { status: 'error', message: 'Invalid api key key-1' });
+      const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        success: false,
+        outcome: 'REJECTED',
+        retryable: false,
+        error: 'MimSMS rejected the API key.',
+      });
+    });
+
+    it('send: 403 -> REJECTED with the API key sentence', async () => {
+      answer(403, undefined);
+      const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({ outcome: 'REJECTED', error: 'MimSMS rejected the API key.' });
+    });
+
+    it('send: 404 HTML page (no JSON body) -> REJECTED', async () => {
+      answer(404, undefined);
+      const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        outcome: 'REJECTED',
+        retryable: false,
+        error: 'MimSMS rejected the message.',
+      });
+    });
+
+    it('send: 5xx whose JSON says status error -> AMBIGUOUS, never REJECTED (credit stays held)', async () => {
+      answer(503, { status: 'error', message: 'Service unavailable' });
+      const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({
+        success: false,
+        outcome: 'AMBIGUOUS',
+        error: 'Could not reach MimSMS; the message may or may not have been sent.',
+      });
+      expect(r.retryable).toBeUndefined();
+    });
+
+    it('send: a timeout -> AMBIGUOUS', async () => {
+      vi.mocked(fetchPinnedJsonWithStatus).mockRejectedValueOnce(
+        new DOMException('timed out', 'TimeoutError'),
+      );
+      const r = await gateway.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r.outcome).toBe('AMBIGUOUS');
+    });
   });
 
   describe('testConnection', () => {
