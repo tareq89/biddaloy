@@ -1,0 +1,121 @@
+import {
+  BadGatewayException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
+import { CommunicationLog } from './entities/communication-log.entity';
+import { CommunicationProviderRegistryService } from './providers/communication-provider.registry';
+import { ProviderNotConfiguredError } from './config/provider-not-configured.error';
+import { isMessageSink } from './providers/sink/message-sink';
+import { ReminderBatchLogDto } from './dto/reminders.dto';
+import { toBatchLogDto } from './reminders.service';
+
+/** D23: one check per log per minute. */
+const COOLDOWN_MS = 60_000;
+
+// Rule 23: every "cannot check" path answers this one sentence; none names the company or the log.
+export const CANNOT_CHECK_STATUS = 'The delivery status of this message cannot be checked now.';
+// Rule 24: the vendor's own error text never reaches the client.
+export const STATUS_CHECK_FAILED = 'Could not get the delivery status. Try again in a minute.';
+
+/**
+ * [97.4.01] D23: pull the delivery status of one SENT message from the company that sent it.
+ *
+ * ```mermaid
+ * flowchart LR
+ *   L[log of this tenant?] -- no --> N[404]
+ *   L --> E{SENT, vendor id, metadata.provider,<br/>no check in 60 s, not sink?}
+ *   E -- no --> C[409]
+ *   E --> R[resolve that provider with the tenant's config] -- unknown / no status capability --> C
+ *   R --> G[getStatus] -- throws --> B[502, log unchanged]
+ *   G --> W[metadata.delivery + DELIVERED / FAILED / stays SENT]
+ * ```
+ */
+@Injectable()
+export class DeliveryStatusService {
+  private readonly logger = new Logger(DeliveryStatusService.name);
+
+  constructor(
+    @InjectRepository(CommunicationLog) private readonly repo: Repository<CommunicationLog>,
+    private readonly registry: CommunicationProviderRegistryService,
+  ) {}
+
+  async checkStatus(id: string, tenantId: string): Promise<ReminderBatchLogDto> {
+    const log = await this.repo.findOne({ where: { id, tenant_id: tenantId } });
+    if (!log) throw new NotFoundException('Communication log not found');
+
+    const meta = (log.metadata ?? {}) as { provider?: unknown; delivery?: { checkedAt?: string } };
+    const name = typeof meta.provider === 'string' ? meta.provider : null;
+    const lastCheck = Date.parse(meta.delivery?.checkedAt ?? '');
+    const cannot = () => new ConflictException(CANNOT_CHECK_STATUS);
+    if (
+      log.status !== CommunicationStatus.SENT ||
+      !log.provider_message_id ||
+      !name ||
+      Date.now() - lastCheck < COOLDOWN_MS ||
+      // Sink mode delivered to Mailpit, not a vendor: there is nothing to ask (and demo ids are fake).
+      isMessageSink()
+    ) {
+      throw cannot();
+    }
+
+    let resolved;
+    try {
+      // The override names the provider only (no field keys), so the tenant's stored config is used.
+      resolved = await this.registry.resolveFor(log.medium as CommunicationMedium, tenantId, {
+        override: { provider: name },
+      });
+    } catch (err) {
+      if (err instanceof ProviderNotConfiguredError) throw cannot();
+      throw err;
+    }
+    const { provider, config } = resolved;
+    if (
+      provider.descriptor.name !== name ||
+      !provider.descriptor.capabilities.includes('status') ||
+      !provider.getStatus
+    ) {
+      throw cannot();
+    }
+
+    let result: Awaited<ReturnType<NonNullable<typeof provider.getStatus>>>;
+    try {
+      result = await provider.getStatus(log.provider_message_id, config);
+    } catch (err) {
+      // The class only: the message can carry the vendor URL or key (Rule 13).
+      this.logger.warn(`Status check failed with ${err instanceof Error ? err.name : typeof err}`);
+      throw new BadGatewayException(STATUS_CHECK_FAILED);
+    }
+
+    const delivery = {
+      status: result.status,
+      ...(result.code ? { code: result.code } : {}),
+      checkedAt: new Date().toISOString(),
+    };
+    const next =
+      result.status === 'DELIVERED'
+        ? CommunicationStatus.DELIVERED
+        : result.status === 'FAILED'
+          ? CommunicationStatus.FAILED
+          : CommunicationStatus.SENT;
+    // jsonb merge in one statement, so a concurrent metadata write (credit settle) is not lost.
+    // ponytail: two clicks inside the same second can both reach the vendor; the 60 s window and
+    // the Idempotency-Key cover the UI. Claim-before-call if a vendor ever bills per status query.
+    const [, affected] = (await this.repo.query(
+      `UPDATE communication_logs
+          SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('delivery', $1::jsonb),
+              status = $2,
+              updated_at = now()
+        WHERE id = $3 AND tenant_id = $4 AND status = 'SENT'`,
+      [JSON.stringify(delivery), next, id, tenantId],
+    )) as [unknown, number];
+    if (affected !== 1) throw cannot();
+
+    return toBatchLogDto(await this.repo.findOneOrFail({ where: { id, tenant_id: tenantId } }));
+  }
+}

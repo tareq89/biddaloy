@@ -19,6 +19,7 @@ import {
 import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 import { UserRole } from '@biddaloy/shared';
 import { TENANT_STATUS_REDIS } from '../schools/tenant-status.service';
+import { CommunicationProviderRegistryService } from './providers/communication-provider.registry';
 
 /**
  * E2E tests for the bulk-reminder read/preview endpoints added for the
@@ -452,6 +453,207 @@ describe('Bulk Reminder Read/Preview E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .expect(400);
     });
+  });
+
+  // [97.4.01] D22 filters through the real HTTP stack (the SQL itself is proven in
+  // reminders.service.integration.spec.ts).
+  describe('GET /communications/logs filters', () => {
+    const getLogs = (qs: string, t = token) =>
+      supertest(app.getHttpServer())
+        .get(`/api/v1/communications/logs?${qs}`)
+        .set('Authorization', `Bearer ${t}`)
+        .set('X-Tenant-ID', TENANT_ID);
+
+    it('search (phone in +880 form), trigger, sent_by and provider each narrow the list', async () => {
+      const batchId = await createBatch(TENANT_ID);
+      const hit = await createBatchLog(batchId, TENANT_ID, { metadata: { provider: 'stub-sms' } });
+      await dataSource.query(
+        `UPDATE communication_logs SET recipient_address = '01799000111', sent_by_user_id = $1, trigger = 'MANUAL' WHERE id = $2`,
+        [SEED_ADMIN_USER_ID, hit],
+      );
+      await createBatchLog(batchId, TENANT_ID, { metadata: { provider: 'stub-other' } });
+
+      for (const qs of [
+        `search=${encodeURIComponent('+880 1799-000111')}`,
+        'trigger=MANUAL',
+        `sent_by=${SEED_ADMIN_USER_ID}`,
+        'provider=stub-sms',
+      ]) {
+        const res = await getLogs(qs).expect(200);
+        expect(res.body.data.map((r: { id: string }) => r.id)).toEqual([hit]);
+      }
+      const row = (await getLogs('provider=stub-sms').expect(200)).body.data[0];
+      expect(row).toMatchObject({ trigger: 'MANUAL', provider: 'stub-sms' });
+    });
+
+    it('OFFICE_STAFF (holds COMMUNICATION_BULK_SEND) can read the log', async () => {
+      await getLogs('', officeToken).expect(200);
+    });
+
+    it('rejects bad filter values with 400', async () => {
+      await getLogs('sent_by=not-a-uuid').expect(400);
+      await getLogs('trigger=NOPE').expect(400);
+      await getLogs(`provider=${'x'.repeat(41)}`).expect(400);
+      await getLogs(`search=${'x'.repeat(101)}`).expect(400);
+    });
+  });
+
+  // [97.4.01] D23. No vendor stub (the SSRF guard rightly refuses a loopback URL, D10): the 200
+  // path stubs the registry's resolveFor with a fake provider, so guards, pipes, interceptor,
+  // tenant scoping and the DB write are all real.
+  describe('POST /communications/logs/:id/check-status', () => {
+    let resolveSpy: ReturnType<typeof vi.spyOn> | undefined;
+    const getStatus = vi.fn();
+
+    const check = (id: string, t = token, tenant = TENANT_ID) =>
+      supertest(app.getHttpServer())
+        .post(`/api/v1/communications/logs/${id}/check-status`)
+        .set('Authorization', `Bearer ${t}`)
+        .set('X-Tenant-ID', tenant);
+
+    async function sentLog(tenantId = TENANT_ID): Promise<string> {
+      const id = await createBatchLog(await createBatch(tenantId), tenantId, {
+        status: 'SENT',
+        metadata: { provider: 'stub-sms', segments: 1 },
+      });
+      await dataSource.query(
+        `UPDATE communication_logs SET provider_message_id = 'vendor-7' WHERE id = $1`,
+        [id],
+      );
+      return id;
+    }
+
+    function stubProvider() {
+      const registry = app.get(CommunicationProviderRegistryService);
+      resolveSpy = vi.spyOn(registry, 'resolveFor').mockResolvedValue({
+        provider: {
+          descriptor: { medium: 'SMS', name: 'stub-sms', capabilities: ['status'] },
+          getStatus,
+        } as any,
+        config: {},
+        source: 'tenant',
+      });
+    }
+
+    afterEach(() => {
+      resolveSpy?.mockRestore();
+      resolveSpy = undefined;
+      getStatus.mockReset();
+    });
+
+    it('200: asks the sending company and returns the row as DELIVERED', async () => {
+      stubProvider();
+      getStatus.mockResolvedValue({ status: 'DELIVERED', code: '000' });
+      const id = await sentLog();
+
+      const res = await check(id).expect(200);
+
+      expect(getStatus).toHaveBeenCalledWith('vendor-7', {});
+      expect(res.body).toMatchObject({ id, status: 'DELIVERED', provider: 'stub-sms' });
+      expect(res.body).not.toHaveProperty('metadata');
+    });
+
+    it('200 for OFFICE_STAFF too (D35: the page permission only)', async () => {
+      stubProvider();
+      getStatus.mockResolvedValue({ status: 'PENDING' });
+      const id = await sentLog();
+
+      const res = await check(id, officeToken).expect(200);
+
+      expect(res.body.status).toBe('SENT');
+    });
+
+    it('the same Idempotency-Key replays the answer; the vendor is asked once', async () => {
+      stubProvider();
+      getStatus.mockResolvedValue({ status: 'PENDING' });
+      const id = await sentLog();
+      const key = `check-${randomUUID()}`;
+
+      const first = await check(id).set('Idempotency-Key', key).expect(200);
+      const second = await check(id).set('Idempotency-Key', key).expect(200);
+
+      expect(second.body).toEqual(first.body);
+      expect(getStatus).toHaveBeenCalledTimes(1);
+    });
+
+    it('502 with a fixed sentence when the vendor call fails; never the vendor text', async () => {
+      stubProvider();
+      getStatus.mockRejectedValue(new Error('secret-vendor-text'));
+      const id = await sentLog();
+
+      const res = await check(id).expect(502);
+
+      expect(JSON.stringify(res.body)).not.toContain('secret-vendor-text');
+    });
+
+    it('409 when the message is not SENT (no vendor call)', async () => {
+      stubProvider();
+      const batchId = await createBatch(TENANT_ID);
+      const failed = await createBatchLog(batchId, TENANT_ID, {
+        status: 'FAILED',
+        metadata: { provider: 'stub-sms' },
+      });
+
+      await check(failed).expect(409);
+      expect(getStatus).not.toHaveBeenCalled();
+    });
+
+    it('409 when the log names no company that declares the status capability', async () => {
+      // Real resolver: an unknown provider name for SMS is "not configured", not a crash.
+      const batchId = await createBatch(TENANT_ID);
+      const id = await createBatchLog(batchId, TENANT_ID, {
+        status: 'SENT',
+        metadata: { provider: 'no-such-company' },
+      });
+      await dataSource.query(
+        `UPDATE communication_logs SET provider_message_id = 'vendor-8' WHERE id = $1`,
+        [id],
+      );
+
+      const res = await check(id).expect(409);
+      expect(JSON.stringify(res.body)).not.toContain('no-such-company');
+    });
+
+    it('404 for another school’s log id, and the row is untouched', async () => {
+      stubProvider();
+      const foreign = await sentLog(OTHER_TENANT_ID);
+
+      await check(foreign).expect(404);
+
+      expect(getStatus).not.toHaveBeenCalled();
+      const [{ status }] = await dataSource.query(
+        `SELECT status FROM communication_logs WHERE id = $1`,
+        [foreign],
+      );
+      expect(status).toBe('SENT');
+    });
+
+    it('400 for a non-UUID id', async () => {
+      await check('not-a-uuid').expect(400);
+    });
+
+    it('403 for a TEACHER (no COMMUNICATION_BULK_SEND)', async () => {
+      await check(randomUUID(), teacherToken).expect(403);
+    });
+
+    it('401 without an X-Tenant-ID header', async () => {
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/communications/logs/${randomUUID()}/check-status`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(401);
+    });
+
+    it('401 for an X-Tenant-ID that matches no school, or one the caller is not a member of', async () => {
+      await check(randomUUID(), token, '00000000-0000-4000-8000-000000000fff').expect(401);
+      await check(randomUUID(), otherTenantAdminToken, TENANT_ID).expect(401);
+    });
+  });
+
+  it('GET /communications/logs: 401 without an X-Tenant-ID header', async () => {
+    await supertest(app.getHttpServer())
+      .get('/api/v1/communications/logs')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
   });
 
   describe('GET /communications/reminder/bulk/:id/logs', () => {

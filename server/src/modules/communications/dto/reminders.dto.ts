@@ -16,7 +16,12 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsRealDate } from '../../../common/decorators/is-real-date.decorator';
-import { CommunicationMedium, CommunicationStatus, ReminderBatchStatus } from '@biddaloy/shared';
+import {
+  CommunicationMedium,
+  CommunicationStatus,
+  CommunicationTrigger,
+  ReminderBatchStatus,
+} from '@biddaloy/shared';
 import { ReminderPreviewRecipientDto } from './single-reminder.dto';
 import { CommunicationLogMedium, PUSH_MEDIUM } from '../entities/communication-log.entity';
 import { DELIVERY_ERROR_CODES, DeliveryErrorCode } from '../delivery-error-code';
@@ -263,9 +268,12 @@ export class ReminderBatchLogDto {
   recipient_address: string;
   recipient_name: string;
   status: CommunicationStatus;
+  trigger: CommunicationTrigger;
   student_id: string | null;
   guardian_id: string | null;
   provider_message_id: string | null;
+  /** [97.4.01] The company that sent it (`metadata.provider`), null before Epic 97 or in sink mode. */
+  provider: string | null;
   // A fixed code, never the raw failure text (Rule 23, see delivery-error-code.ts).
   @ApiProperty({ enum: DELIVERY_ERROR_CODES, nullable: true })
   error: DeliveryErrorCode | null;
@@ -282,6 +290,27 @@ export class ReminderBatchLogListResponseDto extends ReminderPaginatedResponseDt
  * a batch's logs (`ReminderBatchLogDto`), filtered by outcome and channel.
  */
 export class QueryCommunicationLogsDto {
+  /** [97.4.01] D22/D33: recipient name, phone (any `+880` / `01` / spaced form) or email. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
+  @IsOptional()
+  @IsEnum(CommunicationTrigger)
+  trigger?: CommunicationTrigger;
+
+  /** The staff user who sent it (`sent_by_user_id`). */
+  @IsOptional()
+  @IsUUID()
+  sent_by?: string;
+
+  /** The company that sent it (`metadata.provider`, a descriptor name). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  provider?: string;
+
   @IsOptional()
   @IsEnum(CommunicationStatus)
   status?: CommunicationStatus;

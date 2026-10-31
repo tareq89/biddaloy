@@ -45,15 +45,22 @@ export async function sendThroughProvider<TConfig>(
   params: CommunicationSendParams,
   config: TConfig,
 ): Promise<CommunicationSendResult> {
-  const medium = provider.descriptor.medium;
+  const { medium, name } = provider.descriptor;
   try {
     const result = await provider.send(params, config);
     const segments = segmentsFor(medium, params);
-    return segments !== undefined && result.segments === undefined
-      ? { ...result, segments }
-      : result;
+    return {
+      ...result,
+      ...(segments !== undefined && result.segments === undefined ? { segments } : {}),
+      provider: name,
+    };
   } catch (err) {
     // Unknown whether it reached the network: AMBIGUOUS, never the REJECTED a config error gets.
-    return { ...failedResult(err, medium, params), retryable: undefined, outcome: 'AMBIGUOUS' };
+    return {
+      ...failedResult(err, medium, params),
+      retryable: undefined,
+      outcome: 'AMBIGUOUS',
+      provider: name,
+    };
   }
 }

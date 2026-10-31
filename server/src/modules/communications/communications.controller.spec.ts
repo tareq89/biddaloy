@@ -7,6 +7,7 @@ import { SingleReminderService } from './single-reminder.service';
 import { CommunicationMedium, UserRole } from '@biddaloy/shared';
 import { FamilyAccessService } from '../students/family-access.service';
 import { TeacherScopeService } from '../classes/teacher-scope.service';
+import { DeliveryStatusService } from './delivery-status.service';
 
 /**
  * Unit tests for CommunicationsController.
@@ -25,6 +26,7 @@ describe('CommunicationsController', () => {
   let singleReminderService: Record<string, ReturnType<typeof vi.fn>>;
   let familyAccess: Record<string, ReturnType<typeof vi.fn>>;
   let teacherScope: Record<string, ReturnType<typeof vi.fn>>;
+  let deliveryStatus: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
   const USER = { sub: 'user-1', memberships: [] } as any;
@@ -55,12 +57,14 @@ describe('CommunicationsController', () => {
       scopedStudentIds: vi.fn().mockResolvedValue(null),
       assertCanSeeGuardian: vi.fn().mockResolvedValue(undefined),
     };
+    deliveryStatus = { checkStatus: vi.fn() };
     controller = new CommunicationsController(
       service as unknown as CommunicationsService,
       bulkReminderService as unknown as BulkReminderService,
       singleReminderService as unknown as SingleReminderService,
       familyAccess as unknown as FamilyAccessService,
       teacherScope as unknown as TeacherScopeService,
+      deliveryStatus as unknown as DeliveryStatusService,
     );
   });
 
@@ -215,6 +219,18 @@ describe('CommunicationsController', () => {
 
       expect(bulkReminderService.findBatches).toHaveBeenCalledWith(query, TENANT.id);
       expect(result).toEqual(expected);
+    });
+  });
+
+  describe('checkStatus', () => {
+    it('passes the log id and the caller tenant to DeliveryStatusService', async () => {
+      const expected = { id: 'log-1', status: 'DELIVERED' };
+      deliveryStatus.checkStatus.mockResolvedValue(expected);
+
+      const result = await controller.checkStatus('log-1', TENANT);
+
+      expect(deliveryStatus.checkStatus).toHaveBeenCalledWith('log-1', TENANT.id);
+      expect(result).toBe(expected);
     });
   });
 
