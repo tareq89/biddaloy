@@ -59,9 +59,10 @@ async function seedMessage(request: APIRequestContext, withStudent = false) {
       `/communications/logs?search=${encodeURIComponent(name)}`,
     );
   // The worker settles the row a moment after the send; the steps below filter by its status, so
-  // wait for the final one instead of reading QUEUED and racing the worker.
+  // wait for the final one instead of reading QUEUED and racing the worker. 20 s: the default 5 s
+  // ran out on a loaded machine (#3351 r2 local run 3 of 3).
   await expect
-    .poll(async () => (await read()).data[0]?.status ?? 'none')
+    .poll(async () => (await read()).data[0]?.status ?? 'none', { timeout: 20_000 })
     .not.toMatch(/^(QUEUED|none)$/);
   const logs = await read();
   expect(logs.data).toHaveLength(1);
