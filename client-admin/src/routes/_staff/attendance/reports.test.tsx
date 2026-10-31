@@ -154,6 +154,30 @@ describe('/attendance/reports', () => {
     await expectHelp('attendance.attendanceReports.field.threshold');
   });
 
+  it('shows a (?) beside each view tab, outside the trigger [#3317]', async () => {
+    vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
+    server.use(
+      http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
+        HttpResponse.json({ dates: [], rows: [registerMatrixRow()] }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/attendance/reports?section_id=section-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('Karim Rahman');
+    await expectHelp('attendance.attendanceReports.section.summary');
+    await expectHelp('attendance.attendanceReports.section.flags');
+    const tab = screen.getByRole('tab', { name: 'Month summary' });
+    expect(tab.querySelector('[data-help-id]')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Help: Low attendance' }));
+    expect(screen.getByRole('tab', { name: 'Month summary' }).getAttribute('aria-selected')).toBe(
+      'true',
+    );
+  });
+
   it('drops an unknown query param instead of showing a raw filter chip', async () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/attendance/reports?date=2026-10-22'],
@@ -463,6 +487,7 @@ describe('/attendance/reports', () => {
     });
 
     it('shows the tab with the switch on, keeps view=subjects, and hides the minimum filter', async () => {
+      vi.stubEnv('VITE_HANDBOOK_URL', 'https://guide.test');
       settingsWithPeriod(true);
       subjectSummary();
       entry('/attendance/reports?view=subjects&section_id=section-1');
@@ -470,6 +495,7 @@ describe('/attendance/reports', () => {
       await waitFor(() => expect(tab.getAttribute('aria-selected')).toBe('true'));
       await screen.findByText('Karim Rahman');
       expect(screen.queryByText('Minimum attendance (%)')).toBeNull();
+      await expectHelp('attendance.attendanceReports.section.subjects');
     });
   });
 });

@@ -133,30 +133,20 @@ function Field({
   className?: string;
   children: React.ReactNode;
 }) {
-  const labelEl = (
-    <Label htmlFor={id}>
-      {label}
-      {required && (
-        <>
-          <span className="text-destructive" aria-hidden="true">
-            {' '}
-            *
-          </span>
-          <span className="sr-only"> {requiredLabel}</span>
-        </>
-      )}
-    </Label>
-  );
   return (
     <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
-      {helpId ? (
-        <span className="inline-flex items-center gap-1">
-          {labelEl}
-          <HelpHint helpId={helpId} />
-        </span>
-      ) : (
-        labelEl
-      )}
+      <Label htmlFor={id} helpId={helpId} helpLabel={label}>
+        {label}
+        {required && (
+          <>
+            <span className="text-destructive" aria-hidden="true">
+              {' '}
+              *
+            </span>
+            <span className="sr-only"> {requiredLabel}</span>
+          </>
+        )}
+      </Label>
       {children}
       {help && <p className="text-caption text-text-secondary">{help}</p>}
       {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
@@ -484,7 +474,10 @@ function ScheduleFormPage({
         <Card padded>
           <div className="flex items-center gap-1">
             <h2 className="text-h2">{t('schedules.form.audienceLegend')}</h2>
-            <HelpHint helpId="finance.recurringSchedules.field.audience" />
+            <HelpHint
+              helpId="finance.recurringSchedules.field.audience"
+              label={t('schedules.form.audienceLegend')}
+            />
           </div>
           {/* Not a control: `enrollment_status` accepts only `'ACTIVE'`, so this states the fixed
               rule instead of offering a choice the server would reject. */}

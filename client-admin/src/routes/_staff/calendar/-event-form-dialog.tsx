@@ -99,7 +99,7 @@ function CheckRow({
         onCheckedChange={(value) => onChange(value === true)}
       />
       <label htmlFor={id}>{label}</label>
-      {helpId && <HelpHint helpId={helpId} />}
+      {helpId && <HelpHint helpId={helpId} label={label} />}
     </div>
   );
 }
@@ -307,7 +307,10 @@ export function EventFormPage({
                   <label htmlFor="event-form-late-reason" className={LABEL}>
                     {t('eventForm.lateReason')}
                   </label>
-                  <HelpHint helpId="people.calendar.field.lateReason" />
+                  <HelpHint
+                    helpId="people.calendar.field.lateReason"
+                    label={t('eventForm.lateReason')}
+                  />
                 </span>
                 <Textarea
                   id="event-form-late-reason"

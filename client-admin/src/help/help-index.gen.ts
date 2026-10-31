@@ -184,19 +184,6 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
-  'people.students.action.printIdCard': {
-    title: {
-      bn: 'শিক্ষার্থী যোগ করা ও তাদের তথ্য দেখা',
-      en: 'Adding students and viewing their details',
-    },
-    summary: {
-      bn: 'নতুন শিক্ষার্থী যোগ করুন, একসাথে অনেককে আমদানি করুন, আর প্রত্যেকের প্রোফাইল থেকে শ্রেণি, অভিভাবক, ফি, নোট ও স্কুল ছাড়ার তথ্য সামলান।',
-      en: "Add a new student, import many at once, and use each student's profile to handle class, guardians, fees, notes and leaving the school.",
-    },
-    path: 'people/students',
-    anchor: 'task-main',
-    knownIssues: 0,
-  },
   'people.students.action.collectFees': {
     title: {
       bn: 'শিক্ষার্থী যোগ করা ও তাদের তথ্য দেখা',
@@ -562,26 +549,6 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
-  'people.staff.action.view': {
-    title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
-    summary: {
-      bn: 'স্কুলের কর্মী যোগ করুন, তাঁদের যোগাযোগ বদলান, আমন্ত্রণ পাঠান, শিক্ষক প্রোফাইল দিন, আর কাউকে স্কুল থেকে সরান বা ফিরিয়ে আনুন।',
-      en: 'Add school staff, change their contact details, send invitations, give teacher profiles, and remove people from the school or bring them back.',
-    },
-    path: 'people/staff',
-    anchor: 'task-main',
-    knownIssues: 0,
-  },
-  'people.staff.action.restore': {
-    title: { bn: 'কর্মী যোগ করা ও পরিচালনা', en: 'Adding and managing staff' },
-    summary: {
-      bn: 'স্কুলের কর্মী যোগ করুন, তাঁদের যোগাযোগ বদলান, আমন্ত্রণ পাঠান, শিক্ষক প্রোফাইল দিন, আর কাউকে স্কুল থেকে সরান বা ফিরিয়ে আনুন।',
-      en: 'Add school staff, change their contact details, send invitations, give teacher profiles, and remove people from the school or bring them back.',
-    },
-    path: 'people/staff',
-    anchor: 'task-main',
-    knownIssues: 0,
-  },
   'people.staffImport': {
     title: { bn: 'এক্সেল থেকে কর্মী যোগ করা', en: 'Adding staff from Excel' },
     summary: {
@@ -639,16 +606,6 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
   },
   'people.programs.action.record': {
-    title: { bn: 'প্রোগ্রাম ও মাইলস্টোন', en: 'Programs and milestones' },
-    summary: {
-      bn: 'হিফজ, ক্লাব বা কোর্সের মতো প্রোগ্রাম যোগ করুন, মাইলস্টোন ঠিক করুন, শিক্ষার্থী তালিকাভুক্ত করুন আর প্রতিটি অর্জন রেকর্ড করে অগ্রগতি দেখুন।',
-      en: 'Add programs such as Hifz, a club or a course, set their milestones, enrol students, and record each achievement to follow progress.',
-    },
-    path: 'people/programs',
-    anchor: 'task-main',
-    knownIssues: 0,
-  },
-  'people.programs.action.archive': {
     title: { bn: 'প্রোগ্রাম ও মাইলস্টোন', en: 'Programs and milestones' },
     summary: {
       bn: 'হিফজ, ক্লাব বা কোর্সের মতো প্রোগ্রাম যোগ করুন, মাইলস্টোন ঠিক করুন, শিক্ষার্থী তালিকাভুক্ত করুন আর প্রতিটি অর্জন রেকর্ড করে অগ্রগতি দেখুন।',
@@ -1758,16 +1715,6 @@ export const HELP_INDEX: HelpIndex = {
     knownIssues: 0,
   },
   'academics.syllabus.action.addTemplateCsv': {
-    title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
-    summary: {
-      bn: 'শ্রেণি ও বিষয়ের সিলেবাস টপিক ক্রমে সাজান, প্রতিটি শাখার বিষয়ের জন্য পাঠ পরিকল্পনা বানান, আর দেখুন কোন শাখা পিছিয়ে আছে।',
-      en: "Put a class and subject's syllabus topics in order, make a study plan for each section's subject, and see which section is behind.",
-    },
-    path: 'academics/syllabus',
-    anchor: 'task-main',
-    knownIssues: 0,
-  },
-  'academics.syllabus.action.copyToMine': {
     title: { bn: 'সিলেবাস ও পাঠ পরিকল্পনা', en: 'Syllabus and study plans' },
     summary: {
       bn: 'শ্রেণি ও বিষয়ের সিলেবাস টপিক ক্রমে সাজান, প্রতিটি শাখার বিষয়ের জন্য পাঠ পরিকল্পনা বানান, আর দেখুন কোন শাখা পিছিয়ে আছে।',
@@ -4829,32 +4776,6 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'portal/notifications',
     anchor: '',
-    knownIssues: 0,
-  },
-  'portal.notifications.action.close': {
-    title: {
-      bn: 'সতর্কতা ও বিজ্ঞপ্তি (অভিভাবক ও শিক্ষার্থী)',
-      en: 'Alerts and notifications (parent and student)',
-    },
-    summary: {
-      bn: 'সন্তানের অনুপস্থিতি, বকেয়া ফি, কালকের পরীক্ষা, ফল প্রকাশ, বাড়ির কাজ আর জরিপের খবর এক জায়গায় দেখুন। কাজ হয়ে গেলে সতর্কতা নিজে থেকে সরে যায়।',
-      en: "See news about your child in one place: absence, unpaid fees, tomorrow's exam, published results, homework and surveys. An alert goes away by itself once the work is done.",
-    },
-    path: 'portal/notifications',
-    anchor: 'task-main',
-    knownIssues: 0,
-  },
-  'portal.notifications.action.snooze': {
-    title: {
-      bn: 'সতর্কতা ও বিজ্ঞপ্তি (অভিভাবক ও শিক্ষার্থী)',
-      en: 'Alerts and notifications (parent and student)',
-    },
-    summary: {
-      bn: 'সন্তানের অনুপস্থিতি, বকেয়া ফি, কালকের পরীক্ষা, ফল প্রকাশ, বাড়ির কাজ আর জরিপের খবর এক জায়গায় দেখুন। কাজ হয়ে গেলে সতর্কতা নিজে থেকে সরে যায়।',
-      en: "See news about your child in one place: absence, unpaid fees, tomorrow's exam, published results, homework and surveys. An alert goes away by itself once the work is done.",
-    },
-    path: 'portal/notifications',
-    anchor: 'task-main',
     knownIssues: 0,
   },
 } as const;

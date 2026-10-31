@@ -312,7 +312,10 @@ function SendMessageBody() {
                 <legend className="mb-1.5 text-label text-text-primary">
                   <span className="inline-flex items-center gap-1">
                     <span id="send-guardian-pick-label">{t('send.guardianPickLabel')}</span>
-                    <HelpHint helpId="communications.sendMessage.field.guardian" />
+                    <HelpHint
+                      helpId="communications.sendMessage.field.guardian"
+                      label={t('send.guardianPickLabel')}
+                    />
                   </span>
                 </legend>
                 <RadioGroup
@@ -371,10 +374,9 @@ function SendMessageBody() {
           <h2 className="text-h2">{t('send.messageSectionTitle')}</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <span className="inline-flex items-center gap-1">
-                <Label htmlFor="send-medium">{t('send.mediumLabel')}</Label>
-                <HelpHint helpId="communications.sendMessage.field.medium" />
-              </span>
+              <Label htmlFor="send-medium" helpId="communications.sendMessage.field.medium">
+                {t('send.mediumLabel')}
+              </Label>
               <Select value={medium} onValueChange={(value) => setMedium(value as SendableMedium)}>
                 <SelectTrigger
                   id="send-medium"
@@ -408,10 +410,9 @@ function SendMessageBody() {
             )}
 
             <div className="flex flex-col gap-1.5 md:col-span-2">
-              <span className="inline-flex items-center gap-1">
-                <Label htmlFor="send-message">{t('send.messageLabel')}</Label>
-                <HelpHint helpId="communications.sendMessage.field.message" />
-              </span>
+              <Label htmlFor="send-message" helpId="communications.sendMessage.field.message">
+                {t('send.messageLabel')}
+              </Label>
               <Textarea
                 id="send-message"
                 value={messageBody}
@@ -444,7 +445,7 @@ function SendMessageBody() {
                 <SendIcon aria-hidden />
                 {t('send.submit')}
               </Button>
-              <HelpHint helpId="communications.sendMessage.action.send" />
+              <HelpHint helpId="communications.sendMessage.action.send" label={t('send.submit')} />
             </span>
           </div>
         </Card>
