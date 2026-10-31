@@ -481,15 +481,21 @@ describe('HomeworkSubmissionService', () => {
     });
 
     // #3172: PARTIAL is a PARTIAL-mode outcome; TICK and MARKS only ever send DONE / NOT_SUBMITTED.
-    for (const mode of [HomeworkGradingMode.TICK, HomeworkGradingMode.MARKS]) {
-      it(`rejects status PARTIAL on a ${mode} homework before any write`, async () => {
-        homeworkRepo.findOne.mockResolvedValue({ ...HOMEWORK, grading_mode: mode });
-        await rejectsBeforeWrite(
-          [{ student_id: SID_A, status: 'PARTIAL' }],
-          'Partial can only be set when the homework grading mode is PARTIAL',
-        );
-      });
-    }
+    const rejectsPartialOn = async (mode: HomeworkGradingMode) => {
+      homeworkRepo.findOne.mockResolvedValue({ ...HOMEWORK, grading_mode: mode });
+      await rejectsBeforeWrite(
+        [{ student_id: SID_A, status: 'PARTIAL' }],
+        'Partial can only be set when the homework grading mode is PARTIAL',
+      );
+    };
+
+    it('rejects status PARTIAL on a TICK homework before any write', async () => {
+      await rejectsPartialOn(HomeworkGradingMode.TICK);
+    });
+
+    it('rejects status PARTIAL on a MARKS homework before any write', async () => {
+      await rejectsPartialOn(HomeworkGradingMode.MARKS);
+    });
 
     it('accepts status PARTIAL on a PARTIAL homework', async () => {
       homeworkRepo.findOne.mockResolvedValue({
