@@ -69,6 +69,16 @@ export interface MeasureDef {
   sql: string;
   type: ReportFieldType;
   entity: string;
+  /** What the number reveals; a money total is FINANCIAL, a head count PUBLIC. */
+  sensitivity: FieldSensitivity;
+}
+
+/** How a TEACHER's view of an area is narrowed to the sections they teach (D5). */
+export interface AreaScopeDef {
+  /** The row's class-section id, e.g. `e.section_id`. */
+  sectionSql: string;
+  /** Alias of the entity that expression reads, so the compiler joins it. */
+  alias: string;
 }
 
 export interface SubjectAreaDef {
@@ -77,4 +87,6 @@ export interface SubjectAreaDef {
   joins: readonly JoinDef[];
   fields: readonly FieldDef[];
   measures: readonly MeasureDef[];
+  /** Absent when rows have no section (staff): a TEACHER cannot run reports on such an area. */
+  scope?: AreaScopeDef;
 }

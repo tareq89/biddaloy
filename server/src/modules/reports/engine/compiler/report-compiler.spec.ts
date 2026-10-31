@@ -10,7 +10,12 @@ import {
 } from '@biddaloy/shared';
 import { ReportRegistry } from '../registry/registry';
 import type { FieldDef } from '../registry/registry.types';
-import { type ReportRunContext, RoleScopePolicy } from '../security/role-scope.policy';
+import {
+  type ReportRunContext,
+  RoleScopePolicy,
+  type ScopeClause,
+} from '../security/role-scope.policy';
+import type { TeacherScopeService } from '../../../classes/teacher-scope.service';
 import { ReportCompileError } from './compiler.errors';
 import { ReportCompiler } from './report-compiler';
 import { TEST_FEES_AREA, TEST_STUDENTS_AREA } from './test-areas';
@@ -21,7 +26,10 @@ const ctx: ReportRunContext = { tenantId: TENANT, userId: 'u1', role: UserRole.A
 // A DataSource that is never connected: the builder only needs the driver to quote names.
 const dataSource = new DataSource({ type: 'postgres' });
 
-function makeCompiler(policy = new RoleScopePolicy()) {
+/** A teacher-scope service that is never asked: these specs drive `compileWithScope` directly. */
+const noTeacherScope = { sectionScope: async () => null } as unknown as TeacherScopeService;
+
+function makeCompiler(policy = new RoleScopePolicy(noTeacherScope)) {
   const registry = new ReportRegistry([TEST_STUDENTS_AREA, TEST_FEES_AREA]);
   return new ReportCompiler(dataSource, registry, policy);
 }
@@ -42,8 +50,14 @@ const definition = (
   ...extra,
 });
 
-const sqlOf = (def: ReportDefinitionJson, values = {}, maxRows = 500, c = makeCompiler()) => {
-  const compiled = c.compile(def, values, ctx, maxRows);
+const sqlOf = (
+  def: ReportDefinitionJson,
+  values = {},
+  maxRows = 500,
+  c = makeCompiler(),
+  scope: ScopeClause[] = [],
+) => {
+  const compiled = c.compileWithScope(def, values, ctx, maxRows, scope);
   const [sql, params] = compiled.query.getQueryAndParameters();
   return { sql, params, compiled };
 };
@@ -403,7 +417,7 @@ describe('ReportCompiler', () => {
         definition({ dimensions: [{ field: 'name' }, { field: 'guardian_phone' }] }),
         {},
         500,
-        makeCompiler(new HideSensitive()),
+        makeCompiler(new HideSensitive(noTeacherScope)),
       );
       expect(sql).not.toContain('g.phone');
       expect(compiled.masked).toEqual(['guardian_phone']);
@@ -416,26 +430,27 @@ describe('ReportCompiler', () => {
           definition({ dimensions: [{ field: 'guardian_phone' }] }),
           {},
           500,
-          makeCompiler(new HideSensitive()),
+          makeCompiler(new HideSensitive(noTeacherScope)),
         ),
       ).toThrowError(expect.objectContaining({ code: 'NOTHING_TO_SHOW' }));
     });
 
-    it('adds a row-scope clause from the policy, with its own parameters, and joins what it reads', () => {
-      class OwnSection extends RoleScopePolicy {
-        override scopeFor() {
-          return [
-            { sql: 'cs.id = :scopeSection', params: { scopeSection: 'sec-1' }, aliases: ['cs'] },
-          ];
-        }
-      }
+    it('adds a row-scope clause, with its own parameters, and joins what it reads', () => {
+      const scope = [
+        {
+          sql: 'cs.id IN (:...scopeSections)',
+          params: { scopeSections: ['sec-1'] },
+          aliases: ['cs'],
+        },
+      ];
       const { sql, params } = sqlOf(
         definition({ dimensions: [{ field: 'name' }] }),
         {},
         500,
-        makeCompiler(new OwnSection()),
+        makeCompiler(),
+        scope,
       );
-      expect(sql).toContain('cs.id = $');
+      expect(sql).toContain('cs.id IN ($');
       expect(sql).toContain('LEFT JOIN "class_sections" "cs"');
       expect(params).toContain('sec-1');
     });

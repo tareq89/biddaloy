@@ -33,7 +33,8 @@ const measure = (
   sql: string,
   entity: string,
   type: ReportFieldType = ReportFieldType.NUMBER,
-): MeasureDef => ({ key, labelEn: key, labelBn: key, fn, sql, type, entity });
+  sensitivity: FieldSensitivity = FieldSensitivity.PUBLIC,
+): MeasureDef => ({ key, labelEn: key, labelBn: key, fn, sql, type, entity, sensitivity });
 
 const section = {
   alias: 'cs',
@@ -58,6 +59,7 @@ const students = {
 export const TEST_STUDENTS_AREA: SubjectAreaDef = {
   key: ReportSubjectArea.STUDENTS,
   root: students,
+  scope: { sectionSql: 's.class_section_id', alias: 's' },
   joins: [
     { from: 's', to: section, on: 's.class_section_id = cs.id', kind: 'left' },
     { from: 'cs', to: klass, on: 'cs.class_id = c.id', kind: 'left' },
@@ -112,7 +114,14 @@ export const TEST_FEES_AREA: SubjectAreaDef = {
     }),
   ],
   measures: [
-    measure('billed', AggregateFn.SUM, 'sf.total_amount', 'sf', ReportFieldType.MONEY),
+    measure(
+      'billed',
+      AggregateFn.SUM,
+      'sf.total_amount',
+      'sf',
+      ReportFieldType.MONEY,
+      FieldSensitivity.FINANCIAL,
+    ),
     measure('bills', AggregateFn.COUNT, '*', 'sf'),
   ],
 };
