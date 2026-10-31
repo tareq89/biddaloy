@@ -169,6 +169,12 @@ export class SchoolsController {
     @Req() request: Request,
   ) {
     assertCanManageSchool(tenant, id);
-    return this.schools.updateSettings(id, dto, user.sub, requestContext(request));
+    return this.schools.updateSettings(
+      id,
+      dto,
+      user.sub,
+      requestContext(request),
+      tenant.role === UserRole.SUPER_ADMIN,
+    );
   }
 }

@@ -250,9 +250,13 @@ describe('Messaging settings (e2e)', () => {
     const sms = schema[CommunicationMedium.SMS];
     if (!sms || sms.providers.length < 2) return; // removal by provider null is the multi-company shape
     const { communications } = fullBody(schema);
-    await patch(SEED_TENANT_ID, {
-      communications: { sms: { ...(communications.sms as object), metering: 'PLATFORM' } },
-    }).expect(200);
+    // #3346: only the platform (SUPER_ADMIN) may switch a school onto the platform account.
+    await req('patch', `/schools/${SEED_TENANT_ID}/settings`, SEED_TENANT_ID, UserRole.SUPER_ADMIN)
+      .send({
+        version: VERSION,
+        communications: { sms: { ...(communications.sms as object), metering: 'PLATFORM' } },
+      })
+      .expect(200);
 
     // Review round 2 on #3347: `provider: null` alone would leave the saved blocks behind, so it
     // is refused and nothing changes.
@@ -370,6 +374,77 @@ describe('Messaging settings (e2e)', () => {
     await patch(SEED_TENANT_ID, {
       communications: { [key]: { ...(communications[key] as object), metering: 'PLATFORM' } },
     }).expect(400);
+  });
+
+  // #3346: `sms.metering` is the platform's. A school ADMIN cannot change it; a SUPER_ADMIN can.
+  describe('sms.metering is platform-only', () => {
+    const storedMetering = async () =>
+      (await storedBlock(SEED_TENANT_ID, 'sms'))?.metering as string | undefined;
+    const setStored = (metering: string | null) =>
+      dataSource.query(
+        `UPDATE schools SET settings = jsonb_set(coalesce(settings, '{}'), '{communications}', coalesce(settings->'communications', '{}') || jsonb_build_object('sms', $2::jsonb)) WHERE id = $1`,
+        [SEED_TENANT_ID, JSON.stringify(metering ? { metering } : {})],
+      );
+    // SMS has several companies, so a valid body names one. PLATFORM needs nothing else (owns nothing);
+    // OFF needs a complete block of the school's own.
+    // No X-Role means the test user acts as SUPER_ADMIN, so a school caller must say ADMIN.
+    const adminPatch = (body: object, school = SEED_TENANT_ID, tenant = SEED_TENANT_ID) =>
+      req('patch', `/schools/${school}/settings`, tenant, UserRole.ADMIN).send({
+        version: VERSION,
+        ...body,
+      });
+    const sms = (metering: string) => ({
+      communications: {
+        sms: {
+          provider: 'greenweb',
+          metering,
+          ...(metering === 'OFF' ? { greenweb: { apiKey: 'x-abcdefgh' } } : {}),
+        },
+      },
+    });
+
+    it('a school ADMIN cannot switch an OFF school to PLATFORM (fixed 403, nothing echoed)', async () => {
+      await setStored(null);
+      const res = await adminPatch(sms('PLATFORM')).expect(403);
+      expect(JSON.stringify(res.body)).not.toContain('PLATFORM"');
+      expect(await storedMetering()).toBeUndefined();
+    });
+
+    it('a school ADMIN cannot switch a PLATFORM school to OFF, but may resend the stored value', async () => {
+      await setStored('PLATFORM');
+      await adminPatch(sms('OFF')).expect(403);
+      expect(await storedMetering()).toBe('PLATFORM');
+      await adminPatch(sms('PLATFORM')).expect(200);
+      expect(await storedMetering()).toBe('PLATFORM');
+    });
+
+    it('an absent stored value counts as OFF: resending OFF is allowed and writes nothing', async () => {
+      await setStored(null);
+      await adminPatch(sms('OFF')).expect(200);
+      expect(await storedMetering()).toBeUndefined();
+    });
+
+    it('a SUPER_ADMIN may set it', async () => {
+      await setStored(null);
+      await req(
+        'patch',
+        `/schools/${SEED_TENANT_ID}/settings`,
+        SEED_TENANT_ID,
+        UserRole.SUPER_ADMIN,
+      )
+        .send({ version: VERSION, ...sms('PLATFORM') })
+        .expect(200);
+      expect(await storedMetering()).toBe('PLATFORM');
+    });
+
+    it('an invalid value is 400; missing X-Tenant-ID is 401; non-UUID id is 400; another school is 403', async () => {
+      await adminPatch(sms('EVIL')).expect(400);
+      await req('patch', `/schools/${SEED_TENANT_ID}/settings`, null)
+        .send({ version: VERSION, ...sms('PLATFORM') })
+        .expect(401);
+      await adminPatch(sms('PLATFORM'), 'not-a-uuid').expect(400);
+      await adminPatch(sms('PLATFORM'), SEED_TENANT_ID, OTHER_TENANT_ID).expect(403);
+    });
   });
 
   describe('access control and tenant isolation', () => {

@@ -116,6 +116,7 @@ describe('SchoolsController', () => {
         expect.any(TenantSettingsDto),
         'user-1',
         { ip: '127.0.0.1', userAgent: 'vitest' },
+        false,
       );
       // updateSettings already returns the masked shape — no follow-up
       // getMaskedSettings call, which would be a redundant query and a
@@ -140,6 +141,7 @@ describe('SchoolsController', () => {
         expect.any(TenantSettingsDto),
         'user-1',
         { ip: '127.0.0.1', userAgent: 'vitest' },
+        true,
       );
     });
 
