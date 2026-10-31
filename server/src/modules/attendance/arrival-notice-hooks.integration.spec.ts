@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vites
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule, getQueueToken } from '@nestjs/bullmq';
 import { getDataSourceToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { Queue } from 'bullmq';
 import {
   ArrivalNoticeChannel,
@@ -77,10 +77,15 @@ describe('Arrival notice hooks (integration)', () => {
     );
   }
 
+  // This test's students only: a log another test left in flight never counts here.
   const logs = () =>
-    dataSource
-      .getRepository(CommunicationLog)
-      .find({ where: { tenant_id: T, trigger: CommunicationTrigger.ARRIVAL_NOTICE } });
+    dataSource.getRepository(CommunicationLog).find({
+      where: {
+        tenant_id: T,
+        trigger: CommunicationTrigger.ARRIVAL_NOTICE,
+        student_id: In(studentIds),
+      },
+    });
 
   async function device(): Promise<AttendanceDevice> {
     const { device: d } = await deviceService.create({
@@ -283,6 +288,9 @@ describe('Arrival notice hooks (integration)', () => {
       ]);
       expect(spy).toHaveBeenCalledTimes(1);
       expect(spy.mock.calls[0][0].students).toHaveLength(2);
+      // The send is fire-and-forget: wait for it, or its log lands in the next test (the CI
+      // flake, ported from epic/97's fix).
+      await spy.mock.results[0].value;
     });
 
     it('punch then teacher finalize the same day -> still 1 log for that guardian', async () => {

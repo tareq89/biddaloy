@@ -11,7 +11,8 @@
  * list by weekday and by the slot's valid_from..valid_to range, and never
  * re-derives the recurrence rule. The server's 422 for that check carries
  * `details.code: 'SLOT_NOT_ON_DATE'`; it is translated here
- * (`notOnDateError`), never shown verbatim.
+ * (`notOnDateError`), never shown verbatim. Saving over a record dated before
+ * the school's today answers 409 `SUBSTITUTION_IN_PAST` (#3022) -> `pastError`.
  */
 import { ApiError } from '@biddaloy/ui/api';
 import {
@@ -107,6 +108,7 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
       | 'slotTeacherError'
       | 'teacherBusyError'
       | 'teacherBusyNoTimeError'
+      | 'pastError'
       | 'errorToast';
     values?: Record<string, string>;
   } | null>(null);
@@ -201,6 +203,7 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
               values: { from: formatTime(from, config), to: formatTime(to, config) },
             });
           } else if (code === 'TEACHER_BUSY') setError({ key: 'teacherBusyNoTimeError' });
+          else if (code === 'SUBSTITUTION_IN_PAST') setError({ key: 'pastError' });
           else setError({ key: 'errorToast' });
         },
       },
