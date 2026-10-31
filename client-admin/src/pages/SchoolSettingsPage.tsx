@@ -112,8 +112,10 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
     : ownSchoolName;
 
   const settingsQuery = useSchoolSettings(schoolId ?? '');
-  // D32: "SMS is set up" is the server's word, not a rule rebuilt here.
-  const smsConfigured = useMessagingProviders(schoolId ?? '').data?.SMS?.configured ?? false;
+  // D32: "SMS is set up" is the server's word, not a rule rebuilt here. `null` while it loads or
+  // if it fails, so the sections show no "not set up" warning for a school that has SMS.
+  const providers = useMessagingProviders(schoolId ?? '').data;
+  const smsConfigured = providers ? (providers.SMS?.configured ?? false) : null;
   const canEditAcrCriteria = useHasPermission(Permission.ACR_WRITE);
   const canApplyPreset = useHasPermission(Permission.CURRICULUM_PRESET_APPLY);
   const canManagePrinting = useHasPermission(Permission.PRINT_TEMPLATE_MANAGE);

@@ -1,5 +1,5 @@
 import { CommunicationStatus } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
+import { ApiError, isUnknownOutcomeError } from '@biddaloy/ui/api';
 import {
   Button,
   ErrorState,
@@ -21,6 +21,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   useMessagingProviders,
+  useSendTestMessage,
   useTestSchoolConnection,
   useUpdateSchoolSettings,
   type MaskedMessagingBlock,
@@ -69,6 +70,25 @@ function formatOk(f: ProviderField, v: string): boolean {
 
 /** `details.code` of the server's daily test-send cap (the per-minute throttle 429 has none). */
 const TEST_SEND_DAILY_CAP = 'TEST_SEND_DAILY_CAP';
+
+/**
+ * A failed "Send a test message", in words (D9: never the server's text). A test saves nothing,
+ * so never "Couldn't save". A lost reply or 5xx may have sent it: say so, never "try again".
+ */
+function sendTestErrorKey(error: unknown): string {
+  if (error instanceof ApiError) {
+    const code = error.details?.code;
+    if (error.statusCode === 429 && code === TEST_SEND_DAILY_CAP)
+      return 'sendTestMessage.capReached';
+    if (error.statusCode === 409 && code === 'INSUFFICIENT_SMS_CREDIT')
+      return 'sendTestMessage.noCredit';
+    // The only 400 the form can get: the number or address failed the server's check.
+    if (error.statusCode === 400) return 'sendTestMessage.invalidAddress';
+    if (error.statusCode === 403) return 'mutationError.forbidden';
+  }
+  if (isUnknownOutcomeError(error)) return 'sendTestMessage.unconfirmed';
+  return 'sendTestMessage.failed';
+}
 
 /** One form value per (company, field); `__` because RHF would nest a dot. */
 const valueKey = (provider: string, field: string) => `${provider}__${field}`;
@@ -212,8 +232,8 @@ function ProviderConfigFormInner({
 
   const updateSettings = useUpdateSchoolSettings(schoolId);
   const testConnection = useTestSchoolConnection(schoolId);
-  // A real send: a lost reply gets the "could not confirm" toast, so a second click is a choice.
-  const sendTest = useTestSchoolConnection(schoolId, { sendsMessage: true });
+  // A real send: one key per attempt, and a lost reply gets the "could not confirm" toast.
+  const sendTest = useSendTestMessage(schoolId);
 
   /** Only the chosen company's block goes out: other companies' saved blocks stay as they are. */
   function buildConfig(values: Values): Communications[keyof Communications] {
@@ -320,11 +340,6 @@ function ProviderConfigFormInner({
 
   const sendResult = sendTest.data;
   const sentStatus = sendResult?.testMessage?.status as CommunicationStatus | undefined;
-  // Only the daily cap says "tomorrow"; the per-minute throttle's 429 gets the generic error.
-  const capReached =
-    sendTest.error instanceof ApiError &&
-    sendTest.error.statusCode === 429 &&
-    sendTest.error.details?.code === TEST_SEND_DAILY_CAP;
 
   return (
     <Form {...form}>
@@ -476,14 +491,11 @@ function ProviderConfigFormInner({
                 {t('sendTestMessage.failed')}
               </p>
             )}
-            {sendTest.isError &&
-              (capReached ? (
-                <p role="alert" className="text-destructive">
-                  {t('sendTestMessage.capReached')}
-                </p>
-              ) : (
-                <SettingsMutationError error={sendTest.error} />
-              ))}
+            {sendTest.isError && (
+              <p role="alert" className="text-destructive">
+                {t(sendTestErrorKey(sendTest.error))}
+              </p>
+            )}
           </div>
         )}
       </SettingsSection>

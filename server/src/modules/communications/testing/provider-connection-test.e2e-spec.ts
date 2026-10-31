@@ -293,6 +293,45 @@ describe('Provider connection test E2E', () => {
       expect(JSON.stringify(settings ?? {})).not.toContain('good-key-value');
     });
 
+    // PR #3325 review round 2, finding 1: the form sends the saved apiUrl back and leaves the saved
+    // key out. Send a test message must still work from the saved config, with the stored key.
+    it('sends a test message from a saved OneCodeSoft config when the override repeats the apiUrl', async () => {
+      const apiUrl = 'https://sms.example.com/api';
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/schools/${TENANT_ID}/settings`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          version: TENANT_SETTINGS_SCHEMA_VERSION,
+          communications: {
+            sms: { provider: 'onecodesoft', onecodesoft: { apiKey: 'saved-key-value', apiUrl } },
+          },
+        })
+        .expect(200);
+      try {
+        vi.mocked(fetchPinnedJson).mockClear();
+        mockBalanceThenSent();
+        const res = await post(
+          {
+            medium: 'SMS',
+            sendTo: '01712345670',
+            config: { provider: 'onecodesoft', onecodesoft: { apiUrl } },
+          },
+          'test-send-saved-config',
+        ).expect(200);
+        expect(res.body.testMessage).toEqual({ logId: expect.any(String), status: 'SENT' });
+        // Both vendor calls (balance, then send) carried the saved key to the saved host.
+        for (const [, url, init] of vi.mocked(fetchPinnedJson).mock.calls) {
+          expect(String(url)).toContain('sms.example.com');
+          expect(JSON.stringify(init)).toContain('saved-key-value');
+        }
+        expect(JSON.stringify(res.body)).not.toContain('saved-key-value');
+      } finally {
+        await dataSource.query(`UPDATE schools SET settings = NULL WHERE id = $1`, [TENANT_ID]);
+        app.get(TenantSettingsCache).invalidate(TENANT_ID);
+      }
+    });
+
     it('replays a repeated Idempotency-Key without a second send', async () => {
       mockBalanceThenSent();
       const first = await post(smsBody('01712345679'), 'test-send-replay').expect(200);

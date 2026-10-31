@@ -10,6 +10,7 @@ import {
   schoolSettingsQueryOptions,
   useMessagingProviders,
   useSchoolSettings,
+  useSendTestMessage,
   useTestSchoolConnection,
 } from './school-settings';
 
@@ -81,7 +82,7 @@ describe('useMessagingProviders', () => {
 });
 
 describe('useTestSchoolConnection', () => {
-  it('sends a fresh Idempotency-Key only when sendTo is set', async () => {
+  it('sends no Idempotency-Key and opts out of the unknown-outcome toast (it sends nothing)', async () => {
     const keys: (string | null)[] = [];
     server.use(
       http.post('/api/v1/schools/:id/settings/test', ({ request }) => {
@@ -89,40 +90,48 @@ describe('useTestSchoolConnection', () => {
         return HttpResponse.json({ success: true, message: 'ok' });
       }),
     );
-    const { result } = renderHookWithProviders(() => useTestSchoolConnection('school-1'), {
-      tenantId: 'tenant-1',
-    });
-
-    await result.current.mutateAsync({ medium: 'SMS' });
-    await result.current.mutateAsync({ medium: 'SMS', sendTo: '01712345678' });
-    await result.current.mutateAsync({ medium: 'SMS', sendTo: '01712345678' });
-
-    expect(keys[0]).toBeNull();
-    expect(keys[1]).toBeTruthy();
-    expect(keys[2]).toBeTruthy();
-    expect(keys[1]).not.toBe(keys[2]);
-  });
-
-  // PR #3325 finding 6: a test message is a real send, so a lost reply must get the app's
-  // "could not confirm" toast. Only the plain connection test (writes nothing) opts out.
-  it('opts out of the unknown-outcome toast only for a plain connection test', async () => {
-    server.use(
-      http.post('/api/v1/schools/:id/settings/test', () =>
-        HttpResponse.json({ success: true, message: 'ok' }),
-      ),
-    );
-    const plain = renderHookWithProviders(() => useTestSchoolConnection('school-1'), {
-      tenantId: 'tenant-1',
-    });
-    await plain.result.current.mutateAsync({ medium: 'SMS' });
-    const send = renderHookWithProviders(
-      () => useTestSchoolConnection('school-1', { sendsMessage: true }),
+    const { result, queryClient } = renderHookWithProviders(
+      () => useTestSchoolConnection('school-1'),
       { tenantId: 'tenant-1' },
     );
-    await send.result.current.mutateAsync({ medium: 'SMS', sendTo: '01712345678' });
+    await result.current.mutateAsync({ medium: 'SMS' });
+    expect(keys).toEqual([null]);
+    expect(queryClient.getMutationCache().getAll()[0]?.meta).toEqual({
+      handlesUnknownOutcome: true,
+    });
+  });
+});
 
-    const meta = (c: typeof plain.queryClient) => c.getMutationCache().getAll()[0]?.meta;
-    expect(meta(plain.queryClient)).toEqual({ handlesUnknownOutcome: true });
-    expect(meta(send.queryClient)).toEqual({ handlesUnknownOutcome: false });
+// PR #3325 review round 2, findings 4 and 5: a real send has its own hook, with one key per attempt.
+describe('useSendTestMessage', () => {
+  const input = { medium: 'SMS' as const, sendTo: '01712345678' };
+
+  it('reuses the key after a failed attempt and rotates it after a reply', async () => {
+    const keys: (string | null)[] = [];
+    let fail = true;
+    server.use(
+      http.post('/api/v1/schools/:id/settings/test', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'));
+        if (fail) return HttpResponse.json({ message: 'Server error' }, { status: 500 });
+        return HttpResponse.json({ success: true, message: 'ok' });
+      }),
+    );
+    const { result, queryClient } = renderHookWithProviders(() => useSendTestMessage('school-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await result.current.mutateAsync(input).catch(() => undefined);
+    fail = false;
+    // The retry after a lost or failed reply is the same attempt: same key, so the server replays.
+    await result.current.mutateAsync(input);
+    // After a reply, a deliberate second test is a new send.
+    await result.current.mutateAsync(input);
+
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).toBeTruthy();
+    expect(keys[2]).not.toBe(keys[1]);
+    // A real send keeps the app's "could not confirm" toast (round-1 finding 6).
+    expect(queryClient.getMutationCache().getAll()[0]?.meta).toBeUndefined();
   });
 });

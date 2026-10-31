@@ -164,6 +164,24 @@ describe('ProviderConnectionTestController', () => {
     expect(audit).not.toContain('01712345678');
   });
 
+  // PR #3325 review round 2, finding 3: the connection passed but the gateway rejected the message.
+  it('audits a gateway-rejected test message as send_failed, not success', async () => {
+    connectionTest.test.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      testMessage: { logId: 'log-10', status: 'FAILED' },
+    });
+    const d = dto();
+    d.sendTo = '01712345678';
+    const keyed = { ...REQUEST, headers: { 'idempotency-key': 'k3' } } as unknown as Request;
+    await controller.testConnection(SCHOOL_A, d, { id: SCHOOL_A, role: 'ADMIN' }, USER, keyed);
+    expect(auditService.record.mock.calls[0][0].new_values).toMatchObject({
+      success: true,
+      outcome: 'send_failed',
+      test_message_log_id: 'log-10',
+    });
+  });
+
   // PR #3325 review, finding 2: the credentials were already used (and a message may have gone out)
   // when test() throws, so the audit row is still written, with the status as the outcome.
   it('still writes the SETTINGS_TEST audit row when the test throws, and rethrows the original error', async () => {

@@ -236,15 +236,64 @@ describe('ProviderConfigForm', () => {
   });
 
   // Finding 8: the 3-per-minute throttle also answers 429; a minute is enough, not "tomorrow".
-  it('shows the generic error, not the daily-limit sentence, on the per-minute throttle 429', async () => {
+  it('shows the generic send error, not the daily-limit sentence, on the per-minute throttle 429', async () => {
     server.use(tooMany());
     const { user } = renderForm('SMS', SAVED_SMS);
 
     await user.type(await screen.findByLabelText('Phone number'), '01712345678');
     await user.click(screen.getByRole('button', { name: 'Send a test message' }));
 
-    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(await screen.findByText(/Couldn't send the test message/)).toBeTruthy();
     expect(screen.queryByText(/limit for test messages/)).toBeNull();
+  });
+
+  // Review round 2, finding 2: a test send saves nothing, so its errors never say "Couldn't save".
+  const failWith = (status: number, details?: Record<string, unknown>) =>
+    http.post('/api/v1/schools/:id/settings/test', () =>
+      HttpResponse.json(
+        {
+          statusCode: status,
+          message: 'server text the UI never shows',
+          ...(details ? { details } : {}),
+          timestamp: new Date().toISOString(),
+          path: '/x',
+          requestId: 'r',
+        },
+        { status },
+      ),
+    );
+  async function sendTestTo(to: string) {
+    const { user } = renderForm('SMS', SAVED_SMS);
+    await user.type(await screen.findByLabelText('Phone number'), to);
+    await user.click(screen.getByRole('button', { name: 'Send a test message' }));
+  }
+
+  it('says there is not enough SMS credit on the 409 INSUFFICIENT_SMS_CREDIT', async () => {
+    server.use(failWith(409, { code: 'INSUFFICIENT_SMS_CREDIT', required: 2, available: 0 }));
+    await sendTestTo('01712345678');
+    expect(await screen.findByText(/Not enough SMS credit to send the test message/)).toBeTruthy();
+    expect(screen.queryByText(/Couldn't save/)).toBeNull();
+  });
+
+  it('says the number or address is not valid on a 400', async () => {
+    server.use(failWith(400));
+    await sendTestTo('01712345678');
+    expect(await screen.findByText(/number or address isn't valid/)).toBeTruthy();
+    expect(screen.queryByText(/Couldn't save/)).toBeNull();
+  });
+
+  it('says the send could not be confirmed on a 500, never "try again"', async () => {
+    server.use(failWith(500));
+    await sendTestTo('01712345678');
+    const alert = await screen.findByText(/couldn't confirm it was sent/);
+    expect(alert.textContent).toMatch(/Check the Message log before trying again/);
+    expect(screen.queryByText(/Couldn't save/)).toBeNull();
+  });
+
+  it('says the send could not be confirmed when the reply is lost', async () => {
+    server.use(http.post('/api/v1/schools/:id/settings/test', () => HttpResponse.error()));
+    await sendTestTo('01712345678');
+    expect(await screen.findByText(/couldn't confirm it was sent/)).toBeTruthy();
   });
 
   // Finding 3: the connection passed but the gateway rejected the send.

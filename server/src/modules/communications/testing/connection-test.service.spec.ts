@@ -14,7 +14,11 @@ import {
 } from './connection-test.service';
 import { ProviderNotConfiguredError } from '../config/provider-not-configured.error';
 
-vi.mock('@sentry/node', () => ({ withScope: vi.fn(), captureException: vi.fn() }));
+vi.mock('@sentry/node', () => ({
+  withScope: vi.fn(),
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
 
 describe('ConnectionTestService', () => {
   const tenantId = 'tenant-1';
@@ -28,7 +32,7 @@ describe('ConnectionTestService', () => {
   };
   let usedToday: number;
   let credits: {
-    reserveIfMetered: ReturnType<typeof vi.fn>;
+    reserve: ReturnType<typeof vi.fn>;
     settlePart: ReturnType<typeof vi.fn>;
     releaseForLog: ReturnType<typeof vi.fn>;
     isMetered: ReturnType<typeof vi.fn>;
@@ -56,11 +60,11 @@ describe('ConnectionTestService', () => {
     };
     usedToday = 0;
     credits = {
-      reserveIfMetered: vi.fn().mockResolvedValue('UNMETERED'),
+      reserve: vi.fn().mockResolvedValue({ ok: true }),
       settlePart: vi.fn().mockResolvedValue(undefined),
       releaseForLog: vi.fn().mockResolvedValue(undefined),
-      // reserveIfMetered decides metering for the real reservation; this is the pre-check's view.
-      isMetered: vi.fn().mockResolvedValue(true),
+      // Decided once, before the vendor call; the reservation reuses that answer.
+      isMetered: vi.fn().mockResolvedValue(false),
       getBalance: vi.fn().mockResolvedValue({ available: 100, reserved: 0 }),
     };
     const schools = { findOne: vi.fn().mockResolvedValue({ id: tenantId, name: 'Green School' }) };
@@ -172,7 +176,7 @@ describe('ConnectionTestService', () => {
     });
 
     it('debits a reserved credit on success and releases it on a rejected send', async () => {
-      credits.reserveIfMetered.mockResolvedValue('RESERVED');
+      credits.isMetered.mockResolvedValue(true);
       await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
       expect(credits.settlePart).toHaveBeenLastCalledWith(
         tenantId,
@@ -214,7 +218,8 @@ describe('ConnectionTestService', () => {
     });
 
     it('maps a credit/DB error after a passing connection test to its own fixed 500, not "Connection test failed."', async () => {
-      credits.reserveIfMetered.mockRejectedValue(new Error('db down host=secret-db'));
+      credits.isMetered.mockResolvedValue(true);
+      credits.reserve.mockRejectedValue(new Error('db down host=secret-db'));
       const err = await service
         .test(tenantId, CommunicationMedium.SMS as never, undefined, req)
         .catch((e) => e);
@@ -228,7 +233,7 @@ describe('ConnectionTestService', () => {
     });
 
     it('releases the reservation when the log save fails after a REJECTED send', async () => {
-      credits.reserveIfMetered.mockResolvedValue('RESERVED');
+      credits.isMetered.mockResolvedValue(true);
       sendSpy.mockResolvedValue({
         success: false,
         providerMessageId: null,
@@ -243,7 +248,7 @@ describe('ConnectionTestService', () => {
     });
 
     it('alerts ops (Sentry, ids only) and keeps the reservation when an AMBIGUOUS send cannot be logged', async () => {
-      credits.reserveIfMetered.mockResolvedValue('RESERVED');
+      credits.isMetered.mockResolvedValue(true);
       sendSpy.mockResolvedValue({
         success: false,
         providerMessageId: null,
@@ -264,7 +269,7 @@ describe('ConnectionTestService', () => {
     });
 
     it('leaves an ambiguous send unsettled and fails 409 when credit is short', async () => {
-      credits.reserveIfMetered.mockResolvedValue('RESERVED');
+      credits.isMetered.mockResolvedValue(true);
       sendSpy.mockResolvedValue({
         success: false,
         providerMessageId: null,
@@ -274,7 +279,7 @@ describe('ConnectionTestService', () => {
       await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
       expect(credits.settlePart).not.toHaveBeenCalled();
 
-      credits.reserveIfMetered.mockResolvedValue({ insufficient: true, available: 0 });
+      credits.reserve.mockResolvedValue({ ok: false, available: 0 });
       await expect(
         service.test(tenantId, CommunicationMedium.SMS as never, undefined, req),
       ).rejects.toBeInstanceOf(ConflictException);
@@ -317,16 +322,22 @@ describe('ConnectionTestService', () => {
       const result = await service.test(tenantId, CommunicationMedium.SMS as never, {}, req);
       expect(result.testMessage?.status).toBe('SENT');
       expect(credits.isMetered).not.toHaveBeenCalled();
-      expect(credits.reserveIfMetered).not.toHaveBeenCalled();
+      expect(credits.reserve).not.toHaveBeenCalled();
     });
 
     it('reserves platform credit when the send uses the platform account', async () => {
       registry.resolveFor.mockResolvedValue({ provider, config: { k: 'v' }, source: 'platform' });
       credits.isMetered.mockResolvedValue(true);
       credits.getBalance.mockResolvedValue({ available: 10, reserved: 0 });
-      credits.reserveIfMetered.mockResolvedValue('RESERVED');
       await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
-      expect(credits.reserveIfMetered).toHaveBeenCalledTimes(1);
+      // Round 2, finding 9: metering is read once (the pre-check), and the reservation key is the
+      // batch key settlePart later settles against.
+      expect(credits.isMetered).toHaveBeenCalledTimes(1);
+      expect(credits.reserve).toHaveBeenCalledTimes(1);
+      const [, units, key, ref] = credits.reserve.mock.calls[0];
+      expect(key).toBe(`batch:${ref.id}`);
+      expect(ref.type).toBe('batch');
+      expect(credits.settlePart).toHaveBeenCalledWith(tenantId, key, 'log:log-1', units, 'DEBIT');
     });
 
     // Finding 8: the daily cap carries its own code, so the UI does not mistake the 3/min throttle for it.
@@ -362,6 +373,69 @@ describe('ConnectionTestService', () => {
         userId: 'u',
       });
       expect(result.testMessage?.status).toBe('SENT');
+    });
+  });
+
+  describe('review round 2 (PR #3325)', () => {
+    const req = { sendTo: '01712345678', userId: 'user-1' };
+
+    // Finding 6: the cap count is a DB step on the send path, so its failure is the send's own 500.
+    it('maps a DB error in the daily-cap count to the fixed send 500, not "Connection test failed."', async () => {
+      logs.createQueryBuilder.mockImplementation(() => {
+        const qb: any = {
+          where: () => qb,
+          andWhere: () => qb,
+          getCount: async () => {
+            throw new Error('db down host=secret-db');
+          },
+        };
+        return qb;
+      });
+      const err = await service
+        .test(tenantId, CommunicationMedium.SMS as never, undefined, req)
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(InternalServerErrorException);
+      expect(err.message).toBe('The test message could not be sent.');
+      expect(provider.testConnection).not.toHaveBeenCalled();
+    });
+
+    // Finding 7: an AMBIGUOUS send keeps its reservation, and says so on the row and to ops.
+    it('marks an AMBIGUOUS metered send UNSETTLED with its batch id and alerts ops (ids only)', async () => {
+      credits.isMetered.mockResolvedValue(true);
+      sendSpy.mockResolvedValue({
+        success: false,
+        providerMessageId: null,
+        error: 'x',
+        outcome: 'AMBIGUOUS',
+      });
+      const tags = vi.fn();
+      vi.mocked(Sentry.withScope).mockImplementation(((cb: any) => cb({ setTags: tags })) as never);
+      const result = await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+
+      const batchId = credits.reserve.mock.calls[0][3].id;
+      expect(logs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'FAILED',
+          metadata: expect.objectContaining({ credit: 'UNSETTLED', batch_id: batchId }),
+        }),
+      );
+      expect(credits.settlePart).not.toHaveBeenCalled();
+      expect(tags).toHaveBeenCalledWith(
+        expect.objectContaining({
+          communication_log_id: 'log-1',
+          batch_id: batchId,
+          needs_reconciliation: 'true',
+        }),
+      );
+      expect(Sentry.captureMessage).toHaveBeenCalled();
+      expect(JSON.stringify(tags.mock.calls)).not.toContain('01712345678');
+      expect(result.testMessage?.status).toBe('FAILED');
+    });
+
+    it('a settled (non-ambiguous) metered send carries no UNSETTLED flag on create', async () => {
+      credits.isMetered.mockResolvedValue(true);
+      await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+      expect(logs.create.mock.calls[0][0].metadata.credit).toBeUndefined();
     });
   });
 

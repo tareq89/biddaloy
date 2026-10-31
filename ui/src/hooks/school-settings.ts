@@ -14,6 +14,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import { useIdempotencyKey } from './idempotency-key';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -31,10 +32,10 @@ export type TenantSettingsInput = components['schemas']['TenantSettingsDto'] & {
   /** [TIME-11] Until `schema.d.ts` is regenerated against `HomeworkSettingsDto`. */
   homework?: HomeworkSettings;
 };
-/** `sendTo` (a real test message) isn't in `schema.d.ts` until it is regenerated. */
-export type TestConnectionInput = components['schemas']['TestConnectionDto'] & {
-  sendTo?: string;
-};
+/** A plain connection test: never `sendTo`, so it can never send a message. */
+export type TestConnectionInput = Omit<components['schemas']['TestConnectionDto'], 'sendTo'>;
+/** A real test message to `sendTo` (see `useSendTestMessage`). */
+export type SendTestMessageInput = TestConnectionInput & { sendTo: string };
 export type TestableMedium = TestConnectionInput['medium'];
 
 /** `slug`/`status`/`created_at` (#533) aren't in `schema.d.ts` yet —
@@ -309,25 +310,30 @@ export function useMessagingProviders(schoolId: string) {
 }
 
 /** Doesn't touch the settings cache — a connection test changes nothing
- * persisted, whether it passes or fails. `sendsMessage`: this instance sends a
- * real test message (`sendTo`), so it keeps the app's "could not confirm" toast. */
-export function useTestSchoolConnection(
-  schoolId: string,
-  { sendsMessage = false }: { sendsMessage?: boolean } = {},
-) {
+ * persisted, whether it passes or fails. It sends no message, so "could not
+ * confirm" would be wrong: it opts out of that toast. */
+export function useTestSchoolConnection(schoolId: string) {
   return useMutation({
     mutationFn: async (input: TestConnectionInput) =>
+      (await apiClient.post<ConnectionTestResult>(`/schools/${schoolId}/settings/test`, input))
+        .data,
+    meta: { handlesUnknownOutcome: true },
+  });
+}
+
+/** "Send a test message": a real (paid) send. One Idempotency-Key per attempt (Rule 25): a retry
+ * after a lost reply, or a reload, replays instead of sending again; a reply rotates it, so the
+ * next click is a new send. Keeps the app's "could not confirm" toast for a lost reply. */
+export function useSendTestMessage(schoolId: string) {
+  const { keyFor, rotate } = useIdempotencyKey();
+  return useMutation({
+    mutationFn: async (input: SendTestMessageInput) =>
       (
-        await apiClient.post<ConnectionTestResult>(
-          `/schools/${schoolId}/settings/test`,
-          input,
-          // A real send needs a key; a fresh one per click, so a second click is a second send.
-          input.sendTo ? { headers: { 'Idempotency-Key': crypto.randomUUID() } } : undefined,
-        )
+        await apiClient.post<ConnectionTestResult>(`/schools/${schoolId}/settings/test`, input, {
+          headers: { 'Idempotency-Key': keyFor(input) },
+        })
       ).data,
-    // A plain connection test writes nothing, so "could not confirm" would be wrong. A test
-    // message is a real (paid) send: a lost reply must say so, or the next click sends again.
-    meta: { handlesUnknownOutcome: !sendsMessage },
+    onSuccess: rotate,
   });
 }
 

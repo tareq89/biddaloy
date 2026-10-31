@@ -58,6 +58,8 @@ interface TestMessageBody {
   subject?: string;
   /** Platform SMS credit pays for it: SMS, and not the school's own unsaved gateway. */
   metered: boolean;
+  /** SMS segments of `body`, set when `metered`: reserved and settled as is. */
+  segments?: number;
 }
 
 /**
@@ -112,7 +114,8 @@ export class ConnectionTestService {
         if (!provider.descriptor.supportsTestMessage)
           throw new BadRequestException(NO_TEST_MESSAGE);
         this.assertAddress(medium, testMessage.sendTo);
-        await this.assertDailyCap(tenantId);
+        // A DB error in the count is the send path's own 500, not "Connection test failed."
+        await this.orSendFailed(() => this.assertDailyCap(tenantId));
         message = await this.orSendFailed(() =>
           this.prepareTestMessage(tenantId, medium as CommunicationMedium, source),
         );
@@ -188,25 +191,12 @@ export class ConnectionTestService {
   }
 
   /**
-   * Sends straight through the resolved (possibly unsaved) config, not the queue: the queue worker
-   * re-reads SAVED settings, and unsaved secrets must never sit in Redis. Writes one terminal log
-   * row like any message, and settles credit the way the worker does.
-   *
-   * ponytail: reserve/log/settle mirrors CommunicationsProcessor.settleSmsCredit and
-   * CommunicationsService.enqueue. Not extracted: the worker's copy is tied to a BullMQ job and
-   * mutates its own log + Sentry tags, so a shared helper would be a wide change. Fold in if a third
-   * caller appears.
-   *
-   * The UI must mint a fresh Idempotency-Key per click: a reused key replays the stored response
-   * (no second send), which is intended for retries but would swallow a deliberate second test.
-   * Credit reserved by an AMBIGUOUS send stays reserved; the reconcile script lists it as a
-   * BATCH_REMAINDER after 24h (it walks the ledger, not the logs), so a missing log row is still found.
-   */
-  /**
    * The message text, and a credit check before the vendor's connection call: a school with no
    * credit gets its 409 without an outbound call. The real reservation still happens at send time.
-   * An unsaved override that carries its own key sends through the school's own gateway, so it is
-   * never charged platform credit (PR #3325 review, finding 1).
+   * Metered = platform credit pays: SMS on a PLATFORM-metered school, unless the config came only
+   * from the override (`source: 'override'`, the school's own unsaved gateway). An override that
+   * mixes with the school's saved gateway resolves as `source: 'tenant'` and is metered, the same
+   * as a saved own gateway on a PLATFORM school.
    */
   private async prepareTestMessage(
     tenantId: string,
@@ -220,30 +210,47 @@ export class ConnectionTestService {
       medium === CommunicationMedium.SMS &&
       source !== 'override' &&
       (await this.smsCredits.isMetered(tenantId));
-    if (metered) {
-      const segments = countSmsSegments(body).segments;
-      const { available } = await this.smsCredits.getBalance(tenantId);
-      if (available < segments) throw insufficientCredit(segments, available);
-    }
-    return { body, subject, metered };
+    if (!metered) return { body, subject, metered };
+    const segments = countSmsSegments(body).segments;
+    const { available } = await this.smsCredits.getBalance(tenantId);
+    if (available < segments) throw insufficientCredit(segments, available);
+    return { body, subject, metered, segments };
   }
 
+  /**
+   * Sends straight through the resolved (possibly unsaved) config, not the queue: the queue worker
+   * re-reads SAVED settings, and unsaved secrets must never sit in Redis. Writes one terminal log
+   * row like any message, and settles credit the way the worker does.
+   *
+   * ponytail: reserve/log/settle mirrors CommunicationsProcessor.settleSmsCredit and
+   * CommunicationsService.enqueue. Not extracted: the worker's copy is tied to a BullMQ job and
+   * mutates its own log + Sentry tags, so a shared helper would be a wide change. Fold in if a third
+   * caller appears.
+   *
+   * The UI keeps one Idempotency-Key per attempt and a new one after a reply: a reused key replays
+   * the stored response (no second send), which is meant for a retry after a lost reply.
+   * Credit reserved by an AMBIGUOUS send stays reserved, as in the worker: the row says
+   * `credit: 'UNSETTLED'` with its `batch_id`, and ops get the same `needs_reconciliation` signal.
+   */
   private async sendTestMessage(
     tenantId: string,
     medium: CommunicationMedium,
     provider: Parameters<typeof sendThroughProvider>[0],
     config: unknown,
     req: TestMessageRequest,
-    { body, subject, metered }: TestMessageBody,
+    { body, subject, metered, segments }: TestMessageBody,
   ) {
-    // Metered SMS: reserve first, exactly as CommunicationsService.enqueue does.
+    // Metered SMS: reserve first, exactly as CommunicationsService.enqueue does. `metered` was
+    // already decided in prepareTestMessage, so this does not read the settings again.
     let reservation: { batchId: string; segments: number } | undefined;
-    if (metered) {
-      const segments = countSmsSegments(body).segments;
+    if (metered && segments !== undefined) {
       const batchId = randomUUID();
-      const outcome = await this.smsCredits.reserveIfMetered(tenantId, segments, batchId);
-      if (typeof outcome === 'object') throw insufficientCredit(segments, outcome.available);
-      if (outcome === 'RESERVED') reservation = { batchId, segments };
+      const res = await this.smsCredits.reserve(tenantId, segments, `batch:${batchId}`, {
+        type: 'batch',
+        id: batchId,
+      });
+      if (!res.ok) throw insufficientCredit(segments, res.available);
+      reservation = { batchId, segments };
     }
 
     const result = await sendThroughProvider(
@@ -251,6 +258,8 @@ export class ConnectionTestService {
       { to: req.sendTo, body, subject },
       config as never,
     );
+    // AMBIGUOUS (the provider threw): the message may have gone out, so the credit stays reserved.
+    const unsettled = reservation && !result.success && result.outcome !== 'REJECTED';
     let log: CommunicationLog;
     try {
       log = await this.logs.save(
@@ -269,6 +278,8 @@ export class ConnectionTestService {
             test: true,
             ...(result.segments !== undefined ? { segments: result.segments } : {}),
             ...(result.success ? {} : { error: result.error }),
+            ...(reservation ? { batch_id: reservation.batchId } : {}),
+            ...(unsettled ? { credit: 'UNSETTLED' } : {}),
           },
         }),
       );
@@ -302,8 +313,23 @@ export class ConnectionTestService {
       throw new InternalServerErrorException('The test message could not be recorded.');
     }
 
-    // AMBIGUOUS never settles: the reservation waits for reconciliation, same as the worker.
-    if (reservation && (result.success || result.outcome === 'REJECTED')) {
+    // AMBIGUOUS never settles: the reservation waits for reconciliation, same as the worker's
+    // flagAmbiguousSettlement. Ids only in the log and tags, never the recipient or body (Rule 13).
+    if (reservation && unsettled) {
+      const tags = {
+        communication_log_id: log.id,
+        tenant_id: tenantId,
+        batch_id: reservation.batchId,
+        medium,
+        needs_reconciliation: 'true',
+      };
+      this.logger.warn({ msg: 'test sms send outcome ambiguous — credit left reserved', ...tags });
+      Sentry.withScope((scope) => {
+        scope.setTags(tags);
+        Sentry.captureMessage('test sms send outcome ambiguous — needs reconciliation', 'warning');
+      });
+    }
+    if (reservation && !unsettled) {
       try {
         await this.smsCredits.settlePart(
           tenantId,

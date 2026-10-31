@@ -17,7 +17,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiForbiddenResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { AuditAction, JwtPayload, Permission } from '@biddaloy/shared';
+import { AuditAction, CommunicationStatus, JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
@@ -98,7 +98,13 @@ export class ProviderConnectionTestController {
         dto.config,
         dto.sendTo ? { sendTo: dto.sendTo, userId: user.sub } : undefined,
       );
-      outcome = result.success ? 'success' : 'failed';
+      // The connection can pass while the gateway rejects the message: that is not a success.
+      outcome =
+        result.testMessage?.status === CommunicationStatus.FAILED
+          ? 'send_failed'
+          : result.success
+            ? 'success'
+            : 'failed';
       return result;
     } catch (err) {
       if (err instanceof HttpException) outcome = `error:${err.getStatus()}`;

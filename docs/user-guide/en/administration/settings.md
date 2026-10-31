@@ -305,15 +305,23 @@ After saving, a secret key or token is never shown in full again, only **Added �
 
 **SMS** — "All SMS from this school go through this company."
 
-| Field                       | What to enter                                                                   |
-| --------------------------- | ------------------------------------------------------------------------------- |
-| **SMS company**             | **Greenweb**, **MimSMS** or **OneCodeSoft**.                                    |
-| **API key**                 | Copy it from the company's account page.                                        |
-| **Sender name (Sender ID)** | Required for MimSMS; optional for OneCodeSoft. Use the name the company approved. |
-| **API address (optional)**  | In the **Advanced settings** part. If empty, the company's own address is used. |
+| Field                       | What to enter                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **SMS company**             | **Greenweb**, **MimSMS** or **OneCodeSoft**.                                                                                    |
+| **API key**                 | Copy it from the company's account page.                                                                                        |
+| **Sender name (Sender ID)** | Required for MimSMS; optional for OneCodeSoft. Use the name the company approved.                                               |
+| **API address (optional)**  | In the **Advanced settings** part. If empty, the company's own address is used.                                                 |
 | **API address**             | Only for OneCodeSoft, and then it is required. Copy the base address from OneCodeSoft Dashboard › API; it must end with `/api`. |
 
 Under **Test connection**, the SMS and Email parts also have **Send a test message**. Enter a phone number (or, for Email, an address) and press the button; a real message is sent with the details in the fields now. When it goes, the part says **Sent.** with the link **See it in Message log**. If the company refuses the message, the part says **Couldn't send the test message. Check the details and try again.**, and the link opens the failed messages. A school can send 20 test messages a day; after that it says so and you can try again the next day. You can type the number in Bangla digits too.
+
+A saved key or password is used as it is; you do not need to type it again to test. If you change the server or API address, type the key or password again too.
+
+| The part says                                                                   | What to do                                                                 |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Not enough SMS credit to send the test message. …**                           | The school is on platform credit and has too little. Ask for more credit.  |
+| **That number or address isn't valid. Check it and try again.**                 | Fix the number or address.                                                 |
+| **We couldn't confirm it was sent. Check the Message log before trying again.** | The reply was lost. Open **Message log** first; the message may have gone. |
 
 **SMS credit** — this part is view-only; you cannot change anything here. There are two kinds:
 
