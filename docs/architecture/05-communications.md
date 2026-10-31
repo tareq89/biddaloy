@@ -552,7 +552,7 @@ flowchart LR
   E[platform env<br/>ONECODESOFT_API_KEY ...] --> R
   R -->|provider + config| P[OnecodesoftProvider.send]
   G[grep guard spec] -.fails if it names a vendor.-> X[any other file]
-  W[allow-list<br/>provider folders, messaging-providers.ts,<br/>comms-print.ts, specs, stories, example env] -.never checked.-> G
+  W[allow-list<br/>provider folders, messaging-providers.ts,<br/>comms-print.ts, provider-config-form.fixtures.ts,<br/>specs, stories, example env] -.never checked.-> G
   K[KNOWN list<br/>still names a vendor, one reason each] -.tolerated, may only shrink.-> G
 ```
 
@@ -606,3 +606,5 @@ Dated learning (2026-10-31, Wave 3 close #3306):
 - **Surprise (#3304, issue #3324):** the e2e vendor stub could not work. `outbound-destination-guard.ts` rejects `http:` and loopback or private hosts for send, balance, status and test connection (security Rule 7), and it has no test override. `MESSAGE_SINK` is no substitute because it answers before any vendor call. Nothing was weakened. Rule candidate: an e2e plan that needs a local fake HTTP server checks the SSRF guard first. Vendor flows stay covered by `provider-connection-test.e2e-spec.ts`; the choice between a `NODE_ENV=test` loopback seam and UI-only Playwright is on #3324.
 - **Surprise:** `yarn guide:impact` flagged `communications.sendMessage` and `admin.howItWorks` for pure internal edits (a resolver rename in `credits.controller.ts`, a hook swap in `SchoolSettingsPage.tsx`). Nothing a user sees changed there, so the PR body carries a `User guide: not affected` line. The settings page itself did change and its bn and en guide pages were updated.
 - **Rule candidate:** a wave that adds routes closes with `yarn api:types` and `check-api-types`, unlike Wave 1 where "no diff" was the proof.
+- **Guard shrank:** the schema-driven form removed the vendor names from `SmsSection.tsx`, `connection-test-status.tsx` (deleted), `ui/src/hooks/school-settings.ts` and the bn settings locale, so they left `KNOWN`. Only the en locale's legacy labels and the doc-comment entries remain. The form's test data, `provider-config-form.fixtures.ts`, joined the allow-list because it copies the real descriptors.
+- **Surprise (rebase onto PR #3323 round 3):** the resolver now reads the old flat shape (field keys straight on `communications.sms`) only for a single-provider medium. The deprecated `PLATFORM_SMS_*` override was flat, so platform alerts lost their SMS config. Fix: the override goes under the chosen provider's block, or the registry default's.

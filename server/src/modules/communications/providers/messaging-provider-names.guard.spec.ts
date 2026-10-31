@@ -35,6 +35,8 @@ const ALLOWED_FILES = new Set([
   'server/src/modules/communications/providers/messaging-providers.ts',
   // The demo school's seed picks a provider on purpose (Epic 97 D6 shape); it has no other way to name one.
   'server/src/scripts/demo-seed/slices/comms-print.ts',
+  // Test/story data for ProviderConfigForm: copies of the real server descriptors.
+  'client-admin/src/pages/settings/provider-config-form.fixtures.ts',
 ]);
 /**
  * Files that name a vendor today, each with the reason. NOT a free pass: the list may only shrink
@@ -57,9 +59,7 @@ const KNOWN: Record<string, string> = {
   // real debt, removed by the Epic 97 UI waves / platform-alert follow-up
   'ui/src/i18n/locales/en/settings.json': 'legacy per-vendor labels outside help.messaging',
 };
-// `*.fixtures.ts` is test/story data mirroring the server descriptors, so it names vendors.
-const isTestFile = (p: string) =>
-  /\.(spec\.tsx?|test\.tsx?|stories\.tsx|e2e-spec\.ts|fixtures\.ts)$/.test(p);
+const isTestFile = (p: string) => /\.(spec\.tsx?|test\.tsx?|stories\.tsx|e2e-spec\.ts)$/.test(p);
 const isExampleEnv = (p: string) => /example\.env$|\.env\.example$/.test(p);
 const isSettingsLocale = (p: string) => /^ui\/src\/i18n\/locales\/[^/]+\/settings\.json$/.test(p);
 
