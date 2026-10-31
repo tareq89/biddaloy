@@ -1,7 +1,7 @@
 <!-- guide:meta
 feature: communications.messageLog
 title: Message log
-summary: Every message the school sent, in one place. Find one by name or phone, see its status and why it failed, and ask the company whether it was delivered.
+summary: Every message the school sent (not app notifications), in one place. Find one by name or phone, see its status and why it failed, and ask the company whether it was delivered.
 roles: [ADMIN, ACCOUNTANT, OFFICE_STAFF]
 sources:
   - client-admin/src/routes/_staff/communications/message-log/index.tsx
@@ -31,6 +31,8 @@ knownIssues: []
 # Message log
 
 Every message the school sent, in one place: to whom, when, how, who sent it, and whether it arrived.
+
+App (push) notifications are not in this log. It is not a record of those.
 
 **Where to go:** in the left menu, **Communications → Message log**. Do the work on this page on a computer.
 **Before you start:** be an Admin, Accountant or Office staff ([who can do what](#roles)).
