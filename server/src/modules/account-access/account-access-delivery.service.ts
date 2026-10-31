@@ -143,6 +143,7 @@ export class AccountAccessDeliveryService {
       if (result.success) {
         log.status = CommunicationStatus.SENT;
         log.provider_message_id = result.providerMessageId;
+        log.metadata = withProvider(log.metadata, result.provider);
         await this.logRepo.save(log);
         return { logId: log.id, status: CommunicationStatus.SENT };
       }
@@ -151,7 +152,10 @@ export class AccountAccessDeliveryService {
       // secret-bearing `real.body`, e.g. an activation link or OTP) back in
       // its error text, which would land in communication_logs.metadata.
       log.status = CommunicationStatus.FAILED;
-      log.metadata = { ...input.metadata, kind: input.kind, error: 'Delivery failed' };
+      log.metadata = withProvider(
+        { ...input.metadata, kind: input.kind, error: 'Delivery failed' },
+        result.provider,
+      );
       await this.logRepo.save(log);
       return { logId: log.id, status: CommunicationStatus.FAILED };
     } catch {
@@ -189,6 +193,10 @@ export class AccountAccessDeliveryService {
     return { logId: null, status };
   }
 }
+
+// Only the vendor's name (a descriptor name, never a secret) so Check status can find it (#3344).
+const withProvider = (meta: Record<string, unknown> | null, provider?: string) =>
+  provider ? { ...meta, provider } : meta;
 
 /** `EMAIL` if the user has one, else `SMS` if they have a phone, else `null` — the caller's job to decide, per D5/the plan. */
 export function pickChannel(
