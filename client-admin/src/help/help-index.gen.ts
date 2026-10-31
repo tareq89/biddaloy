@@ -3036,7 +3036,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'reports/hub',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 1,
   },
   'reports.collectionsReport': {
     title: { bn: 'ফি আদায়ের প্রতিবেদন', en: 'Fee collection report' },
@@ -3122,7 +3122,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'reports/student-count',
     anchor: '',
-    knownIssues: 2,
+    knownIssues: 1,
   },
   'reports.printables': {
     title: { bn: 'প্রিন্ট ও ডকুমেন্ট', en: 'Print & documents' },
