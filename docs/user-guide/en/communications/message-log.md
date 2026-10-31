@@ -158,16 +158,16 @@ On a phone each message is a card: the recipient and the **Sent** time at the to
 
 ## Problems and fixes <a href="#trouble" id="trouble"></a>
 
-| What you see                                                                           | What to do                                                                         | Who can help |
-| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------ |
-| **No messages found.**                                                                 | The school has not sent a message yet.                                             | —            |
-| **No messages match these filters**                                                    | Clear a filter or widen the dates.                                                 | —            |
-| **Could not load the message log.**                                                    | Reload the page.                                                                   | Admin        |
-| **The delivery status of this message cannot be checked now.**                         | Press again after a minute. If it still says this, this message cannot be checked. | —            |
-| **Could not check the status. Try again in a minute.**                                 | The company did not answer. Press again after a minute.                            | Admin        |
-| No **Check status**                                                                    | The message is not **Sent**, or its company does not report delivery.              | —            |
-| **Message**: **Not shown: only staff who can see exam results can read this message.** | An exam result. Ask an Admin or Office staff to read it.                           | Admin        |
-| **Why it failed**: **Sending by … is not set up for this school. …**                   | An Admin turns it on in **Settings › Communication**, then send again.             | Admin        |
+| What you see                                                                           | What to do                                                                                                         | Who can help |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------ |
+| **No messages found.**                                                                 | The school has not sent a message yet.                                                                             | —            |
+| **No messages match these filters**                                                    | Clear a filter or widen the dates.                                                                                 | —            |
+| **Could not load the message log.**                                                    | Reload the page.                                                                                                   | Admin        |
+| **The delivery status of this message cannot be checked now.**                         | Press again after a minute. If it still says this, this message cannot be checked.                                 | —            |
+| **Could not check the status. Try again in a minute.**                                 | The company did not answer. Press again after a minute.                                                            | Admin        |
+| No **Check status**                                                                    | The message is not **Sent**, its company does not report delivery, or it was sent before the company was recorded. | —            |
+| **Message**: **Not shown: only staff who can see exam results can read this message.** | An exam result. Ask an Admin or Office staff to read it.                                                           | Admin        |
+| **Why it failed**: **Sending by … is not set up for this school. …**                   | An Admin turns it on in **Settings › Communication**, then send again.                                             | Admin        |
 
 More help with this: [What to do when something goes wrong](../help/troubleshooting.md#sms).
 
