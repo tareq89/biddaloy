@@ -24,6 +24,8 @@ const NO_PAGE_ENTRY_YET = new Set([
   'administration.printIdCards',
   'administration.printExamDocuments',
   'administration.printCertificates',
+  // [97.4.02] The nav item lands before its guide page; #3311 writes the page and removes this line.
+  'communications.messageLog',
 ]);
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
