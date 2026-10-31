@@ -135,3 +135,12 @@ A new `/reports/*` route with no snapshot line makes both fail in CI (`CI=1`). U
 | 5–6  | System reports, demo seed, statement API, calculated fields             |
 | 7–8  | Statement screens, designer, formatting, drill-through                  |
 | 9–10 | Schedules, snapshots, widget, delivery UI, performance, guide, close    |
+
+## 9. Learnings
+
+Dated bullets: what surprised us, what it cost, the fix, and a rule worth keeping.
+
+- **2026-10-31 — doc number.** The ticket said `32-reporting-engine.md`, but `32` was taken. Cost: a renamed file and a note. Fix: next free number (40). Rule candidate: tickets name a doc by topic, the author picks the number on the day.
+- **2026-10-31 — decorators belong to the next class.** A helper class placed between `@ApiTags(...)` and a controller silently took the decorators, and the OpenAPI document lost its schemas. Cost: failed type generation. Fix: put new helper classes above the whole decorator block. Rule candidate: never insert code between a decorator and its class.
+- **2026-10-31 — a `@Roles` copied from a list can contradict the new permission.** The students export copied the list's `@Roles`, but `REPORTS_EXPORT` is narrower, so `permission-matrix.e2e-spec.ts` ("never tightens") failed. Fix: no `@Roles` on the export; the permission alone narrows it.
+- **2026-10-31 — new tables touch eight registries.** `app.module.ts`, `test/all-entities.ts`, `reset-order.ts`, `staging-scrub-columns.ts` plus `scrub.sql`, workbook coverage, demo-seed `EXEMPT`, and the audit action enum (own migration). Rule candidate: the migration ticket lists them all.

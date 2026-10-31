@@ -6,6 +6,7 @@ import { ReportsController } from './reports.controller';
 import { ReportsDashboardController } from './reports-dashboard.controller';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { SchoolsModule } from '../schools/schools.module';
+import { ReportEngineModule } from './engine/report-engine.module';
 import { ReportExportModule } from './export/report-export.module';
 import {
   ReportDefinition,
@@ -35,6 +36,7 @@ import {
     DashboardModule,
     SchoolsModule,
     ReportExportModule,
+    ReportEngineModule,
   ],
   providers: [CollectionsReportService],
   controllers: [ReportsController, ReportsDashboardController],

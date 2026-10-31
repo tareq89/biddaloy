@@ -65,11 +65,19 @@ import {
 } from './dto/family.dto';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
-import { Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
+import {
+  ExportFormat,
+  Permission,
+  ReportRunKind,
+  UserRole,
+  isGuardianRole,
+} from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
 import type { SchemaObject } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
+import { ReportExportService } from '../reports/export/report-export.service';
+import { WithExportFormat, exportFilters } from '../reports/export/dto/with-export-format';
 
 /** The paginated envelope plus `GET /fees/dues`'s section-wide money total. */
 function withTotalDueSum(base: SchemaObject): SchemaObject {
@@ -85,6 +93,9 @@ function withTotalDueSum(base: SchemaObject): SchemaObject {
     },
   };
 }
+
+class ExportFeeDuesQueryDto extends WithExportFormat(QueryFeeDuesDto) {}
+class ExportPaymentsQueryDto extends WithExportFormat(QueryPaymentDto) {}
 
 // [5.1 review] Several routes below return a *role-dependent union* — the
 // staff shape for staff, an allow-listed family DTO for a PARENT/STUDENT.
@@ -116,6 +127,7 @@ export class FeeController {
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
     @Inject(TeacherScopeService) private readonly teacherScope: TeacherScopeService,
     @Inject(FeesDailyScheduler) private readonly feesDailyScheduler: FeesDailyScheduler,
+    private readonly reportExport: ReportExportService,
   ) {}
 
   // --- Fee Dues endpoints ---
@@ -165,6 +177,33 @@ export class FeeController {
     // `reminder_threshold_date`. Shaped through the same allow-list DTO the
     // rest of the family surface uses.
     return { ...page, data: page.data.map(toFamilyStudentDue) };
+  }
+
+  /** [8.15.11] Every student with open dues matching the list's filters as CSV/XLSX. Staff only. */
+  @Get('fees/dues/export')
+  @RequirePermissions(Permission.REPORTS_EXPORT, Permission.FEE_READ)
+  async exportDues(
+    @Query() query: ExportFeeDuesQueryDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // Same narrowing as the list: a TEACHER sees only assigned sections (`null` = unrestricted).
+    const scoped = await this.teacherScope.scopedStudentIds({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    return this.reportExport.export({
+      tenantId: tenant.id,
+      userId: user.sub,
+      kind: ReportRunKind.EXPORT,
+      format: query.format ?? ExportFormat.CSV,
+      sourceKey: 'dues-list',
+      params: exportFilters(query),
+      header: this.feeDuesService.exportHeader(),
+      rows: this.feeDuesService.iterateForExport(query, tenant.id, scoped ?? undefined),
+      filename: 'dues',
+    });
   }
 
   @Get('fees/dues/flagged')
@@ -359,6 +398,27 @@ export class FeeController {
   })
   findAll(@Query() query: QueryPaymentDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.paymentsQueryService.findAll(query, tenant.id);
+  }
+
+  /** [8.15.11] Every payment matching the list's filters as CSV/XLSX. Needs PAYMENT_READ and REPORTS_EXPORT. */
+  @Get('payments/export')
+  @RequirePermissions(Permission.REPORTS_EXPORT, Permission.PAYMENT_READ)
+  exportPayments(
+    @Query() query: ExportPaymentsQueryDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.reportExport.export({
+      tenantId: tenant.id,
+      userId: user.sub,
+      kind: ReportRunKind.EXPORT,
+      format: query.format ?? ExportFormat.CSV,
+      sourceKey: 'payments-list',
+      params: exportFilters(query),
+      header: this.paymentsQueryService.exportHeader(),
+      rows: this.paymentsQueryService.iterateForExport(query, tenant.id),
+      filename: 'payments',
+    });
   }
 
   @Get('payments/:id')

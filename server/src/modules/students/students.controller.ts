@@ -52,13 +52,25 @@ import {
   QueryGuardianDto,
   CommitBulkUploadDto,
 } from './dto/students.dto';
-import { UserRole, JwtPayload, Permission, roleHasPermission } from '@biddaloy/shared';
+import {
+  ExportFormat,
+  ReportRunKind,
+  UserRole,
+  JwtPayload,
+  Permission,
+  roleHasPermission,
+} from '@biddaloy/shared';
 import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
+import { ReportExportService } from '../reports/export/report-export.service';
+import { WithExportFormat, exportFilters } from '../reports/export/dto/with-export-format';
 
 const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const canReadRecords = (role: string) => roleHasPermission(role, Permission.STUDENT_RECORDS_READ);
 const canWriteRecords = (role: string) => roleHasPermission(role, Permission.STUDENT_RECORDS_WRITE);
+
+class ExportStudentsQueryDto extends WithExportFormat(QueryStudentDto) {}
+class ExportGuardiansQueryDto extends WithExportFormat(QueryGuardianDto) {}
 
 @ApiTags('students')
 @ApiTenantAuth()
@@ -71,6 +83,7 @@ export class StudentController {
     @Inject(StudentBulkUploadService) private readonly bulkUploadService: StudentBulkUploadService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
     @Inject(TeacherScopeService) private readonly teacherScope: TeacherScopeService,
+    private readonly reportExport: ReportExportService,
   ) {}
 
   // --- Student endpoints ---
@@ -154,6 +167,37 @@ export class StudentController {
     });
     const page = await this.studentService.findAll(query, tenant.id, scope);
     return redactHealthNotes(page, canReadRecords(tenant.role));
+  }
+
+  /**
+   * [8.15.11] Every student matching the list's filters as CSV/XLSX. Declared
+   * above `students/:id` for the same reason as `students/mine`. Needs both the
+   * list's read permission and REPORTS_EXPORT; a TEACHER is scoped like the list.
+   */
+  @Get('students/export')
+  // No @Roles: REPORTS_EXPORT alone narrows it (ADMIN, ACCOUNTANT, EXECUTIVE hold it).
+  @RequirePermissions(Permission.REPORTS_EXPORT, Permission.STUDENT_READ)
+  async exportStudents(
+    @Query() query: ExportStudentsQueryDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.teacherScope.sectionScope({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    return this.reportExport.export({
+      tenantId: tenant.id,
+      userId: user.sub,
+      kind: ReportRunKind.EXPORT,
+      format: query.format ?? ExportFormat.CSV,
+      sourceKey: 'students-list',
+      params: exportFilters(query),
+      header: this.studentService.exportHeader(),
+      rows: this.studentService.iterateForExport(query, tenant.id, scope),
+      filename: 'students',
+    });
   }
 
   /**
@@ -322,6 +366,32 @@ export class StudentController {
     });
     const page = await this.guardianService.findAll(query, tenant.id, scope);
     return redactHealthNotes(page, canReadRecords(tenant.role));
+  }
+
+  /** [8.15.11] Every guardian matching the list's filters as CSV/XLSX; same double gate as the students export. */
+  @Get('guardians/export')
+  @RequirePermissions(Permission.REPORTS_EXPORT, Permission.GUARDIAN_READ)
+  async exportGuardians(
+    @Query() query: ExportGuardiansQueryDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const scope = await this.teacherScope.sectionScope({
+      role: tenant.role,
+      userId: user.sub,
+      tenantId: tenant.id,
+    });
+    return this.reportExport.export({
+      tenantId: tenant.id,
+      userId: user.sub,
+      kind: ReportRunKind.EXPORT,
+      format: query.format ?? ExportFormat.CSV,
+      sourceKey: 'guardians-list',
+      params: exportFilters(query),
+      header: this.guardianService.exportHeader(),
+      rows: this.guardianService.iterateForExport(query, tenant.id, scope),
+      filename: 'guardians',
+    });
   }
 
   /**

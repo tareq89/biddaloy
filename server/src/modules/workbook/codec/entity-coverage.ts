@@ -33,10 +33,7 @@ import { InvoiceShareToken } from '../../invoices/entities/invoice-share-token.e
 import { PushSubscription } from '../../push/entities/push-subscription.entity';
 import { PrintTemplate } from '../../print/entities/print-template.entity';
 import { PrintTemplateVersion } from '../../print/entities/print-template-version.entity';
-import { ReportDefinition } from '../../reports/entities/report-definition.entity';
-import { ReportDefinitionVersion } from '../../reports/entities/report-definition-version.entity';
 import { ReportRun } from '../../reports/entities/report-run.entity';
-import { ReportSchedule } from '../../reports/entities/report-schedule.entity';
 import { ReportSnapshot } from '../../reports/entities/report-snapshot.entity';
 import { PrintAsset } from '../../print/entities/print-asset.entity';
 import { PrinterProfile } from '../../print/entities/printer-profile.entity';
@@ -125,13 +122,7 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   [StudentWallet, 'Tenant-scoped student wallet balance, no tab yet — tracked in #856.'],
   [WalletTransaction, 'Tenant-scoped wallet transaction history, no tab yet — tracked in #856.'],
 
-  // --- Epic 8.15 reports ---
-  [ReportDefinition, 'Report definitions get a `reports` tab in [8.15.12]; exempt until then.'],
-  [
-    ReportDefinitionVersion,
-    'Published report versions get a `reports` tab in [8.15.12]; exempt until then.',
-  ],
-  [ReportSchedule, 'Report schedules get a `reports` tab in [8.15.12]; exempt until then.'],
+  // --- Epic 8.15 reports: definitions, versions and schedules have tabs; runs/snapshots do not ---
   [ReportRun, 'Derived output (Epic 8.15 D8): a run log, not live state to restore.'],
   [
     ReportSnapshot,

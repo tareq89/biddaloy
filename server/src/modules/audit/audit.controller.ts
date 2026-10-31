@@ -21,8 +21,12 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { AuditService } from './audit.service';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 import { AuditLogListResponseDto, AuditLogResponseDto } from './dto/audit-log-response.dto';
-import { Permission, RoleScope, roleScope } from '@biddaloy/shared';
+import { ExportFormat, Permission, ReportRunKind, RoleScope, roleScope } from '@biddaloy/shared';
 import { teacherCanSeeStudent } from '../classes/teacher-scope.service';
+import { ReportExportService } from '../reports/export/report-export.service';
+import { WithExportFormat, exportFilters } from '../reports/export/dto/with-export-format';
+
+class ExportAuditLogQueryDto extends WithExportFormat(QueryAuditLogDto) {}
 
 @ApiTags('audit-logs')
 @ApiTenantAuth()
@@ -32,6 +36,7 @@ export class AuditController {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly reportExport: ReportExportService,
   ) {}
 
   @Get()
@@ -54,6 +59,27 @@ export class AuditController {
         entity_label: entityLabels.get(`${log.entity_type}:${log.entity_id}`) ?? null,
       })),
     };
+  }
+
+  /** [8.15.11] Every audit row matching the list's filters as CSV/XLSX (who, what, when; never the value snapshots). */
+  @Get('export')
+  @RequirePermissions(Permission.REPORTS_EXPORT, Permission.AUDIT_LOG_READ)
+  exportAuditLogs(
+    @Query() query: ExportAuditLogQueryDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    return this.reportExport.export({
+      tenantId: tenant.id,
+      userId: user.sub,
+      kind: ReportRunKind.EXPORT,
+      format: query.format ?? ExportFormat.CSV,
+      sourceKey: 'audit-logs-list',
+      params: exportFilters(query),
+      header: this.auditService.exportHeader(),
+      rows: this.auditService.iterateForExport(query, tenant.id, user.sub),
+      filename: 'audit-logs',
+    });
   }
 
   // Declared before `findAll`'s `@Get()` shares no path segment with it, so

@@ -19,7 +19,11 @@ const CONTENT_TYPE: Record<ExportFormat, string> = {
 export class ExportTooLargeError extends PayloadTooLargeException {
   readonly code = 'EXPORT_TOO_LARGE';
   constructor() {
-    super('Too many rows to download at once. Narrow the filters, or use the queued export.');
+    // `rows` is the synchronous cap, so a client can say "over 5,000 rows".
+    super({
+      message: 'Too many rows to download at once. Narrow the filters, or use the queued export.',
+      details: { code: 'EXPORT_TOO_LARGE', rows: SYNC_EXPORT_MAX_ROWS },
+    });
   }
 }
 
