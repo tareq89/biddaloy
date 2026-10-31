@@ -4865,7 +4865,6 @@ export const HELP_ROUTES = {
   '/invoices': 'finance.invoices',
   '/invoices/$invoiceId': 'finance.invoices',
   '/reports/collections': 'reports.collectionsReport',
-  '/reports/student-count': 'reports.studentCount',
   '/reports/printables': 'reports.printables',
   '/applications/reports': 'reports.applications',
   '/reports/alerts': 'reports.alertsReport',
