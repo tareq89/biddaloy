@@ -122,6 +122,35 @@ describe('report registry', () => {
     expect(fees?.joins[0]?.to.tenantColumn).toBe('tenant_id');
   });
 
+  it('a field key that is not snake_case throws (keys become column names)', () => {
+    const area = { ...students, fields: [{ ...nameField, key: 'bad key"' }] };
+    expect(() => assertRegistryValid([area])).toThrow(/not snake_case/);
+  });
+
+  it('a joined entity without its own tenant_id throws', () => {
+    const area: SubjectAreaDef = {
+      ...students,
+      joins: [
+        {
+          from: 's',
+          to: { alias: 'x', table: 'things', tenantColumn: null, tenantVia: 's' },
+          on: 'x.s_id = s.id',
+          kind: 'left',
+        },
+      ],
+    };
+    expect(() => assertRegistryValid([area])).toThrow(/must have its own tenant_id/);
+  });
+
+  it('a root scoped through a LEFT join to its tenant table throws (the join must be inner)', () => {
+    const area: SubjectAreaDef = {
+      ...students,
+      root: { alias: 'x', table: 'things', tenantColumn: null, tenantVia: 's' },
+      joins: [{ from: 'x', to: students.root, on: 'x.s_id = s.id', kind: 'left' }],
+    };
+    expect(() => assertRegistryValid([area])).toThrow(/must be an inner join/);
+  });
+
   it('the registry service looks areas up and refuses to start when invalid', () => {
     const registry = new ReportRegistry();
     expect(registry.area(ReportSubjectArea.STUDENTS)?.root.table).toBe('students');

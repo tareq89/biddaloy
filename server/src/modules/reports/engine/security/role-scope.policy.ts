@@ -13,6 +13,8 @@ export interface ReportRunContext {
 export interface ScopeClause {
   sql: string;
   params: Record<string, unknown>;
+  /** Aliases the clause reads, so the compiler joins them even if no field does. */
+  aliases?: string[];
 }
 
 /**

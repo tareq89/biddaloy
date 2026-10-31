@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit, Optional } from '@nestjs/common';
 import type { ReportSubjectArea } from '@biddaloy/shared';
 import { ALL_AREAS } from './areas';
 import type { EntityDef, FieldDef, MeasureDef, SubjectAreaDef } from './registry.types';
@@ -51,8 +51,28 @@ export function assertRegistryValid(areas: readonly SubjectAreaDef[]): void {
       }
     }
 
+    // A table without its own tenant column is only allowed as the root, tenant-scoped by an inner join from it.
+    if (area.root.tenantColumn === null) {
+      const via = area.joins.find((j) => j.to.alias === area.root.tenantVia);
+      if (via && (via.kind !== 'inner' || via.from !== area.root.alias)) {
+        problems.push(
+          `${where}: tenantVia "${area.root.tenantVia}" must be an inner join from the root`,
+        );
+      }
+    }
+    for (const join of area.joins) {
+      if (join.to.tenantColumn !== 'tenant_id') {
+        problems.push(
+          `${where}: joined entity "${join.to.alias}" must have its own tenant_id column`,
+        );
+      }
+    }
+
     const keys = new Set<string>();
     const check = (kind: string, def: FieldDef | MeasureDef) => {
+      // Keys become output column names, so they stay to plain snake_case.
+      if (!/^[a-z][a-z0-9_]*$/.test(def.key))
+        problems.push(`${where}: ${kind} key "${def.key}" is not snake_case`);
       if (keys.has(def.key)) problems.push(`${where}: ${kind} key "${def.key}" is not unique`);
       keys.add(def.key);
       if (!known.has(def.entity)) {
@@ -78,17 +98,22 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
+/** Injection token for tests that need their own areas; production uses `ALL_AREAS`. */
+export const REPORT_AREAS = Symbol('REPORT_AREAS');
+
 /** Read-only view of the semantic layer. Server code only: it holds SQL fragments (D19). */
 @Injectable()
 export class ReportRegistry implements OnModuleInit {
+  private readonly source: readonly SubjectAreaDef[];
   private readonly byKey: ReadonlyMap<ReportSubjectArea, SubjectAreaDef>;
 
-  constructor() {
-    this.byKey = new Map(ALL_AREAS.map((area) => [area.key, deepFreeze(area)]));
+  constructor(@Optional() @Inject(REPORT_AREAS) areas?: readonly SubjectAreaDef[]) {
+    this.source = areas ?? ALL_AREAS;
+    this.byKey = new Map(this.source.map((area) => [area.key, deepFreeze(area)]));
   }
 
   onModuleInit(): void {
-    assertRegistryValid(ALL_AREAS);
+    assertRegistryValid(this.source);
   }
 
   areas(): readonly SubjectAreaDef[] {
