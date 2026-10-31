@@ -61,6 +61,7 @@ import { FinesService } from './fines/fines.service';
 import { FinesController } from './fines/fines.controller';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { FeesDashboardController } from './fees-dashboard.controller';
+import { ReportExportModule } from '../reports/export/report-export.module';
 
 @Module({
   imports: [
@@ -95,6 +96,9 @@ import { FeesDashboardController } from './fees-dashboard.controller';
     DashboardModule,
     StudentModule,
     InvoicesModule,
+    // [8.15.35] StudentStatementService writes the report run log. The module is @Global in the
+    // app, but a spec that boots FeesModule alone does not load it, so import it here.
+    ReportExportModule,
     // [CI failure, PR #801] FeeModule -> SchoolsModule -> AccountAccessModule
     // -> CommunicationsModule -> FeeModule is a cycle — CommunicationsModule
     // already forwardRef()s its own edge to SchoolsModule for exactly this
