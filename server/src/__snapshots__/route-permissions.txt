@@ -260,6 +260,7 @@ GET /platform/billing/schools/:id | PlatformBillingController | identity | roles
 GET /platform/holiday-sets | PublicHolidaysController | identity | roles: SUPER_ADMIN
 GET /platform/holiday-sets/:id | PublicHolidaysController | identity | roles: SUPER_ADMIN
 GET /portal/arrival-subscriptions | PortalArrivalSubscriptionsController | identity | roles: PARENT
+GET /portal/students/:studentId/statement | StudentStatementController | perm: FEE_READ
 GET /presets | PresetsController | perm: CURRICULUM_PRESET_APPLY
 GET /presets/:id | PresetsController | perm: CURRICULUM_PRESET_APPLY
 GET /presets/status | PresetsController | perm: CURRICULUM_PRESET_APPLY
@@ -358,6 +359,7 @@ GET /students/:studentId/programs | StudentProgramsController | perm: PROGRAM_RE
 GET /students/:studentId/promotion-overrides | PromotionsController | perm: STUDENT_READ
 GET /students/:studentId/results | StudentResultsController | perm: RESULT_READ
 GET /students/:studentId/results/:examId | StudentResultsController | perm: RESULT_READ
+GET /students/:studentId/statement | StudentStatementController | perm: INVOICE_READ,PAYMENT_READ
 GET /students/:studentId/study-plans | FamilyStudyPlansController | perm: SYLLABUS_READ
 GET /students/:studentId/subject-choices | SubjectChoicesController | perm: STUDENT_UPDATE
 GET /students/:studentId/transcript | TranscriptController | perm: RESULT_READ

@@ -30,6 +30,8 @@ import { IdCardIcon, ImageUpIcon, PlusIcon, SendIcon, UploadIcon, XIcon } from '
 import * as React from 'react';
 import { z } from 'zod';
 
+import { readVisibleColumns } from '../-save-as-report/list-to-definition';
+import { SaveAsReportDialog } from '../-save-as-report/save-as-report-dialog';
 import { useLandingFlag } from '../-use-landing-flag';
 import { previewIdsNav } from '../../../components/print/preview-ids';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -62,9 +64,19 @@ interface StudentFilters {
   version?: string | undefined;
   enrollment_status?: string | undefined;
   gender?: string | undefined;
+  /** [8.15.33] Free text on the student record; the server matches it exactly, in any letter case. */
+  religion?: string | undefined;
   date_of_birth_from?: string | undefined;
   date_of_birth_to?: string | undefined;
 }
+
+/** What the table shows until a person changes it with the Columns menu. */
+const DEFAULT_COLUMN_VISIBILITY = {
+  dateOfBirth: false,
+  gender: false,
+  address: false,
+  preferredCommunication: false,
+};
 
 const studentsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
@@ -79,6 +91,8 @@ const studentsSearchSchema = z.object({
   version: z.string().optional().catch(undefined),
   enrollment_status: z.string().optional().catch(undefined),
   gender: z.string().optional().catch(undefined),
+  // Coerced: a religion typed as digits would otherwise be parsed to a number and dropped.
+  religion: z.coerce.string().optional().catch(undefined),
   date_of_birth_from: z.string().optional().catch(undefined),
   date_of_birth_to: z.string().optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores the row selection
@@ -103,6 +117,7 @@ function toStudentListFilters(filters: StudentFilters, sortColumnId: string | un
       ? { enrollment_status: filters.enrollment_status }
       : {}),
     ...(filters.gender !== undefined ? { gender: filters.gender } : {}),
+    ...(filters.religion !== undefined ? { religion: filters.religion } : {}),
     ...(filters.date_of_birth_from !== undefined
       ? { date_of_birth_from: filters.date_of_birth_from }
       : {}),
@@ -131,6 +146,7 @@ export const Route = createFileRoute('/_staff/students/')({
     version: search.version,
     enrollmentStatus: search.enrollment_status,
     gender: search.gender,
+    religion: search.religion,
     dateOfBirthFrom: search.date_of_birth_from,
     dateOfBirthTo: search.date_of_birth_to,
   }),
@@ -152,6 +168,7 @@ export const Route = createFileRoute('/_staff/students/')({
                 version: deps.version,
                 enrollment_status: deps.enrollmentStatus,
                 gender: deps.gender,
+                religion: deps.religion,
                 date_of_birth_from: deps.dateOfBirthFrom,
                 date_of_birth_to: deps.dateOfBirthTo,
               },
@@ -164,7 +181,8 @@ export const Route = createFileRoute('/_staff/students/')({
       // 'backup' feeds the [14.13.2] migrate-a-whole-school link below the
       // (empty) list — same permission-gated one-liner as
       // `students/import.tsx`, pointed the other direction.
-      loadRouteNamespaces('students', 'backup'),
+      // 'staff' holds the role names the keep-as-report dialog lists.
+      loadRouteNamespaces('students', 'backup', 'staff'),
     ]),
   pendingComponent: StudentsListPending,
   component: StudentsListPage,
@@ -225,6 +243,8 @@ function StudentsListPage() {
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
   const canExportAll = useHasPermission(Permission.REPORTS_EXPORT);
+  // [8.15.52] Keeping the list as a report is a designer's job.
+  const canDesignReports = useHasPermission(Permission.REPORTS_DESIGN);
   // A section-scoped role (TEACHER) only lists the sections it teaches this year, so an
   // unfiltered empty list means "no section assigned", not "no students yet". Checked by role
   // scope, not a permission: SUPER_ADMIN holds every permission.
@@ -263,6 +283,8 @@ function StudentsListPage() {
   }
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
+  // The columns showing when the dialog was opened (the table keeps them in localStorage).
+  const [keepAsReport, setKeepAsReport] = React.useState<{ columns: string[] } | null>(null);
   const [photosDialogOpen, setPhotosDialogOpen] = useLandingFlag('photos', canUpdateStudent);
 
   // FilterBar's `onChange` patches one key at a time — intercept `class_id`
@@ -320,6 +342,12 @@ function StudentsListPage() {
         value,
         label: t(`form.fields.genderOptions.${value}`),
       })),
+    },
+    {
+      kind: 'text',
+      key: 'religion',
+      label: t('list.religionFilterLabel'),
+      placeholder: t('list.religionFilterPlaceholder'),
     },
     ...(showShiftFilter
       ? [
@@ -509,6 +537,18 @@ function StudentsListPage() {
               downloadListExport('/students/export', studentListFilters, format)
             }
             onExportSelected={exportSelectedToCsv}
+            {...(canDesignReports
+              ? {
+                  onKeepAsReport: () =>
+                    setKeepAsReport({
+                      columns: readVisibleColumns(
+                        'students-list',
+                        columns.map((column) => column.id),
+                        DEFAULT_COLUMN_VISIBILITY,
+                      ),
+                    }),
+                }
+              : {})}
           />
         }
         filters={{ fields: filterFields, values: state.filters, onChange: handleFiltersChange }}
@@ -557,12 +597,7 @@ function StudentsListPage() {
               ? t('list.sortOptionLabelDescending', { header })
               : header
         }
-        defaultColumnVisibility={{
-          dateOfBirth: false,
-          gender: false,
-          address: false,
-          preferredCommunication: false,
-        }}
+        defaultColumnVisibility={DEFAULT_COLUMN_VISIBILITY}
         loading={studentsQuery.isLoading}
         isFetching={studentsQuery.isFetching}
         {...(studentsQuery.isError ? { error: t('list.errorMessage') } : {})}
@@ -622,6 +657,21 @@ function StudentsListPage() {
         </p>
       )}
       <BulkPhotoDialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen} />
+      {canDesignReports && (
+        <SaveAsReportDialog
+          open={keepAsReport !== null}
+          onOpenChange={(open) => {
+            if (!open) setKeepAsReport(null);
+          }}
+          kind="students"
+          filters={{ ...effectiveFilters }}
+          names={{
+            className: classesQuery.data?.data.find((k) => k.id === filters.class_id)?.name,
+            sectionName: sectionsQuery.data?.find((x) => x.id === filters.section_id)?.section_name,
+          }}
+          columns={keepAsReport?.columns ?? []}
+        />
+      )}
       <SendReminderDialog
         open={reminderDialogOpen}
         onOpenChange={setReminderDialogOpen}

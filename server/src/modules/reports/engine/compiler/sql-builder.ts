@@ -15,6 +15,8 @@ export interface BuildInput {
   scope: readonly ScopeClause[];
   /** The caller's hard cap (D20). The definition's own `limit` can only lower it. */
   maxRows: number;
+  /** Bound values of calculated-field literals (`c0`, `c1`, ...). */
+  extraParams?: Record<string, unknown>;
 }
 
 const DATE_BUCKETS = { day: 'day', week: 'week', month: 'month', year: 'year' } as const;
@@ -126,7 +128,7 @@ export function buildQuery(dataSource: DataSource, input: BuildInput): SelectQue
   }
 
   const wheres = [...tenantClause(area.root), ...aliveClause(area.root), ...(area.baseWhere ?? [])];
-  const params: Record<string, unknown> = { tenantId };
+  const params: Record<string, unknown> = { ...input.extraParams, tenantId };
   let counter = 0;
   const next = () => `p${counter++}`;
   for (const filter of validated.filters) wheres.push(filterSql(filter, next, params));

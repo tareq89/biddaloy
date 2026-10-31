@@ -219,6 +219,13 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/fees/fines/rules': [{ label: { key: 'fines' } }, { label: { key: 'fineRules' } }],
   '/_staff/invoices/': [{ label: { entity: 'invoice' } }],
   '/_staff/reports/collections': [{ label: { key: 'collectionsReport' } }],
+  '/_staff/reports/student-count': [{ label: { key: 'studentCount' } }],
+  // [8.15.29] The hub is one crumb (no trail row); a report is "All reports › <its name>".
+  '/_staff/reports/': [{ label: { key: 'allReports' } }],
+  '/_staff/reports/$reportId': [
+    { label: { key: 'allReports' } },
+    { label: { key: 'reportDetail' }, dynamic: 'entity' },
+  ],
   // [32.4.1] The editor is chromeless (no crumb bar), so this only sets the tab title: the template's name.
   '/_staff/print-templates/': [{ label: { key: 'printTemplates' } }],
   '/_staff/print-templates/$templateId/edit': [

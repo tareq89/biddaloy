@@ -188,7 +188,26 @@ export function validateDefinition(
   });
 
   const measures = dataset.measures.map((m, i) => {
-    const measure = area.measures.find((x) => x.key === m.field);
+    const registered = area.measures.find((x) => x.key === m.field);
+    // A calculated field can be added up, counted, averaged...: the author picks how.
+    const calculated = registered
+      ? undefined
+      : area.fields.find((f) => f.key === m.field && f.calculated);
+    const measure: MeasureDef | undefined =
+      registered ??
+      (calculated
+        ? {
+            key: calculated.key,
+            labelEn: calculated.labelEn,
+            labelBn: calculated.labelBn,
+            fn: m.fn,
+            sql: calculated.sql,
+            entity: calculated.entity,
+            entities: calculated.entities,
+            type: calculated.type,
+            sensitivity: calculated.sensitivity,
+          }
+        : undefined);
     if (!measure) throw new ReportCompileError('UNKNOWN_MEASURE', `dataset.measures[${i}]`);
     return { measure, alias: measure.key };
   });

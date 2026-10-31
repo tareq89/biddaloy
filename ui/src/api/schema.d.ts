@@ -1286,6 +1286,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/students/{studentId}/statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One student's bills, payments and discounts, with what is still owed after each. */
+        get: operations["StudentStatementController_staff_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/students/{studentId}/statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A guardian's view of their own child's statement. */
+        get: operations["StudentStatementController_portal_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/payments/cart": {
         parameters: {
             query?: never;
@@ -10714,6 +10748,42 @@ export interface components {
              */
             previous_count: number | null;
         };
+        StatementEntryDto: {
+            /** @example 2026-05-01 */
+            date: string;
+            /** @enum {string} */
+            kind: "BILL" | "DISCOUNT" | "PAYMENT" | "REVERSAL";
+            description: string;
+            /** @description Charged: a bill, or a payment taken back. */
+            debit: number;
+            /** @description Paid or discounted. */
+            credit: number;
+            /** @description Still owed after this line. */
+            balance: number;
+        };
+        WalletMoveDto: {
+            date: string;
+            kind: string;
+            /** @description Positive adds to the wallet, negative takes from it. */
+            amount: number;
+            note: string | null;
+        };
+        StudentStatementDto: {
+            /** Format: uuid */
+            student_id: string;
+            student_name: string;
+            registration_number: string;
+            from: string | null;
+            to: string | null;
+            /** @description Still owed before the first line shown. */
+            opening_balance: number;
+            /** @description Still owed after the last line shown; equals the total on the student fees tab when `to` is not set. */
+            closing_balance: number;
+            entries: components["schemas"]["StatementEntryDto"][];
+            /** @description The advance money held for the student. It does not change what is owed. */
+            wallet_balance: number;
+            wallet_moves: components["schemas"]["WalletMoveDto"][];
+        };
         CartBillDto: {
             student_fee_id: string;
             fee_name: string;
@@ -19038,6 +19108,7 @@ export interface operations {
                 version?: string;
                 enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
                 gender?: string;
+                religion?: string;
                 date_of_birth_from?: string;
                 date_of_birth_to?: string;
                 sort?: "full_name" | "registration_number" | "created_at";
@@ -19190,6 +19261,7 @@ export interface operations {
                 version?: string;
                 enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
                 gender?: string;
+                religion?: string;
                 date_of_birth_from?: string;
                 date_of_birth_to?: string;
                 sort?: "full_name" | "registration_number" | "created_at";
@@ -19264,6 +19336,7 @@ export interface operations {
                 version?: string;
                 enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
                 gender?: string;
+                religion?: string;
                 date_of_birth_from?: string;
                 date_of_birth_to?: string;
             };
@@ -20413,6 +20486,82 @@ export interface operations {
             };
             /** @description Missing permission, or role not offered this widget (DASHBOARD_WIDGET_ROLE) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentStatementController_staff_v1: {
+        parameters: {
+            query?: {
+                /** @description First day shown. Earlier entries fold into the opening balance. */
+                from?: string;
+                /** @description Last day shown. Default: everything. */
+                to?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentStatementDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentStatementController_portal_v1: {
+        parameters: {
+            query?: {
+                /** @description First day shown. Earlier entries fold into the opening balance. */
+                from?: string;
+                /** @description Last day shown. Default: everything. */
+                to?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentStatementDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

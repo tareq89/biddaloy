@@ -734,6 +734,26 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/print-templates?new=1' }),
   },
+  // [8.15.54] Early BANBEIS head count; same gate as its route (`REPORTS_VIEW`).
+  {
+    id: 'reports.studentCount',
+    label: { en: 'Student count (BANBEIS)', bn: 'ছাত্রসংখ্যা (BANBEIS)' },
+    synonyms: ['BANBEIS', 'head count', 'enrolment', 'ছাত্রসংখ্যা', 'শিক্ষার্থী সংখ্যা'],
+    permission: Permission.REPORTS_VIEW,
+    kind: 'navigate',
+    group: 'reports',
+    run: (ctx) => ctx.navigate({ to: '/reports/student-count' }),
+  },
+  // [8.15.29] "Open report…": the hub lists every report, and opening one runs it at once.
+  {
+    id: 'reports.open',
+    label: { en: 'Open report…', bn: 'রিপোর্ট খুলুন…' },
+    synonyms: ['report', 'reports', 'catalogue', 'রিপোর্ট', 'প্রতিবেদন'],
+    permission: Permission.REPORTS_VIEW,
+    kind: 'navigate',
+    group: 'reports',
+    run: (ctx) => ctx.navigate({ to: '/reports' }),
+  },
   {
     id: 'print.history',
     label: { en: 'Print history', bn: 'প্রিন্টের ইতিহাস' },
