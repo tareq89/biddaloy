@@ -560,7 +560,16 @@ Example: a school stores `communications.sms = { provider: 'onecodesoft', onecod
 
 A field's descriptor decides how it resolves. `required`, `owned: true` (OneCodeSoft `senderId`) and destination fields (`kind: 'url'`, or `destination: true` on SMTP `host`/`port`) belong to whoever owns the medium. Once the school owns it, they never come from the platform env. Example: a school with its own OneCodeSoft key and no `senderId` sends with no sender id, never under `ONECODESOFT_SENDER_ID`.
 
-The same rule covers unsaved values (the `config` a connection test or test message sends). On a school with no config of its own, an override that sets any owned field must carry every required field itself. It is never mixed with the platform env. Example: `{ smtp: { from: "ceo@bank.example" } }` with `SMTP_*` set on the platform is refused; it does not send through the platform login under a caller-chosen sender. On a school that owns the medium, the override still mixes with the school's own saved values, so "test my saved config" works when the form leaves an unchanged secret out. The resolver returns `source: 'override' | 'tenant' | 'platform'` so a caller can tell whose account a send uses.
+The same rule covers unsaved values (the `config` a connection test or test message sends). On a school with no config of its own, an override that sets any owned field must carry every required field itself. It is never mixed with the platform env. Example: `{ smtp: { from: "ceo@bank.example" } }` with `SMTP_*` set on the platform is refused; it does not send through the platform login under a caller-chosen sender. On a school that owns the medium, the override still mixes with the school's own saved values, so "test my saved config" works when the form leaves an unchanged secret out.
+
+A destination in the override (`host`, `port`, `apiUrl`) counts as new only when it differs from the saved one. The form sends the saved destination back, so that is still the school's own target and the saved secret is used. A different destination must carry every required field itself, so a saved password or key never goes to a host the caller picked.
+
+| Saved                         | Override                    | Result                         |
+| ----------------------------- | --------------------------- | ------------------------------ |
+| `smtp.example`, password `pw` | `{ host: 'smtp.example' }`  | uses `pw` (`source: 'tenant'`) |
+| `smtp.example`, password `pw` | `{ host: 'other.example' }` | refused: missing `password`    |
+
+The resolver returns `source: 'override' | 'tenant' | 'platform'` so a caller can tell whose account a send uses.
 
 Dated learning (2026-10-31, Wave 2 close #3301):
 

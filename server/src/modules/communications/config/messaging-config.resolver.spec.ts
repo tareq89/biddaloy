@@ -605,6 +605,95 @@ describe('MessagingConfigResolver', () => {
       });
     });
 
+    // PR #3325 review round 2, finding 1: the settings form pre-fills the saved destination (SMTP
+    // host + port, OneCodeSoft apiUrl) and leaves out an unchanged secret. The same destination is
+    // the stored one, not a caller-chosen target, so the stored secret is used. A different
+    // destination still needs every field itself: stored secrets never go to another host.
+    describe('override repeats the stored destination', () => {
+      const storedSmtp = settingsWith('email', {
+        smtp: { host: 'smtp.example', port: 587, user: 'u', password: 'pw', from: 'a@x.com' },
+      });
+      const storedOcs = settingsWith('sms', {
+        provider: 'onecodesoft',
+        onecodesoft: { apiKey: 'stored-k', apiUrl: 'https://sms.example.com/api' },
+      });
+      const ocs = (t: TenantSettings) => resolverFor({ t1: t }, {}, [new OnecodesoftProvider()]);
+
+      it('SMTP: the same host + port (the form payload) uses the stored password', async () => {
+        const r = await resolverFor({ t1: storedSmtp }).resolve(CommunicationMedium.EMAIL, 't1', {
+          override: { smtp: { host: 'smtp.example', port: 587, user: 'u', from: 'a@x.com' } },
+        });
+        expect(r.config).toEqual({
+          host: 'smtp.example',
+          port: '587',
+          user: 'u',
+          password: 'pw',
+          from: 'a@x.com',
+        });
+        expect(r.source).toBe('tenant');
+      });
+
+      it('SMTP: a different host is still refused, the stored password is not borrowed', async () => {
+        const err = await resolverFor({ t1: storedSmtp })
+          .resolve(CommunicationMedium.EMAIL, 't1', {
+            override: { smtp: { host: 'other.example', port: 587, user: 'u', from: 'a@x.com' } },
+          })
+          .catch((e) => e);
+        expect(err).toBeInstanceOf(ProviderNotConfiguredError);
+        expect(err.message).toMatch(/Testing a new destination requires .* \(missing: password\)/);
+      });
+
+      it('SMTP: the same host on a different port is still a new destination', async () => {
+        const err = await resolverFor({ t1: storedSmtp })
+          .resolve(CommunicationMedium.EMAIL, 't1', {
+            override: { smtp: { host: 'smtp.example', port: '25', user: 'u', from: 'a@x.com' } },
+          })
+          .catch((e) => e);
+        expect(err).toBeInstanceOf(ProviderNotConfiguredError);
+        expect(err.message).toMatch(/Testing a new destination requires/);
+      });
+
+      it('OneCodeSoft: the same apiUrl uses the stored API key', async () => {
+        const r = await ocs(storedOcs).resolve(CommunicationMedium.SMS, 't1', {
+          override: {
+            provider: 'onecodesoft',
+            onecodesoft: { apiUrl: 'https://sms.example.com/api' },
+          },
+        });
+        expect(r.config).toEqual({ apiKey: 'stored-k', apiUrl: 'https://sms.example.com/api' });
+        expect(r.source).toBe('tenant');
+      });
+
+      it('OneCodeSoft: a different apiUrl is still refused, the stored key is not borrowed', async () => {
+        const err = await ocs(storedOcs)
+          .resolve(CommunicationMedium.SMS, 't1', {
+            override: {
+              provider: 'onecodesoft',
+              onecodesoft: { apiUrl: 'https://evil.example/api' },
+            },
+          })
+          .catch((e) => e);
+        expect(err).toBeInstanceOf(ProviderNotConfiguredError);
+        expect(err.message).toMatch(/Testing a new destination requires .* \(missing: apiKey\)/);
+        expect(err.message).not.toContain('stored-k');
+      });
+
+      it('a destination matching the platform env (school owns nothing) never borrows the platform key', async () => {
+        const settings = settingsWith('sms', { provider: 'onecodesoft', metering: 'PLATFORM' });
+        const err = await resolverFor(
+          { t1: settings },
+          { ONECODESOFT_API_KEY: 'env-k', ONECODESOFT_API_URL: 'https://p.example/api' },
+          [new OnecodesoftProvider()],
+        )
+          .resolve(CommunicationMedium.SMS, 't1', {
+            override: { onecodesoft: { apiUrl: 'https://p.example/api' } },
+          })
+          .catch((e) => e);
+        expect(err).toBeInstanceOf(ProviderNotConfiguredError);
+        expect(err.message).not.toContain('env-k');
+      });
+    });
+
     it('ignores non-string override values and unknown keys', async () => {
       const err = await resolverFor({})
         .resolve(CommunicationMedium.MESSENGER, 't1', {

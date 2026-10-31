@@ -87,7 +87,8 @@ function readBlock(
  * and provider, driven by the provider's descriptor (D1, D6, D11). No vendor names here.
  *
  * Fields do not fall back independently across trust tiers; a medium's source is decided as a unit:
- *   - override sets a destination field (apiUrl, host, port) -> the override must carry every
+ *   - override sets a destination field (apiUrl, host, port) to a value other than the stored one
+ *     -> the override must carry every
  *     required field itself (bar `sendOnly` ones when `connectionTestOnly`); it never
  *     borrows stored credentials for a caller-chosen target.
  *   - else tenant set any owned field (even an explicit null clear) -> tenant/override only,
@@ -157,7 +158,11 @@ export class MessagingConfigResolver {
     const flatOk = forMedium.length === 1;
     const tenant = readBlock(tenantMedium, provider.descriptor.name, fields, flatOk);
     const ov = readBlock(override, provider.descriptor.name, fields, flatOk);
-    const overrideSetsDestination = fields.some((f) => isDestination(f) && ov[f.key] != null);
+    // A destination equal to the stored one is the school's own target, not a caller-chosen one
+    // (the settings form pre-fills it), so it keeps the stored secrets. Any other value is new.
+    const overrideSetsDestination = fields.some(
+      (f) => isDestination(f) && ov[f.key] != null && ov[f.key] !== tenant[f.key],
+    );
     const tenantOwnsIt =
       !overrideSetsDestination && fields.some((f) => isOwned(f) && tenant[f.key] !== undefined);
     // Platform tier only: a caller-chosen sender/account never combines with the platform's keys.
