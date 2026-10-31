@@ -130,13 +130,15 @@ export class OnecodesoftProvider extends MessagingProvider<OnecodesoftConfig> {
           outcome: 'REJECTED',
         };
       }
-      // Answered, but not in a shape we trust: the SMS may have gone out.
+      // Answered, but not in a shape we trust: the SMS may have gone out, so it is never
+      // retried (a retry could send it twice; see `failureForHttpStatus`). The credit stays held.
       return {
         success: false,
         providerMessageId: null,
         error: AMBIGUOUS_ERROR,
         raw: data,
         segments: segmentInfo.segments,
+        retryable: false,
         outcome: 'AMBIGUOUS',
       };
     } catch (err) {
@@ -147,7 +149,7 @@ export class OnecodesoftProvider extends MessagingProvider<OnecodesoftConfig> {
         // Fixed sentences only: the guard's own message can carry the raw URL (Rule 23).
         error: blocked ? BLOCKED_ERROR : AMBIGUOUS_ERROR,
         segments: segmentInfo.segments,
-        retryable: blocked ? false : undefined,
+        retryable: this.retryAfterThrow(err),
         outcome: blocked ? 'REJECTED' : 'AMBIGUOUS',
       };
     }

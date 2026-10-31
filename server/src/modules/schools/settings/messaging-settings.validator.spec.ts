@@ -153,8 +153,9 @@ describe('problemWith', () => {
   // everything it saved, and so get back to the platform account.
   it('remove saved details: provider null with null company blocks is accepted; anything else is not', () => {
     expect(problemWith({ provider: null, alpha: null, beta: null }, SMS)).toBeNull();
-    expect(problemWith({ provider: null }, SMS)).toBeNull();
-    expect(problemWith({ provider: null, alpha: null, metering: 'PLATFORM' }, SMS)).toBeNull();
+    expect(
+      problemWith({ provider: null, alpha: null, beta: null, metering: 'PLATFORM' }, SMS),
+    ).toBeNull();
     expect(problemWith({ solo: null }, WA)).toBeNull();
     expect(problemWith({ provider: null, alpha: { senderId: 's' } }, SMS)).toBe(
       'removes the saved company, so every other value sent must be null.',
@@ -163,6 +164,18 @@ describe('problemWith', () => {
     expect(problemWith({ provider: null, rogue: null }, SMS)).toMatch(/does not use/);
     // A company block null without provider null is not a removal.
     expect(problemWith({ provider: 'alpha', alpha: null }, SMS)).not.toBeNull();
+  });
+
+  // Review round 2 on #3347: a removal that leaves a company block saved is not a removal. The
+  // merge would delete only `provider`, and the resolver could still send on the saved block.
+  it('remove saved details: a removal that leaves out a company block is rejected', () => {
+    const missingBlock =
+      'removes the saved company, so every company block must be sent as null too.';
+    expect(problemWith({ provider: null }, SMS)).toBe(missingBlock);
+    expect(problemWith({ provider: null, alpha: null }, SMS)).toBe(missingBlock);
+    expect(problemWith({ provider: null, alpha: null, metering: 'PLATFORM' }, SMS)).toBe(
+      missingBlock,
+    );
   });
 
   // #3322: a port field must be a real TCP port, or the save would store a config that never sends.

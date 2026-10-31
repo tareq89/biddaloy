@@ -137,7 +137,7 @@ describe('DeliveryStatusService (integration)', () => {
     expect(getStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('a check after the wait runs again and keeps the earlier delivery status until it answers', async () => {
+  it('a check after the wait runs again and replaces the earlier delivery status', async () => {
     const old = new Date(Date.now() - 120_000).toISOString();
     const id = await addSentLog(tenantA, {
       provider: 'stub-sms',
@@ -151,6 +151,23 @@ describe('DeliveryStatusService (integration)', () => {
       status: 'DELIVERED',
       checkedAt: expect.any(String),
     });
+  });
+
+  // Review round 2 on #3347: a failed check after an earlier answer clears that answer, so the row
+  // never reads "checked now, still PENDING" when the vendor did not answer.
+  it('a provider error after an earlier answer keeps only the new checkedAt', async () => {
+    const old = new Date(Date.now() - 120_000).toISOString();
+    const id = await addSentLog(tenantA, {
+      provider: 'stub-sms',
+      delivery: { status: 'PENDING', checkedAt: old },
+    });
+    getStatus.mockRejectedValue(new Error('raw vendor text'));
+
+    await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(BadGatewayException);
+
+    const delivery = (await row(id)).metadata.delivery;
+    expect(delivery).toEqual({ checkedAt: expect.any(String) });
+    expect(delivery.checkedAt).not.toBe(old);
   });
 
   it('another school’s log id is a 404 and nothing is written', async () => {

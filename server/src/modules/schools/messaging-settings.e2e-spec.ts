@@ -254,6 +254,12 @@ describe('Messaging settings (e2e)', () => {
       communications: { sms: { ...(communications.sms as object), metering: 'PLATFORM' } },
     }).expect(200);
 
+    // Review round 2 on #3347: `provider: null` alone would leave the saved blocks behind, so it
+    // is refused and nothing changes.
+    const saved = await storedBlock(SEED_TENANT_ID, 'sms');
+    await patch(SEED_TENANT_ID, { communications: { sms: { provider: null } } }).expect(400);
+    expect(await storedBlock(SEED_TENANT_ID, 'sms')).toEqual(saved);
+
     const nulls = Object.fromEntries(sms.providers.map((d) => [d.name, null]));
     const res = await patch(SEED_TENANT_ID, {
       communications: { sms: { provider: null, ...nulls } },

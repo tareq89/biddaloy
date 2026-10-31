@@ -131,6 +131,7 @@ export class ConnectionTestService {
           medium as CommunicationMedium,
           provider,
           config,
+          source,
           testMessage,
           message,
         ),
@@ -287,6 +288,7 @@ export class ConnectionTestService {
     medium: CommunicationMedium,
     provider: Parameters<typeof sendThroughProvider>[0],
     config: unknown,
+    source: ConfigSource,
     req: TestMessageRequest,
     { body, subject, metered, segments }: TestMessageBody,
   ) {
@@ -313,6 +315,7 @@ export class ConnectionTestService {
       provider,
       { to: req.sendTo, body, subject },
       config as never,
+      source,
     );
     // AMBIGUOUS (the provider threw): the message may have gone out, so the credit stays reserved.
     const unsettled = reservation && !result.success && result.outcome !== 'REJECTED';
@@ -329,6 +332,8 @@ export class ConnectionTestService {
             ...(result.segments !== undefined ? { segments: result.segments } : {}),
             // D23: which company sent it, so Check status asks the same one (as the worker does).
             ...(result.provider ? { provider: result.provider } : {}),
+            // #3350: and whose account, so Check status asks the same one.
+            ...(result.source ? { source: result.source } : {}),
             ...(result.success ? {} : { error: result.error }),
             ...(reservation ? { batch_id: reservation.batchId } : {}),
             ...(unsettled ? { credit: 'UNSETTLED' } : {}),

@@ -597,27 +597,7 @@ describe('MessagingConfigResolver', () => {
       // company does not keep a stale `greenweb`, and when the platform's SMS_PROVIDER picks that
       // other company, the school's draft for it is not used either (a partial draft would fail
       // closed, a full one would send on the school's keys while on platform credit).
-      it.each([
-        [
-          'before the #3339 migration',
-          {
-            provider: 'greenweb',
-            metering: 'PLATFORM',
-            greenweb: {},
-            mimsms: { senderId: 'DRAFT' },
-          },
-        ],
-        ['after the #3339 migration', { metering: 'PLATFORM', mimsms: { senderId: 'DRAFT' } }],
-        [
-          'a full draft of the platform company',
-          {
-            provider: 'greenweb',
-            metering: 'PLATFORM',
-            greenweb: {},
-            mimsms: { apiKey: 'school-k', senderId: 'DRAFT' },
-          },
-        ],
-      ])('a draft of another company (%s): platform company and keys', async (_label, sms) => {
+      const platformCompany = async (sms: Record<string, unknown>) => {
         const r = await resolverFor(
           { t1: settingsWith('sms', sms) },
           { ...env, GREENWEB_API_KEY: 'g-env' },
@@ -625,6 +605,55 @@ describe('MessagingConfigResolver', () => {
         expect(r.provider.descriptor.name).toBe('mimsms');
         expect(r.config).toEqual({ apiKey: 'env-k', senderId: 'PLATFORM-ID' });
         expect(r.source).toBe('platform');
+      };
+
+      it('a draft of another company (before the #3339 migration): platform company and keys', async () => {
+        await platformCompany({
+          provider: 'greenweb',
+          metering: 'PLATFORM',
+          greenweb: {},
+          mimsms: { senderId: 'DRAFT' },
+        });
+      });
+
+      it('a draft of another company (after the #3339 migration): platform company and keys', async () => {
+        await platformCompany({ metering: 'PLATFORM', mimsms: { senderId: 'DRAFT' } });
+      });
+
+      it('a full draft of the platform company: platform company and keys', async () => {
+        await platformCompany({
+          provider: 'greenweb',
+          metering: 'PLATFORM',
+          greenweb: {},
+          mimsms: { apiKey: 'school-k', senderId: 'DRAFT' },
+        });
+      });
+
+      // #3350: Check status of a message sent on the platform account asks the platform account,
+      // even when the school saved a full draft for that company (the send ignored that draft).
+      it('platformProvider: resolves that company on the platform keys, never the school draft', async () => {
+        const settings = settingsWith('sms', {
+          metering: 'PLATFORM',
+          mimsms: { apiKey: 'school-k', senderId: 'DRAFT' },
+        });
+        const r = await resolverFor({ t1: settings }, env).resolve(CommunicationMedium.SMS, 't1', {
+          platformProvider: 'mimsms',
+        });
+        expect(r.provider.descriptor.name).toBe('mimsms');
+        expect(r.config).toEqual({ apiKey: 'env-k', senderId: 'PLATFORM-ID' });
+        expect(r.source).toBe('platform');
+      });
+
+      it('platformProvider: a company the platform has no keys for fails closed', async () => {
+        const settings = settingsWith('sms', {
+          metering: 'PLATFORM',
+          greenweb: { apiKey: 'school-g' },
+        });
+        await expect(
+          resolverFor({ t1: settings }, env).resolve(CommunicationMedium.SMS, 't1', {
+            platformProvider: 'greenweb',
+          }),
+        ).rejects.toBeInstanceOf(ProviderNotConfiguredError);
       });
 
       it("an override naming the draft's company still reads the school's saved draft", async () => {

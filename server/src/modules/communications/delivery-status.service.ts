@@ -50,7 +50,11 @@ export class DeliveryStatusService {
     const log = await this.repo.findOne({ where: { id, tenant_id: tenantId } });
     if (!log) throw new NotFoundException('Communication log not found');
 
-    const meta = (log.metadata ?? {}) as { provider?: unknown; delivery?: { checkedAt?: string } };
+    const meta = (log.metadata ?? {}) as {
+      provider?: unknown;
+      source?: unknown;
+      delivery?: { checkedAt?: string };
+    };
     const name = typeof meta.provider === 'string' ? meta.provider : null;
     const lastCheck = Date.parse(meta.delivery?.checkedAt ?? '');
     const cannot = () => new ConflictException(CANNOT_CHECK_STATUS);
@@ -67,10 +71,15 @@ export class DeliveryStatusService {
 
     let resolved;
     try {
-      // The override names the provider only (no field keys), so the tenant's stored config is used.
-      resolved = await this.registry.resolveFor(log.medium as CommunicationMedium, tenantId, {
-        override: { provider: name },
-      });
+      // #3350: ask the account that sent it. Sent on the platform's keys: the platform's account,
+      // never a draft the school saved for that company. Otherwise (the school's own account, or
+      // an older row with no `source`) the override names the provider only (no field keys), so
+      // the tenant's stored config is used.
+      resolved = await this.registry.resolveFor(
+        log.medium as CommunicationMedium,
+        tenantId,
+        meta.source === 'platform' ? { platformProvider: name } : { override: { provider: name } },
+      );
     } catch (err) {
       if (err instanceof ProviderNotConfiguredError) throw cannot();
       throw err;
@@ -86,13 +95,15 @@ export class DeliveryStatusService {
 
     // Claim before the call (review round 1 on #3347): the wait starts even when the vendor fails,
     // and two clicks in the same second cannot both reach the vendor. One tenant-scoped statement.
+    // The claim replaces `delivery` with `{checkedAt}` alone: a failed check must not leave an old
+    // status next to a new time (it would read "checked now, still PENDING").
     const now = new Date();
     const [, claimed] = (await this.repo.query(
       `UPDATE communication_logs
           SET metadata = jsonb_set(
                 COALESCE(metadata, '{}'::jsonb),
                 '{delivery}',
-                COALESCE(metadata -> 'delivery', '{}'::jsonb) || jsonb_build_object('checkedAt', $1::text)
+                jsonb_build_object('checkedAt', $1::text)
               ),
               updated_at = now()
         WHERE id = $2 AND tenant_id = $3 AND status = 'SENT'

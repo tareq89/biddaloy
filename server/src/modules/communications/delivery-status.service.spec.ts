@@ -91,6 +91,32 @@ describe('DeliveryStatusService', () => {
     expect(result).toMatchObject({ id: 'log-1', status: CommunicationStatus.DELIVERED });
   });
 
+  // #3350: a message sent on the platform's keys is checked on the platform's account, never on
+  // a draft the school saved for that company (the send ignored that draft).
+  it('a row sent on the platform account resolves that company on the platform account', async () => {
+    repo.findOne.mockResolvedValue(
+      sentLog({ metadata: { provider: 'stub-sms', source: 'platform', segments: 1 } }),
+    );
+
+    await service.checkStatus('log-1', TENANT);
+
+    expect(registry.resolveFor).toHaveBeenCalledWith(CommunicationMedium.SMS, TENANT, {
+      platformProvider: 'stub-sms',
+    });
+  });
+
+  it("a row sent on the school's own account keeps the school's stored config", async () => {
+    repo.findOne.mockResolvedValue(
+      sentLog({ metadata: { provider: 'stub-sms', source: 'tenant', segments: 1 } }),
+    );
+
+    await service.checkStatus('log-1', TENANT);
+
+    expect(registry.resolveFor).toHaveBeenCalledWith(CommunicationMedium.SMS, TENANT, {
+      override: { provider: 'stub-sms' },
+    });
+  });
+
   it('FAILED: a final failure sets status FAILED', async () => {
     provider.getStatus!.mockResolvedValue({ status: 'FAILED', code: '1001' });
 

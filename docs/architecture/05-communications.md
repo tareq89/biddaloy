@@ -432,10 +432,32 @@ reserved until a person decides:
 | `NO_LOG_LINK`                  | Exam-result reserve: logs carry no link to the reservation                                                                                                                                                                             |
 | `SHARED_REFERENCE`             | Old invoice-send reserves for one invoice share a reference, so their caps mix; never settled. (Result SMS has one reserve per exam key, so it is never a group.) Reported once per group, as the units not yet settled (any key form) |
 | `BATCH_REMAINDER`              | A `batch:` reserve older than 24h with units left and no QUEUED SMS log since: crashed worker, push-delivered by an old worker, or a rolling deploy. Listed only                                                                       |
+| `TEST_CLAIM_STRANDED`          | A test SMS (Settings › Send a test message) still QUEUED after 1 h, with credit still held: the server stopped during the vendor call, or the final save failed. The SMS may have gone out. `units` = what the reserve holds           |
 | `SPLIT_ACROSS_DEPLOY`          | Both an old and a `batch:` reserve exist for the same send; their caps would mix                                                                                                                                                       |
 | `EXCEEDS_RESERVATION`          | Settling this log would pass the reserved units                                                                                                                                                                                        |
 | `ORPHAN_UNITS`                 | Reserved units no log accounts for                                                                                                                                                                                                     |
 | `UNKNOWN_KEY`                  | Reserve key matches no known producer                                                                                                                                                                                                  |
+
+**Finding a stranded test send.** The run looks at two kinds of stranded test
+send, and does not list a third:
+
+```mermaid
+flowchart TD
+    T["Test send row still QUEUED after 1 h"] --> C{"credit reserved?\n(metadata.batch_id)"}
+    C -->|"yes, still held"| L["listed: TEST_CLAIM_STRANDED"]
+    C -->|"yes, already released\n(log:BATCH:settle)"| N1["not listed: nothing held"]
+    C -->|"no (email, or the school's own gateway)"| N2["not listed: no credit involved"]
+```
+
+- **All tenants vs one tenant.** A run for all tenants only visits a tenant
+  that has a reserve older than 24 h. So a claim that got stuck in the last
+  24 h shows up only in a one-tenant run (`--tenant=<uuid>`), or once its
+  reserve turns 24 h old. Example: a test SMS gets stuck at 10:00. An
+  all-tenant run at 12:00 does not list it. A `--tenant=` run at 12:00 does.
+- **A test send with no credit.** If its final save failed, the row stays
+  QUEUED for good. No credit is involved, so reconcile does not list it (a
+  report row needs a reserve). Ignore it. It only counts as one of the day's
+  20 test sends, and Check status answers 409 for it.
 
 Legacy fee and payment SMS that were delivered by **push** (not SMS) have no
 SENT log to debit, so their reserved units show up as `ORPHAN_UNITS`. That is
