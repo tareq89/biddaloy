@@ -86,7 +86,7 @@ describe('DeliveryStatusService (integration)', () => {
     const id = await addSentLog(tenantA, { provider: 'stub-sms', segments: 2, credit: 'DEBITED' });
     getStatus.mockResolvedValue({ status: 'DELIVERED', code: '000' });
 
-    const dto = await service.checkStatus(id, tenantA);
+    const dto = await service.checkStatus(id, tenantA, 'ADMIN');
 
     expect(dto).toMatchObject({ id, status: CommunicationStatus.DELIVERED, provider: 'stub-sms' });
     const stored = await row(id);
@@ -103,12 +103,14 @@ describe('DeliveryStatusService (integration)', () => {
     const id = await addSentLog(tenantA, { provider: 'stub-sms' });
     getStatus.mockResolvedValue({ status: 'PENDING' });
 
-    await service.checkStatus(id, tenantA);
+    await service.checkStatus(id, tenantA, 'ADMIN');
 
     const stored = await row(id);
     expect(stored.status).toBe('SENT');
     expect(stored.metadata.delivery).toEqual({ status: 'PENDING', checkedAt: expect.any(String) });
-    await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.checkStatus(id, tenantA, 'ADMIN')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
     expect(getStatus).toHaveBeenCalledTimes(1);
   });
 
@@ -116,9 +118,11 @@ describe('DeliveryStatusService (integration)', () => {
     const id = await addSentLog(tenantA, { provider: 'stub-sms' });
     getStatus.mockResolvedValue({ status: 'FAILED', code: '1001' });
 
-    await service.checkStatus(id, tenantA);
+    const dto = await service.checkStatus(id, tenantA, 'ADMIN');
 
     expect((await row(id)).status).toBe('FAILED');
+    // #3351: Why it failed shows a reason, never the vendor's own code (Rule 23).
+    expect(dto.error).toBe('FAILED');
   });
 
   // Review round 1 on #3347: a failed check also starts the one-minute wait (D23), so a vendor
@@ -127,13 +131,17 @@ describe('DeliveryStatusService (integration)', () => {
     const id = await addSentLog(tenantA, { provider: 'stub-sms' });
     getStatus.mockRejectedValue(new Error('raw vendor text'));
 
-    await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(BadGatewayException);
+    await expect(service.checkStatus(id, tenantA, 'ADMIN')).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
 
     expect(await row(id)).toEqual({
       status: 'SENT',
       metadata: { provider: 'stub-sms', delivery: { checkedAt: expect.any(String) } },
     });
-    await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.checkStatus(id, tenantA, 'ADMIN')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
     expect(getStatus).toHaveBeenCalledTimes(1);
   });
 
@@ -145,7 +153,7 @@ describe('DeliveryStatusService (integration)', () => {
     });
     getStatus.mockResolvedValue({ status: 'DELIVERED' });
 
-    await service.checkStatus(id, tenantA);
+    await service.checkStatus(id, tenantA, 'ADMIN');
 
     expect((await row(id)).metadata.delivery).toEqual({
       status: 'DELIVERED',
@@ -163,7 +171,9 @@ describe('DeliveryStatusService (integration)', () => {
     });
     getStatus.mockRejectedValue(new Error('raw vendor text'));
 
-    await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(BadGatewayException);
+    await expect(service.checkStatus(id, tenantA, 'ADMIN')).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
 
     const delivery = (await row(id)).metadata.delivery;
     expect(delivery).toEqual({ checkedAt: expect.any(String) });
@@ -173,7 +183,9 @@ describe('DeliveryStatusService (integration)', () => {
   it('another school’s log id is a 404 and nothing is written', async () => {
     const foreign = await addSentLog(tenantB, { provider: 'stub-sms' });
 
-    await expect(service.checkStatus(foreign, tenantA)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.checkStatus(foreign, tenantA, 'ADMIN')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
 
     expect(getStatus).not.toHaveBeenCalled();
     expect(await row(foreign)).toEqual({ status: 'SENT', metadata: { provider: 'stub-sms' } });
@@ -183,7 +195,9 @@ describe('DeliveryStatusService (integration)', () => {
     vi.stubEnv('MESSAGE_SINK', 'mailpit');
     const id = await addSentLog(tenantA, { provider: 'stub-sms' });
 
-    await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.checkStatus(id, tenantA, 'ADMIN')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
 
     expect(getStatus).not.toHaveBeenCalled();
     expect((await row(id)).metadata).toEqual({ provider: 'stub-sms' });

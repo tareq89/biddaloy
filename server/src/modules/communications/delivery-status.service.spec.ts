@@ -18,6 +18,7 @@ describe('DeliveryStatusService', () => {
   const NOW = new Date('2026-10-31T06:00:00.000Z');
 
   let repo: Record<string, ReturnType<typeof vi.fn>>;
+  let reread: Record<string, ReturnType<typeof vi.fn>>;
   let registry: { resolveFor: ReturnType<typeof vi.fn> };
   let provider: { descriptor: any; getStatus?: ReturnType<typeof vi.fn> };
   let service: DeliveryStatusService;
@@ -34,6 +35,7 @@ describe('DeliveryStatusService', () => {
     guardian_id: null,
     provider_message_id: 'vendor-42',
     metadata: { provider: 'stub-sms', segments: 1 },
+    message_body: 'Paid. Receipt: https://app.example/i/RawShareToken_123',
     created_at: NOW,
     ...overrides,
   });
@@ -52,8 +54,15 @@ describe('DeliveryStatusService', () => {
       findOne: vi.fn(async () => sentLog()),
       // UPDATE ... : TypeORM's postgres driver answers [rows, affectedCount].
       query: vi.fn(async () => [[], 1]),
-      findOneOrFail: vi.fn(async () => sentLog({ status: CommunicationStatus.DELIVERED })),
     };
+    // The re-read after the write: the row with the sender's name only (logsWithSender).
+    reread = {
+      leftJoin: vi.fn().mockReturnThis(),
+      addSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      getOneOrFail: vi.fn(async () => sentLog({ status: CommunicationStatus.DELIVERED })),
+    };
+    repo.createQueryBuilder = vi.fn(() => reread);
     service = new DeliveryStatusService(repo as any, registry as any);
   });
 
@@ -65,13 +74,15 @@ describe('DeliveryStatusService', () => {
   it('loads the log by id AND tenant, so another school’s id is a 404', async () => {
     repo.findOne.mockResolvedValue(null);
 
-    await expect(service.checkStatus('log-1', TENANT)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.checkStatus('log-1', TENANT, 'ADMIN')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
     expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 'log-1', tenant_id: TENANT } });
     expect(registry.resolveFor).not.toHaveBeenCalled();
   });
 
   it('DELIVERED: writes metadata.delivery and sets status DELIVERED, returning the updated row', async () => {
-    const result = await service.checkStatus('log-1', TENANT);
+    const result = await service.checkStatus('log-1', TENANT, 'ADMIN');
 
     // The sending company is chosen by name (metadata.provider) with the tenant's current config.
     expect(registry.resolveFor).toHaveBeenCalledWith(CommunicationMedium.SMS, TENANT, {
@@ -89,6 +100,13 @@ describe('DeliveryStatusService', () => {
     });
     expect(params.slice(1)).toEqual([CommunicationStatus.DELIVERED, 'log-1', TENANT]);
     expect(result).toMatchObject({ id: 'log-1', status: CommunicationStatus.DELIVERED });
+    // Re-read in this tenant, with the sender's name only; the answer masks the share link.
+    expect(reread.where).toHaveBeenCalledWith('log.id = :id AND log.tenant_id = :tenantId', {
+      id: 'log-1',
+      tenantId: TENANT,
+    });
+    expect(reread.addSelect).toHaveBeenCalledWith(['sender.id', 'sender.full_name']);
+    expect(result.message_body).toBe('Paid. Receipt: https://app.example/i/••••••');
   });
 
   // #3350: a message sent on the platform's keys is checked on the platform's account, never on
@@ -103,7 +121,7 @@ describe('DeliveryStatusService', () => {
       source: 'platform',
     });
 
-    await service.checkStatus('log-1', TENANT);
+    await service.checkStatus('log-1', TENANT, 'ADMIN');
 
     expect(registry.resolveFor).toHaveBeenCalledWith(CommunicationMedium.SMS, TENANT, {
       platformProvider: 'stub-sms',
@@ -115,7 +133,7 @@ describe('DeliveryStatusService', () => {
       sentLog({ metadata: { provider: 'stub-sms', source: 'tenant', segments: 1 } }),
     );
 
-    await service.checkStatus('log-1', TENANT);
+    await service.checkStatus('log-1', TENANT, 'ADMIN');
 
     expect(registry.resolveFor).toHaveBeenCalledWith(CommunicationMedium.SMS, TENANT, {
       override: { provider: 'stub-sms' },
@@ -125,7 +143,7 @@ describe('DeliveryStatusService', () => {
   it('FAILED: a final failure sets status FAILED', async () => {
     provider.getStatus!.mockResolvedValue({ status: 'FAILED', code: '1001' });
 
-    await service.checkStatus('log-1', TENANT);
+    await service.checkStatus('log-1', TENANT, 'ADMIN');
 
     expect(repo.query.mock.calls[1][1][1]).toBe(CommunicationStatus.FAILED);
   });
@@ -133,7 +151,7 @@ describe('DeliveryStatusService', () => {
   it('PENDING: status stays SENT but checkedAt is written (starts the one-minute wait)', async () => {
     provider.getStatus!.mockResolvedValue({ status: 'PENDING' });
 
-    await service.checkStatus('log-1', TENANT);
+    await service.checkStatus('log-1', TENANT, 'ADMIN');
 
     const params = repo.query.mock.calls[1][1];
     expect(JSON.parse(params[0])).toEqual({ status: 'PENDING', checkedAt: NOW.toISOString() });
@@ -143,7 +161,7 @@ describe('DeliveryStatusService', () => {
   it('a provider error is a 502 with a fixed sentence, never the vendor text; status is unchanged', async () => {
     provider.getStatus!.mockRejectedValue(new Error('vendor said: key abc123 at https://x'));
 
-    const err = await service.checkStatus('log-1', TENANT).catch((e: unknown) => e);
+    const err = await service.checkStatus('log-1', TENANT, 'ADMIN').catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(BadGatewayException);
     expect((err as BadGatewayException).message).toBe(STATUS_CHECK_FAILED);
@@ -159,7 +177,7 @@ describe('DeliveryStatusService', () => {
       return { status: 'PENDING' as const };
     });
 
-    await service.checkStatus('log-1', TENANT);
+    await service.checkStatus('log-1', TENANT, 'ADMIN');
 
     const [sql, params] = repo.query.mock.calls[0];
     expect(sql).toMatch(/WHERE id = \$2 AND tenant_id = \$3 AND status = 'SENT'/);
@@ -174,7 +192,7 @@ describe('DeliveryStatusService', () => {
 
   describe('409 with the same fixed sentence (Rule 23), no vendor call', () => {
     async function expectCannotCheck() {
-      const err = await service.checkStatus('log-1', TENANT).catch((e: unknown) => e);
+      const err = await service.checkStatus('log-1', TENANT, 'ADMIN').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ConflictException);
       expect((err as ConflictException).message).toBe(CANNOT_CHECK_STATUS);
       expect(provider.getStatus).not.toHaveBeenCalled();
@@ -265,7 +283,7 @@ describe('DeliveryStatusService', () => {
 
     it('when another check claimed the row first (lost race): no vendor call', async () => {
       repo.query.mockResolvedValue([[], 0]);
-      const err = await service.checkStatus('log-1', TENANT).catch((e: unknown) => e);
+      const err = await service.checkStatus('log-1', TENANT, 'ADMIN').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ConflictException);
       expect((err as ConflictException).message).toBe(CANNOT_CHECK_STATUS);
       expect(provider.getStatus).not.toHaveBeenCalled();
@@ -273,7 +291,7 @@ describe('DeliveryStatusService', () => {
 
     it('when the row changed while the vendor answered', async () => {
       repo.query.mockResolvedValueOnce([[], 1]).mockResolvedValueOnce([[], 0]);
-      const err = await service.checkStatus('log-1', TENANT).catch((e: unknown) => e);
+      const err = await service.checkStatus('log-1', TENANT, 'ADMIN').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ConflictException);
       expect((err as ConflictException).message).toBe(CANNOT_CHECK_STATUS);
     });
@@ -304,7 +322,7 @@ describe('DeliveryStatusService', () => {
       sentLog({ metadata: { provider: 'stub-sms', delivery: { status: 'PENDING', checkedAt } } }),
     );
 
-    await service.checkStatus('log-1', TENANT);
+    await service.checkStatus('log-1', TENANT, 'ADMIN');
 
     expect(provider.getStatus).toHaveBeenCalledTimes(1);
   });
