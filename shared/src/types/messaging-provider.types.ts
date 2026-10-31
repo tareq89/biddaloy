@@ -31,7 +31,9 @@ export interface ProviderDescriptor {
 export type MessagingProvidersResponse = {
   [medium in CommunicationMedium]?: {
     providers: ProviderDescriptor[];
+    /** Presence only: the selected company's required fields are saved on the school. Ignores the platform env fallback, so false does not mean a send will fail. */
     configured: boolean;
+    /** The company the school's settings name (or the sole one for a single-provider medium); null when none. */
     selected: string | null;
   };
 };

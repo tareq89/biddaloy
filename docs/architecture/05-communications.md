@@ -48,7 +48,7 @@ shipped instead:
 
 - **SMS** — **Greenweb**, **Mim SMS** and **OneCodeSoft**, three Bangladeshi SMS gateways
   (`providers/sms/greenweb.provider.ts`, `.../mimsms.provider.ts`,
-  `.../onecodesoft.provider.ts`). A school picks one in Settings › SMS, e.g.
+  `.../onecodesoft.provider.ts`). A school's settings name one, e.g. through the settings API:
   `communications.sms = { provider: 'onecodesoft', onecodesoft: { apiKey, apiUrl, senderId } }`.
   OneCodeSoft also reports delivery status and account balance. The gateway is
   selected per-tenant by `MessagingConfigResolver` (`config/messaging-config.resolver.ts`). Twilio's per-message
@@ -556,7 +556,7 @@ flowchart LR
   K[KNOWN list<br/>still names a vendor, one reason each] -.tolerated, may only shrink.-> G
 ```
 
-Example: a school stores `communications.sms = { provider: 'onecodesoft', onecodesoft: { apiKey, senderId, apiUrl } }`. The demo seed (`comms-print.ts`) writes exactly that shape for every demo school, with fake values and encrypted secrets. It adds no `metering: 'PLATFORM'`: a school on its own gateway pays the vendor itself.
+Example: a school stores `communications.sms = { provider: 'onecodesoft', onecodesoft: { apiKey, senderId, apiUrl } }`. The demo seed (`comms-print.ts`) writes that shape for every demo school, with fake values. The secrets are encrypted when `SETTINGS_ENCRYPTION_KEY` is set; without it (a bare local DB) the seed leaves `apiKey` out, so OneCodeSoft reads `configured: false` there. It adds no `metering: 'PLATFORM'`: a school on its own gateway pays the vendor itself.
 
 A field's descriptor decides how it resolves. `required`, `owned: true` (OneCodeSoft `senderId`) and destination fields (`kind: 'url'`, or `destination: true` on SMTP `host`/`port`) belong to whoever owns the medium. Once the school owns it, they never come from the platform env. Example: a school with its own OneCodeSoft key and no `senderId` sends with no sender id, never under `ONECODESOFT_SENDER_ID`.
 

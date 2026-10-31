@@ -280,6 +280,7 @@ describe('Arrival notice hooks (integration)', () => {
       await devices.ingest(d, [punch(studentIds[0], '01:30:00')]);
       expect(spy).toHaveBeenCalledTimes(1);
       await waitLogs(1);
+      await spy.mock.results[0].value;
     });
 
     it('a batch of first punches calls the service once, grouped by date', async () => {
@@ -292,7 +293,10 @@ describe('Arrival notice hooks (integration)', () => {
       expect(spy).toHaveBeenCalledTimes(1);
       expect(spy.mock.calls[0][0].students).toHaveLength(2);
       // The send is fire-and-forget: wait for it, or it lands in the next test (the CI flake).
+      // The rows can exist before the call has finished (credit reservation, queue.add), so
+      // also wait for the call itself.
       await waitLogs(2);
+      await spy.mock.results[0].value;
     });
 
     it('punch then teacher finalize the same day -> still 1 log for that guardian', async () => {
