@@ -97,7 +97,6 @@ import { Route as StaffPromotionsNewRouteImport } from './routes/_staff/promotio
 import { Route as StaffReportsAlertsRouteImport } from './routes/_staff/reports/alerts'
 import { Route as StaffReportsCollectionsRouteImport } from './routes/_staff/reports/collections'
 import { Route as StaffReportsPrintablesRouteImport } from './routes/_staff/reports/printables'
-import { Route as StaffReportsStudentCountRouteImport } from './routes/_staff/reports/student-count'
 import { Route as StaffResultsIndexRouteImport } from './routes/_staff/results/index'
 import { Route as StaffRolesIndexRouteImport } from './routes/_staff/roles/index'
 import { Route as StaffRoutinesIndexRouteImport } from './routes/_staff/routines/index'
@@ -603,12 +602,6 @@ const StaffReportsPrintablesRoute = StaffReportsPrintablesRouteImport.update({
   path: '/reports/printables',
   getParentRoute: () => StaffRoute,
 } as any)
-const StaffReportsStudentCountRoute =
-  StaffReportsStudentCountRouteImport.update({
-    id: '/reports/student-count',
-    path: '/reports/student-count',
-    getParentRoute: () => StaffRoute,
-  } as any)
 const StaffResultsIndexRoute = StaffResultsIndexRouteImport.update({
   id: '/results/',
   path: '/results/',
@@ -969,7 +962,6 @@ export interface FileRoutesByFullPath {
   '/reports/alerts': typeof StaffReportsAlertsRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
   '/reports/printables': typeof StaffReportsPrintablesRoute
-  '/reports/student-count': typeof StaffReportsStudentCountRoute
   '/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
   '/routines/my': typeof StaffRoutinesMyRoute
   '/routines/review': typeof StaffRoutinesReviewRoute
@@ -1109,7 +1101,6 @@ export interface FileRoutesByTo {
   '/reports/alerts': typeof StaffReportsAlertsRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
   '/reports/printables': typeof StaffReportsPrintablesRoute
-  '/reports/student-count': typeof StaffReportsStudentCountRoute
   '/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
   '/routines/my': typeof StaffRoutinesMyRoute
   '/routines/review': typeof StaffRoutinesReviewRoute
@@ -1254,7 +1245,6 @@ export interface FileRoutesById {
   '/_staff/reports/alerts': typeof StaffReportsAlertsRoute
   '/_staff/reports/collections': typeof StaffReportsCollectionsRoute
   '/_staff/reports/printables': typeof StaffReportsPrintablesRoute
-  '/_staff/reports/student-count': typeof StaffReportsStudentCountRoute
   '/_staff/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
   '/_staff/routines/my': typeof StaffRoutinesMyRoute
   '/_staff/routines/review': typeof StaffRoutinesReviewRoute
@@ -1398,7 +1388,6 @@ export interface FileRouteTypes {
     | '/reports/alerts'
     | '/reports/collections'
     | '/reports/printables'
-    | '/reports/student-count'
     | '/routines/$sectionId'
     | '/routines/my'
     | '/routines/review'
@@ -1538,7 +1527,6 @@ export interface FileRouteTypes {
     | '/reports/alerts'
     | '/reports/collections'
     | '/reports/printables'
-    | '/reports/student-count'
     | '/routines/$sectionId'
     | '/routines/my'
     | '/routines/review'
@@ -1682,7 +1670,6 @@ export interface FileRouteTypes {
     | '/_staff/reports/alerts'
     | '/_staff/reports/collections'
     | '/_staff/reports/printables'
-    | '/_staff/reports/student-count'
     | '/_staff/routines/$sectionId'
     | '/_staff/routines/my'
     | '/_staff/routines/review'
@@ -2397,13 +2384,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffReportsPrintablesRouteImport
       parentRoute: typeof StaffRoute
     }
-    '/_staff/reports/student-count': {
-      id: '/_staff/reports/student-count'
-      path: '/reports/student-count'
-      fullPath: '/reports/student-count'
-      preLoaderRoute: typeof StaffReportsStudentCountRouteImport
-      parentRoute: typeof StaffRoute
-    }
     '/_staff/results/': {
       id: '/_staff/results/'
       path: '/results'
@@ -2860,7 +2840,6 @@ interface StaffRouteChildren {
   StaffReportsAlertsRoute: typeof StaffReportsAlertsRoute
   StaffReportsCollectionsRoute: typeof StaffReportsCollectionsRoute
   StaffReportsPrintablesRoute: typeof StaffReportsPrintablesRoute
-  StaffReportsStudentCountRoute: typeof StaffReportsStudentCountRoute
   StaffRoutinesSectionIdRoute: typeof StaffRoutinesSectionIdRoute
   StaffRoutinesMyRoute: typeof StaffRoutinesMyRoute
   StaffRoutinesReviewRoute: typeof StaffRoutinesReviewRoute
@@ -2960,7 +2939,6 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffReportsAlertsRoute: StaffReportsAlertsRoute,
   StaffReportsCollectionsRoute: StaffReportsCollectionsRoute,
   StaffReportsPrintablesRoute: StaffReportsPrintablesRoute,
-  StaffReportsStudentCountRoute: StaffReportsStudentCountRoute,
   StaffRoutinesSectionIdRoute: StaffRoutinesSectionIdRoute,
   StaffRoutinesMyRoute: StaffRoutinesMyRoute,
   StaffRoutinesReviewRoute: StaffRoutinesReviewRoute,

@@ -63,7 +63,6 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/communications/send': '/_staff/communications/send',
   '/communications/send-alert': '/_staff/communications/send-alert',
   '/reports/alerts': '/_staff/reports/alerts',
-  '/reports/student-count': '/_staff/reports/student-count',
   '/communications/reminders': '/_staff/communications/reminders',
   '/attendance': '/_staff/attendance/',
   '/attendance?status=pending': '/_staff/attendance/',

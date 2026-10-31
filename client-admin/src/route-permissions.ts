@@ -227,9 +227,6 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // `REPORT_COLLECTIONS_READ` gate (ADMIN/ACCOUNTANT/EXECUTIVE in
   // `ROLE_PERMISSIONS`), not the broader `REPORTS_VIEW`.
   '/_staff/reports/collections': Permission.REPORT_COLLECTIONS_READ,
-  // [8.15.54] Early BANBEIS head count — matches `GET /reports/student-count`'s own gate. COMMITTEE
-  // holds it too (counts only, cells under 5 hidden); the Excel download adds REPORTS_EXPORT.
-  '/_staff/reports/student-count': Permission.REPORTS_VIEW,
   // [32.4.1] Print module: templates, preview (printing itself) and history.
   '/_staff/print-templates/': Permission.PRINT_TEMPLATE_MANAGE,
   '/_staff/print-templates/$templateId/edit': Permission.PRINT_TEMPLATE_MANAGE,
