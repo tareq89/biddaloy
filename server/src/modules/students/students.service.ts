@@ -312,6 +312,7 @@ export class StudentService {
       | 'gender'
       | 'date_of_birth_from'
       | 'date_of_birth_to'
+      | 'religion'
       | 'search'
     >,
     tenantId: string,
