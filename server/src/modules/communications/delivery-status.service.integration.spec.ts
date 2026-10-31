@@ -157,6 +157,34 @@ describe('DeliveryStatusService (integration)', () => {
     });
   });
 
+  // The status = 'SENT' guard, on its own (not the one-minute wait): a concurrent check that
+  // already flipped the row and moved the counters while this one waited on the vendor must leave
+  // this one with a 409 and the counters where they are.
+  it('a check that loses the race to another check changes nothing', async () => {
+    const batch = await addBatch(tenantA, 2);
+    const id = await addSentLog(tenantA, { provider: 'stub-sms' }, batch);
+    await addSentLog(tenantA, { provider: 'stub-sms' }, batch);
+    getStatus.mockImplementation(async () => {
+      // The other check finishes first: row FAILED, counters 1/1.
+      await dataSource.query(`UPDATE communication_logs SET status = 'FAILED' WHERE id = $1`, [id]);
+      await dataSource.query(
+        `UPDATE reminder_batches SET successful_count = 1, failed_count = 1, status = 'PARTIALLY_FAILED' WHERE id = $1`,
+        [batch],
+      );
+      return { status: 'FAILED', code: '1001' };
+    });
+
+    await expect(service.checkStatus(id, tenantA, 'ADMIN')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+
+    expect(await counts(batch)).toEqual({
+      successful_count: 1,
+      failed_count: 1,
+      status: 'PARTIALLY_FAILED',
+    });
+  });
+
   it('FAILED on the only recipient of a batch makes the batch FAILED', async () => {
     const batch = await addBatch(tenantA, 1);
     const id = await addSentLog(tenantA, { provider: 'stub-sms' }, batch);

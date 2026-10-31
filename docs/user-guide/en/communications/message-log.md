@@ -86,7 +86,9 @@ On the demo and staging sites nothing is really sent: the messages land in the *
 
 4. If the message belongs to a round of reminders, press **Open the round**. The round's page opens ([Reminder history](reminder-history.md)).
 
-<!-- image pending: message-log-01.png, the list with the detail window open (guide:shoot, #3311) -->
+![The Message log: filters on top, then one message per row with its Status (Delivered or Sent)](img/message-log-01.png)
+
+![The Message details window for a Delivered SMS: Recipient, Status, Company, SMS parts and the message text](img/message-log-02.png)
 
 ---
 
