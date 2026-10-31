@@ -376,6 +376,14 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.REPORT_COLLECTIONS_READ,
     label: { key: 'collectionsReport' },
   },
+  // [8.15.54] Early BANBEIS head count (temporary; 8.15.32's system report replaces it).
+  'reports.studentCount': {
+    id: 'reports.studentCount',
+    to: '/reports/student-count',
+    permission: Permission.REPORTS_VIEW,
+    label: { key: 'studentCount' },
+    synonyms: ['BANBEIS', 'head count', 'enrolment', 'ছাত্রসংখ্যা', 'শিক্ষার্থী সংখ্যা'],
+  },
   'communications.sendMessage': {
     id: 'communications.sendMessage',
     to: '/communications/send',
@@ -582,6 +590,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     label: { key: 'reports' },
     items: [
       STAFF_NAV_ITEMS['reports.collectionsReport'],
+      STAFF_NAV_ITEMS['reports.studentCount'],
       STAFF_NAV_ITEMS['reports.printables'],
       STAFF_NAV_ITEMS['reports.applications'],
       STAFF_NAV_ITEMS['reports.alertsReport'],
