@@ -226,6 +226,15 @@ describe('BulkReminderService.findLogs (integration)', () => {
       expect(ids(await service.findLogs({ search: '8812345678' }, tenantA))).toEqual([]);
     });
 
+    // Review round 2 on #3347: a writer may store the number formatted.
+    it('finds a number stored with spaces and a dash from the 01… form', async () => {
+      const formatted = await addLog(tenantA, { address: '+880 1712-345678' });
+      for (const search of ['01712345678', '+880 1712 345678']) {
+        const found = ids(await service.findLogs({ search }, tenantA));
+        expect(found.sort()).toEqual([formatted, target].sort());
+      }
+    });
+
     it('finds a +880-stored number from the 01… form', async () => {
       const plus = await addLog(tenantA, { address: '+8801999888777' });
       expect(ids(await service.findLogs({ search: '01999888777' }, tenantA))).toEqual([plus]);

@@ -550,7 +550,13 @@ export class BulkReminderService {
           w.where('log.recipient_name ILIKE :search', { search: `%${search}%` }).orWhere(
             'log.recipient_address ILIKE :search',
           );
-          if (phone) w.orWhere('log.recipient_address ILIKE :phone', { phone: `%${phone}%` });
+          // Review round 2 on #3347: digits on both sides, so a stored `+880 1712-345678` matches
+          // too. `phone` is digits only, so it holds no LIKE wildcard (Rule 4).
+          if (phone) {
+            w.orWhere(`regexp_replace(log.recipient_address, '[^0-9]', '', 'g') ILIKE :phone`, {
+              phone: `%${phone}%`,
+            });
+          }
         }),
       );
     }
