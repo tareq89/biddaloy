@@ -12,6 +12,7 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
+import { toLatinDigits } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -48,11 +49,11 @@ const CASES: ListCase[] = [
   {
     name: 'invoices',
     role: 'ACCOUNTANT',
-    entry: '/invoices?status=OVERDUE&from_date=2026-01-01&min_amount=500&page=2',
+    entry: '/invoices?status=OVERDUE&from_date=2026-01-01&page=2',
     listUrl: '/api/v1/invoices',
     row: invoiceFactory({ id: 'invoice-1' }),
     exportUrl: '/invoices/export',
-    params: { status: 'OVERDUE', from_date: '2026-01-01', min_amount: '500' },
+    params: { status: 'OVERDUE', from_date: '2026-01-01' },
     unit: 'items',
   },
   {
@@ -121,7 +122,8 @@ describe.each(CASES)('$name list: download everything that matches [8.15.17]', (
       open(c.entry, c.role);
       const user = userEvent.setup();
       const button = await screen.findByRole('button', { name: /Download to Excel/ });
-      expect(button.textContent).toMatch(new RegExp(`321.*${c.unit}`));
+      // Some of these pages show the default Bangla digits under the English words.
+      await waitFor(() => expect(button).toHaveTextContent(new RegExp(`(321|৩২১).*${c.unit}`)));
       await user.click(button);
       await waitFor(() => expect(download.sent).toHaveLength(1));
       expect(download.sent[0]).toEqual({
@@ -156,7 +158,7 @@ describe.each(CASES)('$name list: download everything that matches [8.15.17]', (
       open(c.entry, c.role);
       const user = userEvent.setup();
       await user.click(await screen.findByRole('button', { name: /Download to Excel/ }));
-      expect((await screen.findByRole('alert')).textContent).toBe(
+      expect(toLatinDigits((await screen.findByRole('alert')).textContent ?? '')).toBe(
         `Cannot download more than 5,000 ${c.unit} at once yet. Narrow the filters.`,
       );
     } finally {

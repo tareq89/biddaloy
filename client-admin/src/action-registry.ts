@@ -734,6 +734,16 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'administration',
     run: (ctx) => ctx.navigate({ to: '/print-templates?new=1' }),
   },
+  // [8.15.54] Early BANBEIS head count; same gate as its route (`REPORTS_VIEW`).
+  {
+    id: 'reports.studentCount',
+    label: { en: 'Student count (BANBEIS)', bn: 'ছাত্রসংখ্যা (BANBEIS)' },
+    synonyms: ['BANBEIS', 'head count', 'enrolment', 'ছাত্রসংখ্যা', 'শিক্ষার্থী সংখ্যা'],
+    permission: Permission.REPORTS_VIEW,
+    kind: 'navigate',
+    group: 'reports',
+    run: (ctx) => ctx.navigate({ to: '/reports/student-count' }),
+  },
   {
     id: 'print.history',
     label: { en: 'Print history', bn: 'প্রিন্টের ইতিহাস' },

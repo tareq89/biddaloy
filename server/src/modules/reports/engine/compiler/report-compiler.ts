@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, type SelectQueryBuilder } from 'typeorm';
-import type { ReportDefinitionJson, ReportFieldType } from '@biddaloy/shared';
+import type { AggregateFn, ReportDefinitionJson, ReportFieldType } from '@biddaloy/shared';
 import { ReportRegistry } from '../registry/registry';
 import {
   type ReportRunContext,
@@ -19,6 +19,8 @@ export interface CompiledColumn {
   labelBn: string;
   type: ReportFieldType;
   kind: 'dimension' | 'measure';
+  /** Measures only: how it is aggregated (the runner hides small COUNTs from COMMITTEE). */
+  fn?: AggregateFn;
 }
 
 export interface CompiledReport {
@@ -122,6 +124,7 @@ export class ReportCompiler {
           labelBn: measure.labelBn,
           type: measure.type,
           kind: 'measure' as const,
+          fn: measure.fn,
         })),
     ];
 
