@@ -52,15 +52,37 @@ describe('DeliveryStatusService (integration)', () => {
     return id;
   }
 
-  async function addSentLog(tenantId: string, metadata: object): Promise<string> {
+  async function addSentLog(
+    tenantId: string,
+    metadata: object,
+    batchId: string | null = null,
+  ): Promise<string> {
     const [{ id }] = await dataSource.query(
       `INSERT INTO communication_logs
-         (tenant_id, medium, recipient_address, recipient_name, message_body, status, provider_message_id, metadata, created_at, updated_at)
-       VALUES ($1, 'SMS', '01700000000', 'Test', 'hi', 'SENT', 'vendor-1', $2, NOW(), NOW()) RETURNING id`,
-      [tenantId, JSON.stringify(metadata)],
+         (tenant_id, medium, recipient_address, recipient_name, message_body, status, provider_message_id, metadata, reminder_batch_id, created_at, updated_at)
+       VALUES ($1, 'SMS', '01700000000', 'Test', 'hi', 'SENT', 'vendor-1', $2, $3, NOW(), NOW()) RETURNING id`,
+      [tenantId, JSON.stringify(metadata), batchId],
     );
     return id;
   }
+
+  /** A finished batch of `total` recipients that all counted as sent (the worker's view). */
+  async function addBatch(tenantId: string, total: number): Promise<string> {
+    const [{ id }] = await dataSource.query(
+      `INSERT INTO reminder_batches (tenant_id, batch_name, status, total_recipients, successful_count, failed_count, initiated_by_user_id)
+       VALUES ($1, 'b', 'COMPLETED', $2, $2, 0, (SELECT id FROM users LIMIT 1)) RETURNING id`,
+      [tenantId, total],
+    );
+    return id;
+  }
+
+  const counts = async (batchId: string) =>
+    (
+      await dataSource.query(
+        `SELECT successful_count, failed_count FROM reminder_batches WHERE id = $1`,
+        [batchId],
+      )
+    )[0] as { successful_count: number; failed_count: number };
 
   const row = async (id: string) =>
     (
@@ -110,6 +132,34 @@ describe('DeliveryStatusService (integration)', () => {
     expect(stored.metadata.delivery).toEqual({ status: 'PENDING', checkedAt: expect.any(String) });
     await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(ConflictException);
     expect(getStatus).toHaveBeenCalledTimes(1);
+  });
+
+  // #3345 (D1): the batch's own counters follow the row, in the same statement; no credit refund.
+  it('FAILED on a batch row moves one count from successful to failed, once', async () => {
+    const batch = await addBatch(tenantA, 2);
+    const id = await addSentLog(tenantA, { provider: 'stub-sms' }, batch);
+    await addSentLog(tenantA, { provider: 'stub-sms' }, batch);
+    getStatus.mockResolvedValue({ status: 'FAILED', code: '1001' });
+
+    await service.checkStatus(id, tenantA);
+    // A second click is blocked by the wait (409), so the counters cannot move twice.
+    await expect(service.checkStatus(id, tenantA)).rejects.toBeInstanceOf(ConflictException);
+
+    expect(await counts(batch)).toEqual({ successful_count: 1, failed_count: 1 });
+  });
+
+  it('DELIVERED or PENDING on a batch row leaves the counters alone', async () => {
+    const batch = await addBatch(tenantA, 2);
+    const a = await addSentLog(tenantA, { provider: 'stub-sms' }, batch);
+    const b = await addSentLog(tenantA, { provider: 'stub-sms' }, batch);
+    getStatus.mockResolvedValueOnce({ status: 'DELIVERED' }).mockResolvedValueOnce({
+      status: 'PENDING',
+    });
+
+    await service.checkStatus(a, tenantA);
+    await service.checkStatus(b, tenantA);
+
+    expect(await counts(batch)).toEqual({ successful_count: 2, failed_count: 0 });
   });
 
   it('FAILED: a final vendor failure sets status FAILED', async () => {
