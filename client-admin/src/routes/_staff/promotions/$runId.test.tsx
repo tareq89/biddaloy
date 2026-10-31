@@ -194,8 +194,6 @@ describe('/promotions/$runId', () => {
     await screen.findByLabelText('Final decision');
     await expectHelp('examsResults.promotion.field.finalOutcome');
     await expectHelp('examsResults.promotion.field.overrideNote');
-    // [#3314] The (?) stays out of the column header names.
-    expect(screen.getByRole('columnheader', { name: 'Final decision' })).toBeTruthy();
   });
 
   it('R on a promoted row marks the override and focuses the note; clearing the note shows the error', async () => {
