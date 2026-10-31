@@ -489,6 +489,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.TEACHER]: [
+    // [8.15.24] D9 — teachers run reports, narrowed to their own sections; they cannot export or design.
+    Permission.REPORTS_VIEW,
     // [52.1.1] Applications (D22/D45)
     Permission.APPLICATION_SUBMIT,
     Permission.MY_CLASS_VIEW,

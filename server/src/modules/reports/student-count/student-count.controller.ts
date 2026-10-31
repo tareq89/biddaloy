@@ -1,7 +1,21 @@
-import { Controller, Get, Query, StreamableFile, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Query,
+  StreamableFile,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ExportFormat, JwtPayload, Permission, ReportRunKind } from '@biddaloy/shared';
+import {
+  ExportFormat,
+  JwtPayload,
+  Permission,
+  ReportRunKind,
+  RoleScope,
+  roleScope,
+} from '@biddaloy/shared';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -15,6 +29,11 @@ import {
   StudentCountQueryDto,
 } from './dto/student-count.dto';
 import { StudentCountService } from './student-count.service';
+
+/** A role narrowed to its own sections (a TEACHER) cannot see school-wide head counts. */
+function assertSchoolWide(role: string): void {
+  if (roleScope(role) === RoleScope.ASSIGNED_SECTIONS) throw new ForbiddenException();
+}
 
 /**
  * [8.15.53] The early BANBEIS student count (D23, temporary). `REPORTS_VIEW` opens it; the export
@@ -38,6 +57,7 @@ export class StudentCountController {
     @Query() query: StudentCountQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ): Promise<StudentCountDto> {
+    assertSchoolWide(tenant.role);
     return this.service.getCount(tenant.id, tenant.role, query.academic_year_id);
   }
 
@@ -49,6 +69,7 @@ export class StudentCountController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ): Promise<StreamableFile> {
+    assertSchoolWide(tenant.role);
     const table = query.table ?? 'students';
     const { header, rows, filename } = await this.service.exportRows(
       tenant.id,
