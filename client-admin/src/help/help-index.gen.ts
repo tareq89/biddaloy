@@ -3028,6 +3028,16 @@ export const HELP_INDEX: HelpIndex = {
     anchor: 'task-main',
     knownIssues: 0,
   },
+  'reports.hub': {
+    title: { bn: 'সব রিপোর্ট', en: 'All reports' },
+    summary: {
+      bn: 'স্কুলের সব রিপোর্ট এক জায়গায় খুঁজে খুলুন, ফল দেখুন, Excel-এ নামান, A4 কাগজে প্রিন্ট করুন, আর মতামত জানান। অ্যাডমিন তালিকাকে রিপোর্ট হিসেবে রাখতেও পারেন।',
+      en: 'Find every school report in one place, open it, download it to Excel, print it on A4 and say if it helped. An admin can also keep a list as a report.',
+    },
+    path: 'reports/hub',
+    anchor: '',
+    knownIssues: 3,
+  },
   'reports.collectionsReport': {
     title: { bn: 'ফি আদায়ের প্রতিবেদন', en: 'Fee collection report' },
     summary: {
@@ -3103,6 +3113,16 @@ export const HELP_INDEX: HelpIndex = {
     path: 'reports/collections-report',
     anchor: 'task-main',
     knownIssues: 0,
+  },
+  'reports.studentCount': {
+    title: { bn: 'ছাত্রসংখ্যা (BANBEIS)', en: 'Student count (BANBEIS)' },
+    summary: {
+      bn: 'শ্রেণি ও লিঙ্গ অনুযায়ী ছাত্রসংখ্যা আর শিক্ষক ও কর্মচারীর সংখ্যা দেখুন। BANBEIS বার্ষিক জরিপের জন্য Excel-এ নামান বা প্রিন্ট করুন।',
+      en: 'See students by class and gender and the number of teachers and staff. Download to Excel or print the numbers for the BANBEIS annual survey.',
+    },
+    path: 'reports/student-count',
+    anchor: '',
+    knownIssues: 2,
   },
   'reports.printables': {
     title: { bn: 'প্রিন্ট ও ডকুমেন্ট', en: 'Print & documents' },
