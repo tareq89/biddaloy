@@ -1217,6 +1217,8 @@ jobs:
             .lighthouseci-landing/
             playwright-report/
             test-results/
+          # .lighthouseci-landing/ is a dot-directory; upload-artifact skips those by default.
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
 
