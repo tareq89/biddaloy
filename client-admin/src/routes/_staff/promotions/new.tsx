@@ -317,13 +317,18 @@ function NewPromotionRunPage() {
               {showGraduateReadOnly ? (
                 <span className="inline-flex items-center gap-1">
                   <span className="text-sm font-medium">{t('newRunForm.targetClassLabel')}</span>
-                  <HelpHint helpId="examsResults.promotion.field.targetClass" />
+                  <HelpHint
+                    helpId="examsResults.promotion.field.targetClass"
+                    label={t('newRunForm.targetClassLabel')}
+                  />
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1">
-                  <Label htmlFor="promotion-target-class">{t('newRunForm.targetClassLabel')}</Label>
-                  <HelpHint helpId="examsResults.promotion.field.targetClass" />
-                </span>
+                <Label
+                  htmlFor="promotion-target-class"
+                  helpId="examsResults.promotion.field.targetClass"
+                >
+                  {t('newRunForm.targetClassLabel')}
+                </Label>
               )}
               {showGraduateReadOnly ? (
                 <p className="text-text-secondary">{t('newRunForm.graduateOption')}</p>
@@ -386,7 +391,11 @@ function NewPromotionRunPage() {
           <fieldset>
             <legend className="text-h2">{t('newRunForm.examsLabel')}</legend>
             <p className="mt-0.5 text-text-secondary">
-              {t('newRunForm.examsHelp')} <HelpHint helpId="examsResults.promotion.field.exams" />
+              {t('newRunForm.examsHelp')}{' '}
+              <HelpHint
+                helpId="examsResults.promotion.field.exams"
+                label={t('newRunForm.examsLabel')}
+              />
             </p>
             {published.length === 0 ? (
               <p className="mt-3 text-text-secondary">{t('newRunForm.noPublishedExams')}</p>
@@ -416,7 +425,10 @@ function NewPromotionRunPage() {
             <legend className="text-h2">{t('newRunForm.algorithmLabel')}</legend>
             <p className="mt-0.5 text-text-secondary">
               {t('newRunForm.algorithmHelp')}{' '}
-              <HelpHint helpId="examsResults.promotion.field.algorithm" />
+              <HelpHint
+                helpId="examsResults.promotion.field.algorithm"
+                label={t('newRunForm.algorithmLabel')}
+              />
             </p>
             <RadioGroup
               aria-label={t('newRunForm.algorithmLabel')}

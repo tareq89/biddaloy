@@ -21,7 +21,6 @@ import {
   DialogTitle,
   ConfirmDialog,
   DatePicker,
-  HelpHint,
   Input,
   Label,
 } from '@biddaloy/ui/components';
@@ -72,24 +71,14 @@ export function Field({
   helpId?: string;
   children: React.ReactNode;
 }) {
-  const labelEl = (
-    <Label htmlFor={htmlFor}>
-      {label}
-      <span className="text-destructive" aria-hidden="true">
-        {' *'}
-      </span>
-    </Label>
-  );
   return (
     <div className="flex flex-col gap-1.5">
-      {helpId ? (
-        <span className="inline-flex items-center gap-1">
-          {labelEl}
-          <HelpHint helpId={helpId} />
+      <Label htmlFor={htmlFor} helpId={helpId} helpLabel={label}>
+        {label}
+        <span className="text-destructive" aria-hidden="true">
+          {' *'}
         </span>
-      ) : (
-        labelEl
-      )}
+      </Label>
       {children}
     </div>
   );
@@ -221,8 +210,12 @@ export function YearFormDialog({
                 checked={isCurrent}
                 onCheckedChange={(checked) => handleIsCurrentChange(checked === true)}
               />
-              <Label htmlFor="year-form-is-current">{t('form.isCurrentLabel')}</Label>
-              <HelpHint helpId="academics.academicYears.field.isCurrent" />
+              <Label
+                htmlFor="year-form-is-current"
+                helpId="academics.academicYears.field.isCurrent"
+              >
+                {t('form.isCurrentLabel')}
+              </Label>
             </div>
 
             {confirmingIsCurrent && (

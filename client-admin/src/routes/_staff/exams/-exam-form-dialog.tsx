@@ -64,20 +64,14 @@ function FieldLabel({
   ...props
 }: React.ComponentProps<typeof Label> & { required?: boolean; helpId?: string }) {
   // Asterisk via CSS content: visual only, so the label text stays exactly the field name.
-  const label = (
+  return (
     <Label
       {...props}
+      helpId={helpId}
       className={required ? "after:ms-0.5 after:text-destructive after:content-['*']" : undefined}
     >
       {children}
     </Label>
-  );
-  if (!helpId) return label;
-  return (
-    <span className="inline-flex items-center gap-1">
-      {label}
-      <HelpHint helpId={helpId} />
-    </span>
   );
 }
 

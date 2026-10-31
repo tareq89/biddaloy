@@ -7,7 +7,6 @@
 import { AdmissionApplicantStatus, type AdmissionApplicantDto } from '@biddaloy/shared';
 import {
   Button,
-  HelpHint,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -106,8 +105,7 @@ export function AdmitApplicantModal({
                   {t('admitModal.existingGuardian', {
                     name: matched.full_name,
                     phone: formatPhone(matched.phone, regionConfig),
-                  })}{' '}
-                  <HelpHint helpId="people.admissionApplicants.field.guardianChoice" />
+                  })}
                 </p>
                 <p className="text-muted-foreground">
                   {matched.student_names.length > 0
@@ -116,6 +114,7 @@ export function AdmitApplicantModal({
                 </p>
                 <RadioRows
                   legend={t('admitModal.choiceLegend')}
+                  helpId="people.admissionApplicants.field.guardianChoice"
                   value={choice}
                   onValueChange={(v) => setChoice(v as 'LINK_EXISTING' | 'CREATE_NEW')}
                   options={[

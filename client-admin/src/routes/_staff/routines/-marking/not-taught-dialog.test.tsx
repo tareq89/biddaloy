@@ -1,6 +1,6 @@
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
-import { afterEach, describe, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { expectHelp, withHelp } from '../../../../help/test-utils';
 
@@ -32,5 +32,9 @@ describe('NotTaughtDialog (?) hint [#3293]', () => {
     await localeReady;
     await screen.findByRole('dialog');
     await expectHelp('academics.myRoutine.field.notTaughtReason');
+    // The legend shows once (no hidden copy) and the (?) sits outside it, named for it.
+    expect(screen.getAllByText('Reason')).toHaveLength(1);
+    expect(screen.getByRole('group', { name: 'Reason' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Help: Reason' })).toBeTruthy();
   });
 });

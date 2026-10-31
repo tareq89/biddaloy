@@ -7,6 +7,7 @@ import * as React from 'react';
 
 import { cn } from '../primitives/lib/utils';
 
+import { HelpHint, useHelp } from './help-hint';
 import { RadioGroup, RadioGroupItem } from './radio';
 
 export interface RadioRowOption {
@@ -22,6 +23,8 @@ export interface RadioRowsProps {
   options: RadioRowOption[];
   legend: string;
   legendHidden?: boolean;
+  /** A (?) beside the legend, outside it, so the group's name stays the legend alone. */
+  helpId?: string | undefined;
   className?: string;
 }
 
@@ -31,16 +34,28 @@ export function RadioRows({
   options,
   legend,
   legendHidden = false,
+  helpId,
   className,
 }: RadioRowsProps) {
+  const { resolve } = useHelp();
+  const hasHint = resolve(helpId) !== null;
   const baseId = React.useId();
   const legendId = `${baseId}-legend`;
   return (
-    <fieldset className={cn('min-w-0', className)}>
-      <legend id={legendId} className={cn('mb-2 text-label', legendHidden && 'sr-only')}>
+    <fieldset aria-labelledby={legendId} className={cn('min-w-0', className)}>
+      <legend
+        id={legendId}
+        className={cn('mb-2 text-label', legendHidden && 'sr-only', hasHint && 'float-start me-1')}
+      >
         {legend}
       </legend>
-      <RadioGroup value={value} onValueChange={onValueChange} aria-labelledby={legendId}>
+      {hasHint && <HelpHint helpId={helpId} label={legend} className="float-start" />}
+      <RadioGroup
+        value={value}
+        onValueChange={onValueChange}
+        aria-labelledby={legendId}
+        className={hasHint ? 'clear-both' : undefined}
+      >
         {options.map((option, i) => {
           const id = `${baseId}-${i}`;
           const selected = value === option.value;
