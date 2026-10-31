@@ -118,9 +118,11 @@ describe('DeliveryStatusService (integration)', () => {
     const id = await addSentLog(tenantA, { provider: 'stub-sms' });
     getStatus.mockResolvedValue({ status: 'FAILED', code: '1001' });
 
-    await service.checkStatus(id, tenantA, 'ADMIN');
+    const dto = await service.checkStatus(id, tenantA, 'ADMIN');
 
     expect((await row(id)).status).toBe('FAILED');
+    // #3351: Why it failed shows a reason, never the vendor's own code (Rule 23).
+    expect(dto.error).toBe('FAILED');
   });
 
   // Review round 1 on #3347: a failed check also starts the one-minute wait (D23), so a vendor
