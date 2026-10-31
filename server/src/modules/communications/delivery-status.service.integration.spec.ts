@@ -7,6 +7,9 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { CommunicationMedium, CommunicationStatus } from '@biddaloy/shared';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { DeliveryStatusService } from './delivery-status.service';
+import { SmsCreditService } from './credits/sms-credit.service';
+import { SmsCreditBalance } from './credits/entities/sms-credit-balance.entity';
+import { SmsCreditLedger } from './credits/entities/sms-credit-ledger.entity';
 
 /**
  * [97.4.01] D23 check-status against the real schema: the jsonb merge keeps the other metadata
@@ -20,12 +23,15 @@ describe('DeliveryStatusService (integration)', () => {
   let tenantA: string;
   let tenantB: string;
   const getStatus = vi.fn();
+  // `refundsFailedSms` is the per-vendor setting (#3357); a test flips it on the shared descriptor.
+  const descriptor: Record<string, unknown> = {
+    medium: CommunicationMedium.SMS,
+    name: 'stub-sms',
+    capabilities: ['status'],
+  };
   const registry = {
     resolveFor: vi.fn(async () => ({
-      provider: {
-        descriptor: { medium: CommunicationMedium.SMS, name: 'stub-sms', capabilities: ['status'] },
-        getStatus,
-      },
+      provider: { descriptor, getStatus },
       config: { apiKey: 'k' },
       source: 'tenant',
     })),
@@ -34,9 +40,17 @@ describe('DeliveryStatusService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
     dataSource = module.get(getDataSourceToken());
+    // The real credit service on the real tables; only `isMetered` needs the schools service.
+    const credits = new SmsCreditService(
+      module.get(getRepositoryToken(SmsCreditBalance)),
+      module.get(getRepositoryToken(SmsCreditLedger)),
+      dataSource,
+      {} as any,
+    );
     service = new DeliveryStatusService(
       module.get(getRepositoryToken(CommunicationLog)),
       registry as any,
+      credits,
     );
   }, 60000);
 
@@ -182,6 +196,120 @@ describe('DeliveryStatusService (integration)', () => {
       successful_count: 1,
       failed_count: 1,
       status: 'PARTIALLY_FAILED',
+    });
+  });
+
+  describe('refund of a failed message (#3357)', () => {
+    const available = async (tenantId: string) =>
+      Number(
+        (
+          await dataSource.query(`SELECT available FROM sms_credit_balance WHERE tenant_id = $1`, [
+            tenantId,
+          ])
+        )[0]?.available ?? 0,
+      );
+    const refunds = async (logId: string) =>
+      dataSource.query(
+        `SELECT kind, units, reference_type, reference_id FROM sms_credit_ledger WHERE idempotency_key = $1`,
+        [`log:${logId}:refund`],
+      );
+    const platformDebited = {
+      provider: 'stub-sms',
+      source: 'platform',
+      credit: 'DEBITED',
+      segments: 2,
+    };
+    const fund = (tenantId: string, units: number) =>
+      dataSource.query(
+        `INSERT INTO sms_credit_balance (tenant_id, available, reserved, updated_at) VALUES ($1, $2, 0, now())
+         ON CONFLICT (tenant_id) DO UPDATE SET available = $2`,
+        [tenantId, units],
+      );
+    afterEach(() => {
+      delete descriptor.refundsFailedSms;
+    });
+
+    it('gives the segments back once, in the same step as the flip', async () => {
+      descriptor.refundsFailedSms = true;
+      await fund(tenantA, 10);
+      const id = await addSentLog(tenantA, platformDebited);
+      getStatus.mockResolvedValue({ status: 'FAILED', code: '1001' });
+
+      await service.checkStatus(id, tenantA, 'ADMIN');
+
+      expect(await available(tenantA)).toBe(12);
+      expect(await refunds(id)).toEqual([
+        { kind: 'GRANT', units: 2, reference_type: 'log', reference_id: id },
+      ]);
+      expect((await row(id)).metadata.credit).toBe('REFUNDED');
+      // A second check is refused (the row is FAILED now), so nothing more comes back.
+      await expect(service.checkStatus(id, tenantA, 'ADMIN')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(await available(tenantA)).toBe(12);
+    });
+
+    it('gives nothing back when the vendor setting is off', async () => {
+      await fund(tenantA, 10);
+      const id = await addSentLog(tenantA, platformDebited);
+      getStatus.mockResolvedValue({ status: 'FAILED', code: '1001' });
+
+      await service.checkStatus(id, tenantA, 'ADMIN');
+
+      expect(await available(tenantA)).toBe(10);
+      expect(await refunds(id)).toEqual([]);
+      expect((await row(id)).metadata.credit).toBe('DEBITED');
+    });
+
+    it('gives nothing back for a school that paid its own company', async () => {
+      descriptor.refundsFailedSms = true;
+      await fund(tenantA, 10);
+      const id = await addSentLog(tenantA, {
+        provider: 'stub-sms',
+        credit: 'DEBITED',
+        segments: 2,
+      });
+      getStatus.mockResolvedValue({ status: 'FAILED', code: '1001' });
+
+      await service.checkStatus(id, tenantA, 'ADMIN');
+
+      expect(await available(tenantA)).toBe(10);
+    });
+
+    it('a check that loses the race to another check refunds nothing', async () => {
+      descriptor.refundsFailedSms = true;
+      await fund(tenantA, 10);
+      const id = await addSentLog(tenantA, platformDebited);
+      getStatus.mockImplementation(async () => {
+        // The other check finishes first: row FAILED and its refund already paid.
+        await dataSource.query(`UPDATE communication_logs SET status = 'FAILED' WHERE id = $1`, [
+          id,
+        ]);
+        await dataSource.query(
+          `UPDATE sms_credit_balance SET available = 12 WHERE tenant_id = $1`,
+          [tenantA],
+        );
+        return { status: 'FAILED', code: '1001' };
+      });
+
+      await expect(service.checkStatus(id, tenantA, 'ADMIN')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+
+      expect(await available(tenantA)).toBe(12);
+      expect(await refunds(id)).toEqual([]);
+    });
+
+    it("never touches another school's balance", async () => {
+      descriptor.refundsFailedSms = true;
+      await fund(tenantA, 10);
+      await fund(tenantB, 7);
+      const id = await addSentLog(tenantA, platformDebited);
+      getStatus.mockResolvedValue({ status: 'FAILED', code: '1001' });
+
+      await service.checkStatus(id, tenantA, 'ADMIN');
+
+      expect(await available(tenantB)).toBe(7);
     });
   });
 
