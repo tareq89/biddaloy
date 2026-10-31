@@ -163,6 +163,7 @@ import { AuditLog } from './modules/audit/entities/audit-log.entity';
 import { PushSubscription } from './modules/push/entities/push-subscription.entity';
 import { Enrollment } from './modules/students/entities/enrollment.entity';
 import { TeacherClassSection } from './modules/academics/entities/teacher-class-section.entity';
+import { CoordinatorAssignment } from './modules/academics/entities/coordinator-assignment.entity';
 import { Subject } from './modules/academics/entities/subject.entity';
 import { ClassSubject } from './modules/academics/entities/class-subject.entity';
 import { CalendarEvent } from './modules/calendar/entities/calendar-event.entity';
@@ -273,6 +274,8 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             PushSubscription,
             Enrollment,
             TeacherClassSection,
+            // [83.1.2] Coordinator rows (Epic 83).
+            CoordinatorAssignment,
             Subject,
             ClassSubject,
             CalendarEvent,
