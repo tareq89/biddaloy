@@ -198,12 +198,111 @@ describe('Messaging settings (e2e)', () => {
     );
     expect((await storedBlock(SEED_TENANT_ID, key))[d.name][secret]).toBe(before);
 
-    // null: cleared; masked as not configured and providers says not configured.
+    // null: cleared (#3331: the key is removed); masked as absent and providers says not configured.
     const cleared = { provider: d.name, [d.name]: { ...withoutSecret[d.name], [secret]: null } };
     const res = await patch(SEED_TENANT_ID, { communications: { [key]: cleared } }).expect(200);
-    expect(res.body.communications[key][d.name][secret]).toEqual({ configured: false });
+    expect(res.body.communications[key][d.name]).not.toHaveProperty(secret);
+    expect(await storedBlock(SEED_TENANT_ID, key)).not.toHaveProperty([d.name, secret]);
     const after = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
     expect(after[medium]?.configured).toBe(false);
+  });
+
+  // #3331: a PATCH keeps a left-out field, so the form sends null for a cleared saved optional
+  // field. It must be gone from the stored row and from both GETs; a required one cannot be cleared.
+  it('null removes a saved optional field; a required field cannot be cleared', async () => {
+    const schema = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    const { communications } = fullBody(schema);
+    const found = Object.values(CommunicationMedium)
+      .map((m) => ({ m, d: schema[m]?.providers[0] }))
+      .find(({ d }) => d?.fields.some((f) => f.kind !== 'secret' && !f.required));
+    if (!found) return; // no first provider has an optional text field
+    const { m, d } = found as { m: CommunicationMedium; d: ProviderDescriptor };
+    const key = m.toLowerCase();
+    const optional = d.fields.find((f) => f.kind !== 'secret' && !f.required)!.key;
+    await patch(SEED_TENANT_ID, { communications: { [key]: communications[key] } }).expect(200);
+    expect((await storedBlock(SEED_TENANT_ID, key))[d.name]).toHaveProperty(optional);
+
+    const res = await patch(SEED_TENANT_ID, {
+      communications: { [key]: { provider: d.name, [d.name]: { [optional]: null } } },
+    }).expect(200);
+    expect(res.body.communications[key][d.name]).not.toHaveProperty(optional);
+    expect((await storedBlock(SEED_TENANT_ID, key))[d.name]).not.toHaveProperty(optional);
+    const get = await req('get', `/schools/${SEED_TENANT_ID}/settings`, SEED_TENANT_ID).expect(200);
+    expect(get.body.communications[key][d.name]).not.toHaveProperty(optional);
+    // The rest of the block (secrets included) is untouched.
+    for (const f of d.fields.filter((x) => x.key !== optional)) {
+      expect((await storedBlock(SEED_TENANT_ID, key))[d.name]).toHaveProperty(f.key);
+    }
+
+    const required = d.fields.find((f) => f.kind !== 'secret' && f.required);
+    if (required) {
+      await patch(SEED_TENANT_ID, {
+        communications: { [key]: { provider: d.name, [d.name]: { [required.key]: null } } },
+      }).expect(400);
+      expect((await storedBlock(SEED_TENANT_ID, key))[d.name]).toHaveProperty(required.key);
+    }
+  });
+
+  // #3338: "Remove saved details" — provider null plus null for every company. Only `metering`
+  // survives, so a PLATFORM school is back on the platform account (selected: null).
+  it('provider null with null company blocks removes every saved company and keeps metering', async () => {
+    const schema = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    const sms = schema[CommunicationMedium.SMS];
+    if (!sms || sms.providers.length < 2) return; // removal by provider null is the multi-company shape
+    const { communications } = fullBody(schema);
+    await patch(SEED_TENANT_ID, {
+      communications: { sms: { ...(communications.sms as object), metering: 'PLATFORM' } },
+    }).expect(200);
+
+    // Review round 2 on #3347: `provider: null` alone would leave the saved blocks behind, so it
+    // is refused and nothing changes.
+    const saved = await storedBlock(SEED_TENANT_ID, 'sms');
+    await patch(SEED_TENANT_ID, { communications: { sms: { provider: null } } }).expect(400);
+    expect(await storedBlock(SEED_TENANT_ID, 'sms')).toEqual(saved);
+
+    const nulls = Object.fromEntries(sms.providers.map((d) => [d.name, null]));
+    const res = await patch(SEED_TENANT_ID, {
+      communications: { sms: { provider: null, ...nulls } },
+    }).expect(200);
+    expect(res.body.communications.sms).toEqual({ metering: 'PLATFORM' });
+    expect(await storedBlock(SEED_TENANT_ID, 'sms')).toEqual({ metering: 'PLATFORM' });
+    const after = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    expect(after[CommunicationMedium.SMS]?.selected).toBeNull();
+    expect(after[CommunicationMedium.SMS]?.configured).toBe(false);
+
+    // A removal that also sends a value is refused, and nothing changes.
+    const first = sms.providers[0];
+    await patch(SEED_TENANT_ID, {
+      communications: { sms: { provider: null, [first.name]: { apiKey: 'x-abcdefgh' } } },
+    }).expect(400);
+    expect(await storedBlock(SEED_TENANT_ID, 'sms')).toEqual({ metering: 'PLATFORM' });
+  });
+
+  // Review round 1 on #3347: "Remove saved details" on a single-company channel (WhatsApp) sends
+  // `{ <sole>: null }` with no provider key. It goes through the real PATCH, the flat/nested shape
+  // alignment and the secret encryption step, and leaves no saved secret behind.
+  it('a single-company channel: { <sole>: null } removes its saved block, secret included', async () => {
+    const schema = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    const medium = CommunicationMedium.WHATSAPP;
+    const entry = schema[medium];
+    if (!entry || entry.providers.length !== 1) return; // the sole-company shape only
+    const d = entry.providers[0];
+    const key = medium.toLowerCase();
+    const { communications } = fullBody(schema);
+    await patch(SEED_TENANT_ID, { communications: { [key]: communications[key] } }).expect(200);
+    expect((await providers(SEED_TENANT_ID).expect(200)).body[medium].configured).toBe(true);
+
+    const res = await patch(SEED_TENANT_ID, { communications: { [key]: { [d.name]: null } } });
+    expect(res.status).toBe(200);
+    expect(res.body.communications[key] ?? {}).not.toHaveProperty(d.name);
+    const stored = (await storedBlock(SEED_TENANT_ID, key)) ?? {};
+    expect(stored).not.toHaveProperty(d.name);
+    for (const f of d.fields) expect(stored).not.toHaveProperty(f.key);
+    const after = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    expect(after[medium]?.configured).toBe(false);
+
+    // Removing again (nothing saved) is still a clean 200.
+    await patch(SEED_TENANT_ID, { communications: { [key]: { [d.name]: null } } }).expect(200);
   });
 
   it('an old flat PATCH on a sole-provider medium is accepted; a later nested PATCH keeps the secret', async () => {

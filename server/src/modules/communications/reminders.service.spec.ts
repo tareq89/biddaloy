@@ -1530,57 +1530,7 @@ describe('BulkReminderService', () => {
     });
   });
 
-  describe('findLogs', () => {
-    it('scopes to the tenant, applies status/medium filters and pages newest first', async () => {
-      logRepo.findAndCount.mockResolvedValue([[], 60]);
-
-      const result = await service.findLogs(
-        { status: CommunicationStatus.FAILED, medium: CommunicationMedium.SMS, page: 2, limit: 25 },
-        TENANT,
-      );
-
-      expect(logRepo.findAndCount).toHaveBeenCalledWith({
-        where: {
-          tenant_id: TENANT,
-          status: CommunicationStatus.FAILED,
-          medium: CommunicationMedium.SMS,
-        },
-        order: { created_at: 'DESC', id: 'DESC' },
-        skip: 25,
-        take: 25,
-      });
-      expect(result.totalPages).toBe(3);
-    });
-
-    it('adds a created_at bound only when a date is given', async () => {
-      logRepo.findAndCount.mockResolvedValue([[], 0]);
-
-      await service.findLogs({ from_date: '2026-03-01' }, TENANT);
-
-      const where = logRepo.findAndCount.mock.calls.at(-1)![0].where;
-      expect(where.created_at).toBeDefined();
-      expect(where.status).toBeUndefined();
-    });
-
-    it('bounds dates by the school day (Asia/Dhaka), not the UTC day', async () => {
-      logRepo.findAndCount.mockResolvedValue([[], 0]);
-
-      await service.findLogs({ from_date: '2026-03-01' }, TENANT);
-
-      // 00:00 in Dhaka (UTC+6) is 18:00 UTC the day before — what the widget's window counts from.
-      const where = logRepo.findAndCount.mock.calls.at(-1)![0].where;
-      expect(where.created_at.value).toEqual(new Date('2026-02-28T18:00:00.000Z'));
-    });
-
-    it('leaves PUSH rows out when no channel is chosen', async () => {
-      logRepo.findAndCount.mockResolvedValue([[], 0]);
-
-      await service.findLogs({}, TENANT);
-
-      const where = logRepo.findAndCount.mock.calls.at(-1)![0].where;
-      expect(where.medium.value).toEqual(Object.values(CommunicationMedium));
-    });
-  });
+  // findLogs: real SQL, so its filters are proven in reminders.service.integration.spec.ts.
 
   describe('findBatchLogs', () => {
     const logRow = {
@@ -1589,6 +1539,7 @@ describe('BulkReminderService', () => {
       recipient_address: '01712345678',
       recipient_name: 'Karim Uddin',
       status: CommunicationStatus.FAILED,
+      trigger: CommunicationTrigger.BULK_REMINDER,
       student_id: 's-1',
       guardian_id: 'g-1',
       provider_message_id: null,
@@ -1638,9 +1589,12 @@ describe('BulkReminderService', () => {
         recipient_address: '01712345678',
         recipient_name: 'Karim Uddin',
         status: CommunicationStatus.FAILED,
+        trigger: CommunicationTrigger.BULK_REMINDER,
         student_id: 's-1',
         guardian_id: 'g-1',
         provider_message_id: null,
+        // No metadata.provider: the send never reached a company.
+        provider: null,
         error: 'NO_PROVIDER',
         created_at: logRow.created_at,
       });

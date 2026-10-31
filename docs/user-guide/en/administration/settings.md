@@ -303,6 +303,10 @@ The **Test connection** button tests with what is in the fields now, without sav
 
 After saving, a secret key or token is never shown in full again, only **Added — ends …**. Press **Change** to replace it, **Remove** to take it away.
 
+To take a saved value off an optional field (for example **Sender name (Sender ID)** for OneCodeSoft), empty the field and press **Save**. A required field cannot be emptied this way.
+
+To take off everything saved for a part, press **Remove saved details**, then **Remove** at the question "Remove this channel's saved details?". Every saved company, key and address of that part goes. A school on platform credit then sends its messages through the platform's company.
+
 **SMS** — "All SMS from this school go through this company."
 
 | Field                       | What to enter                                                                                                                   |
