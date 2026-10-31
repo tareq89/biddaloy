@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { lookup } from 'node:dns/promises';
 import {
   assertSafeHttpDestination,
@@ -199,5 +199,42 @@ describe('assertSafeSmtpDestination', () => {
     await expect(assertSafeSmtpDestination('10.0.0.5', 587)).rejects.toThrow(
       DestinationBlockedError,
     );
+  });
+});
+
+describe('OUTBOUND_TEST_ALLOW_LOOPBACK seam (#3324)', () => {
+  afterEach(() => vi.unstubAllEnvs());
+  const stub = 'http://127.0.0.1:4010/v3/balance';
+
+  it('allows http loopback only when NODE_ENV=test and the flag is exactly "true"', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('OUTBOUND_TEST_ALLOW_LOOPBACK', 'true');
+    const d = await assertSafeHttpDestination(stub);
+    expect(d.addresses).toEqual([{ address: '127.0.0.1', family: 4 }]);
+  });
+
+  it.each([
+    ['flag unset', 'test', ''],
+    ['flag "1"', 'test', '1'],
+    ['flag "TRUE"', 'test', 'TRUE'],
+    ['NODE_ENV=production', 'production', 'true'],
+    ['NODE_ENV=development', 'development', 'true'],
+  ])('still rejects http loopback: %s', async (_name, nodeEnv, flag) => {
+    vi.stubEnv('NODE_ENV', nodeEnv);
+    vi.stubEnv('OUTBOUND_TEST_ALLOW_LOOPBACK', flag);
+    await expect(assertSafeHttpDestination(stub)).rejects.toBeInstanceOf(DestinationBlockedError);
+  });
+
+  it('with the seam on, still rejects https loopback, metadata and private http', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('OUTBOUND_TEST_ALLOW_LOOPBACK', 'true');
+    for (const u of [
+      'https://127.0.0.1/x',
+      'http://169.254.169.254/latest',
+      'http://10.0.0.5/x',
+      'http://[::1]:4010/x',
+    ]) {
+      await expect(assertSafeHttpDestination(u)).rejects.toBeInstanceOf(DestinationBlockedError);
+    }
   });
 });
