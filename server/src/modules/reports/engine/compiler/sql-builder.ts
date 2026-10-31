@@ -125,7 +125,7 @@ export function buildQuery(dataSource: DataSource, input: BuildInput): SelectQue
     for (const expr of groupBy) qb.addGroupBy(expr);
   }
 
-  const wheres = [...tenantClause(area.root), ...aliveClause(area.root)];
+  const wheres = [...tenantClause(area.root), ...aliveClause(area.root), ...(area.baseWhere ?? [])];
   const params: Record<string, unknown> = { tenantId };
   let counter = 0;
   const next = () => `p${counter++}`;

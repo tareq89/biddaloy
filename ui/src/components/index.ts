@@ -197,6 +197,7 @@ export {
   type MenuSubTriggerProps,
   type MenuSubContentProps,
 } from './menu';
+export { ExportMenu, type ExportMenuFormat, type ExportMenuProps } from './export-menu';
 export {
   StatusBadge,
   humanizeStatus,

@@ -1,6 +1,7 @@
 import { FeeStatus, FeeType, Permission, PeriodType } from '@biddaloy/shared';
 import {
   Button,
+  ExportMenu,
   HelpHint,
   RoutePending,
   StatusBadge,
@@ -8,6 +9,7 @@ import {
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
+  downloadListExport,
   feeDuesQueryOptions,
   useClasses,
   useClassSections,
@@ -33,7 +35,7 @@ import {
   toIsoDate,
 } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { BanknoteIcon, DownloadIcon, SendIcon, XIcon } from 'lucide-react';
+import { BanknoteIcon, SendIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -266,15 +268,13 @@ function DuesQueuePage() {
   const filters = state.filters as DuesFilters;
   const flagged = filters.flagged === 'true';
 
-  const duesQuery = useFeeDues(
-    {
-      page: state.page,
-      limit: state.limit,
-      ...toFeeDuesFilters(filters, state.sorting?.id, flagged),
-      ...(state.sorting && !flagged ? { sort_order: state.sorting.desc ? 'DESC' : 'ASC' } : {}),
-    },
-    flagged,
-  );
+  const duesListFilters = {
+    page: state.page,
+    limit: state.limit,
+    ...toFeeDuesFilters(filters, state.sorting?.id, flagged),
+    ...(state.sorting && !flagged ? { sort_order: state.sorting.desc ? 'DESC' : 'ASC' } : {}),
+  } as const;
+  const duesQuery = useFeeDues(duesListFilters, flagged);
   const classesQuery = useClasses();
   const sectionsQuery = useClassSections(filters.class_id);
 
@@ -308,6 +308,9 @@ function DuesQueuePage() {
   const hasPaymentRecord = useHasPermission(Permission.PAYMENT_RECORD);
   const canCollectFees = hasFeeCollect && hasPaymentRecord;
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
+  // [8.15.17] The export route has no overdue-only mode, so "everything" would not match the
+  // flagged list; ticked rows still download.
+  const canExportAll = useHasPermission(Permission.REPORTS_EXPORT) && !flagged;
   const navigate = useNavigate();
 
   const [reminderTarget, setReminderTarget] = React.useState<{
@@ -560,6 +563,24 @@ function DuesQueuePage() {
             onClick: () => void navigate({ to: '/payments/record' }),
           },
         ]}
+        // [8.15.17] One click downloads every student with dues matching the filters below.
+        tabs={
+          <div className="flex items-start justify-start gap-1 md:justify-end">
+            <ExportMenu
+              totalCount={duesQuery.data?.total ?? 0}
+              selectedCount={selectedRows.length}
+              canExportAll={canExportAll}
+              unit="people"
+              narrowByClass
+              onExportAll={(format) =>
+                downloadListExport('/fees/dues/export', duesListFilters, format)
+              }
+              onExportSelected={exportSelectedToCsv}
+            />
+            {/* The old "Export CSV" (?) id lives on: the guide ties it to this download. */}
+            <HelpHint helpId="finance.dues.action.exportCsv" />
+          </div>
+        }
         filters={{ fields: filterFields, values: state.filters, onChange: handleFilterChange }}
         tableId="fees-dues"
         caption={t('dues.caption')}
@@ -628,11 +649,6 @@ function DuesQueuePage() {
               </Button>
             )}
             {canSendReminder && <HelpHint helpId="finance.dues.action.sendReminder" />}
-            <Button type="button" variant="outline" onClick={exportSelectedToCsv}>
-              <DownloadIcon aria-hidden="true" />
-              {t('dues.exportCsv')}
-            </Button>
-            <HelpHint helpId="finance.dues.action.exportCsv" />
             <Button type="button" variant="ghost" onClick={() => actions.setSelectedIds(new Set())}>
               <XIcon aria-hidden="true" />
               {t('dues.clearSelection')}

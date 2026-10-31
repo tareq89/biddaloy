@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { expectHelp } from '../../../help/test-utils';
 import { routeTree } from '../../../routeTree.gen';
+import { stubExportDownload } from '../../../test/export-download';
 
 // The default test RegionConfig is Bangla; pin REGION_BD_EN for this page so assertions read
 // in Latin digits.
@@ -304,7 +305,7 @@ describe('/fees/dues', () => {
     expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
   });
 
-  it('bulk-selecting a row reveals Send reminder and Export CSV', async () => {
+  it('bulk-selecting a row reveals Send reminder and the ticked-rows download', async () => {
     server.use(
       http.get('/api/v1/fees/dues', () =>
         HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 10, totalPages: 1 }),
@@ -322,7 +323,9 @@ describe('/fees/dues', () => {
     await user.click(await screen.findByRole('checkbox', { name: 'Select row 1' }));
 
     expect(await screen.findByRole('button', { name: 'Send reminder' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'More ways to download' }));
+    expect(await screen.findByRole('menuitem', { name: 'Only the 1 you ticked' })).toBeTruthy();
+    await user.keyboard('{Escape}');
     expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
     // [16.5.1] Bulk "Generate invoice" was removed — invoices can only be
     // created from a real payment now, there's no more arbitrary
@@ -369,7 +372,8 @@ describe('/fees/dues', () => {
 
       const user = userEvent.setup();
       await user.click(await screen.findByRole('checkbox', { name: 'Select row 1' }));
-      await user.click(screen.getByRole('button', { name: 'Export CSV' }));
+      await user.click(screen.getByRole('button', { name: 'More ways to download' }));
+      await user.click(await screen.findByRole('menuitem', { name: 'Only the 1 you ticked' }));
 
       const csv = await capturedBlob!.text();
       expect(csv).toContain("'=cmd|/c calc");
@@ -381,6 +385,88 @@ describe('/fees/dues', () => {
       delete (URL as { revokeObjectURL?: unknown }).revokeObjectURL;
       clickSpy.mockRestore();
     }
+  });
+
+  describe('download everything that matches [8.15.17]', () => {
+    function listWith(total: number) {
+      server.use(
+        http.get('/api/v1/fees/dues', () =>
+          HttpResponse.json({ data: [duesRow()], total, page: 1, limit: 25, totalPages: 1 }),
+        ),
+      );
+    }
+
+    it('downloads the class 7 dues list to Excel in one click, with the active filters', async () => {
+      listWith(40);
+      const download = stubExportDownload();
+      try {
+        renderEn({
+          initialEntries: ['/fees/dues?class_id=class-7&status=PENDING&search=Karim&page=2'],
+          tenantId: 'tenant-1',
+          role: 'ACCOUNTANT',
+          locale: 'en',
+        });
+        const user = userEvent.setup();
+        const button = await screen.findByRole('button', { name: /Download to Excel/ });
+        expect(button.textContent).toContain('40 people');
+        await user.click(button);
+        await waitFor(() => expect(download.sent).toHaveLength(1));
+        expect(download.sent[0]).toEqual({
+          url: '/fees/dues/export',
+          params: {
+            class_id: 'class-7',
+            status: 'PENDING',
+            search: 'Karim',
+            format: 'XLSX',
+          },
+        });
+      } finally {
+        download.restore();
+      }
+    });
+
+    it('shows the inline "too large" sentence when more than 5,000 match', async () => {
+      listWith(9000);
+      const download = stubExportDownload('too-large');
+      try {
+        renderEn({
+          initialEntries: ['/fees/dues'],
+          tenantId: 'tenant-1',
+          role: 'ACCOUNTANT',
+          locale: 'en',
+        });
+        const user = userEvent.setup();
+        await user.click(await screen.findByRole('button', { name: /Download to Excel/ }));
+        expect((await screen.findByRole('alert')).textContent).toBe(
+          'Cannot download more than 5,000 people at once yet. Narrow it by class or section.',
+        );
+      } finally {
+        download.restore();
+      }
+    });
+
+    it('offers no "everything" download on the overdue-only list, which the export route cannot filter', async () => {
+      listWith(3);
+      server.use(
+        http.get('/api/v1/fees/dues/flagged', () =>
+          HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 25, totalPages: 1 }),
+        ),
+      );
+      renderEn({
+        initialEntries: ['/fees/dues'],
+        tenantId: 'tenant-1',
+        role: 'ACCOUNTANT',
+        locale: 'en',
+      });
+      expect(await screen.findByRole('button', { name: /Download to Excel/ })).toBeTruthy();
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('checkbox', { name: 'Overdue only' }));
+
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: /Download to Excel/ })).toBeNull(),
+      );
+    });
   });
 
   it('is axe clean', async () => {

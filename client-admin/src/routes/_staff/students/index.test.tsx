@@ -14,6 +14,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
+import { stubExportDownload } from '../../../test/export-download';
 
 /**
  * Covers [8.10.1]'s acceptance criteria against the real route tree — not
@@ -107,7 +108,7 @@ describe('/students', () => {
     expect(screen.queryByRole('link', { name: 'Collect fees' })).toBeNull();
   });
 
-  it('bulk-selecting rows reveals Send reminder and Export CSV, hides them again once cleared', async () => {
+  it('bulk-selecting rows reveals Send reminder and the ticked-rows download, hides them again once cleared', async () => {
     const students = [
       studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' }),
       studentFactory({ id: 'student-2', full_name: 'Karim Ahmed' }),
@@ -129,7 +130,11 @@ describe('/students', () => {
     await user.click(await screen.findByRole('checkbox', { name: 'Select row 1' }));
 
     expect(await screen.findByRole('button', { name: 'Send reminder' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'More ways to download' }));
+    expect(
+      await screen.findByRole('menuitem', { name: /^Only the .*1.* you ticked$/ }),
+    ).toBeTruthy();
+    await user.keyboard('{Escape}');
 
     await user.click(screen.getByRole('button', { name: 'Clear selection' }));
 
@@ -271,7 +276,8 @@ describe('/students', () => {
       });
 
       const user = userEvent.setup();
-      await user.click(await screen.findByRole('button', { name: 'Export CSV' }));
+      await user.click(await screen.findByRole('button', { name: 'More ways to download' }));
+      await user.click(await screen.findByRole('menuitem', { name: /you ticked/ }));
 
       await waitFor(() => expect(capturedBlob).toBeDefined());
       const csvText = await capturedBlob!.text();
@@ -283,6 +289,99 @@ describe('/students', () => {
       delete (URL as { revokeObjectURL?: typeof URL.revokeObjectURL }).revokeObjectURL;
       clickSpy.mockRestore();
     }
+  });
+
+  describe('download everything that matches [8.15.17]', () => {
+    function listWith(total: number) {
+      server.use(
+        http.get('/api/v1/students', () =>
+          HttpResponse.json({
+            data: [studentFactory({ id: 'student-1' })],
+            total,
+            page: 1,
+            limit: 25,
+            totalPages: 1,
+          }),
+        ),
+      );
+    }
+
+    it('one click downloads the filtered list as Excel, with exactly the active filters', async () => {
+      listWith(1234);
+      const download = stubExportDownload();
+      try {
+        renderWithRouter(routeTree, {
+          initialEntries: ['/students?class_id=class-9&gender=FEMALE&search=Rahim&page=3&limit=50'],
+          tenantId: 'tenant-1',
+          role: 'ACCOUNTANT',
+          locale: 'en',
+        });
+        const user = userEvent.setup();
+        const button = await screen.findByRole('button', { name: /Download to Excel/ });
+        expect(button.textContent).toMatch(/1,?234.*people/);
+        await user.click(button);
+        await waitFor(() => expect(download.sent).toHaveLength(1));
+        expect(download.sent[0]).toEqual({
+          url: '/students/export',
+          params: { class_id: 'class-9', gender: 'FEMALE', search: 'Rahim', format: 'XLSX' },
+        });
+      } finally {
+        download.restore();
+      }
+    });
+
+    it('asks for CSV from the arrow menu', async () => {
+      listWith(2);
+      const download = stubExportDownload();
+      try {
+        renderWithRouter(routeTree, {
+          initialEntries: ['/students'],
+          tenantId: 'tenant-1',
+          role: 'ADMIN',
+          locale: 'en',
+        });
+        const user = userEvent.setup();
+        await user.click(await screen.findByRole('button', { name: 'More ways to download' }));
+        await user.click(await screen.findByRole('menuitem', { name: /CSV/ }));
+        await waitFor(() => expect(download.sent).toHaveLength(1));
+        expect(download.sent[0]?.params).toEqual({ format: 'CSV' });
+      } finally {
+        download.restore();
+      }
+    });
+
+    it('says what to do next, inline, when more than 5,000 students match', async () => {
+      listWith(12400);
+      const download = stubExportDownload('too-large');
+      try {
+        renderWithRouter(routeTree, {
+          initialEntries: ['/students'],
+          tenantId: 'tenant-1',
+          role: 'ADMIN',
+          locale: 'en',
+        });
+        const user = userEvent.setup();
+        await user.click(await screen.findByRole('button', { name: /Download to Excel/ }));
+        expect((await screen.findByRole('alert')).textContent).toMatch(
+          /Cannot download more than .*5,?000.* people at once yet\. Narrow it by class or section\./,
+        );
+      } finally {
+        download.restore();
+      }
+    });
+
+    it('hides "everything" from a role without REPORTS_EXPORT (a TEACHER)', async () => {
+      listWith(3);
+      renderWithRouter(routeTree, {
+        initialEntries: ['/students'],
+        tenantId: 'tenant-1',
+        role: 'TEACHER',
+        locale: 'en',
+      });
+      await screen.findByRole('link', { name: 'View' }, { timeout: 5000 });
+      expect(screen.queryByRole('button', { name: /Download to Excel/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'More ways to download' })).toBeNull();
+    });
   });
 
   it('filter -> result -> navigate to detail -> back -> state restored', async () => {

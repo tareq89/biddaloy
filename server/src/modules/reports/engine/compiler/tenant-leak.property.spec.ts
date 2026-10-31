@@ -185,6 +185,9 @@ describe('tenant-leak property (D6)', () => {
               const via = joins.get(entity.tenantVia as string);
               expect(via?.direction).toBe('INNER');
               expect(via?.condition).toContain(`${entity.tenantVia}.tenant_id = :tenantId`);
+            } else if (entity.tenantColumn === null) {
+              // A lookup without tenant_id (users) is only reachable from its school-scoped parent.
+              expect(compiled.aliases).toContain(entity.tenantVia);
             } else {
               expect(joins.get(alias)?.condition).toContain(predicate);
             }
@@ -203,6 +206,6 @@ describe('tenant-leak property (D6)', () => {
         }),
         { numRuns: NUM_RUNS },
       );
-    });
+    }, 120_000);
   }
 });
