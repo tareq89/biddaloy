@@ -1,9 +1,16 @@
 import type {
   CommunicationMedium,
   CommunicationStatus,
+  CommunicationTrigger,
   ReminderBatchStatus,
 } from '@biddaloy/shared';
-import { keepPreviousData, queryOptions, useMutation, useQuery } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -168,6 +175,10 @@ export function useReminderBatches(filters: ReminderBatchListFilters = {}) {
 
 // [87.SD] Mirrors `QueryCommunicationLogsDto` (reminders.dto.ts).
 export interface CommunicationLogListFilters {
+  search?: string;
+  trigger?: CommunicationTrigger;
+  sent_by?: string;
+  provider?: string;
   status?: CommunicationStatus;
   medium?: CommunicationMedium;
   from_date?: string;
@@ -196,6 +207,37 @@ export function communicationLogsQueryOptions(filters: CommunicationLogListFilte
 
 export function useCommunicationLogs(filters: CommunicationLogListFilters = {}) {
   return useQuery(communicationLogsQueryOptions(filters));
+}
+
+/**
+ * [97.4.02] `POST /communications/logs/{id}/check-status` — asks the sending company whether a
+ * SENT message arrived. One Idempotency-Key per click (Rule 25), `retry: false`; the server's
+ * fixed 409/502 sentence is shown by the caller, never the vendor's text. The fresh row replaces
+ * the one in every cached log page.
+ */
+export function useCheckMessageStatus() {
+  const queryClient = useQueryClient();
+  const { keyFor, rotate } = useIdempotencyKey();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.post<ReminderBatchLog>(
+        `/communications/logs/${id}/check-status`,
+        undefined,
+        { headers: { 'Idempotency-Key': keyFor({ id }) } },
+      );
+      return res.data;
+    },
+    onSuccess: (row) => {
+      rotate();
+      queryClient.setQueriesData<PaginatedReminderBatchLogs>(
+        { queryKey: messageLogKeys.lists() },
+        (old) => old && { ...old, data: old.data.map((r) => (r.id === row.id ? row : r)) },
+      );
+    },
+    // Asks, never writes anything to double: the page shows the server's fixed sentence itself.
+    meta: { handlesUnknownOutcome: true },
+    retry: false,
+  });
 }
 
 /** How often the batch detail page re-asks the server about a batch that
