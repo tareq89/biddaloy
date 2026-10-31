@@ -492,13 +492,17 @@ export class CommunicationsProcessor extends WorkerHost {
     // [15.6.1] SMS-only — `result.segments` comes from the shared
     // `countSmsSegments`; every other provider leaves it `undefined`, so
     // `metadata.segments` is only ever set for SMS.
-    const segmentsMetadata = result.segments !== undefined ? { segments: result.segments } : {};
+    const sendMetadata = {
+      ...(result.segments !== undefined ? { segments: result.segments } : {}),
+      // [97.4.01] D23: which company sent it, so check-status asks the same one (all media).
+      ...('provider' in result && result.provider ? { provider: result.provider } : {}),
+    };
     const settleable = this.isSettleableSmsBatchJob(job, log);
 
     if (result.success) {
       log.status = CommunicationStatus.SENT;
       log.provider_message_id = result.providerMessageId;
-      log.metadata = { ...log.metadata, raw: result.raw, ...segmentsMetadata };
+      log.metadata = { ...log.metadata, raw: result.raw, ...sendMetadata };
       await this.settle(log, 'success');
       // [15.6.6/#549] Settlement runs AFTER the provider call and the
       // settle() transaction, and outside both — a credit-ledger hiccup
@@ -510,7 +514,7 @@ export class CommunicationsProcessor extends WorkerHost {
       return;
     }
 
-    log.metadata = { ...log.metadata, error: result.error, raw: result.raw, ...segmentsMetadata };
+    log.metadata = { ...log.metadata, error: result.error, raw: result.raw, ...sendMetadata };
 
     const maxAttempts = job.opts.attempts ?? 1;
     const isFinalAttempt = job.attemptsMade + 1 >= maxAttempts;
