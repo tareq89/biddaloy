@@ -68,13 +68,19 @@ export function problemWith(value: unknown, medium: CommunicationMedium): string
     return 'mixes the old flat layout with the per-company block; send one.';
   }
   const { provider, metering } = value;
+  if (metering !== undefined && (typeof metering !== 'string' || !METERING.includes(metering))) {
+    return 'metering must be OFF or PLATFORM.';
+  }
+  // #3338: "remove saved details": provider null (or the sole company's block null) with every
+  // other sent key null too. The merge deletes them; `metering` is the platform's, so it stays.
+  if (provider === null || (sole && value[sole.name] === null)) {
+    const allNull = Object.entries(value).every(([k, v]) => k === 'metering' || v === null);
+    return allNull ? null : 'removes the saved company, so every other value sent must be null.';
+  }
   if (provider !== undefined && (typeof provider !== 'string' || !names.includes(provider))) {
     return 'names a company that is not available for this channel.';
   }
   if (provider === undefined && !sole) return 'must say which company to use (provider).';
-  if (metering !== undefined && (typeof metering !== 'string' || !METERING.includes(metering))) {
-    return 'metering must be OFF or PLATFORM.';
-  }
 
   for (const d of descriptors) {
     if (Object.hasOwn(value, d.name)) {

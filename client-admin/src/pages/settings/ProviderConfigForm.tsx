@@ -2,6 +2,7 @@ import { CommunicationStatus } from '@biddaloy/shared';
 import { ApiError, isUnknownOutcomeError } from '@biddaloy/ui/api';
 import {
   Button,
+  ConfirmDialog,
   ErrorState,
   Form,
   FormControl,
@@ -130,6 +131,8 @@ export function ProviderConfigForm(props: ProviderConfigFormProps) {
   const { t } = useTranslation('settings');
   const query = useMessagingProviders(props.schoolId);
   const entry = query.data?.[props.medium];
+  // Bumped after "Remove saved details": the form reads its defaults once, so it remounts empty.
+  const [generation, setGeneration] = React.useState(0);
   if (query.isError || query.isPending) {
     return (
       <SettingsSection
@@ -154,7 +157,9 @@ export function ProviderConfigForm(props: ProviderConfigFormProps) {
   if (!entry || entry.providers.length === 0) return null;
   return (
     <ProviderConfigFormInner
+      key={generation}
       {...props}
+      onRemoved={() => void query.refetch().then(() => setGeneration((g) => g + 1))}
       providers={entry.providers}
       configured={entry.configured}
       selected={entry.selected}
@@ -173,10 +178,12 @@ function ProviderConfigFormInner({
   providers,
   configured,
   selected: savedSelected,
+  onRemoved,
 }: ProviderConfigFormProps & {
   providers: MessagingProviderDescriptor[];
   configured: boolean;
   selected: string | null;
+  onRemoved: () => void;
 }) {
   const { t } = useTranslation('settings');
   const { locale } = useLocale();
@@ -252,6 +259,11 @@ function ProviderConfigFormInner({
     ...useFormShellMode(),
   });
   const [sendTo, setSendTo] = React.useState('');
+  const [confirmingRemove, setConfirmingRemove] = React.useState(false);
+  // Any company field saved (a masked secret counts): there is something to remove.
+  const hasSaved = providers.some((d) =>
+    d.fields.some((f) => savedFields(saved, d.name, sole)[f.key] !== undefined),
+  );
   const providerName = form.watch('provider') ?? defaults.provider!;
   const current = providers.find((d) => d.name === providerName) ?? providers[0]!;
 
@@ -301,6 +313,27 @@ function ProviderConfigFormInner({
         onSuccess: () => {
           setSecrets({});
           form.reset(values, { keepIsSubmitSuccessful: true });
+        },
+      },
+    );
+  }
+
+  /**
+   * #3338: drops every saved company of this medium in one PATCH (null deletes a key), so a school
+   * can always get back to the platform account, even when a company has a required text field.
+   * `metering` is not sent: it is the platform's, and the merge leaves it as it is.
+   */
+  function handleRemove() {
+    const nulls = Object.fromEntries(providers.map((d) => [d.name, null]));
+    updateSettings.mutate(
+      {
+        version: 1,
+        communications: { [prefix]: sole ? nulls : { provider: null, ...nulls } },
+      },
+      {
+        onSuccess: () => {
+          setConfirmingRemove(false);
+          onRemoved();
         },
       },
     );
@@ -439,6 +472,16 @@ function ProviderConfigFormInner({
                 />
               </p>
             )}
+            {hasSaved && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full md:w-auto"
+                onClick={() => setConfirmingRemove(true)}
+              >
+                {t('messaging.removeSaved')}
+              </Button>
+            )}
             {testConnection.isError && <SettingsMutationError error={testConnection.error} />}
             {updateSettings.isSuccess && <SettingsSaved />}
             {updateSettings.isError && <SettingsMutationError error={updateSettings.error} />}
@@ -561,6 +604,15 @@ function ProviderConfigFormInner({
           </div>
         )}
       </SettingsSection>
+      <ConfirmDialog
+        open={confirmingRemove}
+        onOpenChange={setConfirmingRemove}
+        title={t('messaging.removeConfirm')}
+        description={t('messaging.removeConfirmDescription')}
+        confirmLabel={t('messaging.removeConfirmYes')}
+        busy={updateSettings.isPending}
+        onConfirm={handleRemove}
+      />
     </Form>
   );
 }

@@ -243,6 +243,35 @@ describe('Messaging settings (e2e)', () => {
     }
   });
 
+  // #3338: "Remove saved details" — provider null plus null for every company. Only `metering`
+  // survives, so a PLATFORM school is back on the platform account (selected: null).
+  it('provider null with null company blocks removes every saved company and keeps metering', async () => {
+    const schema = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    const sms = schema[CommunicationMedium.SMS];
+    if (!sms || sms.providers.length < 2) return; // removal by provider null is the multi-company shape
+    const { communications } = fullBody(schema);
+    await patch(SEED_TENANT_ID, {
+      communications: { sms: { ...(communications.sms as object), metering: 'PLATFORM' } },
+    }).expect(200);
+
+    const nulls = Object.fromEntries(sms.providers.map((d) => [d.name, null]));
+    const res = await patch(SEED_TENANT_ID, {
+      communications: { sms: { provider: null, ...nulls } },
+    }).expect(200);
+    expect(res.body.communications.sms).toEqual({ metering: 'PLATFORM' });
+    expect(await storedBlock(SEED_TENANT_ID, 'sms')).toEqual({ metering: 'PLATFORM' });
+    const after = (await providers(SEED_TENANT_ID).expect(200)).body as MessagingProvidersResponse;
+    expect(after[CommunicationMedium.SMS]?.selected).toBeNull();
+    expect(after[CommunicationMedium.SMS]?.configured).toBe(false);
+
+    // A removal that also sends a value is refused, and nothing changes.
+    const first = sms.providers[0];
+    await patch(SEED_TENANT_ID, {
+      communications: { sms: { provider: null, [first.name]: { apiKey: 'x-abcdefgh' } } },
+    }).expect(400);
+    expect(await storedBlock(SEED_TENANT_ID, 'sms')).toEqual({ metering: 'PLATFORM' });
+  });
+
   it('an old flat PATCH on a sole-provider medium is accepted; a later nested PATCH keeps the secret', async () => {
     const schema = (await providers(OTHER_TENANT_ID).expect(200))
       .body as MessagingProvidersResponse;

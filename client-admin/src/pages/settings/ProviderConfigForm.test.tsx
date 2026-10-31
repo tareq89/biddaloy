@@ -1,7 +1,7 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -191,6 +191,42 @@ describe('ProviderConfigForm', () => {
       await user.click(screen.getByRole('button', { name: 'Save' }));
       await waitFor(() => expect(body).toHaveBeenCalledTimes(2));
       expect(body.mock.calls[1]![0].communications.sms.onecodesoft.senderId).toBeNull();
+    });
+  });
+
+  // #3338: MimSMS's senderId is required, so clearing fields one by one can never empty the block.
+  // "Remove saved details" drops every company of the medium, which puts the school back on the
+  // platform account.
+  describe('remove saved details', () => {
+    it('after a confirm, sends provider null and null for every company, then closes the dialog', async () => {
+      server.use(providersHandler({ SMS: true }, 'mimsms'));
+      const body = captureSave();
+      const { user } = renderForm('SMS', {
+        provider: 'mimsms',
+        mimsms: { senderId: 'OLD', apiKey: { configured: true, hint: '••••mim1' } },
+      });
+
+      await user.click(await screen.findByRole('button', { name: 'Remove saved details' }));
+      const dialog = await screen.findByRole('alertdialog');
+      expect(body).not.toHaveBeenCalled();
+      server.use(providersHandler({ SMS: false }, null));
+      await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
+
+      await waitFor(() => expect(body).toHaveBeenCalledTimes(1));
+      expect(body.mock.calls[0]![0].communications.sms).toEqual({
+        provider: null,
+        greenweb: null,
+        mimsms: null,
+        onecodesoft: null,
+      });
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    });
+
+    it('is not offered when nothing is saved', async () => {
+      server.use(providersHandler({ SMS: false }, null));
+      renderForm('SMS', undefined);
+      expect(await screen.findByLabelText('SMS company')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Remove saved details' })).toBeNull();
     });
   });
 

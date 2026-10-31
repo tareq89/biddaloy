@@ -131,6 +131,22 @@ describe('problemWith', () => {
     ).toBeNull();
   });
 
+  // #3338: a school whose company has a required text field (senderId) can still remove
+  // everything it saved, and so get back to the platform account.
+  it('remove saved details: provider null with null company blocks is accepted; anything else is not', () => {
+    expect(problemWith({ provider: null, alpha: null, beta: null }, SMS)).toBeNull();
+    expect(problemWith({ provider: null }, SMS)).toBeNull();
+    expect(problemWith({ provider: null, alpha: null, metering: 'PLATFORM' }, SMS)).toBeNull();
+    expect(problemWith({ solo: null }, WA)).toBeNull();
+    expect(problemWith({ provider: null, alpha: { senderId: 's' } }, SMS)).toBe(
+      'removes the saved company, so every other value sent must be null.',
+    );
+    expect(problemWith({ provider: null, metering: 'X' }, SMS)).toMatch(/OFF or PLATFORM/);
+    expect(problemWith({ provider: null, rogue: null }, SMS)).toMatch(/does not use/);
+    // A company block null without provider null is not a removal.
+    expect(problemWith({ provider: 'alpha', alpha: null }, SMS)).not.toBeNull();
+  });
+
   // #3322: a port field must be a real TCP port, or the save would store a config that never sends.
   it('port: 1-65535 digits (string or number) or blank; anything else is rejected', () => {
     const withPort = (port: unknown) => ({ solo: { ...okWa.solo, port } });
