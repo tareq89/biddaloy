@@ -175,13 +175,13 @@ This list is generated from the app's own text, so it matches the app. Widgets t
 
 - **What it means:** How many more SMS your school can send, and how many are held for messages being sent right now. Some schools are not metered.
 - **Where the number comes from:** It comes from your school's SMS credit, which goes down as messages are sent.
-- **What to do:** If the balance is low, top up before sending reminders. View sent messages opens the [Message log](../communications/message-log.md), showing only SMS.
+- **What to do:** If the balance is low, top up before sending reminders. View sent messages opens the Message log, showing only SMS.
 
 ### Failed messages <a href="#widget.failed-messages" id="widget.failed-messages"></a>
 
 - **What it means:** How many SMS could not be sent in the last 7 days, counting today.
 - **Where the number comes from:** It comes from the record of every SMS the school sent, such as fee reminders and alerts.
-- **What to do:** Check the phone numbers and the SMS balance, then send again. See which ones opens the [Message log](../communications/message-log.md), showing the failed SMS of the same 7 days.
+- **What to do:** Check the phone numbers and the SMS balance, then send again. See which ones opens the Message log, showing the failed SMS of the same 7 days.
 
 ### What's coming up <a href="#widget.upcoming" id="widget.upcoming"></a>
 
