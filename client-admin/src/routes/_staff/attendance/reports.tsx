@@ -38,6 +38,7 @@ import { getActiveTenant } from '@biddaloy/ui/api';
 import {
   RoutePending,
   StatusBadge,
+  HelpHint,
   Tabs,
   TabsContent,
   TabsList,
@@ -137,6 +138,17 @@ export const Route = createFileRoute('/_staff/attendance/reports')({
   pendingComponent: ReportsPending,
   component: ReportsPage,
 });
+
+/** A view tab with its (?) beside it, never inside the trigger: the tab keeps its label as its
+ * name and clicking the (?) does not switch tabs. */
+function ViewTab({ value, label, helpId }: { value: string; label: string; helpId: string }) {
+  return (
+    <span role="presentation" className="inline-flex items-center">
+      <TabsTrigger value={value}>{label}</TabsTrigger>
+      <HelpHint helpId={helpId} label={label} />
+    </span>
+  );
+}
 
 function ReportsPage() {
   // `useRegionConfig()` has no ambient provider above the route tree —
@@ -432,9 +444,25 @@ function ReportsPageContent() {
         onValueChange={(next) => actions.setFilters({ view: next === 'summary' ? null : next })}
       >
         <TabsList variant="line" aria-label={t('reports.viewLabel')}>
-          <TabsTrigger value="summary">{t('reports.viewSummary')}</TabsTrigger>
-          {canSeeFlags && <TabsTrigger value="flags">{t('reports.viewFlags')}</TabsTrigger>}
-          {periodEnabled && <TabsTrigger value="subjects">{t('reports.viewSubjects')}</TabsTrigger>}
+          <ViewTab
+            value="summary"
+            label={t('reports.viewSummary')}
+            helpId="attendance.attendanceReports.section.summary"
+          />
+          {canSeeFlags && (
+            <ViewTab
+              value="flags"
+              label={t('reports.viewFlags')}
+              helpId="attendance.attendanceReports.section.flags"
+            />
+          )}
+          {periodEnabled && (
+            <ViewTab
+              value="subjects"
+              label={t('reports.viewSubjects')}
+              helpId="attendance.attendanceReports.section.subjects"
+            />
+          )}
         </TabsList>
         {/* The selected view's report is its tab's panel. mt-4 + the Tabs gap-2 = the page's space-y-6. */}
         <TabsContent value={view} className="mt-4 space-y-6">
