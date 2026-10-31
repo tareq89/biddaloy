@@ -169,6 +169,12 @@ describe('DeliveryStatusService', () => {
     const failed = () => provider.getStatus!.mockResolvedValue({ status: 'FAILED', code: '1001' });
     const checkWith = async (metadata: Record<string, unknown>, flag?: boolean) => {
       provider.descriptor.refundsFailedSms = flag;
+      // The account that answers is the one the row was sent on (the service refuses a mismatch).
+      registry.resolveFor.mockResolvedValue({
+        provider,
+        config: { apiKey: 'k' },
+        source: metadata.source === 'platform' ? 'platform' : 'tenant',
+      });
       repo.findOne = vi.fn(async () => sentLog({ metadata }));
       await service.checkStatus('log-1', TENANT, 'ADMIN');
     };
@@ -208,6 +214,11 @@ describe('DeliveryStatusService', () => {
       failed();
       repo.query.mockResolvedValueOnce([[], 1]).mockResolvedValueOnce([{ n: 0 }]);
       provider.descriptor.refundsFailedSms = true;
+      registry.resolveFor.mockResolvedValue({
+        provider,
+        config: { apiKey: 'k' },
+        source: 'platform',
+      });
       repo.findOne = vi.fn(async () => sentLog({ metadata: platformDebited }));
       await expect(service.checkStatus('log-1', TENANT, 'ADMIN')).rejects.toBeInstanceOf(
         ConflictException,

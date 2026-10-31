@@ -29,11 +29,13 @@ describe('DeliveryStatusService (integration)', () => {
     name: 'stub-sms',
     capabilities: ['status'],
   };
+  // Which account answers; a test that checks a platform-sent row says 'platform'.
+  let resolvedSource: 'tenant' | 'platform' = 'tenant';
   const registry = {
     resolveFor: vi.fn(async () => ({
       provider: { descriptor, getStatus },
       config: { apiKey: 'k' },
-      source: 'tenant',
+      source: resolvedSource,
     })),
   };
 
@@ -225,8 +227,12 @@ describe('DeliveryStatusService (integration)', () => {
          ON CONFLICT (tenant_id) DO UPDATE SET available = $2`,
         [tenantId, units],
       );
+    beforeEach(() => {
+      resolvedSource = 'platform';
+    });
     afterEach(() => {
       delete descriptor.refundsFailedSms;
+      resolvedSource = 'tenant';
     });
 
     it('gives the segments back once, in the same step as the flip', async () => {
