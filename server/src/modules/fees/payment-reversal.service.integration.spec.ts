@@ -368,7 +368,11 @@ describe('PaymentReversalService (integration)', () => {
     async function actorIsAdmin() {
       const membershipRepo = dataSource.getRepository(UserTenant);
       await membershipRepo.save(
-        membershipRepo.create({ user_id: ACTOR_USER_ID, tenant_id: TENANT_ID, role: UserRole.ADMIN }),
+        membershipRepo.create({
+          user_id: ACTOR_USER_ID,
+          tenant_id: TENANT_ID,
+          role: UserRole.ADMIN,
+        }),
       );
     }
 
@@ -381,7 +385,9 @@ describe('PaymentReversalService (integration)', () => {
       expect(await paymentRepo.count({ where: { reversal_of_payment_id: paymentId } })).toBe(0);
       expect(Number((await studentFeeRepo.findOneByOrFail({ id: billId })).paid_amount)).toBe(1000);
       expect(await dataSource.getRepository(WalletTransaction).count()).toBe(0);
-      expect(await auditLogRepo.count({ where: { entity_type: 'Payment', action: AuditAction.UPDATE } })).toBe(0);
+      expect(
+        await auditLogRepo.count({ where: { entity_type: 'Payment', action: AuditAction.UPDATE } }),
+      ).toBe(0);
     }
 
     it('single admin, setting absent: self-approval succeeds and the audit row says so', async () => {
@@ -434,7 +440,7 @@ describe('PaymentReversalService (integration)', () => {
       ).resolves.toBeDefined();
     });
 
-    it("an ADMIN of a different school does not count (tenant isolation)", async () => {
+    it('an ADMIN of a different school does not count (tenant isolation)', async () => {
       await actorIsAdmin();
       await membership(UserRole.ADMIN, { tenantId: OTHER_TENANT_ID });
       const { payment } = await paidPayment();

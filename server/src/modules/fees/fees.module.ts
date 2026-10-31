@@ -34,6 +34,8 @@ import { FeeGenerationsService } from './fee-generations.service';
 import { FeeGenerationBatchService } from './fee-generation-batch.service';
 import { RecurringSchedulesService } from './recurring-schedules.service';
 import { FeeController } from './fees.controller';
+import { StudentStatementController } from './statement/student-statement.controller';
+import { StudentStatementService } from './statement/student-statement.service';
 import { FeeGenerationsController } from './fee-generations.controller';
 import { RecurringSchedulesController } from './recurring-schedules.controller';
 import { WalletService } from './wallet.service';
@@ -104,6 +106,7 @@ import { FeesDashboardController } from './fees-dashboard.controller';
     forwardRef(() => SchoolsModule),
   ],
   providers: [
+    StudentStatementService,
     FeeStructureService,
     PaymentService,
     PaymentsQueryService,
@@ -156,6 +159,7 @@ import { FeesDashboardController } from './fees-dashboard.controller';
   // single segment, including "cart"/"checkout") if FeeController's routes
   // registered first.
   controllers: [
+    StudentStatementController,
     CheckoutController,
     FeeController,
     FeeGenerationsController,

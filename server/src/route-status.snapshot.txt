@@ -423,6 +423,7 @@ POST   /api/v1/platform/holiday-sets/fetch                                      
 POST   /api/v1/platform/schools/:id/preset/reset                                 401 PASS 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/portal/arrival-subscriptions                                      401 PASS PASS 403 403 403 PASS 403 403 403 403 403
 PUT    /api/v1/portal/arrival-subscriptions/:studentId                           401 PASS PASS 403 403 403 PASS 403 403 403 403 403
+GET    /api/v1/portal/students/:studentId/statement                              401 PASS PASS PASS PASS PASS PASS PASS PASS PASS 403 403
 GET    /api/v1/presets                                                           401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/presets/:id                                                       401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/presets/apply                                                     401 PASS PASS PASS 403 403 403 403 403 403 403 403
@@ -627,6 +628,7 @@ GET    /api/v1/students/:studentId/programs                                     
 GET    /api/v1/students/:studentId/promotion-overrides                           401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS 403
 GET    /api/v1/students/:studentId/results                                       401 PASS PASS PASS 403 PASS PASS PASS PASS PASS PASS 403
 GET    /api/v1/students/:studentId/results/:examId                               401 PASS PASS PASS 403 PASS PASS PASS PASS PASS PASS 403
+GET    /api/v1/students/:studentId/statement                                     401 PASS PASS PASS PASS 403 403 403 403 403 403 403
 GET    /api/v1/students/:studentId/study-plans                                   401 PASS PASS PASS 403 PASS PASS PASS PASS 403 403 403
 GET    /api/v1/students/:studentId/subject-choices                               401 PASS PASS PASS PASS 403 403 403 403 PASS 403 403
 PUT    /api/v1/students/:studentId/subject-choices                               401 PASS PASS PASS PASS 403 403 403 403 PASS 403 403

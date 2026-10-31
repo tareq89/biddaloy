@@ -823,7 +823,10 @@ describe('RecurringSchedulesService (integration)', () => {
       await service.update(
         id,
         {
-          rule: from === 'MONTHLY' ? { kind: 'WEEKLY', weekdays: [1] } : { kind: 'MONTHLY', day_of_month: 1 },
+          rule:
+            from === 'MONTHLY'
+              ? { kind: 'WEEKLY', weekdays: [1] }
+              : { kind: 'MONTHLY', day_of_month: 1 },
         } as any,
         SEED_TENANT_ID,
         SEED_ADMIN_USER_ID,
