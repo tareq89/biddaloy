@@ -207,6 +207,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/communications/logs/{id}/check-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask the company that sent this SMS/message whether it was delivered (once a minute). */
+        post: operations["CommunicationsController_checkStatus_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/send": {
         parameters: {
             query?: never;
@@ -9386,7 +9403,7 @@ export interface components {
         };
         SmsCreditsResponseDto: {
             /** @enum {string} */
-            metering: "OFF" | "PLATFORM";
+            metering: "PLATFORM" | "OFF";
             available: number;
             reserved: number;
             ledger: components["schemas"]["SmsCreditLedgerListResponseDto"];
@@ -9463,7 +9480,7 @@ export interface components {
             sms_recipients: number;
             sms_units: number;
             /** @enum {string} */
-            metering: "OFF" | "PLATFORM";
+            metering: "PLATFORM" | "OFF";
             available?: number;
             reserved?: number;
             shortfall?: number;
@@ -9525,9 +9542,12 @@ export interface components {
             recipient_name: string;
             /** @enum {string} */
             status: "QUEUED" | "SENT" | "DELIVERED" | "FAILED" | "READ";
+            /** @enum {string} */
+            trigger: "MANUAL" | "AUTOMATED" | "BULK_REMINDER" | "SINGLE_REMINDER" | "ACCOUNT_ACCESS" | "RESULT_SMS" | "ARRIVAL_NOTICE";
             student_id: string | null;
             guardian_id: string | null;
             provider_message_id: string | null;
+            provider: string | null;
             /** Format: date-time */
             created_at: string;
         };
@@ -17392,6 +17412,10 @@ export interface operations {
     CommunicationsController_findLogs_v1: {
         parameters: {
             query?: {
+                search?: string;
+                trigger?: "MANUAL" | "AUTOMATED" | "BULK_REMINDER" | "SINGLE_REMINDER" | "ACCOUNT_ACCESS" | "RESULT_SMS" | "ARRIVAL_NOTICE";
+                sent_by?: string;
+                provider?: string;
                 status?: "QUEUED" | "SENT" | "DELIVERED" | "FAILED" | "READ";
                 medium?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
                 from_date?: string;
@@ -17416,6 +17440,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReminderBatchLogListResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CommunicationsController_checkStatus_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderBatchLogDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
