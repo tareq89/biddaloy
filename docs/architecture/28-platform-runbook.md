@@ -796,8 +796,10 @@ Every key of the five example files. "From" says which part gives you the value.
 | `FACEBOOK_OAUTH_CLIENT_SECRET`       | `prod.enc.env`    | part 6               | same console (prod only)                                                               |
 | `SMS_PROVIDER`                       | `prod.enc.env`    | part 6               | registered SMS provider name, e.g. `onecodesoft` (prod only)                           |
 | `GREENWEB_API_KEY`                   | `prod.enc.env`    | part 6               | key if that provider is chosen (prod only)                                             |
+| `GREENWEB_API_URL`                   | `prod.enc.env`    | part 6               | optional gateway URL; empty uses Greenweb's own (prod only)                            |
 | `MIMSMS_API_KEY`                     | `prod.enc.env`    | part 6               | key if that provider is chosen (prod only)                                             |
 | `MIMSMS_SENDER_ID`                   | `prod.enc.env`    | part 6               | sender id if that provider is chosen (prod only)                                       |
+| `MIMSMS_API_URL`                     | `prod.enc.env`    | part 6               | optional gateway URL; empty uses MimSMS's own (prod only)                              |
 | `ONECODESOFT_API_KEY`                | `prod.enc.env`    | part 6               | key if that provider is chosen (prod only)                                             |
 | `ONECODESOFT_SENDER_ID`              | `prod.enc.env`    | part 6               | sender id if that provider is chosen (prod only)                                       |
 | `ONECODESOFT_API_URL`                | `prod.enc.env`    | part 6               | gateway HTTP API URL (prod only)                                                       |
@@ -875,8 +877,10 @@ Every key of the five example files. "From" says which part gives you the value.
 | `FACEBOOK_OAUTH_CLIENT_SECRET`       | `staging.enc.env` | part 6               | same console (prod only)                                                               |
 | `SMS_PROVIDER`                       | `staging.enc.env` | part 6               | registered SMS provider name, e.g. `onecodesoft` (prod only; staging stays empty)      |
 | `GREENWEB_API_KEY`                   | `staging.enc.env` | part 6               | key if that provider is chosen (prod only; staging stays empty)                        |
+| `GREENWEB_API_URL`                   | `staging.enc.env` | part 6               | optional gateway URL; empty uses Greenweb's own (prod only; staging stays empty)       |
 | `MIMSMS_API_KEY`                     | `staging.enc.env` | part 6               | key if that provider is chosen (prod only; staging stays empty)                        |
 | `MIMSMS_SENDER_ID`                   | `staging.enc.env` | part 6               | sender id if that provider is chosen (prod only; staging stays empty)                  |
+| `MIMSMS_API_URL`                     | `staging.enc.env` | part 6               | optional gateway URL; empty uses MimSMS's own (prod only; staging stays empty)         |
 | `ONECODESOFT_API_KEY`                | `staging.enc.env` | part 6               | key if that provider is chosen (prod only; staging stays empty)                        |
 | `ONECODESOFT_SENDER_ID`              | `staging.enc.env` | part 6               | sender id if that provider is chosen (prod only; staging stays empty)                  |
 | `ONECODESOFT_API_URL`                | `staging.enc.env` | part 6               | gateway HTTP API URL (prod only; staging stays empty)                                  |
@@ -941,8 +945,10 @@ Every key of the five example files. "From" says which part gives you the value.
 | `SENTRY_TRACES_SAMPLE_RATE`          | `demo.enc.env`    | part 6               | `0.1`                                                                                  |
 | `SMS_PROVIDER`                       | `demo.enc.env`    | part 6               | leave empty (config:check refuses a value on demo)                                     |
 | `GREENWEB_API_KEY`                   | `demo.enc.env`    | part 6               | leave empty (config:check refuses a value on demo)                                     |
+| `GREENWEB_API_URL`                   | `demo.enc.env`    | part 6               | leave empty (config:check refuses a value on demo)                                     |
 | `MIMSMS_API_KEY`                     | `demo.enc.env`    | part 6               | leave empty (config:check refuses a value on demo)                                     |
 | `MIMSMS_SENDER_ID`                   | `demo.enc.env`    | part 6               | leave empty (config:check refuses a value on demo)                                     |
+| `MIMSMS_API_URL`                     | `demo.enc.env`    | part 6               | leave empty (config:check refuses a value on demo)                                     |
 | `ONECODESOFT_API_KEY`                | `demo.enc.env`    | part 6               | leave empty (config:check refuses a value on demo)                                     |
 | `ONECODESOFT_SENDER_ID`              | `demo.enc.env`    | part 6               | leave empty (config:check refuses a value on demo)                                     |
 | `ONECODESOFT_API_URL`                | `demo.enc.env`    | part 6               | leave empty (config:check refuses a value on demo)                                     |

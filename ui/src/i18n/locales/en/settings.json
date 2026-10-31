@@ -599,7 +599,7 @@
     "openLog": "See it in Message log",
     "sink": "Nothing was sent: this school is set to a test inbox.",
     "failed": "Couldn't send the test message. Check the details and try again.",
-    "capReached": "You've reached today's limit for test messages. Try again tomorrow.",
+    "capReached": "You've reached the limit of 20 test messages in 24 hours. Try again later.",
     "noCredit": "Not enough SMS credit to send the test message. Ask the platform to add credit, then try again.",
     "invalidAddress": "That number or address isn't valid. Check it and try again.",
     "unconfirmed": "We couldn't confirm it was sent. Check the Message log before trying again."

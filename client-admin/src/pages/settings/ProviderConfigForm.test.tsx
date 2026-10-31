@@ -299,7 +299,7 @@ describe('ProviderConfigForm', () => {
     await user.type(await screen.findByLabelText('Phone number'), '01712345678');
     await user.click(screen.getByRole('button', { name: 'Send a test message' }));
 
-    expect(await screen.findByText(/limit for test messages/)).toBeTruthy();
+    expect(await screen.findByText(/limit of 20 test messages in 24 hours/)).toBeTruthy();
   });
 
   // Finding 8: the 3-per-minute throttle also answers 429; a minute is enough, not "tomorrow".
@@ -311,7 +311,7 @@ describe('ProviderConfigForm', () => {
     await user.click(screen.getByRole('button', { name: 'Send a test message' }));
 
     expect(await screen.findByText(/Couldn't send the test message/)).toBeTruthy();
-    expect(screen.queryByText(/limit for test messages/)).toBeNull();
+    expect(screen.queryByText(/limit of 20 test messages/)).toBeNull();
   });
 
   // Review round 2, finding 2: a test send saves nothing, so its errors never say "Couldn't save".
@@ -342,11 +342,53 @@ describe('ProviderConfigForm', () => {
     expect(screen.queryByText(/Couldn't save/)).toBeNull();
   });
 
-  it('says the number or address is not valid on a 400', async () => {
-    server.use(failWith(400));
+  it("says the number or address is not valid on the server's address 400", async () => {
+    server.use(failWith(400, { code: 'INVALID_TEST_ADDRESS' }));
     await sendTestTo('01712345678');
     expect(await screen.findByText(/number or address isn't valid/)).toBeTruthy();
     expect(screen.queryByText(/Couldn't save/)).toBeNull();
+  });
+
+  // Review round 3, nit 7: a DTO 400 (say a bad config) is not about the number.
+  it('shows the generic send error on any other 400', async () => {
+    server.use(failWith(400));
+    await sendTestTo('01712345678');
+    expect(await screen.findByText(/Couldn't send the test message/)).toBeTruthy();
+    expect(screen.queryByText(/number or address isn't valid/)).toBeNull();
+  });
+
+  // Review round 3, nit 7: the interceptor's in-flight 409 (no code): the first try may be sending.
+  it('says the send could not be confirmed on the in-flight 409', async () => {
+    server.use(failWith(409));
+    await sendTestTo('01712345678');
+    expect(await screen.findByText(/couldn't confirm it was sent/)).toBeTruthy();
+  });
+
+  // Review round 3, nit 8: an earlier result never stays up for another number or company.
+  it('clears an earlier send result when the number or the company changes', async () => {
+    server.use(
+      http.post('/api/v1/schools/:id/settings/test', () =>
+        HttpResponse.json({
+          success: true,
+          message: 'ok',
+          testMessage: { logId: 'log-3', status: 'SENT' },
+        }),
+      ),
+    );
+    const { user } = renderForm('SMS', SAVED_SMS);
+    const phone = await screen.findByLabelText('Phone number');
+    await user.type(phone, '01712345678');
+    await user.click(screen.getByRole('button', { name: 'Send a test message' }));
+    expect(await screen.findByText(/Sent\./)).toBeTruthy();
+
+    await user.type(phone, '9');
+    expect(screen.queryByText(/Sent\./)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Send a test message' }));
+    expect(await screen.findByText(/Sent\./)).toBeTruthy();
+    await user.click(screen.getByLabelText('SMS company'));
+    await user.click(await screen.findByRole('option', { name: 'MimSMS' }));
+    expect(screen.queryByText(/Sent\./)).toBeNull();
   });
 
   it('says the send could not be confirmed on a 500, never "try again"', async () => {

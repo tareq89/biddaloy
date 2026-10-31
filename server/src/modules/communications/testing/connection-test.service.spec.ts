@@ -9,6 +9,7 @@ import {
 import * as Sentry from '@sentry/node';
 import {
   ConnectionTestService,
+  INVALID_TEST_ADDRESS,
   TEST_SENDS_PER_DAY,
   TEST_SEND_DAILY_CAP,
 } from './connection-test.service';
@@ -348,7 +349,8 @@ describe('ConnectionTestService', () => {
         .catch((e) => e);
       expect(err.getStatus()).toBe(429);
       expect(err.getResponse()).toEqual({
-        message: 'Too many test messages today. Try again tomorrow.',
+        // The count is a rolling 24 hours, not a calendar day (review round 3, nit 9).
+        message: 'Too many test messages in the last 24 hours. Try again later.',
         details: { code: TEST_SEND_DAILY_CAP },
       });
     });
@@ -436,6 +438,66 @@ describe('ConnectionTestService', () => {
       credits.isMetered.mockResolvedValue(true);
       await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
       expect(logs.create.mock.calls[0][0].metadata.credit).toBeUndefined();
+    });
+  });
+
+  describe('review round 3 (PR #3325)', () => {
+    const req = { sendTo: '01712345678', userId: 'user-1' };
+
+    // Finding 3: a failed settlement strands the reservation, like AMBIGUOUS: same ops signal.
+    it('flags a failed credit settlement for reconciliation (ids only) and still returns the send', async () => {
+      credits.isMetered.mockResolvedValue(true);
+      credits.settlePart.mockRejectedValue(new Error('ledger down'));
+      const tags = vi.fn();
+      vi.mocked(Sentry.withScope).mockImplementation(((cb: any) => cb({ setTags: tags })) as never);
+      const error = vi.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+      const result = await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+
+      const batchId = credits.reserve.mock.calls[0][3].id;
+      expect(tags).toHaveBeenCalledWith(
+        expect.objectContaining({
+          communication_log_id: 'log-1',
+          batch_id: batchId,
+          needs_reconciliation: 'true',
+        }),
+      );
+      expect(Sentry.captureException).toHaveBeenCalled();
+      expect(error).toHaveBeenCalledWith(
+        expect.objectContaining({ batch_id: batchId, needs_reconciliation: 'true' }),
+      );
+      expect(logs.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ credit: 'UNSETTLED' }) }),
+      );
+      expect(JSON.stringify([tags.mock.calls, error.mock.calls])).not.toContain('01712345678');
+      expect(result.testMessage?.status).toBe('SENT');
+    });
+
+    it('logs a lost credit-marker write (ids only) instead of swallowing it', async () => {
+      credits.isMetered.mockResolvedValue(true);
+      logs.save
+        .mockImplementationOnce(async (x: any) => ({ id: 'log-1', ...x }))
+        .mockRejectedValueOnce(new Error('db down'));
+      const error = vi.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+      const result = await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+
+      expect(error).toHaveBeenCalledWith(
+        expect.objectContaining({ communication_log_id: 'log-1', credit: 'DEBITED' }),
+      );
+      expect(result.testMessage?.status).toBe('SENT');
+    });
+
+    // Nit 7: the UI shows "not a valid number" only for this 400, not for a DTO 400.
+    it('the bad-address 400 carries details.code INVALID_TEST_ADDRESS', async () => {
+      const err = await service
+        .test(tenantId, CommunicationMedium.SMS as never, undefined, { ...req, sendTo: '123' })
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.getResponse()).toEqual({
+        message: 'Enter a valid number or address for this channel.',
+        details: { code: INVALID_TEST_ADDRESS },
+      });
     });
   });
 

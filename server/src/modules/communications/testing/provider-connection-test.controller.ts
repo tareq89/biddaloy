@@ -128,8 +128,10 @@ export class ProviderConnectionTestController {
           },
         })
         // On a throw, keep the original 409/429/500 for the caller; the audit failure is logged.
+        // After a real send, never turn it into a 500: the interceptor would free the key and the
+        // same-key retry would send again (PR #3325 review round 3, finding 2).
         .catch((auditErr: unknown) => {
-          if (result) throw auditErr;
+          if (result && !result.testMessage) throw auditErr;
           this.logger.error(
             `SETTINGS_TEST audit row not written: ${auditErr instanceof Error ? auditErr.name : 'error'}`,
           );

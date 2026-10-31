@@ -216,6 +216,31 @@ describe('ProviderConnectionTestController', () => {
     ).rejects.toBe(sendFailed);
   });
 
+  // PR #3325 review round 3, finding 2: a 500 here would free the key, and the same-key retry
+  // would send (and charge) a second time.
+  it('returns the result of a real send even when its audit write fails', async () => {
+    const sent = { success: true, message: 'ok', testMessage: { logId: 'log-11', status: 'SENT' } };
+    connectionTest.test.mockResolvedValue(sent);
+    auditService.record.mockRejectedValue(new Error('audit db down'));
+    const d = dto();
+    d.sendTo = '01712345678';
+    const keyed = { ...REQUEST, headers: { 'idempotency-key': 'k4' } } as unknown as Request;
+
+    await expect(
+      controller.testConnection(SCHOOL_A, d, { id: SCHOOL_A, role: 'ADMIN' }, USER, keyed),
+    ).resolves.toBe(sent);
+  });
+
+  it('still fails a plain connection test whose audit write fails (nothing was sent)', async () => {
+    connectionTest.test.mockResolvedValue({ success: true, message: 'ok' });
+    const auditDown = new Error('audit db down');
+    auditService.record.mockRejectedValue(auditDown);
+
+    await expect(
+      controller.testConnection(SCHOOL_A, dto(), { id: SCHOOL_A, role: 'ADMIN' }, USER, REQUEST),
+    ).rejects.toBe(auditDown);
+  });
+
   it('is throttled at the test tier (3/min); the global tracker buckets per authenticated user', () => {
     // Tracker is `user:<sub>` (rate-limit-tracker.ts), not per tenant: a tenant key would come from
     // the unauthenticated URL and let a stranger lock a school out. The tenant-wide abuse cap is the

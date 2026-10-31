@@ -70,6 +70,8 @@ function formatOk(f: ProviderField, v: string): boolean {
 
 /** `details.code` of the server's daily test-send cap (the per-minute throttle 429 has none). */
 const TEST_SEND_DAILY_CAP = 'TEST_SEND_DAILY_CAP';
+/** `details.code` of the 400 the server gives a number or address it can't send to. */
+const INVALID_TEST_ADDRESS = 'INVALID_TEST_ADDRESS';
 
 /**
  * A failed "Send a test message", in words (D9: never the server's text). A test saves nothing,
@@ -82,8 +84,12 @@ function sendTestErrorKey(error: unknown): string {
       return 'sendTestMessage.capReached';
     if (error.statusCode === 409 && code === 'INSUFFICIENT_SMS_CREDIT')
       return 'sendTestMessage.noCredit';
-    // The only 400 the form can get: the number or address failed the server's check.
-    if (error.statusCode === 400) return 'sendTestMessage.invalidAddress';
+    // A 409 with no code is the idempotency interceptor's "already being processed": the first
+    // request is still running and may be sending, so it is not a plain failure.
+    if (error.statusCode === 409 && code === undefined) return 'sendTestMessage.unconfirmed';
+    // Only the server's address check says the number is bad; any other 400 (the DTO) is generic.
+    if (error.statusCode === 400 && code === INVALID_TEST_ADDRESS)
+      return 'sendTestMessage.invalidAddress';
     if (error.statusCode === 403) return 'mutationError.forbidden';
   }
   if (isUnknownOutcomeError(error)) return 'sendTestMessage.unconfirmed';
@@ -311,6 +317,12 @@ function ProviderConfigFormInner({
     return config ? { config } : {};
   }
 
+  /** An earlier result belongs to the old company or address: drop it when either changes. */
+  function resetResults() {
+    testConnection.reset();
+    sendTest.reset();
+  }
+
   const label = (d: { label: { en: string; bn: string } }) => d.label[locale];
   const help = (field: string) => {
     const text = t(`help.messaging.${current.name}.${field}`, { defaultValue: '' });
@@ -434,7 +446,13 @@ function ProviderConfigFormInner({
                   ) : (
                     <FormLabel htmlFor={`${prefix}-provider`}>{t(`${prefix}.provider`)}</FormLabel>
                   )}
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(v) => {
+                      field.onChange(v);
+                      resetResults();
+                    }}
+                  >
                     <FormControl>
                       <SelectTrigger id={`${prefix}-provider`}>
                         <SelectValue />
@@ -468,7 +486,10 @@ function ProviderConfigFormInner({
                 type={medium === 'EMAIL' ? 'email' : 'tel'}
                 inputMode={medium === 'EMAIL' ? 'email' : 'tel'}
                 value={sendTo}
-                onChange={(e) => setSendTo(e.target.value)}
+                onChange={(e) => {
+                  setSendTo(e.target.value);
+                  sendTest.reset();
+                }}
               />
               <Button
                 type="button"

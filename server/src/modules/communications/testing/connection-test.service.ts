@@ -46,6 +46,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const NO_TEST_MESSAGE = 'This provider cannot send a test message.';
 /** `details.code` of the daily-cap 429, so the UI can tell it from the per-minute throttle's 429. */
 export const TEST_SEND_DAILY_CAP = 'TEST_SEND_DAILY_CAP';
+/** `details.code` of the bad-address 400, so the UI can tell it from a DTO 400. */
+export const INVALID_TEST_ADDRESS = 'INVALID_TEST_ADDRESS';
 
 const insufficientCredit = (required: number, available: number) =>
   new ConflictException({
@@ -174,7 +176,7 @@ export class ConnectionTestService {
     if (used >= TEST_SENDS_PER_DAY) {
       throw new HttpException(
         {
-          message: 'Too many test messages today. Try again tomorrow.',
+          message: 'Too many test messages in the last 24 hours. Try again later.',
           details: { code: TEST_SEND_DAILY_CAP },
         },
         HttpStatus.TOO_MANY_REQUESTS,
@@ -187,7 +189,12 @@ export class ConnectionTestService {
       medium === CommunicationMedium.SMS
         ? BD_PHONE_REGEX.test(sendTo)
         : medium === CommunicationMedium.EMAIL && isEmail(sendTo);
-    if (!ok) throw new BadRequestException('Enter a valid number or address for this channel.');
+    if (!ok) {
+      throw new BadRequestException({
+        message: 'Enter a valid number or address for this channel.',
+        details: { code: INVALID_TEST_ADDRESS },
+      });
+    }
   }
 
   /**
@@ -339,10 +346,34 @@ export class ConnectionTestService {
           result.success ? 'DEBIT' : 'RELEASE',
         );
         log.metadata = { ...log.metadata, credit: result.success ? 'DEBITED' : 'RELEASED' };
-      } catch {
+      } catch (err) {
+        // Same signal as the worker's failed settlement: the reservation is stranded until ops
+        // reconcile it, and the runbook finds it by `needs_reconciliation`. Ids only (Rule 13).
+        const tags = {
+          communication_log_id: log.id,
+          tenant_id: tenantId,
+          batch_id: reservation.batchId,
+          medium,
+          needs_reconciliation: 'true',
+        };
+        this.logger.error({ msg: 'test sms credit settlement failed', ...tags });
+        Sentry.withScope((scope) => {
+          scope.setTags(tags);
+          Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
+        });
         log.metadata = { ...log.metadata, credit: 'UNSETTLED' };
       }
-      await this.logs.save(log).catch(() => undefined); // the debit already happened; metadata is best-effort
+      // The debit already happened; the metadata is best-effort, but a lost write is logged.
+      await this.logs.save(log).catch((err: unknown) => {
+        this.logger.error({
+          msg: 'test sms credit marker not saved',
+          communication_log_id: log.id,
+          tenant_id: tenantId,
+          batch_id: reservation.batchId,
+          credit: log.metadata?.credit,
+          error: err instanceof Error ? err.name : 'error',
+        });
+      });
     }
     return { logId: log.id, status: log.status };
   }

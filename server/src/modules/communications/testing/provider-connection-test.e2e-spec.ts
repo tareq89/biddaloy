@@ -10,7 +10,6 @@ import { DataSource } from 'typeorm';
 import { TENANT_SETTINGS_SCHEMA_VERSION, UserRole, countSmsSegments } from '@biddaloy/shared';
 import { TenantSettingsCache } from '../../schools/settings/tenant-settings-cache.service';
 import { SmsCreditService } from '../credits/sms-credit.service';
-import { TenantSettingsCache } from '../../schools/settings/tenant-settings-cache.service';
 import { INSUFFICIENT_SMS_CREDIT } from '../credits/insufficient-sms-credit.constants';
 import {
   SEED_TENANT_ID,
