@@ -18,8 +18,6 @@ export const HELP_UNWIRED: Record<string, string> = {
   'admin.createSchool.action.verify': PUBLIC,
 
   // 44.3.01-44.3.06
-  'people.calendar.action.regenerateFeed': PAGE_FIX,
-  'people.programs.action.removeMilestone': PAGE_FIX,
   'academics.routineBuilder.action.clearCell': PAGE_FIX,
   'academics.routineReview.action.requestChange': PAGE_FIX,
   'academics.routineReview.action.resolveRequest': PAGE_FIX,
