@@ -208,8 +208,8 @@ function SubstitutionsPage() {
   // #3022: the server refuses to delete a record dated before the school's today, so
   // the action is not offered (it would only ever answer 409). `config` may be the locale
   // default rather than the school's own zone (settings not loaded, or a role that cannot
-  // read them), and two zones are never a whole day apart: so only a record older than
-  // yesterday is surely past. Yesterday's stays offered; the server decides, and its 409
+  // read them). That default is Asia/Dhaka (UTC+6), and every zone (UTC-12 to UTC+14) is
+  // within 18 hours of it: so only a record older than yesterday is surely past. Yesterday's stays offered; the server decides, and its 409
   // has its own sentence (`pastDeleteError`).
   const surelyPastBefore = addDays(tenantTodayIso(config), -1);
 
