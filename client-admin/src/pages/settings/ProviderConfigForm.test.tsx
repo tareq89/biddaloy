@@ -816,6 +816,22 @@ describe('ProviderConfigForm', () => {
     expect(body).not.toHaveBeenCalled();
   });
 
+  // The '' branch of PR #3325 round 5 guarded Number('') = 0; with null for a cleared field, a
+  // cleared port must still never go out as 0.
+  it('sends a cleared saved port as null, never 0', async () => {
+    const body = captureSave();
+    const { user } = renderForm('EMAIL', {
+      smtp: { host: 'h', port: 587, user: 'u', from: 'a@x.com', password: { configured: true } },
+    });
+
+    await user.clear(await screen.findByLabelText(/^Port/));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(body).toHaveBeenCalled());
+    expect(body.mock.calls[0]![0].communications.email).toEqual({
+      smtp: { host: 'h', port: null, user: 'u', from: 'a@x.com' },
+    });
+  });
+
   it('shows a loading skeleton, then the form', async () => {
     const { container } = renderForm('SMS', SAVED_SMS);
     expect(await screen.findByRole('heading', { name: CARD })).toBeTruthy();

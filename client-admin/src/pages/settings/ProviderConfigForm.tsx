@@ -157,8 +157,9 @@ export function ProviderConfigForm(props: ProviderConfigFormProps) {
   if (!entry || entry.providers.length === 0) return null;
   return (
     <ProviderConfigFormInner
-      // The inner form reads its defaults once, so it remounts for a new school (or a cached school's
-      // query could hand it another school's values to save, PR #3325 round 5) and after "Remove saved details".
+      // The inner form reads its defaults once, so it remounts for a new school (a cached school's
+      // query could hand it another school's values to save, PR #3325 review round 5) and after
+      // "Remove saved details".
       key={`${props.schoolId}:${generation}`}
       {...props}
       // The mutation already invalidated this query: join that fetch, never start a second one.
