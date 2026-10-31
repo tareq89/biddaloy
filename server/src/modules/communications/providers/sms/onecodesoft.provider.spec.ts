@@ -183,7 +183,14 @@ describe('OnecodesoftProvider', () => {
       });
     });
 
-    it('unparsable body (fetch throws) -> AMBIGUOUS, never throws, no raw error text', async () => {
+    // Review round 2 on #3347: a 2xx whose body is not JSON may have sent: never retried.
+    it('a 2xx body that is not JSON -> AMBIGUOUS and not retried', async () => {
+      pinned.mockRejectedValue(new SyntaxError('Unexpected token < in JSON'));
+      const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
+      expect(r).toMatchObject({ success: false, outcome: 'AMBIGUOUS', retryable: false });
+    });
+
+    it('a thrown network error -> AMBIGUOUS, left to retry, never throws, no raw error text', async () => {
       pinned.mockRejectedValue(new Error('Unexpected token < in JSON, key-1'));
       const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
       expect(r).toMatchObject({ success: false, outcome: 'AMBIGUOUS' });
@@ -203,10 +210,12 @@ describe('OnecodesoftProvider', () => {
       expect(r).toMatchObject({ success: false, outcome: 'AMBIGUOUS' });
     });
 
-    it('success with no results -> AMBIGUOUS (the SMS may have gone out)', async () => {
+    it('success with no results -> AMBIGUOUS (the SMS may have gone out), not retried', async () => {
       pinned.mockResolvedValue({ status: 'success', data: { results: [] } });
       const r = await provider.send({ to: '01712345678', body: 'hi' }, config);
       expect(r.outcome).toBe('AMBIGUOUS');
+      // Review round 2 on #3347: the same policy as a 5xx, a retry could send it twice.
+      expect(r.retryable).toBe(false);
     });
 
     it('blocked destination -> REJECTED, not retryable, nothing fetched', async () => {

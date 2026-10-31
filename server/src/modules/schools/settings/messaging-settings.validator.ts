@@ -80,9 +80,14 @@ export function problemWith(value: unknown, medium: CommunicationMedium): string
   // #3338: "remove saved details": provider null (or the sole company's block null) with every
   // other sent key null too. The merge deletes them. A `metering` sent alongside is still saved:
   // a school setting its own metering is a known gap, #3346.
+  // Review round 2 on #3347: every company block must be sent as null. `{provider: null}` alone
+  // would delete only the name and leave a saved block that the resolver can still send on.
   if (provider === null || (sole && value[sole.name] === null)) {
     const allNull = Object.entries(value).every(([k, v]) => k === 'metering' || v === null);
-    return allNull ? null : 'removes the saved company, so every other value sent must be null.';
+    if (!allNull) return 'removes the saved company, so every other value sent must be null.';
+    return names.every((n) => value[n] === null)
+      ? null
+      : 'removes the saved company, so every company block must be sent as null too.';
   }
   if (provider !== undefined && (typeof provider !== 'string' || !names.includes(provider))) {
     return 'names a company that is not available for this channel.';

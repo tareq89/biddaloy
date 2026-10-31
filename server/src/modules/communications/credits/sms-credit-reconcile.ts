@@ -1,6 +1,6 @@
 import { DataSource, Repository } from 'typeorm';
 import { CommunicationStatus, CommunicationTrigger, countSmsSegments } from '@biddaloy/shared';
-import { CommunicationLog } from '../entities/communication-log.entity';
+import { ACCEPTED_STATUSES, CommunicationLog } from '../entities/communication-log.entity';
 import { SmsCreditLedger, SmsCreditLedgerKind } from './entities/sms-credit-ledger.entity';
 import type { SmsCreditService } from './sms-credit.service';
 
@@ -379,8 +379,11 @@ async function reconcileTenant(
   // #3326 test-send claims: the row is written QUEUED before the vendor call and finished by the
   // same request. One still QUEUED after an hour was stranded (a crash during the vendor call, or
   // the final save failed): the SMS may have gone out, so a human decides. List only, never act.
+  // Settled = a `log:<claim id>:settle` row, or the `log:<batch id>:settle` release that the
+  // REJECTED + save-failed path writes (`connection-test.service.ts`): either way, nothing is held.
+  // `units` is what the reserve holds, not a recount of the body.
   const strandedClaims = (await dataSource.query(
-    `SELECT l.id, l.message_body, r.id AS reserve_id
+    `SELECT l.id, r.units, r.id AS reserve_id
        FROM communication_logs l
        JOIN sms_credit_ledger r
          ON r.tenant_id = l.tenant_id AND r.kind = 'RESERVE'
@@ -390,17 +393,19 @@ async function reconcileTenant(
         AND l.created_at < now() - interval '1 hour'
         AND NOT EXISTS (
           SELECT 1 FROM sms_credit_ledger s
-           WHERE s.tenant_id = $1 AND s.idempotency_key = 'log:' || l.id || ':settle')
+           WHERE s.tenant_id = $1
+             AND s.idempotency_key IN ('log:' || l.id || ':settle',
+                                       'log:' || (l.metadata->>'batch_id') || ':settle'))
       ORDER BY l.created_at, l.id`,
     [tenantId],
-  )) as Array<{ id: string; message_body: string; reserve_id: string }>;
+  )) as Array<{ id: string; units: string | number; reserve_id: string }>;
   for (const c of strandedClaims) {
     report.rows.push({
       tenantId,
       reserveLedgerId: c.reserve_id,
       source: 'UNKNOWN',
       logId: c.id,
-      units: countSmsSegments(c.message_body).segments,
+      units: Number(c.units),
       action: 'MANUAL_REVIEW',
       reason: 'TEST_CLAIM_STRANDED',
     });
@@ -470,11 +475,7 @@ function decide(
   source: ReconcileSource,
 ): { outcome: 'DEBIT' | 'RELEASE'; reason: string } | null {
   const m = meta(log);
-  if (
-    log.status === CommunicationStatus.SENT ||
-    log.status === CommunicationStatus.DELIVERED ||
-    log.status === CommunicationStatus.READ
-  ) {
+  if (ACCEPTED_STATUSES.includes(log.status)) {
     return { outcome: 'DEBIT', reason: 'SENT' };
   }
   if (log.status !== CommunicationStatus.FAILED) return null;

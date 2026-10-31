@@ -220,6 +220,12 @@ describe('BulkReminderService.findLogs (integration)', () => {
       expect(ids(await service.findLogs({ search: '+880 1' }, tenantA))).toEqual([]);
     });
 
+    // Review round 2 on #3347: only the real country code `880` is dropped. `8812345678` is not a
+    // `+880` number, so it must not turn into `12345678` (which is inside 01712345678).
+    it('drops only the 880 country code, not any leading 88', async () => {
+      expect(ids(await service.findLogs({ search: '8812345678' }, tenantA))).toEqual([]);
+    });
+
     it('finds a +880-stored number from the 01… form', async () => {
       const plus = await addLog(tenantA, { address: '+8801999888777' });
       expect(ids(await service.findLogs({ search: '01999888777' }, tenantA))).toEqual([plus]);

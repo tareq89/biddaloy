@@ -195,6 +195,19 @@ describe('ConnectionTestService', () => {
       expect(result.testMessage).toEqual({ logId: 'log-1', status: 'SENT' });
     });
 
+    // #3350: a test send records whose account it went out on, as the worker does.
+    it('records metadata.source from the resolved config', async () => {
+      registry.resolveFor.mockResolvedValue({ provider, config: { k: 'v' }, source: 'platform' });
+
+      await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);
+
+      expect(logs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({ provider: 'stub-sms', source: 'platform' }),
+        }),
+      );
+    });
+
     it('debits a reserved credit on success and releases it on a rejected send', async () => {
       credits.isMetered.mockResolvedValue(true);
       await service.test(tenantId, CommunicationMedium.SMS as never, undefined, req);

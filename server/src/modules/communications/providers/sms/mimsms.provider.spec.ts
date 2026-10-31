@@ -184,6 +184,19 @@ describe('MimsmsProvider', () => {
     expect(result.segments).toBe(1);
   });
 
+  // Review round 2 on #3347: a 2xx whose body is not JSON means the vendor answered and may have
+  // sent the SMS. It stays AMBIGUOUS (credit held) and is never retried: a retry could send twice.
+  it('a 2xx body that is not JSON -> AMBIGUOUS and not retried', async () => {
+    pinnedFetchMock.mockRejectedValue(new SyntaxError('Unexpected token < in JSON'));
+
+    const result = await gateway.send(
+      { to: '01712345678', body: 'hi' },
+      { gateway: 'mimsms', apiKey: 'key-1', senderId: 'sender-1' },
+    );
+
+    expect(result).toMatchObject({ success: false, outcome: 'AMBIGUOUS', retryable: false });
+  });
+
   it('routes through the pinned dispatcher rather than a bare fetch', async () => {
     pinnedFetchMock.mockResolvedValue({ status: 'success', transaction_id: 'mim-1' });
 

@@ -471,8 +471,12 @@ describe('Bulk Reminder Read/Preview E2E', () => {
         `UPDATE communication_logs SET recipient_address = '01799000111', sent_by_user_id = $1, trigger = 'MANUAL' WHERE id = $2`,
         [SEED_ADMIN_USER_ID, hit],
       );
-      await createBatchLog(batchId, TENANT_ID, { metadata: { provider: 'stub-other' } });
+      const decoy = await createBatchLog(batchId, TENANT_ID, {
+        metadata: { provider: 'stub-other' },
+      });
 
+      // Other tests in this file write rows for the same tenant, so check this test's two rows
+      // only: the hit is in, the decoy is out.
       for (const qs of [
         `search=${encodeURIComponent('+880 1799-000111')}`,
         'trigger=MANUAL',
@@ -480,10 +484,15 @@ describe('Bulk Reminder Read/Preview E2E', () => {
         'provider=stub-sms',
       ]) {
         const res = await getLogs(qs).expect(200);
-        expect(res.body.data.map((r: { id: string }) => r.id)).toEqual([hit]);
+        const found = res.body.data.map((r: { id: string }) => r.id);
+        expect(found).toContain(hit);
+        expect(found).not.toContain(decoy);
       }
-      const row = (await getLogs('provider=stub-sms').expect(200)).body.data[0];
-      expect(row).toMatchObject({ trigger: 'MANUAL', provider: 'stub-sms' });
+      const rows = (await getLogs('provider=stub-sms').expect(200)).body.data;
+      expect(rows.find((r: { id: string }) => r.id === hit)).toMatchObject({
+        trigger: 'MANUAL',
+        provider: 'stub-sms',
+      });
     });
 
     it('OFFICE_STAFF (holds COMMUNICATION_BULK_SEND) can read the log', async () => {

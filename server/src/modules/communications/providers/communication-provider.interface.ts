@@ -41,6 +41,11 @@ export interface CommunicationSendResult {
    */
   provider?: string;
   /**
+   * #3350: whose account sent it (`platform` = the platform's env keys), so Check status asks that
+   * same account. Set next to `provider`.
+   */
+  source?: 'override' | 'tenant' | 'platform';
+  /**
    * [15.6.6/#549] Epic #508 D6's three provider outcomes, set on every
    * result (success or failure) so `CommunicationsProcessor` can settle
    * SMS credit reservations without re-deriving it from `success`/`error`.

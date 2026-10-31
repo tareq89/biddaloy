@@ -250,6 +250,30 @@ describe('ProviderConfigForm', () => {
       expect(gets).toBe(1);
     });
 
+    // Review round 2 on #3347 (nit 7): when the refetch after a removal fails, the card shows the
+    // load error. It never redraws the form from the old answer (the removed company as saved).
+    it('shows the load error, not the old form, when the refetch after a removal fails', async () => {
+      server.use(providersHandler({ SMS: true }, 'mimsms'));
+      captureSave();
+      const { user } = renderForm('SMS', {
+        provider: 'mimsms',
+        mimsms: { senderId: 'OLD', apiKey: { configured: true, hint: '••••mim1' } },
+      });
+      await user.click(await screen.findByRole('button', { name: 'Remove saved details' }));
+      const dialog = await screen.findByRole('alertdialog');
+      server.use(
+        http.get('/api/v1/schools/:id/settings/messaging/providers', () =>
+          HttpResponse.json({ message: 'down' }, { status: 500 }),
+        ),
+      );
+      await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
+
+      expect(
+        await screen.findByText("Couldn't load the company settings. Try again."),
+      ).toBeTruthy();
+      expect(screen.queryByLabelText('SMS company')).toBeNull();
+    });
+
     // Review round 1 on #3347: a failed removal says so inside the open dialog, not behind it.
     it('shows a failed removal inside the dialog and keeps it open', async () => {
       server.use(providersHandler({ SMS: true }, 'mimsms'));

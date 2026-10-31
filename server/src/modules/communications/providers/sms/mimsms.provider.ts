@@ -123,10 +123,10 @@ export class MimsmsProvider extends MessagingProvider<ResolvedMimSmsConfig> {
         // request URL (Greenweb's carries the token).
         error: err instanceof OutboundDestinationError ? err.publicMessage : UNREACHABLE_ERROR,
         segments: segmentInfo.segments,
-        // Only a resolved-to-a-blocked-destination is permanent; a DNS
-        // hiccup or network blip may succeed on retry — and might have
-        // reached MimSMS anyway, so it's AMBIGUOUS, not REJECTED.
-        retryable: err instanceof DestinationBlockedError ? false : undefined,
+        // A blocked destination is permanent and REJECTED. A DNS hiccup or network blip may
+        // succeed on retry, and might have reached MimSMS anyway, so it's AMBIGUOUS. A 2xx body
+        // that is not JSON is AMBIGUOUS too, but never retried (`retryAfterThrow`).
+        retryable: this.retryAfterThrow(err),
         outcome: err instanceof DestinationBlockedError ? 'REJECTED' : 'AMBIGUOUS',
       };
     }

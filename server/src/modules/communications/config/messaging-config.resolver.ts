@@ -35,6 +35,12 @@ export interface ResolveOptions {
    * including a test message, needs every required field.
    */
   connectionTestOnly?: boolean;
+  /**
+   * Check status only (D23, #3350): the message was sent on the platform's account
+   * (`metadata.source: 'platform'`), so this company is resolved there, from the platform env
+   * keys, and the school's saved blocks are not read. Set by server code, never from a request.
+   */
+  platformProvider?: string;
 }
 
 /** Whose account the owned fields came from: the caller's draft, the school's saved settings, or the platform env. */
@@ -140,10 +146,12 @@ export class MessagingConfigResolver {
 
     // Platform env keys serve PLATFORM-metered SMS schools and account-access sends (D11). The
     // other media have no metering: their env fallback is always on, as before.
+    const platformOnly = opts.platformProvider !== undefined;
     const platformOk =
       medium !== CommunicationMedium.SMS ||
       tenantMedium.metering === 'PLATFORM' ||
-      opts.allowPlatformKeys === true;
+      opts.allowPlatformKeys === true ||
+      platformOnly;
     // An empty/blank env value (deploy/stack.yml `${X:-}`) is unset, so the registry default applies.
     const env = (name: string) => {
       const v = platformOk ? this.config.get<string>(name) : undefined;
@@ -164,6 +172,7 @@ export class MessagingConfigResolver {
     const overrideProvider = coerce(override.provider);
     // A medium with one provider has nothing to choose: a stray stored/override `provider` key is ignored.
     const selected =
+      opts.platformProvider ??
       (flatOk ? forMedium[0].descriptor.name : undefined) ??
       overrideProvider ??
       storedProvider ??
@@ -172,7 +181,8 @@ export class MessagingConfigResolver {
     // Review round 1 on #3347: when the platform picked the company, the school's saved draft for
     // it is not its account (a partial one would fail closed, a full one send on its own keys).
     const schoolPicked =
-      flatOk || !platformOk || overrideProvider != null || storedProvider != null;
+      !platformOnly &&
+      (flatOk || !platformOk || overrideProvider != null || storedProvider != null);
     const provider = forMedium.find((p) => p.descriptor.name === selected);
     if (!provider) {
       // Rule 23: the submitted/stored name is never echoed.

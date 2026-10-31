@@ -541,7 +541,8 @@ export class BulkReminderService {
       // `+880 1712-345678`, `8801712345678` and `01712 345678` all find `01712345678`.
       // ponytail: no trigram index; add pg_trgm when a school passes 100k logs.
       const digits = /^[\d\s+()-]+$/.test(search) ? search.replace(/\D/g, '') : '';
-      const local = digits.startsWith('88') ? digits.slice(2) : digits;
+      // Only the country code `880` (`8801…` -> `01…`), not any leading `88`.
+      const local = digits.startsWith('880') ? digits.slice(2) : digits;
       // At least 4 digits: `880` alone would become `0` and match nearly every number.
       const phone = local.length >= 4 ? local : '';
       qb.andWhere(

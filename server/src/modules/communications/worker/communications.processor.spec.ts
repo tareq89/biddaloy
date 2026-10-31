@@ -212,6 +212,24 @@ describe('CommunicationsProcessor', () => {
     );
   });
 
+  // #3350: and whose account sent it, so check-status asks that same account.
+  it('writes metadata.source next to metadata.provider', async () => {
+    provider.send.mockResolvedValue({
+      success: true,
+      providerMessageId: 'p-4',
+      provider: 'stub-sms',
+      source: 'platform',
+    });
+
+    await processor.process(job());
+
+    expect(txManager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ provider: 'stub-sms', source: 'platform' }),
+      }),
+    );
+  });
+
   it('writes metadata.provider on a failure too, for every medium', async () => {
     repo.findOneOrFail.mockResolvedValue({ ...baseLog, medium: CommunicationMedium.EMAIL });
     repo.findOne.mockResolvedValue({ ...baseLog, medium: CommunicationMedium.EMAIL });
@@ -465,6 +483,26 @@ describe('CommunicationsProcessor', () => {
       expect(repo.manager.transaction).not.toHaveBeenCalled();
     });
 
+    // Review round 2 on #3347: Check status moves SENT to DELIVERED or READ. A stalled job
+    // replayed after that must not send the SMS a second time.
+    it('does not resend a log that Check status already moved to DELIVERED', async () => {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, status: CommunicationStatus.DELIVERED });
+
+      await processor.process(job());
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(repo.manager.transaction).not.toHaveBeenCalled();
+    });
+
+    it('does not resend a log that Check status already moved to READ', async () => {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, status: CommunicationStatus.READ });
+
+      await processor.process(job());
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(repo.manager.transaction).not.toHaveBeenCalled();
+    });
+
     it('does not double-count a batch when a settled log is replayed', async () => {
       repo.findOneOrFail.mockResolvedValue({
         ...baseLog,
@@ -515,6 +553,43 @@ describe('CommunicationsProcessor', () => {
         'log:log-1',
         2,
         'RELEASE',
+      );
+    });
+
+    // The vendor accepted it, so the credit is spent: DEBIT, the same as a SENT log.
+    it('resumes a DEBIT settlement for a DELIVERED log replayed with no recorded credit', async () => {
+      repo.findOneOrFail.mockResolvedValue({ ...baseLog, status: CommunicationStatus.DELIVERED });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 2 }));
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'DEBIT',
+      );
+    });
+
+    // A FAILED written by Check status ("undelivered") still has the vendor id of an accepted
+    // send. The vendor billed it, so releasing the credit would give the school a free SMS.
+    it('resumes a DEBIT, not a RELEASE, for a FAILED log that carries a vendor message id', async () => {
+      repo.findOneOrFail.mockResolvedValue({
+        ...baseLog,
+        status: CommunicationStatus.FAILED,
+        provider_message_id: 'vendor-1',
+      });
+
+      await processor.process(job({ batchId: 'batch-1', segments: 2 }));
+
+      expect(provider.send).not.toHaveBeenCalled();
+      expect(smsCredits.settlePart).toHaveBeenCalledWith(
+        'tenant-1',
+        'batch:batch-1',
+        'log:log-1',
+        2,
+        'DEBIT',
       );
     });
 
