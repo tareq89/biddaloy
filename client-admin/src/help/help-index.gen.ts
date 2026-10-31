@@ -10,7 +10,7 @@ export const HELP_INDEX: HelpIndex = {
     },
     path: 'dashboard/dashboard',
     anchor: '',
-    knownIssues: 0,
+    knownIssues: 1,
   },
   applications: {
     title: { bn: 'আবেদনপত্র', en: 'Applications' },
@@ -4896,6 +4896,9 @@ export const HELP_ROUTES = {
   '/invoices/$invoiceId': 'finance.invoices',
   '/reports': 'reports.hub',
   '/reports/$reportId': 'reports.hub',
+  '/reports/$reportId/edit': 'reports.hub',
+  '/reports/new': 'reports.hub',
+  '/reports/runs/$runId': 'reports.hub',
   '/reports/collections': 'reports.collectionsReport',
   '/reports/student-count': 'reports.studentCount',
   '/reports/printables': 'reports.printables',
