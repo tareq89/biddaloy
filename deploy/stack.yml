@@ -100,6 +100,10 @@ x-app: &app
     SENTRY_RELEASE: ${APP_VERSION}
     DEMO_MODE: ${DEMO_MODE:-false}
     DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+    # School websites (Epic 40): the apex <school>.ROOT_DOMAIN hangs under. Read by the public
+    # site API. Required on every stack: the `:?` below aborts compose without it, and the deploy
+    # preflight (infra/ansible/tasks/preflight.yml) and config:check refuse a secrets file without it.
+    SITE_ROOT_DOMAIN: ${ROOT_DOMAIN:?ROOT_DOMAIN must be set}
   volumes:
     - ${PG_TLS_DIR:?PG_TLS_DIR must be set}:/etc/postgresql/tls:ro
     - demo-state:/demo-state:ro
@@ -173,6 +177,41 @@ services:
       default: {}
       edge:
         aliases: ['${ENV_NAME:?ENV_NAME must be set}-app']
+
+  # School websites (Epic 40, #3620): Astro SSR, one container for every school host. Reached only
+  # by edge nginx's :8081 listener (nginx/templates/site.conf.template) over `biddaloy-edge`, never
+  # a published port (Rule 12). It reads the public site API on `app`; it holds no secret.
+  site:
+    logging: *logging
+    image: ghcr.io/tareq89/biddaloy-site:${APP_VERSION:?APP_VERSION must be set}
+    restart: unless-stopped
+    environment:
+      # Only `app`, not app2: while the prod rolling restart recreates `app` (D25), pages that are
+      # not in the nginx cache answer the site 503 page (cached ones are served stale). Known gap,
+      # docs/architecture/07-deployment.md "Rolling restart".
+      SITE_API_BASE: http://${ENV_NAME:?ENV_NAME must be set}-app:3000/api/v1
+      SITE_ROOT_DOMAIN: ${ROOT_DOMAIN:?ROOT_DOMAIN must be set}
+    expose:
+      - '4321'
+    # SSR behind a 30 s nginx cache: small. Same knobs as the other services (SITE_MEM / SITE_CPUS).
+    deploy:
+      resources:
+        limits:
+          memory: ${SITE_MEM:-256m}
+          cpus: ${SITE_CPUS:-0.5}
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      default: {}
+      edge:
+        aliases: ['${ENV_NAME:?ENV_NAME must be set}-site']
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:4321/healthz || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   # Second copy of app (D25): prod restarts the two one at a time.
   app2:

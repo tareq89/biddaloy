@@ -73,6 +73,7 @@ import { AcrModule } from './modules/acr/acr.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { AttentionModule } from './modules/attention/attention.module';
 import { NoticesModule } from './modules/notices/notices.module';
+import { WebsiteModule } from './modules/website/website.module';
 import { NoticeSmsModule } from './modules/notices/sms/notice-sms.module';
 import { NoticeAccessModule } from './modules/notices/access/notice-access.module';
 import { SurveysModule } from './modules/surveys/surveys.module';
@@ -416,7 +417,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             Notice,
             NoticeAttachment,
             NoticeRecipient,
-            // [40.1.03] Epic 40 school website; no module reads them until #3621 / Wave 2.
+            // [40.1.03] Epic 40 school website (WebsiteModule, workbook tabs, demo seed).
             SchoolSite,
             SiteEnquiry,
             SiteMedia,
@@ -544,6 +545,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     AttentionModule,
     NoticeAccessModule, // before NoticesModule: GET /notices/mine must register before GET /notices/:id
     NoticesModule,
+    WebsiteModule,
     NoticeSmsModule,
     SurveysModule,
     PerformanceModule,
