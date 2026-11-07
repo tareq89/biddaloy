@@ -36,6 +36,54 @@ Three rules hold the whole thing together:
   (`172.30.0.0/24`). nginx takes the visitor IP from `CF-Connecting-IP` only for
   peers in it, which in practice is `cloudflared` alone.
 
+## Wildcard subdomain Cloudflare SaaS
+
+School websites (Epic 40) live on `<school>.schoolmanagerp.com` and, later, on a school's own
+domain. Both lanes will reach one **separate nginx listener** that serves school sites only.
+Neither lane is routed yet: today the tunnel has no rule for them, so they end in cloudflared's
+`404`. Owner steps: [28-platform-runbook, part 17](28-platform-runbook.md#part-17-school-websites).
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant CF as Cloudflare
+  participant T as cloudflared (tunnel)
+  participant N as nginx site listener (e.g. :8081)
+  participant S as site container
+  Note over B,S: Lane 1. rumsc.schoolmanagerp.com (route lands in #3620 / #3655)
+  B->>CF: HTTPS, wildcard cert (one label only)
+  CF->>T: proxied CNAME * to the tunnel, Host rumsc.schoolmanagerp.com
+  T->>N: no fixed host matched, last rule (catch-all)
+  N->>S: site server{} (unknown name gets 444)
+  Note over B,S: Lane 2. www.rumsc.edu (lands in #3646 / #3655)
+  B->>CF: HTTPS, Cloudflare for SaaS certificate
+  CF->>T: via fallback origin sites.schoolmanagerp.com, Host stays www.rumsc.edu
+  T->>N: same catch-all (it matches any Host)
+  N->>S: matched by custom_domain
+```
+
+- **No wildcard ingress rule, on purpose.** cloudflared matches hostnames case-sensitively. With a
+  `*.schoolmanagerp.com` rule, `STAGING.schoolmanagerp.com` would miss the staging rule, fall into
+  the wildcard and skip the in-VM Access check. (A trailing-dot name matches no hostname rule at all
+  and falls to the last rule.) So `cloudflared-config.yml.j2`
+  has none. The school route that #3620 / #3655 add is the **last, host-agnostic rule**, and it points
+  at a separate nginx listener (for example `http://nginx:8081`). That listener holds only the site
+  `server{}` and a default `444`, never a fixed host. A name in capitals then lands on the site
+  listener, never on staging.
+- **Lane 1** needs the `*` CNAME (owner step, part 17a) and that catch-all. Free Universal certificate:
+  one label only, so `<sub>.staging.schoolmanagerp.com` is not supported (D5).
+- **Lane 2** uses Cloudflare for SaaS with `sites.schoolmanagerp.com` as the fallback origin. The school
+  adds a CNAME at its own DNS host. cloudflared then sees the **school's** name as `Host`
+  (`www.rumsc.edu`), not `sites.`, so only a host-agnostic catch-all can route it, never a
+  `*.schoolmanagerp.com` rule. Lands in #3646 (40.4.08) / #3655 (40.5.07); nothing is set up for it
+  yet (D23, D35).
+- nginx still answers `444` for every name it does not know (Rule 12).
+- **Owner check, now and after every edge change** (runbook 17a, "the case check"):
+  `cloudflared tunnel --config … ingress rule https://STAGING.schoolmanagerp.com` on the VM must
+  not print `service: http://nginx:80`. That is the real test: the leak sits in cloudflared's rule
+  match. `curl -sI -H 'Host: STAGING.schoolmanagerp.com' https://staging.schoolmanagerp.com/` must
+  also answer `302` to `<team>.cloudflareaccess.com`, but that only checks the edge Access app.
+
 ## Checklist
 
 "Applied" is filled by the owner, who has dashboard access. Every cell
@@ -62,6 +110,8 @@ from the verify step.
 | 16  | Cache rule for the landing site                                                                                                                   | **Cache everything** when host is `LANDING_DOMAIN` **and** URI path starts with `/_astro/`. Nothing else.                                        | Those files are hashed and sent `public, max-age=31536000, immutable`. Scoped to the landing host and `/_astro/`, so row 7 still holds.                                                                                                                                                                      | `curl -sI https://$LANDING_DOMAIN/_astro/<file>` shows `cf-cache-status: HIT` on the second request | pending (owner)     |
 | 17  | Access applications                                                                                                                               | `Staging` (staging and staging inbox hosts) and `Ops` (kuma, beszel, logs hosts); see "Access policies"                                          | Outer login for staging and ops; `cloudflared` checks the token, so a missing app means the host answers nothing instead of opening up                                                                                                                                                                       | V13                                                                                                 | pending (owner)     |
 | 18  | R2 API tokens                                                                                                                                     | Two tokens, scoped to the one bucket: prod **Object Read & Write**; staging **Object Read only**                                                 | Prod writes `db/`, `files/` and `logs/`. Staging only reads `db/` dumps, so a stolen staging cannot overwrite or delete a backup. The log archive reuses the prod write token.                                                                                                                               | `aws s3 ls` with the staging token works; `aws s3 cp x s3://<bucket>/t` with it fails               | pending (owner)     |
+| 19  | DNS `*`, `sites`, `site-test` (school websites, Epic 40)                                                                                          | Three CNAMEs to the tunnel, **proxied** (runbook part 17a, 17b)                                                                                  | `*` carries every school subdomain, `sites.` is the Cloudflare for SaaS fallback origin (#3646), `site-test.` is the staging test host (#3621). The tunnel has no `*` rule, so all three end in cloudflared's 404 until #3620 routes them                                                                    | Runbook 17a check (`ingress rule` for `STAGING.` and the curl) and 17b check                        | pending (owner)     |
+| 20  | Turnstile prod widget covers subdomains (Epic 40)                                                                                                 | The prod widget (row 14) also lists `schoolmanagerp.com`, which covers every subdomain (runbook part 17c)                                        | School-site forms (Rule 22) need the widget on `<school>.schoolmanagerp.com`. Side effect: the prod widget then also accepts `demo.` and `staging.`, so row 14's "only its own hostname" no longer holds for prod                                                                                            | Dashboard > Turnstile: the prod widget lists `schoolmanagerp.com`                                   | pending (owner)     |
 
 ## Verify
 
