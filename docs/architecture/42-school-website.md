@@ -86,6 +86,55 @@ school.
 | `server/src/modules/workbook/tabs/website/`            | Backup and restore tabs (four tables)                                |
 | `server/src/scripts/demo-seed/slices/website.ts`       | The demo school's published site                                     |
 
+## SEO
+
+Each school host answers these itself. The site builds them from the by-host read model: no new server route.
+
+```mermaid
+flowchart LR
+  V["Search engine or share card"] --> S["site (Astro SSR)"]
+  S -->|"/sitemap.xml /robots.txt /feed.xml /llms.txt /og/home.png"| M{"Host resolved,<br/>not noindex, not preview?"}
+  M -->|yes| OK["The file"]
+  M -->|no| N["The same 404 body as an unknown host"]
+```
+
+| Endpoint            | Answer                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| `/sitemap.xml`      | Every enabled page that has a route, bn and en, each with `hreflang` alternates        |
+| `/robots.txt`       | `Allow: /`, `Disallow: /?preview=` and the sitemap; `Disallow: /` when noindex/preview |
+| `/feed.xml?lang=en` | RSS 2.0 of the blog; 404 when the blog page is switched off                            |
+| `/llms.txt`         | A plain-text summary: name, page URLs, recent posts                                    |
+| `/og/<page>.png`    | A 1200 x 630 card: palette colour, school name, page title                             |
+
+Each page also carries one canonical, bn/en/`x-default` alternates, Open Graph and Twitter tags, and JSON-LD
+(`EducationalOrganization`, `BreadcrumbList`, `NewsArticle` for a post).
+
+- **Noindex.** `school_sites.noindex`, any preview (the `X-Site-Preview` header, a `/website/preview/<theme>/` path, a
+  `?preview=<token>` draft) gives `robots: noindex`, no canonical, no JSON-LD and no sitemap, feed, llms or card.
+  Only `robots.txt` answers in a header preview (`Disallow: /`).
+- **Escaping.** JSON-LD is written with `<` escaped, so no value can close the script tag. XML drops characters XML 1.0
+  cannot carry, then escapes the rest.
+- **The card has no logo, on purpose.** Drawing it needs no fetch, so nothing a school typed can make the site call out
+  (no SSRF), and the work stays small. Cards are cached in memory (200), for one hour.
+- **Limit.** The sitemap and RSS list only the 12 newest posts, because the blog feed carries 12. A paged list feed
+  would lift it.
+- **Fonts.** The card is drawn with the system fonts of the container; the Alpine image has none for Bangla, so the
+  card text can show empty boxes until the image installs one.
+
+## Budgets in CI
+
+| Job (workflow)                        | When                                         | What it checks                                                                                                                                 |
+| ------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `site-budget` (`ci.yml`)              | When `site/**` or the website module changes | Demo school on the real API, built site, Lighthouse mobile (3G): performance, accessibility, SEO >= 0.9; layout shift <= 0.05; script <= 30 KB |
+| `site-themes` (`nightly-quality.yml`) | Nightly                                      | Runs the site e2e, which rewrites `site/e2e/__screenshots__/<theme>/`; the changed files are listed and uploaded                               |
+
+Config: `lighthouserc.site.cjs`. The preview URL is noindex by design, so it has no SEO budget. There is no results
+page URL until Epic 70.
+
+Reading a failure: open the `site-reports` artifact (kept 7 days) and the assertion name in the log. Raising a
+threshold is a decision, never a CI fix. `site-themes` never fails on a picture diff (fonts differ a little between
+runners): read the diff list in the job summary, and commit the new pictures if the change was meant.
+
 ## Backup and restore
 
 `school_site`, `site_posts`, `site_enquiries` and `staff_web_profiles` are workbook tabs. Pictures (`site_media`) are
@@ -93,7 +142,70 @@ files in storage, not rows: a restored post or staff card loses its picture link
 a picture id keeps the id, which answers 404 until the school uploads it again. A restore never changes the school's
 subdomain or custom domain, and only moves `version` / `draft_revision` forward.
 
+## Custom domain and analytics (40.4.08)
+
+```mermaid
+stateDiagram-v2
+  [*] --> PENDING_DNS: PUT website/custom-domain
+  PENDING_DNS --> PENDING_SSL: Cloudflare confirms ownership TXT
+  PENDING_SSL --> ACTIVE: certificate issued
+  PENDING_DNS --> FAILED: 7 days without progress
+  PENDING_SSL --> FAILED: 7 days without progress
+  ACTIVE --> [*]: DELETE website/custom-domain
+```
+
+A BullMQ job (`site-custom-domain`) asks Cloudflare every 10 minutes about each `PENDING_*` hostname. Only `ACTIVE`
+resolves in `SiteHostService`; every other host gets the one 404. Cloudflare unreachable changes nothing (D42).
+
+Example: the school types `www.myschool.edu.bd`; the API answers 202 with two records to add at the registrar:
+
+```text
+CNAME  www.myschool.edu.bd                      -> sites.<SITE_ROOT_DOMAIN>
+TXT    _cf-custom-hostname.www.myschool.edu.bd  -> <value from Cloudflare>
+```
+
+| Env                                 | Meaning                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| `CF_SAAS_API_TOKEN` + `CF_ZONE_ID`  | Both or neither (boot refuses one). Neither = custom domains off, routes 409. |
+| `CF_SAAS_FALLBACK_ORIGIN`           | Default `sites.<SITE_ROOT_DOMAIN>`.                                           |
+| `UMAMI_API_URL` + `UMAMI_API_TOKEN` | Both set = first publish creates one Umami site. Unset = no analytics.        |
+
+**Custom hosts only once edge routes them (follow-up).** Today the edge nginx does not send an unknown `Host` to the
+site container (Rule 12 answers 444), so an ACTIVE custom domain resolves in the API but a visitor cannot reach it
+until a reviewed edge change lands.
+
+Failure and release rules:
+
+- A name is claimed in `school_sites.custom_domain` (unique) before Cloudflare is asked. A lost create answer is
+  adopted by looking the hostname up; a claim with no Cloudflare id after 15 minutes is adopted or released.
+- A host that FAILS (7 days stuck, or Cloudflare says blocked/moved/deleted) is deleted at Cloudflare and its name
+  released, so another school can claim it. The status stays `FAILED` with no host so the school sees why.
+- ACTIVE hosts are asked about once a day (inside the same 200 per tick cap).
+- Replacing a domain creates the new hostname first, swaps the row, then deletes the old one. A refused replace
+  leaves the live domain untouched.
+- `PUT` and `DELETE` carry the route throttle plus an hourly per-school cap (20) in Redis, because one Cloudflare
+  token serves every school. `PUT` fails closed if Redis is down; `DELETE` fails open.
+- A publish that races a status change can answer `site.stale`; the admin screen reloads and retries.
+
+### Not done / follow-ups
+
+- Edge routing of custom hosts (the blocker above), its own reviewed ticket.
+- Dangling-CNAME takeover: confirm in Cloudflare's docs whether it validates a CNAME that already points at the
+  fallback origin without the ownership TXT.
+- Deleting a school should delete its Cloudflare hostname (today only the DB row cascades).
+- `Idempotency-Key` does not compare the request body: the same key with another host replays the first answer.
+- The three new nullable columns are exempt from the demo seed (see `22-demo-seed.md`).
+
+The server cannot see `EDGE_MODE` (it is an edge container variable), so "direct mode" means the operator leaves the
+two Cloudflare values empty. Every refusal (off, malformed, platform name, taken by another school) is one 409
+`site.custom_domain_unavailable`; Cloudflare down is 503 `site.custom_domain_try_later`.
+
 ## Learning
+
+- **2026-11-07 (W4, 40.4.08).** Cloudflare for SaaS needs: a zone with the fallback origin proxied, a token scoped
+  to "SSL and Certificates: Edit" only, and the school's CNAME plus the `_cf-custom-hostname` TXT. An apex needs the
+  school's DNS to flatten CNAMEs (D23); otherwise the registrar forwards apex to `www`. Claiming the host in our own
+  unique index before asking Cloudflare means two schools racing for one host never create two hostnames.
 
 - **2026-11-07 (W1 close).** Surprise: the draft save and publish take `draft_revision`, not just `version`.
   Cost: tickets written against `{ config, version }` would have sent a body the API refuses. Fix: contract note
