@@ -510,3 +510,9 @@ export {
   type FontPairPickerProps,
 } from './font-pair-picker';
 export * from './image-slot-upload/index';
+export {
+  SectionOrderList,
+  type SectionOrderItem,
+  type SectionOrderListLabels,
+  type SectionOrderListProps,
+} from './section-order-list';
