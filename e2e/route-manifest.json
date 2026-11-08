@@ -91,6 +91,21 @@
       "archetype": "list"
     },
     {
+      "path": "/website/address",
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/website/analytics",
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/website/gallery",
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/security",
       "role": "admin",
       "archetype": "bespoke",

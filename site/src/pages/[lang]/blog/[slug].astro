@@ -1,0 +1,41 @@
+---
+import { t } from '../../../i18n/t';
+import { fetchByHost } from '../../../lib/api';
+import { field } from '../../../lib/pick';
+import type { Lang } from '../../../lib/types';
+import { themes } from '../../../themes';
+
+const { site } = Astro.locals;
+const lang = Astro.params.lang as Lang;
+if (!site) return new Response(null, { status: 404 });
+// One read by slug: the blog list feed holds only the 12 newest posts.
+if (Astro.locals.preview) return Astro.rewrite('/404/');
+const r = await fetchByHost<Record<string, unknown>>(
+  Astro.locals.host,
+  `blog/${encodeURIComponent(Astro.params.slug ?? '')}`,
+);
+if (r.kind !== 'ok') return Astro.rewrite(r.kind === 'down' ? '/503/' : '/404/');
+const post = r.data;
+
+const s = (v: unknown) => (typeof v === 'string' ? v : undefined);
+const title = field(post.title, lang) ?? s(post.title) ?? '';
+const when = s(post.publishedAt) ? new Date(s(post.publishedAt)!) : undefined;
+Astro.locals.postLd = {
+  title,
+  url: `https://${Astro.locals.host}/${lang}/blog/${Astro.params.slug}/`,
+  publishedAt: when && !Number.isNaN(when.getTime()) ? when.toISOString() : undefined,
+  image: s(post.cover) ? `https://${Astro.locals.host}/media/${s(post.cover)}` : undefined,
+  excerpt: s(post.excerpt),
+};
+const { Layout } = themes[site.theme] ?? themes.basic;
+---
+<Layout manifest={site} lang={lang} rest={`blog/${Astro.params.slug}/`} title={title} description={s(post.excerpt)} image={s(post.cover) ? `/media/${s(post.cover)}` : undefined}>
+  <article class="sec"><div class="wrap post-page">
+    <h1>{title}</h1>
+    {when && !Number.isNaN(when.getTime()) && <p class="tiny"><time datetime={when.toISOString()}>{when.toLocaleDateString(lang === 'en' ? 'en-GB' : 'bn-BD', { dateStyle: 'long' })}</time></p>}
+    {s(post.cover) && <img src={`/media/${s(post.cover)}`} alt="" width="1200" height="630" style="aspect-ratio:1200/630;object-fit:cover;width:100%;border-radius:var(--r)" />}
+    {/* Sanitised on the server (renderSlate); the only raw HTML the site prints. */}
+    <div class="prose" set:html={s(post.html) ?? ''}></div>
+    <p><a href={`/${lang}/blog/`}>{t(lang, 'nav.blog')}</a></p>
+  </div></article>
+</Layout>

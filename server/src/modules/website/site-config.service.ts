@@ -5,11 +5,12 @@ import { randomBytes } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { RESERVED_SUBDOMAINS, SiteTheme } from '@biddaloy/shared';
 import type { SiteConfig } from '@biddaloy/shared';
-import { THEMES, defaultConfigFor, validateSiteConfig } from '@biddaloy/site-themes';
+import { THEMES, defaultConfigFor, scalarOk, validateSiteConfig } from '@biddaloy/site-themes';
 import type { ThemeManifest } from '@biddaloy/site-themes';
 import { School } from '../schools/entities/school.entity';
 import { SchoolSite } from './entities/school-site.entity';
 import { SiteCacheService } from './public/site-cache.service';
+import { UmamiService } from './umami.service';
 import type { SaveDraftDto, SiteDto } from './dto/site-config.dto';
 
 type Obj = Record<string, unknown>;
@@ -67,7 +68,8 @@ export async function createSiteRow(
 
 /**
  * Moves a draft to another theme (D25): the new theme's defaults, then every text the school
- * already wrote (non-empty bn or en) is kept; empty ones are refilled from the new defaults.
+ * already wrote (non-empty bn or en, or a still-valid album / video / link setting) is kept;
+ * empty ones are refilled from the new defaults.
  * The palette is kept if the new theme has it. Typography takes the new theme's defaults.
  */
 export function changeTheme(current: unknown, theme: SiteTheme): SiteConfig {
@@ -101,7 +103,17 @@ export function changeTheme(current: unknown, theme: SiteTheme): SiteConfig {
             .find((s) => s.key === section.key)
             ?.fields.some((f) => f.key === field);
         if (!known) continue;
-        if (nonEmpty(value) || (Array.isArray(value) && value.length > 0))
+        const def = THEMES[theme].sections
+          .find((s) => s.key === section.key)
+          ?.fields.find((f) => f.key === field);
+        const scalar =
+          !!def &&
+          def.kind !== 'text' &&
+          def.kind !== 'richtext' &&
+          def.kind !== 'images' &&
+          scalarOk(def, value);
+        // The non-text kinds (album, page link, video, position) keep any value still valid.
+        if (scalar || nonEmpty(value) || (Array.isArray(value) && value.length > 0))
           section.data[field] = value;
       }
     }
@@ -142,6 +154,8 @@ export class SiteConfigService {
     @InjectRepository(SchoolSite) private readonly sites: Repository<SchoolSite>,
     @InjectRepository(School) private readonly schools: Repository<School>,
     private readonly cache: SiteCacheService,
+    // optional only so the unit spec can build the service with three arguments
+    private readonly umami?: UmamiService,
   ) {}
 
   /** The first call creates the row with the Basic theme and bn/en default texts (D25). */
@@ -192,6 +206,8 @@ export class SiteConfigService {
       .execute();
     if (!res.affected) throw siteStale();
     await this.cache.invalidate(tenantId);
+    // Analytics site on first publish; never throws, never blocks the publish (D42).
+    await this.umami?.ensureWebsite(tenantId);
     return this.get(tenantId);
   }
 

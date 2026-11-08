@@ -1,0 +1,605 @@
+/* International theme: one typographic hero on a deep ground, one real pathway. Dark header and hero, light
+   body, a framed photo plate (never a background), thin rules, no cards-everywhere. Loaded after Basic's
+   theme.css, which supplies the shared structure (islands, forms, carousel, announcement bar, footer); this
+   file only reskins it.
+   Colours come from the five palette vars (--primary --secondary --accent --surface --ink) set on <html> by
+   css-vars.ts, so a palette switch needs no CSS change (D28). The accent is text only on primary or secondary,
+   never on the surface. The fixed colours are --on-primary and --danger (urgent notices). No section styles
+   itself from a neighbour: no position selectors on section wrappers (D31). */
+.t-international {
+  /* Text on the surface and on --bg-2 must reach 4.5:1 in every palette (theme.spec.ts checks it). */
+  --ink-3: color-mix(in srgb, var(--ink) 70%, var(--surface));
+  /* Latin letters on a Bangla page fall back to the English heading font, not to system-ui. */
+  --bn-h:
+    var(--font-heading-bn), var(--font-heading-en), 'Noto Sans Bengali', system-ui, sans-serif;
+  --on-primary: #fff;
+  --danger: #a2321f;
+  --r: 2px;
+  --r-s: 2px;
+  --max: 1160px;
+  --warn: var(--danger);
+  --warn-soft: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  --bg-2: color-mix(in srgb, var(--primary) 6%, var(--surface));
+  --line: color-mix(in srgb, var(--ink) 20%, var(--surface));
+  --line-accent: color-mix(in srgb, var(--primary) 40%, var(--surface));
+  --paper: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  --ann-bg: var(--secondary);
+  --ann-ink: var(--surface);
+  --ann-label-bg: var(--accent);
+  --ann-label-ink: var(--primary);
+  --ann-r: 0;
+  --ann-m: 0;
+  --hc-bg: var(--secondary);
+  --hc-ink: var(--surface);
+  --hc-line: var(--accent);
+  --hc-cap-r: 0;
+  --hc-cap-bg: var(--primary);
+  --sa-ink: var(--primary);
+  --sa-r: 0;
+  --hc-focus: var(--accent);
+}
+.t-international {
+  background: var(--surface);
+  color: var(--ink);
+}
+.t-international h1,
+.t-international h2,
+.t-international h3,
+.t-international h4 {
+  letter-spacing: 0;
+}
+html[lang='en'] .t-international h1,
+html[lang='en'] .t-international h2,
+html[lang='en'] .t-international h3,
+html[lang='en'] .t-international h4 {
+  font-weight: var(--h-weight, 300);
+}
+/* header: the deep ground, light type */
+.t-international .letterhead {
+  background: var(--primary);
+  color: var(--surface);
+  font-size: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--surface) 22%, var(--primary));
+}
+.t-international .letterhead .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 22px;
+  align-items: center;
+  min-height: 36px;
+  padding-block: 4px;
+}
+.t-international .defs {
+  position: absolute;
+}
+.t-international .top {
+  background: var(--primary);
+  backdrop-filter: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--surface) 22%, var(--primary));
+} /* a backdrop filter would trap the fixed menu sheet inside the header */
+.t-international .brand {
+  color: var(--surface);
+}
+.t-international .brand b {
+  font-size: 17px;
+  font-weight: 700;
+}
+.t-international .logo {
+  background: none;
+  width: 44px;
+  height: 44px;
+}
+.t-international .logo img {
+  border-radius: 50%;
+}
+.t-international .logo svg {
+  width: 44px;
+  height: 44px;
+}
+.t-international .mono-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.t-international .mono-letter {
+  fill: var(--surface);
+  font: 300 20px var(--en-h);
+}
+html[lang='bn'] .t-international .mono-letter {
+  font-family: var(--bn-h);
+  font-weight: 700;
+}
+.t-international .nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  border-radius: 0;
+  color: color-mix(in srgb, var(--surface) 86%, var(--primary));
+  border-bottom: 2px solid transparent;
+}
+.t-international .nav a[aria-current] {
+  background: none;
+  color: var(--surface);
+  border-bottom-color: var(--accent);
+}
+@media (hover: hover) {
+  .t-international .nav a:hover {
+    background: none;
+    color: var(--surface);
+  }
+}
+.t-international .btn {
+  border-radius: 0;
+}
+.t-international .btn-sm {
+  min-height: 44px;
+}
+.t-international .btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.t-international .btn-primary:hover {
+  background: var(--secondary);
+}
+.t-international .btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.t-international .top .btn-primary,
+.t-international .hero .btn-primary {
+  background: var(--accent);
+  color: var(--primary);
+}
+.t-international .top .btn-primary:hover,
+.t-international .hero .btn-primary:hover {
+  background: var(--surface);
+}
+.t-international .hero .btn-ghost {
+  color: var(--surface);
+  border-color: var(--surface);
+}
+@media (hover: hover) {
+  .t-international .hero .btn-ghost:hover {
+    background: color-mix(in srgb, var(--surface) 14%, var(--primary));
+  }
+}
+.t-international .lang {
+  border-radius: 0;
+  border-color: var(--surface);
+}
+.t-international .lang a {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 0;
+  color: var(--surface);
+}
+.t-international .lang a[aria-current='true'] {
+  background: var(--accent);
+  color: var(--primary);
+}
+/* phone menu: a bottom sheet (<details>, no script) */
+.t-international .menu {
+  position: relative;
+}
+.t-international .menu summary {
+  list-style: none;
+}
+.t-international .menu summary::-webkit-details-marker {
+  display: none;
+}
+/* Basic draws a "+" after every <summary> (its FAQ); the menu button has its own icon */
+.t-international .menu summary::after {
+  content: none;
+}
+.t-international .menu .menu-btn {
+  border-radius: 0;
+  border-color: var(--surface);
+  background: transparent;
+  cursor: pointer;
+}
+.t-international .menu-btn span {
+  background: var(--surface);
+  box-shadow:
+    0 -6px 0 var(--surface),
+    0 6px 0 var(--surface);
+}
+.t-international .sheet-panel {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 40;
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--primary);
+  color: var(--surface);
+  border-top: 3px solid var(--accent);
+  padding: 20px var(--pad) 28px;
+}
+.t-international .sheet-panel nav {
+  display: grid;
+  gap: 0;
+  margin: 0 0 16px;
+}
+.t-international .sheet-panel nav a {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 4px;
+  font-size: 19px;
+  text-decoration: none;
+  color: var(--surface);
+  border-bottom: 1px solid color-mix(in srgb, var(--surface) 22%, var(--primary));
+}
+.t-international .sheet-panel nav a[aria-current] {
+  color: var(--accent);
+}
+.t-international .sheet-panel .btn {
+  width: 100%;
+}
+.t-international .menu[open] summary::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+@media (min-width: 1024px) {
+  .t-international .menu {
+    display: none;
+  }
+}
+/* hero: one typographic idea on the deep ground; the photo is a framed plate */
+.t-international .hero {
+  background: var(--primary);
+  color: var(--surface);
+  padding: 44px 0 52px;
+}
+.t-international .hero .wrap {
+  display: grid;
+  gap: 32px;
+}
+.t-international .hero .kicker {
+  margin: 0 0 16px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.t-international .hero h1 {
+  font-size: calc(clamp(40px, 10vw, 88px) * var(--h-size, 1));
+  line-height: 1.08;
+  font-weight: var(--h-weight, 300);
+  color: var(--surface);
+  overflow-wrap: anywhere;
+}
+html[lang='bn'] .t-international .hero h1 {
+  font-weight: var(--h-weight, 700);
+}
+.t-international .hero h1 em {
+  font-style: italic;
+  color: var(--accent);
+}
+.t-international .hero p.lead {
+  font-size: 18px;
+  max-width: 52ch;
+  margin: 20px 0 28px;
+  color: color-mix(in srgb, var(--surface) 90%, var(--primary));
+}
+.t-international .plate {
+  border: 1px solid var(--accent);
+  padding: 10px;
+  background: var(--secondary);
+}
+.t-international .plate .hc {
+  border-radius: 0;
+}
+.t-international .plate-art {
+  min-height: 160px;
+  aspect-ratio: 16/9;
+  background: var(--secondary);
+  border-top: 4px solid var(--accent);
+  border-inline: 0;
+  border-bottom: 0;
+  padding: 0;
+}
+@media (min-width: 900px) {
+  .t-international .hero {
+    padding: 80px 0 88px;
+  }
+  .t-international .hero .wrap {
+    grid-template-columns: 1.3fr 1fr;
+    align-items: center;
+  }
+}
+/* sections: every one carries its own background, none depends on a neighbour */
+.t-international .sec {
+  padding: 56px 0;
+}
+.t-international .sec-tint {
+  background: var(--bg-2);
+  border-block: 1px solid var(--line);
+}
+.t-international .sec h2 {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 10px;
+  color: var(--primary);
+}
+.t-international .sec h2::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 56px;
+  height: 3px;
+  background: var(--accent);
+}
+.t-international .sec-head {
+  margin-bottom: 24px;
+}
+.t-international .prose-p {
+  white-space: pre-line;
+  margin-top: 14px;
+  max-width: 64ch;
+}
+.t-international .photo,
+.t-international .cover {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  padding: 8px;
+  background: var(--surface);
+  aspect-ratio: 3/2;
+}
+.t-international .cover {
+  aspect-ratio: 1200/630;
+  border: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+}
+.t-international .card {
+  border-radius: 0;
+  border-color: var(--line);
+  background: var(--surface);
+}
+.t-international .empty {
+  border-radius: 0;
+  border-color: var(--line);
+}
+.t-international .slot {
+  aspect-ratio: 1200/630;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg-2);
+}
+/* academics: the pathway, a numbered sequence joined by one rule */
+.t-international .blocks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  counter-reset: b;
+  position: relative;
+}
+.t-international .blocks::before {
+  content: '';
+  position: absolute;
+  left: 21px;
+  top: 22px;
+  bottom: 22px;
+  width: 2px;
+  background: var(--line-accent);
+}
+.t-international .block {
+  counter-increment: b;
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 16px;
+  align-items: start;
+  padding: 0 0 28px;
+  position: relative;
+}
+.t-international .block::before {
+  content: counter(b);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  background: var(--primary);
+  color: var(--accent);
+  font: 300 22px/1 var(--en-h);
+}
+html[lang='bn'] .t-international .block::before {
+  content: counter(b, bengali);
+  font-family: var(--bn-h);
+  font-weight: 700;
+}
+.t-international .block .prose-p {
+  margin: 0;
+  max-width: none;
+  padding-top: 8px;
+}
+@media (min-width: 900px) {
+  .t-international .blocks {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px 24px;
+  }
+  .t-international .blocks::before {
+    content: none;
+  }
+  .t-international .block {
+    grid-template-columns: 1fr;
+    padding: 14px 0 0;
+    gap: 14px;
+    border-top: 2px solid var(--line-accent);
+  }
+}
+/* admissions: a ruled box with an accent edge */
+.t-international .notice-box {
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--primary);
+  padding: 24px 20px;
+  background: var(--surface);
+}
+.t-international .intakes {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.t-international .intakes .card {
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  border: 1px solid var(--line);
+}
+/* notices, events */
+.t-international .notice-list {
+  border: 1px solid var(--line);
+  border-radius: 0;
+}
+.t-international .date {
+  border-radius: 0;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.t-international .date span {
+  color: var(--accent);
+}
+.t-international .ev .date {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.t-international .chip {
+  border-radius: 0;
+}
+.t-international .chip-accent {
+  background: var(--paper);
+  color: var(--ink);
+}
+.t-international .sk i {
+  border-radius: 0;
+  background: linear-gradient(90deg, var(--bg-2) 25%, var(--paper) 50%, var(--bg-2) 75%);
+  background-size: 200% 100%;
+}
+/* teachers: square plates */
+.t-international .tcard {
+  padding: 18px 14px;
+}
+.t-international .avatar {
+  border-radius: 0;
+  width: 96px;
+  height: 96px;
+  background: var(--primary);
+  display: grid;
+  place-items: center;
+  font: 300 36px var(--en-h);
+  color: var(--accent);
+}
+html[lang='bn'] .t-international .avatar {
+  font-family: var(--bn-h);
+  font-weight: 700;
+}
+.t-international .avatar::before,
+.t-international .avatar::after {
+  content: none;
+}
+.t-international .tcard img {
+  width: 96px;
+  height: 96px;
+  border-radius: 0;
+  object-fit: cover;
+  margin: 0 auto;
+}
+.t-international .seeall a {
+  color: var(--primary);
+  border-color: var(--primary);
+  border-radius: 0;
+}
+@media (hover: hover) {
+  .t-international .seeall a:hover {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+}
+/* blog, contact, forms */
+.t-international .post {
+  border-radius: 0;
+}
+.t-international .field input,
+.t-international .field select,
+.t-international .field textarea {
+  border-radius: 0;
+  border-color: var(--ink);
+}
+.t-international .kv.spaced {
+  margin: 16px 0 20px;
+}
+.t-international .mapframe {
+  border-radius: 0;
+  border-color: var(--ink);
+}
+/* footer */
+.t-international .foot {
+  background: var(--secondary);
+  color: var(--surface);
+  margin-top: 0;
+  border-top: 3px solid var(--accent);
+}
+.t-international .foot h4 {
+  color: var(--accent);
+}
+.t-international .foot a {
+  color: var(--surface);
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+.t-international .credit {
+  border-top-color: color-mix(in srgb, var(--surface) 24%, var(--secondary));
+  color: color-mix(in srgb, var(--surface) 82%, var(--secondary));
+}
+.t-international .credit a {
+  color: var(--surface);
+  display: inline;
+  min-height: 0;
+}
+/* focus, motion */
+.t-international a:focus-visible,
+.t-international button:focus-visible,
+.t-international summary:focus-visible,
+.t-international input:focus-visible,
+.t-international select:focus-visible,
+.t-international textarea:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 0;
+}
+.t-international .top a:focus-visible,
+.t-international .top summary:focus-visible,
+.t-international .hero a:focus-visible,
+.t-international .letterhead a:focus-visible,
+.t-international .sheet-panel a:focus-visible,
+.t-international .foot a:focus-visible {
+  outline-color: var(--accent);
+}
+@media (max-width: 719px) {
+  .t-international .sec {
+    padding: 40px 0;
+  }
+}
+@media (prefers-contrast: more) {
+  .t-international {
+    --ink-3: var(--ink);
+    --line: color-mix(in srgb, var(--ink) 55%, var(--surface));
+  }
+}
+
+/* gallery + video frame: the shared blocks read these variables (basic/theme.css) */
+.t-international {
+  --gc-r: 0;
+  --gc-border: 0;
+  --ve-icon-r: 0;
+}

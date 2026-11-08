@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { SiteCacheService } from '../site-cache.service';
+import { ClassSectionsFeed } from './class-sections.feed';
 import { BlogFeed } from './blog.feed';
 import { AdmissionsFeed } from './admissions.feed';
 import { EventsFeed } from './events.feed';
 import { FeesFeed } from './fees.feed';
+import { GalleryFeed } from './gallery.feed';
 import { NoticesFeed } from './notices.feed';
+import { ResultsFeed } from './results.feed';
 import { RoutineFeed } from './routine.feed';
 import { TeachersFeed } from './teachers.feed';
 
@@ -21,7 +24,16 @@ export interface Feed {
 
 /** Every feed the site can read. One registry, one 60 s cache per kind (D21, D32). */
 export type FeedKind =
-  'notices' | 'events' | 'routine' | 'teachers' | 'blog' | 'fees' | 'admissions';
+  | 'notices'
+  | 'events'
+  | 'routine'
+  | 'teachers'
+  | 'blog'
+  | 'fees'
+  | 'admissions'
+  | 'sections'
+  | 'results'
+  | 'gallery';
 
 /**
  * `kind -> provider(tenantId, opts)`. Reads go through `cached`, which never depends on the
@@ -38,11 +50,30 @@ export class FeedRegistry {
     events: EventsFeed,
     routine: RoutineFeed,
     teachers: TeachersFeed,
-    blog: BlogFeed,
+    private readonly blog: BlogFeed,
     fees: FeesFeed,
     admissions: AdmissionsFeed,
+    sections: ClassSectionsFeed,
+    results: ResultsFeed,
+    gallery: GalleryFeed,
   ) {
-    this.feeds = { notices, events, routine, teachers, blog, fees, admissions };
+    this.feeds = {
+      notices,
+      events,
+      routine,
+      teachers,
+      blog,
+      fees,
+      admissions,
+      sections,
+      results,
+      gallery,
+    };
+  }
+
+  /** One published post by slug, not cached (an older post is rare; one indexed read). */
+  blogPost(tenantId: string, slug: string): Promise<FeedRow | null> {
+    return this.blog.one(tenantId, slug);
   }
 
   has(kind: string): kind is FeedKind {
@@ -54,6 +85,11 @@ export class FeedRegistry {
     if (kind === 'teachers' && opts.limit !== undefined) return 'teachers:home';
     if (kind === 'routine') return `routine:${opts.classSectionId ?? ''}`;
     return kind;
+  }
+
+  /** No cache: for personal data that must disappear the moment it is withdrawn (`results`). */
+  live(kind: FeedKind, tenantId: string): Promise<FeedRow[]> {
+    return this.feeds[kind].load(tenantId);
   }
 
   cached(kind: FeedKind, tenantId: string, opts: FeedOpts = {}): Promise<FeedRow[]> {

@@ -106,9 +106,15 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   // A teacher's card text can name family, past schools, degrees; subjects are subject names.
   staff_web_profiles: { null: ['bio', 'credentials'], 'kept-public': ['subjects'] },
   // Website copy written by the school to be published (theme, sections, announcements).
-  school_sites: { 'kept-public': ['draft', 'published'] },
+  // custom_domain_records are the DNS/ownership-verification values Cloudflare issued for a
+  // production domain; staging must not carry them.
+  school_sites: { 'kept-public': ['draft', 'published'], null: ['custom_domain_records'] },
   // Posts are news about people, like notices: text goes (NOT NULL jsonb gets a placeholder).
   site_posts: { null: ['title', 'body'] },
+  // Album titles and photo captions are free text about people and events, like post text: the
+  // NOT NULL title gets a placeholder, the nullable caption goes.
+  site_gallery_albums: { null: ['title'] },
+  site_gallery_photos: { null: ['caption'] },
   // Content hash of a picture (staff photos too); replaced by a value derived from the row id.
   site_media: { fake: ['hash'] },
 
