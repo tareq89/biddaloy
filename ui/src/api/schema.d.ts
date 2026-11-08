@@ -19588,8 +19588,8 @@ export interface components {
             status: "PENDING_DNS" | "PENDING_SSL" | "ACTIVE" | "FAILED" | null;
             records: components["schemas"]["DnsRecordDto"][];
             lastCheckedAt: string | null;
-            /** @description Hint key resolved by the client: `apex_needs_flattening`. */
-            hintKey?: string | null;
+            /** @description Hint key resolved by the client: `apex_needs_flattening` or `failed_released`. */
+            hintKey?: "apex_needs_flattening" | "failed_released" | null;
         };
         SetCustomDomainDto: {
             /** @description `www.example.edu` or an apex. 409 site.custom_domain_unavailable for any refusal. */

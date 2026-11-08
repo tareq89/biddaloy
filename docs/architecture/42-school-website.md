@@ -101,7 +101,7 @@ flowchart LR
 | Endpoint            | Answer                                                                                 |
 | ------------------- | -------------------------------------------------------------------------------------- |
 | `/sitemap.xml`      | Every enabled page that has a route, bn and en, each with `hreflang` alternates        |
-| `/robots.txt`       | `Allow: /`, `Disallow: /?preview=` and the sitemap; `Disallow: /` when noindex/preview |
+| `/robots.txt`       | `Allow: /`, `Disallow: /*?preview=` and the sitemap; `Disallow: /` when noindex/preview |
 | `/feed.xml?lang=en` | RSS 2.0 of the blog; 404 when the blog page is switched off                            |
 | `/llms.txt`         | A plain-text summary: name, page URLs, recent posts                                    |
 | `/og/<page>.png`    | A 1200 x 630 card: palette colour, school name, page title                             |
@@ -118,8 +118,8 @@ Each page also carries one canonical, bn/en/`x-default` alternates, Open Graph a
   (no SSRF), and the work stays small. Cards are cached in memory (200), for one hour.
 - **Limit.** The sitemap and RSS list only the 12 newest posts, because the blog feed carries 12. A paged list feed
   would lift it.
-- **Fonts.** The card is drawn with the system fonts of the container; the Alpine image has none for Bangla, so the
-  card text can show empty boxes until the image installs one.
+- **Fonts.** The card is drawn with the system fonts of the container; the image installs Noto Bengali and Inter, so
+  Bengali and Latin text render; text in any other script falls back to whatever is available and may show empty boxes.
 
 ## Budgets in CI
 

@@ -556,7 +556,7 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
   if (Boolean(str('UMAMI_API_URL')) !== Boolean(str('UMAMI_API_TOKEN'))) {
     problems.push('UMAMI_API_URL and UMAMI_API_TOKEN must be set together or not at all');
   }
-  if (str('UMAMI_API_URL') && !/^https:\/\/[^\s/]+(\/\S*)?$/.test(str('UMAMI_API_URL'))) {
+  if (str('UMAMI_API_URL') && !/^https:\/\/[^\s/?#]+(\/[^\s?#]*)?$/.test(str('UMAMI_API_URL'))) {
     problems.push('UMAMI_API_URL must be an https URL');
   }
 
