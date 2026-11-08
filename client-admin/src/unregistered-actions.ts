@@ -56,6 +56,11 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
       'the blog post editor and its publish confirm act on one post, reached from the Blog tab list; the palette opens the Website page',
   },
   {
+    file: `${R}_staff/attendance/-imports/import-rows-table.tsx`,
+    reason:
+      'the change-history dialog of one uploaded row, opened from the upload detail table; `attendance.imports` lands on the list it is reached from',
+  },
+  {
     file: `${R}_staff/results/final/-sms-dialog.tsx`,
     reason:
       'acts on one published final result, opened from its detail header; `final-result.open` lands on the list it is reached from',
