@@ -91,6 +91,21 @@
       "archetype": "list"
     },
     {
+      "path": "/website/address",
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/website/analytics",
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/website/gallery",
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/security",
       "role": "admin",
       "archetype": "bespoke",
@@ -886,6 +901,28 @@
       "role": "admin",
       "archetype": "list"
     },
+    {
+      "path": "/attendance/import",
+      "role": "admin",
+      "archetype": "wizard",
+      "overlays": ["discard"]
+    },
+
+    {
+      "path": "/attendance/imports",
+      "role": "admin",
+      "archetype": "list"
+    },
+
+    {
+      "path": "/attendance/imports/$importId",
+      "params": {
+        "importId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+
     {
       "path": "/attendance/staff",
       "role": "admin",

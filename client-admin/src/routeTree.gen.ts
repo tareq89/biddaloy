@@ -61,6 +61,7 @@ import { Route as StaffApplicationsNewRouteImport } from './routes/_staff/applic
 import { Route as StaffApplicationsReportsRouteImport } from './routes/_staff/applications/reports'
 import { Route as StaffAttendanceIndexRouteImport } from './routes/_staff/attendance/index'
 import { Route as StaffAttendanceSectionIdRouteImport } from './routes/_staff/attendance/$sectionId'
+import { Route as StaffAttendanceImportRouteImport } from './routes/_staff/attendance/import'
 import { Route as StaffAttendanceRegisterRouteImport } from './routes/_staff/attendance/register'
 import { Route as StaffAttendanceReportsRouteImport } from './routes/_staff/attendance/reports'
 import { Route as StaffAuditLogsIndexRouteImport } from './routes/_staff/audit-logs/index'
@@ -124,8 +125,11 @@ import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/stud
 import { Route as StaffStudentsImportRouteImport } from './routes/_staff/students/import'
 import { Route as StaffStudentsNewRouteImport } from './routes/_staff/students/new'
 import { Route as StaffWebsiteIndexRouteImport } from './routes/_staff/website/index'
+import { Route as StaffWebsiteAddressRouteImport } from './routes/_staff/website/address'
+import { Route as StaffWebsiteAnalyticsRouteImport } from './routes/_staff/website/analytics'
 import { Route as StaffWebsiteDesignRouteImport } from './routes/_staff/website/design'
 import { Route as StaffWebsiteEnquiriesRouteImport } from './routes/_staff/website/enquiries'
+import { Route as StaffWebsiteGalleryRouteImport } from './routes/_staff/website/gallery'
 import { Route as StaffWebsitePagesRouteImport } from './routes/_staff/website/pages'
 import { Route as AdmissionSlugIndexRouteImport } from './routes/admission/$slug/index'
 import { Route as AdmissionSlugStatusRouteImport } from './routes/admission/$slug/status'
@@ -146,6 +150,8 @@ import { Route as StaffAdmissionsApplicantsApplicantIdRouteImport } from './rout
 import { Route as StaffAdmissionsIntakesIndexRouteImport } from './routes/_staff/admissions/intakes/index'
 import { Route as StaffAdmissionsIntakesIntakeIdRouteImport } from './routes/_staff/admissions/intakes/$intakeId'
 import { Route as StaffAdmissionsReportsIndexRouteImport } from './routes/_staff/admissions/reports/index'
+import { Route as StaffAttendanceImportsIndexRouteImport } from './routes/_staff/attendance/imports/index'
+import { Route as StaffAttendanceImportsImportIdRouteImport } from './routes/_staff/attendance/imports/$importId'
 import { Route as StaffAttendanceStaffIndexRouteImport } from './routes/_staff/attendance/staff/index'
 import { Route as StaffAttendanceStaffLeaveRouteImport } from './routes/_staff/attendance/staff/leave'
 import { Route as StaffCommunicationsBatchesIndexRouteImport } from './routes/_staff/communications/batches/index'
@@ -443,6 +449,11 @@ const StaffAttendanceSectionIdRoute =
     path: '/attendance/$sectionId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffAttendanceImportRoute = StaffAttendanceImportRouteImport.update({
+  id: '/attendance/import',
+  path: '/attendance/import',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffAttendanceRegisterRoute = StaffAttendanceRegisterRouteImport.update({
   id: '/attendance/register',
   path: '/attendance/register',
@@ -768,6 +779,16 @@ const StaffWebsiteIndexRoute = StaffWebsiteIndexRouteImport.update({
   path: '/',
   getParentRoute: () => StaffWebsiteRoute,
 } as any)
+const StaffWebsiteAddressRoute = StaffWebsiteAddressRouteImport.update({
+  id: '/address',
+  path: '/address',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsiteAnalyticsRoute = StaffWebsiteAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
 const StaffWebsiteDesignRoute = StaffWebsiteDesignRouteImport.update({
   id: '/design',
   path: '/design',
@@ -776,6 +797,11 @@ const StaffWebsiteDesignRoute = StaffWebsiteDesignRouteImport.update({
 const StaffWebsiteEnquiriesRoute = StaffWebsiteEnquiriesRouteImport.update({
   id: '/enquiries',
   path: '/enquiries',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsiteGalleryRoute = StaffWebsiteGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
   getParentRoute: () => StaffWebsiteRoute,
 } as any)
 const StaffWebsitePagesRoute = StaffWebsitePagesRouteImport.update({
@@ -888,6 +914,18 @@ const StaffAdmissionsReportsIndexRoute =
   StaffAdmissionsReportsIndexRouteImport.update({
     id: '/admissions/reports/',
     path: '/admissions/reports/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAttendanceImportsIndexRoute =
+  StaffAttendanceImportsIndexRouteImport.update({
+    id: '/attendance/imports/',
+    path: '/attendance/imports/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAttendanceImportsImportIdRoute =
+  StaffAttendanceImportsImportIdRouteImport.update({
+    id: '/attendance/imports/$importId',
+    path: '/attendance/imports/$importId',
     getParentRoute: () => StaffRoute,
   } as any)
 const StaffAttendanceStaffIndexRoute =
@@ -1113,6 +1151,7 @@ export interface FileRoutesByFullPath {
   '/applications/new': typeof StaffApplicationsNewRoute
   '/applications/reports': typeof StaffApplicationsReportsRoute
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
+  '/attendance/import': typeof StaffAttendanceImportRoute
   '/attendance/register': typeof StaffAttendanceRegisterRoute
   '/attendance/reports': typeof StaffAttendanceReportsRoute
   '/calendar/import': typeof StaffCalendarImportRoute
@@ -1153,8 +1192,11 @@ export interface FileRoutesByFullPath {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/website/address': typeof StaffWebsiteAddressRoute
+  '/website/analytics': typeof StaffWebsiteAnalyticsRoute
   '/website/design': typeof StaffWebsiteDesignRoute
   '/website/enquiries': typeof StaffWebsiteEnquiriesRoute
+  '/website/gallery': typeof StaffWebsiteGalleryRoute
   '/website/pages': typeof StaffWebsitePagesRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
   '/auth/social/done': typeof AuthSocialDoneRoute
@@ -1200,6 +1242,7 @@ export interface FileRoutesByFullPath {
   '/academics/study-plans/$planId': typeof StaffAcademicsStudyPlansPlanIdRoute
   '/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
   '/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/attendance/imports/$importId': typeof StaffAttendanceImportsImportIdRoute
   '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/communications/notices/new': typeof StaffCommunicationsNoticesNewRoute
@@ -1220,6 +1263,7 @@ export interface FileRoutesByFullPath {
   '/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
   '/admissions/intakes/': typeof StaffAdmissionsIntakesIndexRoute
   '/admissions/reports/': typeof StaffAdmissionsReportsIndexRoute
+  '/attendance/imports/': typeof StaffAttendanceImportsIndexRoute
   '/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/communications/message-log/': typeof StaffCommunicationsMessageLogIndexRoute
@@ -1278,6 +1322,7 @@ export interface FileRoutesByTo {
   '/applications/new': typeof StaffApplicationsNewRoute
   '/applications/reports': typeof StaffApplicationsReportsRoute
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
+  '/attendance/import': typeof StaffAttendanceImportRoute
   '/attendance/register': typeof StaffAttendanceRegisterRoute
   '/attendance/reports': typeof StaffAttendanceReportsRoute
   '/calendar/import': typeof StaffCalendarImportRoute
@@ -1318,8 +1363,11 @@ export interface FileRoutesByTo {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/website/address': typeof StaffWebsiteAddressRoute
+  '/website/analytics': typeof StaffWebsiteAnalyticsRoute
   '/website/design': typeof StaffWebsiteDesignRoute
   '/website/enquiries': typeof StaffWebsiteEnquiriesRoute
+  '/website/gallery': typeof StaffWebsiteGalleryRoute
   '/website/pages': typeof StaffWebsitePagesRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
   '/auth/social/done': typeof AuthSocialDoneRoute
@@ -1365,6 +1413,7 @@ export interface FileRoutesByTo {
   '/academics/study-plans/$planId': typeof StaffAcademicsStudyPlansPlanIdRoute
   '/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
   '/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/attendance/imports/$importId': typeof StaffAttendanceImportsImportIdRoute
   '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/communications/notices/new': typeof StaffCommunicationsNoticesNewRoute
@@ -1385,6 +1434,7 @@ export interface FileRoutesByTo {
   '/admissions/applicants': typeof StaffAdmissionsApplicantsIndexRoute
   '/admissions/intakes': typeof StaffAdmissionsIntakesIndexRoute
   '/admissions/reports': typeof StaffAdmissionsReportsIndexRoute
+  '/attendance/imports': typeof StaffAttendanceImportsIndexRoute
   '/attendance/staff': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
   '/communications/message-log': typeof StaffCommunicationsMessageLogIndexRoute
@@ -1449,6 +1499,7 @@ export interface FileRoutesById {
   '/_staff/applications/new': typeof StaffApplicationsNewRoute
   '/_staff/applications/reports': typeof StaffApplicationsReportsRoute
   '/_staff/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
+  '/_staff/attendance/import': typeof StaffAttendanceImportRoute
   '/_staff/attendance/register': typeof StaffAttendanceRegisterRoute
   '/_staff/attendance/reports': typeof StaffAttendanceReportsRoute
   '/_staff/calendar/import': typeof StaffCalendarImportRoute
@@ -1489,8 +1540,11 @@ export interface FileRoutesById {
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
+  '/_staff/website/address': typeof StaffWebsiteAddressRoute
+  '/_staff/website/analytics': typeof StaffWebsiteAnalyticsRoute
   '/_staff/website/design': typeof StaffWebsiteDesignRoute
   '/_staff/website/enquiries': typeof StaffWebsiteEnquiriesRoute
+  '/_staff/website/gallery': typeof StaffWebsiteGalleryRoute
   '/_staff/website/pages': typeof StaffWebsitePagesRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
   '/auth/social/done': typeof AuthSocialDoneRoute
@@ -1536,6 +1590,7 @@ export interface FileRoutesById {
   '/_staff/academics/study-plans/$planId': typeof StaffAcademicsStudyPlansPlanIdRoute
   '/_staff/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
   '/_staff/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/_staff/attendance/imports/$importId': typeof StaffAttendanceImportsImportIdRoute
   '/_staff/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/_staff/communications/notices/new': typeof StaffCommunicationsNoticesNewRoute
@@ -1556,6 +1611,7 @@ export interface FileRoutesById {
   '/_staff/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
   '/_staff/admissions/intakes/': typeof StaffAdmissionsIntakesIndexRoute
   '/_staff/admissions/reports/': typeof StaffAdmissionsReportsIndexRoute
+  '/_staff/attendance/imports/': typeof StaffAttendanceImportsIndexRoute
   '/_staff/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/_staff/communications/message-log/': typeof StaffCommunicationsMessageLogIndexRoute
@@ -1619,6 +1675,7 @@ export interface FileRouteTypes {
     | '/applications/new'
     | '/applications/reports'
     | '/attendance/$sectionId'
+    | '/attendance/import'
     | '/attendance/register'
     | '/attendance/reports'
     | '/calendar/import'
@@ -1659,8 +1716,11 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/website/address'
+    | '/website/analytics'
     | '/website/design'
     | '/website/enquiries'
+    | '/website/gallery'
     | '/website/pages'
     | '/admission/$slug/status'
     | '/auth/social/done'
@@ -1706,6 +1766,7 @@ export interface FileRouteTypes {
     | '/academics/study-plans/$planId'
     | '/admissions/applicants/$applicantId'
     | '/admissions/intakes/$intakeId'
+    | '/attendance/imports/$importId'
     | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
     | '/communications/notices/new'
@@ -1726,6 +1787,7 @@ export interface FileRouteTypes {
     | '/admissions/applicants/'
     | '/admissions/intakes/'
     | '/admissions/reports/'
+    | '/attendance/imports/'
     | '/attendance/staff/'
     | '/communications/batches/'
     | '/communications/message-log/'
@@ -1784,6 +1846,7 @@ export interface FileRouteTypes {
     | '/applications/new'
     | '/applications/reports'
     | '/attendance/$sectionId'
+    | '/attendance/import'
     | '/attendance/register'
     | '/attendance/reports'
     | '/calendar/import'
@@ -1824,8 +1887,11 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/website/address'
+    | '/website/analytics'
     | '/website/design'
     | '/website/enquiries'
+    | '/website/gallery'
     | '/website/pages'
     | '/admission/$slug/status'
     | '/auth/social/done'
@@ -1871,6 +1937,7 @@ export interface FileRouteTypes {
     | '/academics/study-plans/$planId'
     | '/admissions/applicants/$applicantId'
     | '/admissions/intakes/$intakeId'
+    | '/attendance/imports/$importId'
     | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
     | '/communications/notices/new'
@@ -1891,6 +1958,7 @@ export interface FileRouteTypes {
     | '/admissions/applicants'
     | '/admissions/intakes'
     | '/admissions/reports'
+    | '/attendance/imports'
     | '/attendance/staff'
     | '/communications/batches'
     | '/communications/message-log'
@@ -1954,6 +2022,7 @@ export interface FileRouteTypes {
     | '/_staff/applications/new'
     | '/_staff/applications/reports'
     | '/_staff/attendance/$sectionId'
+    | '/_staff/attendance/import'
     | '/_staff/attendance/register'
     | '/_staff/attendance/reports'
     | '/_staff/calendar/import'
@@ -1994,8 +2063,11 @@ export interface FileRouteTypes {
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
     | '/_staff/students/new'
+    | '/_staff/website/address'
+    | '/_staff/website/analytics'
     | '/_staff/website/design'
     | '/_staff/website/enquiries'
+    | '/_staff/website/gallery'
     | '/_staff/website/pages'
     | '/admission/$slug/status'
     | '/auth/social/done'
@@ -2041,6 +2113,7 @@ export interface FileRouteTypes {
     | '/_staff/academics/study-plans/$planId'
     | '/_staff/admissions/applicants/$applicantId'
     | '/_staff/admissions/intakes/$intakeId'
+    | '/_staff/attendance/imports/$importId'
     | '/_staff/attendance/staff/leave'
     | '/_staff/communications/batches/$batchId'
     | '/_staff/communications/notices/new'
@@ -2061,6 +2134,7 @@ export interface FileRouteTypes {
     | '/_staff/admissions/applicants/'
     | '/_staff/admissions/intakes/'
     | '/_staff/admissions/reports/'
+    | '/_staff/attendance/imports/'
     | '/_staff/attendance/staff/'
     | '/_staff/communications/batches/'
     | '/_staff/communications/message-log/'
@@ -2463,6 +2537,13 @@ declare module '@tanstack/react-router' {
       path: '/attendance/$sectionId'
       fullPath: '/attendance/$sectionId'
       preLoaderRoute: typeof StaffAttendanceSectionIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/attendance/import': {
+      id: '/_staff/attendance/import'
+      path: '/attendance/import'
+      fullPath: '/attendance/import'
+      preLoaderRoute: typeof StaffAttendanceImportRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/attendance/register': {
@@ -2906,6 +2987,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffWebsiteIndexRouteImport
       parentRoute: typeof StaffWebsiteRoute
     }
+    '/_staff/website/address': {
+      id: '/_staff/website/address'
+      path: '/address'
+      fullPath: '/website/address'
+      preLoaderRoute: typeof StaffWebsiteAddressRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/analytics': {
+      id: '/_staff/website/analytics'
+      path: '/analytics'
+      fullPath: '/website/analytics'
+      preLoaderRoute: typeof StaffWebsiteAnalyticsRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
     '/_staff/website/design': {
       id: '/_staff/website/design'
       path: '/design'
@@ -2918,6 +3013,13 @@ declare module '@tanstack/react-router' {
       path: '/enquiries'
       fullPath: '/website/enquiries'
       preLoaderRoute: typeof StaffWebsiteEnquiriesRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/gallery': {
+      id: '/_staff/website/gallery'
+      path: '/gallery'
+      fullPath: '/website/gallery'
+      preLoaderRoute: typeof StaffWebsiteGalleryRouteImport
       parentRoute: typeof StaffWebsiteRoute
     }
     '/_staff/website/pages': {
@@ -3058,6 +3160,20 @@ declare module '@tanstack/react-router' {
       path: '/admissions/reports'
       fullPath: '/admissions/reports/'
       preLoaderRoute: typeof StaffAdmissionsReportsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/attendance/imports/': {
+      id: '/_staff/attendance/imports/'
+      path: '/attendance/imports'
+      fullPath: '/attendance/imports/'
+      preLoaderRoute: typeof StaffAttendanceImportsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/attendance/imports/$importId': {
+      id: '/_staff/attendance/imports/$importId'
+      path: '/attendance/imports/$importId'
+      fullPath: '/attendance/imports/$importId'
+      preLoaderRoute: typeof StaffAttendanceImportsImportIdRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/attendance/staff/': {
@@ -3329,8 +3445,11 @@ const StaffFeesRouteWithChildren = StaffFeesRoute._addFileChildren(
 )
 
 interface StaffWebsiteRouteChildren {
+  StaffWebsiteAddressRoute: typeof StaffWebsiteAddressRoute
+  StaffWebsiteAnalyticsRoute: typeof StaffWebsiteAnalyticsRoute
   StaffWebsiteDesignRoute: typeof StaffWebsiteDesignRoute
   StaffWebsiteEnquiriesRoute: typeof StaffWebsiteEnquiriesRoute
+  StaffWebsiteGalleryRoute: typeof StaffWebsiteGalleryRoute
   StaffWebsitePagesRoute: typeof StaffWebsitePagesRoute
   StaffWebsiteIndexRoute: typeof StaffWebsiteIndexRoute
   StaffWebsiteBlogPostIdRoute: typeof StaffWebsiteBlogPostIdRoute
@@ -3338,8 +3457,11 @@ interface StaffWebsiteRouteChildren {
 }
 
 const StaffWebsiteRouteChildren: StaffWebsiteRouteChildren = {
+  StaffWebsiteAddressRoute: StaffWebsiteAddressRoute,
+  StaffWebsiteAnalyticsRoute: StaffWebsiteAnalyticsRoute,
   StaffWebsiteDesignRoute: StaffWebsiteDesignRoute,
   StaffWebsiteEnquiriesRoute: StaffWebsiteEnquiriesRoute,
+  StaffWebsiteGalleryRoute: StaffWebsiteGalleryRoute,
   StaffWebsitePagesRoute: StaffWebsitePagesRoute,
   StaffWebsiteIndexRoute: StaffWebsiteIndexRoute,
   StaffWebsiteBlogPostIdRoute: StaffWebsiteBlogPostIdRoute,
@@ -3364,6 +3486,7 @@ interface StaffRouteChildren {
   StaffApplicationsNewRoute: typeof StaffApplicationsNewRoute
   StaffApplicationsReportsRoute: typeof StaffApplicationsReportsRoute
   StaffAttendanceSectionIdRoute: typeof StaffAttendanceSectionIdRoute
+  StaffAttendanceImportRoute: typeof StaffAttendanceImportRoute
   StaffAttendanceRegisterRoute: typeof StaffAttendanceRegisterRoute
   StaffAttendanceReportsRoute: typeof StaffAttendanceReportsRoute
   StaffCalendarImportRoute: typeof StaffCalendarImportRoute
@@ -3433,6 +3556,7 @@ interface StaffRouteChildren {
   StaffAcademicsStudyPlansPlanIdRoute: typeof StaffAcademicsStudyPlansPlanIdRoute
   StaffAdmissionsApplicantsApplicantIdRoute: typeof StaffAdmissionsApplicantsApplicantIdRoute
   StaffAdmissionsIntakesIntakeIdRoute: typeof StaffAdmissionsIntakesIntakeIdRoute
+  StaffAttendanceImportsImportIdRoute: typeof StaffAttendanceImportsImportIdRoute
   StaffAttendanceStaffLeaveRoute: typeof StaffAttendanceStaffLeaveRoute
   StaffCommunicationsBatchesBatchIdRoute: typeof StaffCommunicationsBatchesBatchIdRoute
   StaffCommunicationsNoticesNewRoute: typeof StaffCommunicationsNoticesNewRoute
@@ -3450,6 +3574,7 @@ interface StaffRouteChildren {
   StaffAdmissionsApplicantsIndexRoute: typeof StaffAdmissionsApplicantsIndexRoute
   StaffAdmissionsIntakesIndexRoute: typeof StaffAdmissionsIntakesIndexRoute
   StaffAdmissionsReportsIndexRoute: typeof StaffAdmissionsReportsIndexRoute
+  StaffAttendanceImportsIndexRoute: typeof StaffAttendanceImportsIndexRoute
   StaffAttendanceStaffIndexRoute: typeof StaffAttendanceStaffIndexRoute
   StaffCommunicationsBatchesIndexRoute: typeof StaffCommunicationsBatchesIndexRoute
   StaffCommunicationsMessageLogIndexRoute: typeof StaffCommunicationsMessageLogIndexRoute
@@ -3479,6 +3604,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffApplicationsNewRoute: StaffApplicationsNewRoute,
   StaffApplicationsReportsRoute: StaffApplicationsReportsRoute,
   StaffAttendanceSectionIdRoute: StaffAttendanceSectionIdRoute,
+  StaffAttendanceImportRoute: StaffAttendanceImportRoute,
   StaffAttendanceRegisterRoute: StaffAttendanceRegisterRoute,
   StaffAttendanceReportsRoute: StaffAttendanceReportsRoute,
   StaffCalendarImportRoute: StaffCalendarImportRoute,
@@ -3549,6 +3675,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAdmissionsApplicantsApplicantIdRoute:
     StaffAdmissionsApplicantsApplicantIdRoute,
   StaffAdmissionsIntakesIntakeIdRoute: StaffAdmissionsIntakesIntakeIdRoute,
+  StaffAttendanceImportsImportIdRoute: StaffAttendanceImportsImportIdRoute,
   StaffAttendanceStaffLeaveRoute: StaffAttendanceStaffLeaveRoute,
   StaffCommunicationsBatchesBatchIdRoute:
     StaffCommunicationsBatchesBatchIdRoute,
@@ -3568,6 +3695,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAdmissionsApplicantsIndexRoute: StaffAdmissionsApplicantsIndexRoute,
   StaffAdmissionsIntakesIndexRoute: StaffAdmissionsIntakesIndexRoute,
   StaffAdmissionsReportsIndexRoute: StaffAdmissionsReportsIndexRoute,
+  StaffAttendanceImportsIndexRoute: StaffAttendanceImportsIndexRoute,
   StaffAttendanceStaffIndexRoute: StaffAttendanceStaffIndexRoute,
   StaffCommunicationsBatchesIndexRoute: StaffCommunicationsBatchesIndexRoute,
   StaffCommunicationsMessageLogIndexRoute:

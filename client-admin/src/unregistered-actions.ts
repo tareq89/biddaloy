@@ -41,6 +41,11 @@ export const UNREGISTERED_ACTIONS: readonly UnregisteredAction[] = [
 
 export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   {
+    file: `${R}_staff/exams/-detail/website-publish-dialog.tsx`,
+    reason:
+      'confirm for one exam, opened from the exam header button; the palette action `exams.publishWebsite` lands on that exam',
+  },
+  {
     file: `${R}_staff/website/-section-editor-modal.tsx`,
     reason:
       'edits one section of a website page, opened from the Pages tab editor; the palette action `administration.website` lands on the tab',
@@ -49,6 +54,11 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
     file: `${R}_staff/website/blog/$postId.tsx`,
     reason:
       'the blog post editor and its publish confirm act on one post, reached from the Blog tab list; the palette opens the Website page',
+  },
+  {
+    file: `${R}_staff/attendance/-imports/import-rows-table.tsx`,
+    reason:
+      'the change-history dialog of one uploaded row, opened from the upload detail table; `attendance.imports` lands on the list it is reached from',
   },
   {
     file: `${R}_staff/results/final/-sms-dialog.tsx`,

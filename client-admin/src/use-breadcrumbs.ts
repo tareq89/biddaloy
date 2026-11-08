@@ -2,6 +2,7 @@ import type { BreadcrumbItem } from '@biddaloy/ui/components';
 import {
   academicYearQueryOptions,
   applicationQueryOptions,
+  attendanceImportKeys,
   attendanceKeys,
   classKeys,
   classQueryOptions,
@@ -113,6 +114,11 @@ export const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
   blogPost: {
     queryKeys: (id) => [websiteContentKeys.post(id)],
     getName: (data) => field((data as { title?: unknown } | null)?.title, 'bn'),
+  },
+  // [76.5.06] File name of the saved attendance sheet, from the detail the page already loaded.
+  uploadDetail: {
+    queryKeys: (id) => [attendanceImportKeys.detail(id)],
+    getName: byField('file_name'),
   },
   // [32.4.1] Keyed by the crumb's own label key: "template" has no `EntityLabel` noun.
   printTemplateEdit: {

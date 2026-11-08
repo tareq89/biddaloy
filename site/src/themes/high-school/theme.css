@@ -154,6 +154,14 @@
   border-color: var(--ink);
   cursor: pointer;
 }
+.menu summary::after {
+  display: none;
+}
+.menu .menu-btn {
+  border-radius: 0;
+  border-color: var(--ink);
+  cursor: pointer;
+}
 .t-high-school .sheet-panel {
   position: fixed;
   inset: auto 0 0 0;
@@ -539,4 +547,11 @@ html[lang='bn'] .t-high-school .block::before {
     --ink-3: var(--ink);
     --line: color-mix(in srgb, var(--ink) 55%, var(--surface));
   }
+}
+
+/* gallery + video frame: the shared blocks read these variables (basic/theme.css) */
+.t-high-school {
+  --gc-r: 0;
+  --gc-border: 1px solid var(--line);
+  --ve-icon-r: 0;
 }

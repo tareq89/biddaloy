@@ -45,7 +45,8 @@ export interface ActionRunContext {
   readonly params?: {
     readonly studentId?: string | undefined;
     readonly examId?: string | undefined;
-    /** [81.3.3] With `examId` and `subjectId`, the marks grid the user is on. */
+    /** [81.3.3] With `examId` and `subjectId`, the marks grid the user is on.
+     * [76.4.03] Alone, the section of the current page (prefills the attendance sheet upload). */
     readonly sectionId?: string | undefined;
     readonly subjectId?: string | undefined;
   };
@@ -250,6 +251,28 @@ export const ACTIONS: readonly PaletteAction[] = [
     kind: 'navigate',
     group: 'attendance',
     run: (ctx) => ctx.navigate({ to: '/attendance' }),
+  },
+  // [76.4.03] Attendance sheet import (D15). `sectionId` rides along only when the page has one.
+  {
+    id: 'attendance.import',
+    label: { en: 'Upload attendance sheet', bn: 'হাজিরা শীট আপলোড করুন' },
+    permission: Permission.ATTENDANCE_MARK,
+    kind: 'navigate',
+    group: 'attendance',
+    run: (ctx) =>
+      ctx.navigate({
+        to: ctx.params?.sectionId
+          ? `/attendance/import?sectionId=${ctx.params.sectionId}`
+          : '/attendance/import',
+      }),
+  },
+  {
+    id: 'attendance.imports',
+    label: { en: 'Attendance uploads', bn: 'উপস্থিতির আপলোড' },
+    permission: Permission.ATTENDANCE_READ,
+    kind: 'navigate',
+    group: 'attendance',
+    run: (ctx) => ctx.navigate({ to: '/attendance/imports' }),
   },
   // [41.4.7] Both land on a filtered/edit-mode view of an existing route
   // (`ctx.navigate` only takes a `to` string, so the search rides in it,
@@ -941,6 +964,22 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'people',
     run: (ctx) => ctx.navigate({ to: '/calendar?panel=clone' }),
   },
+  // [76.4.03] Card assignment (D15): the edit route autofocuses the card field on `?focus=card`
+  // (#3570 declares it). Without a student in context, the list is the honest fallback.
+  {
+    id: 'students.assignCard',
+    label: { en: 'Add card number', bn: 'কার্ড নম্বর দিন' },
+    permission: Permission.STUDENT_UPDATE,
+    kind: 'navigate',
+    group: 'people',
+    context: ['student'],
+    run: (ctx) =>
+      ctx.navigate({
+        to: ctx.params?.studentId
+          ? `/students/${ctx.params.studentId}/edit?focus=card`
+          : '/students',
+      }),
+  },
   {
     id: 'calendar.import',
     label: { en: 'Import calendar', bn: 'ক্যালেন্ডার আমদানি করুন' },
@@ -1046,6 +1085,14 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/settings?section=billing&buy=1' }),
   },
   {
+    id: 'settings.attendanceDevices.add',
+    label: { en: 'Add attendance machine', bn: 'হাজিরা মেশিন যোগ করুন' },
+    permission: Permission.ATTENDANCE_DEVICE_MANAGE,
+    kind: 'modal',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/settings?section=academics&devices=new' }),
+  },
+  {
     id: 'settings.backup',
     label: { en: 'Backup and restore', bn: 'ব্যাকআপ ও রিস্টোর' },
     permission: Permission.SETTINGS_MANAGE,
@@ -1088,6 +1135,19 @@ export const ACTIONS: readonly PaletteAction[] = [
       ctx.navigate({
         to: ctx.params?.examId ? `/exams/${ctx.params.examId}?tab=print` : '/exams',
       }),
+  },
+  // [40.5.03] Lands on the exam, where the header button opens the confirm (the action only exists
+  // for a PUBLISHED exam, so the palette cannot open the dialog itself).
+  {
+    id: 'exams.publishWebsite',
+    label: { en: 'Show results on the website', bn: 'ওয়েবসাইটে ফলাফল দেখান' },
+    synonyms: ['website results', 'publish results online', 'ওয়েবসাইট ফলাফল'],
+    permission: Permission.RESULT_PUBLISH,
+    kind: 'navigate',
+    group: 'examsResults',
+    context: ['exam'],
+    run: (ctx) =>
+      ctx.navigate({ to: ctx.params?.examId ? `/exams/${ctx.params.examId}` : '/exams' }),
   },
   // CERTIFICATE_ISSUE is stricter than `/students`'s STUDENT_READ: documented exception.
   {

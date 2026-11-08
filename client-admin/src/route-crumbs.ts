@@ -210,6 +210,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/attendance/': [{ label: { key: 'attendance' } }],
   '/_staff/attendance/reports': [{ label: { key: 'attendanceReports' } }],
   '/_staff/attendance/register': [{ label: { key: 'attendanceRegister' } }],
+  '/_staff/attendance/import': [{ label: { key: 'attendance' } }, { label: { key: 'uploads' } }],
+  '/_staff/attendance/imports/': [{ label: { key: 'attendance' } }, { label: { key: 'uploads' } }],
   '/_staff/attendance/staff/': [{ label: { key: 'staffAttendance' } }],
   '/_staff/attendance/staff/leave': [
     { label: { key: 'staffAttendance' } },
@@ -298,7 +300,10 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   ],
   '/_staff/website/enquiries': [{ label: { key: 'website' } }],
   '/_staff/website/pages': [{ label: { key: 'website' } }],
+  '/_staff/website/gallery': [{ label: { key: 'website' } }],
   '/_staff/website/design': [{ label: { key: 'website' } }],
+  '/_staff/website/address': [{ label: { key: 'website' } }],
+  '/_staff/website/analytics': [{ label: { key: 'website' } }],
 
   // --- Staff shell: sub-pages nest under their list route's segment ---
   '/_staff/students/new': [{ label: { entity: 'student' } }, { label: { key: 'new' } }],
@@ -368,6 +373,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/attendance/$sectionId': [
     { label: { key: 'attendance' } },
     { label: { key: 'section' }, dynamic: 'entity' },
+  ],
+  '/_staff/attendance/imports/$importId': [
+    { label: { key: 'attendance' } },
+    { label: { key: 'uploads' } },
+    { label: { key: 'uploadDetail' }, dynamic: 'entity' },
   ],
   '/_staff/fees/schedules/$id': [
     { label: { key: 'recurringSchedules' } },

@@ -1,11 +1,13 @@
 import {
   SITE_ANNOUNCEMENTS_MAX,
   SITE_HERO_MAX_PHOTOS,
+  SITE_VIDEO_START_MAX_SECONDS,
   SITE_POST_BODY_MAX_CHARS,
   SiteAnnouncementStyle,
   SiteMarqueeSpeed,
   SitePage,
   SiteSectionKey,
+  YOUTUBE_ID_RE,
   isSiteRelativeHref,
 } from '@biddaloy/shared';
 import type {
@@ -13,8 +15,9 @@ import type {
   SiteConfig,
   SitePageConfig,
   SiteSectionConfig,
+  SiteSectionTypography,
 } from '@biddaloy/shared';
-import type { ThemeManifest } from './manifest';
+import type { ThemeField, ThemeManifest } from './manifest';
 
 export const SITE_TEXT_MAX_CHARS = 2000;
 
@@ -23,6 +26,70 @@ export type ValidateResult = { ok: true; value: SiteConfig } | { ok: false; erro
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isStr = (v: unknown): v is string => typeof v === 'string';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Non-text kinds: `null` or a valid value; anything else is rejected. */
+export function scalarOk(f: ThemeField, v: unknown): boolean {
+  switch (f.kind) {
+    case 'uuid':
+      return v === null || (isStr(v) && UUID_RE.test(v));
+    case 'bool':
+      return typeof v === 'boolean';
+    case 'choice':
+      return isStr(v) && !!f.options?.includes(v);
+    case 'youtubeId':
+      return v === null || (isStr(v) && YOUTUBE_ID_RE.test(v));
+    case 'seconds':
+      return (
+        v === null ||
+        (typeof v === 'number' &&
+          Number.isInteger(v) &&
+          v >= 0 &&
+          v <= SITE_VIDEO_START_MAX_SECONDS)
+      );
+    default:
+      return false;
+  }
+}
+
+const SIZES = ['S', 'M', 'L', 'XL'];
+const WEIGHTS = ['regular', 'medium', 'bold'];
+const ALIGNS = ['start', 'center'];
+
+/** Keeps only known typography keys with known values. */
+function cleanTypography(raw: Obj, bad: (code: string) => void): SiteSectionTypography {
+  const out: SiteSectionTypography = {};
+  for (const lang of ['bn', 'en'] as const) {
+    if (raw[lang] === undefined) continue;
+    if (!isObj(raw[lang])) {
+      bad('typography.invalid');
+      continue;
+    }
+    const pair: Obj = {};
+    for (const role of ['heading', 'body'] as const) {
+      const st = (raw[lang] as Obj)[role];
+      if (st === undefined) continue;
+      if (!isObj(st)) {
+        bad('typography.invalid');
+        continue;
+      }
+      const o: Obj = {};
+      if (st.size !== undefined)
+        isStr(st.size) && SIZES.includes(st.size) ? (o.size = st.size) : bad('typography.invalid');
+      if (st.weight !== undefined)
+        isStr(st.weight) && WEIGHTS.includes(st.weight)
+          ? (o.weight = st.weight)
+          : bad('typography.invalid');
+      if (st.align !== undefined)
+        isStr(st.align) && ALIGNS.includes(st.align)
+          ? (o.align = st.align)
+          : bad('typography.invalid');
+      pair[role] = o;
+    }
+    out[lang] = pair as SiteSectionTypography['bn'];
+  }
+  return out;
+}
 
 /**
  * Checks a SiteConfig against a theme manifest. Plain functions, no zod.
@@ -104,6 +171,12 @@ export function validateSiteConfig(config: unknown, manifest: ThemeManifest): Va
       const raw = isObj(s.data) ? s.data : {};
       for (const f of def.fields) {
         const v = raw[f.key];
+        if (f.kind !== 'text' && f.kind !== 'richtext' && f.kind !== 'images') {
+          if (v === undefined) continue;
+          if (scalarOk(f, v)) data[f.key] = v;
+          else bad('field.invalid');
+          continue;
+        }
         if (f.kind === 'images') {
           if (v === undefined) continue;
           if (!Array.isArray(v)) bad('field.invalid');
@@ -126,7 +199,7 @@ export function validateSiteConfig(config: unknown, manifest: ThemeManifest): Va
       sections.push({
         key: s.key as SiteSectionKey,
         enabled: s.enabled !== false,
-        ...(isObj(s.typography) ? { typography: s.typography } : {}),
+        ...(isObj(s.typography) ? { typography: cleanTypography(s.typography, bad) } : {}),
         data,
       });
     }

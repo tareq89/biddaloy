@@ -110,6 +110,7 @@ export const ROUTED_PAGES: ReadonlySet<string> = new Set([
   SitePage.NOTICES,
   SitePage.BLOG,
   SitePage.TEACHERS,
+  SitePage.GALLERY,
   SitePage.CONTACT,
 ]);
 
@@ -135,7 +136,7 @@ export function sitemapXml(host: string, rests: string[]): string {
 
 export const robotsTxt = (host: string, indexable: boolean) =>
   indexable
-    ? `User-agent: *\nAllow: /\nDisallow: /?preview=\nSitemap: https://${host}/sitemap.xml\n`
+    ? `User-agent: *\nAllow: /\nDisallow: /*?preview=\nSitemap: https://${host}/sitemap.xml\n`
     : 'User-agent: *\nDisallow: /\n';
 
 export interface BlogRow {

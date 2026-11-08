@@ -104,7 +104,10 @@ describe('WebsiteResultsService (unit)', () => {
     expect(verifyResultHandle(h, 'school-1')).toEqual({ examId: UUID_A, resultId: UUID_B });
     expect(verifyResultHandle(h, 'school-2')).toBeNull();
     expect(verifyResultHandle(h, 'school-1', Date.now() + 31 * 60 * 1000)).toBeNull();
-    expect(verifyResultHandle(h.slice(0, -2) + 'AA', 'school-1')).toBeNull(); // tampered signature
+    // Tampered signature: change a char that carries all six bits, to one that differs.
+    const at = h.length - 2;
+    const tampered = h.slice(0, at) + (h[at] === 'A' ? 'B' : 'A') + h.slice(at + 1);
+    expect(verifyResultHandle(tampered, 'school-1')).toBeNull();
   });
 
   it('detail: a good handle on an exam no longer on the website is the same 404', async () => {

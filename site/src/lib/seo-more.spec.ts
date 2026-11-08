@@ -24,7 +24,7 @@ describe('seo (review fixes)', () => {
   });
 
   it('indexable robots.txt always blocks ?preview=', () => {
-    expect(robotsTxt('a.test', true)).toContain('Disallow: /?preview=');
+    expect(robotsTxt('a.test', true)).toContain('Disallow: /*?preview=');
   });
 
   it('strips XML-illegal control characters', () => {
