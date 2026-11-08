@@ -336,11 +336,12 @@ function DomainStatus({ status }: { status: CustomDomainStatus }) {
   const waitSeconds = Math.max(0, Math.ceil((until - now) / 1000));
 
   async function doRecheck() {
-    setNow(Date.now());
-    setUntil(Date.now() + RECHECK_COOLDOWN_MS);
     setError(null);
     try {
       await recheck.mutateAsync();
+      // The wait starts only after a check that went through; a failed one can be retried at once.
+      setNow(Date.now());
+      setUntil(Date.now() + RECHECK_COOLDOWN_MS);
     } catch (failure) {
       setError(ownDomainError(failure, t));
     }
