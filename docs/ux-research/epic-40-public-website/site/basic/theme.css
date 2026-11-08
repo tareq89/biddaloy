@@ -51,6 +51,7 @@ p{margin:0}
 .nav+.tools{margin-left:0}
 .lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;background:#fff}
 .lang button{all:unset;cursor:pointer;height:30px;padding:0 10px;border-radius:999px;font:600 13px var(--en);color:var(--ink-2)}
+.lang button:focus-visible{outline:2px solid var(--accent,currentColor);outline-offset:2px}
 html[data-lang=bn] .lang [data-set=bn],html[data-lang=en] .lang [data-set=en]{background:var(--ink);color:#fff}
 .menu-btn{display:inline-grid;place-items:center;width:44px;height:44px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
 .menu-btn span{width:18px;height:2px;background:var(--ink);box-shadow:0 -6px 0 var(--ink),0 6px 0 var(--ink);border-radius:2px}

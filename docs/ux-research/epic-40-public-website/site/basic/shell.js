@@ -9,6 +9,9 @@
     document.querySelectorAll('[data-ph-bn]').forEach(function (i) {
       i.placeholder = i.dataset['ph' + (l === 'en' ? 'En' : 'Bn')] || '';
     });
+    document.querySelectorAll('.lang button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.set === l));
+    });
   }
   try {
     var s = localStorage.getItem('site-lang');
