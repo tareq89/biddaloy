@@ -11,7 +11,8 @@
     "blog": "Blog",
     "teachers": "Teachers",
     "results": "Results",
-    "contact": "Contact"
+    "contact": "Contact",
+    "gallery": "Gallery"
   },
   "lang": {
     "label": "Language",
@@ -58,7 +59,9 @@
     "contact": "Contact",
     "routine": "Class routine",
     "about": "About us",
-    "academics": "Academics"
+    "academics": "Academics",
+    "gallery": "Photo gallery",
+    "video": "Video"
   },
   "empty": "Coming soon.",
   "teachers": {
@@ -103,6 +106,35 @@
     "rate": "Too many tries. Please send again in a minute.",
     "error": "The message could not be sent. Please try again in a moment."
   },
+  "results": {
+    "none": "No results have been published yet.",
+    "unavailable": "Results lookup is not available right now. Please try again in a moment.",
+    "pick": "Choose",
+    "exam": "Exam",
+    "class": "Class",
+    "section": "Section",
+    "rollOpt": "Roll (leave empty for the whole section)",
+    "show": "Show results",
+    "loading": "Loading results",
+    "print": "Print",
+    "roll": "Roll",
+    "name": "Name",
+    "gpa": "GPA",
+    "grade": "Grade",
+    "result": "Result",
+    "pass": "Pass",
+    "fail": "Fail",
+    "subjects": "By subject",
+    "prev": "Previous page",
+    "next": "Next page",
+    "captcha": "We could not confirm you are a person. Tick the box again, then show the results again.",
+    "invalid": "The exam, class, section or roll is not right. Check and try again.",
+    "notfound": "No result was found for this search.",
+    "rate": "Too many tries. Please try again in a minute.",
+    "error": "The results could not be loaded. Please try again in a moment.",
+    "empty": "There are no results to show for this section.",
+    "count": "{n} results found"
+  },
   "links": {
     "whatsapp": "WhatsApp",
     "facebook": "Facebook",
@@ -111,5 +143,19 @@
   "admissions": {
     "deadline": "Last date",
     "apply": "Apply"
+  },
+  "gallery": {
+    "all": "View all photos →",
+    "label": "Photo gallery",
+    "prev": "Previous photo",
+    "next": "Next photo",
+    "close": "Close",
+    "goto": "Photo",
+    "viewer": "Photo viewer",
+    "open": "View larger"
+  },
+  "video": {
+    "play": "Play video",
+    "title": "Video"
   }
 }
