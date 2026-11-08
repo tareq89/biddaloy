@@ -25,6 +25,7 @@ import { studentDefaultHandlers } from './handlers/students';
 import { surveyDefaultHandlers } from './handlers/surveys';
 import { teacherDefaultHandlers } from './handlers/teachers';
 import { userDefaultHandlers } from './handlers/users';
+import { websiteDefaultHandlers } from './handlers/website';
 
 /**
  * The shared handler library — the "happy path" default for every
@@ -59,6 +60,7 @@ import { userDefaultHandlers } from './handlers/users';
 export const handlers: readonly HttpHandler[] = [
   ...authDefaultHandlers,
   ...backupDefaultHandlers,
+  ...websiteDefaultHandlers,
   ...billingDefaultHandlers,
   ...academicYearDefaultHandlers,
   ...classDefaultHandlers,

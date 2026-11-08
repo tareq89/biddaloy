@@ -182,6 +182,10 @@ const clientAlias = (pkg: string) => ({
   '@biddaloy/shared': resolve(__dirname, 'shared/src'),
   '@biddaloy/ui/components': resolve(__dirname, 'ui/src/components/index.ts'),
   '@biddaloy/ui/shells': resolve(__dirname, 'ui/src/shells/index.ts'),
+  '@biddaloy/ui/rich-text-editor': resolve(
+    __dirname,
+    'ui/src/components/rich-text-editor/index.ts',
+  ),
   '@biddaloy/ui/hooks': resolve(__dirname, 'ui/src/hooks/index.ts'),
   '@biddaloy/ui/routes': resolve(__dirname, 'ui/src/routes/index.ts'),
   '@biddaloy/ui/utils': resolve(__dirname, 'ui/src/utils/index.ts'),
@@ -311,6 +315,19 @@ export default defineConfig({
           setupFiles: [testSetupFile],
           testTimeout: PROJECT_TEST_TIMEOUT,
           isolate: NODE_PROJECT_ISOLATE,
+          pool: PROJECT_POOL,
+          maxWorkers: PROJECT_MAX_WORKERS,
+        },
+      },
+      // [40.1.03] Site theme manifests + config validator: pure TypeScript.
+      {
+        resolve: { alias: { '@biddaloy/shared': resolve(__dirname, 'shared/src') } },
+        test: {
+          name: 'site-themes:node',
+          root: 'site-themes',
+          environment: 'node',
+          include: ['src/**/*.spec.ts'],
+          testTimeout: PROJECT_TEST_TIMEOUT,
           pool: PROJECT_POOL,
           maxWorkers: PROJECT_MAX_WORKERS,
         },

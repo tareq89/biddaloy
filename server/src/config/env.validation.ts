@@ -54,6 +54,45 @@ class EnvironmentVariables {
   @IsString()
   ENV_NAME?: string;
 
+  // Epic 40: school sites live at `<subdomain>.<SITE_ROOT_DOMAIN>` (site-host.service.ts).
+  // A bare lower-case host: no scheme, port, path or trailing dot. Unset: no subdomain resolves.
+  @ValidateIf((o: EnvironmentVariables) => !!o.SITE_ROOT_DOMAIN)
+  @Matches(
+    /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/,
+    {
+      message: 'SITE_ROOT_DOMAIN must be a bare lower-case host name, e.g. schoolmanagerp.com',
+    },
+  )
+  SITE_ROOT_DOMAIN?: string;
+
+  // Epic 40.4.08: school custom domains through Cloudflare for SaaS. Token and zone are set together
+  // (assertProductionConfig); both empty = custom domains off. Fallback origin defaults to sites.<SITE_ROOT_DOMAIN>.
+  @IsOptional()
+  @IsString()
+  CF_SAAS_API_TOKEN?: string;
+
+  @IsOptional()
+  @IsString()
+  CF_ZONE_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  CF_SAAS_FALLBACK_ORIGIN?: string;
+
+  // Umami analytics for school sites. Both empty = no analytics.
+  @IsOptional()
+  @IsString()
+  UMAMI_API_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  UMAMI_API_TOKEN?: string;
+
+  // Public URL of Umami's tracker script (https). Without it the school sites carry no analytics tag.
+  @IsOptional()
+  @IsString()
+  UMAMI_SCRIPT_URL?: string;
+
   // Test inbox (Epic 87). `mailpit` sends every message to the Mailpit sink; prod leaves it unset.
   @ValidateIf((o: EnvironmentVariables) => !!o.MESSAGE_SINK)
   @IsIn(['mailpit', 'real'])
@@ -510,6 +549,27 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
 
   if (Boolean(str('TURNSTILE_SITE_KEY')) !== Boolean(str('TURNSTILE_SECRET_KEY'))) {
     problems.push('TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together or not at all');
+  }
+
+  if (Boolean(str('CF_SAAS_API_TOKEN')) !== Boolean(str('CF_ZONE_ID'))) {
+    problems.push('CF_SAAS_API_TOKEN and CF_ZONE_ID must be set together or not at all');
+  }
+  if (str('CF_ZONE_ID') && !/^[0-9a-f]{32}$/.test(str('CF_ZONE_ID'))) {
+    problems.push('CF_ZONE_ID must be a 32-character lower-case hex Cloudflare zone id');
+  }
+
+  if (Boolean(str('UMAMI_API_URL')) !== Boolean(str('UMAMI_API_TOKEN'))) {
+    problems.push('UMAMI_API_URL and UMAMI_API_TOKEN must be set together or not at all');
+  }
+  if (str('UMAMI_API_URL') && !/^https:\/\/[^\s/?#]+(\/[^\s?#]*)?$/.test(str('UMAMI_API_URL'))) {
+    problems.push('UMAMI_API_URL must be an https URL');
+  }
+  // Same characters the site's tracker guard refuses, so a bad value fails at boot, not at render.
+  if (
+    str('UMAMI_SCRIPT_URL') &&
+    !/^https:\/\/[^\s/"'<>&]+(\/[^\s"'<>&]*)?$/.test(str('UMAMI_SCRIPT_URL').trim())
+  ) {
+    problems.push('UMAMI_SCRIPT_URL must be an https URL');
   }
 
   if (str('OUTBOUND_TEST_ALLOW_LOOPBACK')) {

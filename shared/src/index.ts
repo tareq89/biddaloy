@@ -34,3 +34,5 @@ export * from './dashboard/index';
 export * from './enums/reports';
 export * from './types/report-definition';
 export * from './types/attendance-import.types';
+export * from './types/site';
+export * from './video';

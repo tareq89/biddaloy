@@ -326,17 +326,18 @@ You cannot remove yourself: it shows **You cannot remove your own account from t
 
 Press a person's name in the list, or **View**, to open their page. At the top are their name, status, role, the date they joined this school and their last sign-in (**Not yet** if they have never signed in). The tabs are below:
 
-| Tab                                                 | What it holds                                                                                                                            |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Profile**                                         | Contact (email, phone, whether verified), the account creation date, the **Teacher profile** card for a teacher, and the invitation card |
-| **Permissions**                                     | What their role can do, in groups. For viewing only; you cannot change it person by person                                               |
-| **Teacher assignments**                             | Only with a teacher profile. Which duty in which class and section, and **Assign** / **Remove assignment**                               |
-| **HR record**                                       | The person's personal and job details                                                                                                    |
-| **ACR**, **Incidents**, **Performance**             | Staff evaluation                                                                                                                         |
-| **Documents**                                       | The staff photo, ID card printing and the list of earlier prints                                                                         |
-| **Attendance & Leave**                              | The person's attendance and leave balance                                                                                                |
-| [**Applications**](../applications/applications.md) | Applications filed in the person's name                                                                                                  |
-| **Login history**                                   | When, and from which IP address and device, they signed in                                                                               |
+| Tab                                                 | What it holds                                                                                                                                                                                                               |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Profile**                                         | Contact (email, phone, whether verified), the account creation date, the **Teacher profile** card for a teacher, and the invitation card                                                                                    |
+| **Permissions**                                     | What their role can do, in groups. For viewing only; you cannot change it person by person                                                                                                                                  |
+| **Teacher assignments**                             | Only with a teacher profile. Which duty in which class and section, and **Assign** / **Remove assignment**                                                                                                                  |
+| **HR record**                                       | The person's personal and job details                                                                                                                                                                                       |
+| **ACR**, **Incidents**, **Performance**             | Staff evaluation                                                                                                                                                                                                            |
+| **Documents**                                       | The staff photo, ID card printing and the list of earlier prints                                                                                                                                                            |
+| **Attendance & Leave**                              | The person's attendance and leave balance                                                                                                                                                                                   |
+| [**Applications**](../applications/applications.md) | Applications filed in the person's name                                                                                                                                                                                     |
+| **Website profile**                                 | Only for a teacher or office staff member, and only if you can manage the website. Show the person on the school website, feature them on the home page (up to 8), and set order, subjects, about, qualifications and photo |
+| **Login history**                                   | When, and from which IP address and device, they signed in                                                                                                                                                                  |
 
 Which tabs you see depends on your permissions. To see and change the assignments of every teacher in one place, see the [Teacher assignments](teaching-assignments.md) page.
 
@@ -438,6 +439,7 @@ Someone without permission who opens the page sees **You don't have access to th
 
 **Related pages**
 
+- [**School website**](../administration/website.md) — the **Website profile** tab decides how a teacher appears on the website.
 - [**Importing from Excel**](staff-import.md) — add many staff at once.
 - [**Teacher assignments**](teaching-assignments.md) — give a teacher a class, section and subject.
 - [**Staff attendance and leave**](../attendance/staff-attendance.md) — staff attendance and leave.

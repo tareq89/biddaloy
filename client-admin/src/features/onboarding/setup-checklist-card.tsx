@@ -12,7 +12,7 @@ import { Link } from '@tanstack/react-router';
 import { ChevronRightIcon, CircleCheckIcon, CircleIcon } from 'lucide-react';
 import { useId } from 'react';
 
-const TARGETS: Record<OnboardingItemId, { to: string; search?: Record<string, string | number> }> =
+const TARGETS: Record<Exclude<OnboardingItemId, 'website'>, { to: string; search?: Record<string, string | number> }> =
   {
     profile: { to: '/settings', search: { section: 'school' } },
     structure: { to: '/classes' },
@@ -22,6 +22,7 @@ const TARGETS: Record<OnboardingItemId, { to: string; search?: Record<string, st
     feeStructures: { to: '/fee-structures' },
     guardianInvites: { to: '/guardians', search: { invite: 1 } },
     messageSettings: { to: '/settings', search: { section: 'communication' } },
+    website: { to: '/website' },
   };
 
 /** Shows until dismissed or every item is done. Existing schools are dismissed by migration
@@ -68,6 +69,7 @@ export function SetupChecklistCard() {
         <ProgressBar done={done} total={data.items.length} label={t('title')} />
         <ul className="divide-y divide-border-subtle">
           {data.items.map((item) => {
+            if (item.id === 'website') return null; // TODO(#3626): link once the onboarding item ships
             const target = TARGETS[item.id];
             const Icon = item.done ? CircleCheckIcon : CircleIcon;
             return (
