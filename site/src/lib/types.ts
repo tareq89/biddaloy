@@ -2,13 +2,14 @@ import type {
   BilingualText,
   SiteAnnouncementBar,
   SitePage,
+  SitePublicGalleryAlbum,
   SiteSectionConfig,
   SiteSectionKey,
   SiteTheme,
   SiteTypography,
 } from '@biddaloy/shared';
 
-export type { BilingualText, SiteSectionKey, SiteTheme };
+export type { BilingualText, SiteSectionKey, SiteTheme, SitePublicGalleryAlbum };
 
 export type Lang = 'bn' | 'en';
 export const LANGS: readonly Lang[] = ['bn', 'en'];
@@ -23,7 +24,17 @@ export interface SiteManifest {
   logo?: string;
   noindex?: boolean;
   schoolName: BilingualText;
-  contact?: { address?: BilingualText; phone?: string; email?: string; hours?: BilingualText };
+  /** Present only for a site with an Umami website and an operator script URL (D42). */
+  analytics?: { websiteId: string; scriptUrl: string };
+  contact?: {
+    address?: BilingualText;
+    phone?: string;
+    email?: string;
+    hours?: BilingualText;
+    /** Social links for JSON-LD `sameAs`; read through `httpsLink` / `whatsappLink`. */
+    facebook?: unknown;
+    whatsapp?: unknown;
+  };
 }
 
 /** `GET /public/site/by-host/:host/page/:page`. */
@@ -31,6 +42,8 @@ export interface SitePageData {
   page: SitePage;
   sections: (Pick<SiteSectionConfig, 'key' | 'data' | 'typography'> & {
     enabled?: boolean;
+    /** True when a system-fed section had nothing to show: the site hides it (D12). */
+    empty?: boolean;
     /** System-fed rows (teachers, events, blog); `[]` until their feeds exist. */
     feed?: Record<string, unknown>[];
   })[];
@@ -41,6 +54,8 @@ export interface SectionProps {
   lang: Lang;
   feed: Record<string, unknown>[];
   manifest: SiteManifest;
+  /** The page being rendered (`home` shows featured teachers + the see-all link). */
+  page?: SitePage;
 }
 
 export type FetchResult<T> =

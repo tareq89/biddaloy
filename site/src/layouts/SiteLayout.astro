@@ -1,4 +1,6 @@
 ---
+import Analytics from '../components/Analytics.astro';
+import Seo from '../components/Seo.astro';
 import { t } from '../i18n/t';
 import { themeCss, toStyle } from '../lib/css-vars';
 import { pick } from '../lib/pick';
@@ -10,28 +12,30 @@ interface Props {
   /** Path after the language prefix (`` for home), used for hreflang and canonical. */
   rest?: string;
   title?: string;
+  /** Short plain-text summary (blog excerpt); falls back to the school's address line. */
+  description?: string;
+  /** Site path of a picture (`/media/<id>`, default the logo); made absolute from the request origin. */
+  image?: string;
 }
-const { manifest, lang, rest = '', title } = Astro.props;
+const { manifest, lang, rest = '', title, description, image } = Astro.props;
 const host = Astro.locals.host;
-const alt = (l: Lang) => `https://${host}/${l}/${rest}`;
 const { vars, fontFaces } = themeCss(manifest);
-const noindex = manifest.noindex || !!Astro.locals.preview;
 const name = pick(manifest.schoolName, lang) ?? '';
+const fullTitle = title ? `${title} · ${name}` : name;
+// Values reach the page only through Astro's escaping of attribute expressions.
+const desc = (description ?? pick(manifest.contact?.address, lang) ?? fullTitle);
+// A chosen picture (blog cover) wins; otherwise Seo uses the generated card for the page.
+const ogImage = image?.startsWith('/') ? new URL(image, `https://${host}`).href : undefined;
 ---
 <!doctype html>
 <html lang={lang} style={toStyle(vars)}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>{title ? `${title} · ${name}` : name}</title>
-    {noindex && <meta name="robots" content="noindex" />}
-    {!noindex && <>
-      <link rel="alternate" hreflang="bn" href={alt('bn')} />
-      <link rel="alternate" hreflang="en" href={alt('en')} />
-      <link rel="alternate" hreflang="x-default" href={alt('bn')} />
-      <link rel="canonical" href={alt(lang)} />
-    </>}
+    <title>{fullTitle}</title>
+    <Seo manifest={manifest} lang={lang} rest={rest} fullTitle={fullTitle} description={desc} image={ogImage} name={name} />
     <style set:html={fontFaces}></style>
+    <Analytics manifest={manifest} />
   </head>
   <body>
     <a class="skip" href="#main">{t(lang, 'skip')}</a>

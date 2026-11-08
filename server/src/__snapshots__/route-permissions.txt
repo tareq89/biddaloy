@@ -55,6 +55,12 @@ DELETE /subjects/:id | SubjectController | perm: CLASS_MANAGE
 DELETE /syllabus-topics/:id | SyllabusController | perm: SYLLABUS_MANAGE
 DELETE /users/:id | UserController | perm: MEMBER_REMOVE
 DELETE /users/:id/invitation | UserController | perm: USER_CREATE
+DELETE /website/custom-domain | CustomDomainController | perm: WEBSITE_MANAGE
+DELETE /website/enquiries/:id | SiteEnquiriesController | perm: WEBSITE_MANAGE
+DELETE /website/gallery/albums/:id | GalleryController | perm: WEBSITE_MANAGE
+DELETE /website/gallery/photos/:id | GalleryController | perm: WEBSITE_MANAGE
+DELETE /website/media/:id | SiteMediaController | perm: WEBSITE_MANAGE
+DELETE /website/posts/:id | SitePostsController | perm: WEBSITE_MANAGE
 GET /academic-years | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
 GET /academic-years/:id | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
 GET /academic-years/:id/stats | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
@@ -327,6 +333,7 @@ GET /public/admission/:slug | PublicAdmissionController | allowlist: none
 GET /public/invoices/:token | PublicInvoiceController | allowlist: none
 GET /public/notices/:token | PublicNoticeController | allowlist: none
 GET /public/notices/:token/files/:fileId | PublicNoticeController | allowlist: none
+GET /public/site/by-host/:host/blog/:slug | PublicSiteController | allowlist: none
 GET /public/site/by-host/:host/island/:kind | PublicSiteController | allowlist: none
 GET /public/site/by-host/:host/manifest | PublicSiteController | allowlist: none
 GET /public/site/by-host/:host/media/:key | PublicSiteController | allowlist: none
@@ -436,6 +443,17 @@ GET /users/invitations/batch/:batchId | UserController | perm: USER_CREATE
 GET /users/me | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 GET /users/me/preferences/notifications | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 GET /website | SiteConfigController | perm: WEBSITE_MANAGE
+GET /website/analytics | CustomDomainController | perm: WEBSITE_MANAGE
+GET /website/custom-domain | CustomDomainController | perm: WEBSITE_MANAGE
+GET /website/enquiries | SiteEnquiriesController | perm: WEBSITE_MANAGE
+GET /website/gallery/albums | GalleryController | perm: WEBSITE_MANAGE
+GET /website/media | SiteMediaController | perm: WEBSITE_MANAGE
+GET /website/posts | SitePostsController | perm: WEBSITE_MANAGE
+GET /website/posts/:id | SitePostsController | perm: WEBSITE_MANAGE
+GET /website/preview-token | SubdomainController | perm: WEBSITE_MANAGE
+GET /website/subdomain/check | SubdomainController | perm: WEBSITE_MANAGE
+GET /website/subdomain/suggest | SubdomainController | perm: WEBSITE_MANAGE
+GET /website/teachers | StaffWebProfilesController | perm: WEBSITE_MANAGE
 GET /website/themes | SiteConfigController | perm: WEBSITE_MANAGE
 PATCH /academic-years/:id | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 PATCH /acr/assessments/:id | AcrAssessmentsController | perm: ACR_WRITE
@@ -458,6 +476,7 @@ PATCH /exam-templates/:id | ExamTemplatesController | perm: EXAM_MANAGE
 PATCH /exams/:examId/components/:id | ExamComponentsController | perm: EXAM_MANAGE
 PATCH /exams/:examId/marks | MarksController | perm: MARK_ENTER
 PATCH /exams/:examId/schedule/:id | ExamSchedulesController | perm: EXAM_MANAGE
+PATCH /exams/:examId/website-names | WebsiteResultsController | perm: RESULT_PUBLISH
 PATCH /exams/:id | ExamsController | perm: EXAM_MANAGE
 PATCH /fee-structures/:id | FeeController | perm: FEE_STRUCTURE_UPDATE
 PATCH /fees/fine-rules/:id | FineRulesController | perm: FEE_STRUCTURE_UPDATE
@@ -507,6 +526,8 @@ PATCH /users/me | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,
 PATCH /users/me/preferences/dashboard | UserController | perm: DASHBOARD_VIEW
 PATCH /users/me/preferences/digest | UserController | perm: DASHBOARD_VIEW
 PATCH /users/me/preferences/notifications | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
+PATCH /website/gallery/albums/:id | GalleryController | perm: WEBSITE_MANAGE
+PATCH /website/gallery/photos/:id | GalleryController | perm: WEBSITE_MANAGE
 POST /academic-years | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 POST /academic-years/:id/set-current | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 POST /account/first-password | FirstPasswordController | allowlist: AuthGuard('jwt')
@@ -610,6 +631,8 @@ POST /exams/:examId/results/publish | ResultsController | perm: RESULT_PUBLISH
 POST /exams/:examId/results/reopen | ResultsController | perm: RESULT_PUBLISH | approval: results.reopen
 POST /exams/:examId/results/sms | ResultsController | perm: RESULT_PUBLISH
 POST /exams/:examId/schedule | ExamSchedulesController | perm: EXAM_MANAGE
+POST /exams/:examId/website-publish | WebsiteResultsController | perm: RESULT_PUBLISH
+POST /exams/:examId/website-unpublish | WebsiteResultsController | perm: RESULT_PUBLISH
 POST /fee-structures | FeeController | perm: FEE_STRUCTURE_CREATE
 POST /fees/bills/:id/waive | FinesController | perm: FEE_APPROVE
 POST /fees/fine-rules | FineRulesController | perm: FEE_STRUCTURE_CREATE
@@ -693,6 +716,9 @@ POST /promotions/:id/refresh | PromotionsController | perm: PROMOTION_MANAGE
 POST /public/admission/:slug/applicants | PublicAdmissionController | allowlist: none
 POST /public/admission/:slug/status | PublicAdmissionController | allowlist: none
 POST /public/notices/:token/opened | PublicNoticeController | allowlist: none
+POST /public/site/by-host/:host/island/enquiry | PublicEnquiryController | allowlist: none
+POST /public/site/by-host/:host/island/results | PublicSiteController | allowlist: none
+POST /public/site/by-host/:host/island/results/detail | PublicSiteController | allowlist: none
 POST /reports/definitions | ReportDefinitionsController | perm: REPORTS_DESIGN
 POST /reports/definitions/:id/archive | ReportDefinitionsController | perm: REPORTS_DESIGN
 POST /reports/definitions/:id/clone | ReportDefinitionsController | perm: REPORTS_DESIGN
@@ -765,7 +791,15 @@ POST /users/join-requests | UserController | perm: USER_CREATE
 POST /users/me/contact-change | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 POST /users/me/contact-change/confirm-phone | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
 POST /users/me/leave | UserController | identity | roles: ACCOUNTANT,ADMIN,COMMITTEE,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,PARENT,STUDENT,SUPER_ADMIN,TEACHER
+POST /website/custom-domain/recheck | CustomDomainController | perm: WEBSITE_MANAGE
 POST /website/enabled | SiteConfigController | perm: WEBSITE_MANAGE
+POST /website/enquiries/:id/seen | SiteEnquiriesController | perm: WEBSITE_MANAGE
+POST /website/gallery/albums | GalleryController | perm: WEBSITE_MANAGE
+POST /website/gallery/albums/:id/photos | GalleryController | perm: WEBSITE_MANAGE
+POST /website/media | SiteMediaController | perm: WEBSITE_MANAGE
+POST /website/posts | SitePostsController | perm: WEBSITE_MANAGE
+POST /website/posts/:id/publish | SitePostsController | perm: WEBSITE_MANAGE
+POST /website/posts/:id/unpublish | SitePostsController | perm: WEBSITE_MANAGE
 POST /website/publish | SiteConfigController | perm: WEBSITE_MANAGE
 PUT /acr/criteria | AcrCriteriaController | perm: ACR_WRITE
 PUT /attendance/sections/:sectionId/register | AttendanceController | perm: ATTENDANCE_MARK
@@ -790,4 +824,10 @@ PUT /staff/:userId/training | TrainingController | perm: STAFF_HR_MANAGE
 PUT /students/:studentId/subject-choices | SubjectChoicesController | perm: STUDENT_UPDATE
 PUT /study-plans/:id/exam-markers | StudyPlansController | perm: SYLLABUS_MANAGE
 PUT /study-plans/:id/lessons | StudyPlansController | perm: SYLLABUS_MANAGE
+PUT /website/custom-domain | CustomDomainController | perm: WEBSITE_MANAGE
 PUT /website/draft | SiteConfigController | perm: WEBSITE_MANAGE
+PUT /website/gallery/albums/:id/photos/order | GalleryController | perm: WEBSITE_MANAGE
+PUT /website/gallery/albums/order | GalleryController | perm: WEBSITE_MANAGE
+PUT /website/posts/:id | SitePostsController | perm: WEBSITE_MANAGE
+PUT /website/subdomain | SubdomainController | perm: WEBSITE_MANAGE
+PUT /website/teachers/:userId | StaffWebProfilesController | perm: WEBSITE_MANAGE

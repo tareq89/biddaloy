@@ -92,6 +92,45 @@ describe('changeTheme', () => {
     }
   });
 
+  it('keeps the gallery and video settings across a theme switch', () => {
+    const current = defaultConfigFor(SiteTheme.BASIC);
+    const home = current.pages.find((p) => p.page === 'home')!;
+    const gallery = home.sections.find((s) => s.key === 'gallery')!;
+    const video = home.sections.find((s) => s.key === 'video')!;
+    gallery.enabled = true;
+    video.enabled = true;
+    gallery.data.albumId = '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b';
+    gallery.data.showPageLink = true;
+    video.data.videoId = 'dQw4w9WgXcQ';
+    video.data.startSeconds = 42;
+    video.data.headingPosition = 'below';
+
+    const next = changeTheme(current, SiteTheme.PRIMARY);
+    const g = next.pages.find((p) => p.page === 'home')!.sections.find((s) => s.key === 'gallery')!;
+    const v = next.pages.find((p) => p.page === 'home')!.sections.find((s) => s.key === 'video')!;
+    expect(g.enabled).toBe(true);
+    expect(g.data).toMatchObject({
+      albumId: '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b',
+      showPageLink: true,
+    });
+    expect(v.data).toMatchObject({
+      videoId: 'dQw4w9WgXcQ',
+      startSeconds: 42,
+      headingPosition: 'below',
+    });
+  });
+
+  it('drops a gallery or video setting that is no longer valid, back to the default', () => {
+    const current = defaultConfigFor(SiteTheme.BASIC);
+    const home = current.pages.find((p) => p.page === 'home')!;
+    home.sections.find((s) => s.key === 'gallery')!.data.albumId = 'not-a-uuid';
+    home.sections.find((s) => s.key === 'video')!.data.videoId = '<script>';
+    const next = changeTheme(current, SiteTheme.PRIMARY);
+    const nh = next.pages.find((p) => p.page === 'home')!;
+    expect(nh.sections.find((s) => s.key === 'gallery')!.data.albumId).toBeNull();
+    expect(nh.sections.find((s) => s.key === 'video')!.data.videoId).toBeNull();
+  });
+
   it('keeps the palette only if the new theme has it', () => {
     const current = defaultConfigFor(SiteTheme.BASIC);
     current.palette = THEMES[SiteTheme.BASIC].palettes[1].id;
@@ -191,6 +230,20 @@ describe('SiteConfigService', () => {
     const texts = bnTexts(dto.draft as unknown as SiteConfig);
     expect(texts.length).toBeGreaterThan(0);
     expect(texts.every((t) => t.bn.length > 0)).toBe(true);
+  });
+
+  it('has_unpublished_changes: true before any publish, false right after, true after a new save', async () => {
+    const { svc } = setup(null);
+    const first = await svc.get('t1');
+    expect(first.has_unpublished_changes).toBe(true);
+
+    const published = await svc.publish('t1', 0, 0);
+    expect(published.has_unpublished_changes).toBe(false);
+
+    const config = structuredClone(first.draft) as Record<string, unknown>;
+    config.palette = THEMES[SiteTheme.BASIC].palettes[1].id;
+    const saved = await svc.saveDraft('t1', { config, draft_revision: 0 });
+    expect(saved.has_unpublished_changes).toBe(true);
   });
 
   it('saveDraft rejects an invalid palette with a code that does not echo it', async () => {

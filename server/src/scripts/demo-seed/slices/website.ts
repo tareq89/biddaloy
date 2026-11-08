@@ -14,7 +14,10 @@ import type { DemoSeedContext, DemoSlice } from '../context';
 import { SchoolSite } from '../../../modules/website/entities/school-site.entity';
 import { SiteMedia } from '../../../modules/website/entities/site-media.entity';
 import { StaffWebProfile } from '../../../modules/website/entities/staff-web-profile.entity';
-import { SiteConfigService } from '../../../modules/website/site-config.service';
+import { SitePost } from '../../../modules/website/entities/site-post.entity';
+import { SiteEnquiry } from '../../../modules/website/entities/site-enquiry.entity';
+import { checkSlate } from '../../../modules/website/slate-render';
+import { SiteConfigService, slugFor } from '../../../modules/website/site-config.service';
 import { StorageService } from '../../../modules/storage/storage.service';
 import { tenantObjectKeyNamed } from '../../../modules/storage/storage-key';
 import { SUBJECTS } from '../../seed-data/demo-bn/subjects-staffing';
@@ -50,12 +53,12 @@ const BIOS = [
  * pictures' storage rows and the staging test host are set by SQL: their services land later
  * (#3622 `SiteMediaService`, #3613 custom domain).
  *
- * SitePost and SiteEnquiry are not seeded here: the `website-content` stub in `slices.ts`
- * owes them to #3638 (40.3.11).
+ * Also three blog posts (two published, one draft), three enquiries (one unseen) and the
+ * public notice pinned on the site [#3638].
  */
 export const slice: DemoSlice = {
   name: 'website',
-  covers: [SchoolSite, SiteMedia, StaffWebProfile],
+  covers: [SchoolSite, SiteMedia, StaffWebProfile, SitePost, SiteEnquiry],
   run: async (ctx: DemoSeedContext) => {
     const org = orgIds(ctx);
     const tenant = org.tenants.find((t) => t.kind === 'HIGH')!;
@@ -184,6 +187,13 @@ export const slice: DemoSlice = {
     await site.publish(T, saved.version, saved.draft_revision);
     await site.setEnabled(T, true);
 
+    // Exempt columns of school_sites (docs/architecture/22-demo-seed.md, "Known gaps"). They are left
+    // empty on purpose, so a demo school never points at a real third party:
+    //  - custom_domain_external_id, custom_domain_records: set by Cloudflare for SaaS when a school
+    //    adds a domain. The demo has no real domain, and the test host above is written as ACTIVE
+    //    without a Cloudflare hostname.
+    //  - umami_website_id: set by Umami (analytics) when the site is first published. Analytics are
+    //    off in the demo (D2), and a fake id would send real page views to a real dashboard.
     // Staging only: the always-on test host answers for this school (runbook Part 8c).
     const testHost = process.env.SITE_TEST_HOST?.trim().toLowerCase();
     if (testHost) {
@@ -227,6 +237,129 @@ export const slice: DemoSlice = {
     });
     await ctx.ds.getRepository(StaffWebProfile).insert(profiles);
 
-    return 1 + 2 + profiles.length;
+    // One inline blog picture (post-image slot), counted in the site's picture bytes.
+    // Blog pictures have no fixed size (the slot is not in SITE_MEDIA_SLOT_PX).
+    const imgPx = { w: 1200, h: 800 };
+    const imgId = ctx.rng.string.uuid();
+    const img = await store(
+      SiteMediaSlot.POST_IMAGE,
+      imgId,
+      imgPx,
+      palette.vars.accent,
+      palette.vars.primary,
+    );
+    await ctx.ds.getRepository(SiteMedia).insert({
+      id: imgId,
+      tenant_id: T,
+      slot: SiteMediaSlot.POST_IMAGE,
+      storage_key: img.key,
+      hash: img.hash,
+      width: imgPx.w,
+      height: imgPx.h,
+      bytes: img.body.length,
+    });
+    await ctx.ds.query(
+      `UPDATE school_sites SET media_bytes_used = media_bytes_used + $2 WHERE tenant_id = $1`,
+      [T, img.body.length],
+    );
+
+    // Three blog posts: two published (days before the anchor, no literal dates), one draft.
+    const t = (text: string, bold?: boolean) => ({ text, ...(bold ? { bold: true } : {}) });
+    const para = (text: string) => ({ type: 'paragraph', children: [t(text)] });
+    const rich = (title: string, intro: string) => [
+      { type: 'heading-two', children: [t(title)] },
+      para(intro),
+      {
+        type: 'bulleted-list',
+        children: [
+          { type: 'list-item', children: [t('Class 6 to 10')] },
+          { type: 'list-item', children: [t('Morning shift')] },
+        ],
+      },
+      {
+        type: 'table',
+        children: [
+          {
+            type: 'table-row',
+            children: [
+              { type: 'table-cell', children: [t('Day', true)] },
+              { type: 'table-cell', children: [t('Time', true)] },
+            ],
+          },
+          {
+            type: 'table-row',
+            children: [
+              { type: 'table-cell', children: [t('Sunday')] },
+              { type: 'table-cell', children: [t('9:00')] },
+            ],
+          },
+        ],
+      },
+      { type: 'block-quote', children: [t('Education is the most powerful weapon.')] },
+      { type: 'image', mediaId: imgId, alt: 'School picture', children: [t('')] },
+    ];
+    const posts = [
+      {
+        en: 'Annual sports day',
+        bn: 'বার্ষিক ক্রীড়া প্রতিযোগিতা',
+        ago: 10,
+        body: rich('Annual sports day', 'Our sports day was a joyful event.'),
+      },
+      {
+        en: 'Science fair winners',
+        bn: 'বিজ্ঞান মেলার বিজয়ীরা',
+        ago: 3,
+        body: rich('Science fair winners', 'Congratulations to all participants.'),
+      },
+      {
+        en: 'Admission tips for parents',
+        bn: 'অভিভাবকদের জন্য ভর্তির পরামর্শ',
+        ago: null,
+        body: [para('Draft: what to bring on the first day.')],
+      },
+    ];
+    for (const post of posts) {
+      if (!checkSlate(post.body).ok) throw new Error('demo website post body fails checkSlate');
+      await ctx.ds.getRepository(SitePost).insert({
+        tenant_id: T,
+        kind: 'POST',
+        slug: slugFor(post.en, () => ctx.rng.string.uuid().slice(0, 4)),
+        title: { bn: post.bn, en: post.en },
+        cover_media_id: post.ago === null ? null : heroIds[0],
+        body: post.body as never,
+        published_at:
+          post.ago === null ? null : new Date(`${addDays(ctx.anchor, -post.ago)}T06:00:00Z`),
+      });
+    }
+
+    // Three contact-form messages; demo phone numbers only (01700-NNNNNN). Two read, one new.
+    const enquiries = [
+      { name: 'Rahim Uddin', message: 'When does admission open for class 6?', seen: true },
+      { name: 'Nasrin Akter', message: 'Is there a transport facility from Mirpur?', seen: true },
+      {
+        name: 'Karim Hossain',
+        message: 'Please share the fee structure for class 9.',
+        seen: false,
+      },
+    ];
+    for (const [i, e] of enquiries.entries()) {
+      const at = new Date(`${addDays(ctx.anchor, -(i + 1))}T08:00:00Z`);
+      await ctx.ds.getRepository(SiteEnquiry).insert({
+        tenant_id: T,
+        name: e.name,
+        phone: `01700${String(100_000 + i * 111_111)}`,
+        message: e.message,
+        seen_at: e.seen ? at : null,
+        created_at: at,
+      });
+    }
+
+    // The public admission notice (made by the notices slice) is pinned on the website list.
+    await ctx.ds.query(
+      `UPDATE notices SET pinned_on_website = true WHERE tenant_id = $1 AND is_public = true`,
+      [T],
+    );
+
+    return 1 + 2 + 1 + profiles.length + posts.length + enquiries.length;
   },
 };
