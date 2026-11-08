@@ -110,7 +110,7 @@ export function setLink(editor: Editor, raw: string): boolean {
   const { selection } = editor;
   const current = selection && Range.isCollapsed(selection) ? findAbove(editor, 'link') : undefined;
   if (current) {
-    Transforms.setNodes(editor, { href } as never, { at: current[1] });
+    Transforms.setNodes(editor, { href }, { at: current[1] });
     return true;
   }
   unwrapLink(editor);
