@@ -128,7 +128,7 @@ describe.each(Object.values(SiteTheme))('%s: gallery and video sections', (id) =
       const above = await render(V, { data });
       expect(above.indexOf('আমাদের স্কুল')).toBeLessThan(above.indexOf('data-video-embed'));
       const below = await render(V, { data: { ...data, headingPosition: 'below' } });
-      expect(below.indexOf('আমাদের স্কুল')).toBeGreaterThan(below.indexOf('data-video-embed'));
+      expect(below.search(/<h2[^>]*>\s*আমাদের স্কুল/)).toBeGreaterThan(below.indexOf('data-video-embed'));
     });
     it('play button is labelled in the page language', async () => {
       expect(await render(V, { data })).toContain('ভিডিও চালান');

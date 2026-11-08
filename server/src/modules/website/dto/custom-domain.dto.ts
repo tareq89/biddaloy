@@ -26,7 +26,8 @@ export class CustomDomainStatusDto {
   @ApiPropertyOptional({
     nullable: true,
     type: String,
-    description: 'Hint key resolved by the client: `apex_needs_flattening`.',
+    enum: ['apex_needs_flattening', 'failed_released'],
+    description: 'Hint key resolved by the client: `apex_needs_flattening` or `failed_released`.',
   })
   hintKey: string | null;
 }

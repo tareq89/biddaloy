@@ -832,7 +832,7 @@ export class ResultsService {
       await demoteFinalsCountingExam();
       // [40.5.01] A reopened exam leaves the school website too; the admin puts it back on
       // after the next publish. The site version moves so the cached exam list drops it.
-      if (exam.website_published_at) {
+      if (locked.website_published_at) {
         await manager.query(`UPDATE school_sites SET version = version + 1 WHERE tenant_id = $1`, [
           tenantId,
         ]);

@@ -16,7 +16,6 @@ const FEED_KEYS = [
   'blog',
   'fees',
   'admissions',
-  'gallery',
 ];
 /** At most one error log per this window, so a Redis outage does not flood the log. */
 const LOG_EVERY_MS = 60_000;
@@ -65,21 +64,14 @@ export class SiteCacheService {
   }
 
   /**
-   * Counts one hit under `key` in a fixed window (INCR + EXPIRE on the first hit, in one Lua call
-   * so a crash between the two can never leave a counter that never expires). Returns the new count, or `null` when Redis is down: callers that guard
+   * Counts one hit under `key` in a fixed window. The key is created with its TTL in one atomic
+   * `SET NX EX`, so a crash between the two calls can never leave a counter that never expires. Returns the new count, or `null` when Redis is down: callers that guard
    * a paid action treat `null` as "over the cap" (Rule 15, fail closed).
    */
   async countHit(key: string, windowSeconds: number): Promise<number | null> {
     try {
-      const n = await this.redis.eval(
-        `local n = redis.call('INCR', KEYS[1])
-         if n == 1 or redis.call('TTL', KEYS[1]) < 0 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
-         return n`,
-        1,
-        key,
-        windowSeconds,
-      );
-      return Number(n);
+      await this.redis.set(key, '0', 'EX', windowSeconds, 'NX');
+      return await this.redis.incr(key);
     } catch (error) {
       this.logOnce(`counter failed: ${String(error)}`);
       return null;

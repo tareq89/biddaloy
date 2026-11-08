@@ -174,7 +174,9 @@ export function GallerySectionCard({
           errorText={(error) => t(`gallery.errors.${galleryErrorKey(error)}`)}
           // The server answers a full storage with the same sentence as a bad file.
           isStorageFull={(error, file) =>
-            galleryErrorKey(error) === 'rejected' && usedBytes + file.size > quotaBytes
+            galleryErrorKey(error) === 'rejected' &&
+            quotaBytes > 0 && // an unknown quota (0) is never "storage full"
+            usedBytes + file.size > quotaBytes
           }
           labels={{
             choose: t('gallery.addPhotos'),

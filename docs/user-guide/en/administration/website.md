@@ -135,7 +135,7 @@ Open the **Visitors** tab. You see **Visitors** and **Pages seen** for the last 
 Parents can look up a result on your website. You need the **Result publish** permission, and the exam must be **Published** first.
 
 1. Open the exam, then press **Show results on the website** ([Exams](../exams-results/exams.md#task-website)).
-2. Leave **Show student names** on, or turn it off. Off means visitors see only roll number and marks.
+2. Leave **Show student names** on, or turn it off. Off hides only the name column; roll number, GPA, grade and pass/fail still show.
 3. Press **Show on website**. → **Results are now on the website.**
 4. On the **Pages** tab, in the **Results page** card, switch on **Show the Results page on my website**. Anyone who knows a class, section and roll can then look up a result. Press **Save draft**, then **Publish** on the **Overview** tab. It is off until you do this.
 
@@ -164,7 +164,7 @@ Until it works, your website keeps opening on the web address above.
 
 ## Read the visitor numbers <a href="#task-visitors-detail" id="task-visitors-detail"></a>
 
-On the **Visitors** tab you see **Visitors**, **Pages seen** and **Most seen pages** for the last 30 days. These are counts only. They do not show who the visitors are. If you see **No visitors yet.**, nobody opened the website in the last 30 days. If you see **Visitor numbers are not available**, the counting is not set up or cannot be reached now. Your website is not affected.
+On the **Visitors** tab you see **Visitors** and **Pages seen** for the last 30 days. These are counts only. They do not show who the visitors are. If you see **No visitors yet.**, nobody opened the website in the last 30 days. If you see **Visitor numbers are not available**, the counting is not set up or cannot be reached now. Your website is not affected.
 
 ## Photo gallery <a href="#task-gallery" id="task-gallery"></a>
 
@@ -193,7 +193,7 @@ Do not put up photos of children's faces without a guardian's permission.
 1. On the **Pages** tab, open the **Home** page and edit the **Photo gallery** section.
 2. In **Which gallery section to show**, pick one, or keep **The first section that has photos**. The home page shows up to 12 photos.
 3. Switch on **Show a separate page with all photos** if you want visitors to get a link to a page with every photo.
-4. Press **Save**, **Save draft**, then **Publish** on the **Overview** tab. Photos and order go live only after **Publish**.
+4. Press **Save**, **Save draft**, then **Publish** on the **Overview** tab. Photos and their order are live as soon as they are saved, once the Gallery page is on; they need no separate **Publish**. Changes to the page settings still need **Publish**.
 
 ## Add a YouTube video <a href="#task-video" id="task-video"></a>
 

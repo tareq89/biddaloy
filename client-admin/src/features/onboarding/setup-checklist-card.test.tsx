@@ -80,6 +80,12 @@ describe('SetupChecklistCard', () => {
     expect(screen.getByText('1 of 2 done')).toBeTruthy();
   });
 
+  it('marks unfinished setup as "watch" with screen-reader text (#3599)', async () => {
+    mockStatus(['profile']);
+    renderCard();
+    expect(await screen.findByText('Keep an eye on this')).toBeTruthy();
+  });
+
   it('is hidden when everything is done, dismissed, or for a TEACHER', async () => {
     mockStatus([...ids]);
     const a = renderCard();

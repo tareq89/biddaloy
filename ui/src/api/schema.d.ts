@@ -14925,6 +14925,13 @@ export interface components {
                 [key: string]: number;
             };
             rows: components["schemas"]["RegisterMatrixRowDto"][];
+            /** @description Whether you may save this month grid: your mark permission plus the school daily-attendance setting. A first-period teacher may not (D31). */
+            can_write: boolean;
+            /**
+             * @description Why you cannot save; null when you can (or never could).
+             * @enum {string|null}
+             */
+            write_reason: "CLASS_TEACHER_ONLY" | "FIRST_PERIOD_ONLY" | "DEVICE_SCHOOL" | null;
         };
         SubjectSummarySubjectDto: {
             subject_id: string;
@@ -18707,6 +18714,7 @@ export interface components {
             blood_group: string | null;
             name_bn: string | null;
             religion: string | null;
+            card_no: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -19786,8 +19794,8 @@ export interface components {
             status: "PENDING_DNS" | "PENDING_SSL" | "ACTIVE" | "FAILED" | null;
             records: components["schemas"]["DnsRecordDto"][];
             lastCheckedAt: string | null;
-            /** @description Hint key resolved by the client: `apex_needs_flattening`. */
-            hintKey?: string | null;
+            /** @description Hint key resolved by the client: `apex_needs_flattening` or `failed_released`. */
+            hintKey?: "apex_needs_flattening" | "failed_released" | null;
         };
         SetCustomDomainDto: {
             /** @description `www.example.edu` or an apex. 409 site.custom_domain_unavailable for any refusal. */
@@ -46642,7 +46650,10 @@ export interface operations {
     };
     SubdomainController_check_v1: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The address to check, without the root domain. */
+                value: string;
+            };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
                 "X-Tenant-ID": string;

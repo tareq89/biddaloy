@@ -257,11 +257,11 @@ You need the **Result publish** permission, and the exam must be **Published**.
 
 1. Open the exam, then press **Show results on the website**.
 2. Leave **Show student names** on, or turn it off to show only roll number and marks.
-3. Press **Show on website**. → **Results are now on the website.** Press **See on the website** to look at them.
+3. Press **Show on website**. → **Results are now on the website.** Press **See on the website** to look at them. The link appears only when a preview is available, and only an administrator can open it; if there is no link, the results are still on the website.
 
 To take them off, press **Take results off the website**, then confirm. The results leave the website at once.
 
-If your school has no website yet, set it up first ([School website](../administration/website.md)).
+If your school has no website yet, set it up first ([School website](../administration/website.md)). Results are not visible to the public while the school website is unpublished or turned off: publish the website to show them.
 
 ### Delete an exam <a href="#task-delete" id="task-delete"></a>
 

@@ -78,6 +78,14 @@ describe('Umami pair (40.4.08)', () => {
     ).toThrow(/https/);
   });
 
+  it('production refuses a URL with a query string or fragment', () => {
+    for (const bad of ['https://umami.example.org/?x=1', 'https://umami.example.org/#f']) {
+      expect(() =>
+        validate({ ...prodConfig, UMAMI_API_URL: bad, UMAMI_API_TOKEN: 't' }),
+      ).toThrow(/UMAMI_API_URL/);
+    }
+  });
+
   it('production accepts both https URL and token, or neither', () => {
     expect(() =>
       validate({ ...prodConfig, UMAMI_API_URL: url, UMAMI_API_TOKEN: 't' }),
@@ -92,6 +100,12 @@ describe('Umami pair (40.4.08)', () => {
     expect(() =>
       validate({ ...prodConfig, UMAMI_SCRIPT_URL: 'https://u.example.org/script.js' }),
     ).not.toThrow();
+  });
+
+  it('production refuses a script URL the tracker guard would drop', () => {
+    expect(() =>
+      validate({ ...prodConfig, UMAMI_SCRIPT_URL: 'https://u.example.org/s.js"x' }),
+    ).toThrow(/UMAMI_SCRIPT_URL/);
   });
 });
 
