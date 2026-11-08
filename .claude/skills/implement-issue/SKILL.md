@@ -82,11 +82,13 @@ on whatever the user set before invoking this skill.
 |---|---|---|
 | Research + plan (steps 2–3) — **plan-grade, standard tier** | Sonnet | folded into `issue-implementer` (`mode: self-preflight`) — no separate agent |
 | Research + plan (steps 2–3) — **plan-grade, money tier** | Sonnet | `issue-preflight` subagent (`.claude/agents/issue-preflight.md`, `model: sonnet`) |
-| Research + plan (steps 2–3) — everything else | Opus | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: opus`) |
+| Research + plan (steps 2–3) — everything else, **money tier** | Opus | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: opus`) |
+| Research + plan (steps 2–3) — everything else, **standard tier** | Sonnet | `issue-planner` subagent dispatched with `model: "sonnet"` |
 | Implement, tests, stories (steps 4–6) | Sonnet | `issue-implementer` subagent (`.claude/agents/issue-implementer.md`, `model: sonnet`) |
 | Code review (step 7) — **money tier** | Opus | `issue-reviewer` subagent (`.claude/agents/issue-reviewer.md`, `model: opus`) |
-| Code review (step 7) — **standard tier** | the session's model | `code-review` skill in this session |
-| Commit, push, PR (steps 8–9) | the session's model | in this session |
+| Code review (step 7) — **standard tier** | Sonnet | `Agent(model: "sonnet")` following `.claude/agents/issue-reviewer.md` |
+| Read-only labour (fetch bodies, tier match, CI-log triage, file/excerpt lookups) | Haiku | `labour-scout` subagent (`.claude/agents/labour-scout.md`, `model: haiku`) — evidence only, never decisions, never writes |
+| Commit, push, PR bodies and comments (steps 8–9) | Sonnet (start the session on Sonnet) | in this session |
 
 **Plan-grade** = the issue body already has `## Files`, `## Tests`,
 `## Acceptance` and `## Steps` or `## Contract` (Epic 14/15/16 sub-issues).

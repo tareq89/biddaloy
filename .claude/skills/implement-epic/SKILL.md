@@ -237,12 +237,14 @@ Delegation to a pinned subagent is the only switch available.
 | Grouping, integration, PRs, merges | the session's model | here |
 | Per-ticket plan — **plan-grade, standard tier** | Sonnet | folded into `issue-implementer` (`mode: self-preflight`); no separate agent |
 | Per-ticket plan — **plan-grade, money tier** | Sonnet | `issue-preflight` subagent (verifies the body, publishes a `## Plan` pointer) |
-| Per-ticket plan — everything else | Opus | `issue-planner` subagent |
+| Per-ticket plan — everything else, **money tier** | Opus | `issue-planner` subagent |
+| Per-ticket plan — everything else, **standard tier** | Sonnet | `issue-planner` subagent dispatched with `model: "sonnet"` |
 | Per-ticket implementation | Sonnet | `issue-implementer` subagent |
 | Per-ticket review — **money tier** | Opus | `issue-reviewer` subagent, from the group agent |
 | Per-ticket review — **standard tier** | Sonnet | `Agent(model: "sonnet")` following `issue-reviewer.md`, from the group agent |
 | PR review, CodeRabbit-style | Opus 5.5 | `Agent(model: "opus")` running `code-review` on the whole PR (step 8) |
-| Review / CI fix rounds | Opus 5.5 | `Agent(model: "opus")`, every round (step 8) |
+| CI / review fix rounds | Sonnet in round 1; Opus from round 2 | `Agent(model: "sonnet")` first, `Agent(model: "opus")` once a round-1 fix left findings or CI still red (step 8) |
+| Read-only labour (fetch bodies, tier match, CI-log triage, file/excerpt lookups) | Haiku | `labour-scout` subagent — evidence only, never decisions, never writes |
 | Group orchestration | Sonnet | `epic-group-worker`, one per lane |
 
 **Plan-grade** = the sub-issue body carries `## Files`, `## Tests`,
@@ -965,7 +967,7 @@ Every PR gets the same loop, right after it opens:
    gh pr review <n> --comment --body-file <review.md>
    ```
 
-3. **Fix (Opus 5.5).** Dispatch `Agent(model: "opus")` with the review,
+3. **Fix (Sonnet in round 1, Opus 5.5 from round 2).** Dispatch `Agent(model: "sonnet")` in round 1, `Agent(model: "opus")` from round 2 or when the fix is the risky kind named below. Give it the review,
    any CodeRabbit comments, and every failing CI check
    (`gh pr checks <n>`). It addresses all of them in one round, then replies
    on the review saying what it fixed and what it left, with the reason.
@@ -1002,7 +1004,7 @@ it harder to attribute a regression to the right change, and gives it a
 shallower review pass on the bundled diff. Batch the safe, obviously-correct
 fixes; keep the one risky fix legible on its own.
 
-Every fix round runs on Opus 5.5, whatever the tier. Common CI failures here:
+Fix rounds start on Sonnet whatever the tier and escalate to Opus 5.5 from round 2.
 Node 22 vs 24, the `bn` e2e locale, byte-exact `api-types`, the 80 % branch
 gate.
 
