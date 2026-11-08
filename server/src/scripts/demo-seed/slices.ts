@@ -16,16 +16,7 @@ import { slice as reports } from './slices/reports';
 import { slice as attention } from './slices/attention';
 import { slice as notices } from './slices/notices';
 import { slice as website } from './slices/website';
-import { SiteEnquiry } from '../../modules/website/entities/site-enquiry.entity';
-import { SitePost } from '../../modules/website/entities/site-post.entity';
-
-/** Posts and enquiries are seeded with their admin API, which lands in #3638 (40.3.11). */
-const websiteContent: DemoSlice = {
-  name: 'website-content',
-  covers: [SitePost, SiteEnquiry],
-  owedBy: '#3638',
-  run: async () => {},
-};
+import { slice as gallery } from './slices/gallery';
 
 /** Run order matters: later slices read ids earlier ones publish. `attention` is always last. */
 export const SLICES: DemoSlice[] = [
@@ -45,7 +36,7 @@ export const SLICES: DemoSlice[] = [
   reports,
   notices,
   website,
-  websiteContent,
+  gallery,
   attention,
 ];
 

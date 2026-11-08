@@ -88,6 +88,71 @@ school.
 | `server/src/modules/workbook/tabs/website/`            | Backup and restore tabs (four tables)                                |
 | `server/src/scripts/demo-seed/slices/website.ts`       | The demo school's published site                                     |
 
+## SEO
+
+Each school host answers these itself. The site builds them from the by-host read model: no new server route.
+
+```mermaid
+flowchart LR
+  V["Search engine or share card"] --> S["site (Astro SSR)"]
+  S -->|"/sitemap.xml /robots.txt /feed.xml /llms.txt /og/home.png"| M{"Host resolved,<br/>not noindex, not preview?"}
+  M -->|yes| OK["The file"]
+  M -->|no| N["The same 404 body as an unknown host"]
+```
+
+| Endpoint            | Answer                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| `/sitemap.xml`      | Every enabled page that has a route, bn and en, each with `hreflang` alternates        |
+| `/robots.txt`       | `Allow: /`, `Disallow: /*?preview=` and the sitemap; `Disallow: /` when noindex/preview |
+| `/feed.xml?lang=en` | RSS 2.0 of the blog; 404 when the blog page is switched off                            |
+| `/llms.txt`         | A plain-text summary: name, page URLs, recent posts                                    |
+| `/og/<page>.png`    | A 1200 x 630 card: palette colour, school name, page title                             |
+
+Each page also carries one canonical, bn/en/`x-default` alternates, Open Graph and Twitter tags, and JSON-LD
+(`EducationalOrganization`, `BreadcrumbList`, `NewsArticle` for a post).
+
+- **Noindex.** `school_sites.noindex`, any preview (the `X-Site-Preview` header, a `/website/preview/<theme>/` path, a
+  `?preview=<token>` draft) gives `robots: noindex`, no canonical, no JSON-LD and no sitemap, feed, llms or card.
+  Only `robots.txt` answers in a header preview (`Disallow: /`).
+- **Escaping.** JSON-LD is written with `<` escaped, so no value can close the script tag. XML drops characters XML 1.0
+  cannot carry, then escapes the rest.
+- **The card has no logo, on purpose.** Drawing it needs no fetch, so nothing a school typed can make the site call out
+  (no SSRF), and the work stays small. Cards are cached in memory (200), for one hour.
+- **Limit.** The sitemap and RSS list only the 12 newest posts, because the blog feed carries 12. A paged list feed
+  would lift it.
+- **Fonts.** The card is drawn with the system fonts of the container; the image installs Noto Bengali and Inter, so
+  Bengali and Latin text render; text in any other script falls back to whatever is available and may show empty boxes.
+
+## Budgets in CI
+
+| Job (workflow)                        | When                                         | What it checks                                                                                                                                 |
+| ------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `site-budget` (`ci.yml`)              | When `site/**` or the website module changes | Demo school on the real API, built site, Lighthouse mobile (3G): performance, accessibility, SEO >= 0.9; layout shift <= 0.05; script <= 30 KB |
+| `site-themes` (`nightly-quality.yml`) | Nightly                                      | Runs the site e2e, which rewrites `site/e2e/__screenshots__/<theme>/`; the changed files are listed and uploaded                               |
+
+Config: `lighthouserc.site.cjs`. The preview URL is noindex by design, so it has no SEO budget. There is no results
+page URL until Epic 70.
+
+Reading a failure: open the `site-reports` artifact (kept 7 days) and the assertion name in the log. Raising a
+threshold is a decision, never a CI fix. `site-themes` never fails on a picture diff (fonts differ a little between
+runners): read the diff list in the job summary, and commit the new pictures if the change was meant.
+
+## Gallery and video on the site
+
+```mermaid
+flowchart LR
+  A[page/home feed: one album, max 12 photos] --> B[GalleryCarousel: 3:2 slides, dots, swipe]
+  C[page/gallery feed: every album] --> D[GalleryGrid + viewer dialog]
+  E[video section: 11-char YouTube id] --> F[poster + play button] -->|click| G[one sandboxed youtube-nocookie iframe]
+```
+
+- Photos are `/media/<mediaId>` (1200x800, 3:2). Captions are bilingual and optional; the image `alt` is the caption, else the album title.
+- A gallery section with no photo, and a video section with no valid id, render nothing (D12). The gallery page is a 404 then, and absent from nav and sitemap.
+- The carousel logic is one module, `site/src/lib/carousel.ts`, shared by the hero and the gallery. It auto-advances every 6 s, pauses on hover and focus, and never auto-advances under `prefers-reduced-motion`.
+- The viewer is a native `<dialog>` (Esc closes, Tab stays inside, focus returns to the tile) with arrow keys and swipe. Script: `site/src/islands/gallery-viewer.ts`.
+- Video is click-to-play: before the click the page has no iframe and makes no request to YouTube. The island re-checks the id with `^[A-Za-z0-9_-]{11}$` before building the URL.
+- All seven themes register both sections and style them only through the `--gc-*` and `--ve-*` variables of `basic/theme.css`.
+
 ## Backup and restore
 
 `school_site`, `site_posts`, `site_enquiries` and `staff_web_profiles` are workbook tabs. Pictures (`site_media`) are
@@ -95,7 +160,70 @@ files in storage, not rows: a restored post or staff card loses its picture link
 a picture id keeps the id, which answers 404 until the school uploads it again. `site_media` also has database rows, and the public API needs the matching row, so restoring files alone does not revive old ids. Recovery: upload the picture again in the admin (new id), point the draft at it, publish. A restore never changes the school's
 subdomain or custom domain, and only moves `version` / `draft_revision` forward.
 
+## Custom domain and analytics (40.4.08)
+
+```mermaid
+stateDiagram-v2
+  [*] --> PENDING_DNS: PUT website/custom-domain
+  PENDING_DNS --> PENDING_SSL: Cloudflare confirms ownership TXT
+  PENDING_SSL --> ACTIVE: certificate issued
+  PENDING_DNS --> FAILED: 7 days without progress
+  PENDING_SSL --> FAILED: 7 days without progress
+  ACTIVE --> [*]: DELETE website/custom-domain
+```
+
+A BullMQ job (`site-custom-domain`) asks Cloudflare every 10 minutes about each `PENDING_*` hostname. Only `ACTIVE`
+resolves in `SiteHostService`; every other host gets the one 404. Cloudflare unreachable changes nothing (D42).
+
+Example: the school types `www.myschool.edu.bd`; the API answers 202 with two records to add at the registrar:
+
+```text
+CNAME  www.myschool.edu.bd                      -> sites.<SITE_ROOT_DOMAIN>
+TXT    _cf-custom-hostname.www.myschool.edu.bd  -> <value from Cloudflare>
+```
+
+| Env                                 | Meaning                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| `CF_SAAS_API_TOKEN` + `CF_ZONE_ID`  | Both or neither (boot refuses one). Neither = custom domains off, routes 409. |
+| `CF_SAAS_FALLBACK_ORIGIN`           | Default `sites.<SITE_ROOT_DOMAIN>`.                                           |
+| `UMAMI_API_URL` + `UMAMI_API_TOKEN` | Both set = first publish creates one Umami site. Unset = no analytics.        |
+
+**Custom hosts only once edge routes them (follow-up).** Today the edge nginx does not send an unknown `Host` to the
+site container (Rule 12 answers 444), so an ACTIVE custom domain resolves in the API but a visitor cannot reach it
+until a reviewed edge change lands.
+
+Failure and release rules:
+
+- A name is claimed in `school_sites.custom_domain` (unique) before Cloudflare is asked. A lost create answer is
+  adopted by looking the hostname up; a claim with no Cloudflare id after 15 minutes is adopted or released.
+- A host that FAILS (7 days stuck, or Cloudflare says blocked/moved/deleted) is deleted at Cloudflare and its name
+  released, so another school can claim it. The status stays `FAILED` with no host so the school sees why.
+- ACTIVE hosts are asked about once a day (inside the same 200 per tick cap).
+- Replacing a domain creates the new hostname first, swaps the row, then deletes the old one. A refused replace
+  leaves the live domain untouched.
+- `PUT` and `DELETE` carry the route throttle plus an hourly per-school cap (20) in Redis, because one Cloudflare
+  token serves every school. `PUT` fails closed if Redis is down; `DELETE` fails open.
+- A publish that races a status change can answer `site.stale`; the admin screen reloads and retries.
+
+### Not done / follow-ups
+
+- Edge routing of custom hosts (the blocker above), its own reviewed ticket.
+- Dangling-CNAME takeover: confirm in Cloudflare's docs whether it validates a CNAME that already points at the
+  fallback origin without the ownership TXT.
+- Deleting a school should delete its Cloudflare hostname (today only the DB row cascades).
+- `Idempotency-Key` does not compare the request body: the same key with another host replays the first answer.
+- The three new nullable columns are exempt from the demo seed (see `22-demo-seed.md`).
+
+The server cannot see `EDGE_MODE` (it is an edge container variable), so "direct mode" means the operator leaves the
+two Cloudflare values empty. Every refusal (off, malformed, platform name, taken by another school) is one 409
+`site.custom_domain_unavailable`; Cloudflare down is 503 `site.custom_domain_try_later`.
+
 ## Learning
+
+- **2026-11-07 (W4, 40.4.08).** Cloudflare for SaaS needs: a zone with the fallback origin proxied, a token scoped
+  to "SSL and Certificates: Edit" only, and the school's CNAME plus the `_cf-custom-hostname` TXT. An apex needs the
+  school's DNS to flatten CNAMEs (D23); otherwise the registrar forwards apex to `www`. Claiming the host in our own
+  unique index before asking Cloudflare means two schools racing for one host never create two hostnames.
 
 - **2026-11-07 (W1 close).** Surprise: the draft save and publish take `draft_revision`, not just `version`.
   Cost: tickets written against `{ config, version }` would have sent a body the API refuses. Fix: contract note
@@ -119,3 +247,78 @@ subdomain or custom domain, and only moves `version` / `draft_revision` forward.
   migrations failed with missing exports until the packages were linked to the worktree and `yarn build:shared`
   and `yarn build:site-themes` ran. Rule candidate: an e2e run in a worktree links `@biddaloy/*` to its own
   packages and builds shared first.
+- **2026-11-07 (W3).** Surprise: every wave so far had at least one hand-typed API shape that the server did not
+  match (W2 `media.url`; W3 a post `excerpt`, a bare `string[]` of suggestions, enquiry `status`, teacher `name`).
+  Cost: one fix round per wave, found only after `schema.d.ts` was regenerated. Fix: client lanes now use generated
+  types only. Rule candidate: regenerate `schema.d.ts` the moment a server lane lands, and brief client lanes from it.
+- **2026-11-07 (W3).** Surprise: the logo is stored twice. The website screens upload to the `logo` site-media slot,
+  the public site served `schools.logo_key`, so a new logo never showed. Cost: found by review, not by any test.
+  Fix: `/media/logo` and the manifest prefer the newest site-media logo and fall back to the profile logo; the
+  manifest cache key carries the logo row id because uploads do not bump `school_sites.version`. Rule candidate: when
+  two places can hold one picture, name which one the public read uses before building the upload.
+- **2026-11-07 (W3).** Surprise: one accumulating branch reached 141 files. Cost: it could not become a PR under
+  the 100-file cap and could not be rewritten (no force push), so it was rebuilt as three stacked branches. Rule
+  candidate: count files after every cherry-pick and cut at about 80, before the branch is pushed.
+- **2026-11-07 (W3).** Surprise: a public query parameter (`?classSectionId=`) went straight into a Redis key.
+  Cost: caught in review; anyone could have created unbounded keys. Fix: validate and check the school owns it
+  before the cache is touched. Rule candidate: nothing a visitor sends becomes a cache key unchecked.
+- **2026-11-07 (W3).** Surprise: ticking "Public" on a notice used to mean only "anyone with the link"; it now also
+  lists the notice on the school website, and old public notices appear after the first publish. Fix: the field note
+  and the guide say both. Rule candidate: renaming a flag's meaning needs the wording and the guide changed together.
+- **2026-11-07 (W3).** Surprise: running the integration and e2e suites together on one machine produced only
+  timeouts, with a different failing file each run, and every file passed alone. Cost: hours of reruns with no
+  signal. Fix: gates run one section at a time in one agent. Rule candidate: record the load average with every gate.
+
+- **2026-11-07 (W4, themes).** Surprise: the mockups were not AA-clean. Cost: every theme needed a contrast pass.
+  What changed from the mockups, per theme: Primary darkened its bright primaries; Premium's brass on oxblood failed as
+  small text, so brass is for hairlines and large labels; College and Madrasa use their accent colour as decoration
+  only, never for text; Premium's display fonts exist in one weight, so no theme asks for a bold the file lacks (fonts
+  are one weight per file). Fix: per-theme tokens and the specs in `site-themes/src/*.spec.ts`. Rule candidate: a
+  mockup colour is a starting point; run `contrast.mjs` on the real tokens before building on them.
+- **2026-11-07 (W4, themes).** Surprise: Astro bundles the CSS of every theme into one page, so one theme's rules
+  restyled another. Cost: Primary, High school, International and Premium leaked into each other until fixed. Fix: every
+  theme's CSS sits under `.t-<theme>`, and the cross-theme spec in `site/e2e/themes/` guards it. Rule candidate: a new
+  theme's selectors all start with its `.t-<theme>` class.
+- **2026-11-07 (W4, themes).** Surprise: `--ink-3` failed AA in all themes, and no test noticed; review did. Cost: one
+  fix round across seven themes. Fix: darkened per theme, and the per-theme specs now check it. Rule candidate: contrast
+  is checked for every text token, not just body and heading.
+- **2026-11-07 (W4, custom domain).** Surprise: Cloudflare for SaaS never routes a custom host through our edge, so
+  Rule 12 ("the origin is reachable only through the edge") could not be proven for custom hosts here. Cost: the
+  scope moved to #3655. Rule candidate: a rule that depends on a third party's routing gets its own ticket and a
+  staging check.
+- **2026-11-07 (W4, custom domain).** Surprise: a create call that times out after Cloudflare accepted it leaves an
+  orphaned hostname. Cost: a hostname we do not know about. Fix: the claim row is written first and a retry looks the
+  hostname up before creating one. Rule candidate: every create call to a provider is safe to repeat.
+- **2026-11-07 (W4, custom domain).** Surprise: FAILED rows kept squatting their domain, so no other school could
+  claim it. Cost: found while reading the unique index. Fix: a FAILED row releases the host. Rule candidate: a unique
+  index over a state column says which states hold the value.
+- **2026-11-07 (W4, custom domain).** Surprise: all schools share one Cloudflare token, so one busy school can
+  throttle the others. Cost: none yet. Fix: none yet; keep the number of Cloudflare calls per school low. Rule candidate: a shared provider token is
+  a shared quota; say so in the doc.
+- **2026-11-07 (W4, SEO).** Surprise: the share card draws text with system fonts, and the Alpine image had none for
+  Bangla. Cost: boxes instead of letters. Fix: the Dockerfile installs Bengali and Latin fonts. Also: the sitemap lists
+  only 12 blog posts until the feed is paged. The Lighthouse preview URL is noindex by design, so indexability is
+  asserted in a separate check. Lighthouse numbers: not measured locally; CI-only.
+- **2026-11-07 (W4 close).** Surprise: lint-staged's ESLint run is gentler than CI's `cd ui && npx eslint .`. Cost: a
+  rule error shows only in CI. Rule candidate: after touching `ui/`, run the full CI-style ESLint once.
+- **2026-11-07 (W4 close).** Surprise: the gate's `--only integration,infra,e2e` never runs unit specs, so a red unit
+  spec can pass the gate. Cost: a failing `*.spec.ts` shows only in CI's unit job. Rule candidate: run the touched unit
+  specs by hand before the gate.
+- **2026-11-07 (W4 close, #3648).** `e2e/website-themes.spec.ts` publishes in a school of its own, because
+  `journeys/website-setup.spec.ts` needs the shared school to be never-published. It checks the public read API
+  (`/public/site/by-host/<host>/manifest`), not `html[data-theme]`, since the e2e stack has no site container; pixel
+  and theme render checks are in `site/e2e/themes/*.spec.ts`. The ticket text said "six themes"; the enum has seven.
+- **2026-11-07 (W5, 40.5.01).** The public results table is not a new read model: it reads the same `results`,
+  `result_subjects` and `students` rows as the staff panel, behind one gate (`exams.status = 'PUBLISHED'` AND
+  `website_published_at` set, same school). Withdrawing an exam, or reopening it, hides it on the next request
+  because the results feed is never cached (a page of student data must not outlive a withdrawal). A Turnstile
+  token works once, so only the table call carries it; the per-subject call takes the unguessable result id from a
+  table answer and is throttled the same.
+- **2026-11-07 (W5 review fixes, 40.5.01).** Three limits guard the results table: Turnstile and 30/min per IP
+  (Nest throttler) and 300/min per school (Redis counter). When Redis is down the per-IP and per-school limits are
+  OFF (D42: fail open); Turnstile still stands. The per-subject call has no Turnstile (a token works once), so what
+  protects it is a signed handle: `website-results.handle.ts` signs exam id, result id and a 30-minute expiry (HMAC,
+  key `JWT_SECRET`, domain `site-result:`), and `detail` accepts nothing else, so a result id can never be guessed.
+  The whole results surface (list and both POSTs) answers the one 404 unless the school's Results page is switched
+  on (D12). Reopening an exam takes it off the website (clears `website_published_at`, bumps the site version).
+  The results page carries `noindex`; it is not in the sitemap.
