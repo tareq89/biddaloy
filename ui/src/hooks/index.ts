@@ -1795,6 +1795,25 @@ export {
   type WebsiteTheme,
 } from './use-website';
 export {
+  usePublishExamWebsite,
+  useSetExamWebsiteNames,
+  useUnpublishExamWebsite,
+  type WebsiteNamesInput,
+  type WebsiteResultsState,
+} from './use-exam-website';
+export {
+  useCustomDomain,
+  useRecheckCustomDomain,
+  useRemoveCustomDomain,
+  useSetCustomDomain,
+  useWebsiteAnalytics,
+  websiteDomainKeys,
+  type CustomDomainRecord,
+  type CustomDomainStatus,
+  type SetCustomDomainInput,
+  type WebsiteAnalytics,
+} from './use-website-domain';
+export {
   ENQUIRY_PAGE_SIZE,
   isPinnedSection,
   moveSection,
@@ -1824,3 +1843,18 @@ export {
   type WebTeacher,
   type WebTeacherInput,
 } from './use-website-content';
+export {
+  useCaptionGalleryPhoto,
+  useCreateGalleryAlbum,
+  useDeleteGalleryAlbum,
+  useDeleteGalleryPhoto,
+  useGalleryAlbums,
+  useRenameGalleryAlbum,
+  useReorderGalleryAlbums,
+  useReorderGalleryPhotos,
+  useUploadGalleryPhoto,
+  websiteGalleryKeys,
+  type GalleryAlbum,
+  type GalleryPhoto,
+  type SaveGalleryAlbumInput,
+} from './use-website-gallery';
