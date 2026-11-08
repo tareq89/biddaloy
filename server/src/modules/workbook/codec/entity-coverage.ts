@@ -42,6 +42,8 @@ import { PrintJob } from '../../print/entities/print-job.entity';
 import { PrintJobItem } from '../../print/entities/print-job-item.entity';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
 import { SiteMedia } from '../../website/entities/site-media.entity';
+import { SiteGalleryAlbum } from '../../website/entities/site-gallery-album.entity';
+import { SiteGalleryPhoto } from '../../website/entities/site-gallery-photo.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -163,6 +165,14 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   // left for them.
 
   // --- Epic 40 school website: SchoolSite, SitePost, SiteEnquiry and StaffWebProfile have tabs (#3621) ---
+  [
+    SiteGalleryAlbum,
+    'Epic 40 gallery albums: no workbook tab yet. The backup tab for albums and photos is a follow-up tracked in #3671 (40.6.10).',
+  ],
+  [
+    SiteGalleryPhoto,
+    'Epic 40 gallery photos: each points at a picture file in the storage backup, and a row without its file would only 404. Follow-up tracked in #3671 (40.6.10).',
+  ],
   [
     SiteMedia,
     'Epic 40 website picture records: each is a file in the storage backup, and a row without its file would only 404. Posts and staff cards drop their picture link on restore.',

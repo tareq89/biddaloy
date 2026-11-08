@@ -124,8 +124,11 @@ import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/stud
 import { Route as StaffStudentsImportRouteImport } from './routes/_staff/students/import'
 import { Route as StaffStudentsNewRouteImport } from './routes/_staff/students/new'
 import { Route as StaffWebsiteIndexRouteImport } from './routes/_staff/website/index'
+import { Route as StaffWebsiteAddressRouteImport } from './routes/_staff/website/address'
+import { Route as StaffWebsiteAnalyticsRouteImport } from './routes/_staff/website/analytics'
 import { Route as StaffWebsiteDesignRouteImport } from './routes/_staff/website/design'
 import { Route as StaffWebsiteEnquiriesRouteImport } from './routes/_staff/website/enquiries'
+import { Route as StaffWebsiteGalleryRouteImport } from './routes/_staff/website/gallery'
 import { Route as StaffWebsitePagesRouteImport } from './routes/_staff/website/pages'
 import { Route as AdmissionSlugIndexRouteImport } from './routes/admission/$slug/index'
 import { Route as AdmissionSlugStatusRouteImport } from './routes/admission/$slug/status'
@@ -768,6 +771,16 @@ const StaffWebsiteIndexRoute = StaffWebsiteIndexRouteImport.update({
   path: '/',
   getParentRoute: () => StaffWebsiteRoute,
 } as any)
+const StaffWebsiteAddressRoute = StaffWebsiteAddressRouteImport.update({
+  id: '/address',
+  path: '/address',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsiteAnalyticsRoute = StaffWebsiteAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
 const StaffWebsiteDesignRoute = StaffWebsiteDesignRouteImport.update({
   id: '/design',
   path: '/design',
@@ -776,6 +789,11 @@ const StaffWebsiteDesignRoute = StaffWebsiteDesignRouteImport.update({
 const StaffWebsiteEnquiriesRoute = StaffWebsiteEnquiriesRouteImport.update({
   id: '/enquiries',
   path: '/enquiries',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsiteGalleryRoute = StaffWebsiteGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
   getParentRoute: () => StaffWebsiteRoute,
 } as any)
 const StaffWebsitePagesRoute = StaffWebsitePagesRouteImport.update({
@@ -1153,8 +1171,11 @@ export interface FileRoutesByFullPath {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/website/address': typeof StaffWebsiteAddressRoute
+  '/website/analytics': typeof StaffWebsiteAnalyticsRoute
   '/website/design': typeof StaffWebsiteDesignRoute
   '/website/enquiries': typeof StaffWebsiteEnquiriesRoute
+  '/website/gallery': typeof StaffWebsiteGalleryRoute
   '/website/pages': typeof StaffWebsitePagesRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
   '/auth/social/done': typeof AuthSocialDoneRoute
@@ -1318,8 +1339,11 @@ export interface FileRoutesByTo {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/website/address': typeof StaffWebsiteAddressRoute
+  '/website/analytics': typeof StaffWebsiteAnalyticsRoute
   '/website/design': typeof StaffWebsiteDesignRoute
   '/website/enquiries': typeof StaffWebsiteEnquiriesRoute
+  '/website/gallery': typeof StaffWebsiteGalleryRoute
   '/website/pages': typeof StaffWebsitePagesRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
   '/auth/social/done': typeof AuthSocialDoneRoute
@@ -1489,8 +1513,11 @@ export interface FileRoutesById {
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
+  '/_staff/website/address': typeof StaffWebsiteAddressRoute
+  '/_staff/website/analytics': typeof StaffWebsiteAnalyticsRoute
   '/_staff/website/design': typeof StaffWebsiteDesignRoute
   '/_staff/website/enquiries': typeof StaffWebsiteEnquiriesRoute
+  '/_staff/website/gallery': typeof StaffWebsiteGalleryRoute
   '/_staff/website/pages': typeof StaffWebsitePagesRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
   '/auth/social/done': typeof AuthSocialDoneRoute
@@ -1659,8 +1686,11 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/website/address'
+    | '/website/analytics'
     | '/website/design'
     | '/website/enquiries'
+    | '/website/gallery'
     | '/website/pages'
     | '/admission/$slug/status'
     | '/auth/social/done'
@@ -1824,8 +1854,11 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/website/address'
+    | '/website/analytics'
     | '/website/design'
     | '/website/enquiries'
+    | '/website/gallery'
     | '/website/pages'
     | '/admission/$slug/status'
     | '/auth/social/done'
@@ -1994,8 +2027,11 @@ export interface FileRouteTypes {
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
     | '/_staff/students/new'
+    | '/_staff/website/address'
+    | '/_staff/website/analytics'
     | '/_staff/website/design'
     | '/_staff/website/enquiries'
+    | '/_staff/website/gallery'
     | '/_staff/website/pages'
     | '/admission/$slug/status'
     | '/auth/social/done'
@@ -2906,6 +2942,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffWebsiteIndexRouteImport
       parentRoute: typeof StaffWebsiteRoute
     }
+    '/_staff/website/address': {
+      id: '/_staff/website/address'
+      path: '/address'
+      fullPath: '/website/address'
+      preLoaderRoute: typeof StaffWebsiteAddressRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/analytics': {
+      id: '/_staff/website/analytics'
+      path: '/analytics'
+      fullPath: '/website/analytics'
+      preLoaderRoute: typeof StaffWebsiteAnalyticsRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
     '/_staff/website/design': {
       id: '/_staff/website/design'
       path: '/design'
@@ -2918,6 +2968,13 @@ declare module '@tanstack/react-router' {
       path: '/enquiries'
       fullPath: '/website/enquiries'
       preLoaderRoute: typeof StaffWebsiteEnquiriesRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/gallery': {
+      id: '/_staff/website/gallery'
+      path: '/gallery'
+      fullPath: '/website/gallery'
+      preLoaderRoute: typeof StaffWebsiteGalleryRouteImport
       parentRoute: typeof StaffWebsiteRoute
     }
     '/_staff/website/pages': {
@@ -3329,8 +3386,11 @@ const StaffFeesRouteWithChildren = StaffFeesRoute._addFileChildren(
 )
 
 interface StaffWebsiteRouteChildren {
+  StaffWebsiteAddressRoute: typeof StaffWebsiteAddressRoute
+  StaffWebsiteAnalyticsRoute: typeof StaffWebsiteAnalyticsRoute
   StaffWebsiteDesignRoute: typeof StaffWebsiteDesignRoute
   StaffWebsiteEnquiriesRoute: typeof StaffWebsiteEnquiriesRoute
+  StaffWebsiteGalleryRoute: typeof StaffWebsiteGalleryRoute
   StaffWebsitePagesRoute: typeof StaffWebsitePagesRoute
   StaffWebsiteIndexRoute: typeof StaffWebsiteIndexRoute
   StaffWebsiteBlogPostIdRoute: typeof StaffWebsiteBlogPostIdRoute
@@ -3338,8 +3398,11 @@ interface StaffWebsiteRouteChildren {
 }
 
 const StaffWebsiteRouteChildren: StaffWebsiteRouteChildren = {
+  StaffWebsiteAddressRoute: StaffWebsiteAddressRoute,
+  StaffWebsiteAnalyticsRoute: StaffWebsiteAnalyticsRoute,
   StaffWebsiteDesignRoute: StaffWebsiteDesignRoute,
   StaffWebsiteEnquiriesRoute: StaffWebsiteEnquiriesRoute,
+  StaffWebsiteGalleryRoute: StaffWebsiteGalleryRoute,
   StaffWebsitePagesRoute: StaffWebsitePagesRoute,
   StaffWebsiteIndexRoute: StaffWebsiteIndexRoute,
   StaffWebsiteBlogPostIdRoute: StaffWebsiteBlogPostIdRoute,
