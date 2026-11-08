@@ -140,6 +140,9 @@ h4 {
 .menu summary::-webkit-details-marker {
   display: none;
 }
+.menu summary::after {
+  display: none;
+}
 .menu .menu-btn {
   border-radius: 0;
   border-color: var(--ink);
@@ -345,7 +348,7 @@ html[lang='bn'] .year {
 .block::before {
   content: counter(b);
   font: 700 44px/1 var(--en-h);
-  color: var(--accent);
+  color: var(--primary);
   -webkit-text-stroke: 0;
 }
 html[lang='bn'] .block::before {

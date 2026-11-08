@@ -76,7 +76,7 @@ describe('high-school fonts', () => {
   it('emits font-display: swap rules only for the chosen fonts, from the right folder', () => {
     const out = themeCss({
       theme: SiteTheme.HIGH_SCHOOL,
-      palette: 'sunlit',
+      palette: 'heritage-green',
       typography: m.defaultTypography,
     });
     expect(out.fontFaces).toContain('/fonts/high-school/noto-serif-bengali-700-bengali.woff2');
