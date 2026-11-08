@@ -116,6 +116,8 @@ describe('Public site API on the seeded demo school (e2e)', () => {
       'about',
       'notices',
       'teachers',
+      // [40.6.10] the demo seed turns on the home-page video section.
+      'video',
     ]);
     expect(facts.heroIds).toHaveLength(2);
     // ponytail: the teachers section feed (3 featured first) is #3629's; today `feed` is [].
