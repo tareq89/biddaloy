@@ -2,13 +2,14 @@ import type {
   BilingualText,
   SiteAnnouncementBar,
   SitePage,
+  SitePublicGalleryAlbum,
   SiteSectionConfig,
   SiteSectionKey,
   SiteTheme,
   SiteTypography,
 } from '@biddaloy/shared';
 
-export type { BilingualText, SiteSectionKey, SiteTheme };
+export type { BilingualText, SiteSectionKey, SiteTheme, SitePublicGalleryAlbum };
 
 export type Lang = 'bn' | 'en';
 export const LANGS: readonly Lang[] = ['bn', 'en'];
@@ -23,6 +24,8 @@ export interface SiteManifest {
   logo?: string;
   noindex?: boolean;
   schoolName: BilingualText;
+  /** Present only for a site with an Umami website and an operator script URL (D42). */
+  analytics?: { websiteId: string; scriptUrl: string };
   contact?: {
     address?: BilingualText;
     phone?: string;
