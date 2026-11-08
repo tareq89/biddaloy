@@ -27,6 +27,7 @@ import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
 import { Route as StaffNotificationsRouteImport } from './routes/_staff/notifications'
 import { Route as StaffSecurityRouteImport } from './routes/_staff/security'
 import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
+import { Route as StaffWebsiteRouteImport } from './routes/_staff/website'
 import { Route as StaffWelcomeRouteImport } from './routes/_staff/welcome'
 import { Route as ITokenRouteImport } from './routes/i/$token'
 import { Route as NTokenRouteImport } from './routes/n.$token'
@@ -122,6 +123,13 @@ import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students
 import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
 import { Route as StaffStudentsImportRouteImport } from './routes/_staff/students/import'
 import { Route as StaffStudentsNewRouteImport } from './routes/_staff/students/new'
+import { Route as StaffWebsiteIndexRouteImport } from './routes/_staff/website/index'
+import { Route as StaffWebsiteAddressRouteImport } from './routes/_staff/website/address'
+import { Route as StaffWebsiteAnalyticsRouteImport } from './routes/_staff/website/analytics'
+import { Route as StaffWebsiteDesignRouteImport } from './routes/_staff/website/design'
+import { Route as StaffWebsiteEnquiriesRouteImport } from './routes/_staff/website/enquiries'
+import { Route as StaffWebsiteGalleryRouteImport } from './routes/_staff/website/gallery'
+import { Route as StaffWebsitePagesRouteImport } from './routes/_staff/website/pages'
 import { Route as AdmissionSlugIndexRouteImport } from './routes/admission/$slug/index'
 import { Route as AdmissionSlugStatusRouteImport } from './routes/admission/$slug/status'
 import { Route as AuthSocialDoneRouteImport } from './routes/auth.social.done'
@@ -164,6 +172,8 @@ import { Route as StaffResultsExamIdStudentIdRouteImport } from './routes/_staff
 import { Route as StaffResultsFinalIndexRouteImport } from './routes/_staff/results/final/index'
 import { Route as StaffResultsFinalFinalResultIdRouteImport } from './routes/_staff/results/final/$finalResultId'
 import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/students/$studentId_.edit'
+import { Route as StaffWebsiteBlogIndexRouteImport } from './routes/_staff/website/blog/index'
+import { Route as StaffWebsiteBlogPostIdRouteImport } from './routes/_staff/website/blog/$postId'
 import { Route as StaffCommunicationsNoticesNoticeIdIndexRouteImport } from './routes/_staff/communications/notices/$noticeId/index'
 import { Route as StaffCommunicationsNoticesNoticeIdEditRouteImport } from './routes/_staff/communications/notices/$noticeId/edit'
 import { Route as StaffMarksExamIdSectionIdSubjectIdRouteImport } from './routes/_staff/marks/$examId.$sectionId.$subjectId'
@@ -257,6 +267,11 @@ const StaffSecurityRoute = StaffSecurityRouteImport.update({
 const StaffSettingsRoute = StaffSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffWebsiteRoute = StaffWebsiteRouteImport.update({
+  id: '/website',
+  path: '/website',
   getParentRoute: () => StaffRoute,
 } as any)
 const StaffWelcomeRoute = StaffWelcomeRouteImport.update({
@@ -751,6 +766,41 @@ const StaffStudentsNewRoute = StaffStudentsNewRouteImport.update({
   path: '/students/new',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffWebsiteIndexRoute = StaffWebsiteIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsiteAddressRoute = StaffWebsiteAddressRouteImport.update({
+  id: '/address',
+  path: '/address',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsiteAnalyticsRoute = StaffWebsiteAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsiteDesignRoute = StaffWebsiteDesignRouteImport.update({
+  id: '/design',
+  path: '/design',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsiteEnquiriesRoute = StaffWebsiteEnquiriesRouteImport.update({
+  id: '/enquiries',
+  path: '/enquiries',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsiteGalleryRoute = StaffWebsiteGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsitePagesRoute = StaffWebsitePagesRouteImport.update({
+  id: '/pages',
+  path: '/pages',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
 const AdmissionSlugIndexRoute = AdmissionSlugIndexRouteImport.update({
   id: '/admission/$slug/',
   path: '/admission/$slug/',
@@ -990,6 +1040,16 @@ const StaffStudentsStudentIdEditRoute =
     path: '/students/$studentId/edit',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffWebsiteBlogIndexRoute = StaffWebsiteBlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
+const StaffWebsiteBlogPostIdRoute = StaffWebsiteBlogPostIdRouteImport.update({
+  id: '/blog/$postId',
+  path: '/blog/$postId',
+  getParentRoute: () => StaffWebsiteRoute,
+} as any)
 const StaffCommunicationsNoticesNoticeIdIndexRoute =
   StaffCommunicationsNoticesNoticeIdIndexRouteImport.update({
     id: '/communications/notices/$noticeId/',
@@ -1044,6 +1104,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof StaffNotificationsRoute
   '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
+  '/website': typeof StaffWebsiteRouteWithChildren
   '/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/n/$token': typeof NTokenRoute
@@ -1110,6 +1171,12 @@ export interface FileRoutesByFullPath {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/website/address': typeof StaffWebsiteAddressRoute
+  '/website/analytics': typeof StaffWebsiteAnalyticsRoute
+  '/website/design': typeof StaffWebsiteDesignRoute
+  '/website/enquiries': typeof StaffWebsiteEnquiriesRoute
+  '/website/gallery': typeof StaffWebsiteGalleryRoute
+  '/website/pages': typeof StaffWebsitePagesRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
   '/auth/social/done': typeof AuthSocialDoneRoute
   '/portal/applications/$applicationId': typeof PortalApplicationsApplicationIdRoute
@@ -1144,6 +1211,7 @@ export interface FileRoutesByFullPath {
   '/routines/': typeof StaffRoutinesIndexRoute
   '/staff/': typeof StaffStaffIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
+  '/website/': typeof StaffWebsiteIndexRoute
   '/admission/$slug/': typeof AdmissionSlugIndexRoute
   '/portal/applications/': typeof PortalApplicationsIndexRoute
   '/portal/notices/': typeof PortalNoticesIndexRoute
@@ -1167,6 +1235,7 @@ export interface FileRoutesByFullPath {
   '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/results/final/$finalResultId': typeof StaffResultsFinalFinalResultIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
+  '/website/blog/$postId': typeof StaffWebsiteBlogPostIdRoute
   '/academics/homework/': typeof StaffAcademicsHomeworkIndexRoute
   '/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
   '/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
@@ -1181,6 +1250,7 @@ export interface FileRoutesByFullPath {
   '/fees/fines/': typeof StaffFeesFinesIndexRoute
   '/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/results/final/': typeof StaffResultsFinalIndexRoute
+  '/website/blog/': typeof StaffWebsiteBlogIndexRoute
   '/communications/notices/$noticeId/edit': typeof StaffCommunicationsNoticesNoticeIdEditRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
   '/staff/$userId/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
@@ -1269,6 +1339,12 @@ export interface FileRoutesByTo {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/website/address': typeof StaffWebsiteAddressRoute
+  '/website/analytics': typeof StaffWebsiteAnalyticsRoute
+  '/website/design': typeof StaffWebsiteDesignRoute
+  '/website/enquiries': typeof StaffWebsiteEnquiriesRoute
+  '/website/gallery': typeof StaffWebsiteGalleryRoute
+  '/website/pages': typeof StaffWebsitePagesRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
   '/auth/social/done': typeof AuthSocialDoneRoute
   '/portal/applications/$applicationId': typeof PortalApplicationsApplicationIdRoute
@@ -1303,6 +1379,7 @@ export interface FileRoutesByTo {
   '/routines': typeof StaffRoutinesIndexRoute
   '/staff': typeof StaffStaffIndexRoute
   '/students': typeof StaffStudentsIndexRoute
+  '/website': typeof StaffWebsiteIndexRoute
   '/admission/$slug': typeof AdmissionSlugIndexRoute
   '/portal/applications': typeof PortalApplicationsIndexRoute
   '/portal/notices': typeof PortalNoticesIndexRoute
@@ -1326,6 +1403,7 @@ export interface FileRoutesByTo {
   '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/results/final/$finalResultId': typeof StaffResultsFinalFinalResultIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
+  '/website/blog/$postId': typeof StaffWebsiteBlogPostIdRoute
   '/academics/homework': typeof StaffAcademicsHomeworkIndexRoute
   '/academics/syllabus': typeof StaffAcademicsSyllabusIndexRoute
   '/admissions/applicants': typeof StaffAdmissionsApplicantsIndexRoute
@@ -1340,6 +1418,7 @@ export interface FileRoutesByTo {
   '/fees/fines': typeof StaffFeesFinesIndexRoute
   '/fees/schedules': typeof StaffFeesSchedulesIndexRoute
   '/results/final': typeof StaffResultsFinalIndexRoute
+  '/website/blog': typeof StaffWebsiteBlogIndexRoute
   '/communications/notices/$noticeId/edit': typeof StaffCommunicationsNoticesNoticeIdEditRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
   '/staff/$userId/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
@@ -1367,6 +1446,7 @@ export interface FileRoutesById {
   '/_staff/notifications': typeof StaffNotificationsRoute
   '/_staff/security': typeof StaffSecurityRoute
   '/_staff/settings': typeof StaffSettingsRoute
+  '/_staff/website': typeof StaffWebsiteRouteWithChildren
   '/_staff/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/n/$token': typeof NTokenRoute
@@ -1433,6 +1513,12 @@ export interface FileRoutesById {
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
+  '/_staff/website/address': typeof StaffWebsiteAddressRoute
+  '/_staff/website/analytics': typeof StaffWebsiteAnalyticsRoute
+  '/_staff/website/design': typeof StaffWebsiteDesignRoute
+  '/_staff/website/enquiries': typeof StaffWebsiteEnquiriesRoute
+  '/_staff/website/gallery': typeof StaffWebsiteGalleryRoute
+  '/_staff/website/pages': typeof StaffWebsitePagesRoute
   '/admission/$slug/status': typeof AdmissionSlugStatusRoute
   '/auth/social/done': typeof AuthSocialDoneRoute
   '/portal/applications/$applicationId': typeof PortalApplicationsApplicationIdRoute
@@ -1467,6 +1553,7 @@ export interface FileRoutesById {
   '/_staff/routines/': typeof StaffRoutinesIndexRoute
   '/_staff/staff/': typeof StaffStaffIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
+  '/_staff/website/': typeof StaffWebsiteIndexRoute
   '/admission/$slug/': typeof AdmissionSlugIndexRoute
   '/portal/applications/': typeof PortalApplicationsIndexRoute
   '/portal/notices/': typeof PortalNoticesIndexRoute
@@ -1490,6 +1577,7 @@ export interface FileRoutesById {
   '/_staff/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/_staff/results/final/$finalResultId': typeof StaffResultsFinalFinalResultIdRoute
   '/_staff/students/$studentId_/edit': typeof StaffStudentsStudentIdEditRoute
+  '/_staff/website/blog/$postId': typeof StaffWebsiteBlogPostIdRoute
   '/_staff/academics/homework/': typeof StaffAcademicsHomeworkIndexRoute
   '/_staff/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
   '/_staff/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
@@ -1504,6 +1592,7 @@ export interface FileRoutesById {
   '/_staff/fees/fines/': typeof StaffFeesFinesIndexRoute
   '/_staff/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/_staff/results/final/': typeof StaffResultsFinalIndexRoute
+  '/_staff/website/blog/': typeof StaffWebsiteBlogIndexRoute
   '/_staff/communications/notices/$noticeId/edit': typeof StaffCommunicationsNoticesNoticeIdEditRoute
   '/_staff/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
   '/_staff/staff/$userId_/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
@@ -1530,6 +1619,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/security'
     | '/settings'
+    | '/website'
     | '/welcome'
     | '/i/$token'
     | '/n/$token'
@@ -1596,6 +1686,12 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/website/address'
+    | '/website/analytics'
+    | '/website/design'
+    | '/website/enquiries'
+    | '/website/gallery'
+    | '/website/pages'
     | '/admission/$slug/status'
     | '/auth/social/done'
     | '/portal/applications/$applicationId'
@@ -1630,6 +1726,7 @@ export interface FileRouteTypes {
     | '/routines/'
     | '/staff/'
     | '/students/'
+    | '/website/'
     | '/admission/$slug/'
     | '/portal/applications/'
     | '/portal/notices/'
@@ -1653,6 +1750,7 @@ export interface FileRouteTypes {
     | '/results/$examId/$studentId'
     | '/results/final/$finalResultId'
     | '/students/$studentId/edit'
+    | '/website/blog/$postId'
     | '/academics/homework/'
     | '/academics/syllabus/'
     | '/admissions/applicants/'
@@ -1667,6 +1765,7 @@ export interface FileRouteTypes {
     | '/fees/fines/'
     | '/fees/schedules/'
     | '/results/final/'
+    | '/website/blog/'
     | '/communications/notices/$noticeId/edit'
     | '/marks/$examId/$sectionId/$subjectId'
     | '/staff/$userId/acr/$assessmentId'
@@ -1755,6 +1854,12 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/website/address'
+    | '/website/analytics'
+    | '/website/design'
+    | '/website/enquiries'
+    | '/website/gallery'
+    | '/website/pages'
     | '/admission/$slug/status'
     | '/auth/social/done'
     | '/portal/applications/$applicationId'
@@ -1789,6 +1894,7 @@ export interface FileRouteTypes {
     | '/routines'
     | '/staff'
     | '/students'
+    | '/website'
     | '/admission/$slug'
     | '/portal/applications'
     | '/portal/notices'
@@ -1812,6 +1918,7 @@ export interface FileRouteTypes {
     | '/results/$examId/$studentId'
     | '/results/final/$finalResultId'
     | '/students/$studentId/edit'
+    | '/website/blog/$postId'
     | '/academics/homework'
     | '/academics/syllabus'
     | '/admissions/applicants'
@@ -1826,6 +1933,7 @@ export interface FileRouteTypes {
     | '/fees/fines'
     | '/fees/schedules'
     | '/results/final'
+    | '/website/blog'
     | '/communications/notices/$noticeId/edit'
     | '/marks/$examId/$sectionId/$subjectId'
     | '/staff/$userId/acr/$assessmentId'
@@ -1852,6 +1960,7 @@ export interface FileRouteTypes {
     | '/_staff/notifications'
     | '/_staff/security'
     | '/_staff/settings'
+    | '/_staff/website'
     | '/_staff/welcome'
     | '/i/$token'
     | '/n/$token'
@@ -1918,6 +2027,12 @@ export interface FileRouteTypes {
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
     | '/_staff/students/new'
+    | '/_staff/website/address'
+    | '/_staff/website/analytics'
+    | '/_staff/website/design'
+    | '/_staff/website/enquiries'
+    | '/_staff/website/gallery'
+    | '/_staff/website/pages'
     | '/admission/$slug/status'
     | '/auth/social/done'
     | '/portal/applications/$applicationId'
@@ -1952,6 +2067,7 @@ export interface FileRouteTypes {
     | '/_staff/routines/'
     | '/_staff/staff/'
     | '/_staff/students/'
+    | '/_staff/website/'
     | '/admission/$slug/'
     | '/portal/applications/'
     | '/portal/notices/'
@@ -1975,6 +2091,7 @@ export interface FileRouteTypes {
     | '/_staff/results/$examId/$studentId'
     | '/_staff/results/final/$finalResultId'
     | '/_staff/students/$studentId_/edit'
+    | '/_staff/website/blog/$postId'
     | '/_staff/academics/homework/'
     | '/_staff/academics/syllabus/'
     | '/_staff/admissions/applicants/'
@@ -1989,6 +2106,7 @@ export interface FileRouteTypes {
     | '/_staff/fees/fines/'
     | '/_staff/fees/schedules/'
     | '/_staff/results/final/'
+    | '/_staff/website/blog/'
     | '/_staff/communications/notices/$noticeId/edit'
     | '/_staff/marks/$examId/$sectionId/$subjectId'
     | '/_staff/staff/$userId_/acr/$assessmentId'
@@ -2143,6 +2261,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof StaffSettingsRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/website': {
+      id: '/_staff/website'
+      path: '/website'
+      fullPath: '/website'
+      preLoaderRoute: typeof StaffWebsiteRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/welcome': {
@@ -2810,6 +2935,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStudentsNewRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/website/': {
+      id: '/_staff/website/'
+      path: '/'
+      fullPath: '/website/'
+      preLoaderRoute: typeof StaffWebsiteIndexRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/address': {
+      id: '/_staff/website/address'
+      path: '/address'
+      fullPath: '/website/address'
+      preLoaderRoute: typeof StaffWebsiteAddressRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/analytics': {
+      id: '/_staff/website/analytics'
+      path: '/analytics'
+      fullPath: '/website/analytics'
+      preLoaderRoute: typeof StaffWebsiteAnalyticsRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/design': {
+      id: '/_staff/website/design'
+      path: '/design'
+      fullPath: '/website/design'
+      preLoaderRoute: typeof StaffWebsiteDesignRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/enquiries': {
+      id: '/_staff/website/enquiries'
+      path: '/enquiries'
+      fullPath: '/website/enquiries'
+      preLoaderRoute: typeof StaffWebsiteEnquiriesRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/gallery': {
+      id: '/_staff/website/gallery'
+      path: '/gallery'
+      fullPath: '/website/gallery'
+      preLoaderRoute: typeof StaffWebsiteGalleryRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/pages': {
+      id: '/_staff/website/pages'
+      path: '/pages'
+      fullPath: '/website/pages'
+      preLoaderRoute: typeof StaffWebsitePagesRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
     '/admission/$slug/': {
       id: '/admission/$slug/'
       path: '/admission/$slug'
@@ -3104,6 +3278,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStudentsStudentIdEditRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/website/blog/': {
+      id: '/_staff/website/blog/'
+      path: '/blog'
+      fullPath: '/website/blog/'
+      preLoaderRoute: typeof StaffWebsiteBlogIndexRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
+    '/_staff/website/blog/$postId': {
+      id: '/_staff/website/blog/$postId'
+      path: '/blog/$postId'
+      fullPath: '/website/blog/$postId'
+      preLoaderRoute: typeof StaffWebsiteBlogPostIdRouteImport
+      parentRoute: typeof StaffWebsiteRoute
+    }
     '/_staff/communications/notices/$noticeId/': {
       id: '/_staff/communications/notices/$noticeId/'
       path: '/communications/notices/$noticeId'
@@ -3197,6 +3385,34 @@ const StaffFeesRouteWithChildren = StaffFeesRoute._addFileChildren(
   StaffFeesRouteChildren,
 )
 
+interface StaffWebsiteRouteChildren {
+  StaffWebsiteAddressRoute: typeof StaffWebsiteAddressRoute
+  StaffWebsiteAnalyticsRoute: typeof StaffWebsiteAnalyticsRoute
+  StaffWebsiteDesignRoute: typeof StaffWebsiteDesignRoute
+  StaffWebsiteEnquiriesRoute: typeof StaffWebsiteEnquiriesRoute
+  StaffWebsiteGalleryRoute: typeof StaffWebsiteGalleryRoute
+  StaffWebsitePagesRoute: typeof StaffWebsitePagesRoute
+  StaffWebsiteIndexRoute: typeof StaffWebsiteIndexRoute
+  StaffWebsiteBlogPostIdRoute: typeof StaffWebsiteBlogPostIdRoute
+  StaffWebsiteBlogIndexRoute: typeof StaffWebsiteBlogIndexRoute
+}
+
+const StaffWebsiteRouteChildren: StaffWebsiteRouteChildren = {
+  StaffWebsiteAddressRoute: StaffWebsiteAddressRoute,
+  StaffWebsiteAnalyticsRoute: StaffWebsiteAnalyticsRoute,
+  StaffWebsiteDesignRoute: StaffWebsiteDesignRoute,
+  StaffWebsiteEnquiriesRoute: StaffWebsiteEnquiriesRoute,
+  StaffWebsiteGalleryRoute: StaffWebsiteGalleryRoute,
+  StaffWebsitePagesRoute: StaffWebsitePagesRoute,
+  StaffWebsiteIndexRoute: StaffWebsiteIndexRoute,
+  StaffWebsiteBlogPostIdRoute: StaffWebsiteBlogPostIdRoute,
+  StaffWebsiteBlogIndexRoute: StaffWebsiteBlogIndexRoute,
+}
+
+const StaffWebsiteRouteWithChildren = StaffWebsiteRoute._addFileChildren(
+  StaffWebsiteRouteChildren,
+)
+
 interface StaffRouteChildren {
   StaffCurriculumPresetRoute: typeof StaffCurriculumPresetRoute
   StaffDashboardRoute: typeof StaffDashboardRoute
@@ -3204,6 +3420,7 @@ interface StaffRouteChildren {
   StaffNotificationsRoute: typeof StaffNotificationsRoute
   StaffSecurityRoute: typeof StaffSecurityRoute
   StaffSettingsRoute: typeof StaffSettingsRoute
+  StaffWebsiteRoute: typeof StaffWebsiteRouteWithChildren
   StaffWelcomeRoute: typeof StaffWelcomeRoute
   StaffAcademicYearsAcademicYearIdRoute: typeof StaffAcademicYearsAcademicYearIdRoute
   StaffApplicationsApplicationIdRoute: typeof StaffApplicationsApplicationIdRoute
@@ -3318,6 +3535,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffNotificationsRoute: StaffNotificationsRoute,
   StaffSecurityRoute: StaffSecurityRoute,
   StaffSettingsRoute: StaffSettingsRoute,
+  StaffWebsiteRoute: StaffWebsiteRouteWithChildren,
   StaffWelcomeRoute: StaffWelcomeRoute,
   StaffAcademicYearsAcademicYearIdRoute: StaffAcademicYearsAcademicYearIdRoute,
   StaffApplicationsApplicationIdRoute: StaffApplicationsApplicationIdRoute,

@@ -1,19 +1,23 @@
 import {
   SITE_ANNOUNCEMENTS_MAX,
   SITE_HERO_MAX_PHOTOS,
+  SITE_VIDEO_START_MAX_SECONDS,
   SITE_POST_BODY_MAX_CHARS,
   SiteAnnouncementStyle,
   SiteMarqueeSpeed,
   SitePage,
   SiteSectionKey,
+  YOUTUBE_ID_RE,
+  isSiteRelativeHref,
 } from '@biddaloy/shared';
 import type {
+  SiteAnnouncement,
   SiteConfig,
   SitePageConfig,
   SiteSectionConfig,
   SiteSectionTypography,
 } from '@biddaloy/shared';
-import type { ThemeManifest } from './manifest';
+import type { ThemeField, ThemeManifest } from './manifest';
 
 export const SITE_TEXT_MAX_CHARS = 2000;
 
@@ -22,6 +26,31 @@ export type ValidateResult = { ok: true; value: SiteConfig } | { ok: false; erro
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isStr = (v: unknown): v is string => typeof v === 'string';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Non-text kinds: `null` or a valid value; anything else is rejected. */
+export function scalarOk(f: ThemeField, v: unknown): boolean {
+  switch (f.kind) {
+    case 'uuid':
+      return v === null || (isStr(v) && UUID_RE.test(v));
+    case 'bool':
+      return typeof v === 'boolean';
+    case 'choice':
+      return isStr(v) && !!f.options?.includes(v);
+    case 'youtubeId':
+      return v === null || (isStr(v) && YOUTUBE_ID_RE.test(v));
+    case 'seconds':
+      return (
+        v === null ||
+        (typeof v === 'number' &&
+          Number.isInteger(v) &&
+          v >= 0 &&
+          v <= SITE_VIDEO_START_MAX_SECONDS)
+      );
+    default:
+      return false;
+  }
+}
 
 const SIZES = ['S', 'M', 'L', 'XL'];
 const WEIGHTS = ['regular', 'medium', 'bold'];
@@ -89,48 +118,37 @@ export function validateSiteConfig(config: unknown, manifest: ThemeManifest): Va
   const typography = { bn: pick('bn'), en: pick('en') };
 
   const bar = isObj(config.announcements) ? config.announcements : {};
-  const items = Array.isArray(bar.items) ? bar.items : [];
-  if (items.length > SITE_ANNOUNCEMENTS_MAX) bad('announcements.tooMany');
-  const style = Object.values(SiteAnnouncementStyle).find((v) => v === bar.style);
-  const speed = Object.values(SiteMarqueeSpeed).find((v) => v === bar.speed);
-  if (!style || !speed) bad('announcements.invalid');
-  const cleanItems: SiteConfig['announcements']['items'] = [];
-  for (const it of items.slice(0, SITE_ANNOUNCEMENTS_MAX)) {
-    const ok =
-      isObj(it) &&
-      isStr(it.id) &&
-      it.id.length <= 64 &&
-      isObj(it.text) &&
-      isStr(it.text.bn) &&
-      isStr(it.text.en) &&
-      it.text.bn.length <= SITE_TEXT_MAX_CHARS &&
-      it.text.en.length <= SITE_TEXT_MAX_CHARS &&
-      typeof it.enabled === 'boolean' &&
-      (it.href === undefined ||
-        (isStr(it.href) &&
-          it.href.length <= 500 &&
-          /^(https?:\/\/|\/)/i.test(it.href) &&
-          !it.href.startsWith('//'))) &&
-      (it.from === undefined || (isStr(it.from) && !Number.isNaN(Date.parse(it.from)))) &&
-      (it.until === undefined || (isStr(it.until) && !Number.isNaN(Date.parse(it.until))));
-    if (!ok) {
-      bad('announcements.item.invalid');
+  const rawItems = Array.isArray(bar.items) ? bar.items : [];
+  if (rawItems.length > SITE_ANNOUNCEMENTS_MAX) bad('announcements.tooMany');
+  const isDate = (v: unknown) => v === undefined || (isStr(v) && !Number.isNaN(Date.parse(v)));
+  const items: SiteAnnouncement[] = [];
+  for (const i of rawItems) {
+    const text = isObj(i) && isObj(i.text) ? i.text : null;
+    if (!isObj(i) || !isStr(i.id) || !text || !isStr(text.bn) || !isStr(text.en)) {
+      bad('announcement.invalid');
       continue;
     }
-    cleanItems.push({
-      id: it.id as string,
-      text: { bn: (it.text as Obj).bn as string, en: (it.text as Obj).en as string },
-      enabled: it.enabled as boolean,
-      ...(it.href !== undefined ? { href: it.href as string } : {}),
-      ...(it.from !== undefined ? { from: it.from as string } : {}),
-      ...(it.until !== undefined ? { until: it.until as string } : {}),
+    if (text.bn.length > SITE_TEXT_MAX_CHARS || text.en.length > SITE_TEXT_MAX_CHARS)
+      bad('text.tooLong');
+    // Site-relative only: a `javascript:` or `//other-host` link would be XSS / an open redirect.
+    if (i.href !== undefined && i.href !== '' && !isSiteRelativeHref(i.href)) bad('href.invalid');
+    if (!isDate(i.from) || !isDate(i.until)) bad('date.invalid');
+    items.push({
+      id: i.id,
+      text: { bn: text.bn, en: text.en },
+      ...(isStr(i.href) && i.href !== '' ? { href: i.href } : {}),
+      ...(isStr(i.from) ? { from: i.from } : {}),
+      ...(isStr(i.until) ? { until: i.until } : {}),
+      enabled: i.enabled !== false,
     });
   }
-  const announcements: SiteConfig['announcements'] = {
-    style: style ?? SiteAnnouncementStyle.STATIC,
-    speed: speed ?? SiteMarqueeSpeed.NORMAL,
-    items: cleanItems,
-  };
+  const style = (Object.values(SiteAnnouncementStyle) as unknown[]).includes(bar.style)
+    ? (bar.style as SiteAnnouncementStyle)
+    : SiteAnnouncementStyle.STATIC;
+  const speed = (Object.values(SiteMarqueeSpeed) as unknown[]).includes(bar.speed)
+    ? (bar.speed as SiteMarqueeSpeed)
+    : SiteMarqueeSpeed.NORMAL;
+  const announcements: SiteConfig['announcements'] = { style, speed, items };
 
   const pageKeys = new Set<string>(Object.values(SitePage));
   const rawPages = Array.isArray(config.pages) ? config.pages : [];
@@ -153,6 +171,12 @@ export function validateSiteConfig(config: unknown, manifest: ThemeManifest): Va
       const raw = isObj(s.data) ? s.data : {};
       for (const f of def.fields) {
         const v = raw[f.key];
+        if (f.kind !== 'text' && f.kind !== 'richtext' && f.kind !== 'images') {
+          if (v === undefined) continue;
+          if (scalarOk(f, v)) data[f.key] = v;
+          else bad('field.invalid');
+          continue;
+        }
         if (f.kind === 'images') {
           if (v === undefined) continue;
           if (!Array.isArray(v)) bad('field.invalid');
