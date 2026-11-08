@@ -17,6 +17,7 @@ export const siteGalleryAlbumsTab = createRefChildTab<SiteGalleryAlbum>({
     { key: 'title', type: 'json', required: true, label: { en: 'Title', bn: 'শিরোনাম' } },
     { key: 'sort_order', type: 'int', required: true, label: { en: 'Order', bn: 'ক্রম' } },
   ],
-  naturalKey: ['sort_order'],
+  // sort_order is not unique (two albums can share one), so identity is the id.
+  naturalKey: ['id'],
   deleteByAbsence: false,
 });

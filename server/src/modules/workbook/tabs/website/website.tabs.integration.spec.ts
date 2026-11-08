@@ -245,6 +245,15 @@ describe('website workbook tabs (integration)', () => {
     expect(siteGalleryAlbumsTab.columns.map((c) => c.key)).toEqual(['id', 'title', 'sort_order']);
   });
 
+  it('site_gallery_albums: two albums with the same order stay two albums', async () => {
+    await ds.getRepository(SiteGalleryAlbum).insert([
+      { tenant_id: A, title: { bn: 'ক', en: 'One' }, sort_order: 0 },
+      { tenant_id: A, title: { bn: 'খ', en: 'Two' }, sort_order: 0 },
+    ]);
+    const after = await roundTrip(siteGalleryAlbumsTab);
+    expect(after.map((r) => r.title.en).sort()).toEqual(['One', 'Two']);
+  });
+
   it('staff_web_profiles: round-trips the card, and a card of a user outside the users tab is left out of the export', async () => {
     const [b] = (await roundTrip(staffWebProfilesTab)) as StaffWebProfile[];
     expect(b).toMatchObject({

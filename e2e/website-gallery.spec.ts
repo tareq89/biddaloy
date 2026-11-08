@@ -253,7 +253,8 @@ test('video: only a public YouTube id is accepted and published', async ({ playw
       data: { version: fresh.version, draft_revision: fresh.draft_revision },
     });
     expect(published.ok(), `publish: ${published.status()}`).toBe(true);
-    await setup.post('/api/v1/website/enabled', { headers, data: { enabled: true } });
+    const enabled = await setup.post('/api/v1/website/enabled', { headers, data: { enabled: true } });
+    expect(enabled.ok(), `enable: ${enabled.status()}`).toBe(true);
 
     const home = await setup.get(
       `/api/v1/public/site/by-host/${fresh.subdomain}.sites.e2e.test/page/home`,
