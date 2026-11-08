@@ -1845,6 +1845,7 @@ export {
   isPinnedSection,
   moveSection,
   setAnnouncements,
+  setPageEnabled,
   setPalette,
   setSectionData,
   setSectionTypography,
