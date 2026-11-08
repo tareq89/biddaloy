@@ -6,6 +6,6 @@ import type { DemoSlice } from '../context';
 export const slice: DemoSlice = {
   name: 'gallery',
   covers: [SiteGalleryAlbum, SiteGalleryPhoto],
-  owedBy: '#3671 (40.6.10)',
+  owedBy: '#3671',
   run: async () => {},
 };
