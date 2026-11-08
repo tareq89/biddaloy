@@ -67,6 +67,19 @@ describe('SetupChecklistCard', () => {
     expect(screen.getAllByText('Done')).toHaveLength(2);
   });
 
+  it('shows the website row, linked to /website, only when the server lists it', async () => {
+    mockStatus([], {
+      items: [
+        { id: 'profile', done: true },
+        { id: 'website', done: false },
+      ],
+    });
+    renderCard();
+    const link = await screen.findByRole('link', { name: /Set up the website/ });
+    expect(link.getAttribute('href')).toBe('/website');
+    expect(screen.getByText('1 of 2 done')).toBeTruthy();
+  });
+
   it('marks unfinished setup as "watch" with screen-reader text (#3599)', async () => {
     mockStatus(['profile']);
     renderCard();

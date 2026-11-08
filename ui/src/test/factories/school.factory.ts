@@ -11,7 +11,6 @@ export function schoolFactory(overrides: Partial<School> = {}, script?: Script):
     id: faker.string.uuid(),
     name,
     slug: faker.helpers.slugify(name).toLowerCase(),
-    domain: null,
     address: scriptedAddress(script),
     phone: scriptedPhoneNumber(script),
     email: faker.internet.email(),

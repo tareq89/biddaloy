@@ -111,6 +111,7 @@ describe('runStackConfigCheck', () => {
     BACKUP_S3_ACCESS_KEY_ID: 'r2-read-only',
     BACKUP_S3_SECRET_ACCESS_KEY: 'r2-read-only-secret',
     DEMO_PASSWORD: 'Demo-Public-2026',
+    ROOT_DOMAIN: 'school.example.org',
     // the bucket and database name differ per stack
     S3_BUCKET: 'biddaloy-STACK',
     POSTGRES_DB: 'biddaloy_STACK',
@@ -298,6 +299,12 @@ describe('runStackConfigCheck', () => {
       'SETTINGS_ENCRYPTION_KEY_PREVIOUS',
       'PLATFORM_TENANT_ID',
       'TURNSTILE_SECRET_KEY',
+      // Epic 40 school-site custom domains and analytics: not messaging providers.
+      'CF_SAAS_API_TOKEN',
+      'CF_ZONE_ID',
+      'CF_SAAS_FALLBACK_ORIGIN',
+      'UMAMI_API_URL',
+      'UMAMI_API_TOKEN',
       'TURNSTILE_SITE_KEY',
       'SENTRY_DSN_WEB',
       'SENTRY_ENVIRONMENT',
@@ -308,6 +315,7 @@ describe('runStackConfigCheck', () => {
       'OTP_SMS_ALLOWED_PREFIXES',
       'DEMO_MODE',
       'DEMO_PASSWORD',
+      'SITE_ROOT_DOMAIN', // the apex school websites hang under (Epic 40), not a provider
     ]);
     expect(keys.length).toBeGreaterThan(20);
     // No hash here: this loops over every key, and the hash check costs a bcrypt compare.
@@ -524,7 +532,7 @@ describe('runStackConfigCheck', () => {
       expect(result.output).not.toContain('live-value-123');
     }
     expect((await runStackConfigCheck('staging', { ...staging, SMTP_HOST: '' })).ok).toBe(true);
-}, 30_000);
+  }, 30_000);
 
   describe('platform SMS provider (97 D3)', () => {
     const onecode = {

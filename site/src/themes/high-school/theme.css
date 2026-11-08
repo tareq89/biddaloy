@@ -1,0 +1,549 @@
+/* High school theme: civic pride and results. Square corners, 1 px rules, gold underline for emphasis, a
+   typographic hero. Loaded after Basic's theme.css, which supplies the shared structure (islands, forms, carousel,
+   announcement bar, footer); this file only reskins it.
+   Colours come from the five palette vars (--primary --secondary --accent --surface --ink) set on <html> by
+   css-vars.ts, so a palette switch needs no CSS change (D28). The one fixed colour is --danger, reserved for
+   urgent notices. No section styles itself from a neighbour: no position selectors on section wrappers (D31). */
+.t-high-school {
+  /* Text on the surface and on --bg-2 must reach 4.5:1 in every palette (theme.spec.ts checks it). */
+  --ink-3: color-mix(in srgb, var(--ink) 68%, var(--surface));
+  /* Latin letters on a Bangla page fall back to the English heading font, not to system-ui. */
+  --bn-h:
+    var(--font-heading-bn), var(--font-heading-en), 'Noto Sans Bengali', system-ui, sans-serif;
+  --on-primary: #fff;
+  --danger: #a2321f;
+  --r: 0;
+  --r-s: 0;
+  --max: 1120px;
+  --warn: var(--danger);
+  --warn-soft: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  --bg-2: color-mix(in srgb, var(--primary) 5%, var(--surface));
+  --line: color-mix(in srgb, var(--ink) 22%, var(--surface));
+  --line-accent: color-mix(in srgb, var(--primary) 40%, var(--surface));
+  --paper: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  --ann-bg: var(--paper);
+  --ann-ink: var(--ink);
+  --ann-label-bg: var(--secondary);
+  --ann-label-ink: var(--accent);
+  --ann-r: 0;
+  --ann-m: 0;
+  --hc-bg: var(--bg-2);
+  --hc-ink: var(--ink);
+  --hc-line: var(--line-accent);
+  --hc-cap-r: 0;
+  --sa-ink: var(--primary);
+  --sa-r: 0;
+  --hc-focus: var(--primary);
+}
+.t-high-school {
+  background: var(--surface);
+  color: var(--ink);
+}
+.t-high-school h1,
+.t-high-school h2,
+.t-high-school h3,
+.t-high-school h4 {
+  letter-spacing: 0;
+}
+/* letterhead bar and header */
+.t-high-school .letterhead {
+  background: var(--secondary);
+  color: var(--accent);
+  font-size: 14px;
+}
+.t-high-school .letterhead .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 22px;
+  align-items: center;
+  min-height: 36px;
+  padding-block: 4px;
+}
+.t-high-school .top {
+  background: var(--surface);
+  backdrop-filter: none;
+  border-bottom: 3px solid var(--accent);
+} /* a backdrop filter would trap the fixed menu sheet inside the header */
+.t-high-school .logo {
+  background: none;
+  border-radius: 0;
+  width: 44px;
+  height: 44px;
+}
+.t-high-school .logo img {
+  border-radius: 0;
+}
+.t-high-school .logo svg {
+  width: 44px;
+  height: 44px;
+}
+.t-high-school .crest-shield {
+  fill: var(--primary);
+}
+.t-high-school .crest-rule {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.t-high-school .crest-letter {
+  fill: var(--on-primary);
+  font: 700 17px var(--bn-h);
+}
+.t-high-school .brand b {
+  font-size: 17px;
+}
+.t-high-school .nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+}
+.t-high-school .nav a[aria-current] {
+  background: none;
+  color: var(--primary);
+  border-bottom-color: var(--accent);
+}
+.t-high-school .btn {
+  border-radius: 0;
+}
+.t-high-school .btn-sm {
+  min-height: 44px;
+}
+.t-high-school .btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.t-high-school .btn-primary:hover {
+  background: var(--secondary);
+}
+.t-high-school .btn-ghost {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.t-high-school .lang {
+  border-radius: 0;
+  border-color: var(--ink);
+}
+.t-high-school .lang a {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 0;
+}
+.t-high-school .lang a[aria-current='true'] {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+/* phone menu: a bottom sheet (<details>, no script) */
+.t-high-school .menu {
+  position: relative;
+}
+.t-high-school .menu summary {
+  list-style: none;
+}
+.t-high-school .menu summary::-webkit-details-marker {
+  display: none;
+}
+/* Basic draws a "+" after every <summary> (its FAQ); the menu button has its own icon */
+.t-high-school .menu summary::after {
+  content: none;
+}
+.t-high-school .menu .menu-btn {
+  border-radius: 0;
+  border-color: var(--ink);
+  cursor: pointer;
+}
+.t-high-school .sheet-panel {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 40;
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--surface);
+  border-top: 4px solid var(--accent);
+  padding: 20px var(--pad) 28px;
+  box-shadow: 0 -12px 32px color-mix(in srgb, var(--ink) 25%, transparent);
+}
+.t-high-school .sheet-panel nav {
+  display: grid;
+  gap: 0;
+  margin: 0 0 16px;
+}
+.t-high-school .sheet-panel nav a {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 4px;
+  font-size: 19px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+.t-high-school .sheet-panel nav a[aria-current] {
+  color: var(--primary);
+  box-shadow: inset 4px 0 0 var(--accent);
+  padding-left: 14px;
+}
+.t-high-school .sheet-panel .btn {
+  width: 100%;
+}
+.t-high-school .menu[open] summary::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+}
+@media (min-width: 1024px) {
+  .t-high-school .menu {
+    display: none;
+  }
+}
+/* hero: the motto is the picture */
+.t-high-school .hero {
+  padding: 36px 0 40px;
+  border-bottom: 1px solid var(--line);
+}
+.t-high-school .hero .wrap {
+  display: grid;
+  gap: 20px;
+  position: relative;
+}
+.t-high-school .hero .kicker {
+  margin: 0 0 14px;
+  padding-bottom: 6px;
+  font-weight: 700;
+  color: var(--primary);
+  border-bottom: 3px solid var(--accent);
+  display: inline-block;
+}
+.t-high-school .hero h1 {
+  font-size: calc(clamp(40px, 11vw, 96px) * var(--h-size, 1));
+  line-height: 1.1;
+  color: var(--primary);
+  overflow-wrap: anywhere;
+}
+.t-high-school .hero p.lead {
+  font-size: 18px;
+  max-width: 52ch;
+  margin: 18px 0 24px;
+  color: var(--ink);
+}
+.t-high-school .year {
+  margin: 0;
+  font: 700 clamp(72px, 24vw, 200px)/1 var(--en-h);
+  color: transparent;
+  -webkit-text-stroke: 2px var(--accent);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+html[lang='bn'] .t-high-school .year {
+  font-family: var(--bn-h);
+}
+.t-high-school .plate {
+  border: 1px solid var(--ink);
+  padding: 10px;
+  background: var(--surface);
+  box-shadow: 8px 8px 0 var(--accent);
+}
+.t-high-school .plate .hc {
+  border-radius: 0;
+}
+@media (min-width: 900px) {
+  .t-high-school .hero {
+    padding: 64px 0 72px;
+  }
+  .t-high-school .hero .wrap {
+    grid-template-columns: 1.6fr 1fr;
+    align-items: end;
+  }
+  .t-high-school .hero .copy {
+    grid-column: 1;
+  }
+  .t-high-school .year {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    text-align: end;
+  }
+  .t-high-school .plate {
+    grid-column: 1/-1;
+  }
+}
+/* sections: every one carries its own background, none depends on a neighbour */
+.t-high-school .sec {
+  padding: 44px 0;
+}
+.t-high-school .sec-tint {
+  background: var(--bg-2);
+  border-block: 1px solid var(--line);
+}
+.t-high-school .sec h2 {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 8px;
+}
+.t-high-school .sec h2::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 64px;
+  height: 4px;
+  background: var(--accent);
+}
+.t-high-school .sec-head {
+  margin-bottom: 20px;
+}
+.t-high-school .prose-p {
+  white-space: pre-line;
+  margin-top: 14px;
+  max-width: 64ch;
+}
+.t-high-school .photo,
+.t-high-school .cover {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  border: 1px solid var(--ink);
+  padding: 8px;
+  background: var(--surface);
+  aspect-ratio: 3/2;
+}
+.t-high-school .cover {
+  aspect-ratio: 1200/630;
+  border: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+}
+.t-high-school .card {
+  border-radius: 0;
+  border-color: var(--line);
+  background: var(--surface);
+}
+.t-high-school .empty {
+  border-radius: 0;
+  border-color: var(--line);
+}
+.t-high-school .slot {
+  aspect-ratio: 1200/630;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg-2);
+}
+/* academics: classes as a ruled grid with big numerals */
+.t-high-school .blocks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border-top: 2px solid var(--ink);
+  counter-reset: b;
+}
+.t-high-school .block {
+  counter-increment: b;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: start;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.t-high-school .block::before {
+  content: counter(b);
+  font: 700 44px/1 var(--en-h);
+  color: color-mix(
+    in srgb,
+    var(--accent) 50%,
+    var(--ink)
+  ); /* gold on the surface is 2.2:1; this keeps the hue and passes 4.5:1 */
+  -webkit-text-stroke: 0;
+}
+html[lang='bn'] .t-high-school .block::before {
+  content: counter(b, bengali);
+  font-family: var(--bn-h);
+}
+.t-high-school .block .prose-p {
+  margin: 0;
+  max-width: none;
+}
+@media (min-width: 720px) {
+  .t-high-school .blocks {
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 0;
+    gap: 0;
+  }
+  .t-high-school .block {
+    grid-template-columns: 1fr;
+    border: 1px solid var(--line);
+    padding: 20px;
+    margin: 0 -1px -1px 0;
+  }
+  .t-high-school .block::before {
+    font-size: 64px;
+  }
+}
+/* admissions: a ruled box with a gold edge */
+.t-high-school .notice-box {
+  border: 1px solid var(--ink);
+  border-left: 8px solid var(--accent);
+  padding: 24px 20px;
+  background: var(--surface);
+}
+.t-high-school .intakes {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.t-high-school .intakes .card {
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  border: 1px solid var(--line);
+}
+/* notices, events */
+.t-high-school .notice-list {
+  border: 1px solid var(--ink);
+  border-radius: 0;
+}
+.t-high-school .date {
+  border-radius: 0;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.t-high-school .date span {
+  color: var(--on-primary);
+}
+.t-high-school .ev .date {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.t-high-school .chip {
+  border-radius: 0;
+}
+.t-high-school .chip-accent {
+  background: var(--paper);
+  color: var(--ink);
+}
+.t-high-school .sk i {
+  border-radius: 0;
+  background: linear-gradient(90deg, var(--bg-2) 25%, var(--paper) 50%, var(--bg-2) 75%);
+  background-size: 200% 100%;
+}
+/* teachers: square plates */
+.t-high-school .tcard {
+  padding: 18px 14px;
+}
+.t-high-school .avatar {
+  border-radius: 0;
+  width: 96px;
+  height: 96px;
+  background: var(--bg-2);
+  border: 1px solid var(--ink);
+  display: grid;
+  place-items: center;
+  font: 700 34px var(--bn-h);
+  color: var(--primary);
+}
+.t-high-school .avatar::before,
+.t-high-school .avatar::after {
+  content: none;
+}
+.t-high-school .tcard img {
+  width: 96px;
+  height: 96px;
+  border-radius: 0;
+  object-fit: cover;
+  margin: 0 auto;
+  border: 1px solid var(--ink);
+}
+.t-high-school .seeall a {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+@media (hover: hover) {
+  .t-high-school .seeall a:hover {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+}
+/* blog, contact, forms */
+.t-high-school .post {
+  border-radius: 0;
+}
+.t-high-school .field input,
+.t-high-school .field select,
+.t-high-school .field textarea {
+  border-radius: 0;
+  border-color: var(--ink);
+}
+.t-high-school .kv.spaced {
+  margin: 16px 0 20px;
+}
+.t-high-school .mapframe {
+  border-radius: 0;
+  border-color: var(--ink);
+}
+/* footer */
+.t-high-school .foot {
+  background: var(--ink);
+  color: var(--surface);
+  margin-top: 0;
+  border-top: 4px solid var(--accent);
+}
+.t-high-school .foot h4 {
+  color: var(--surface);
+}
+.t-high-school .foot a {
+  color: var(--surface);
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+.t-high-school .credit {
+  border-top-color: color-mix(in srgb, var(--surface) 24%, var(--ink));
+  color: color-mix(in srgb, var(--surface) 80%, var(--ink));
+}
+.t-high-school .credit a {
+  color: var(--surface);
+  display: inline;
+  min-height: 0;
+}
+/* focus, motion */
+.t-high-school a:focus-visible,
+.t-high-school button:focus-visible,
+.t-high-school summary:focus-visible,
+.t-high-school input:focus-visible,
+.t-high-school select:focus-visible,
+.t-high-school textarea:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 0;
+}
+.t-high-school .foot a:focus-visible,
+.t-high-school .letterhead a:focus-visible {
+  outline-color: var(--surface);
+}
+@media (max-width: 719px) {
+  .t-high-school .sec {
+    padding: 36px 0;
+  }
+}
+@media (prefers-contrast: more) {
+  .t-high-school {
+    --ink-3: var(--ink);
+    --line: color-mix(in srgb, var(--ink) 55%, var(--surface));
+  }
+}
+
+/* gallery + video frame: the shared blocks read these variables (basic/theme.css) */
+.t-high-school {
+  --gc-r: 0;
+  --gc-border: 1px solid var(--line);
+  --ve-icon-r: 0;
+}

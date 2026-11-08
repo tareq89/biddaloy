@@ -10,7 +10,10 @@
     "guided": {
       "title": "Step by step",
       "body": "We ask a few questions and set up classes and sections for you.",
-      "badge": "Easiest"
+      "badge": "Easiest",
+      "websiteQuestion": "Do you want a school website too?",
+      "websiteYes": "Yes, set it up",
+      "websiteNo": "Not now"
     },
     "excel": {
       "title": "From an Excel file",

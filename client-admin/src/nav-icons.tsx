@@ -32,6 +32,7 @@ import {
   FileUpIcon,
   FolderOpenIcon,
   GavelIcon,
+  GlobeIcon,
   GraduationCapIcon,
   HandCoinsIcon,
   HistoryIcon,
@@ -145,6 +146,7 @@ export const STAFF_NAV_ICONS: Record<StaffNavItemId, LucideIcon> = {
   'administration.auditLogs': ScrollTextIcon,
   'administration.settings': SettingsIcon,
   'administration.curriculumPreset': BlocksIcon,
+  'administration.website': GlobeIcon,
 };
 
 /** The platform console's pages (also appended to SUPER_ADMIN's staff sidebar). */

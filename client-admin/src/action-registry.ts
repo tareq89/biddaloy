@@ -1101,6 +1101,26 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/settings?section=backup' }),
   },
 
+  // [40.2.04] Epic 40. `?publish=1` opens the publish confirm on the Overview tab.
+  {
+    id: 'website.open',
+    label: { en: 'Open the school website', bn: 'স্কুলের ওয়েবসাইট খুলুন' },
+    synonyms: ['site', 'web', 'ওয়েব'],
+    permission: Permission.WEBSITE_MANAGE,
+    kind: 'navigate',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/website' }),
+  },
+  {
+    id: 'website.publish',
+    label: { en: 'Publish the school website', bn: 'স্কুলের ওয়েবসাইট প্রকাশ করুন' },
+    synonyms: ['site', 'web', 'ওয়েব'],
+    permission: Permission.WEBSITE_MANAGE,
+    kind: 'modal',
+    group: 'administration',
+    run: (ctx) => ctx.navigate({ to: '/website?publish=1' }),
+  },
+
   // [48.3.15] Epic 48 D14. With the route's id they land on that exam / student, never a list.
   {
     id: 'exams.printAdmitCards',
@@ -1115,6 +1135,19 @@ export const ACTIONS: readonly PaletteAction[] = [
       ctx.navigate({
         to: ctx.params?.examId ? `/exams/${ctx.params.examId}?tab=print` : '/exams',
       }),
+  },
+  // [40.5.03] Lands on the exam, where the header button opens the confirm (the action only exists
+  // for a PUBLISHED exam, so the palette cannot open the dialog itself).
+  {
+    id: 'exams.publishWebsite',
+    label: { en: 'Show results on the website', bn: 'ওয়েবসাইটে ফলাফল দেখান' },
+    synonyms: ['website results', 'publish results online', 'ওয়েবসাইট ফলাফল'],
+    permission: Permission.RESULT_PUBLISH,
+    kind: 'navigate',
+    group: 'examsResults',
+    context: ['exam'],
+    run: (ctx) =>
+      ctx.navigate({ to: ctx.params?.examId ? `/exams/${ctx.params.examId}` : '/exams' }),
   },
   // CERTIFICATE_ISSUE is stricter than `/students`'s STUDENT_READ: documented exception.
   {

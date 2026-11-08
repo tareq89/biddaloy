@@ -1,0 +1,31 @@
+---
+import { t } from '../i18n/t';
+import type { Lang } from '../lib/types';
+
+interface Props {
+  photos: string[];
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const photos = Astro.props.photos.slice(0, 5);
+---
+{photos.length > 0 && (
+  <div class="hc" data-carousel data-single={photos.length === 1 ? '' : undefined} role="group" aria-roledescription="carousel" aria-label={t(lang, 'hero.label')}>
+    <div class="hc-track">
+      {photos.map((p, i) => (
+        <div class="hc-slide" aria-hidden={i === 0 ? undefined : 'true'}>
+          <img src={`/media/${p}`} alt="" loading={i === 0 ? 'eager' : 'lazy'} decoding="async" />
+        </div>
+      ))}
+    </div>
+    <button type="button" class="hc-btn hc-prev" aria-label={t(lang, 'hero.prev')}>‹</button>
+    <button type="button" class="hc-btn hc-next" aria-label={t(lang, 'hero.next')}>›</button>
+    <div class="hc-dots">
+      {photos.map((_, i) => <button type="button" aria-label={`${t(lang, 'hero.goto')} ${i + 1}`} aria-current={i === 0 ? 'true' : 'false'}></button>)}
+    </div>
+  </div>
+)}
+<script>
+  import { initCarousels } from '../lib/carousel';
+  initCarousels();
+</script>

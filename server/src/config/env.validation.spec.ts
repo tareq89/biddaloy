@@ -40,6 +40,75 @@ describe('BILLING_FREE_UNTIL (49.4)', () => {
   });
 });
 
+const ZONE = 'a'.repeat(32);
+
+describe('Cloudflare custom-domain pair (40.4.08)', () => {
+  it('production refuses only one of the token and the zone', () => {
+    expect(() => validate({ ...prodConfig, CF_SAAS_API_TOKEN: 'tok' })).toThrow(/CF_ZONE_ID/);
+    expect(() => validate({ ...prodConfig, CF_ZONE_ID: ZONE })).toThrow(/CF_SAAS_API_TOKEN/);
+  });
+
+  it('production accepts both or neither (neither = custom domains off)', () => {
+    expect(() =>
+      validate({ ...prodConfig, CF_SAAS_API_TOKEN: 'tok', CF_ZONE_ID: ZONE }),
+    ).not.toThrow();
+    expect(() => validate(prodConfig)).not.toThrow();
+  });
+
+  it('production refuses a zone id that is not 32 lower-case hex characters', () => {
+    expect(() => validate({ ...prodConfig, CF_SAAS_API_TOKEN: 'tok', CF_ZONE_ID: 'zone' })).toThrow(
+      /32-character/,
+    );
+    expect(() =>
+      validate({ ...prodConfig, CF_SAAS_API_TOKEN: 'tok', CF_ZONE_ID: 'A'.repeat(32) }),
+    ).toThrow(/32-character/);
+  });
+});
+
+describe('Umami pair (40.4.08)', () => {
+  const url = 'https://umami.example.org';
+  it('production refuses only one of the URL and the token', () => {
+    expect(() => validate({ ...prodConfig, UMAMI_API_URL: url })).toThrow(/UMAMI_API_TOKEN/);
+    expect(() => validate({ ...prodConfig, UMAMI_API_TOKEN: 't' })).toThrow(/UMAMI_API_URL/);
+  });
+
+  it('production refuses a URL that is not https', () => {
+    expect(() =>
+      validate({ ...prodConfig, UMAMI_API_URL: 'http://umami.example.org', UMAMI_API_TOKEN: 't' }),
+    ).toThrow(/https/);
+  });
+
+  it('production refuses a URL with a query string or fragment', () => {
+    for (const bad of ['https://umami.example.org/?x=1', 'https://umami.example.org/#f']) {
+      expect(() =>
+        validate({ ...prodConfig, UMAMI_API_URL: bad, UMAMI_API_TOKEN: 't' }),
+      ).toThrow(/UMAMI_API_URL/);
+    }
+  });
+
+  it('production accepts both https URL and token, or neither', () => {
+    expect(() =>
+      validate({ ...prodConfig, UMAMI_API_URL: url, UMAMI_API_TOKEN: 't' }),
+    ).not.toThrow();
+    expect(() => validate(prodConfig)).not.toThrow();
+  });
+
+  it('production refuses a tracker script URL that is not https, and accepts an https one', () => {
+    expect(() =>
+      validate({ ...prodConfig, UMAMI_SCRIPT_URL: 'http://u.example.org/s.js' }),
+    ).toThrow(/UMAMI_SCRIPT_URL/);
+    expect(() =>
+      validate({ ...prodConfig, UMAMI_SCRIPT_URL: 'https://u.example.org/script.js' }),
+    ).not.toThrow();
+  });
+
+  it('production refuses a script URL the tracker guard would drop', () => {
+    expect(() =>
+      validate({ ...prodConfig, UMAMI_SCRIPT_URL: 'https://u.example.org/s.js"x' }),
+    ).toThrow(/UMAMI_SCRIPT_URL/);
+  });
+});
+
 describe('Turnstile keys (Epic 79)', () => {
   it('production refuses only one of the site key and the secret', () => {
     expect(() => validate({ ...prodConfig, TURNSTILE_SITE_KEY: 'site' })).toThrow(/TURNSTILE/);
@@ -59,6 +128,28 @@ describe('Turnstile keys (Epic 79)', () => {
 
   it('treats an empty sample rate as unset', () => {
     expect(() => validate({ ...prodConfig, SENTRY_TRACES_SAMPLE_RATE: '' })).not.toThrow();
+  });
+});
+
+describe('SITE_ROOT_DOMAIN (Epic 40)', () => {
+  it('accepts a bare host, and unset or empty', () => {
+    expect(() =>
+      validate({ ...validConfig, SITE_ROOT_DOMAIN: 'schoolmanagerp.com' }),
+    ).not.toThrow();
+    expect(() => validate({ ...validConfig, SITE_ROOT_DOMAIN: 'sites.e2e.test' })).not.toThrow();
+    expect(() => validate({ ...validConfig, SITE_ROOT_DOMAIN: '' })).not.toThrow();
+    expect(() => validate({ ...validConfig, SITE_ROOT_DOMAIN: 'localhost' })).not.toThrow();
+    expect(() => validate(validConfig)).not.toThrow();
+  });
+
+  // Any of these would make every `<sub>.<root>` host fail to match, so all sites 404.
+  it('rejects a scheme, a port, a trailing dot or upper case', () => {
+    expect(() => validate({ ...validConfig, SITE_ROOT_DOMAIN: 'https://x.com' })).toThrow(
+      /SITE_ROOT_DOMAIN/,
+    );
+    expect(() => validate({ ...validConfig, SITE_ROOT_DOMAIN: 'x.com:443' })).toThrow();
+    expect(() => validate({ ...validConfig, SITE_ROOT_DOMAIN: 'x.com.' })).toThrow();
+    expect(() => validate({ ...validConfig, SITE_ROOT_DOMAIN: 'X.com' })).toThrow();
   });
 });
 
