@@ -34,7 +34,9 @@ Ask each person, in Bangla:
 
 1. "কোন শব্দটা বুঝতে অসুবিধা হয়েছে?" (Which word was unclear?)
 2. "লাল আর হলুদ ছাড়া অন্য কিছু দেখে কি বুঝতে পারতেন?" (Would you know without colour? Tests icon and text.)
-3. Phone only: "কোন কার্ড খুলতে হয়েছে?" (Which card did you have to open?)
+3. Phone only: "কোন কার্ডটা খুলতেন?" (Which card would you open? The screenshot cannot be tapped, so ask what they would open.)
+
+Run this term probe AFTER the timed tasks, never during them. Show each of the five terms on its own and ask what it means. Staff only meet some of these inside screen-reader text, and "এখনই দেখা দরকার" is not in the mock at all, so the timed tasks cannot test them.
 
 Glossary terms under test: এখনই দেখা দরকার, নজর রাখুন, সব ঠিক আছে, পিছিয়ে আছে, কমে এসেছে. Record any term that needs a change.
 
