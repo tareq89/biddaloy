@@ -77,14 +77,14 @@ because it derives alerts from everything before it.
 
 ```mermaid
 flowchart LR
-  org --> staff --> students --> student-extras --> routine --> attendance --> fees --> exams --> learning --> people-ops --> comms-print --> applications --> billing --> reports --> notices --> website --> website-content --> attention
+  org --> staff --> students --> student-extras --> routine --> attendance --> fees --> exams --> learning --> people-ops --> comms-print --> applications --> billing --> reports --> notices --> website --> attention
 ```
 
 The `website` slice (Epic 40, #3621) gives the demo school (`bmsc-high`) a published, switched-on Basic
 site at the subdomain `bmsc-high`. It goes through `SiteConfigService` (draft, publish, switch on), stores two
 1920x1080 WebP hero pictures and a logo through `StorageService`, and adds six teacher cards (three featured)
 picked by `ctx.rng`. When `SITE_TEST_HOST` is set (staging), that host also answers for the school as an ACTIVE
-custom domain. `website-content` is a stub that owes `SitePost` and `SiteEnquiry` to #3638 (40.3.11).
+custom domain. The same slice seeds three blog posts (two published, one draft), three enquiries (one unseen) and pins the public notice on the site (#3638).
 
 The `billing` slice (Epic 49) gives each of the three branches one PAID seat order (1,400 seats, 12 months, period
 anchor -6 months to +6 months) and one `OFFLINE_BANK` payment for the full amount (`seats * 12 * 1000` paisa).
@@ -636,6 +636,13 @@ export const slice: DemoSlice = {
 ```
 
 Then add one line to `SLICES` in `slices.ts` (a new file) and run the guard.
+
+### Known gaps recorded here
+
+- `school_sites.custom_domain`, `custom_domain_status`, `custom_domain_external_id`, `umami_website_id` and (40.4.08)
+  `custom_domain_records`, `custom_domain_since`, `custom_domain_checked_at` are exempt: they only mean something
+  with a live Cloudflare / Umami account, and the demo has neither. The staging `SITE_TEST_HOST` row sets only
+  `custom_domain` and `custom_domain_status` (`slices/website.ts`).
 
 ## Safety rules for anyone touching the demo seed
 

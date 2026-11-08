@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Readable } from 'node:stream';
-import { SchoolStatus, SiteIslandKind, SitePage } from '@biddaloy/shared';
+import { SchoolStatus, SiteIslandKind, SiteMediaSlot, SitePage } from '@biddaloy/shared';
 import type { SiteConfig } from '@biddaloy/shared';
 import { School } from '../../schools/entities/school.entity';
 import { StorageService } from '../../storage/storage.service';
@@ -15,6 +15,7 @@ import {
   PublicPage,
   buildManifest,
   buildPage,
+  galleryLinked,
   withFeeds,
   withAnnouncementWindow,
 } from './page-read-model';
@@ -86,20 +87,52 @@ export class PublicSiteService {
     return { tenantId: l.site.tenant_id, published: l.published, school: l.school };
   }
 
+  /**
+   * [40.5.01] The live site for the results routes. D12: the school's Results page must be switched
+   * on in the published config; off answers the same 404 as an unknown host (Rule 23).
+   */
+  async liveForResults(host: string) {
+    const l = await this.liveForWrite(host);
+    if (!buildPage(l.published, SitePage.RESULTS)) throw siteNotFound();
+    return l;
+  }
+
   async manifest(host: string, preview?: string): Promise<HostAnswer<PublicManifest>> {
     const l = await this.live(host, preview);
     if ('redirectTo' in l) return l;
     if (l.preview) {
       return {
-        data: withAnnouncementWindow(buildManifest(l.published, true, l.school), new Date()),
+        data: withAnnouncementWindow(
+          buildManifest(
+            l.published,
+            true,
+            l.school,
+            !!(await this.siteLogo(l.site.tenant_id)),
+            null,
+            await this.galleryOn(l.published, l.site.tenant_id),
+          ),
+          new Date(),
+        ),
       };
     }
+    // A logo upload or delete does not bump the site version, so the logo is part of the key.
+    const logo = await this.siteLogo(l.site.tenant_id);
+    // Gallery writes bump the site version, so the nav flag is safe under the versioned key.
+    const gallery = await this.galleryOn(l.published, l.site.tenant_id);
     const m = await this.cache.getOrLoad(
       l.site.tenant_id,
       l.site.version,
       // Everything the manifest reads that is not the published config is in the key.
-      `manifest:${l.school.updated_at.getTime()}:${l.site.noindex ? 1 : 0}`,
-      async () => buildManifest(l.published, l.site.noindex, l.school),
+      `manifest:${l.school.updated_at.getTime()}:${l.site.noindex ? 1 : 0}:${logo?.id ?? ''}:${l.site.umami_website_id ?? ''}`,
+      async () =>
+        buildManifest(
+          l.published,
+          l.site.noindex,
+          l.school,
+          !!logo,
+          l.site.umami_website_id,
+          gallery,
+        ),
     );
     return { data: withAnnouncementWindow(m, new Date()) };
   }
@@ -111,14 +144,21 @@ export class PublicSiteService {
     if (!(Object.values(SitePage) as string[]).includes(page)) throw siteNotFound();
     if (l.preview) {
       const draft = buildPage(l.published, page); // never cached: the draft changes while it is edited
-      if (!draft) throw siteNotFound();
+      if (
+        !draft ||
+        (page === SitePage.GALLERY && !(await this.galleryOn(l.published, l.site.tenant_id)))
+      )
+        throw siteNotFound();
       return { data: await withFeeds(draft, l.site.tenant_id, this.feeds) };
     }
     const built = await this.cache.getOrLoad(
       l.site.tenant_id,
       l.site.version,
       `page:${page}`,
-      async () => buildPage(l.published, page),
+      async () =>
+        page === SitePage.GALLERY && !(await this.galleryOn(l.published, l.site.tenant_id))
+          ? null
+          : buildPage(l.published, page),
     );
     if (!built) throw siteNotFound();
     // The page shell is cached by site version; the live rows are not (a notice ticked public shows
@@ -126,7 +166,17 @@ export class PublicSiteService {
     return { data: await withFeeds(built, l.site.tenant_id, this.feeds) };
   }
 
-  /** The kinds a visitor's browser may fetch live; `results` and `enquiry` have their own routes. */
+  /** The gallery page exists for visitors only when linked and an album has a photo (D50). */
+  private async galleryOn(config: SiteConfig, tenantId: string): Promise<boolean> {
+    if (!galleryLinked(config)) return false;
+    const rows: unknown[] = await this.media.manager.query(
+      `SELECT 1 FROM site_gallery_photos WHERE tenant_id = $1 LIMIT 1`,
+      [tenantId],
+    );
+    return rows.length > 0;
+  }
+
+  /** The kinds a visitor's browser may fetch live; `enquiry` has its own route. */
   async island(host: string, kind: string, classSectionId?: unknown): Promise<HostAnswer<unknown>> {
     const l = await this.live(host);
     if ('redirectTo' in l) return l;
@@ -135,6 +185,18 @@ export class PublicSiteService {
       SiteIslandKind.EVENTS,
       SiteIslandKind.ROUTINE,
     ];
+    // Results list personal data: read live every time, so a withdrawal shows at once.
+    if (kind === SiteIslandKind.RESULTS) {
+      if (!buildPage(l.published, SitePage.RESULTS)) throw siteNotFound();
+      // Exam and section names only (no student data), cached by site version: publish, withdraw,
+      // names and reopen all bump it. Redis down: read the database.
+      const tenantId = l.site.tenant_id;
+      return {
+        data: await this.cache.getOrLoad(tenantId, l.site.version, 'island:results', () =>
+          this.feeds.live('results', tenantId),
+        ),
+      };
+    }
     if (!islands.includes(kind) || !this.feeds.has(kind)) throw siteNotFound();
     const tenantId = l.site.tenant_id;
     if (kind !== SiteIslandKind.ROUTINE) return { data: await this.feeds.cached(kind, tenantId) };
@@ -148,6 +210,28 @@ export class PublicSiteService {
     );
     if (own.length === 0) return { data: [] };
     return { data: await this.feeds.cached(kind, tenantId, { classSectionId }) };
+  }
+
+  /**
+   * One published blog post by slug: the list feed holds only the 12 newest. A slug that is not
+   * the shape we mint, a draft and a missing post all answer the one 404.
+   */
+  async blogPost(host: string, slug: string): Promise<HostAnswer<Record<string, unknown>>> {
+    const l = await this.live(host);
+    if ('redirectTo' in l) return l;
+    if (!/^[a-z0-9-]{1,80}$/.test(slug)) throw siteNotFound();
+    const post = await this.feeds.blogPost(l.site.tenant_id, slug);
+    if (!post) throw siteNotFound();
+    const { title, excerpt, html, cover, publishedAt } = post;
+    return { data: { title, excerpt, html, cover, publishedAt } };
+  }
+
+  /** The newest logo uploaded in the website screens, or null. Tenant-scoped. */
+  private siteLogo(tenantId: string) {
+    return this.media.findOne({
+      where: { tenant_id: tenantId, slot: SiteMediaSlot.LOGO },
+      order: { created_at: 'DESC', id: 'DESC' },
+    });
   }
 
   /** `key` is `logo` or a `site_media` id. Returns null on `If-None-Match` hit (304). */
@@ -166,8 +250,11 @@ export class PublicSiteService {
     const tenantId = l.site.tenant_id;
 
     if (key === 'logo') {
-      if (!l.school.logo_key) throw siteNotFound();
-      return this.stream(() => this.storage.getForTenant(l.school.logo_key as string, tenantId));
+      // The logo from the website screens wins; the school profile logo is the fallback.
+      const logo = await this.siteLogo(tenantId);
+      const logoKey = logo?.storage_key ?? l.school.logo_key;
+      if (!logoKey) throw siteNotFound();
+      return this.stream(() => this.storage.getForTenant(logoKey, tenantId));
     }
     // Only a picture the published site shows, never any row of the tenant (a removed photo, an
     // unpublished draft's picture). Checked before the row lookup and the 304, so neither tells.
@@ -187,8 +274,8 @@ export class PublicSiteService {
   }
 
   /**
-   * A picture a feed shows: the photo of a teacher card that is switched on, or the cover or a
-   * picture inside the body of a published post. `key` is a checked UUID, so `position()` is safe.
+   * A picture a feed shows: the photo of a teacher card that is switched on, a gallery photo
+   * (live at once, D49), or the cover or a picture inside the body of a published post. `key` is a checked UUID, so `position()` is safe.
    */
   private async shownByFeed(tenantId: string, key: string): Promise<boolean> {
     const rows: unknown[] = await this.media.manager.query(
@@ -199,6 +286,9 @@ export class PublicSiteService {
           AND EXISTS (SELECT 1 FROM user_tenants m
                        WHERE m.user_id = staff_web_profiles.user_id AND m.tenant_id = $1
                          AND m.deleted_at IS NULL AND m.role IN ('TEACHER','OFFICE_STAFF'))
+       UNION ALL
+       SELECT 1 FROM site_gallery_photos
+        WHERE tenant_id = $1 AND media_id::text = $2
        UNION ALL
        SELECT 1 FROM site_posts
         WHERE tenant_id = $1 AND kind = 'POST'

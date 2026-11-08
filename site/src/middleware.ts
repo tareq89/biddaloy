@@ -8,8 +8,9 @@ const PREVIEW_HEADER = () => (process.env.SITE_PREVIEW_HEADER ?? 'X-Site-Preview
 
 /** Preview content comes from the theme's own defaults (D33). */
 function demoFor(theme: SiteTheme): { site: SiteManifest; home: SitePageData } | undefined {
-  const m = Object.hasOwn(THEMES, theme) ? THEMES[theme] : undefined;
-  if (!m) return undefined;
+  // hasOwn: `constructor` / `__proto__` are not themes (a prototype hit would be a 500).
+  if (!Object.hasOwn(THEMES, theme)) return undefined;
+  const m = THEMES[theme];
   const cfg = defaultConfigFor(theme);
   const home = cfg.pages.find((p) => p.page === SitePage.HOME);
   return {
@@ -32,7 +33,17 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   if (pathname.startsWith('/_api/') || pathname.startsWith('/_astro/')) return next();
 
   const host = (ctx.request.headers.get('host') ?? '').replace(/:\d+$/, '').toLowerCase();
-  const seg = pathname.split('/')[1];
+  // A path-preview rewrite re-enters here with its locals already set: let it through.
+  if (ctx.locals.preview && ctx.locals.site) return next();
+
+  // [40.4.09] `/website/preview/<theme>/...` is the header preview as a path, for tools that cannot
+  // send headers (Lighthouse CI). Off unless SITE_PREVIEW_PATHS=1; production nginx does this itself.
+  const pm =
+    process.env.SITE_PREVIEW_PATHS === '1'
+      ? /^\/website\/preview\/([a-z-]+)(\/.*)?$/.exec(pathname)
+      : null;
+  const path = pm ? (pm[2] ?? '/') : pathname;
+  const seg = path.split('/')[1];
   const lang: Lang = seg === 'en' ? 'en' : 'bn';
   ctx.locals.host = host;
   ctx.locals.lang = lang;
@@ -40,9 +51,9 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   // The error pages are rendered by rewrite below; do not look the site up again.
   if (pathname === '/404/' || pathname === '/503/') return next();
 
-  if (pathname === '/') return ctx.redirect(`/bn/${ctx.url.search}`, 302);
+  if (path === '/') return ctx.redirect(pm ? `${pathname.replace(/\/?$/, '/')}bn/` : `/bn/${ctx.url.search}`, 302);
 
-  const previewTheme = ctx.request.headers.get(PREVIEW_HEADER()) ?? undefined;
+  const previewTheme = pm?.[1] ?? ctx.request.headers.get(PREVIEW_HEADER()) ?? undefined;
   let res: Response;
   if (previewTheme) {
     const demo = demoFor(previewTheme as SiteTheme);
@@ -50,7 +61,11 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     ctx.locals.preview = previewTheme;
     ctx.locals.site = demo.site;
     ctx.locals.previewHome = demo.home;
-    res = LANGS.includes(seg as Lang) ? await next() : await next('/404/');
+    // Only robots.txt answers in a preview (Disallow: /); sitemap, feed, cards are a 404 there.
+    res =
+      LANGS.includes(seg as Lang) || path === '/robots.txt'
+        ? await next(pm ? path : undefined)
+        : await next('/404/');
     return withNoindex(res);
   }
 
@@ -61,9 +76,12 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   if (r.kind === 'none') return next('/404/');
   if (r.kind === 'down') return next('/503/');
   ctx.locals.site = r.data;
-  if (!LANGS.includes(seg as Lang)) return next('/404/');
+  if (!LANGS.includes(seg as Lang) && !SEO_FILES.has(seg)) return next('/404/');
   return next();
 });
+
+/** Root files of a school site (#3645); they answer only for a resolved host, so an unknown host gets the page 404. */
+const SEO_FILES = new Set(['sitemap.xml', 'robots.txt', 'feed.xml', 'llms.txt', 'og']);
 
 function withNoindex(res: Response): Response {
   res.headers.set('X-Robots-Tag', 'noindex');
