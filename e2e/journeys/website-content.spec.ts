@@ -73,7 +73,7 @@ test('a notice can be pinned on the home page only once it is shown on the websi
   await page.goto('/communications/notices/new');
   const pin = page.getByLabel(t('notices.compose.pinOnHome'));
   await expect(pin).toBeDisabled();
-  await page.getByLabel(t('notices.compose.showOnWebsite')).check();
+  await page.getByLabel(t('notices.compose.showOnWebsite'), { exact: true }).check();
   await expect(pin).toBeEnabled();
   await pin.check();
   await expect(pin).toBeChecked();

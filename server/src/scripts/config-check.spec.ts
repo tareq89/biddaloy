@@ -299,6 +299,12 @@ describe('runStackConfigCheck', () => {
       'SETTINGS_ENCRYPTION_KEY_PREVIOUS',
       'PLATFORM_TENANT_ID',
       'TURNSTILE_SECRET_KEY',
+      // Epic 40 school-site custom domains and analytics: not messaging providers.
+      'CF_SAAS_API_TOKEN',
+      'CF_ZONE_ID',
+      'CF_SAAS_FALLBACK_ORIGIN',
+      'UMAMI_API_URL',
+      'UMAMI_API_TOKEN',
       'TURNSTILE_SITE_KEY',
       'SENTRY_DSN_WEB',
       'SENTRY_ENVIRONMENT',

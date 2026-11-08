@@ -58,6 +58,12 @@ describe('SiteCacheService (real Redis)', () => {
     await redis.del(service.feedKey(other, 'notices'));
   });
 
+  it('invalidate also drops the gallery feed, so a deleted photo leaves the public page at once', async () => {
+    await service.getOrLoadFeed(tenant, 'gallery', async () => [1]);
+    await service.invalidate(tenant);
+    expect(await redis.exists(service.feedKey(tenant, 'gallery'))).toBe(0);
+  });
+
   it('Redis down: the loader still runs and nothing throws', async () => {
     const down = () => Promise.reject(new Error('redis down'));
     vi.spyOn(redis, 'get').mockImplementation(down as never);

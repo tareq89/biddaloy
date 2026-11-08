@@ -19794,7 +19794,10 @@ export interface components {
             status: "PENDING_DNS" | "PENDING_SSL" | "ACTIVE" | "FAILED" | null;
             records: components["schemas"]["DnsRecordDto"][];
             lastCheckedAt: string | null;
-            /** @description Hint key resolved by the client: `apex_needs_flattening` or `failed_released`. */
+            /**
+             * @description Hint key resolved by the client: `apex_needs_flattening` or `failed_released`.
+             * @enum {string|null}
+             */
             hintKey?: "apex_needs_flattening" | "failed_released" | null;
         };
         SetCustomDomainDto: {
@@ -47246,7 +47249,7 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -47543,7 +47546,7 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
