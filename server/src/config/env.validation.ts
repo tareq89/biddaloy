@@ -564,7 +564,11 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
   if (str('UMAMI_API_URL') && !/^https:\/\/[^\s/]+(\/\S*)?$/.test(str('UMAMI_API_URL'))) {
     problems.push('UMAMI_API_URL must be an https URL');
   }
-  if (str('UMAMI_SCRIPT_URL') && !/^https:\/\/[^\s/]+(\/\S*)?$/.test(str('UMAMI_SCRIPT_URL'))) {
+  // Same characters the site's tracker guard refuses, so a bad value fails at boot, not at render.
+  if (
+    str('UMAMI_SCRIPT_URL') &&
+    !/^https:\/\/[^\s/"'<>&]+(\/[^\s"'<>&]*)?$/.test(str('UMAMI_SCRIPT_URL').trim())
+  ) {
     problems.push('UMAMI_SCRIPT_URL must be an https URL');
   }
 

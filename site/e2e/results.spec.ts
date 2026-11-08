@@ -15,7 +15,7 @@ async function stub(page: Page, o: { names?: boolean } = {}) {
   await page.route('https://challenges.cloudflare.com/**', (r) =>
     r.fulfill({
       contentType: 'text/javascript',
-      body: `window.turnstile={render:(_e,o)=>{o.callback('tok');return 'w'},reset:()=>{}}`,
+      body: `let cb;window.turnstile={render:(_e,o)=>{cb=o.callback;o.callback('tok');return 'w'},reset:()=>{cb&&cb('tok')}}`,
     }),
   );
   const bodies: Record<string, unknown>[] = [];
