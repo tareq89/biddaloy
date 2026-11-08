@@ -21,7 +21,7 @@ const { albums, lang } = Astro.props;
               const caption = pick(p.caption, lang);
               return (
                 <li>
-                  <button type="button" class="gg-tile" data-gv-open data-cap={caption}>
+                  <button type="button" class="gg-tile" data-gv-open data-cap={caption} aria-label={caption || title ? undefined : `${t(lang, 'gallery.open')} ${i + 1}`}>
                     <img src={`/media/${p.mediaId}`} alt={caption ?? title} width="1200" height="800" loading={a === 0 && i < 3 ? 'eager' : 'lazy'} decoding="async" />
                   </button>
                 </li>
