@@ -113,7 +113,7 @@ done
 # The compose default ROOT_DOMAIN=root.invalid means "no school sites": the gate is closed for every host.
 docker run --rm -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=198.51.100.0/24 -e ROOT_DOMAIN=root.invalid -e APP_DOMAIN=example.test \
   -v "$PWD/nginx/edge-mode.sh:/e.sh:ro" --entrypoint sh "$NGINX_IMG" -c 'sh /e.sh >/dev/null && cat /etc/nginx/conf.d/01-site-host.conf' 2>&1 \
-  | grep -q '~\^(\[a-z0-9-\]' && fail "ROOT_DOMAIN=root.invalid opens the custom path" "regex rules present" || pass "ROOT_DOMAIN=root.invalid: gate stays closed (no regex rules)"
+  | grep -q '"~' && fail "ROOT_DOMAIN=root.invalid opens the custom path" "regex rules present" || pass "ROOT_DOMAIN=root.invalid: gate stays closed (no regex rules)"
 
 # A host value that could break out of the generated map (quote, semicolon, brace, newline) must stop
 # the container loudly, never write a config. Same for a bad ROOT_DOMAIN.
