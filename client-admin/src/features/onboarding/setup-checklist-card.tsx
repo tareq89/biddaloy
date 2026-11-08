@@ -22,6 +22,7 @@ const TARGETS: Record<Exclude<OnboardingItemId, 'website'>, { to: string; search
     feeStructures: { to: '/fee-structures' },
     guardianInvites: { to: '/guardians', search: { invite: 1 } },
     messageSettings: { to: '/settings', search: { section: 'communication' } },
+    website: { to: '/website' },
   };
 
 /** Shows until dismissed or every item is done. Existing schools are dismissed by migration

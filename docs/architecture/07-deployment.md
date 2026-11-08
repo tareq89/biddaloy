@@ -137,6 +137,8 @@ flowchart LR
 | Config files                | `cloudflared/config.yml`, `credentials.json`                         | `letsencrypt/`, `acme-webroot/`, `htpasswd`                                                                                                                 |
 | Hosts that answer           | the five domains in `edge.enc.env`; anything else gets `444`         | same                                                                                                                                                        |
 
+**School websites in direct mode.** Direct mode publishes no `:8081` and has no Cloudflare for SaaS fallback origin, so school websites are **lost entirely** in direct mode, `<school>.ROOT_DOMAIN` and a school's own domain alike: no :80 or :443 server serves a school host (D5, kept on purpose; [25-cloudflare](25-cloudflare.md#direct-mode-replaces-cloudflare)).
+
 **First real certificate (direct mode).** Issuing it is one manual step, once.
 After the first `biddaloy-deploy edge <sha>` nginx serves the placeholder; delete
 it and ask Let's Encrypt for the real one (the command is in the comment above
@@ -345,6 +347,11 @@ sequenceDiagram
 A bad version stops at the first container; the second keeps serving the
 old one. Staging and demo have one `app`. nginx finds `prod-app` and
 `prod-app2` by alias.
+
+Known gap (Epic 40): the school-site renderer (`site`) calls only `prod-app`
+(`SITE_API_BASE` in `deploy/stack.yml`). While `app` restarts, a school page
+that is not in the 30 s nginx cache shows the site 503 page; a cached page is
+served stale. It ends when `app` is ready again (at most 24 x 5 s).
 `/api/health/ready` needs `HEALTH_TOKEN` in the project's secrets file; without
 it the route answers 404 and the deploy never turns ready.
 

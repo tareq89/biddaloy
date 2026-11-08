@@ -1,0 +1,44 @@
+---
+import Analytics from '../components/Analytics.astro';
+import Seo from '../components/Seo.astro';
+import { t } from '../i18n/t';
+import { themeCss, toStyle } from '../lib/css-vars';
+import { pick } from '../lib/pick';
+import type { Lang, SiteManifest } from '../lib/types';
+
+interface Props {
+  manifest: SiteManifest;
+  lang: Lang;
+  /** Path after the language prefix (`` for home), used for hreflang and canonical. */
+  rest?: string;
+  title?: string;
+  /** Short plain-text summary (blog excerpt); falls back to the school's address line. */
+  description?: string;
+  /** Site path of a picture (`/media/<id>`, default the logo); made absolute from the request origin. */
+  image?: string;
+}
+const { manifest, lang, rest = '', title, description, image } = Astro.props;
+const host = Astro.locals.host;
+const { vars, fontFaces } = themeCss(manifest);
+const name = pick(manifest.schoolName, lang) ?? '';
+const fullTitle = title ? `${title} · ${name}` : name;
+// Values reach the page only through Astro's escaping of attribute expressions.
+const desc = (description ?? pick(manifest.contact?.address, lang) ?? fullTitle);
+// A chosen picture (blog cover) wins; otherwise Seo uses the generated card for the page.
+const ogImage = image?.startsWith('/') ? new URL(image, `https://${host}`).href : undefined;
+---
+<!doctype html>
+<html lang={lang} style={toStyle(vars)}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{fullTitle}</title>
+    <Seo manifest={manifest} lang={lang} rest={rest} fullTitle={fullTitle} description={desc} image={ogImage} name={name} />
+    <style set:html={fontFaces}></style>
+    <Analytics manifest={manifest} />
+  </head>
+  <body>
+    <a class="skip" href="#main">{t(lang, 'skip')}</a>
+    <slot />
+  </body>
+</html>

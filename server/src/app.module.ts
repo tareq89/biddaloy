@@ -73,6 +73,7 @@ import { AcrModule } from './modules/acr/acr.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { AttentionModule } from './modules/attention/attention.module';
 import { NoticesModule } from './modules/notices/notices.module';
+import { WebsiteModule } from './modules/website/website.module';
 import { NoticeSmsModule } from './modules/notices/sms/notice-sms.module';
 import { NoticeAccessModule } from './modules/notices/access/notice-access.module';
 import { SurveysModule } from './modules/surveys/surveys.module';
@@ -97,6 +98,13 @@ import { AlertRecipient } from './modules/attention/entities/alert-recipient.ent
 import { Notice } from './modules/notices/entities/notice.entity';
 import { NoticeAttachment } from './modules/notices/entities/notice-attachment.entity';
 import { NoticeRecipient } from './modules/notices/entities/notice-recipient.entity';
+import { SchoolSite } from './modules/website/entities/school-site.entity';
+import { SiteEnquiry } from './modules/website/entities/site-enquiry.entity';
+import { SiteMedia } from './modules/website/entities/site-media.entity';
+import { SitePost } from './modules/website/entities/site-post.entity';
+import { SiteGalleryAlbum } from './modules/website/entities/site-gallery-album.entity';
+import { SiteGalleryPhoto } from './modules/website/entities/site-gallery-photo.entity';
+import { StaffWebProfile } from './modules/website/entities/staff-web-profile.entity';
 import { Survey } from './modules/surveys/entities/survey.entity';
 import { SurveyQuestion } from './modules/surveys/entities/survey-question.entity';
 import { SurveyTarget } from './modules/surveys/entities/survey-target.entity';
@@ -411,6 +419,14 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             Notice,
             NoticeAttachment,
             NoticeRecipient,
+            // [40.1.03] Epic 40 school website (WebsiteModule, workbook tabs, demo seed).
+            SchoolSite,
+            SiteEnquiry,
+            SiteMedia,
+            SitePost,
+            SiteGalleryAlbum,
+            SiteGalleryPhoto,
+            StaffWebProfile,
             PlatformAlert,
             SeatOrder,
             PlatformPayment,
@@ -533,6 +549,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     AttentionModule,
     NoticeAccessModule, // before NoticesModule: GET /notices/mine must register before GET /notices/:id
     NoticesModule,
+    WebsiteModule,
     NoticeSmsModule,
     SurveysModule,
     PerformanceModule,

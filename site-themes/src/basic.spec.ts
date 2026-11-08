@@ -29,9 +29,32 @@ describe('basic manifest', () => {
     expect(validateSiteConfig(cfg, BASIC).ok).toBe(true);
     for (const p of cfg.pages) {
       for (const s of p.sections) {
-        for (const v of Object.values(s.data)) expect((v as { bn: string }).bn.trim()).not.toBe('');
+        for (const v of Object.values(s.data)) {
+          if (typeof v === 'object' && v !== null)
+            expect((v as { bn: string }).bn.trim()).not.toBe('');
+        }
       }
     }
+  });
+
+  it('has an academics page with academics and routine, and optional contact links', () => {
+    const cfg = defaultConfigFor(SiteTheme.BASIC);
+    const academics = cfg.pages.find((p) => p.page === 'academics');
+    expect(academics?.sections.map((s) => s.key)).toEqual(['academics', 'routine']);
+    const contact = BASIC.sections.find((s) => s.key === 'contact')!;
+    for (const k of ['lat', 'lng', 'whatsapp', 'facebook']) {
+      expect(
+        contact.fields.find((f) => f.key === k),
+        k,
+      ).toMatchObject({ required: false });
+    }
+  });
+
+  it('a draft saved before the new fields still validates (the new fields are optional)', () => {
+    const cfg = defaultConfigFor(SiteTheme.BASIC);
+    const contact = cfg.pages.find((p) => p.page === 'contact')!.sections[0];
+    expect(Object.keys(contact.data)).toEqual(['title', 'address']);
+    expect(validateSiteConfig(cfg, BASIC).ok).toBe(true);
   });
 
   it('each stub has its own id and validates its own default config', () => {

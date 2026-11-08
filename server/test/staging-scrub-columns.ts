@@ -69,7 +69,6 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
       'name',
       'name_bn',
       'slug',
-      'domain',
       'country_code',
       'registration_id',
       'logo_key',
@@ -100,6 +99,24 @@ const BY_TABLE: Record<string, Partial<Record<ScrubHandling, string[]>>> = {
   staff_documents: { fake: ['original_filename'], 'kept-public': ['storage_key'] },
   print_assets: { fake: ['original_name'], 'kept-public': ['storage_key'] },
   notice_attachments: { fake: ['original_name'], 'kept-public': ['storage_key'] },
+
+  // --- [40.1.03] school website ---
+  // Enquiries come from the public form: a parent's name, phone and question.
+  site_enquiries: { fake: ['name', 'phone'], null: ['message'] },
+  // A teacher's card text can name family, past schools, degrees; subjects are subject names.
+  staff_web_profiles: { null: ['bio', 'credentials'], 'kept-public': ['subjects'] },
+  // Website copy written by the school to be published (theme, sections, announcements).
+  // custom_domain_records are the DNS/ownership-verification values Cloudflare issued for a
+  // production domain; staging must not carry them.
+  school_sites: { 'kept-public': ['draft', 'published'], null: ['custom_domain_records'] },
+  // Posts are news about people, like notices: text goes (NOT NULL jsonb gets a placeholder).
+  site_posts: { null: ['title', 'body'] },
+  // Album titles and photo captions are free text about people and events, like post text: the
+  // NOT NULL title gets a placeholder, the nullable caption goes.
+  site_gallery_albums: { null: ['title'] },
+  site_gallery_photos: { null: ['caption'] },
+  // Content hash of a picture (staff photos too); replaced by a value derived from the row id.
+  site_media: { fake: ['hash'] },
 
   // --- tokens, sessions, devices ---
   refresh_tokens: { 'delete-row': ['*'] },
