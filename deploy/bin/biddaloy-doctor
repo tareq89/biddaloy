@@ -150,7 +150,7 @@ edge_checks() {
 
 # --- per stack ----------------------------------------------------------------------------------
 # --- school websites (Epic 40, runbook part 17) --------------------------------------------------
-# The site container runs in the prod stack (prod-site-1). Probes go through Cloudflare like a
+# The site container runs in every app stack (prod-site-1, demo-site-1, staging-site-1; the last two are checked in the stack loop). Probes go through Cloudflare like a
 # visitor: a made-up school name and `sites.<root>` must both answer the site's own 404 (proves
 # the wildcard DNS record, the cloudflared catch-all and the :8081 listener). Needs edge_checks'
 # DOCKER_PS. Example: ROOT_DOMAIN=schoolmanagerp.com probes https://doctor-probe.schoolmanagerp.com/
@@ -217,6 +217,7 @@ stack_checks() { # <stack>
   if [[ "$s" != prod ]]; then
     [[ -n "$DOCKER_PS" ]] || DOCKER_PS="$(tmo docker ps -a --format '{{.Names}}|{{.Status}}' 2>/dev/null)"
     check_container "$s-mailpit-1"
+    check_container "$s-site-1" # school websites, `-demo` / `-staging` labels (#3711)
   fi
 
   # ready endpoint: the app container holds HEALTH_TOKEN itself; only the status code comes back.

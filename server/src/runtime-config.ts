@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { siteEnvTag } from '@biddaloy/shared';
 
 /**
  * Public, per-deploy values the SPA needs but cannot have baked into the
@@ -18,6 +19,8 @@ export function buildRuntimeConfig(env: Record<string, string | undefined>) {
     // [88 U5, D9] the staging ribbon: "DEV" or "STAGING" plus its data date; empty on prod
     envBadge: env.ENV_BADGE ?? '',
     envBadgeDate: env.ENV_BADGE_DATE ?? '',
+    // [40 #3711] school-site labels carry this suffix on demo and staging; '' elsewhere
+    siteEnvTag: siteEnvTag(env.ENV_NAME),
   };
 }
 

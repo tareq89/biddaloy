@@ -81,7 +81,7 @@ defaults() {
   export ROOT_DIR="$ROOT" BIDDALOY_ROOT="$ROOT" PATH="$BIN"
   export DF_ROOT=50 DF_DOCKER=40 MEM_AVAIL=600 SWAP_USED=0 NTP=yes FAILED_UNITS="" NIGHTLY_RESULT=success NIGHTLY_LOAD=loaded
   export CERT_DAYS=60 READY_CODE=200 CONNS=10 MAXC=100 TUNNEL_LOG="Registered tunnel connection\n"
-  export PS_LINES="edge-nginx-1|Up 2 hours (healthy)\nedge-landing-1|Up 2 hours (healthy)\nedge-cloudflared-1|Up 2 hours (healthy)\nstaging-mailpit-1|Up 2 hours (healthy)\ndemo-mailpit-1|Up 2 hours (healthy)\nprod-site-1|Up 2 hours (healthy)\n"
+  export PS_LINES="edge-nginx-1|Up 2 hours (healthy)\nedge-landing-1|Up 2 hours (healthy)\nedge-cloudflared-1|Up 2 hours (healthy)\nstaging-mailpit-1|Up 2 hours (healthy)\ndemo-mailpit-1|Up 2 hours (healthy)\nstaging-site-1|Up 2 hours (healthy)\ndemo-site-1|Up 2 hours (healthy)\nprod-site-1|Up 2 hours (healthy)\n"
   export PROBE_CODE=404 SITES_CODE=404 UMAMI_CODE=200
   export BACKUP_LS="$(key_ago 10)"
   set_mode tunnel
@@ -185,6 +185,8 @@ check "unhealthy nginx FAIL" row "container edge-nginx-1" FAIL
 check "missing cloudflared FAIL" row "container edge-cloudflared-1" FAIL
 defaults; export PS_LINES="edge-nginx-1|Up 1 hour (healthy)\nedge-landing-1|Up 1 hour (healthy)\nedge-cloudflared-1|Up 1 hour (healthy)\ndemo-mailpit-1|Up 1 hour (healthy)\n"; run
 check "missing staging mailpit FAIL" row "container staging-mailpit-1" FAIL
+check "missing staging site FAIL" row "container staging-site-1" FAIL
+check "missing demo site FAIL" row "container demo-site-1" FAIL
 check "prod has no mailpit check" nrow "container prod-mailpit-1"
 defaults; export TUNNEL_LOG=""; run
 check "no tunnel connection FAIL" row "tunnel connections" FAIL

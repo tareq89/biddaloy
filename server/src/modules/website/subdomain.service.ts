@@ -5,7 +5,11 @@ import {
   RESERVED_SUBDOMAINS,
   SITE_SUBDOMAIN_RE,
   SITE_SUBDOMAIN_REDIRECT_DAYS,
+  labelEnvTag,
+  siteEnvTag,
+  withSiteEnvTag,
 } from '@biddaloy/shared';
+import type { SiteEnvTag } from '@biddaloy/shared';
 import { School } from '../schools/entities/school.entity';
 import { SchoolSite } from './entities/school-site.entity';
 import { SiteCacheService } from './public/site-cache.service';
@@ -15,8 +19,16 @@ import type { SiteDto } from './dto/site-config.dto';
 /** One sentence for every way a rename can fail: malformed, reserved, taken, lost a race (Rule 23). */
 export const subdomainUnavailable = () => new BadRequestException('site.subdomain_unavailable');
 
-export const isValidSubdomain = (v: unknown): v is string =>
-  typeof v === 'string' && SITE_SUBDOMAIN_RE.test(v) && !RESERVED_SUBDOMAINS.includes(v);
+/**
+ * Format, not reserved, and the label's environment tag is exactly this environment's (D5):
+ * nginx routes by the suffix, so a wrong or missing one would reach the wrong container.
+ * Never fixes the name: the admin screen adds the tag, the server only judges.
+ */
+export const isValidSubdomain = (v: unknown, tag: SiteEnvTag | ''): v is string =>
+  typeof v === 'string' &&
+  SITE_SUBDOMAIN_RE.test(v) &&
+  !RESERVED_SUBDOMAINS.includes(v) &&
+  labelEnvTag(v) === tag;
 
 const slugify = (s: string) =>
   s
@@ -30,11 +42,14 @@ const slugify = (s: string) =>
  * Candidates in D34 order: the name slug, the initials, the slug plus `-school`.
  * ponytail: schools carry no district, so the third is a fixed suffix; swap in a district when it exists.
  */
-export function candidatesFor(name: string): string[] {
+export function candidatesFor(name: string, tag: SiteEnvTag | ''): string[] {
   const words = name.toLowerCase().match(/[a-z0-9]+/g) ?? [];
   const slug = slugify(name);
   const initials = words.map((w) => w[0]).join('');
-  return [...new Set([slug, initials, slugify(`${slug}-school`)])].filter(isValidSubdomain);
+  // A candidate too long once tagged is dropped, not cut (the filter refuses over 30).
+  return [...new Set([slug, initials, slugify(`${slug}-school`)])]
+    .map((c) => withSiteEnvTag(c, tag))
+    .filter((c) => isValidSubdomain(c, tag));
 }
 
 /** [40.2.01] Choose and change the site's web address (D34). */
@@ -46,6 +61,10 @@ export class SubdomainService {
     private readonly config: SiteConfigService,
     private readonly cache: SiteCacheService,
   ) {}
+
+  private get tag() {
+    return siteEnvTag(process.env.ENV_NAME);
+  }
 
   /** Free = no other school has it now and no other school's 30-day redirect still holds it. */
   private async isFree(value: string, tenantId: string, now: Date): Promise<boolean> {
@@ -62,13 +81,15 @@ export class SubdomainService {
 
   /** `{ available: false }` for malformed, reserved and taken alike: no reason leaks. */
   async check(tenantId: string, value: unknown, now = new Date()): Promise<{ available: boolean }> {
-    return { available: isValidSubdomain(value) && (await this.isFree(value, tenantId, now)) };
+    return {
+      available: isValidSubdomain(value, this.tag) && (await this.isFree(value, tenantId, now)),
+    };
   }
 
   async suggest(tenantId: string): Promise<{ suggestions: string[] }> {
     const school = await this.schools.findOneOrFail({ where: { id: tenantId } });
     const suggestions: string[] = [];
-    for (const c of candidatesFor(school.name)) {
+    for (const c of candidatesFor(school.name, this.tag)) {
       if ((await this.check(tenantId, c)).available) suggestions.push(c);
     }
     return { suggestions };

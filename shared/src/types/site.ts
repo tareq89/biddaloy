@@ -56,6 +56,22 @@ export const RESERVED_SUBDOMAINS: readonly string[] = [
   'inbox-staging',
 ];
 
+/** Environments whose school-site labels carry a suffix (`-demo`, `-staging`): nginx picks the site container by it (Epic 40 #3711). */
+export const SITE_ENV_TAGS = ['demo', 'staging'] as const;
+export type SiteEnvTag = (typeof SITE_ENV_TAGS)[number];
+
+/** The tag of the running environment, or '' (prod, dev, e2e, junk). */
+export const siteEnvTag = (envName: string | undefined): SiteEnvTag | '' =>
+  SITE_ENV_TAGS.find((t) => t === envName) ?? '';
+
+/** The tag a label ends in, or ''. `a-demo` -> 'demo'; `demo` and `a-demonstration` -> ''. */
+export const labelEnvTag = (label: string): SiteEnvTag | '' =>
+  SITE_ENV_TAGS.find((t) => label.endsWith(`-${t}`)) ?? '';
+
+/** Adds the environment's tag; a label that already ends in it is left alone. No tag: unchanged. */
+export const withSiteEnvTag = (label: string, tag: SiteEnvTag | ''): string =>
+  !tag || label.endsWith(`-${tag}`) ? label : `${label}-${tag}`;
+
 export const SITE_MEDIA_QUOTA_BYTES = 100 * 1024 * 1024;
 export const SITE_POST_BODY_MAX_CHARS = 20_000;
 export const SITE_POST_MAX_IMAGES = 10;

@@ -65,6 +65,38 @@ describe('/website/address', () => {
   afterEach(async () => {
     await cleanupTestState();
     vi.restoreAllMocks();
+    delete window.__BIDDALOY_CONFIG__;
+  });
+
+  it('on demo adds the -demo suffix itself, shows the full name, never doubles it', async () => {
+    window.__BIDDALOY_CONFIG__ = { siteEnvTag: 'demo' };
+    const calls = mockWebsite();
+    mockDomain(unavailable);
+    render();
+    await userEvent.click(await screen.findByRole('button', { name: 'Change the address' }));
+    const field = await screen.findByLabelText('New address');
+    await userEvent.type(field, 'modelschool');
+    expect(await screen.findByText('This address is free.')).toBeTruthy();
+    expect(screen.getByText(/^modelschool-demo/)).toBeTruthy();
+    await userEvent.clear(field);
+    await userEvent.type(field, 'modelschool-demo');
+    expect(await screen.findByText('This address is free.')).toBeTruthy();
+    const save = screen.getByRole<HTMLButtonElement>('button', { name: 'Save address' });
+    await waitFor(() => expect(save.disabled).toBe(false));
+    await userEvent.click(save);
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Change address' }));
+    await waitFor(() => expect(calls).toEqual(['rename:modelschool-demo']));
+  });
+
+  it('on demo shows the too-long hint when the tagged name passes 30 characters', async () => {
+    window.__BIDDALOY_CONFIG__ = { siteEnvTag: 'demo' };
+    mockWebsite();
+    mockDomain(unavailable);
+    render();
+    await userEvent.click(await screen.findByRole('button', { name: 'Change the address' }));
+    await userEvent.type(await screen.findByLabelText('New address'), 'a'.repeat(28));
+    expect(await screen.findByText(/over 30 characters/)).toBeTruthy();
   });
 
   it('renames only after the live check says the address is free, and after confirming', async () => {

@@ -12,16 +12,26 @@
 # Direct mode (D5) has no wildcard certificate here and no published port: school sites are
 # tunnel-only for now (no school site answers in direct mode), the listener still boots so both modes share one config.
 #
-# Production only: the upstream names are the `prod-*` aliases (deploy/stack.yml), as in
-# default.conf.template. No cookie ever reaches the site container (it is anonymous), and
+# Three site containers (#3711): a label ending -demo or -staging goes to `demo-site` or
+# `staging-site`, everything else to `prod-site` ($site_upstream_name, conf.d/01-site-host.conf).
+# The names are the `<env>-site` aliases (deploy/stack.yml). No cookie ever reaches the site container (it is anonymous), and
 # X-Site-Preview is dropped on every public request (the site container trusts that header,
 # only the app-host preview route in default.conf.template may set it).
 
 proxy_cache_path /var/cache/nginx/site levels=1:2 keys_zone=site_cache:10m max_size=200m inactive=2h;
 
+# `site_upstream` stays prod's name: the app-host preview route in default.conf.template uses it.
 upstream site_upstream {
     zone site_upstream 256k;
     server prod-site:4321 max_fails=1 fail_timeout=5s resolve;
+}
+upstream site_demo {
+    zone site_demo 256k;
+    server demo-site:4321 max_fails=1 fail_timeout=5s resolve;
+}
+upstream site_staging {
+    zone site_staging 256k;
+    server staging-site:4321 max_fails=1 fail_timeout=5s resolve;
 }
 
 # ONE server on :8081, the default for every host, gated by $site_host_ok (conf.d/01-site-host.conf,
@@ -60,7 +70,7 @@ server {
     # an entry nobody asked for in 2 hours (inactive=2h) is gone, and then the visitor gets the
     # maintenance page (503).
     location / {
-        proxy_pass http://site_upstream;
+        proxy_pass http://$site_upstream_name;
         proxy_cache site_cache;
         proxy_cache_valid 200 30s;
         proxy_cache_valid 404 10s;

@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { randomBytes } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { RESERVED_SUBDOMAINS, SiteTheme } from '@biddaloy/shared';
+import { RESERVED_SUBDOMAINS, SiteTheme, siteEnvTag } from '@biddaloy/shared';
+import type { SiteEnvTag } from '@biddaloy/shared';
 import type { SiteConfig } from '@biddaloy/shared';
 import { THEMES, defaultConfigFor, scalarOk, validateSiteConfig } from '@biddaloy/site-themes';
 import type { ThemeManifest } from '@biddaloy/site-themes';
@@ -23,16 +24,24 @@ const nonEmpty = (v: unknown) =>
 /** Fixed error codes. None echoes a submitted value (Rule 23). */
 export const siteStale = () => new ConflictException('site.stale');
 
-/** `green-valley-school-1a2b`: a readable slug plus 4 hex so two schools with one name never collide. */
-export function slugFor(name: string, rand: () => string = () => randomBytes(2).toString('hex')) {
+/**
+ * `green-valley-school-1a2b`: a readable slug plus 4 hex so two schools with one name never collide.
+ * On demo and staging the environment tag follows (`-demo`), so nginx picks that environment's
+ * site container; the base shrinks to keep the label under 30 characters.
+ */
+export function slugFor(
+  name: string,
+  rand: () => string = () => randomBytes(2).toString('hex'),
+  tag: SiteEnvTag | '' = siteEnvTag(process.env.ENV_NAME),
+) {
   let base = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, 20)
+    .slice(0, 20 - (tag ? tag.length + 1 : 0))
     .replace(/-+$/, '');
   if (base.length < 3 || RESERVED_SUBDOMAINS.includes(base)) base = 'school';
-  return `${base}-${rand()}`;
+  return `${base}-${rand()}${tag ? `-${tag}` : ''}`;
 }
 
 /**

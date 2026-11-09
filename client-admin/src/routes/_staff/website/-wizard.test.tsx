@@ -20,6 +20,22 @@ const next = () => screen.getByRole('button', { name: 'Next' });
 describe('website first-run wizard', () => {
   afterEach(async () => {
     await cleanupTestState();
+    delete window.__BIDDALOY_CONFIG__;
+  });
+
+  it('on staging checks the name with the -staging suffix and shows it', async () => {
+    window.__BIDDALOY_CONFIG__ = { siteEnvTag: 'staging' };
+    mockWebsite();
+    render();
+    const field = await screen.findByLabelText('Your web address');
+    await userEvent.clear(field);
+    await userEvent.type(field, 'gvs');
+    expect(await screen.findByText('gvs-staging')).toBeTruthy();
+    expect(await screen.findByText('This address is free.')).toBeTruthy();
+    await waitFor(() => expect((next() as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.clear(field);
+    await userEvent.type(field, 'a'.repeat(25));
+    expect(await screen.findByText(/over 30 characters/)).toBeTruthy();
   });
 
   it('blocks Next on a taken address, and a suggestion chip fills the field', async () => {

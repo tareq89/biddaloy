@@ -150,6 +150,17 @@ esac
     printf '%s\n' '    "~^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]([a-z0-9-]*[a-z0-9])?$" 1;'
   fi
   echo '}'
+  # Which site container answers (Epic 40 #3711): a label ending -demo or -staging goes to that
+  # environment's container, everything else (and every custom domain) to prod. Only a label
+  # directly under the root matches, so a.b-demo.<root> stays prod. Same suffix rule as
+  # labelEnvTag() in shared/src/types/site.ts. No root: default only, never an invalid regex.
+  echo 'map $host $site_upstream_name {'
+  echo '    default site_upstream;'
+  if [ -n "$site_root" ]; then
+    printf '    "~^[a-z0-9][a-z0-9-]*-demo\\.%s$" site_demo;\n' "$root_re"
+    printf '    "~^[a-z0-9][a-z0-9-]*-staging\\.%s$" site_staging;\n' "$root_re"
+  fi
+  echo '}'
 } >"$CONF_DIR/01-site-host.conf"
 
 # Ops-less hosts (OPS_UPSTREAM_HOST empty): conf.d/ops.conf is removed by reload-loop.sh,

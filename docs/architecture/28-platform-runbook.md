@@ -2086,6 +2086,15 @@ and the curl must still give the `302`.
 
 **Rollback.** Delete the `*` DNS record. Fixed hosts are untouched.
 
+**Demo and staging school sites (#3711).** A school site on demo or staging has a label that
+ends in its environment: `model-school-demo.<root>`, `model-school-staging.<root>`. A suffix, not a
+sub-level, because the free Cloudflare certificate covers one level only. The edge nginx picks the
+container by that suffix (`$site_upstream_name` in `conf.d/01-site-host.conf`): `-demo` goes to
+`demo-site`, `-staging` to `staging-site`, anything else to `prod-site`. Staging school sites are
+public (only staging itself stays behind Cloudflare Access). The tag counts toward the 30-character
+limit. Deploy the edge and prod first (so the map exists), then staging and demo (their `site`
+containers start); an existing demo or staging school renames once in Administration > Website.
+
 ### 17b. Reserved names and the test host
 
 1. Reserved names. A school subdomain must not take a platform name. The code side,

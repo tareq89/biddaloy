@@ -8,6 +8,7 @@ import {
   SiteTheme,
   SITE_MEDIA_SLOT_PX,
 } from '@biddaloy/shared';
+import { siteEnvTag, withSiteEnvTag } from '@biddaloy/shared';
 import type { SiteConfig } from '@biddaloy/shared';
 import { THEMES, defaultConfigFor } from '@biddaloy/site-themes';
 import type { DemoSeedContext, DemoSlice } from '../context';
@@ -73,7 +74,7 @@ export const slice: DemoSlice = {
     const created = await site.get(T);
     await ctx.ds.query(`UPDATE school_sites SET subdomain = $2 WHERE tenant_id = $1`, [
       T,
-      tenant.slug,
+      withSiteEnvTag(tenant.slug, siteEnvTag(process.env.ENV_NAME)),
     ]);
 
     const palette = THEMES[SiteTheme.BASIC].palettes[1];

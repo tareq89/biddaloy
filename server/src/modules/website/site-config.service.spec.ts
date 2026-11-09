@@ -14,6 +14,20 @@ const bnTexts = (c: SiteConfig) =>
     ),
   );
 
+describe('slugFor env tag', () => {
+  it('demo and staging end with the tag and stay within 30 chars', () => {
+    for (const tag of ['demo', 'staging'] as const) {
+      const s = slugFor('x'.repeat(100), () => 'ab12', tag);
+      expect(s.endsWith(`-ab12-${tag}`)).toBe(true);
+      expect(s.length).toBeLessThanOrEqual(30);
+      expect(SITE_SUBDOMAIN_RE.test(s)).toBe(true);
+    }
+  });
+  it('prod has no tag', () => {
+    expect(slugFor('Green Valley', () => 'ab12', '')).toBe('green-valley-ab12');
+  });
+});
+
 describe('slugFor', () => {
   it('makes a valid subdomain with 4 hex', () => {
     const s = slugFor('Green Valley School', () => 'ab12');

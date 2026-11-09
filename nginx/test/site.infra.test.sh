@@ -28,7 +28,7 @@ ROOT=schools.test
 FAILS=0
 
 cleanup() {
-  docker rm -f site-stub site-app-stub site-edge >/dev/null 2>&1 || true
+  docker rm -f site-stub site-demo-stub site-staging-stub site-app-stub site-edge >/dev/null 2>&1 || true
   docker volume rm "$LEVOL" "$CACHEVOL" >/dev/null 2>&1 || true
   docker network rm "$NET" >/dev/null 2>&1 || true
 }
@@ -49,6 +49,9 @@ stub() { # <name> <alias> <port> <nginx location body>; the body goes in as an e
 start_site_stub() {
   docker rm -f site-stub >/dev/null 2>&1 || true
   stub site-stub prod-site 4321 "$COOKIE_IF"'return 200 "site-ok host=$host preview=[$http_x_site_preview] cookie=[$http_cookie] xfh=[$http_x_forwarded_host] uri=$request_uri";'
+  # #3711: one stub per other environment, each answering with its own name.
+  stub site-demo-stub demo-site 4321 'return 200 "site-demo-ok host=$host uri=$request_uri";'
+  stub site-staging-stub staging-site 4321 'return 200 "site-staging-ok host=$host uri=$request_uri";'
 }
 # Both stubs set a cookie when the URI holds "setcookie" (only there, so other paths still cache):
 # no Set-Cookie may ever reach a visitor of a school host or the preview route.
@@ -136,6 +139,17 @@ run_mode() { # <mode>
   c=$(code 8081 "ab.$ROOT" /); [ "$c" = 000 ] && pass "$mode: 2-character label dropped (444)" || fail "$mode: 2-char label" "$c"
   c=$(code 8081 "$(printf 'a%.0s' $(seq 31)).$ROOT" /); [ "$c" = 000 ] && pass "$mode: 31-character label dropped (444)" || fail "$mode: 31-char label" "$c"
   b=$(body 8081 "abc.$ROOT" /bn/); [[ "$b" == site-ok* ]] && pass "$mode: 3-character label reaches site" || fail "$mode: 3-char label" "$b"
+
+  # --- environment suffix picks the site container (#3711) ---
+  b=$(body 8081 "x-demo.$ROOT" /env/); [[ "$b" == "site-demo-ok host=x-demo.$ROOT "* ]] && pass "$mode: x-demo.<root> reaches the demo site" || fail "$mode: -demo upstream" "$b"
+  b=$(body 8081 "x-staging.$ROOT" /env/); [[ "$b" == "site-staging-ok host=x-staging.$ROOT "* ]] && pass "$mode: x-staging.<root> reaches the staging site" || fail "$mode: -staging upstream" "$b"
+  b=$(body 8081 "xyz.$ROOT" /env/); [[ "$b" == "site-ok host=xyz.$ROOT "* ]] && pass "$mode: untagged label reaches the prod site" || fail "$mode: untagged upstream" "$b"
+  b=$(body 8081 "x-demonstration.$ROOT" /env/); [[ "$b" == "site-ok host=x-demonstration.$ROOT "* ]] && pass "$mode: x-demonstration.<root> is not demo (prod site)" || fail "$mode: look-alike label" "$b"
+  c=$(code 8081 "a.b-demo.$ROOT" /); [ "$c" = 000 ] && pass "$mode: a.b-demo.<root> dropped (444)" || fail "$mode: nested -demo" "$c"
+  c=$(code 8081 "demo.$ROOT" /); [ "$c" = 000 ] && pass "$mode: fixed host demo.<root> still dropped" || fail "$mode: demo host" "$c"
+  # Cache key carries the host: the same path on two environments never mixes.
+  body 8081 "x-demo.$ROOT" /same/ >/dev/null; body 8081 "x-staging.$ROOT" /same/ >/dev/null
+  b=$(body 8081 "x-demo.$ROOT" /same/); [[ "$b" == "site-demo-ok host=x-demo.$ROOT "* ]] && pass "$mode: cache entries stay per environment" || fail "$mode: cache per env" "$b"
 
   # --- school host: reaches site, micro-cache, stale-if-error, maintenance page ---
   b=$(body 8081 "rumsc.$ROOT" /bn/)
