@@ -110,4 +110,40 @@ describe('buildRateLimitTracker', () => {
 
     expect(key).toBe('ip:9.9.9.9');
   });
+
+  describe('public site host keying', () => {
+    const track = buildRateLimitTracker(fakeJwtService({ verifyAsync: async () => ({}) }), env);
+    const req = (ip: string, host: unknown) => ({ ip, headers: {}, params: { host } });
+
+    it('keys a private caller by normalized host', async () => {
+      for (const ip of [
+        '10.0.3.7',
+        '172.20.0.5',
+        '192.168.1.9',
+        '127.0.0.1',
+        '::1',
+        'fd00::2',
+        '::ffff:10.0.0.4',
+      ]) {
+        expect(await track(req(ip, 'Green.Schools.test:443'))).toBe('site:green.schools.test');
+      }
+    });
+
+    it('keeps a public caller on its own ip bucket, however it names the host', async () => {
+      expect(await track(req('203.0.113.9', 'green.schools.test'))).toBe('ip:203.0.113.9');
+      expect(await track(req('::ffff:8.8.8.8', 'green.schools.test'))).toBe('ip:::ffff:8.8.8.8');
+    });
+
+    it('ignores X-Forwarded-For and falls back to ip for bad hosts', async () => {
+      const spoof = {
+        ip: '203.0.113.9',
+        headers: { 'x-forwarded-for': '10.0.0.1' },
+        params: { host: 'a.test' },
+      };
+      expect(await track(spoof)).toBe('ip:203.0.113.9');
+      expect(await track(req('10.0.0.1', 'bad host/x'))).toBe('ip:10.0.0.1');
+      expect(await track(req('10.0.0.1', ['a.test']))).toBe('ip:10.0.0.1');
+      expect(await track({ ip: '10.0.0.1', headers: {} })).toBe('ip:10.0.0.1');
+    });
+  });
 });

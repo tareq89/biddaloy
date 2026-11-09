@@ -78,6 +78,11 @@ school.
 | Pages (nginx `site_cache`)   | `$host$request_uri`               | 30 s                        | TTL; `?preview=` is never stored               |
 | Pictures (nginx and browser) | `/media/<id>` (the id is the key) | 1 day nginx, 1 year browser | Nothing: a new picture gets a new id (D41)     |
 
+The API also keeps the host lookup and the school status in process memory for 5 s (`ttl-cache.ts`, 500 entries), so
+a switch-off, suspend or rename shows up at most 5 s late and Postgres is not read per request. The read rate limit
+is per school host (`site:<host>`) when the caller is on a private address (the site container), and per IP for
+everyone else (`rate-limit-tracker.ts`).
+
 ## When something is down
 
 | What is down          | What the visitor gets                                                                                                                                    | Why                     |

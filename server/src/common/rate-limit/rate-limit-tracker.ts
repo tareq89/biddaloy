@@ -1,5 +1,28 @@
 import { JwtService } from '@nestjs/jwt';
+import { BlockList, isIP } from 'node:net';
 import { type SecretSource, verifyWithRotation } from '../../modules/auth/jwt-secrets';
+import { normalizeHost } from '../../modules/website/public/site-host.service';
+
+// Not the SSRF guard's helper: that one is unexported and also blocks link-local / CGNAT, which
+// a docker overlay never uses. `req.ip` only (Rule 11), never X-Forwarded-For.
+const PRIVATE = new BlockList();
+for (const [net, bits] of [
+  ['10.0.0.0', 8],
+  ['172.16.0.0', 12],
+  ['192.168.0.0', 16],
+  ['127.0.0.0', 8],
+] as const) {
+  PRIVATE.addSubnet(net, bits, 'ipv4');
+}
+PRIVATE.addAddress('::1', 'ipv6');
+PRIVATE.addSubnet('fc00::', 7, 'ipv6');
+
+function isPrivateCaller(ip: unknown): boolean {
+  if (typeof ip !== 'string') return false;
+  const addr = ip.toLowerCase().replace(/^::ffff:(?=\d+\.)/, '');
+  const v = isIP(addr);
+  return v === 4 ? PRIVATE.check(addr, 'ipv4') : v === 6 ? PRIVATE.check(addr, 'ipv6') : false;
+}
 
 /**
  * Builds the tracker function ThrottlerModule uses to bucket requests.
@@ -26,6 +49,15 @@ import { type SecretSource, verifyWithRotation } from '../../modules/auth/jwt-se
  */
 export function buildRateLimitTracker(jwtService: JwtService, config: SecretSource) {
   return async function getRateLimitTracker(req: Record<string, any>): Promise<string> {
+    // Public site reads: the school-site container reaches us from a private overlay address, so
+    // every school shares one IP bucket. Key those callers by host. A public caller never gets a
+    // host key (it could burn another school's bucket), so it stays on its own ip bucket.
+    const rawHost = req.params?.host;
+    if (typeof rawHost === 'string' && isPrivateCaller(req.ip)) {
+      const host = normalizeHost(rawHost);
+      if (host) return `site:${host}`;
+    }
+
     const authHeader = req.headers?.authorization;
     const token =
       typeof authHeader === 'string' && authHeader.startsWith('Bearer ')

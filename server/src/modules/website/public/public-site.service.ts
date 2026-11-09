@@ -10,6 +10,7 @@ import { SchoolSite } from '../entities/school-site.entity';
 import { SiteMedia } from '../entities/site-media.entity';
 import { SiteCacheService } from './site-cache.service';
 import { SiteHostService } from './site-host.service';
+import { TtlCache } from './ttl-cache';
 import {
   PublicManifest,
   PublicPage,
@@ -49,6 +50,12 @@ export class PublicSiteService {
     private readonly previews: PreviewTokenService,
   ) {}
 
+  /** 5 s in-process: a suspend shows up at most this late (same window as the host lookup). */
+  private readonly schoolCache = new TtlCache<School | null>();
+  private school(id: string) {
+    return this.schoolCache.get(id, () => this.schools.findOne({ where: { id } }));
+  }
+
   /**
    * Site must be switched on, published, and its school active (not soft-deleted or suspended).
    * Checked before a renamed subdomain's 301 too: an off or suspended site's old address must
@@ -65,12 +72,12 @@ export class PublicSiteService {
       !('redirectTo' in found) &&
       this.previews.verify(preview, site.tenant_id)
     ) {
-      const school = await this.schools.findOne({ where: { id: site.tenant_id } });
+      const school = await this.school(site.tenant_id);
       if (!school || school.status !== SchoolStatus.ACTIVE) throw siteNotFound();
       return { preview: true, site, published: site.draft, school };
     }
     if (!site.enabled || !site.published) throw siteNotFound();
-    const school = await this.schools.findOne({ where: { id: site.tenant_id } });
+    const school = await this.school(site.tenant_id);
     if (!school || school.status !== SchoolStatus.ACTIVE) throw siteNotFound();
     if ('redirectTo' in found) return { redirectTo: found.redirectTo };
     return { site, published: site.published, school };
