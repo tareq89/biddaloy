@@ -72,7 +72,7 @@ start_edge() { # <mode>
   docker volume rm "$CACHEVOL" >/dev/null 2>&1 || true
   docker volume create "$CACHEVOL" >/dev/null
   docker run -d --name site-edge --network "$NET" --ip "$EDGE_IP" -e "EDGE_MODE=$1" \
-    -e EDGE_TRUSTED_CIDR=172.30.97.0/24 -e APP_DOMAIN=example.test -e "STAGING_DOMAIN=staging.$ROOT" -e "KUMA_DOMAIN=kuma.$ROOT" -e "LANDING_DOMAIN=$ROOT" -e "ROOT_DOMAIN=$ROOT" -e OPS_UPSTREAM_HOST= \
+    -e EDGE_TRUSTED_CIDR=172.30.97.0/24 -e APP_DOMAIN=example.test -e "STAGING_DOMAIN=staging.$ROOT" -e "DEMO_DOMAIN=demo.$ROOT" -e "KUMA_DOMAIN=kuma.$ROOT" -e "LANDING_DOMAIN=$ROOT" -e "ROOT_DOMAIN=$ROOT" -e OPS_UPSTREAM_HOST= \
     -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
     -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
     -v "$PWD/nginx/edge-mode.sh:/docker-entrypoint.d/15-edge-mode.sh:ro" \
@@ -249,7 +249,7 @@ run_mode() { # <mode>
     h=$(hdrs 80 example.test /website/preview/basic/)
     grep -qi '^x-robots-tag: noindex' <<<"$h" && pass "$mode: preview is noindex" || fail "$mode: preview noindex" "$h"
     c=$(code 80 example.test /website/preview/Bad_1/); [ "$c" = 404 ] && pass "$mode: preview with a bad theme name is 404 in nginx" || fail "$mode: preview bad name" "$c"
-    h=$(hdrs 80 example.test /website/preview/basic/setcookie/)
+    h=$(hdrs 80 example.test /website/preview/basic/bn/setcookie/)
     grep -q '^HTTP/1.1 200' <<<"$h" && ! grep -qi '^set-cookie' <<<"$h" && pass "$mode: preview hides the site's Set-Cookie" || fail "$mode: preview set-cookie" "$h"
     b=$(body_h 80 example.test /website/preview/basic/ 'X-Forwarded-Host: evil.example')
     [[ "$b" == *"xfh=[]"* ]] && pass "$mode: preview drops X-Forwarded-Host" || fail "$mode: preview xfh" "$b"
