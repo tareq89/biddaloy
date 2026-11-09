@@ -5,6 +5,7 @@ import {
   SiteSectionKey,
 } from '@biddaloy/shared';
 import type { BilingualText, SiteAnnouncement, SiteConfig } from '@biddaloy/shared';
+import { localDate } from '../../../common/time';
 import type { School } from '../../schools/entities/school.entity';
 import type { FeedKind, FeedRegistry } from './feeds/feed-registry';
 
@@ -163,26 +164,31 @@ function analyticsOf(websiteId: string | null): Pick<PublicManifest, 'analytics'
   return websiteId && scriptUrl ? { analytics: { websiteId, scriptUrl } } : {};
 }
 
-// A bare date is a Bangladesh calendar day (UTC+6). A date that does not parse never shows.
+// A bare date is a calendar day in the school's own timezone (the same one NoticesFeed uses via
+// todayFor); compared as `YYYY-MM-DD` text. Anything else is an instant. A date that does not
+// parse never shows.
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const startOf = (v: string) => new Date(DAY.test(v) ? `${v}T00:00:00+06:00` : v);
-const endOf = (v: string) => new Date(DAY.test(v) ? `${v}T23:59:59.999+06:00` : v);
+const valid = (v: string) => !Number.isNaN(new Date(DAY.test(v) ? `${v}T00:00:00Z` : v).getTime());
 
 /** An announcement shows from `from` through `until` (a bare date means the whole day). */
-export function inWindow(a: SiteAnnouncement, now: Date): boolean {
-  const from = a.from ? startOf(a.from) : null;
-  const until = a.until ? endOf(a.until) : null;
-  if ((from && Number.isNaN(from.getTime())) || (until && Number.isNaN(until.getTime())))
-    return false;
-  return !(from && from > now) && !(until && until < now);
+export function inWindow(a: SiteAnnouncement, now: Date, timezone?: string): boolean {
+  if ((a.from && !valid(a.from)) || (a.until && !valid(a.until))) return false;
+  const today = localDate(now, timezone);
+  const started = !a.from || (DAY.test(a.from) ? a.from <= today : new Date(a.from) <= now);
+  const ended = !!a.until && (DAY.test(a.until) ? a.until < today : new Date(a.until) < now);
+  return started && !ended;
 }
 
-export function withAnnouncementWindow(m: PublicManifest, now: Date): PublicManifest {
+export function withAnnouncementWindow(
+  m: PublicManifest,
+  now: Date,
+  timezone?: string,
+): PublicManifest {
   return {
     ...m,
     announcements: {
       ...m.announcements,
-      items: m.announcements.items.filter((a) => inWindow(a, now)),
+      items: m.announcements.items.filter((a) => inWindow(a, now, timezone)),
     },
   };
 }

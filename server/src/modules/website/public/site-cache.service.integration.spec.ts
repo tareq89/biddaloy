@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import Redis from 'ioredis';
-import { SiteCacheService } from './site-cache.service';
+import { SiteCacheService, contentVersion } from './site-cache.service';
 
 describe('SiteCacheService (real Redis)', () => {
   let redis: Redis;
@@ -34,6 +34,20 @@ describe('SiteCacheService (real Redis)', () => {
     expect(load).toHaveBeenCalledTimes(1);
     await service.getOrLoad(tenant, 2, 'manifest', load);
     expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('a restored database re-publishing the same version number never reads the old content (#3681)', async () => {
+    const before = contentVersion({ version: 1, published_at: new Date('2026-11-01T00:00:00Z') });
+    const after = contentVersion({ version: 1, published_at: new Date('2026-11-05T00:00:00Z') });
+    expect(before).not.toBe(after);
+    await service.getOrLoad(tenant, before, 'manifest', async () => 'pre-restore');
+    expect(await service.getOrLoad(tenant, after, 'manifest', async () => 'restored')).toBe(
+      'restored',
+    );
+    await redis.del(
+      service.contentKey(tenant, before, 'manifest'),
+      service.contentKey(tenant, after, 'manifest'),
+    );
   });
 
   it('keeps feeds apart from content and gives them a 60 s ttl', async () => {

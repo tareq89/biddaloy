@@ -20,6 +20,16 @@
 
 proxy_cache_path /var/cache/nginx/site levels=1:2 keys_zone=site_cache:10m max_size=200m inactive=2h;
 
+# [#3681] The year-long immutable header belongs to a picture (200) and its revalidation (304) only.
+# A bare `add_header` also rides on a 301 (renamed school address), which a browser would keep for a
+# year. Keyed on the final $status so a cache HIT (no upstream status) still gets it; an empty value
+# adds no header at all.
+map $status $site_media_cc {
+    default "";
+    200 "public, max-age=31536000, immutable";
+    304 "public, max-age=31536000, immutable";
+}
+
 # `site_upstream` stays prod's name: the app-host preview route in default.conf.template uses it.
 upstream site_upstream {
     zone site_upstream 256k;
@@ -108,7 +118,7 @@ server {
         proxy_hide_header Cache-Control;
         proxy_hide_header Set-Cookie;
         proxy_ignore_headers Cache-Control Expires;
-        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header Cache-Control $site_media_cc;
         add_header Strict-Transport-Security $edge_hsts always;
         proxy_cache site_cache;
         proxy_cache_valid 200 1d;

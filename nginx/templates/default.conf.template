@@ -102,7 +102,10 @@ server {
     location ^~ /website/preview/ {
         # A matching rewrite ... break stops here; any other name (/website/preview/Bad_1/)
         # reaches the return and never the site container.
-        rewrite ^/website/preview/([a-z-]+)(?:/(.*))?$ /bn/$2 break;
+        # #3681: a bare theme lands on /bn/; a language segment (bn|en) keeps its own path
+        # (the old single rewrite turned /en/ into /bn/en/); any other segment is a 404.
+        rewrite ^/website/preview/([a-z-]+)/?$ /bn/ break;
+        rewrite ^/website/preview/([a-z-]+)/((?:bn|en)(?:/.*)?)$ /$2 break;
         return 404;
         # A location's own proxy_set_header replaces every inherited one, so repeat the common ones.
         proxy_set_header Host $host;
@@ -117,6 +120,26 @@ server {
         proxy_pass http://site_upstream;
         add_header X-Robots-Tag "noindex" always;
         add_header Strict-Transport-Security $edge_hsts always;
+    }
+
+    # [#3681] The theme demo page links its own /_astro/ assets and loads the notices island from
+    # /_api/island/. The SPA uses neither prefix, so on the app host the first goes to the site
+    # container (hashed static files, no cookie) and the island answers 404 ("no data" to the
+    # island code) instead of SPA html. Preview links to other pages are a documented limit.
+    location ^~ /_astro/ {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $edge_proto;
+        proxy_set_header X-Forwarded-Host "";
+        proxy_set_header Cookie "";
+        proxy_hide_header Set-Cookie;
+        proxy_pass http://site_upstream;
+        add_header Strict-Transport-Security $edge_hsts always;
+    }
+
+    location ^~ /_api/island/ {
+        return 404;
     }
 
     # Immutable, content-hashed SPA assets (Vite's dist/assets/*) — cache

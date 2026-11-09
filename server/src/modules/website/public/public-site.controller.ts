@@ -202,7 +202,10 @@ export class PublicSiteController {
     this.noIndex(res, preview);
     const r = await this.site.mediaFile(host, key, ifNoneMatch, preview);
     if ('redirectTo' in r) {
+      // Browsers load pictures through nginx, so they need a real Location (the site container
+      // reads the JSON `to`). Host = the service's verified redirectTo; key is encoded (Rule 23).
       res.status(301);
+      res.setHeader('Location', `https://${r.redirectTo}/media/${encodeURIComponent(key)}`);
       return { to: r.redirectTo };
     }
     if ('notModified' in r) {

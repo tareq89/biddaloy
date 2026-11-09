@@ -57,7 +57,7 @@ start_site_stub() {
 # no Set-Cookie may ever reach a visitor of a school host or the preview route.
 COOKIE_IF='if ($uri ~ setcookie) { add_header Set-Cookie "sid=LEAK"; } '
 start_site_stub
-stub site-app-stub prod-app 3000 'add_header Cache-Control no-store; '"$COOKIE_IF"'return 200 "app-ok uri=$request_uri host=$host";'
+stub site-app-stub prod-app 3000 'add_header Cache-Control no-store; if ($request_uri ~ "moved") { return 301 "https://new.example/media/x"; } '"$COOKIE_IF"'return 200 "app-ok uri=$request_uri host=$host";'
 
 docker run --rm -v "$LEVOL:/le" --entrypoint sh alpine/openssl -c \
   'mkdir -p /le/live/example.test && openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
@@ -196,6 +196,10 @@ run_mode() { # <mode>
   h=$(hdrs 8081 "rumsc.$ROOT" /media/abc.webp)
   grep -qi '^cache-control: public, max-age=31536000, immutable' <<<"$h" && ! grep -qi 'no-store' <<<"$h" \
     && pass "$mode: /media/ is public immutable, no no-store" || fail "$mode: media cache-control" "$h"
+  # #3681: a renamed address answers 301 from the API; that 301 must never carry the immutable year.
+  h=$(hdrs 8081 "rumsc.$ROOT" /media/moved.webp)
+  grep -q '^HTTP/1.1 301' <<<"$h" && ! grep -qi '^cache-control:.*immutable' <<<"$h" \
+    && pass "$mode: a /media/ 301 is not immutable" || fail "$mode: media 301 cache-control" "$h"
   b=$(body 8081 "rumsc.$ROOT" /media/abc.webp)
   [[ "$b" == "app-ok uri=/api/v1/public/site/by-host/rumsc.$ROOT/media/abc.webp "* ]] \
     && pass "$mode: /media/<key> maps to the by-host media API" || fail "$mode: media rewrite" "$b"
@@ -234,6 +238,16 @@ run_mode() { # <mode>
     grep -q '^HTTP/1.1 200' <<<"$h" && ! grep -qi '^set-cookie' <<<"$h" && pass "$mode: preview hides the site's Set-Cookie" || fail "$mode: preview set-cookie" "$h"
     b=$(body_h 80 example.test /website/preview/basic/ 'X-Forwarded-Host: evil.example')
     [[ "$b" == *"xfh=[]"* ]] && pass "$mode: preview drops X-Forwarded-Host" || fail "$mode: preview xfh" "$b"
+    # #3681: the language segment is kept (it used to become /bn/en/), a bare theme lands on /bn/.
+    b=$(body 80 example.test /website/preview/basic/en/about/)
+    [[ "$b" == "site-ok host=example.test preview=[basic] "*"uri=/en/about/" ]] && pass "$mode: /website/preview/basic/en/about/ -> /en/about/" || fail "$mode: preview en" "$b"
+    b=$(body 80 example.test /website/preview/basic)
+    [[ "$b" == "site-ok host=example.test preview=[basic] "*"uri=/bn/" ]] && pass "$mode: /website/preview/basic -> /bn/" || fail "$mode: preview bare" "$b"
+    c=$(code 80 example.test /website/preview/basic/zz/); [ "$c" = 404 ] && pass "$mode: preview with an unknown language segment is 404" || fail "$mode: preview zz" "$c"
+    # The preview page's own /_astro/ assets and notice island must not fall into the SPA.
+    b=$(body 80 example.test /_astro/x.js)
+    [[ "$b" == site-ok* ]] && pass "$mode: app-host /_astro/ reaches the site container" || fail "$mode: app-host _astro" "$b"
+    c=$(code 80 example.test /_api/island/notices); [ "$c" = 404 ] && pass "$mode: app-host /_api/island/ is 404, not SPA html" || fail "$mode: app-host island" "$c"
   fi
 }
 

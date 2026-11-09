@@ -5,6 +5,14 @@ import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
 
 export const SITE_CACHE_TTL_SECONDS = 24 * 60 * 60;
 export const SITE_FEED_TTL_SECONDS = 60;
+
+/**
+ * The content-key version of a site row. `version` alone only grows until a DB restore moves it
+ * backwards; `published_at` is set to now() on every publish, so the pair never repeats.
+ */
+export function contentVersion(site: { version: number; published_at: Date | null }): string {
+  return `${site.version}.${site.published_at?.getTime() ?? 0}`;
+}
 /**
  * Feed keys with a fixed name, so one DEL covers them. `routine:<section>` is per class section
  * and is left to its 60 s expiry rather than scanned for.
@@ -23,7 +31,8 @@ const LOG_EVERY_MS = 60_000;
 
 /**
  * Published-site cache on the shared fail-fast Redis client. Content keys carry the site
- * `version`, so a publish makes the old keys unreachable (they expire on their own); feeds
+ * `contentVersion` (version + publish time, so a restored database that re-publishes the same
+ * number never reads pre-restore content); a publish makes the old keys unreachable (they expire on their own); feeds
  * change without a publish, so they live 60 s under their own key (one per `SiteIslandKind`).
  * Redis down (D32, D42): the loader runs and the page is still served. Never a 500.
  * Cached values must be JSON-safe.
@@ -35,7 +44,7 @@ export class SiteCacheService {
 
   constructor(@Inject(TENANT_STATUS_REDIS) private readonly redis: Redis) {}
 
-  contentKey(tenantId: string, version: number, kind: string): string {
+  contentKey(tenantId: string, version: number | string, kind: string): string {
     return `site:${tenantId}:${version}:${kind}`;
   }
 
@@ -43,7 +52,7 @@ export class SiteCacheService {
     return `site:${tenantId}:feed:${kind}`;
   }
 
-  getOrLoad<T>(tenantId: string, version: number, kind: string, load: () => Promise<T>) {
+  getOrLoad<T>(tenantId: string, version: number | string, kind: string, load: () => Promise<T>) {
     return this.through(this.contentKey(tenantId, version, kind), SITE_CACHE_TTL_SECONDS, load);
   }
 
@@ -52,7 +61,7 @@ export class SiteCacheService {
   }
 
   /**
-   * Drops the tenant's feed keys. Content keys need no delete: they carry `version`, so a
+   * Drops the tenant's feed keys. Content keys need no delete: they carry `contentVersion`, so a
    * publish already makes the old ones unreachable (they expire in 24 h). The feed names are
    * a fixed list, so this is one DEL, never a SCAN of the shared Redis.
    */

@@ -37,7 +37,7 @@ sequenceDiagram
   A->>API: POST /website/publish { version, draft_revision } + Idempotency-Key
   API->>DB: published = draft, version + 1 (only if both numbers still match, else 409 site.stale)
   API->>R: delete the feed keys of this school
-  Note over R: Content keys carry the version, so the old ones simply stop being read
+  Note over R: Content keys carry `version.published_at` (a restored database cannot repeat a key), so the old ones simply stop being read
 ```
 
 Example body: `PUT /api/v1/website/draft` with `{"config": {...}, "draft_revision": 3}`. A save from a stale tab, or a
@@ -71,12 +71,12 @@ school.
 
 ## Cache
 
-| What                         | Key                               | TTL                         | Cleared by                                     |
-| ---------------------------- | --------------------------------- | --------------------------- | ---------------------------------------------- |
-| Manifest and pages (Redis)   | `site:<tenant>:<version>:<kind>`  | 24 h                        | A publish (new `version`, old keys never read) |
-| Notice feed (Redis)          | `site:<tenant>:feed:notices`      | 60 s                        | TTL, or publish / switch on-off                |
-| Pages (nginx `site_cache`)   | `$host$request_uri`               | 30 s                        | TTL; `?preview=` is never stored               |
-| Pictures (nginx and browser) | `/media/<id>` (the id is the key) | 1 day nginx, 1 year browser | Nothing: a new picture gets a new id (D41)     |
+| What                         | Key                                                | TTL                         | Cleared by                                     |
+| ---------------------------- | -------------------------------------------------- | --------------------------- | ---------------------------------------------- |
+| Manifest and pages (Redis)   | `site:<tenant>:<version>.<published_at ms>:<kind>` | 24 h                        | A publish (new `version`, old keys never read) |
+| Notice feed (Redis)          | `site:<tenant>:feed:notices`                       | 60 s                        | TTL, or publish / switch on-off                |
+| Pages (nginx `site_cache`)   | `$host$request_uri`                                | 30 s                        | TTL; `?preview=` is never stored               |
+| Pictures (nginx and browser) | `/media/<id>` (the id is the key)                  | 1 day nginx, 1 year browser | Nothing: a new picture gets a new id (D41)     |
 
 The API also keeps the host lookup and the school status in process memory for 5 s (`ttl-cache.ts`, 500 entries), so
 a switch-off, suspend or rename shows up at most 5 s late and Postgres is not read per request. The read rate limit
