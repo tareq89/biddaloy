@@ -55,5 +55,5 @@ RUN --mount=type=bind,source=scripts/check-image-requires.cjs,target=/check.cjs 
     node /check.cjs /app/site/dist/server /app/shared/dist /app/site-themes/dist
 USER node
 EXPOSE 4321
-HEALTHCHECK --interval=15s --timeout=3s CMD wget -qO- http://127.0.0.1:4321/healthz || exit 1
+HEALTHCHECK --interval=15s --timeout=3s CMD wget -qO- http://127.0.0.1:4321/healthz/ || exit 1
 CMD ["node", "site/dist/server/entry.mjs"]
