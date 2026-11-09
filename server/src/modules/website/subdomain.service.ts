@@ -30,12 +30,12 @@ export const isValidSubdomain = (v: unknown, tag: SiteEnvTag | ''): v is string 
   !RESERVED_SUBDOMAINS.includes(v) &&
   labelEnvTag(v) === tag;
 
-const slugify = (s: string) =>
+const slugify = (s: string, max = 30) =>
   s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, 30)
+    .slice(0, max)
     .replace(/-+$/, '');
 
 /**
@@ -44,10 +44,11 @@ const slugify = (s: string) =>
  */
 export function candidatesFor(name: string, tag: SiteEnvTag | ''): string[] {
   const words = name.toLowerCase().match(/[a-z0-9]+/g) ?? [];
-  const slug = slugify(name);
+  // Room for the tag, like slugFor: a long name shrinks instead of losing its candidate.
+  const max = 30 - (tag ? tag.length + 1 : 0);
+  const slug = slugify(name, max);
   const initials = words.map((w) => w[0]).join('');
-  // A candidate too long once tagged is dropped, not cut (the filter refuses over 30).
-  return [...new Set([slug, initials, slugify(`${slug}-school`)])]
+  return [...new Set([slug, initials, slugify(`${slug}-school`, max)])]
     .map((c) => withSiteEnvTag(c, tag))
     .filter((c) => isValidSubdomain(c, tag));
 }

@@ -2,18 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { TtlCache } from './ttl-cache';
+import { normalizeHost } from '../../../common/utils/normalize-host.util';
 import { SiteCustomDomainStatus } from '@biddaloy/shared';
 import { SchoolSite } from '../entities/school-site.entity';
+
+// Kept exported here so existing imports keep working.
+export { normalizeHost };
 
 /** A redirect carries its site too, so the caller can check the site is live before answering 301. */
 export type ResolvedHost =
   { tenantId: string; site: SchoolSite } | { redirectTo: string; site: SchoolSite } | null;
-
-/** Lower-case, no port. Anything that is not a plausible host name is not looked up at all. */
-export function normalizeHost(raw: string): string | null {
-  const host = raw.trim().toLowerCase().replace(/:\d+$/, '');
-  return host.length > 0 && host.length <= 253 && /^[a-z0-9.-]+$/.test(host) ? host : null;
-}
 
 /**
  * [40.1.04] Host name -> school site (D34). Subdomain of `SITE_ROOT_DOMAIN`, else an ACTIVE

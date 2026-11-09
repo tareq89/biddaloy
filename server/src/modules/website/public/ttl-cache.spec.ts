@@ -27,4 +27,11 @@ describe('TtlCache', () => {
     await expect(c.get('a', async () => Promise.reject(new Error('x')))).rejects.toThrow();
     expect(await c.get('a', async () => 7)).toBe(7);
   });
+
+  it('is a no-op by default under NODE_ENV=test, so specs never read stale rows', async () => {
+    const c = new TtlCache<number>();
+    let n = 0;
+    await c.get('a', async () => ++n);
+    expect(await c.get('a', async () => ++n)).toBe(2);
+  });
 });

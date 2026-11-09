@@ -26,6 +26,7 @@ import { ApprovalService } from '../../../modules/auth/guards/approval.guard';
 import { SiteConfigService } from '../../../modules/website/site-config.service';
 import { UmamiService } from '../../../modules/website/umami.service';
 import { SiteCacheService } from '../../../modules/website/public/site-cache.service';
+import { SITE_SUBDOMAIN_RE, withSiteEnvTag } from '@biddaloy/shared';
 import { createContext, type DemoSeedContext } from '../context';
 import { slice as org, orgIds } from './org';
 import { slice as staff, teachersByTenant } from './staff';
@@ -145,6 +146,12 @@ describe('website slice (integration, scale 0.05)', () => {
 
   afterAll(async () => {
     if (ds) await ds.destroy();
+  });
+
+  it('the seeded address stays a valid label once the demo or staging tag is added', () => {
+    for (const tag of ['demo', 'staging'] as const) {
+      expect(withSiteEnvTag('bmsc-high', tag)).toMatch(SITE_SUBDOMAIN_RE);
+    }
   });
 
   it('publishes a switched-on Basic site on the school short name with the green palette', () => {

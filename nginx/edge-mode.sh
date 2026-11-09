@@ -161,6 +161,23 @@ esac
     printf '    "~^[a-z0-9][a-z0-9-]*-staging\\.%s$" site_staging;\n' "$root_re"
   fi
   echo '}'
+  # Same split for the app-host calls (/media/, /_api/): a -demo or -staging school lives in that
+  # environment's database, so the by-host API must be that environment's app, never prod's.
+  # The upstreams are the fixed-host ones (demo.conf.template, staging.conf.template).
+  echo 'map $host $site_app_upstream_name {'
+  echo '    default app_upstream;'
+  if [ -n "$site_root" ]; then
+    printf '    "~^[a-z0-9][a-z0-9-]*-demo\\.%s$" demo_upstream;\n' "$root_re"
+    printf '    "~^[a-z0-9][a-z0-9-]*-staging\\.%s$" staging_upstream;\n' "$root_re"
+  fi
+  echo '}'
+  # Demo and staging school sites are never indexed (staging holds a scrubbed copy of prod data).
+  echo 'map $host $site_env_noindex {'
+  echo '    default "";'
+  if [ -n "$site_root" ]; then
+    printf '    "~^[a-z0-9][a-z0-9-]*-(demo|staging)\\.%s$" noindex;\n' "$root_re"
+  fi
+  echo '}'
 } >"$CONF_DIR/01-site-host.conf"
 
 # Ops-less hosts (OPS_UPSTREAM_HOST empty): conf.d/ops.conf is removed by reload-loop.sh,

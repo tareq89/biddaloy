@@ -284,11 +284,13 @@ describe('SiteConfigService', () => {
   });
 
   it('saveDraft bumps draft_revision; a save from an older revision is 409 site.stale', async () => {
-    const { svc } = setup(null);
+    const { svc, cache } = setup(null);
     const dto = await svc.get('t1');
     expect(dto.draft_revision).toBe(0);
     const saved = await svc.saveDraft('t1', { config: dto.draft, draft_revision: 0 });
     expect(saved.draft_revision).toBe(1);
+    // Save-then-preview: the cached host row holds the old draft, so a save must drop it.
+    expect(cache.invalidate).toHaveBeenCalledWith('t1');
     // A second editor still holding revision 0 must not overwrite the first one's save.
     await expect(svc.saveDraft('t1', { config: dto.draft, draft_revision: 0 })).rejects.toThrow(
       'site.stale',

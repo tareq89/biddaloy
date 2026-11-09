@@ -1,7 +1,8 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type Redis from 'ioredis';
 import { SiteIslandKind } from '@biddaloy/shared';
 import { TENANT_STATUS_REDIS } from '../../schools/tenant-status.service';
+import { SiteHostService } from './site-host.service';
 
 export const SITE_CACHE_TTL_SECONDS = 24 * 60 * 60;
 export const SITE_FEED_TTL_SECONDS = 60;
@@ -42,7 +43,11 @@ export class SiteCacheService {
   private readonly logger = new Logger(SiteCacheService.name);
   private lastLogged = 0;
 
-  constructor(@Inject(TENANT_STATUS_REDIS) private readonly redis: Redis) {}
+  constructor(
+    @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
+    // Optional so unit specs can build the service from the Redis stub alone.
+    @Optional() private readonly hosts?: SiteHostService,
+  ) {}
 
   contentKey(tenantId: string, version: number | string, kind: string): string {
     return `site:${tenantId}:${version}:${kind}`;
@@ -66,6 +71,8 @@ export class SiteCacheService {
    * a fixed list, so this is one DEL, never a SCAN of the shared Redis.
    */
   async invalidate(tenantId: string): Promise<void> {
+    // Every site write (publish, switch-off, rename, custom domain) ends here: drop the 5 s host lookups too.
+    this.hosts?.clearCache();
     try {
       await this.redis.del(...FEED_KEYS.map((k) => this.feedKey(tenantId, k)));
     } catch (error) {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SchoolSite } from '../entities/school-site.entity';
-import { SiteHostService, normalizeHost } from './site-host.service';
+import { SiteHostService } from './site-host.service';
+import { normalizeHost } from '../../../common/utils/normalize-host.util';
 
 const NOW = new Date('2026-11-06T00:00:00Z');
 const ROOT = 'schools.test';
@@ -25,6 +26,7 @@ describe('SiteHostService', () => {
     process.env.SITE_ROOT_DOMAIN = ROOT;
   });
   afterEach(() => {
+    vi.unstubAllEnvs();
     if (saved === undefined) delete process.env.SITE_ROOT_DOMAIN;
     else process.env.SITE_ROOT_DOMAIN = saved;
   });
@@ -98,6 +100,7 @@ describe('SiteHostService', () => {
           ),
         ) ?? null,
     );
+    vi.stubEnv('NODE_ENV', 'production'); // the cache is a no-op under test
     const svc = new SiteHostService({ findOne } as never);
     await svc.resolve(`green.${ROOT}`, NOW);
     await svc.resolve(`green.${ROOT}`, NOW);

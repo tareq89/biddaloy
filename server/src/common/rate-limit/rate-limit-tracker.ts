@@ -1,7 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 import { BlockList, isIP } from 'node:net';
 import { type SecretSource, verifyWithRotation } from '../../modules/auth/jwt-secrets';
-import { normalizeHost } from '../../modules/website/public/site-host.service';
+import { normalizeHost } from '../utils/normalize-host.util';
 
 // Not the SSRF guard's helper: that one is unexported and also blocks link-local / CGNAT, which
 // a docker overlay never uses. `req.ip` only (Rule 11), never X-Forwarded-For.

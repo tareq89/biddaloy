@@ -84,6 +84,12 @@
     # A mailpit already running is left as it is. `site` stays in the list; the rollback block drops
     # it (rollback_up) when the previous compose file does not define it.
     rollback_services: "{{ app_services | replace(' mailpit', '') }}"
+    # `site` is dropped only when `config --services` ANSWERED (exit 0, a non-empty list) without it.
+    # A failed or empty answer proves nothing about the old file, so `site` stays.
+    rollback_keeps_site: >-
+      {{ (rollback_defined.rc | default(1)) != 0
+         or (rollback_defined.stdout_lines | default([]) | length) == 0
+         or 'site' in (rollback_defined.stdout_lines | default([])) }}
     # Users in the database, in one psql call; a missing table counts as 0 (query_to_xml keeps a
     # missing table from failing at parse time). Run with `dc exec db`, the query as $1.
     users_sql: >-
@@ -547,7 +553,7 @@
             - name: Name site only when the previous release has it
               ansible.builtin.set_fact:
                 rollback_up: >-
-                  {{ rollback_services if ('site' in (rollback_defined.stdout_lines | default([])))
+                  {{ rollback_services if rollback_keeps_site
                      else (rollback_services | replace(' site', '')) }}
               when: stack in app_stacks
             - name: Start the previous version

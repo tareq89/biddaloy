@@ -190,6 +190,8 @@ export class SiteConfigService {
       },
     );
     if (!res.affected) throw siteStale();
+    // The preview reads the draft from the (5 s) host-lookup row: drop it so save-then-preview shows the save.
+    await this.cache.invalidate(tenantId);
     return this.get(tenantId);
   }
 

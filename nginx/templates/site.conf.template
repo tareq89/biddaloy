@@ -23,9 +23,10 @@ proxy_cache_path /var/cache/nginx/site levels=1:2 keys_zone=site_cache:10m max_s
 # [#3681] The year-long immutable header belongs to a picture (200) and its revalidation (304) only.
 # A bare `add_header` also rides on a 301 (renamed school address), which a browser would keep for a
 # year. Keyed on the final $status so a cache HIT (no upstream status) still gets it; an empty value
-# adds no header at all.
+# 301 and every other status get `no-store` (the API's own value, which proxy_hide_header drops
+# here): with no header at all a browser caches a 301 heuristically, for as long as it likes.
 map $status $site_media_cc {
-    default "";
+    default "no-store";
     200 "public, max-age=31536000, immutable";
     304 "public, max-age=31536000, immutable";
 }
@@ -71,8 +72,8 @@ server {
     # Pages are anonymous: nothing from upstream may set a cookie on a school host.
     proxy_hide_header Set-Cookie;
     # The default cache key holds the upstream name, the same for every school: add the host.
-    # Known gap #3677: behind this cache the API still sees one IP (the site container) for every
-    # school, so its 1200/min read limit is one shared bucket, and the host lookup is uncached.
+    # #3677: the API sees one IP (the site container) for every school, so rate-limit-tracker.ts
+    # keys by the host in the URL, and caches that host lookup for 5 s.
     proxy_cache_key $host$request_uri;
 
     # Pages: 30 s micro-cache (D32). If the site container or the API behind it is down (no answer
@@ -92,6 +93,7 @@ server {
         proxy_no_cache $arg_preview;
         add_header X-Cache-Status $upstream_cache_status;
         add_header Strict-Transport-Security $edge_hsts always;
+        add_header X-Robots-Tag $site_env_noindex always;
         # Without this, an upstream 5xx on an empty cache would skip error_page and pass through.
         proxy_intercept_errors on;
         error_page 500 502 503 504 =503 /maintenance.html;
@@ -104,6 +106,7 @@ server {
         root /usr/share/nginx/site-static;
         add_header Cache-Control "no-store";
         add_header Strict-Transport-Security $edge_hsts always;
+        add_header X-Robots-Tag $site_env_noindex always;
     }
 
     # Media: the API answers `no-store` (Rule 14); this is the one documented long-cache response.
@@ -114,12 +117,13 @@ server {
     # to 1 day, and from browsers for up to a year. There is no purge.
     location /media/ {
         rewrite ^/media/(.+)$ /api/v1/public/site/by-host/$host/media/$1 break;
-        proxy_pass http://app_upstream;
+        proxy_pass http://$site_app_upstream_name;
         proxy_hide_header Cache-Control;
         proxy_hide_header Set-Cookie;
         proxy_ignore_headers Cache-Control Expires;
         add_header Cache-Control $site_media_cc;
         add_header Strict-Transport-Security $edge_hsts always;
+        add_header X-Robots-Tag $site_env_noindex always;
         proxy_cache site_cache;
         proxy_cache_valid 200 1d;
     }
@@ -128,12 +132,13 @@ server {
     # (page-read-model.ts), so a new logo keeps that URL. Short cache, never immutable.
     location = /media/logo {
         rewrite ^ /api/v1/public/site/by-host/$host/media/logo break;
-        proxy_pass http://app_upstream;
+        proxy_pass http://$site_app_upstream_name;
         proxy_hide_header Cache-Control;
         proxy_hide_header Set-Cookie;
         proxy_ignore_headers Cache-Control Expires;
         add_header Cache-Control "public, max-age=300";
         add_header Strict-Transport-Security $edge_hsts always;
+        add_header X-Robots-Tag $site_env_noindex always;
         proxy_cache site_cache;
         proxy_cache_valid 200 1m;
     }
@@ -141,7 +146,8 @@ server {
     # Islands (D21): straight to the by-host API, never cached. rewrite keeps the query string.
     location /_api/ {
         rewrite ^/_api/(.*)$ /api/v1/public/site/by-host/$host/$1 break;
-        proxy_pass http://app_upstream;
+        proxy_pass http://$site_app_upstream_name;
         add_header Strict-Transport-Security $edge_hsts always;
+        add_header X-Robots-Tag $site_env_noindex always;
     }
 }

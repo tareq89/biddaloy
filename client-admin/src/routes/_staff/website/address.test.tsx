@@ -89,6 +89,21 @@ describe('/website/address', () => {
     await waitFor(() => expect(calls).toEqual(['rename:modelschool-demo']));
   });
 
+  it.each([
+    ['https://green-valley-1a2b.example.test/?preview=abc', 'modelschool-demo.example.test'],
+    // A custom domain carries no shared root: show the bare label, never a made-up host.
+    ['https://www.school.edu.bd/?preview=abc', 'modelschool-demo'],
+  ])('on demo previews the new address from %s', async (url, shown) => {
+    window.__BIDDALOY_CONFIG__ = { siteEnvTag: 'demo' };
+    mockWebsite();
+    mockDomain(unavailable);
+    server.use(http.get('/api/v1/website/preview-token', () => HttpResponse.json({ url })));
+    render();
+    await userEvent.click(await screen.findByRole('button', { name: 'Change the address' }));
+    await userEvent.type(await screen.findByLabelText('New address'), 'modelschool');
+    expect(await screen.findByText(shown)).toBeTruthy();
+  });
+
   it('on demo shows the too-long hint when the tagged name passes 30 characters', async () => {
     window.__BIDDALOY_CONFIG__ = { siteEnvTag: 'demo' };
     mockWebsite();

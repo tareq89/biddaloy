@@ -30,6 +30,16 @@ cat > "$work/play.yml" <<EOF
         dest: '$work/rollback.j2'
         content: '{{ deploy_vars.rollback_services }}'
       check_mode: false
+    - ansible.builtin.copy:
+        dest: '$work/keep.j2'
+        content: '{{ deploy_vars.rollback_keeps_site }}'
+      check_mode: false
+    - ansible.builtin.debug:
+        msg: >-
+          KEEP=[{{ lookup('ansible.builtin.template', '$work/keep.j2', template_vars={'rollback_defined': {'rc': 0, 'stdout_lines': ['app', 'site']}}) | trim }}
+          {{ lookup('ansible.builtin.template', '$work/keep.j2', template_vars={'rollback_defined': {'rc': 0, 'stdout_lines': ['app', 'db']}}) | trim }}
+          {{ lookup('ansible.builtin.template', '$work/keep.j2', template_vars={'rollback_defined': {'rc': 1, 'stdout_lines': []}}) | trim }}
+          {{ lookup('ansible.builtin.template', '$work/keep.j2', template_vars={'rollback_defined': {'rc': 0, 'stdout_lines': []}}) | trim }}]
     - ansible.builtin.debug:
         msg: "APP=[{{ lookup('ansible.builtin.template', '$work/app.j2') | trim }}]"
     - ansible.builtin.debug:
@@ -56,5 +66,9 @@ want "prod never names mailpit, names site" "APP=\[db redis seaweedfs app app2 s
 want "prod rollback keeps site (deploy.yml drops it only if the old file lacks it)" "ROLLBACK=\[db redis seaweedfs app app2 site backup\]"
 run prod 0
 want "fresh prod holds backup back" "APP=\[db redis seaweedfs app app2 site\]"
+
+# rollback_keeps_site: site stays when the old file defines it, is dropped only when the old file
+# answered without it, and stays when `config --services` failed or printed nothing.
+want "rollback keeps site: defined, dropped only on a real answer, kept on failure or empty output" "KEEP=\[True False True True\]"
 
 [ "$fails" -eq 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }

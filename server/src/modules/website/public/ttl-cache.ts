@@ -1,13 +1,16 @@
 /**
  * Tiny in-process cache for the public site's hot lookups. Bounded, so made-up hosts cannot grow
  * memory; a failed load is never cached. Misses (null) are cached on purpose.
+ * ponytail: no in-flight coalescing (concurrent misses each load); store the promise to add it.
  * ponytail: per-process, oldest-inserted eviction; swap for a real LRU only if hit rate matters.
  */
 export class TtlCache<V> {
   private readonly entries = new Map<string, { value: V; expires: number }>();
 
   constructor(
-    private readonly ttlMs = 5_000,
+    // 0 under jest/e2e (NODE_ENV=test, as the throttler is skipped there): specs publish a site and
+    // read it back at once, so a 5 s cache would serve them stale rows.
+    private readonly ttlMs = process.env.NODE_ENV === 'test' ? 0 : 5_000,
     private readonly maxEntries = 500,
     private readonly now: () => number = Date.now,
   ) {}

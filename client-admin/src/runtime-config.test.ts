@@ -18,6 +18,7 @@ describe('runtimeConfig', () => {
       messageSinkUrl: '',
       envBadge: '',
       envBadgeDate: '',
+      siteEnvTag: '',
     });
   });
 
@@ -25,5 +26,10 @@ describe('runtimeConfig', () => {
     window.__BIDDALOY_CONFIG__ = { turnstileSiteKey: 'k', sentryEnvironment: 'staging' };
     expect(runtimeConfig().turnstileSiteKey).toBe('k');
     expect(runtimeConfig().sentryEnvironment).toBe('staging');
+  });
+
+  it('carries siteEnvTag through', () => {
+    window.__BIDDALOY_CONFIG__ = { siteEnvTag: 'demo' };
+    expect(runtimeConfig().siteEnvTag).toBe('demo');
   });
 });

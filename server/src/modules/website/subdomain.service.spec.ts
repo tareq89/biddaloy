@@ -50,8 +50,15 @@ describe('candidatesFor', () => {
     const c = candidatesFor('Green Valley High', 'demo');
     expect(c).toContain('gvh-demo');
     expect(c.every((x) => x.endsWith('-demo') && x.length <= 30)).toBe(true);
-    // 30-char slug + '-demo' is 35: dropped, not cut
-    expect(candidatesFor('a'.repeat(30), 'demo')).not.toContain(`${'a'.repeat(30)}-demo`);
+    // A 30-char slug shrinks to leave room for '-demo' instead of vanishing
+    expect(candidatesFor('a'.repeat(30), 'demo')).toContain(`${'a'.repeat(25)}-demo`);
+  });
+
+  it('still suggests a long school name on staging', () => {
+    const c = candidatesFor('Bangladesh Model School And College Rampura', 'staging');
+    expect(c.length).toBeGreaterThan(0);
+    expect(c.every((x) => x.endsWith('-staging') && x.length <= 30)).toBe(true);
+    expect(c[0]).toBe('bangladesh-model-schoo-staging');
   });
 
   it('orders slug, initials, slug-school and drops invalid or reserved ones', () => {

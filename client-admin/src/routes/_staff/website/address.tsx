@@ -109,6 +109,10 @@ function SubdomainCard() {
 
   // The preview link is `https://<address>.<root>/?preview=…`; the live address is its origin.
   const liveUrl = preview.data?.url ? new URL(preview.data.url).origin : null;
+  // With a custom domain the origin is the school's own host, which carries no shared root.
+  const liveHost = liveUrl ? new URL(liveUrl).host : '';
+  const liveRoot =
+    current && liveHost.startsWith(`${current}.`) ? liveHost.slice(current.length + 1) : null;
 
   function close() {
     setEditing(false);
@@ -190,7 +194,7 @@ function SubdomainCard() {
           </p>
           {tag && formatOk && (
             <p dir="ltr" className="text-caption font-medium">
-              {liveUrl ? `${clean}.${new URL(liveUrl).host.split('.').slice(1).join('.')}` : clean}
+              {liveRoot ? `${clean}.${liveRoot}` : clean}
             </p>
           )}
           {chips.length > 0 && (
