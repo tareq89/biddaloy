@@ -47,7 +47,8 @@ stub() { # <name> <alias> <port> <nginx location body>; the body goes in as an e
     -c 'printf "server { listen %s; location / { default_type text/plain; %s } }" "$PORT" "$BODY" > /etc/nginx/conf.d/default.conf && exec nginx -g "daemon off;"' >/dev/null
 }
 start_site_stub() {
-  docker rm -f site-stub >/dev/null 2>&1 || true
+  # All three: this runs once per mode and again after a stub restart, and the demo/staging stubs reuse their names.
+  docker rm -f site-stub site-demo-stub site-staging-stub >/dev/null 2>&1 || true
   stub site-stub prod-site 4321 "$COOKIE_IF"'return 200 "site-ok host=$host preview=[$http_x_site_preview] cookie=[$http_cookie] xfh=[$http_x_forwarded_host] uri=$request_uri";'
   # #3711: one stub per other environment, each answering with its own name.
   stub site-demo-stub demo-site 4321 'return 200 "site-demo-ok host=$host uri=$request_uri";'
