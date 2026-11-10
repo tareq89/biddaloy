@@ -357,7 +357,7 @@ describe('smoke-post-deploy', () => {
   });
 
   describe('cockpit fence', () => {
-    const FENCE = { ...ENV, COCKPIT_DOMAIN: 'cockpit.test', APP_DOMAIN: 'app.test' };
+    const FENCE = { ...ENV, SMOKE_COCKPIT_DOMAIN: 'cockpit.test', SMOKE_APP_DOMAIN: 'app.test' };
     const GOOD = {
       'GET https://cockpit.test/api/v1/platform/alerts': 401,
       'GET https://app.test/api/v1/platform/alerts': 404,
@@ -371,7 +371,11 @@ describe('smoke-post-deploy', () => {
       const fn = async (url, init) => {
         const key = `${init.method} ${url}`;
         if (!(key in table)) return base(url, init);
-        if (table[key] === 'reset') throw new TypeError('fetch failed');
+        if (table[key] === 'reset')
+          throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
+        if (table[key] === 'dns')
+          throw new TypeError('fetch failed', { cause: { code: 'ENOTFOUND' } });
+        if (table[key] === 302) return new Response(null, { status: 302 });
         return json(table[key], {});
       };
       fn.calls = base.calls;
@@ -379,14 +383,15 @@ describe('smoke-post-deploy', () => {
     };
     const fails = (r) => r.lines.filter((l) => l.startsWith('FAIL'));
 
-    it('skips when COCKPIT_DOMAIN is unset', async () => {
+    it('skips when SMOKE_COCKPIT_DOMAIN is unset', async () => {
       const r = await run(fakeFetch());
       expect(r.failed).toBe(0);
-      expect(r.lines).toContain('cockpit fence: skipped: COCKPIT_DOMAIN not set');
+      expect(r.lines).toContain('cockpit fence: skipped: SMOKE_COCKPIT_DOMAIN not set');
     });
 
     it('passes all four checks', async () => {
       const r = await run(fenceFetch(), FENCE);
+      expect(fails(r)).toHaveLength(0);
       expect(r.failed).toBe(0);
       expect(r.passed).toBe(13);
     });
@@ -396,6 +401,9 @@ describe('smoke-post-deploy', () => {
       ['GET https://cockpit.test/api/v1/platform/alerts', 404, 'alerts on cockpit host'],
       ['GET https://app.test/api/v1/platform/alerts', 401, 'alerts on app host'],
       ['GET https://app.test/api/v1/platform/alerts', 200, 'alerts on app host'],
+      ['GET https://app.test/api/v1/platform/alerts', 403, 'alerts on app host'],
+      ['GET https://app.test/api/v1/platform/alerts', 302, 'alerts on app host'],
+      ['POST https://app.test/api/v1/auth/cockpit/login', 401, 'cockpit login on app host'],
       ['POST https://app.test/api/v1/auth/cockpit/login', 403, 'cockpit login on app host'],
       ['POST https://app.test/api/v1/auth/cockpit/login', 200, 'cockpit login on app host'],
       ['GET https://cockpit.test/', 404, 'cockpit shell'],
@@ -414,6 +422,21 @@ describe('smoke-post-deploy', () => {
         FENCE,
       );
       expect(r.failed).toBe(0);
+    });
+
+    it('fails on a DNS error on the app host (not a refusal)', async () => {
+      const r = await run(
+        fenceFetch({ 'GET https://app.test/api/v1/platform/alerts': 'dns' }),
+        FENCE,
+      );
+      expect(fails(r)).toHaveLength(1);
+      expect(fails(r)[0]).toContain('alerts on app host');
+    });
+
+    it('fails once when the cockpit domain is set without the app domain', async () => {
+      const r = await run(fenceFetch(), { ...FENCE, SMOKE_APP_DOMAIN: undefined });
+      expect(fails(r)).toEqual(['FAIL  cockpit fence: SMOKE_APP_DOMAIN not set']);
+      expect(r.failed).toBe(1);
     });
 
     it('fails when the cockpit host itself is unreachable', async () => {
