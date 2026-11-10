@@ -117,14 +117,25 @@ describe('Certificates E2E (48.2.04)', () => {
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
     await app.init();
     ds = app.get(DataSource);
-  });
 
-  // The suite's setup wipes tenant data before every test, so seed per test.
-  beforeEach(async () => {
+    // Users, memberships and schools are reference tables, reset once per file (not per test), so
+    // create them and log in once. Each login is a bcrypt check (~0.4 s, more under load); doing
+    // 11 of them in every beforeEach is what pushed this file to the 120 s timeout.
     tokens.ADMIN = await login(SEED_ADMIN_EMAIL);
     for (const role of ROLES.filter((r) => r !== UserRole.ADMIN)) {
       tokens[role] = await login(await addUser(SEED_TENANT_ID, role, role));
     }
+    tenant2Id = (
+      await ds.query(`INSERT INTO schools (name, slug) VALUES ($1, $2) RETURNING id`, [
+        `Cert E2E T2 ${randomUUID()}`,
+        `cert-e2e-${randomUUID()}`,
+      ])
+    )[0].id as string;
+    tenant2Token = await login(await addUser(tenant2Id, 'ADMIN', 'tenant2-admin'));
+  }, 120_000);
+
+  // The suite's setup wipes transactional data before every test, so seed that per test.
+  beforeEach(async () => {
 
     // Two students with an ACTIVE enrollment so the real certificate resolver can build their data.
     const one = async (sql: string, p: unknown[]) => (await ds.query(sql, p))[0].id as string;
@@ -162,11 +173,6 @@ describe('Certificates E2E (48.2.04)', () => {
     testimonialTpl = await publishedTemplate(SEED_TENANT_ID, 'TESTIMONIAL');
     resultTpl = await publishedTemplate(SEED_TENANT_ID, 'RESULT_CERTIFICATE');
 
-    tenant2Id = await one(`INSERT INTO schools (name, slug) VALUES ($1, $2) RETURNING id`, [
-      `Cert E2E T2 ${randomUUID()}`,
-      `cert-e2e-${randomUUID()}`,
-    ]);
-    tenant2Token = await login(await addUser(tenant2Id, 'ADMIN', 'tenant2-admin'));
     tenant2Tpl = await publishedTemplate(tenant2Id, 'TESTIMONIAL');
   });
 
