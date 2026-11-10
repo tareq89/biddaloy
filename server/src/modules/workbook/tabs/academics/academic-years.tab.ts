@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { AcademicYear } from '../../../academics/entities/academic-year.entity';
-import { fromCell, formatDateOnly } from '../../codec/cell-format';
+import { fromCell, formatDateOnly, formatDateTime } from '../../codec/cell-format';
+import { User } from '../../../users/entities/user.entity';
 import type {
   ColumnSpec,
   ExportContext,
@@ -34,6 +35,8 @@ export interface AcademicYearRow {
   start_date: string;
   end_date: string;
   is_current: boolean;
+  closed_at: string | null;
+  closed_by_user_id: string | null;
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -52,6 +55,10 @@ const columns: readonly ColumnSpec[] = [
     required: true,
     label: { en: 'Is current', bn: 'বর্তমান কিনা' },
   },
+  { key: 'closed_at', type: 'datetime', label: { en: 'Closed at', bn: 'বন্ধ করার সময়' } },
+  // Written as the raw user id: the `users` tab is applied after this one, so no natural key
+  // can be resolved yet. `upsert` stores NULL when that id is not in the target database.
+  { key: 'closed_by_user_id', type: 'uuid', label: { en: 'Closed by', bn: 'বন্ধ করেছেন' } },
 ];
 
 /**
@@ -60,7 +67,9 @@ const columns: readonly ColumnSpec[] = [
  * exported through `columns` above. `tenant` itself is a relation, not a
  * scalar column, so TypeORM's own metadata never lists it here.
  */
-const excluded: readonly string[] = [];
+const excluded: readonly string[] = [
+  'closed_by', // relation to User, exported as the `closed_by_user_id` column
+];
 
 const MAX_LENGTHS: Record<string, number> = {
   name: 50,
@@ -86,6 +95,8 @@ export const academicYearsTab: TabSpec<AcademicYear, AcademicYearRow> = {
       start_date: entity.start_date,
       end_date: entity.end_date,
       is_current: entity.is_current,
+      closed_at: entity.closed_at,
+      closed_by_user_id: entity.closed_by_user_id,
     };
   },
 
@@ -121,6 +132,18 @@ export const academicYearsTab: TabSpec<AcademicYear, AcademicYearRow> = {
       values[column.key] = result.value;
     }
 
+    // The DB CHECK (CHK_academic_years_closed_not_current, D21): a closed year is never current.
+    // Fixed text, the submitted value is not echoed (Rule 23).
+    if (values.closed_at && values.is_current) {
+      errors.push({
+        tab: 'academic_years',
+        row: rowNo,
+        column: 'closed_at',
+        message: 'A closed academic year cannot be the current one.',
+        severity: 'error',
+      });
+    }
+
     if (errors.length > 0) return { errors };
 
     return {
@@ -130,6 +153,8 @@ export const academicYearsTab: TabSpec<AcademicYear, AcademicYearRow> = {
         start_date: values.start_date as string,
         end_date: values.end_date as string,
         is_current: values.is_current as boolean,
+        closed_at: values.closed_at ? formatDateTime(values.closed_at) : null,
+        closed_by_user_id: values.closed_by_user_id as string | null,
       },
     };
   },
@@ -147,6 +172,9 @@ export const academicYearsTab: TabSpec<AcademicYear, AcademicYearRow> = {
     // strings — compare their text form, same as toRow would export it.
     if (row.start_date !== formatDateOnly(existing.start_date)) changed.push('start_date');
     if (row.end_date !== formatDateOnly(existing.end_date)) changed.push('end_date');
+    const existingClosedAt = existing.closed_at ? formatDateTime(existing.closed_at) : null;
+    if (row.closed_at !== existingClosedAt) changed.push('closed_at');
+    if (row.closed_by_user_id !== existing.closed_by_user_id) changed.push('closed_by_user_id');
     return changed;
   },
 
@@ -162,6 +190,12 @@ export const academicYearsTab: TabSpec<AcademicYear, AcademicYearRow> = {
     year.start_date = parseDateOnly(row.start_date);
     year.end_date = parseDateOnly(row.end_date);
     year.is_current = row.is_current;
+    year.closed_at = row.closed_at ? new Date(row.closed_at) : null;
+    // An id that does not resolve in this database becomes NULL, not an error (FK would refuse it).
+    year.closed_by_user_id =
+      row.closed_by_user_id && (await m.existsBy(User, { id: row.closed_by_user_id }))
+        ? row.closed_by_user_id
+        : null;
 
     // `is_current` is unique-per-tenant (partial unique index on the
     // entity). Clearing the previous current year in the same manager keeps
