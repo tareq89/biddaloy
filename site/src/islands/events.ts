@@ -1,4 +1,5 @@
 // Upcoming-days island (D21, D38): the next 10 events/holidays from `island/events`. Plain DOM.
+import { formatDay } from '../lib/day';
 import { loadRows, settle, text, type L } from './common';
 
 interface Item {
@@ -18,14 +19,15 @@ async function load(root: HTMLElement) {
   for (const e of items) {
     const card = document.createElement('div');
     card.className = 'card ev';
-    const d = new Date(`${e.date ?? ''}T00:00:00+06:00`);
-    if (!Number.isNaN(d.getTime())) {
+    const dayText = formatDay(e.date, loc, { day: '2-digit' });
+    const monText = formatDay(e.date, loc, { month: 'short' });
+    if (dayText && monText) {
       const date = document.createElement('span');
       date.className = 'date';
       const day = document.createElement('b');
-      day.textContent = d.toLocaleDateString(loc, { day: '2-digit', timeZone: 'Asia/Dhaka' });
+      day.textContent = dayText;
       const mon = document.createElement('span');
-      mon.textContent = d.toLocaleDateString(loc, { month: 'short', timeZone: 'Asia/Dhaka' });
+      mon.textContent = monText;
       date.append(day, mon);
       card.append(date);
     }

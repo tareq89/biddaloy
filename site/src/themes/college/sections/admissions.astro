@@ -1,5 +1,6 @@
 ---
 import { t } from '../../../i18n/t';
+import { formatDay } from '../../../lib/day';
 import { field } from '../../../lib/pick';
 import type { SectionProps } from '../../../lib/types';
 
@@ -10,6 +11,7 @@ const s = (v: unknown) => (typeof v === 'string' ? v : undefined);
 const loc = lang === 'en' ? 'en-GB' : 'bn-BD';
 // Open intakes (never marked empty by the server: the text above still shows without them).
 const intakes = feed.filter((i) => s(i.link)?.startsWith('/'));
+const deadline = (i: Record<string, unknown>) => formatDay(s(i.deadline), loc, { dateStyle: 'long' });
 // Two or more blank-line-separated paragraphs read as numbered steps; one paragraph stays prose.
 const steps = (body ?? '').split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
 ---
@@ -26,7 +28,7 @@ const steps = (body ?? '').split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean)
         {intakes.map((i) => (
           <li class="card">
             <b>{s(i.title)}</b>
-            {s(i.deadline) && <span class="small">{t(lang, 'admissions.deadline')}: {new Date(`${s(i.deadline)}T00:00:00+06:00`).toLocaleDateString(loc, { dateStyle: 'long', timeZone: 'Asia/Dhaka' })}</span>}
+            {deadline(i) && <span class="small">{t(lang, 'admissions.deadline')}: {deadline(i)}</span>}
             <a class="btn btn-primary btn-sm" href={s(i.link)}>{t(lang, 'admissions.apply')}</a>
           </li>
         ))}
