@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { JwtPayload, UserStatus } from '@biddaloy/shared';
 import { User } from '../../users/entities/user.entity';
+import { PlatformAdmin } from '../../platform-identity/entities/platform-admin.entity';
 import { AccessTokenDenylistService } from '../access-token-denylist.service';
 import { ACCESS_TOKEN_AUDIENCE, JWT_ALGORITHM, JWT_ISSUER, jwtVerifySecrets } from '../jwt-secrets';
 
@@ -24,6 +25,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     jwtService: JwtService,
     private readonly denylist: AccessTokenDenylistService,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(PlatformAdmin) private readonly adminRepo: Repository<PlatformAdmin>,
   ) {
     const secret = configService.get<string>('JWT_SECRET');
     if (!secret) {
@@ -99,6 +101,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           ? payload.iat_ms < cutMs
           : (payload.iat ?? 0) < Math.floor(cutMs / 1000);
       if (revoked) throw new UnauthorizedException('Token has been revoked');
+    }
+
+    // [98.2.04] Defence in depth: a token minted before the user became an owner dies here.
+    if (await this.adminRepo.exists({ where: { user_id: payload.sub } })) {
+      throw new UnauthorizedException('Token has been revoked');
     }
 
     return payload;

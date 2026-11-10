@@ -6,6 +6,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { AccessTokenDenylistService } from '../access-token-denylist.service';
 import { JwtPayload, UserStatus } from '@biddaloy/shared';
 import type { Repository } from 'typeorm';
+import type { PlatformAdmin } from '../../platform-identity/entities/platform-admin.entity';
 import type { User } from '../../users/entities/user.entity';
 
 function configServiceWithSecret(secret: string | undefined, previous?: string): ConfigService {
@@ -18,6 +19,7 @@ describe('JwtStrategy', () => {
   let strategy: JwtStrategy;
   let mockDenylist: { isRevoked: ReturnType<typeof vi.fn> };
   let findOne: ReturnType<typeof vi.fn>;
+  let adminExists: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     mockDenylist = { isRevoked: vi.fn().mockResolvedValue(false) };
@@ -27,13 +29,27 @@ describe('JwtStrategy', () => {
       deleted_at: null,
       tokens_valid_after: null,
     });
+    adminExists = vi.fn().mockResolvedValue(false);
     const userRepo = { findOne } as unknown as Repository<User>;
     strategy = new JwtStrategy(
       configServiceWithSecret('test-jwt-secret-do-not-use-in-production'),
       new JwtService({}),
       mockDenylist as unknown as AccessTokenDenylistService,
       userRepo,
+      { exists: adminExists } as unknown as Repository<PlatformAdmin>,
     );
+  });
+
+  it('rejects a token whose user is a platform owner [98.2.04]', async () => {
+    adminExists.mockResolvedValue(true);
+    const payload: JwtPayload = {
+      sub: 'user-1',
+      email: null,
+      phone: null,
+      memberships: [],
+      jti: 'token-1',
+    } as unknown as JwtPayload;
+    await expect(strategy.validate(payload)).rejects.toThrow('Token has been revoked');
   });
 
   it('returns the payload unchanged when sub, memberships, and jti are present', async () => {
@@ -183,6 +199,7 @@ describe('JwtStrategy', () => {
           new JwtService({}),
           mockDenylist as unknown as AccessTokenDenylistService,
           { findOne } as unknown as Repository<User>,
+        { exists: vi.fn() } as unknown as Repository<PlatformAdmin>,
         ),
     ).toThrow('JWT_SECRET is not configured');
   });
@@ -196,6 +213,7 @@ describe('JwtStrategy', () => {
         new JwtService({}),
         mockDenylist as unknown as AccessTokenDenylistService,
         { findOne } as unknown as Repository<User>,
+        { exists: vi.fn() } as unknown as Repository<PlatformAdmin>,
       );
       // passport-jwt keeps the provider on the instance
       return new Promise<string | null>((resolve) =>
@@ -234,6 +252,7 @@ describe('JwtStrategy', () => {
         new JwtService({ verifyOptions: { issuer: 'biddaloy' } }),
         mockDenylist as unknown as AccessTokenDenylistService,
         { findOne } as unknown as Repository<User>,
+        { exists: vi.fn() } as unknown as Repository<PlatformAdmin>,
       );
       const wrongIss = new JwtService({}).sign({ sub: 'u' }, { secret: CURRENT, issuer: 'evil' });
       const key = await new Promise<string>((resolve) =>
