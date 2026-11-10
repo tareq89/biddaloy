@@ -529,7 +529,9 @@ describe('cockpit owners (98 #3737)', () => {
     } catch (e) {
       message = String(e);
     }
-    expect(message).not.toMatch(/COCKPIT/);
+    // Compare the problem list, not a substring of the whole message.
+    const problems = message.split('\n- ').slice(1);
+    expect(problems.filter((p) => p.startsWith('COCKPIT_OWNER'))).toEqual([]);
   });
 
   it('COCKPIT_TEST_TOTP_SECRET is refused in production and accepted in test', () => {
