@@ -21,7 +21,7 @@ import { AuditService } from '../audit/audit.service';
 import { cockpitUserLockKey } from '../auth/cockpit/cockpit-auth.service';
 import { LoginAttemptService } from '../auth/login-attempt.service';
 import { MfaService } from '../auth/mfa/mfa.service';
-import { StepUpService } from '../auth/step-up.service';
+import { PLATFORM_APPROVAL_SCOPES, StepUpService } from '../auth/step-up.service';
 import type { CockpitPrincipal } from './cockpit-principal';
 import { PlatformAdminGuard } from './platform-admin.guard';
 import { PlatformHomeService } from './platform-home.service';
@@ -35,6 +35,8 @@ const REFUSED = 'Code is not valid. Wait for the next code and try again.';
  */
 @ApiTags('platform')
 @ApiBearerAuth()
+// No SameOriginGuard: the cockpit-jwt strategy reads only the Authorization bearer header, never a
+// cookie, so a cross-site request cannot carry the credential.
 @Controller('platform/step-up')
 @UseGuards(AuthGuard('cockpit-jwt'), PlatformAdminGuard)
 export class PlatformStepUpController {
@@ -56,6 +58,8 @@ export class PlatformStepUpController {
     @Req() request: Request & { user: CockpitPrincipal },
     @Res({ passthrough: true }) response: Response,
   ): Promise<PlatformStepUpResponse> {
+    // Scope first: an unknown or school scope must not burn the owner's TOTP step.
+    if (!PLATFORM_APPROVAL_SCOPES.includes(dto.scope)) throw new UnauthorizedException(REFUSED);
     const actorId = request.user.sub;
     const key = cockpitUserLockKey(actorId);
     if (await this.loginAttempts.isLocked(key)) throw new UnauthorizedException(REFUSED);
