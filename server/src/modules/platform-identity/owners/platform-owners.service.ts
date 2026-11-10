@@ -95,10 +95,12 @@ export class PlatformOwnersService {
     if (actorId === targetId) conflict('You cannot lock yourself.', 'CANNOT_LOCK_SELF');
     await this.ds.transaction(async (em) => {
       // Serialises two owners locking each other at once: the second waits, then sees one left.
+      await em.query(`SELECT 1 FROM platform_admins ORDER BY user_id FOR UPDATE`);
+      // Read statuses only AFTER the lock: under READ COMMITTED a waiter's first snapshot is stale,
+      // this second query sees the other lock's committed result.
       const admins: { user_id: string; status: string }[] = await em.query(
         `SELECT pa.user_id, u.status FROM platform_admins pa
-           JOIN users u ON u.id = pa.user_id
-          ORDER BY pa.user_id FOR UPDATE OF pa`,
+           JOIN users u ON u.id = pa.user_id ORDER BY pa.user_id`,
       );
       const target = admins.find((a) => a.user_id === targetId);
       if (!target) throw new NotFoundException(OWNER_NOT_FOUND);
@@ -125,25 +127,27 @@ export class PlatformOwnersService {
 
   async unlock(actorId: string, targetId: string): Promise<void> {
     if (actorId === targetId) conflict('You cannot unlock yourself.', 'CANNOT_UNLOCK_SELF');
-    const res = await this.ds.query(
-      `UPDATE users SET status = 'ACTIVE'
-        WHERE id = $1 AND status = 'SUSPENDED'
-          AND EXISTS (SELECT 1 FROM platform_admins WHERE user_id = $1)
-        RETURNING id`,
-      [targetId],
-    );
-    const updated = Array.isArray(res) && Array.isArray(res[0]) ? res[0] : res;
-    if (updated.length === 0) {
-      const isOwner = await this.ds.query(`SELECT 1 FROM platform_admins WHERE user_id = $1`, [
-        targetId,
-      ]);
-      if (isOwner.length === 0) throw new NotFoundException(OWNER_NOT_FOUND);
-      conflict('Owner is not locked.', 'NOT_LOCKED');
-    }
-    await this.ds.query(
-      `UPDATE platform_admins SET locked_by = NULL, locked_at = NULL WHERE user_id = $1`,
-      [targetId],
-    );
+    await this.ds.transaction(async (em) => {
+      const res = await em.query(
+        `UPDATE users SET status = 'ACTIVE'
+          WHERE id = $1 AND status = 'SUSPENDED'
+            AND EXISTS (SELECT 1 FROM platform_admins WHERE user_id = $1)
+          RETURNING id`,
+        [targetId],
+      );
+      const updated = Array.isArray(res) && Array.isArray(res[0]) ? res[0] : res;
+      if (updated.length === 0) {
+        const isOwner = await em.query(`SELECT 1 FROM platform_admins WHERE user_id = $1`, [
+          targetId,
+        ]);
+        if (isOwner.length === 0) throw new NotFoundException(OWNER_NOT_FOUND);
+        conflict('Owner is not locked.', 'NOT_LOCKED');
+      }
+      await em.query(
+        `UPDATE platform_admins SET locked_by = NULL, locked_at = NULL WHERE user_id = $1`,
+        [targetId],
+      );
+    });
     await this.record(AuditAction.PLATFORM_OWNER_UNLOCKED, actorId, targetId);
     await this.notify('PLATFORM_OWNER_UNLOCKED', actorId, targetId, 'unlocked');
   }
