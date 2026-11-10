@@ -70,6 +70,13 @@ describe('TtlCache', () => {
     expect(await c.get('a', async () => 'unused')).toBe('fresh'); // the fresh row is the cached one
   });
 
+  it('does not share a load when the TTL is 0, so nothing joins a read that began earlier', async () => {
+    const c = new TtlCache<number>(0);
+    const load = vi.fn(async () => 1);
+    await Promise.all([c.get('a', load), c.get('a', load)]);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
   it('is a no-op by default under NODE_ENV=test, so specs never read stale rows', async () => {
     const c = new TtlCache<number>();
     let n = 0;

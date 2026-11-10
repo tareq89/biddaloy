@@ -33,6 +33,8 @@ map $status $site_media_cc {
 
 # [#3714] Same rule for the logo, with its short 5-minute life: only a 200 (and its 304) may be
 # kept; the 301 of a renamed address gets `no-store`, or a browser would keep the old redirect.
+# (`add_header` here has no `always`, so it is only sent on 2xx/3xx: that covers the 301, and a
+# 404 or 5xx carries no Cache-Control from this line at all.)
 map $status $site_logo_cc {
     default "no-store";
     200 "public, max-age=300";

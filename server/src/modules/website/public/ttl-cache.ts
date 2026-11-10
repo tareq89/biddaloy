@@ -26,6 +26,9 @@ export class TtlCache<V> {
   get(key: string, load: () => Promise<V>): Promise<V> {
     const hit = this.entries.get(key);
     if (hit && hit.expires > this.now()) return Promise.resolve(hit.value);
+    // A zero TTL means "no cache" (NODE_ENV=test): never share a load, or a request made after a
+    // change could join a read that started before it.
+    if (this.ttlMs === 0) return this.fill(key, load);
     const running = this.inflight.get(key);
     if (running) return running;
     const p = this.fill(key, load).finally(() => {

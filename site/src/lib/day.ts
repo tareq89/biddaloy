@@ -11,7 +11,8 @@ export function formatDay(
 ): string | undefined {
   if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return undefined;
   const d = new Date(`${day}T00:00:00Z`);
-  return Number.isNaN(d.getTime())
-    ? undefined
-    : d.toLocaleDateString(loc, { ...opts, timeZone: 'UTC' });
+  // Date rolls an impossible day over (2026-02-30 becomes 2 March): only print a day that
+  // survives the round trip.
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== day) return undefined;
+  return d.toLocaleDateString(loc, { ...opts, timeZone: 'UTC' });
 }

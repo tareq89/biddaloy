@@ -22,7 +22,7 @@ const isStatic = bar?.style !== SiteAnnouncementStyle.MARQUEE || items.length < 
     <div class="ann-view"><div class="ann-track">
       {(isStatic ? [0] : [0, 1]).map((n) => (
         <ul class="ann-set" aria-hidden={n === 1 ? 'true' : undefined}>
-          {items.map((i) => <li>{i.href ? <a href={pre + i.href}tabindex={n === 1 ? -1 : undefined}>{i.text}</a> : <a>{i.text}</a>}</li>)}
+          {items.map((i) => <li>{i.href ? <a href={pre + i.href} tabindex={n === 1 ? -1 : undefined}>{i.text}</a> : <a>{i.text}</a>}</li>)}
         </ul>
       ))}
     </div></div>

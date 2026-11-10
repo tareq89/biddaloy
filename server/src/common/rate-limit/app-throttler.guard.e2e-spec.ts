@@ -164,6 +164,7 @@ describe('AppThrottlerGuard per-host bucket for site reads', () => {
     const get = (host: string) =>
       supertest(app.getHttpServer()).get(`/api/v1/public/site/by-host/${host}/home`);
     for (let i = 0; i < 3; i++) await get('gamma.example.com').expect(200);
-    await get('GAMMA.example.com').expect(429);
+    await get('GAMMA.example.com').expect(429); // same bucket as gamma: lower-casing works
+    await get('delta.example.com').expect(200); // and a different host still has its own bucket
   });
 });
