@@ -127,6 +127,21 @@ describe('OwnerSeedingService (integration)', () => {
     expect(await owners()).toHaveLength(0);
   });
 
+  it('stops boot with a slot-only message when another user already holds the owner phone', async () => {
+    await ds.query(
+      `INSERT INTO users (email, phone, full_name, status) VALUES ($1, $2, 'Other', 'ACTIVE')`,
+      [`${tag}-other@owners.test`, '+8801711000001'],
+    );
+    const err = await make()
+      .seed(env())
+      .catch((e: Error) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain('COCKPIT_OWNER_1');
+    expect((err as Error).message).not.toContain('01711');
+    expect((err as Error).message).not.toContain('owners.test');
+    expect(await owners()).toHaveLength(0);
+  });
+
   it('stops boot the same way when the owner email belongs to a soft-deleted user', async () => {
     await ds.query(
       `INSERT INTO users (email, full_name, status, deleted_at) VALUES ($1, 'Gone', 'ACTIVE', now())`,

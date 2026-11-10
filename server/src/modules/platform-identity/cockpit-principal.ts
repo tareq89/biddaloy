@@ -10,5 +10,8 @@ export interface CockpitPrincipal {
 }
 
 export function isCockpitPrincipal(user: unknown): user is CockpitPrincipal {
-  return typeof user === 'object' && user !== null && (user as { typ?: unknown }).typ === 'cockpit';
+  if (typeof user !== 'object' || user === null) return false;
+  const u = user as Record<string, unknown>;
+  const text = (v: unknown) => typeof v === 'string' && v.length > 0;
+  return u.typ === 'cockpit' && text(u.sub) && text(u.jti) && text(u.fam);
 }

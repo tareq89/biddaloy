@@ -56,6 +56,8 @@ export class PlatformHomeService {
 
     // ponytail: a concurrent insert would lose to UQ_schools_one_platform; OwnerSeedingService
     // serialises boots with an advisory lock, so the race does not arise there.
+    // Wave 2: before any caller uses ensure() outside OwnerSeedingService it needs a
+    // retry-on-unique-violation (UQ_schools_one_platform): catch it and re-read the home.
     const created = await em.save(
       em.create(School, { slug: PLATFORM_HOME_SLUG, name: 'Biddaloy Platform', is_platform: true }),
     );

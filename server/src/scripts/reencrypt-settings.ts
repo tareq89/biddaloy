@@ -70,7 +70,7 @@ export async function reencryptSettings(): Promise<{ migrated: number; skipped: 
   skipped += mfaResult.skipped;
 
   console.log(
-    `Re-encryption complete: ${migrated} school(s) updated, ${skipped} field(s) skipped.`,
+    `Re-encryption complete: ${migrated} value(s) updated (school settings and MFA secrets), ${skipped} skipped.`,
   );
   await app.close();
 
