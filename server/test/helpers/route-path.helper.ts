@@ -167,6 +167,76 @@ export const ALLOWLIST: AllowlistEntry[] = [
       'Bearer (cockpit-jwt) plus PlatformAdminGuard and SameOriginGuard, no tenant: revokes only a family owned by user.sub.',
   },
   {
+    controller: 'PlatformStepUpController',
+    method: 'POST',
+    path: '/platform/step-up',
+    reason:
+      '[98.3.2] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Re-checks the caller own TOTP code and returns a short step-up token for the caller only.',
+  },
+  {
+    controller: 'PlatformApprovalsController',
+    method: 'GET',
+    path: '/platform/approvals',
+    reason:
+      '[98.3.3] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Lists the platform approval queue; platform data only, no tenant rows.',
+  },
+  {
+    controller: 'PlatformApprovalsController',
+    method: 'POST',
+    path: '/platform/approvals/:id/approve',
+    reason:
+      '[98.3.3] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. A different owner decides the request; the service refuses the requester.',
+  },
+  {
+    controller: 'PlatformApprovalsController',
+    method: 'POST',
+    path: '/platform/approvals/:id/deny',
+    reason:
+      '[98.3.3] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. A different owner decides the request; the service refuses the requester.',
+  },
+  {
+    controller: 'PlatformSettingsController',
+    method: 'GET',
+    path: '/platform/settings/approvals',
+    reason:
+      '[98.3.3] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Reads the two-person-approval switch.',
+  },
+  {
+    controller: 'PlatformSettingsController',
+    method: 'PATCH',
+    path: '/platform/settings/approvals',
+    reason:
+      '[98.3.3] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. Turning the switch OFF itself needs a step-up token.',
+  },
+  {
+    controller: 'PlatformOwnersController',
+    method: 'GET',
+    path: '/platform/owners',
+    reason:
+      '[98.3.4] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Lists platform owners (platform_admins), no tenant data.',
+  },
+  {
+    controller: 'PlatformOwnersController',
+    method: 'GET',
+    path: '/platform/owners/history',
+    reason:
+      '[98.3.4] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Reads the owner lock and unlock history.',
+  },
+  {
+    controller: 'PlatformOwnersController',
+    method: 'POST',
+    path: '/platform/owners/:userId/lock',
+    reason:
+      '[98.3.4] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. Needs a step-up token; the last active owner cannot lock themself.',
+  },
+  {
+    controller: 'PlatformOwnersController',
+    method: 'POST',
+    path: '/platform/owners/:userId/unlock',
+    reason:
+      '[98.3.4] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. Needs a step-up token; the last active owner cannot lock themself.',
+  },
+  {
     controller: 'AuthController',
     method: 'POST',
     path: '/auth/refresh',
