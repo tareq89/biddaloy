@@ -813,3 +813,5 @@ fix, and a rule worth keeping.
   date), not the 25 in the epic body; the other four have no year column of their
   own. Wave 3 flips entries to `wired: true` as each service calls
   `assertYearOpen`.
+
+**Learning (2026-11-11, Epic 69 wave 2).** The current academic year is no longer always built by hand: `YearRolloverService` (`modules/academics/year-rollover.service.ts`) copies classes, sections, class subjects, teacher assignments, fee structures, grading scales and terms from a source year into a target year by natural key (D14), all-or-nothing, and re-running it counts rows `existing` instead of duplicating them. A closed year (`academic_years.closed_at`) is read-only for writes that call `assertYearOpen`.
