@@ -36,11 +36,24 @@ export class TwoPersonGuard implements CanActivate {
     if (!meta) return true;
 
     const req = context.switchToHttp().getRequest();
+    await this.enforce(req, meta.scope, meta.summaryFn(req));
+    return true;
+  }
+
+  /**
+   * The check itself. A route that only SOMETIMES needs the other owner (e.g. switching the gate
+   * off, not on) calls this from its handler instead of using the decorator.
+   */
+  async enforce(
+    req: any,
+    scope: TwoPersonMetadata['scope'],
+    summary: Record<string, unknown>,
+  ): Promise<void> {
     const actorId: string | undefined = req.user?.sub;
     if (!actorId) throw new ForbiddenException('This area is for platform owners only');
 
     const enabled = (await this.settings.get(APPROVALS_ENABLED_KEY)) !== false;
-    if (!enabled || (await this.owners.countActive()) < 2) return true;
+    if (!enabled || (await this.owners.countActive()) < 2) return;
 
     const payload = {
       method: req.method as string,
@@ -51,15 +64,10 @@ export class TwoPersonGuard implements CanActivate {
     const id = Array.isArray(header) ? header[0] : header;
     if (id) {
       const ok = isUUID(id) && (await this.approvals.consume(id, actorId, hashPayload(payload)));
-      if (ok) return true;
+      if (ok) return;
       throw new HttpException({ details: { code: 'APPROVAL_INVALID' } }, HttpStatus.FORBIDDEN);
     }
-    const { id: requestId } = await this.approvals.request(
-      actorId,
-      meta.scope,
-      payload,
-      meta.summaryFn(req),
-    );
+    const { id: requestId } = await this.approvals.request(actorId, scope, payload, summary);
     throw new HttpException(
       { details: { code: 'APPROVAL_REQUESTED', requestId } },
       HttpStatus.FORBIDDEN,
