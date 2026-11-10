@@ -176,7 +176,7 @@ flowchart TD
      same type on the **same** worktree and branch, told which ticket and
      step to resume from (the state file and `git log` say where it was).
 
-Never mark a ticket `blocked`, count a step-8 fix round, or skip a step
+Never mark a ticket `blocked`, or skip a step
 because of an outage. Note each outage window in the state file.
 
 ### When the orchestrator's own LLM call fails
@@ -223,7 +223,7 @@ flowchart TB
     NW -->|no, keep going| W
     NW -->|yes| PR["open PR N for what's accumulated\nnext branch stacks on PR N's branch"]
     PR -->|don't wait| W
-    PR --> CR["CI + bot-comment loop\nSonnet fixes · capped at 3 rounds\nstill red → [RED] in title, move on"]
+    PR --> CR["one Sonnet pass on bot comments\nCI failures left to the user"]
     CR --> G3{{"GATE 3\nuser merges, bottom-up\n(never automatic)"}}
 ```
 
@@ -240,7 +240,7 @@ Delegation to a pinned subagent is the only switch available.
 | Per-ticket plan — everything else, either tier | Sonnet | `issue-planner` subagent (`model: sonnet`) |
 | Per-ticket implementation | Sonnet | `issue-implementer` subagent |
 | Per-ticket review — the only review, either tier | Sonnet | `issue-reviewer` subagent, from the group agent |
-| CI / bot-comment fix rounds | Sonnet | `Agent(model: "sonnet")` (step 8) |
+| Bot-comment fix pass (no CI fixing) | Sonnet | `Agent(model: "sonnet")` (step 8) |
 | Read-only labour (fetch bodies, tier match, CI-log triage, file/excerpt lookups) | Haiku | `labour-scout` subagent — evidence only, never decisions, never writes |
 | Group orchestration | Sonnet | `epic-group-worker`, one per lane |
 
@@ -853,12 +853,13 @@ Stacked-PR rules (each one has already cost this repo time):
   new `main`, push. CodeRabbit then reviews it; fold its findings into a
   step-8 round.
 
-**PR size: under 100 files, aiming for 80–90.** Do not cut a PR early. Keep
-merging waves into the accumulating branch until the next wave would push it
-past 99 files; cut there, so each PR lands in the 80–99 range. Only the **last**
-PR of the epic may be smaller. If a wave boundary leaves the branch under 80
-and the next wave would cross 99, cut at the commit boundary inside that wave
-that lands closest to 90.
+**PR size: 90–100 files. This is a hard requirement** (CodeRabbit skips
+anything over 100). Do not cut a PR early. Keep merging waves into the
+accumulating branch until the next wave would push it past 100 files; cut
+there, so each PR lands in the 90–100 range. Only the **last** PR of the epic
+may be smaller. If a wave boundary leaves the branch under 90 and the next wave
+would cross 100, cut at the commit boundary inside that wave that lands closest
+to 100 without passing it.
 
 So in the common case a small-to-medium epic ships as **one** PR opened after
 the final wave. A large epic ships as **two or three**, each as large as the
@@ -915,7 +916,7 @@ minimum, cut at that boundary if needed.
 - PR 1 targets `main`; each later PR targets the PR before it.
 - **Title format:** `<epic number> <wave number> <issue numbers> <title>`, e.g.
   `44 w2 #3015 #3017 Wire remaining help ids`. A PR spanning waves writes the
-  range (`w1-2`); a `[RED]` prefix, when it applies, goes in front. The issue
+  range (`w1-2`). The issue
   numbers are exactly the ones this PR solves, the same set as its `Closes`
   lines.
 - Each description: the issue, the approach, plan corrections the planner
@@ -943,46 +944,15 @@ minimum, cut at that boundary if needed.
   never auto-closes on merge.
 - Record every PR number and timestamp in the state file as it opens.
 
-## Step 8 — CI and bot comments
+## Step 8 — After the PR opens
 
-No PR-level review here: each ticket already had its one review (`issue-reviewer`)
-in its lane. Every PR gets this loop right after it opens:
+**Do not fix CI.** No polling `gh pr checks`, no fix rounds, no `[RED]` titles:
+the user handles CI failures manually. The only prevention is upstream: every
+ticket's tests must pass locally before it is committed, and step 6's
+integration `yarn ci:local` must be green before any PR opens.
 
-1. **Collect.** Every failing CI check (`gh pr checks <n>`) and every actionable
-   CodeRabbit bot comment on the PR. Do not run the `coderabbit-review` CLI.
-2. **Fix (Sonnet).** Dispatch `Agent(model: "sonnet")` with the collected CI failures and bot comments. It addresses all of them in one round, then replies
-   on each comment saying what it fixed and what it left, with the reason.
-3. Repeat from 1 for the next round.
-
-Use the `pr-fix` skill's semantics rather than restating them — including its
-**batch-then-verify** discipline (see that skill's Tests step): diagnose every
-CI failure and every actionable CodeRabbit finding you currently know about
-*before* fixing anything, apply all the fixes, run the full affected suite
-**once**, then push once. **Cap: 3 rounds per PR.** A round is exactly one
-diagnose-all → fix-all → verify-once → push cycle, not one push per
-individual fix — pushing after each fix re-triggers the entire CI matrix (14+
-jobs) and a fresh CodeRabbit pass for a single line change, which is the
-single largest avoidable cost in this step. An uncapped loop can burn a whole
-session on one stubborn PR.
-
-**Still red after round 3?** Don't stop the run. Mark the PR red in its title
-and move on to the next wave:
-
-```bash
-gh pr edit <n> --title "[RED] <original title>"   # title format: see Step 7
-```
-
-Add a PR comment listing what is still failing or unresolved, and note it in
-the state file. Remove the `[RED] ` prefix if a later fix (e.g. one propagated
-from a lower PR) turns it green.
-
-The exception: a fix you're genuinely unsure about (touches locking,
-concurrency, money-tier correctness, or anything CodeRabbit itself flagged as
-subtle) is worth its own isolated commit and, if truly risky, its own
-verification pass — bundling a risky fix in with four mechanical ones makes
-it harder to attribute a regression to the right change, and gives it a
-shallower review pass on the bundled diff. Batch the safe, obviously-correct
-fixes; keep the one risky fix legible on its own.
+CodeRabbit bot comments get one batch: a single `Agent(model: "sonnet")` pass
+that fixes the actionable ones, replies on each, and pushes once.
 
 Fix rounds run on Sonnet.
 Node 22 vs 24, the `bn` e2e locale, byte-exact `api-types`, the 80 % branch
@@ -1103,7 +1073,7 @@ listed in the final report with the reason it survived. Say which in the report
 ## Problems found along the way — fix it or file it
 
 Any problem found during the run — a worker's "couldn't fix" report, an
-unresolved review finding, a still-red check on a `[RED]` PR, a pre-existing
+unresolved review finding, a pre-existing
 CI failure, a wrong claim in an issue body, a bug spotted next to the code —
 gets exactly one of two outcomes:
 
@@ -1165,7 +1135,7 @@ session model and report it. Never re-plan a ticket that already has a current
   a PR when the accumulating branch's diff against `main` would otherwise
   exceed 100 files; then start a fresh accumulating branch stacked on that
   PR's branch, right away — PR N+1 targets PR N, not `main`.
-- Never open a PR whose diff against its target is 100+ files (aim 80–99; only the last PR may be smaller), generated
+- Never open a PR whose diff against its target is over 100 files (must be 90–100; only the last PR may be smaller), generated
   files included — cut the accumulating branch at the last wave boundary that
   stays under the limit instead.
 - Never open PRs before that wave's integration is green.
@@ -1177,8 +1147,7 @@ session model and report it. Never re-plan a ticket that already has a current
   does not exist.
 - After any PR of the run merges to `main` — by you, or by the user who then
   tells you — tick its issues' acceptance boxes and close them.
-- A PR still red after 3 fix rounds gets `[RED]` in its title; the run moves
-  on. A blocked ticket is skipped with its dependents; the run moves on.
+- CI failures after a PR opens are never fixed by the run. A blocked ticket is skipped with its dependents; the run moves on.
 - If a commit or push fails on a git hook, retry with `--no-verify` and
   record it for the PR description. Integration's `yarn ci:local` still runs
   the full checks.
@@ -1222,7 +1191,7 @@ session model and report it. Never re-plan a ticket that already has a current
 ```
 
 Plus, in plain sentences: what merged, what is still open and why, tickets
-skipped and what blocked them, PRs marked `[RED]` and what is still failing,
+skipped and what blocked them, 
 every `--recommended` decision, commits made with `--no-verify`, unresolved
 review findings, issues filed during the run, design-system additions made,
 and any CI failure judged pre-existing rather than caused by this epic.
