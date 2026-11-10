@@ -397,7 +397,14 @@ export class AcademicYearService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<AcademicYear> {
-    await this.findOne(id, tenantId);
+    const target = await this.findOne(id, tenantId);
+    // A closed year is read-only and never current (D4, D21); #3511 maps this code.
+    if (target.closed_at) {
+      throw new ConflictException({
+        message: 'Academic year is closed',
+        details: { code: 'ACADEMIC_YEAR_CLOSED' },
+      });
+    }
 
     return this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(AcademicYear);

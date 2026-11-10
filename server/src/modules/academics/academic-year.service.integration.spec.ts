@@ -236,6 +236,27 @@ describe('AcademicYearService (integration)', () => {
       expect(year1Reloaded.is_current).toBe(false);
     });
 
+    it('refuses a closed year (409 ACADEMIC_YEAR_CLOSED)', async () => {
+      const year = await service.create(
+        { name: 'closed-1', start_date: '2020-01-01', end_date: '2020-12-31' },
+        TENANT_ID,
+      );
+      await repo.update({ id: year.id }, { closed_at: new Date() });
+      await expect(service.setCurrent(year.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+      });
+    });
+
+    it('DB CHECK refuses closed_at on the current year', async () => {
+      const year = await service.create(
+        { name: 'closed-2', start_date: '2020-01-01', end_date: '2020-12-31', is_current: true },
+        TENANT_ID,
+      );
+      await expect(repo.update({ id: year.id }, { closed_at: new Date() })).rejects.toThrow(
+        /CHK_academic_years_closed_not_current/,
+      );
+    });
+
     it('should not affect other tenants when setting current', async () => {
       const tenant1 = await service.create(
         { name: '2026-2027', start_date: '2026-01-01', end_date: '2026-12-31' },
