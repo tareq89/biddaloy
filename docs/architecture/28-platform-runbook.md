@@ -2094,14 +2094,14 @@ ends in its environment: `model-school-demo.<root>`, `model-school-staging.<root
 sub-level, because the free Cloudflare certificate covers one level only. The edge nginx picks the
 container by that suffix (`$site_upstream_name` in `conf.d/01-site-host.conf`): `-demo` goes to
 `demo-site`, `-staging` to `staging-site`, anything else to `prod-site`. Staging school sites are
-public (only staging itself stays behind Cloudflare Access). The tag counts toward the 30-character
+behind Cloudflare Access like staging itself (#3715, runbook [17f](#17f-staging-school-sites-behind-access-owner-steps)); demo school sites stay public. The tag counts toward the 30-character
 limit. Deploy the edge and prod first (so the map exists), then staging and demo (their `site`
 containers start); an existing demo or staging school renames once in Administration > Website.
 
 The same suffix also picks the **app** for `/media/` and `/_api/` (`$site_app_upstream_name`:
 `-demo` goes to `demo-app`, `-staging` to `staging-app`), and `-demo` / `-staging` hosts answer
-`X-Robots-Tag: noindex`. Staging holds a scrubbed copy of prod, so its school sites are public by
-owner decision (D3) but never indexed.
+`X-Robots-Tag: noindex`. Staging holds a copy of prod, so its school sites sit behind Access
+(#3715; this replaces the earlier public decision D3) and are never indexed. Demo school sites stay public.
 
 ```mermaid
 flowchart LR
@@ -2367,22 +2367,33 @@ Example: with `STAGING_SITE_HOSTS=model-school-staging.schoolmanagerp.com`,
 To add a staging school:
 
 1. `sops infra/secrets/edge.enc.env`: append the exact lower-case host to `STAGING_SITE_HOSTS`
-   (`<school>-staging.<ROOT_DOMAIN>`, space separated). Preflight refuses any other shape.
+   (`<school>-staging.<ROOT_DOMAIN>`, space separated, each host once, no upper case). Preflight and
+   the nginx start-up script refuse any other shape, a repeated host included. Check the value has
+   no quotes around it (I could not confirm how the env loader treats quotes, so do not rely on it).
 2. Dashboard > Zero Trust > Access > Applications > `Staging` > add the same host as a public
    hostname. Same `Owner only` policy. (A wildcard host cannot be used here either: add the exact host.)
 3. Deploy the edge (`biddaloy-deploy edge <sha>`; cloudflared is recreated because its config changed).
-   Then on the VM, this **must pass before you tick row 24**:
+   Then on the VM, both checks **must pass before you tick row 24**. (a) Which rule the host hits
+   (`edge-cloudflared-1` is the container name used elsewhere in this runbook, compose project `edge`):
 
    ```bash
-   docker exec cloudflared cloudflared tunnel --config /etc/cloudflared/config.yml ingress rule https://model-school-staging.$ROOT_DOMAIN
+   docker exec edge-cloudflared-1 cloudflared tunnel --config /etc/cloudflared/config.yml ingress rule https://model-school-staging.$ROOT_DOMAIN
    ```
 
-   The output must name `hostname: model-school-staging.<ROOT_DOMAIN>` (the listed rule, with `access`).
+   The output must name `hostname: model-school-staging.<ROOT_DOMAIN>` (the listed rule).
    For `https://new-school-staging.$ROOT_DOMAIN` (not listed) it must show only `service: http://nginx:8081`
-   (the catch-all): nginx then answers `444`.
+   (the catch-all): nginx then answers `444`. This output does **not** show the Access settings.
+   (b) The Access settings, read from the rendered config file:
+
+   ```bash
+   grep -A8 'hostname: model-school-staging.<ROOT_DOMAIN>' /opt/biddaloy/edge/cloudflared/config.yml
+   ```
+
+   Under that host you must see `access:`, `required: true`, `teamName` and an `audTag` (the
+   `Staging` application's audience tag). No `access:` block means the in-VM check is missing: stop.
 4. Verify (V14, [25-cloudflare](25-cloudflare.md#verify)), then tick row 24 of the checklist. The first
-   curl returns `302` whether or not step 3 works (the edge Access app answers it), so step 3 is the
-   real proof of the in-VM layer:
+   curl returns `302` whether or not step 3 works (the edge Access app answers it), so step 3 (a) and
+   (b) are the real proof of the in-VM layer:
 
    ```bash
    curl -sI https://model-school-staging.$ROOT_DOMAIN/   # 302 to <team>.cloudflareaccess.com
@@ -2391,7 +2402,9 @@ To add a staging school:
    ```
 
 CI proves the cloudflared half before any deploy: `infra/ansible/test/cloudflared-staging-sites.infra.test.sh`
-renders the template and asks the pinned cloudflared image which rule a host hits.
+renders the template, asks the pinned cloudflared image which rule a host hits, and parses the
+rendered YAML to check each listed host's rule carries `access.required`, the team and the staging
+audience tag (and that the catch-all has none).
 
 Rollback: remove the host from `STAGING_SITE_HOSTS` and redeploy the edge. The site is then refused
 (`444`) rather than public.
