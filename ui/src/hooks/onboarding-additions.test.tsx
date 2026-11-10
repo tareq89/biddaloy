@@ -312,7 +312,7 @@ describe('platform schools trial', () => {
   it('useSchools forwards the trial filter and returns the trial fields', async () => {
     let trial: string | null = null;
     server.use(
-      http.get('/api/v1/schools', ({ request }) => {
+      http.get('/api/v1/platform/schools', ({ request }) => {
         trial = new URL(request.url).searchParams.get('trial');
         return HttpResponse.json([
           {

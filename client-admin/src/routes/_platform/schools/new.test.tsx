@@ -85,13 +85,13 @@ describe('/schools/new', () => {
 
   it('a 409 returns to step 1 with the conflict on the link name', async () => {
     server.use(
-      http.post('/api/v1/schools', () =>
+      http.post('/api/v1/platform/schools', () =>
         HttpResponse.json(
           {
             statusCode: 409,
             message: 'Conflict',
             timestamp: new Date().toISOString(),
-            path: '/api/v1/schools',
+            path: '/api/v1/platform/schools',
             requestId: 'r1',
           },
           { status: 409 },
@@ -111,7 +111,7 @@ describe('/schools/new', () => {
 
   it('success shows the invitation badge and a "View school" button', async () => {
     server.use(
-      http.post('/api/v1/schools', () =>
+      http.post('/api/v1/platform/schools', () =>
         HttpResponse.json(
           {
             school: { id: 'school-new', slug: 'ananta-school', status: 'ACTIVE' },
@@ -163,7 +163,7 @@ describe('/schools/new', () => {
   it('posts name, slug and only the filled contact field, and reuses the idempotency key on retry', async () => {
     const bodies: Record<string, unknown>[] = [];
     server.use(
-      http.post('/api/v1/schools', async ({ request }) => {
+      http.post('/api/v1/platform/schools', async ({ request }) => {
         bodies.push((await request.json()) as Record<string, unknown>);
         return bodies.length === 1
           ? HttpResponse.json({}, { status: 500 })
@@ -208,7 +208,7 @@ describe('/schools/new', () => {
 
   it('Back and Close do nothing while the request is pending', async () => {
     server.use(
-      http.post('/api/v1/schools', async () => {
+      http.post('/api/v1/platform/schools', async () => {
         await new Promise((resolve) => setTimeout(resolve, 300));
         return HttpResponse.json(CREATED, { status: 201 });
       }),
