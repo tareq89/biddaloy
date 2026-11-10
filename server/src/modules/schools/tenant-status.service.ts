@@ -73,6 +73,7 @@ export class TenantStatusService {
   private readonly isProduction: boolean;
   // Cached only on a hit: a miss (booted before seeding) must recover without a restart.
   private cachedDevPlatformTenantId?: string;
+  private cachedHomeSchoolId?: string;
 
   constructor(
     @Inject(TENANT_STATUS_REDIS) private readonly redis: Redis,
@@ -110,6 +111,26 @@ export class TenantStatusService {
     const discoveredId = await this.findSchoolIdBySlug(DEFAULT_SCHOOL_SLUG);
     if (discoveredId) this.cachedDevPlatformTenantId = discoveredId;
     return discoveredId ?? undefined;
+  }
+
+  /**
+   * Id of the school flagged `is_platform` (the platform home row, Epic 98 D3b). Cached once
+   * found; a miss is not cached so a late-created row is picked up without a restart.
+   */
+  async platformHomeSchoolId(): Promise<string | undefined> {
+    if (this.cachedHomeSchoolId) return this.cachedHomeSchoolId;
+    const home = await this.schoolRepo.findOne({ where: { is_platform: true } });
+    if (home) this.cachedHomeSchoolId = home.id;
+    return home?.id;
+  }
+
+  /**
+   * Every school id a per-school sweep, seat rule or count must skip: the old platform tenant
+   * plus the `is_platform` home row, de-duplicated. Callers use this, never a single id.
+   */
+  async platformSchoolIds(): Promise<string[]> {
+    const ids = [await this.platformTenantId(), await this.platformHomeSchoolId()];
+    return [...new Set(ids.filter((id): id is string => !!id))];
   }
 
   private key(tenantId: string): string {

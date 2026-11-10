@@ -38,6 +38,8 @@ import {
  * a branch the caller may not run reports in is left out, a hidden small count stays hidden in the
  * total, and the run is audited in the school it was asked from.
  */
+let platformIds: string[] = [];
+
 describe('CrossBranchCountsService (integration)', () => {
   let ds: DataSource;
   let runner: ReportRunnerService;
@@ -84,6 +86,7 @@ describe('CrossBranchCountsService (integration)', () => {
       } as never,
       {
         platformTenantId: async () => undefined,
+        platformSchoolIds: async () => platformIds,
         getStatus: async (id: string) => statuses[id] ?? SchoolStatus.ACTIVE,
       } as never,
       runLog,
@@ -192,6 +195,15 @@ describe('CrossBranchCountsService (integration)', () => {
       [b, 7],
     ]);
     expect(result.totals).toEqual([{ students: 13 }]); // not 22: the stranger school is not counted
+  });
+
+  it('leaves out the platform home branch (Epic 98 D3b); other branches stay', async () => {
+    platformIds = [b];
+    try {
+      expect((await call(a, both())).branches.map((x) => x.branch_id)).toEqual([a]);
+    } finally {
+      platformIds = [];
+    }
   });
 
   it('groups by a dimension and adds row by row', async () => {

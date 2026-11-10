@@ -92,7 +92,10 @@ export class CrossBranchCountsService {
     const results: BranchCountsResultDto['branches'] = [];
     const shapes: string[] = [];
     let columns: ReportResultColumn[] = [];
+    const platformIds = await this.tenantStatus.platformSchoolIds();
     for (const branchId of branchIds) {
+      // The platform console / home row is not a school branch.
+      if (platformIds.includes(branchId)) continue;
       const role =
         branchId === tenant.id
           ? (tenant.role as UserRole)
