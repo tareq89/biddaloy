@@ -9,6 +9,8 @@ import { PlatformApprovalsService } from './approvals/platform-approvals.service
 import { PlatformSettingsController } from './approvals/platform-settings.controller';
 import { PlatformSettingsService } from './approvals/platform-settings.service';
 import { TwoPersonGuard } from './approvals/two-person.guard';
+import { PlatformOwnersController } from './owners/platform-owners.controller';
+import { PlatformOwnersService } from './owners/platform-owners.service';
 import { PlatformAdmin } from './entities/platform-admin.entity';
 import { PlatformApproval } from './entities/platform-approval.entity';
 import { PlatformSetting } from './entities/platform-setting.entity';
@@ -28,7 +30,12 @@ import { OwnerSeedingService } from './owner-seeding.service';
     MfaModule,
     AccountAccessModule,
   ],
-  controllers: [PlatformStepUpController, PlatformApprovalsController, PlatformSettingsController],
+  controllers: [
+    PlatformStepUpController,
+    PlatformApprovalsController,
+    PlatformSettingsController,
+    PlatformOwnersController,
+  ],
   providers: [
     PlatformAdminGuard,
     PlatformAdminService,
@@ -36,6 +43,7 @@ import { OwnerSeedingService } from './owner-seeding.service';
     OwnerSeedingService,
     PlatformApprovalsService,
     PlatformSettingsService,
+    PlatformOwnersService,
     TwoPersonGuard,
   ],
   exports: [
