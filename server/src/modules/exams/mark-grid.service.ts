@@ -28,6 +28,7 @@ import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { effectiveSittingDate, joinedAfterExam, subjectSitters } from './exam-cohort';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 
 /**
  * [pr-fix #945] The single serialization point for one grid's marks and
@@ -395,6 +396,7 @@ export class MarkGridService {
     });
 
     return this.gridRepo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, exam.academic_year_id);
       const existing = await lockGrid(manager, {
         tenantId,
         examId,
@@ -475,6 +477,7 @@ export class MarkGridService {
     }
 
     return this.gridRepo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, exam.academic_year_id);
       // A DRAFT row this creates for a never-touched grid rolls back with
       // the 404 below — nothing is left behind.
       const existing = await lockGrid(manager, {

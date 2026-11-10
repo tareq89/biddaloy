@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+vi.mock('../../common/utils/year-open.guard', () => ({
+  assertYearOpen: vi.fn(async () => undefined),
+}));
 
 // The cohort query has its own integration coverage (results.service.integration.spec.ts);
 // here it just hands back whatever the test put in `enrollmentRepo.find`.
@@ -43,6 +46,8 @@ import { MarkGridService } from './mark-grid.service';
 import { attendanceFrom } from './report-card-extras';
 import { AuditService } from '../audit/audit.service';
 import { ExamComponentKind, ExamComponentSource, ExamStatus, MarkStatus } from '@biddaloy/shared';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { yearClosed } from '../../common/filters/known-errors';
 
 function fakeQueryBuilder(result: { many?: unknown[] }) {
   const qb: any = {
@@ -629,6 +634,18 @@ describe('ResultsService.publish / reopen', () => {
       { exam_id: EXAM_ID, tenant_id: TENANT_ID },
       expect.objectContaining({ published_at: expect.any(Date) }),
     );
+  });
+
+  it('[69.3.02] publish in a closed year is a 409 before any write', async () => {
+    const { service, examRepo, resultRepo } = await buildService({
+      exam: { status: ExamStatus.PROCESSED },
+    });
+    vi.mocked(assertYearOpen).mockRejectedValueOnce(yearClosed());
+    await expect(service.publish(EXAM_ID, TENANT_ID, 'admin-1')).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    expect(examRepo.manager.getRepository(Exam).update).not.toHaveBeenCalled();
+    expect(resultRepo.update).not.toHaveBeenCalled();
   });
 
   it('publish re-checks status under the exam lock, refusing if it changed since the first read (pr-fix #945)', async () => {

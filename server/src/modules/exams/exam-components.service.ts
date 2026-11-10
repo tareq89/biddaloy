@@ -20,6 +20,7 @@ import {
 } from './dto/exams.dto';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 
 export interface CopyComponentsResult {
   copied: { subject_id: string; name: string }[];
@@ -57,6 +58,9 @@ export class ExamComponentsService {
     tenantId: string,
   ): Promise<Exam> {
     const exam = await lockExam(manager, examId, tenantId);
+    // [69.3.02] A closed year's exam is read-only (D4); checked before the published check so
+    // the answer does not depend on status.
+    await assertYearOpen(manager, tenantId, exam.academic_year_id);
     if (exam.status === ExamStatus.PUBLISHED) throw examPublished();
     return exam;
   }

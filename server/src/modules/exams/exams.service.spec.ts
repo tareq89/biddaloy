@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+vi.mock('../../common/utils/year-open.guard', () => ({
+  assertYearOpen: vi.fn(async () => undefined),
+}));
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -14,6 +17,8 @@ import { ExamTemplatesService } from './exam-templates.service';
 import { ExamKind, ExamStatus } from '@biddaloy/shared';
 import { Result } from './entities/result.entity';
 import { ResultsService } from './results.service';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { yearClosed } from '../../common/filters/known-errors';
 
 /**
  * Unit tests for 19.3.1's `ExamsService` — exam CRUD, and the "class/year
@@ -250,6 +255,28 @@ describe('ExamsService CRUD', () => {
     await service.remove('e1', TENANT_ID);
 
     expect(examRepo.softDelete).toHaveBeenCalledWith({ id: 'e1', tenant_id: TENANT_ID });
+  });
+
+  it('[69.3.02] remove in a closed year is a 409 before the delete', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.findOne = vi.fn(async () => ({ id: 'e1', tenant_id: TENANT_ID, name: 'Term 1' }));
+    vi.mocked(assertYearOpen).mockRejectedValueOnce(yearClosed());
+    await expect(service.remove('e1', TENANT_ID)).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    expect(examRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('[69.3.02] create in a closed year is a 409 before the insert', async () => {
+    const { service, examRepo } = await buildService();
+    vi.mocked(assertYearOpen).mockRejectedValueOnce(yearClosed());
+    await expect(
+      service.create(
+        { name: 'Term 1', kind: ExamKind.TERM, academic_year_id: 'y1', class_id: 'c1' } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+    expect(examRepo.save).not.toHaveBeenCalled();
   });
 
   it("a request for another tenant's exam returns not-found, never another tenant's row", async () => {
