@@ -231,6 +231,12 @@ export class AuthService {
     // must get an iat_ms that predates the cut-off too. Its successor refresh token is revoked
     // as well: the revoke locks the user row and waits for the rotation (review m-new-2).
     const issuedAtMs = Date.now();
+    // [98.2.04] Owner check before rotate(): no successor token is minted for an owner, and the
+    // refusal reads exactly like the suspended/deleted-user one (Security Rule 23).
+    const cookieUserId = await this.refreshTokens.userIdForCookie(cookieValue);
+    if (cookieUserId && (await this.platformAdmins.isPlatformAdmin(cookieUserId))) {
+      throw new UnauthorizedException('User no longer exists');
+    }
     let rotated;
     try {
       rotated = await this.refreshTokens.rotate(cookieValue, context);
@@ -259,7 +265,6 @@ export class AuthService {
       throw new UnauthorizedException('User no longer exists');
     }
 
-    await this.assertNotPlatformOwner(user.id);
     const membershipPayload = await this.fetchMembershipPayload(user.id);
 
     return {

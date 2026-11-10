@@ -137,6 +137,7 @@ describe('AuthService', () => {
     mockRefreshTokens = {
       issueForUser: vi.fn().mockResolvedValue(mockIssuedRefreshToken),
       rotate: vi.fn(),
+      userIdForCookie: vi.fn().mockResolvedValue('user-1'),
       revokeByCookieValue: vi.fn(),
       revokeAllForUser: vi.fn().mockResolvedValue(undefined),
     };
@@ -723,14 +724,12 @@ describe('AuthService', () => {
       expect(mockRefreshTokens.issueForUser).not.toHaveBeenCalled();
     });
 
-    it('refresh refuses an owner', async () => {
-      mockRefreshTokens.rotate.mockResolvedValue({
-        userId: 'user-1',
-        refreshToken: mockIssuedRefreshToken,
-      });
-      mockUserRepo.findOne.mockResolvedValue(mockUser);
+    it('refresh refuses an owner like a suspended user, before rotate()', async () => {
       mockPlatformAdmins.isPlatformAdmin.mockResolvedValue(true);
-      await expect(service.refresh('token-id.secret', ctx)).rejects.toThrow('Invalid credentials');
+      await expect(service.refresh('token-id.secret', ctx)).rejects.toThrow(
+        'User no longer exists',
+      );
+      expect(mockRefreshTokens.rotate).not.toHaveBeenCalled();
     });
 
     it('login looks the owner table up even when the user does not exist (equal time)', async () => {
