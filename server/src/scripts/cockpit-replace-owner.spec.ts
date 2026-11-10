@@ -3,7 +3,14 @@ import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { replaceOwner, validateReplaceInput } from './cockpit-replace-owner';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import {
+  replaceOwner,
+  validateReplaceInput,
+  REPLACE_OWNER_LOCK_KEY,
+} from './cockpit-replace-owner';
 
 describe('cockpit-replace-owner (integration)', () => {
   let ds: DataSource;
@@ -77,6 +84,7 @@ describe('cockpit-replace-owner (integration)', () => {
       [result.newUserId],
     );
     expect(audit.tenant_id).toBeNull();
+    expect(audit.new_values.operator).toBe(os.userInfo().username);
     const text = JSON.stringify(audit) + outputs.join('\n');
     expect(text).not.toContain('@example.com');
     expect(text).not.toContain(phone(1));
@@ -109,6 +117,61 @@ describe('cockpit-replace-owner (integration)', () => {
       replaceOwner(ds, { oldEmail: mail('solo'), newEmail: mail('n3'), newPhone: phone(23) }),
     ).rejects.toThrow(/no other active platform owner/);
     expect(await ds.query(`SELECT 1 FROM users WHERE email = $1`, [mail('n3')])).toHaveLength(0);
+  });
+
+  it('waits for the advisory lock before counting other owners', async () => {
+    await makeOwner('lk-a', 31);
+    await makeOwner('lk-b', 32);
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let locked!: () => void;
+    const gotLock = new Promise<void>((r) => (locked = r));
+    // Another transaction holds the lock until we release it (latch, no sleeps).
+    const holder = ds.transaction(async (em) => {
+      await em.query('SELECT pg_advisory_xact_lock($1)', [REPLACE_OWNER_LOCK_KEY]);
+      locked();
+      await held;
+    });
+    await gotLock;
+    let done = false;
+    const run = replaceOwner(ds, {
+      oldEmail: mail('lk-a'),
+      newEmail: mail('lk-n'),
+      newPhone: phone(33),
+    }).then(() => (done = true));
+    // The replace is blocked on pg_advisory_xact_lock while the holder keeps it.
+    await expect
+      .poll(async () => {
+        const rows = await ds.query(
+          `SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND objid = $1`,
+          [REPLACE_OWNER_LOCK_KEY],
+        );
+        return rows.length;
+      })
+      .toBeGreaterThan(0);
+    expect(done).toBe(false);
+    release();
+    await holder;
+    await run;
+    expect(done).toBe(true);
+  });
+
+  it('keeps its inline MFA deletes in step with MfaService.reset', () => {
+    const tables = (file: string, re: RegExp) =>
+      [...fs.readFileSync(path.join(__dirname, file), 'utf8').matchAll(re)].map((m) => m[1]);
+    const mfa = tables('../modules/auth/mfa/mfa.service.ts', /DELETE FROM (\w+) WHERE user_id/g);
+    // The script deletes via entities; map entity -> table by name.
+    const script = fs.readFileSync(path.join(__dirname, 'cockpit-replace-owner.ts'), 'utf8');
+    const entityToTable: Record<string, string> = {
+      UserMfa: 'user_mfa',
+      UserRecoveryCode: 'user_recovery_codes',
+    };
+    for (const table of new Set(mfa)) {
+      const entity = Object.keys(entityToTable).find((k) => entityToTable[k] === table);
+      // If MfaService.reset starts touching a new table, the script must too.
+      expect(entity, `MfaService deletes from ${table}`).toBeDefined();
+      expect(script).toContain(`em.delete(${entity},`);
+    }
   });
 
   it('validates input shape', () => {
