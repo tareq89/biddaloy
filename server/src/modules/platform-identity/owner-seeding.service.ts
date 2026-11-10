@@ -42,8 +42,12 @@ export class OwnerSeedingService implements OnApplicationBootstrap {
       email: (env[`COCKPIT_OWNER_${n}_EMAIL`] ?? '').trim(),
       phone: (env[`COCKPIT_OWNER_${n}_PHONE`] ?? '').trim(),
     }));
-    if (!slots.some((s) => s.email || s.phone) && env.NODE_ENV !== 'production') {
-      this.logger.log('No COCKPIT_OWNER_* set; skipping platform owner seeding');
+    if (!slots.some((s) => s.email || s.phone)) {
+      // D23: the old platform path stays alive until cutover, so an unconfigured boot (even in
+      // production) must not fail. A PARTIAL config still throws below.
+      const msg = 'No COCKPIT_OWNER_* set; skipping platform owner seeding';
+      if (env.NODE_ENV === 'production') this.logger.warn(`${msg}; configure both owner slots`);
+      else this.logger.log(msg);
       return;
     }
     for (const s of slots) {
@@ -87,6 +91,8 @@ export class OwnerSeedingService implements OnApplicationBootstrap {
 
     if (byEmail) {
       if (await em.exists(PlatformAdmin, { where: { user_id: byEmail.id } })) return;
+      // Never promote a suspended or otherwise inactive account to owner.
+      if (byEmail.status !== UserStatus.ACTIVE) throw conflict();
       // D18: a person who belongs to an ordinary school cannot be an owner.
       const outside: unknown[] = await em.query(
         `SELECT 1 FROM user_tenants WHERE user_id = $1 AND deleted_at IS NULL
