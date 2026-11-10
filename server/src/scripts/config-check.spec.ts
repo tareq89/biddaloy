@@ -118,6 +118,12 @@ describe('runStackConfigCheck', () => {
     BACKUP_S3_SECRET_ACCESS_KEY: 'r2-read-only-secret',
     DEMO_PASSWORD: 'Demo-Public-2026',
     ROOT_DOMAIN: 'school.example.org',
+    // [98 #3737, #3746] cockpit owners: example files carry the keys, empty
+    COCKPIT_DOMAIN: 'cockpit.school.org',
+    COCKPIT_OWNER_1_EMAIL: 'owner1@school.org',
+    COCKPIT_OWNER_1_PHONE: '+8801711111111',
+    COCKPIT_OWNER_2_EMAIL: 'owner2@school.org',
+    COCKPIT_OWNER_2_PHONE: '+8801722222222',
     // the bucket and database name differ per stack
     S3_BUCKET: 'biddaloy-STACK',
     POSTGRES_DB: 'biddaloy_STACK',
@@ -159,12 +165,7 @@ describe('runStackConfigCheck', () => {
         return [k, dummy];
       }),
     );
-    // [98 #3737] Owners on prod and staging; the example files gain them in #3746. Demo needs none.
-    if (stack === 'demo') return out;
-    const cockpit = Object.fromEntries(
-      Object.entries(valid).filter(([k]) => k.startsWith('COCKPIT_')),
-    );
-    return { ...out, ...cockpit };
+    return out;
   }
   const prod = { ...filled('prod'), S3_BUCKET: 'biddaloy', POSTGRES_DB: 'biddaloy' };
   const staging = filled('staging');
