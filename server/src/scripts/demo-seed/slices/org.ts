@@ -7,8 +7,10 @@ import {
   SchoolStatus,
   UserRole,
   UserStatus,
+  YEAR_ROLLOVER_BLOCKS,
 } from '@biddaloy/shared';
 import { DEMO_CARDS, DEMO_SCHOOL_SLUGS } from '../../../modules/demo/demo-accounts';
+import { YearRolloverService } from '../../../modules/academics/year-rollover.service';
 import { PresetApplyService } from '../../../modules/presets/preset-apply.service';
 import { ApplyPresetDto } from '../../../modules/presets/dto/apply-preset.dto';
 import {
@@ -354,23 +356,27 @@ export const slice: DemoSlice = {
       const school = schools.find((s) => s.slug === b.slug)!;
       const spans = spansByKind.get(b.kind)!;
       const current = spans[spans.length - 1];
+      // The pack and the older years build the PREVIOUS year; the current year is then made by
+      // the real rollover service from it (69.2.03, 22-demo-seed rule 4). One span: no rollover.
+      const base = spans.length > 1 ? spans[spans.length - 2] : current;
+      const rollover = base !== current;
 
       // Current year, classes, subjects, grading scale and exam templates: the real service (D4).
       await ctx.app.get(PresetApplyService).apply(school.id, admin.id, {
         preset_id: 'bd/nctb',
-        start_year: Number(current.start.slice(0, 4)),
+        start_year: Number(base.start.slice(0, 4)),
         stages: b.stages,
         versions: ['bangla'],
       } as ApplyPresetDto);
       // The pack opens every year in January; College runs Jul-Jun (D32).
       const yearRepo = ctx.ds.getRepository(AcademicYear);
-      const currentYear = (await yearRepo.findOneByOrFail({
+      const baseYear = (await yearRepo.findOneByOrFail({
         tenant_id: school.id,
         is_current: true,
       }))!;
       await ctx.ds.query(
         `UPDATE academic_years SET name = $1, start_date = $2, end_date = $3 WHERE id = $4`,
-        [current.name, current.start, current.end, currentYear.id],
+        [base.name, base.start, base.end, baseYear.id],
       );
 
       // Shift + period slots (a break where the branch has one).
@@ -414,16 +420,16 @@ export const slice: DemoSlice = {
         .update({ tenant_id: school.id }, { shift: 'Morning', shift_id: shift.id });
 
       // The current year's classes, then every older year cloned from them (D4: bulk insert).
-      const currentClasses = await ctx.ds.getRepository(Class).find({
-        where: { tenant_id: school.id, academic_year_id: currentYear.id },
+      const baseClasses = await ctx.ds.getRepository(Class).find({
+        where: { tenant_id: school.id, academic_year_id: baseYear.id },
         order: { numeric_grade: 'ASC' },
       });
-      const currentSubjects = await ctx.ds
+      const baseSubjects = await ctx.ds
         .getRepository(ClassSubject)
-        .find({ where: { tenant_id: school.id, academic_year_id: currentYear.id } });
+        .find({ where: { tenant_id: school.id, academic_year_id: baseYear.id } });
       const scale = await ctx.ds
         .getRepository(GradingScale)
-        .findOneBy({ tenant_id: school.id, academic_year_id: currentYear.id });
+        .findOneBy({ tenant_id: school.id, academic_year_id: baseYear.id });
       const bands = scale
         ? await ctx.ds.getRepository(GradingBand).find({ where: { scale_id: scale.id } })
         : [];
@@ -447,10 +453,58 @@ export const slice: DemoSlice = {
         rooms: [],
       };
 
-      for (const span of spans) {
-        const isCurrent = span === current;
-        const yearId = isCurrent ? currentYear.id : uuid();
-        if (!isCurrent) {
+      // Calendar events of one year (holidays, exams, ...); rows join the bulk insert below.
+      const emitEvents = (span: (typeof spans)[number], yearId: string, orgClasses: OrgClass[]) => {
+        for (const text of CALENDAR_EVENTS) {
+          const rule = EVENT_RULES[text.en];
+          if (!rule) continue;
+          for (const [month, day] of rule.on) {
+            let from = inSpan(span.start, month, day);
+            if (text.kind !== 'HOLIDAY' && isFriday(from)) from = addDays(from, 1);
+            // A working-day window must not cover a Friday (the weekly off): one row per Friday-free run.
+            const working = text.kind !== 'HOLIDAY';
+            const segments: [string, string][] = [];
+            for (let i = 0; i < (rule.days ?? 1); i++) {
+              const d = addDays(from, i);
+              if (working && isFriday(d)) continue;
+              const last = segments[segments.length - 1];
+              if (last && addDays(last[1], 1) === d) last[1] = d;
+              else segments.push([d, d]);
+            }
+            for (const [start, end] of segments) {
+              const id = uuid();
+              events.push({
+                id,
+                tenant_id: school.id,
+                academic_year_id: yearId,
+                type: EVENT_TYPE[text.kind],
+                audience: CalendarAudience.ALL,
+                name: text.bn,
+                start_date: start,
+                end_date: end,
+                counts_as_working_day: working,
+                published_at: stamp,
+                external_refs: {},
+                created_by_user_id: admin.id,
+              });
+              const linked = rule.all ? orgClasses : rule.top2 ? orgClasses.slice(-2) : [];
+              for (const c of linked) {
+                eventClasses.push({ event_id: id, class_id: c.id, tenant_id: school.id });
+              }
+            }
+          }
+        }
+      };
+      const orgYears: OrgYear[] = [];
+      const olderYearIds: string[] = [];
+      for (const span of rollover ? spans.slice(0, -1) : spans) {
+        const isBase = span === base;
+        // The previous year draws ids it never uses, so every later slice's rng draws stay where
+        // they were before the current year moved to the rollover service.
+        const spareYearId = uuid();
+        const yearId = isBase ? baseYear.id : spareYearId;
+        if (!isBase) {
+          olderYearIds.push(yearId);
           years.push({
             id: yearId,
             name: span.name,
@@ -461,10 +515,11 @@ export const slice: DemoSlice = {
           });
         }
         const classIdOf = new Map<string, string>(); // current class id -> this year's class id
-        const orgClasses: OrgClass[] = currentClasses.map((c) => {
-          const id = isCurrent ? c.id : uuid();
+        const orgClasses: OrgClass[] = baseClasses.map((c) => {
+          const spareId = uuid();
+          const id = isBase ? c.id : spareId;
           classIdOf.set(c.id, id);
-          if (!isCurrent) {
+          if (!isBase) {
             classes.push({
               id,
               name: c.name,
@@ -490,8 +545,9 @@ export const slice: DemoSlice = {
           });
           return { id, name: c.name, numericGrade: c.numeric_grade!, sections: orgSections };
         });
-        if (!isCurrent) {
-          for (const cs of currentSubjects) {
+        if (isBase && scale) uuid(); // spare draw, see above
+        if (!isBase) {
+          for (const cs of baseSubjects) {
             classSubjects.push({
               class_id: classIdOf.get(cs.class_id),
               subject_id: cs.subject_id,
@@ -540,52 +596,13 @@ export const slice: DemoSlice = {
           });
         }
 
-        for (const text of CALENDAR_EVENTS) {
-          const rule = EVENT_RULES[text.en];
-          if (!rule) continue;
-          for (const [month, day] of rule.on) {
-            let from = inSpan(span.start, month, day);
-            if (text.kind !== 'HOLIDAY' && isFriday(from)) from = addDays(from, 1);
-            // A working-day window must not cover a Friday (the weekly off): one row per Friday-free run.
-            const working = text.kind !== 'HOLIDAY';
-            const segments: [string, string][] = [];
-            for (let i = 0; i < (rule.days ?? 1); i++) {
-              const d = addDays(from, i);
-              if (working && isFriday(d)) continue;
-              const last = segments[segments.length - 1];
-              if (last && addDays(last[1], 1) === d) last[1] = d;
-              else segments.push([d, d]);
-            }
-            for (const [start, end] of segments) {
-              const id = uuid();
-              events.push({
-                id,
-                tenant_id: school.id,
-                academic_year_id: yearId,
-                type: EVENT_TYPE[text.kind],
-                audience: CalendarAudience.ALL,
-                name: text.bn,
-                start_date: start,
-                end_date: end,
-                counts_as_working_day: working,
-                published_at: stamp,
-                external_refs: {},
-                created_by_user_id: admin.id,
-              });
-              const linked = rule.all ? orgClasses : rule.top2 ? orgClasses.slice(-2) : [];
-              for (const c of linked) {
-                eventClasses.push({ event_id: id, class_id: c.id, tenant_id: school.id });
-              }
-            }
-          }
-        }
-
-        tenant.years.push({
+        emitEvents(span, yearId, orgClasses);
+        orgYears.push({
           id: yearId,
           name: span.name,
           start: span.start,
           end: span.end,
-          isCurrent,
+          isCurrent: span === current,
           classes: orgClasses,
         });
       }
@@ -597,8 +614,89 @@ export const slice: DemoSlice = {
       rows += await insertChunked(ctx.ds.getRepository(GradingScale), scales as never);
       rows += await insertChunked(ctx.ds.getRepository(GradingBand), bandRows as never);
       rows += await insertChunked(ctx.ds.getRepository(AcademicTerm), terms as never);
+      tenant.years = orgYears;
+
+      if (rollover) {
+        // The current year: the real rollover copies classes, sections, subjects, scales and
+        // terms from the previous year (fees.ts and the staff slices run later, so their blocks
+        // copy nothing here). The service never moves the current flag, so hand it over.
+        const done = await ctx.app
+          .get(YearRolloverService)
+          .create(school.id, admin.id, baseYear.id, {
+            name: current.name,
+            start_date: current.start,
+            end_date: current.end,
+            include: [...YEAR_ROLLOVER_BLOCKS],
+          });
+        const nextId = done.target_year_id!;
+        await ctx.ds.query(`UPDATE academic_years SET is_current = false WHERE id = $1`, [
+          baseYear.id,
+        ]);
+        await ctx.ds.query(`UPDATE academic_years SET is_current = true WHERE id = $1`, [nextId]);
+        rows += 1;
+
+        const nextClasses = await ctx.ds.getRepository(Class).find({
+          where: { tenant_id: school.id, academic_year_id: nextId },
+          order: { numeric_grade: 'ASC' },
+        });
+        // An edit made after the copy, so the demo shows a year that differs from its source.
+        const firstSection = await ctx.ds.getRepository(ClassSection).findOne({
+          where: { tenant_id: school.id, class_id: nextClasses[nextClasses.length - 1].id },
+          order: { section_name: 'ASC' },
+        });
+        if (firstSection) {
+          await ctx.ds
+            .getRepository(ClassSection)
+            .update({ id: firstSection.id }, { capacity: (firstSection.capacity ?? 40) + 5 });
+        }
+        const gradeOf = new Map(nextClasses.map((c) => [c.id, c.numeric_grade ?? 0]));
+        const found = await ctx.ds
+          .getRepository(ClassSection)
+          .find({ where: { tenant_id: school.id }, order: { section_name: 'ASC' } });
+        // The service gives sections random ids; later slices order by id, so re-key them from
+        // ctx.rng in a fixed order. Nothing references a section yet (staff and students come later).
+        const nextSections = found
+          .filter((sec) => gradeOf.has(sec.class_id))
+          .sort(
+            (x, y) =>
+              gradeOf.get(x.class_id)! - gradeOf.get(y.class_id)! ||
+              x.section_name.localeCompare(y.section_name),
+          );
+        for (const sec of nextSections) {
+          const id = uuid();
+          await ctx.ds.query(`UPDATE class_sections SET id = $2 WHERE id = $1`, [sec.id, id]);
+          sec.id = id;
+        }
+        const nextOrgClasses: OrgClass[] = nextClasses.map((c) => ({
+          id: c.id,
+          name: c.name,
+          numericGrade: c.numeric_grade!,
+          sections: nextSections
+            .filter((sec) => sec.class_id === c.id)
+            .map((sec) => ({ id: sec.id, name: sec.section_name, group: sec.group_name })),
+        }));
+        emitEvents(current, nextId, nextOrgClasses);
+        orgYears.push({
+          id: nextId,
+          name: current.name,
+          start: current.start,
+          end: current.end,
+          isCurrent: true,
+          classes: nextOrgClasses,
+        });
+      }
       rows += await insertChunked(ctx.ds.getRepository(CalendarEvent), events as never);
       rows += await insertChunked(ctx.ds.getRepository(CalendarEventClass), eventClasses as never);
+
+      // Years older than the previous one are closed 30 days after they end; the previous year
+      // stays open so the `year.close_due` attention item can fire (69.2.03, D18).
+      if (olderYearIds.length) {
+        await ctx.ds.query(
+          `UPDATE academic_years SET closed_at = (end_date + 30)::timestamptz, closed_by_user_id = $2
+            WHERE id = ANY($1)`,
+          [olderYearIds, admin.id],
+        );
+      }
 
       // Rooms: one per current section, plus the labs.
       const roomRows = [

@@ -13,6 +13,10 @@ import { SchoolsService } from '../../../modules/schools/schools.service';
 import { resolveTenantSettings } from '../../../modules/schools/settings/tenant-settings-resolver';
 import { SchoolSettingsReader } from '../../../modules/schools/settings/school-settings-reader.service';
 import { TENANT_STATUS_REDIS } from '../../../modules/schools/tenant-status.service';
+import { YearRolloverService } from '../../../modules/academics/year-rollover.service';
+import { FeeStructureService } from '../../../modules/fees/fees.service';
+import { GradingService } from '../../../modules/grading/grading.service';
+import { AcademicTermsService } from '../../../modules/calendar/academic-terms.service';
 import { PresetApplyService } from '../../../modules/presets/preset-apply.service';
 import { PresetRegistryService } from '../../../modules/presets/preset-registry.service';
 import { AuthTokenService } from '../../../modules/account-access/auth-token.service';
@@ -66,6 +70,10 @@ describe('attention slice (integration, 2 years, scale 0.05)', () => {
     redis = new Redis(process.env.REDIS_URL!);
     const module: TestingModule = await createTestModule(ALL_ENTITIES, [
       PresetApplyService,
+      YearRolloverService,
+      FeeStructureService,
+      GradingService,
+      AcademicTermsService,
       PresetRegistryService,
       AuditService,
       AuthTokenService,

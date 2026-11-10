@@ -8,6 +8,8 @@ POST   /api/v1/academic-years                                                   
 DELETE /api/v1/academic-years/:id                                                401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/academic-years/:id                                                401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS PASS
 PATCH  /api/v1/academic-years/:id                                                401 PASS PASS PASS 403 403 403 403 403 403 403 403
+POST   /api/v1/academic-years/:id/next                                           401 PASS PASS PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/academic-years/:id/next/preview                                   401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/academic-years/:id/set-current                                    401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/academic-years/:id/stats                                          401 PASS PASS PASS PASS PASS 403 403 PASS PASS PASS PASS
 POST   /api/v1/account/first-password                                            401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
