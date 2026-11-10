@@ -189,6 +189,13 @@ esac
   echo '    default "";'
   if [ -n "$site_root" ]; then
     seen=" "
+    # Two checks guard this list. Preflight (infra/ansible/tasks/preflight.yml) is the fast, early
+    # catch at deploy time; this script, plus $site_host_ok in site.conf.template, is the one that
+    # decides at start-up. They differ in three edge cases, all failing closed (no host is served
+    # that should not be): "a.b-staging.<root>" passes here (the case "*" crosses dots) but not
+    # preflight; an upper-case ROOT_DOMAIN is lower-cased here but used raw by preflight; a school
+    # label over 30 characters passes both, then $site_host_ok answers 444.
+    set -f # split on spaces only: "*-staging.<root>" must hit the case below, not match a file
     for h in ${STAGING_SITE_HOSTS:-}; do
       # No silent lower-casing: cloudflared uses each entry verbatim and matches case-sensitively,
       # so an upper-case entry would pass here yet never match its Access rule.
@@ -202,6 +209,7 @@ esac
       seen="$seen$h "
       printf '    "%s" listed;\n' "$h"
     done
+    set +f
     printf '    "~^[a-z0-9][a-z0-9-]*-staging\\.%s$" unlisted;\n' "$root_re"
   fi
   echo '}'

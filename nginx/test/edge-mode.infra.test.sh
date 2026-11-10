@@ -167,6 +167,16 @@ out=$(docker run --rm -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=198.51.100.0/24 -
   -c 'sh /e.sh >/dev/null && cat /etc/nginx/conf.d/01-site-host.conf' 2>&1)
 [[ "$out" == *'"a-staging.schools.test" listed;'* && "$out" == *'"b-staging.schools.test" listed;'* ]] \
   && pass "clean STAGING_SITE_HOSTS: one listed line per host" || fail "clean STAGING_SITE_HOSTS" "$out"
+# A glob entry is refused, not expanded against files in the working directory (set -f).
+# Without set -f, "*-staging.schools.test" would become the matching file name and be "listed".
+set +e
+out=$(docker run --rm -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=198.51.100.0/24 -e ROOT_DOMAIN=schools.test -e APP_DOMAIN=example.test \
+  -e "STAGING_SITE_HOSTS=*-staging.schools.test" -v "$PWD/nginx/edge-mode.sh:/e.sh:ro" --entrypoint sh "$NGINX_IMG" \
+  -c 'cd /tmp && touch x-staging.schools.test && sh /e.sh' 2>&1)
+rc=$?
+set -e
+[[ "$rc" != 0 && "$out" == *"lower-case host name"* && "$out" != *"x-staging"* ]] \
+  && pass "glob STAGING_SITE_HOSTS entry refused, not expanded" || fail "glob STAGING_SITE_HOSTS" "exit=$rc $out"
 
 # --- a bad EDGE_MODE stops the container and says why ---
 set +e

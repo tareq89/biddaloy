@@ -2352,9 +2352,10 @@ school is **listed**, by exact host, in one key: `STAGING_SITE_HOSTS` in `infra/
 
 ```mermaid
 flowchart TD
-  K["STAGING_SITE_HOSTS in edge.enc.env<br/>model-school-staging.schoolmanagerp.com"] --> R["cloudflared: one exact rule per host<br/>with Access check (inner layer)"]
+  K["STAGING_SITE_HOSTS in edge.enc.env<br/>model-school-staging.schoolmanagerp.com"] --> R["cloudflared: one exact rule per host<br/>checks the same Access token again (inner layer)"]
   K --> M["nginx :8081 map: listed / unlisted"]
-  V["visitor"] --> A["Cloudflare Access login (outer layer)"] --> R --> N["nginx :8081"]
+  V["visitor"] -->|"listed host"| A["Cloudflare Access login (outer layer)"] --> R --> N["nginx :8081"]
+  V -->|"unlisted host or other spelling:<br/>no Access app, no exact rule"| C["cloudflared catch-all<br/>(no Access check)"] --> N
   N -->|"listed, clean name"| S["staging-site"]
   N -->|"listed but MODEL-SCHOOL-STAGING..., trailing dot or port"| X["444"]
   N -->|"other-school-staging... not listed"| X
@@ -2386,11 +2387,12 @@ To add a staging school:
    (b) The Access settings, read from the rendered config file:
 
    ```bash
-   grep -A8 'hostname: model-school-staging.<ROOT_DOMAIN>' /opt/biddaloy/edge/cloudflared/config.yml
+   awk -v h="- hostname: model-school-staging.$ROOT_DOMAIN" '$0 ~ /^ *- / { p = (index($0, h) > 0) } p' /opt/biddaloy/edge/cloudflared/config.yml
    ```
 
-   Under that host you must see `access:`, `required: true`, `teamName` and an `audTag` (the
+   It prints only that host's rule, up to the next rule. There you must see `access:`, `required: true`, `teamName` and an `audTag` (the
    `Staging` application's audience tag). No `access:` block means the in-VM check is missing: stop.
+
 4. Verify (V14, [25-cloudflare](25-cloudflare.md#verify)), then tick row 24 of the checklist. The first
    curl returns `302` whether or not step 3 works (the edge Access app answers it), so step 3 (a) and
    (b) are the real proof of the in-VM layer:
