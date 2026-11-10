@@ -55,7 +55,7 @@ function apiErrorBody(statusCode: number) {
     statusCode,
     message: 'Something went wrong.',
     timestamp: new Date().toISOString(),
-    path: '/api/v1/schools',
+    path: '/api/v1/platform/schools',
     requestId: 'test-request-id',
   };
 }
@@ -291,7 +291,7 @@ describe('SchoolSettingsPage', () => {
     // A 4xx, not a 5xx — shouldRetryQuery doesn't retry 4xx responses, so
     // this settles isError immediately instead of after two backoff delays.
     server.use(
-      http.get('/api/v1/schools', () => HttpResponse.json(apiErrorBody(400), { status: 400 })),
+      http.get('/api/v1/platform/schools', () => HttpResponse.json(apiErrorBody(400), { status: 400 })),
     );
 
     renderWithProviders(<PageWithRouter />, {
@@ -327,7 +327,7 @@ describe('SchoolSettingsPage', () => {
   it('a tenant-local SUPER_ADMIN (school list 403) configures their own school, no picker', async () => {
     // GET /schools is platform-only; a SUPER_ADMIN on an ordinary school gets 403.
     server.use(
-      http.get('/api/v1/schools', () => HttpResponse.json(apiErrorBody(403), { status: 403 })),
+      http.get('/api/v1/platform/schools', () => HttpResponse.json(apiErrorBody(403), { status: 403 })),
     );
     renderWithProviders(<PageWithRouter />, {
       locale: 'en',

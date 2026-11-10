@@ -19,7 +19,7 @@ export const smsCreditsKeys = createEntityKeys<SmsCreditsFilters>('sms-credits')
 
 /**
  * `GET /communications/sms-credits` (own tenant) or, when `schoolId` is
- * given, `GET /schools/:id/sms-credits` (#570) — SUPER_ADMIN's console
+ * given, `GET /platform/schools/:id/sms-credits` (#570) — SUPER_ADMIN's console
  * reading a *picked* school, which usually isn't the active tenant on
  * their JWT. `schoolId` also joins the query key so switching schools
  * refetches instead of showing a stale cached balance. `metering: 'OFF'`
@@ -31,7 +31,9 @@ export function smsCreditsQueryOptions(page: number, limit: number, schoolId?: s
   return queryOptions({
     queryKey: smsCreditsKeys.list({ page, limit, ...(schoolId !== undefined ? { schoolId } : {}) }),
     queryFn: async ({ signal }) => {
-      const url = schoolId ? `/schools/${schoolId}/sms-credits` : '/communications/sms-credits';
+      const url = schoolId
+        ? `/platform/schools/${schoolId}/sms-credits`
+        : '/communications/sms-credits';
       const res = await apiClient.get<SmsCreditsResponse>(url, {
         params: { page, limit },
         signal,
@@ -60,7 +62,7 @@ export function useSmsCredits(page = 1, limit = 20, schoolId?: string) {
 export type GrantSmsCreditsInput = components['schemas']['GrantSmsCreditsDto'];
 
 /**
- * `POST /schools/:id/sms-credits` (#550) — the SUPER_ADMIN console's
+ * `POST /platform/schools/:id/sms-credits` (#550) — the SUPER_ADMIN console's
  * grant/adjust form. The server's `@ApiOkResponse` only carries a
  * description ("The new balance: { available, reserved }"), not a typed
  * body, so `schema.d.ts` generates `content?: never` for its 200 — this
@@ -79,7 +81,7 @@ export function useGrantSmsCredits(schoolId: string) {
   return useMutation({
     mutationFn: async (input: GrantSmsCreditsInput) => {
       const res = await apiClient.post<{ available: number; reserved: number }>(
-        `/schools/${schoolId}/sms-credits`,
+        `/platform/schools/${schoolId}/sms-credits`,
         input,
       );
       return res.data;
