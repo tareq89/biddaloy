@@ -47,6 +47,7 @@ jobs:
       infra: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.infra }}
       landing: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.landing }}
       site: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.site }}
+      demo-seed: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.demo-seed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,6 +62,13 @@ jobs:
             # `server`-only PR gets nothing from paying for it. `yarn.lock`
             # and `package.json` are still included — a dependency bump can
             # change what Storybook builds without touching `ui/**` itself.
+            # [101.2.01] D3: what the demo-seed slice specs depend on.
+            demo-seed:
+              - 'server/src/scripts/demo-seed/**'
+              - 'server/src/migrations/**'
+              - 'server/src/**/*.entity.ts'
+              - 'yarn.lock'
+              - '.github/workflows/ci.yml'
             landing:
               - 'landing/**'
               - 'lighthouserc.landing.cjs'
@@ -553,11 +561,17 @@ jobs:
           header: coverage
           path: coverage-comment.md
 
+  # [101.2.01] The old single "Integration & e2e tests" job (21-39 min) is six jobs now: integration x3,
+  # server-e2e x2 and demo-seed-specs (D2, D3). Each shard has its own services and databases.
   integration:
-    name: Integration & e2e tests
+    name: Integration tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     needs: changes
     if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.server == 'true' || needs.changes.outputs.api-surface == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     services:
       postgres:
         image: postgres:18-alpine
@@ -681,22 +695,18 @@ jobs:
       # against, so generate it here where the services this app needs to
       # boot actually exist.
       - name: Generate server OpenAPI document
+        if: matrix.shard == 1
         run: yarn workspace @biddaloy/server docs:generate
 
       - name: UI API types freshness check
+        if: matrix.shard == 1
         run: yarn workspace @biddaloy/ui check:api-types
 
-      - name: Integration tests
+      - name: Integration tests (shard ${{ matrix.shard }}/3)
         env:
           # Absolute — same cwd=server/ reason as the verify job's unit tests.
-          CI_TIMINGS_OUT: ${{ github.workspace }}/ci-timings/raw-integration.json
-        run: yarn test:integration
-
-      - name: E2E tests
-        env:
-          # Absolute — same cwd=server/ reason as the verify job's unit tests.
-          CI_TIMINGS_OUT: ${{ github.workspace }}/ci-timings/raw-server-e2e.json
-        run: yarn test:e2e
+          CI_TIMINGS_OUT: ${{ github.workspace }}/ci-timings/raw-integration-${{ matrix.shard }}.json
+        run: yarn test:integration --shard=${{ matrix.shard }}/3
 
       # [15.1]: `test:integration`/`test:e2e` (server/package.json) already
       # pass their own `--reporter=verbose`, which — verified locally — a
@@ -705,28 +715,298 @@ jobs:
       # wouldn't reach these two. Those two scripts append a conditional
       # `--reporter=json --outputFile.json=$CI_TIMINGS_OUT` of their own for
       # exactly that reason — see `server/package.json`.
-      - name: Collect integration/server-e2e test timings
+      - name: Collect integration test timings
         if: always()
-        run: |
-          node scripts/ci-timings.mjs collect --runner vitest --suite integration --job "Integration & e2e tests" --in ci-timings/raw-integration.json --out ci-timings/integration.json
-          node scripts/ci-timings.mjs collect --runner vitest --suite server-e2e --job "Integration & e2e tests" --in ci-timings/raw-server-e2e.json --out ci-timings/server-e2e.json
+        run: node scripts/ci-timings.mjs collect --runner vitest --suite integration-${{ matrix.shard }} --job "Integration tests (${{ matrix.shard }}/3)" --in ci-timings/raw-integration-${{ matrix.shard }}.json --out ci-timings/integration-${{ matrix.shard }}.json
 
-      - name: Upload integration/server-e2e test timings
+      - name: Upload integration test timings
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ci-timings-integration
-          path: |
-            ci-timings/integration.json
-            ci-timings/server-e2e.json
+          name: ci-timings-integration-${{ matrix.shard }}
+          path: ci-timings/integration-${{ matrix.shard }}.json
           if-no-files-found: ignore
 
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: coverage
+          name: coverage-integration-${{ matrix.shard }}
           path: server/coverage/
+          if-no-files-found: ignore
+
+  server-e2e:
+    name: Server e2e (${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.server == 'true' || needs.changes.outputs.api-surface == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: biddaloy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      seaweedfs:
+        image: chrislusf/seaweedfs:4.48
+        env:
+          AWS_ACCESS_KEY_ID: ci-access-key
+          AWS_SECRET_ACCESS_KEY: ci-secret-key
+          S3_BUCKET: biddaloy-ci
+        ports:
+          - 9000:8333
+        options: >-
+          --health-cmd "curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-integration-jwt-secret-do-not-use-in-production-1234567890
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-integration-seed-password-123
+      # Throwaway — see .env.example. Without it, any integration/e2e test
+      # that writes tenant settings secrets (SchoolsService.updateSettings)
+      # fails with "Settings encryption is not configured".
+      SETTINGS_ENCRYPTION_KEY: YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
+      # [15.5] `StorageModule` (now wired into `SchoolsModule` for the
+      # school-logo feature) is a boot-time dependency of the whole app —
+      # `buildStorageConfig` throws if any is unset, which fails this job's
+      # `docs:generate` step (boots `AppModule` to introspect routes). A
+      # real endpoint (the `seaweedfs` service container above) rather than
+      # a throwaway one: `test:e2e` in this same job runs `logo.e2e-spec.ts`
+      # against real object storage, same posture as
+      # `restore-drill.yml`'s SeaweedFS.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: biddaloy-ci
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_FORCE_PATH_STYLE: 'true'
+      # Every e2e spec in this job authenticates as the same seeded admin
+      # user (SEED_ADMIN_USER_ID), so `common/rate-limit/rate-limit-tracker.ts`'s
+      # `user:<sub>` bucket is shared across the whole file suite, not
+      # per-file. The default 100/60s (server/src/rate-limit.ts) is sized
+      # for one real admin's traffic, not a CI worker running
+      # `step-up.controller.e2e-spec.ts`, `checkout.controller.e2e-spec.ts`,
+      # `route-guard-coverage.e2e-spec.ts` and
+      # `discount-rules.controller.e2e-spec.ts` back to back against the
+      # same identity — discount-rules' own step-up calls landed on an
+      # already-warm bucket and got 429'd. `RATE_LIMIT_DEFAULT_LIMIT` is
+      # exactly the env knob `resolveDefaultRateLimit` exists for; this
+      # doesn't touch the guard itself or any per-route `STRICT_RATE_LIMIT`
+      # tier, just the generous global default this job's own traffic
+      # pattern outruns.
+      RATE_LIMIT_DEFAULT_LIMIT: '1000'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      # Postgres lock table = max_locks_per_transaction x max_connections (64 x 100 here; local
+      # compose runs max_connections=300). Each spec file's reset locks ~180 tables in one
+      # transaction and 4 workers do it at once, which ran out ("out of shared memory", 53200).
+      # Service containers take no flags, so set it and restart.
+      - name: Raise Postgres lock table
+        env:
+          PG: ${{ job.services.postgres.id }}
+        run: |
+          docker exec "$PG" psql -U postgres -c "ALTER SYSTEM SET max_locks_per_transaction = 256"
+          docker restart "$PG"
+          for _ in $(seq 60); do
+            docker exec "$PG" pg_isready -U postgres && exit 0
+            sleep 1
+          done
+          echo "postgres did not come back after ALTER SYSTEM" >&2
+          exit 1
+
+      - name: Build shared package
+        # test/setup.ts registers ts-node to load TypeORM entities/migrations
+        # via its own glob, which resolves `@biddaloy/shared` through plain
+        # Node `require()` — not vitest's `resolve.alias` to shared/src. That
+        # alias only covers vitest's own transform pipeline, so without a
+        # built dist/ here, entity loading fails at DataSource.initialize().
+        run: yarn build:shared
+
+      - name: Build site-themes package
+        run: yarn build:site-themes
+
+      - name: E2E tests (shard ${{ matrix.shard }}/2)
+        env:
+          # Absolute — same cwd=server/ reason as the verify job's unit tests.
+          CI_TIMINGS_OUT: ${{ github.workspace }}/ci-timings/raw-server-e2e-${{ matrix.shard }}.json
+        run: yarn test:e2e --shard=${{ matrix.shard }}/2
+
+      - name: Collect server-e2e test timings
+        if: always()
+        run: node scripts/ci-timings.mjs collect --runner vitest --suite server-e2e-${{ matrix.shard }} --job "Server e2e (${{ matrix.shard }}/2)" --in ci-timings/raw-server-e2e-${{ matrix.shard }}.json --out ci-timings/server-e2e-${{ matrix.shard }}.json
+
+      - name: Upload server-e2e test timings
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-timings-server-e2e-${{ matrix.shard }}
+          path: ci-timings/server-e2e-${{ matrix.shard }}.json
+          if-no-files-found: ignore
+
+  # [101.2.01] D3: the demo-seed slice specs (~430 s) run on PRs only when demo-seed, migrations or
+  # an entity file changes; always on push to main and in the merge queue.
+  demo-seed-specs:
+    name: Demo-seed specs
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.demo-seed == 'true'
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: biddaloy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      seaweedfs:
+        image: chrislusf/seaweedfs:4.48
+        env:
+          AWS_ACCESS_KEY_ID: ci-access-key
+          AWS_SECRET_ACCESS_KEY: ci-secret-key
+          S3_BUCKET: biddaloy-ci
+        ports:
+          - 9000:8333
+        options: >-
+          --health-cmd "curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-integration-jwt-secret-do-not-use-in-production-1234567890
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-integration-seed-password-123
+      # Throwaway — see .env.example. Without it, any integration/e2e test
+      # that writes tenant settings secrets (SchoolsService.updateSettings)
+      # fails with "Settings encryption is not configured".
+      SETTINGS_ENCRYPTION_KEY: YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
+      # [15.5] `StorageModule` (now wired into `SchoolsModule` for the
+      # school-logo feature) is a boot-time dependency of the whole app —
+      # `buildStorageConfig` throws if any is unset, which fails this job's
+      # `docs:generate` step (boots `AppModule` to introspect routes). A
+      # real endpoint (the `seaweedfs` service container above) rather than
+      # a throwaway one: `test:e2e` in this same job runs `logo.e2e-spec.ts`
+      # against real object storage, same posture as
+      # `restore-drill.yml`'s SeaweedFS.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: biddaloy-ci
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_FORCE_PATH_STYLE: 'true'
+      # Every e2e spec in this job authenticates as the same seeded admin
+      # user (SEED_ADMIN_USER_ID), so `common/rate-limit/rate-limit-tracker.ts`'s
+      # `user:<sub>` bucket is shared across the whole file suite, not
+      # per-file. The default 100/60s (server/src/rate-limit.ts) is sized
+      # for one real admin's traffic, not a CI worker running
+      # `step-up.controller.e2e-spec.ts`, `checkout.controller.e2e-spec.ts`,
+      # `route-guard-coverage.e2e-spec.ts` and
+      # `discount-rules.controller.e2e-spec.ts` back to back against the
+      # same identity — discount-rules' own step-up calls landed on an
+      # already-warm bucket and got 429'd. `RATE_LIMIT_DEFAULT_LIMIT` is
+      # exactly the env knob `resolveDefaultRateLimit` exists for; this
+      # doesn't touch the guard itself or any per-route `STRICT_RATE_LIMIT`
+      # tier, just the generous global default this job's own traffic
+      # pattern outruns.
+      RATE_LIMIT_DEFAULT_LIMIT: '1000'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      # Postgres lock table = max_locks_per_transaction x max_connections (64 x 100 here; local
+      # compose runs max_connections=300). Each spec file's reset locks ~180 tables in one
+      # transaction and 4 workers do it at once, which ran out ("out of shared memory", 53200).
+      # Service containers take no flags, so set it and restart.
+      - name: Raise Postgres lock table
+        env:
+          PG: ${{ job.services.postgres.id }}
+        run: |
+          docker exec "$PG" psql -U postgres -c "ALTER SYSTEM SET max_locks_per_transaction = 256"
+          docker restart "$PG"
+          for _ in $(seq 60); do
+            docker exec "$PG" pg_isready -U postgres && exit 0
+            sleep 1
+          done
+          echo "postgres did not come back after ALTER SYSTEM" >&2
+          exit 1
+
+      - name: Build shared package
+        # test/setup.ts registers ts-node to load TypeORM entities/migrations
+        # via its own glob, which resolves `@biddaloy/shared` through plain
+        # Node `require()` — not vitest's `resolve.alias` to shared/src. That
+        # alias only covers vitest's own transform pipeline, so without a
+        # built dist/ here, entity loading fails at DataSource.initialize().
+        run: yarn build:shared
+
+      - name: Build site-themes package
+        run: yarn build:site-themes
+
+      - name: Demo-seed specs
+        env:
+          # Absolute — same cwd=server/ reason as the verify job's unit tests.
+          CI_TIMINGS_OUT: ${{ github.workspace }}/ci-timings/raw-demo-seed.json
+        run: yarn test:integration:seed
+
+      - name: Collect demo-seed test timings
+        if: always()
+        run: node scripts/ci-timings.mjs collect --runner vitest --suite demo-seed --job "Demo-seed specs" --in ci-timings/raw-demo-seed.json --out ci-timings/demo-seed.json
+
+      - name: Upload demo-seed test timings
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-timings-demo-seed
+          path: ci-timings/demo-seed.json
           if-no-files-found: ignore
 
   e2e:
@@ -1370,7 +1650,7 @@ jobs:
     name: Test timings & budgets
     runs-on: ubuntu-latest
     if: always()
-    needs: [changes, verify, frontend-merge, integration, e2e, bundle-delta, storybook, audit, infra]
+    needs: [changes, verify, frontend-merge, integration, server-e2e, demo-seed-specs, e2e, bundle-delta, storybook, audit, infra]
     permissions:
       contents: read
       actions: read
