@@ -91,6 +91,12 @@ server {
         proxy_pass http://app_upstream;
     }
 
+    # [98.2.05] Platform (cockpit) API lives on the cockpit host only; the app host never serves it.
+    # Reachability change: route snapshot updated in #3747.
+    location ~ ^/api/v[0-9]+/(auth/cockpit|platform)/ {
+        return 404;
+    }
+
     location /api/ {
         proxy_pass http://app_upstream;
     }

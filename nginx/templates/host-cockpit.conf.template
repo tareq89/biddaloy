@@ -1,0 +1,37 @@
+# (Named host-cockpit so it sorts after default.conf, which defines the `redacted` log format.)
+# Cockpit host (Epic 98): the platform owner's console. Same SPA and app as the app host, but the
+# API is limited to the cockpit/platform routes; every other /api/ path is a 404 here. The app host
+# refuses those routes (default.conf.template). COCKPIT_DOMAIN comes from the edge .env
+# (`cockpit.invalid` when unset, so nothing matches and the edge is unchanged).
+server {
+    listen 80;
+    include /etc/nginx/snippets/edge-server.conf;
+    access_log /var/log/nginx/access.log redacted;
+    server_name ${COCKPIT_DOMAIN};
+
+    client_max_body_size 55M;
+    add_header Strict-Transport-Security $edge_hsts always;
+
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $edge_proto;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_connect_timeout 2s;
+    proxy_read_timeout 60s;
+    proxy_next_upstream error timeout http_502 http_503;
+
+    # Longest match wins: the allowed platform routes first, any other API path is a 404.
+    location ~ ^/api/v[0-9]+/(auth/cockpit|platform)/ {
+        proxy_pass http://app_upstream;
+    }
+
+    location /api/ {
+        return 404;
+    }
+
+    location / {
+        proxy_pass http://app_upstream;
+    }
+}
