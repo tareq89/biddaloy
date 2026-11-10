@@ -58,6 +58,7 @@ import {
 } from './dto/attendance.dto';
 import { Subject } from '../academics/entities/subject.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
+import { assertDateNotInClosedYear } from '../../common/utils/year-open.guard';
 import { AbsenceNoticeService } from './absence-notice.service';
 import { ArrivalNoticeService } from './arrival-notice.service';
 import { attentionEvents } from '../attention/attention.constants';
@@ -546,6 +547,7 @@ export class AttendanceService {
     const sessionRepo = manager.getRepository(AttendanceSession);
     const recordRepo = manager.getRepository(AttendanceRecord);
     for (const date of dates) {
+      await assertDateNotInClosedYear(manager, tenantId, date);
       // INSERT .. ON CONFLICT DO NOTHING: a unique violation would abort the
       // caller's transaction, so a racing creator must not raise one.
       await manager
@@ -677,6 +679,7 @@ export class AttendanceService {
     const dates: string[] = [];
     for (const record of records) {
       const session = sessionById.get(record.session_id)!;
+      await assertDateNotInClosedYear(manager, tenantId, session.date);
       await recordRepo.delete({ id: record.id, tenant_id: tenantId });
       await sessionRepo.increment({ id: session.id, tenant_id: tenantId }, 'version', 1);
       await this.auditService.record(
@@ -727,6 +730,8 @@ export class AttendanceService {
     const importAudit = ctx.importId ? { import_id: ctx.importId } : {};
     const periodNo = dto.period_no ?? null;
     const studentIds = dto.entries.map((e) => e.student_id);
+    // [69.3.06] D12: no register write for a date inside any closed year.
+    await assertDateNotInClosedYear(manager, tenantId, dto.date);
     const sessionRepo = manager.getRepository(AttendanceSession);
     const recordRepo = manager.getRepository(AttendanceRecord);
 
@@ -1309,6 +1314,7 @@ export class AttendanceService {
       if (!session) {
         throw new NotFoundException('No register exists for this section and date yet');
       }
+      await assertDateNotInClosedYear(manager, tenantId, session.date);
 
       // Idempotent: finalizing an already-finalized session is a no-op, so
       // [9.8]'s cut-off sweep can call this without checking state first.
@@ -1384,6 +1390,7 @@ export class AttendanceService {
       if (!session) {
         throw new NotFoundException('Attendance session not found');
       }
+      await assertDateNotInClosedYear(manager, tenantId, session.date);
 
       // D13: a teacher outside the section gets the same 404 as a missing record.
       await this.assertRegisterAccess(

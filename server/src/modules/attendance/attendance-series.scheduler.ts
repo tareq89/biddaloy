@@ -1,4 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConflictException } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { assertDateNotInClosedYear } from '../../common/utils/year-open.guard';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import * as Sentry from '@sentry/node';
@@ -24,6 +28,7 @@ export class AttendanceSeriesScheduler extends WorkerHost implements OnModuleIni
     @InjectQueue(ATTENDANCE_SERIES_QUEUE) private readonly queue: Queue,
     private readonly schoolsService: SchoolsService,
     private readonly dashboard: AttendanceDashboardService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {
     super();
   }
@@ -37,11 +42,23 @@ export class AttendanceSeriesScheduler extends WorkerHost implements OnModuleIni
     this.logger.log(`Scheduled attendance series at "${ATTENDANCE_SERIES_CRON}" (${SCHOOL_TZ})`);
   }
 
+  private async isInClosedYear(tenantId: string, isoDate: string): Promise<boolean> {
+    try {
+      await assertDateNotInClosedYear(this.dataSource.manager, tenantId, isoDate);
+      return false;
+    } catch (err) {
+      if (err instanceof ConflictException) return true;
+      throw err;
+    }
+  }
+
   async process(): Promise<void> {
     for (const tenant of await this.schoolsService.findAllActive()) {
       try {
         const today = await this.schoolsService.todayFor(tenant.id);
         const yesterday = addDays(today, -1);
+        // [69.3.06] D12: a tenant whose yesterday falls in a closed year has nothing to refresh.
+        if (await this.isInClosedYear(tenant.id, yesterday)) continue;
         await this.dashboard.storeSeries(tenant.id, yesterday);
         // Same job, second cache: the committee card's per-day tallies for the academic year,
         // up to today-8; the last 7 days are computed live on request.

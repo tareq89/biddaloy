@@ -8,6 +8,7 @@ import {
 function build(
   storeSeries = vi.fn(async () => []),
   storeCommitteeDaily = vi.fn(async () => undefined),
+  closedTenants: string[] = [],
 ) {
   const queue = { upsertJobScheduler: vi.fn(async () => undefined) };
   const schools = {
@@ -20,6 +21,13 @@ function build(
     {
       storeSeries,
       storeCommitteeDaily,
+    } as any,
+    {
+      manager: {
+        query: vi.fn(async (_sql: string, [tenantId]: string[]) =>
+          closedTenants.includes(tenantId) ? [{ id: 'closed-year' }] : [],
+        ),
+      },
     } as any,
   );
   return { scheduler, queue, storeSeries, storeCommitteeDaily };
@@ -55,5 +63,13 @@ describe('AttendanceSeriesScheduler', () => {
     const { scheduler } = build(storeSeries as any);
     await expect(scheduler.process()).resolves.toBeUndefined();
     expect(storeSeries).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips a tenant whose yesterday is in a closed year (D12)', async () => {
+    const { scheduler, storeSeries, storeCommitteeDaily } = build(undefined, undefined, ['t1']);
+    await scheduler.process();
+    expect(storeSeries).not.toHaveBeenCalledWith('t1', expect.anything());
+    expect(storeCommitteeDaily).not.toHaveBeenCalledWith('t1', expect.anything());
+    expect(storeSeries).toHaveBeenCalledWith('t2', '2026-10-07');
   });
 });
