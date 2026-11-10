@@ -1,5 +1,5 @@
 /**
- * #535's suspend/reactivate confirm dialog. `PATCH /schools/:id/status`
+ * #535's suspend/reactivate confirm dialog. `PATCH /platform/schools/:id/status`
  * (#530's `UpdateSchoolStatusDto`) makes `reason` mandatory in both
  * directions, `Length(5, 500)` — this dialog mirrors that bound with a
  * Zod schema (same "hand-typed against the DTO" precedent

@@ -350,7 +350,7 @@ export function useSendTestMessage(schoolId: string) {
   });
 }
 
-/** #535's school detail page. `GET /schools/:id/stats` (#532) — five cheap
+/** #535's school detail page. `GET /platform/schools/:id/stats` (#532) — five cheap
  * platform metrics, hand-typed against `SchoolStats`
  * (`server/src/modules/schools/schools.service.ts`) since it's not in
  * `schema.d.ts` yet, same gap `SchoolSummary` documents above.
@@ -382,7 +382,7 @@ export function useSchoolStats(schoolId: string) {
   return useQuery(schoolStatsQueryOptions(schoolId));
 }
 
-/** `PATCH /schools/:id/status` (#530) response — mirrors
+/** `PATCH /platform/schools/:id/status` (#530) response — mirrors
  * `SchoolStatusResponse` (`schools.service.ts`), hand-typed for the same
  * not-yet-generated reason as `SchoolStats` above. */
 export interface SchoolStatusResult {
@@ -416,7 +416,7 @@ export function useUpdateSchoolStatus(schoolId: string) {
   });
 }
 
-/** `GET /schools/:id/admins` (#531) list item — mirrors
+/** `GET /platform/schools/:id/admins` (#531) list item — mirrors
  * `SchoolAdminListItem` (`school-admins.service.ts`), same hand-typed gap. */
 export interface SchoolAdminListItem {
   user_id: string;
@@ -449,7 +449,7 @@ export interface AddSchoolAdminInput {
   phone?: string;
 }
 
-/** `POST /schools/:id/admins` (#531) — reuses the same find-or-create-user
+/** `POST /platform/schools/:id/admins` (#531) — reuses the same find-or-create-user
  * path `POST /platform/schools`'s own admin step does. Invalidates the admins list
  * on success, same pattern `useProvisionSchool` uses for the schools list. */
 export function useAddSchoolAdmin(schoolId: string) {
@@ -464,7 +464,7 @@ export function useAddSchoolAdmin(schoolId: string) {
   });
 }
 
-/** `POST /schools/:id/admins/:userId/resend-invitation` (#531) — 204, no
+/** `POST /platform/schools/:id/admins/:userId/resend-invitation` (#531) — 204, no
  * body, same shape as `users.ts`'s own `useResendInvitation` for a staff
  * member's invitation. */
 export function useResendSchoolAdminInvitation(schoolId: string, userId: string) {
@@ -481,7 +481,7 @@ export function useResendSchoolAdminInvitation(schoolId: string, userId: string)
   });
 }
 
-/** `DELETE /schools/:id/admins/:userId/invitation` (#531) — 204, no body. */
+/** `DELETE /platform/schools/:id/admins/:userId/invitation` (#531) — 204, no body. */
 export function useRevokeSchoolAdminInvitation(schoolId: string, userId: string) {
   const queryClient = useQueryClient();
   return useMutation({
