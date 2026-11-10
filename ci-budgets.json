@@ -14,17 +14,29 @@
       "budgetSeconds": 251,
       "$comment": "[18.5.2] Re-baselined: p90 218s over the same 17-run green push/merge_group window. budgetSeconds = ceil(218 × 1.15)."
     },
-    "Frontend tests (1/3)": {
-      "budgetSeconds": 212,
-      "$comment": "[18.5.2] The 3-way shard (#808) has zero green push/merge_group runs yet — main only just picked it up. Baselined instead on the 3 real pull_request runs that exist in the trailing-60-run window: p90 184s. budgetSeconds = ceil(184 × 1.15). n=3 — re-tighten once ~20 push/merge_group runs accumulate."
+    "Frontend tests (1/6)": {
+      "budgetSeconds": null,
+      "$comment": "TODO [101.3.01]: no measured number yet; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs of the new shard layout. Until then the summary shows no budget for this job and never fails on it."
     },
-    "Frontend tests (2/3)": {
-      "budgetSeconds": 202,
-      "$comment": "[18.5.2] Same window as (1/3), n=3: p90 175s. budgetSeconds = ceil(175 × 1.15)."
+    "Frontend tests (2/6)": {
+      "budgetSeconds": null,
+      "$comment": "TODO [101.3.01]: no measured number yet; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs of the new shard layout. Until then the summary shows no budget for this job and never fails on it."
     },
-    "Frontend tests (3/3)": {
-      "budgetSeconds": 239,
-      "$comment": "[18.5.2] Same window as (1/3), n=3: p90 207s. budgetSeconds = ceil(207 × 1.15). PR #808 itself measured one shard+merge wall of 248s, over its own provisional 210s target — this shard's budget alone doesn't need to cover that (it's a per-job, not combined, ceiling), but it's the reason this row isn't tightened further despite the small sample."
+    "Frontend tests (3/6)": {
+      "budgetSeconds": null,
+      "$comment": "TODO [101.3.01]: no measured number yet; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs of the new shard layout. Until then the summary shows no budget for this job and never fails on it."
+    },
+    "Frontend tests (4/6)": {
+      "budgetSeconds": null,
+      "$comment": "TODO [101.3.01]: no measured number yet; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs of the new shard layout. Until then the summary shows no budget for this job and never fails on it."
+    },
+    "Frontend tests (5/6)": {
+      "budgetSeconds": null,
+      "$comment": "TODO [101.3.01]: no measured number yet; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs of the new shard layout. Until then the summary shows no budget for this job and never fails on it."
+    },
+    "Frontend tests (6/6)": {
+      "budgetSeconds": null,
+      "$comment": "TODO [101.3.01]: no measured number yet; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs of the new shard layout. Until then the summary shows no budget for this job and never fails on it."
     },
     "Frontend coverage merge": {
       "budgetSeconds": 60,
@@ -54,17 +66,25 @@
       "budgetSeconds": null,
       "$comment": "TODO [101.2.01]: no number yet. The job was split from 'Integration & e2e tests' and has no CI run of its own; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs (Epic 101 expects ~6.5 min per integration shard, ~8 min per e2e shard, but that is an estimate, not a measurement). Until then the summary shows no budget and never fails."
     },
-    "E2E smoke (chromium 1/3)": {
-      "budgetSeconds": 690,
-      "$comment": "[2642] Provisional, n=0: the unsharded job measured 1,037s of Playwright wall (15.6 min of tests on 4 workers, run 39301055262) and timed out at 20 min, so the 3-way shard from #440 is back. Estimate per leg = ~210s fixed (setup, build, migrate, seed) + ~390s tests = 600s; budgetSeconds = ceil(600 × 1.15). Re-baseline on p90 once ~20 green push/merge_group runs exist."
+    "E2E smoke (chromium 1/4)": {
+      "budgetSeconds": null,
+      "$comment": "TODO [101.3.01]: no measured number yet; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs of the new shard layout. Until then the summary shows no budget for this job and never fails on it."
     },
-    "E2E smoke (chromium 2/3)": {
-      "budgetSeconds": 690,
-      "$comment": "[2642] Provisional, n=0: the unsharded job measured 1,037s of Playwright wall (15.6 min of tests on 4 workers, run 39301055262) and timed out at 20 min, so the 3-way shard from #440 is back. Estimate per leg = ~210s fixed (setup, build, migrate, seed) + ~390s tests = 600s; budgetSeconds = ceil(600 × 1.15). Re-baseline on p90 once ~20 green push/merge_group runs exist."
+    "E2E smoke (chromium 2/4)": {
+      "budgetSeconds": null,
+      "$comment": "TODO [101.3.01]: no measured number yet; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs of the new shard layout. Until then the summary shows no budget for this job and never fails on it."
     },
-    "E2E smoke (chromium 3/3)": {
-      "budgetSeconds": 690,
-      "$comment": "[2642] Provisional, n=0: the unsharded job measured 1,037s of Playwright wall (15.6 min of tests on 4 workers, run 39301055262) and timed out at 20 min, so the 3-way shard from #440 is back. Estimate per leg = ~210s fixed (setup, build, migrate, seed) + ~390s tests = 600s; budgetSeconds = ceil(600 × 1.15). Re-baseline on p90 once ~20 green push/merge_group runs exist."
+    "E2E smoke (chromium 3/4)": {
+      "budgetSeconds": null,
+      "$comment": "TODO [101.3.01]: no measured number yet; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs of the new shard layout. Until then the summary shows no budget for this job and never fails on it."
+    },
+    "E2E smoke (chromium 4/4)": {
+      "budgetSeconds": null,
+      "$comment": "TODO [101.3.01]: no measured number yet; set budgetSeconds = ceil(p90 x 1.15) over >=5 green PR runs of the new shard layout. Until then the summary shows no budget for this job and never fails on it."
+    },
+    "E2E PWA": {
+      "budgetSeconds": 540,
+      "$comment": "[101.3.01] Provisional, from the ticket, not measured: the PWA suite was ~2-4 min on top of a shard; re-baseline on p90 once green runs of the separate job exist."
     },
     "Bundle size delta": {
       "budgetSeconds": 83,

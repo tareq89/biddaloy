@@ -193,6 +193,7 @@ CI_PATHS_INFRA=(
   'site/public/maintenance.html'
   'infra/ansible/templates/cloudflared-config.yml.j2'
   '**/*.infra.test.sh'
+  'scripts/run-infra-tests.sh'
   '.github/workflows/ci.yml'
 )
 CI_PATHS_UI=(
@@ -377,7 +378,7 @@ fi
 
 if should_run "frontend"; then
   section "frontend"
-  # [18.5.1] ci.yml's "frontend" job shards this 3-way on CI and merges the
+  # [18.5.1] ci.yml's "frontend" job shards this 6-way on CI and merges the
   # reports in a separate "frontend-merge" job — not mirrored here: one
   # local machine gets no wall-clock win from splitting a suite across
   # matrix legs it still has to run serially, so this stays a single
@@ -447,7 +448,7 @@ if should_run "e2e"; then
   # seeded test-env database. If dev servers hold ports 3000/5174,
   # Playwright now fails fast with a clear port-in-use message instead.
   # Mirrors ci.yml's "e2e" job (18.2.3): chromium project plus the PWA
-  # suite, no sharding.
+  # suite, no sharding (CI: 4 shards + the `e2e-pwa` job, [101.3.01]).
   #
   # #766: deliberately NOT setting E2E_SKIP_BUILD here, unlike ci.yml's e2e
   # job. That job skips its build because it downloads verify's build-dist
@@ -508,10 +509,8 @@ if should_run "infra"; then
   # The only ci:local step that starts containers (docker-driven nginx tests),
   # so it is opt-in. CI always runs it via ci.yml's `infra` job.
   if [ "${CI_LOCAL_INFRA:-}" = 1 ] && docker info >/dev/null 2>&1; then
-    for t in $(git ls-files '*.infra.test.sh'); do
-      echo "--- $t"
-      bash "$t"
-    done
+    # Same script as ci.yml's `infra` job ([101.3.01]): 4 at a time, every failure listed.
+    bash scripts/run-infra-tests.sh
   else
     echo "infra: skipped (set CI_LOCAL_INFRA=1 and have docker running)"
   fi
