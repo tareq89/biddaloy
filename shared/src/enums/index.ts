@@ -199,6 +199,12 @@ export enum AuditAction {
   INVITATION_SENT = 'INVITATION_SENT',
   /** An invitation was revoked, either explicitly or superseded by a resend. */
   INVITATION_REVOKED = 'INVITATION_REVOKED',
+  /** [69.1.01] An academic year was closed (D21). */
+  YEAR_CLOSE = 'YEAR_CLOSE',
+  /** [69.1.01] A closed academic year was reopened (D21). */
+  YEAR_REOPEN = 'YEAR_REOPEN',
+  /** [69.1.01] A year rollover copied structure into the next year (D21). */
+  YEAR_ROLLOVER = 'YEAR_ROLLOVER',
   /** The invited user consumed their invite token and set a password. */
   ACCOUNT_ACTIVATED = 'ACCOUNT_ACTIVATED',
   /** A forgot-password request was accepted and an OTP/link was dispatched (or an admin-initiated reset was started). */
@@ -421,6 +427,46 @@ export enum ApprovalScope {
   PLATFORM_APPROVALS_SWITCH = 'platform.approvals_switch',
   PLATFORM_APPROVAL_DECIDE = 'platform.approval_decide',
   PLATFORM_RECOVERY_CODES = 'platform.recovery_codes',
+  // [69.1.01] Closing an academic year freezes its writes (D1, D19) —
+  // same step-up bar as a result reopen.
+  ACADEMIC_YEAR_CLOSE = 'academic_year.close',
+}
+
+// [69.1.01] Year rollover blocks the wizard can copy (D2).
+export const YEAR_ROLLOVER_BLOCKS = [
+  'classes',
+  'sections',
+  'class_subjects',
+  'teacher_assignments',
+  'fee_structures',
+  'grading_scales',
+  'terms',
+] as const;
+export type YearRolloverBlock = (typeof YEAR_ROLLOVER_BLOCKS)[number];
+
+/** Error code a write into a closed academic year answers with (D9). */
+export const YEAR_CLOSE_ERROR = 'ACADEMIC_YEAR_CLOSED';
+/** Close block code: a draft promotion run is still open (D9). */
+export const YEAR_CLOSE_BLOCK_DRAFT_PROMOTION = 'DRAFT_PROMOTION_RUN_OPEN';
+
+export interface YearClosePreview {
+  blocks: { code: string; count: number }[];
+  warnings: {
+    code:
+      | 'CLASSES_NOT_PROMOTED'
+      | 'STUDENTS_STILL_ACTIVE'
+      | 'GROUPS_PENDING'
+      | 'DUES_OUTSTANDING'
+      | 'RESULTS_UNPUBLISHED';
+    count: number;
+  }[];
+  freezes: { table: string; count: number }[];
+}
+
+export interface YearReadiness {
+  classes: number;
+  teacher_assignments: number;
+  committed_promotion_runs: number;
 }
 
 /** How an `ApprovalToken` is verified (16.x). */

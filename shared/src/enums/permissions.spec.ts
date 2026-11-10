@@ -210,6 +210,15 @@ describe('family read grants [5.1]', () => {
     [UserRole.STUDENT, []],
   ];
 
+  // [69.1.01] D15 — ADMIN and TEACHER may set a next-year group; nobody else.
+  it('grants PROMOTION_GROUP_SET to ADMIN, TEACHER and SUPER_ADMIN only', () => {
+    for (const role of Object.values(UserRole)) {
+      const has = ROLE_PERMISSIONS[role].includes(Permission.PROMOTION_GROUP_SET);
+      const expected = [UserRole.ADMIN, UserRole.TEACHER, UserRole.SUPER_ADMIN].includes(role);
+      expect(has).toBe(expected);
+    }
+  });
+
   for (const [role, expected] of PROMOTION_EXPECTATIONS) {
     it(`grants ${role} exactly the D22 promotion permission set`, () => {
       const actual = PROMOTION_PERMISSIONS.filter((permission) =>

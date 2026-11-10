@@ -219,6 +219,8 @@ export enum Permission {
   // [26.1.1] Commit a run that overrides the suggested outcome for at least
   // one student (D11, D22) — gated behind ApprovalScope.PROMOTION_OVERRIDE.
   PROMOTION_OVERRIDE = 'PROMOTION_OVERRIDE',
+  // [69.1.01] Set a student's next-year group (D15) — ADMIN and TEACHER.
+  PROMOTION_GROUP_SET = 'PROMOTION_GROUP_SET',
   // Routine (class timetable)
   // [21.1.1] Read is granted to every tenant role that has a stake in a
   // published routine (admin, executive, teacher, guardian, student);
@@ -402,6 +404,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [26.1.1] Promotion runs — ADMIN only (D22).
     Permission.PROMOTION_MANAGE,
     Permission.PROMOTION_OVERRIDE,
+    // [69.0] D15
+    Permission.PROMOTION_GROUP_SET,
     // [21.1.1] Class routine — ADMIN builds/publishes, everyone else reads.
     Permission.ROUTINE_READ,
     Permission.ROUTINE_MANAGE,
@@ -511,6 +515,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [52.1.1] Applications (D22/D45)
     Permission.APPLICATION_SUBMIT,
     Permission.MY_CLASS_VIEW,
+    // [69.0] D15
+    Permission.PROMOTION_GROUP_SET,
     // [83.0] D25 — My coordination; empty overview without coordinator rows.
     Permission.COORDINATION_VIEW,
     Permission.STUDENT_READ,
