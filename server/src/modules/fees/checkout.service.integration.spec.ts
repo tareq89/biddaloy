@@ -389,6 +389,32 @@ describe('CheckoutService (integration)', () => {
     expect(Number(updated.paid_amount)).toBe(400);
   });
 
+  it('[69.3.03] still takes a payment against a bill of a closed year (D4)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));
+    await dataSource.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
+    try {
+      await service.checkout(
+        {
+          idempotency_key: '33333333-3333-4333-8333-333333333333',
+          lines: [{ student_fee_id: bill.id, amount: 1000, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+    } finally {
+      await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
+    }
+    const updated = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+    expect(updated.status).toBe(FeeStatus.PAID);
+    expect(Number(updated.paid_amount)).toBe(1000);
+  });
+
   it('rejects a one-off discount without an approval token (nothing written)', async () => {
     const student = await studentRepo.save(makeStudent());
     const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 1000 }));

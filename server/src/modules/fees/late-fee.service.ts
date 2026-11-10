@@ -95,6 +95,7 @@ export class LateFeeService {
            FROM student_fees sf
            JOIN fee_structures fs ON fs.id = sf.fee_structure_id
            JOIN students st ON st.id = sf.student_id AND st.deleted_at IS NULL
+           JOIN academic_years ay ON ay.id = sf.academic_year_id AND ay.closed_at IS NULL -- [69.3.03] D4
           WHERE sf.deleted_at IS NULL
             AND fs.fee_type = $1
             AND fs.tenant_id = $2
