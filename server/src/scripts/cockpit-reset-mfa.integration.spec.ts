@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import * as os from 'os';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { resetOwnerMfa } from './cockpit-reset-mfa';
+import { resetOwnerMfa, printResetResult } from './cockpit-reset-mfa';
 
 describe('cockpit-reset-mfa (integration)', () => {
   let ds: DataSource;
@@ -49,6 +49,60 @@ describe('cockpit-reset-mfa (integration)', () => {
     expect(audit[0].new_values.operator).toBe(os.userInfo().username);
     // No personal data in the audit row.
     expect(JSON.stringify(audit[0])).not.toContain('@example.com');
+  });
+
+  it('deletes only the target owner second-factor rows and revokes their refresh token', async () => {
+    const target = await makeUser('t', 3, true);
+    const other = await makeUser('o', 4, true);
+    const hash = (c: string) => c.repeat(64);
+    for (const [uid, c] of [
+      [target, 'a'],
+      [other, 'b'],
+    ]) {
+      await ds.query(`INSERT INTO user_mfa (user_id, secret_enc) VALUES ($1, 'x')`, [uid]);
+      await ds.query(`INSERT INTO user_recovery_codes (user_id, code_hash) VALUES ($1, $2)`, [
+        uid,
+        hash(c),
+      ]);
+      await ds.query(`INSERT INTO platform_admin_devices (user_id, device_hash) VALUES ($1, $2)`, [
+        uid,
+        hash(c),
+      ]);
+      await ds.query(
+        `INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at)
+         VALUES ($1, gen_random_uuid(), $2, now() + interval '1 day')`,
+        [uid, hash(c)],
+      );
+    }
+    await resetOwnerMfa(ds, mail('t'));
+    const count = async (table: string, uid: string) =>
+      (await ds.query(`SELECT 1 FROM ${table} WHERE user_id = $1`, [uid])).length;
+    for (const table of ['user_mfa', 'user_recovery_codes', 'platform_admin_devices']) {
+      expect(await count(table, target)).toBe(0);
+      // Another owner's rows are untouched.
+      expect(await count(table, other)).toBe(1);
+    }
+    const [t] = await ds.query(`SELECT revoked_at FROM refresh_tokens WHERE user_id = $1`, [
+      target,
+    ]);
+    const [o] = await ds.query(`SELECT revoked_at FROM refresh_tokens WHERE user_id = $1`, [other]);
+    expect(t.revoked_at).not.toBeNull();
+    expect(o.revoked_at).toBeNull();
+    const [tu] = await ds.query(`SELECT tokens_valid_after FROM users WHERE id = $1`, [target]);
+    const [ou] = await ds.query(`SELECT tokens_valid_after FROM users WHERE id = $1`, [other]);
+    expect(tu.tokens_valid_after).not.toBeNull();
+    expect(ou.tokens_valid_after).toBeNull();
+    await ds.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1)`, [[target, other]]);
+  });
+
+  it('prints no email or phone', () => {
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a) => void lines.push(a.join(' ')));
+    printResetResult('11111111-1111-1111-1111-111111111111');
+    spy.mockRestore();
+    const text = lines.join('\n');
+    expect(text).toContain('11111111-1111-1111-1111-111111111111');
+    expect(text).not.toMatch(/@|\+\d{8,}/);
   });
 
   it('refuses a normal user and an unknown email with the same message, echoing nothing', async () => {
