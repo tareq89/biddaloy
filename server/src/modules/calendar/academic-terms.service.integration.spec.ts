@@ -326,4 +326,89 @@ describe('AcademicTermsService (integration)', () => {
       service.update(TENANT_B, term.id, { name: 'Hijacked' }, SEED_ADMIN_USER_ID, CONTEXT),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+  // [69.1.09] copyTermsToYear. Each test builds its own two years, so it does
+  // not depend on any row another test left behind.
+  describe('copyTermsToYear', () => {
+    async function twoYears() {
+      const yearRepo = dataSource.getRepository(AcademicYear);
+      const tag = Math.random().toString(36).slice(2, 8);
+      const src = await yearRepo.save({
+        name: `Copy src ${tag}`,
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        tenant_id: TENANT_A,
+      });
+      const tgt = await yearRepo.save({
+        name: `Copy tgt ${tag}`,
+        start_date: '2027-01-01',
+        end_date: '2027-12-31',
+        tenant_id: TENANT_A,
+      });
+      const terms = dataSource.getRepository(AcademicTerm);
+      await terms.insert([
+        {
+          tenant_id: TENANT_A,
+          academic_year_id: src.id,
+          seq: 1,
+          name: 'T1',
+          start_date: '2026-01-01',
+          end_date: '2026-04-30',
+        },
+        {
+          tenant_id: TENANT_A,
+          academic_year_id: src.id,
+          seq: 2,
+          name: 'T2',
+          start_date: '2026-05-01',
+          end_date: '2026-08-31',
+        },
+        {
+          tenant_id: TENANT_A,
+          academic_year_id: src.id,
+          seq: 3,
+          name: 'T3',
+          start_date: '2026-09-01',
+          end_date: '2026-12-31',
+        },
+      ]);
+      return { src, tgt };
+    }
+    const copy = (srcId: string, tgtId: string, dryRun: boolean) =>
+      dataSource.transaction((m) => service.copyTermsToYear(m, TENANT_A, srcId, tgtId, dryRun));
+
+    it('copies 3 shifted terms, dryRun writes nothing, re-run reports existing 3', async () => {
+      const { src, tgt } = await twoYears();
+      expect(await copy(src.id, tgt.id, true)).toEqual({ created: 3, existing: 0, skipped: [] });
+      expect(await service.listByYear(TENANT_A, tgt.id)).toHaveLength(0);
+
+      expect(await copy(src.id, tgt.id, false)).toEqual({ created: 3, existing: 0, skipped: [] });
+      const copied = await service.listByYear(TENANT_A, tgt.id);
+      expect(copied.map((t) => [t.name, t.start_date, t.end_date])).toEqual([
+        ['T1', '2027-01-01', '2027-04-30'],
+        ['T2', '2027-05-01', '2027-08-31'],
+        ['T3', '2027-09-01', '2027-12-31'],
+      ]);
+
+      expect(await copy(src.id, tgt.id, false)).toEqual({ created: 0, existing: 3, skipped: [] });
+    });
+
+    it('skips a shifted term that overlaps a different existing target term', async () => {
+      const { src, tgt } = await twoYears();
+      // A target term with a different seq squats on T1's shifted dates.
+      await dataSource.getRepository(AcademicTerm).insert({
+        tenant_id: TENANT_A,
+        academic_year_id: tgt.id,
+        seq: 9,
+        name: 'Squatter',
+        start_date: '2027-02-01',
+        end_date: '2027-02-28',
+      });
+      const res = await copy(src.id, tgt.id, false);
+      expect(res).toEqual({
+        created: 2,
+        existing: 0,
+        skipped: [{ name: 'T1', reason: 'OVERLAP' }],
+      });
+    });
+  });
 });
