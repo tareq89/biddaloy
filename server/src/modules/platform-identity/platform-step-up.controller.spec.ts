@@ -73,11 +73,12 @@ describe('PlatformStepUpController', () => {
     expect(mfa.verifyCode).not.toHaveBeenCalled();
   });
 
-  it('a non-platform scope is refused by the service and writes no audit row', async () => {
-    stepUp.issueForPlatformAdmin.mockRejectedValue(new Error('Unknown approval scope'));
+  it('a non-platform scope is refused before the code is checked, so the code is not burned', async () => {
     await expect(
       controller.issue(dto('123456', ApprovalScope.FEES_DISCOUNT), req, res),
-    ).rejects.toThrow('Unknown approval scope');
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(mfa.verifyCode).not.toHaveBeenCalled();
+    expect(attempts.recordFailure).not.toHaveBeenCalled();
     expect(audit.record).not.toHaveBeenCalled();
   });
 });
