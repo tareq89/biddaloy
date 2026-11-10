@@ -72,6 +72,13 @@ check() { # <scheme> <label>
   c=$(code "$s" example.test /api/v1/platform/alerts); [ "$c" = 404 ] && pass "$m: app host 404s /api/v1/platform/" || fail "$m: app platform" "$c"
   c=$(code "$s" example.test /api/v1/auth/cockpit/login); [ "$c" = 404 ] && pass "$m: app host 404s /api/v1/auth/cockpit/" || fail "$m: app cockpit login" "$c"
   b=$(body "$s" example.test /api/v1/students); [ "$b" = app-ok ] && pass "$m: app host still proxies other API paths" || fail "$m: app students" "$b"
+  c=$(code "$s" example.test /API/v1/platform/alerts); [ "$c" = 404 ] && pass "$m: app host 404s upper-case /API/v1/platform/" || fail "$m: app upper platform" "$c"
+  c=$(code "$s" example.test /Api/v1/auth/cockpit/login); [ "$c" = 404 ] && pass "$m: app host 404s mixed-case /Api/v1/auth/cockpit/" || fail "$m: app mixed cockpit" "$c"
+  c=$(code "$s" example.test /api/v1/platform); [ "$c" = 404 ] && pass "$m: app host 404s bare /api/v1/platform" || fail "$m: app bare platform" "$c"
+  c=$(code "$s" example.test /api/v1/auth/cockpit); [ "$c" = 404 ] && pass "$m: app host 404s bare /api/v1/auth/cockpit" || fail "$m: app bare cockpit" "$c"
+  c=$(code "$s" cockpit.test /API/v1/students); [ "$c" = 404 ] && pass "$m: cockpit host 404s upper-case other API" || fail "$m: cockpit upper students" "$c"
+  c=$(code "$s" cockpit.test /Api/v1/anything); [ "$c" = 404 ] && pass "$m: cockpit host 404s mixed-case other API" || fail "$m: cockpit mixed" "$c"
+  b=$(body "$s" cockpit.test /API/v1/PLATFORM/alerts); [ "$b" = app-ok ] && pass "$m: cockpit host still proxies case-variant platform path" || fail "$m: cockpit upper platform" "$b"
   c=$(code "$s" other.test /); [ "$c" = 000 ] && pass "$m: unknown host dropped" || fail "$m: unknown host" "$c"
 }
 
