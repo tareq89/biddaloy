@@ -113,6 +113,20 @@ describe('CockpitSessionService', () => {
     expect(tokens.issueForUser).not.toHaveBeenCalled();
   });
 
+  it('end and endFamily still revoke the rows but answer 503 when the keys cannot be deleted', async () => {
+    redis.del.mockRejectedValue(new Error('down'));
+    await expect(svc.endFamily('u1', 'fam')).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(tokens.revokeFamily).toHaveBeenCalledWith('fam');
+    await expect(svc.end('id.s')).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(tokens.revokeByCookieValue).toHaveBeenCalledWith('id.s');
+  });
+
+  it('endAll stays quiet when the keys cannot be deleted (tokens_valid_after covers it)', async () => {
+    redis.del.mockRejectedValue(new Error('down'));
+    await expect(svc.endAll('u1')).resolves.toBeUndefined();
+    expect(cutoff.cutOff).toHaveBeenCalledWith('u1');
+  });
+
   it('endAll revokes every family, bumps tokens_valid_after and drops the keys', async () => {
     await svc.endAll('u1');
     expect(tokens.revokeAllForUser).toHaveBeenCalledWith('u1');

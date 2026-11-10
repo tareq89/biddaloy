@@ -154,7 +154,7 @@ describe('CockpitPasswordService', () => {
       await refused();
     });
 
-    it('refuses a link whose address no longer matches, a locked owner and a deleted user', async () => {
+    it('refuses a link whose address no longer matches, a non-active owner and a deleted user', async () => {
       user = owner({ email: 'new@x.com' });
       await refused();
       user = owner({ status: UserStatus.SUSPENDED });

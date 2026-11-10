@@ -13,8 +13,17 @@ function options(maxAgeMs?: number): CookieOptions {
   return maxAgeMs === undefined ? base : { ...base, maxAge: maxAgeMs };
 }
 
-export function setCockpitRefreshCookie(response: Response, cookieValue: string): void {
-  response.cookie(COCKPIT_REFRESH_COOKIE, cookieValue, options(COCKPIT_SESSION_MAX_MS));
+/** `maxAgeMs` is the absolute time left on a refresh; a fresh sign-in gets the full 8 h. */
+export function setCockpitRefreshCookie(
+  response: Response,
+  cookieValue: string,
+  maxAgeMs: number = COCKPIT_SESSION_MAX_MS,
+): void {
+  response.cookie(
+    COCKPIT_REFRESH_COOKIE,
+    cookieValue,
+    options(Math.min(maxAgeMs, COCKPIT_SESSION_MAX_MS)),
+  );
 }
 
 export function clearCockpitRefreshCookie(response: Response): void {

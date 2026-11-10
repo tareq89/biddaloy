@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuditAction, UserStatus } from '@biddaloy/shared';
 import { CockpitEnrolService } from './cockpit-enrol.service';
@@ -64,6 +64,13 @@ describe('CockpitEnrolService', () => {
         '222222',
         'one@x.com',
       );
+    });
+
+    it('an already-enrolled owner gets the 409 from beginEnrolment, nothing else', async () => {
+      mfa.beginEnrolment.mockRejectedValueOnce(
+        new ConflictException('Authenticator is already set up.'),
+      );
+      await expect(start()).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('never begins enrolment unless BOTH codes are right', async () => {

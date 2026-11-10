@@ -299,6 +299,13 @@ export const REFERENCE_TABLES_CHILD_FIRST = [
   // (see that list's own [21.2.1] comment).
   'shifts',
   'academic_years',
+  // [Epic 98] RESTRICT-FK users; an owner a spec inserted must not block clearing users.
+  'platform_approvals',
+  'platform_settings',
+  'user_recovery_codes',
+  'user_mfa',
+  'platform_admin_devices',
+  'platform_admins',
   'auth_tokens',
   'user_tenants',
   'users',

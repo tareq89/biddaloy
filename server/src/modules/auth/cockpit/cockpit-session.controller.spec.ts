@@ -20,7 +20,9 @@ describe('CockpitSessionController', () => {
 
   beforeEach(() => {
     svc = {
-      refresh: vi.fn().mockResolvedValue({ accessToken: 'a', refreshCookieValue: 'c' }),
+      refresh: vi
+        .fn()
+        .mockResolvedValue({ accessToken: 'a', refreshCookieValue: 'c', absoluteLeftMs: 5000 }),
       end: vi.fn().mockResolvedValue(undefined),
       endAll: vi.fn().mockResolvedValue(undefined),
       endFamily: vi.fn().mockResolvedValue(true),
