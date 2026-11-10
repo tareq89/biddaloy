@@ -110,7 +110,7 @@ export async function replaceOwner(
       em.create(AuditLog, {
         tenant_id: null,
         action: AuditAction.PLATFORM_OWNER_REPLACED,
-        entity_type: 'platform_admin',
+        entity_type: 'PlatformAdmin',
         entity_id: newUser.id,
         performed_by_user_id: null,
         old_values: { user_id: oldUser.id },
