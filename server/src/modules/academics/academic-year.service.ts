@@ -18,6 +18,7 @@ import { QueryAcademicYearDto } from './dto/query-academic-year.dto';
 import { EnrollmentStatus, AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { yearClosed } from '../../common/filters/known-errors';
 
 export interface AcademicYearStats {
   classes_count: number;
@@ -398,13 +399,8 @@ export class AcademicYearService {
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<AcademicYear> {
     const target = await this.findOne(id, tenantId);
-    // A closed year is read-only and never current (D4, D21); #3511 maps this code.
-    if (target.closed_at) {
-      throw new ConflictException({
-        message: 'Academic year is closed',
-        details: { code: 'ACADEMIC_YEAR_CLOSED' },
-      });
-    }
+    // A closed year is read-only and never current (D4, D21).
+    if (target.closed_at) throw yearClosed();
 
     return this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(AcademicYear);
