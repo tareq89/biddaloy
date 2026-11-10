@@ -6,6 +6,7 @@ import { User } from '../../users/entities/user.entity';
 import { PlatformAdmin } from '../../platform-identity/entities/platform-admin.entity';
 import { PlatformAdminDevice } from '../../platform-identity/entities/platform-admin-device.entity';
 import { AccountAccessModule } from '../../account-access/account-access.module';
+import { PlatformIdentityModule } from '../../platform-identity/platform-identity.module';
 import { AuditModule } from '../../audit/audit.module';
 import { MfaModule } from '../mfa/mfa.module';
 import { CockpitJwtStrategy } from '../strategies/cockpit-jwt.strategy';
@@ -32,6 +33,7 @@ import { CockpitStepTokens } from './cockpit-step-token';
     AccountAccessModule,
     MfaModule,
     AuditModule,
+    PlatformIdentityModule, // PlatformAdminGuard needs PlatformHomeService
   ],
   controllers: [
     CockpitSessionController,
