@@ -45,7 +45,7 @@ export class CockpitEnrolController {
     @Body() dto: CockpitEnrolConfirmDto,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<CockpitEnrolConfirmResponse & { step: 'done'; access_token: string }> {
+  ): Promise<CockpitEnrolConfirmResponse> {
     const { recoveryCodes, session } = await this.enrol.confirm(dto, requestContext(request));
     setCockpitRefreshCookie(response, session.refreshCookieValue);
     if (session.deviceCookieValue) setCockpitDeviceCookie(response, session.deviceCookieValue);

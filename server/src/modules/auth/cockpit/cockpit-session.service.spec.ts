@@ -34,6 +34,7 @@ describe('CockpitSessionService', () => {
     tokens = {
       issueForUser: vi.fn().mockResolvedValue({ cookieValue: 'id.s', expiresAt: new Date() }),
       familyIdForCookie: vi.fn().mockResolvedValue('fam'),
+      userIdForCookie: vi.fn().mockResolvedValue('u1'),
       rotate: vi.fn().mockResolvedValue({ userId: 'u1', refreshToken: { cookieValue: 'id2.s2' } }),
       revokeFamily: vi.fn(),
       revokeByCookieValue: vi.fn(),
@@ -96,6 +97,8 @@ describe('CockpitSessionService', () => {
     users.findOne.mockResolvedValue({ id: 'u1', status: UserStatus.SUSPENDED });
     await expect(svc.refresh('c', ctx)).rejects.toBeInstanceOf(UnauthorizedException);
     expect(tokens.revokeFamily).toHaveBeenCalledWith(familyId);
+    // Checked before rotating: a dead owner never gets a fresh cookie.
+    expect(tokens.rotate).not.toHaveBeenCalled();
   });
 
   it('touch never resurrects an expired idle key', async () => {
