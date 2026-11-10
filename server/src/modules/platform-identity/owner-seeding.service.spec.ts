@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { Logger } from '@nestjs/common';
 import { OwnerSeedingService } from './owner-seeding.service';
 
 const build = () => {
@@ -28,9 +29,24 @@ describe('OwnerSeedingService (no database)', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('refuses to boot in production with nothing set, naming only the slot', async () => {
+  it('warns once and skips in production with nothing set, without throwing', async () => {
+    const { svc, transaction } = build();
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    await expect(svc.seed({ NODE_ENV: 'production' })).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(transaction).not.toHaveBeenCalled(); // no owners created
+    warn.mockRestore();
+  });
+
+  it('throws in production when only one slot is set, naming the slot', async () => {
     const { svc } = build();
-    await expect(svc.seed({ NODE_ENV: 'production' })).rejects.toThrow('COCKPIT_OWNER_1');
+    await expect(
+      svc.seed({
+        NODE_ENV: 'production',
+        COCKPIT_OWNER_1_EMAIL: 'a@x.test',
+        COCKPIT_OWNER_1_PHONE: '01711111111',
+      }),
+    ).rejects.toThrow('COCKPIT_OWNER_2');
   });
 
   it('refuses half a slot without echoing the value', async () => {
