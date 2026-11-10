@@ -99,6 +99,10 @@ export class School {
   @Column({ type: 'boolean', default: false })
   created_in_demo: boolean;
 
+  /** [Epic 98] The platform's own school; at most one row (partial unique index UQ_schools_one_platform). */
+  @Column({ type: 'boolean', default: false })
+  is_platform: boolean;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
