@@ -6,6 +6,7 @@ import { CommsProviderMissingRule } from './comms-provider-missing.rule';
 import { SetupIncompleteRule } from './setup-incomplete.rule';
 import { StaffInvitePendingRule } from './staff-invite-pending.rule';
 import { YearNextMissingRule } from './year-next-missing.rule';
+import { YearCloseDueRule } from './year-close-due.rule';
 
 const ctxAt = (iso: string, localDate: string): RuleContext => ({
   tenantId: 'T',
@@ -139,7 +140,32 @@ describe('YearNextMissingRule', () => {
       dedupeKey: 'academic_year:Y1',
       subject: { type: 'academic_year', id: 'Y1' },
       params: { year: '2026', endDate: '2026-12-31' },
+      actionUrl: '/academic-years/Y1/next',
     });
     expectMessagesSane(rule, 'year.next_missing', f.params);
+  });
+});
+
+describe('YearCloseDueRule', () => {
+  const make = (rows: unknown[]) => {
+    const ds = { query: vi.fn().mockResolvedValueOnce(rows).mockResolvedValueOnce(ADMIN_ROWS) };
+    return { rule: new YearCloseDueRule(ds as never), ds };
+  };
+
+  it('looks 60 days behind the LOCAL date', async () => {
+    const a = make([]);
+    await a.rule.evaluate(ctx);
+    expect(a.ds.query.mock.calls[0][1]).toEqual(['T', '2026-08-10']);
+  });
+
+  it('fires per year and links to the year page', async () => {
+    const { rule } = make([{ id: 'Y1', name: '2025', end_date: '2025-12-31' }]);
+    const [f] = await rule.evaluate(ctx);
+    expect(f).toMatchObject({
+      dedupeKey: 'academic_year:Y1',
+      subject: { type: 'academic_year', id: 'Y1' },
+      actionUrl: '/academic-years/Y1',
+    });
+    expectMessagesSane(rule, 'year.close_due', f.params);
   });
 });
