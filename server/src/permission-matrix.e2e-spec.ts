@@ -936,6 +936,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // `@RequirePermissions` would also block override-free commits, which
   // only need PROMOTION_MANAGE.
   Permission.PROMOTION_OVERRIDE,
+  // [69.1.01] Granted to ADMIN + TEACHER ahead of its routes. [69.4.01] (#3533) gates
+  // GET/PATCH /promotions/runs/:id/groups and removes it from this list.
+  Permission.PROMOTION_GROUP_SET,
   // [34.2.1] PROGRAM_RECORD now gates POST /programs/:id/achievements and
   // DELETE /milestone-achievements/:id — no longer UI-only, removed from
   // this list.
