@@ -12,6 +12,12 @@ import { AttendanceDevice } from '../../attendance/entities/attendance-device.en
 import { AttendanceImport } from '../../attendance/entities/attendance-import.entity';
 import { AttendanceDeviceEvent } from '../../attendance/entities/attendance-device-event.entity';
 import { Alert } from '../../attention/entities/alert.entity';
+import { PlatformAdmin } from '../../platform-identity/entities/platform-admin.entity';
+import { PlatformAdminDevice } from '../../platform-identity/entities/platform-admin-device.entity';
+import { PlatformApproval } from '../../platform-identity/entities/platform-approval.entity';
+import { PlatformSetting } from '../../platform-identity/entities/platform-setting.entity';
+import { UserMfa } from '../../platform-identity/entities/user-mfa.entity';
+import { UserRecoveryCode } from '../../platform-identity/entities/user-recovery-code.entity';
 import { PlatformAlert } from '../../health/platform-alerts/platform-alert.entity';
 import { AlertRecipient } from '../../attention/entities/alert-recipient.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
@@ -73,6 +79,30 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
     'Platform-owned billing money (Epic 49): the school pays the platform, so it never enters the school workbook.',
   ],
   [PlatformPayment, 'Platform-owned billing payment record (Epic 49), not school data.'],
+  [
+    PlatformAdmin,
+    'Cockpit identity (Epic 98): platform data, covered by the nightly database backup, not by the school workbook.',
+  ],
+  [
+    PlatformAdminDevice,
+    'Cockpit identity (Epic 98): platform data, covered by the nightly database backup, not by the school workbook.',
+  ],
+  [
+    PlatformApproval,
+    'Cockpit identity (Epic 98): platform data, covered by the nightly database backup, not by the school workbook.',
+  ],
+  [
+    PlatformSetting,
+    'Cockpit identity (Epic 98): platform data, covered by the nightly database backup, not by the school workbook.',
+  ],
+  [
+    UserMfa,
+    'Cockpit identity (Epic 98): platform data, covered by the nightly database backup, not by the school workbook.',
+  ],
+  [
+    UserRecoveryCode,
+    'Cockpit identity (Epic 98): platform data, covered by the nightly database backup, not by the school workbook.',
+  ],
   [PlatformAlert, 'Platform-only incident state (Redis outage), not school data.'],
   [
     AlertRecipient,

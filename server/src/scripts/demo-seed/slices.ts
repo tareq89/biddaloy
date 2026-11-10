@@ -43,6 +43,12 @@ export const SLICES: DemoSlice[] = [
 /** Entities that no slice fills, with the reason. `demo-seed.coverage.integration.spec.ts` reads this. */
 export const EXEMPT: Record<string, string> = {
   PlatformAlert: 'platform incident state, not school data',
+  PlatformAdmin: 'platform data, no cockpit on demo',
+  PlatformAdminDevice: 'platform data, no cockpit on demo',
+  PlatformApproval: 'platform data, no cockpit on demo',
+  PlatformSetting: 'platform data, no cockpit on demo',
+  UserMfa: 'platform data, no cockpit on demo',
+  UserRecoveryCode: 'platform data, no cockpit on demo',
   PushSubscription: 'push is off in the demo (D2)',
   RefreshToken: 'login state, minted by real sign-ins',
   AuthToken: 'login state: reset / verification tokens',
