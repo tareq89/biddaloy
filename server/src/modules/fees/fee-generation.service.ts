@@ -1,3 +1,4 @@
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { autoApply } from './wallet-auto-apply.util';
 import { returnMoneyOfRemovedBills } from './removed-bill-money';
@@ -306,6 +307,8 @@ export class FeeGenerationService {
     let studentCount = 0;
 
     const runBody = async (manager: EntityManager): Promise<void> => {
+      // [69.3.03] A closed year takes no new bills (D4); payments are not guarded.
+      await assertYearOpen(manager, tenantId, dto.academic_year_id);
       const context = await this.loadContext(dto, tenantId, manager, { lockStudents: true });
       inactiveSkipped = context.inactiveStudents.map(toInactiveDto);
       const targetStudents = dto.include_inactive
