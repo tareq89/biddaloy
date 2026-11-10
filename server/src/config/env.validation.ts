@@ -307,6 +307,51 @@ class EnvironmentVariables {
   @IsString()
   PLATFORM_TENANT_ID?: string;
 
+  // Host the platform cockpit is served on (required in production, D6).
+  @IsOptional()
+  @IsString()
+  COCKPIT_DOMAIN?: string;
+
+  // First platform owner's email; seeded at boot. Required in production.
+  @IsOptional()
+  @IsString()
+  COCKPIT_OWNER_1_EMAIL?: string;
+
+  // First platform owner's phone, E.164. Required in production.
+  @IsOptional()
+  @IsString()
+  COCKPIT_OWNER_1_PHONE?: string;
+
+  // Second platform owner's email; must differ from owner 1. Required in production.
+  @IsOptional()
+  @IsString()
+  COCKPIT_OWNER_2_EMAIL?: string;
+
+  // Second platform owner's phone, E.164; must differ from owner 1. Required in production.
+  @IsOptional()
+  @IsString()
+  COCKPIT_OWNER_2_PHONE?: string;
+
+  // Fixed TOTP secret for tests. Refused whenever NODE_ENV=production (D16).
+  @IsOptional()
+  @IsString()
+  COCKPIT_TEST_TOTP_SECRET?: string;
+
+  // Smoke-test cockpit login email. Allowed only when ENV_NAME=staging (D17).
+  @IsOptional()
+  @IsString()
+  SMOKE_COCKPIT_EMAIL?: string;
+
+  // Smoke-test cockpit login password. Allowed only when ENV_NAME=staging (D17).
+  @IsOptional()
+  @IsString()
+  SMOKE_COCKPIT_PASSWORD?: string;
+
+  // Smoke-test cockpit TOTP secret. Allowed only when ENV_NAME=staging (D17).
+  @IsOptional()
+  @IsString()
+  SMOKE_COCKPIT_TOTP_SECRET?: string;
+
   // [17.2.4] Timeout for each outbound call `PublicHolidayFetchService`
   // makes (Google ICS, then the Nager.Date fallback). Unset defaults to
   // 8000ms — see `PublicHolidayFetchService.timeoutMs()`.
@@ -450,6 +495,16 @@ export function validate(config: Record<string, unknown>) {
   return validatedConfig;
 }
 
+const COCKPIT_REQUIRED = [
+  'COCKPIT_DOMAIN',
+  'COCKPIT_OWNER_1_EMAIL',
+  'COCKPIT_OWNER_1_PHONE',
+  'COCKPIT_OWNER_2_EMAIL',
+  'COCKPIT_OWNER_2_PHONE',
+] as const;
+const OWNER_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const E164 = /^\+[1-9]\d{7,14}$/;
+
 const PLACEHOLDER = /change-?me|replace-?me|do-not-use|placeholder|example/i;
 const PLACEHOLDER_KEYS = [
   'JWT_SECRET',
@@ -574,6 +629,43 @@ export function assertProductionConfig(config: Record<string, unknown>): void {
 
   if (str('OUTBOUND_TEST_ALLOW_LOOPBACK')) {
     problems.push('OUTBOUND_TEST_ALLOW_LOOPBACK is a test-only flag and must not be set');
+  }
+
+  // [98 D6, D16, D17] Cockpit owners: both required unless demo; test TOTP secret never on production.
+  if (str('DEMO_MODE') !== 'true') {
+    for (const key of COCKPIT_REQUIRED) {
+      if (!str(key)) problems.push(`${key} is required in production`);
+    }
+    const [e1, e2] = [str('COCKPIT_OWNER_1_EMAIL'), str('COCKPIT_OWNER_2_EMAIL')];
+    for (const key of ['COCKPIT_OWNER_1_EMAIL', 'COCKPIT_OWNER_2_EMAIL']) {
+      if (str(key) && !OWNER_EMAIL.test(str(key))) problems.push(`${key} must be a valid email`);
+    }
+    for (const key of ['COCKPIT_OWNER_1_PHONE', 'COCKPIT_OWNER_2_PHONE']) {
+      if (str(key) && !E164.test(str(key))) problems.push(`${key} must be an E.164 phone number`);
+    }
+    if (e1 && e1.toLowerCase() === e2.toLowerCase()) {
+      problems.push('COCKPIT_OWNER_1_EMAIL and COCKPIT_OWNER_2_EMAIL must differ');
+    }
+    if (
+      str('COCKPIT_OWNER_1_PHONE') &&
+      str('COCKPIT_OWNER_1_PHONE') === str('COCKPIT_OWNER_2_PHONE')
+    ) {
+      problems.push('COCKPIT_OWNER_1_PHONE and COCKPIT_OWNER_2_PHONE must differ');
+    }
+  }
+  if (str('COCKPIT_TEST_TOTP_SECRET')) {
+    problems.push(
+      'COCKPIT_TEST_TOTP_SECRET is a test-only value and must not be set in production',
+    );
+  }
+  if (str('ENV_NAME') !== 'staging') {
+    for (const key of [
+      'SMOKE_COCKPIT_EMAIL',
+      'SMOKE_COCKPIT_PASSWORD',
+      'SMOKE_COCKPIT_TOTP_SECRET',
+    ]) {
+      if (str(key)) problems.push(`${key} is allowed only when ENV_NAME=staging`);
+    }
   }
 
   if (problems.length > 0) {
