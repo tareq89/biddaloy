@@ -363,6 +363,18 @@ export {
 } from './password-checklist';
 export { SetPasswordForm, type SetPasswordFormProps } from './set-password-form';
 export { OtpInput, type OtpInputProps } from './otp-input';
+export { CodeField, type CodeFieldProps, type CodeFieldVariant } from './code-field';
+export {
+  RecoveryCodesCard,
+  RECOVERY_CODES_FILENAME,
+  type RecoveryCodesCardProps,
+  type RecoveryCodesCardLabels,
+} from './recovery-codes-card';
+export {
+  AuthenticatorSetupCard,
+  type AuthenticatorSetupCardProps,
+  type AuthenticatorSetupCardLabels,
+} from './authenticator-setup-card';
 export {
   OtpSignInForm,
   type OtpSignInFormProps,
