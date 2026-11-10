@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import * as os from 'os';
 import { DataSource, EntityManager } from 'typeorm';
 import { AuditAction, UserStatus } from '@biddaloy/shared';
 import { User } from '../modules/users/entities/user.entity';
@@ -53,6 +54,9 @@ export function validateReplaceInput(input: ReplaceOwnerInput): string | null {
   return null;
 }
 
+/** pg advisory lock key; serialises concurrent replaces so the "another owner remains" count is race-free. */
+export const REPLACE_OWNER_LOCK_KEY = 98001001;
+
 export async function replaceOwner(
   ds: DataSource,
   input: ReplaceOwnerInput,
@@ -64,6 +68,8 @@ export async function replaceOwner(
   const newPhone = input.newPhone.trim();
 
   return ds.transaction(async (em) => {
+    await em.query('SELECT pg_advisory_xact_lock($1)', [REPLACE_OWNER_LOCK_KEY]);
+    // users.email is globally unique (UQ constraint, not per tenant), so this lookup is unambiguous.
     const oldUser = await em.findOne(User, { where: { email: oldEmail } });
     const oldOwner =
       oldUser && (await em.findOne(PlatformAdmin, { where: { user_id: oldUser.id } }));
@@ -108,7 +114,8 @@ export async function replaceOwner(
         entity_id: newUser.id,
         performed_by_user_id: null,
         old_values: { user_id: oldUser.id },
-        new_values: { user_id: newUser.id },
+        // performed_by is null (CLI): record the OS user who ran it (not PII).
+        new_values: { user_id: newUser.id, operator: os.userInfo().username },
       }),
     );
     return { oldUserId: oldUser.id, newUserId: newUser.id };
