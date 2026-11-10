@@ -129,6 +129,17 @@
     fail_msg: 'EDGE_MODE in edge.enc.env must be tunnel or direct'
     quiet: true
   when: stack == 'edge'
+- name: Check STAGING_SITE_HOSTS is present (may be empty) and holds only staging school hosts
+  ansible.builtin.assert:
+    that:
+      - secret_env.edge.STAGING_SITE_HOSTS is defined
+      - >-
+        (secret_env.edge.STAGING_SITE_HOSTS | default('')).split()
+        | reject('match', '^[a-z0-9][a-z0-9-]*-staging\\.' ~ (secret_env.edge.ROOT_DOMAIN | default('') | regex_escape) ~ '$')
+        | list | length == 0
+    fail_msg: 'STAGING_SITE_HOSTS in infra/secrets/edge.enc.env must exist (empty is fine) and hold lower-case <school>-staging.<ROOT_DOMAIN> names, space separated'
+    quiet: true
+  when: stack == 'edge'
 - name: Check the edge settings
   ansible.builtin.assert:
     that: (secret_env.edge[item] | default('')) | length > 0

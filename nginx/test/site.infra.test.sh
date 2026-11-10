@@ -72,7 +72,7 @@ start_edge() { # <mode>
   docker volume rm "$CACHEVOL" >/dev/null 2>&1 || true
   docker volume create "$CACHEVOL" >/dev/null
   docker run -d --name site-edge --network "$NET" --ip "$EDGE_IP" -e "EDGE_MODE=$1" \
-    -e EDGE_TRUSTED_CIDR=172.30.97.0/24 -e APP_DOMAIN=example.test -e "STAGING_DOMAIN=staging.$ROOT" -e "DEMO_DOMAIN=demo.$ROOT" -e "KUMA_DOMAIN=kuma.$ROOT" -e "LANDING_DOMAIN=$ROOT" -e "ROOT_DOMAIN=$ROOT" -e OPS_UPSTREAM_HOST= \
+    -e EDGE_TRUSTED_CIDR=172.30.97.0/24 -e APP_DOMAIN=example.test -e "STAGING_DOMAIN=staging.$ROOT" -e "DEMO_DOMAIN=demo.$ROOT" -e "KUMA_DOMAIN=kuma.$ROOT" -e "LANDING_DOMAIN=$ROOT" -e "ROOT_DOMAIN=$ROOT" -e "STAGING_SITE_HOSTS=x-staging.$ROOT listed-staging.$ROOT" -e OPS_UPSTREAM_HOST= \
     -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
     -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
     -v "$PWD/nginx/edge-mode.sh:/docker-entrypoint.d/15-edge-mode.sh:ro" \
@@ -87,9 +87,9 @@ start_edge() { # <mode>
 
 # Plain-HTTP helpers against <port> (80 fixed hosts, 8081 school sites). Empty / 000 on a dropped request.
 RES() { echo "--resolve $2:$1:$EDGE_IP"; }
-hdrs() { docker run --rm --network "$NET" "$CURL_IMG" -sI $(RES "$1" "$2") "http://$2:$1$3" | tr -d '\r' || true; }
-body() { docker run --rm --network "$NET" "$CURL_IMG" -s $(RES "$1" "$2") "http://$2:$1$3" || true; }
-code() { docker run --rm --network "$NET" "$CURL_IMG" -s -o /dev/null -w '%{http_code}' $(RES "$1" "$2") "http://$2:$1$3" || true; }
+hdrs() { docker run --rm --network "$NET" "$CURL_IMG" -sI -H "Host: $2" $(RES "$1" "$2") "http://$2:$1$3" | tr -d '\r' || true; }
+body() { docker run --rm --network "$NET" "$CURL_IMG" -s -H "Host: $2" $(RES "$1" "$2") "http://$2:$1$3" || true; }
+code() { docker run --rm --network "$NET" "$CURL_IMG" -s -o /dev/null -w '%{http_code}' -H "Host: $2" $(RES "$1" "$2") "http://$2:$1$3" || true; }
 # like body, with one extra request header
 body_h() { docker run --rm --network "$NET" "$CURL_IMG" -s -H "$4" $(RES "$1" "$2") "http://$2:$1$3" || true; }
 
@@ -155,6 +155,14 @@ run_mode() { # <mode>
   c=$(code 8081 "X-STAGING.$ROOT" /); [ "$c" = 000 ] && pass "$mode: upper-case staging school host dropped (444)" || fail "$mode: staging case" "$c"
   c=$(code 8081 "x-staging.$ROOT." /); [ "$c" = 000 ] && pass "$mode: trailing-dot staging school host dropped (444)" || fail "$mode: staging dot" "$c"
   c=$(docker run --rm --network "$NET" "$CURL_IMG" -s -o /dev/null -w '%{http_code}' -H "Host: x-staging.$ROOT:8081" "http://$EDGE_IP:8081/" || true); [ "$c" = 000 ] && pass "$mode: staging school host with a port dropped (444)" || fail "$mode: staging port" "$c"
+  c=$(code 8081 "X-staging.$ROOT" /); [ "$c" = 000 ] && pass "$mode: mixed-case staging school host dropped (444)" || fail "$mode: staging mixed case" "$c"
+  b=$(body 8081 "listed-staging.$ROOT" /env/); [[ "$b" == "site-staging-ok host=listed-staging.$ROOT "* ]] && pass "$mode: listed staging school host, clean name, served" || fail "$mode: listed staging" "$b"
+  # Fail closed: a -staging host NOT in STAGING_SITE_HOSTS has no cloudflared Access rule (it falls to the
+  # catch-all), so nginx must refuse it, whatever the spelling.
+  c=$(code 8081 "unlisted-staging.$ROOT" /); [ "$c" = 000 ] && pass "$mode: unlisted staging school host dropped (444)" || fail "$mode: unlisted staging" "$c"
+  c=$(code 8081 "UNLISTED-staging.$ROOT" /); [ "$c" = 000 ] && pass "$mode: unlisted staging school host, upper case, dropped (444)" || fail "$mode: unlisted staging case" "$c"
+  # Look-alike: -staging in the middle of a label is a prod school, not a staging one.
+  b=$(body 8081 "a-staging-b.$ROOT" /env/); [[ "$b" == "site-ok host=a-staging-b.$ROOT "* ]] && pass "$mode: a-staging-b.<root> is not staging (prod site)" || fail "$mode: staging look-alike" "$b"
   # no regression: demo and prod school hosts keep working in any spelling
   b=$(body 8081 "X-DEMO.$ROOT" /env/); [[ "$b" == "site-demo-ok host=x-demo.$ROOT "* ]] && pass "$mode: upper-case demo school host still served" || fail "$mode: demo case" "$b"
   b=$(body 8081 "x-demo.$ROOT." /env/); [[ "$b" == "site-demo-ok host=x-demo.$ROOT "* ]] && pass "$mode: trailing-dot demo school host still served" || fail "$mode: demo dot" "$b"

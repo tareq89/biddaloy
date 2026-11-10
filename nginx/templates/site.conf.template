@@ -67,13 +67,17 @@ server {
     if ($site_host_ok = 0) {
         return 444;
     }
-    # #3715: a staging school host is served only as the clean name cloudflared's Access rule
-    # matched. $host is lower-cased, dot- and port-free; $http_host is what was sent.
-    set $staging_check $site_is_staging;
+    # #3715: a staging school host is served only when it is on STAGING_SITE_HOSTS (the hosts
+    # cloudflared checks Access for) and arrives as the clean name its rule matched. $host is
+    # lower-cased, dot- and port-free; $http_host is what was sent.
+    if ($site_staging_state = unlisted) {
+        return 444;
+    }
+    set $staging_check $site_staging_state;
     if ($http_host != $host) {
         set $staging_check "${staging_check}x";
     }
-    if ($staging_check = "1x") {
+    if ($staging_check = "listedx") {
         return 444;
     }
 
