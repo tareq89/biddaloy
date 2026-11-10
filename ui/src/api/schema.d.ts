@@ -11896,7 +11896,6 @@ export interface components {
             /** Format: date-time */
             closed_at: string | null;
             closed_by_user_id: string | null;
-            closed_by: components["schemas"]["User"] | null;
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** Format: date-time */
