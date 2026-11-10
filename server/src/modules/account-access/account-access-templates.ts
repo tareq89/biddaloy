@@ -17,7 +17,9 @@ export type TemplateKind =
   | 'COCKPIT_ENROL_CODE'
   | 'COCKPIT_SIGNIN_NOTICE'
   | 'COCKPIT_RECOVERY_NOTICE'
-  | 'COCKPIT_LOCKOUT_ALERT';
+  | 'COCKPIT_LOCKOUT_ALERT'
+  /** [Epic 98] The other owner asked for a two-person approval. `detail` is a short summary, no secret. */
+  | 'PLATFORM_APPROVAL_REQUEST';
 export type TemplateMedium = 'SMS' | 'EMAIL';
 export type TemplateLocale = 'bn' | 'en';
 
@@ -335,6 +337,24 @@ const TEMPLATES: Record<
       bn: {
         subject: 'একটি রিকভারি কোড ব্যবহার হয়েছে',
         body: '{{name}},\n\nআপনার মালিক অ্যাকাউন্টে সাইন-ইনে একটি রিকভারি কোড ব্যবহার হয়েছে। আর {{count}}টি রিকভারি কোড বাকি। এটি আপনি না হলে এখনই অ্যাকাউন্ট লক করুন।',
+      },
+    },
+  },
+  PLATFORM_APPROVAL_REQUEST: {
+    SMS: {
+      en: {
+        body: '{{school}}: the other owner asks for your approval: {{detail}}. Open the cockpit.',
+      },
+      bn: { body: '{{school}}: অন্য মালিক আপনার অনুমোদন চেয়েছেন: {{detail}}। ককপিট খুলুন।' },
+    },
+    EMAIL: {
+      en: {
+        subject: 'Approval requested',
+        body: 'Hi {{name}},\n\nThe other owner asks for your approval: {{detail}}.\n\nOpen the cockpit to approve or deny. The request expires in 24 hours.',
+      },
+      bn: {
+        subject: 'অনুমোদনের অনুরোধ',
+        body: '{{name}},\n\nঅন্য মালিক আপনার অনুমোদন চেয়েছেন: {{detail}}।\n\nককপিট খুলে অনুমোদন বা প্রত্যাখ্যান করুন। অনুরোধটি ২৪ ঘণ্টায় মেয়াদোত্তীর্ণ হবে।',
       },
     },
   },
