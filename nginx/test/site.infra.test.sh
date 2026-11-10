@@ -229,6 +229,10 @@ run_mode() { # <mode>
   h=$(hdrs 8081 "rumsc.$ROOT" /media/logo)
   grep -qi '^cache-control: public, max-age=300$' <<<"$h" && ! grep -qi 'immutable\|no-store' <<<"$h" \
     && pass "$mode: /media/logo is short-cached (max-age=300), not immutable" || fail "$mode: logo cache-control" "$h"
+  # #3714: a renamed address answers 301 for the logo too; that 301 must not carry max-age=300.
+  h=$(hdrs 8081 "moved-logo.$ROOT" /media/logo)
+  grep -q '^HTTP/1.1 301' <<<"$h" && grep -qi '^cache-control: no-store' <<<"$h" && ! grep -qi 'max-age' <<<"$h" \
+    && pass "$mode: a /media/logo 301 carries no-store, never max-age=300" || fail "$mode: logo 301 cache-control" "$h"
   b=$(body 8081 "rumsc.$ROOT" /media/logo)
   [[ "$b" == "app-ok uri=/api/v1/public/site/by-host/rumsc.$ROOT/media/logo "* ]] \
     && pass "$mode: /media/logo maps to the by-host media API" || fail "$mode: logo rewrite" "$b"

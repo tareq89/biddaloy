@@ -44,7 +44,7 @@ async function load(root: HTMLElement) {
     for (const n of items) {
       const a = document.createElement('a');
       a.className = 'notice';
-      a.href = `/${lang}/notices/`;
+      a.href = `${root.dataset.base ?? ''}/${lang}/notices/`;
       const d = new Date(n.date ?? n.publishedAt ?? '');
       const date = document.createElement('span');
       date.className = 'date';

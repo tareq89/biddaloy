@@ -11,6 +11,7 @@ interface Props {
   pageLink?: boolean;
 }
 const { album, lang, pageLink = false } = Astro.props;
+const pre = Astro.locals.base ?? '';
 const photos = album.photos.slice(0, GALLERY_CAROUSEL_MAX);
 const title = pick(album.title, lang) ?? '';
 const many = photos.length > 1;
@@ -37,7 +38,7 @@ const many = photos.length > 1;
         </div>
       )}
     </div>
-    {pageLink && <p class="seeall"><a href={`/${lang}/gallery/`}>{t(lang, 'gallery.all')}</a></p>}
+    {pageLink && <p class="seeall"><a href={`${pre}/${lang}/gallery/`}>{t(lang, 'gallery.all')}</a></p>}
   </div>
 )}
 <script>

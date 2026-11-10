@@ -4,6 +4,7 @@ import { field } from '../../../lib/pick';
 import type { SectionProps } from '../../../lib/types';
 
 const { data, lang, feed, page } = Astro.props as SectionProps;
+const pre = Astro.locals.base ?? '';
 const title = field(data.title, lang) ?? t(lang, 'section.teachers');
 const s = (v: unknown) => (typeof v === 'string' ? v : undefined);
 const name = (p: Record<string, unknown>) => field(p.name, lang) ?? s(p.name) ?? '';
@@ -29,5 +30,5 @@ const showAll = page === undefined || page === 'home';
       ))}
     </div>
   )}
-  {showAll && <p class="seeall"><a href={`/${lang}/teachers/`}>{t(lang, 'teachers.all')}</a></p>}
+  {showAll && <p class="seeall"><a href={`${pre}/${lang}/teachers/`}>{t(lang, 'teachers.all')}</a></p>}
 </div></section>
