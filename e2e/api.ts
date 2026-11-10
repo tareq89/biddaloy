@@ -919,7 +919,7 @@ export async function loginAsFreshUser(
   };
 }
 
-/** `GET /schools` (#533) — every school on the platform, SUPER_ADMIN only.
+/** `GET /platform/schools` (#533) — every school on the platform, SUPER_ADMIN only.
  * Used by `e2e/platform/provision-and-suspend.spec.ts` (#536) to resolve
  * the already-seeded "Rose Valley School" (`seed.util.ts`'s
  * `ensureSecondSchoolMembership`) to an id without any DB access. */
@@ -928,13 +928,13 @@ export async function findSchoolIdBySlug(
   session: ApiSession,
   slug: string,
 ): Promise<string> {
-  const schools = await get<{ id: string; slug: string }[]>(request, session, '/schools');
+  const schools = await get<{ id: string; slug: string }[]>(request, session, '/platform/schools');
   const found = schools.find((school) => school.slug === slug);
   if (!found) throw new Error(`No seeded school with slug "${slug}" (GET /schools)`);
   return found.id;
 }
 
-/** `POST /schools/:id/admins` (#531) — adds an existing (or new) user as
+/** `POST /platform/schools/:id/admins` (#531) — adds an existing (or new) user as
  * ADMIN of `schoolId`, matched by email. [68.1.14] A *verified* user who is
  * not yet a member is not enrolled: they get a JOIN_SCHOOL request
  * (`invitation.status === 'PENDING'`, `invitation.id` = the request) that
@@ -950,7 +950,7 @@ export async function addSchoolAdmin(
   const created = await post<{
     admin: { user_id: string; existed: boolean };
     invitation: { id: string; status: string };
-  }>(request, session, `/schools/${schoolId}/admins`, { name: fullName, email });
+  }>(request, session, `/platform/schools/${schoolId}/admins`, { name: fullName, email });
   return { userId: created.admin.user_id, invitation: created.invitation };
 }
 
@@ -970,9 +970,9 @@ export async function acceptSchoolInvite(
   }
 }
 
-/** `POST /schools/:id/admins/:userId/resend-invitation` — #536's own
+/** `POST /platform/schools/:id/admins/:userId/resend-invitation` — #536's own
  * addition to `SchoolAdminsService.resendInvitation` (see that method's
- * doc comment): a `POST /schools`/`POST /schools/:id/admins`-created
+ * doc comment): a `POST /platform/schools`/`POST /schools/:id/admins`-created
  * ADMIN has no ADMIN-scoped route to reach the
  * `ACCOUNT_ACCESS_ECHO_SECRETS` debug echo `createInvitedStaffUser`
  * above relies on (that route requires the ADMIN to already be signed
@@ -988,7 +988,7 @@ export async function resendSchoolAdminInvitation(
   const result = await post<{ debug?: { token: string } }>(
     request,
     session,
-    `/schools/${schoolId}/admins/${userId}/resend-invitation`,
+    `/platform/schools/${schoolId}/admins/${userId}/resend-invitation`,
     {},
   );
   const token = result.debug?.token;
@@ -1001,7 +1001,7 @@ export async function resendSchoolAdminInvitation(
   return token;
 }
 
-/** `POST /schools` (#529) — creates a school and its first ADMIN
+/** `POST /platform/schools` (#529) — creates a school and its first ADMIN
  * atomically, SUPER_ADMIN only. [14.11.4]'s `journeys/backup-restore.spec.ts`
  * uses this to seed a *dedicated* tenant rather than the shared default
  * one: a successful restore rewrites the whole tenant, and
@@ -1020,7 +1020,7 @@ export async function provisionSchool(
   const created = await post<{ school: { id: string }; admin: { user_id: string } }>(
     request,
     session,
-    '/schools',
+    '/platform/schools',
     {
       name,
       slug,

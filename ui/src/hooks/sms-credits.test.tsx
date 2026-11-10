@@ -47,7 +47,7 @@ describe('useSmsCredits', () => {
 
   it('does not carry a placeholder from one schoolId into another', async () => {
     server.use(
-      http.get('/api/v1/schools/school-1/sms-credits', () =>
+      http.get('/api/v1/platform/schools/school-1/sms-credits', () =>
         HttpResponse.json({
           metering: 'PLATFORM',
           available: 100,
@@ -55,7 +55,7 @@ describe('useSmsCredits', () => {
           ledger: { data: [], total: 0, page: 1, limit: 20, totalPages: 1 },
         }),
       ),
-      http.get('/api/v1/schools/school-2/sms-credits', () =>
+      http.get('/api/v1/platform/schools/school-2/sms-credits', () =>
         HttpResponse.json({
           metering: 'PLATFORM',
           available: 40,
@@ -86,7 +86,7 @@ describe('useSmsCredits', () => {
 describe('useGrantSmsCredits', () => {
   it('posts the grant and resolves the new balance', async () => {
     server.use(
-      http.post('/api/v1/schools/:id/sms-credits', async ({ params, request }) => {
+      http.post('/api/v1/platform/schools/:id/sms-credits', async ({ params, request }) => {
         const body = (await request.json()) as { units: number; reason: string };
         expect(params.id).toBe('school-1');
         expect(body.units).toBe(100);
@@ -108,12 +108,12 @@ describe('useGrantSmsCredits', () => {
 
   it('surfaces a server error via isError, not a thrown exception', async () => {
     server.use(
-      http.post('/api/v1/schools/:id/sms-credits', () =>
+      http.post('/api/v1/platform/schools/:id/sms-credits', () =>
         HttpResponse.json(
           apiErrorBody(
             400,
             'units must be a non-zero integer',
-            '/api/v1/schools/school-1/sms-credits',
+            '/api/v1/platform/schools/school-1/sms-credits',
           ),
           {
             status: 400,
