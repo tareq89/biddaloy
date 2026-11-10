@@ -178,6 +178,41 @@ esac
     printf '    "~^[a-z0-9][a-z0-9-]*-(demo|staging)\\.%s$" noindex;\n' "$root_re"
   fi
   echo '}'
+  # Staging school hosts (#3715). cloudflared's Access rule is one exact hostname per listed
+  # school (it cannot match "*-staging.<root>", only a leading "*."), so nginx must agree with
+  # that list and fail closed: a -staging host NOT in STAGING_SITE_HOSTS gets "unlisted" (444),
+  # a listed one gets "listed" (site.conf.template then also insists on the clean spelling, as
+  # cloudflared matches names case-sensitively). Exact names come first, so they beat the regex.
+  # Example: STAGING_SITE_HOSTS="model-school-staging.schools.test" -> that host "listed",
+  # any other x-staging.schools.test "unlisted", demo / prod hosts "" (untouched).
+  echo 'map $host $site_staging_state {'
+  echo '    default "";'
+  if [ -n "$site_root" ]; then
+    seen=" "
+    # Two checks guard this list. Preflight (infra/ansible/tasks/preflight.yml) is the fast, early
+    # catch at deploy time; this script, plus $site_host_ok in site.conf.template, is the one that
+    # decides at start-up. They differ in three edge cases, all failing closed (no host is served
+    # that should not be): "a.b-staging.<root>" passes here (the case "*" crosses dots) but not
+    # preflight; an upper-case ROOT_DOMAIN is lower-cased here but used raw by preflight; a school
+    # label over 30 characters passes both, then $site_host_ok answers 444.
+    set -f # split on spaces only: "*-staging.<root>" must hit the case below, not match a file
+    for h in ${STAGING_SITE_HOSTS:-}; do
+      # No silent lower-casing: cloudflared uses each entry verbatim and matches case-sensitively,
+      # so an upper-case entry would pass here yet never match its Access rule.
+      case "$h" in
+        *[!a-z0-9.-]* | .* | *. | -* | *..*) die "STAGING_SITE_HOSTS entry must be a lower-case host name (got '$h')" ;;
+        [a-z0-9]*-staging."$site_root") ;;
+        *) die "STAGING_SITE_HOSTS entry must be <school>-staging.$site_root (got '$h')" ;;
+      esac
+      # A duplicate would make nginx refuse to start ("conflicting parameter" in the map).
+      case "$seen" in *" $h "*) die "STAGING_SITE_HOSTS lists '$h' twice" ;; esac
+      seen="$seen$h "
+      printf '    "%s" listed;\n' "$h"
+    done
+    set +f
+    printf '    "~^[a-z0-9][a-z0-9-]*-staging\\.%s$" unlisted;\n' "$root_re"
+  fi
+  echo '}'
 } >"$CONF_DIR/01-site-host.conf"
 
 # Ops-less hosts (OPS_UPSTREAM_HOST empty): conf.d/ops.conf is removed by reload-loop.sh,

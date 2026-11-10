@@ -147,6 +147,37 @@ out=$(docker run --rm -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=$TRUSTED -e ROOT_
 [[ "$out" == *"default 0;"* && "$out" != *'" 1;'* ]] \
   && pass "empty ROOT_DOMAIN: every host answers 0 (444)" || fail "empty ROOT_DOMAIN gate" "$out"
 
+# STAGING_SITE_HOSTS (#3715): a duplicate would make nginx refuse to start, an upper-case entry would
+# never match cloudflared's case-sensitive rule, a wrong root or non-host value is a typo. All stop the
+# container with a clear reason; a clean list is written as exact "listed" lines.
+for case_ in "a-staging.schools.test a-staging.schools.test|twice" "A-staging.schools.test|lower-case host name" \
+  "a-staging.other.test|must be <school>-staging.schools.test" "a-demo.schools.test|must be <school>-staging.schools.test" \
+  "a;b-staging.schools.test|lower-case host name"; do
+  val=${case_%%|*}; want=${case_##*|}
+  set +e
+  out=$(docker run --rm -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=198.51.100.0/24 -e ROOT_DOMAIN=schools.test -e APP_DOMAIN=example.test \
+    -e "STAGING_SITE_HOSTS=$val" -v "$PWD/nginx/edge-mode.sh:/e.sh:ro" --entrypoint sh "$NGINX_IMG" -c 'sh /e.sh' 2>&1)
+  rc=$?
+  set -e
+  [[ "$rc" != 0 && "$out" == *"STAGING_SITE_HOSTS"* && "$out" == *"$want"* ]] \
+    && pass "bad STAGING_SITE_HOSTS refused at start ($val)" || fail "bad STAGING_SITE_HOSTS $val" "exit=$rc $out"
+done
+out=$(docker run --rm -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=198.51.100.0/24 -e ROOT_DOMAIN=schools.test -e APP_DOMAIN=example.test \
+  -e "STAGING_SITE_HOSTS=a-staging.schools.test b-staging.schools.test" -v "$PWD/nginx/edge-mode.sh:/e.sh:ro" --entrypoint sh "$NGINX_IMG" \
+  -c 'sh /e.sh >/dev/null && cat /etc/nginx/conf.d/01-site-host.conf' 2>&1)
+[[ "$out" == *'"a-staging.schools.test" listed;'* && "$out" == *'"b-staging.schools.test" listed;'* ]] \
+  && pass "clean STAGING_SITE_HOSTS: one listed line per host" || fail "clean STAGING_SITE_HOSTS" "$out"
+# A glob entry is refused, not expanded against files in the working directory (set -f).
+# Without set -f, "*-staging.schools.test" would become the matching file name and be "listed".
+set +e
+out=$(docker run --rm -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=198.51.100.0/24 -e ROOT_DOMAIN=schools.test -e APP_DOMAIN=example.test \
+  -e "STAGING_SITE_HOSTS=*-staging.schools.test" -v "$PWD/nginx/edge-mode.sh:/e.sh:ro" --entrypoint sh "$NGINX_IMG" \
+  -c 'cd /tmp && touch x-staging.schools.test && sh /e.sh' 2>&1)
+rc=$?
+set -e
+[[ "$rc" != 0 && "$out" == *"lower-case host name"* && "$out" != *"x-staging"* ]] \
+  && pass "glob STAGING_SITE_HOSTS entry refused, not expanded" || fail "glob STAGING_SITE_HOSTS" "exit=$rc $out"
+
 # --- a bad EDGE_MODE stops the container and says why ---
 set +e
 bad=$(docker run --rm --name edgemode-bad --network "$NET" -e EDGE_MODE=bogus "${EDGE_ARGS[@]}" "$NGINX_IMG" 2>&1)

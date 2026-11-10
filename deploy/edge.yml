@@ -36,6 +36,8 @@ services:
       # School sites live on <school>.${ROOT_DOMAIN} (Epic 40, nginx/templates/site.conf.template),
       # served on the separate :8081 listener that cloudflared's catch-all points at (runbook part 17).
       ROOT_DOMAIN: ${ROOT_DOMAIN:-root.invalid}
+      # Staging school hosts, space separated (#3715); the same list cloudflared gets an Access rule for.
+      STAGING_SITE_HOSTS: ${STAGING_SITE_HOSTS:-}
       # Host that serves Kuma / Beszel / Dozzle on `biddaloy-ops-edge`; empty when ops is elsewhere.
       OPS_UPSTREAM_HOST: ${OPS_UPSTREAM_HOST:-}
       # Tunnel mode, required (Rule 11): the `biddaloy-edge` subnet, which the deploy pins when

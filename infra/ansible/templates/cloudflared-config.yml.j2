@@ -28,8 +28,21 @@ ingress:
 {% endfor %}
 {# No '*.<root>' rule here, on purpose (Epic 40, runbook part 17a). cloudflared matches hostnames
    case-sensitively, so 'STAGING.<root>' would miss the staging rule above, fall into a wildcard
-   and skip the Access check. (A trailing-dot name matches no hostname rule and falls to the last one.) School sites are the catch-all below, to a SEPARATE nginx
+   and skip the Access check. (A trailing-dot name matches no hostname rule and falls to the last one.) Production school sites are the catch-all below, to a SEPARATE nginx
    listener that holds no fixed host (#3620 / #3655, runbook part 17d). #}
+{# Staging school sites (#3715): Access in the VM too, like staging.<root>. cloudflared only
+   understands a leading "*." wildcard, so "*-staging.<root>" would never match: one exact rule per
+   host in STAGING_SITE_HOSTS (edge.enc.env). nginx :8081 answers 444 to a -staging host that is
+   not on the list, and to listed hosts spelled in upper case or with a dot (case-sensitive match). #}
+{% for host in (secret_env.edge.STAGING_SITE_HOSTS | default('')).split() %}
+  - hostname: {{ host }}
+    service: http://nginx:8081
+    originRequest:
+      access:
+        required: true
+        teamName: "{{ cf_access_team }}"
+        audTag: ["{{ aud_staging }}"]
+{% endfor %}
   # Last rule (required, matches any name no rule above matched, in any letter case):
   # the SEPARATE site listener, :8081, which serves <school>.ROOT_DOMAIN and a school's own custom
   # domain (Host = www.school.edu.bd, via sites.<root>), and answers 444 to fixed hosts and anything
