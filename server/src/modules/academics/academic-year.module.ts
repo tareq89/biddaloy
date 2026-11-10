@@ -12,10 +12,15 @@ import { SubjectService } from './subjects.service';
 import { SubjectController, ClassSubjectController } from './subjects.controller';
 import { SchoolsModule } from '../schools/schools.module';
 import { AuditModule } from '../audit/audit.module';
+import { FeeModule } from '../fees/fees.module';
+import { GradingModule } from '../grading/grading.module';
+import { CalendarModule } from '../calendar/calendar.module';
+import { YearRolloverService } from './year-rollover.service';
+import { YearRolloverController } from './year-rollover.controller';
 
 @Module({
   // Class/Enrollment/FeeStructure are registered entity-only (no
-  // StudentsModule/FeesModule import) so AcademicYearService can count
+  // StudentsModule/FeeModule import) so AcademicYearService can count
   // against them for `getStats` without a cross-module DI cycle.
   // The holiday/calendar entity+service+controller moved to `CalendarModule`
   // in [17.1.2] as `CalendarEvent`/`SchoolCalendarService` — this module no
@@ -31,9 +36,17 @@ import { AuditModule } from '../audit/audit.module';
     ]),
     SchoolsModule,
     AuditModule,
+    FeeModule,
+    GradingModule,
+    CalendarModule,
   ],
-  providers: [AcademicYearService, SubjectService],
-  controllers: [AcademicYearController, SubjectController, ClassSubjectController],
+  providers: [AcademicYearService, SubjectService, YearRolloverService],
+  controllers: [
+    AcademicYearController,
+    YearRolloverController,
+    SubjectController,
+    ClassSubjectController,
+  ],
   // SubjectService is exported for [9.3]'s teacher-scoping query.
   exports: [AcademicYearService, SubjectService],
 })
