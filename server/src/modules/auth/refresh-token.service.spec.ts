@@ -179,6 +179,21 @@ describe('RefreshTokenService', () => {
       expect(row.token_hash).not.toContain(parseCookie(issued.cookieValue).secret);
       expect(row.revoked_at).toBeNull();
     });
+
+    it('a per-call ttl shortens expires_at; no argument keeps the injected value', async () => {
+      const ctx = { ip: null, userAgent: null };
+      const short = await service.issueForUser(userId, randomUUID(), ctx, 1000);
+      const normal = await service.issueForUser(userId, randomUUID(), ctx);
+      expect(short.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(1000);
+      expect(normal.expiresAt.getTime() - Date.now()).toBeGreaterThan(1000);
+    });
+
+    it('rotate carries the per-call ttl to the successor', async () => {
+      const ctx = { ip: null, userAgent: null };
+      const first = await service.issueForUser(userId, randomUUID(), ctx);
+      const next = await service.rotate(first.cookieValue, ctx, 1000);
+      expect(next.refreshToken.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(1000);
+    });
   });
 
   describe('rotate', () => {

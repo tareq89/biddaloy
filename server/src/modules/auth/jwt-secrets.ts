@@ -8,6 +8,9 @@ export const JWT_ISSUER = 'biddaloy';
 export const ACCESS_TOKEN_AUDIENCE = 'biddaloy:access';
 /** Step-up approval tokens (X-Approval-Token): never interchangeable with an access token. */
 export const APPROVAL_TOKEN_AUDIENCE = 'biddaloy:approval';
+/** [Epic 98] Cockpit (platform owner) access tokens and the short sign-in step tokens. Never interchangeable with app tokens. */
+export const COCKPIT_ACCESS_TOKEN_AUDIENCE = 'biddaloy:cockpit';
+export const COCKPIT_MFA_TOKEN_AUDIENCE = 'biddaloy:cockpit-mfa';
 
 /** Current secret first; JWT_SECRET_PREVIOUS (verify-only, D21) second when set and non-empty. */
 export function jwtVerifySecrets(config: SecretSource): string[] {

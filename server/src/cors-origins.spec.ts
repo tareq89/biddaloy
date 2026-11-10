@@ -55,6 +55,22 @@ describe('resolveCorsOrigins', () => {
   });
 });
 
+describe('resolveCorsOrigins with COCKPIT_DOMAIN', () => {
+  it('adds the cockpit origin when set, once', () => {
+    expect(resolveCorsOrigins(undefined, 'production', 'cockpit.example.com')).toEqual([
+      'https://cockpit.example.com',
+    ]);
+    expect(
+      resolveCorsOrigins('https://cockpit.example.com', 'production', 'cockpit.example.com'),
+    ).toEqual(['https://cockpit.example.com']);
+  });
+
+  it('adds nothing when unset or blank', () => {
+    expect(resolveCorsOrigins(undefined, 'production', '')).toEqual([]);
+    expect(resolveCorsOrigins(undefined, 'production', undefined)).toEqual([]);
+  });
+});
+
 describe('buildCorsOptions', () => {
   it('includes the resolved origins, credentials, methods, and tenant/role headers', () => {
     const options = buildCorsOptions('https://app.example.com', 'production');
