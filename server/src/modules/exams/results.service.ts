@@ -57,6 +57,7 @@ import { AuditService } from '../audit/audit.service';
 import { FinalResultsService } from '../final-results/final-results.service';
 import { RequestContext } from '../../common/request-context.util';
 import type { ApprovalContext } from '../auth/guards/approval.guard';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 
 /** The rule engine's own version — stamped on every `Result` row (D19) so
  * a later change to `result-rules.ts` can be told apart from an
@@ -605,6 +606,7 @@ export class ResultsService {
       // Re-checked under the exam lock: a publish that committed since the
       // check above must win, not be overwritten by unpublished rows.
       const locked = await lockExam(manager, examId, tenantId);
+      await assertYearOpen(manager, tenantId, locked.academic_year_id);
       if (locked.status === ExamStatus.PUBLISHED) {
         throw new ConflictException(
           'This exam is already published — reopen it (step-up approval) before reprocessing.',
@@ -691,6 +693,7 @@ export class ResultsService {
     // instead of racing on the active (exam_id, student_id) index.
     const exam = await lockExam(manager, examId, tenantId);
     if (exam.status !== ExamStatus.PROCESSED) return 0;
+    await assertYearOpen(manager, tenantId, exam.academic_year_id);
 
     const scales = await manager.getRepository(GradingScale).find({
       where: { tenant_id: tenantId, deleted_at: IsNull() },
@@ -743,6 +746,7 @@ export class ResultsService {
 
     await this.examRepo.manager.transaction(async (manager) => {
       const locked = await lockExam(manager, examId, tenantId);
+      await assertYearOpen(manager, tenantId, locked.academic_year_id);
       if (locked.status !== ExamStatus.PROCESSED) {
         throw new ConflictException(
           `This exam must be PROCESSED before it can be published (current: ${locked.status}).`,
@@ -796,6 +800,9 @@ export class ResultsService {
     }
 
     await this.examRepo.manager.transaction(async (manager) => {
+      // [69.3.02] First, so a closed year demotes no final. The exam's year cannot change once
+      // it has results, so the unlocked read is enough.
+      await assertYearOpen(manager, tenantId, exam.academic_year_id);
       // Finals that count this exam. Locked (inside demoteToDraft) BEFORE the exam, the same
       // order build/publish use, so a reopen cannot deadlock with them. A PUBLISHED final
       // refuses the reopen (409 EXAM_IN_PUBLISHED_FINAL: reopen the final first); a PROCESSED one

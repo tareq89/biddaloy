@@ -16,6 +16,7 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CreateExamScheduleDto, UpdateExamScheduleDto } from './dto/exam-schedules.dto';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 
 const PG_UNIQUE_VIOLATION = '23505';
 
@@ -152,6 +153,7 @@ export class ExamSchedulesService {
 
     try {
       const schedule = await this.repo.manager.transaction(async (manager) => {
+        await assertYearOpen(manager, tenantId, exam.academic_year_id);
         const repo = manager.getRepository(ExamSchedule);
         const entity = repo.create({
           exam_id: examId,
@@ -229,6 +231,7 @@ export class ExamSchedulesService {
     if (changedKeys.length > 0) {
       try {
         await this.repo.manager.transaction(async (manager) => {
+          await assertYearOpen(manager, tenantId, exam.academic_year_id);
           const repo = manager.getRepository(ExamSchedule);
           if (moves) {
             await this.assertNotInPublishedSeatPlan(manager, id, tenantId);
@@ -272,10 +275,11 @@ export class ExamSchedulesService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
-    await this.findExamOrThrow(examId, tenantId);
+    const exam = await this.findExamOrThrow(examId, tenantId);
     const existing = await this.findOneOrThrow(examId, id, tenantId);
 
     await this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, exam.academic_year_id);
       const repo = manager.getRepository(ExamSchedule);
       await this.assertNotInPublishedSeatPlan(manager, id, tenantId);
       await repo.softDelete({ id, tenant_id: tenantId });

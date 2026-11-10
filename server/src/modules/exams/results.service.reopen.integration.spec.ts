@@ -341,7 +341,20 @@ describe('reopen + scale recompute coupling with final results (integration)', (
     // not count the exam yet. The re-read under the exam lock must still demote it.
     const exam = await publishedExam('Term 1', await student(1));
     const final = await processedFinal(exam);
-    const spy = vi.spyOn(EntityManager.prototype, 'query').mockImplementationOnce(async () => []);
+    const realQuery = EntityManager.prototype.query;
+    let skipped = false;
+    // Skip only the first finals read; the year-open check ([69.3.02]) must still run.
+    const spy = vi.spyOn(EntityManager.prototype, 'query').mockImplementation(async function (
+      this: EntityManager,
+      sql: string,
+      params?: any[],
+    ) {
+      if (!skipped && /FROM final_results f/.test(sql)) {
+        skipped = true;
+        return [];
+      }
+      return realQuery.call(this, sql, params);
+    });
     try {
       await results.reopen(exam.id, TENANT_ID, 'user-1');
     } finally {
@@ -358,7 +371,20 @@ describe('reopen + scale recompute coupling with final results (integration)', (
     const exam = await publishedExam('Term 1', await student(1));
     const final = await processedFinal(exam);
     await finals.publish(final.id, TENANT_ID, 'user-1');
-    const spy = vi.spyOn(EntityManager.prototype, 'query').mockImplementationOnce(async () => []);
+    const realQuery = EntityManager.prototype.query;
+    let skipped = false;
+    // Skip only the first finals read; the year-open check ([69.3.02]) must still run.
+    const spy = vi.spyOn(EntityManager.prototype, 'query').mockImplementation(async function (
+      this: EntityManager,
+      sql: string,
+      params?: any[],
+    ) {
+      if (!skipped && /FROM final_results f/.test(sql)) {
+        skipped = true;
+        return [];
+      }
+      return realQuery.call(this, sql, params);
+    });
     try {
       await expect(results.reopen(exam.id, TENANT_ID, 'user-1')).rejects.toMatchObject({
         status: 409,

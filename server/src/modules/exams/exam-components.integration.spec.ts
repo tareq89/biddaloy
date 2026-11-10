@@ -369,4 +369,72 @@ describe('ExamComponentsService (integration, ACAD-05 — recompute in the same 
     ).rejects.toMatchObject({ response: { details: { code: 'FULL_MARKS_BELOW_ENTERED' } } });
     expect((await componentRepo.findOneByOrFail({ id: component.id })).full_marks).toBe('100.00');
   });
+  describe('[69.3.02] a closed academic year freezes the exam', () => {
+    const closeYear = () =>
+      dataSource.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [YEAR_1_ID]);
+    const reopenYear = () =>
+      dataSource.query(`UPDATE academic_years SET closed_at = NULL WHERE id = $1`, [YEAR_1_ID]);
+    const closed = { response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } };
+
+    it('refuses component create/update/remove/copy and process/publish with 409', async () => {
+      const { exam, component } = await processedExam();
+      await closeYear();
+      try {
+        const before = await liveResult(exam.id);
+        await expect(
+          componentsService.update(exam.id, component.id, { full_marks: '150' }, TENANT_ID, 'u'),
+        ).rejects.toMatchObject(closed);
+        await expect(
+          componentsService.create(
+            exam.id,
+            {
+              subject_id: SUBJECT_ID,
+              name: 'Practical',
+              kind: ExamComponentKind.PRACTICAL,
+              full_marks: '25',
+              sequence: 2,
+            } as never,
+            TENANT_ID,
+            'u',
+          ),
+        ).rejects.toMatchObject(closed);
+        await expect(
+          componentsService.remove(exam.id, component.id, TENANT_ID, 'u'),
+        ).rejects.toMatchObject(closed);
+        await expect(
+          componentsService.copy(
+            exam.id,
+            {
+              source_exam_id: exam.id,
+              source_subject_id: SUBJECT_ID,
+              target_subject_ids: [SUBJECT_ID],
+            } as never,
+            TENANT_ID,
+            'u',
+          ),
+        ).rejects.toMatchObject(closed);
+        await expect(resultsService.process(exam.id, TENANT_ID, 'u', true)).rejects.toMatchObject(
+          closed,
+        );
+        await expect(resultsService.publish(exam.id, TENANT_ID, 'u')).rejects.toMatchObject(closed);
+        expect((await liveResult(exam.id)).computed_at.getTime()).toBe(
+          before.computed_at.getTime(),
+        );
+      } finally {
+        await reopenYear();
+      }
+    });
+
+    it('refuses reopen of a published exam, and still reads it', async () => {
+      const { exam } = await processedExam();
+      await resultsService.publish(exam.id, TENANT_ID, 'u');
+      await closeYear();
+      try {
+        await expect(resultsService.reopen(exam.id, TENANT_ID, 'u')).rejects.toMatchObject(closed);
+        expect((await liveResult(exam.id)).exam_id).toBe(exam.id);
+      } finally {
+        await reopenYear();
+      }
+    });
+  });
 });
