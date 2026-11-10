@@ -33,7 +33,7 @@ import { RequestContext } from '../../common/request-context.util';
 import { yearClosed } from '../../common/filters/known-errors';
 
 /** Entity name (as in `YEAR_SCOPED_WRITES`) -> table, for the close preview's freeze counts. */
-const YEAR_SCOPED_TABLES: Record<string, string> = {
+export const YEAR_SCOPED_TABLES: Record<string, string> = {
   Class: 'classes',
   ClassSubject: 'class_subjects',
   AcademicTerm: 'academic_terms',
@@ -449,8 +449,8 @@ export class AcademicYearService {
       await Promise.all([
         this.count(
           manager,
-          `SELECT count(*) n FROM promotion_runs WHERE tenant_id = $1 AND source_academic_year_id = $2 AND status = '${draft}'`,
-          T,
+          `SELECT count(*) n FROM promotion_runs WHERE tenant_id = $1 AND source_academic_year_id = $2 AND status = $3`,
+          [...T, draft],
         ),
         this.count(
           manager,
@@ -458,8 +458,8 @@ export class AcademicYearService {
             WHERE c.tenant_id = $1 AND c.academic_year_id = $2 AND c.deleted_at IS NULL
               AND NOT EXISTS (SELECT 1 FROM promotion_runs r
                                WHERE r.tenant_id = c.tenant_id AND r.source_class_id = c.id
-                                 AND r.source_academic_year_id = $2 AND r.status = '${committed}')`,
-          T,
+                                 AND r.source_academic_year_id = $2 AND r.status = $3)`,
+          [...T, committed],
         ),
         this.count(
           manager,
@@ -474,9 +474,9 @@ export class AcademicYearService {
         this.count(
           manager,
           `SELECT count(*) n FROM promotion_entries pe JOIN promotion_runs r ON r.id = pe.run_id
-            WHERE r.tenant_id = $1 AND r.source_academic_year_id = $2 AND r.status = '${draft}'
+            WHERE r.tenant_id = $1 AND r.source_academic_year_id = $2 AND r.status = $3
               AND pe.group_name IS NULL`,
-          T,
+          [...T, draft],
         ),
         // student_fees has no tenant_id: scope it through its student.
         manager.query(
@@ -488,8 +488,8 @@ export class AcademicYearService {
         this.count(
           manager,
           `SELECT count(*) n FROM exams WHERE tenant_id = $1 AND academic_year_id = $2
-              AND deleted_at IS NULL AND status::text <> '${ExamStatus.PUBLISHED}'`,
-          T,
+              AND deleted_at IS NULL AND status::text <> $3`,
+          [...T, ExamStatus.PUBLISHED],
         ),
       ]);
 
@@ -519,6 +519,8 @@ export class AcademicYearService {
             table === 'student_fees'
               ? 'JOIN students s ON s.id = x.student_id AND s.tenant_id = $1'
               : '';
+          // `table`, `yearCol` and `join`/`where` come only from the allowlist and literals above,
+          // never from input, so composing them is safe; values stay bound ($1, $2).
           const where = [`x.${yearCol(table)} = $2`];
           if (!join)
             where.push(has(table, 'tenant_id') ? 'x.tenant_id = $1' : '$1::uuid IS NOT NULL');
@@ -561,7 +563,7 @@ export class AcademicYearService {
     return this.buildClosePreview(this.repo.manager, tenantId, year);
   }
 
-  /** [69.3.01] Freeze the year. The controller checked step-up; `approval` lands in the audit row. */
+  /** [69.3.01] Freeze the year. Closing a closed year and reopening an open one are idempotent no-ops (no audit row). The controller checked step-up; `approval` lands in the audit row. */
   async close(
     id: string,
     tenantId: string,
@@ -668,8 +670,8 @@ export class AcademicYearService {
       ),
       this.count(
         m,
-        `SELECT count(*) n FROM promotion_runs WHERE tenant_id = $1 AND target_academic_year_id = $2 AND status = '${PromotionRunStatus.COMMITTED}'`,
-        T,
+        `SELECT count(*) n FROM promotion_runs WHERE tenant_id = $1 AND target_academic_year_id = $2 AND status = $3`,
+        [...T, PromotionRunStatus.COMMITTED],
       ),
     ]);
     return { classes, teacher_assignments, committed_promotion_runs };

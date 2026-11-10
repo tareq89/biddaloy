@@ -74,7 +74,7 @@ export class AcademicYearController {
   }
 
   @Get(':id/readiness')
-  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
+  @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
   @ApiOperation({ summary: 'Classes, teacher assignments and promotion runs this year has.' })
   @ApiOkResponse({ type: YearReadinessDto })
   readiness(
