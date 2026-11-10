@@ -15,6 +15,11 @@ export class AddYearAuditActions1791900003800 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Postgres has no `ALTER TYPE ... DROP VALUE`: recreate the type without the three labels.
+    // Rows already written with a removed label would make the cast below fail, so they fall back
+    // to the generic UPDATE action (their audit payload is kept).
+    await queryRunner.query(
+      `UPDATE "audit_logs" SET "action" = 'UPDATE' WHERE "action" IN ('YEAR_CLOSE', 'YEAR_REOPEN', 'YEAR_ROLLOVER')`,
+    );
     await queryRunner.query(
       `ALTER TYPE "public"."audit_logs_action_enum" RENAME TO "audit_logs_action_enum_old"`,
     );

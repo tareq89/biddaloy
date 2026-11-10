@@ -95,6 +95,15 @@ export class YearRolloverService {
     dryRun: boolean,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<YearRolloverResult> {
+    // Two rollovers into the same year name must run one after the other: the copied rows have
+    // no DB unique key behind their natural keys (D14), so READ COMMITTED alone would let both
+    // runs insert the same classes. A transaction-scoped advisory lock queues the second run;
+    // when it wakes it finds the first run's rows and reports them as `existing`.
+    if (!dryRun) {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `year-rollover:${tenantId}:${input.name}`,
+      ]);
+    }
     const years = manager.getRepository(AcademicYear);
     const source = await years.findOne({
       where: { id: sourceYearId, tenant_id: tenantId, deleted_at: IsNull() },
