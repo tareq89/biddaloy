@@ -137,7 +137,8 @@
         (secret_env.edge.STAGING_SITE_HOSTS | default('')).split()
         | reject('match', '^[a-z0-9][a-z0-9-]*-staging\\.' ~ (secret_env.edge.ROOT_DOMAIN | default('') | regex_escape) ~ '$')
         | list | length == 0
-    fail_msg: 'STAGING_SITE_HOSTS in infra/secrets/edge.enc.env must exist (empty is fine) and hold lower-case <school>-staging.<ROOT_DOMAIN> names, space separated'
+      - (secret_env.edge.STAGING_SITE_HOSTS | default('')).split() | length == (secret_env.edge.STAGING_SITE_HOSTS | default('')).split() | unique | length
+    fail_msg: 'STAGING_SITE_HOSTS in infra/secrets/edge.enc.env must exist (empty is fine) and hold lower-case <school>-staging.<ROOT_DOMAIN> names, each once, space separated (a repeated host stops nginx starting)'
     quiet: true
   when: stack == 'edge'
 - name: Check the edge settings

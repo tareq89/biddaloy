@@ -188,13 +188,18 @@ esac
   echo 'map $host $site_staging_state {'
   echo '    default "";'
   if [ -n "$site_root" ]; then
+    seen=" "
     for h in ${STAGING_SITE_HOSTS:-}; do
-      h=$(printf '%s' "$h" | tr 'A-Z' 'a-z')
+      # No silent lower-casing: cloudflared uses each entry verbatim and matches case-sensitively,
+      # so an upper-case entry would pass here yet never match its Access rule.
       case "$h" in
-        *[!a-z0-9.-]* | .* | *. | -* | *..*) die "STAGING_SITE_HOSTS entry must be a host name (got '$h')" ;;
+        *[!a-z0-9.-]* | .* | *. | -* | *..*) die "STAGING_SITE_HOSTS entry must be a lower-case host name (got '$h')" ;;
         [a-z0-9]*-staging."$site_root") ;;
         *) die "STAGING_SITE_HOSTS entry must be <school>-staging.$site_root (got '$h')" ;;
       esac
+      # A duplicate would make nginx refuse to start ("conflicting parameter" in the map).
+      case "$seen" in *" $h "*) die "STAGING_SITE_HOSTS lists '$h' twice" ;; esac
+      seen="$seen$h "
       printf '    "%s" listed;\n' "$h"
     done
     printf '    "~^[a-z0-9][a-z0-9-]*-staging\\.%s$" unlisted;\n' "$root_re"
