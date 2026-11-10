@@ -143,6 +143,11 @@ export class FineSweepService {
       .andWhere('ay.deleted_at IS NULL')
       .andWhere('ay.start_date <= :periodStart', { periodStart })
       .andWhere('ay.end_date >= :periodStart', { periodStart })
+      // Overlapping years are normal after a rollover: an open year beats a closed one, then the
+      // year that started last, then the newest row (D21, #1169, #2774).
+      .orderBy('ay.closed_at', 'ASC', 'NULLS FIRST')
+      .addOrderBy('ay.start_date', 'DESC')
+      .addOrderBy('ay.created_at', 'DESC')
       .getOne();
     if (!containingYear) {
       throw new NotFoundException('No academic year covers this month for this tenant');
@@ -392,6 +397,11 @@ export class FineSweepService {
       .andWhere('ay.deleted_at IS NULL')
       .andWhere('ay.start_date <= :periodStart', { periodStart: `${month}-01` })
       .andWhere('ay.end_date >= :periodStart', { periodStart: `${month}-01` })
+      // Overlapping years are normal after a rollover: an open year beats a closed one, then the
+      // year that started last, then the newest row (D21, #1169, #2774).
+      .orderBy('ay.closed_at', 'ASC', 'NULLS FIRST')
+      .addOrderBy('ay.start_date', 'DESC')
+      .addOrderBy('ay.created_at', 'DESC')
       .getOne();
     if (!containingYear) {
       throw new NotFoundException('No academic year covers this month for this tenant');

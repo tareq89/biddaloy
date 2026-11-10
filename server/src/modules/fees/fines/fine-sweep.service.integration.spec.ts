@@ -341,6 +341,42 @@ describe('FineSweepService (integration)', () => {
     expect(await feeRepo.find({ where: { student_id: studentId } })).toHaveLength(1);
   });
 
+  describe('overlapping academic years [69.1.05]', () => {
+    // Year A runs Jan-Dec 2026; year B starts Apr 2026, so June is covered by both. Each year has
+    // its own fine rule and fee structure, so the structure on the row shows which year won.
+    async function overlapping(closeLater: boolean) {
+      const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
+      const laterYear = await dataSource.getRepository(AcademicYear).save({
+        name: 'Fine Sweep Later Year',
+        start_date: '2026-04-01',
+        end_date: '2027-03-31',
+        tenant_id: tenantId,
+        closed_at: closeLater ? new Date() : null,
+      });
+      const earlierStructure = await makeStructure(tenantId, yearId, 20);
+      const laterStructure = await makeStructure(tenantId, laterYear.id, 50);
+      await makeRule({ tenantId, yearId, structureId: earlierStructure });
+      await makeRule({ tenantId, yearId: laterYear.id, structureId: laterStructure });
+      const studentId = await makeStudent(tenantId, sectionId, 'Overlap');
+      await markAbsences(tenantId, sectionId, studentId, ['2026-06-02', '2026-06-03']);
+      return { tenantId, earlierStructure, laterStructure };
+    }
+
+    it('picks the year that started last', async () => {
+      const { tenantId, laterStructure } = await overlapping(false);
+      const rows = await service.compute(tenantId, '2026-06', {});
+      expect(rows).toHaveLength(1);
+      expect(rows[0].fee_structure_id).toBe(laterStructure);
+    });
+
+    it('a closed later year loses to an open earlier one', async () => {
+      const { tenantId, earlierStructure } = await overlapping(true);
+      const rows = await service.compute(tenantId, '2026-06', {});
+      expect(rows).toHaveLength(1);
+      expect(rows[0].fee_structure_id).toBe(earlierStructure);
+    });
+  });
+
   it('a month outside every academic year rejects with a fixed sentence (#3000)', async () => {
     const { tenantId } = await setupTenant('2026-01-01', '2026-12-31');
     await expect(service.preview(tenantId, '2020-01', {}, '2026-07-15')).rejects.toThrow(
