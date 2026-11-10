@@ -234,6 +234,41 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
     });
   }
 
+  // [Epic 98, D17] Cockpit fence: platform routes answer on the cockpit host only.
+  // Output carries the check name and status only, never a body or token (Rule 13).
+  if (!env.COCKPIT_DOMAIN) {
+    out('cockpit fence: skipped: COCKPIT_DOMAIN not set');
+  } else {
+    const cockpit = `https://${env.COCKPIT_DOMAIN}`;
+    const app = env.APP_DOMAIN ? `https://${env.APP_DOMAIN}` : baseUrl;
+    // `refused` = 404 or a closed/empty reply (nginx 444); 200, 401, 403 mean the host knows the route.
+    const fence = async (name, method, url, passes) => {
+      let status = 'network error';
+      let good = false;
+      try {
+        const res = await fetch(url, { method, signal: AbortSignal.timeout(10_000) });
+        status = String(res.status);
+        good = passes(res.status);
+      } catch (e) {
+        if (e?.name === 'TimeoutError') status = 'timeout';
+        else good = passes(null);
+      }
+      out(`${good ? 'PASS' : 'FAIL'}  cockpit fence: ${name}  ${status}`);
+      if (good) result.passed++;
+      else result.failed++;
+    };
+    const refused = (s) => s === null || s === 404;
+    await fence(
+      'alerts on cockpit host',
+      'GET',
+      `${cockpit}/api/v1/platform/alerts`,
+      (s) => s === 401,
+    );
+    await fence('alerts on app host', 'GET', `${app}/api/v1/platform/alerts`, refused);
+    await fence('cockpit login on app host', 'POST', `${app}/api/v1/auth/cockpit/login`, refused);
+    await fence('cockpit shell', 'GET', `${cockpit}/`, (s) => s === 200);
+  }
+
   // [Epic 87] Test-inbox stacks only: a password reset for the admin must reach Mailpit.
   if (!env.SMOKE_INBOX_API_URL) {
     out('inbox: skipped (no SMOKE_INBOX_API_URL)');

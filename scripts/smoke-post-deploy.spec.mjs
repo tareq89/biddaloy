@@ -355,4 +355,70 @@ describe('smoke-post-deploy', () => {
       expect(r.lines.find((l) => l.startsWith('FAIL'))).toContain('inbox:');
     });
   });
+
+  describe('cockpit fence', () => {
+    const FENCE = { ...ENV, COCKPIT_DOMAIN: 'cockpit.test', APP_DOMAIN: 'app.test' };
+    const GOOD = {
+      'GET https://cockpit.test/api/v1/platform/alerts': 401,
+      'GET https://app.test/api/v1/platform/alerts': 404,
+      'POST https://app.test/api/v1/auth/cockpit/login': 404,
+      'GET https://cockpit.test/': 200,
+    };
+    /** Routes the four fence URLs by full URL; everything else goes to the normal fake. */
+    const fenceFetch = (over = {}) => {
+      const table = { ...GOOD, ...over };
+      const base = fakeFetch();
+      const fn = async (url, init) => {
+        const key = `${init.method} ${url}`;
+        if (!(key in table)) return base(url, init);
+        if (table[key] === 'reset') throw new TypeError('fetch failed');
+        return json(table[key], {});
+      };
+      fn.calls = base.calls;
+      return fn;
+    };
+    const fails = (r) => r.lines.filter((l) => l.startsWith('FAIL'));
+
+    it('skips when COCKPIT_DOMAIN is unset', async () => {
+      const r = await run(fakeFetch());
+      expect(r.failed).toBe(0);
+      expect(r.lines).toContain('cockpit fence: skipped: COCKPIT_DOMAIN not set');
+    });
+
+    it('passes all four checks', async () => {
+      const r = await run(fenceFetch(), FENCE);
+      expect(r.failed).toBe(0);
+      expect(r.passed).toBe(13);
+    });
+
+    it.each([
+      ['GET https://cockpit.test/api/v1/platform/alerts', 200, 'alerts on cockpit host'],
+      ['GET https://cockpit.test/api/v1/platform/alerts', 404, 'alerts on cockpit host'],
+      ['GET https://app.test/api/v1/platform/alerts', 401, 'alerts on app host'],
+      ['GET https://app.test/api/v1/platform/alerts', 200, 'alerts on app host'],
+      ['POST https://app.test/api/v1/auth/cockpit/login', 403, 'cockpit login on app host'],
+      ['POST https://app.test/api/v1/auth/cockpit/login', 200, 'cockpit login on app host'],
+      ['GET https://cockpit.test/', 404, 'cockpit shell'],
+    ])('fails on %s answering %i', async (key, status, name) => {
+      const r = await run(fenceFetch({ [key]: status }), FENCE);
+      expect(fails(r)).toHaveLength(1);
+      expect(fails(r)[0]).toContain(name);
+    });
+
+    it('counts a network reset on the app host as refused', async () => {
+      const r = await run(
+        fenceFetch({
+          'GET https://app.test/api/v1/platform/alerts': 'reset',
+          'POST https://app.test/api/v1/auth/cockpit/login': 'reset',
+        }),
+        FENCE,
+      );
+      expect(r.failed).toBe(0);
+    });
+
+    it('fails when the cockpit host itself is unreachable', async () => {
+      const r = await run(fenceFetch({ 'GET https://cockpit.test/': 'reset' }), FENCE);
+      expect(fails(r)).toHaveLength(1);
+    });
+  });
 });
