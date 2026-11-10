@@ -88,6 +88,7 @@ import { PlatformApproval } from './modules/platform-identity/entities/platform-
 import { PlatformSetting } from './modules/platform-identity/entities/platform-setting.entity';
 import { UserMfa } from './modules/platform-identity/entities/user-mfa.entity';
 import { UserRecoveryCode } from './modules/platform-identity/entities/user-recovery-code.entity';
+import { CockpitAuthModule } from './modules/auth/cockpit/cockpit-auth.module';
 import { PlatformIdentityModule } from './modules/platform-identity/platform-identity.module';
 import { MfaModule } from './modules/auth/mfa/mfa.module';
 import { PerformanceModule } from './modules/performance/performance.module';
@@ -579,6 +580,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     // [98.1.99] Cockpit identity: platform owners, MFA. Wave 1 touches app.module only here (D27).
     PlatformIdentityModule,
     MfaModule,
+    CockpitAuthModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],

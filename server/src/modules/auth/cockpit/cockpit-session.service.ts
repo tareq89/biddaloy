@@ -102,14 +102,14 @@ export class CockpitSessionService {
     });
     if (!absLeft) throw new UnauthorizedException(COCKPIT_SESSION_ENDED);
 
-    // The owner check stays after rotate(): there is no read-only user lookup by cookie, and the
-    // family is revoked right below, so a dead owner keeps no live row.
-    // The successor may not outlive the absolute limit: ttl is what is left of it.
-    const rotated = await this.refreshTokens.rotate(cookie as string, ctx, absLeft);
-    if (!(await this.isLiveOwner(rotated.userId))) {
+    // A dead owner keeps no live row: check before rotating, and revoke the family if they fail.
+    const owner = await this.refreshTokens.userIdForCookie(cookie as string);
+    if (!owner || !(await this.isLiveOwner(owner))) {
       await this.refreshTokens.revokeFamily(fam);
       throw new UnauthorizedException(COCKPIT_SESSION_ENDED);
     }
+    // The successor may not outlive the absolute limit: ttl is what is left of it.
+    const rotated = await this.refreshTokens.rotate(cookie as string, ctx, absLeft);
     await this.touch(fam);
     return {
       accessToken: this.signAccess(rotated.userId, fam),

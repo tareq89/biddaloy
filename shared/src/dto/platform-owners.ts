@@ -6,18 +6,40 @@
  */
 export const DEV_COCKPIT_TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
 
+/** Each step answer carries the short-lived token the next step sends back. */
 export type CockpitLoginResponse =
-  { step: 'mfa' } | { step: 'enrol' } | { step: 'device' } | { step: 'done' };
+  | { step: 'mfa'; mfaToken: string }
+  | { step: 'enrol'; enrolToken: string }
+  | { step: 'device'; deviceToken: string }
+  | { step: 'done'; access_token: string };
 
 export interface CockpitMfaRequest {
+  mfaToken: string;
+  /** Authenticator code (6 digits) or a recovery code. */
   code: string;
 }
 
+/** A new device needs BOTH codes: one sent by SMS and one by email. */
 export interface CockpitDeviceOtpRequest {
-  code: string;
+  deviceToken: string;
+  smsCode: string;
+  emailCode: string;
+  rememberDevice?: boolean;
 }
 
-export type CockpitEnrolStartRequest = Record<string, never>;
+/** Enrolment step 1 needs BOTH codes too. */
+export interface CockpitEnrolStartRequest {
+  enrolToken: string;
+  smsCode: string;
+  emailCode: string;
+}
+
+export interface CockpitEnrolConfirmRequest {
+  enrolToken: string;
+  /** The first code from the new authenticator. */
+  code: string;
+  rememberDevice?: boolean;
+}
 
 export interface CockpitEnrolStartResponse {
   otpauthUri: string;
@@ -25,6 +47,8 @@ export interface CockpitEnrolStartResponse {
 }
 
 export interface CockpitEnrolConfirmResponse {
+  step: 'done';
+  access_token: string;
   recoveryCodes: string[];
 }
 
