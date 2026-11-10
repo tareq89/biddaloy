@@ -14,6 +14,20 @@ const bnTexts = (c: SiteConfig) =>
     ),
   );
 
+describe('slugFor env tag', () => {
+  it('demo and staging end with the tag and stay within 30 chars', () => {
+    for (const tag of ['demo', 'staging'] as const) {
+      const s = slugFor('x'.repeat(100), () => 'ab12', tag);
+      expect(s.endsWith(`-ab12-${tag}`)).toBe(true);
+      expect(s.length).toBeLessThanOrEqual(30);
+      expect(SITE_SUBDOMAIN_RE.test(s)).toBe(true);
+    }
+  });
+  it('prod has no tag', () => {
+    expect(slugFor('Green Valley', () => 'ab12', '')).toBe('green-valley-ab12');
+  });
+});
+
 describe('slugFor', () => {
   it('makes a valid subdomain with 4 hex', () => {
     const s = slugFor('Green Valley School', () => 'ab12');
@@ -270,11 +284,13 @@ describe('SiteConfigService', () => {
   });
 
   it('saveDraft bumps draft_revision; a save from an older revision is 409 site.stale', async () => {
-    const { svc } = setup(null);
+    const { svc, cache } = setup(null);
     const dto = await svc.get('t1');
     expect(dto.draft_revision).toBe(0);
     const saved = await svc.saveDraft('t1', { config: dto.draft, draft_revision: 0 });
     expect(saved.draft_revision).toBe(1);
+    // Save-then-preview: the cached host row holds the old draft, so a save must drop it.
+    expect(cache.invalidate).toHaveBeenCalledWith('t1');
     // A second editor still holding revision 0 must not overwrite the first one's save.
     await expect(svc.saveDraft('t1', { config: dto.draft, draft_revision: 0 })).rejects.toThrow(
       'site.stale',

@@ -10,21 +10,45 @@ const ann = (o: Partial<SiteAnnouncement>): SiteAnnouncement => ({
   ...o,
 });
 
+const DHAKA = 'Asia/Dhaka';
+
 describe('inWindow', () => {
   it('a bare until-date lasts the whole Bangladesh day', () => {
     // 2026-11-10 20:00 UTC is 02:00 on 11 Nov in Dhaka: already over.
-    expect(inWindow(ann({ until: '2026-11-10' }), new Date('2026-11-10T17:00:00Z'))).toBe(true);
-    expect(inWindow(ann({ until: '2026-11-10' }), new Date('2026-11-10T20:00:00Z'))).toBe(false);
+    expect(inWindow(ann({ until: '2026-11-10' }), new Date('2026-11-10T17:00:00Z'), DHAKA)).toBe(
+      true,
+    );
+    expect(inWindow(ann({ until: '2026-11-10' }), new Date('2026-11-10T20:00:00Z'), DHAKA)).toBe(
+      false,
+    );
   });
 
   it('a from-date starts at local midnight', () => {
-    expect(inWindow(ann({ from: '2026-11-10' }), new Date('2026-11-09T17:59:00Z'))).toBe(false);
-    expect(inWindow(ann({ from: '2026-11-10' }), new Date('2026-11-09T18:01:00Z'))).toBe(true);
+    expect(inWindow(ann({ from: '2026-11-10' }), new Date('2026-11-09T17:59:00Z'), DHAKA)).toBe(
+      false,
+    );
+    expect(inWindow(ann({ from: '2026-11-10' }), new Date('2026-11-09T18:01:00Z'), DHAKA)).toBe(
+      true,
+    );
+  });
+
+  it("a bare date follows the school's own timezone, not Bangladesh's (#3681)", () => {
+    const now = new Date('2026-11-10T18:30:00Z'); // 13:30 on 10 Nov in New York, 00:30 on 11 Nov in Dhaka
+    expect(inWindow(ann({ until: '2026-11-10' }), now, 'America/New_York')).toBe(true);
+    expect(inWindow(ann({ until: '2026-11-10' }), now, DHAKA)).toBe(false);
+    expect(inWindow(ann({ from: '2026-11-11' }), now, 'America/New_York')).toBe(false);
+    expect(inWindow(ann({ from: '2026-11-11' }), now, DHAKA)).toBe(true);
+  });
+
+  it('a full datetime with an offset is still an instant compare', () => {
+    const now = new Date('2026-11-10T18:30:00Z');
+    expect(inWindow(ann({ until: '2026-11-10T18:00:00Z' }), now, 'America/New_York')).toBe(false);
+    expect(inWindow(ann({ until: '2026-11-10T19:00:00Z' }), now, DHAKA)).toBe(true);
   });
 
   it('no window means always shown; an unparseable date is never shown', () => {
-    expect(inWindow(ann({}), new Date())).toBe(true);
-    expect(inWindow(ann({ from: 'garbage' }), new Date())).toBe(false);
+    expect(inWindow(ann({}), new Date(), DHAKA)).toBe(true);
+    expect(inWindow(ann({ from: 'garbage' }), new Date(), DHAKA)).toBe(false);
   });
 });
 

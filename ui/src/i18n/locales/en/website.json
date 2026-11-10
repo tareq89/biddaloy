@@ -338,6 +338,7 @@
     "available": "This address is free.",
     "taken": "This address cannot be used. Try another one.",
     "invalid": "Use 3 to 30 letters, numbers or hyphens. Do not start or end with a hyphen.",
+    "tagTooLong": "Here every address ends with -{{tag}}. With it this name is over 30 characters. Use a shorter name.",
     "suggestions": "Addresses we suggest",
     "cancel": "Cancel",
     "confirm": {

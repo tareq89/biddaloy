@@ -12,6 +12,8 @@ export interface RuntimeConfig {
   envBadge: string;
   /** ISO date the staging data was copied; shown beside STAGING. */
   envBadgeDate: string;
+  /** 'demo', 'staging' or '': suffix a school-site address must carry here. */
+  siteEnvTag: 'demo' | 'staging' | '';
 }
 
 declare global {
@@ -37,5 +39,6 @@ export function runtimeConfig(): RuntimeConfig {
     messageSinkUrl: c.messageSinkUrl ?? '',
     envBadge: c.envBadge ?? '',
     envBadgeDate: c.envBadgeDate ?? '',
+    siteEnvTag: c.siteEnvTag ?? '',
   };
 }

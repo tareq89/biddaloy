@@ -26,6 +26,7 @@ import { ApprovalService } from '../../../modules/auth/guards/approval.guard';
 import { SiteConfigService } from '../../../modules/website/site-config.service';
 import { UmamiService } from '../../../modules/website/umami.service';
 import { SiteCacheService } from '../../../modules/website/public/site-cache.service';
+import { SITE_SUBDOMAIN_RE, withSiteEnvTag } from '@biddaloy/shared';
 import { createContext, type DemoSeedContext } from '../context';
 import { slice as org, orgIds } from './org';
 import { slice as staff, teachersByTenant } from './staff';
@@ -38,6 +39,7 @@ interface Facts {
   site: Record<string, any>;
   media: { slot: string; width: number; height: number }[];
   profilePositions: number[];
+  cards: { subjects: string[]; credentials: { bn: string; en: string }; full_name: string }[];
   featured: number;
   logoKey: string | null;
   posts: { published: number; draft: number };
@@ -91,6 +93,11 @@ describe('website slice (integration, scale 0.05)', () => {
       profilePositions: profiles
         .map((p) => teachers.findIndex((t) => t.userId === p.user_id))
         .sort((a, b) => a - b),
+      cards: await q(
+        `SELECT p.subjects, p.credentials, u.full_name FROM staff_web_profiles p
+           JOIN users u ON u.id = p.user_id WHERE p.tenant_id = $1`,
+        [T],
+      ),
       featured: profiles.filter((p) => p.featured).length,
       logoKey: (await q(`SELECT logo_key FROM schools WHERE id = $1`, [T]))[0].logo_key,
     };
@@ -141,6 +148,12 @@ describe('website slice (integration, scale 0.05)', () => {
     if (ds) await ds.destroy();
   });
 
+  it('the seeded address stays a valid label once the demo or staging tag is added', () => {
+    for (const tag of ['demo', 'staging'] as const) {
+      expect(withSiteEnvTag('bmsc-high', tag)).toMatch(SITE_SUBDOMAIN_RE);
+    }
+  });
+
   it('publishes a switched-on Basic site on the school short name with the green palette', () => {
     expect(first.site).toMatchObject({
       subdomain: 'bmsc-high',
@@ -163,11 +176,13 @@ describe('website slice (integration, scale 0.05)', () => {
   });
 
   it('publishes the Results page (D12) and a click-to-play video that stores only its id', () => {
-    const pages = first.site.published.pages as { page: string; enabled: boolean; sections: any[] }[];
+    const pages = first.site.published.pages as {
+      page: string;
+      enabled: boolean;
+      sections: any[];
+    }[];
     expect(pages.find((p) => p.page === 'results')).toMatchObject({ enabled: true, sections: [] });
-    const video = pages
-      .find((p) => p.page === 'home')!
-      .sections.find((x) => x.key === 'video')!;
+    const video = pages.find((p) => p.page === 'home')!.sections.find((x) => x.key === 'video')!;
     expect(video).toMatchObject({
       enabled: true,
       data: { videoId: 'aqz-KE-bpKQ', headingPosition: 'below' },
@@ -177,6 +192,14 @@ describe('website slice (integration, scale 0.05)', () => {
   it('has six teacher cards, three of them featured', () => {
     expect(first.profilePositions).toHaveLength(6);
     expect(first.featured).toBe(3);
+  });
+
+  it('teacher cards show subjects as "bn (en)" and credentials without the teacher name (#3681)', () => {
+    for (const c of first.cards) {
+      for (const s of c.subjects) expect(s).toMatch(/^.+ \(.+\)$/);
+      expect(c.credentials).toEqual({ bn: 'বি.এড', en: 'B.Ed.' });
+      expect(c.credentials.en).not.toContain(c.full_name);
+    }
   });
 
   it('has two published posts, one draft, three enquiries (one unseen)', () => {

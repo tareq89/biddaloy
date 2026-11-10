@@ -13,6 +13,7 @@ describe('buildRuntimeConfig', () => {
       'sentryDsn',
       'sentryEnvironment',
       'sentryTracesSampleRate',
+      'siteEnvTag',
       'supportUrl',
       'turnstileSiteKey',
     ]);
@@ -30,7 +31,19 @@ describe('buildRuntimeConfig', () => {
       messageSinkUrl: '',
       envBadge: '',
       envBadgeDate: '',
+      siteEnvTag: '',
     });
+  });
+
+  it('siteEnvTag is demo or staging only', () => {
+    const tag = (ENV_NAME?: string) => buildRuntimeConfig({ ENV_NAME }).siteEnvTag;
+    expect([tag('demo'), tag('staging'), tag('prod'), tag(undefined), tag('junk')]).toEqual([
+      'demo',
+      'staging',
+      '',
+      '',
+      '',
+    ]);
   });
 
   it('passes the env badge through', () => {

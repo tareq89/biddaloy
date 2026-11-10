@@ -11,6 +11,9 @@ import {
   SITE_MEDIA_SLOT_PX,
   SITE_SUBDOMAIN_RE,
   isSiteRelativeHref,
+  labelEnvTag,
+  siteEnvTag,
+  withSiteEnvTag,
 } from './site';
 
 describe('gallery constants', () => {
@@ -64,5 +67,30 @@ describe('isSiteRelativeHref', () => {
     expect(isSiteRelativeHref('')).toBe(false);
     expect(isSiteRelativeHref(42)).toBe(false);
     expect(isSiteRelativeHref('/' + 'a'.repeat(500))).toBe(false);
+  });
+});
+
+describe('site env tag', () => {
+  it('siteEnvTag: demo and staging only', () => {
+    expect(['demo', 'staging', 'prod', undefined, 'x'].map(siteEnvTag)).toEqual([
+      'demo',
+      'staging',
+      '',
+      '',
+      '',
+    ]);
+  });
+  it('labelEnvTag reads the suffix', () => {
+    expect(['a-demo', 'demo', 'a-demonstration', 'a-staging'].map(labelEnvTag)).toEqual([
+      'demo',
+      '',
+      '',
+      'staging',
+    ]);
+  });
+  it('withSiteEnvTag adds once, prod unchanged', () => {
+    expect(withSiteEnvTag('a', 'demo')).toBe('a-demo');
+    expect(withSiteEnvTag('a-demo', 'demo')).toBe('a-demo');
+    expect(withSiteEnvTag('a', '')).toBe('a');
   });
 });

@@ -1,18 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
+import { TtlCache } from './ttl-cache';
+import { normalizeHost } from '../../../common/utils/normalize-host.util';
 import { SiteCustomDomainStatus } from '@biddaloy/shared';
 import { SchoolSite } from '../entities/school-site.entity';
+
+// Kept exported here so existing imports keep working.
+export { normalizeHost };
 
 /** A redirect carries its site too, so the caller can check the site is live before answering 301. */
 export type ResolvedHost =
   { tenantId: string; site: SchoolSite } | { redirectTo: string; site: SchoolSite } | null;
-
-/** Lower-case, no port. Anything that is not a plausible host name is not looked up at all. */
-export function normalizeHost(raw: string): string | null {
-  const host = raw.trim().toLowerCase().replace(/:\d+$/, '');
-  return host.length > 0 && host.length <= 253 && /^[a-z0-9.-]+$/.test(host) ? host : null;
-}
 
 /**
  * [40.1.04] Host name -> school site (D34). Subdomain of `SITE_ROOT_DOMAIN`, else an ACTIVE
@@ -28,6 +27,18 @@ export class SiteHostService {
     return root ? root : null;
   }
 
+  // 5 s: a switch-off, suspend or rename shows up at most this late. Caches the row lookups,
+  // not the answer, so the redirect window is still judged against `now` on every call.
+  private readonly cache = new TtlCache<SchoolSite | null>();
+
+  clearCache(): void {
+    this.cache.clear();
+  }
+
+  private find(key: string, where: FindOptionsWhere<SchoolSite>) {
+    return this.cache.get(key, () => this.sites.findOne({ where }));
+  }
+
   async resolve(rawHost: string, now: Date = new Date()): Promise<ResolvedHost> {
     const host = normalizeHost(rawHost);
     if (!host) return null;
@@ -36,17 +47,18 @@ export class SiteHostService {
     if (root && host.endsWith(`.${root}`)) {
       const label = host.slice(0, -(root.length + 1));
       if (label.includes('.')) return null;
-      const site = await this.sites.findOne({ where: { subdomain: label } });
+      const site = await this.find(`sub:${label}`, { subdomain: label });
       if (site) return { tenantId: site.tenant_id, site };
-      const old = await this.sites.findOne({ where: { previous_subdomain: label } });
+      const old = await this.find(`prev:${label}`, { previous_subdomain: label });
       if (old?.previous_until && old.previous_until > now) {
         return { redirectTo: `${old.subdomain}.${root}`, site: old };
       }
       return null;
     }
 
-    const site = await this.sites.findOne({
-      where: { custom_domain: host, custom_domain_status: SiteCustomDomainStatus.ACTIVE },
+    const site = await this.find(`dom:${host}`, {
+      custom_domain: host,
+      custom_domain_status: SiteCustomDomainStatus.ACTIVE,
     });
     return site ? { tenantId: site.tenant_id, site } : null;
   }

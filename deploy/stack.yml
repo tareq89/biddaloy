@@ -216,7 +216,8 @@ services:
       edge:
         aliases: ['${ENV_NAME:?ENV_NAME must be set}-site']
     healthcheck:
-      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:4321/healthz || exit 1']
+      # Trailing slash on purpose: `trailingSlash: 'always'` makes the bare path answer 301.
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:4321/healthz/ || exit 1']
       interval: 10s
       timeout: 5s
       retries: 6

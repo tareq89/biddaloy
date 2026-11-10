@@ -7,7 +7,7 @@
  * refusal gets one fixed sentence: the server hides the reason on purpose and nothing the admin
  * typed is echoed back.
  */
-import { SITE_SUBDOMAIN_RE } from '@biddaloy/shared';
+import { SITE_SUBDOMAIN_RE, withSiteEnvTag } from '@biddaloy/shared';
 import {
   Button,
   Card,
@@ -40,6 +40,7 @@ import { GlobeIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
+import { runtimeConfig } from '../../../runtime-config';
 
 export const Route = createFileRoute('/_staff/website/address')({
   loader: () => loadRouteNamespaces('website', 'common'),
@@ -85,7 +86,10 @@ function SubdomainCard() {
   const [confirming, setConfirming] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const clean = value.trim().toLowerCase();
+  // On demo and staging the address carries an environment suffix; the screen adds it, the server only checks it (D4).
+  const tag = runtimeConfig().siteEnvTag;
+  const typed = value.trim().toLowerCase();
+  const clean = typed ? withSiteEnvTag(typed, tag) : '';
   const current = config.data?.subdomain;
   const check = useSubdomainCheck(clean);
   const formatOk = SITE_SUBDOMAIN_RE.test(clean);
@@ -93,7 +97,9 @@ function SubdomainCard() {
   const hint = !clean
     ? null
     : !formatOk
-      ? t('address.invalid')
+      ? tag && SITE_SUBDOMAIN_RE.test(typed)
+        ? t('address.tagTooLong', { tag })
+        : t('address.invalid')
       : check.isFetching || check.data === undefined
         ? t('address.checking')
         : check.data.available
@@ -103,6 +109,10 @@ function SubdomainCard() {
 
   // The preview link is `https://<address>.<root>/?preview=…`; the live address is its origin.
   const liveUrl = preview.data?.url ? new URL(preview.data.url).origin : null;
+  // With a custom domain the origin is the school's own host, which carries no shared root.
+  const liveHost = liveUrl ? new URL(liveUrl).host : '';
+  const liveRoot =
+    current && liveHost.startsWith(`${current}.`) ? liveHost.slice(current.length + 1) : null;
 
   function close() {
     setEditing(false);
@@ -182,6 +192,11 @@ function SubdomainCard() {
           <p id="new-subdomain-hint" role="status" className="text-caption text-text-secondary">
             {hint}
           </p>
+          {tag && formatOk && (
+            <p dir="ltr" className="text-caption font-medium">
+              {liveRoot ? `${clean}.${liveRoot}` : clean}
+            </p>
+          )}
           {chips.length > 0 && (
             <div
               className="flex flex-wrap items-center gap-2"

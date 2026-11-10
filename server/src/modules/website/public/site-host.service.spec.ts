@@ -1,6 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SchoolSite } from '../entities/school-site.entity';
-import { SiteHostService, normalizeHost } from './site-host.service';
+import { SiteHostService } from './site-host.service';
+import { normalizeHost } from '../../../common/utils/normalize-host.util';
 
 const NOW = new Date('2026-11-06T00:00:00Z');
 const ROOT = 'schools.test';
@@ -25,6 +26,7 @@ describe('SiteHostService', () => {
     process.env.SITE_ROOT_DOMAIN = ROOT;
   });
   afterEach(() => {
+    vi.unstubAllEnvs();
     if (saved === undefined) delete process.env.SITE_ROOT_DOMAIN;
     else process.env.SITE_ROOT_DOMAIN = saved;
   });
@@ -86,5 +88,29 @@ describe('SiteHostService', () => {
   it('normalizeHost strips the port and lower-cases', () => {
     expect(normalizeHost(' Example.COM:8080 ')).toBe('example.com');
     expect(normalizeHost('')).toBeNull();
+  });
+
+  it('caches lookups for 5 s so repeat reads hit the repo once, until clearCache', async () => {
+    const rows = [site({})];
+    const findOne = vi.fn(
+      async ({ where }: { where: Record<string, unknown> }) =>
+        rows.find((r) =>
+          Object.entries(where).every(
+            ([k, v]) => (r as unknown as Record<string, unknown>)[k] === v,
+          ),
+        ) ?? null,
+    );
+    vi.stubEnv('NODE_ENV', 'production'); // the cache is a no-op under test
+    const svc = new SiteHostService({ findOne } as never);
+    await svc.resolve(`green.${ROOT}`, NOW);
+    await svc.resolve(`green.${ROOT}`, NOW);
+    expect(findOne).toHaveBeenCalledTimes(1);
+    await svc.resolve(`nobody.${ROOT}`, NOW); // miss: subdomain + previous lookups
+    const n = findOne.mock.calls.length;
+    await svc.resolve(`nobody.${ROOT}`, NOW);
+    expect(findOne).toHaveBeenCalledTimes(n);
+    svc.clearCache();
+    await svc.resolve(`green.${ROOT}`, NOW);
+    expect(findOne).toHaveBeenCalledTimes(n + 1);
   });
 });

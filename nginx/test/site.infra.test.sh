@@ -28,7 +28,7 @@ ROOT=schools.test
 FAILS=0
 
 cleanup() {
-  docker rm -f site-stub site-app-stub site-edge >/dev/null 2>&1 || true
+  docker rm -f site-stub site-demo-stub site-staging-stub site-app-stub site-demo-app-stub site-staging-app-stub site-edge >/dev/null 2>&1 || true
   docker volume rm "$LEVOL" "$CACHEVOL" >/dev/null 2>&1 || true
   docker network rm "$NET" >/dev/null 2>&1 || true
 }
@@ -47,14 +47,21 @@ stub() { # <name> <alias> <port> <nginx location body>; the body goes in as an e
     -c 'printf "server { listen %s; location / { default_type text/plain; %s } }" "$PORT" "$BODY" > /etc/nginx/conf.d/default.conf && exec nginx -g "daemon off;"' >/dev/null
 }
 start_site_stub() {
-  docker rm -f site-stub >/dev/null 2>&1 || true
+  # All three: this runs once per mode and again after a stub restart, and the demo/staging stubs reuse their names.
+  docker rm -f site-stub site-demo-stub site-staging-stub >/dev/null 2>&1 || true
   stub site-stub prod-site 4321 "$COOKIE_IF"'return 200 "site-ok host=$host preview=[$http_x_site_preview] cookie=[$http_cookie] xfh=[$http_x_forwarded_host] uri=$request_uri";'
+  # #3711: one stub per other environment, each answering with its own name.
+  stub site-demo-stub demo-site 4321 'return 200 "site-demo-ok host=$host uri=$request_uri";'
+  stub site-staging-stub staging-site 4321 'return 200 "site-staging-ok host=$host uri=$request_uri";'
 }
 # Both stubs set a cookie when the URI holds "setcookie" (only there, so other paths still cache):
 # no Set-Cookie may ever reach a visitor of a school host or the preview route.
 COOKIE_IF='if ($uri ~ setcookie) { add_header Set-Cookie "sid=LEAK"; } '
 start_site_stub
-stub site-app-stub prod-app 3000 'add_header Cache-Control no-store; '"$COOKIE_IF"'return 200 "app-ok uri=$request_uri host=$host";'
+stub site-app-stub prod-app 3000 'add_header Cache-Control no-store; if ($request_uri ~ "moved") { return 301 "https://new.example/media/x"; } '"$COOKIE_IF"'return 200 "app-ok uri=$request_uri host=$host";'
+# #3711: demo and staging apps answer for their own schools; the by-host calls must reach them, not prod.
+stub site-demo-app-stub demo-app 3000 'return 200 "app-demo-ok uri=$request_uri host=$host";'
+stub site-staging-app-stub staging-app 3000 'return 200 "app-staging-ok uri=$request_uri host=$host";'
 
 docker run --rm -v "$LEVOL:/le" --entrypoint sh alpine/openssl -c \
   'mkdir -p /le/live/example.test && openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
@@ -65,7 +72,7 @@ start_edge() { # <mode>
   docker volume rm "$CACHEVOL" >/dev/null 2>&1 || true
   docker volume create "$CACHEVOL" >/dev/null
   docker run -d --name site-edge --network "$NET" --ip "$EDGE_IP" -e "EDGE_MODE=$1" \
-    -e EDGE_TRUSTED_CIDR=172.30.97.0/24 -e APP_DOMAIN=example.test -e "STAGING_DOMAIN=staging.$ROOT" -e "KUMA_DOMAIN=kuma.$ROOT" -e "LANDING_DOMAIN=$ROOT" -e "ROOT_DOMAIN=$ROOT" -e OPS_UPSTREAM_HOST= \
+    -e EDGE_TRUSTED_CIDR=172.30.97.0/24 -e APP_DOMAIN=example.test -e "STAGING_DOMAIN=staging.$ROOT" -e "DEMO_DOMAIN=demo.$ROOT" -e "KUMA_DOMAIN=kuma.$ROOT" -e "LANDING_DOMAIN=$ROOT" -e "ROOT_DOMAIN=$ROOT" -e OPS_UPSTREAM_HOST= \
     -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
     -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
     -v "$PWD/nginx/edge-mode.sh:/docker-entrypoint.d/15-edge-mode.sh:ro" \
@@ -137,6 +144,28 @@ run_mode() { # <mode>
   c=$(code 8081 "$(printf 'a%.0s' $(seq 31)).$ROOT" /); [ "$c" = 000 ] && pass "$mode: 31-character label dropped (444)" || fail "$mode: 31-char label" "$c"
   b=$(body 8081 "abc.$ROOT" /bn/); [[ "$b" == site-ok* ]] && pass "$mode: 3-character label reaches site" || fail "$mode: 3-char label" "$b"
 
+  # --- environment suffix picks the site container (#3711) ---
+  b=$(body 8081 "x-demo.$ROOT" /env/); [[ "$b" == "site-demo-ok host=x-demo.$ROOT "* ]] && pass "$mode: x-demo.<root> reaches the demo site" || fail "$mode: -demo upstream" "$b"
+  b=$(body 8081 "x-staging.$ROOT" /env/); [[ "$b" == "site-staging-ok host=x-staging.$ROOT "* ]] && pass "$mode: x-staging.<root> reaches the staging site" || fail "$mode: -staging upstream" "$b"
+  b=$(body 8081 "xyz.$ROOT" /env/); [[ "$b" == "site-ok host=xyz.$ROOT "* ]] && pass "$mode: untagged label reaches the prod site" || fail "$mode: untagged upstream" "$b"
+  b=$(body 8081 "x-demonstration.$ROOT" /env/); [[ "$b" == "site-ok host=x-demonstration.$ROOT "* ]] && pass "$mode: x-demonstration.<root> is not demo (prod site)" || fail "$mode: look-alike label" "$b"
+  c=$(code 8081 "a.b-demo.$ROOT" /); [ "$c" = 000 ] && pass "$mode: a.b-demo.<root> dropped (444)" || fail "$mode: nested -demo" "$c"
+  c=$(code 8081 "demo.$ROOT" /); [ "$c" = 000 ] && pass "$mode: fixed host demo.<root> still dropped" || fail "$mode: demo host" "$c"
+  # Cache key carries the host: the same path on two environments never mixes.
+  body 8081 "x-demo.$ROOT" /same/ >/dev/null
+  b=$(body 8081 "x-staging.$ROOT" /same/); [[ "$b" == "site-staging-ok host=x-staging.$ROOT "* ]] && pass "$mode: staging not served the demo's cached page (key carries the host)" || fail "$mode: cache per env" "$b"
+  b=$(body 8081 "x-demo.$ROOT" /same/); [[ "$b" == "site-demo-ok host=x-demo.$ROOT "* ]] && pass "$mode: demo still gets its own page" || fail "$mode: cache per env (demo)" "$b"
+  # The app-host calls follow the same split: a demo school's media/island data lives in the demo app.
+  for env in demo staging; do
+    b=$(body 8081 "x-$env.$ROOT" /media/x); [[ "$b" == "app-$env-ok uri=/api/v1/public/site/by-host/x-$env.$ROOT/media/x "* ]] && pass "$mode: x-$env /media/ reaches the $env app" || fail "$mode: $env media upstream" "$b"
+    b=$(body 8081 "x-$env.$ROOT" /media/logo); [[ "$b" == "app-$env-ok uri=/api/v1/public/site/by-host/x-$env.$ROOT/media/logo "* ]] && pass "$mode: x-$env /media/logo reaches the $env app" || fail "$mode: $env logo upstream" "$b"
+    b=$(body 8081 "x-$env.$ROOT" /_api/island/notices); [[ "$b" == "app-$env-ok uri=/api/v1/public/site/by-host/x-$env.$ROOT/island/notices "* ]] && pass "$mode: x-$env /_api/ reaches the $env app" || fail "$mode: $env island upstream" "$b"
+    h=$(hdrs 8081 "x-$env.$ROOT" /env/); grep -qi '^x-robots-tag: noindex' <<<"$h" && pass "$mode: x-$env page is noindex" || fail "$mode: $env noindex page" "$h"
+    h=$(hdrs 8081 "x-$env.$ROOT" /media/x); grep -qi '^x-robots-tag: noindex' <<<"$h" && pass "$mode: x-$env /media/ is noindex" || fail "$mode: $env noindex media" "$h"
+  done
+  b=$(body 8081 "rumsc.$ROOT" /media/x); [[ "$b" == "app-ok uri="* ]] && pass "$mode: prod host /media/ still reaches the prod app" || fail "$mode: prod media upstream" "$b"
+  h=$(hdrs 8081 "xyz.$ROOT" /env/); ! grep -qi '^x-robots-tag' <<<"$h" && pass "$mode: prod school page carries no X-Robots-Tag" || fail "$mode: prod noindex" "$h"
+
   # --- school host: reaches site, micro-cache, stale-if-error, maintenance page ---
   b=$(body 8081 "rumsc.$ROOT" /bn/)
   [[ "$b" == "site-ok host=rumsc.$ROOT "* ]] && pass "$mode: rumsc.$ROOT reaches site with its Host" || fail "$mode: school host" "$b"
@@ -182,6 +211,10 @@ run_mode() { # <mode>
   h=$(hdrs 8081 "rumsc.$ROOT" /media/abc.webp)
   grep -qi '^cache-control: public, max-age=31536000, immutable' <<<"$h" && ! grep -qi 'no-store' <<<"$h" \
     && pass "$mode: /media/ is public immutable, no no-store" || fail "$mode: media cache-control" "$h"
+  # #3681: a renamed address answers 301 from the API; that 301 must never carry the immutable year.
+  h=$(hdrs 8081 "rumsc.$ROOT" /media/moved.webp)
+  grep -q '^HTTP/1.1 301' <<<"$h" && grep -qi '^cache-control: no-store' <<<"$h" && ! grep -qi 'immutable' <<<"$h" \
+    && pass "$mode: a /media/ 301 carries no-store, never immutable or absent" || fail "$mode: media 301 cache-control" "$h"
   b=$(body 8081 "rumsc.$ROOT" /media/abc.webp)
   [[ "$b" == "app-ok uri=/api/v1/public/site/by-host/rumsc.$ROOT/media/abc.webp "* ]] \
     && pass "$mode: /media/<key> maps to the by-host media API" || fail "$mode: media rewrite" "$b"
@@ -216,10 +249,24 @@ run_mode() { # <mode>
     h=$(hdrs 80 example.test /website/preview/basic/)
     grep -qi '^x-robots-tag: noindex' <<<"$h" && pass "$mode: preview is noindex" || fail "$mode: preview noindex" "$h"
     c=$(code 80 example.test /website/preview/Bad_1/); [ "$c" = 404 ] && pass "$mode: preview with a bad theme name is 404 in nginx" || fail "$mode: preview bad name" "$c"
-    h=$(hdrs 80 example.test /website/preview/basic/setcookie/)
+    h=$(hdrs 80 example.test /website/preview/basic/bn/setcookie/)
     grep -q '^HTTP/1.1 200' <<<"$h" && ! grep -qi '^set-cookie' <<<"$h" && pass "$mode: preview hides the site's Set-Cookie" || fail "$mode: preview set-cookie" "$h"
     b=$(body_h 80 example.test /website/preview/basic/ 'X-Forwarded-Host: evil.example')
     [[ "$b" == *"xfh=[]"* ]] && pass "$mode: preview drops X-Forwarded-Host" || fail "$mode: preview xfh" "$b"
+    # #3681: the language segment is kept (it used to become /bn/en/), a bare theme lands on /bn/.
+    b=$(body 80 example.test /website/preview/basic/en/about/)
+    [[ "$b" == "site-ok host=example.test preview=[basic] "*"uri=/en/about/" ]] && pass "$mode: /website/preview/basic/en/about/ -> /en/about/" || fail "$mode: preview en" "$b"
+    b=$(body 80 example.test /website/preview/basic)
+    [[ "$b" == "site-ok host=example.test preview=[basic] "*"uri=/bn/" ]] && pass "$mode: /website/preview/basic -> /bn/" || fail "$mode: preview bare" "$b"
+    b=$(body 80 example.test /website/preview/basic/en)
+    [[ "$b" == "site-ok host=example.test preview=[basic] "*"uri=/en/" ]] && pass "$mode: /website/preview/basic/en -> /en/" || fail "$mode: preview bare en" "$b"
+    c=$(code 80 example.test /website/preview/basic/zz/); [ "$c" = 404 ] && pass "$mode: preview with an unknown language segment is 404" || fail "$mode: preview zz" "$c"
+    # The preview page's own /_astro/ assets and notice island must not fall into the SPA.
+    b=$(body 80 example.test /_astro/x.js)
+    [[ "$b" == site-ok* ]] && pass "$mode: app-host /_astro/ reaches the site container" || fail "$mode: app-host _astro" "$b"
+    b=$(body_h 80 example.test /_astro/y.js 'X-Site-Preview: basic'); [[ "$b" == *"preview=[]"* ]] && pass "$mode: app-host /_astro/ drops X-Site-Preview" || fail "$mode: _astro preview" "$b"
+    h=$(hdrs 80 example.test /_astro/x.js); grep -qi '^x-robots-tag: noindex' <<<"$h" && pass "$mode: app-host /_astro/ is noindex" || fail "$mode: _astro noindex" "$h"
+    c=$(code 80 example.test /_api/island/notices); [ "$c" = 404 ] && pass "$mode: app-host /_api/island/ is 404, not SPA html" || fail "$mode: app-host island" "$c"
   fi
 }
 

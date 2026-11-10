@@ -37,7 +37,7 @@ sequenceDiagram
   A->>API: POST /website/publish { version, draft_revision } + Idempotency-Key
   API->>DB: published = draft, version + 1 (only if both numbers still match, else 409 site.stale)
   API->>R: delete the feed keys of this school
-  Note over R: Content keys carry the version, so the old ones simply stop being read
+  Note over R: Content keys carry `version.published_at` (a restored database cannot repeat a key), so the old ones simply stop being read
 ```
 
 Example body: `PUT /api/v1/website/draft` with `{"config": {...}, "draft_revision": 3}`. A save from a stale tab, or a
@@ -52,6 +52,17 @@ publish of a draft nobody on that screen has seen, answers 409 `site.stale`.
 | `www.myschool.edu.bd`                                        | `school_sites.custom_domain`, only when `custom_domain_status = 'ACTIVE'` | The site                                      |
 | anything else, off site, nothing published, suspended school | n/a                                                                       | One identical 404 (`site.not_found`, Rule 23) |
 
+On demo and staging the label ends with the environment (`bmsc-high-demo`, `bmsc-high-staging`), and the edge picks that stack's `site` container by the suffix (#3711):
+
+```mermaid
+flowchart LR
+  H["host label"] -->|"ends -demo"| D["demo-site"]
+  H -->|"ends -staging"| S["staging-site"]
+  H -->|"anything else, custom domains"| P["prod-site"]
+```
+
+The admin screen adds the suffix when the school types a name (`siteEnvTag` in `/runtime-config.js`); the server never fixes a name, it refuses a label with the wrong tag (`site.subdomain_unavailable`), also on prod (`-demo`, `-staging` refused). The tag counts toward the 30 characters.
+
 Subdomains are 3 to 30 characters (`SITE_SUBDOMAIN_RE`); `RESERVED_SUBDOMAINS` in `shared` lists the names no school
 may take (`app`, `demo`, `site-test`, ...). Edge limit: the API can resolve an active custom domain, but the site listener (`:8081`) only accepts subdomains of `ROOT_DOMAIN`; any other host gets 444 until the custom-domain edge work (#3646) ships. Direct edge mode does not expose school sites at all.
 
@@ -60,12 +71,17 @@ school.
 
 ## Cache
 
-| What                         | Key                               | TTL                         | Cleared by                                     |
-| ---------------------------- | --------------------------------- | --------------------------- | ---------------------------------------------- |
-| Manifest and pages (Redis)   | `site:<tenant>:<version>:<kind>`  | 24 h                        | A publish (new `version`, old keys never read) |
-| Notice feed (Redis)          | `site:<tenant>:feed:notices`      | 60 s                        | TTL, or publish / switch on-off                |
-| Pages (nginx `site_cache`)   | `$host$request_uri`               | 30 s                        | TTL; `?preview=` is never stored               |
-| Pictures (nginx and browser) | `/media/<id>` (the id is the key) | 1 day nginx, 1 year browser | Nothing: a new picture gets a new id (D41)     |
+| What                         | Key                                                | TTL                         | Cleared by                                     |
+| ---------------------------- | -------------------------------------------------- | --------------------------- | ---------------------------------------------- |
+| Manifest and pages (Redis)   | `site:<tenant>:<version>.<published_at ms>:<kind>` | 24 h                        | A publish (new `version`, old keys never read) |
+| Notice feed (Redis)          | `site:<tenant>:feed:notices`                       | 60 s                        | TTL, or publish / switch on-off                |
+| Pages (nginx `site_cache`)   | `$host$request_uri`                                | 30 s                        | TTL; `?preview=` is never stored               |
+| Pictures (nginx and browser) | `/media/<id>` (the id is the key)                  | 1 day nginx, 1 year browser | Nothing: a new picture gets a new id (D41)     |
+
+The API also keeps the host lookup and the school status in process memory for 5 s (`ttl-cache.ts`, 500 entries), so
+a switch-off, suspend or rename shows up at most 5 s late and Postgres is not read per request. The read rate limit
+is per school host (`site:<host>`) when the caller is on a private address (the site container), and per IP for
+everyone else (`rate-limit-tracker.ts`).
 
 ## When something is down
 
@@ -100,13 +116,13 @@ flowchart LR
   M -->|no| N["The same 404 body as an unknown host"]
 ```
 
-| Endpoint            | Answer                                                                                 |
-| ------------------- | -------------------------------------------------------------------------------------- |
-| `/sitemap.xml`      | Every enabled page that has a route, bn and en, each with `hreflang` alternates        |
+| Endpoint            | Answer                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `/sitemap.xml`      | Every enabled page that has a route, bn and en, each with `hreflang` alternates         |
 | `/robots.txt`       | `Allow: /`, `Disallow: /*?preview=` and the sitemap; `Disallow: /` when noindex/preview |
-| `/feed.xml?lang=en` | RSS 2.0 of the blog; 404 when the blog page is switched off                            |
-| `/llms.txt`         | A plain-text summary: name, page URLs, recent posts                                    |
-| `/og/<page>.png`    | A 1200 x 630 card: palette colour, school name, page title                             |
+| `/feed.xml?lang=en` | RSS 2.0 of the blog; 404 when the blog page is switched off                             |
+| `/llms.txt`         | A plain-text summary: name, page URLs, recent posts                                     |
+| `/og/<page>.png`    | A 1200 x 630 card: palette colour, school name, page title                              |
 
 Each page also carries one canonical, bn/en/`x-default` alternates, Open Graph and Twitter tags, and JSON-LD
 (`EducationalOrganization`, `BreadcrumbList`, `NewsArticle` for a post).

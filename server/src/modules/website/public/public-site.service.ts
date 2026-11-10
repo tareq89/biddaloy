@@ -4,12 +4,15 @@ import { Repository } from 'typeorm';
 import type { Readable } from 'node:stream';
 import { SchoolStatus, SiteIslandKind, SiteMediaSlot, SitePage } from '@biddaloy/shared';
 import type { SiteConfig } from '@biddaloy/shared';
+import { DEFAULT_REGION_SETTINGS } from '../../schools/settings/tenant-settings-defaults';
+import { resolveTenantSettings } from '../../schools/settings/tenant-settings-resolver';
 import { School } from '../../schools/entities/school.entity';
 import { StorageService } from '../../storage/storage.service';
 import { SchoolSite } from '../entities/school-site.entity';
 import { SiteMedia } from '../entities/site-media.entity';
-import { SiteCacheService } from './site-cache.service';
+import { SiteCacheService, contentVersion } from './site-cache.service';
 import { SiteHostService } from './site-host.service';
+import { TtlCache } from './ttl-cache';
 import {
   PublicManifest,
   PublicPage,
@@ -34,6 +37,10 @@ interface LiveSite {
   school: School;
 }
 
+// The school's own timezone (same default `SchoolsService.todayFor` uses); settings are on the loaded row.
+const schoolTz = (school: School) =>
+  resolveTenantSettings(school.settings).region?.timezone ?? DEFAULT_REGION_SETTINGS.timezone;
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** [40.1.04] The anonymous reads behind `/public/site/by-host/:host/*`. */
@@ -48,6 +55,12 @@ export class PublicSiteService {
     private readonly feeds: FeedRegistry,
     private readonly previews: PreviewTokenService,
   ) {}
+
+  /** 5 s in-process: a suspend shows up at most this late (same window as the host lookup). */
+  private readonly schoolCache = new TtlCache<School | null>();
+  private school(id: string) {
+    return this.schoolCache.get(id, () => this.schools.findOne({ where: { id } }));
+  }
 
   /**
    * Site must be switched on, published, and its school active (not soft-deleted or suspended).
@@ -65,12 +78,12 @@ export class PublicSiteService {
       !('redirectTo' in found) &&
       this.previews.verify(preview, site.tenant_id)
     ) {
-      const school = await this.schools.findOne({ where: { id: site.tenant_id } });
+      const school = await this.school(site.tenant_id);
       if (!school || school.status !== SchoolStatus.ACTIVE) throw siteNotFound();
       return { preview: true, site, published: site.draft, school };
     }
     if (!site.enabled || !site.published) throw siteNotFound();
-    const school = await this.schools.findOne({ where: { id: site.tenant_id } });
+    const school = await this.school(site.tenant_id);
     if (!school || school.status !== SchoolStatus.ACTIVE) throw siteNotFound();
     if ('redirectTo' in found) return { redirectTo: found.redirectTo };
     return { site, published: site.published, school };
@@ -112,6 +125,7 @@ export class PublicSiteService {
             await this.galleryOn(l.published, l.site.tenant_id),
           ),
           new Date(),
+          schoolTz(l.school),
         ),
       };
     }
@@ -121,7 +135,7 @@ export class PublicSiteService {
     const gallery = await this.galleryOn(l.published, l.site.tenant_id);
     const m = await this.cache.getOrLoad(
       l.site.tenant_id,
-      l.site.version,
+      contentVersion(l.site),
       // Everything the manifest reads that is not the published config is in the key.
       `manifest:${l.school.updated_at.getTime()}:${l.site.noindex ? 1 : 0}:${logo?.id ?? ''}:${l.site.umami_website_id ?? ''}`,
       async () =>
@@ -134,7 +148,7 @@ export class PublicSiteService {
           gallery,
         ),
     );
-    return { data: withAnnouncementWindow(m, new Date()) };
+    return { data: withAnnouncementWindow(m, new Date(), schoolTz(l.school)) };
   }
 
   async page(host: string, page: string, preview?: string): Promise<HostAnswer<PublicPage>> {
@@ -153,7 +167,7 @@ export class PublicSiteService {
     }
     const built = await this.cache.getOrLoad(
       l.site.tenant_id,
-      l.site.version,
+      contentVersion(l.site),
       `page:${page}`,
       async () =>
         page === SitePage.GALLERY && !(await this.galleryOn(l.published, l.site.tenant_id))

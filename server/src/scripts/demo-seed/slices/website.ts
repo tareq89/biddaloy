@@ -8,6 +8,7 @@ import {
   SiteTheme,
   SITE_MEDIA_SLOT_PX,
 } from '@biddaloy/shared';
+import { siteEnvTag, withSiteEnvTag } from '@biddaloy/shared';
 import type { SiteConfig } from '@biddaloy/shared';
 import { THEMES, defaultConfigFor } from '@biddaloy/site-themes';
 import type { DemoSeedContext, DemoSlice } from '../context';
@@ -73,7 +74,7 @@ export const slice: DemoSlice = {
     const created = await site.get(T);
     await ctx.ds.query(`UPDATE school_sites SET subdomain = $2 WHERE tenant_id = $1`, [
       T,
-      tenant.slug,
+      withSiteEnvTag(tenant.slug, siteEnvTag(process.env.ENV_NAME)),
     ]);
 
     const palette = THEMES[SiteTheme.BASIC].palettes[1];
@@ -245,16 +246,11 @@ export const slice: DemoSlice = {
         Math.min(6, teachers.length),
       )
       .sort((a, b) => a - b);
-    const names = new Map<string, string>(
-      (
-        await ctx.ds.query(`SELECT id, full_name FROM users WHERE id = ANY($1::uuid[])`, [
-          picked.map((i) => teachers[i].userId),
-        ])
-      ).map((u: { id: string; full_name: string }) => [u.id, u.full_name]),
-    );
     const profiles = picked.map((pos, order) => {
       const t = teachers[pos];
-      const subjects = t.subjects.map((s) => SUBJECTS[s]?.en).filter(Boolean) as string[];
+      const subjects = t.subjects
+        .map((s) => (SUBJECTS[s] ? `${SUBJECTS[s].bn} (${SUBJECTS[s].en})` : ''))
+        .filter(Boolean);
       return {
         tenant_id: T,
         user_id: t.userId,
@@ -264,8 +260,9 @@ export const slice: DemoSlice = {
         subjects,
         bio: BIOS[order % BIOS.length],
         credentials: {
-          bn: `${names.get(t.userId) ?? ''} — বি.এড`,
-          en: `${names.get(t.userId) ?? ''} — B.Ed.`,
+          // The card shows the teacher's name already, so the credential never repeats it.
+          bn: 'বি.এড',
+          en: 'B.Ed.',
         },
       };
     });

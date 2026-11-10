@@ -6,31 +6,69 @@ import { PreviewTokenService, PREVIEW_TTL_MS } from './preview-token.service';
 describe('isValidSubdomain', () => {
   it('accepts 3-30 chars of a-z, 0-9 and inner hyphens', () => {
     for (const ok of ['abc', 'a-b', 'green-valley-1', 'a'.repeat(30), '123']) {
-      expect(isValidSubdomain(ok)).toBe(true);
+      expect(isValidSubdomain(ok, '')).toBe(true);
     }
   });
 
   it('refuses malformed values', () => {
     const bad = ['ab', 'a'.repeat(31), '-abc', 'abc-', 'ABC', 'a_b', 'a.b', 'a b', '', 'ক খ গ'];
-    for (const v of bad) expect(isValidSubdomain(v)).toBe(false);
-    expect(isValidSubdomain(undefined)).toBe(false);
-    expect(isValidSubdomain(42)).toBe(false);
+    for (const v of bad) expect(isValidSubdomain(v, '')).toBe(false);
+    expect(isValidSubdomain(undefined, '')).toBe(false);
+    expect(isValidSubdomain(42, '')).toBe(false);
   });
 
   it('refuses every reserved word', () => {
-    for (const r of RESERVED_SUBDOMAINS) expect(isValidSubdomain(r)).toBe(false);
+    for (const r of RESERVED_SUBDOMAINS) expect(isValidSubdomain(r, '')).toBe(false);
+  });
+});
+
+describe('isValidSubdomain env tag (D5)', () => {
+  it('demo accepts only labels ending -demo', () => {
+    expect(isValidSubdomain('foo-demo', 'demo')).toBe(true);
+    for (const v of ['foo', 'foo-staging', 'demo', '-demo']) {
+      expect(isValidSubdomain(v, 'demo')).toBe(false);
+    }
+  });
+  it('staging mirrors it', () => {
+    expect(isValidSubdomain('foo-staging', 'staging')).toBe(true);
+    for (const v of ['foo', 'foo-demo']) expect(isValidSubdomain(v, 'staging')).toBe(false);
+  });
+  it('prod refuses both tags, accepts plain and look-alikes', () => {
+    expect(isValidSubdomain('x-demo', '')).toBe(false);
+    expect(isValidSubdomain('x-staging', '')).toBe(false);
+    expect(isValidSubdomain('xyz', '')).toBe(true);
+    expect(isValidSubdomain('a-demonstration', '')).toBe(true);
+  });
+  it('refuses a tagged label over 30 characters', () => {
+    expect(isValidSubdomain(`${'a'.repeat(24)}-demo`, 'demo')).toBe(true);
+    expect(isValidSubdomain(`${'a'.repeat(27)}-demo`, 'demo')).toBe(false);
   });
 });
 
 describe('candidatesFor', () => {
+  it('tags each candidate and drops ones too long once tagged', () => {
+    const c = candidatesFor('Green Valley High', 'demo');
+    expect(c).toContain('gvh-demo');
+    expect(c.every((x) => x.endsWith('-demo') && x.length <= 30)).toBe(true);
+    // A 30-char slug shrinks to leave room for '-demo' instead of vanishing
+    expect(candidatesFor('a'.repeat(30), 'demo')).toContain(`${'a'.repeat(25)}-demo`);
+  });
+
+  it('still suggests a long school name on staging', () => {
+    const c = candidatesFor('Bangladesh Model School And College Rampura', 'staging');
+    expect(c.length).toBeGreaterThan(0);
+    expect(c.every((x) => x.endsWith('-staging') && x.length <= 30)).toBe(true);
+    expect(c[0]).toBe('bangladesh-model-schoo-staging');
+  });
+
   it('orders slug, initials, slug-school and drops invalid or reserved ones', () => {
-    expect(candidatesFor('Green Valley High')).toEqual([
+    expect(candidatesFor('Green Valley High', '')).toEqual([
       'green-valley-high',
       'gvh',
       'green-valley-high-school',
     ]);
     // "Admin" is reserved, and its initials are too short.
-    expect(candidatesFor('Admin')).toEqual(['admin-school']);
+    expect(candidatesFor('Admin', '')).toEqual(['admin-school']);
   });
 });
 
@@ -67,6 +105,33 @@ function setup(o: { current?: string; taken?: boolean } = {}) {
   );
   return { svc, sites, cache, state, freed };
 }
+
+describe('SubdomainService on demo', () => {
+  const run = async <T>(fn: () => Promise<T>) => {
+    process.env.ENV_NAME = 'demo';
+    try {
+      return await fn();
+    } finally {
+      delete process.env.ENV_NAME;
+    }
+  };
+  it('refuses an untagged name (never fixes it), accepts the tagged one', async () => {
+    await run(async () => {
+      const { svc } = setup();
+      expect(await svc.check('t1', 'foo')).toEqual({ available: false });
+      expect(await svc.check('t1', 'foo-demo')).toEqual({ available: true });
+      await expect(svc.rename('t1', 'foo')).rejects.toThrow('site.subdomain_unavailable');
+    });
+  });
+  it('suggest returns tagged names', async () => {
+    await run(async () => {
+      const { svc } = setup();
+      const { suggestions } = await svc.suggest('t1');
+      expect(suggestions.length).toBeGreaterThan(0);
+      expect(suggestions.every((x) => x.endsWith('-demo'))).toBe(true);
+    });
+  });
+});
 
 describe('SubdomainService', () => {
   it('check answers the same shape for malformed, reserved and taken', async () => {

@@ -61,8 +61,8 @@
     # images pinned by digest.
     images_by_stack:
       prod: [biddaloy-app, biddaloy-backup, biddaloy-site]
-      staging: [biddaloy-app, biddaloy-backup]
-      demo: [biddaloy-app, biddaloy-demo-reset]
+      staging: [biddaloy-app, biddaloy-backup, biddaloy-site]
+      demo: [biddaloy-app, biddaloy-demo-reset, biddaloy-site]
       edge: [biddaloy-landing]
       ops: []
     images: '{{ images_by_stack[stack] | default([]) }}'
@@ -75,14 +75,21 @@
     # retention and maybe write today's daily. The next prod deploy (after restore-prod) starts it.
     # Staging and demo name `mailpit` (Epic 87 test inbox): a profile only makes a service
     # eligible, so an unnamed one never starts. --wait covers its healthcheck too.
-    # Prod also names `site` (school websites, Epic 40 #3620): only prod's edge routes school
-    # hosts (site.conf.template), so staging and demo leave it stopped.
+    # Every app stack names `site` (school websites, Epic 40 #3620, #3711): the edge routes a
+    # `-demo` or `-staging` school host to that stack's `site` (site.conf.template).
     app_services: >-
       {{ ('db redis seaweedfs app app2 site' ~ ('' if (db_users_before | default(1) | int) == 0 else ' backup'))
-         if stack == 'prod' else 'db redis seaweedfs mailpit app' }}
-    # The rollback runs the previous compose file, which may predate mailpit or site ("no such
-    # service"). A mailpit or site already running is left as it is.
-    rollback_services: "{{ app_services | replace(' mailpit', '') | replace(' site', '') }}"
+         if stack == 'prod' else 'db redis seaweedfs mailpit app site' }}
+    # The rollback runs the previous compose file, which may predate mailpit ("no such service").
+    # A mailpit already running is left as it is. `site` stays in the list; the rollback block drops
+    # it (rollback_up) when the previous compose file does not define it.
+    rollback_services: "{{ app_services | replace(' mailpit', '') }}"
+    # `site` is dropped only when `config --services` ANSWERED (exit 0, a non-empty list) without it.
+    # A failed or empty answer proves nothing about the old file, so `site` stays.
+    rollback_keeps_site: >-
+      {{ (rollback_defined.rc | default(1)) != 0
+         or (rollback_defined.stdout_lines | default([]) | length) == 0
+         or 'site' in (rollback_defined.stdout_lines | default([])) }}
     # Users in the database, in one psql call; a missing table counts as 0 (query_to_xml keeps a
     # missing table from failing at parse time). Run with `dc exec db`, the query as $1.
     users_sql: >-
@@ -535,11 +542,25 @@
                 rr_services: '{{ rollout }}'
                 dc: '{{ dc_rollback }}'
               when: stack in app_stacks
+            # `--services` lists names only (never prints .env values). The .env is already back above.
+            # If it fails, stdout is empty and `site` is dropped: the old behaviour.
+            - name: Which services does the previous compose file define?
+              ansible.builtin.command: '{{ dc_rollback }} config --services'
+              register: rollback_defined
+              changed_when: false
+              failed_when: false
+              when: stack in app_stacks
+            - name: Name site only when the previous release has it
+              ansible.builtin.set_fact:
+                rollback_up: >-
+                  {{ rollback_services if rollback_keeps_site
+                     else (rollback_services | replace(' site', '')) }}
+              when: stack in app_stacks
             - name: Start the previous version
               ansible.builtin.include_tasks: tasks/compose-up.yml
               vars:
                 up_wait: '{{ stack != "edge" }}'
-                up_services: "{{ rollback_services if stack in app_stacks else '' }}"
+                up_services: "{{ (rollback_up | default(rollback_services)) if stack in app_stacks else '' }}"
                 dc: '{{ dc_rollback }}'
             # The templates are bind mounts rendered at start: recreate so nginx renders the old ones.
             - name: Recreate nginx on the previous nginx files (edge)

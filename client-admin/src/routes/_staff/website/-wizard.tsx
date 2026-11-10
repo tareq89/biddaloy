@@ -6,7 +6,7 @@
  * rename (if the address changed) → save the draft → publish → switch on, in that order, each
  * step using the version the previous one returned so a stale answer cannot publish unseen.
  */
-import { SITE_SUBDOMAIN_RE, SiteMediaSlot } from '@biddaloy/shared';
+import { SITE_SUBDOMAIN_RE, SiteMediaSlot, withSiteEnvTag } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
@@ -31,6 +31,8 @@ import {
 import { useLocale, useTranslation } from '@biddaloy/ui/i18n';
 import { WizardShell, useWizardShellStep } from '@biddaloy/ui/shells';
 import * as React from 'react';
+
+import { runtimeConfig } from '../../../runtime-config';
 
 import { ThemeCard } from './-theme-card';
 
@@ -62,7 +64,10 @@ export function WebsiteWizard({ config, themes, onDone }: WebsiteWizardProps) {
   const [themeId, setThemeId] = React.useState(config.theme);
   const [paletteId, setPaletteId] = React.useState(config.palette);
 
-  const clean = address.trim().toLowerCase();
+  // On demo and staging the screen adds the environment suffix; the server only checks it (D4).
+  const tag = runtimeConfig().siteEnvTag;
+  const typed = address.trim().toLowerCase();
+  const clean = typed ? withSiteEnvTag(typed, tag) : '';
   const check = useSubdomainCheck(clean);
   const settled = useDebouncedValue(clean, 300) === clean;
   const suggestions = useSubdomainSuggestions();
@@ -130,7 +135,9 @@ export function WebsiteWizard({ config, themes, onDone }: WebsiteWizardProps) {
   React.useEffect(() => () => (logo ? URL.revokeObjectURL(logo) : undefined), [logo]);
 
   const addressHint = !SITE_SUBDOMAIN_RE.test(clean)
-    ? t('wizard.address.invalid')
+    ? tag && SITE_SUBDOMAIN_RE.test(typed)
+      ? t('address.tagTooLong', { tag })
+      : t('wizard.address.invalid')
     : clean === config.subdomain
       ? null
       : !settled || check.isFetching
@@ -172,6 +179,11 @@ export function WebsiteWizard({ config, themes, onDone }: WebsiteWizardProps) {
               <p id="website-address-hint" role="status" className="text-caption">
                 {addressHint ?? t('help.address')}
               </p>
+              {tag && SITE_SUBDOMAIN_RE.test(clean) && (
+                <p dir="ltr" className="text-caption font-medium">
+                  {clean}
+                </p>
+              )}
               {suggested.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <span className="text-sm font-medium">{t('wizard.address.suggestions')}</span>

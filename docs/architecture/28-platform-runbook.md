@@ -2086,6 +2086,39 @@ and the curl must still give the `302`.
 
 **Rollback.** Delete the `*` DNS record. Fixed hosts are untouched.
 
+**Demo and staging school sites (#3711).** A school site on demo or staging has a label that
+ends in its environment: `model-school-demo.<root>`, `model-school-staging.<root>`. A suffix, not a
+sub-level, because the free Cloudflare certificate covers one level only. The edge nginx picks the
+container by that suffix (`$site_upstream_name` in `conf.d/01-site-host.conf`): `-demo` goes to
+`demo-site`, `-staging` to `staging-site`, anything else to `prod-site`. Staging school sites are
+public (only staging itself stays behind Cloudflare Access). The tag counts toward the 30-character
+limit. Deploy the edge and prod first (so the map exists), then staging and demo (their `site`
+containers start); an existing demo or staging school renames once in Administration > Website.
+
+The same suffix also picks the **app** for `/media/` and `/_api/` (`$site_app_upstream_name`:
+`-demo` goes to `demo-app`, `-staging` to `staging-app`), and `-demo` / `-staging` hosts answer
+`X-Robots-Tag: noindex`. Staging holds a scrubbed copy of prod, so its school sites are public by
+owner decision (D3) but never indexed.
+
+```mermaid
+flowchart LR
+  A["1. On PROD, run the check"] --> B{"0 rows?"}
+  B -- yes --> C["2. Deploy edge"]
+  B -- no --> D["Rename those schools first"] --> A
+```
+
+**Before "Deploy edge", check prod has no look-alike label.** Once the edge is live, any prod
+label ending in `-demo` or `-staging` would be sent to the demo or staging container instead of
+prod. On the PROD database run:
+
+```sql
+SELECT subdomain, previous_subdomain FROM school_sites
+WHERE subdomain ~ '-(demo|staging)$' OR previous_subdomain ~ '-(demo|staging)$';
+```
+
+It must return **0 rows**. Example of a bad row: `green-valley-demo | null`. If any row comes
+back, rename that school in Administration > Website first, then deploy the edge.
+
 ### 17b. Reserved names and the test host
 
 1. Reserved names. A school subdomain must not take a platform name. The code side,

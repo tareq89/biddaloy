@@ -115,6 +115,21 @@ docker run --rm -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=198.51.100.0/24 -e ROOT
   -v "$PWD/nginx/edge-mode.sh:/e.sh:ro" --entrypoint sh "$NGINX_IMG" -c 'sh /e.sh >/dev/null && cat /etc/nginx/conf.d/01-site-host.conf' 2>&1 \
   | grep -q '"~' && fail "ROOT_DOMAIN=root.invalid opens the custom path" "regex rules present" || pass "ROOT_DOMAIN=root.invalid: gate stays closed (no regex rules)"
 
+# The upstream map (#3711): -demo and -staging labels under the root pick their site container,
+# everything else prod; no root means the default only (never an invalid regex).
+out=$(docker run --rm -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=198.51.100.0/24 -e ROOT_DOMAIN=schools.test -e APP_DOMAIN=example.test \
+  -v "$PWD/nginx/edge-mode.sh:/e.sh:ro" --entrypoint sh "$NGINX_IMG" -c 'sh /e.sh >/dev/null && cat /etc/nginx/conf.d/01-site-host.conf' 2>&1)
+[[ "$out" == *'map $host $site_upstream_name {'* && "$out" == *'default site_upstream;'* \
+  && "$out" == *'-demo\.schools\.test$" site_demo;'* && "$out" == *'-staging\.schools\.test$" site_staging;'* \
+  && "$out" == *'map $host $site_app_upstream_name {'* && "$out" == *'default app_upstream;'* \
+  && "$out" == *'-demo\.schools\.test$" demo_upstream;'* && "$out" == *'-staging\.schools\.test$" staging_upstream;'* \
+  && "$out" == *'map $host $site_env_noindex {'* && "$out" == *'-(demo|staging)\.schools\.test$" noindex;'* ]] \
+  && pass "site upstream maps: -demo, -staging, default prod; app upstream; noindex" || fail "site upstream map" "$out"
+out=$(docker run --rm -e EDGE_MODE=tunnel -e EDGE_TRUSTED_CIDR=198.51.100.0/24 -e ROOT_DOMAIN=root.invalid -e APP_DOMAIN=example.test \
+  -v "$PWD/nginx/edge-mode.sh:/e.sh:ro" --entrypoint sh "$NGINX_IMG" -c 'sh /e.sh >/dev/null && cat /etc/nginx/conf.d/01-site-host.conf' 2>&1)
+[[ "$out" == *'default site_upstream;'* && "$out" == *'default app_upstream;'* && "$out" != *site_demo* && "$out" != *demo_upstream* && "$out" != *noindex\;* ]] \
+  && pass "site upstream maps: no root writes the defaults only" || fail "site upstream map without root" "$out"
+
 # A host value that could break out of the generated map (quote, semicolon, brace, newline) must stop
 # the container loudly, never write a config. Same for a bad ROOT_DOMAIN.
 for bad_val in 'a"b.example.test' 'a;b.example.test' 'a}b.example.test' "$(printf 'a.example.test\nb')"; do
