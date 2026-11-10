@@ -22,6 +22,7 @@ export function mapKnownError(exception: unknown): HttpException | null {
     mapCardNoUnique(exception) ??
     mapUniqueViolation(exception) ??
     mapStudentFeeCheckViolation(exception) ??
+    mapYearClosedCheckViolation(exception) ??
     mapInvalidDate(exception) ??
     mapDeadlock(exception) ??
     mapMulterError(exception) ??
@@ -102,6 +103,26 @@ function mapUniqueViolation(exception: unknown): HttpException | null {
 // The money CHECKs on `student_fees` (migration 1791900000300). Services check the balance
 // first; this is the backstop so a path that missed it is a 409, not a 500. Fixed text.
 const STUDENT_FEE_MONEY_CHECKS = new Set(['CHK_sf_paid_plus_discount', 'CHK_sf_waived_settled']);
+
+// [69.1.04] A closed academic year is read-only. One sentence on every path (the guard, set-current,
+// the DB CHECK that keeps a closed year from being current): no id, no name (Rules 23/24).
+export const YEAR_CLOSED_MESSAGE =
+  'This academic year is closed. Reopen it on Academic years to change this.';
+
+export function yearClosed(): ConflictException {
+  return new ConflictException({
+    message: YEAR_CLOSED_MESSAGE,
+    details: { code: 'ACADEMIC_YEAR_CLOSED' },
+  });
+}
+
+function mapYearClosedCheckViolation(exception: unknown): HttpException | null {
+  if (!(exception instanceof QueryFailedError)) return null;
+  const { code, constraint } = exception.driverError as { code?: string; constraint?: string };
+  return code === '23514' && constraint === 'CHK_academic_years_closed_not_current'
+    ? yearClosed()
+    : null;
+}
 
 function mapStudentFeeCheckViolation(exception: unknown): HttpException | null {
   if (!(exception instanceof QueryFailedError)) return null;

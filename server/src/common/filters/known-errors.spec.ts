@@ -297,3 +297,30 @@ describe('mapKnownError — errors @nestjs/platform-express 12.3 already wrapped
     expect(mapKnownError(new BadRequestException('file is required'))).toBeNull();
   });
 });
+
+describe('[69.1.04] mapKnownError — closed academic year', () => {
+  const sentence = 'This academic year is closed. Reopen it on Academic years to change this.';
+
+  it('maps the closed-not-current CHECK violation to the one sentence', () => {
+    const exception = new QueryFailedError('UPDATE academic_years', [], {
+      code: '23514',
+      constraint: 'CHK_academic_years_closed_not_current',
+      detail: 'Failing row contains (secret-id-123)',
+    } as unknown as Error);
+    const mapped = mapKnownError(exception);
+    expect(mapped?.getStatus()).toBe(409);
+    expect(mapped?.getResponse()).toEqual({
+      message: sentence,
+      details: { code: 'ACADEMIC_YEAR_CLOSED' },
+    });
+    expect(JSON.stringify(mapped?.getResponse())).not.toContain('secret-id-123');
+  });
+
+  it('leaves another CHECK violation alone', () => {
+    const exception = new QueryFailedError('UPDATE x', [], {
+      code: '23514',
+      constraint: 'CHK_other',
+    } as unknown as Error);
+    expect(mapKnownError(exception)).toBeNull();
+  });
+});
