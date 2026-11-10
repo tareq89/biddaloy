@@ -15,10 +15,16 @@ export class TtlCache<V> {
     private readonly now: () => number = Date.now,
   ) {}
 
+  // Bumped by clear(): a load that started before a clear() must not write its (stale) row back
+  // after it, or an invalidation would be undone for up to one TTL.
+  private generation = 0;
+
   async get(key: string, load: () => Promise<V>): Promise<V> {
     const hit = this.entries.get(key);
     if (hit && hit.expires > this.now()) return hit.value;
+    const startedAt = this.generation;
     const value = await load();
+    if (startedAt !== this.generation) return value;
     this.entries.delete(key);
     if (this.entries.size >= this.maxEntries) {
       this.entries.delete(this.entries.keys().next().value as string);
@@ -28,6 +34,7 @@ export class TtlCache<V> {
   }
 
   clear(): void {
+    this.generation++;
     this.entries.clear();
   }
 }
