@@ -121,6 +121,8 @@ describe('audience separation with real tokens', () => {
     jwt,
     { isRevoked: vi.fn().mockResolvedValue(false) } as any,
     { findOne: vi.fn().mockResolvedValue(owner) } as any,
+    // The app strategy refuses an owner's app token; this spec's app token is not an owner's.
+    { exists: vi.fn().mockResolvedValue(false) } as any,
   );
 
   function run(strategy: any, token: string): Promise<'accepted' | 'refused'> {
