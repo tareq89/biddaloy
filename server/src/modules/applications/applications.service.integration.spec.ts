@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
   UnprocessableEntityException,
@@ -904,6 +905,23 @@ describe('ApplicationsService (integration)', () => {
       const app = await submit(callers.studentU, studentLeave(studentA));
       expect((await service.get(SEED_TENANT_ID, callers.parent, app.id)).id).toBe(app.id);
       await expect(service.get(TENANT_B, bAdmin, app.id)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('[69.3.05] withdraw of an application of a closed year is refused (409)', async () => {
+      const app = await submit(callers.parent, studentLeave(studentA));
+      const closed = randomUUID();
+      await dataSource.query(
+        `INSERT INTO academic_years (id, name, start_date, end_date, is_current, closed_at, tenant_id, created_at, updated_at)
+         VALUES ($1, 'Closed 2020', '2020-01-01', '2020-12-31', false, NOW(), $2, NOW(), NOW())`,
+        [closed, SEED_TENANT_ID],
+      );
+      await dataSource.query(`UPDATE applications SET academic_year_id = $1 WHERE id = $2`, [
+        closed,
+        app.id,
+      ]);
+      await expect(
+        service.withdraw(SEED_TENANT_ID, callers.parent, app.id, ctx),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('withdraw: only the applicant (403), once (422), and it notifies', async () => {

@@ -103,7 +103,8 @@ function buildService() {
       // Only OPEN change requests block an edit.
       return opts.where.state === 'OPEN' ? refs.openRequests : 0;
     }),
-    query: vi.fn(async () => []), // [58.0.03] cross-branch lookup: no other branch
+    // [58.0.03] cross-branch lookup: no other branch; [69.3.05] assertYearOpen: year is open
+    query: vi.fn(async (sql: string) => (sql.includes('closed_at') ? [{ closed_at: null }] : [])),
     getRepository: (entity: unknown) => reposByEntity.get(entity),
     findOne: (entity: unknown, opts: any) => reposByEntity.get(entity).findOne(opts),
     findOneOrFail: (entity: unknown, opts: any) => reposByEntity.get(entity).findOne(opts),

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { UnprocessableEntityException, NotFoundException } from '@nestjs/common';
+import { UnprocessableEntityException, NotFoundException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { getDataSourceToken } from '@nestjs/typeorm';
@@ -410,5 +410,46 @@ describe('AcademicTermsService (integration)', () => {
         skipped: [{ name: 'T1', reason: 'OVERLAP' }],
       });
     });
+  });
+
+  it('[69.3.05] refuses create, update, reorder and remove in a closed year (409)', async () => {
+    const closed = await dataSource.getRepository(AcademicYear).save({
+      name: 'Closed Terms Year',
+      start_date: '2030-01-01',
+      end_date: '2030-12-31',
+      tenant_id: TENANT_A,
+    });
+    const term = await service.create(
+      TENANT_A,
+      { academic_year_id: closed.id, name: 'T1', start_date: '2030-01-01', end_date: '2030-04-30' },
+      SEED_ADMIN_USER_ID,
+      CONTEXT,
+    );
+    await dataSource.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [
+      closed.id,
+    ]);
+    await expect(
+      service.create(
+        TENANT_A,
+        {
+          academic_year_id: closed.id,
+          name: 'T2',
+          start_date: '2030-05-01',
+          end_date: '2030-08-31',
+        },
+        SEED_ADMIN_USER_ID,
+        CONTEXT,
+      ),
+    ).rejects.toThrow(ConflictException);
+    await expect(
+      service.update(TENANT_A, term.id, { name: 'X' }, SEED_ADMIN_USER_ID, CONTEXT),
+    ).rejects.toThrow(ConflictException);
+    await expect(
+      service.reorder(TENANT_A, closed.id, [term.id], SEED_ADMIN_USER_ID, CONTEXT),
+    ).rejects.toThrow(ConflictException);
+    await expect(service.remove(TENANT_A, term.id, SEED_ADMIN_USER_ID, CONTEXT)).rejects.toThrow(
+      ConflictException,
+    );
+    await dataSource.query(`UPDATE academic_years SET closed_at = NULL WHERE id = $1`, [closed.id]);
   });
 });

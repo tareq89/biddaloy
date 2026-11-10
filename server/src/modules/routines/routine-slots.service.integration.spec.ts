@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { getDataSourceToken } from '@nestjs/typeorm';
@@ -412,5 +413,33 @@ describe('RoutineSlotsService — tenant isolation (D16)', () => {
     const b = await freshTenant();
     const p = await publishedSlot(a, 'g6', addDays(localToday('UTC'), -30));
     await expect(service.remove(p.slot.id, b, null as any)).rejects.toThrow(/not found/);
+  });
+
+  it('[69.3.05] refuses slot create, update and remove once the routine year is closed (409)', async () => {
+    const tid = await freshTenant();
+    const p = await publishedSlot(tid, 'closed', '2026-01-01');
+    // Back to DRAFT so the published-routine back-dating rule does not answer first.
+    await dataSource
+      .getRepository(Routine)
+      .update({ id: p.routine.id }, { state: RoutineState.DRAFT });
+    const dto = {
+      section_id: p.section.id,
+      period_slot_id: p.periodSlot.id,
+      weekday: 2,
+      subject_id: p.subject.id,
+      room_id: null,
+      recurrence: SlotRecurrence.WEEKLY,
+      recurrence_offset: 0,
+      valid_from: '2026-02-01',
+      valid_to: null,
+      teacher_ids: [p.teacher.id],
+    } as any;
+    await dataSource.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [p.routine.academic_year_id],
+    );
+    await expect(service.create(p.routine.id, dto, tid)).rejects.toThrow(ConflictException);
+    await expect(service.update(p.slot.id, dto, tid, null)).rejects.toThrow(ConflictException);
+    await expect(service.remove(p.slot.id, tid, null)).rejects.toThrow(ConflictException);
   });
 });

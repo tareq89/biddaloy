@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { ConflictException } from '@nestjs/common';
 import { FindOperator } from 'typeorm';
 import { AcrAssessmentsService } from './acr-assessments.service';
 
@@ -46,7 +47,7 @@ function fakeRepo(rows: any[], prefix: string) {
   return repo;
 }
 
-function setup() {
+function setup(yearState: { closedAt: Date | null } = { closedAt: null }) {
   const db = {
     assessments: [] as any[],
     scores: [] as any[],
@@ -66,9 +67,13 @@ function setup() {
   const aRepo = fakeRepo(db.assessments, 'a');
   const sRepo = fakeRepo(db.scores, 's');
   const cRepo = fakeRepo(db.criteria, 'cc');
+  // assertYearOpen's one query [69.3.05]
+  const query = async () => [{ closed_at: yearState.closedAt }];
   aRepo.manager = {
+    query,
     transaction: async (cb: any) =>
       cb({
+        query,
         getRepository: (e: any) =>
           e.name === 'AcrAssessment' ? aRepo : e.name === 'AcrScore' ? sRepo : cRepo,
       }),
@@ -84,10 +89,22 @@ function setup() {
     audit as any,
   );
   const start = (user = SUBJECT) => svc.start({ user_id: user, academic_year_id: YEAR }, T, ADMIN);
-  return { svc, db, audit, start };
+  return { svc, db, audit, start, yearState };
 }
 
 describe('AcrAssessmentsService', () => {
+  it('[69.3.05] a closed year refuses start, update, complete and reopen (409)', async () => {
+    const { svc, start, yearState } = setup();
+    const a = await start();
+    yearState.closedAt = new Date();
+    await expect(start('other')).rejects.toBeInstanceOf(ConflictException);
+    await expect(svc.update(a.id, { step1_data: { x: 1 } }, T, ADMIN)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    await expect(svc.complete(a.id, T, ADMIN)).rejects.toBeInstanceOf(ConflictException);
+    await expect(svc.reopen(a.id, T, ADMIN)).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it('total = sum of scores, server-computed', async () => {
     const { svc, start } = setup();
     const a = await start();

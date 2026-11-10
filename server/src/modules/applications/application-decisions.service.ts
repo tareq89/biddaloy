@@ -10,6 +10,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { ModuleRef } from '@nestjs/core';
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { Request } from 'express';
@@ -395,6 +396,8 @@ export class ApplicationDecisionsService {
     if (!(await this.reviewerScope.canView(manager, user, app))) {
       throw new NotFoundException('Application not found');
     }
+    // [69.3.05] D4: no decision on an application of a closed year (reads stay open).
+    if (app.academic_year_id) await assertYearOpen(manager, tenantId, app.academic_year_id);
     if (app.status !== seen.status || app.current_step !== seen.current_step) {
       throw new ConflictException({
         message: 'Application changed while you were deciding',

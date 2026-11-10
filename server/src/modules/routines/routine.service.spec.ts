@@ -7,12 +7,14 @@ const TENANT_ID = 'tenant-1';
 
 function buildService(
   academicYear: any = { id: 'year-1', tenant_id: TENANT_ID, deleted_at: null },
+  closedAt: Date | null = null,
 ) {
   const repo: any = {
     findOne: vi.fn(async () => null),
     create: vi.fn((v: any) => v),
     save: vi.fn(async (v: any) => ({ id: 'routine-1', ...v })),
     find: vi.fn(async () => []),
+    manager: { query: vi.fn(async () => [{ closed_at: closedAt }]) }, // assertYearOpen [69.3.05]
   };
   const academicYearRepo: any = { findOne: vi.fn(async () => academicYear) };
   const service = new RoutineService(repo, academicYearRepo);
@@ -32,6 +34,14 @@ describe('RoutineService [21.6.1]', () => {
         where: expect.objectContaining({ id: 'year-1', tenant_id: TENANT_ID }),
       }),
     );
+  });
+
+  it('[69.3.05] 409s when the academic year is closed', async () => {
+    const ctx = buildService(undefined, new Date());
+    await expect(
+      ctx.service.create({ academic_year_id: 'year-1', name: 'Term 1' } as any, TENANT_ID),
+    ).rejects.toThrow(ConflictException);
+    expect(ctx.repo.save).not.toHaveBeenCalled();
   });
 
   it('404s when the academic year does not resolve in this tenant (cross-tenant id IDOR guard)', async () => {

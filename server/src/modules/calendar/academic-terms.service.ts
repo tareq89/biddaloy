@@ -5,6 +5,7 @@ import { AuditAction } from '@biddaloy/shared';
 import { AcademicTerm } from './entities/academic-term.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CreateTermDto, UpdateTermDto, toTermResponseDto } from './dto/academic-terms.dto';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 
@@ -92,6 +93,7 @@ export class AcademicTermsService {
     this.assertInsideYear(year, dto.start_date, dto.end_date);
 
     return this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, dto.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(AcademicTerm);
       const existing = await repo.find({
         where: {
@@ -152,6 +154,7 @@ export class AcademicTermsService {
       if (!existing) {
         throw new NotFoundException('Academic term not found');
       }
+      await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
 
       const startDate = dto.start_date ?? existing.start_date;
       const endDate = dto.end_date ?? existing.end_date;
@@ -210,6 +213,7 @@ export class AcademicTermsService {
       if (!existing) {
         throw new NotFoundException('Academic term not found');
       }
+      await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
 
       await repo.softDelete({ id, tenant_id: tenantId });
 
@@ -257,6 +261,7 @@ export class AcademicTermsService {
     context: RequestContext,
   ): Promise<AcademicTerm[]> {
     return this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, academicYearId); // [69.3.05] D4
       const repo = manager.getRepository(AcademicTerm);
       const terms = await repo.find({
         where: { tenant_id: tenantId, academic_year_id: academicYearId, deleted_at: IsNull() },
