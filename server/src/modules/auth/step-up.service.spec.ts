@@ -549,4 +549,34 @@ describe('StepUpService', () => {
       );
     });
   });
+
+  describe('issueForPlatformAdmin', () => {
+    it('signs a token bound to actor, scope and platform home, and stores the single-use marker', async () => {
+      const { service, jwtService, redis } = buildService();
+      const out = await service.issueForPlatformAdmin(
+        'owner-1',
+        ApprovalScope.PLATFORM_OWNER_LOCK,
+        'home-1',
+      );
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sub: 'owner-1',
+          act: 'owner-1',
+          tid: 'home-1',
+          scope: ApprovalScope.PLATFORM_OWNER_LOCK,
+          typ: 'approval',
+        }),
+        expect.objectContaining({ audience: expect.any(String) }),
+      );
+      expect(redis.set).toHaveBeenCalledWith(`approval:${out.jti}`, '1', 'PX', 300_000);
+    });
+
+    it('rejects a non-platform scope', async () => {
+      const { service, jwtService } = buildService();
+      await expect(
+        service.issueForPlatformAdmin('owner-1', ApprovalScope.FEES_DISCOUNT, 'home-1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(jwtService.sign).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -204,3 +204,49 @@ describe('ApprovalGuard', () => {
     await expect(guard.canActivate(context)).rejects.toThrow(ApprovalRequiredException);
   });
 });
+
+describe('ApprovalService.consume on a platform route', () => {
+  const platformReq = () => ({
+    headers: { 'x-approval-token': 'signed-token' },
+    platformScopeTenantId: 'home-1',
+    user: { sub: ACTOR_ID },
+  });
+
+  function build(payload: ApprovalTokenPayload) {
+    const jwtService = { verifyAsync: vi.fn().mockResolvedValue(payload) };
+    const redis = { getdel: vi.fn().mockResolvedValue('1') };
+    return new ApprovalService(
+      jwtService as unknown as JwtService,
+      { get: vi.fn().mockReturnValue('secret') } as unknown as ConfigService,
+      redis as any,
+    );
+  }
+
+  it('passes a token whose tid is the platform home id', async () => {
+    const service = build(
+      validPayload({ tid: 'home-1', scope: ApprovalScope.PLATFORM_OWNER_LOCK }),
+    );
+    await expect(
+      service.consume(platformReq(), ApprovalScope.PLATFORM_OWNER_LOCK),
+    ).resolves.toMatchObject({ scope: ApprovalScope.PLATFORM_OWNER_LOCK });
+  });
+
+  it('refuses a token carrying a school tid', async () => {
+    const service = build(
+      validPayload({ tid: TENANT_ID, scope: ApprovalScope.PLATFORM_OWNER_LOCK }),
+    );
+    await expect(service.consume(platformReq(), ApprovalScope.PLATFORM_OWNER_LOCK)).rejects.toThrow(
+      ApprovalRequiredException,
+    );
+  });
+
+  it('refuses when neither a school nor a platform scope id is on the request', async () => {
+    const service = build(
+      validPayload({ tid: 'home-1', scope: ApprovalScope.PLATFORM_OWNER_LOCK }),
+    );
+    const bare = { headers: { 'x-approval-token': 't' }, user: { sub: ACTOR_ID } };
+    await expect(service.consume(bare, ApprovalScope.PLATFORM_OWNER_LOCK)).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+});
