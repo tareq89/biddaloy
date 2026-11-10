@@ -2,7 +2,8 @@ import { DataSource } from 'typeorm';
 import { createScriptAppContext } from './script-app-context';
 import { School } from '../modules/schools/entities/school.entity';
 import { EncryptionService } from '../modules/schools/settings/encryption.service';
-import { BATCH_SIZE, migrateSchools } from './reencrypt-settings.util';
+import { UserMfa } from '../modules/platform-identity/entities/user-mfa.entity';
+import { BATCH_SIZE, migrateMfa, migrateSchools } from './reencrypt-settings.util';
 
 /**
  * Brings every school's stored tenant-settings secrets onto the current
@@ -58,6 +59,15 @@ export async function reencryptSettings(): Promise<{ migrated: number; skipped: 
 
     skip += BATCH_SIZE;
   }
+
+  // Epic 98: MFA secrets share the key and the totals.
+  const mfaRepository = dataSource.getRepository(UserMfa);
+  const mfaRows = await mfaRepository.find({ select: { user_id: true, secret_enc: true } });
+  const mfaResult = await migrateMfa(mfaRows, encryption, async (row) => {
+    await mfaRepository.update({ user_id: row.user_id }, { secret_enc: row.secret_enc });
+  });
+  migrated += mfaResult.migrated;
+  skipped += mfaResult.skipped;
 
   console.log(
     `Re-encryption complete: ${migrated} school(s) updated, ${skipped} field(s) skipped.`,
