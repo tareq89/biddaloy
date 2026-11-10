@@ -19,7 +19,6 @@ export function academicYearFactory(overrides: Partial<AcademicYear> = {}): Acad
     is_current: false,
     closed_at: null,
     closed_by_user_id: null,
-    closed_by: null,
     tenant,
     tenant_id: tenant.id,
     created_at: faker.date.past({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
