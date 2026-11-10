@@ -199,7 +199,7 @@ describe('JwtStrategy', () => {
           new JwtService({}),
           mockDenylist as unknown as AccessTokenDenylistService,
           { findOne } as unknown as Repository<User>,
-        { exists: vi.fn() } as unknown as Repository<PlatformAdmin>,
+          { exists: vi.fn() } as unknown as Repository<PlatformAdmin>,
         ),
     ).toThrow('JWT_SECRET is not configured');
   });

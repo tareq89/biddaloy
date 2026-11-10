@@ -322,6 +322,15 @@ export class RefreshTokenService {
     return row.family_id;
   }
 
+  /** The user the presented cookie belongs to, or null. Read-only, like familyIdForCookie. */
+  async userIdForCookie(cookieValue: string): Promise<string | null> {
+    const parsed = this.parseCookieValue(cookieValue);
+    if (!parsed) return null;
+    const row = await this.repo.findOne({ where: { id: parsed.id } });
+    if (!row || !safeEqualHex(row.token_hash, hashSecret(parsed.secret))) return null;
+    return row.user_id;
+  }
+
   /** Deletes rows past their expiry — including long-revoked ones, since expiry is a hard upper bound regardless of revocation. Returns the number of rows removed. */
   async cleanupExpired(): Promise<number> {
     const result = await this.repo
