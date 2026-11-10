@@ -82,6 +82,14 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { SocialAuthModule } from './modules/auth/social/social-auth.module';
 import { TrialModule } from './modules/schools/trial/trial.module';
 import { DemoModule } from './modules/demo/demo.module';
+import { PlatformAdmin } from './modules/platform-identity/entities/platform-admin.entity';
+import { PlatformAdminDevice } from './modules/platform-identity/entities/platform-admin-device.entity';
+import { PlatformApproval } from './modules/platform-identity/entities/platform-approval.entity';
+import { PlatformSetting } from './modules/platform-identity/entities/platform-setting.entity';
+import { UserMfa } from './modules/platform-identity/entities/user-mfa.entity';
+import { UserRecoveryCode } from './modules/platform-identity/entities/user-recovery-code.entity';
+import { PlatformIdentityModule } from './modules/platform-identity/platform-identity.module';
+import { MfaModule } from './modules/auth/mfa/mfa.module';
 import { PerformanceModule } from './modules/performance/performance.module';
 import { AcrFormVersion } from './modules/acr/entities/acr-form-version.entity';
 import { AcrCriterion } from './modules/acr/entities/acr-criterion.entity';
@@ -430,6 +438,13 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             PlatformAlert,
             SeatOrder,
             PlatformPayment,
+            // [98.1.99] cockpit identity (Epic 98 wave 1).
+            PlatformAdmin,
+            PlatformAdminDevice,
+            PlatformApproval,
+            PlatformSetting,
+            UserMfa,
+            UserRecoveryCode,
             Survey,
             SurveyQuestion,
             SurveyTarget,
@@ -561,6 +576,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     // [83.3.2] My coordination. Last on purpose: it imports Exams + Attention (so it cannot live
     // inside ClassModule), and registering it last keeps every other module's route order.
     CoordinationModule,
+    // [98.1.99] Cockpit identity: platform owners, MFA. Wave 1 touches app.module only here (D27).
+    PlatformIdentityModule,
+    MfaModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],

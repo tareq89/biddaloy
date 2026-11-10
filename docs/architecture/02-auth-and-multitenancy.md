@@ -789,3 +789,26 @@ explicit tenant reference.
   - Cost: the gated cockpit checks ran as no-ops.
   - Fix: forward the variable in `smoke.yml` and add it to the nightly `-e` list.
   - Rule candidate: a new smoke env var is not done until it appears in `smoke.yml` and the nightly `-e` list, and a gated check logs loudly when it skips.
+
+## Learning: cockpit identity, Wave 1
+
+2026-11-10, Epic 98 wave 1 (#3733-#3740).
+
+- **The DB role password drifted from the container env (2026-11-10).**
+  - Surprise: the Postgres role password no longer matched the container environment, so DB auth failed although the config looked right.
+  - Cost: integration runs failed on auth, not on code.
+  - Fix: re-sync the role password with the container env before blaming the code.
+  - Rule candidate: on a DB auth failure, compare the role password with the container env first.
+- **`core.bare` flipped a second time (2026-11-10).**
+  - Surprise: the shared `.git/config` flag went `true` again, as in Wave 0.
+  - Cost: git broke in every worktree until it was reset.
+  - Fix: `git config core.bare false`.
+  - Rule candidate: the worktree preflight checks `git config core.bare` every wave, not once.
+- **New entities fan out to about 117 spec failures (2026-11-10).**
+  - Surprise: an entity missing from the app `entities` array or `test/all-entities.ts` fails `all-entities.completeness.integration.spec.ts`, and the demo-seed and workbook coverage guards fail too.
+  - Fix: register the entity in the app `entities` array, `all-entities.ts`, `slices.ts` `EXEMPT` and `entity-coverage.ts` together.
+  - Rule candidate: a new table is not done until all four lists name it.
+- **`COCKPIT_*` env keys need a test-env note (2026-11-10).**
+  - Surprise: the new `COCKPIT_*` keys are read by `env.validation` but the server CLAUDE.md test-env notes did not list them.
+  - Fix: document them next to the other test-env keys.
+  - Rule candidate: a new env key lands with its test-env note in the same PR.
