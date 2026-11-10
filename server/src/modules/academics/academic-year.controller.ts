@@ -11,12 +11,16 @@ import {
   Inject,
   Req,
   ParseUUIDPipe,
+  HttpCode,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { ApprovalGuard, ApprovalContext } from '../auth/guards/approval.guard';
+import { RequireApproval } from '../auth/decorators/require-approval.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -26,12 +30,13 @@ import { AcademicYearService } from './academic-year.service';
 import { CreateAcademicYearDto } from './dto/create-academic-year.dto';
 import { UpdateAcademicYearDto } from './dto/update-academic-year.dto';
 import { QueryAcademicYearDto } from './dto/query-academic-year.dto';
-import { Permission, JwtPayload } from '@biddaloy/shared';
+import { YearClosePreviewDto, YearReadinessDto } from './dto/year-close.dto';
+import { ApprovalScope, Permission, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('academic-years')
 @ApiTenantAuth()
 @Controller('academic-years')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, ApprovalGuard)
 export class AcademicYearController {
   constructor(@Inject(AcademicYearService) private readonly service: AcademicYearService) {}
 
@@ -55,6 +60,28 @@ export class AcademicYearController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.service.findAll(query, tenant.id);
+  }
+
+  @Get(':id/close-preview')
+  @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
+  @ApiOperation({ summary: 'What closing this year blocks, warns about and freezes.' })
+  @ApiOkResponse({ type: YearClosePreviewDto })
+  closePreview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.service.closePreview(id, tenant.id);
+  }
+
+  @Get(':id/readiness')
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
+  @ApiOperation({ summary: 'Classes, teacher assignments and promotion runs this year has.' })
+  @ApiOkResponse({ type: YearReadinessDto })
+  readiness(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.service.readiness(id, tenant.id);
   }
 
   @Get(':id')
@@ -119,5 +146,40 @@ export class AcademicYearController {
     @Req() request: Request,
   ) {
     return this.service.setCurrent(id, tenant.id, user.sub, requestContext(request));
+  }
+
+  @Post(':id/close')
+  @HttpCode(200)
+  @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
+  @RequireApproval(ApprovalScope.ACADEMIC_YEAR_CLOSE)
+  @ApiOperation({
+    summary: 'Close the year: every write into it is refused. Step-up approval required.',
+  })
+  close(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    const approval = (request as unknown as { approval?: ApprovalContext }).approval;
+    if (!approval) {
+      throw new InternalServerErrorException(
+        'ApprovalGuard did not run before a year close — @RequireApproval guard misconfigured',
+      );
+    }
+    return this.service.close(id, tenant.id, user.sub, requestContext(request), approval);
+  }
+
+  @Post(':id/reopen')
+  @HttpCode(200)
+  @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
+  @ApiOperation({ summary: 'Reopen a closed year.' })
+  reopen(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.service.reopen(id, tenant.id, user.sub, requestContext(request));
   }
 }
