@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+vi.mock('../../common/utils/year-open.guard', () => ({
+  assertYearOpen: vi.fn(async () => undefined),
+}));
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -16,6 +19,8 @@ import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
 import { ExamStatus, MarkGridState, UserRole } from '@biddaloy/shared';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { yearClosed } from '../../common/filters/known-errors';
 
 // effectiveSittingDate runs raw SQL; the rule itself (joinedAfterExam) stays real.
 const sitting = vi.hoisted(() => ({ date: null as string | null }));
@@ -327,6 +332,22 @@ describe('MarkGridService.submit (D12)', () => {
     expect(grid.state).toBe(MarkGridState.SUBMITTED);
     expect(gridRepo.manager.transaction).toHaveBeenCalled();
     expect(auditService.record).toHaveBeenCalled();
+  });
+
+  it('[69.3.02] refuses to submit in a closed year before taking the grid lock', async () => {
+    const { service, gridRepo, auditService } = await buildService();
+    vi.mocked(assertYearOpen).mockRejectedValueOnce(yearClosed());
+    await expect(
+      service.submit(
+        EXAM_ID,
+        { section_id: SECTION_ID, subject_id: SUBJECT_ID } as any,
+        TENANT_ID,
+        UserRole.TEACHER,
+        'user-1',
+      ),
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+    expect(gridRepo.save).not.toHaveBeenCalled();
+    expect(auditService.record).not.toHaveBeenCalled();
   });
 
   it('refuses to submit an exam that is already PUBLISHED', async () => {
