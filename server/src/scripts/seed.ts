@@ -59,6 +59,8 @@ import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staf
 import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
 import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
+import { PlatformHomeService } from '../modules/platform-identity/platform-home.service';
+import { MfaService } from '../modules/auth/mfa/mfa.service';
 import { seedAccounts, ensureTrialDemoSeed } from './seed.accounts';
 import { Shift } from '../modules/routines/entities/shift.entity';
 import { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
@@ -71,6 +73,7 @@ import { RoutineChangeRequest } from '../modules/routines/entities/routine-chang
 import {
   ensureAttendancePeriodSetting,
   ensureDemoOrganisation,
+  ensureDevCockpitOwner,
   ensurePresetDemoSeed,
   FRESH_DEMO_SCHOOL,
   type PrintDemoSeedPorts,
@@ -449,6 +452,9 @@ export async function seed() {
     .set({ onboarding: () => `jsonb_build_object('finished_at', now())` })
     .where(`onboarding IS NULL AND ${demoSchools}`, demo)
     .execute();
+
+  // [98.6.1] Dev platform owner with a known TOTP secret (cockpit e2e sign-in, Wave 2).
+  await ensureDevCockpitOwner(dataSource, app.get(PlatformHomeService), app.get(MfaService));
 
   await app.close();
 }
