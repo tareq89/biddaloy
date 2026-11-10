@@ -217,6 +217,13 @@ describe('OtpService', () => {
       await expect(req('PASSWORD_RESET', 'user@test.com')).resolves.toBeDefined();
     });
 
+    it('caps the cockpit purposes like the others, per purpose', async () => {
+      for (const p of ['COCKPIT_ENROL_SMS', 'COCKPIT_ENROL_EMAIL', 'COCKPIT_DEVICE'] as const) {
+        for (let i = 0; i < 5; i++) await req(p, 'owner@test.com');
+        await expect(req(p, 'owner@test.com')).rejects.toBeInstanceOf(TooManyRequestsException);
+      }
+    });
+
     it('passes a one-hour window to Redis', async () => {
       await req('LOGIN', 'user@test.com');
       const args = redis.eval.mock.calls[0];

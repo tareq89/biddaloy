@@ -21,7 +21,12 @@ export type OtpPurpose =
   /** D23: proves a school-proposed NEW email or phone before it is applied (own keys, review n-new-1). */
   | 'CONTACT_PROPOSAL'
   | 'REGISTER'
-  | 'STEP_UP';
+  | 'STEP_UP'
+  /** [Epic 98] Owner authenticator set-up: one code by SMS, one by email, both needed. */
+  | 'COCKPIT_ENROL_SMS'
+  | 'COCKPIT_ENROL_EMAIL'
+  /** [Epic 98] A new device for an owner sign-in (SMS and email codes share this purpose, own destinations). */
+  | 'COCKPIT_DEVICE';
 export type OtpVerifyResult = 'ok' | 'invalid' | 'expired' | 'locked';
 
 const CODE_TTL_MS = 5 * 60_000;
