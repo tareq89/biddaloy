@@ -51,7 +51,11 @@ desired_body="$(
         "required_status_checks": [
           { "context": "Build, lint, unit tests" },
           { "context": "Frontend coverage merge" },
-          { "context": "Integration & e2e tests" },
+          { "context": "Integration tests (1/3)" },
+          { "context": "Integration tests (2/3)" },
+          { "context": "Integration tests (3/3)" },
+          { "context": "Server e2e (1/2)" },
+          { "context": "Server e2e (2/2)" },
           { "context": "E2E smoke (chromium)" },
           { "context": "Route sweeps (chromium-sweeps)" },
           { "context": "Nightly quality (merge queue) / Lighthouse (3G budgets)" },

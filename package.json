@@ -59,6 +59,7 @@
     "test:unit": "yarn workspace @biddaloy/server test:unit",
     "test:unit:changed": "yarn workspace @biddaloy/server test:unit:changed",
     "test:integration": "yarn workspace @biddaloy/server test:integration",
+    "test:integration:seed": "yarn workspace @biddaloy/server test:integration:seed",
     "test:e2e": "yarn workspace @biddaloy/server test:e2e",
     "test:file": "yarn workspace @biddaloy/server test:file",
     "e2e": "playwright test",
