@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { hashPassword } from '../auth/password-hash';
 import { AuditAction, AuthTokenPurpose, CommunicationMedium, UserStatus } from '@biddaloy/shared';
 import { User } from '../users/entities/user.entity';
+import { PlatformAdmin } from '../platform-identity/entities/platform-admin.entity';
 import { countOtherMemberships } from '../users/users.service';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { UserIdentity } from '../auth/entities/user-identity.entity';
@@ -89,11 +90,20 @@ export class RecoveryService {
     );
   }
 
+  /** [Epic 98] Read through the manager so this service's providers stay as they were. */
+  private isPlatformOwner(userId: string): Promise<boolean> {
+    return this.userRepo.manager
+      .getRepository(PlatformAdmin)
+      .exists({ where: { user_id: userId } });
+  }
+
   /** Everything `forgot` does after the lookup; its value only reaches the caller in echo mode. */
   private async forgotJob(user: User | null, normalized: string): Promise<ForgotPasswordResult> {
     if (!user || user.status !== UserStatus.ACTIVE) {
       return {};
     }
+    // [Epic 98] A platform owner recovers on the cockpit host only; the app host sends nothing.
+    if (await this.isPlatformOwner(user.id)) return {};
 
     // Which field matched decides the channel (the plan's correction: an
     // email-shaped identifier gets a link, a phone-shaped one gets an OTP)
@@ -149,6 +159,10 @@ export class RecoveryService {
       if (!found) {
         throw new UnauthorizedException('Invalid or expired link');
       }
+      // [Epic 98] An owner's account is never reset through the app host.
+      if (await this.isPlatformOwner(found.id)) {
+        throw new UnauthorizedException('Invalid or expired link');
+      }
       linkTokenId = result.row.id;
 
       // [12.7] The token proves control of the email it was SENT to, not
@@ -183,7 +197,7 @@ export class RecoveryService {
         throw new UnauthorizedException('Invalid or expired code');
       }
       const found = await this.userRepo.findOne({ where: { phone, deleted_at: IsNull() } });
-      if (!found) {
+      if (!found || (await this.isPlatformOwner(found.id))) {
         throw new UnauthorizedException('Invalid or expired code');
       }
       user = found;
