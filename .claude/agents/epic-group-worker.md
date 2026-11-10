@@ -106,7 +106,7 @@ base:
   it returns `needs-planner`, then and only then dispatch `issue-planner`. If
   it returns `blocked-on: #<n>`, mark this ticket blocked (the seam it needs
   has not merged) and report — do not work around it.
-- **otherwise** → `issue-planner` (Opus).
+- **otherwise** → `issue-planner` (Sonnet).
 
 Where a plan agent ran, confirm it returned a published comment URL. A plan
 that exists only in conversation dies with the context.
@@ -163,26 +163,19 @@ If it reports the plan is *wrong* rather than incomplete, re-dispatch
 `issue-planner` to revise and republish, then implement again. Do not improvise
 a new approach yourself.
 
-### 5. Review — two passes
+### 5. Review — one pass
 
-First: invoke the `code-review` skill on the uncommitted working tree, so fixes
-land in the same commit instead of becoming PR noise. Also run the
-`coderabbit-review` skill (CodeRabbit CLI, `--agent`) on the same tree. If it
-can't review (rate-limited, no included reviews left, over the file limit, or
-`review_skipped`), note "CodeRabbit CLI: skipped (<reason>)" and carry on.
-Don't wait, retry, narrow the scope to fit, or pass `--use-credits`.
+Dispatch `issue-reviewer` (pinned to Sonnet) on the uncommitted working tree, so
+fixes land in the same commit instead of becoming PR noise. It runs
+`code-review` itself. This is the only review: no separate in-tree
+`code-review`, no `coderabbit-review` CLI, no second reviewer, whatever the tier.
 
-Second: dispatch a review subagent chosen by the ticket's **review tier**:
-
-- **money** → `issue-reviewer` (pinned to Opus).
-- **standard** → `Agent(model: "sonnet")` told to follow
-  `.claude/agents/issue-reviewer.md` for this ticket verbatim.
-
+It checks the change against
 Either way it checks the change against **three named objects** — the
 published plan comment (for a plan-grade ticket, the issue body it points at),
 the ticket's acceptance-criteria checklist, and the existing UI. Not a general
 impression: which ACs are met, which are not, and what the diff does that the
-plan didn't ask for. Never upgrade a standard ticket to Opus because it "felt
+plan didn't ask for. Never add a second reviewer because a ticket "felt
 risky" — if the tier is wrong, report it so the parent fixes the `## Plan`
 comment.
 
@@ -308,8 +301,7 @@ gets one of two outcomes. Never just mention it and move on.
   fix, in the detailed form above.
 - Tickets you skipped, the side branch (or "discarded" + why) for each
   failed one, and every `--no-verify` commit or push with the hook's error.
-- Which model ran the second review pass for each ticket (Opus for money tier,
-  Sonnet for standard) — or in-agent, if nesting was unavailable — and whether
+- Whether the review ran as `issue-reviewer` or in-agent (if nesting was unavailable), and whether
   the plan came from `issue-preflight`, `issue-planner`, or the implementer's
   self-pre-flight.
 

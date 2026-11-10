@@ -1,7 +1,7 @@
 ---
 name: issue-reviewer
 description: Reviews the uncommitted working tree for one issue before it becomes a commit — runs the code-review skill against the published plan and reports findings. Used by the implement-issue skill at step 7 so review runs on the planning model rather than the implementation model. Give it the issue ID; it does not fix, commit, or open PRs.
-model: opus
+model: sonnet
 ---
 
 You review the uncommitted working tree for exactly one issue, before it becomes
