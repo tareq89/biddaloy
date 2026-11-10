@@ -23,6 +23,7 @@ describe('CockpitSessionService (integration)', () => {
   let redis: Redis;
   let refreshTokens: RefreshTokenService;
   let cutoff: SessionCutoffService;
+  const ownerIds: string[] = [];
   const jwt = new JwtService({
     secret: 'integration-secret-integration-1234',
     signOptions: { issuer: 'biddaloy' },
@@ -44,6 +45,9 @@ describe('CockpitSessionService (integration)', () => {
   });
 
   afterAll(async () => {
+    // test/reset-order.ts does not know platform_admins (RESTRICT FK): remove our owners here,
+    // or a later spec in this worker fails when it clears users.
+    await ds.query('DELETE FROM platform_admins WHERE user_id = ANY($1)', [ownerIds]);
     redis.disconnect();
     await module.close();
   });
@@ -64,6 +68,7 @@ describe('CockpitSessionService (integration)', () => {
     const users = ds.getRepository(User);
     const u = await users.save(users.create({ full_name: 'Owner', status: UserStatus.ACTIVE }));
     await ds.getRepository(PlatformAdmin).insert({ user_id: u.id });
+    ownerIds.push(u.id);
     return u;
   }
 
