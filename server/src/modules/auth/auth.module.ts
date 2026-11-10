@@ -187,6 +187,7 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
     PermissionsGuard,
     ApprovalGuard,
     ApprovalService,
+    StepUpService, // Epic 98: PlatformStepUpController
     JwtStrategy,
     ACCESS_TOKEN_TTL_MS,
     SessionCutoffService,
