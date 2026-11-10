@@ -526,6 +526,7 @@
       "RESULT_PUBLISH": "Publish results",
       "RESULT_READ": "View results",
       "SEAT_PLAN_MANAGE": "Manage seat plans",
+      "PROMOTION_GROUP_SET": "Set groups on a promotion draft",
       "PROMOTION_MANAGE": "Manage promotions",
       "PROMOTION_OVERRIDE": "Override promotions",
       "ACR_READ": "View ACR",

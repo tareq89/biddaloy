@@ -11859,6 +11859,10 @@ export interface components {
             /** Format: date-time */
             end_date: string;
             is_current: boolean;
+            /** Format: date-time */
+            closed_at: string | null;
+            closed_by_user_id: string | null;
+            closed_by: components["schemas"]["User"] | null;
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** Format: date-time */
@@ -12245,7 +12249,7 @@ export interface components {
             id: string;
             tenant_id: string | null;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
@@ -12273,7 +12277,7 @@ export interface components {
         RecentActivityItemDto: {
             id: string;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
             /** @example Student */
             entity_type: string;
             /** @description Display name of the record, when it can be resolved; null otherwise. */
@@ -14084,7 +14088,7 @@ export interface components {
             /** @description The approver's email or phone. */
             identifier: string;
             /** @enum {string} */
-            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override";
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "academic_year.close";
         };
         StepUpVerifyDto: {
             /** @description The approver's email or phone. */
@@ -14096,7 +14100,7 @@ export interface components {
             /** @description The approver's password — required when method is PASSWORD. */
             password?: string;
             /** @enum {string} */
-            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override";
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "academic_year.close";
         };
         CreateAcademicYearDto: {
             name: string;
@@ -22426,7 +22430,7 @@ export interface operations {
     AuditController_findAll_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -22467,7 +22471,7 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "CSV" | "XLSX";
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -22505,7 +22509,7 @@ export interface operations {
     AuditController_findByEntity_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -30436,7 +30440,7 @@ export interface operations {
     AttendanceController_getRecordHistory_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
