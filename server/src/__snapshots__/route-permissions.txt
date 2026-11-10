@@ -36,6 +36,7 @@ DELETE /notices/:id | NoticesController | perm: NOTICE_POST
 DELETE /notices/:id/files/:fileId | NoticeFilesController | perm: NOTICE_POST
 DELETE /notices/:id/public-link | NoticesController | perm: NOTICE_POST
 DELETE /notices/:id/recipients | NoticesController | perm: NOTICE_POST
+DELETE /platform/schools/:id/admins/:userId/invitation | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 DELETE /programs/:id | ProgramsController | perm: PROGRAM_MANAGE
 DELETE /programs/:id/milestones/:milestoneId | ProgramsController | perm: PROGRAM_MANAGE
 DELETE /promotions/:id | PromotionsController | perm: PROMOTION_MANAGE
@@ -44,7 +45,6 @@ DELETE /routines/rooms/:id | RoomsController | perm: ROUTINE_MANAGE
 DELETE /routines/shifts/:id | ShiftsController | perm: ROUTINE_MANAGE
 DELETE /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
 DELETE /routines/substitutions/:id | SubstitutionsController | perm: ROUTINE_MANAGE
-DELETE /schools/:id/admins/:userId/invitation | SchoolAdminsController | identity | roles: SUPER_ADMIN
 DELETE /schools/me/logo | SchoolLogoController | identity | roles: ADMIN,SUPER_ADMIN
 DELETE /seat-plans/:id | SeatPlansController | perm: SEAT_PLAN_MANAGE
 DELETE /students/:id | StudentController | perm: STUDENT_DELETE
@@ -297,7 +297,9 @@ GET /performance/staff/:userId | StaffPerformanceController | perm: ACR_READ
 GET /performance/students/:studentId | PerformanceController | perm: MARK_VIEW
 GET /platform/alerts | PlatformAlertsController | identity | roles: SUPER_ADMIN
 GET /platform/approvals | PlatformApprovalsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /platform/attention | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/attention/health | PlatformAttentionHealthController | identity | roles: SUPER_ADMIN
+GET /platform/attention/summary | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/backups/health | PlatformBackupHealthController | identity | roles: SUPER_ADMIN
 GET /platform/billing/schools | PlatformBillingController | identity | roles: SUPER_ADMIN
 GET /platform/billing/schools/:id | PlatformBillingController | identity | roles: SUPER_ADMIN
@@ -306,6 +308,10 @@ GET /platform/holiday-sets/:id | PublicHolidaysController | identity | roles: SU
 GET /platform/owners | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/owners/history | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/reports/usage | PlatformReportUsageController | identity | roles: SUPER_ADMIN
+GET /platform/schools | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+GET /platform/schools/:id/admins | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+GET /platform/schools/:id/sms-credits | SchoolSmsCreditsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+GET /platform/schools/:id/stats | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 GET /platform/settings/approvals | PlatformSettingsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /portal/arrival-subscriptions | PortalArrivalSubscriptionsController | identity | roles: PARENT
 GET /portal/students/:studentId/statement | StudentStatementController | perm: FEE_READ
@@ -374,13 +380,9 @@ GET /routines/shifts/:id/period-slots/changeover-suggestion | ShiftsController |
 GET /routines/substitutions | SubstitutionsController | perm: ROUTINE_MANAGE
 GET /school-calendar/holidays | SchoolCalendarController | perm: ACADEMIC_STRUCTURE_READ
 GET /school-calendar/working-days | SchoolCalendarController | perm: CALENDAR_READ
-GET /schools | SchoolsController | identity | roles: SUPER_ADMIN
-GET /schools/:id/admins | SchoolAdminsController | identity | roles: SUPER_ADMIN
 GET /schools/:id/logo | SchoolLogoController | identity
 GET /schools/:id/settings | SchoolsController | perm: SETTINGS_MANAGE
 GET /schools/:id/settings/messaging/providers | SchoolsController | perm: SETTINGS_MANAGE
-GET /schools/:id/sms-credits | SchoolSmsCreditsController | identity | roles: SUPER_ADMIN
-GET /schools/:id/stats | SchoolsController | identity | roles: SUPER_ADMIN
 GET /schools/me/profile | SchoolProfileController | identity
 GET /search | SearchController | perm: STUDENT_READ | roles: ACCOUNTANT,ADMIN,EXAM_CONTROLLER,EXECUTIVE,OFFICE_STAFF,TEACHER
 GET /seat-plans | SeatPlansController | perm: SEAT_PLAN_MANAGE
@@ -498,6 +500,7 @@ PATCH /homework-submissions/:id | HomeworkSubmissionController | perm: HOMEWORK_
 PATCH /notices/:id | NoticesController | perm: NOTICE_POST
 PATCH /notices/:id/sms/recipients | NoticeSmsController | perm: NOTICE_SMS_APPROVE
 PATCH /onboarding | OnboardingController | identity | roles: ADMIN,SUPER_ADMIN
+PATCH /platform/schools/:id/status | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 PATCH /platform/settings/approvals | PlatformSettingsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.approvals_switch
 PATCH /print-jobs/:id/confirm | PrintJobActionsController | perm: DOCUMENT_PRINT
 PATCH /print-templates/:id | PrintTemplatesController | perm: PRINT_TEMPLATE_MANAGE
@@ -513,7 +516,6 @@ PATCH /routines/rooms/:id | RoomsController | perm: ROUTINE_MANAGE
 PATCH /routines/shifts/:id | ShiftsController | perm: ROUTINE_MANAGE
 PATCH /routines/slots/:slotId | RoutineSlotsController | perm: ROUTINE_MANAGE
 PATCH /schools/:id/settings | SchoolsController | perm: SETTINGS_MANAGE
-PATCH /schools/:id/status | SchoolsController | identity | roles: SUPER_ADMIN
 PATCH /schools/me/profile | SchoolProfileController | identity | roles: ADMIN,SUPER_ADMIN
 PATCH /seat-plans/:id/allocations/:allocationId | SeatPlansController | perm: SEAT_PLAN_MANAGE
 PATCH /seat-plans/:id/rooms/:roomId/invigilator | SeatPlansController | perm: SEAT_PLAN_MANAGE
@@ -706,6 +708,9 @@ POST /payments/:id/reverse | CheckoutController | perm: PAYMENT_REVERSE | approv
 POST /payments/checkout | CheckoutController | perm: PAYMENT_RECORD
 POST /platform/approvals/:id/approve | PlatformApprovalsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.approval_decide
 POST /platform/approvals/:id/deny | PlatformApprovalsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.approval_decide
+POST /platform/attention/items/:recipientId/hide | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+POST /platform/attention/items/:recipientId/snooze | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+POST /platform/attention/items/seen | PlatformAttentionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /platform/billing/orders/:id/offline-payment | PlatformBillingController | identity | roles: SUPER_ADMIN
 POST /platform/billing/schools/:id/grant | PlatformBillingController | identity | roles: SUPER_ADMIN
 POST /platform/holiday-sets/:id/publish | PublicHolidaysController | identity | roles: SUPER_ADMIN
@@ -713,7 +718,12 @@ POST /platform/holiday-sets/:id/unpublish | PublicHolidaysController | identity 
 POST /platform/holiday-sets/fetch | PublicHolidaysController | identity | roles: SUPER_ADMIN
 POST /platform/owners/:userId/lock | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.owner_lock
 POST /platform/owners/:userId/unlock | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.owner_unlock
+POST /platform/schools | ProvisioningController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/schools/:id/admins | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/schools/:id/admins/:userId/resend-invitation | SchoolAdminsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/schools/:id/preset/reset | PlatformPresetsController | identity | roles: SUPER_ADMIN
+POST /platform/schools/:id/revive | PlatformSchoolsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
+POST /platform/schools/:id/sms-credits | SchoolSmsCreditsController | allowlist: AuthGuard(['jwt','cockpit-jwt']), PlatformAccessGuard
 POST /platform/step-up | PlatformStepUpController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 POST /presets/apply | PresetApplyController | perm: CURRICULUM_PRESET_APPLY
 POST /print-assets | PrintAssetsController | perm: PRINT_TEMPLATE_MANAGE
@@ -761,12 +771,7 @@ POST /routines/rooms | RoomsController | perm: ROUTINE_MANAGE
 POST /routines/shifts | ShiftsController | perm: ROUTINE_MANAGE
 POST /routines/slots/:slotId/change-requests | ChangeRequestsController | perm: ROUTINE_READ | roles: TEACHER
 POST /routines/substitutions | SubstitutionsController | perm: ROUTINE_MANAGE
-POST /schools | ProvisioningController | identity | roles: SUPER_ADMIN
-POST /schools/:id/admins | SchoolAdminsController | identity | roles: SUPER_ADMIN
-POST /schools/:id/admins/:userId/resend-invitation | SchoolAdminsController | identity | roles: SUPER_ADMIN
-POST /schools/:id/revive | SchoolsController | identity | roles: SUPER_ADMIN
 POST /schools/:id/settings/test | ProviderConnectionTestController | perm: SETTINGS_MANAGE
-POST /schools/:id/sms-credits | SchoolSmsCreditsController | identity | roles: SUPER_ADMIN
 POST /schools/me/logo | SchoolLogoController | identity | roles: ADMIN,SUPER_ADMIN
 POST /seat-plans/:id/publish | SeatPlansController | perm: SEAT_PLAN_MANAGE
 POST /seat-plans/:id/rooms/:roomId/reshuffle | SeatPlansController | perm: SEAT_PLAN_MANAGE

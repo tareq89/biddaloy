@@ -28,7 +28,7 @@ import { SchoolPickerPage } from '../pages/school-picker';
  * reactivation restores access.
  *
  * Zero DB/seed-script access for the new school itself — it exists only
- * because this spec drove `POST /schools` through the real wizard UI.
+ * because this spec drove `POST /platform/schools` through the real wizard UI.
  * The pre-existing fixtures it *does* reuse (the seeded `super_admin`
  * account, and the seeded `admin`'s second "Rose Valley School" tenant —
  * see `seed.util.ts`'s `ensureSecondSchoolMembership`) are exactly the

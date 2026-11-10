@@ -930,7 +930,7 @@ export async function findSchoolIdBySlug(
 ): Promise<string> {
   const schools = await get<{ id: string; slug: string }[]>(request, session, '/platform/schools');
   const found = schools.find((school) => school.slug === slug);
-  if (!found) throw new Error(`No seeded school with slug "${slug}" (GET /schools)`);
+  if (!found) throw new Error(`No seeded school with slug "${slug}" (GET /platform/schools)`);
   return found.id;
 }
 
@@ -972,7 +972,7 @@ export async function acceptSchoolInvite(
 
 /** `POST /platform/schools/:id/admins/:userId/resend-invitation` — #536's own
  * addition to `SchoolAdminsService.resendInvitation` (see that method's
- * doc comment): a `POST /platform/schools`/`POST /schools/:id/admins`-created
+ * doc comment): a `POST /platform/schools`/`POST /platform/schools/:id/admins`-created
  * ADMIN has no ADMIN-scoped route to reach the
  * `ACCOUNT_ACCESS_ECHO_SECRETS` debug echo `createInvitedStaffUser`
  * above relies on (that route requires the ADMIN to already be signed

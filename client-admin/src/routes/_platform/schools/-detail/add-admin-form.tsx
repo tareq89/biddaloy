@@ -3,7 +3,7 @@
  * name/email-or-phone shape as `-create-school-wizard.tsx`'s admin step,
  * since both ultimately hit the same find-or-create-user path
  * (`ProvisioningService.findOrCreateAdmin`) via different routes
- * (`POST /schools` vs `POST /schools/:id/admins`). Opened from the header
+ * (`POST /platform/schools` vs `POST /platform/schools/:id/admins`). Opened from the header
  * primary and the admins empty state (D21/D29: no inline forms, one filled
  * button per view).
  *

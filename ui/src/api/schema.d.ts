@@ -1951,75 +1951,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/schools": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List every school (id, name, slug, status, created_at) — #8.7.13's super-admin school picker, extended by #533's platform schools list. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context. */
-        get: operations["SchoolsController_findAll_v1"];
-        put?: never;
-        /** Create a school and its first ADMIN in one atomic, idempotent request. Replaying the same idempotency_key returns the original result (200) instead of creating a second school/user/invitation. */
-        post: operations["ProvisioningController_provision_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. SUPER_ADMIN only. */
-        get: operations["SchoolsController_getStats_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Suspend or reactivate a school (#530). SUPER_ADMIN only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request. */
-        patch: operations["SchoolsController_updateStatus_v1"];
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/revive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Revive a school paused or soft-deleted for having no students (Epic 49 D5). Platform SUPER_ADMIN only; within 90 days of the soft delete; audited REACTIVATE. */
-        post: operations["SchoolsController_revive_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/schools/{id}/settings": {
         parameters: {
             query?: never;
@@ -2049,6 +1980,75 @@ export interface paths {
         get: operations["SchoolsController_getMessagingProviders_v1"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List every school (id, name, slug, status, created_at) — #8.7.13's super-admin school picker, extended by #533's platform schools list. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context. */
+        get: operations["PlatformSchoolsController_findAll_v1"];
+        put?: never;
+        /** Create a school and its first ADMIN in one atomic, idempotent request. Replaying the same idempotency_key returns the original result (200) instead of creating a second school/user/invitation. */
+        post: operations["ProvisioningController_provision_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. SUPER_ADMIN only. */
+        get: operations["PlatformSchoolsController_getStats_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Suspend or reactivate a school (#530). SUPER_ADMIN only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request. */
+        patch: operations["PlatformSchoolsController_updateStatus_v1"];
+        trace?: never;
+    };
+    "/api/v1/platform/schools/{id}/revive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revive a school paused or soft-deleted for having no students (Epic 49 D5). Platform SUPER_ADMIN only; within 90 days of the soft delete; audited REACTIVATE. */
+        post: operations["PlatformSchoolsController_revive_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2108,7 +2108,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/schools/{id}/admins": {
+    "/api/v1/platform/schools/{id}/admins": {
         parameters: {
             query?: never;
             header?: never;
@@ -2126,7 +2126,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/schools/{id}/admins/{userId}/resend-invitation": {
+    "/api/v1/platform/schools/{id}/admins/{userId}/resend-invitation": {
         parameters: {
             query?: never;
             header?: never;
@@ -2143,7 +2143,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/schools/{id}/admins/{userId}/invitation": {
+    "/api/v1/platform/schools/{id}/admins/{userId}/invitation": {
         parameters: {
             query?: never;
             header?: never;
@@ -2160,7 +2160,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/schools/{id}/sms-credits": {
+    "/api/v1/platform/schools/{id}/sms-credits": {
         parameters: {
             query?: never;
             header?: never;
@@ -5261,6 +5261,91 @@ export interface paths {
         get: operations["PlatformAttentionHealthController_health_v1"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in owner's alert worklist (tab=active) or history. */
+        get: operations["PlatformAttentionController_items_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/attention/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in owner's attention bar counts and top item. */
+        get: operations["PlatformAttentionController_summary_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/attention/items/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark the owner's own items as seen. */
+        post: operations["PlatformAttentionController_seen_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/attention/items/{recipientId}/hide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close (hide) one of the owner's non-critical items. */
+        post: operations["PlatformAttentionController_hide_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/attention/items/{recipientId}/snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Snooze one of the owner's non-critical items. */
+        post: operations["PlatformAttentionController_snooze_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13914,28 +13999,6 @@ export interface components {
             /** Format: date-time */
             last_used_at: string | null;
         };
-        SchoolListItemDto: {
-            id: string;
-            name: string;
-            slug: string;
-            /** @enum {string} */
-            status: "ACTIVE" | "SUSPENDED";
-            /** Format: date-time */
-            created_at: string;
-            country_code: string | null;
-            /** Format: date-time */
-            trial_ends_at: string | null;
-            seat_limit: number | null;
-            status_reason: string | null;
-        };
-        UpdateSchoolStatusDto: {
-            /** @enum {string} */
-            status: "ACTIVE" | "SUSPENDED";
-            reason: string;
-        };
-        ReviveSchoolDto: {
-            reason: string;
-        };
         RegionCurrencyDto: {
             code: string;
             symbol: string;
@@ -14261,6 +14324,28 @@ export interface components {
             attention?: components["schemas"]["AttentionSettingsDto"];
             dashboard?: components["schemas"]["DashboardSettingsDto"];
             exams?: components["schemas"]["ExamsSettingsDto"];
+        };
+        SchoolListItemDto: {
+            id: string;
+            name: string;
+            slug: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED";
+            /** Format: date-time */
+            created_at: string;
+            country_code: string | null;
+            /** Format: date-time */
+            trial_ends_at: string | null;
+            seat_limit: number | null;
+            status_reason: string | null;
+        };
+        UpdateSchoolStatusDto: {
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED";
+            reason: string;
+        };
+        ReviveSchoolDto: {
+            reason: string;
         };
         UpdateSchoolProfileDto: {
             name?: string;
@@ -25975,187 +26060,6 @@ export interface operations {
             };
         };
     };
-    SchoolsController_findAll_v1: {
-        parameters: {
-            query?: {
-                trial?: "active" | "expired";
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SchoolListItemDto"][];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ProvisioningController_provision_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProvisionSchoolDto"];
-            };
-        };
-        responses: {
-            /** @description Replayed: an identical request with this idempotency_key already succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description School, admin, and invitation created. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolsController_getStats_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolsController_updateStatus_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSchoolStatusDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolsController_revive_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReviveSchoolDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     SchoolsController_getSettings_v1: {
         parameters: {
             query?: never;
@@ -26273,6 +26177,187 @@ export interface operations {
             };
             /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformSchoolsController_findAll_v1: {
+        parameters: {
+            query?: {
+                trial?: "active" | "expired";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolListItemDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProvisioningController_provision_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionSchoolDto"];
+            };
+        };
+        responses: {
+            /** @description Replayed: an identical request with this idempotency_key already succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description School, admin, and invitation created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformSchoolsController_getStats_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformSchoolsController_updateStatus_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSchoolStatusDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PlatformSchoolsController_revive_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviveSchoolDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -34000,6 +34085,129 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformAttentionHealthDto"];
+                };
+            };
+        };
+    };
+    PlatformAttentionController_items_v1: {
+        parameters: {
+            query?: {
+                locale?: "bn" | "en";
+                role?: components["schemas"]["UserRole"];
+                tab?: "active" | "history";
+                category?: components["schemas"]["AlertCategory"];
+                sectionId?: string;
+                studentId?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertItemsPageDto"];
+                };
+            };
+        };
+    };
+    PlatformAttentionController_summary_v1: {
+        parameters: {
+            query?: {
+                locale?: "bn" | "en";
+                role?: components["schemas"]["UserRole"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttentionSummaryDto"];
+                };
+            };
+        };
+    };
+    PlatformAttentionController_seen_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeenDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeenResultDto"];
+                };
+            };
+        };
+    };
+    PlatformAttentionController_hide_v1: {
+        parameters: {
+            query?: {
+                locale?: "bn" | "en";
+            };
+            header?: never;
+            path: {
+                recipientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertItemDto"];
+                };
+            };
+        };
+    };
+    PlatformAttentionController_snooze_v1: {
+        parameters: {
+            query?: {
+                locale?: "bn" | "en";
+            };
+            header?: never;
+            path: {
+                recipientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnoozeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertItemDto"];
                 };
             };
         };
