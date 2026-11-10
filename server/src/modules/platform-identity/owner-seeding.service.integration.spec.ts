@@ -139,6 +139,18 @@ describe('OwnerSeedingService (integration)', () => {
     expect((err as Error).message).not.toContain('owners.test');
   });
 
+  it('stops boot when the existing user with an owner email is not ACTIVE', async () => {
+    await ds.query(
+      `INSERT INTO users (email, full_name, status) VALUES ($1, 'Away', 'SUSPENDED')`,
+      [e1],
+    );
+    const err = await make()
+      .seed(env())
+      .catch((e: Error) => e);
+    expect((err as Error).message).toContain('COCKPIT_OWNER_1');
+    expect(await owners()).toHaveLength(0);
+  });
+
   it('DEMO_MODE=true creates nothing', async () => {
     vi.stubEnv('DEMO_MODE', 'true');
     try {
