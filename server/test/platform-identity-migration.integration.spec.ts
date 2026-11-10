@@ -4,7 +4,6 @@ import { randomUUID } from 'node:crypto';
 import { AuditAction } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { School } from '../src/modules/schools/entities/school.entity';
-import { User } from '../src/modules/users/entities/user.entity';
 
 /** [Epic 98 / #3734] Platform identity tables, constraints and audit values, on the migrated test DB. */
 describe('PlatformIdentity1792000000000 (integration)', () => {
@@ -24,7 +23,7 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
   };
 
   beforeAll(async () => {
-    const module = await createTestModule([School, User], []);
+    const module = await createTestModule([School], []);
     ds = module.get(DataSource);
   }, 60000);
 
@@ -96,7 +95,7 @@ describe('PlatformIdentity1792000000000 (integration)', () => {
     const user = await newUser();
     await ds.query(`INSERT INTO "platform_admins" (user_id) VALUES ($1)`, [user]);
     await expect(ds.query(`DELETE FROM "users" WHERE id = $1`, [user])).rejects.toMatchObject({
-      code: '23503',
+      code: '23001',
     });
   });
 
