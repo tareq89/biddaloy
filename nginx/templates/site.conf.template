@@ -31,6 +31,14 @@ map $status $site_media_cc {
     304 "public, max-age=31536000, immutable";
 }
 
+# [#3714] Same rule for the logo, with its short 5-minute life: only a 200 (and its 304) may be
+# kept; the 301 of a renamed address gets `no-store`, or a browser would keep the old redirect.
+map $status $site_logo_cc {
+    default "no-store";
+    200 "public, max-age=300";
+    304 "public, max-age=300";
+}
+
 # `site_upstream` stays prod's name: the app-host preview route in default.conf.template uses it.
 upstream site_upstream {
     zone site_upstream 256k;
@@ -136,7 +144,7 @@ server {
         proxy_hide_header Cache-Control;
         proxy_hide_header Set-Cookie;
         proxy_ignore_headers Cache-Control Expires;
-        add_header Cache-Control "public, max-age=300";
+        add_header Cache-Control $site_logo_cc;
         add_header Strict-Transport-Security $edge_hsts always;
         add_header X-Robots-Tag $site_env_noindex always;
         proxy_cache site_cache;

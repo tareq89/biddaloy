@@ -4,6 +4,7 @@ import { field } from '../../../lib/pick';
 import type { SectionProps } from '../../../lib/types';
 
 const { data, lang } = Astro.props as SectionProps;
+const pre = Astro.locals.base ?? '';
 const raw = (data.photos ?? data.images ?? []) as unknown[];
 const photos = raw.filter((p): p is string => typeof p === 'string');
 const kicker = field(data.kicker, lang);
@@ -11,7 +12,7 @@ const headline = field(data.headline, lang);
 const tagline = field(data.tagline, lang);
 const primary = field(data.ctaPrimary, lang);
 const secondary = field(data.ctaSecondary, lang);
-const base = `/${lang}/`;
+const base = `${pre}/${lang}/`;
 // The last word of the headline is the italic accent; a one-word headline stays whole.
 const cut = headline ? headline.trimEnd().lastIndexOf(' ') : -1;
 const lead = headline && cut > 0 ? headline.slice(0, cut + 1) : '';

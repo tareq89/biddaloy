@@ -1,7 +1,7 @@
 /**
  * Tiny in-process cache for the public site's hot lookups. Bounded, so made-up hosts cannot grow
  * memory; a failed load is never cached. Misses (null) are cached on purpose.
- * ponytail: no in-flight coalescing (concurrent misses each load); store the promise to add it.
+ * Concurrent misses on one key share a single load (no thundering herd on a cold host).
  * ponytail: per-process, oldest-inserted eviction; swap for a real LRU only if hit rate matters.
  */
 export class TtlCache<V> {
@@ -19,9 +19,24 @@ export class TtlCache<V> {
   // after it, or an invalidation would be undone for up to one TTL.
   private generation = 0;
 
-  async get(key: string, load: () => Promise<V>): Promise<V> {
+  // One load per key at a time: concurrent misses share the first caller's promise. Bounded by
+  // the number of live loads (each removes itself when settled), so made-up hosts cannot grow it.
+  private readonly inflight = new Map<string, Promise<V>>();
+
+  get(key: string, load: () => Promise<V>): Promise<V> {
     const hit = this.entries.get(key);
-    if (hit && hit.expires > this.now()) return hit.value;
+    if (hit && hit.expires > this.now()) return Promise.resolve(hit.value);
+    const running = this.inflight.get(key);
+    if (running) return running;
+    const p = this.fill(key, load).finally(() => {
+      // clear() may have replaced this entry with a newer load: only remove our own.
+      if (this.inflight.get(key) === p) this.inflight.delete(key);
+    });
+    this.inflight.set(key, p);
+    return p;
+  }
+
+  private async fill(key: string, load: () => Promise<V>): Promise<V> {
     const startedAt = this.generation;
     const value = await load();
     if (startedAt !== this.generation) return value;
@@ -36,5 +51,7 @@ export class TtlCache<V> {
   clear(): void {
     this.generation++;
     this.entries.clear();
+    // A caller after clear() must start its own, fresh load, not join a pre-clear (stale) one.
+    this.inflight.clear();
   }
 }

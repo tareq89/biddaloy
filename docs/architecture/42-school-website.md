@@ -79,7 +79,10 @@ school.
 | Pictures (nginx and browser) | `/media/<id>` (the id is the key)                  | 1 day nginx, 1 year browser | Nothing: a new picture gets a new id (D41)     |
 
 The API also keeps the host lookup and the school status in process memory for 5 s (`ttl-cache.ts`, 500 entries), so
-a switch-off, suspend or rename shows up at most 5 s late and Postgres is not read per request. The read rate limit
+a switch-off, suspend or rename shows up at most 5 s late and Postgres is not read per request. Concurrent misses on
+one key share one load (so a cold host costs one read, not one per request); `clear()` drops loads started before it.
+`/media/logo` is kept 5 minutes only for a 200; the 301 of a renamed address gets `no-store` (`$site_logo_cc`, like
+`$site_media_cc` for pictures). The read rate limit
 is per school host (`site:<host>`) when the caller is on a private address (the site container), and per IP for
 everyone else (`rate-limit-tracker.ts`).
 
@@ -130,6 +133,19 @@ Each page also carries one canonical, bn/en/`x-default` alternates, Open Graph a
 - **Noindex.** `school_sites.noindex`, any preview (the `X-Site-Preview` header, a `/website/preview/<theme>/` path, a
   `?preview=<token>` draft) gives `robots: noindex`, no canonical, no JSON-LD and no sitemap, feed, llms or card.
   Only `robots.txt` answers in a header preview (`Disallow: /`).
+- **Preview links keep their prefix.** nginx strips `/website/preview/<theme>` before the site sees the request, so the
+  middleware sets `Astro.locals.base` and every internal link (nav, language switch, section links, announcement
+  links, the notices island via `data-base`) starts with it. A school site has no base, so its links are unchanged.
+
+  ```mermaid
+  flowchart LR
+    B["browser: /website/preview/basic/en/"] --> N["nginx strips the prefix"]
+    N --> S["site sees /en/ + X-Site-Preview: basic"]
+    S --> L["links print /website/preview/basic/bn/notices/"]
+  ```
+
+  A new internal link in a theme or component must start with `Astro.locals.base ?? ''`
+  (`site/src/themes/preview-links.spec.ts` checks the language switch, hero and notices in every theme).
 - **Escaping.** JSON-LD is written with `<` escaped, so no value can close the script tag. XML drops characters XML 1.0
   cannot carry, then escapes the rest.
 - **The card has no logo, on purpose.** Drawing it needs no fetch, so nothing a school typed can make the site call out

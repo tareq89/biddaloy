@@ -10,6 +10,8 @@ declare global {
       site?: SiteManifest;
       /** Set when the preview header is present: the theme name being previewed. */
       preview?: string;
+      /** Path prefix of a theme preview (`/website/preview/<theme>`), `undefined` on a school site. Put before every internal link. */
+      base?: string;
       /** `?preview=<token>`, forwarded to every API call. */
       previewToken?: string;
       /** Demo home page for a preview (no API call). */
