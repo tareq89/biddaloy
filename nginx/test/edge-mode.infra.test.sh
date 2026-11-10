@@ -58,7 +58,7 @@ docker run --rm -v "$AUTH:/auth" --entrypoint sh alpine/openssl -c 'echo "u:$(op
 
 EDGE_ARGS=(-e APP_DOMAIN=example.test -e STAGING_DOMAIN=staging.example.test -e DEMO_DOMAIN=demo.example.test
   -e LANDING_DOMAIN=landing.example.test -e KUMA_DOMAIN=kuma.example.test -e BESZEL_DOMAIN=beszel.example.test
-  -e LOGS_DOMAIN=logs.example.test
+  -e LOGS_DOMAIN=logs.example.test -e COCKPIT_DOMAIN=cockpit.example.test
   -v "$PWD/nginx/templates:/etc/nginx/templates:ro"
   -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro"
   -v "$PWD/nginx/edge-mode.sh:/docker-entrypoint.d/15-edge-mode.sh:ro"

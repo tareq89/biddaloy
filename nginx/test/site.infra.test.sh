@@ -72,7 +72,7 @@ start_edge() { # <mode>
   docker volume rm "$CACHEVOL" >/dev/null 2>&1 || true
   docker volume create "$CACHEVOL" >/dev/null
   docker run -d --name site-edge --network "$NET" --ip "$EDGE_IP" -e "EDGE_MODE=$1" \
-    -e EDGE_TRUSTED_CIDR=172.30.97.0/24 -e APP_DOMAIN=example.test -e "STAGING_DOMAIN=staging.$ROOT" -e "DEMO_DOMAIN=demo.$ROOT" -e "KUMA_DOMAIN=kuma.$ROOT" -e "LANDING_DOMAIN=$ROOT" -e "ROOT_DOMAIN=$ROOT" -e "STAGING_SITE_HOSTS=x-staging.$ROOT listed-staging.$ROOT" -e OPS_UPSTREAM_HOST= \
+    -e EDGE_TRUSTED_CIDR=172.30.97.0/24 -e APP_DOMAIN=example.test -e "STAGING_DOMAIN=staging.$ROOT" -e "DEMO_DOMAIN=demo.$ROOT" -e "KUMA_DOMAIN=kuma.$ROOT" -e "COCKPIT_DOMAIN=cockpit.$ROOT" -e "LANDING_DOMAIN=$ROOT" -e "ROOT_DOMAIN=$ROOT" -e "STAGING_SITE_HOSTS=x-staging.$ROOT listed-staging.$ROOT" -e OPS_UPSTREAM_HOST= \
     -v "$PWD/nginx/templates:/etc/nginx/templates:ro" \
     -v "$PWD/nginx/reload-loop.sh:/docker-entrypoint.d/99-reload-loop.sh:ro" \
     -v "$PWD/nginx/edge-mode.sh:/docker-entrypoint.d/15-edge-mode.sh:ro" \
@@ -112,7 +112,7 @@ run_mode() { # <mode>
   # Fixed hosts that sit UNDER the root (staging., kuma., the landing apex and www.) match the
   # one-label shape too: the exact names in the map must beat the regex, in any letter case
   # (cloudflared's case-sensitive rule match can send STAGING.<root> to this listener).
-  for fh in "staging.$ROOT" "STAGING.$ROOT" "Staging.$ROOT" "kuma.$ROOT" "KUMA.$ROOT" "$ROOT" "www.$ROOT" "WWW.$ROOT"; do
+  for fh in "staging.$ROOT" "STAGING.$ROOT" "Staging.$ROOT" "kuma.$ROOT" "KUMA.$ROOT" "cockpit.$ROOT" "COCKPIT.$ROOT" "$ROOT" "www.$ROOT" "WWW.$ROOT"; do
     c=$(code 8081 "$fh" /); [ "$c" = 000 ] && pass "$mode: fixed host $fh on :8081 dropped (444)" || fail "$mode: fixed host $fh" "$c"
   done
   # Odd Host values must never reach the site container (curl --resolve cannot send these in the URL).
