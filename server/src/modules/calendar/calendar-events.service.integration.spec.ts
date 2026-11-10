@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource, getDataSourceToken } from '@nestjs/typeorm';
-import { UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
@@ -954,6 +954,46 @@ describe('CalendarEventsService (integration)', () => {
       ).rejects.toBeInstanceOf(UnprocessableEntityException);
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it('[69.3.05] refuses create, update, publish and remove in a closed year (409)', async () => {
+    const closed = await dataSource.getRepository(AcademicYear).save({
+      name: 'Closed Events Year',
+      start_date: '2070-01-01',
+      end_date: '2070-12-31',
+      tenant_id: TENANT_ID,
+    });
+    const dto = (name: string) =>
+      ({
+        type: CalendarEventType.EVENT,
+        name,
+        start_date: '2070-03-01',
+        end_date: '2070-03-01',
+        audience: CalendarAudience.ALL,
+        publish: false,
+      }) as any;
+    const draft = await service.create(dto('Draft'), TENANT_ID, SEED_ADMIN_USER_ID);
+    await dataSource.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [
+      closed.id,
+    ]);
+    try {
+      await expect(service.create(dto('Late'), TENANT_ID, SEED_ADMIN_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
+      await expect(
+        service.update(draft.id, { name: 'Renamed' } as any, TENANT_ID, SEED_ADMIN_USER_ID),
+      ).rejects.toThrow(ConflictException);
+      await expect(service.publish(draft.id, TENANT_ID, SEED_ADMIN_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
+      await expect(service.remove(draft.id, TENANT_ID, SEED_ADMIN_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
+    } finally {
+      await dataSource.query(`UPDATE academic_years SET closed_at = NULL WHERE id = $1`, [
+        closed.id,
+      ]);
     }
   });
 });

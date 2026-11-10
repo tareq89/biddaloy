@@ -25,6 +25,7 @@ import {
   UpdateClassSubjectDto,
 } from './dto/subjects.dto';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { assertInVocabulary } from '../schools/settings/organisation-vocabulary.util';
 
 export interface PaginatedSubjects {
@@ -261,6 +262,7 @@ export class SubjectService {
       // concurrent removal can't finish between this check and the insert
       // below and leave an active ClassSubject pointing at a deleted
       // subject.
+      await assertYearOpen(manager, tenantId, dto.academic_year_id); // [69.3.05] D4
       const subject = await manager
         .createQueryBuilder(Subject, 'subject')
         .setLock('pessimistic_write')
@@ -320,6 +322,7 @@ export class SubjectService {
     // the same offering would otherwise each validate against stale
     // is_optional/group_name and the later save would clobber the other.
     const rowId = await this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, dto.academic_year_id); // [69.3.05] D4
       const row = await manager
         .createQueryBuilder(ClassSubject, 'cs')
         .setLock('pessimistic_write')
@@ -400,6 +403,7 @@ export class SubjectService {
     }
     // Stale picks would block re-picking after re-attach (23505).
     await this.classSubjectRepo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, academicYearId); // [69.3.05] D4
       await manager.delete(StudentSubjectChoice, {
         class_subject_id: classSubject.id,
         tenant_id: tenantId,

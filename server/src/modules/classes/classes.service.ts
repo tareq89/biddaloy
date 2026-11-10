@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, Not } from 'typeorm';
 import { EnrollmentStatus, TeacherAssignmentType, AuditAction } from '@biddaloy/shared';
@@ -126,6 +127,7 @@ export class ClassService {
       if (!year) {
         throw new NotFoundException('Academic year not found');
       }
+      await assertYearOpen(manager, tenantId, dto.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(Class);
       const entity = repo.create({
         name: dto.name,
@@ -281,6 +283,7 @@ export class ClassService {
     const changedKeys = Object.keys(dto);
     if (changedKeys.length > 0) {
       await this.repo.manager.transaction(async (manager) => {
+        await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
         const repo = manager.getRepository(Class);
         // Diffed against exactly the fields this request changed — see the
         // identical reasoning on FeeStructureService.update.
@@ -329,6 +332,7 @@ export class ClassService {
       if (!existing) {
         throw new NotFoundException('Class not found');
       }
+      await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
 
       // [68.2.12] Any student or enrollment row of any status blocks the delete:
       // students who left or graduated still point at the class, and deleting it

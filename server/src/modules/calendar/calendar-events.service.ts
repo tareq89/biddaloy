@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, IsNull, Repository } from 'typeorm';
 import { CalendarEvent } from './entities/calendar-event.entity';
@@ -299,6 +300,9 @@ export class CalendarEventsService {
     const academicYear = expectedAcademicYearId
       ? await this.assertInsideYear(tenantId, expectedAcademicYearId, dto.start_date, dto.end_date)
       : await this.resolveAcademicYear(tenantId, dto.start_date, dto.end_date);
+    // [69.3.05] D4. ponytail: update/remove/publish are not transactional here, so the check is
+    // not atomic with the write; wrap them in a transaction if a close/write race ever matters.
+    await assertYearOpen(manager ?? this.eventRepo.manager, tenantId, academicYear.id);
     const classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
 
     // A make-up day adds a school day, it never removes one, so no register
@@ -395,6 +399,12 @@ export class CalendarEventsService {
     const academicYear = expectedAcademicYearId
       ? await this.assertInsideYear(tenantId, expectedAcademicYearId, nextStart, nextEnd)
       : await this.resolveAcademicYear(tenantId, nextStart, nextEnd);
+
+    // [69.3.05] D4: both the year the event sits in and the one it moves to.
+    await assertYearOpen(this.eventRepo.manager, tenantId, event.academic_year_id);
+    if (academicYear.id !== event.academic_year_id) {
+      await assertYearOpen(this.eventRepo.manager, tenantId, academicYear.id);
+    }
 
     const nextType = dto.type ?? event.type;
     const wasMakeup = event.type === CalendarEventType.MAKEUP_DAY;
@@ -498,6 +508,7 @@ export class CalendarEventsService {
   async remove(id: string, tenantId: string, userId: string): Promise<void> {
     const event = await this.findEntityOrThrow(id, tenantId);
     await this.assertNotPast(tenantId, event.end_date);
+    await assertYearOpen(this.eventRepo.manager, tenantId, event.academic_year_id); // [69.3.05] D4
     if (event.type === CalendarEventType.MAKEUP_DAY) {
       await this.assertMakeupDaysUnmarked(event);
     }
@@ -518,6 +529,7 @@ export class CalendarEventsService {
   async publish(id: string, tenantId: string, userId: string): Promise<CalendarEventWithClassIds> {
     const event = await this.findEntityOrThrow(id, tenantId);
     if (!event.published_at) {
+      await assertYearOpen(this.eventRepo.manager, tenantId, event.academic_year_id); // [69.3.05] D4
       // Same guards as create/update — a stale draft (past `end_date`, or
       // now conflicting with attendance finalized since it was drafted)
       // must not be allowed to go live unchecked.

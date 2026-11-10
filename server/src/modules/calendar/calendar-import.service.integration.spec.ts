@@ -390,4 +390,33 @@ describe('CalendarImportService (integration)', () => {
     });
     expect(saved.published_at).not.toBeNull();
   });
+
+  it('[69.3.05] a row into a closed year fails at commit and writes nothing', async () => {
+    const validated = await service.validate(
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+      csvFile([
+        {
+          type: 'EXAM',
+          name: 'Closed Year Exam',
+          start_date: '2031-06-01',
+          end_date: '2031-06-02',
+          counts_as_working_day: 'TRUE',
+        },
+      ]),
+    );
+    await dataSource.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [yearId]);
+    try {
+      const res = await service.commit(TENANT_ID, SEED_ADMIN_USER_ID, validated.staging_id, false);
+      expect(res.created).toBe(0);
+      expect(res.failed).toHaveLength(1);
+    } finally {
+      await dataSource.query(`UPDATE academic_years SET closed_at = NULL WHERE id = $1`, [yearId]);
+    }
+    expect(
+      await dataSource
+        .getRepository(CalendarEvent)
+        .count({ where: { name: 'Closed Year Exam', tenant_id: TENANT_ID } }),
+    ).toBe(0);
+  });
 });

@@ -415,5 +415,36 @@ describe('SubjectService (integration)', () => {
         service.detachFromClass(classId, subject.id, academicYearId, TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('[69.3.05] refuses attach, update and detach once the year is closed (409)', async () => {
+      const subject = await service.create({ name_en: 'Physics', code: 'PHY' }, TENANT_ID);
+      await service.attachToClass(
+        classId,
+        { subject_id: subject.id, academic_year_id: academicYearId },
+        TENANT_ID,
+      );
+      const other = await service.create({ name_en: 'Chemistry', code: 'CHE' }, TENANT_ID);
+      await dataSource.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [
+        academicYearId,
+      ]);
+      await expect(
+        service.attachToClass(
+          classId,
+          { subject_id: other.id, academic_year_id: academicYearId },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(ConflictException);
+      await expect(
+        service.updateClassSubject(
+          classId,
+          subject.id,
+          { academic_year_id: academicYearId, is_optional: true },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(ConflictException);
+      await expect(
+        service.detachFromClass(classId, subject.id, academicYearId, TENANT_ID),
+      ).rejects.toThrow(ConflictException);
+    });
   });
 });

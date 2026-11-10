@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Not, Repository } from 'typeorm';
 import { AuditAction, EMPLOYEE_ROLES } from '@biddaloy/shared';
@@ -55,6 +56,7 @@ export class AcrAssessmentsService {
       throw new BadRequestException('User is not a staff member of this school');
     if (!(await this.years.findOne({ where: { id: dto.academic_year_id, tenant_id: tenantId } })))
       throw new BadRequestException('Academic year not found');
+    await assertYearOpen(this.assessments.manager, tenantId, dto.academic_year_id); // [69.3.05] D4
     const latest = await this.versions.findOne({
       where: { tenant_id: tenantId },
       order: { version: 'DESC' },
@@ -102,6 +104,7 @@ export class AcrAssessmentsService {
     const saved = await this.assessments.manager.transaction(async (em) => {
       const aRepo = em.getRepository(AcrAssessment);
       const row = await this.findVisible(aRepo, id, tenantId, callerId, true, true);
+      await assertYearOpen(em, tenantId, row.academic_year_id); // [69.3.05] D4
       if (row.status === 'COMPLETED')
         throw new ConflictException('Completed ACR is read-only; reopen it first');
       if (scoreInputs.length) {
@@ -141,6 +144,7 @@ export class AcrAssessmentsService {
     const saved = await this.assessments.manager.transaction(async (em) => {
       const aRepo = em.getRepository(AcrAssessment);
       const row = await this.findVisible(aRepo, id, tenantId, callerId, true, true);
+      await assertYearOpen(em, tenantId, row.academic_year_id); // [69.3.05] D4
       if (row.status === 'COMPLETED') throw new ConflictException('ACR is already completed');
       const required = await em.getRepository(AcrCriterion).find({
         where: { tenant_id: tenantId, form_version_id: row.form_version_id },
@@ -166,6 +170,7 @@ export class AcrAssessmentsService {
     const saved = await this.assessments.manager.transaction(async (em) => {
       const aRepo = em.getRepository(AcrAssessment);
       const row = await this.findVisible(aRepo, id, tenantId, callerId, true);
+      await assertYearOpen(em, tenantId, row.academic_year_id); // [69.3.05] D4
       if (row.status !== 'COMPLETED')
         throw new ConflictException('Only a completed ACR can be reopened');
       const oldStatus = row.status;
