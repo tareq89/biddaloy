@@ -64,12 +64,10 @@ const columns: readonly ColumnSpec[] = [
 /**
  * Entity columns deliberately left out of the workbook. Empty: every real
  * `AcademicYear` column (the `tenant_id` FK aside, which is universal) is
- * exported through `columns` above. `tenant` itself is a relation, not a
- * scalar column, so TypeORM's own metadata never lists it here.
+ * exported through `columns` above. `tenant` and `closed_by` are relations, not
+ * scalar columns (`closed_by` is exported as `closed_by_user_id`), so TypeORM's own metadata never lists them here.
  */
-const excluded: readonly string[] = [
-  'closed_by', // relation to User, exported as the `closed_by_user_id` column
-];
+const excluded: readonly string[] = [];
 
 const MAX_LENGTHS: Record<string, number> = {
   name: 50,
