@@ -12,11 +12,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { QueryFailedError } from 'typeorm';
-import { JwtPayload, UserRole } from '@biddaloy/shared';
-import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
-import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { PlatformSuperAdminGuard } from '../../auth/guards/platform-super-admin.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtPayload } from '@biddaloy/shared';
+import { PlatformAccessGuard } from '../../platform-identity/platform-access.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { ProvisioningService } from './provisioning.service';
@@ -32,21 +29,14 @@ import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.deco
  */
 @ApiTags('schools')
 @ApiTenantAuth()
-@Controller('schools')
-@UseGuards(
-  AuthGuard('jwt'),
-  ContextGuard,
-  RolesGuard,
-  PermissionsGuard,
-  PlatformSuperAdminGuard,
-)
+@Controller('platform/schools')
+@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class ProvisioningController {
   constructor(private readonly provisioning: ProvisioningService) {}
 
   @AuthenticatedOnly()
   @Post()
-  @Roles(UserRole.SUPER_ADMIN)
-  @HttpCode(HttpStatus.CREATED)
+    @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary:
       'Create a school and its first ADMIN in one atomic, idempotent request. Replaying the ' +

@@ -174,7 +174,7 @@ describe('Route status snapshot (e2e)', () => {
   });
 
   it('platform routes: PLATFORM_SA passes, a tenant-local SUPER_ADMIN is denied', async () => {
-    const p = '/api/v1/schools';
+    const p = '/api/v1/platform/schools';
     expect(await send('GET', p, col('PLATFORM_SA'))).toBe('PASS');
     expect(await send('GET', p, col('TENANT_SA'))).toBe('403');
   });

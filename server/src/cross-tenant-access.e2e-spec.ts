@@ -430,7 +430,7 @@ describe('Cross-tenant access (regression)', () => {
    */
   it('lists every school for a super admin, and rejects an admin entirely', async () => {
     const listRes = await supertest(app.getHttpServer())
-      .get('/api/v1/schools')
+      .get('/api/v1/platform/schools')
       .set('Authorization', `Bearer ${superAdminToken}`)
       .set('X-Tenant-ID', TENANT_B)
       .expect(200);
@@ -443,25 +443,15 @@ describe('Cross-tenant access (regression)', () => {
     expect(JSON.stringify(listRes.body)).not.toContain('cross-tenant-secret-token');
 
     await supertest(app.getHttpServer())
-      .get('/api/v1/schools')
+      .get('/api/v1/platform/schools')
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', TENANT_A)
       .expect(403);
 
-    // Missing X-Tenant-ID entirely — ContextGuard's own required-header
-    // check, ahead of anything RolesGuard/SUPER_ADMIN-only logic does.
+    // Platform routes take no tenant header: neither a missing nor an unknown one matters.
     await supertest(app.getHttpServer())
-      .get('/api/v1/schools')
+      .get('/api/v1/platform/schools')
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .expect(401);
-
-    // A syntactically-valid but non-existent tenant id — the caller has
-    // no membership in it, so this is still a ContextGuard rejection, not
-    // a 404 for an unknown school.
-    await supertest(app.getHttpServer())
-      .get('/api/v1/schools')
-      .set('Authorization', `Bearer ${superAdminToken}`)
-      .set('X-Tenant-ID', '00000000-0000-4000-8000-000000000fff')
-      .expect(401);
+      .expect(200);
   });
 });

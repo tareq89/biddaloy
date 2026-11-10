@@ -1,13 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Reflector } from '@nestjs/core';
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { ConflictException } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { SchoolStatus, UserRole } from '@biddaloy/shared';
 import { ProvisioningService } from './provisioning.service';
 import { reviveMembership } from '../../users/users.service';
 import { insertJoinRequest } from '../../account-access/school-invite.service';
-import { ProvisioningController } from './provisioning.controller';
-import { RolesGuard } from '../../auth/guards/context.guard';
 
 vi.mock('../../account-access/school-invite.service', () => ({
   insertJoinRequest: vi.fn(async () => ({ id: 'join-1' })),
@@ -509,29 +506,5 @@ describe('ProvisioningService', () => {
       expect(insertJoinRequest).not.toHaveBeenCalled();
       expect(userTenantRepo.save).toHaveBeenCalledTimes(1);
     });
-  });
-
-  it('denies a non-SUPER_ADMIN caller with 403 at the RolesGuard', () => {
-    const reflector = new Reflector();
-    const guard = new RolesGuard(reflector);
-    const handler = ProvisioningController.prototype.provision;
-    const context: any = {
-      getHandler: () => handler,
-      getClass: () => ProvisioningController,
-      switchToHttp: () => ({
-        getRequest: () => ({ currentTenant: { id: 'tenant-x', role: UserRole.ADMIN } }),
-      }),
-    };
-
-    // RolesGuard maps a disallowed role to ForbiddenException (403).
-    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
-
-    const superAdminContext: any = {
-      ...context,
-      switchToHttp: () => ({
-        getRequest: () => ({ currentTenant: { id: 'tenant-x', role: UserRole.SUPER_ADMIN } }),
-      }),
-    };
-    expect(guard.canActivate(superAdminContext)).toBe(true);
   });
 });
