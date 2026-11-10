@@ -19,6 +19,7 @@ interface Props {
   image?: string;
 }
 const { manifest, lang, rest = '', title, description, image } = Astro.props;
+const pre = Astro.locals.base ?? '';
 const name = pick(manifest.schoolName, lang) ?? '';
 const nav = manifest.nav.filter((n) => n.page !== 'home');
 const portal = portalUrl(process.env.PORTAL_URL);
@@ -26,9 +27,9 @@ const c = manifest.contact;
 // The letterhead bar: phone and hours when the school has given them; no bar when it has given neither.
 const bar = [c?.phone, pick(c?.hours, lang)].filter(Boolean) as string[];
 const items = [
-  { href: `/${lang}/`, label: t(lang, 'nav.home'), current: rest === '' },
+  { href: `${pre}/${lang}/`, label: t(lang, 'nav.home'), current: rest === '' },
   ...nav.map((n) => ({
-    href: `/${lang}/${n.page}/`,
+    href: `${pre}/${lang}/${n.page}/`,
     label: (n.label && pick(n.label, lang)) || t(lang, `nav.${n.page}`),
     current: rest === `${n.page}/`,
   })),
@@ -39,7 +40,7 @@ const items = [
   <AnnouncementBar bar={manifest.announcements} lang={lang} />
   {bar.length > 0 && <div class="letterhead"><div class="wrap">{bar.map((b) => <span>{b}</span>)}</div></div>}
   <header class="top"><div class="wrap">
-    <a class="brand" href={`/${lang}/`}>
+    <a class="brand" href={`${pre}/${lang}/`}>
       <span class="logo">{manifest.logo ? <img src={manifest.logo} alt="" width="44" height="44" /> : (
         <svg viewBox="0 0 44 44" aria-hidden="true" focusable="false"><circle class="mono-ring" cx="22" cy="22" r="20" /><text class="mono-letter" x="22" y="28" text-anchor="middle">{name.slice(0, 1)}</text></svg>
       )}</span>

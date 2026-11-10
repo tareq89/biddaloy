@@ -2,6 +2,7 @@ import { defineMiddleware } from 'astro:middleware';
 import { SitePage, SiteTheme } from '@biddaloy/shared';
 import { defaultConfigFor, THEMES } from '@biddaloy/site-themes';
 import { fetchByHost } from './lib/api';
+import { previewBase } from './lib/preview';
 import { LANGS, type Lang, type SiteManifest, type SitePageData } from './lib/types';
 
 const PREVIEW_HEADER = () => (process.env.SITE_PREVIEW_HEADER ?? 'X-Site-Preview').toLowerCase();
@@ -59,6 +60,9 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     const demo = demoFor(previewTheme as SiteTheme);
     if (!demo) return withNoindex(await next('/404/'));
     ctx.locals.preview = previewTheme;
+    // Links keep the `/website/preview/<theme>` prefix nginx strips (#3714). The preview header
+    // exists only on that route: the school listener drops it, so no school site gets a prefix.
+    ctx.locals.base = previewBase(previewTheme);
     ctx.locals.site = demo.site;
     ctx.locals.previewHome = demo.home;
     // Only robots.txt answers in a preview (Disallow: /); sitemap, feed, cards are a 404 there.

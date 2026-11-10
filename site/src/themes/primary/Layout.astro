@@ -19,13 +19,14 @@ interface Props {
   image?: string;
 }
 const { manifest, lang, rest = '', title, description, image } = Astro.props;
+const pre = Astro.locals.base ?? '';
 const name = pick(manifest.schoolName, lang) ?? '';
 const nav = manifest.nav.filter((n) => n.page !== 'home');
 const portal = portalUrl(process.env.PORTAL_URL);
 const items = [
-  { href: `/${lang}/`, label: t(lang, 'nav.home'), current: rest === '' },
+  { href: `${pre}/${lang}/`, label: t(lang, 'nav.home'), current: rest === '' },
   ...nav.map((n) => ({
-    href: `/${lang}/${n.page}/`,
+    href: `${pre}/${lang}/${n.page}/`,
     label: (n.label && pick(n.label, lang)) || t(lang, `nav.${n.page}`),
     current: rest === `${n.page}/`,
   })),
@@ -35,7 +36,7 @@ const items = [
   <div class="t-primary">
   <AnnouncementBar bar={manifest.announcements} lang={lang} />
   <header class="top"><div class="wrap">
-    <a class="brand" href={`/${lang}/`}>
+    <a class="brand" href={`${pre}/${lang}/`}>
       <span class="logo">{manifest.logo ? <img src={manifest.logo} alt="" width="40" height="40" /> : name.slice(0, 1)}</span>
       <span><b>{name}</b></span>
     </a>

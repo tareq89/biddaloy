@@ -3,9 +3,16 @@ import supertest = require('supertest');
 import { Test } from '@nestjs/testing';
 import { Controller, Get, INestApplication, Post } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerModule, ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
+import { JwtService } from '@nestjs/jwt';
+import {
+  Throttle,
+  ThrottlerModule,
+  ThrottlerStorage,
+  ThrottlerStorageService,
+} from '@nestjs/throttler';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { AppThrottlerGuard, FailClosedWithoutRedis } from './app-throttler.guard';
+import { buildRateLimitTracker } from './rate-limit-tracker';
 import { FailOpenThrottlerStorage } from './fail-open-throttler-storage';
 
 // Probe routes shaped like the real ones: sign-in and refresh under /auth, one ordinary route.
@@ -102,5 +109,62 @@ describe('AppThrottlerGuard (Redis down vs up)', () => {
       }
       await supertest(app.getHttpServer()).get('/api/v1/things').expect(429);
     });
+  });
+});
+
+// [3713] Per-host read throttle, end to end. The unit spec hands the tracker a fake request that
+// already has `params.host`; this boots the real guard + real tracker behind a real Express route
+// shaped like the site-read route, so it proves `req.params.host` is set when the guard runs.
+// (The app's own throttler is switched off under NODE_ENV=test, so no switch is needed here.)
+@Controller('public/site/by-host/:host')
+@Throttle({ default: { limit: 3, ttl: 60_000 } })
+class SiteReadProbeController {
+  @Get('home')
+  home() {
+    return { ok: true };
+  }
+}
+
+describe('AppThrottlerGuard per-host bucket for site reads', () => {
+  let app: INestApplication;
+  afterEach(async () => {
+    await app?.close();
+  });
+
+  async function bootSiteApp(): Promise<INestApplication> {
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        ThrottlerModule.forRoot({
+          throttlers: [{ name: 'default', limit: 100, ttl: 60_000 }],
+          storage: new ThrottlerStorageService(),
+          getTracker: buildRateLimitTracker(new JwtService({}), { get: () => undefined }),
+        }),
+      ],
+      controllers: [SiteReadProbeController],
+      providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],
+    }).compile();
+    const a = moduleRef.createNestApplication();
+    configureApiVersioning(a);
+    await a.init();
+    return a;
+  }
+
+  it('gives two hosts from one loopback address separate buckets', async () => {
+    app = await bootSiteApp();
+    const get = (host: string) =>
+      supertest(app.getHttpServer()).get(`/api/v1/public/site/by-host/${host}/home`);
+    // No X-Tenant-ID on purpose: the host is the only tenant signal on this route.
+    for (let i = 0; i < 3; i++) await get('alpha.example.com').expect(200);
+    await get('alpha.example.com').expect(429); // alpha's bucket is spent
+    await get('beta.example.com').expect(200); // beta's is untouched
+  });
+
+  it('treats one host as one bucket whatever its letter case', async () => {
+    app = await bootSiteApp();
+    const get = (host: string) =>
+      supertest(app.getHttpServer()).get(`/api/v1/public/site/by-host/${host}/home`);
+    for (let i = 0; i < 3; i++) await get('gamma.example.com').expect(200);
+    await get('GAMMA.example.com').expect(429); // same bucket as gamma: lower-casing works
+    await get('delta.example.com').expect(200); // and a different host still has its own bucket
   });
 });
