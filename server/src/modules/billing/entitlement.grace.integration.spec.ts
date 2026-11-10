@@ -23,7 +23,7 @@ describe('Seat grace (integration)', () => {
   let sessionCutoff: SessionCutoffService;
   const originalFreeUntil = process.env.BILLING_FREE_UNTIL;
   const invalidate = vi.fn();
-  const platformTenantId = vi.fn();
+  const platformSchoolIds = vi.fn();
   const notifyAdmins = vi.fn();
   const schoolIds: string[] = [];
   const userIds: string[] = [];
@@ -38,7 +38,7 @@ describe('Seat grace (integration)', () => {
       EntitlementService,
       AuditService,
       SessionCutoffService,
-      { provide: TenantStatusService, useValue: { invalidate, platformTenantId } },
+      { provide: TenantStatusService, useValue: { invalidate, platformSchoolIds } },
       { provide: AdminNoticeService, useValue: { notifyAdmins } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
@@ -50,7 +50,7 @@ describe('Seat grace (integration)', () => {
     process.env.BILLING_FREE_UNTIL = '2000-01-01T00:00:00+06:00'; // billing applies
     invalidate.mockReset().mockResolvedValue(undefined);
     notifyAdmins.mockReset().mockResolvedValue(undefined);
-    platformTenantId.mockReset().mockResolvedValue(undefined);
+    platformSchoolIds.mockReset().mockResolvedValue([]);
   });
 
   afterEach(async () => {
@@ -196,7 +196,7 @@ describe('Seat grace (integration)', () => {
     const fits = await newSchool(3, 3);
     const unlimited = await newSchool(null, 5);
     const platform = await overSchool();
-    platformTenantId.mockResolvedValue(platform);
+    platformSchoolIds.mockResolvedValue([platform]);
     expect(await entitlement.suspendIfGraceOver(fits, afterGrace)).toBe(false);
     expect(await entitlement.suspendIfGraceOver(unlimited, afterGrace)).toBe(false);
     expect(await entitlement.suspendIfGraceOver(randomUUID(), afterGrace)).toBe(false);

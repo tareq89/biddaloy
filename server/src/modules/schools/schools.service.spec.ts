@@ -50,7 +50,12 @@ function fakeAuditService() {
 }
 
 function fakeTenantStatus() {
-  return { invalidate: vi.fn(), isActive: vi.fn(), configuredPlatformTenantId: vi.fn() };
+  return {
+    invalidate: vi.fn(),
+    isActive: vi.fn(),
+    configuredPlatformTenantId: vi.fn(),
+    platformHomeSchoolId: vi.fn().mockResolvedValue(undefined),
+  };
 }
 
 /**
@@ -340,6 +345,29 @@ describe('SchoolsService', () => {
       expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
       // The id never reaches SQL: a non-uuid env value must not throw 22P02 for every sweep (F6).
       expect(repo.find).toHaveBeenCalledWith({ where: { status: 'ACTIVE' }, select: { id: true } });
+    });
+  });
+
+  describe('findAllActive is_platform home (Epic 98 D3b)', () => {
+    it('excludes the is_platform home row; an ordinary school stays', async () => {
+      const repo = fakeRepo(null);
+      repo.find.mockResolvedValue([{ id: 's1' }, { id: 'home-id' }, { id: 'platform-id' }]);
+      const service = new SchoolsService(
+        repo as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+      tenantStatus.configuredPlatformTenantId.mockReturnValue('platform-id');
+      tenantStatus.platformHomeSchoolId.mockResolvedValue('home-id');
+
+      expect(await service.findAllActive()).toEqual([{ id: 's1' }]);
     });
   });
 

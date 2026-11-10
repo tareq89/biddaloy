@@ -51,7 +51,9 @@ function make(
       schools as never,
       memberships as never,
       {
-        platformTenantId: vi.fn().mockResolvedValue(opts.platformId ?? 'platform'),
+        platformSchoolIds: vi
+          .fn()
+          .mockResolvedValue([opts.platformId ?? 'platform', 'home-school']),
       } as never,
     ),
     schools,
@@ -84,6 +86,12 @@ describe('AccountIdleRule', () => {
 
   it('raises nothing for the platform tenant', async () => {
     expect(await make(25, { platformId: 't1' }).rule.evaluate(ctx)).toEqual([]);
+  });
+
+  it('raises nothing for the is_platform home school (Epic 98 D3b)', async () => {
+    expect(
+      await make(25, { platformId: 'other' }).rule.evaluate({ ...ctx, tenantId: 'home-school' }),
+    ).toEqual([]);
   });
 
   it('raises nothing for a school that has a PAID seat order', async () => {

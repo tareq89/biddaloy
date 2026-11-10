@@ -71,7 +71,7 @@ describe('ContactChangeService (integration)', () => {
       AuditService,
       SessionCutoffService,
       { provide: RefreshTokenService, useValue: fakeRefreshTokens },
-      { provide: TenantStatusService, useValue: { platformTenantId: async () => PLATFORM_SCHOOL } },
+      { provide: TenantStatusService, useValue: { platformSchoolIds: async () => [PLATFORM_SCHOOL] } },
       { provide: OTP_REDIS, useValue: redis },
       { provide: AuthService, useValue: fakeAuthService },
       {

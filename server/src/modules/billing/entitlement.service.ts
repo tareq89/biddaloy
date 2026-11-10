@@ -150,7 +150,7 @@ export class EntitlementService {
    * platform tenant all return false. Returns whether it suspended.
    */
   async suspendIfGraceOver(schoolId: string, now: Date = new Date()): Promise<boolean> {
-    if (schoolId === (await this.tenantStatus.platformTenantId())) return false;
+    if ((await this.tenantStatus.platformSchoolIds()).includes(schoolId)) return false;
     const memberIds = await this.dataSource.transaction(async (m) => {
       const [school]: { status: string }[] = await m.query(
         'SELECT status FROM schools WHERE id = $1 AND deleted_at IS NULL FOR NO KEY UPDATE',
