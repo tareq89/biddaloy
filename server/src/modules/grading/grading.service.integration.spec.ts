@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { ConflictException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
@@ -156,5 +157,24 @@ describe('GradingService.copyScalesToYear (integration)', () => {
     const res = await run(false);
     expect(res.skipped).toEqual([{ name: 'Override Three', reason: 'CLASS_NOT_COPIED' }]);
     expect(res.created).toBe(3); // the three mapped scales still copy
+  });
+
+  it('[69.3.05] refuses scale writes in a closed year; copying out of it still works', async () => {
+    const scales = ds.getRepository(GradingScale);
+    const src = await scales.findOneByOrFail({ tenant_id: TENANT, name: 'Default' });
+    await ds.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [SRC_YEAR],
+    );
+    await expect(
+      service.create(TENANT, null, { name: 'Late', academic_year_id: SRC_YEAR } as any),
+    ).rejects.toThrow(ConflictException);
+    await expect(service.update(src.id, TENANT, null, { name: 'Renamed' })).rejects.toThrow(
+      ConflictException,
+    );
+    await expect(service.remove(src.id, TENANT, null)).rejects.toThrow(ConflictException);
+    // Source closed, target open: a read of the source, so it succeeds.
+    const res = await run(false);
+    expect(res.created).toBeGreaterThan(0);
   });
 });

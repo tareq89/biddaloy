@@ -4,6 +4,7 @@ import {
   ConflictException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { Routine } from './entities/routine.entity';
@@ -145,6 +146,7 @@ export class RoutineSlotsService {
     await this.assertNotBackdated(routine, dto.valid_from, tenantId);
 
     return this.dataSource.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, routine.academic_year_id); // [69.3.05] D4
       await this.validateTenantReferences(manager, dto, tenantId);
       const periodSlot = await this.getPeriodSlot(dto.period_slot_id, tenantId, manager);
       const existing = await this.loadExisting(routineId, tenantId, manager, dto, actorUserId);
@@ -198,6 +200,7 @@ export class RoutineSlotsService {
       const routine = await manager.findOne(Routine, {
         where: { id: oldSlot.routine_id, tenant_id: tenantId },
       });
+      if (routine) await assertYearOpen(manager, tenantId, routine.academic_year_id); // [69.3.05] D4
       await this.assertNotBackdated(routine, dto.valid_from, tenantId);
 
       // D4 effective dating only makes sense moving forward from the old
@@ -409,6 +412,7 @@ export class RoutineSlotsService {
         throw new NotFoundException('Routine slot not found');
       }
       const routine = await this.getRoutine(slot.routine_id, tenantId);
+      await assertYearOpen(manager, tenantId, routine.academic_year_id); // [69.3.05] D4
       const today = await this.today(tenantId);
       const published = routine.state === RoutineState.PUBLISHED;
 
