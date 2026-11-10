@@ -2015,8 +2015,9 @@ That is all for now. There is **no `*.schoolmanagerp.com` rule** in
   match the `staging.schoolmanagerp.com` rule.
 - With a wildcard rule, that name would fall into it and reach nginx with no in-VM Access check.
   nginx matches names case-insensitively, so it would serve staging.
-  (The one narrow rule that exists, `*-staging.<root>` for staging school sites, is safe for the same
-  reason: nginx `:8081` answers `444` to any spelling of such a host that is not the clean name, see [17f](#17f-staging-school-sites-behind-access-owner-steps).)
+  (Staging school sites do get exact rules, one per host in `STAGING_SITE_HOSTS`. That is safe for the
+  same reason: nginx `:8081` answers `444` to any spelling of such a host that is not the clean listed
+  name, and to any `-staging` host that is not listed, see [17f](#17f-staging-school-sites-behind-access-owner-steps).)
 - A trailing-dot name (`staging.schoolmanagerp.com.`) matches no hostname rule, not even a
   wildcard: it falls to the last rule. That only matters once the last rule is the host-agnostic
   school-site catch-all, and then it lands on the site listener like any unknown name.
@@ -2264,41 +2265,6 @@ checks. The owner steps for Cloudflare for SaaS, Umami and Turnstile are in [17e
   stopped.
 - **The case check** in 17a (cloudflared's `ingress rule` and the curl) must still pass after the deploy.
 
-### 17f. Staging school sites behind Access (owner steps)
-
-A staging school site (`model-school-staging.schoolmanagerp.com`) shows a copy of real data, so it
-sits behind the same Cloudflare Access login as `staging.<root>` (#3715).
-
-```mermaid
-flowchart LR
-  A["model-school-staging.schoolmanagerp.com"] --> B["Cloudflare Access login (outer)"]
-  B --> C["cloudflared rule *-staging.root: checks the token again (inner)"]
-  C --> D["nginx :8081"]
-  D -->|"host is the clean name"| E["staging-site"]
-  X["MODEL-SCHOOL-STAGING... or a trailing dot or a port"] -.->|"skips the inner rule"| D
-  D -.->|"444"| Z["no answer"]
-```
-
-1. Dashboard > Zero Trust > Access > Applications > `Staging` > add the public hostname
-   `*-staging.<ROOT_DOMAIN>` (a wildcard inside the label, not a whole label). Same `Owner only`
-   policy. If the dashboard refuses that pattern, tell the developer: the fallback is one hostname
-   per staging school. **Not verified: whether the dashboard accepts it, and whether it matches
-   upper case.** Step 3 is how you find out.
-2. Deploy (`biddaloy-deploy edge <sha>`), then on the VM:
-   `docker exec cloudflared cloudflared tunnel --config /etc/cloudflared/config.yml ingress rule https://foo-staging.<ROOT_DOMAIN>`
-   prints the new rule (with `access`). `https://FOO-STAGING.<ROOT_DOMAIN>` must print
-   `service: http://nginx:8081` (the catch-all): that spelling is the one nginx drops.
-3. Verify (V14, [25-cloudflare](25-cloudflare.md#verify)), then tick row 24 of the checklist:
-
-   ```bash
-   curl -sI https://model-school-staging.$ROOT_DOMAIN/   # 302 to <team>.cloudflareaccess.com
-   curl -sI https://MODEL-SCHOOL-STAGING.$ROOT_DOMAIN/   # 502 or a connection error, never the page
-   curl -sI https://model-school-demo.$ROOT_DOMAIN/      # 200 or 404, not 302
-   ```
-
-Rollback: remove the hostname from the application and the cloudflared rule; the guard in nginx can
-stay (it only drops odd spellings).
-
 ### 17e. Custom domains and analytics (owner steps)
 
 The epic text calls these steps 8.1 to 8.8. They are steps 1 to 8 here. UNVERIFIED on a real
@@ -2374,6 +2340,61 @@ flowchart LR
    dashboard stops serving: the visitor's browser shows a certificate error (TLS fails closed, the
    school's page is never shown on the wrong certificate), and the school's CNAME goes nowhere. To undo
    only the nginx gate, redeploy the previous edge sha: the custom path disappears, subdomains remain.
+
+### 17f. Staging school sites behind Access (owner steps)
+
+A staging school site (`model-school-staging.schoolmanagerp.com`) shows a copy of real data, so it
+sits behind the same Cloudflare Access login as `staging.<root>` (#3715).
+
+cloudflared cannot match `*-staging.<root>` (it only understands a leading `*.`), so each staging
+school is **listed**, by exact host, in one key: `STAGING_SITE_HOSTS` in `infra/secrets/edge.enc.env`
+(space separated, may be empty, the key must exist). That one list drives three things.
+
+```mermaid
+flowchart TD
+  K["STAGING_SITE_HOSTS in edge.enc.env<br/>model-school-staging.schoolmanagerp.com"] --> R["cloudflared: one exact rule per host<br/>with Access check (inner layer)"]
+  K --> M["nginx :8081 map: listed / unlisted"]
+  V["visitor"] --> A["Cloudflare Access login (outer layer)"] --> R --> N["nginx :8081"]
+  N -->|"listed, clean name"| S["staging-site"]
+  N -->|"listed but MODEL-SCHOOL-STAGING..., trailing dot or port"| X["444"]
+  N -->|"other-school-staging... not listed"| X
+```
+
+Example: with `STAGING_SITE_HOSTS=model-school-staging.schoolmanagerp.com`,
+`model-school-staging.schoolmanagerp.com` is served after the Access login;
+`new-school-staging.schoolmanagerp.com` gets nothing (`444`) until you add it to the list.
+
+To add a staging school:
+
+1. `sops infra/secrets/edge.enc.env`: append the exact lower-case host to `STAGING_SITE_HOSTS`
+   (`<school>-staging.<ROOT_DOMAIN>`, space separated). Preflight refuses any other shape.
+2. Dashboard > Zero Trust > Access > Applications > `Staging` > add the same host as a public
+   hostname. Same `Owner only` policy. (A wildcard host cannot be used here either: add the exact host.)
+3. Deploy the edge (`biddaloy-deploy edge <sha>`; cloudflared is recreated because its config changed).
+   Then on the VM, this **must pass before you tick row 24**:
+
+   ```bash
+   docker exec cloudflared cloudflared tunnel --config /etc/cloudflared/config.yml ingress rule https://model-school-staging.$ROOT_DOMAIN
+   ```
+
+   The output must name `hostname: model-school-staging.<ROOT_DOMAIN>` (the listed rule, with `access`).
+   For `https://new-school-staging.$ROOT_DOMAIN` (not listed) it must show only `service: http://nginx:8081`
+   (the catch-all): nginx then answers `444`.
+4. Verify (V14, [25-cloudflare](25-cloudflare.md#verify)), then tick row 24 of the checklist. The first
+   curl returns `302` whether or not step 3 works (the edge Access app answers it), so step 3 is the
+   real proof of the in-VM layer:
+
+   ```bash
+   curl -sI https://model-school-staging.$ROOT_DOMAIN/   # 302 to <team>.cloudflareaccess.com
+   curl -sI https://MODEL-SCHOOL-STAGING.$ROOT_DOMAIN/   # 302 Access, or 502; never the page
+   curl -sI https://model-school-demo.$ROOT_DOMAIN/      # 200 or 404, not 302
+   ```
+
+CI proves the cloudflared half before any deploy: `infra/ansible/test/cloudflared-staging-sites.infra.test.sh`
+renders the template and asks the pinned cloudflared image which rule a host hits.
+
+Rollback: remove the host from `STAGING_SITE_HOSTS` and redeploy the edge. The site is then refused
+(`444`) rather than public.
 
 ## Known gaps
 
