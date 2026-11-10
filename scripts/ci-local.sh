@@ -10,7 +10,12 @@
 #                 mirrors nightly-quality.yml's "lighthouse" job ([18.1.1]
 #                 moved it off ci.yml's PR/push path onto a nightly
 #                 schedule + workflow_dispatch; this flag's local shape is
-#                 unchanged, only its CI counterpart moved)
+#                 unchanged, only its CI counterpart moved). [101.1.01] The
+#                 school-site and landing Lighthouse budgets moved there too
+#                 (site-budget, landing-budget jobs); run them via
+#                 workflow_dispatch, or locally with `lhci autorun --config
+#                 lighthouserc.site.cjs` / `lighthouserc.landing.cjs`.
+#                 Never part of the default run.
 # --storybook:    adds the storybook section (mirrors ci.yml's "Storybook
 #                 build" job — PR-blocking in CI, opt-in here since it costs
 #                 ~100s and most local runs don't touch Storybook content)
