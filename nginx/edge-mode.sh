@@ -134,7 +134,7 @@ esac
   echo '    default 0;'
   if [ -n "$site_root" ]; then
     for v in APP_DOMAIN STAGING_DOMAIN DEMO_DOMAIN KUMA_DOMAIN BESZEL_DOMAIN LOGS_DOMAIN \
-      INBOX_DEMO_DOMAIN INBOX_STAGING_DOMAIN LANDING_DOMAIN; do
+      INBOX_DEMO_DOMAIN INBOX_STAGING_DOMAIN COCKPIT_DOMAIN LANDING_DOMAIN; do
       eval "h=\${$v:-}"
       [ -n "$h" ] || continue
       h=$(printf '%s' "$h" | tr 'A-Z' 'a-z')
