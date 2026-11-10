@@ -1,0 +1,86 @@
+name: Main red
+
+# [101.4.01] One sticky issue while `CI` is red on main (D4: there is no required
+# check, so nothing else tells anyone main is broken). A red run opens or updates
+# the issue; the next green run closes it.
+#
+# `workflow_run` always runs THIS file from the default branch, with a write token.
+# So it never checks out or runs code from the triggering run: only `gh` calls.
+#
+# Local dry run (prints the issue body and the gh commands, changes nothing):
+#   DRY_RUN=1 CONCLUSION=failure RUN_ID=42830743570 RUN_URL=<url> HEAD_SHA=<sha> \
+#     GH_REPO=tareq89/biddaloy bash <(yq '.jobs.report.steps[0].run' .github/workflows/main-red.yml)
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+# One writer at a time, so two quick runs cannot both create the issue.
+concurrency:
+  group: main-red
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: Report main status
+    runs-on: ubuntu-latest
+    # Cancelled and skipped runs say nothing about main's health.
+    if: github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - name: File, update or close the main-red issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          run_gh() { if [ "${DRY_RUN:-0}" = "1" ]; then echo "[DRY_RUN] gh $*"; else gh "$@"; fi; }
+
+          # Exact label name, created if missing (--force: no-op when it exists).
+          run_gh label create main-red --color B60205 --description "CI is red on main" --force
+
+          if [ "${DRY_RUN:-0}" = "1" ]; then
+            issue=""
+          else
+            issue="$(gh issue list --label main-red --state open --json number --jq '.[0].number // empty')"
+          fi
+
+          if [ "$CONCLUSION" = "success" ]; then
+            if [ -n "$issue" ]; then
+              gh issue close "$issue" --comment "Green on ${RUN_URL} (${HEAD_SHA:0:9}), closing."
+            else
+              echo "main is green and no main-red issue is open."
+            fi
+            exit 0
+          fi
+
+          if [ "${DRY_RUN:-0}" = "1" ]; then
+            failed='- (dry run: job names come from gh run view)'
+          else
+            failed="$(gh run view "$RUN_ID" --json jobs --jq '.jobs[] | select(.conclusion=="failure") | "- " + .name')"
+          fi
+          {
+            echo "CI is red on main."
+            echo
+            echo "Latest failing run: ${RUN_URL} (commit ${HEAD_SHA:0:9})"
+            echo
+            echo "Failed jobs:"
+            echo "${failed:-- (none listed, see the run)}"
+          } > main-red-body.md
+
+          if [ "${DRY_RUN:-0}" = "1" ]; then cat main-red-body.md; fi
+          if [ -n "$issue" ]; then
+            run_gh issue edit "$issue" --body-file main-red-body.md
+          else
+            run_gh issue create --title "CI is red on main" --label main-red \
+              --milestone "Product — before first release" --body-file main-red-body.md
+          fi
