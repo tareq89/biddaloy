@@ -769,3 +769,23 @@ explicit tenant reference.
   of a shared login answers `409 SHARED_IDENTITY`, and joining a school is a
   request the person accepts. The alternative, admin edit plus a
   verification step, was considered and rejected.
+
+## Learning: cockpit identity, Wave 0
+
+2026-11-10, Epic 98 wave 0 (#3732).
+
+- **Shared git config flipped (2026-11-10).**
+  - Surprise: `core.bare` in the shared `.git/config` turned `true` mid-run, and git broke in every worktree at once.
+  - Cost: all lanes stalled until someone noticed.
+  - Fix: `git config core.bare false`.
+  - Rule candidate: agents never touch git config; a worktree preflight checks `git config core.bare` is `false`.
+- **Fence smoke counted fetch errors as "refused" (2026-11-10, #3731 review).**
+  - Surprise: a DNS or TLS failure threw, the script read the throw as "the fence refused me", and a broken check looked like a pass.
+  - Cost: a fence that could never fail.
+  - Fix: `fetch` follows redirects, so use `redirect: 'manual'` and count only closed-socket codes (for example `ECONNREFUSED`, `ECONNRESET`) as refused. Anything else is a failure.
+  - Rule candidate: a negative-path smoke check must name the exact outcomes that count as success, never "any error".
+- **`COCKPIT_DOMAIN` never reached the smoke script (2026-11-10).**
+  - Surprise: `smoke.yml` forwards only `SMOKE_*` keys, and `biddaloy-nightly` passes an explicit `-e` list, so a new env var is dropped silently and its checks skip.
+  - Cost: the gated cockpit checks ran as no-ops.
+  - Fix: forward the variable in `smoke.yml` and add it to the nightly `-e` list.
+  - Rule candidate: a new smoke env var is not done until it appears in `smoke.yml` and the nightly `-e` list, and a gated check logs loudly when it skips.
