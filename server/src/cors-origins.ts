@@ -20,7 +20,12 @@ export function resolveCorsOrigins(
       ? []
       : ['http://localhost:5173'];
   // [Epic 98] The cockpit host is its own origin; allow it when configured.
-  const cockpit = cockpitDomain?.trim() ? `https://${cockpitDomain.trim()}` : null;
+  // A scheme or trailing slash typed into COCKPIT_DOMAIN is dropped: the value is a bare host.
+  const host = cockpitDomain
+    ?.trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '');
+  const cockpit = host ? `https://${host}` : null;
   return cockpit && !base.includes(cockpit) ? [...base, cockpit] : base;
 }
 

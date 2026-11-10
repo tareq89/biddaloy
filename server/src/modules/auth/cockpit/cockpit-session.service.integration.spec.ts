@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
+import { ServiceUnavailableException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
 import Redis from 'ioredis';
@@ -120,6 +121,49 @@ describe('CockpitSessionService (integration)', () => {
     }
     const [row] = await ds.query('SELECT tokens_valid_after FROM users WHERE id = $1', [u.id]);
     expect(row.tokens_valid_after).not.toBeNull();
+  });
+
+  function deadRedis(): Redis {
+    const dead = new Redis(process.env.REDIS_URL!, {
+      lazyConnect: true,
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 0,
+      retryStrategy: () => null,
+    });
+    dead.disconnect();
+    return dead;
+  }
+
+  it('Redis down: refresh and touch answer 503, the cookie is not rotated', async () => {
+    const u = await owner();
+    const limits = { idleMs: 60_000, absoluteMs: 60_000 };
+    const s = await make(limits).start(u.id, ctx);
+    const down = make(limits, deadRedis());
+    await expect(down.refresh(s.refreshCookieValue, ctx)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    await expect(down.touch(s.familyId)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    const [{ n }] = await ds.query(
+      'SELECT count(*)::int AS n FROM refresh_tokens WHERE family_id = $1',
+      [s.familyId],
+    );
+    expect(n).toBe(1);
+  });
+
+  it('a refreshed refresh-token row never outlives the absolute deadline', async () => {
+    const u = await owner();
+    const absoluteMs = 8 * 60 * 60_000;
+    const svc = make({ idleMs: 60_000, absoluteMs });
+    const startedAt = Date.now();
+    const s = await svc.start(u.id, ctx);
+    await svc.refresh(s.refreshCookieValue, ctx);
+    const rows = await ds.query('SELECT expires_at FROM refresh_tokens WHERE family_id = $1', [
+      s.familyId,
+    ]);
+    expect(rows).toHaveLength(2);
+    for (const r of rows) {
+      expect(new Date(r.expires_at).getTime()).toBeLessThanOrEqual(startedAt + absoluteMs + 1000);
+    }
   });
 
   it('Redis down refuses to start a session', async () => {
