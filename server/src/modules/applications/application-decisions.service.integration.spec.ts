@@ -836,4 +836,29 @@ describe('ApplicationDecisionsService (integration)', () => {
       expect((await row(app.id)).status).toBe(ApplicationStatus.APPROVED);
     });
   });
+
+  it('[69.3.05] refuses approve, reject, consider and cancel on an application of a closed year (409)', async () => {
+    const app = await testimonial(studentA);
+    const closed = randomUUID();
+    await dataSource.query(
+      `INSERT INTO academic_years (id, name, start_date, end_date, is_current, closed_at, tenant_id, created_at, updated_at)
+         VALUES ($1, 'Closed 2020', '2020-01-01', '2020-12-31', false, NOW(), $2, NOW(), NOW())`,
+      [closed, SEED_TENANT_ID],
+    );
+    await dataSource.query(`UPDATE applications SET academic_year_id = $1 WHERE id = $2`, [
+      closed,
+      app.id,
+    ]);
+    await expect(approve(callers.ct, app.id)).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.reject(SEED_TENANT_ID, callers.ct, app.id, { reason: 'No' }, req),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.consider(SEED_TENANT_ID, callers.ct, app.id, {}, req),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.cancel(SEED_TENANT_ID, callers.admin, app.id, {} as any, req),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect((await row(app.id)).status).toBe(ApplicationStatus.PENDING);
+  });
 });

@@ -14,6 +14,7 @@ function fakeManager(
   liveChildren: { table: string; n: number }[] = [],
 ) {
   return {
+    query: vi.fn(async (sql: string) => (sql.includes('closed_at') ? [{ closed_at: null }] : [])), // assertYearOpen [69.3.05]
     getRepository: vi.fn((entity: any) => (entity?.name === 'GradingBand' ? bandRepo : scaleRepo)),
     connection: {
       entityMetadatas: liveChildren.map((c) => ({

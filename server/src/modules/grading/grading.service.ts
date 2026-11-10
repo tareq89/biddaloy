@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
@@ -72,6 +73,7 @@ export class GradingService {
     await this.assertYearAndClassInTenant(tenantId, dto.academic_year_id, dto.class_id);
 
     return this.dataSource.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, dto.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(GradingScale);
       // [D1] Only one default (class_id: null) scale per (tenant, year) —
       // enforced by a partial unique index at the DB, checked here first
@@ -154,6 +156,7 @@ export class GradingService {
     if (dto.name === undefined) return existing;
 
     await this.dataSource.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(GradingScale);
       await repo.update({ id, tenant_id: tenantId }, { name: dto.name });
       await this.auditService.record(
@@ -196,6 +199,7 @@ export class GradingService {
     }
 
     await this.dataSource.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
       // [70.2.1] A final result row pins the scale too (NO ACTION FK). Results are counted
       // above (with their count) and the scale's own bands go with it.
       await assertNoLiveDependents(manager, GradingScale, id, {
@@ -273,6 +277,7 @@ export class GradingService {
     }
 
     const write = async (manager: EntityManager) => {
+      await assertYearOpen(manager, tenantId, target.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(GradingBand);
       const created = repo.create(
         sourceBands.map((band) => ({

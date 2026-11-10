@@ -386,6 +386,23 @@ describe('StudyPlansService (integration)', () => {
       const again = await service.create(dto(), TENANT, admin());
       expect(again.id).not.toBe(first.id);
     });
+    it('[69.3.05] refuses create, edit and remove in a closed year (409)', async () => {
+      const plan = await service.create(dto(), TENANT, admin());
+      await dataSource.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [yearId]);
+      try {
+        expect(
+          status(await service.create(dto({ section_id: sec7B }), TENANT, admin()).catch((e) => e)),
+        ).toBe(409);
+        expect(
+          status(await service.replaceLessons(plan.id, [], TENANT, admin()).catch((e) => e)),
+        ).toBe(409);
+        expect(status(await service.remove(plan.id, TENANT, admin()).catch((e) => e))).toBe(409);
+      } finally {
+        await dataSource.query(`UPDATE academic_years SET closed_at = NULL WHERE id = $1`, [
+          yearId,
+        ]);
+      }
+    });
   });
 
   describe('replaceLessons', () => {

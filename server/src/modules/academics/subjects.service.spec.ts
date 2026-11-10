@@ -18,6 +18,7 @@ async function build(existingRow?: Partial<ClassSubject>) {
   const saved: any[] = [];
   const lockedEntities: { entity: unknown; qb: any }[] = [];
   const manager: any = {
+    query: vi.fn(async () => [{ closed_at: null }]), // assertYearOpen [69.3.05]
     createQueryBuilder: (entity: unknown) => {
       const qb: any = {
         setLock: vi.fn(() => qb),

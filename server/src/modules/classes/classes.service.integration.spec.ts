@@ -1110,4 +1110,27 @@ describe('ClassService / SectionService (integration)', () => {
       expect(bangla.id).not.toBe(english.id);
     });
   });
+
+  describe('closed year [69.3.05]', () => {
+    it('refuses create, update and remove of a class once its year is closed (409)', async () => {
+      const year = await createYear();
+      const klass = await classService.create(
+        { name: 'Closed', numeric_grade: 1, academic_year_id: year.id } as any,
+        TENANT_ID,
+      );
+      await dataSource.query(`UPDATE academic_years SET closed_at = now() WHERE id = $1`, [
+        year.id,
+      ]);
+      await expect(
+        classService.create(
+          { name: 'Late', numeric_grade: 2, academic_year_id: year.id } as any,
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(ConflictException);
+      await expect(
+        classService.update(klass.id, { name: 'Renamed' } as any, TENANT_ID),
+      ).rejects.toThrow(ConflictException);
+      await expect(classService.remove(klass.id, TENANT_ID)).rejects.toThrow(ConflictException);
+    });
+  });
 });
