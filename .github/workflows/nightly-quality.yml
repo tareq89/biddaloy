@@ -194,6 +194,9 @@ jobs:
   # server module), so a PR that cannot change a school page does not pay for it.
   site-budget:
     name: Site budget (Lighthouse)
+    # ci.yml's `quality` job calls this whole workflow in the merge queue; these two budgets are
+    # nightly-only (D6), so the queue skips them.
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
@@ -303,6 +306,9 @@ jobs:
   # The landing build, token check and Playwright smoke stay in ci.yml.
   landing-budget:
     name: Landing budget (Lighthouse)
+    # ci.yml's `quality` job calls this whole workflow in the merge queue; these two budgets are
+    # nightly-only (D6), so the queue skips them.
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -360,7 +366,8 @@ jobs:
         id: status
         run: |
           if [ "${{ needs.lighthouse.result }}" = "success" ] && [ "${{ needs.site-themes.result }}" = "success" ] \
-             && [ "${{ needs.site-budget.result }}" = "success" ] && [ "${{ needs.landing-budget.result }}" = "success" ]; then
+             && { [ "${{ needs.site-budget.result }}" = "success" ] || [ "${{ needs.site-budget.result }}" = "skipped" ]; } \
+             && { [ "${{ needs.landing-budget.result }}" = "success" ] || [ "${{ needs.landing-budget.result }}" = "skipped" ]; }; then
             echo "status=success" >> "$GITHUB_OUTPUT"
           else
             echo "status=failure" >> "$GITHUB_OUTPUT"
