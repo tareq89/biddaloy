@@ -5,7 +5,7 @@
  *  2. every migration newer than ROUNDTRIP_FLOOR undoes and redoes cleanly.
  *
  * "Every @Entity file is in ALL_ENTITIES" is NOT checked here — that is
- * #2161 (`all-entities.completeness.spec.ts`). We use the entity glob, not
+ * #2161 (`all-entities.completeness.integration.spec.ts`). We use the entity glob, not
  * ALL_ENTITIES, so a forgotten list entry cannot hide drift.
  */
 import 'reflect-metadata';
