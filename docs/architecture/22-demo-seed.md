@@ -161,6 +161,23 @@ The coordinator's "attendance not taken" alerts are not written by hand: the att
 runs the real rule, which adds class coordinators at level 1 (83.2.4). So whenever a section of a coordinated class
 has no register at 10:30 on the anchor day, the 8-A card login gets that alert as its coordinator.
 
+#### Year rollover (Epic 69, #3524)
+
+```mermaid
+flowchart LR
+  P[preset builds the PREVIOUS year] --> O[older years cloned, then closed 30 days after end]
+  P --> R[YearRolloverService.create] --> C[CURRENT year: classes, sections, subjects, scale, terms]
+  C --> E[one section resized after the copy]
+```
+
+| Table / column                                  | What the demo has                                                                                                                         |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `academic_years` (current)                      | created by the real rollover from the previous year, then made `is_current`; its own `YEAR_ROLLOVER` audit row                            |
+| `academic_years.closed_at` / `closed_by_user_id` | every year older than the previous one: `end_date + 30 days`, closed by the demo admin. The previous year stays open (`year.close_due`) |
+| `class_sections.capacity`                       | null on the previous year; one section of the current year's last class is resized, so the demo shows an "edited after copy" year         |
+
+Fee structures are not rolled over in the seed: the `org` slice runs before `fees`, so the previous year has none yet and the `fee_structures` block copies nothing. `fees.ts` still writes every year's structures itself, and nothing collides.
+
 #### Attendance source (Epic 76, #3556)
 
 | Table / column                            | What the demo has                                                                                                                                                                                                                                                                                 | Slice        |
@@ -771,3 +788,8 @@ Dated learning (2026-11-02, Epic 53 Wave 4 close):
 Dated learning (2026-11-06, Epic 81 close):
 
 - Epic 81 (marks sheet import): no table or column changed, so there is no demo-seed slice. Sheets are built from existing marks rows.
+
+Dated learning (2026-11-11, Epic 69 wave 2):
+
+- **Surprise:** wave 1 added `YEAR_CLOSE` / `YEAR_REOPEN` / `YEAR_ROLLOVER` to the shared `AuditAction` enum but no migration, so the first audit write failed with `invalid input value for enum audit_logs_action_enum`. Cost: found by the first rollover integration test. Fix: `1791900003800-AddYearAuditActions.ts`. Rule candidate: a new `AuditAction` value ships with its `ALTER TYPE ... ADD VALUE` migration in the same ticket.
+- **Surprise:** closing old years in `org.ts` freezes their writes for every service that calls `assertYearOpen` once #3526-#3532 wire it. The seed's later slices write history with bulk inserts, so it is fine today; a slice that moves to a service for an old year will get `ACADEMIC_YEAR_CLOSED`.

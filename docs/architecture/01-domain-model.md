@@ -780,3 +780,5 @@ flowchart LR
   relation would leave rows with no populated relation readable by any
   tenant. Always add a direct tenant reference on a new entity rather than
   relying on a join to prove ownership.
+
+**Learning (2026-11-11, Epic 69 wave 2).** The current academic year is no longer always built by hand: `YearRolloverService` (`modules/academics/year-rollover.service.ts`) copies classes, sections, class subjects, teacher assignments, fee structures, grading scales and terms from a source year into a target year by natural key (D14), all-or-nothing, and re-running it counts rows `existing` instead of duplicating them. A closed year (`academic_years.closed_at`) is read-only for writes that call `assertYearOpen`.
