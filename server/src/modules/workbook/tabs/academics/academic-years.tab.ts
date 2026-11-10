@@ -1,7 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { AcademicYear } from '../../../academics/entities/academic-year.entity';
 import { fromCell, formatDateOnly, formatDateTime } from '../../codec/cell-format';
-import { User } from '../../../users/entities/user.entity';
+import { UserTenant } from '../../../auth/entities/user-tenant.entity';
 import type {
   ColumnSpec,
   ExportContext,
@@ -191,9 +191,10 @@ export const academicYearsTab: TabSpec<AcademicYear, AcademicYearRow> = {
     year.end_date = parseDateOnly(row.end_date);
     year.is_current = row.is_current;
     year.closed_at = row.closed_at ? new Date(row.closed_at) : null;
-    // An id that does not resolve in this database becomes NULL, not an error (FK would refuse it).
+    // An id that is not a member of THIS tenant becomes NULL (never leaks or attaches another tenant's user), not an error (FK would refuse it).
     year.closed_by_user_id =
-      row.closed_by_user_id && (await m.existsBy(User, { id: row.closed_by_user_id }))
+      row.closed_by_user_id &&
+      (await m.existsBy(UserTenant, { user_id: row.closed_by_user_id, tenant_id: tenantId }))
         ? row.closed_by_user_id
         : null;
 
