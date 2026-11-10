@@ -28,6 +28,11 @@ export const COCKPIT_LOGIN_FAILED = 'Sign-in failed. Check your details and try 
 export const cockpitOtpIdentifier = (userId: string, medium: 'sms' | 'email') =>
   `${userId}:${medium}`;
 
+/** Lockout key for authenticator and code failures of one owner. */
+export const cockpitUserLockKey = (userId: string) => `cockpit:user:${userId}`;
+/** Lockout key for password failures on one typed identifier (already normalised). */
+export const cockpitIdentifierLockKey = (identifier: string) => `cockpit:${identifier}`;
+
 export type CockpitAuthResult =
   | { step: 'mfa'; mfaToken: string }
   | { step: 'enrol'; enrolToken: string }
@@ -59,8 +64,8 @@ export class CockpitAuthService {
 
   // Password failures count on the typed identifier (also for unknown ones, so the answer
   // is equal). Authenticator failures count on the user, and login checks both keys.
-  private idKey = (identifier: string) => `cockpit:${identifier}`;
-  private userKey = (userId: string) => `cockpit:user:${userId}`;
+  private idKey = cockpitIdentifierLockKey;
+  private userKey = cockpitUserLockKey;
 
   private fail(): never {
     throw new UnauthorizedException(COCKPIT_LOGIN_FAILED);
@@ -158,17 +163,14 @@ export class CockpitAuthService {
     ];
     if (sms !== 'ok' || email !== 'ok') this.fail();
 
-    const finished = await this.finish(user, ctx);
-    if (dto.rememberDevice && finished.step === 'done') {
-      finished.deviceCookieValue = await this.devices.remember(userId, ctx.userAgent);
-    }
-    return finished;
+    return this.finish(user, ctx, dto.rememberDevice === true);
   }
 
   /** Both proofs passed: start the session, audit it, and tell the owner. */
-  private async finish(
+  async finish(
     user: User,
     ctx: RequestContext,
+    rememberDevice = false,
   ): Promise<Extract<CockpitAuthResult, { step: 'done' }>> {
     const started = await this.sessions.start(user.id, ctx);
     await this.loginAttempts.reset(this.userKey(user.id));
@@ -191,6 +193,9 @@ export class CockpitAuthService {
       step: 'done',
       accessToken: started.accessToken,
       refreshCookieValue: started.refreshCookieValue,
+      deviceCookieValue: rememberDevice
+        ? await this.devices.remember(user.id, ctx.userAgent)
+        : undefined,
     };
   }
 
@@ -235,7 +240,8 @@ export class CockpitAuthService {
     });
   }
 
-  private async loadOwner(userId: string): Promise<User> {
+  /** The user behind a step token, which must still be a platform owner; else the one failure. */
+  async loadOwner(userId: string): Promise<User> {
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user || !(await this.admins.exists({ where: { user_id: userId } }))) this.fail();
     return user;
