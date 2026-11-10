@@ -22,17 +22,6 @@ const PLATFORM_GUARD_NAMES = new Set([
 
 /** "METHOD /full/path" of platform-guarded routes that sit outside `platform/`. */
 const ALLOWED_OUTSIDE: string[] = [
-  'GET /schools',
-  'GET /schools/:id/stats',
-  'PATCH /schools/:id/status',
-  'POST /schools/:id/revive',
-  'POST /schools',
-  'GET /schools/:id/sms-credits',
-  'POST /schools/:id/sms-credits',
-  'GET /schools/:id/admins',
-  'POST /schools/:id/admins',
-  'POST /schools/:id/admins/:userId/resend-invitation',
-  'DELETE /schools/:id/admins/:userId/invitation',
   // [Epic 98] Cockpit owner sessions: platform-guarded but part of the /auth/cockpit sign-in family.
   'POST /auth/cockpit/logout-all',
   'GET /auth/cockpit/sessions',
@@ -117,7 +106,7 @@ describe('Platform-only routes live under platform/ (Epic 98 safety net)', () =>
   });
 
   it('keeps ALLOWED_OUTSIDE small and free of duplicates', () => {
-    expect(ALLOWED_OUTSIDE.length).toBeLessThanOrEqual(14);
+    expect(ALLOWED_OUTSIDE.length).toBeLessThanOrEqual(3);
     expect(new Set(ALLOWED_OUTSIDE).size).toBe(ALLOWED_OUTSIDE.length);
   });
 

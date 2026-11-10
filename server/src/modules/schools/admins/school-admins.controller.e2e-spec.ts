@@ -28,7 +28,7 @@ describe('POST /schools/:id/admins (e2e) [68.1.14]', () => {
 
   const addAdmin = (body: object) =>
     supertest(app.getHttpServer())
-      .post(`/api/v1/schools/${schoolId}/admins`)
+      .post(`/api/v1/platform/schools/${schoolId}/admins`)
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', platformTenantId)
       .send(body);
@@ -117,7 +117,7 @@ describe('POST /schools/:id/admins (e2e) [68.1.14]', () => {
       .send({ email, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     await supertest(app.getHttpServer())
-      .get(`/api/v1/schools/${schoolId}/admins`)
+      .get(`/api/v1/platform/schools/${schoolId}/admins`)
       .set('Authorization', `Bearer ${login.body.access_token}`)
       .set('X-Tenant-ID', schoolId)
       .expect(403);
