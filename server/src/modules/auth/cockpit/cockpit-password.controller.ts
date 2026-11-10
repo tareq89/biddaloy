@@ -15,6 +15,9 @@ import { CockpitForgotPasswordDto, CockpitResetPasswordDto } from './dto/cockpit
 export class CockpitPasswordController {
   constructor(private readonly passwords: CockpitPasswordService) {}
 
+  // No per-identifier cooldown: the app host's link flow has none either (only its OTP branch does),
+  // and one here would need Redis wired into this service. STRICT_RATE_LIMIT per IP caps the sends;
+  // AuthTokenService.issue revokes the previous link, so only the newest link ever works. Accepted.
   @Post('forgot-password')
   @FailClosedWithoutRedis()
   @HttpCode(HttpStatus.ACCEPTED)

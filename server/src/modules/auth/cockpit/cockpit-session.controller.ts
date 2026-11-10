@@ -49,7 +49,7 @@ export class CockpitSessionController {
       request.cookies?.[COCKPIT_REFRESH_COOKIE],
       requestContext(request),
     );
-    setCockpitRefreshCookie(response, result.refreshCookieValue);
+    setCockpitRefreshCookie(response, result.refreshCookieValue, result.absoluteLeftMs);
     response.setHeader('Cache-Control', 'no-store');
     return { access_token: result.accessToken };
   }
