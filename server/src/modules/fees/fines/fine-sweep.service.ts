@@ -146,6 +146,7 @@ export class FineSweepService {
       // Overlapping years are normal after a rollover: an open year beats a closed one, then the
       // year that started last, then the newest row (D21, #1169, #2774).
       .orderBy('ay.closed_at', 'ASC', 'NULLS FIRST')
+      .addOrderBy('ay.is_current', 'DESC')
       .addOrderBy('ay.start_date', 'DESC')
       .addOrderBy('ay.created_at', 'DESC')
       .getOne();
@@ -400,6 +401,7 @@ export class FineSweepService {
       // Overlapping years are normal after a rollover: an open year beats a closed one, then the
       // year that started last, then the newest row (D21, #1169, #2774).
       .orderBy('ay.closed_at', 'ASC', 'NULLS FIRST')
+      .addOrderBy('ay.is_current', 'DESC')
       .addOrderBy('ay.start_date', 'DESC')
       .addOrderBy('ay.created_at', 'DESC')
       .getOne();
