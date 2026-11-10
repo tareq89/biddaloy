@@ -181,6 +181,22 @@ describe('YearRolloverService (integration)', () => {
     ).toBeGreaterThanOrEqual(1);
   });
 
+  it('two simultaneous rollovers into the same year copy each row once', async () => {
+    // Both calls start together. The advisory lock makes the second wait for the first, so it
+    // sees the first run's rows as `existing` instead of inserting them again.
+    const name = `race-${sfx}`;
+    const [a, b] = await Promise.all([
+      service.create(TENANT, SEED_ADMIN_USER_ID, sourceId, input(name)),
+      service.create(TENANT, SEED_ADMIN_USER_ID, sourceId, input(name)),
+    ]);
+    expect(a.target_year_id).toBe(b.target_year_id);
+    const tid = a.target_year_id!;
+    expect(a.classes.created + b.classes.created).toBe(3);
+    expect(await count(Class, { academic_year_id: tid })).toBe(3);
+    expect(await count(ClassSubject, { academic_year_id: tid })).toBe(3);
+    expect(await count(AcademicTerm, { academic_year_id: tid })).toBe(1);
+  });
+
   it('rolls everything back when a later block fails', async () => {
     const name = `fail-${sfx}`;
     const spy = vi.spyOn(terms, 'copyTermsToYear').mockRejectedValueOnce(new Error('boom'));
