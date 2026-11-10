@@ -141,6 +141,7 @@ export class FineSweepService {
       .createQueryBuilder('ay')
       .where('ay.tenant_id = :tenantId', { tenantId })
       .andWhere('ay.deleted_at IS NULL')
+      .andWhere('ay.closed_at IS NULL') // [69.3.03] a closed year takes no new fines (D4)
       .andWhere('ay.start_date <= :periodStart', { periodStart })
       .andWhere('ay.end_date >= :periodStart', { periodStart })
       // Overlapping years are normal after a rollover: an open year beats a closed one, then the
@@ -396,6 +397,7 @@ export class FineSweepService {
       .createQueryBuilder('ay')
       .where('ay.tenant_id = :tenantId', { tenantId })
       .andWhere('ay.deleted_at IS NULL')
+      .andWhere('ay.closed_at IS NULL') // [69.3.03] a closed year takes no new fines (D4)
       .andWhere('ay.start_date <= :periodStart', { periodStart: `${month}-01` })
       .andWhere('ay.end_date >= :periodStart', { periodStart: `${month}-01` })
       // Overlapping years are normal after a rollover: an open year beats a closed one, then the

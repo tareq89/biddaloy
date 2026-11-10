@@ -1,3 +1,4 @@
+import { assertYearOpen } from '../../../common/utils/year-open.guard';
 import {
   BadRequestException,
   ConflictException,
@@ -122,6 +123,7 @@ export class FineRulesService {
     }
 
     return this.dataSource.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, dto.academic_year_id); // [69.3.03] D4
       const repo = manager.getRepository(FineRule);
       const rule = repo.create({
         tenant_id: tenantId,
@@ -174,6 +176,7 @@ export class FineRulesService {
       const repo = manager.getRepository(FineRule);
       const rule = await repo.findOne({ where: { id, tenant_id: tenantId } });
       if (!rule) throw new NotFoundException('Fine rule not found');
+      await assertYearOpen(manager, tenantId, rule.academic_year_id); // [69.3.03] D4
       const oldValues = { ...rule } as unknown as Record<string, unknown>;
 
       if (dto.fee_structure_id !== undefined) {
@@ -236,6 +239,7 @@ export class FineRulesService {
       const repo = manager.getRepository(FineRule);
       const rule = await repo.findOne({ where: { id, tenant_id: tenantId } });
       if (!rule) throw new NotFoundException('Fine rule not found');
+      await assertYearOpen(manager, tenantId, rule.academic_year_id); // [69.3.03] D4
       await repo.softDelete({ id, tenant_id: tenantId });
       await this.auditService.record(
         {
@@ -283,6 +287,7 @@ export class FineRulesService {
     }
 
     return this.dataSource.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, dto.to_academic_year_id); // [69.3.03] D4
       const feeStructureRepo = manager.getRepository(FeeStructure);
       const fineRuleRepo = manager.getRepository(FineRule);
       const classRepo = manager.getRepository(Class);

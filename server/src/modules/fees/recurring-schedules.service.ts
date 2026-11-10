@@ -1,3 +1,4 @@
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, MoreThanOrEqual, Repository } from 'typeorm';
@@ -335,6 +336,7 @@ export class RecurringSchedulesService {
     this.validateStartsOnWithinAcademicYear(dto.starts_on, academicYear);
 
     const saved = await this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, dto.academic_year_id); // [69.3.03] D4
       const scheduleRepo = manager.getRepository(RecurringSchedule);
       const structureRepo = manager.getRepository(RecurringScheduleStructure);
 
@@ -504,6 +506,7 @@ export class RecurringSchedulesService {
     this.validateStartsOnWithinAcademicYear(effectiveStartsOn, academicYear);
 
     await this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, schedule.academic_year_id); // [69.3.03] D4
       const scheduleRepo = manager.getRepository(RecurringSchedule);
       const structureRepo = manager.getRepository(RecurringScheduleStructure);
 
@@ -569,6 +572,7 @@ export class RecurringSchedulesService {
   async remove(id: string, tenantId: string, userId: string): Promise<void> {
     const schedule = await this.getOwnedSchedule(id, tenantId);
     await this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, schedule.academic_year_id); // [69.3.03] D4
       await manager.getRepository(RecurringSchedule).softDelete({ id: schedule.id });
       await this.auditService.record(
         {
@@ -598,6 +602,7 @@ export class RecurringSchedulesService {
     }
 
     await this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, schedule.academic_year_id); // [69.3.03] D4
       const exclusionRepo = manager.getRepository(RecurringScheduleExclusion);
       const existing = await exclusionRepo.findOne({
         where: { schedule_id: schedule.id, student_id: dto.student_id },
@@ -640,6 +645,7 @@ export class RecurringSchedulesService {
   ): Promise<void> {
     const schedule = await this.getOwnedSchedule(id, tenantId);
     await this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, schedule.academic_year_id); // [69.3.03] D4
       const exclusionRepo = manager.getRepository(RecurringScheduleExclusion);
       const existing = await exclusionRepo.findOne({
         where: { schedule_id: schedule.id, student_id: studentId },
@@ -762,6 +768,7 @@ export class RecurringSchedulesService {
     }
 
     const created = await this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, targetYear.id); // [69.3.03] D4
       const scheduleRepo = manager.getRepository(RecurringSchedule);
       const structureRepo = manager.getRepository(RecurringScheduleStructure);
       const exclusionRepo = manager.getRepository(RecurringScheduleExclusion);
