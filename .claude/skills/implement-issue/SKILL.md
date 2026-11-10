@@ -82,11 +82,9 @@ on whatever the user set before invoking this skill.
 |---|---|---|
 | Research + plan (steps 2–3) — **plan-grade, standard tier** | Sonnet | folded into `issue-implementer` (`mode: self-preflight`) — no separate agent |
 | Research + plan (steps 2–3) — **plan-grade, money tier** | Sonnet | `issue-preflight` subagent (`.claude/agents/issue-preflight.md`, `model: sonnet`) |
-| Research + plan (steps 2–3) — everything else, **money tier** | Opus | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: opus`) |
-| Research + plan (steps 2–3) — everything else, **standard tier** | Sonnet | `issue-planner` subagent dispatched with `model: "sonnet"` |
+| Research + plan (steps 2–3) — everything else, either tier | Sonnet | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: sonnet`) |
 | Implement, tests, stories (steps 4–6) | Sonnet | `issue-implementer` subagent (`.claude/agents/issue-implementer.md`, `model: sonnet`) |
-| Code review (step 7) — **money tier** | Opus | `issue-reviewer` subagent (`.claude/agents/issue-reviewer.md`, `model: opus`) |
-| Code review (step 7) — **standard tier** | Sonnet | `Agent(model: "sonnet")` following `.claude/agents/issue-reviewer.md` |
+| Code review (step 7) — the only review, either tier | Sonnet | `issue-reviewer` subagent (`.claude/agents/issue-reviewer.md`, `model: sonnet`) |
 | Read-only labour (fetch bodies, tier match, CI-log triage, file/excerpt lookups) | Haiku | `labour-scout` subagent (`.claude/agents/labour-scout.md`, `model: haiku`) — evidence only, never decisions, never writes |
 | Commit, push, PR bodies and comments (steps 8–9) | Sonnet (start the session on Sonnet) | in this session |
 
@@ -105,7 +103,7 @@ session happens to be running on. It also means the plan is produced by an agent
 whose only job is the plan, and published to GitHub before any code exists.
 
 Before starting, check what the session is actually running on and say it out
-loud in one line: *"Session model: <X>. Planning goes to the Opus subagent,
+loud in one line: *"Session model: <X>. Planning goes to the Sonnet subagent,
 implementation to the Sonnet subagent; review, commit and PR run here."*
 
 ### Effort cannot be routed per phase
@@ -220,7 +218,7 @@ review tier from `## Files`, and branch on what you find:
   issue ID, base branch and tier. It verifies the body against the code and
   publishes the pointer comment. Only if it returns `needs-planner` do you
   fall through to the planner; `blocked-on` is handled as above.
-- **Not plan-grade** → dispatch the `issue-planner` subagent (Opus) with the
+- **Not plan-grade** → dispatch the `issue-planner` subagent (Sonnet) with the
   issue ID and the base branch. It owns graphify research, verification against the current
 code, the written plan, and publishing that plan to the GitHub issue as a
 comment. Its definition carries the full contract.
@@ -276,23 +274,11 @@ in the diff.
 
 ### 7. Code review
 
-Review before committing, so fixes land in the same commit rather than as
-follow-up noise in the PR diff. Who reviews depends on the **review tier**:
-
-- **money tier** → dispatch the `issue-reviewer` subagent (Opus). It runs
-  `code-review` itself and additionally judges the diff against the plan, the
-  acceptance criteria and the repo invariants. This is where the expensive
-  model earns its price — a missed allocation or tenant-isolation bug costs
-  far more later than the review costs now.
-- **standard tier** → invoke the `code-review` skill on the working tree in
-  this session. (It's a skill, so you invoke it directly — unlike `/model`,
-  this one really runs.)
-
-Either tier, also run the `coderabbit-review` skill (CodeRabbit CLI, `--agent`)
-on the same working tree, and treat its findings like the `code-review` ones. If
-it can't review (rate-limited, no included reviews left, over the file limit, or
-`review_skipped`), write "CodeRabbit CLI: skipped (<reason>)" and carry on.
-Don't wait, retry, narrow the scope to fit, or pass `--use-credits`.
+One review per ticket, before committing, so fixes land in the same commit.
+Dispatch the `issue-reviewer` subagent (Sonnet). It runs `code-review` itself and
+also judges the diff against the plan, the acceptance criteria and the repo
+invariants. Do not run a second reviewer: no separate `code-review` in this
+session and no `coderabbit-review` CLI. The CodeRabbit PR bot is the only other reader.
 
 Either tier, one check the reviewer must not skip: **a diff that adds or
 changes a table or column must also cover it in the demo seed**
@@ -319,8 +305,7 @@ Act on what it finds:
   plan comment before rewriting — the plan should end the issue matching what
   was actually built.
 
-This is your reviewer before CodeRabbit is your reviewer. Anything caught here
-is a fix; anything caught there is a round trip.
+This review is the only one before the PR; anything it misses is a round trip.
 
 ### 8. Graph, commit, push
 
