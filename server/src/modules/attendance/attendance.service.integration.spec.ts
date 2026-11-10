@@ -13,7 +13,7 @@ import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { SEED_ACADEMIC_YEAR_ID, SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
+import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { seedPeriodRoutine } from './attendance-periods.fixture';
 import { AttendanceService } from './attendance.service';
 import { AttendanceModule } from './attendance.module';
@@ -1500,7 +1500,7 @@ describe('AttendanceService (integration)', () => {
     function routine() {
       return seedPeriodRoutine(dataSource, {
         tenantId: TENANT_ID,
-        academicYearId: SEED_ACADEMIC_YEAR_ID,
+        academicYearId: yearId, // the fixture year is current and overlaps the seeded one (D21)
         sectionId,
         date: PDATE,
         periods: 2,
@@ -1688,7 +1688,7 @@ describe('AttendanceService (integration)', () => {
       await enablePeriods();
       await seedPeriodRoutine(dataSource, {
         tenantId: TENANT_ID,
-        academicYearId: SEED_ACADEMIC_YEAR_ID,
+        academicYearId: yearId, // the fixture year is current and overlaps the seeded one (D21)
         sectionId,
         date: PDATE,
         periods: 2,

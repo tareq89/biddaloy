@@ -11,7 +11,6 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { School } from '../../schools/entities/school.entity';
-import { User } from '../../users/entities/user.entity';
 
 /**
  * Defines the school calendar period (e.g., "2026-2027").
@@ -62,12 +61,12 @@ export class AcademicYear {
   @Column({ type: 'timestamptz', nullable: true })
   closed_at: Date | null;
 
+  /**
+   * Who closed the year. A plain uuid on purpose, not a relation to User: a relation makes every
+   * spec that lists entities by hand also list User and its whole chain (UserTenant, ...).
+   */
   @Column({ type: 'uuid', nullable: true })
   closed_by_user_id: string | null;
-
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'closed_by_user_id' })
-  closed_by: User | null;
 
   @ManyToOne(() => School, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenant_id' })

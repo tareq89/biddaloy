@@ -124,13 +124,14 @@ describe('ResolveRoutineService [21.5.1]', () => {
   });
 
   // [69.1.05] Overlapping years are normal after a rollover: an open year beats a closed one,
-  // then the year that started last, then the newest row. The SQL does the picking, so the test
-  // pins the ORDER BY the lookup sends.
-  it('orders the covering-year lookup: open first, then latest start, then newest row', async () => {
+  // then the current year, then the year that started last, then the newest row. The SQL does the
+  // picking, so the test pins the ORDER BY the lookup sends.
+  it('orders the covering-year lookup: open, current, latest start, newest row', async () => {
     await ctx.service.resolveTenantDay('tenant-1', '2026-06-01');
 
     expect(ctx.yearQb.orderBy).toHaveBeenCalledWith('y.closed_at', 'ASC', 'NULLS FIRST');
     expect(ctx.yearQb.addOrderBy.mock.calls).toEqual([
+      ['y.is_current', 'DESC'],
       ['y.start_date', 'DESC'],
       ['y.created_at', 'DESC'],
     ]);
