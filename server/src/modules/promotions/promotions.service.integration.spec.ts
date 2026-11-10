@@ -865,6 +865,79 @@ describe('PromotionsService (integration)', () => {
     });
   });
 
+  describe('[69.3.04] closed years (D4)', () => {
+    const dto = () => ({
+      source_class_id: SOURCE_CLASS_ID,
+      target_academic_year_id: TARGET_YEAR_ID,
+      exam_ids: [examId],
+      algorithm: PlacementAlgorithm.BLOCK,
+    });
+    const close = (id: string) =>
+      dataSource.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [id],
+      );
+    afterEach(async () => {
+      await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
+    });
+    async function draft() {
+      const student = await buildStudent();
+      await enrollActive(student.id);
+      await addResult(student.id, { isFail: false, gpa: 4.0, total: 400 });
+      return service.create(dto(), TENANT_ID, ADMIN_USER_ID);
+    }
+
+    it('createRun refuses a closed source year and a closed target year (409), no run', async () => {
+      await close(SOURCE_YEAR_ID);
+      await expect(service.create(dto(), TENANT_ID, ADMIN_USER_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+      });
+      await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
+      await close(TARGET_YEAR_ID);
+      await expect(service.create(dto(), TENANT_ID, ADMIN_USER_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+      });
+      expect(await runRepo.count()).toBe(0);
+    });
+
+    it('commit refuses 409 when the source year closed after the draft; no enrollment moves', async () => {
+      const run = await draft();
+      await close(SOURCE_YEAR_ID);
+      await expect(
+        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      expect((await runRepo.findOneOrFail({ where: { id: run.id } })).status).toBe(
+        PromotionRunStatus.DRAFT,
+      );
+      expect(await enrollmentRepo.count({ where: { academic_year_id: TARGET_YEAR_ID } })).toBe(0);
+    });
+
+    it('commit refuses 409 when the target year closed after the draft', async () => {
+      const run = await draft();
+      await close(TARGET_YEAR_ID);
+      await expect(
+        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+    });
+
+    it('patchEntries and remove refuse 409 on a closed source year', async () => {
+      const run = await draft();
+      const [entry] = await entryRepo.find({ where: { run_id: run.id } });
+      await close(SOURCE_YEAR_ID);
+      await expect(
+        service.patchEntries(
+          run.id,
+          [{ student_id: entry.student_id, final_outcome: PromotionOutcome.RETAIN } as any],
+          TENANT_ID,
+          ADMIN_USER_ID,
+        ),
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      await expect(service.remove(run.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+      });
+    });
+  });
+
   describe('commit', () => {
     // LIFE-02: a soft-deleted student whose enrollment is still ACTIVE (old data)
     // must not become a run entry, or the commit fails with "Student not found".

@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, IsNull, Not, Repository } from 'typeorm';
 import {
@@ -61,6 +62,8 @@ export class StudentLifecycleService {
     manager: EntityManager,
     input: RecordLifecycleEventInput,
   ): Promise<StudentLifecycleEvent> {
+    // [69.3.04] Every lifecycle event (leave, readmit, promotion hook) carries its year (D4).
+    await assertYearOpen(manager, input.tenant_id, input.academic_year_id);
     const repo = manager.getRepository(StudentLifecycleEvent);
     return repo.save(
       repo.create({
@@ -140,6 +143,8 @@ export class StudentLifecycleService {
         throw new ConflictException('Student has no active enrollment');
       }
 
+      // [69.0] D10: only the latest-year ACTIVE row is closed (and guarded, in `recordEvent`
+      // on that row's year); older frozen rows are never touched. Answers #1217.
       const targetStatus = LIFECYCLE_EVENT_TARGET_STATUS[dto.type];
 
       const event = await this.recordEvent(manager, {
