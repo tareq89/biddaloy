@@ -49,6 +49,19 @@ describe('OwnerSeedingService (no database)', () => {
     ).rejects.toThrow('COCKPIT_OWNER_2');
   });
 
+  it('refuses a slot with an email and no phone, naming only the slot', async () => {
+    const { svc } = build();
+    const err = await svc
+      .seed({
+        COCKPIT_OWNER_1_EMAIL: 'only@x.test',
+        COCKPIT_OWNER_2_EMAIL: 'b@x.test',
+        COCKPIT_OWNER_2_PHONE: '01711111111',
+      })
+      .catch((e: Error) => e);
+    expect((err as Error).message).toContain('COCKPIT_OWNER_1');
+    expect((err as Error).message).not.toContain('only@x.test');
+  });
+
   it('refuses half a slot without echoing the value', async () => {
     const { svc } = build();
     const err = await svc
