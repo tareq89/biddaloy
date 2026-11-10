@@ -780,3 +780,36 @@ flowchart LR
   relation would leave rows with no populated relation readable by any
   tenant. Always add a direct tenant reference on a new entity rather than
   relying on a join to prove ownership.
+
+## Year rollover (Epic 69)
+
+Dated learning from wave 1. Each bullet: what surprised us, what it cost, the
+fix, and a rule worth keeping.
+
+- **2026-11-11 — new shared enums break `client-admin` typecheck.** Adding
+  `AuditAction.YEAR_*` and `Permission.PROMOTION_GROUP_SET` made `tsc -b` fail in
+  places no server lane runs: the audit-log label map, the staff permission
+  labels and groups, and the generated `schema.d.ts`. Cost: two red integration
+  runs. Fix: en + bn labels, a permission-group entry, `api:types` regenerated.
+  Rule: a ticket that adds a shared enum value also adds its labels and
+  regenerates API types before it leaves the lane.
+- **2026-11-11 — required response fields break test factories.** The regenerated
+  `AcademicYear` type made `closed_at`, `closed_by_user_id` and `closed_by`
+  required, so `academicYearFactory` stopped compiling. Rule: a new column on a
+  returned entity updates its `ui/src/test/factories` file in the same change.
+- **2026-11-11 — a relation is not an entity column.** `closed_by` was listed in
+  the workbook tab's `excluded`, but TypeORM metadata lists only scalar columns,
+  so `registry.completeness` failed. Rule: `excluded` names columns only.
+- **2026-11-11 — a spec that needs a database belongs in `*.integration.spec.ts`.**
+  `year-open.guard.spec.ts` hit the real table but sat in the DB-less unit
+  suite. Rule: if it connects to Postgres, name it `.integration.spec.ts`.
+- **2026-11-11 — restore must not trust a user id from the file.** The workbook
+  import checked `closed_by_user_id` against all users, so one tenant's backup
+  could attach another tenant's user. Fix: resolve through `user_tenants` for
+  this tenant, else NULL. Rule: any id read from an import is resolved inside the
+  importing tenant.
+- **2026-11-11 — `YEAR_SCOPED_WRITES` starts all `wired: false`.** The registry
+  lists 22 entries (21 entities with `academic_year_id`, plus attendance keyed by
+  date), not the 25 in the epic body; the other four have no year column of their
+  own. Wave 3 flips entries to `wired: true` as each service calls
+  `assertYearOpen`.
