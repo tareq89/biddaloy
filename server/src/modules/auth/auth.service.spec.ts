@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
+import { PlatformAdminService } from '../platform-identity/platform-admin.service';
 import { SessionCutoffService } from './session-cutoff.service';
 import { User } from '../users/entities/user.entity';
 import { UserTenant } from './entities/user-tenant.entity';
@@ -52,6 +53,7 @@ describe('AuthService', () => {
   let mockRefreshTokens: any;
   let mockAccessTokenDenylist: any;
   let mockPushSubscriptions: any;
+  let mockPlatformAdmins: { isPlatformAdmin: ReturnType<typeof vi.fn> };
 
   const mockIssuedRefreshToken = {
     cookieValue: 'token-id.token-secret',
@@ -92,6 +94,7 @@ describe('AuthService', () => {
     vi.clearAllMocks();
 
     // Create mock repositories
+    mockPlatformAdmins = { isPlatformAdmin: vi.fn().mockResolvedValue(false) };
     mockUserRepo = {
       findOne: vi.fn(),
       save: vi.fn(),
@@ -159,6 +162,7 @@ describe('AuthService', () => {
         { provide: AccessTokenDenylistService, useValue: mockAccessTokenDenylist },
         { provide: PushSubscriptionsService, useValue: mockPushSubscriptions },
         { provide: SessionCutoffService, useValue: mockSessionCutoff },
+        { provide: PlatformAdminService, useValue: mockPlatformAdmins },
         { provide: ACCESS_TOKEN_TTL_MS, useValue: 900_000 },
       ],
     }).compile();
@@ -698,6 +702,41 @@ describe('AuthService', () => {
       expect(mockUserTenantRepo.exists).toHaveBeenLastCalledWith({
         where: { user_id: 'user-1', tenant: { deleted_at: expect.anything() } },
       });
+    });
+  });
+
+  describe('platform owners [98.2.04]', () => {
+    const ctx = { ip: null, userAgent: null };
+
+    it('login refuses an owner like a wrong password and counts a failure', async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      mockPlatformAdmins.isPlatformAdmin.mockResolvedValue(true);
+      await expect(service.login('admin@test.com', 'right', ctx)).rejects.toThrow(
+        'Invalid credentials',
+      );
+      expect(mockLoginAttempts.recordFailure).toHaveBeenCalled();
+    });
+
+    it('startSession (OTP, social, activation, recovery) refuses an owner with the same 401', async () => {
+      mockPlatformAdmins.isPlatformAdmin.mockResolvedValue(true);
+      await expect(service.startSession(mockUser, ctx)).rejects.toThrow('Invalid credentials');
+      expect(mockRefreshTokens.issueForUser).not.toHaveBeenCalled();
+    });
+
+    it('refresh refuses an owner', async () => {
+      mockRefreshTokens.rotate.mockResolvedValue({
+        userId: 'user-1',
+        refreshToken: mockIssuedRefreshToken,
+      });
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      mockPlatformAdmins.isPlatformAdmin.mockResolvedValue(true);
+      await expect(service.refresh('token-id.secret', ctx)).rejects.toThrow('Invalid credentials');
+    });
+
+    it('login looks the owner table up even when the user does not exist (equal time)', async () => {
+      mockUserRepo.findOne.mockResolvedValue(null);
+      await expect(service.login('nobody@test.com', 'x', ctx)).rejects.toThrow();
+      expect(mockPlatformAdmins.isPlatformAdmin).toHaveBeenCalledTimes(1);
     });
   });
 
