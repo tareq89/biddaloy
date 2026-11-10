@@ -64,6 +64,12 @@ export async function resetOwnerMfa(ds: DataSource, emailInput: string): Promise
   });
 }
 
+/** The only success output: a user id and the next step. No email, phone, code or secret. */
+export function printResetResult(userId: string): void {
+  console.log(`reset second factor for ${userId}`);
+  console.log('the owner signs in with the password, then enrols again (email code + SMS code)');
+}
+
 function arg(name: string): string {
   const at = process.argv.indexOf(name);
   return at === -1 ? '' : (process.argv[at + 1] ?? '');
@@ -79,11 +85,7 @@ if (require.main === module) {
     let code = 1;
     const app = await createScriptAppContext();
     try {
-      const userId = await resetOwnerMfa(app.get(DataSource), email);
-      console.log(`reset second factor for ${userId}`);
-      console.log(
-        'the owner signs in with the password, then enrols again (email code + SMS code)',
-      );
+      printResetResult(await resetOwnerMfa(app.get(DataSource), email));
       code = 0;
     } catch (err) {
       console.error('cockpit-reset-mfa failed:', err instanceof Error ? err.message : 'error');
