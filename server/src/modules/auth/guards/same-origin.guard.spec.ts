@@ -63,6 +63,19 @@ describe('SameOriginGuard', () => {
     expect(guard.canActivate(contextFor(request))).toBe(true);
   });
 
+  it('passes a cockpit-host request (Origin and Host are the cockpit domain)', () => {
+    const request = fakeRequest({
+      origin: 'https://cockpit.example.com',
+      host: 'cockpit.example.com',
+    });
+    expect(guard.canActivate(contextFor(request))).toBe(true);
+  });
+
+  it('refuses the app origin on a cockpit-host request', () => {
+    const request = fakeRequest({ origin: 'https://app.example.com', host: 'cockpit.example.com' });
+    expect(() => guard.canActivate(contextFor(request))).toThrow(ForbiddenException);
+  });
+
   it('throws ForbiddenException for a cross-origin request', () => {
     const request = fakeRequest({ origin: 'https://evil.example.com', host: 'app.example.com' });
     expect(() => guard.canActivate(contextFor(request))).toThrow(ForbiddenException);

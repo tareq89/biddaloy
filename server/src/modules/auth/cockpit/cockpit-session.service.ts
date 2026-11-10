@@ -35,6 +35,8 @@ export interface CockpitStarted {
   accessToken: string;
   refreshCookieValue: string;
   familyId: string;
+  /** What is left of the 8 h absolute limit; the refresh cookie must not outlive it. */
+  absoluteLeftMs: number;
 }
 
 @Injectable()
@@ -83,6 +85,7 @@ export class CockpitSessionService {
       accessToken: this.signAccess(userId, fam),
       refreshCookieValue: issued.cookieValue,
       familyId: fam,
+      absoluteLeftMs: this.limits.absoluteMs,
     };
   }
 
@@ -99,6 +102,8 @@ export class CockpitSessionService {
     });
     if (!absLeft) throw new UnauthorizedException(COCKPIT_SESSION_ENDED);
 
+    // The owner check stays after rotate(): there is no read-only user lookup by cookie, and the
+    // family is revoked right below, so a dead owner keeps no live row.
     // The successor may not outlive the absolute limit: ttl is what is left of it.
     const rotated = await this.refreshTokens.rotate(cookie as string, ctx, absLeft);
     if (!(await this.isLiveOwner(rotated.userId))) {
@@ -110,6 +115,7 @@ export class CockpitSessionService {
       accessToken: this.signAccess(rotated.userId, fam),
       refreshCookieValue: rotated.refreshToken.cookieValue,
       familyId: fam,
+      absoluteLeftMs: absLeft,
     };
   }
 
@@ -139,14 +145,14 @@ export class CockpitSessionService {
     if (!cookie) return;
     const fam = await this.refreshTokens.familyIdForCookie(cookie);
     await this.refreshTokens.revokeByCookieValue(cookie);
-    if (fam) await this.dropKeys(fam);
+    if (fam) await this.dropKeys(fam, true);
   }
 
   /** Ends one family the user owns; false when it is not theirs (the controller answers 404). */
   async endFamily(userId: string, fam: string): Promise<boolean> {
     if ((await this.refreshTokens.countForFamily(fam, userId)) === 0) return false;
     await this.refreshTokens.revokeFamily(fam);
-    await this.dropKeys(fam);
+    await this.dropKeys(fam, true);
     return true;
   }
 
@@ -161,8 +167,14 @@ export class CockpitSessionService {
     return this.refreshTokens.listActiveSessions(userId);
   }
 
-  private async dropKeys(fam: string): Promise<void> {
-    // Best effort: the refresh rows are already revoked, so a stale key grants nothing.
-    await this.redis.del(this.absKey(fam), this.idleKey(fam)).catch(() => undefined);
+  /**
+   * The refresh rows are already revoked, so a stale key grants nothing to refresh, but the idle
+   * and absolute keys would keep the access token alive. A single-session end therefore surfaces
+   * a Redis failure as a 503 (`strict`); endAll is covered by tokens_valid_after and stays quiet.
+   */
+  private async dropKeys(fam: string, strict = false): Promise<void> {
+    const del = () => this.redis.del(this.absKey(fam), this.idleKey(fam));
+    if (strict) await this.redisCall(del);
+    else await del().catch(() => undefined);
   }
 }

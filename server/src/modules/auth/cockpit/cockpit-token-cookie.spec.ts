@@ -24,6 +24,14 @@ describe('cockpit cookies', () => {
     expect(COCKPIT_SESSION_MAX_MS).toBe(8 * 3600_000);
   });
 
+  it('a refresh passes what is left of the absolute time, never more than 8 h', () => {
+    const res = { cookie: vi.fn() } as any;
+    setCockpitRefreshCookie(res, 'v', 5000);
+    expect(res.cookie.mock.calls[0][2].maxAge).toBe(5000);
+    setCockpitRefreshCookie(res, 'v', COCKPIT_SESSION_MAX_MS * 2);
+    expect(res.cookie.mock.calls[1][2].maxAge).toBe(COCKPIT_SESSION_MAX_MS);
+  });
+
   it('device cookie lasts 90 days and no Domain is ever set', () => {
     const res = { cookie: vi.fn() } as any;
     setCockpitDeviceCookie(res, 'd');
