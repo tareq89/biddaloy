@@ -11786,6 +11786,7 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             created_in_demo: boolean;
+            is_platform: boolean;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
