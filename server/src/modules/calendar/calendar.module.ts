@@ -126,6 +126,6 @@ import { CalendarFeedController, CalendarFeedPublicController } from './calendar
   // SchoolCalendarService is exported for AttendanceModule's working-day
   // math (summary service) and for AttendanceService's non-working-day
   // check on the write path.
-  exports: [SchoolCalendarService],
+  exports: [SchoolCalendarService, AcademicTermsService],
 })
 export class CalendarModule {}

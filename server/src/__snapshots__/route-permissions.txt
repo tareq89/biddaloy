@@ -64,6 +64,7 @@ DELETE /website/media/:id | SiteMediaController | perm: WEBSITE_MANAGE
 DELETE /website/posts/:id | SitePostsController | perm: WEBSITE_MANAGE
 GET /academic-years | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
 GET /academic-years/:id | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
+GET /academic-years/:id/next/preview | YearRolloverController | perm: ACADEMIC_YEAR_MANAGE
 GET /academic-years/:id/stats | AcademicYearController | perm: ACADEMIC_STRUCTURE_READ
 GET /account/school-invites | SchoolInvitesController | allowlist: AuthGuard('jwt')
 GET /acr/assessments | AcrAssessmentsController | perm: ACR_READ
@@ -536,6 +537,7 @@ PATCH /users/me/preferences/notifications | UserController | identity | roles: A
 PATCH /website/gallery/albums/:id | GalleryController | perm: WEBSITE_MANAGE
 PATCH /website/gallery/photos/:id | GalleryController | perm: WEBSITE_MANAGE
 POST /academic-years | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
+POST /academic-years/:id/next | YearRolloverController | perm: ACADEMIC_YEAR_MANAGE
 POST /academic-years/:id/set-current | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 POST /account/first-password | FirstPasswordController | allowlist: AuthGuard('jwt')
 POST /account/school-invites/:id/accept | SchoolInvitesController | allowlist: AuthGuard('jwt')
