@@ -95,8 +95,9 @@ export class RefreshTokenService {
     userId: string,
     familyId: string,
     context: RequestContext,
+    ttlMs?: number,
   ): Promise<IssuedRefreshToken> {
-    return this.issueWithId(randomUUID(), userId, familyId, context);
+    return this.issueWithId(randomUUID(), userId, familyId, context, undefined, ttlMs);
   }
 
   // Split out so rotateRow can generate the successor's id itself, before
@@ -108,9 +109,10 @@ export class RefreshTokenService {
     familyId: string,
     context: RequestContext,
     manager?: EntityManager,
+    ttlMs: number = this.ttlMs,
   ): Promise<IssuedRefreshToken> {
     const secret = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + this.ttlMs);
+    const expiresAt = new Date(Date.now() + ttlMs);
 
     await (manager ? manager.getRepository(RefreshToken) : this.repo).insert({
       id,
@@ -127,12 +129,16 @@ export class RefreshTokenService {
     return { cookieValue: this.buildCookieValue(id, secret), expiresAt };
   }
 
-  async rotate(cookieValue: string, context: RequestContext): Promise<RotateResult> {
+  async rotate(
+    cookieValue: string,
+    context: RequestContext,
+    ttlMs?: number,
+  ): Promise<RotateResult> {
     const parsed = this.parseCookieValue(cookieValue);
     if (!parsed) {
       throw new UnauthorizedException('Invalid refresh token');
     }
-    return this.rotateById(parsed.id, parsed.secret, context, 0);
+    return this.rotateById(parsed.id, parsed.secret, context, 0, ttlMs);
   }
 
   private async rotateById(
@@ -140,18 +146,20 @@ export class RefreshTokenService {
     secret: string,
     context: RequestContext,
     hops: number,
+    ttlMs?: number,
   ): Promise<RotateResult> {
     const row = await this.repo.findOne({ where: { id } });
     if (!row || !safeEqualHex(row.token_hash, hashSecret(secret))) {
       throw new UnauthorizedException('Invalid refresh token');
     }
-    return this.rotateRow(row, context, hops);
+    return this.rotateRow(row, context, hops, ttlMs);
   }
 
   private async rotateRow(
     row: RefreshToken,
     context: RequestContext,
     hops: number,
+    ttlMs?: number,
   ): Promise<RotateResult> {
     if (row.expires_at.getTime() < Date.now()) {
       throw new UnauthorizedException('Refresh token expired');
@@ -169,7 +177,7 @@ export class RefreshTokenService {
         if (!successor) {
           throw new UnauthorizedException('Invalid refresh token');
         }
-        return this.rotateRow(successor, context, hops + 1);
+        return this.rotateRow(successor, context, hops + 1, ttlMs);
       }
 
       await this.revokeFamily(row.family_id);
@@ -204,7 +212,7 @@ export class RefreshTokenService {
         .andWhere('revoked_at IS NULL')
         .execute();
       if (!claim.affected) return null;
-      return this.issueWithId(successorId, row.user_id, row.family_id, context, manager);
+      return this.issueWithId(successorId, row.user_id, row.family_id, context, manager, ttlMs);
     });
 
     if (!issued) {
@@ -212,7 +220,7 @@ export class RefreshTokenService {
       if (!reread) {
         throw new UnauthorizedException('Invalid refresh token');
       }
-      return this.rotateRow(reread, context, hops + 1);
+      return this.rotateRow(reread, context, hops + 1, ttlMs);
     }
 
     return { userId: row.user_id, refreshToken: issued };
