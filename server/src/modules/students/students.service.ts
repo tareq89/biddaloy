@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   PayloadTooLargeException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { nextTenantSerial } from '../../common/utils/next-serial.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { cardNoTaken } from '../../common/filters/known-errors';
@@ -233,6 +234,8 @@ export class StudentService {
       // `section` (validated above, `relations: ['class']`) supplies both
       // the class and its academic year without an extra query.
       const txEnrollmentRepo = txManager.getRepository(Enrollment);
+      // [69.3.04] The day-one enrollment is a write into the section's year (D4).
+      await assertYearOpen(txManager, tenantId, section.class.academic_year_id);
       await txEnrollmentRepo.save(
         txEnrollmentRepo.create({
           student_id: savedStudent.id,
@@ -617,6 +620,11 @@ export class StudentService {
     await this.repo.manager.transaction(async (manager) => {
       const txStudentRepo = manager.getRepository(Student);
       const txEnrollmentRepo = manager.getRepository(Enrollment);
+
+      // [69.3.04] A section move writes the target section's year enrollment (D4).
+      if (sectionChanged && section) {
+        await assertYearOpen(manager, tenantId, section.class.academic_year_id);
+      }
 
       // The validated DTO instance carries every declared property, `undefined` when the caller
       // did not send it. Only what was actually supplied counts: for the empty-body guard below

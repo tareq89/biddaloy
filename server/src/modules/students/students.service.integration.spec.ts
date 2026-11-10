@@ -1369,6 +1369,38 @@ describe('StudentService (integration)', () => {
     });
   });
 
+  describe('[69.3.04] closed year (D4)', () => {
+    afterEach(async () => {
+      await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
+    });
+    const closeSeedYear = () =>
+      dataSource.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
+
+    it('create refuses 409 ACADEMIC_YEAR_CLOSED and writes no student or enrollment', async () => {
+      await closeSeedYear();
+      await expect(
+        service.create({ full_name: 'Closed Kid', class_section_id: SEED_SECTION_1_ID }, TENANT_ID),
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      expect(await enrollmentRepo.count({ where: { tenant_id: TENANT_ID } })).toBe(0);
+    });
+
+    it('a section move into a closed year refuses 409 and changes nothing', async () => {
+      const created = await service.create(
+        { full_name: 'Stays Put', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      await closeSeedYear();
+      await expect(
+        service.update(created.id, { class_section_id: SEED_SECTION_2_ID }, TENANT_ID),
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      const e = await enrollmentRepo.find({ where: { student_id: created.id } });
+      expect(e.map((r) => r.section_id)).toEqual([SEED_SECTION_1_ID]);
+    });
+  });
+
   describe('update — Enrollment sync (#1020)', () => {
     it('updates the existing ACTIVE Enrollment class_id/section_id when class_section_id changes', async () => {
       const created = await service.create(
