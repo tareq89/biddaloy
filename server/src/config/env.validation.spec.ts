@@ -543,6 +543,26 @@ describe('cockpit owners (98 #3737)', () => {
     ).not.toThrow();
   });
 
+  it('DEMO_MODE with SMOKE_COCKPIT_* outside staging lists the SMOKE_COCKPIT_* refusals', () => {
+    const rest: Record<string, unknown> = {
+      ...prodConfig,
+      DEMO_MODE: 'true',
+      DEMO_PASSWORD: 'demo-pass-1',
+      SMOKE_COCKPIT_EMAIL: 's@school.org',
+      SMOKE_COCKPIT_PASSWORD: 'pw-for-smoke-1234',
+      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXP',
+    };
+    let lines: string[] = [];
+    try {
+      validate(rest);
+    } catch (e) {
+      lines = String(e).split('\n- ');
+    }
+    for (const k of ['EMAIL', 'PASSWORD', 'TOTP_SECRET']) {
+      expect(lines).toContain(`SMOKE_COCKPIT_${k} is allowed only when ENV_NAME=staging`);
+    }
+  });
+
   it('SMOKE_COCKPIT_* are accepted only with ENV_NAME=staging', () => {
     const smoke = {
       SMOKE_COCKPIT_EMAIL: 's@school.org',

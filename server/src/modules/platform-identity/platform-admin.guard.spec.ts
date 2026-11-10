@@ -28,5 +28,10 @@ describe('PlatformAdminGuard', () => {
     expect(refusal(undefined)).toEqual(appToken);
     expect(refusal({ typ: 'access' })).toEqual(appToken);
     expect(refusal({ typ: 'COCKPIT' })).toEqual(appToken);
+    expect(refusal({ sub: 'u1', jti: 'j', fam: 'f', typ: 'Cockpit' })).toEqual(appToken);
+    expect(refusal({ sub: 'u1', jti: 'j', fam: 'f' })).toEqual(appToken);
+    expect(refusal({ sub: '', jti: 'j', fam: 'f', typ: 'cockpit' })).toEqual(appToken);
+    expect(refusal({ sub: 'u1', jti: 5, fam: 'f', typ: 'cockpit' })).toEqual(appToken);
+    expect(refusal({ sub: 'u1', jti: 'j', fam: '', typ: 'cockpit' })).toEqual(appToken);
   });
 });
