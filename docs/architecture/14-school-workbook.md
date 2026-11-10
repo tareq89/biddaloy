@@ -440,6 +440,11 @@ it stores to the same S3-compatible bucket every other upload uses. See
 `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, etc. Don't duplicate that
 table here.
 
+## Platform tables are not in the workbook
+
+The six cockpit identity tables (Epic 98) are platform data, covered by the nightly database backup, not by the school workbook.
+They sit in `ENTITY_COVERAGE_EXEMPT` (`codec/entity-coverage.ts`) with that reason.
+
 ## Adding a new tab
 
 1. Copy an existing tab in the closest group directory as a starting
