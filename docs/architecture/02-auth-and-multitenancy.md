@@ -808,7 +808,28 @@ explicit tenant reference.
   - Surprise: an entity missing from the app `entities` array or `test/all-entities.ts` fails `all-entities.completeness.integration.spec.ts`, and the demo-seed and workbook coverage guards fail too.
   - Fix: register the entity in the app `entities` array, `all-entities.ts`, `slices.ts` `EXEMPT` and `entity-coverage.ts` together.
   - Rule candidate: a new table is not done until all four lists name it.
-- **`COCKPIT_*` env keys need a test-env note (2026-11-10).**
-  - Surprise: the new `COCKPIT_*` keys are read by `env.validation` but the server CLAUDE.md test-env notes did not list them.
-  - Fix: document them next to the other test-env keys.
-  - Rule candidate: a new env key lands with its test-env note in the same PR.
+- **Compressed issue bodies lose their Steps section (2026-11-10).**
+  - Surprise: agents got issue bodies with no Steps section, so they guessed.
+  - Cost: wrong guesses, rework.
+  - Fix: put the brief in a file and point the agent at it.
+  - Rule candidate: dispatch from a brief file, never a compressed issue body.
+- **`yarn install` churned about 117 lock entries (2026-11-10).**
+  - Surprise: one install rewrote far more of `yarn.lock` than the change needed.
+  - Cost: noisy diff, hard review.
+  - Fix: edit the lock minimally, check with `git diff --stat`.
+  - Rule candidate: any lockfile change gets a `git diff --stat` look before commit.
+- **The all-entities completeness spec never ran in CI (2026-11-10).**
+  - Surprise: the vitest `include` pattern skipped `all-entities.completeness`.
+  - Cost: the guard looked green while checking nothing.
+  - Fix: fix the include so it runs.
+  - Rule candidate: a new guard ships with proof it runs (fail it once on purpose).
+- **`COCKPIT_*` owner env is required in production (2026-11-10).**
+  - Surprise: boot refuses without the owner keys, but they are optional in dev and test.
+  - Cost: a deploy would fail on missing secrets.
+  - Fix: create the secrets before deploy.
+  - Rule candidate: a new required prod env key means its secret exists BEFORE the deploy.
+- **Agents cannot dispatch reviewers (2026-11-10).**
+  - Surprise: a subagent has no way to start a reviewer subagent.
+  - Cost: in-lane review silently did not happen.
+  - Fix: run reviews as separate passes from the orchestrator.
+  - Rule candidate: plan review as its own pass, not inside the implementing agent.
