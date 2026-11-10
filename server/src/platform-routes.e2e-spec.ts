@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DiscoveryModule, DiscoveryService, MetadataScanner } from '@nestjs/core';
+import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { AppModule } from './app.module';
 import { buildFullPath, RequestMethodName } from '@test/helpers/route-path.helper';
 
@@ -12,10 +13,6 @@ import { buildFullPath, RequestMethodName } from '@test/helpers/route-path.helpe
  * `PlatformAdminGuard` / `PlatformAccessGuard` exist. `ALLOWED_OUTSIDE` is
  * today's (2026-11-10) exceptions; Wave 3's route-move ticket empties it.
  */
-
-const GUARDS_METADATA = '__guards__';
-const PATH_METADATA = 'path';
-const METHOD_METADATA = 'method';
 
 const PLATFORM_GUARD_NAMES = new Set([
   'PlatformSuperAdminGuard',
@@ -41,12 +38,12 @@ const ALLOWED_OUTSIDE: string[] = [
 const guardName = (guard: unknown): string =>
   typeof guard === 'function' ? guard.name : ((guard as object)?.constructor?.name ?? '');
 
-/** Every platform-guarded route outside `platform/`, as a key plus a readable label. */
-function platformRoutesOutsidePrefix(
+/** Every platform-guarded route anywhere, as a key, path and readable label. */
+function platformGuardedRoutes(
   controllers: Function[],
   scanner: MetadataScanner,
-): { key: string; label: string }[] {
-  const found: { key: string; label: string }[] = [];
+): { key: string; path: string; label: string }[] {
+  const found: { key: string; path: string; label: string }[] = [];
   for (const metatype of controllers) {
     const prefix: string = Reflect.getMetadata(PATH_METADATA, metatype) ?? '';
     const classGuards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, metatype) ?? [];
@@ -57,12 +54,17 @@ function platformRoutesOutsidePrefix(
       const guards = [...classGuards, ...(Reflect.getMetadata(GUARDS_METADATA, handler) ?? [])];
       if (!guards.some((g) => PLATFORM_GUARD_NAMES.has(guardName(g)))) continue;
       const path = buildFullPath(prefix, Reflect.getMetadata(PATH_METADATA, handler) ?? '');
-      if (path.startsWith('/platform/')) continue;
       const key = `${RequestMethodName(httpMethod)} ${path}`;
-      found.push({ key, label: `${key} (${metatype.name}.${methodName})` });
+      found.push({ key, path, label: `${key} (${metatype.name}.${methodName})` });
     }
   }
   return found;
+}
+
+const isInsidePlatform = (path: string) => path === '/platform' || path.startsWith('/platform/');
+
+function platformRoutesOutsidePrefix(controllers: Function[], scanner: MetadataScanner) {
+  return platformGuardedRoutes(controllers, scanner).filter((r) => !isInsidePlatform(r.path));
 }
 
 // Throwaway fixture: platform-guarded, path outside `platform/`. Never registered in the app.
@@ -103,6 +105,16 @@ describe('Platform-only routes live under platform/ (Epic 98 safety net)', () =>
       .filter((r) => !ALLOWED_OUTSIDE.includes(r.key))
       .map((r) => r.label);
     expect(violations).toEqual([]);
+  });
+
+  it('finds at least one platform-guarded route in the full scan (detector is not blind)', () => {
+    // Independent of ALLOWED_OUTSIDE: if guard names stop matching, this fails.
+    expect(platformGuardedRoutes(controllers, scanner).length).toBeGreaterThan(0);
+  });
+
+  it('keeps ALLOWED_OUTSIDE small and free of duplicates', () => {
+    expect(ALLOWED_OUTSIDE.length).toBeLessThanOrEqual(11);
+    expect(new Set(ALLOWED_OUTSIDE).size).toBe(ALLOWED_OUTSIDE.length);
   });
 
   it('flags a new platform-guarded route outside platform/ (fixture)', () => {
