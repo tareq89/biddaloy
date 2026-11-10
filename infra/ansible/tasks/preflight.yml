@@ -109,11 +109,21 @@
       - SMOKE_SUPER_ADMIN_EMAIL
       - SMOKE_SUPER_ADMIN_PASSWORD
       - HEALTH_TOKEN
+    # Epic 98: boot needs the cockpit host and both owners (env.validation COCKPIT_REQUIRED); the
+    # smoke domains keep the cockpit fence check from being skipped.
+    cockpit_keys:
+      - COCKPIT_DOMAIN
+      - COCKPIT_OWNER_1_EMAIL
+      - COCKPIT_OWNER_1_PHONE
+      - COCKPIT_OWNER_2_EMAIL
+      - COCKPIT_OWNER_2_PHONE
+      - SMOKE_COCKPIT_DOMAIN
+      - SMOKE_APP_DOMAIN
     # ROOT_DOMAIN: deploy/stack.yml's `${ROOT_DOMAIN:?}` (app and site, Epic 40) aborts compose
     # without it; checked here so the message names the file to fix.
     required_by_stack:
-      prod: "{{ smoke_keys + ['ROOT_DOMAIN'] }}"
-      staging: "{{ smoke_keys + ['BACKUP_AGE_PRIVATE_KEY', 'ROOT_DOMAIN'] }}"
+      prod: "{{ smoke_keys + cockpit_keys + ['ROOT_DOMAIN'] }}"
+      staging: "{{ smoke_keys + cockpit_keys + ['BACKUP_AGE_PRIVATE_KEY', 'ROOT_DOMAIN'] }}"
       demo: [HEALTH_TOKEN, ROOT_DOMAIN]
       edge: []
       ops: [DOZZLE_USERS_YML]
