@@ -132,7 +132,7 @@ test.describe.serial('provision a school from a workbook', () => {
       .fill(`workbook-target-admin-${suffix}@e2e.example.com`);
 
     const provisionResponse = page.waitForResponse(
-      (res) => res.url().includes('/api/v1/schools') && res.request().method() === 'POST',
+      (res) => res.url().includes('/api/v1/platform/schools') && res.request().method() === 'POST',
     );
     await page.getByRole('button', { name: t('platform.createWizard.submitAction') }).click();
     const response = await provisionResponse;

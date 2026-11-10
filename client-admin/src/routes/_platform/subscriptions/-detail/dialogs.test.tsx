@@ -168,7 +168,7 @@ describe('ReviveDialog', () => {
     await cleanupTestState();
   });
 
-  const url = `/api/v1/schools/${SCHOOL_ID}/revive`;
+  const url = `/api/v1/platform/schools/${SCHOOL_ID}/revive`;
 
   it('shows the window-passed sentence for a school deleted too long ago', async () => {
     server.use(http.post(url, () => conflict('REVIVE_WINDOW_PASSED')));
