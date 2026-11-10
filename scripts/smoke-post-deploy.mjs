@@ -4,6 +4,8 @@
  * itself (one refresh-token row + one audit row per account per run), so use
  * dedicated smoke accounts in production. See docs/architecture/12-operations.md §7.
  *
+ * Optional SMOKE_COCKPIT_DOMAIN + SMOKE_APP_DOMAIN (bare hosts): the cockpit fence checks.
+ *
  *   SMOKE_ADMIN_EMAIL=… SMOKE_ADMIN_PASSWORD=… (teacher, super_admin likewise) \
  *     node scripts/smoke-post-deploy.mjs --base-url https://staging.example.com
  *
@@ -236,22 +238,36 @@ export async function runSmoke({ baseUrl, env, fetch, log = () => {} }) {
 
   // [Epic 98, D17] Cockpit fence: platform routes answer on the cockpit host only.
   // Output carries the check name and status only, never a body or token (Rule 13).
-  if (!env.COCKPIT_DOMAIN) {
-    out('cockpit fence: skipped: COCKPIT_DOMAIN not set');
+  if (!env.SMOKE_COCKPIT_DOMAIN) {
+    out('cockpit fence: skipped: SMOKE_COCKPIT_DOMAIN not set');
+  } else if (!env.SMOKE_APP_DOMAIN) {
+    // No fallback to baseUrl: the app host must be named, or the fence proves nothing.
+    out('FAIL  cockpit fence: SMOKE_APP_DOMAIN not set');
+    result.failed++;
   } else {
-    const cockpit = `https://${env.COCKPIT_DOMAIN}`;
-    const app = env.APP_DOMAIN ? `https://${env.APP_DOMAIN}` : baseUrl;
-    // `refused` = 404 or a closed/empty reply (nginx 444); 200, 401, 403 mean the host knows the route.
+    const cockpit = `https://${env.SMOKE_COCKPIT_DOMAIN}`;
+    const app = `https://${env.SMOKE_APP_DOMAIN}`;
+    // `refused` = 404 or a closed socket (nginx 444); 200, 401, 403 mean the host knows the route.
+    // Any other fetch error (DNS, refused connect, TLS, timeout) is a FAIL, not a refusal.
+    const CLOSED = ['UND_ERR_SOCKET', 'ECONNRESET', 'UND_ERR_CLOSED'];
     const fence = async (name, method, url, passes) => {
       let status = 'network error';
       let good = false;
       try {
-        const res = await fetch(url, { method, signal: AbortSignal.timeout(10_000) });
+        const res = await fetch(url, {
+          method,
+          redirect: 'manual',
+          signal: AbortSignal.timeout(10_000),
+        });
+        res.body?.cancel();
         status = String(res.status);
         good = passes(res.status);
       } catch (e) {
         if (e?.name === 'TimeoutError') status = 'timeout';
-        else good = passes(null);
+        else if (CLOSED.includes(e?.cause?.code)) {
+          status = 'closed';
+          good = passes(null);
+        }
       }
       out(`${good ? 'PASS' : 'FAIL'}  cockpit fence: ${name}  ${status}`);
       if (good) result.passed++;
