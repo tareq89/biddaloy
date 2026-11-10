@@ -874,3 +874,35 @@ Example: the dev owner sends `{ "identifier": "owner@...", "password": "..." }` 
 - **A custom passport strategy has a random guard name (2026-11-11).**
   - Surprise: `AuthGuard('cockpit-jwt')` printed as a random hash in `route-permissions.txt`, so the snapshot would change on every run.
   - Fix: `describeGuards` names it (`COCKPIT_JWT_AUTH_GUARD`). A new strategy needs the same line.
+
+## Learning: cockpit identity, Wave 3
+
+2026-11-11, Epic 98 wave 3 (#3748-#3756). Owners can step up, lock each other and approve each other's risky actions. No table or column changed in the close task, so no demo-seed change.
+
+```mermaid
+sequenceDiagram
+    actor A as Owner A
+    actor B as Owner B
+    participant API as /platform/*
+    A->>API: POST /platform/step-up { scope, code }
+    API-->>A: approval_token (single use, bound to A)
+    A->>API: POST /platform/owners/B/lock + X-Approval-Token
+    API-->>A: 204 (B's sessions end)
+    A->>API: PATCH /platform/settings/approvals { enabled: false } + token
+    API-->>A: 403 APPROVAL_REQUESTED { requestId }
+    B->>API: POST /platform/approvals/:id/approve + own token
+    A->>API: same PATCH + X-Platform-Approval: id
+    API-->>A: 200
+```
+
+- **Step-up request and response.**
+  - Request: `POST /platform/step-up` with `{ "scope": "platform.owner_lock", "code": "123456" }` and a cockpit bearer.
+  - Response: `{ "approval_token": "...", "expires_at": "..." }`. Only a platform scope is accepted. A school scope, a wrong code or a replayed code is the same 401.
+  - A recovery code is not accepted here.
+- **Two owners locking each other at once: exactly one lock lands.** `lock()` takes `SELECT ... FOR UPDATE` on `platform_admins`, then re-reads statuses. Reading statuses before the lock is stale under READ COMMITTED and lets both through. Pinned by `platform-identity.e2e-spec.ts`.
+- **The approval gate has two layers.** `X-Approval-Token` (step-up, every approval route) and `X-Platform-Approval` (the other owner's grant, only while the switch is ON and two owners are active). Switching the gate OFF needs the grant; switching it ON does not. With the gate OFF, repeating the same request needs no grant, by design.
+- **A cockpit route is not in the school route snapshot's roles.** Every role column reads 401 for `/platform/step-up`, `/platform/owners*`, `/platform/approvals*`, `/platform/settings/approvals` because those routes take the cockpit bearer only. Each is on the `ALLOWLIST` in `server/test/helpers/route-path.helper.ts` with a reason.
+- **supertest closes an unbound server.** A request built before an awaited call (`.set('X-Approval-Token', await stepUp(...))`) fails with `reading 'address'` on `app.getHttpServer()`. Fix: `app.listen(0)` and send to `app.getUrl()`.
+- **Wave 2 notes re-checked against the files.**
+  - nginx: `log_format redacted` is in `nginx/templates/default.conf.template`; every other template that uses it (`demo`, `host-cockpit`, `inbox`, `landing`, `ops`, `site`, `staging`) sorts after `default`. The two generated files sorting before it (`00-edge.conf`, `01-site-host.conf`) do not log with `redacted`. The note is correct.
+  - `server/test/reset-order.ts` names `platform_approvals`, `platform_settings`, `user_recovery_codes`, `user_mfa`, `platform_admin_devices`, `platform_admins`; `reset-order.integration.spec.ts` fails if a table is missing. The note is correct.
