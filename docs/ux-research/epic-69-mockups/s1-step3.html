@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>Mockup — full-page modal</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     FullPageShell (D22) — a full-page modal. It covers the app chrome: no top bar,
+     no sidebar, no bottom bar. Used for the tasks listed in D23.
+     Body width: forms → max-w-3xl · a table, list or preview → max-w-5xl.
+     The footer's inner width must be the SAME max-w-* as the body's.
+     ============================================================================ -->
+
+<!-- Sticky header: title on the left, a very visible Close (X + word, 44px) on the right. -->
+<header class="sticky top-0 z-30 border-b border-border-subtle bg-surface">
+  <div class="flex h-14 items-center justify-between gap-4 px-4 md:h-16 md:px-6">
+    <h1 class="min-w-0 truncate text-h2 md:text-h1">পরের বছর বানাও</h1>
+    <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="x"></i>বন্ধ করুন</button>
+  </div>
+</header>
+
+<!-- PROPOSAL — everything inside <main> is the page design. -->
+<main id="main-content" class="flex-1"><div class="mx-auto w-full max-w-3xl space-y-6 px-4 py-4 md:px-6 md:py-6"><nav aria-label="পথ" class="text-caption text-text-secondary">একাডেমিক › শিক্ষাবর্ষ › ২০২৬ › পরের বছর বানাও</nav><nav aria-label="ধাপ" class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+<div class="flex flex-col gap-2 sm:hidden"><p class="text-label text-text-secondary">ধাপ ৩/৩</p><p class="text-h3">শেষ</p><div aria-hidden="true" class="flex gap-1"><span class="h-1 flex-1 rounded-full bg-primary"></span><span class="h-1 flex-1 rounded-full bg-primary"></span><span class="h-1 flex-1 rounded-full bg-primary"></span></div></div>
+<ol class="hidden items-center gap-2 sm:flex"><li  class="flex items-center gap-2 text-body text-text-secondary"><span class="flex size-7 items-center justify-center rounded-full border border-primary text-label text-primary"><i data-lucide="check" class="size-3.5"></i></span>নাম ও তারিখ</li><li aria-hidden="true" class="h-px w-6 bg-border-subtle"></li><li  class="flex items-center gap-2 text-body text-text-secondary"><span class="flex size-7 items-center justify-center rounded-full border border-primary text-label text-primary"><i data-lucide="check" class="size-3.5"></i></span>যা তৈরি হবে</li><li aria-hidden="true" class="h-px w-6 bg-border-subtle"></li><li aria-current="step" class="flex items-center gap-2 text-body font-medium text-text-primary"><span class="flex size-7 items-center justify-center rounded-full border border-primary bg-primary text-label text-primary-foreground">৩</span>শেষ</li></ol></nav><section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5"><div class="flex items-start gap-3"><span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-status-paid-bg text-status-paid-fg"><i data-lucide="check"></i></span><div><h2 class="text-h2">২০২৭ তৈরি হয়েছে</h2><p class="mt-1 text-text-secondary">১২ শ্রেণি-শাখা, ৬৪ বিষয়, ৫৬ শিক্ষকের দায়িত্ব, ১৮ ফি, ৩ গ্রেডের নিয়ম, ৪ টার্ম। ২০২৭ এখনও এখনকার বছর হয়নি।</p></div></div></section><section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5"><h2 class="text-h2">আরও আনতে চান?</h2><p class="mt-1 text-text-secondary">প্রতিটি আলাদা। কোনটা বাদ পড়বে, নিচে লেখা আছে।</p><div class="mt-4 space-y-3"><div class="rounded-lg border border-border-subtle p-3 md:p-4"><div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p class="font-medium text-text-primary">রুটিন</p><p class="text-caption text-text-secondary">শিক্ষক বাদ পড়ায় ৩টি ক্লাস বাকি থাকবে</p></div><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted"><i data-lucide="download"></i>রুটিন আনুন</button></div></div><div class="rounded-lg border border-border-subtle p-3 md:p-4"><div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p class="font-medium text-text-primary">একাডেমিক ক্যালেন্ডার</p><p class="text-caption text-text-secondary">ছুটির দিন নতুন তারিখে বসবে</p></div><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted"><i data-lucide="download"></i>ক্যালেন্ডার আনুন</button></div></div><div class="rounded-lg border border-border-subtle p-3 md:p-4"><div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p class="font-medium text-text-primary">জরিমানার নিয়ম</p><p class="text-caption text-text-secondary">২টি নিয়ম মিলবে না: দেরিতে ফি, লাইব্রেরি</p></div><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted"><i data-lucide="download"></i>নিয়ম আনুন</button></div></div><div class="rounded-lg border border-border-subtle p-3 md:p-4"><div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p class="font-medium text-text-primary">মাসিক ফি-র সময়সূচি</p><p class="text-caption text-text-secondary">১টি ফি-র নাম মিলবে না: পরীক্ষা ফি</p></div><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted"><i data-lucide="download"></i>সময়সূচি আনুন</button></div></div></div></section></div></main>
+
+<!-- Footer: secondary action on the left, the ONE primary on the right. 44px at every width.
+     IN THE APP it is "sticky bottom-0 z-30". IN A MOCKUP it stays in normal flow (last child of <body>):
+     the screenshot tool captures the whole page as one tall frame, and a sticky footer would be painted
+     across the middle of it. Do not add "sticky bottom-0" or "fixed" here. -->
+<footer class="border-t border-border-subtle bg-surface"><div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-2 px-4 py-3 md:px-6"><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted">শিক্ষাবর্ষে ফিরুন</button><button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 bg-primary text-primary-foreground">শেষ করুন</button></div></footer>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>
