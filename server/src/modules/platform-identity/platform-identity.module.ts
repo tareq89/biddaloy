@@ -6,6 +6,7 @@ import { PlatformStepUpController } from './platform-step-up.controller';
 import { AccountAccessModule } from '../account-access/account-access.module';
 import { PlatformApprovalsController } from './approvals/platform-approvals.controller';
 import { PlatformApprovalsService } from './approvals/platform-approvals.service';
+import { PlatformSettingsController } from './approvals/platform-settings.controller';
 import { PlatformSettingsService } from './approvals/platform-settings.service';
 import { TwoPersonGuard } from './approvals/two-person.guard';
 import { PlatformAdmin } from './entities/platform-admin.entity';
@@ -27,7 +28,7 @@ import { OwnerSeedingService } from './owner-seeding.service';
     MfaModule,
     AccountAccessModule,
   ],
-  controllers: [PlatformStepUpController, PlatformApprovalsController],
+  controllers: [PlatformStepUpController, PlatformApprovalsController, PlatformSettingsController],
   providers: [
     PlatformAdminGuard,
     PlatformAdminService,
