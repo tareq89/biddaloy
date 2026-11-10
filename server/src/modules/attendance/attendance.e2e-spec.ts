@@ -1056,4 +1056,43 @@ describe('Attendance E2E', () => {
       );
     });
   });
+
+  // [69.3.06] D12: a date inside ANY closed year is read-only, even where an open year overlaps it.
+  describe('closed academic year (D12)', () => {
+    const CLOSED_YEAR_ID = '00000000-0000-4000-8000-000000003530';
+    const yesterday = () => new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const putDay = (date: string) =>
+      supertest(app.getHttpServer())
+        .put(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .send({
+          date,
+          base_version: 0,
+          client_request_id: randomUUID(),
+          entries: [{ student_id: studentId, status: 'PRESENT' }],
+        });
+
+    afterEach(async () => {
+      await dataSource.query(`DELETE FROM academic_years WHERE id = $1`, [CLOSED_YEAR_ID]);
+    });
+
+    it('yesterday in the open year saves (200)', async () => {
+      await putDay(yesterday()).expect(200);
+    });
+
+    it('409 ACADEMIC_YEAR_CLOSED for a date in an overlapping closed year', async () => {
+      // closed years cannot be current (CHK_academic_years_closed_not_current)
+      await dataSource.query(
+        `INSERT INTO academic_years (id, name, start_date, end_date, is_current, closed_at, tenant_id, created_at, updated_at)
+         VALUES ($1, 'Closed overlap', $2, $2, false, NOW(), $3, NOW(), NOW())`,
+        [CLOSED_YEAR_ID, yesterday(), TENANT_ID],
+      );
+      const res = await putDay(yesterday()).expect(409);
+      expect(res.body.details.code).toBe('ACADEMIC_YEAR_CLOSED');
+      // another tenant-day outside the closed year is unaffected
+      await putDay(todayIso()).expect(200);
+    });
+  });
 });
