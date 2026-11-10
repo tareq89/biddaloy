@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { PlatformAdminGuard } from './platform-admin.guard';
 
@@ -7,9 +7,11 @@ const ctx = (user: unknown, headers: Record<string, string> = {}) =>
     switchToHttp: () => ({ getRequest: () => ({ user, headers }) }),
   }) as unknown as ExecutionContext;
 
-const refusal = (user: unknown) => {
+const home = { id: vi.fn().mockResolvedValue('home-1') } as any;
+const guard = () => new PlatformAdminGuard(home);
+const refusal = async (user: unknown) => {
   try {
-    new PlatformAdminGuard().canActivate(ctx(user));
+    await guard().canActivate(ctx(user));
   } catch (e) {
     expect(e).toBeInstanceOf(ForbiddenException);
     return (e as ForbiddenException).getResponse();
@@ -18,20 +20,23 @@ const refusal = (user: unknown) => {
 };
 
 describe('PlatformAdminGuard', () => {
-  it('passes a cockpit principal, ignoring any tenant header', () => {
+  it('passes a cockpit principal, ignoring any tenant header, and sets the platform scope id', async () => {
     const user = { sub: 'u1', jti: 'j', fam: 'f', typ: 'cockpit' };
-    expect(new PlatformAdminGuard().canActivate(ctx(user, { 'x-tenant-id': 'nope' }))).toBe(true);
+    const request: any = { user, headers: { 'x-tenant-id': 'nope' } };
+    const context = { switchToHttp: () => ({ getRequest: () => request }) } as any;
+    expect(await guard().canActivate(context)).toBe(true);
+    expect(request.platformScopeTenantId).toBe('home-1');
   });
 
-  it('refuses an app-token principal, no principal and a wrong typ with the same body', () => {
-    const appToken = refusal({ sub: 'u1', memberships: [{ role: 'SUPER_ADMIN' }] });
-    expect(refusal(undefined)).toEqual(appToken);
-    expect(refusal({ typ: 'access' })).toEqual(appToken);
-    expect(refusal({ typ: 'COCKPIT' })).toEqual(appToken);
-    expect(refusal({ sub: 'u1', jti: 'j', fam: 'f', typ: 'Cockpit' })).toEqual(appToken);
-    expect(refusal({ sub: 'u1', jti: 'j', fam: 'f' })).toEqual(appToken);
-    expect(refusal({ sub: '', jti: 'j', fam: 'f', typ: 'cockpit' })).toEqual(appToken);
-    expect(refusal({ sub: 'u1', jti: 5, fam: 'f', typ: 'cockpit' })).toEqual(appToken);
-    expect(refusal({ sub: 'u1', jti: 'j', fam: '', typ: 'cockpit' })).toEqual(appToken);
+  it('refuses an app-token principal, no principal and a wrong typ with the same body', async () => {
+    const appToken = await refusal({ sub: 'u1', memberships: [{ role: 'SUPER_ADMIN' }] });
+    expect(await refusal(undefined)).toEqual(appToken);
+    expect(await refusal({ typ: 'access' })).toEqual(appToken);
+    expect(await refusal({ typ: 'COCKPIT' })).toEqual(appToken);
+    expect(await refusal({ sub: 'u1', jti: 'j', fam: 'f', typ: 'Cockpit' })).toEqual(appToken);
+    expect(await refusal({ sub: 'u1', jti: 'j', fam: 'f' })).toEqual(appToken);
+    expect(await refusal({ sub: '', jti: 'j', fam: 'f', typ: 'cockpit' })).toEqual(appToken);
+    expect(await refusal({ sub: 'u1', jti: 5, fam: 'f', typ: 'cockpit' })).toEqual(appToken);
+    expect(await refusal({ sub: 'u1', jti: 'j', fam: '', typ: 'cockpit' })).toEqual(appToken);
   });
 });

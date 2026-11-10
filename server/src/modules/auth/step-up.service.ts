@@ -69,6 +69,15 @@ const RATE_LIMIT_WINDOW_MS = 15 * 60_000;
  * so one caller's wrong guesses still cannot lock the approver out for everyone (F-130/F-131). */
 const APPROVER_CAP_MULTIPLIER = 4;
 
+/** The scopes a cockpit owner may mint a token for (Epic 98, #3733). */
+export const PLATFORM_APPROVAL_SCOPES: readonly ApprovalScope[] = [
+  ApprovalScope.PLATFORM_OWNER_LOCK,
+  ApprovalScope.PLATFORM_OWNER_UNLOCK,
+  ApprovalScope.PLATFORM_APPROVALS_SWITCH,
+  ApprovalScope.PLATFORM_APPROVAL_DECIDE,
+  ApprovalScope.PLATFORM_RECOVERY_CODES,
+];
+
 export interface StepUpOtpRequestResult {
   debug?: { otp?: string };
 }
@@ -117,6 +126,47 @@ export class StepUpService {
     private readonly config: ConfigService,
     @Inject(STEP_UP_REDIS) private readonly redis: Redis,
   ) {}
+
+  /**
+   * [Epic 98] Same single-use approval token for a cockpit owner: `sub = act = actorId`,
+   * `tid` = the platform home school id. Only the five PLATFORM_* scopes. The caller has
+   * already proven the authenticator code; this only signs and stores the marker.
+   */
+  async issueForPlatformAdmin(
+    actorId: string,
+    scope: ApprovalScope,
+    platformHomeId: string,
+  ): Promise<{ approval_token: string; expires_at: string; jti: string }> {
+    if (!PLATFORM_APPROVAL_SCOPES.includes(scope)) {
+      throw new BadRequestException('Unknown approval scope');
+    }
+    const jti = randomUUID();
+    const payload: ApprovalTokenPayload = {
+      sub: actorId,
+      act: actorId,
+      tid: platformHomeId,
+      scope,
+      jti,
+      typ: 'approval',
+    };
+    const approval_token = this.jwtService.sign(payload, {
+      expiresIn: APPROVAL_TOKEN_TTL_SECONDS,
+      audience: APPROVAL_TOKEN_AUDIENCE,
+    });
+    try {
+      await this.redis.set(`approval:${jti}`, '1', 'PX', APPROVAL_TOKEN_TTL_SECONDS * 1000);
+    } catch (error) {
+      this.logger.error(
+        `Failed to persist approval token marker jti ${jti}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw new HttpException('Approval token storage unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    return {
+      approval_token,
+      expires_at: new Date(Date.now() + APPROVAL_TOKEN_TTL_SECONDS * 1000).toISOString(),
+      jti,
+    };
+  }
 
   /**
    * Always resolves 202 — never reveals whether `identifier` matches an

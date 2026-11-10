@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditModule } from '../audit/audit.module';
+import { MfaModule } from '../auth/mfa/mfa.module';
+import { PlatformStepUpController } from './platform-step-up.controller';
 import { PlatformAdmin } from './entities/platform-admin.entity';
 import { PlatformAdminGuard } from './platform-admin.guard';
 import { PlatformAdminService } from './platform-admin.service';
@@ -11,7 +14,8 @@ import { OwnerSeedingService } from './owner-seeding.service';
  * `TenantStatusService` comes from the global `TenantStatusModule`.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([PlatformAdmin])],
+  imports: [TypeOrmModule.forFeature([PlatformAdmin]), AuditModule, MfaModule],
+  controllers: [PlatformStepUpController],
   providers: [PlatformAdminGuard, PlatformAdminService, PlatformHomeService, OwnerSeedingService],
   exports: [PlatformAdminGuard, PlatformAdminService, PlatformHomeService, OwnerSeedingService],
 })
