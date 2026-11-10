@@ -60,9 +60,9 @@ export class IdleAccountService {
     const result: IdleRunResult = { notified: 0, suspended: 0, deleted: 0, failed: 0 };
     // `findAllActive` excludes only the configured platform id; outside production the
     // slug-discovered platform console must be skipped too.
-    const platformId = await this.tenantStatus.platformTenantId();
+    const platformIds = await this.tenantStatus.platformSchoolIds();
     for (const { id } of await this.schools.findAllActive()) {
-      if (id === platformId) continue;
+      if (platformIds.includes(id)) continue;
       try {
         const outcome = await this.checkSchool(id, now);
         if (outcome === 'notified') result.notified++;

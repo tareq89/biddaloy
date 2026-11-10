@@ -21,7 +21,7 @@ describe('IdleAccountService (integration)', () => {
   const findAllActive = vi.fn();
   const notifyAdmins = vi.fn();
   const invalidate = vi.fn();
-  const platformTenantId = vi.fn();
+  const platformSchoolIds = vi.fn();
   const schoolIds: string[] = [];
   const userIds: string[] = [];
 
@@ -31,7 +31,7 @@ describe('IdleAccountService (integration)', () => {
       AuditService,
       SessionCutoffService,
       { provide: SchoolsService, useValue: { findAllActive } },
-      { provide: TenantStatusService, useValue: { invalidate, platformTenantId } },
+      { provide: TenantStatusService, useValue: { invalidate, platformSchoolIds } },
       { provide: AdminNoticeService, useValue: { notifyAdmins } },
     ]);
     ds = module.get<DataSource>(getDataSourceToken());
@@ -41,7 +41,7 @@ describe('IdleAccountService (integration)', () => {
   beforeEach(() => {
     notifyAdmins.mockReset().mockResolvedValue(undefined);
     invalidate.mockReset().mockResolvedValue(undefined);
-    platformTenantId.mockReset().mockResolvedValue(null);
+    platformSchoolIds.mockReset().mockResolvedValue([]);
     // Only the schools the test made are checked, never the shared seed school.
     findAllActive.mockReset().mockImplementation(async () => schoolIds.map((id) => ({ id })));
   });
@@ -312,7 +312,7 @@ describe('IdleAccountService (integration)', () => {
 
   it('skips the platform tenant even when it is idle', async () => {
     const platform = await newSchool(60, { warnings: { idle_d27: 10 } });
-    platformTenantId.mockResolvedValue(platform);
+    platformSchoolIds.mockResolvedValue([platform]);
     await service.runDaily(now);
     expect((await row(platform)).status).toBe('ACTIVE');
     expect(notifyAdmins).not.toHaveBeenCalled();
