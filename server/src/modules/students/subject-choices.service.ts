@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not, In, QueryFailedError } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
@@ -164,6 +165,8 @@ export class SubjectChoicesService {
     // race must surface as a clear 409, not a raw 23505-driven 500.
     try {
       return await this.choiceRepo.manager.transaction(async (manager) => {
+        // [69.3.04] A choice belongs to its class subject's year (D4).
+        await assertYearOpen(manager, tenantId, classSubject.academic_year_id);
         const repo = manager.getRepository(StudentSubjectChoice);
 
         // [pr-fix #945] Replace, not reject: a PUT for a *different*
