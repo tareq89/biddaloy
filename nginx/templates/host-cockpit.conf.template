@@ -23,11 +23,12 @@ server {
     proxy_next_upstream error timeout http_502 http_503;
 
     # Longest match wins: the allowed platform routes first, any other API path is a 404.
-    location ~ ^/api/v[0-9]+/(auth/cockpit|platform)/ {
+    location ~* ^/api/v[0-9]+/(auth/cockpit|platform)(/|$) {
         proxy_pass http://app_upstream;
     }
 
-    location /api/ {
+    # Case-insensitive: Express routes /API/... too, so the catch-all must match it.
+    location ~* ^/api/ {
         return 404;
     }
 
