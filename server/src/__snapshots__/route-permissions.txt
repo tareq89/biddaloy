@@ -3,6 +3,7 @@ DELETE /admission/applicants/:id/documents | ApplicantReviewController | perm: A
 DELETE /applications/:id/attachments/:attachmentId | ApplicationAttachmentsController | perm: APPLICATION_SUBMIT
 DELETE /attendance/devices/:id | DevicesController | perm: ATTENDANCE_DEVICE_MANAGE
 DELETE /attention/manual/:id | ManualAlertsController | perm: ALERT_SEND
+DELETE /auth/cockpit/sessions/:id | CockpitSessionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, SameOriginGuard
 DELETE /auth/sessions/:id | AuthController | allowlist: AuthGuard('jwt'), SameOriginGuard
 DELETE /auth/social/identities/:provider | SocialAuthController | allowlist: AuthGuard('jwt')
 DELETE /calendar/events/:id | CalendarEventsController | perm: CALENDAR_MANAGE
@@ -109,6 +110,7 @@ GET /audience/people | AudienceController | perm: NOTICE_POST
 GET /audit-logs | AuditController | perm: AUDIT_LOG_READ
 GET /audit-logs/entity/:entityType/:entityId | AuditController | perm: AUDIT_ENTITY_HISTORY_READ
 GET /audit-logs/export | AuditController | perm: AUDIT_LOG_READ,REPORTS_EXPORT
+GET /auth/cockpit/sessions | CockpitSessionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /auth/sessions | AuthController | allowlist: AuthGuard('jwt')
 GET /auth/social/:provider/callback | SocialAuthController | allowlist: none
 GET /auth/social/:provider/start | SocialAuthController | allowlist: none
@@ -570,6 +572,16 @@ POST /auth/activate | AccountAccessController | allowlist: none
 POST /auth/activate/resend | AccountAccessController | allowlist: none
 POST /auth/activate/verify | AccountAccessController | allowlist: none
 POST /auth/change-password | AuthController | allowlist: AuthGuard('jwt')
+POST /auth/cockpit/device-otp | CockpitAuthController | allowlist: SameOriginGuard
+POST /auth/cockpit/enrol/confirm | CockpitEnrolController | allowlist: SameOriginGuard
+POST /auth/cockpit/enrol/start | CockpitEnrolController | allowlist: SameOriginGuard
+POST /auth/cockpit/forgot-password | CockpitPasswordController | allowlist: SameOriginGuard
+POST /auth/cockpit/login | CockpitAuthController | allowlist: SameOriginGuard
+POST /auth/cockpit/logout | CockpitSessionController | allowlist: SameOriginGuard
+POST /auth/cockpit/logout-all | CockpitSessionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, SameOriginGuard
+POST /auth/cockpit/mfa | CockpitAuthController | allowlist: SameOriginGuard
+POST /auth/cockpit/refresh | CockpitSessionController | allowlist: SameOriginGuard
+POST /auth/cockpit/reset-password | CockpitPasswordController | allowlist: SameOriginGuard
 POST /auth/forgot-password | AccountAccessController | allowlist: none
 POST /auth/login | AuthController | allowlist: none
 POST /auth/logout | AuthController | allowlist: SameOriginGuard

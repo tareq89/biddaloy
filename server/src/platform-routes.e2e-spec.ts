@@ -33,6 +33,10 @@ const ALLOWED_OUTSIDE: string[] = [
   'POST /schools/:id/admins',
   'POST /schools/:id/admins/:userId/resend-invitation',
   'DELETE /schools/:id/admins/:userId/invitation',
+  // [Epic 98] Cockpit owner sessions: platform-guarded but part of the /auth/cockpit sign-in family.
+  'POST /auth/cockpit/logout-all',
+  'GET /auth/cockpit/sessions',
+  'DELETE /auth/cockpit/sessions/:id',
 ];
 
 const guardName = (guard: unknown): string =>
@@ -113,7 +117,7 @@ describe('Platform-only routes live under platform/ (Epic 98 safety net)', () =>
   });
 
   it('keeps ALLOWED_OUTSIDE small and free of duplicates', () => {
-    expect(ALLOWED_OUTSIDE.length).toBeLessThanOrEqual(11);
+    expect(ALLOWED_OUTSIDE.length).toBeLessThanOrEqual(14);
     expect(new Set(ALLOWED_OUTSIDE).size).toBe(ALLOWED_OUTSIDE.length);
   });
 

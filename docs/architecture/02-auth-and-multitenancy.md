@@ -833,3 +833,44 @@ explicit tenant reference.
   - Cost: in-lane review silently did not happen.
   - Fix: run reviews as separate passes from the orchestrator.
   - Rule candidate: plan review as its own pass, not inside the implementing agent.
+
+## Learning: cockpit identity, Wave 2
+
+2026-11-11, Epic 98 wave 2 (#3741-#3747). The cockpit sign-in is live under `/auth/cockpit/*`.
+
+```mermaid
+flowchart LR
+  A["POST /auth/cockpit/login<br/>password"] -->|"mfaToken"| B["POST /mfa<br/>authenticator code"]
+  A -->|"enrolToken (first time)"| E["POST /enrol/start then /enrol/confirm"]
+  B -->|"known device"| D["step: done<br/>access_token + refresh cookie"]
+  B -->|"new device: deviceToken"| C["POST /device-otp<br/>SMS code + email code"]
+  C --> D
+  E --> D
+```
+
+Example: the dev owner sends `{ "identifier": "owner@...", "password": "..." }` and gets `{ "step": "mfa", "mfaToken": "<jwt>" }`. The next call sends `{ "mfaToken": "<jwt>", "code": "123456" }`. Every refusal says the same sentence, so a caller cannot tell a wrong password from an unknown owner.
+
+- **Briefs get garbled (2026-11-11).**
+  - Surprise: compressed briefs and issue bodies lost whole sections (Steps, file lists).
+  - Fix: write the brief to a file, tell the agent to read it, and have the agent say which part looks garbled.
+- **Agents cannot nest (2026-11-11).**
+  - Surprise: a lane agent cannot dispatch its own reviewer.
+  - Fix: the orchestrator dispatches reviews, then a fix agent. Plan for that round trip.
+- **nginx `conf.d` loads alphabetically (2026-11-11).**
+  - Surprise: a `log_format` used before the file that defines `redacted` loads is a config error.
+  - Fix: name files so the one that defines `redacted` sorts first. Rule 13 still applies to the cockpit host.
+- **Express routes are case-insensitive, nginx `location ~` is not (2026-11-11).**
+  - Surprise: `/Auth/Cockpit/login` reached the app but missed an nginx rule written for the lower-case path.
+  - Fix: write protective regexes as `~*`.
+- **The edge-mode failover check is flaky (2026-11-11, #4041).**
+  - Cost: a red CI section that passes on rerun.
+  - Fix: rerun it alone with `--only edge-mode` before judging it. Tracked in #4041.
+- **`reset-order.ts` must list new tables (2026-11-11).**
+  - Surprise: a table missing there leaves rows behind between specs.
+  - Rule candidate: a new table is not done until `reset-order.ts` names it, next to the four lists in Wave 1.
+- **A cockpit session refresh must check the owner before it rotates (2026-11-11).**
+  - Surprise: checking after `rotate()` had already minted a new cookie for a locked owner.
+  - Fix: read the cookie owner first (`userIdForCookie`), then rotate.
+- **A custom passport strategy has a random guard name (2026-11-11).**
+  - Surprise: `AuthGuard('cockpit-jwt')` printed as a random hash in `route-permissions.txt`, so the snapshot would change on every run.
+  - Fix: `describeGuards` names it (`COCKPIT_JWT_AUTH_GUARD`). A new strategy needs the same line.
