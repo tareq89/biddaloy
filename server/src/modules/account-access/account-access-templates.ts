@@ -19,7 +19,10 @@ export type TemplateKind =
   | 'COCKPIT_RECOVERY_NOTICE'
   | 'COCKPIT_LOCKOUT_ALERT'
   /** [Epic 98] The other owner asked for a two-person approval. `detail` is a short summary, no secret. */
-  | 'PLATFORM_APPROVAL_REQUEST';
+  | 'PLATFORM_APPROVAL_REQUEST'
+  /** [Epic 98] An owner account was locked or unlocked. `detail` names who did it. */
+  | 'PLATFORM_OWNER_LOCKED'
+  | 'PLATFORM_OWNER_UNLOCKED';
 export type TemplateMedium = 'SMS' | 'EMAIL';
 export type TemplateLocale = 'bn' | 'en';
 
@@ -355,6 +358,38 @@ const TEMPLATES: Record<
       bn: {
         subject: 'অনুমোদনের অনুরোধ',
         body: '{{name}},\n\nঅন্য মালিক আপনার অনুমোদন চেয়েছেন: {{detail}}।\n\nককপিট খুলে অনুমোদন বা প্রত্যাখ্যান করুন। অনুরোধটি ২৪ ঘণ্টায় মেয়াদোত্তীর্ণ হবে।',
+      },
+    },
+  },
+  PLATFORM_OWNER_LOCKED: {
+    SMS: {
+      en: { body: '{{school}}: an owner account was locked. {{detail}}' },
+      bn: { body: '{{school}}: একটি মালিক অ্যাকাউন্ট লক করা হয়েছে। {{detail}}' },
+    },
+    EMAIL: {
+      en: {
+        subject: 'An owner account was locked',
+        body: 'Hi {{name}},\n\nAn owner account was locked. {{detail}}\n\nA locked owner is signed out everywhere at once.',
+      },
+      bn: {
+        subject: 'একটি মালিক অ্যাকাউন্ট লক করা হয়েছে',
+        body: '{{name}},\n\nএকটি মালিক অ্যাকাউন্ট লক করা হয়েছে। {{detail}}\n\nলক হওয়া মালিক সব জায়গা থেকে একসঙ্গে সাইন-আউট হন।',
+      },
+    },
+  },
+  PLATFORM_OWNER_UNLOCKED: {
+    SMS: {
+      en: { body: '{{school}}: an owner account was unlocked. {{detail}}' },
+      bn: { body: '{{school}}: একটি মালিক অ্যাকাউন্ট আনলক করা হয়েছে। {{detail}}' },
+    },
+    EMAIL: {
+      en: {
+        subject: 'An owner account was unlocked',
+        body: 'Hi {{name}},\n\nAn owner account was unlocked. {{detail}}\n\nThe owner can sign in again.',
+      },
+      bn: {
+        subject: 'একটি মালিক অ্যাকাউন্ট আনলক করা হয়েছে',
+        body: '{{name}},\n\nএকটি মালিক অ্যাকাউন্ট আনলক করা হয়েছে। {{detail}}\n\nমালিক আবার সাইন-ইন করতে পারবেন।',
       },
     },
   },

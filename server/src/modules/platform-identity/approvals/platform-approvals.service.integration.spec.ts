@@ -16,6 +16,9 @@ import { PlatformApprovalsService, hashPayload } from './platform-approvals.serv
 const PAYLOAD = { method: 'POST', path: '/platform/owners/x/lock', body: { reason: 'r' } };
 const SCOPE = 'platform.owner_lock';
 
+let seq = 0;
+const run = String(Math.floor(Math.random() * 1e5)).padStart(5, '0'); // users are never deleted: audit rows point at them
+
 describe('PlatformApprovalsService (integration)', () => {
   let module: TestingModule;
   let ds: DataSource;
@@ -39,8 +42,8 @@ describe('PlatformApprovalsService (integration)', () => {
     const user = await ds.getRepository(User).save(
       ds.getRepository(User).create({
         full_name: `Owner ${tag}`,
-        email: `${tag}-${process.pid}@owners.test`,
-        phone: `+88017${String(process.pid).padStart(5, '0')}${tag === 'a' ? 1 : 2}`,
+        email: `${tag}-${run}-${++seq}@owners.test`,
+        phone: `+88017${run}${String(seq).padStart(3, '0')}${tag === 'a' ? 1 : 2}`,
         status,
         password_hash: null,
       }),
@@ -52,7 +55,6 @@ describe('PlatformApprovalsService (integration)', () => {
   const cleanup = async () => {
     await ds.query(`DELETE FROM platform_approvals`);
     await ds.query(`DELETE FROM platform_admins`);
-    await ds.query(`DELETE FROM users WHERE email LIKE '%@owners.test'`);
   };
 
   beforeEach(async () => {
