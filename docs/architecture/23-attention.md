@@ -579,6 +579,25 @@ flowchart LR
   30 / 7 / 0 days (`seats_d30`, `seats_d7`, `seats_expired`), once per key per `period_end`. The
   stamps live in `schools.onboarding.seat_warnings`.
 
+## Year rollover rules (Epic 69)
+
+```mermaid
+flowchart LR
+  Y[year ended 60+ days ago,<br/>not closed, no DRAFT run] --> C[year.close_due]
+  N[current year ends in 45 days,<br/>no next year] --> M[year.next_missing]
+  P[DRAFT run entries with no group,<br/>target class uses groups] --> G[promotion.groups_pending]
+```
+
+| Key                        | Fires when                                                                                            | Recipients                                           | Action                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------- |
+| `year.close_due`           | `end_date` is 60+ days ago, `closed_at` is NULL, not current, no DRAFT promotion run from that year   | ACTIVE admins                                        | `/academic-years/{id}`       |
+| `year.next_missing`        | the current year ends within 45 days and no later year exists (action now opens the next-year wizard) | ACTIVE admins                                        | `/academic-years/{id}/next`  |
+| `promotion.groups_pending` | a DRAFT run has entries with `group_name` NULL and a target class that has grouped sections           | source section's class / assistant teachers + admins | `/promotions/{runId}/groups` |
+
+- `year.close_due` is one item per year; closing the year resolves it.
+- `promotion.groups_pending` is one item per run and source section, with the student count. It clears at 0 or when the run commits.
+- Teachers are looked up for the run's source year, not only the current year.
+
 ## Learning: Epic 83 coordinators (2026-10-31)
 
 - **Surprise:** the attendance rule only builds recipients for a draft when a class teacher exists or heads are added. A section with no class teacher but a coordinator would have been skipped. **Cost:** none (caught in design). **Fix:** coordinators join `users` before the "anyone to tell?" check. **Rule candidate:** a rule that adds recipients beyond roles adds them before deciding whether to emit.
