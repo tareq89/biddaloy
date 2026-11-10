@@ -151,6 +151,7 @@ jobs:
               - 'site/public/maintenance.html'
               - 'infra/ansible/templates/cloudflared-config.yml.j2'
               - '**/*.infra.test.sh'
+              - 'scripts/run-infra-tests.sh'
               - '.github/workflows/ci.yml'
 
   # [75.4] Runs every `*.infra.test.sh` in the repo (docker-driven nginx /
@@ -179,15 +180,8 @@ jobs:
           grep -q 'must be set' <<<"$out" || { echo "$out" >&2; exit 1; }
           echo "compose refuses an empty env"
       - name: Run infra tests
-        run: |
-          # Run every script even after a failure, so one run shows them all.
-          failed=""
-          for t in $(git ls-files '*.infra.test.sh'); do
-            echo "::group::$t"
-            bash "$t" || failed="$failed $t"
-            echo "::endgroup::"
-          done
-          [ -z "$failed" ] || { echo "::error::failed:$failed"; exit 1; }
+        # [101.3.01] 4 at a time; every failure is listed. See the script for the two serial scripts.
+        run: bash scripts/run-infra-tests.sh
 
   # [42.1.07] User guide gate (Epic 42). `guide:check` keeps the guide
   # structurally sound; `guide:impact` fails a PR that changes code or UI
@@ -356,20 +350,20 @@ jobs:
         continue-on-error: true
 
   # [18.5.1] 464s measured on real CI (#767/#805) put the unsharded job
-  # over the 240s/4-min budget, so this splits the suite 3-way and merges
+  # over the 240s/4-min budget, so this splits the suite 6-way (3-way until [101.3.01]) and merges
   # coverage back in `frontend-merge` below (vitest's blob reporter +
   # `--merge-reports` is built for exactly this — each shard writes a
   # `.vitest-reports/blob-<n>.json`, the merge job replays them into one
   # report so coverage thresholds and the PR delta comment still see the
   # whole suite, not just a third of it).
   frontend:
-    name: Frontend tests (${{ matrix.shard }}/3)
+    name: Frontend tests (${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
     needs: changes
     if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.frontend == 'true'
     strategy:
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6]
     permissions:
       contents: read
       actions: read
@@ -396,14 +390,14 @@ jobs:
       # reason 18.5.1 added `'blob'` to the config array under the
       # `CI_TIMINGS_OUT` guard instead of just adding a CLI flag). Blob
       # writes `.vitest-reports/blob-<shard>.json` — `frontend-merge` below
-      # replays all three via `--merge-reports`. Coverage stays on every
+      # replays all six via `--merge-reports`. Coverage stays on every
       # shard (`--coverage.reporter=json`, vitest's own merge input
       # format) — merged back to `text`/`lcovonly` in the merge job, same
       # reporters the old single job produced.
-      - name: Frontend tests with coverage (shard ${{ matrix.shard }}/3)
+      - name: Frontend tests with coverage (shard ${{ matrix.shard }}/6)
         env:
           CI_TIMINGS_OUT: ci-timings/raw-frontend-${{ matrix.shard }}.json
-        run: yarn test:frontend --run --shard=${{ matrix.shard }}/3 --coverage --coverage.reporter=json
+        run: yarn test:frontend --run --shard=${{ matrix.shard }}/6 --coverage --coverage.reporter=json
 
       # [#437] Quarantined tests still run, just don't gate the pipeline —
       # otherwise "quarantine" would mean "deleted" and nobody ever learns
@@ -424,7 +418,7 @@ jobs:
       # this step is meant to cost.
       #
       # [18.5.1] Runs once, on shard 1 only — the file list is small and
-      # fixed, sharding it three ways would just triple the fixed cost for
+      # fixed, sharding it six ways would just sextuple the fixed cost for
       # zero extra signal.
       - name: Quarantined frontend tests (non-blocking)
         if: always() && matrix.shard == 1
@@ -441,7 +435,7 @@ jobs:
       # same `if: always()` reasoning applies here.
       - name: Collect frontend test timings
         if: always()
-        run: node scripts/ci-timings.mjs collect --runner vitest --suite frontend-${{ matrix.shard }} --job "Frontend tests (${{ matrix.shard }}/3)" --in ci-timings/raw-frontend-${{ matrix.shard }}.json --out ci-timings/frontend-${{ matrix.shard }}.json
+        run: node scripts/ci-timings.mjs collect --runner vitest --suite frontend-${{ matrix.shard }} --job "Frontend tests (${{ matrix.shard }}/6)" --in ci-timings/raw-frontend-${{ matrix.shard }}.json --out ci-timings/frontend-${{ matrix.shard }}.json
 
       - name: Upload frontend test timings
         if: always()
@@ -474,10 +468,10 @@ jobs:
           # zero files).
           include-hidden-files: true
 
-  # [18.5.1] Merges the three shards' blob reports and coverage back into
+  # [18.5.1] Merges the shards' blob reports and coverage back into
   # one, so downstream (thresholds, PR delta comment) sees the whole suite
   # exactly as the old unsharded job did. `needs: frontend` waits on all
-  # three matrix legs; `if: always()` still runs it when a shard fails, so
+  # matrix legs; `if: always()` still runs it when a shard fails, so
   # the coverage/threshold signal for the shards that DID pass isn't lost.
   frontend-merge:
     name: Frontend coverage merge
@@ -1010,7 +1004,7 @@ jobs:
           if-no-files-found: ignore
 
   e2e:
-    name: E2E smoke (${{ matrix.browser }} ${{ matrix.shard }}/3)
+    name: E2E smoke (${{ matrix.browser }} ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     # #766 originally made this job reuse `verify`'s build-dist artifact via
     # `E2E_SKIP_BUILD=1` instead of rebuilding shared/server/client-admin —
@@ -1034,23 +1028,16 @@ jobs:
       # The cache key, install step, --project flag and artifact names
       # below are already per-browser.
       #
-      # [2642] 3-way shard reinstated. [18.2.3] had removed it when one
-      # chromium leg ran ~5 min; the suite has since grown to ~500 specs and
-      # measured 15.6 min of tests on 4 workers (run 39301055262), so the
-      # single job hit its 20-minute timeout before the PWA step finished.
-      # Each shard now carries ~1/3 of the tests plus the fixed ~3.5 min of
-      # setup/build/seed. The PWA/offline suite (~2 min) runs once, pinned to
-      # the LIGHTEST measured shard: run 39354596191 put 12.5/17.2/22.6 min of
-      # work on shards 1/2/3 (Playwright splits by test count, not duration),
-      # so it rides on shard 1 (the `matrix.shard == 1` pins below). Changing
-      # the shard count means editing the `/3` in `name:` and the E2E step,
-      # this list, and those pins together — a `--shard=1/3` run against a
-      # [1,2] matrix silently drops a third of the suite. Same layout as
+      # [2642] 3-way shard reinstated; [101.3.01] 4-way, and the PWA/offline
+      # suite moved out to its own job `e2e-pwa` (it used to ride on shard 1).
+      # Changing the shard count means editing the `/4` in `name:` and the E2E
+      # step and the matrix list together: a `--shard=1/4` run against a
+      # [1,2,3] matrix silently drops a quarter of the suite. Same layout as
       # nightly-e2e.yml.
       fail-fast: false
       matrix:
         browser: ${{ fromJSON(vars.E2E_BROWSERS_JSON || '["chromium"]') }}
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: postgres:18-alpine
@@ -1200,45 +1187,15 @@ jobs:
       - name: Seed database
         run: yarn workspace @biddaloy/server seed
 
-      - name: E2E tests (${{ matrix.browser }} ${{ matrix.shard }}/3)
+      - name: E2E tests (${{ matrix.browser }} ${{ matrix.shard }}/4)
         env:
           CI_TIMINGS_OUT: ci-timings/raw-e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
-        run: yarn e2e --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/3
+        run: yarn e2e --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/4
 
-      # [8.12.6]: the PWA/offline suite runs here rather than as its own
-      # job so it reuses this job's postgres, redis, migrations, seed and
-      # browser cache. It has its own config because the service worker
-      # only exists in a production build (`devOptions.enabled: false`),
-      # so it builds client-admin and drives `vite preview` on :5175 —
-      # roughly 2-4 minutes, paid on every PR deliberately: a PWA suite
-      # that only ran post-merge would not have caught the class of bug
-      # #184 found. Chromium only; offline emulation reaching service
-      # workers is verified on Chromium's CDP path.
-      #
-      # [18.2.3] Runs once per browser leg on chromium only — the shard
-      # pin this comment used to explain (see git history for #440's
-      # "lightest shard" reasoning) no longer applies now that sharding
-      # is gone: each browser is a single job, so this just picks chromium
-      # for the reason above (offline emulation reaching service workers
-      # is only verified on Chromium's CDP path).
-      # Once per browser, on the lightest shard (see the matrix comment above).
-      - name: PWA and offline E2E tests
-        if: matrix.browser == 'chromium' && matrix.shard == 1
-        env:
-          CI_TIMINGS_OUT: ci-timings/raw-e2e-pwa.json
-        run: yarn e2e:pwa
-
-      # [15.1]: the main record always exists (this step is `if: always()`);
-      # the PWA one only does on the leg that ran it (chromium). Checking
-      # for the raw PWA file directly — its presence *is* the signal that
-      # the PWA step ran — stays correct without a separate browser pin.
       - name: Collect E2E timings
         if: always()
         run: |
-          node scripts/ci-timings.mjs collect --runner playwright --suite e2e-${{ matrix.browser }}-${{ matrix.shard }} --job "E2E smoke (${{ matrix.browser }} ${{ matrix.shard }}/3)" --in ci-timings/raw-e2e-${{ matrix.browser }}-${{ matrix.shard }}.json --out ci-timings/e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
-          if [ -f ci-timings/raw-e2e-pwa.json ]; then
-            node scripts/ci-timings.mjs collect --runner playwright --suite e2e-pwa --job "E2E smoke (${{ matrix.browser }} ${{ matrix.shard }}/3)" --in ci-timings/raw-e2e-pwa.json --out ci-timings/e2e-pwa.json
-          fi
+          node scripts/ci-timings.mjs collect --runner playwright --suite e2e-${{ matrix.browser }}-${{ matrix.shard }} --job "E2E smoke (${{ matrix.browser }} ${{ matrix.shard }}/4)" --in ci-timings/raw-e2e-${{ matrix.browser }}-${{ matrix.shard }}.json --out ci-timings/e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
 
       # Artifact name includes the browser — REQUIRED, not cosmetic: this
       # job is a per-browser matrix, and `actions/upload-artifact@v7`
@@ -1248,9 +1205,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-timings-e2e-${{ matrix.browser }}-${{ matrix.shard }}
-          path: |
-            ci-timings/e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
-            ci-timings/e2e-pwa.json
+          path: ci-timings/e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
           if-no-files-found: ignore
 
       - name: Upload Playwright report
@@ -1261,8 +1216,201 @@ jobs:
           path: playwright-report/
           if-no-files-found: ignore
 
+      - name: Upload traces, screenshots and videos
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-${{ matrix.browser }}-${{ matrix.shard }}
+          path: test-results/
+          if-no-files-found: ignore
+
+  # [101.3.01] The PWA/offline suite was a step on the chromium shard-1 leg of `e2e`; as its own job it
+  # no longer lengthens that shard. Same services, build, migrate and seed as `e2e`.
+  e2e-pwa:
+    name: E2E PWA
+    runs-on: ubuntu-latest
+    # #766 originally made this job reuse `verify`'s build-dist artifact via
+    # `E2E_SKIP_BUILD=1` instead of rebuilding shared/server/client-admin —
+    # reverted (18.3.3 follow-up): reproduced twice in CI as a silent
+    # `webServer` boot hang (both the server and client processes produced
+    # zero output and never became ready, timing out at 300s each), while
+    # every piece worked correctly in isolation locally. Root cause not
+    # found before Wave 3 needed to land; this job goes back to building its
+    # own dist in-job (Wave 2's original, proven behavior) until a follow-up
+    # ticket debugs the artifact-reuse path with real CI iteration.
+    needs: [changes]
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.frontend == 'true'
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: betonboi_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      seaweedfs:
+        image: chrislusf/seaweedfs:4.48
+        env:
+          AWS_ACCESS_KEY_ID: ci-access-key
+          AWS_SECRET_ACCESS_KEY: ci-secret-key
+          S3_BUCKET: biddaloy-ci
+        ports:
+          - 9000:8333
+        options: >-
+          --health-cmd "curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/betonboi_e2e
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-e2e-jwt-secret-do-not-use-in-production-1234567890
+      # Throwaway, same as the integration job: the SMS settings journey saves an API key, and a
+      # tenant settings secret cannot be written without it (HTTP 500 "Settings encryption is not
+      # configured"). scripts/test-env.sh sets the same key locally.
+      SETTINGS_ENCRYPTION_KEY: YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
+      # Every e2e spec approves as the one seeded admin, so the whole run shares
+      # step-up's 5-per-15-min verification budget (step-up.service.ts). Raised
+      # for this job only; the server default stays 5.
+      STEP_UP_RATE_LIMIT_MAX_ATTEMPTS: '1000'
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-e2e-seed-password-123
+      # D6's test-observability flag — lets activation/recovery e2e specs
+      # read the invitation/reset token straight off the API response
+      # instead of an inbox they don't have access to.
+      ACCOUNT_ACCESS_ECHO_SECRETS: 'true'
+      # Keeps playwright.config.ts's projects list consistent with the
+      # --project flag this matrix entry passes.
+      E2E_BROWSERS: chromium
+      # [44.2.03] `yarn e2e:serve:client` builds client-admin; Vite inlines this at build
+      # time, and without it every in-app help (?) and F1 stay hidden (E4, E12).
+      VITE_HANDBOOK_URL: https://schoolmanagerp.gitbook.io/schoolmanagerp-docs
+      # [15.5] See the "integration" job's identical block — `yarn ...
+      # server seed` below boots `AppModule`, which needs `StorageModule`
+      # env to construct. Since [14.11.4] these also have to point at a
+      # *real* SeaweedFS (the `seaweedfs` service container above): the
+      # backup/restore journey exports a workbook, which the export job
+      # uploads to object storage before it can reach DONE.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: biddaloy-ci
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_FORCE_PATH_STYLE: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Build shared package
+        # webServer boots the real server/clients (yarn e2e:serve:*), which
+        # resolve @biddaloy/shared through its package.json "main"
+        # (dist/index.js, not src) — same reason the other jobs build this
+        # first.
+        run: yarn build:shared
+
+      - name: Build site-themes package
+        run: yarn build:site-themes
+
+      # Playwright's package version, used below so the browser cache key
+      # actually matches its own comment (it previously keyed on
+      # hashFiles('yarn.lock'), so unrelated lockfile bumps invalidated a
+      # perfectly good browser cache — see #440). Must run after "Install
+      # dependencies" so the package is on disk to inspect.
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Playwright's own browser cache, keyed on the resolved package
+      # version so a dependabot bump invalidates it automatically. On a
+      # cache hit the browser binary is already there, so only the OS-level
+      # shared libraries (apt) need reinstalling — skips the ~1min download.
+      # Keyed per browser, one job per browser now (18.2.3 removed
+      # sharding) — no contention on this key within a run.
+      #
+      # Deliberately no `restore-keys:` (#440's plan proposed one; review
+      # found it net-negative). Playwright installs into version-stamped
+      # directories, so a prefix match would restore the *previous*
+      # version's binaries — not one reusable byte, since the exact-key
+      # miss re-runs `playwright install --with-deps` anyway — and then
+      # re-save both under the new key, growing the entry on every bump
+      # until it evicts other caches. The version key self-invalidates
+      # cleanly on its own.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ steps.pw.outputs.version }}
+
+      - name: Install Playwright browser (chromium)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        # [#3085] The apt mirror a runner lands on is sometimes ~30 kB/s (shard 3
+        # spent ~10 min on one package in three runs; shards 1/2 took 2-3 s).
+        # Each attempt is cut at 4 min and retried; a fresh apt run usually
+        # gets a healthy connection. The browser binary itself is cached above.
+        run: |
+          for i in 1 2 3; do
+            timeout 240 npx playwright install --with-deps chromium && exit 0
+            echo "attempt $i failed or timed out"
+          done
+          exit 1
+
+      - name: Install Playwright OS dependencies (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: |
+          for i in 1 2 3; do
+            timeout 240 npx playwright install-deps chromium && exit 0
+            echo "attempt $i failed or timed out"
+          done
+          exit 1
+
+      - name: Run migrations
+        run: yarn workspace @biddaloy/server migration:run
+
+      - name: Seed database
+        run: yarn workspace @biddaloy/server seed
+
+      - name: PWA and offline E2E tests
+        env:
+          CI_TIMINGS_OUT: ci-timings/raw-e2e-pwa.json
+        run: yarn e2e:pwa
+
+      - name: Collect E2E PWA timings
+        if: always()
+        run: node scripts/ci-timings.mjs collect --runner playwright --suite e2e-pwa --job "E2E PWA" --in ci-timings/raw-e2e-pwa.json --out ci-timings/e2e-pwa.json
+
+      - name: Upload E2E PWA timings
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-timings-e2e-pwa
+          path: ci-timings/e2e-pwa.json
+          if-no-files-found: ignore
+
       - name: Upload PWA Playwright report
-        if: failure() && matrix.browser == 'chromium' && matrix.shard == 1
+        if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-pwa
@@ -1270,19 +1418,11 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload PWA traces, screenshots and videos
-        if: failure() && matrix.browser == 'chromium' && matrix.shard == 1
+        if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-pwa
           path: test-results-pwa/
-          if-no-files-found: ignore
-
-      - name: Upload traces, screenshots and videos
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: test-results-${{ matrix.browser }}-${{ matrix.shard }}
-          path: test-results/
           if-no-files-found: ignore
 
   # [18.4.1] Route sweeps (a11y/reflow/target-size — nightly-e2e.yml's
@@ -1650,7 +1790,7 @@ jobs:
     name: Test timings & budgets
     runs-on: ubuntu-latest
     if: always()
-    needs: [changes, verify, frontend-merge, integration, server-e2e, demo-seed-specs, e2e, bundle-delta, storybook, audit, infra]
+    needs: [changes, verify, frontend-merge, integration, server-e2e, demo-seed-specs, e2e, e2e-pwa, bundle-delta, storybook, audit, infra]
     permissions:
       contents: read
       actions: read
