@@ -2015,6 +2015,8 @@ That is all for now. There is **no `*.schoolmanagerp.com` rule** in
   match the `staging.schoolmanagerp.com` rule.
 - With a wildcard rule, that name would fall into it and reach nginx with no in-VM Access check.
   nginx matches names case-insensitively, so it would serve staging.
+  (The one narrow rule that exists, `*-staging.<root>` for staging school sites, is safe for the same
+  reason: nginx `:8081` answers `444` to any spelling of such a host that is not the clean name, see [17f](#17f-staging-school-sites-behind-access-owner-steps).)
 - A trailing-dot name (`staging.schoolmanagerp.com.`) matches no hostname rule, not even a
   wildcard: it falls to the last rule. That only matters once the last rule is the host-agnostic
   school-site catch-all, and then it lands on the site listener like any unknown name.
@@ -2261,6 +2263,41 @@ checks. The owner steps for Cloudflare for SaaS, Umami and Turnstile are in [17e
   `infra/ansible/deploy.yml`); staging and demo have no school-site route, so they leave it
   stopped.
 - **The case check** in 17a (cloudflared's `ingress rule` and the curl) must still pass after the deploy.
+
+### 17f. Staging school sites behind Access (owner steps)
+
+A staging school site (`model-school-staging.schoolmanagerp.com`) shows a copy of real data, so it
+sits behind the same Cloudflare Access login as `staging.<root>` (#3715).
+
+```mermaid
+flowchart LR
+  A["model-school-staging.schoolmanagerp.com"] --> B["Cloudflare Access login (outer)"]
+  B --> C["cloudflared rule *-staging.root: checks the token again (inner)"]
+  C --> D["nginx :8081"]
+  D -->|"host is the clean name"| E["staging-site"]
+  X["MODEL-SCHOOL-STAGING... or a trailing dot or a port"] -.->|"skips the inner rule"| D
+  D -.->|"444"| Z["no answer"]
+```
+
+1. Dashboard > Zero Trust > Access > Applications > `Staging` > add the public hostname
+   `*-staging.<ROOT_DOMAIN>` (a wildcard inside the label, not a whole label). Same `Owner only`
+   policy. If the dashboard refuses that pattern, tell the developer: the fallback is one hostname
+   per staging school. **Not verified: whether the dashboard accepts it, and whether it matches
+   upper case.** Step 3 is how you find out.
+2. Deploy (`biddaloy-deploy edge <sha>`), then on the VM:
+   `docker exec cloudflared cloudflared tunnel --config /etc/cloudflared/config.yml ingress rule https://foo-staging.<ROOT_DOMAIN>`
+   prints the new rule (with `access`). `https://FOO-STAGING.<ROOT_DOMAIN>` must print
+   `service: http://nginx:8081` (the catch-all): that spelling is the one nginx drops.
+3. Verify (V14, [25-cloudflare](25-cloudflare.md#verify)), then tick row 24 of the checklist:
+
+   ```bash
+   curl -sI https://model-school-staging.$ROOT_DOMAIN/   # 302 to <team>.cloudflareaccess.com
+   curl -sI https://MODEL-SCHOOL-STAGING.$ROOT_DOMAIN/   # 502 or a connection error, never the page
+   curl -sI https://model-school-demo.$ROOT_DOMAIN/      # 200 or 404, not 302
+   ```
+
+Rollback: remove the hostname from the application and the cloudflared rule; the guard in nginx can
+stay (it only drops odd spellings).
 
 ### 17e. Custom domains and analytics (owner steps)
 

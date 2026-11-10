@@ -67,6 +67,15 @@ server {
     if ($site_host_ok = 0) {
         return 444;
     }
+    # #3715: a staging school host is served only as the clean name cloudflared's Access rule
+    # matched. $host is lower-cased, dot- and port-free; $http_host is what was sent.
+    set $staging_check $site_is_staging;
+    if ($http_host != $host) {
+        set $staging_check "${staging_check}x";
+    }
+    if ($staging_check = "1x") {
+        return 444;
+    }
 
     proxy_http_version 1.1;
     proxy_set_header Host $host;

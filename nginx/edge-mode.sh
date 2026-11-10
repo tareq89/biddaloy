@@ -178,6 +178,15 @@ esac
     printf '    "~^[a-z0-9][a-z0-9-]*-(demo|staging)\\.%s$" noindex;\n' "$root_re"
   fi
   echo '}'
+  # 1 for a -staging school host (#3715). site.conf.template answers 444 when such a host also
+  # arrives unclean (upper case, trailing dot, port): cloudflared matches names case-sensitively,
+  # so only a clean name passes its Access rule; every other spelling must not reach staging-site.
+  echo 'map $host $site_is_staging {'
+  echo '    default 0;'
+  if [ -n "$site_root" ]; then
+    printf '    "~^[a-z0-9][a-z0-9-]*-staging\\.%s$" 1;\n' "$root_re"
+  fi
+  echo '}'
 } >"$CONF_DIR/01-site-host.conf"
 
 # Ops-less hosts (OPS_UPSTREAM_HOST empty): conf.d/ops.conf is removed by reload-loop.sh,

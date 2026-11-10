@@ -151,6 +151,14 @@ run_mode() { # <mode>
   b=$(body 8081 "x-demonstration.$ROOT" /env/); [[ "$b" == "site-ok host=x-demonstration.$ROOT "* ]] && pass "$mode: x-demonstration.<root> is not demo (prod site)" || fail "$mode: look-alike label" "$b"
   c=$(code 8081 "a.b-demo.$ROOT" /); [ "$c" = 000 ] && pass "$mode: a.b-demo.<root> dropped (444)" || fail "$mode: nested -demo" "$c"
   c=$(code 8081 "demo.$ROOT" /); [ "$c" = 000 ] && pass "$mode: fixed host demo.<root> still dropped" || fail "$mode: demo host" "$c"
+  # --- #3715: staging school host only as the clean name cloudflared's Access rule matched ---
+  c=$(code 8081 "X-STAGING.$ROOT" /); [ "$c" = 000 ] && pass "$mode: upper-case staging school host dropped (444)" || fail "$mode: staging case" "$c"
+  c=$(code 8081 "x-staging.$ROOT." /); [ "$c" = 000 ] && pass "$mode: trailing-dot staging school host dropped (444)" || fail "$mode: staging dot" "$c"
+  c=$(docker run --rm --network "$NET" "$CURL_IMG" -s -o /dev/null -w '%{http_code}' -H "Host: x-staging.$ROOT:8081" "http://$EDGE_IP:8081/" || true); [ "$c" = 000 ] && pass "$mode: staging school host with a port dropped (444)" || fail "$mode: staging port" "$c"
+  # no regression: demo and prod school hosts keep working in any spelling
+  b=$(body 8081 "X-DEMO.$ROOT" /env/); [[ "$b" == "site-demo-ok host=x-demo.$ROOT "* ]] && pass "$mode: upper-case demo school host still served" || fail "$mode: demo case" "$b"
+  b=$(body 8081 "x-demo.$ROOT." /env/); [[ "$b" == "site-demo-ok host=x-demo.$ROOT "* ]] && pass "$mode: trailing-dot demo school host still served" || fail "$mode: demo dot" "$b"
+  b=$(body 8081 "XYZ.$ROOT" /env/); [[ "$b" == "site-ok host=xyz.$ROOT "* ]] && pass "$mode: upper-case prod school host still served" || fail "$mode: prod case" "$b"
   # Cache key carries the host: the same path on two environments never mixes.
   body 8081 "x-demo.$ROOT" /same/ >/dev/null
   b=$(body 8081 "x-staging.$ROOT" /same/); [[ "$b" == "site-staging-ok host=x-staging.$ROOT "* ]] && pass "$mode: staging not served the demo's cached page (key carries the host)" || fail "$mode: cache per env" "$b"
