@@ -448,6 +448,18 @@ export const slice: DemoSlice = {
 
     // ---- the two latest transitions go through the real service (D4) ----------------------
     const promotions = ctx.app.get(PromotionsService);
+    // The org slice already closed the old years; `commit` refuses a closed year, so open them
+    // for the loop and put back exactly the same close stamps afterwards (69.3.99).
+    const closedYears: Array<{ id: string; closed_at: Date; closed_by_user_id: string | null }> =
+      await ctx.ds.query(
+        `SELECT id, closed_at, closed_by_user_id FROM academic_years WHERE closed_at IS NOT NULL`,
+      );
+    if (closedYears.length) {
+      await ctx.ds.query(
+        `UPDATE academic_years SET closed_at = NULL, closed_by_user_id = NULL WHERE id = ANY($1)`,
+        [closedYears.map((c) => c.id)],
+      );
+    }
     for (let y = B; y < Y - 1; y++) {
       for (let t = 0; t < org.tenants.length; t++) {
         const tenantId = org.tenants[t].id;
@@ -514,6 +526,12 @@ export const slice: DemoSlice = {
       );
       max.forEach((r) => rollBase.set(r.class_section_id, r.m));
       await writeStudents(fresh, rollBase);
+    }
+    for (const c of closedYears) {
+      await ctx.ds.query(
+        `UPDATE academic_years SET closed_at = $2, closed_by_user_id = $3 WHERE id = $1`,
+        [c.id, c.closed_at, c.closed_by_user_id],
+      );
     }
 
     // ---- what later slices need ---------------------------------------------------------------

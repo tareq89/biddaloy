@@ -808,10 +808,12 @@ fix, and a rule worth keeping.
   could attach another tenant's user. Fix: resolve through `user_tenants` for
   this tenant, else NULL. Rule: any id read from an import is resolved inside the
   importing tenant.
-- **2026-11-11 — `YEAR_SCOPED_WRITES` starts all `wired: false`.** The registry
+- **2026-11-11 — `YEAR_SCOPED_WRITES` started all `wired: false` (the flag is gone since 69.3.99).** The registry
   lists 22 entries (21 entities with `academic_year_id`, plus attendance keyed by
   date), not the 25 in the epic body; the other four have no year column of their
   own. Wave 3 flips entries to `wired: true` as each service calls
   `assertYearOpen`.
 
 **Learning (2026-11-11, Epic 69 wave 2).** The current academic year is no longer always built by hand: `YearRolloverService` (`modules/academics/year-rollover.service.ts`) copies classes, sections, class subjects, teacher assignments, fee structures, grading scales and terms from a source year into a target year by natural key (D14), all-or-nothing, and re-running it counts rows `existing` instead of duplicating them. A closed year (`academic_years.closed_at`) is read-only for writes that call `assertYearOpen`.
+
+**Learning (2026-11-11, Epic 69 close).** Every year-scoped write is now guarded: `YEAR_SCOPED_WRITES` has 21 entries, none can be unwired, and the registry test also checks the listed service really calls `assertYearOpen`. `Program` was listed by mistake (no `academic_year_id`, D2) and was removed. Report card notes have no year column, so their guard reads the year from the target exam or final result. A student whose latest ACTIVE enrollment is in a just-closed year, with no next-year enrollment, cannot be recorded as leaving until the year is reopened: promote before you close.

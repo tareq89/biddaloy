@@ -79,6 +79,7 @@ text, the reason and the enforcing test live in
 - **Writes never auto-retry.** UI mutations are `retry: false`; send and create routes carry an `Idempotency-Key` (2642). → [08-security §Rules 25](docs/architecture/08-security.md#rule-25-writes-never-auto-retry-and-sending-and-billing-routes-carry-an-idempotency-key)
 - **Money compares in whole paisa.** `toPaisa()`, no tolerance, DB CHECKs behind it (2642). → [08-security §Rules 26](docs/architecture/08-security.md#rule-26-money-is-compared-in-whole-paisa-with-db-checks-behind-it)
 - **Guard parent deletes.** No `remove()` while a child row exists; new FKs join the delete-guard registry (2642). → [08-security §Rules 27](docs/architecture/08-security.md#rule-27-a-parent-row-cannot-be-deleted-while-a-child-row-references-it)
+- **A closed year is read-only.** Writes to a closed year's rows call `assertYearOpen` and get `409 ACADEMIC_YEAR_CLOSED`; new year-scoped entities join `YEAR_SCOPED_WRITES` (69.3.99, D1, D11). → [08-security §Rules 28](docs/architecture/08-security.md#rule-28-a-closed-year-is-read-only)
 
 ## Documentation style (always, for any doc in this repo)
 
