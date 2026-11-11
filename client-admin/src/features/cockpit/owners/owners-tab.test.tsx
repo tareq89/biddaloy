@@ -126,6 +126,42 @@ describe('OwnersTab', () => {
     expect(onOpenApprovals).toHaveBeenCalled();
   });
 
+  it('the waiting note can be dismissed, and never shows when no request of mine is pending', async () => {
+    serveOwners(owner(ME, 'Owner One'), owner(OTHER, 'Owner Two'));
+    const requested = () =>
+      HttpResponse.json(
+        {
+          statusCode: 403,
+          message: 'x',
+          timestamp: '',
+          path: '/',
+          requestId: 'r',
+          details: { code: 'APPROVAL_REQUESTED', requestId: 'req-1' },
+        },
+        { status: 403 },
+      );
+    server.use(http.post(`*/platform/owners/${OTHER}/lock`, requested));
+    const user = userEvent.setup();
+    view();
+    const lockOther = async () => {
+      const other = await screen.findByRole('group', { name: 'Owner Two' });
+      await user.click(within(other).getByRole('button', { name: 'Lock' }));
+      await user.click(
+        within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Lock' }),
+      );
+    };
+    await lockOther();
+    await screen.findByText('Waiting for the other owner to approve this.');
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByText('Waiting for the other owner to approve this.')).toBeNull();
+
+    // The request was decided meanwhile: the server shows nothing pending, so no stale note.
+    server.use(http.get('*/platform/approvals', () => HttpResponse.json([])));
+    await lockOther();
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(screen.queryByText('Waiting for the other owner to approve this.')).toBeNull();
+  });
+
   it('shows an error state with retry when the list fails', async () => {
     server.use(http.get('*/platform/owners', () => new HttpResponse(null, { status: 500 })));
     view();

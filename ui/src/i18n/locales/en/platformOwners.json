@@ -7,7 +7,10 @@
   },
   "owners": {
     "you": "You",
-    "status": { "ACTIVE": "Active", "LOCKED": "Locked" },
+    "status": {
+      "ACTIVE": "Active",
+      "LOCKED": "Locked"
+    },
     "lastSignIn": "Last sign-in",
     "neverSignedIn": "Not signed in yet",
     "twoStep": "Two-step sign-in",
@@ -29,7 +32,10 @@
     "seeRequests": "See approval requests",
     "actionError": "Could not complete that. Try again.",
     "loadError": "Could not load the owners.",
-    "empty": "No owners found."
+    "empty": "No owners found.",
+    "email": "Email",
+    "phone": "Phone",
+    "dismiss": "Dismiss"
   },
   "approvals": {
     "scopes": {
@@ -72,7 +78,8 @@
       "turnedOn": "Approvals are on.",
       "turnedOff": "Approvals are off.",
       "waiting": "Waiting for the other owner to agree to turn this off.",
-      "loadError": "Could not load this setting."
+      "loadError": "Could not load this setting.",
+      "dismiss": "Dismiss"
     }
   },
   "history": {
