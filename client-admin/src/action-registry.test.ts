@@ -63,6 +63,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/reports/printables?tab=register': '/_staff/reports/printables',
   '/reports/printables?tab=to-print': '/_staff/reports/printables',
   '/students': '/_staff/students/',
+  '/academic-years?next=1': '/_staff/academic-years/',
+  '/academic-years?close=1': '/_staff/academic-years/',
   '/attendance/import': '/_staff/attendance/import',
   '/attendance/imports': '/_staff/attendance/imports/',
   '/settings#printers-section': '/_staff/settings',
@@ -484,6 +486,27 @@ describe('action-registry.ts', () => {
         isShapeValid(action),
         `${action.id} should be rejected: unknown context entity "teacher"`,
       ).toBe(false);
+    });
+  });
+
+  describe('[69.4.02] year rollover actions', () => {
+    const byId = (id: string) => ACTIONS.find((a) => a.id === id);
+
+    it.each([
+      ['academic-year.create-next', '/academic-years?next=1'],
+      ['academic-year.close', '/academic-years?close=1'],
+    ])('%s needs ACADEMIC_YEAR_MANAGE and lands on %s', (id, to) => {
+      const action = byId(id);
+      expect(action?.permission).toBe(Permission.ACADEMIC_YEAR_MANAGE);
+      const calls: string[] = [];
+      action?.run({ navigate: (opts) => calls.push(opts.to) });
+      expect(calls).toEqual([to]);
+    });
+
+    it('labels use the plain words, not rollover / lock / freeze', () => {
+      for (const id of ['academic-year.create-next', 'academic-year.close']) {
+        expect(byId(id)?.label.en).not.toMatch(/\b(rollover|clone|lock|freeze|archive)\b/i);
+      }
     });
   });
 
