@@ -454,7 +454,11 @@ export async function seed() {
     .execute();
 
   // [98.6.1] Dev platform owner with a known TOTP secret (cockpit e2e sign-in, Wave 2).
-  await ensureDevCockpitOwner(dataSource, app.get(PlatformHomeService), app.get(MfaService));
+  // Opt-in: a platform owner is refused by the legacy /auth/login (98.2.04), and every e2e
+  // storageState logs in as superadmin@biddaloy.test that way. Cockpit runs set SEED_COCKPIT_OWNER=true.
+  if (process.env.SEED_COCKPIT_OWNER === 'true') {
+    await ensureDevCockpitOwner(dataSource, app.get(PlatformHomeService), app.get(MfaService));
+  }
 
   await app.close();
 }
