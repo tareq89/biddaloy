@@ -31,7 +31,8 @@ jobs:
     name: Report main status
     runs-on: ubuntu-latest
     # Cancelled and skipped runs say nothing about main's health.
-    if: github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
+    # A manual (workflow_dispatch) run on main must not close an issue a failed push opened.
+    if: github.event.workflow_run.event == 'push' && (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure')
     steps:
       - name: File, update or close the main-red issue
         env:

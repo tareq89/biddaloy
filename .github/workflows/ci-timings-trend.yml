@@ -58,6 +58,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -o pipefail
           : > jobs.jsonl
           for id in $(jq -r '.workflow_runs[].id' runs.json); do
             # --paginate follows every page (a run can have >100 jobs across

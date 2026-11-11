@@ -19,16 +19,19 @@ run_one() { # run_one <script> <logdir>
 }
 export -f run_one
 
-all="$(git ls-files '*.infra.test.sh')"
+all="$(git ls-files '*.infra.test.sh')" || { echo "::error::git ls-files failed"; exit 1; }
+[ -n "$all" ] || { echo "::error::no *.infra.test.sh found"; exit 1; }
+dispatch_rc=0
 # shellcheck disable=SC2016  # $1/$2 belong to the inner bash, not this shell
-printf '%s\n' "$all" | grep -Ev "$serial_re" | xargs -P 4 -I{} bash -c 'run_one "$1" "$2"' _ {} "$logdir"
+printf '%s\n' "$all" | grep -Ev "$serial_re" | xargs -P 4 -I{} bash -c 'run_one "$1" "$2"' _ {} "$logdir" || dispatch_rc=$?
 printf '%s\n' "$all" | grep -E "$serial_re" | while read -r t; do run_one "$t" "$logdir"; done
 
 for t in $all; do
   echo "::group::$t"
-  cat "$logdir/$(echo "$t" | tr '/' '_').log"
+  cat "$logdir/$(echo "$t" | tr '/' '_').log" || true
   echo "::endgroup::"
 done
 
+[ "$dispatch_rc" = 0 ] || { echo "::error::parallel dispatcher exited $dispatch_rc"; exit 1; }
 [ ! -s "$failed" ] || { echo "::error::failed: $(tr '\n' ' ' < "$failed")"; exit 1; }
 echo "all infra tests passed"
