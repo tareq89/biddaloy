@@ -4,7 +4,8 @@ import MockAdapter from 'axios-mock-adapter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { clearAuthState, getActiveRole, getActiveTenant } from './auth-state';
-import { ensureSessionLoaded, resetSessionBootstrap } from './session';
+import { postAuthLogout } from './client';
+import { configureSessionEndpoints, ensureSessionLoaded, resetSessionBootstrap } from './session';
 import { clearPersistedTenant, persistTenant } from './tenant-storage';
 
 /**
@@ -143,5 +144,45 @@ describe('ensureSessionLoaded restores the active tenant [8.9.5]', () => {
     await ensureSessionLoaded();
 
     expect(getActiveTenant()).toBeNull();
+  });
+});
+
+describe('configureSessionEndpoints [98.4.01]', () => {
+  const defaults = {
+    refresh: '/auth/refresh',
+    logout: '/auth/logout',
+    logoutAll: '/auth/logout-all',
+  };
+  afterEach(() => configureSessionEndpoints(defaults));
+
+  it('defaults to the /auth/* endpoints', async () => {
+    mock.onPost('/api/v1/auth/refresh').reply(200, { access_token: fakeJwt(9_999_999_999, []) });
+    mock.onPost('/api/v1/auth/logout-all').reply(204);
+    expect(await ensureSessionLoaded()).toBe(true);
+    await postAuthLogout('/auth/logout-all');
+    expect(mock.history.post.map((r) => r.url)).toEqual([
+      '/api/v1/auth/refresh',
+      '/api/v1/auth/logout-all',
+    ]);
+  });
+
+  it('uses the configured endpoints for refresh and logout', async () => {
+    configureSessionEndpoints({
+      refresh: '/auth/cockpit/refresh',
+      logout: '/auth/cockpit/logout',
+      logoutAll: '/auth/cockpit/logout-all',
+    });
+    mock
+      .onPost('/api/v1/auth/cockpit/refresh')
+      .reply(200, { access_token: fakeJwt(9_999_999_999, []) });
+    mock.onPost().reply(204);
+    expect(await ensureSessionLoaded()).toBe(true);
+    await postAuthLogout('/auth/logout');
+    await postAuthLogout('/auth/logout-all');
+    expect(mock.history.post.map((r) => r.url)).toEqual([
+      '/api/v1/auth/cockpit/refresh',
+      '/api/v1/auth/cockpit/logout',
+      '/api/v1/auth/cockpit/logout-all',
+    ]);
   });
 });
