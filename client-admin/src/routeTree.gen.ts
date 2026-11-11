@@ -19,6 +19,7 @@ import { Route as PortalRouteImport } from './routes/portal'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SelectSchoolRouteImport } from './routes/select-school'
+import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as PlatformReportsUsageRouteImport } from './routes/_platform/reports-usage'
 import { Route as StaffCurriculumPresetRouteImport } from './routes/_staff/curriculum-preset'
@@ -31,6 +32,7 @@ import { Route as StaffWebsiteRouteImport } from './routes/_staff/website'
 import { Route as StaffWelcomeRouteImport } from './routes/_staff/welcome'
 import { Route as ITokenRouteImport } from './routes/i/$token'
 import { Route as NTokenRouteImport } from './routes/n.$token'
+import { Route as OwnerSecurityTwoStepRouteImport } from './routes/owner-security.two-step'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance'
@@ -45,9 +47,13 @@ import { Route as PortalRoutineRouteImport } from './routes/portal/routine'
 import { Route as PortalStatementRouteImport } from './routes/portal/statement'
 import { Route as PortalSurveysRouteImport } from './routes/portal/surveys'
 import { Route as PortalSyllabusRouteImport } from './routes/portal/syllabus'
+import { Route as SignInForgotRouteImport } from './routes/sign-in.forgot'
+import { Route as SignInResetRouteImport } from './routes/sign-in.reset'
 import { Route as VTokenRouteImport } from './routes/v/$token'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
+import { Route as PlatformOwnerSecurityIndexRouteImport } from './routes/_platform/owner-security/index'
+import { Route as PlatformPlatformOwnersIndexRouteImport } from './routes/_platform/platform-owners/index'
 import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
 import { Route as PlatformSchoolsSchoolIdRouteImport } from './routes/_platform/schools/$schoolId'
 import { Route as PlatformSchoolsNewRouteImport } from './routes/_platform/schools/new'
@@ -232,6 +238,11 @@ const SelectSchoolRoute = SelectSchoolRouteImport.update({
   path: '/select-school',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
@@ -290,6 +301,11 @@ const ITokenRoute = ITokenRouteImport.update({
 const NTokenRoute = NTokenRouteImport.update({
   id: '/n/$token',
   path: '/n/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OwnerSecurityTwoStepRoute = OwnerSecurityTwoStepRouteImport.update({
+  id: '/owner-security/two-step',
+  path: '/owner-security/two-step',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortalIndexRoute = PortalIndexRouteImport.update({
@@ -362,6 +378,16 @@ const PortalSyllabusRoute = PortalSyllabusRouteImport.update({
   path: '/syllabus',
   getParentRoute: () => PortalRoute,
 } as any)
+const SignInForgotRoute = SignInForgotRouteImport.update({
+  id: '/forgot',
+  path: '/forgot',
+  getParentRoute: () => SignInRoute,
+} as any)
+const SignInResetRoute = SignInResetRouteImport.update({
+  id: '/reset',
+  path: '/reset',
+  getParentRoute: () => SignInRoute,
+} as any)
 const VTokenRoute = VTokenRouteImport.update({
   id: '/v/$token',
   path: '/v/$token',
@@ -377,6 +403,18 @@ const PlatformHolidaySetsSetIdRoute =
   PlatformHolidaySetsSetIdRouteImport.update({
     id: '/holiday-sets/$setId',
     path: '/holiday-sets/$setId',
+    getParentRoute: () => PlatformRouteRoute,
+  } as any)
+const PlatformOwnerSecurityIndexRoute =
+  PlatformOwnerSecurityIndexRouteImport.update({
+    id: '/owner-security/',
+    path: '/owner-security/',
+    getParentRoute: () => PlatformRouteRoute,
+  } as any)
+const PlatformPlatformOwnersIndexRoute =
+  PlatformPlatformOwnersIndexRouteImport.update({
+    id: '/platform-owners/',
+    path: '/platform-owners/',
     getParentRoute: () => PlatformRouteRoute,
   } as any)
 const PlatformSchoolsIndexRoute = PlatformSchoolsIndexRouteImport.update({
@@ -1116,6 +1154,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
+  '/sign-in': typeof SignInRouteWithChildren
   '/verify-email': typeof VerifyEmailRoute
   '/reports-usage': typeof PlatformReportsUsageRoute
   '/curriculum-preset': typeof StaffCurriculumPresetRoute
@@ -1128,6 +1167,7 @@ export interface FileRoutesByFullPath {
   '/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/n/$token': typeof NTokenRoute
+  '/owner-security/two-step': typeof OwnerSecurityTwoStepRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
@@ -1141,6 +1181,8 @@ export interface FileRoutesByFullPath {
   '/portal/statement': typeof PortalStatementRoute
   '/portal/surveys': typeof PortalSurveysRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
+  '/sign-in/forgot': typeof SignInForgotRoute
+  '/sign-in/reset': typeof SignInResetRoute
   '/v/$token': typeof VTokenRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -1204,6 +1246,8 @@ export interface FileRoutesByFullPath {
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/portal/notices/$noticeId': typeof PortalNoticesNoticeIdRoute
   '/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
+  '/owner-security/': typeof PlatformOwnerSecurityIndexRoute
+  '/platform-owners/': typeof PlatformPlatformOwnersIndexRoute
   '/schools/': typeof PlatformSchoolsIndexRoute
   '/subscriptions/': typeof PlatformSubscriptionsIndexRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
@@ -1289,6 +1333,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
+  '/sign-in': typeof SignInRouteWithChildren
   '/verify-email': typeof VerifyEmailRoute
   '/reports-usage': typeof PlatformReportsUsageRoute
   '/curriculum-preset': typeof StaffCurriculumPresetRoute
@@ -1299,6 +1344,7 @@ export interface FileRoutesByTo {
   '/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/n/$token': typeof NTokenRoute
+  '/owner-security/two-step': typeof OwnerSecurityTwoStepRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
@@ -1312,6 +1358,8 @@ export interface FileRoutesByTo {
   '/portal/statement': typeof PortalStatementRoute
   '/portal/surveys': typeof PortalSurveysRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
+  '/sign-in/forgot': typeof SignInForgotRoute
+  '/sign-in/reset': typeof SignInResetRoute
   '/v/$token': typeof VTokenRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -1375,6 +1423,8 @@ export interface FileRoutesByTo {
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/portal/notices/$noticeId': typeof PortalNoticesNoticeIdRoute
   '/holiday-sets': typeof PlatformHolidaySetsIndexRoute
+  '/owner-security': typeof PlatformOwnerSecurityIndexRoute
+  '/platform-owners': typeof PlatformPlatformOwnersIndexRoute
   '/schools': typeof PlatformSchoolsIndexRoute
   '/subscriptions': typeof PlatformSubscriptionsIndexRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
@@ -1464,6 +1514,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
+  '/sign-in': typeof SignInRouteWithChildren
   '/verify-email': typeof VerifyEmailRoute
   '/_platform/reports-usage': typeof PlatformReportsUsageRoute
   '/_staff/curriculum-preset': typeof StaffCurriculumPresetRoute
@@ -1476,6 +1527,7 @@ export interface FileRoutesById {
   '/_staff/welcome': typeof StaffWelcomeRoute
   '/i/$token': typeof ITokenRoute
   '/n/$token': typeof NTokenRoute
+  '/owner-security/two-step': typeof OwnerSecurityTwoStepRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
@@ -1489,6 +1541,8 @@ export interface FileRoutesById {
   '/portal/statement': typeof PortalStatementRoute
   '/portal/surveys': typeof PortalSurveysRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
+  '/sign-in/forgot': typeof SignInForgotRoute
+  '/sign-in/reset': typeof SignInResetRoute
   '/v/$token': typeof VTokenRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -1552,6 +1606,8 @@ export interface FileRoutesById {
   '/portal/applications/new': typeof PortalApplicationsNewRoute
   '/portal/notices/$noticeId': typeof PortalNoticesNoticeIdRoute
   '/_platform/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
+  '/_platform/owner-security/': typeof PlatformOwnerSecurityIndexRoute
+  '/_platform/platform-owners/': typeof PlatformPlatformOwnersIndexRoute
   '/_platform/schools/': typeof PlatformSchoolsIndexRoute
   '/_platform/subscriptions/': typeof PlatformSubscriptionsIndexRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
@@ -1640,6 +1696,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/select-school'
+    | '/sign-in'
     | '/verify-email'
     | '/reports-usage'
     | '/curriculum-preset'
@@ -1652,6 +1709,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/i/$token'
     | '/n/$token'
+    | '/owner-security/two-step'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/calendar'
@@ -1665,6 +1723,8 @@ export interface FileRouteTypes {
     | '/portal/statement'
     | '/portal/surveys'
     | '/portal/syllabus'
+    | '/sign-in/forgot'
+    | '/sign-in/reset'
     | '/v/$token'
     | '/portal/'
     | '/holiday-sets/$setId'
@@ -1728,6 +1788,8 @@ export interface FileRouteTypes {
     | '/portal/applications/new'
     | '/portal/notices/$noticeId'
     | '/holiday-sets/'
+    | '/owner-security/'
+    | '/platform-owners/'
     | '/schools/'
     | '/subscriptions/'
     | '/academic-years/'
@@ -1813,6 +1875,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/select-school'
+    | '/sign-in'
     | '/verify-email'
     | '/reports-usage'
     | '/curriculum-preset'
@@ -1823,6 +1886,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/i/$token'
     | '/n/$token'
+    | '/owner-security/two-step'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/calendar'
@@ -1836,6 +1900,8 @@ export interface FileRouteTypes {
     | '/portal/statement'
     | '/portal/surveys'
     | '/portal/syllabus'
+    | '/sign-in/forgot'
+    | '/sign-in/reset'
     | '/v/$token'
     | '/portal'
     | '/holiday-sets/$setId'
@@ -1899,6 +1965,8 @@ export interface FileRouteTypes {
     | '/portal/applications/new'
     | '/portal/notices/$noticeId'
     | '/holiday-sets'
+    | '/owner-security'
+    | '/platform-owners'
     | '/schools'
     | '/subscriptions'
     | '/academic-years'
@@ -1987,6 +2055,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/select-school'
+    | '/sign-in'
     | '/verify-email'
     | '/_platform/reports-usage'
     | '/_staff/curriculum-preset'
@@ -1999,6 +2068,7 @@ export interface FileRouteTypes {
     | '/_staff/welcome'
     | '/i/$token'
     | '/n/$token'
+    | '/owner-security/two-step'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/calendar'
@@ -2012,6 +2082,8 @@ export interface FileRouteTypes {
     | '/portal/statement'
     | '/portal/surveys'
     | '/portal/syllabus'
+    | '/sign-in/forgot'
+    | '/sign-in/reset'
     | '/v/$token'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
@@ -2075,6 +2147,8 @@ export interface FileRouteTypes {
     | '/portal/applications/new'
     | '/portal/notices/$noticeId'
     | '/_platform/holiday-sets/'
+    | '/_platform/owner-security/'
+    | '/_platform/platform-owners/'
     | '/_platform/schools/'
     | '/_platform/subscriptions/'
     | '/_staff/academic-years/'
@@ -2164,9 +2238,11 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SelectSchoolRoute: typeof SelectSchoolRoute
+  SignInRoute: typeof SignInRouteWithChildren
   VerifyEmailRoute: typeof VerifyEmailRoute
   ITokenRoute: typeof ITokenRoute
   NTokenRoute: typeof NTokenRoute
+  OwnerSecurityTwoStepRoute: typeof OwnerSecurityTwoStepRoute
   VTokenRoute: typeof VTokenRoute
   AdmissionSlugStatusRoute: typeof AdmissionSlugStatusRoute
   AuthSocialDoneRoute: typeof AuthSocialDoneRoute
@@ -2243,6 +2319,13 @@ declare module '@tanstack/react-router' {
       path: '/select-school'
       fullPath: '/select-school'
       preLoaderRoute: typeof SelectSchoolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/verify-email': {
@@ -2327,6 +2410,13 @@ declare module '@tanstack/react-router' {
       path: '/n/$token'
       fullPath: '/n/$token'
       preLoaderRoute: typeof NTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/owner-security/two-step': {
+      id: '/owner-security/two-step'
+      path: '/owner-security/two-step'
+      fullPath: '/owner-security/two-step'
+      preLoaderRoute: typeof OwnerSecurityTwoStepRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/portal/': {
@@ -2427,6 +2517,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalSyllabusRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/sign-in/forgot': {
+      id: '/sign-in/forgot'
+      path: '/forgot'
+      fullPath: '/sign-in/forgot'
+      preLoaderRoute: typeof SignInForgotRouteImport
+      parentRoute: typeof SignInRoute
+    }
+    '/sign-in/reset': {
+      id: '/sign-in/reset'
+      path: '/reset'
+      fullPath: '/sign-in/reset'
+      preLoaderRoute: typeof SignInResetRouteImport
+      parentRoute: typeof SignInRoute
+    }
     '/v/$token': {
       id: '/v/$token'
       path: '/v/$token'
@@ -2446,6 +2550,20 @@ declare module '@tanstack/react-router' {
       path: '/holiday-sets/$setId'
       fullPath: '/holiday-sets/$setId'
       preLoaderRoute: typeof PlatformHolidaySetsSetIdRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/owner-security/': {
+      id: '/_platform/owner-security/'
+      path: '/owner-security'
+      fullPath: '/owner-security/'
+      preLoaderRoute: typeof PlatformOwnerSecurityIndexRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/platform-owners/': {
+      id: '/_platform/platform-owners/'
+      path: '/platform-owners'
+      fullPath: '/platform-owners/'
+      preLoaderRoute: typeof PlatformPlatformOwnersIndexRouteImport
       parentRoute: typeof PlatformRouteRoute
     }
     '/_platform/schools/': {
@@ -3402,6 +3520,8 @@ interface PlatformRouteRouteChildren {
   PlatformSchoolsSchoolIdRoute: typeof PlatformSchoolsSchoolIdRoute
   PlatformSchoolsNewRoute: typeof PlatformSchoolsNewRoute
   PlatformHolidaySetsIndexRoute: typeof PlatformHolidaySetsIndexRoute
+  PlatformOwnerSecurityIndexRoute: typeof PlatformOwnerSecurityIndexRoute
+  PlatformPlatformOwnersIndexRoute: typeof PlatformPlatformOwnersIndexRoute
   PlatformSchoolsIndexRoute: typeof PlatformSchoolsIndexRoute
   PlatformSubscriptionsIndexRoute: typeof PlatformSubscriptionsIndexRoute
 }
@@ -3412,6 +3532,8 @@ const PlatformRouteRouteChildren: PlatformRouteRouteChildren = {
   PlatformSchoolsSchoolIdRoute: PlatformSchoolsSchoolIdRoute,
   PlatformSchoolsNewRoute: PlatformSchoolsNewRoute,
   PlatformHolidaySetsIndexRoute: PlatformHolidaySetsIndexRoute,
+  PlatformOwnerSecurityIndexRoute: PlatformOwnerSecurityIndexRoute,
+  PlatformPlatformOwnersIndexRoute: PlatformPlatformOwnersIndexRoute,
   PlatformSchoolsIndexRoute: PlatformSchoolsIndexRoute,
   PlatformSubscriptionsIndexRoute: PlatformSubscriptionsIndexRoute,
 }
@@ -3766,6 +3888,19 @@ const PortalRouteChildren: PortalRouteChildren = {
 const PortalRouteWithChildren =
   PortalRoute._addFileChildren(PortalRouteChildren)
 
+interface SignInRouteChildren {
+  SignInForgotRoute: typeof SignInForgotRoute
+  SignInResetRoute: typeof SignInResetRoute
+}
+
+const SignInRouteChildren: SignInRouteChildren = {
+  SignInForgotRoute: SignInForgotRoute,
+  SignInResetRoute: SignInResetRoute,
+}
+
+const SignInRouteWithChildren =
+  SignInRoute._addFileChildren(SignInRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PlatformRouteRoute: PlatformRouteRouteWithChildren,
@@ -3777,9 +3912,11 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SelectSchoolRoute: SelectSchoolRoute,
+  SignInRoute: SignInRouteWithChildren,
   VerifyEmailRoute: VerifyEmailRoute,
   ITokenRoute: ITokenRoute,
   NTokenRoute: NTokenRoute,
+  OwnerSecurityTwoStepRoute: OwnerSecurityTwoStepRoute,
   VTokenRoute: VTokenRoute,
   AdmissionSlugStatusRoute: AdmissionSlugStatusRoute,
   AuthSocialDoneRoute: AuthSocialDoneRoute,

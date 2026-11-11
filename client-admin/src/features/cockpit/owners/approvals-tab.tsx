@@ -57,7 +57,20 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
 
   async function flip() {
     try {
-      await setSetting.mutateAsync({ enabled: !enabled });
+      // A grant the other owner gave for this switch: the retry carries it, so the server runs the
+      // change once and uses the grant up (without it the server files a second request).
+      // The list on screen may be older than the other owner's answer, so read it fresh.
+      const fresh = (await approvals.refetch()).data;
+      const granted = fresh?.find(
+        (r) =>
+          r.scope === 'platform.approvals_switch' &&
+          r.status === 'GRANTED' &&
+          r.requested_by === currentUserId,
+      );
+      await setSetting.mutateAsync({
+        enabled: !enabled,
+        ...(granted ? { approvalId: granted.id } : {}),
+      });
       toast.success(t(enabled ? 'approvals.switch.turnedOff' : 'approvals.switch.turnedOn'));
       setSwitchWaiting(false);
     } catch (error) {

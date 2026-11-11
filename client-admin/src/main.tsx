@@ -163,7 +163,7 @@ registerSessionExpiredHandler(() => {
   const loginPath = isCockpitHost() ? '/sign-in' : '/login';
   if (pathname !== loginPath) {
     if (isCockpitHost()) showCockpitExpiredNotice();
-    void router.navigate({ to: loginPath as '/login', search: { redirect: href }, replace: true });
+    void router.navigate({ to: loginPath, search: { redirect: href }, replace: true });
   }
 });
 

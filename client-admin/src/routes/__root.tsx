@@ -112,7 +112,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     if (cockpit) {
       if (!authenticated && !COCKPIT_PUBLIC_PATHS.has(location.pathname)) {
         // eslint-disable-next-line @typescript-eslint/only-throw-error
-        throw redirect({ to: '/sign-in' as '/login', search: { redirect: location.href } });
+        throw redirect({ to: '/sign-in', search: { redirect: location.href } });
       }
       if (
         authenticated &&

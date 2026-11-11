@@ -1,8 +1,6 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import * as React from 'react';
+import { createFileRoute } from '@tanstack/react-router';
 
-import { clearEnrolHandoff, readEnrolHandoff } from '../features/cockpit/sign-in/enrol-handoff';
-import { TwoStepWizard } from '../features/cockpit/two-step/two-step-wizard';
+import { TwoStepRoute } from '../features/cockpit/two-step/two-step-route';
 import { loadRouteNamespaces } from '../route-loaders';
 
 /**
@@ -15,16 +13,3 @@ export const Route = createFileRoute('/owner-security/two-step')({
   loader: () => loadRouteNamespaces('ownerSecurity', 'common'),
   component: TwoStepRoute,
 });
-
-export function TwoStepRoute() {
-  const navigate = useNavigate();
-  const [handoff] = React.useState(readEnrolHandoff);
-  React.useEffect(() => clearEnrolHandoff(), []);
-  return (
-    <TwoStepWizard
-      handoff={handoff}
-      onDone={() => void navigate({ to: '/schools' })}
-      onStartAgain={() => void navigate({ to: '/sign-in' as '/' })}
-    />
-  );
-}
