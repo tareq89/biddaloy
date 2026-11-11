@@ -71,7 +71,7 @@ describe('ContactChangeService (integration)', () => {
       AuditService,
       SessionCutoffService,
       { provide: RefreshTokenService, useValue: fakeRefreshTokens },
-      { provide: TenantStatusService, useValue: { platformSchoolIds: async () => [PLATFORM_SCHOOL] } },
+      { provide: TenantStatusService, useValue: { platformTenantId: async () => PLATFORM_SCHOOL } },
       { provide: OTP_REDIS, useValue: redis },
       { provide: AuthService, useValue: fakeAuthService },
       {
@@ -1214,6 +1214,27 @@ describe('ContactChangeService (integration)', () => {
       expect((await service.confirmEmail(lastLink(), context, 'approve')).status).toBe('confirm');
 
       await proposeAs(localSuper.id, '+8801799990002');
+      await expect(service.confirmEmail(lastLink(), context, 'approve')).rejects.toMatchObject({
+        response: { details: { code: 'PROPOSAL_WITHDRAWN' } },
+      });
+
+      // A SUPER_ADMIN on a distinct `is_platform` home school is not platform authority either
+      // (ContextGuard.isPlatformSuperAdmin keys on the platform tenant only).
+      const HOME_SCHOOL = '00000000-0000-4000-8000-0000000007f1';
+      await schoolRepo.save(
+        schoolRepo.create({ id: HOME_SCHOOL, name: 'Home', slug: 'home-cc', is_platform: true }),
+      );
+      const homeSuper = await userRepo.save(
+        userRepo.create({ full_name: 'Home Super', status: UserStatus.ACTIVE }),
+      );
+      await membershipRepo.save(
+        membershipRepo.create({
+          user_id: homeSuper.id,
+          tenant_id: HOME_SCHOOL,
+          role: 'SUPER_ADMIN' as any,
+        }),
+      );
+      await proposeAs(homeSuper.id, '+8801799990003');
       await expect(service.confirmEmail(lastLink(), context, 'approve')).rejects.toMatchObject({
         response: { details: { code: 'PROPOSAL_WITHDRAWN' } },
       });
