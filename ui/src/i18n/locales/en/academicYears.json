@@ -147,6 +147,7 @@
   },
   "nextYear": {
     "action": "Create next year",
+    "fromThisOne": "Create next year from this one",
     "title": "Create next year",
     "subtitle": "Make {{name}}'s setup ready for the new year.",
     "steps": { "name": "Name and dates", "preview": "What will be copied", "done": "Done" },
@@ -205,13 +206,29 @@
       "DUES_OUTSTANDING": "Dues outstanding: {{amount}}",
       "RESULTS_UNPUBLISHED": "Results not published: {{count}}"
     },
+    "freezesEmpty": "Nothing has been recorded in this year yet.",
     "freezes": {
+      "classes": "Classes",
+      "class_subjects": "Class subjects",
+      "academic_terms": "Terms",
+      "calendar_events": "Calendar events",
       "exams": "Exams",
-      "marks": "Marks",
+      "fee_generations": "Fee runs",
+      "fee_structures": "Fee structures",
+      "fine_rules": "Fine rules",
+      "recurring_schedules": "Recurring fee schedules",
       "student_fees": "Bills",
-      "attendance_sessions": "Attendance days",
+      "grading_scales": "Grading scales",
+      "promotion_runs": "Promotion runs",
+      "routines": "Class routines",
       "enrollments": "Enrolments",
-      "promotion_runs": "Promotion runs"
+      "student_lifecycle_events": "Student status changes",
+      "student_subject_choices": "Subject choices",
+      "study_plans": "Study plans",
+      "acr_assessments": "Staff evaluations",
+      "applications": "Applications",
+      "final_results": "Final results",
+      "attendance_sessions": "Attendance days"
     },
     "blocked": "A promotion draft is still open for this year. Commit it or delete it first.",
     "blockedLink": "Open promotions",
@@ -225,8 +242,9 @@
     "reopenError": "Could not reopen the year"
   },
   "readiness": {
-    "noClasses": "This year has no classes yet. Teachers will see no students.",
-    "noTeachers": "No teacher is assigned to a class in this year. Teachers will see no students."
+    "summary": "Classes: {{classes}} · Teacher assignments: {{teachers}} · Promotions committed: {{runs}}",
+    "noTeachers": "Teachers will see no students until assignments exist in this year.",
+    "loadError": "Could not check this year's setup."
   },
   "fields": {
     "name": "Name",

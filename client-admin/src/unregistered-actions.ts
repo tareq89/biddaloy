@@ -41,6 +41,11 @@ export const UNREGISTERED_ACTIONS: readonly UnregisteredAction[] = [
 
 export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   {
+    file: `${R}_staff/academic-years/-set-current-dialog.tsx`,
+    reason:
+      'confirm for one year, opened from that year header or list row; the palette cannot name which year',
+  },
+  {
     file: `${R}_staff/exams/-detail/website-publish-dialog.tsx`,
     reason:
       'confirm for one exam, opened from the exam header button; the palette action `exams.publishWebsite` lands on that exam',

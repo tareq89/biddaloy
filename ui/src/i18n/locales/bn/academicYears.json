@@ -147,6 +147,7 @@
   },
   "nextYear": {
     "action": "পরের বছর বানাও",
+    "fromThisOne": "এই বছর থেকে পরের বছর বানাও",
     "title": "পরের বছর বানাও",
     "subtitle": "{{name}} এর সাজানো তথ্য নতুন বছরের জন্য তৈরি করুন।",
     "steps": { "name": "নাম ও তারিখ", "preview": "কী কপি হবে", "done": "শেষ" },
@@ -205,13 +206,29 @@
       "DUES_OUTSTANDING": "বকেয়া টাকা: {{amount}}",
       "RESULTS_UNPUBLISHED": "ফল প্রকাশ হয়নি: {{count}}"
     },
+    "freezesEmpty": "এই বছরে এখনও কিছু লেখা হয়নি।",
     "freezes": {
+      "classes": "শ্রেণি",
+      "class_subjects": "শ্রেণির বিষয়",
+      "academic_terms": "সাময়িক",
+      "calendar_events": "ক্যালেন্ডারের ঘটনা",
       "exams": "পরীক্ষা",
-      "marks": "নম্বর",
+      "fee_generations": "ফি তৈরির কাজ",
+      "fee_structures": "ফির কাঠামো",
+      "fine_rules": "জরিমানার নিয়ম",
+      "recurring_schedules": "নিয়মিত ফির সূচি",
       "student_fees": "বিল",
-      "attendance_sessions": "উপস্থিতির দিন",
+      "grading_scales": "গ্রেডিং স্কেল",
+      "promotion_runs": "উত্তীর্ণ করানোর কাজ",
+      "routines": "ক্লাস রুটিন",
       "enrollments": "ভর্তি",
-      "promotion_runs": "উত্তীর্ণ করানোর রান"
+      "student_lifecycle_events": "শিক্ষার্থীর অবস্থার পরিবর্তন",
+      "student_subject_choices": "বিষয় বাছাই",
+      "study_plans": "পড়ার পরিকল্পনা",
+      "acr_assessments": "কর্মীর মূল্যায়ন",
+      "applications": "আবেদন",
+      "final_results": "চূড়ান্ত ফল",
+      "attendance_sessions": "উপস্থিতির দিন"
     },
     "blocked": "এই বছরের একটি উত্তীর্ণ করানোর খসড়া এখনও খোলা। আগে সেটি চূড়ান্ত করুন বা মুছে ফেলুন।",
     "blockedLink": "উত্তীর্ণ করানো খুলুন",
@@ -225,8 +242,9 @@
     "reopenError": "বছর আবার খোলা যায়নি"
   },
   "readiness": {
-    "noClasses": "এই বছরে এখনও কোনো শ্রেণি নেই। শিক্ষকরা কোনো শিক্ষার্থী দেখতে পাবেন না।",
-    "noTeachers": "এই বছরে কোনো শ্রেণিতে শিক্ষকের দায়িত্ব দেওয়া হয়নি। শিক্ষকরা কোনো শিক্ষার্থী দেখতে পাবেন না।"
+    "summary": "শ্রেণি: {{classes}} · শিক্ষকের দায়িত্ব: {{teachers}} · উত্তীর্ণ করানো চূড়ান্ত: {{runs}}",
+    "noTeachers": "এই বছরে শিক্ষকের দায়িত্ব দেওয়া না হওয়া পর্যন্ত শিক্ষকরা কোনো শিক্ষার্থী দেখতে পাবেন না।",
+    "loadError": "এই বছরের প্রস্তুতি দেখা যায়নি।"
   },
   "fields": {
     "name": "নাম",
