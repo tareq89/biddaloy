@@ -541,7 +541,7 @@ PATCH /website/gallery/photos/:id | GalleryController | perm: WEBSITE_MANAGE
 POST /academic-years | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 POST /academic-years/:id/close | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE | approval: academic_year.close
 POST /academic-years/:id/next | YearRolloverController | perm: ACADEMIC_YEAR_MANAGE
-POST /academic-years/:id/reopen | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
+POST /academic-years/:id/reopen | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE | approval: academic_year.close
 POST /academic-years/:id/set-current | AcademicYearController | perm: ACADEMIC_YEAR_MANAGE
 POST /account/first-password | FirstPasswordController | allowlist: AuthGuard('jwt')
 POST /account/school-invites/:id/accept | SchoolInvitesController | allowlist: AuthGuard('jwt')

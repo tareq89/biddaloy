@@ -173,13 +173,20 @@ export class AcademicYearController {
   @Post(':id/reopen')
   @HttpCode(200)
   @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
-  @ApiOperation({ summary: 'Reopen a closed year.' })
+  @RequireApproval(ApprovalScope.ACADEMIC_YEAR_CLOSE)
+  @ApiOperation({ summary: 'Reopen a closed year. Step-up approval required.' })
   reopen(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.service.reopen(id, tenant.id, user.sub, requestContext(request));
+    const approval = (request as unknown as { approval?: ApprovalContext }).approval;
+    if (!approval) {
+      throw new InternalServerErrorException(
+        'ApprovalGuard did not run before a year reopen — @RequireApproval guard misconfigured',
+      );
+    }
+    return this.service.reopen(id, tenant.id, user.sub, requestContext(request), approval);
   }
 }

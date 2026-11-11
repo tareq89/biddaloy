@@ -812,13 +812,14 @@ describe('AcademicYearService (integration)', () => {
       const year = await makeYear('Reopen Me');
       await service.close(year.id, TENANT_ID, null, ctx, APPROVAL);
 
-      const reopened = await service.reopen(year.id, TENANT_ID, null, ctx);
+      const reopened = await service.reopen(year.id, TENANT_ID, null, ctx, APPROVAL);
 
       expect(reopened.closed_at).toBeNull();
       const logs = await dataSource
         .getRepository(AuditLog)
         .find({ where: { entity_id: year.id, action: AuditAction.YEAR_REOPEN } });
       expect(logs).toHaveLength(1);
+      expect(logs[0].new_values).toMatchObject({ approved_by_user_id: APPROVAL.approverId });
     });
 
     it("404s on another tenant's year", async () => {
@@ -829,7 +830,7 @@ describe('AcademicYearService (integration)', () => {
       await expect(service.close(other.id, TENANT_ID, null, ctx, APPROVAL)).rejects.toThrow(
         NotFoundException,
       );
-      await expect(service.reopen(other.id, TENANT_ID, null, ctx)).rejects.toThrow(
+      await expect(service.reopen(other.id, TENANT_ID, null, ctx, APPROVAL)).rejects.toThrow(
         NotFoundException,
       );
       await expect(service.closePreview(other.id, TENANT_ID)).rejects.toThrow(NotFoundException);

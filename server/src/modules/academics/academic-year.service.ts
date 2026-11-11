@@ -475,9 +475,9 @@ export class AcademicYearService {
           manager,
           `SELECT count(*) n FROM promotion_entries pe JOIN promotion_runs r ON r.id = pe.run_id
             WHERE r.tenant_id = $1 AND r.source_academic_year_id = $2 AND r.status = $3
-              AND pe.group_name IS NULL AND pe.target_class_id IS NOT NULL
+              AND pe.group_name IS NULL AND COALESCE(pe.target_class_id, r.target_class_id) IS NOT NULL
               AND EXISTS (SELECT 1 FROM class_sections t WHERE t.tenant_id = $1
-                AND t.class_id = pe.target_class_id AND t.deleted_at IS NULL
+                AND t.class_id = COALESCE(pe.target_class_id, r.target_class_id) AND t.deleted_at IS NULL
                 AND t.group_name IS NOT NULL)`,
           [...T, draft],
         ),
@@ -623,6 +623,7 @@ export class AcademicYearService {
     tenantId: string,
     userId: string | null,
     context: RequestContext,
+    approval: ApprovalContext,
   ): Promise<AcademicYear> {
     return this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(AcademicYear);
@@ -634,13 +635,15 @@ export class AcademicYearService {
       if (!year.closed_at) return year; // already open: nothing to do
 
       await repo.update({ id, tenant_id: tenantId }, { closed_at: null, closed_by_user_id: null });
-      await this.auditService.record(
+      await this.auditService.recordApproved(
         {
           action: AuditAction.YEAR_REOPEN,
           entity_type: 'AcademicYear',
           entity_id: id,
           tenant_id: tenantId,
           performed_by_user_id: userId,
+          approved_by_user_id: approval.approverId,
+          approval_scope: approval.scope,
           ip_address: context.ip,
           user_agent: context.userAgent,
           old_values: { closed_at: year.closed_at },
