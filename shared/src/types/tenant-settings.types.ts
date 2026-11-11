@@ -1,4 +1,5 @@
 import type { ApprovalMode, DailyAttendanceSource, TermLabel } from '../enums';
+import type { SupportAccessMode } from '../enums/support-access';
 import type { AttentionSettings } from './attention';
 import type { ConductItem } from './report-card-note.types';
 
@@ -336,6 +337,14 @@ export interface DashboardSettings {
   digestTime: string; // 'HH:mm', school-local, default '07:30'
 }
 
+/** [99.1.01] Whether platform staff may open Login as on this school (D1). */
+export interface SupportAccessSettings {
+  mode: SupportAccessMode;
+  confirmedAt: string | null;
+  confirmedBy: string | null;
+  textVersion: number;
+}
+
 export interface TenantSettings {
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
   region?: RegionSettings;
@@ -348,6 +357,7 @@ export interface TenantSettings {
   backup?: BackupSettings;
   fees?: FeesSettings;
   evaluations?: EvaluationsSettings;
+  supportAccess?: SupportAccessSettings;
   applications?: ApplicationsSettings;
   homework?: HomeworkSettings;
   documents?: DocumentsSettings;

@@ -30,6 +30,9 @@ const PENDING_EPIC_67_ENTRIES = new Set(['Alert']);
 // first written by Epic 68 promotion-run service (#2268) — delete this set then
 const PENDING_EPIC_68_ENTRIES = new Set(['PromotionRun']);
 
+// first written by Epic 99 (#3789) — delete this set then
+const PENDING_EPIC_99_ENTRIES = new Set(['ImpersonationSession', 'PlatformAnnouncement', 'PlatformSchoolNote']);
+
 function collectServerSourceFiles(dir: string): string[] {
   const files: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -75,7 +78,8 @@ describe('audit entity-type catalog contract', () => {
         !written.has(type) &&
         !DEPRECATED_READ_ONLY_ENTRIES.has(type) &&
         !PENDING_EPIC_67_ENTRIES.has(type) &&
-        !PENDING_EPIC_68_ENTRIES.has(type),
+        !PENDING_EPIC_68_ENTRIES.has(type) &&
+        !PENDING_EPIC_99_ENTRIES.has(type),
     );
     expect(deadEntries).toEqual([]);
   });
