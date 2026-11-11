@@ -58,6 +58,16 @@ const REVIEWED_INTERPOLATIONS: Record<string, string[]> = {
     'pk',
     'rel.joinColumns[0].databaseName',
   ],
+  // Login as (#3797): nameCol picks one of two literal columns; values are always bound ($n / :s)
+  'modules/support-access/candidates/login-as-candidates.service.ts': ['nameCol'],
+  // status list and RETURNING list are module constants; where/conds hold literal column names with $n placeholders
+  'modules/support-access/sessions/impersonation-session.service.ts': [
+    'OPEN_STATUSES',
+    'RETURNING',
+    'RETURNING',
+    "conds.join(' AND ')",
+    'where',
+  ],
   // SCHOOL_TZ / STALE_DAYS constants
   'modules/applications/application-reports.service.ts': ['SCHOOL_TZ', 'SCHOOL_TZ', 'STALE_DAYS'],
   // SCHOOL_TZ-based fragment, serialClause with :params, constant IN (:...linked) toggle
