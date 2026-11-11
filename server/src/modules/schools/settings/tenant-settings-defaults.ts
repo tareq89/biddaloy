@@ -4,6 +4,7 @@ import {
   DailyAttendanceSource,
   DEFAULT_CONDUCT_ITEMS,
   DEFAULT_STUDY_PLANS_SETTINGS,
+  SupportAccessMode,
   TermLabel,
 } from '@biddaloy/shared';
 import type {
@@ -17,6 +18,7 @@ import type {
   OrganisationSettings,
   RegionSettings,
   RoutineSettings,
+  SupportAccessSettings,
   TenantSettings,
 } from '@biddaloy/shared';
 
@@ -160,6 +162,14 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
 /** [70.2.01] D30: the four conduct lines a new tenant starts with. */
 export const DEFAULT_EXAMS_SETTINGS = { conductItems: DEFAULT_CONDUCT_ITEMS };
 
+/** [99.1.04] D3: an existing school counts as `allowed`, unconfirmed, until an admin confirms. */
+export const DEFAULT_SUPPORT_ACCESS_SETTINGS: SupportAccessSettings = {
+  mode: SupportAccessMode.ALLOWED,
+  confirmedAt: null,
+  confirmedBy: null,
+  textVersion: 0,
+};
+
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
@@ -174,4 +184,5 @@ export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   attention: DEFAULT_ATTENTION_SETTINGS,
   dashboard: DEFAULT_DASHBOARD_SETTINGS,
   exams: DEFAULT_EXAMS_SETTINGS,
+  supportAccess: DEFAULT_SUPPORT_ACCESS_SETTINGS,
 };

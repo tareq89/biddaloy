@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { plainToInstance } from 'class-transformer';
 import { validate, type ValidationError } from 'class-validator';
+import { mergeTenantSettings } from '../settings/tenant-settings-merge.util';
 import { TenantSettingsDto, TENANT_SETTINGS_SCHEMA_VERSION } from './tenant-settings.dto';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
@@ -1191,5 +1192,30 @@ describe('TenantSettingsDto', () => {
     ])('rejects %s', async (_n, block) => {
       expect(await dashErr(block)).toBeDefined();
     });
+  });
+});
+
+describe('TenantSettingsDto supportAccess [99.1.04]', () => {
+  it('refuses a body carrying supportAccess (whitelist + forbidNonWhitelisted)', async () => {
+    const dto = toDto({
+      version: TENANT_SETTINGS_SCHEMA_VERSION,
+      supportAccess: { mode: 'blocked' },
+    });
+    const errors = await validate(dto, VALIDATION_OPTIONS);
+    expect(errors.some((e) => e.property === 'supportAccess')).toBe(true);
+  });
+
+  it('a normal PATCH merge keeps the stored supportAccess', () => {
+    const stored = {
+      mode: 'ask',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+      confirmedBy: 'u',
+      textVersion: 1,
+    };
+    const merged = mergeTenantSettings(
+      { version: TENANT_SETTINGS_SCHEMA_VERSION, supportAccess: stored },
+      { version: TENANT_SETTINGS_SCHEMA_VERSION, region: DEFAULT_REGION_SETTINGS },
+    );
+    expect(merged.supportAccess).toEqual(stored);
   });
 });
