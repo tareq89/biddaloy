@@ -252,3 +252,22 @@ it without re-litigating the call:
   date-ranged events, not recurring per-period schedules. A future epic
   that adds routines should decide whether they become `CalendarEvent` rows
   or a parallel model that only reads this one for holidays.
+
+## Terms copy on year rollover (Epic 69)
+
+`AcademicTermsService.copyTermsToYear` runs inside `POST /academic-years/:id/next`
+(block `terms`). It shifts each source term by the gap between the two years' start dates.
+
+```mermaid
+flowchart LR
+  S[2026 terms] --> H[shift by start-date gap]
+  H --> C{fits 2027 and no overlap?}
+  C -- yes --> N[created, or existing if already there]
+  C -- no --> K[skipped: OUTSIDE_YEAR or OVERLAP]
+```
+
+Example: the year starts 2026-01-01 and the next starts 2027-01-01, so every term moves
+365 days: "Term 1" 2026-01-05 to 2026-04-30 becomes 2027-01-05 to 2027-04-30. The last
+term's end is clamped to the new year's end. A term that lands outside the new year is
+reported `skipped` with `OUTSIDE_YEAR`, one that overlaps an existing term with `OVERLAP`. Re-running reports `existing`, never duplicates.
+A closed year cannot get terms edited (`AcademicTerm` is in `YEAR_SCOPED_WRITES`).

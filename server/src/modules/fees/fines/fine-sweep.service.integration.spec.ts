@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource, IsNull } from 'typeorm';
@@ -339,6 +340,61 @@ describe('FineSweepService (integration)', () => {
     );
     expect(manual).toMatchObject({ generated_count: 1, skipped_count: 0 });
     expect(await feeRepo.find({ where: { student_id: studentId } })).toHaveLength(1);
+  });
+
+  describe('overlapping academic years [69.1.05]', () => {
+    // Year A runs Jan-Dec 2026; year B starts Apr 2026, so June is covered by both. Each year has
+    // its own fine rule and fee structure, so the structure on the row shows which year won.
+    async function overlapping(closeLater: boolean) {
+      const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
+      const laterYear = await dataSource.getRepository(AcademicYear).save({
+        name: 'Fine Sweep Later Year',
+        start_date: '2026-04-01',
+        end_date: '2027-03-31',
+        tenant_id: tenantId,
+        closed_at: closeLater ? new Date() : null,
+      });
+      const earlierStructure = await makeStructure(tenantId, yearId, 20);
+      const laterStructure = await makeStructure(tenantId, laterYear.id, 50);
+      await makeRule({ tenantId, yearId, structureId: earlierStructure });
+      await makeRule({ tenantId, yearId: laterYear.id, structureId: laterStructure });
+      const studentId = await makeStudent(tenantId, sectionId, 'Overlap');
+      await markAbsences(tenantId, sectionId, studentId, ['2026-06-02', '2026-06-03']);
+      return { tenantId, earlierStructure, laterStructure };
+    }
+
+    it('picks the year that started last', async () => {
+      const { tenantId, laterStructure } = await overlapping(false);
+      const rows = await service.compute(tenantId, '2026-06', {});
+      expect(rows).toHaveLength(1);
+      expect(rows[0].fee_structure_id).toBe(laterStructure);
+    });
+
+    it('a closed later year loses to an open earlier one', async () => {
+      const { tenantId, earlierStructure } = await overlapping(true);
+      const rows = await service.compute(tenantId, '2026-06', {});
+      expect(rows).toHaveLength(1);
+      expect(rows[0].fee_structure_id).toBe(earlierStructure);
+    });
+  });
+
+  it('[69.3.03] a month covered only by a closed year gives NotFound and creates no student_fees row', async () => {
+    const { tenantId, yearId, sectionId } = await setupTenant('2026-01-01', '2026-12-31');
+    const structureId = await makeStructure(tenantId, yearId, 20);
+    await makeRule({ tenantId, yearId, structureId });
+    const studentId = await makeStudent(tenantId, sectionId, 'ClosedOnly');
+    await markAbsences(tenantId, sectionId, studentId, ['2026-06-02']);
+    await dataSource.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [yearId],
+    );
+    await expect(
+      service.generate(tenantId, null, '2026-06', {}, DuplicateStrategy.SKIP, false),
+    ).rejects.toThrow(/^No academic year covers this month for this tenant$/);
+    await expect(service.compute(tenantId, '2026-06', {})).rejects.toThrow(NotFoundException);
+    expect(
+      await dataSource.getRepository(StudentFee).count({ where: { student_id: studentId } }),
+    ).toBe(0);
   });
 
   it('a month outside every academic year rejects with a fixed sentence (#3000)', async () => {

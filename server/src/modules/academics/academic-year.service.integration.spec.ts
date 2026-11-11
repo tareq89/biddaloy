@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { randomUUID } from 'crypto';
 import { NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
@@ -17,7 +17,7 @@ import { User } from '../users/entities/user.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
-import { EnrollmentStatus, FeeType, AuditAction, ExamKind } from '@biddaloy/shared';
+import { EnrollmentStatus, FeeType, AuditAction, ExamKind, ApprovalScope } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 
@@ -234,6 +234,27 @@ describe('AcademicYearService (integration)', () => {
       // Verify year1 is no longer current
       const year1Reloaded = await service.findOne(year1.id, TENANT_ID);
       expect(year1Reloaded.is_current).toBe(false);
+    });
+
+    it('refuses a closed year (409 ACADEMIC_YEAR_CLOSED)', async () => {
+      const year = await service.create(
+        { name: 'closed-1', start_date: '2020-01-01', end_date: '2020-12-31' },
+        TENANT_ID,
+      );
+      await repo.update({ id: year.id }, { closed_at: new Date() });
+      await expect(service.setCurrent(year.id, TENANT_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+      });
+    });
+
+    it('DB CHECK refuses closed_at on the current year', async () => {
+      const year = await service.create(
+        { name: 'closed-2', start_date: '2020-01-01', end_date: '2020-12-31', is_current: true },
+        TENANT_ID,
+      );
+      await expect(repo.update({ id: year.id }, { closed_at: new Date() })).rejects.toThrow(
+        /CHK_academic_years_closed_not_current/,
+      );
     });
 
     it('should not affect other tenants when setting current', async () => {
@@ -670,6 +691,225 @@ describe('AcademicYearService (integration)', () => {
         where: { entity_id: created.id, entity_type: 'AcademicYear', tenant_id: OTHER_TENANT },
       });
       expect(otherTenantLogs).toHaveLength(1);
+    });
+  });
+
+  describe('close / reopen / close-preview / readiness [69.3.01]', () => {
+    const APPROVAL = {
+      approverId: randomUUID(),
+      scope: ApprovalScope.ACADEMIC_YEAR_CLOSE,
+      jti: 'j',
+    };
+    const ctx = { ip: null, userAgent: null };
+
+    async function makeYear(name: string, start = '2025-01-01', end = '2025-12-31') {
+      return service.create({ name, start_date: start, end_date: end }, TENANT_ID);
+    }
+    async function makeClass(yearId: string) {
+      return dataSource.getRepository(Class).save({
+        name: `C-${randomUUID().slice(0, 6)}`,
+        academic_year_id: yearId,
+        tenant_id: TENANT_ID,
+      });
+    }
+    async function makeRun(classId: string, srcYear: string, tgtYear: string, status: string) {
+      const rows: Array<{ id: string }> = await dataSource.query(
+        `INSERT INTO promotion_runs (tenant_id, source_class_id, source_academic_year_id,
+           target_academic_year_id, exam_ids, algorithm, status, created_by_user_id,
+           refreshed_at, override_count, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, '{}', 'MERIT', $5, $6, now(), 0, now(), now())
+         RETURNING id`,
+        [TENANT_ID, classId, srcYear, tgtYear, status, randomUUID()],
+      );
+      return rows[0].id;
+    }
+    /** One entry in a run, with its own student and source enrollment. */
+    async function makeEntry(
+      runId: string,
+      klass: Class,
+      yearId: string,
+      targetClassId: string | null,
+    ) {
+      const section = await dataSource
+        .getRepository(ClassSection)
+        .save({
+          class_id: klass.id,
+          section_name: `S${randomUUID().slice(0, 4)}`,
+          tenant_id: TENANT_ID,
+        });
+      const student = await dataSource.getRepository(Student).save({
+        full_name: 'Entry Student',
+        registration_number: `REG-${randomUUID().slice(0, 8)}`,
+        roll_number: 1,
+        class_section_id: section.id,
+        tenant_id: TENANT_ID,
+      });
+      const enrollment = await dataSource.getRepository(Enrollment).save({
+        student_id: student.id,
+        class_id: klass.id,
+        section_id: section.id,
+        academic_year_id: yearId,
+        tenant_id: TENANT_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      });
+      await dataSource.query(
+        `INSERT INTO promotion_entries (tenant_id, run_id, student_id, source_enrollment_id,
+           passed_all, suggested_outcome, final_outcome, target_class_id)
+         VALUES ($1, $2, $3, $4, true, 'PROMOTE', 'PROMOTE', $5)`,
+        [TENANT_ID, runId, student.id, enrollment.id, targetClassId],
+      );
+    }
+    async function groupsPending(yearId: string) {
+      const preview = await service.closePreview(yearId, TENANT_ID);
+      return preview.warnings.find((w) => w.code === 'GROUPS_PENDING')?.count;
+    }
+    afterEach(async () => {
+      await dataSource.query('DELETE FROM promotion_entries');
+      await dataSource.query('DELETE FROM promotion_runs');
+    });
+
+    it('closes a year, stamps closed_at/closed_by and audits YEAR_CLOSE with the approver', async () => {
+      const year = await makeYear('Close Me');
+      const userId = (
+        await dataSource
+          .getRepository(User)
+          .save({ full_name: 'Closer', email: `closer-${randomUUID()}@example.com` })
+      ).id;
+
+      const closed = await service.close(year.id, TENANT_ID, userId, ctx, APPROVAL);
+
+      expect(closed.closed_at).not.toBeNull();
+      expect(closed.closed_by_user_id).toBe(userId);
+      const logs = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: year.id, action: AuditAction.YEAR_CLOSE } });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].new_values).toMatchObject({ approved_by_user_id: APPROVAL.approverId });
+    });
+
+    it('refuses to close the current year with CANNOT_CLOSE_CURRENT_YEAR', async () => {
+      const year = await service.create(
+        { name: 'Cur', start_date: '2025-01-01', end_date: '2025-12-31', is_current: true },
+        TENANT_ID,
+      );
+      await expect(service.close(year.id, TENANT_ID, null, ctx, APPROVAL)).rejects.toMatchObject({
+        response: { details: { code: 'CANNOT_CLOSE_CURRENT_YEAR' } },
+      });
+    });
+
+    it('refuses to close while a DRAFT promotion run has this year as source', async () => {
+      const year = await makeYear('Draft Src');
+      const next = await makeYear('Next', '2026-01-01', '2026-12-31');
+      await makeRun((await makeClass(year.id)).id, year.id, next.id, 'DRAFT');
+
+      await expect(service.close(year.id, TENANT_ID, null, ctx, APPROVAL)).rejects.toMatchObject({
+        response: { details: { code: 'DRAFT_PROMOTION_RUN_OPEN' } },
+      });
+      expect((await repo.findOneOrFail({ where: { id: year.id } })).closed_at).toBeNull();
+    });
+
+    it('reopens a closed year, clears closed_at and audits YEAR_REOPEN', async () => {
+      const year = await makeYear('Reopen Me');
+      await service.close(year.id, TENANT_ID, null, ctx, APPROVAL);
+
+      const reopened = await service.reopen(year.id, TENANT_ID, null, ctx, APPROVAL);
+
+      expect(reopened.closed_at).toBeNull();
+      const logs = await dataSource
+        .getRepository(AuditLog)
+        .find({ where: { entity_id: year.id, action: AuditAction.YEAR_REOPEN } });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].new_values).toMatchObject({ approved_by_user_id: APPROVAL.approverId });
+    });
+
+    it("404s on another tenant's year", async () => {
+      const other = await service.create(
+        { name: 'Foreign', start_date: '2025-01-01', end_date: '2025-12-31' },
+        OTHER_TENANT,
+      );
+      await expect(service.close(other.id, TENANT_ID, null, ctx, APPROVAL)).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.reopen(other.id, TENANT_ID, null, ctx, APPROVAL)).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.closePreview(other.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.readiness(other.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('close-preview reports blocks, warnings and freezes', async () => {
+      const year = await makeYear('Preview');
+      const next = await makeYear('Preview Next', '2026-01-01', '2026-12-31');
+      const klass = await makeClass(year.id);
+      await makeRun(klass.id, year.id, next.id, 'DRAFT');
+      await dataSource.getRepository(Exam).save({
+        name: 'Mid',
+        class_id: klass.id,
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+        kind: ExamKind.TERM,
+      } as any);
+
+      const preview = await service.closePreview(year.id, TENANT_ID);
+
+      expect(preview.blocks).toEqual([{ code: 'DRAFT_PROMOTION_RUN_OPEN', count: 1 }]);
+      const warn = Object.fromEntries(preview.warnings.map((w) => [w.code, w.count]));
+      expect(warn.CLASSES_NOT_PROMOTED).toBe(1);
+      expect(warn.RESULTS_UNPUBLISHED).toBe(1);
+      expect(warn.DUES_OUTSTANDING).toBe(0);
+      const freeze = Object.fromEntries(preview.freezes.map((f) => [f.table, f.count]));
+      expect(freeze.classes).toBe(1);
+      expect(freeze.exams).toBe(1);
+      expect(freeze.promotion_runs).toBe(1);
+      expect(freeze).toHaveProperty('attendance_sessions');
+    });
+
+    // GROUPS_PENDING must match the attention rule (promotion-groups-pending.rule.ts).
+    describe('GROUPS_PENDING', () => {
+      async function setup(withGroupedSection: boolean, graduating: boolean) {
+        const year = await makeYear(`GP ${randomUUID().slice(0, 6)}`);
+        const next = await makeYear(
+          `GP next ${randomUUID().slice(0, 6)}`,
+          '2026-01-01',
+          '2026-12-31',
+        );
+        const src = await makeClass(year.id);
+        const target = await makeClass(next.id);
+        await dataSource.getRepository(ClassSection).save({
+          class_id: target.id,
+          section_name: 'T',
+          tenant_id: TENANT_ID,
+          group_name: withGroupedSection ? 'Science' : null,
+        });
+        const runId = await makeRun(src.id, year.id, next.id, 'DRAFT');
+        await makeEntry(runId, src, year.id, graduating ? null : target.id);
+        return year;
+      }
+
+      it('does not count a graduating entry (no target class)', async () => {
+        expect(await groupsPending((await setup(true, true)).id)).toBe(0);
+      });
+
+      it('does not count an entry whose target class has no grouped section', async () => {
+        expect(await groupsPending((await setup(false, false)).id)).toBe(0);
+      });
+
+      it('counts an entry with a grouped target class and no group chosen', async () => {
+        expect(await groupsPending((await setup(true, false)).id)).toBe(1);
+      });
+    });
+
+    it('readiness counts classes and committed runs targeting the year', async () => {
+      const prev = await makeYear('Prev');
+      const target = await makeYear('Target', '2026-01-01', '2026-12-31');
+      await makeClass(target.id);
+      await makeRun((await makeClass(prev.id)).id, prev.id, target.id, 'COMMITTED');
+
+      expect(await service.readiness(target.id, TENANT_ID)).toEqual({
+        classes: 1,
+        teacher_assignments: 0,
+        committed_promotion_runs: 1,
+      });
     });
   });
 });

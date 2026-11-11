@@ -1,6 +1,7 @@
 import { Permission } from '@biddaloy/shared';
 import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
 import {
+  ConfirmDialog,
   ErrorState,
   RecordNotFoundState,
   RoutePending,
@@ -12,17 +13,26 @@ import {
   useAcademicYear,
   useAcademicYearStats,
   useHasPermission,
+  useReopenYear,
   useUpdateAcademicYear,
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
-import { formatDateRange, parseServerDate } from '@biddaloy/ui/utils';
+import { formatDate, formatDateRange, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { CircleCheckIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import {
+  CalendarPlusIcon,
+  CircleCheckIcon,
+  LockIcon,
+  LockOpenIcon,
+  PencilIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+import { CloseYearDialog } from './-close-year-dialog';
 import { DeleteYearDialog } from './-delete-year-dialog';
 import { ClassesTab } from './-detail/classes-tab';
 import { FeeStructuresTab } from './-detail/fee-structures-tab';
@@ -78,6 +88,9 @@ function AcademicYearDetailPage() {
   const [editOpen, setEditOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [setCurrentOpen, setSetCurrentOpen] = React.useState(false);
+  const [closeOpen, setCloseOpen] = React.useState(false);
+  const [reopenOpen, setReopenOpen] = React.useState(false);
+  const reopenYear = useReopenYear();
 
   if (yearQuery.isPending) {
     return (
@@ -151,7 +164,20 @@ function AcademicYearDetailPage() {
           },
         ]}
         statusBadge={
-          <StatusBadge domain="academicYear" status={year.is_current ? 'CURRENT' : 'NOT_CURRENT'} />
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <StatusBadge
+              domain="academicYear"
+              status={year.is_current ? 'CURRENT' : 'NOT_CURRENT'}
+            />
+            {year.closed_at && (
+              <StatusBadge
+                tone="neutral"
+                label={t('closeYear.closedOn', {
+                  date: formatDate(year.closed_at, regionConfig),
+                })}
+              />
+            )}
+          </span>
         }
         actions={[
           {
@@ -170,6 +196,38 @@ function AcademicYearDetailPage() {
             icon: <CircleCheckIcon />,
             onClick: () => setSetCurrentOpen(true),
             allowed: canManage && !year.is_current,
+            priority: 'secondary',
+          },
+          {
+            id: 'next-year',
+            label: t('nextYear.fromThisOne'),
+            icon: <CalendarPlusIcon />,
+            onClick: () =>
+              void navigate({
+                to: '/academic-years/$academicYearId/next',
+                params: { academicYearId: year.id },
+              }),
+            allowed: canManage && year.closed_at === null,
+            priority: 'secondary',
+          },
+          {
+            id: 'close-year',
+            label: t('closeYear.action'),
+            icon: <LockIcon />,
+            onClick: () => setCloseOpen(true),
+            // A current year cannot be closed (the server answers 409 CANNOT_CLOSE_CURRENT_YEAR).
+            allowed: canManage && year.closed_at === null && !year.is_current,
+            priority: 'secondary',
+          },
+          {
+            id: 'reopen-year',
+            label: t('closeYear.reopenAction'),
+            icon: <LockOpenIcon />,
+            onClick: () => {
+              reopenYear.reset();
+              setReopenOpen(true);
+            },
+            allowed: canManage && year.closed_at !== null,
             priority: 'secondary',
           },
           {
@@ -233,6 +291,36 @@ function AcademicYearDetailPage() {
           academicYearId={year.id}
           academicYearName={year.name}
           onDeleted={() => void navigate({ to: '/academic-years' })}
+        />
+      )}
+
+      {canManage && (
+        <CloseYearDialog
+          open={closeOpen}
+          onOpenChange={setCloseOpen}
+          academicYearId={year.id}
+          academicYearName={year.name}
+          onClosed={() => setCloseOpen(false)}
+        />
+      )}
+
+      {canManage && (
+        <ConfirmDialog
+          open={reopenOpen}
+          // A request in flight must not be abandoned by Esc / Cancel.
+          onOpenChange={(next) => {
+            if (!reopenYear.isPending) setReopenOpen(next);
+          }}
+          tone="default"
+          title={t('closeYear.reopenTitle', { name: year.name })}
+          description={
+            reopenYear.isError
+              ? `${t('closeYear.reopenDescription', { name: year.name })} ${t('closeYear.reopenError')}`
+              : t('closeYear.reopenDescription', { name: year.name })
+          }
+          confirmLabel={t('closeYear.reopenConfirm')}
+          busy={reopenYear.isPending}
+          onConfirm={() => reopenYear.mutate(year.id, { onSuccess: () => setReopenOpen(false) })}
         />
       )}
 

@@ -531,6 +531,26 @@ describe('FeesDailyScheduler (integration)', () => {
     expect(bills[0].student_id).toBe(included.id);
   });
 
+  it('[69.3.03] never picks a schedule of a closed year: no bills, no error logged', async () => {
+    const structure = await structureRepo.save(makeStructure());
+    await studentRepo.save(makeStudent());
+    await createDueSchedule({ fee_structure_ids: [structure.id] });
+    await dataSource.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
+    try {
+      const scheduler = buildScheduler();
+      const logError = vi.spyOn((scheduler as any).logger, 'error');
+      await scheduler.process({ data: { tenantId: TENANT_ID } } as any);
+      expect(logError).not.toHaveBeenCalled();
+    } finally {
+      await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
+    }
+    expect(await studentFeeRepo.count()).toBe(0);
+    expect(await feeGenerationRepo.count()).toBe(0);
+  });
+
   it('does not run a schedule whose window does not cover today (out-of-window)', async () => {
     const structure = await structureRepo.save(makeStructure());
     await studentRepo.save(makeStudent());

@@ -357,6 +357,22 @@ flowchart LR
 - **Example.** Delete a room still used by a routine: `409`, the room stays.
 - **Test.** `server/test/delete-guard-registry.integration.spec.ts`.
 
+### Rule 28: A closed year is read-only
+
+- **Rule.** Once an academic year has `closed_at`, every write to a row of that year refuses with `409 ACADEMIC_YEAR_CLOSED`, and nothing is written. The service calls `assertYearOpen(manager, tenantId, yearId)` (or `assertDateNotInClosedYear` for date-keyed attendance) inside its transaction, before the write. A new entity with an `academic_year_id` joins `YEAR_SCOPED_WRITES` and its service calls the guard, or the registry test fails.
+- **Why.** Epic 69 (#2202), D1 and D11: a closed year's marks, fees and results must not drift after the school has signed them off.
+- **Example.** Year 2025 is closed. Admin tries `POST /api/v1/classes` for 2025: `409`, no class row. Same for a report card note on a 2025 exam.
+
+```mermaid
+flowchart LR
+  W[Write request] --> T[Open transaction]
+  T --> G{"assertYearOpen:<br/>closed_at set?"}
+  G -- no --> OK[Write rows]
+  G -- yes --> X[409 ACADEMIC_YEAR_CLOSED, nothing written]
+```
+
+- **Test.** `server/test/year-open-guard-registry.integration.spec.ts` (coverage, and every listed service calls the guard); each service's own integration spec proves the 409.
+
 ## Login brute-force protection
 
 `POST /auth/login` layers three controls, defined in

@@ -4,8 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import { GradingScale } from './entities/grading-scale.entity';
 import { GradingBand } from './entities/grading-band.entity';
@@ -72,6 +73,7 @@ export class GradingService {
     await this.assertYearAndClassInTenant(tenantId, dto.academic_year_id, dto.class_id);
 
     return this.dataSource.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, dto.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(GradingScale);
       // [D1] Only one default (class_id: null) scale per (tenant, year) —
       // enforced by a partial unique index at the DB, checked here first
@@ -154,6 +156,7 @@ export class GradingService {
     if (dto.name === undefined) return existing;
 
     await this.dataSource.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(GradingScale);
       await repo.update({ id, tenant_id: tenantId }, { name: dto.name });
       await this.auditService.record(
@@ -196,6 +199,7 @@ export class GradingService {
     }
 
     await this.dataSource.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
       // [70.2.1] A final result row pins the scale too (NO ACTION FK). Results are counted
       // above (with their count) and the scale's own bands go with it.
       await assertNoLiveDependents(manager, GradingScale, id, {
@@ -238,11 +242,30 @@ export class GradingService {
     tenantId: string,
     userId: string | null,
     context: RequestContext = { ip: null, userAgent: null },
+    // [69.1.08] Optional caller transaction. Reads go through it too, so a
+    // scale created earlier in that same transaction is visible.
+    outer?: EntityManager,
   ): Promise<GradingBand[]> {
-    const source = await this.findOne(sourceId, tenantId);
-    const target = await this.findOne(targetId, tenantId);
-    const sourceBands = await this.findBands(source.id, tenantId);
-    const targetBands = await this.findBands(target.id, tenantId);
+    const scaleRepo = outer ? outer.getRepository(GradingScale) : this.scaleRepo;
+    const bandRepo = outer ? outer.getRepository(GradingBand) : this.bandRepo;
+    const loadScale = async (id: string) => {
+      const found = outer
+        ? await scaleRepo.findOne({ where: { id, tenant_id: tenantId, deleted_at: IsNull() } })
+        : await this.findOne(id, tenantId);
+      if (!found) throw new NotFoundException('Grading scale not found');
+      return found;
+    };
+    const loadBands = (scaleId: string) =>
+      outer
+        ? bandRepo.find({
+            where: { scale_id: scaleId, tenant_id: tenantId, deleted_at: IsNull() },
+            order: { sequence: 'ASC' },
+          })
+        : this.findBands(scaleId, tenantId);
+    const source = await loadScale(sourceId);
+    const target = await loadScale(targetId);
+    const sourceBands = await loadBands(source.id);
+    const targetBands = await loadBands(target.id);
 
     if (targetBands.length > 0) {
       throw new ConflictException(
@@ -253,7 +276,8 @@ export class GradingService {
       throw new BadRequestException('Source scale has no bands to copy');
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const write = async (manager: EntityManager) => {
+      await assertYearOpen(manager, tenantId, target.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(GradingBand);
       const created = repo.create(
         sourceBands.map((band) => ({
@@ -286,6 +310,78 @@ export class GradingService {
       );
 
       return saved;
+    };
+    return outer ? write(outer) : this.dataSource.transaction(write);
+  }
+
+  /**
+   * [69.1.08] Year rollover: copy `sourceYearId`'s grading scales (default and
+   * per-class overrides) into `targetYearId`. Key is `class_id` mapped through
+   * `classMap` (null = default scale, D14). A target scale with the key is
+   * `existing` and left untouched, even if its bands differ. A source scale
+   * whose class is not mapped is `skipped`. Bands are copied by `copy()`.
+   * `dryRun` matches identically but writes nothing. Runs on the caller's
+   * transaction `manager`.
+   */
+  async copyScalesToYear(
+    manager: EntityManager,
+    tenantId: string,
+    sourceYearId: string,
+    targetYearId: string,
+    classMap: Map<string, string>,
+    dryRun: boolean,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<{
+    created: number;
+    existing: number;
+    skipped: { name: string; reason: 'CLASS_NOT_COPIED' }[];
+  }> {
+    const repo = manager.getRepository(GradingScale);
+    const live = (yearId: string) => ({
+      tenant_id: tenantId,
+      academic_year_id: yearId,
+      deleted_at: IsNull(),
     });
+    const sources = await repo.find({ where: live(sourceYearId), order: { created_at: 'ASC' } });
+    const targets = await repo.find({ where: live(targetYearId) });
+    const taken = new Set(targets.map((t) => t.class_id ?? 'default'));
+    const result = {
+      created: 0,
+      existing: 0,
+      skipped: [] as { name: string; reason: 'CLASS_NOT_COPIED' }[],
+    };
+    for (const src of sources) {
+      let classId: string | null = null;
+      if (src.class_id) {
+        classId = classMap.get(src.class_id) ?? null;
+        if (!classId) {
+          result.skipped.push({ name: src.name, reason: 'CLASS_NOT_COPIED' });
+          continue;
+        }
+      }
+      const key = classId ?? 'default';
+      if (taken.has(key)) {
+        result.existing++;
+        continue;
+      }
+      taken.add(key);
+      result.created++;
+      if (dryRun) continue;
+      const scale = await repo.save(
+        repo.create({
+          tenant_id: tenantId,
+          academic_year_id: targetYearId,
+          class_id: classId,
+          name: src.name,
+        }),
+      );
+      // Reuse the existing band copy; a bandless source scale is copied as a bare row.
+      const bands = await manager.count(GradingBand, {
+        where: { scale_id: src.id, tenant_id: tenantId, deleted_at: IsNull() },
+      });
+      if (bands > 0) await this.copy(src.id, scale.id, tenantId, userId, context, manager);
+    }
+    return result;
   }
 }

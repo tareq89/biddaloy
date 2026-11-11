@@ -80,10 +80,16 @@ export class ResolveRoutineService {
       .where('y.tenant_id = :tenantId', { tenantId })
       .andWhere('y.deleted_at IS NULL')
       .andWhere('y.start_date <= :from AND y.end_date >= :from', { from: query.from })
+      // Overlapping years are normal after a rollover: an open year beats a closed one, then the
+      // current year, then the year that started last, then the newest row (D21, #1169, #2774).
+      .orderBy('y.closed_at', 'ASC', 'NULLS FIRST')
+      .addOrderBy('y.is_current', 'DESC')
+      .addOrderBy('y.start_date', 'DESC')
+      .addOrderBy('y.created_at', 'DESC')
       .getOne();
     if (!academicYear) return [];
 
-    // D11 step 2: state governs visibility, decided here — the one
+// D11 step 2: state governs visibility, decided here — the one
     // place D14 says all visibility rules must live, rather than each
     // consumer re-deriving it. tenant is always taken from request
     // context above, never a caller-supplied parameter.
@@ -131,6 +137,12 @@ export class ResolveRoutineService {
       .where('y.tenant_id = :tenantId', { tenantId })
       .andWhere('y.deleted_at IS NULL')
       .andWhere('y.start_date <= :date AND y.end_date >= :date', { date })
+      // Overlapping years are normal after a rollover: an open year beats a closed one, then the
+      // current year, then the year that started last, then the newest row (D21, #1169, #2774).
+      .orderBy('y.closed_at', 'ASC', 'NULLS FIRST')
+      .addOrderBy('y.is_current', 'DESC')
+      .addOrderBy('y.start_date', 'DESC')
+      .addOrderBy('y.created_at', 'DESC')
       .getOne();
     if (!academicYear) return [];
     const routine = await this.routineRepo.findOne({

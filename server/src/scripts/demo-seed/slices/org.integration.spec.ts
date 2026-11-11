@@ -11,6 +11,10 @@ import { UserRole } from '@biddaloy/shared';
 import { AuditService } from '../../../modules/audit/audit.service';
 import { StorageService } from '../../../modules/storage/storage.service';
 import { TenantSettingsCache } from '../../../modules/schools/settings/tenant-settings-cache.service';
+import { YearRolloverService } from '../../../modules/academics/year-rollover.service';
+import { FeeStructureService } from '../../../modules/fees/fees.service';
+import { GradingService } from '../../../modules/grading/grading.service';
+import { AcademicTermsService } from '../../../modules/calendar/academic-terms.service';
 import { PresetApplyService } from '../../../modules/presets/preset-apply.service';
 import { PresetRegistryService } from '../../../modules/presets/preset-registry.service';
 import { AuthTokenService } from '../../../modules/account-access/auth-token.service';
@@ -39,6 +43,10 @@ describe('org slice (integration, 2 years)', () => {
     const module = await createTestModule(ALL_ENTITIES, [
       PresetApplyService,
       PresetRegistryService,
+      YearRolloverService,
+      FeeStructureService,
+      GradingService,
+      AcademicTermsService,
       AuditService,
       AuthTokenService,
       SchoolInviteService,
@@ -300,6 +308,55 @@ describe('org slice (integration, 2 years)', () => {
       expect(t.years.filter((y) => y.isCurrent)).toHaveLength(1);
     }
   });
+
+  it('builds the current year by rollover: same classes as the previous year, one edited section', async () => {
+    const rows = await q(
+      `SELECT s.slug, a.is_current,
+              (SELECT count(*) FROM classes c WHERE c.academic_year_id = a.id) AS classes,
+              (SELECT count(*) FROM class_sections cs JOIN classes c ON c.id = cs.class_id
+                WHERE c.academic_year_id = a.id AND cs.capacity IS NOT NULL) AS sized
+         FROM academic_years a JOIN schools s ON s.id = a.tenant_id
+        WHERE s.slug LIKE 'bmsc-%' ORDER BY s.slug, a.start_date`,
+    );
+    for (const slug of ['bmsc-primary', 'bmsc-high', 'bmsc-college']) {
+      const [prev, cur] = rows.filter((r) => r.slug === slug);
+      expect(cur.is_current).toBe(true);
+      expect(prev.is_current).toBe(false);
+      expect(Number(cur.classes)).toBe(Number(prev.classes));
+      expect(Number(prev.sized)).toBe(0); // the copy source has no sizes ...
+      expect(Number(cur.sized)).toBe(1); // ... the edit made after the copy is the only one
+    }
+    const [{ n }] = await q<{ n: string }>(
+      `SELECT count(*) AS n FROM audit_logs WHERE action = 'YEAR_ROLLOVER'`,
+    );
+    expect(Number(n)).toBe(3);
+  });
+
+  it('closes years older than the previous one and leaves the previous year open', async () => {
+    await clearTables();
+    await ds.query(`DELETE FROM schools WHERE slug LIKE 'bmsc-%'`);
+    await ds.query(`DELETE FROM users WHERE email LIKE '%@bmsc.example'`);
+    const three = await createContext({
+      ds,
+      app,
+      scale: 0.05,
+      years: 3,
+      anchor: ANCHOR,
+      password: 'unit-test-password',
+    });
+    await slice.run(three);
+    const years = await q(
+      `SELECT a.is_current, a.closed_at IS NOT NULL AS closed,
+              a.closed_at::date = a.end_date + 30 AS thirty_days,
+              a.closed_by_user_id IS NOT NULL AS has_closer
+         FROM academic_years a JOIN schools s ON s.id = a.tenant_id
+        WHERE s.slug = 'bmsc-high' ORDER BY a.start_date`,
+    );
+    expect(years.map((y) => y.closed)).toEqual([true, false, false]);
+    expect(years[0].thirty_days).toBe(true);
+    expect(years[0].has_closer).toBe(true);
+    expect(years.map((y) => y.is_current)).toEqual([false, false, true]);
+  }, 120_000);
 
   it('org.ts names no literal year (every date derives from the anchor)', () => {
     const source = readFileSync(join(__dirname, 'org.ts'), 'utf8');

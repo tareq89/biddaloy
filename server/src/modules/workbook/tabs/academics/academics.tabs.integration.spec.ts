@@ -93,6 +93,8 @@ describe('academics tabs (integration)', () => {
         start_date: '2026-01-01',
         end_date: '2026-12-31',
         is_current: true,
+        closed_at: null,
+        closed_by_user_id: null,
         ...overrides,
       };
     }
@@ -151,6 +153,25 @@ describe('academics tabs (integration)', () => {
       expect(refreshed.is_current).toBe(true);
     });
 
+    it('keeps closed_at on a closed year through upsert [69.1.03]', async () => {
+      const closedAt = '2025-12-31T10:00:00.000Z';
+      const created = await academicYearsTab.upsert(
+        // The user id is not in this database, so the FK-safe import stores NULL.
+        rowFor({
+          is_current: false,
+          closed_at: closedAt,
+          closed_by_user_id: '00000000-0000-4000-8000-0000000000ff',
+        }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+
+      const saved = await yearRepo.findOneByOrFail({ id: created.id });
+      expect(saved.closed_at?.toISOString()).toBe(closedAt);
+      expect(saved.closed_by_user_id).toBeNull();
+    });
+
     it('remove soft-deletes the year', async () => {
       const existing = await academicYearsTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
 
@@ -189,6 +210,8 @@ describe('academics tabs (integration)', () => {
           start_date: '2026-01-01',
           end_date: '2026-12-31',
           is_current: true,
+          closed_at: null,
+          closed_by_user_id: null,
         },
         null,
         tenantId,
@@ -276,6 +299,8 @@ describe('academics tabs (integration)', () => {
           start_date: '2026-01-01',
           end_date: '2026-12-31',
           is_current: true,
+          closed_at: null,
+          closed_by_user_id: null,
         },
         null,
         tenantId,
@@ -449,6 +474,8 @@ describe('academics tabs (integration)', () => {
           start_date: '2026-01-01',
           end_date: '2026-12-31',
           is_current: true,
+          closed_at: null,
+          closed_by_user_id: null,
         },
         null,
         tenantId,
@@ -600,6 +627,8 @@ describe('academics tabs (integration)', () => {
           start_date: '2026-01-01',
           end_date: '2026-12-31',
           is_current: true,
+          closed_at: null,
+          closed_by_user_id: null,
         },
         null,
         tenantId,

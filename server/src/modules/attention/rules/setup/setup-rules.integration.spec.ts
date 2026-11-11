@@ -19,6 +19,7 @@ import { CommsProviderMissingRule } from './comms-provider-missing.rule';
 import { SetupIncompleteRule } from './setup-incomplete.rule';
 import { StaffInvitePendingRule } from './staff-invite-pending.rule';
 import { YearNextMissingRule } from './year-next-missing.rule';
+import { YearCloseDueRule } from './year-close-due.rule';
 
 describe('Setup rules (integration)', () => {
   let ds: DataSource;
@@ -29,6 +30,7 @@ describe('Setup rules (integration)', () => {
   let providerMissing: CommsProviderMissingRule;
   let invites: StaffInvitePendingRule;
   let yearNext: YearNextMissingRule;
+  let closeDue: YearCloseDueRule;
   let a: string;
   let b: string;
   let adminA: string;
@@ -119,6 +121,7 @@ describe('Setup rules (integration)', () => {
     providerMissing = get(CommsProviderMissingRule);
     invites = get(StaffInvitePendingRule);
     yearNext = get(YearNextMissingRule);
+    closeDue = get(YearCloseDueRule);
     a = await mkSchool('setup-a');
     b = await mkSchool('setup-b');
     adminA = await mkUser(a, UserRole.ADMIN, true);
@@ -141,6 +144,7 @@ describe('Setup rules (integration)', () => {
     attentionEvents.on(ATTENTION_RECHECK, onRecheck);
     await ds.query(`DELETE FROM alerts WHERE tenant_id = ANY($1::uuid[])`, [[a, b]]);
     await ds.query(`DELETE FROM auth_tokens WHERE tenant_id = ANY($1::uuid[])`, [[a, b]]);
+    await ds.query(`DELETE FROM promotion_runs WHERE tenant_id = ANY($1::uuid[])`, [[a, b]]);
     await ds.query(`DELETE FROM academic_years WHERE tenant_id = ANY($1::uuid[])`, [[a, b]]);
     await ds.query(`UPDATE schools SET onboarding = NULL WHERE id = ANY($1::uuid[])`, [[a, b]]);
   });
@@ -184,6 +188,45 @@ describe('Setup rules (integration)', () => {
     await year(a, '2027', '2027-01-01', '2027-12-31', false);
     await run(yearNext, a);
     expect(await alerts(a, 'year.next_missing')).toEqual([
+      { status: 'RESOLVED', resolved_by_user_id: null },
+    ]);
+  });
+
+  it('year.close_due fires 61 days after the year ends, not 59, not with a DRAFT run, and resolves on close', async () => {
+    // localDate is 2026-10-10: +61 days ago = 2026-08-10, +59 days ago = 2026-08-12.
+    await year(a, 'Old', '2025-01-01', '2026-08-09', false); // ended 62 days ago
+    await year(b, 'Recent', '2025-01-01', '2026-08-12', false); // ended 59 days ago
+    expect((await closeDue.evaluate(ctx(b))).length).toBe(0);
+
+    const [f] = await closeDue.evaluate(ctx(a));
+    expect(f).toMatchObject({ params: { year: 'Old', endDate: '2026-08-09' } });
+    expect(f.actionUrl).toBe('/academic-years/' + f.subject.id);
+    expect(f.recipients).toEqual([{ userId: adminA, role: UserRole.ADMIN }]);
+
+    expect((await run(closeDue, a)).created).toBe(1);
+
+    // A DRAFT promotion run out of that year means the admin is mid-rollover: stay quiet.
+    const yid = f.subject.id;
+    const klass = (
+      await ds.query(
+        `INSERT INTO classes (name, academic_year_id, tenant_id, created_at, updated_at)
+         VALUES ('Six', $1, $2, NOW(), NOW()) RETURNING id`,
+        [yid, a],
+      )
+    )[0].id as string;
+    await ds.query(
+      `INSERT INTO promotion_runs (tenant_id, source_class_id, source_academic_year_id, target_academic_year_id, exam_ids, algorithm, status, created_by_user_id)
+       VALUES ($1, $2, $3, $3, '{}', 'MERIT', 'DRAFT', $4)`,
+      [a, klass, yid, adminA],
+    );
+    expect(await closeDue.evaluate(ctx(a))).toEqual([]);
+    await ds.query(`DELETE FROM promotion_runs WHERE tenant_id = $1`, [a]);
+    await ds.query(`DELETE FROM classes WHERE id = $1`, [klass]);
+
+    // Closing the year resolves the item.
+    await ds.query(`UPDATE academic_years SET closed_at = NOW() WHERE id = $1`, [yid]);
+    await run(closeDue, a);
+    expect(await alerts(a, 'year.close_due')).toEqual([
       { status: 'RESOLVED', resolved_by_user_id: null },
     ]);
   });

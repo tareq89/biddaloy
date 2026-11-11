@@ -159,6 +159,7 @@ export const PERMISSION_GROUPS: readonly { id: string; permissions: readonly Per
       Permission.RESULT_READ,
       Permission.SEAT_PLAN_MANAGE,
       Permission.PROMOTION_MANAGE,
+      Permission.PROMOTION_GROUP_SET,
       Permission.PROMOTION_OVERRIDE,
     ],
   },

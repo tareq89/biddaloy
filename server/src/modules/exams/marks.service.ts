@@ -33,6 +33,7 @@ import { lockExam } from './exam-lock';
 import { lockGrid } from './mark-grid.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 
 /** Postgres unique-violation code — same pattern as exams.service.ts's
  * own `isUniqueViolation`. */
@@ -239,6 +240,7 @@ export class MarksService {
         tenantId,
         wantsRecompute ? 'pessimistic_write' : 'pessimistic_read',
       );
+      await assertYearOpen(manager, tenantId, exam.academic_year_id);
       // A process committed between the unlocked read and this lock: we
       // hold only a shared lock, so we cannot recompute. The autosave
       // retries on 409.

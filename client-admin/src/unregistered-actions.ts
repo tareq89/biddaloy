@@ -41,6 +41,11 @@ export const UNREGISTERED_ACTIONS: readonly UnregisteredAction[] = [
 
 export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   {
+    file: `${R}_staff/academic-years/-set-current-dialog.tsx`,
+    reason:
+      'confirm for one year, opened from that year header or list row; the palette cannot name which year',
+  },
+  {
     file: `${R}_staff/exams/-detail/website-publish-dialog.tsx`,
     reason:
       'confirm for one exam, opened from the exam header button; the palette action `exams.publishWebsite` lands on that exam',
@@ -214,6 +219,11 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
   {
     file: `${R}_staff/promotions/-commit-dialog.tsx`,
     reason: 'Confirm step inside one promotion run',
+  },
+  {
+    file: `${R}_staff/promotions/$runId_.groups.tsx`,
+    reason:
+      'Full page for one promotion run, opened from the run page, the My class card or the attention item (D15); the palette cannot name which run',
   },
   { file: `${R}_staff/routines/-cell-picker.tsx`, reason: 'One cell of one routine grid' },
   { file: `${R}_staff/routines/-change-request-dialog.tsx`, reason: 'One slot of one routine' },

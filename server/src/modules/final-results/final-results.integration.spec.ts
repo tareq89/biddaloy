@@ -616,6 +616,59 @@ describe('FinalResultsService (integration)', () => {
     expect(reopenedRows.every((r) => r.published_at === null)).toBe(true);
   });
 
+  it('[69.3.02] create in a closed year is refused and adds no final result', async () => {
+    await ds.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [YEAR_ID],
+    );
+    try {
+      await expect(
+        service.create({ class_id: CLASS_ID, academic_year_id: YEAR_ID }, TENANT_ID, 'user-1'),
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      expect(await ds.getRepository(FinalResult).count()).toBe(0);
+    } finally {
+      await ds.query(
+        `UPDATE academic_years SET closed_at = NULL, is_current = true WHERE id = $1`,
+        [YEAR_ID],
+      );
+    }
+  });
+
+  it('[69.3.02] a closed year refuses build, edit, publish, reopen and delete', async () => {
+    const { e1, e2 } = await fiveStudentsTwoExams();
+    const final = await finalWith([
+      [e1, '30.00'],
+      [e2, '70.00'],
+    ]);
+    await service.build(final.id, TENANT_ID, 'user-1');
+    await service.publish(final.id, TENANT_ID, 'user-1');
+    const closed = { response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } };
+    const setClosed = (on: boolean) =>
+      ds.query(
+        on
+          ? `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`
+          : `UPDATE academic_years SET closed_at = NULL, is_current = true WHERE id = $1`,
+        [YEAR_ID],
+      );
+    await setClosed(true);
+    try {
+      await expect(service.reopen(final.id, TENANT_ID, 'user-1')).rejects.toMatchObject(closed);
+      await expect(service.build(final.id, TENANT_ID, 'user-1')).rejects.toMatchObject(closed);
+      await expect(
+        service.update(final.id, { rounding: 'TWO_DECIMALS' } as never, TENANT_ID, 'user-1'),
+      ).rejects.toMatchObject(closed);
+      await expect(service.remove(final.id, TENANT_ID, 'user-1')).rejects.toMatchObject(closed);
+      await expect(
+        service.create({ class_id: CLASS_ID, academic_year_id: YEAR_ID }, TENANT_ID, 'user-1'),
+      ).rejects.toMatchObject(closed);
+      expect((await ds.getRepository(FinalResult).findOneByOrFail({ id: final.id })).status).toBe(
+        FinalResultStatus.PUBLISHED,
+      );
+    } finally {
+      await setClosed(false);
+    }
+  });
+
   it('publish snapshots marked days under a MARKED_DAYS school, matching the summary percentage (D27)', async () => {
     attendancePolicy = {
       late_counts_as_present: false,

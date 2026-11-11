@@ -177,6 +177,14 @@
       "archetype": "detail"
     },
     {
+      "path": "/academic-years/$academicYearId/next",
+      "params": {
+        "academicYearId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "wizard"
+    },
+    {
       "path": "/classes",
       "role": "admin",
       "archetype": "list"
@@ -344,6 +352,14 @@
       "role": "admin",
       "archetype": "detail",
       "overlays": ["commit"]
+    },
+    {
+      "path": "/promotions/$runId/groups",
+      "params": {
+        "runId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "list"
     },
     {
       "path": "/grading-scales",

@@ -530,4 +530,130 @@ describe('Academic Years E2E', () => {
       expect(res.body.message).toBe('Requires permission(s): ACADEMIC_STRUCTURE_READ');
     });
   });
+
+  describe('close / reopen / close-preview / readiness [69.3.01]', () => {
+    const API = '/api/v1';
+    const as = (token: string) => ({ Authorization: `Bearer ${token}`, 'X-Tenant-ID': TENANT_ID });
+    let previousEcho: string | undefined;
+
+    beforeAll(() => {
+      // The OTP is only echoed back with this flag (NODE_ENV=test).
+      previousEcho = process.env.ACCOUNT_ACCESS_ECHO_SECRETS;
+      process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
+    });
+    afterAll(() => {
+      if (previousEcho === undefined) delete process.env.ACCOUNT_ACCESS_ECHO_SECRETS;
+      else process.env.ACCOUNT_ACCESS_ECHO_SECRETS = previousEcho;
+    });
+
+    async function approvalToken(): Promise<string> {
+      const scope = 'academic_year.close';
+      const { body } = await supertest(app.getHttpServer())
+        .post(`${API}/auth/step-up/otp/request`)
+        .set(as(adminToken))
+        .send({ identifier: SEED_ADMIN_EMAIL, scope })
+        .expect(202);
+      const verify = await supertest(app.getHttpServer())
+        .post(`${API}/auth/step-up`)
+        .set(as(adminToken))
+        .send({ identifier: SEED_ADMIN_EMAIL, method: 'OTP', otp: body.debug.otp, scope })
+        .expect(200);
+      return verify.body.approval_token;
+    }
+
+    async function newYear(): Promise<string> {
+      const n = Math.floor(Math.random() * 9000) + 1000;
+      const res = await supertest(app.getHttpServer())
+        .post(`${API}/academic-years`)
+        .set(as(adminToken))
+        .send({
+          name: `Close ${n}-${Date.now()}`,
+          start_date: `${n}-01-01`,
+          end_date: `${n}-12-31`,
+        })
+        .expect(201);
+      return res.body.id;
+    }
+
+    it('close without an approval token is 403 APPROVAL_REQUIRED', async () => {
+      const id = await newYear();
+      const res = await supertest(app.getHttpServer())
+        .post(`${API}/academic-years/${id}/close`)
+        .set(as(adminToken))
+        .expect(403);
+      expect(JSON.stringify(res.body)).toContain('APPROVAL_REQUIRED');
+    });
+
+    it('close with approval -> 200, then reopen -> 200', async () => {
+      const id = await newYear();
+      const closed = await supertest(app.getHttpServer())
+        .post(`${API}/academic-years/${id}/close`)
+        .set(as(adminToken))
+        .set('X-Approval-Token', await approvalToken())
+        .expect(200);
+      expect(closed.body.closed_at).toBeTruthy();
+
+      const reopened = await supertest(app.getHttpServer())
+        .post(`${API}/academic-years/${id}/reopen`)
+        .set(as(adminToken))
+        .set('X-Approval-Token', await approvalToken()) // reopen is step-up too; tokens are single-use
+        .expect(200);
+      expect(reopened.body.closed_at).toBeNull();
+    });
+
+    it('close-preview and readiness answer 200 with their shapes', async () => {
+      const id = await newYear();
+      const preview = await supertest(app.getHttpServer())
+        .get(`${API}/academic-years/${id}/close-preview`)
+        .set(as(adminToken))
+        .expect(200);
+      expect(preview.body.blocks).toEqual([]);
+      expect(preview.body.warnings).toHaveLength(5);
+      expect(Array.isArray(preview.body.freezes)).toBe(true);
+
+      const readiness = await supertest(app.getHttpServer())
+        .get(`${API}/academic-years/${id}/readiness`)
+        .set(as(adminToken))
+        .expect(200);
+      expect(readiness.body).toEqual({
+        classes: 0,
+        teacher_assignments: 0,
+        committed_promotion_runs: 0,
+      });
+    });
+
+    it('STUDENT gets 403 on close, reopen, close-preview and readiness', async () => {
+      const id = await newYear();
+      const studentToken = await mintStudentToken();
+      for (const [method, path] of [
+        ['post', 'close'],
+        ['post', 'reopen'],
+        ['get', 'close-preview'],
+        ['get', 'readiness'],
+      ] as const) {
+        await supertest(app.getHttpServer())
+          [method](`${API}/academic-years/${id}/${path}`)
+          .set(as(studentToken))
+          .set('X-Role', UserRole.STUDENT)
+          .expect(403);
+      }
+    });
+
+    it('missing X-Tenant-ID is 401, invalid is 4xx, non-UUID id is 400', async () => {
+      const id = await newYear();
+      await supertest(app.getHttpServer())
+        .get(`${API}/academic-years/${id}/close-preview`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(401);
+      const bad = await supertest(app.getHttpServer())
+        .get(`${API}/academic-years/${id}/close-preview`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', 'not-a-tenant');
+      expect([400, 401, 403, 404]).toContain(bad.status);
+      await supertest(app.getHttpServer())
+        .get(`${API}/academic-years/not-a-uuid/readiness`)
+        .set(as(adminToken))
+        .expect(400);
+    });
+  });
 });

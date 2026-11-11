@@ -1,7 +1,8 @@
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { assertNoLiveDependents } from '../../common/utils/live-dependents';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { Repository, IsNull, In, EntityManager } from 'typeorm';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
@@ -13,7 +14,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
-import { PaymentStatus, AuditAction } from '@biddaloy/shared';
+import { PaymentStatus, AuditAction, FeeType } from '@biddaloy/shared';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
 import {
@@ -86,6 +87,7 @@ export class FeeStructureService {
       if (!academicYear) {
         throw new NotFoundException('Academic year not found');
       }
+      await assertYearOpen(manager, tenantId, dto.academic_year_id);
 
       const repo = manager.getRepository(FeeStructure);
       return repo.save(
@@ -257,6 +259,7 @@ export class FeeStructureService {
       if (!existing) {
         throw new NotFoundException('Fee structure not found');
       }
+      await assertYearOpen(manager, tenantId, existing.academic_year_id);
 
       // `class_id`/`section_id` are now writable on update (they weren't
       // before this ticket) — validate them the same way `create()` does,
@@ -367,6 +370,7 @@ export class FeeStructureService {
       if (!locked) {
         throw new NotFoundException('Fee structure not found');
       }
+      await assertYearOpen(manager, tenantId, locked.academic_year_id);
       await assertNoLiveDependents(manager, FeeStructure, id, {
         code: 'FEE_STRUCTURE_IN_USE',
         message: 'This fee structure is still used by fine rules or schedules. Remove them first.',
@@ -374,6 +378,84 @@ export class FeeStructureService {
       });
       await manager.softDelete(FeeStructure, { id, tenant_id: tenantId });
     });
+  }
+
+  /**
+   * [69.1.07] Year rollover: copy `sourceYearId`'s fee structures into
+   * `targetYearId`. Natural key is `(fee_type, name, class_id, section_id)` with
+   * class/section mapped through the maps (null stays null, D14). A target row
+   * that already has the key is counted `existing` and never touched. A source
+   * row whose class/section has no mapping is `skipped`. `amount` is copied as
+   * stored — no arithmetic. `dryRun` matches identically but writes nothing.
+   * Runs on the caller's transaction `manager`.
+   */
+  async copyStructuresToYear(
+    manager: EntityManager,
+    tenantId: string,
+    sourceYearId: string,
+    targetYearId: string,
+    classMap: Map<string, string>,
+    sectionMap: Map<string, string>,
+    dryRun: boolean,
+  ): Promise<{
+    created: number;
+    existing: number;
+    skipped: { name: string; reason: 'CLASS_NOT_COPIED' | 'SECTION_NOT_COPIED' }[];
+  }> {
+    const key = (t: FeeType, name: string, c: string | null, s: string | null) =>
+      JSON.stringify([t, name, c, s]);
+    const sources = await manager.find(FeeStructure, {
+      where: { tenant_id: tenantId, academic_year_id: sourceYearId, deleted_at: IsNull() },
+      order: { created_at: 'ASC', id: 'ASC' },
+    });
+    const targets = await manager.find(FeeStructure, {
+      where: { tenant_id: tenantId, academic_year_id: targetYearId, deleted_at: IsNull() },
+    });
+    const seen = new Set(targets.map((t) => key(t.fee_type, t.name, t.class_id, t.section_id)));
+    const result = {
+      created: 0,
+      existing: 0,
+      skipped: [] as { name: string; reason: 'CLASS_NOT_COPIED' | 'SECTION_NOT_COPIED' }[],
+    };
+    const toInsert: FeeStructure[] = [];
+    for (const src of sources) {
+      let classId: string | null = null;
+      let sectionId: string | null = null;
+      if (src.class_id) {
+        classId = classMap.get(src.class_id) ?? null;
+        if (!classId) {
+          result.skipped.push({ name: src.name, reason: 'CLASS_NOT_COPIED' });
+          continue;
+        }
+      }
+      if (src.section_id) {
+        sectionId = sectionMap.get(src.section_id) ?? null;
+        if (!sectionId) {
+          result.skipped.push({ name: src.name, reason: 'SECTION_NOT_COPIED' });
+          continue;
+        }
+      }
+      const k = key(src.fee_type, src.name, classId, sectionId);
+      if (seen.has(k)) {
+        result.existing++;
+        continue;
+      }
+      seen.add(k);
+      result.created++;
+      toInsert.push(
+        manager.create(FeeStructure, {
+          fee_type: src.fee_type,
+          name: src.name,
+          amount: src.amount,
+          class_id: classId,
+          section_id: sectionId,
+          academic_year_id: targetYearId,
+          tenant_id: tenantId,
+        }),
+      );
+    }
+    if (!dryRun && toInsert.length) await manager.insert(FeeStructure, toInsert);
+    return result;
   }
 }
 

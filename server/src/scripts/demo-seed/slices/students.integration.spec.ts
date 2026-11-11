@@ -7,6 +7,10 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { AuditService } from '../../../modules/audit/audit.service';
 import { StorageService } from '../../../modules/storage/storage.service';
 import { TenantSettingsCache } from '../../../modules/schools/settings/tenant-settings-cache.service';
+import { YearRolloverService } from '../../../modules/academics/year-rollover.service';
+import { FeeStructureService } from '../../../modules/fees/fees.service';
+import { GradingService } from '../../../modules/grading/grading.service';
+import { AcademicTermsService } from '../../../modules/calendar/academic-terms.service';
 import { PresetApplyService } from '../../../modules/presets/preset-apply.service';
 import { PresetRegistryService } from '../../../modules/presets/preset-registry.service';
 import { AuthTokenService } from '../../../modules/account-access/auth-token.service';
@@ -55,6 +59,10 @@ const q = <T = Record<string, any>>(sql: string, args: unknown[] = []): Promise<
 beforeAll(async () => {
   const module = await createTestModule(ALL_ENTITIES, [
     PresetApplyService,
+    YearRolloverService,
+    FeeStructureService,
+    GradingService,
+    AcademicTermsService,
     PresetRegistryService,
     AuditService,
     AuthTokenService,
@@ -150,6 +158,19 @@ describe('students slice (integration, 4 years, scale 0.1)', () => {
       `SELECT r.status, count(*)::int AS n, count(DISTINCT (r.tenant_id, r.target_academic_year_id))::int AS years
          FROM promotion_runs r JOIN schools s ON s.id = r.tenant_id WHERE ${D} GROUP BY 1`,
     );
+    // [69.4.99] The one open draft: College's lowest class, half its entries without a group.
+    facts.draft = await q(
+      `SELECT r.status, c.numeric_grade AS source_grade, tc.numeric_grade AS target_grade,
+              count(*)::int AS entries,
+              count(*) FILTER (WHERE e.group_name IS NULL)::int AS without_group,
+              (SELECT count(*)::int FROM class_sections t WHERE t.class_id = r.target_class_id
+                AND t.group_name IS NOT NULL) AS target_grouped_sections
+         FROM promotion_runs r JOIN schools s ON s.id = r.tenant_id
+         JOIN classes c ON c.id = r.source_class_id
+         JOIN classes tc ON tc.id = r.target_class_id
+         JOIN promotion_entries e ON e.run_id = r.id
+        WHERE ${D} AND r.status = 'DRAFT' GROUP BY r.id, r.status, c.numeric_grade, tc.numeric_grade`,
+    );
     // Every run, bulk or service-committed, is stamped on its source year's last day, never "today".
     facts.runsOffYearEnd = await q(
       `SELECT r.id FROM promotion_runs r JOIN schools s ON s.id = r.tenant_id
@@ -241,8 +262,17 @@ describe('students slice (integration, 4 years, scale 0.1)', () => {
   it('records promotion runs for the bulk year and for the two committed through the service', () => {
     const committed = facts.runs.find((r: any) => r.status === 'COMMITTED');
     expect(committed.years).toBe(3 * (YEARS - 1)); // 3 branches x one run set per transition
-    expect(facts.runs.find((r: any) => r.status === 'DRAFT')).toBeUndefined();
+    expect(facts.runs.find((r: any) => r.status === 'DRAFT').n).toBe(1);
     expect(facts.runsOffYearEnd).toEqual([]);
+  });
+
+  it('leaves one open draft whose half-ungrouped entries feed promotion.groups_pending (69.4.99)', () => {
+    expect(facts.draft).toHaveLength(1);
+    const [d] = facts.draft;
+    expect(d.target_grade).toBe(d.source_grade + 1);
+    expect(d.target_grouped_sections).toBeGreaterThan(0); // the rule only fires for a grouped target
+    expect(d.entries).toBeGreaterThanOrEqual(2);
+    expect(d.without_group).toBe(Math.floor(d.entries / 2));
   });
 
   it('the D13 guardian is one login with a Guardian row in Primary and in High, same phone and email', () => {

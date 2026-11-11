@@ -730,6 +730,82 @@ describe('RecurringSchedulesService (integration)', () => {
     });
   });
 
+  describe('closed year [69.3.03]', () => {
+    const closedCode = { response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } };
+    const countSchedules = async (): Promise<number> =>
+      Number((await dataSource.query(`SELECT count(*) FROM recurring_schedules`))[0].count);
+
+    it('create, update, remove, addExclusion, removeExclusion and clone refuse (409) and change nothing', async () => {
+      const structureId = await createFeeStructure({ name: `Closed Tuition ${Date.now()}` });
+      const studentId = await createStudent();
+      const body = {
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        name: 'Closed-year schedule',
+        audience: { enrollment_status: 'ACTIVE' },
+        rule: { kind: 'MONTHLY', day_of_month: 5 },
+        fee_structure_ids: [structureId],
+        starts_on: '2026-01-01',
+      } as any;
+      const schedule = await service.create(body, SEED_TENANT_ID, SEED_ADMIN_USER_ID);
+      const closedTargetId = '00000000-0000-4000-8000-000000006761';
+      await dataSource.query(
+        `INSERT INTO academic_years (id, name, start_date, end_date, is_current, closed_at, tenant_id, created_at, updated_at)
+         VALUES ($1, '2035-2036c', '2035-01-01', '2035-12-31', false, now(), $2, NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+        [closedTargetId, SEED_TENANT_ID],
+      );
+      await dataSource.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
+      const before = await countSchedules();
+      try {
+        await expect(
+          service.create({ ...body, name: 'Another' }, SEED_TENANT_ID, SEED_ADMIN_USER_ID),
+        ).rejects.toMatchObject(closedCode);
+        await expect(
+          service.update(
+            schedule.id,
+            { name: 'Renamed' } as any,
+            SEED_TENANT_ID,
+            SEED_ADMIN_USER_ID,
+          ),
+        ).rejects.toMatchObject(closedCode);
+        await expect(
+          service.addExclusion(
+            schedule.id,
+            { student_id: studentId, reason: 'x' } as any,
+            SEED_TENANT_ID,
+            SEED_ADMIN_USER_ID,
+          ),
+        ).rejects.toMatchObject(closedCode);
+        await expect(
+          service.removeExclusion(schedule.id, studentId, SEED_TENANT_ID, SEED_ADMIN_USER_ID),
+        ).rejects.toMatchObject(closedCode);
+        await expect(
+          service.clone(
+            schedule.id,
+            { academic_year_id: closedTargetId } as any,
+            SEED_TENANT_ID,
+            SEED_ADMIN_USER_ID,
+          ),
+        ).rejects.toMatchObject(closedCode);
+        await expect(
+          service.remove(schedule.id, SEED_TENANT_ID, SEED_ADMIN_USER_ID),
+        ).rejects.toMatchObject(closedCode);
+      } finally {
+        await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
+      }
+      expect(await countSchedules()).toBe(before);
+      const [row] = await dataSource.query(
+        `SELECT name, deleted_at FROM recurring_schedules WHERE id = $1`,
+        [schedule.id],
+      );
+      expect(row.name).toBe('Closed-year schedule');
+      expect(row.deleted_at).toBeNull();
+    });
+  });
+
   describe('remove', () => {
     it('soft-deletes a schedule so it no longer resolves via findOne', async () => {
       const structureId = await createFeeStructure({ name: `Removable Tuition ${Date.now()}` });
@@ -823,7 +899,10 @@ describe('RecurringSchedulesService (integration)', () => {
       await service.update(
         id,
         {
-          rule: from === 'MONTHLY' ? { kind: 'WEEKLY', weekdays: [1] } : { kind: 'MONTHLY', day_of_month: 1 },
+          rule:
+            from === 'MONTHLY'
+              ? { kind: 'WEEKLY', weekdays: [1] }
+              : { kind: 'MONTHLY', day_of_month: 1 },
         } as any,
         SEED_TENANT_ID,
         SEED_ADMIN_USER_ID,

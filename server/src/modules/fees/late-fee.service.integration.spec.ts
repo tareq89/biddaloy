@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { DataSource, IsNull, Not } from 'typeorm';
 import { LateFeeService } from './late-fee.service';
 import { FeeStructure } from './entities/fee-structure.entity';
@@ -107,6 +107,10 @@ describe('LateFeeService (integration)', () => {
   // `TRANSACTIONAL_TABLES_CHILD_FIRST` (`test/reset-order.ts`) — the global
   // `beforeEach` truncates them before every test, so they're reseeded
   // here rather than once in `beforeAll`.
+  afterEach(async () => {
+    await ds.query(`UPDATE academic_years SET closed_at = NULL`);
+  });
+
   beforeEach(async () => {
     await ds.getRepository(FeeStructure).save(
       ds.getRepository(FeeStructure).create({
@@ -159,6 +163,25 @@ describe('LateFeeService (integration)', () => {
     const lateFee = lateFeeBills.find((b) => b.fee_structure.fee_type === FeeType.LATE_FEE);
     expect(lateFee).toBeDefined();
     expect(Number(lateFee?.total_amount)).toBe(100);
+  });
+
+  it('[69.3.03] creates no late fee on a bill of a closed year', async () => {
+    await setSettings({
+      MONTHLY_TUITION: { enabled: true, grace_days: 5, kind: DiscountKind.FLAT, value: 100 },
+    });
+    await seedBill('2026-03-01');
+    await ds.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
+
+    await service.applyDue(SEED_TENANT_ID, TODAY);
+
+    const bills = await ds.getRepository(StudentFee).find({ where: { student_id: STUDENT_ID } });
+    expect(bills).toHaveLength(1);
+    expect(
+      await ds.getRepository(FeeStructure).count({ where: { fee_type: FeeType.LATE_FEE } }),
+    ).toBe(0);
   });
 
   // [F-149] A fully discounted bill is still PENDING but owes nothing: no flat late fee on it.

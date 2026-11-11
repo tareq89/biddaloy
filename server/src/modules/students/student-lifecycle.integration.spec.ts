@@ -130,6 +130,47 @@ describe('StudentLifecycleService (integration)', () => {
   });
   const q = (sql: string, params: unknown[] = []) => ds.query(sql, params);
 
+  describe('[69.3.04] closed years (D4, D10)', () => {
+    afterEach(async () => {
+      await q('UPDATE academic_years SET closed_at = NULL');
+    });
+    const close = (id: string) =>
+      q('UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1', [id]);
+
+    it('D10: leave closes only the latest-year ACTIVE row; the older frozen closed-year row is untouched', async () => {
+      const { studentId, enrollmentId: oldRow } = await seedStudent();
+      const [cur] = await q(
+        `INSERT INTO enrollments (student_id, class_id, section_id, academic_year_id, enrollment_status, tenant_id)
+         VALUES ($1, $2, $3, $4, 'ACTIVE', $5) RETURNING id`,
+        [studentId, Y2_CLASS_ID, Y2_SECTION_ID, Y2_ID, SEED_TENANT_ID],
+      );
+      await close(SEED_ACADEMIC_YEAR_ID);
+
+      await service.leave(studentId, leaveDto(), SEED_TENANT_ID, USER, CTX);
+
+      const [o] = await q('SELECT enrollment_status FROM enrollments WHERE id = $1', [oldRow]);
+      const [c] = await q('SELECT enrollment_status FROM enrollments WHERE id = $1', [cur.id]);
+      expect(o.enrollment_status).toBe('ACTIVE');
+      expect(c.enrollment_status).not.toBe('ACTIVE');
+    });
+
+    it('leave is refused 409 when the latest ACTIVE row is in a closed year; nothing written', async () => {
+      const { studentId, enrollmentId } = await seedStudent();
+      await close(SEED_ACADEMIC_YEAR_ID);
+      await expect(
+        service.leave(studentId, leaveDto(), SEED_TENANT_ID, USER, CTX),
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      const [e] = await q('SELECT enrollment_status FROM enrollments WHERE id = $1', [
+        enrollmentId,
+      ]);
+      expect(e.enrollment_status).toBe('ACTIVE');
+      const ev = await q('SELECT 1 FROM student_lifecycle_events WHERE student_id = $1', [
+        studentId,
+      ]);
+      expect(ev).toHaveLength(0);
+    });
+  });
+
   it('leave commits the event and the status change together', async () => {
     const { studentId, enrollmentId } = await seedStudent();
     await service.leave(

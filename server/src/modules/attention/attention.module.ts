@@ -39,6 +39,7 @@ import { AttendanceRulesModule } from './rules/attendance/attendance-rules.modul
 import { PeriodRulesModule } from './rules/period/period-rules.module';
 import { HomeworkRulesModule } from './rules/homework/homework-rules.module';
 import { ClassRulesModule } from './rules/class/class-rules.module';
+import { PromotionRulesModule } from './rules/promotions/promotion-rules.module';
 import { StudyPlanRulesModule } from './rules/study-plan/study-plan-rules.module';
 import { FeesRulesModule } from './rules/fees/fees-rules.module';
 import { ExamsRulesModule } from './rules/exams/exams-rules.module';
@@ -76,6 +77,7 @@ import { BillingRulesModule } from './rules/billing/billing-rules.module';
     PeriodRulesModule,
     HomeworkRulesModule,
     ClassRulesModule,
+    PromotionRulesModule,
     StudyPlanRulesModule,
     FeesRulesModule,
     ExamsRulesModule,

@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { EntityManager, In, IsNull, Repository } from 'typeorm';
@@ -602,6 +603,7 @@ export class StudyPlansService {
     const tenantId = caller.tenantId;
     try {
       return await this.em.transaction(async (manager) => {
+        await assertYearOpen(manager, tenantId, values.academic_year_id); // [69.3.05] D4
         const saved = await manager.getRepository(StudyPlan).save(
           manager.getRepository(StudyPlan).create({
             ...values,
@@ -706,6 +708,7 @@ export class StudyPlansService {
     const markers = plan.exam_markers.filter((m) => keep.has(m.up_to_lesson_id));
 
     const saved = await this.em.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, plan.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(StudyPlan);
       await repo.update(
         { id: plan.id, tenant_id: tenantId },
@@ -770,6 +773,7 @@ export class StudyPlansService {
     const clean = markers.map((m) => ({ exam_id: m.exam_id, up_to_lesson_id: m.up_to_lesson_id }));
 
     const saved = await this.em.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, plan.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(StudyPlan);
       await repo.update({ id: plan.id, tenant_id: tenantId }, { exam_markers: clean });
       await this.auditWrite(
@@ -805,6 +809,7 @@ export class StudyPlansService {
       if (!t) throw badRequest('STUDY_PLAN_OWNER_INVALID', 'Teacher not found.');
     }
     const saved = await this.em.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, plan.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(StudyPlan);
       await repo.update(
         { id: plan.id, tenant_id: tenantId },
@@ -834,6 +839,7 @@ export class StudyPlansService {
       plan.owner_override_teacher_id,
     );
     await this.em.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, plan.academic_year_id); // [69.3.05] D4
       await manager.getRepository(StudyPlan).softDelete({ id: plan.id, tenant_id: tenantId });
       await this.auditWrite(
         AuditAction.DELETE,

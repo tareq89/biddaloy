@@ -69,6 +69,8 @@ export const NOT_IN_NAV: Record<string, string> = {
     '[13.6.1] first-run setup wizard, reached by redirect or the palette, not the sidebar',
   '/_staff/security': 'reached from the account menu, not the sidebar',
   '/_staff/academic-years/$academicYearId': 'detail route reached from the academic years list',
+  '/_staff/academic-years/$academicYearId_/next':
+    '[69.4.03] Create next year wizard, reached from the year list or detail page and the palette',
   '/_staff/attendance/$sectionId': 'detail route reached from the attendance list',
   '/_staff/attendance/import':
     '[76.4.03] full-page wizard opened from the Uploads page button or the palette',
@@ -88,6 +90,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/applications/$applicationId': 'detail page reached from a list row',
   '/_staff/exams/$examId': 'detail route reached from the exams list',
   '/_staff/promotions/$runId': 'detail route reached from the promotions list',
+  '/_staff/promotions/$runId_/groups':
+    'full-page task opened from the run page, the My class card and the attention item (D15), not the menu',
   '/_staff/print-templates/$templateId/edit':
     '[32.4.1] full-screen editor, reached from the print templates library',
   '/_staff/print/committee-report':

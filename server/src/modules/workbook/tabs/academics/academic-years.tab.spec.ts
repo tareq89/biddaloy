@@ -23,6 +23,8 @@ function makeYear(overrides: Partial<AcademicYear> = {}): AcademicYear {
     start_date: new Date(2026, 0, 1),
     end_date: new Date(2026, 11, 31),
     is_current: true,
+    closed_at: null,
+    closed_by_user_id: null,
     tenant_id: TENANT_ID,
     ...overrides,
   } satisfies Partial<AcademicYear>);
@@ -74,6 +76,8 @@ describe('round trip', () => {
         start_date: '2026-01-01',
         end_date: '2026-12-31',
         is_current: true,
+        closed_at: null,
+        closed_by_user_id: null,
       } satisfies AcademicYearRow,
     });
   });
@@ -90,6 +94,8 @@ describe('round trip', () => {
         start_date: '2026-01-01',
         end_date: '2026-12-31',
         is_current: false,
+        closed_at: null,
+        closed_by_user_id: null,
       } satisfies AcademicYearRow,
     });
   });
@@ -125,6 +131,45 @@ describe('round trip', () => {
   });
 });
 
+describe('closed columns [69.1.03]', () => {
+  const CLOSED = new Date('2025-12-31T10:00:00.000Z');
+  const USER_ID = '22222222-2222-4222-8222-222222222222';
+
+  it('exports closed_at and closed_by_user_id', () => {
+    const keys = academicYearsTab.columns.map((c) => c.key);
+    expect(keys).toEqual(expect.arrayContaining(['closed_at', 'closed_by_user_id']));
+    const row = academicYearsTab.toRow(
+      makeYear({ is_current: false, closed_at: CLOSED, closed_by_user_id: USER_ID }),
+      exportCtx,
+    );
+    expect(row.closed_at).toEqual(CLOSED);
+    expect(row.closed_by_user_id).toBe(USER_ID);
+  });
+
+  it('rejects a closed year that is also current (same as the DB CHECK)', () => {
+    const cells = { ...toCells(makeYear({ is_current: true })), closed_at: CLOSED.toISOString() };
+    const result = academicYearsTab.fromRow(cells, 2, importCtx);
+    expect('errors' in result).toBe(true);
+    if (!('errors' in result)) return;
+    expect(result.errors[0].column).toBe('closed_at');
+    // Rule 23: the submitted value is not echoed.
+    expect(result.errors[0].message).not.toContain(CLOSED.toISOString());
+  });
+
+  it('imports a closed non-current year with its closer', () => {
+    const cells = {
+      ...toCells(makeYear({ is_current: false })),
+      closed_at: CLOSED.toISOString(),
+      closed_by_user_id: USER_ID,
+    };
+    const result = academicYearsTab.fromRow(cells, 2, importCtx);
+    expect('row' in result).toBe(true);
+    if (!('row' in result)) return;
+    expect(result.row.closed_at).toBe(CLOSED.toISOString());
+    expect(result.row.closed_by_user_id).toBe(USER_ID);
+  });
+});
+
 describe('diffFields', () => {
   it('reports no changes for an identical row', () => {
     const year = makeYear();
@@ -134,6 +179,8 @@ describe('diffFields', () => {
       start_date: '2026-01-01',
       end_date: '2026-12-31',
       is_current: true,
+      closed_at: null,
+      closed_by_user_id: null,
     };
 
     expect(academicYearsTab.diffFields(row, year)).toEqual([]);
@@ -147,6 +194,8 @@ describe('diffFields', () => {
       start_date: '2026-01-01',
       end_date: '2026-12-31',
       is_current: true,
+      closed_at: null,
+      closed_by_user_id: null,
     };
 
     expect(academicYearsTab.diffFields(row, year)).toEqual(['name']);

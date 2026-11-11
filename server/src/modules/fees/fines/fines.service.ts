@@ -190,6 +190,7 @@ export class FinesService {
       // discount.
       const approval = await this.approvalService.consume(request, ApprovalScope.FEES_DISCOUNT);
 
+      // [69.0] D4: a waiver of an already-issued fine is deliberately NOT year-guarded (like paying it).
       const newOneOffDiscount = round2(Number(bill.one_off_discount_amount) + amount);
       const newDiscount = round2(Number(bill.discount_amount) + amount);
       const newOutstandingPaisa = outstandingPaisa - requestedPaisa;

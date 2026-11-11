@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
@@ -10,6 +10,7 @@ import {
   AuditAction,
   DailyAttendanceSource,
 } from '@biddaloy/shared';
+import { assertDateNotInClosedYear } from '../../common/utils/year-open.guard';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { sectionRosterIdsBySection } from '../enrollments/section-roster';
 import { AuditService } from '../audit/audit.service';
@@ -80,6 +81,16 @@ export class DeviceAbsentSweepScheduler extends WorkerHost implements OnModuleIn
     const timezone = settings.region?.timezone ?? 'UTC';
     const today = localToday(timezone);
     if (await this.schoolCalendarService.isNonWorkingDay({ tenantId, date: today })) return 0;
+
+    // [69.3.06] D12: today inside any closed year (an overlapping open year does not matter)
+    // gets no SYSTEM marks. Quiet skip, decided once per tenant.
+    try {
+      await assertDateNotInClosedYear(this.dataSource.manager, tenantId, today);
+    } catch (err) {
+      if (!(err instanceof ConflictException)) throw err;
+      this.logger.debug(`Device-absent sweep skipped for tenant ${tenantId}: date in closed year`);
+      return 0;
+    }
 
     // Any accepted scan that resolved to a student and HAPPENED today (occurred_at, not ingest
     // time: an offline device uploading yesterday's buffer this morning proves nothing about

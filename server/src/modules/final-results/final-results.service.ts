@@ -80,6 +80,7 @@ import {
   type FinalSettings,
 } from './final-result-rules';
 import type { FinalResultRowsQueryDto, UpdateFinalResultBodyDto } from './dto/final-results.dto';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 
 export type FinalResultListItem = {
   class: { id: string; name: string };
@@ -511,6 +512,7 @@ export class FinalResultsService {
     if (!year) throw new NotFoundException('Academic year not found');
 
     const id = await this.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, year.id);
       const existing = await manager.getRepository(FinalResult).count({
         where: {
           class_id: cls.id,
@@ -650,6 +652,7 @@ export class FinalResultsService {
     await this.find(id, tenantId);
     await this.manager.transaction(async (manager) => {
       const final = await this.lock(manager, id, tenantId);
+      await assertYearOpen(manager, tenantId, final.academic_year_id);
       // A built (PROCESSED) result can still be edited: it drops back to DRAFT and must be rebuilt.
       if (final.status === FinalResultStatus.PUBLISHED) throw finalNotDraft();
 
@@ -761,6 +764,7 @@ export class FinalResultsService {
     await this.find(id, tenantId);
     await this.manager.transaction(async (manager) => {
       const final = await this.lock(manager, id, tenantId);
+      await assertYearOpen(manager, tenantId, final.academic_year_id);
       // Only a published result is protected; a built one is still unseen work in progress.
       if (final.status === FinalResultStatus.PUBLISHED) throw finalNotDraft();
       // [70.3.4] A promotion run ranked on this final (draft or committed) pins it: deleting it
@@ -840,6 +844,7 @@ export class FinalResultsService {
     reopenedExamId: string,
   ): Promise<void> {
     const final = await this.lock(manager, id, tenantId);
+    await assertYearOpen(manager, tenantId, final.academic_year_id);
     if (final.status === FinalResultStatus.PUBLISHED) throw examInPublishedFinal();
     if (final.status !== FinalResultStatus.PROCESSED) return;
     await this.dropRows(manager, id, tenantId);
@@ -867,6 +872,7 @@ export class FinalResultsService {
     pinnedScaleId?: string,
   ): Promise<number> {
     const final = await this.lock(manager, id, tenantId);
+    await assertYearOpen(manager, tenantId, final.academic_year_id);
     if (final.status === FinalResultStatus.PUBLISHED) throw finalPublished();
 
     const weights = await manager
@@ -1265,6 +1271,7 @@ export class FinalResultsService {
 
     await this.manager.transaction(async (manager) => {
       const locked = await this.lock(manager, id, tenantId);
+      await assertYearOpen(manager, tenantId, locked.academic_year_id);
       if (locked.status === FinalResultStatus.PUBLISHED) throw finalPublished();
       if (locked.status !== FinalResultStatus.PROCESSED) throw finalNotProcessed();
 
@@ -1359,6 +1366,7 @@ export class FinalResultsService {
     if (final.status !== FinalResultStatus.PUBLISHED) throw finalNotPublished();
     await this.manager.transaction(async (manager) => {
       const locked = await this.lock(manager, id, tenantId);
+      await assertYearOpen(manager, tenantId, locked.academic_year_id);
       if (locked.status !== FinalResultStatus.PUBLISHED) throw finalNotPublished();
       await manager
         .getRepository(FinalResult)

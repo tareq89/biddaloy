@@ -6,6 +6,7 @@ import {
   UnprocessableEntityException,
   ForbiddenException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, IsNull, Not, EntityManager } from 'typeorm';
 import {
@@ -526,6 +527,10 @@ export class PromotionsService {
       const runRepo = manager.getRepository(PromotionRun);
       const entryRepo = manager.getRepository(PromotionEntry);
 
+      // [69.3.04] Neither the year the students leave nor the one they enter may be closed (D4).
+      await assertYearOpen(manager, tenantId, sourceClass.academic_year_id);
+      await assertYearOpen(manager, tenantId, dto.target_academic_year_id);
+
       const run = await runRepo.save(
         runRepo.create({
           tenant_id: tenantId,
@@ -640,6 +645,7 @@ export class PromotionsService {
         if (run.status !== PromotionRunStatus.DRAFT) {
           throw new ConflictException('Only DRAFT runs can be edited');
         }
+        await assertYearOpen(manager, tenantId, run.source_academic_year_id);
 
         const entries = await entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
         const entryByStudent = new Map(entries.map((e) => [e.student_id, e]));
@@ -763,6 +769,7 @@ export class PromotionsService {
         if (run.status !== PromotionRunStatus.DRAFT) {
           throw new ConflictException('Only DRAFT runs can be refreshed');
         }
+        await assertYearOpen(manager, tenantId, run.source_academic_year_id);
 
         if (run.final_result_id) {
           // The final may have been unpublished since: refuse rather than rank everyone 0.
@@ -890,6 +897,7 @@ export class PromotionsService {
     if (run.status !== PromotionRunStatus.DRAFT) {
       throw new ConflictException('Only DRAFT runs can be deleted');
     }
+    await assertYearOpen(this.runRepo.manager, tenantId, run.source_academic_year_id);
     // B6 — status is part of the DELETE's own WHERE, not just the earlier
     // read: a commit racing this delete between the check above and here
     // would otherwise still get deleted, destroying its enrollment audit
@@ -974,6 +982,10 @@ export class PromotionsService {
       if (run.status === PromotionRunStatus.COMMITTED) {
         throw new ConflictException({ details: { code: 'ALREADY_COMMITTED' } });
       }
+
+      // [69.3.04] A year closed after the run was drafted blocks the commit, either side (D4).
+      await assertYearOpen(manager, tenantId, run.source_academic_year_id);
+      await assertYearOpen(manager, tenantId, run.target_academic_year_id);
 
       // Defence in depth: a year edited after the run was created can no longer be a valid target.
       // Checked against the year the run recorded (its enrollments are what move), with both

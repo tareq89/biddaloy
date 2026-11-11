@@ -40,6 +40,7 @@ describe('/exams/$examId', () => {
     status: 'DRAFT' | 'PROCESSED' | 'PUBLISHED',
     initialEntry = '/exams/exam-1',
     role = 'ADMIN',
+    closedAt: string | null = null,
   ) {
     const exam = examFactory({
       id: 'exam-1',
@@ -53,7 +54,9 @@ describe('/exams/$examId', () => {
     server.use(
       http.get('/api/v1/exams/:id', () => HttpResponse.json(exam)),
       http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
-      http.get('/api/v1/academic-years/:id', () => HttpResponse.json(year)),
+      http.get('/api/v1/academic-years/:id', () =>
+        HttpResponse.json({ ...year, closed_at: closedAt }),
+      ),
       http.get('/api/v1/exams/:examId/results', () => HttpResponse.json([])),
       http.get('/api/v1/exams/:examId/marks/progress', () =>
         HttpResponse.json({ counts: { DRAFT: 2, SUBMITTED: 8 }, outstanding: [] }),
@@ -234,6 +237,27 @@ describe('/exams/$examId', () => {
     expect(within(dialog).queryByText(/raw server text/)).toBeNull();
   });
 
+  it('[69.4.05] a 409 ACADEMIC_YEAR_CLOSED shows the server sentence in the delete dialog', async () => {
+    const user = userEvent.setup();
+    renderExam('DRAFT');
+    server.use(
+      http.delete('/api/v1/exams/:id', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'This academic year is closed.',
+            requestId: 'req-1',
+            details: { code: 'ACADEMIC_YEAR_CLOSED' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const dialog = await openDelete(user);
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(await within(dialog).findByText(/This academic year is closed\./)).toBeTruthy();
+  });
+
   it('hides the Print tab without DOCUMENT_PRINT', async () => {
     grant.only = new Set(['EXAM_MANAGE', 'EXAM_READ']);
     renderExam('PUBLISHED');
@@ -260,6 +284,42 @@ describe('/exams/$examId', () => {
       renderExam('PUBLISHED');
       await screen.findByRole('heading', { name: 'Half Yearly 2026' });
       expect(screen.queryByRole('button', { name: 'Show results on the website' })).toBeNull();
+    });
+  });
+
+  describe('closed year [69.4.05]', () => {
+    /** Names of every header action, inline or in More actions. */
+    async function actionNames() {
+      await screen.findByRole('heading', { name: 'Half Yearly 2026' });
+      const more = screen.queryByRole('button', { name: 'More actions' });
+      if (more) await userEvent.setup().click(more);
+      return [...screen.queryAllByRole('button'), ...screen.queryAllByRole('menuitem')].map((el) =>
+        el.textContent?.trim(),
+      );
+    }
+
+    it('shows the notice and turns Edit and Delete off, with the reason as tooltip', async () => {
+      renderExam('DRAFT', '/exams/exam-1', 'ADMIN', '2026-12-31T00:00:00.000Z');
+
+      expect(await screen.findByText(/2026-2027 is closed/)).toBeTruthy();
+      await actionNames();
+      const off = [...screen.queryAllByRole('button'), ...screen.queryAllByRole('menuitem')].filter(
+        (el) => /^(Edit|Delete)/.test(el.textContent?.trim() ?? ''),
+      );
+      expect(off).toHaveLength(2);
+      for (const el of off) {
+        expect(el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true').toBe(
+          true,
+        );
+        expect(el.getAttribute('title')).toMatch(/This year is closed/);
+      }
+    });
+
+    it('an open year keeps Edit and shows no notice', async () => {
+      renderExam('DRAFT');
+
+      expect(await actionNames()).toContain('Edit');
+      expect(screen.queryByText(/is closed/)).toBeNull();
     });
   });
 });

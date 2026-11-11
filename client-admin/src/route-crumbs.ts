@@ -182,6 +182,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'promotion' } },
     { label: { key: 'promotionRunDetail' }, dynamic: 'entity' },
   ],
+  '/_staff/promotions/$runId_/groups': [
+    { label: { key: 'promotion' } },
+    { label: { key: 'promotionRunDetail' }, dynamic: 'entity' },
+    { label: { key: 'promotionSetGroups' } },
+  ],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/admissions/intakes/': [{ label: { key: 'admissionIntakes' } }],
   '/_staff/admissions/applicants/': [{ label: { key: 'admissionApplicants' } }],
@@ -336,6 +341,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/academic-years/$academicYearId': [
     { label: { entity: 'academicYear' } },
     { label: { entity: 'academicYear' }, dynamic: 'entity' },
+  ],
+  '/_staff/academic-years/$academicYearId_/next': [
+    { label: { entity: 'academicYear' } },
+    { label: { entity: 'academicYear' }, dynamic: 'entity' },
+    { label: { key: 'nextYear' } },
   ],
   '/_staff/classes/$classId': [
     { label: { entity: 'class' } },

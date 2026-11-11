@@ -262,6 +262,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
               rs.notify_families, rs.last_run_period::text AS last_run_period,
               COALESCE(array_agg(rss.fee_structure_id) FILTER (WHERE rss.fee_structure_id IS NOT NULL), '{}') AS fee_structure_ids
          FROM recurring_schedules rs
+         JOIN academic_years ay ON ay.id = rs.academic_year_id AND ay.closed_at IS NULL -- [69.3.03] D4: a closed year's schedule never fires
          LEFT JOIN recurring_schedule_structures rss ON rss.schedule_id = rs.id
         WHERE rs.tenant_id = $1
           AND rs.is_active = true
