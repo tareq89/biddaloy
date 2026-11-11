@@ -208,6 +208,22 @@ describe('FeeGenerationsService (integration)', () => {
       expect(auditRow!.tenant_id).toBe(TENANT_ID);
     });
 
+    it('[69.3.03] refuses a batch for a closed year (409 ACADEMIC_YEAR_CLOSED) and writes nothing', async () => {
+      const before = await generationRepo.count();
+      await dataSource.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
+      try {
+        await expect(
+          dataSource.transaction((m) => service.create({ ...baseInput }, m)),
+        ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      } finally {
+        await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
+      }
+      expect(await generationRepo.count()).toBe(before);
+    });
+
     it('rolls back the batch row if the transaction fails after create()', async () => {
       let batchId: string | undefined;
       await expect(
@@ -448,8 +464,23 @@ describe('FeeGenerationsService (integration)', () => {
     });
 
     it("ignores another tenant's batches", async () => {
+      // [69.3.03] create() asserts the year is open, so the other tenant needs a year of its own.
+      const otherYearId = '00000000-0000-4000-8000-000000000098';
+      await dataSource.query(
+        `INSERT INTO academic_years (id, name, start_date, end_date, tenant_id)
+         VALUES ($1, 'Other 2026', '2026-01-01', '2026-12-31', $2)`,
+        [otherYearId, OTHER_TENANT_ID],
+      );
       await dataSource.transaction((m) =>
-        service.create({ ...baseInput, tenant_id: OTHER_TENANT_ID, period_start: '2026-10-05' }, m),
+        service.create(
+          {
+            ...baseInput,
+            tenant_id: OTHER_TENANT_ID,
+            academic_year_id: otherYearId,
+            period_start: '2026-10-05',
+          },
+          m,
+        ),
       );
       const r = await service.currentPeriodStatus(TENANT_ID, '2026-10-17');
       expect(r.generated).toBe(false);

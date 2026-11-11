@@ -1,3 +1,4 @@
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { assertNoLiveDependents } from '../../common/utils/live-dependents';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -86,6 +87,7 @@ export class FeeStructureService {
       if (!academicYear) {
         throw new NotFoundException('Academic year not found');
       }
+      await assertYearOpen(manager, tenantId, dto.academic_year_id);
 
       const repo = manager.getRepository(FeeStructure);
       return repo.save(
@@ -257,6 +259,7 @@ export class FeeStructureService {
       if (!existing) {
         throw new NotFoundException('Fee structure not found');
       }
+      await assertYearOpen(manager, tenantId, existing.academic_year_id);
 
       // `class_id`/`section_id` are now writable on update (they weren't
       // before this ticket) — validate them the same way `create()` does,
@@ -367,6 +370,7 @@ export class FeeStructureService {
       if (!locked) {
         throw new NotFoundException('Fee structure not found');
       }
+      await assertYearOpen(manager, tenantId, locked.academic_year_id);
       await assertNoLiveDependents(manager, FeeStructure, id, {
         code: 'FEE_STRUCTURE_IN_USE',
         message: 'This fee structure is still used by fine rules or schedules. Remove them first.',

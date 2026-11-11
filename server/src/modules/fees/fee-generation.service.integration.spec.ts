@@ -334,6 +334,35 @@ describe('FeeGenerationService (integration)', () => {
     expect(batch.student_count).toBe(3);
   });
 
+  it('[69.3.03] refuses to generate for a closed year (409 ACADEMIC_YEAR_CLOSED) and writes no bill or batch', async () => {
+    const students = await studentRepo.save([makeStudent()]);
+    const structures = await structureRepo.save([makeStructure()]);
+    await studentFeeRepo.manager.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
+    try {
+      await expect(
+        service.generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-03-01',
+            period_type: PeriodType.MONTH,
+            student_ids: students.map((s) => s.id),
+            fee_structure_ids: structures.map((s) => s.id),
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+    } finally {
+      await studentFeeRepo.manager.query(`UPDATE academic_years SET closed_at = NULL`);
+    }
+    expect(await studentFeeRepo.count()).toBe(0);
+    expect(await feeGenerationRepo.count()).toBe(0);
+  });
+
   // Review r1 #5: a delete that commits while a generation is running must
   // not end with a new bill on the deleted student.
   it('a committed generation with notify_families enqueues one job and rechecks the fee alerts', async () => {

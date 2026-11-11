@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -173,6 +173,10 @@ describe('FeeStructureService (integration)', () => {
     }
   });
 
+  afterEach(async () => {
+    await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
+  });
+
   beforeEach(async () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM payment_allocations');
@@ -269,6 +273,30 @@ describe('FeeStructureService (integration)', () => {
       };
 
       await expect(service.create(dto, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('[69.3.03] refuses create, update and remove on a closed year (409)', async () => {
+      const dto = {
+        fee_type: 'MONTHLY_TUITION' as any,
+        name: 'Closed Year Fee',
+        amount: 1000,
+        class_id: SEED_CLASS_1_ID,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      };
+      const created = await service.create(dto, TENANT_ID);
+      await dataSource.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
+
+      const closedCode = { response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } };
+      await expect(service.create(dto, TENANT_ID)).rejects.toMatchObject(closedCode);
+      await expect(
+        service.update(created.id, { amount: 5 }, TENANT_ID, SEED_ADMIN_USER_ID),
+      ).rejects.toMatchObject(closedCode);
+      await expect(service.remove(created.id, TENANT_ID)).rejects.toMatchObject(closedCode);
+      const rows = await feeRepo.find();
+      expect(rows.map((r) => [r.id, Number(r.amount)])).toEqual([[created.id, 1000]]);
     });
   });
 
