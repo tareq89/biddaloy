@@ -220,6 +220,11 @@ export const PALETTE_ALLOW_LIST: readonly PaletteAllowListEntry[] = [
     file: `${R}_staff/promotions/-commit-dialog.tsx`,
     reason: 'Confirm step inside one promotion run',
   },
+  {
+    file: `${R}_staff/promotions/$runId_.groups.tsx`,
+    reason:
+      'Full page for one promotion run, opened from the run page, the My class card or the attention item (D15); the palette cannot name which run',
+  },
   { file: `${R}_staff/routines/-cell-picker.tsx`, reason: 'One cell of one routine grid' },
   { file: `${R}_staff/routines/-change-request-dialog.tsx`, reason: 'One slot of one routine' },
   { file: `${R}_staff/routines/-fill-assist-dialog.tsx`, reason: 'Inside one routine grid' },

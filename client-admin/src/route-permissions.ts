@@ -180,6 +180,7 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/promotions/': Permission.PROMOTION_MANAGE,
   '/_staff/promotions/new': Permission.PROMOTION_MANAGE,
   '/_staff/promotions/$runId': Permission.PROMOTION_MANAGE,
+  '/_staff/promotions/$runId_/groups': Permission.PROMOTION_GROUP_SET,
   // [21.7.1] Setup screens (shifts, period slots, rooms, routine-wide
   // settings) are all ADMIN-only server-side (`@RequirePermissions
   // (Permission.ROUTINE_MANAGE)` on every write route in

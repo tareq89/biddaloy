@@ -8,6 +8,7 @@ sources:
   - client-admin/src/routes/_staff/promotions/new.tsx
   - client-admin/src/routes/_staff/promotions/$runId.tsx
   - client-admin/src/routes/_staff/promotions/-commit-dialog.tsx
+  - client-admin/src/routes/_staff/promotions/$runId_.groups.tsx
   - client-admin/src/route-permissions.ts
   - client-admin/src/nav-tree.ts
   - server/src/modules/promotions/promotions.controller.ts
@@ -22,6 +23,7 @@ labels:
     promotions:source.*,
     promotions:blocking.*,
     promotions:grid.*,
+    promotions:groups.*,
     promotions:outcome.*,
     promotions:overrideNote,
     nav:items.promotion*,
@@ -73,6 +75,7 @@ The work has two steps. First a **Draft** promotion list is made. Nothing change
   - [Update the list when results or students change](#task-refresh)
   - [Delete a draft list](#task-delete)
   - [Graduate the last class](#task-graduate)
+  - [Set groups for many students at once](#task-groups)
 - [Problems and fixes](#trouble)
 - [Who can do what](#roles)
 - [Learn more](#more)
@@ -217,6 +220,17 @@ Only a draft can be deleted. A **Finalised** list cannot be deleted.
 ### Graduate the last class <a href="#task-graduate" id="task-graduate"></a>
 
 If the new academic year has no class of the next level (for example after Class 10), the form shows **Graduate (no target class)** in place of **Next class**. Then the suggestion for those who passed is **Graduate**, and **Promote on condition** cannot be chosen. The other steps are the same as above. Those who failed are **Retain**, that is, in the same class again in the new year.
+
+### Set groups for many students at once <a href="#task-groups" id="task-groups"></a>
+
+When the next class has groups (for example Science, Arts), every student needs a group before you finalise. A class teacher or an Admin can set them together.
+
+1. Admin: on the draft list press **Set groups**. Class teacher: on **My class**, press **Set groups** on the **Groups pending** card. → The **Set groups** page opens.
+2. Optional: to pick students by marks, set **GPA from** / **GPA up to**, or choose a **Subject** and **Marks at least**. → Only matching students are shown.
+3. Tick the students, or press **Select all matching**. → The number selected is shown at the bottom.
+4. Choose a **Group**, then press **Apply**. → A message says **Group set for N students**.
+
+If the school has no groups yet, the group controls are hidden. Add groups in the school settings first.
 
 ---
 

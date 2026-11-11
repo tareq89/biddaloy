@@ -182,6 +182,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'promotion' } },
     { label: { key: 'promotionRunDetail' }, dynamic: 'entity' },
   ],
+  '/_staff/promotions/$runId_/groups': [
+    { label: { key: 'promotion' } },
+    { label: { key: 'promotionRunDetail' }, dynamic: 'entity' },
+    { label: { key: 'promotionSetGroups' } },
+  ],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/admissions/intakes/': [{ label: { key: 'admissionIntakes' } }],
   '/_staff/admissions/applicants/': [{ label: { key: 'admissionApplicants' } }],

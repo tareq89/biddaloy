@@ -256,6 +256,91 @@ export function useCommitPromotionRun(
   );
 }
 
+/** [69.5.01] One row of `GET /promotions/:id/groups` (`PromotionGroupEntryView`). Hand-typed:
+ * `schema.d.ts` declares that route's 200 body as `never`. `source` null = no result to filter on. */
+export interface PromotionGroupEntry {
+  entry_id: string;
+  student_id: string;
+  student_name: string | null;
+  source_section_id: string | null;
+  source_section_name: string | null;
+  group_name: string | null;
+  result: {
+    gpa: number | null;
+    subjects: { subject_code: string; marks: number; grade: string }[];
+    source: 'FINAL_RESULT' | 'EXAM' | null;
+  };
+}
+
+export interface PromotionGroupEntriesPage {
+  data: PromotionGroupEntry[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/** Server-side filters; `marks_min` needs `subject_code` (the server rejects it alone). */
+export interface PromotionGroupFilters {
+  gpa_min?: number;
+  gpa_max?: number;
+  subject_code?: string;
+  marks_min?: number;
+  page?: number;
+  limit?: number;
+}
+
+export function promotionGroupEntriesQueryOptions(
+  runId: string | undefined,
+  filters: PromotionGroupFilters = {},
+) {
+  return queryOptions({
+    queryKey: [...promotionKeys.detail(runId ?? ''), 'groups', filters] as const,
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<PromotionGroupEntriesPage>(`/promotions/${runId}/groups`, {
+          params: filters,
+          signal,
+        })
+      ).data,
+    enabled: runId !== undefined,
+    placeholderData: (previous) => previous,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function usePromotionGroupEntries(
+  runId: string | undefined,
+  filters: PromotionGroupFilters = {},
+) {
+  return useQuery(promotionGroupEntriesQueryOptions(runId, filters));
+}
+
+export interface SetPromotionGroupsInput {
+  entry_ids: string[];
+  /** `null` clears the group. */
+  group_name: string | null;
+}
+
+/** `PATCH /promotions/:id/groups` (<= 500 ids per call). Never auto-retried; one
+ * `Idempotency-Key` per distinct body. */
+export function useSetPromotionGroups(runId: string) {
+  const queryClient = useQueryClient();
+  const { keyFor, rotate } = useIdempotencyKey();
+  return useMutation({
+    mutationFn: async (input: SetPromotionGroupsInput) =>
+      (
+        await apiClient.patch<unknown>(`/promotions/${runId}/groups`, input, {
+          headers: { 'Idempotency-Key': keyFor(input) },
+        })
+      ).data,
+    onSuccess: () => {
+      rotate();
+      void queryClient.invalidateQueries({ queryKey: promotionKeys.detail(runId) });
+    },
+    retry: false,
+  });
+}
+
 export function studentPromotionOverridesKey(studentId: string | undefined) {
   return ['students', studentId, 'promotion-overrides'] as const;
 }
