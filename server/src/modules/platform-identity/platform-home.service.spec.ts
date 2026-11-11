@@ -5,7 +5,7 @@ describe('PlatformHomeService.id', () => {
   it('caches a hit but never a miss', async () => {
     const findOne = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'school-1' });
     const ds = { getRepository: () => ({ findOne }) };
-    const svc = new PlatformHomeService(ds as never, {} as never);
+    const svc = new PlatformHomeService(ds as never);
 
     expect(await svc.id()).toBeUndefined();
     expect(await svc.id()).toBe('school-1');

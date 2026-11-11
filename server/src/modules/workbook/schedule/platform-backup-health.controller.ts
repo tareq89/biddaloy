@@ -3,31 +3,18 @@ import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Repository } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
-import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
-import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { PlatformSuperAdminGuard } from '../../auth/guards/platform-super-admin.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { PlatformAccessGuard } from '../../platform-identity/platform-access.guard';
 import { SchoolsService } from '../../schools/schools.service';
 import { WorkbookJob, WorkbookJobKind, WorkbookJobStatus } from '../jobs/workbook-job.entity';
 import {
   PlatformBackupHealthResponseDto,
   PlatformSchoolBackupHealthDto,
 } from './dto/platform-backup-health.dto';
-import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.decorator';
 
 /**
- * [14.12.3/#617] `GET /platform/backups/health` — platform SUPER_ADMIN only
- * (`PlatformSuperAdminGuard` is required: `@Roles(SUPER_ADMIN)` alone also
- * admits a tenant-local SUPER_ADMIN). It
- * reads across every school rather than one tenant's data, but it still
- * runs the same guard chain as `SchoolsController` (the other cross-tenant
- * SUPER_ADMIN surface): `ContextGuard` requires *some* `X-Tenant-ID` to
- * build `request.currentTenant` for `RolesGuard`, and never applies that
- * tenant's suspension check to a SUPER_ADMIN (see `ContextGuard`'s own
- * comment) — so the caller's own tenant id is the expected value and has
- * no bearing on which schools this reports. Sending no header is a 401,
- * pinned by the e2e spec.
+ * [14.12.3/#617] `GET /platform/backups/health` — platform owners only (`PlatformAccessGuard`:
+ * a cockpit token, no tenant header; any school token gets 403). It reads across every school
+ * rather than one tenant's data.
  *
  * One row per school: its current `backup.schedule` setting, the most
  * recent EXPORT job's outcome, the most recent *successful* EXPORT's
@@ -50,15 +37,13 @@ import { AuthenticatedOnly } from '../../auth/decorators/authenticated-only.deco
  */
 @ApiTags('platform')
 @Controller('platform/backups')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, PlatformSuperAdminGuard)
-@Roles(UserRole.SUPER_ADMIN)
+@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
 export class PlatformBackupHealthController {
   constructor(
     private readonly schools: SchoolsService,
     @InjectRepository(WorkbookJob) private readonly jobs: Repository<WorkbookJob>,
   ) {}
 
-  @AuthenticatedOnly()
   @Get('health')
   @ApiOperation({
     summary:

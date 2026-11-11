@@ -11,12 +11,11 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { PlatformSuperAdminGuard } from '../auth/guards/platform-super-admin.guard';
+import { PlatformAccessGuard } from '../platform-identity/platform-access.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -27,53 +26,28 @@ import {
   SuggestHolidaysQueryDto,
   UpdateHolidaySetEntriesDto,
 } from './dto/public-holidays.dto';
-import { AuthenticatedOnly } from '../auth/decorators/authenticated-only.decorator';
 
-/**
- * Two unrelated route families share this controller (17.2.4), which is
- * why it carries no fixed `@Controller()` prefix — each method spells its
- * own full path:
- *
- * - `/platform/holiday-sets/*` — SUPER_ADMIN curates one holiday list per
- *   country/year, fetched from an external source (D10: never called from
- *   a tenant route).
- * - `/calendar/public-holidays/*` — a tenant reads the published set for
- *   its own country/year and bulk-adds ticked entries as `HOLIDAY` events
- *   on its own calendar.
- */
+/** `/platform/holiday-sets/*` — platform owners curate one holiday list per country/year (D10). */
 @ApiTags('public-holidays')
 @ApiTenantAuth()
-@Controller()
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-export class PublicHolidaysController {
+@Controller('platform')
+@UseGuards(AuthGuard(['jwt', 'cockpit-jwt']), PlatformAccessGuard)
+export class PlatformHolidaySetsController {
   constructor(private readonly service: PublicHolidaysService) {}
 
-  // -------------------------------------------------------------------
-  // Platform (SUPER_ADMIN)
-  // -------------------------------------------------------------------
-
-  @AuthenticatedOnly()
-  @Get('platform/holiday-sets')
-  @UseGuards(PlatformSuperAdminGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Get('holiday-sets')
   @ApiOperation({ summary: 'List every platform public-holiday set. SUPER_ADMIN only.' })
   async listSets() {
     return this.service.listSets();
   }
 
-  @AuthenticatedOnly()
-  @Get('platform/holiday-sets/:id')
-  @UseGuards(PlatformSuperAdminGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Get('holiday-sets/:id')
   @ApiOperation({ summary: 'Get one platform public-holiday set. SUPER_ADMIN only.' })
   async getSet(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.getSet(id);
   }
 
-  @AuthenticatedOnly()
-  @Post('platform/holiday-sets/fetch')
-  @UseGuards(PlatformSuperAdminGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Post('holiday-sets/fetch')
   @ApiOperation({
     summary:
       'Fetch (or re-fetch) a country/year holiday set from an external source. SUPER_ADMIN only.',
@@ -82,10 +56,7 @@ export class PublicHolidaysController {
     return this.service.fetchIntoSet(dto.country, dto.year, user.sub);
   }
 
-  @AuthenticatedOnly()
-  @Put('platform/holiday-sets/:id/entries')
-  @UseGuards(PlatformSuperAdminGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Put('holiday-sets/:id/entries')
   @ApiOperation({ summary: "Replace a holiday set's entries. SUPER_ADMIN only." })
   async updateEntries(
     @Param('id', ParseUUIDPipe) id: string,
@@ -95,23 +66,30 @@ export class PublicHolidaysController {
     return this.service.updateEntries(id, dto.entries, user.sub);
   }
 
-  @AuthenticatedOnly()
-  @Post('platform/holiday-sets/:id/publish')
-  @UseGuards(PlatformSuperAdminGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Post('holiday-sets/:id/publish')
   @ApiOperation({ summary: 'Publish a holiday set for tenants to import from. SUPER_ADMIN only.' })
   async publish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { sub: string }) {
     return this.service.publish(id, user.sub);
   }
 
-  @AuthenticatedOnly()
-  @Post('platform/holiday-sets/:id/unpublish')
-  @UseGuards(PlatformSuperAdminGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Post('holiday-sets/:id/unpublish')
   @ApiOperation({ summary: 'Unpublish a holiday set. SUPER_ADMIN only.' })
   async unpublish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { sub: string }) {
     return this.service.unpublish(id, user.sub);
   }
+}
+
+/**
+ * `/calendar/public-holidays/*` — a tenant reads the published set for
+ *   its own country/year and bulk-adds ticked entries as `HOLIDAY` events
+ *   on its own calendar.
+ */
+@ApiTags('public-holidays')
+@ApiTenantAuth()
+@Controller()
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+export class PublicHolidaysController {
+  constructor(private readonly service: PublicHolidaysService) {}
 
   // -------------------------------------------------------------------
   // Tenant

@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiForbiddenResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -100,13 +91,6 @@ export class SchoolsController {
     @Req() request: Request,
   ) {
     assertCanManageSchool(tenant, id);
-    return this.schools.updateSettings(
-      id,
-      dto,
-      user.sub,
-      requestContext(request),
-      // The platform's own SUPER_ADMIN only: a legacy tenant-local SUPER_ADMIN row also has the role.
-      (request as Request & { isPlatformSuperAdmin?: boolean }).isPlatformSuperAdmin === true,
-    );
+    return this.schools.updateSettings(id, dto, user.sub, requestContext(request));
   }
 }

@@ -14,11 +14,7 @@ import { buildFullPath, RequestMethodName } from '@test/helpers/route-path.helpe
  * today's (2026-11-10) exceptions; Wave 3's route-move ticket empties it.
  */
 
-const PLATFORM_GUARD_NAMES = new Set([
-  'PlatformSuperAdminGuard',
-  'PlatformAdminGuard',
-  'PlatformAccessGuard',
-]);
+const PLATFORM_GUARD_NAMES = new Set(['PlatformAdminGuard', 'PlatformAccessGuard']);
 
 /** "METHOD /full/path" of platform-guarded routes that sit outside `platform/`. */
 const ALLOWED_OUTSIDE: string[] = [

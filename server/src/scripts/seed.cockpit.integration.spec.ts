@@ -17,13 +17,12 @@ describe('ensureDevCockpitOwner (integration)', () => {
   let mfa: MfaService;
   let home: PlatformHomeService;
   let userId: string;
-  const noPlatformSchool = { configuredPlatformTenantId: () => undefined };
 
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, []);
     ds = module.get<DataSource>(getDataSourceToken());
     mfa = new MfaService(ds, new EncryptionService(randomBytes(32)));
-    home = new PlatformHomeService(ds, noPlatformSchool as never);
+    home = new PlatformHomeService(ds);
     await ds.query(`UPDATE schools SET is_platform = false WHERE is_platform`);
     await ds.query(`DELETE FROM users WHERE email = $1`, [DEV_COCKPIT_OWNER_EMAIL]);
     [{ id: userId }] = await ds.query(

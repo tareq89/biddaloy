@@ -51,7 +51,7 @@ export class PlatformBkashRefundDueRule implements AttentionRuleShape {
         ORDER BY p.created_at`,
     );
     if (!rows.length) return [];
-    const recipients = await platformRecipients(this.dataSource, pid);
+    const recipients = await platformRecipients(this.dataSource);
     if (!recipients.length) return [];
     const refs = rows.slice(0, 3).map((r) => r.ref);
     return [

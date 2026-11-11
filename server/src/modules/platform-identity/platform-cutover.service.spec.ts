@@ -38,7 +38,7 @@ describe('PlatformCutoverService (no database)', () => {
   });
 
   it('skips without writing anything when no platform school resolves', async () => {
-    // done? no; owners? yes; platformSchoolIds() => [] (production without PLATFORM_TENANT_ID)
+    // done? no; owners? yes; platformSchoolIds() => [] (no `is_platform` school yet)
     const { svc, transaction } = build([[], [{ n: 2 }]]);
     expect(await svc.run()).toBeNull();
     expect(transaction).not.toHaveBeenCalled();
