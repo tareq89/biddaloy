@@ -161,18 +161,19 @@ export class PlatformApprovalsService {
 
   /** Another active owner approves or denies. One conditional UPDATE from PENDING. */
   async decide(id: string, approverId: string, decision: 'approve' | 'deny'): Promise<void> {
-    const approver = (await this.owners.listOwners()).find((o) => o.user_id === approverId);
-    if (!approver || approver.status !== UserStatus.ACTIVE) {
-      throw new ConflictException(DECIDE_REFUSED);
-    }
     const next = decision === 'approve' ? 'GRANTED' : 'DENIED';
-    const res = await this.ds.query(
-      `UPDATE platform_approvals SET status = $2, decided_by = $3, decided_at = now()
-       WHERE id = $1 AND status = 'PENDING' AND requested_by <> $3 AND expires_at > now()
-       RETURNING scope, requested_by`,
-      [id, next, approverId],
-    );
-    const [row] = rowsOf(res) as { scope: string; requested_by: string }[];
+    // The approver's status is read under the owner-row share lock and the UPDATE commits in the
+    // same transaction, so an owner lock either lands first (refused) or waits for this decision.
+    const row = await this.ds.transaction(async (em) => {
+      if (!(await this.owners.activeOwnerIds(em)).includes(approverId)) return undefined;
+      const res = await em.query(
+        `UPDATE platform_approvals SET status = $2, decided_by = $3, decided_at = now()
+         WHERE id = $1 AND status = 'PENDING' AND requested_by <> $3 AND expires_at > now()
+         RETURNING scope, requested_by`,
+        [id, next, approverId],
+      );
+      return (rowsOf(res) as { scope: string; requested_by: string }[])[0];
+    });
     if (!row) throw new ConflictException(DECIDE_REFUSED);
     await this.audit.record({
       action:

@@ -20,7 +20,7 @@ describe('PlatformSettingsController', () => {
 
   beforeEach(() => {
     settings = { get: vi.fn().mockResolvedValue(true), set: vi.fn().mockResolvedValue(undefined) };
-    owners = { countActive: vi.fn().mockResolvedValue(2) };
+    owners = { activeOwnerIds: vi.fn().mockResolvedValue(['u1', 'u2']) };
     approvals = {
       request: vi.fn().mockResolvedValue({ id: 'req-1' }),
       consume: vi.fn().mockResolvedValue(true),
@@ -71,7 +71,7 @@ describe('PlatformSettingsController', () => {
   });
 
   it('OFF with one owner locked needs only the step-up token', async () => {
-    owners.countActive.mockResolvedValue(1);
+    owners.activeOwnerIds.mockResolvedValue(['u1']);
     expect(await controller.update({ enabled: false }, req())).toEqual({ enabled: false });
     expect(approvals.request).not.toHaveBeenCalled();
   });

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { UserStatus } from '@biddaloy/shared';
 import { PlatformAdmin } from './entities/platform-admin.entity';
 
@@ -39,7 +39,23 @@ export class PlatformAdminService {
     }));
   }
 
-  async countActive(): Promise<number> {
-    return this.admins.count({ where: { user: { status: UserStatus.ACTIVE } } });
+  /**
+   * Ids of the ACTIVE owners, read after a share lock on every owner row. A lock or unlock in
+   * flight holds those rows FOR UPDATE (platform-owners.service.ts), so it commits first and this
+   * never answers with the state from before it. Same row order as lock(), so no deadlock. Pass
+   * `em` to keep the lock until that transaction's own write commits.
+   */
+  async activeOwnerIds(em?: EntityManager): Promise<string[]> {
+    const read = async (m: EntityManager) => {
+      await m.query(`SELECT 1 FROM platform_admins ORDER BY user_id FOR SHARE`);
+      // A second statement: under READ COMMITTED it sees what the lock it waited on committed.
+      const rows: { user_id: string }[] = await m.query(
+        `SELECT pa.user_id FROM platform_admins pa JOIN users u ON u.id = pa.user_id
+          WHERE u.status = $1 ORDER BY pa.user_id`,
+        [UserStatus.ACTIVE],
+      );
+      return rows.map((r) => r.user_id);
+    };
+    return em ? read(em) : this.admins.manager.transaction(read);
   }
 }

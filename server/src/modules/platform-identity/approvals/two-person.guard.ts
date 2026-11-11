@@ -53,7 +53,14 @@ export class TwoPersonGuard implements CanActivate {
     if (!actorId) throw new ForbiddenException('This area is for platform owners only');
 
     const enabled = (await this.settings.get(APPROVALS_ENABLED_KEY)) !== false;
-    if (!enabled || (await this.owners.countActive()) < 2) return;
+    if (!enabled) return;
+    // Read after any owner lock in flight: a requester locked meanwhile is refused here, instead
+    // of slipping through because the active count just fell to one.
+    // ponytail: the handler's own write runs after this check; a lock that lands in that gap is
+    // the same window every request has between its auth check and its write.
+    const active = await this.owners.activeOwnerIds();
+    if (!active.includes(actorId)) throw new ForbiddenException('This area is for platform owners only');
+    if (active.length < 2) return;
 
     const payload = {
       method: req.method as string,

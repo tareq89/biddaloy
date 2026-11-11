@@ -1,4 +1,11 @@
-import { HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AuditAction, CommunicationMedium, UserStatus } from '@biddaloy/shared';
@@ -15,6 +22,8 @@ import {
 } from './dto/platform-owners.dto';
 
 const OWNER_NOT_FOUND = 'Owner not found.';
+/** Same sentence as PlatformAdminGuard: the actor is no longer an active owner. */
+const NOT_AN_OWNER = 'This area is for platform owners only';
 
 /** 409 with a stable `details.code` the UI can switch on (same shape as ApprovalRequiredException). */
 function conflict(message: string, code: string): never {
@@ -110,6 +119,10 @@ export class PlatformOwnersService {
         (a) => a.user_id !== targetId && a.status === UserStatus.ACTIVE,
       );
       if (othersActive.length === 0) conflict('This is the last active owner.', 'LAST_OWNER');
+      // Rechecked under the lock: an actor locked while this request waited cannot lock anyone.
+      // After LAST_OWNER on purpose, so a mutual lock of two owners still answers 409 to the loser.
+      const actor = admins.find((x) => x.user_id === actorId);
+      if (actor?.status !== UserStatus.ACTIVE) throw new ForbiddenException(NOT_AN_OWNER);
 
       await em.query(`UPDATE users SET status = 'SUSPENDED' WHERE id = $1`, [targetId]);
       await em.query(
@@ -128,6 +141,14 @@ export class PlatformOwnersService {
   async unlock(actorId: string, targetId: string): Promise<void> {
     if (actorId === targetId) conflict('You cannot unlock yourself.', 'CANNOT_UNLOCK_SELF');
     await this.ds.transaction(async (em) => {
+      // Same lock as lock(), then a fresh read: a locked actor cannot unlock anyone.
+      await em.query(`SELECT 1 FROM platform_admins ORDER BY user_id FOR UPDATE`);
+      const actor: { status: string }[] = await em.query(
+        `SELECT u.status FROM platform_admins pa JOIN users u ON u.id = pa.user_id
+          WHERE pa.user_id = $1`,
+        [actorId],
+      );
+      if (actor[0]?.status !== UserStatus.ACTIVE) throw new ForbiddenException(NOT_AN_OWNER);
       const res = await em.query(
         `UPDATE users SET status = 'ACTIVE'
           WHERE id = $1 AND status = 'SUSPENDED'

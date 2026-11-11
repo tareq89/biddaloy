@@ -33,10 +33,18 @@ describe('PlatformAdminService', () => {
     ]);
   });
 
-  it('countActive counts only ACTIVE users', async () => {
-    const count = vi.fn().mockResolvedValue(1);
-    const svc = new PlatformAdminService({ count } as never);
-    expect(await svc.countActive()).toBe(1);
-    expect(count).toHaveBeenCalledWith({ where: { user: { status: UserStatus.ACTIVE } } });
+  it('activeOwnerIds share-locks every owner row before reading ACTIVE owners', async () => {
+    const query = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([{ user_id: 'u1' }]);
+    const em = { query };
+    const transaction = vi.fn(async (work: (m: unknown) => unknown) => work(em));
+    const svc = new PlatformAdminService({ manager: { transaction } } as never);
+    expect(await svc.activeOwnerIds()).toEqual(['u1']);
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(query.mock.calls[0][0]).toMatch(/FROM platform_admins ORDER BY user_id FOR SHARE/);
+    expect(query.mock.calls[1][1]).toEqual([UserStatus.ACTIVE]);
+    // With a caller's transaction it uses that one.
+    query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    expect(await svc.activeOwnerIds(em as never)).toEqual([]);
+    expect(transaction).toHaveBeenCalledTimes(1);
   });
 });

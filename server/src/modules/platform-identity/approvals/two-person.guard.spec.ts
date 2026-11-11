@@ -42,7 +42,7 @@ describe('TwoPersonGuard', () => {
 
   beforeEach(() => {
     settings = { get: vi.fn().mockResolvedValue(true) };
-    owners = { countActive: vi.fn().mockResolvedValue(2) };
+    owners = { activeOwnerIds: vi.fn().mockResolvedValue(['u1', 'u2']) };
     approvals = {
       request: vi.fn().mockResolvedValue({ id: 'req-1' }),
       consume: vi.fn().mockResolvedValue(true),
@@ -63,8 +63,15 @@ describe('TwoPersonGuard', () => {
   });
 
   it('is off when only one owner is active (a locked owner never blocks the other)', async () => {
-    owners.countActive.mockResolvedValue(1);
+    owners.activeOwnerIds.mockResolvedValue(['u1']);
     expect(await run(req())).toBe(true);
+  });
+
+  it('a requester locked while the request was in flight is refused, not let through', async () => {
+    owners.activeOwnerIds.mockResolvedValue(['u2']); // u1 was just locked; one owner is left
+    await expect(run(req())).rejects.toMatchObject({ status: 403 });
+    expect(approvals.request).not.toHaveBeenCalled();
+    expect(approvals.consume).not.toHaveBeenCalled();
   });
 
   it('without a header it files a request and answers 403 APPROVAL_REQUESTED', async () => {
