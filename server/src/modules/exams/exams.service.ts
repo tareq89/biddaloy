@@ -23,6 +23,7 @@ import { CreateExamDto, UpdateExamDto, QueryExamDto } from './dto/exams.dto';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { assertNoLiveDependents } from '../../common/utils/live-dependents';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 
 /** Postgres unique-violation code — used to turn a race-condition insert
  * conflict into a 409 instead of letting it fall through to a raw 500. */
@@ -126,6 +127,7 @@ export class ExamsService {
 
     try {
       return await this.repo.manager.transaction(async (manager) => {
+        await assertYearOpen(manager, tenantId, dto.academic_year_id);
         const repo = manager.getRepository(Exam);
         const entity = repo.create({
           name: dto.name,
@@ -346,6 +348,11 @@ export class ExamsService {
       try {
         await this.repo.manager.transaction(async (manager) => {
           const locked = await lockExam(manager, id, tenantId);
+          // [69.3.02] The exam's year, and the year it is being moved into, must both be open.
+          await assertYearOpen(manager, tenantId, locked.academic_year_id);
+          if (dto.academic_year_id && dto.academic_year_id !== locked.academic_year_id) {
+            await assertYearOpen(manager, tenantId, dto.academic_year_id);
+          }
           if (locked.status === ExamStatus.PUBLISHED && changesReadings(locked)) {
             throw examPublished();
           }
@@ -409,7 +416,8 @@ export class ExamsService {
     const existing = await this.findOne(id, tenantId);
 
     await this.repo.manager.transaction(async (manager) => {
-      await lockExam(manager, id, tenantId);
+      const locked = await lockExam(manager, id, tenantId);
+      await assertYearOpen(manager, tenantId, locked.academic_year_id);
       const liveResults = await manager
         .getRepository(Result)
         .count({ where: { exam_id: id, tenant_id: tenantId, deleted_at: IsNull() } });

@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+vi.mock('../../common/utils/year-open.guard', () => ({
+  assertYearOpen: vi.fn(async () => undefined),
+}));
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -10,6 +13,8 @@ import { AuditService } from '../audit/audit.service';
 import { ExamComponentKind, ExamComponentSource, ExamStatus } from '@biddaloy/shared';
 import { ResultsService } from './results.service';
 import { Mark } from './entities/mark.entity';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { yearClosed } from '../../common/filters/known-errors';
 
 /**
  * Unit tests for 19.3.1's `ExamComponentsService`: component validation
@@ -400,6 +405,23 @@ describe('ExamComponentsService published/processed guard (ACAD-05)', () => {
     componentRepo.findOne = vi.fn(async () => component({ id: 'c1' }));
     await expect(call(service)).rejects.toMatchObject({
       response: { details: { code: 'EXAM_PUBLISHED' } },
+    });
+    expect(componentRepo.save).not.toHaveBeenCalled();
+    expect(componentRepo.update).not.toHaveBeenCalled();
+    expect(componentRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['create', (s: ExamComponentsService) => s.create('exam-1', createDto, TENANT_ID)],
+    ['update', (s: ExamComponentsService) => s.update('exam-1', 'c1', { name: 'X' }, TENANT_ID)],
+    ['remove', (s: ExamComponentsService) => s.remove('exam-1', 'c1', TENANT_ID)],
+    ['copy', (s: ExamComponentsService) => s.copy('exam-1', copyDto, TENANT_ID)],
+  ])('[69.3.02] %s in a closed year is a 409 before any write', async (_n, call) => {
+    const { service, componentRepo } = await buildService();
+    componentRepo.findOne = vi.fn(async () => component({ id: 'c1' }));
+    vi.mocked(assertYearOpen).mockRejectedValueOnce(yearClosed());
+    await expect(call(service)).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
     });
     expect(componentRepo.save).not.toHaveBeenCalled();
     expect(componentRepo.update).not.toHaveBeenCalled();

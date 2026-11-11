@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+vi.mock('../../common/utils/year-open.guard', () => ({
+  assertYearOpen: vi.fn(async () => undefined),
+}));
 import {
   BadRequestException,
   ConflictException,
@@ -26,6 +29,8 @@ import {
   UserRole,
 } from '@biddaloy/shared';
 import { QueryFailedError } from 'typeorm';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { yearClosed } from '../../common/filters/known-errors';
 
 const TENANT_ID = 'tenant-1';
 const EXAM_ID = 'exam-1';
@@ -191,6 +196,24 @@ describe('MarksService.upsertBatch', () => {
         saved_at: expect.any(Date),
       },
     ]);
+  });
+
+  it('[69.3.02] a mark save in a closed year is a 409 before any write', async () => {
+    const { service, markRepo, auditService } = await buildService();
+    vi.mocked(assertYearOpen).mockRejectedValueOnce(yearClosed());
+    await expect(
+      service.upsertBatch(
+        EXAM_ID,
+        batchDto([
+          { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+        ]),
+        TENANT_ID,
+        UserRole.TEACHER,
+        'user-1',
+      ),
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+    expect(auditService.record).not.toHaveBeenCalled();
+    expect(markRepo.save).not.toHaveBeenCalled();
   });
 
   it('records the write source in the audit new_values (default GRID, SHEET when told)', async () => {

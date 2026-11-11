@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('../../common/utils/year-open.guard', () => ({
+  assertYearOpen: vi.fn(async () => undefined),
+}));
 import { FinalResultMode, FinalResultStatus, ExamStatus } from '@biddaloy/shared';
 import { FinalResultsService, equalShares } from './final-results.service';
 import { FinalResult } from './entities/final-result.entity';
@@ -8,6 +11,8 @@ import { Exam } from '../exams/entities/exam.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { GradingBand } from '../grading/entities/grading-band.entity';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { yearClosed } from '../../common/filters/known-errors';
 
 /**
  * [70.2.1] Lifecycle and refusal rules of `FinalResultsService`, on fake repositories.
@@ -111,6 +116,19 @@ describe('FinalResultsService refusals', () => {
       ctx.service.update(FINAL_ID, { rounding: 'WHOLE' } as any, TENANT, 'u1'),
     ).rejects.toMatchObject(code('FINAL_NOT_DRAFT'));
     expect(ctx.finalRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('[69.3.02] PATCH and DELETE in a closed year are a 409 before any write', async () => {
+    vi.mocked(assertYearOpen).mockRejectedValueOnce(yearClosed());
+    await expect(
+      ctx.service.update(FINAL_ID, { rounding: 'WHOLE' } as any, TENANT, 'u1'),
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+    vi.mocked(assertYearOpen).mockRejectedValueOnce(yearClosed());
+    await expect(ctx.service.remove(FINAL_ID, TENANT, 'u1')).rejects.toMatchObject({
+      response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+    });
+    expect(ctx.finalRepo.update).not.toHaveBeenCalled();
+    expect(ctx.finalRepo.softDelete).not.toHaveBeenCalled();
   });
 
   it('DELETE is refused once the final result is published', async () => {
