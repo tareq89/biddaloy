@@ -15,6 +15,7 @@ import { CockpitAuthService } from './cockpit-auth.service';
 import { CockpitDeviceService } from './cockpit-device.service';
 import { CockpitEnrolController } from './cockpit-enrol.controller';
 import { CockpitEnrolService } from './cockpit-enrol.service';
+import { CockpitMfaController } from './cockpit-mfa.controller';
 import { CockpitPasswordController } from './cockpit-password.controller';
 import { CockpitPasswordService } from './cockpit-password.service';
 import { CockpitSessionController } from './cockpit-session.controller';
@@ -40,6 +41,7 @@ import { CockpitStepTokens } from './cockpit-step-token';
     CockpitAuthController,
     CockpitEnrolController,
     CockpitPasswordController,
+    CockpitMfaController,
   ],
   providers: [
     CockpitSessionService,

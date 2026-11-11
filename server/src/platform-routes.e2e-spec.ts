@@ -26,6 +26,8 @@ const ALLOWED_OUTSIDE: string[] = [
   'POST /auth/cockpit/logout-all',
   'GET /auth/cockpit/sessions',
   'DELETE /auth/cockpit/sessions/:id',
+  'GET /auth/cockpit/mfa-status',
+  'POST /auth/cockpit/recovery-codes',
 ];
 
 const guardName = (guard: unknown): string =>
