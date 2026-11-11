@@ -32,10 +32,7 @@ test('year rollover: wizard and close dialog', async ({ browser }, info) => {
   await admin.setViewportSize({ width: 1440, height: 1000 });
 
   await step('academic-years-04', async () => {
-    await go(admin, '/academic-years');
-    await admin.waitForTimeout(2000);
-    await admin.locator('main tbody tr').first().getByRole('link').first().click();
-    await admin.waitForTimeout(2500);
+    await openClosableYear(admin);
     await admin.getByRole('button', { name: tr('academicYears', 'nextYear.fromThisOne') }).click();
     await admin.getByRole('button', { name: tr('academicYears', 'nextYear.next') }).click();
     await admin.waitForTimeout(3000);

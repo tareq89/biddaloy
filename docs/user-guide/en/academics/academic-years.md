@@ -65,7 +65,7 @@ Add academic years, set which one is running now, arrange the terms of a year, a
 
 Almost everything in the school lives inside an academic year: [classes](classes.md), fee structures, admissions, exams. Only one year is **current** at a time. When you create a new class or view a list, the app usually picks the current year first. So when a new year begins, remember to make it the current one.
 
-[Add an academic year](#task-main) · [Set the current year](#task-current) · [Arrange terms](#task-terms) · [Create next year](#task-next) · [Close a year](#task-close) · \1 · [Problems and fixes](#trouble)
+[Add an academic year](#task-main) · [Set the current year](#task-current) · [Arrange terms](#task-terms) · [Create next year](#task-next) · [Close a year](#task-close) · [Reopen a year](#task-reopen) · [Problems and fixes](#trouble)
 
 **On this page**
 
@@ -203,11 +203,11 @@ flowchart LR
 
 6. Under **Also copy from 2026-2027:** press what you need. **Class routine** opens the routine review page, **Calendar** opens the calendar copy, **Fine rules** opens a small window, and **Recurring fee schedules** opens the fee schedules page. Then press **Next: check fee amounts on Fee structures** to look at the new fees, or **Go to the new year**.
 
-| You pressed                    | What happens                                                         | Saved?              |
-| ------------------------------ | -------------------------------------------------------------------- | ------------------- |
-| **Create year**                | The new year and the ticked things are made, all together            | Yes                 |
-| **Back** (on the second step)  | Returns to the name and dates; nothing is made                       | No                  |
-| **Back** (on the first step), or the close mark | Leaves the page; nothing is made                    | No                  |
+| You pressed                                     | What happens                                              | Saved? |
+| ----------------------------------------------- | --------------------------------------------------------- | ------ |
+| **Create year**                                 | The new year and the ticked things are made, all together | Yes    |
+| **Back** (on the second step)                   | Returns to the name and dates; nothing is made            | No     |
+| **Back** (on the first step), or the close mark | Leaves the page; nothing is made                          | No     |
 
 You can run it again for the same new year. **Already there** things are never changed or duplicated. After this, [make the new year current](#task-current) when its first day comes.
 
@@ -217,11 +217,11 @@ When you press **Set as current** (see [Change the current academic year](#task-
 
 > **Classes: 12 · Teacher assignments: 40 · Promotions committed: 1**
 
-| Number                      | What to check                                                                                   |
-| --------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Classes**                 | The classes of the new year are there                                                           |
-| **Teacher assignments**     | Teachers are given their subjects and sections                                                  |
-| **Promotions committed**    | How many [promotion lists](../exams-results/promotion.md) were finalised into this year         |
+| Number                   | What to check                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| **Classes**              | The classes of the new year are there                                                   |
+| **Teacher assignments**  | Teachers are given their subjects and sections                                          |
+| **Promotions committed** | How many [promotion lists](../exams-results/promotion.md) were finalised into this year |
 
 If **Teacher assignments** is 0, a yellow note says **Teachers will see no students until assignments exist in this year.** It is only a warning. You can still press **Set as current**; teachers will then see no students until assignments are added.
 
@@ -335,14 +335,14 @@ Press the year's name in the list, or **View**, to open its page. At the top are
 | **Failed to save term**                                                                                                          | Check the internet and try again.                                                                        | Admin        |
 | **Could not change the order**                                                                                                   | Reload the page and press the arrow again.                                                               | Admin        |
 | A new class or a list shows the old year                                                                                         | [Set the new year as current](#task-current).                                                            | Admin        |
-| **Nothing was created. Try again.** | Check the internet and press **Create year** again. Nothing half-made is left behind. | Admin |
-| **Tick at least one thing to copy.** | Tick at least one box on the **What will be copied** step. | Admin |
-| A teacher is under **Teachers left out** | The new year has no matching section. Add the section, then [create next year](#task-next) again. | Admin |
-| **Create next year** is not on a year | That year is closed. [Reopen it](#task-reopen) first. | Admin |
-| **Close year** is not on a year | A current year cannot be closed. [Make another year current](#task-current) first. | Admin |
-| **A promotion draft is still open for this year. …** | Press **Open promotions**, then [finalise or delete the draft](../exams-results/promotion.md). | Admin |
-| **Could not close the year** or **Could not reopen the year** | Check the internet and the approval window, then try again. | Admin |
-| **This year is closed. Reopen it on Academic years to change this.** | [Reopen the year](#task-reopen) if the change is needed. | Admin |
+| **Nothing was created. Try again.**                                                                                              | Check the internet and press **Create year** again. Nothing half-made is left behind.                    | Admin        |
+| **Tick at least one thing to copy.**                                                                                             | Tick at least one box on the **What will be copied** step.                                               | Admin        |
+| A teacher is under **Teachers left out**                                                                                         | The new year has no matching section. Add the section, then [create next year](#task-next) again.        | Admin        |
+| **Create next year** is not on a year                                                                                            | That year is closed. [Reopen it](#task-reopen) first.                                                    | Admin        |
+| **Close year** is not on a year                                                                                                  | A current year cannot be closed. [Make another year current](#task-current) first.                       | Admin        |
+| **A promotion draft is still open for this year. …**                                                                             | Press **Open promotions**, then [finalise or delete the draft](../exams-results/promotion.md).           | Admin        |
+| **Could not close the year** or **Could not reopen the year**                                                                    | Check the internet and the approval window, then try again.                                              | Admin        |
+| **This year is closed. Reopen it on Academic years to change this.**                                                             | [Reopen the year](#task-reopen) if the change is needed.                                                 | Admin        |
 
 If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
 
@@ -351,9 +351,9 @@ If a page or button is missing, see [Why can't I see this?](../help/cant-see-thi
 ## Who can do what <a href="#roles" id="roles"></a>
 
 | Role                                                                                                 | See the list and year page | Add, edit, set current, delete, create next, close, reopen a year | Add and change terms |
-| ---------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------- | -------------------- |
-| Admin                                                                                                | Yes                        | Yes                                   | Yes                  |
-| Academic coordinator, teacher, accountant, office assistant, exam controller, governing board member | No                         | No                                    | No                   |
+| ---------------------------------------------------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------- | -------------------- |
+| Admin                                                                                                | Yes                        | Yes                                                               | Yes                  |
+| Academic coordinator, teacher, accountant, office assistant, exam controller, governing board member | No                         | No                                                                | No                   |
 
 For other roles, **Academic years** is not in the left menu. If they open the page, they see **You don't have access to this page.**
 
