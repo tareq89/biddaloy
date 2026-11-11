@@ -29,7 +29,8 @@ export interface ImpersonationLiveSession {
 export type ImpersonatedJwtPayload = JwtPayload & { impSession: ImpersonationLiveSession };
 
 export interface LoginAsCandidateDto {
-  userId: string;
+  /** null for a student or parent with no login account (`NO_LOGIN_ACCOUNT`). */
+  userId: string | null;
   name: string;
   role: UserRole;
   email: string | null;
@@ -41,6 +42,8 @@ export interface LoginAsCandidateDto {
 export interface LoginAsCandidatesResponse {
   candidates: LoginAsCandidateDto[];
   noActiveAdmin: boolean;
+  schoolStatus: 'ACTIVE' | 'SUSPENDED';
+  supportAccessMode: SupportAccessMode;
 }
 
 export interface StartImpersonationRequest {
