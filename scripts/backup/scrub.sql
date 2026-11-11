@@ -188,6 +188,12 @@ DELETE FROM push_subscriptions;
 DELETE FROM attendance_device_events;
 DELETE FROM attendance_devices;
 DELETE FROM attendance_imports;
+-- [Epic 98] Cockpit credentials and production approvals: no MFA secret, recovery code hash or
+-- device hash from production may unlock anything on staging.
+DELETE FROM user_mfa;
+DELETE FROM user_recovery_codes;
+DELETE FROM platform_admin_devices;
+DELETE FROM platform_approvals;
 -- verify_token_hash is CHAR(64) NOT NULL UNIQUE, so it cannot be NULL: 64 hex chars from the id.
 UPDATE print_job_items SET
   verify_token_hash = md5(id::text) || md5(reverse(id::text)),

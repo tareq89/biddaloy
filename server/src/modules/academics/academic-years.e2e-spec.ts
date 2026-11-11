@@ -596,6 +596,7 @@ describe('Academic Years E2E', () => {
       const reopened = await supertest(app.getHttpServer())
         .post(`${API}/academic-years/${id}/reopen`)
         .set(as(adminToken))
+        .set('X-Approval-Token', await approvalToken()) // reopen is step-up too; tokens are single-use
         .expect(200);
       expect(reopened.body.closed_at).toBeNull();
     });

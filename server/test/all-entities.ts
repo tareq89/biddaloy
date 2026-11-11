@@ -23,6 +23,12 @@ import { AuditLog } from '../src/modules/audit/entities/audit-log.entity';
 import { UserTenant } from '../src/modules/auth/entities/user-tenant.entity';
 import { RefreshToken } from '../src/modules/auth/entities/refresh-token.entity';
 import { UserIdentity } from '../src/modules/auth/entities/user-identity.entity';
+import { PlatformAdmin } from '../src/modules/platform-identity/entities/platform-admin.entity';
+import { UserMfa } from '../src/modules/platform-identity/entities/user-mfa.entity';
+import { UserRecoveryCode } from '../src/modules/platform-identity/entities/user-recovery-code.entity';
+import { PlatformAdminDevice } from '../src/modules/platform-identity/entities/platform-admin-device.entity';
+import { PlatformApproval } from '../src/modules/platform-identity/entities/platform-approval.entity';
+import { PlatformSetting } from '../src/modules/platform-identity/entities/platform-setting.entity';
 import { AuthToken } from '../src/modules/account-access/entities/auth-token.entity';
 import { CommunicationLog } from '../src/modules/communications/entities/communication-log.entity';
 import { ReminderBatch } from '../src/modules/communications/entities/reminder-batch.entity';
@@ -186,6 +192,12 @@ export const ALL_ENTITIES = [
   UserTenant,
   AuthToken,
   UserIdentity,
+  PlatformAdmin,
+  UserMfa,
+  UserRecoveryCode,
+  PlatformAdminDevice,
+  PlatformApproval,
+  PlatformSetting,
   RefreshToken,
   CommunicationLog,
   ReminderBatch,

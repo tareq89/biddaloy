@@ -40,6 +40,8 @@ export function RequestMethodName(method: number): string {
 // with no fragile name/string matching against a dynamically-generated
 // mixin class.
 export const JWT_AUTH_GUARD = AuthGuard('jwt');
+// [Epic 98] The cockpit's own strategy; named here so snapshots never carry its random mixin name.
+export const COCKPIT_JWT_AUTH_GUARD = AuthGuard('cockpit-jwt');
 
 export interface AllowlistEntry {
   controller: string;
@@ -79,6 +81,160 @@ export const ALLOWLIST: AllowlistEntry[] = [
     method: 'POST',
     path: '/auth/login',
     reason: 'Issues credentials in the first place — nothing to authenticate yet.',
+  },
+  // [Epic 98] Cockpit sign-in: pre-tenant, owner-only, every route fail-closed without Redis.
+  {
+    controller: 'CockpitAuthController',
+    method: 'POST',
+    path: '/auth/cockpit/login',
+    reason:
+      'Owner sign-in step 1: issues credentials, nothing to authenticate yet (SameOriginGuard + STRICT_RATE_LIMIT, fail-closed without Redis).',
+  },
+  {
+    controller: 'CockpitAuthController',
+    method: 'POST',
+    path: '/auth/cockpit/mfa',
+    reason:
+      'Owner sign-in step 2: the short-lived mfa step token (own audience) is the credential, same rationale as /auth/login.',
+  },
+  {
+    controller: 'CockpitAuthController',
+    method: 'POST',
+    path: '/auth/cockpit/device-otp',
+    reason:
+      'Owner sign-in step 3: the device step token plus an SMS and an email code are the credential, same rationale as /auth/login.',
+  },
+  {
+    controller: 'CockpitEnrolController',
+    method: 'POST',
+    path: '/auth/cockpit/enrol/start',
+    reason:
+      'Authenticator enrolment step 1: the enrol step token plus SMS and email codes are the credential, same rationale as /auth/login.',
+  },
+  {
+    controller: 'CockpitEnrolController',
+    method: 'POST',
+    path: '/auth/cockpit/enrol/confirm',
+    reason:
+      'Authenticator enrolment step 2: the enrol step token plus the first authenticator code are the credential, same rationale as /auth/login.',
+  },
+  {
+    controller: 'CockpitPasswordController',
+    method: 'POST',
+    path: '/auth/cockpit/forgot-password',
+    reason:
+      'Public by design, like /auth/forgot-password: always answers the same, work runs detached (Rule 18).',
+  },
+  {
+    controller: 'CockpitPasswordController',
+    method: 'POST',
+    path: '/auth/cockpit/reset-password',
+    reason: 'The single-use reset token is the credential, same rationale as /auth/reset-password.',
+  },
+  {
+    controller: 'CockpitSessionController',
+    method: 'POST',
+    path: '/auth/cockpit/refresh',
+    reason:
+      'Cookie-authenticated cockpit session (SameOriginGuard only), same rationale as /auth/refresh; no tenant is chosen on the cockpit.',
+  },
+  {
+    controller: 'CockpitSessionController',
+    method: 'POST',
+    path: '/auth/cockpit/logout',
+    reason:
+      'Cookie-authenticated cockpit session (SameOriginGuard only), same rationale as /auth/logout.',
+  },
+  {
+    controller: 'CockpitSessionController',
+    method: 'POST',
+    path: '/auth/cockpit/logout-all',
+    reason:
+      "Bearer (cockpit-jwt) plus PlatformAdminGuard, no tenant: ends only the caller's own sessions (user.sub).",
+  },
+  {
+    controller: 'CockpitSessionController',
+    method: 'GET',
+    path: '/auth/cockpit/sessions',
+    reason:
+      "Bearer (cockpit-jwt) plus PlatformAdminGuard, no tenant: lists only the caller's own sessions (user.sub).",
+  },
+  {
+    controller: 'CockpitSessionController',
+    method: 'DELETE',
+    path: '/auth/cockpit/sessions/:id',
+    reason:
+      'Bearer (cockpit-jwt) plus PlatformAdminGuard and SameOriginGuard, no tenant: revokes only a family owned by user.sub.',
+  },
+  {
+    controller: 'PlatformStepUpController',
+    method: 'POST',
+    path: '/platform/step-up',
+    reason:
+      '[98.3.2] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Re-checks the caller own TOTP code and returns a short step-up token for the caller only.',
+  },
+  {
+    controller: 'PlatformApprovalsController',
+    method: 'GET',
+    path: '/platform/approvals',
+    reason:
+      '[98.3.3] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Lists the platform approval queue; platform data only, no tenant rows.',
+  },
+  {
+    controller: 'PlatformApprovalsController',
+    method: 'POST',
+    path: '/platform/approvals/:id/approve',
+    reason:
+      '[98.3.3] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. A different owner decides the request; the service refuses the requester.',
+  },
+  {
+    controller: 'PlatformApprovalsController',
+    method: 'POST',
+    path: '/platform/approvals/:id/deny',
+    reason:
+      '[98.3.3] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. A different owner decides the request; the service refuses the requester.',
+  },
+  {
+    controller: 'PlatformSettingsController',
+    method: 'GET',
+    path: '/platform/settings/approvals',
+    reason:
+      '[98.3.3] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Reads the two-person-approval switch.',
+  },
+  {
+    controller: 'PlatformSettingsController',
+    method: 'PATCH',
+    path: '/platform/settings/approvals',
+    reason:
+      '[98.3.3] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. Turning the switch OFF itself needs a step-up token.',
+  },
+  {
+    controller: 'PlatformOwnersController',
+    method: 'GET',
+    path: '/platform/owners',
+    reason:
+      '[98.3.4] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Lists platform owners (platform_admins), no tenant data.',
+  },
+  {
+    controller: 'PlatformOwnersController',
+    method: 'GET',
+    path: '/platform/owners/history',
+    reason:
+      '[98.3.4] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role. Reads the owner lock and unlock history.',
+  },
+  {
+    controller: 'PlatformOwnersController',
+    method: 'POST',
+    path: '/platform/owners/:userId/lock',
+    reason:
+      '[98.3.4] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. Needs a step-up token; the last active owner cannot lock themself.',
+  },
+  {
+    controller: 'PlatformOwnersController',
+    method: 'POST',
+    path: '/platform/owners/:userId/unlock',
+    reason:
+      '[98.3.4] Cockpit bearer (cockpit-jwt) plus PlatformAdminGuard; no tenant, no school role, plus ApprovalGuard. Needs a step-up token; the last active owner cannot lock themself.',
   },
   {
     controller: 'AuthController',
@@ -450,6 +606,7 @@ export function describeGuards(guards: unknown[]): string {
   return guards
     .map((g) => {
       if (g === JWT_AUTH_GUARD) return "AuthGuard('jwt')";
+      if (g === COCKPIT_JWT_AUTH_GUARD) return "AuthGuard('cockpit-jwt')";
       if (typeof g === 'function') return g.name || '(anonymous)';
       return String(g);
     })

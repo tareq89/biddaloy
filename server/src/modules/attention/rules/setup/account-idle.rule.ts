@@ -43,7 +43,7 @@ export class AccountIdleRule implements AttentionRuleShape {
 
   async evaluate(ctx: RuleContext): Promise<RuleFinding[]> {
     // The platform console never has students and is never suspended for it.
-    if (ctx.tenantId === (await this.tenantStatus.platformTenantId())) return [];
+    if ((await this.tenantStatus.platformSchoolIds()).includes(ctx.tenantId)) return [];
     const school = await this.schools.findOne({
       where: { id: ctx.tenantId, status: SchoolStatus.ACTIVE },
     });

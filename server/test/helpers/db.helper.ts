@@ -1,4 +1,5 @@
 import { DataSource, MigrationInterface, QueryRunner } from 'typeorm';
+import { expect } from 'vitest';
 import {
   SEED_TENANT_ID,
   SEED_CLASS_1_ID,
@@ -12,6 +13,28 @@ import {
  * Provides utilities to create test data in the database
  * and clean up between tests.
  */
+
+/**
+ * Concurrency latch: resolves once at least `n` backends of this database wait on a lock while
+ * running a query that matches `like` (ILIKE). Hold the row lock in another transaction, start
+ * the racers, await this, then release the hold. A condition poll, not a sleep.
+ */
+export async function waitForLockWaiters(ds: DataSource, like: string, n: number): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const [{ c }] = await ds.query(
+          `SELECT count(*)::int AS c FROM pg_stat_activity
+            WHERE datname = current_database() AND wait_event_type = 'Lock'
+              AND pid <> pg_backend_pid() AND query ILIKE $1`,
+          [like],
+        );
+        return c as number;
+      },
+      { timeout: 15000, interval: 25 },
+    )
+    .toBeGreaterThanOrEqual(n);
+}
 
 /**
  * Clears all transactional tables while preserving seed data.

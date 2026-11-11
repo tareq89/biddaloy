@@ -25,6 +25,12 @@ const valid = {
   DB_SSL: 'true',
   APP_BASE_URL: 'https://app.school.org',
   PUBLIC_APP_URL: 'https://app.school.org',
+  // [98 #3737] both cockpit owners are required on production.
+  COCKPIT_DOMAIN: 'cockpit.school.org',
+  COCKPIT_OWNER_1_EMAIL: 'owner1@school.org',
+  COCKPIT_OWNER_1_PHONE: '+8801711111111',
+  COCKPIT_OWNER_2_EMAIL: 'owner2@school.org',
+  COCKPIT_OWNER_2_PHONE: '+8801722222222',
 };
 
 describe('runConfigCheck', () => {
@@ -112,6 +118,12 @@ describe('runStackConfigCheck', () => {
     BACKUP_S3_SECRET_ACCESS_KEY: 'r2-read-only-secret',
     DEMO_PASSWORD: 'Demo-Public-2026',
     ROOT_DOMAIN: 'school.example.org',
+    // [98 #3737, #3746] cockpit owners: example files carry the keys, empty
+    COCKPIT_DOMAIN: 'cockpit.school.org',
+    COCKPIT_OWNER_1_EMAIL: 'owner1@school.org',
+    COCKPIT_OWNER_1_PHONE: '+8801711111111',
+    COCKPIT_OWNER_2_EMAIL: 'owner2@school.org',
+    COCKPIT_OWNER_2_PHONE: '+8801722222222',
     // the bucket and database name differ per stack
     S3_BUCKET: 'biddaloy-STACK',
     POSTGRES_DB: 'biddaloy_STACK',
@@ -146,17 +158,41 @@ describe('runStackConfigCheck', () => {
   /** The example file with every empty key filled; non-empty example values stay as written. */
   function filled(stack: 'prod' | 'staging' | 'demo'): Record<string, string> {
     const example = parse(readFileSync(join(repoRoot, `infra/secrets/${stack}.example.env`)));
-    return Object.fromEntries(
+    const out = Object.fromEntries(
       Object.entries(example).map(([k, v]) => {
         if (v !== '' || emptyOnPurpose.includes(k)) return [k, v];
         const dummy = (fill[k] ?? '').replace('STACK', stack);
         return [k, dummy];
       }),
     );
+    return out;
   }
   const prod = { ...filled('prod'), S3_BUCKET: 'biddaloy', POSTGRES_DB: 'biddaloy' };
   const staging = filled('staging');
   const demo = filled('demo');
+
+  it('cockpit owners (98 #3737): required on prod and staging, none on demo, smoke trio staging only', async () => {
+    const noOwner2: Record<string, string> = { ...prod };
+    delete noOwner2.COCKPIT_OWNER_2_EMAIL;
+    const missing = await runStackConfigCheck('prod', noOwner2);
+    expect(missing.ok).toBe(false);
+    expect(missing.output).toContain('COCKPIT_OWNER_2_EMAIL is required');
+    const smoke = {
+      SMOKE_COCKPIT_EMAIL: 's@school.org',
+      SMOKE_COCKPIT_PASSWORD: 'pw-for-smoke-1234',
+      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXP',
+    };
+    expect((await runStackConfigCheck('prod', { ...prod, ...smoke })).output).toContain(
+      'SMOKE_COCKPIT_EMAIL is allowed only when ENV_NAME=staging',
+    );
+    expect((await runStackConfigCheck('demo', { ...demo, ...smoke })).output).toContain(
+      'SMOKE_COCKPIT_EMAIL',
+    );
+    expect((await runStackConfigCheck('staging', { ...staging, ...smoke })).output).not.toContain(
+      'SMOKE_COCKPIT',
+    );
+    expect((await runStackConfigCheck('demo', demo)).output).not.toContain('COCKPIT');
+  });
 
   it('each example file with dummy values passes its own --env', async () => {
     expect(await runStackConfigCheck('prod', prod)).toEqual({ ok: true, output: 'config ok' });
@@ -315,6 +351,12 @@ describe('runStackConfigCheck', () => {
       'OTP_SMS_ALLOWED_PREFIXES',
       'DEMO_MODE',
       'DEMO_PASSWORD',
+      // Epic 98 cockpit owners: identity, not messaging providers.
+      'COCKPIT_DOMAIN',
+      'COCKPIT_OWNER_1_EMAIL',
+      'COCKPIT_OWNER_1_PHONE',
+      'COCKPIT_OWNER_2_EMAIL',
+      'COCKPIT_OWNER_2_PHONE',
       'SITE_ROOT_DOMAIN', // the apex school websites hang under (Epic 40), not a provider
     ]);
     expect(keys.length).toBeGreaterThan(20);

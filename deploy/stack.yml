@@ -110,6 +110,13 @@ x-app: &app
     CF_SAAS_FALLBACK_ORIGIN: ${CF_SAAS_FALLBACK_ORIGIN:-}
     UMAMI_API_URL: ${UMAMI_API_URL:-}
     UMAMI_API_TOKEN: ${UMAMI_API_TOKEN:-}
+    # Cockpit owners (Epic 98): required by env validation unless DEMO_MODE, so empty is allowed
+    # here only for demo. SMOKE_COCKPIT_* stay out: they belong to the smoke runner, not the app.
+    COCKPIT_DOMAIN: ${COCKPIT_DOMAIN:-}
+    COCKPIT_OWNER_1_EMAIL: ${COCKPIT_OWNER_1_EMAIL:-}
+    COCKPIT_OWNER_1_PHONE: ${COCKPIT_OWNER_1_PHONE:-}
+    COCKPIT_OWNER_2_EMAIL: ${COCKPIT_OWNER_2_EMAIL:-}
+    COCKPIT_OWNER_2_PHONE: ${COCKPIT_OWNER_2_PHONE:-}
   volumes:
     - ${PG_TLS_DIR:?PG_TLS_DIR must be set}:/etc/postgresql/tls:ro
     - demo-state:/demo-state:ro

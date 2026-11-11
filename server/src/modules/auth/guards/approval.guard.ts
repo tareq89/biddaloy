@@ -69,6 +69,7 @@ export class ApprovalService {
     req: {
       headers: Record<string, string | string[] | undefined>;
       currentTenant?: { id: string };
+      platformScopeTenantId?: string;
       user?: { sub: string };
     },
     scope: ApprovalScope,
@@ -104,13 +105,14 @@ export class ApprovalService {
       throw new ApprovalRequiredException(scope);
     }
 
-    if (!req.currentTenant || !req.user) {
+    const scopeTenantId = req.currentTenant?.id ?? req.platformScopeTenantId;
+    if (!scopeTenantId || !req.user) {
       // ContextGuard/AuthGuard('jwt') didn't run before this — a
       // misconfigured @UseGuards ordering, not a client error.
       throw new UnauthorizedException('No active session context');
     }
 
-    if (payload.tid !== req.currentTenant.id) {
+    if (payload.tid !== scopeTenantId) {
       throw new ApprovalRequiredException(scope);
     }
     if (payload.act !== req.user.sub) {

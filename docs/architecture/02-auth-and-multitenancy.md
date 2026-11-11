@@ -769,3 +769,140 @@ explicit tenant reference.
   of a shared login answers `409 SHARED_IDENTITY`, and joining a school is a
   request the person accepts. The alternative, admin edit plus a
   verification step, was considered and rejected.
+
+## Learning: cockpit identity, Wave 0
+
+2026-11-10, Epic 98 wave 0 (#3732).
+
+- **Shared git config flipped (2026-11-10).**
+  - Surprise: `core.bare` in the shared `.git/config` turned `true` mid-run, and git broke in every worktree at once.
+  - Cost: all lanes stalled until someone noticed.
+  - Fix: `git config core.bare false`.
+  - Rule candidate: agents never touch git config; a worktree preflight checks `git config core.bare` is `false`.
+- **Fence smoke counted fetch errors as "refused" (2026-11-10, #3731 review).**
+  - Surprise: a DNS or TLS failure threw, the script read the throw as "the fence refused me", and a broken check looked like a pass.
+  - Cost: a fence that could never fail.
+  - Fix: `fetch` follows redirects, so use `redirect: 'manual'` and count only closed-socket codes (for example `ECONNREFUSED`, `ECONNRESET`) as refused. Anything else is a failure.
+  - Rule candidate: a negative-path smoke check must name the exact outcomes that count as success, never "any error".
+- **`COCKPIT_DOMAIN` never reached the smoke script (2026-11-10).**
+  - Surprise: `smoke.yml` forwards only `SMOKE_*` keys, and `biddaloy-nightly` passes an explicit `-e` list, so a new env var is dropped silently and its checks skip.
+  - Cost: the gated cockpit checks ran as no-ops.
+  - Fix: forward the variable in `smoke.yml` and add it to the nightly `-e` list.
+  - Rule candidate: a new smoke env var is not done until it appears in `smoke.yml` and the nightly `-e` list, and a gated check logs loudly when it skips.
+
+## Learning: cockpit identity, Wave 1
+
+2026-11-10, Epic 98 wave 1 (#3733-#3740).
+
+- **The DB role password drifted from the container env (2026-11-10).**
+  - Surprise: the Postgres role password no longer matched the container environment, so DB auth failed although the config looked right.
+  - Cost: integration runs failed on auth, not on code.
+  - Fix: re-sync the role password with the container env before blaming the code.
+  - Rule candidate: on a DB auth failure, compare the role password with the container env first.
+- **`core.bare` flipped a second time (2026-11-10).**
+  - Surprise: the shared `.git/config` flag went `true` again, as in Wave 0.
+  - Cost: git broke in every worktree until it was reset.
+  - Fix: `git config core.bare false`.
+  - Rule candidate: the worktree preflight checks `git config core.bare` every wave, not once.
+- **New entities fan out to about 117 spec failures (2026-11-10).**
+  - Surprise: an entity missing from the app `entities` array or `test/all-entities.ts` fails `all-entities.completeness.integration.spec.ts`, and the demo-seed and workbook coverage guards fail too.
+  - Fix: register the entity in the app `entities` array, `all-entities.ts`, `slices.ts` `EXEMPT` and `entity-coverage.ts` together.
+  - Rule candidate: a new table is not done until all four lists name it.
+- **Compressed issue bodies lose their Steps section (2026-11-10).**
+  - Surprise: agents got issue bodies with no Steps section, so they guessed.
+  - Cost: wrong guesses, rework.
+  - Fix: put the brief in a file and point the agent at it.
+  - Rule candidate: dispatch from a brief file, never a compressed issue body.
+- **`yarn install` churned about 117 lock entries (2026-11-10).**
+  - Surprise: one install rewrote far more of `yarn.lock` than the change needed.
+  - Cost: noisy diff, hard review.
+  - Fix: edit the lock minimally, check with `git diff --stat`.
+  - Rule candidate: any lockfile change gets a `git diff --stat` look before commit.
+- **The all-entities completeness spec never ran in CI (2026-11-10).**
+  - Surprise: the vitest `include` pattern skipped `all-entities.completeness`.
+  - Cost: the guard looked green while checking nothing.
+  - Fix: fix the include so it runs.
+  - Rule candidate: a new guard ships with proof it runs (fail it once on purpose).
+- **`COCKPIT_*` owner env is required in production (2026-11-10).**
+  - Surprise: boot refuses without the owner keys, but they are optional in dev and test.
+  - Cost: a deploy would fail on missing secrets.
+  - Fix: create the secrets before deploy.
+  - Rule candidate: a new required prod env key means its secret exists BEFORE the deploy.
+- **Agents cannot dispatch reviewers (2026-11-10).**
+  - Surprise: a subagent has no way to start a reviewer subagent.
+  - Cost: in-lane review silently did not happen.
+  - Fix: run reviews as separate passes from the orchestrator.
+  - Rule candidate: plan review as its own pass, not inside the implementing agent.
+
+## Learning: cockpit identity, Wave 2
+
+2026-11-11, Epic 98 wave 2 (#3741-#3747). The cockpit sign-in is live under `/auth/cockpit/*`.
+
+```mermaid
+flowchart LR
+  A["POST /auth/cockpit/login<br/>password"] -->|"mfaToken"| B["POST /mfa<br/>authenticator code"]
+  A -->|"enrolToken (first time)"| E["POST /enrol/start then /enrol/confirm"]
+  B -->|"known device"| D["step: done<br/>access_token + refresh cookie"]
+  B -->|"new device: deviceToken"| C["POST /device-otp<br/>SMS code + email code"]
+  C --> D
+  E --> D
+```
+
+Example: the dev owner sends `{ "identifier": "owner@...", "password": "..." }` and gets `{ "step": "mfa", "mfaToken": "<jwt>" }`. The next call sends `{ "mfaToken": "<jwt>", "code": "123456" }`. Every refusal says the same sentence, so a caller cannot tell a wrong password from an unknown owner.
+
+- **Briefs get garbled (2026-11-11).**
+  - Surprise: compressed briefs and issue bodies lost whole sections (Steps, file lists).
+  - Fix: write the brief to a file, tell the agent to read it, and have the agent say which part looks garbled.
+- **Agents cannot nest (2026-11-11).**
+  - Surprise: a lane agent cannot dispatch its own reviewer.
+  - Fix: the orchestrator dispatches reviews, then a fix agent. Plan for that round trip.
+- **nginx `conf.d` loads alphabetically (2026-11-11).**
+  - Surprise: a `log_format` used before the file that defines `redacted` loads is a config error.
+  - Fix: name files so the one that defines `redacted` sorts first. Rule 13 still applies to the cockpit host.
+- **Express routes are case-insensitive, nginx `location ~` is not (2026-11-11).**
+  - Surprise: `/Auth/Cockpit/login` reached the app but missed an nginx rule written for the lower-case path.
+  - Fix: write protective regexes as `~*`.
+- **The edge-mode failover check is flaky (2026-11-11, #4041).**
+  - Cost: a red CI section that passes on rerun.
+  - Fix: rerun it alone with `--only edge-mode` before judging it. Tracked in #4041.
+- **`reset-order.ts` must list new tables (2026-11-11).**
+  - Surprise: a table missing there leaves rows behind between specs.
+  - Rule candidate: a new table is not done until `reset-order.ts` names it, next to the four lists in Wave 1.
+- **A cockpit session refresh must check the owner before it rotates (2026-11-11).**
+  - Surprise: checking after `rotate()` had already minted a new cookie for a locked owner.
+  - Fix: read the cookie owner first (`userIdForCookie`), then rotate.
+- **A custom passport strategy has a random guard name (2026-11-11).**
+  - Surprise: `AuthGuard('cockpit-jwt')` printed as a random hash in `route-permissions.txt`, so the snapshot would change on every run.
+  - Fix: `describeGuards` names it (`COCKPIT_JWT_AUTH_GUARD`). A new strategy needs the same line.
+
+## Learning: cockpit identity, Wave 3
+
+2026-11-11, Epic 98 wave 3 (#3748-#3756). Owners can step up, lock each other and approve each other's risky actions. No table or column changed in the close task, so no demo-seed change.
+
+```mermaid
+sequenceDiagram
+    actor A as Owner A
+    actor B as Owner B
+    participant API as /platform/*
+    A->>API: POST /platform/step-up { scope, code }
+    API-->>A: approval_token (single use, bound to A)
+    A->>API: POST /platform/owners/B/lock + X-Approval-Token
+    API-->>A: 204 (B's sessions end)
+    A->>API: PATCH /platform/settings/approvals { enabled: false } + token
+    API-->>A: 403 APPROVAL_REQUESTED { requestId }
+    B->>API: POST /platform/approvals/:id/approve + own token
+    A->>API: same PATCH + X-Platform-Approval: id
+    API-->>A: 200
+```
+
+- **Step-up request and response.**
+  - Request: `POST /platform/step-up` with `{ "scope": "platform.owner_lock", "code": "123456" }` and a cockpit bearer.
+  - Response: `{ "approval_token": "...", "expires_at": "..." }`. Only a platform scope is accepted. A school scope, a wrong code or a replayed code is the same 401.
+  - A recovery code is not accepted here.
+- **Two owners locking each other at once: exactly one lock lands.** `lock()` takes `SELECT ... FOR UPDATE` on `platform_admins`, then re-reads statuses. Reading statuses before the lock is stale under READ COMMITTED and lets both through. Pinned by `platform-identity.e2e-spec.ts`.
+- **The approval gate has two layers.** `X-Approval-Token` (step-up, every approval route) and `X-Platform-Approval` (the other owner's grant, only while the switch is ON and two owners are active). Switching the gate OFF needs the grant; switching it ON does not. With the gate OFF, repeating the same request needs no grant, by design.
+- **A cockpit route is not in the school route snapshot's roles.** Every role column reads 401 for `/platform/step-up`, `/platform/owners*`, `/platform/approvals*`, `/platform/settings/approvals` because those routes take the cockpit bearer only. Each is on the `ALLOWLIST` in `server/test/helpers/route-path.helper.ts` with a reason.
+- **supertest closes an unbound server.** A request built before an awaited call (`.set('X-Approval-Token', await stepUp(...))`) fails with `reading 'address'` on `app.getHttpServer()`. Fix: `app.listen(0)` and send to `app.getUrl()`.
+- **Wave 2 notes re-checked against the files.**
+  - nginx: `log_format redacted` is in `nginx/templates/default.conf.template`; every other template that uses it (`demo`, `host-cockpit`, `inbox`, `landing`, `ops`, `site`, `staging`) sorts after `default`. The two generated files sorting before it (`00-edge.conf`, `01-site-host.conf`) do not log with `redacted`. The note is correct.
+  - `server/test/reset-order.ts` names `platform_approvals`, `platform_settings`, `user_recovery_codes`, `user_mfa`, `platform_admin_devices`, `platform_admins`; `reset-order.integration.spec.ts` fails if a table is missing. The note is correct.

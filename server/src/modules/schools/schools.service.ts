@@ -117,11 +117,17 @@ export class SchoolsService {
    * seeded school, so it is not excluded.
    */
   async findAllActive(): Promise<Pick<School, 'id'>[]> {
-    const platformId = this.tenantStatus.configuredPlatformTenantId();
+    // Env-configured id plus the `is_platform` home row (D3b); not the slug-discovered dev school.
+    const skip = new Set(
+      [
+        this.tenantStatus.configuredPlatformTenantId(),
+        await this.tenantStatus.platformHomeSchoolId(),
+      ].filter(Boolean),
+    );
     // Filtered in memory, not `id <> $1`: a mistyped non-uuid env value would make Postgres throw
     // 22P02 and stop every nightly sweep for every school.
     const schools = await this.repo.find({ where: { status: 'ACTIVE' }, select: { id: true } });
-    return platformId ? schools.filter((s) => s.id !== platformId) : schools;
+    return skip.size ? schools.filter((s) => !skip.has(s.id)) : schools;
   }
 
   /**

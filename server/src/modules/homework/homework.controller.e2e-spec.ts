@@ -58,6 +58,13 @@ describe('Homework E2E', () => {
        VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.TEACHER}', NOW(), NOW())
        ON CONFLICT DO NOTHING`,
     );
+
+    // One login per file: each is a bcrypt check (~0.4 s), and the token stays valid across tests.
+    const teacherLoginRes = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    teacherToken = teacherLoginRes.body.access_token;
   }, 60000);
 
   afterAll(async () => {
@@ -65,12 +72,6 @@ describe('Homework E2E', () => {
   });
 
   beforeEach(async () => {
-    const teacherLoginRes = await supertest(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-      .expect(200);
-    teacherToken = teacherLoginRes.body.access_token;
-
     // `teachers`/`teacher_class_sections` are transactional — reseed every
     // test. The teacher is mapped to MAPPED_SECTION_ID as class teacher
     // (subject_id NULL) only.
@@ -260,13 +261,20 @@ describe('Homework E2E', () => {
       return id;
     };
 
-    const adminToken = async (): Promise<string> =>
+    // Each login is a bcrypt check (~0.5 s, several seconds under CI load), so one test logs in
+    // once; `freshAdminToken` is for the tests that change the admin's memberships first.
+    const freshAdminToken = async (): Promise<string> =>
       (
         await supertest(app.getHttpServer())
           .post('/api/v1/auth/login')
           .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
           .expect(200)
       ).body.access_token as string;
+    let cachedAdminToken: Promise<string> | undefined;
+    beforeEach(() => {
+      cachedAdminToken = undefined;
+    });
+    const adminToken = (): Promise<string> => (cachedAdminToken ??= freshAdminToken());
     const withAdmin = (req: supertest.Test, token: string) =>
       req.set('Authorization', `Bearer ${token}`).set('X-Tenant-ID', TENANT_ID);
     const mkHomework = async (title: string): Promise<string> =>
@@ -666,7 +674,7 @@ describe('Homework E2E', () => {
           [SEED_ADMIN_USER_ID, OTHER_TENANT, UserRole.ADMIN],
         );
         try {
-          const token = await adminToken(); // re-login: token carries memberships
+          const token = await freshAdminToken(); // re-login: token carries memberships
           await supertest(app.getHttpServer())
             .get(`/api/v1/homework/${h}/assignments`)
             .set('Authorization', `Bearer ${token}`)
@@ -831,7 +839,7 @@ describe('Homework E2E', () => {
           [SEED_ADMIN_USER_ID, OTHER_TENANT, UserRole.ADMIN],
         );
         try {
-          const token = await adminToken(); // re-login: token carries memberships
+          const token = await freshAdminToken(); // re-login: token carries memberships
           await supertest(app.getHttpServer())
             .patch(`/api/v1/homework-assignments/${a}`)
             .set('Authorization', `Bearer ${token}`)
@@ -1194,7 +1202,7 @@ describe('Homework E2E', () => {
           [SEED_ADMIN_USER_ID, OTHER_TENANT, UserRole.ADMIN],
         );
         try {
-          const token = await adminToken();
+          const token = await freshAdminToken();
           const url = `/api/v1/homework-assignments/${a}/submissions`;
           const body = { items: [{ student_id: randomUUID(), status: 'DONE' }] };
           await supertest(app.getHttpServer())

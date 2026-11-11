@@ -228,6 +228,20 @@ export enum AuditAction {
   /** [8.15.10] A report or list was exported to CSV/XLSX. The audit row carries
    * the format and row count, never the rows. */
   REPORT_EXPORT = 'REPORT_EXPORT',
+  // Epic 98 platform cockpit identity (#3733); #3734 mirrors these in the DB enum.
+  PLATFORM_LOGIN = 'PLATFORM_LOGIN',
+  PLATFORM_LOGIN_FAILED = 'PLATFORM_LOGIN_FAILED',
+  PLATFORM_OWNER_LOCKED = 'PLATFORM_OWNER_LOCKED',
+  PLATFORM_OWNER_UNLOCKED = 'PLATFORM_OWNER_UNLOCKED',
+  PLATFORM_MFA_ENROLLED = 'PLATFORM_MFA_ENROLLED',
+  PLATFORM_RECOVERY_USED = 'PLATFORM_RECOVERY_USED',
+  PLATFORM_APPROVAL_REQUESTED = 'PLATFORM_APPROVAL_REQUESTED',
+  PLATFORM_APPROVAL_GRANTED = 'PLATFORM_APPROVAL_GRANTED',
+  PLATFORM_APPROVAL_DENIED = 'PLATFORM_APPROVAL_DENIED',
+  PLATFORM_OWNER_REPLACED = 'PLATFORM_OWNER_REPLACED',
+  PLATFORM_MFA_RESET = 'PLATFORM_MFA_RESET',
+  PLATFORM_PASSWORD_RESET = 'PLATFORM_PASSWORD_RESET',
+  PLATFORM_SETTINGS_CHANGED = 'PLATFORM_SETTINGS_CHANGED',
 }
 
 export enum EnrollmentStatus {
@@ -407,6 +421,12 @@ export enum ApprovalScope {
   // students against their results (D11) — same step-up bar as a result
   // reopen.
   PROMOTION_OVERRIDE = 'promotion.override',
+  // Epic 98 platform cockpit (#3733): two-owner approvals.
+  PLATFORM_OWNER_LOCK = 'platform.owner_lock',
+  PLATFORM_OWNER_UNLOCK = 'platform.owner_unlock',
+  PLATFORM_APPROVALS_SWITCH = 'platform.approvals_switch',
+  PLATFORM_APPROVAL_DECIDE = 'platform.approval_decide',
+  PLATFORM_RECOVERY_CODES = 'platform.recovery_codes',
   // [69.1.01] Closing an academic year freezes its writes (D1, D19) —
   // same step-up bar as a result reopen.
   ACADEMIC_YEAR_CLOSE = 'academic_year.close',

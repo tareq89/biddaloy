@@ -2538,6 +2538,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/step-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Authenticator code in, single-use approval token out. */
+        post: operations["PlatformStepUpController_issue_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Approval requests, newest first. */
+        get: operations["PlatformApprovalsController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/approvals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve another owner's request. Needs a step-up token. */
+        post: operations["PlatformApprovalsController_approve_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/approvals/{id}/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deny another owner's request. Needs a step-up token. */
+        post: operations["PlatformApprovalsController_deny_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/settings/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Is two-person approval on? */
+        get: operations["PlatformSettingsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Switch two-person approval on or off. Needs a step-up token. */
+        patch: operations["PlatformSettingsController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/platform/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Both owners, contacts masked. */
+        get: operations["PlatformOwnersController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/owners/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform sign-in and owner history, newest first. */
+        get: operations["PlatformOwnersController_history_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/owners/{userId}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lock another owner and end their sessions. Needs a step-up token. */
+        post: operations["PlatformOwnersController_lock_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/owners/{userId}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unlock another owner. Needs a step-up token. */
+        post: operations["PlatformOwnersController_unlock_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/academic-years": {
         parameters: {
             query?: never;
@@ -2664,7 +2818,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reopen a closed year. */
+        /** Reopen a closed year. Step-up approval required. */
         post: operations["AcademicYearController_reopen_v1"];
         delete?: never;
         options?: never;
@@ -11551,6 +11705,210 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/cockpit/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate the cockpit refresh cookie and return a new access token. */
+        post: operations["CockpitSessionController_refresh_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End the cockpit session behind the presented cookie. */
+        post: operations["CockpitSessionController_logout_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/logout-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End every cockpit session of the caller. */
+        post: operations["CockpitSessionController_logoutAll_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the caller's live cockpit sessions. */
+        get: operations["CockpitSessionController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End one of the caller's cockpit sessions. */
+        delete: operations["CockpitSessionController_revoke_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owner sign-in, step 1: password. */
+        post: operations["CockpitAuthController_login_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owner sign-in, step 2: authenticator or recovery code. */
+        post: operations["CockpitAuthController_mfa_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/device-otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owner sign-in, step 3 (new device): SMS and email codes. */
+        post: operations["CockpitAuthController_deviceOtp_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/enrol/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enrolment step 1: SMS and email codes, returns the authenticator secret. */
+        post: operations["CockpitEnrolController_start_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/enrol/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enrolment step 2: first authenticator code; returns the recovery codes once. */
+        post: operations["CockpitEnrolController_confirm_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Emails an owner a reset link. Always 202, whoever the identifier is. */
+        post: operations["CockpitPasswordController_forgot_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/cockpit/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sets a new owner password from the emailed link. Starts no session. */
+        post: operations["CockpitPasswordController_reset_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -11904,6 +12262,7 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             created_in_demo: boolean;
+            is_platform: boolean;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -12366,7 +12725,7 @@ export interface components {
             id: string;
             tenant_id: string | null;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
             entity_type: string;
             entity_id: string | null;
             performed_by_user_id: string | null;
@@ -12394,7 +12753,7 @@ export interface components {
         RecentActivityItemDto: {
             id: string;
             /** @enum {string} */
-            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+            action: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
             /** @example Student */
             entity_type: string;
             /** @description Display name of the record, when it can be resolved; null otherwise. */
@@ -14205,7 +14564,7 @@ export interface components {
             /** @description The approver's email or phone. */
             identifier: string;
             /** @enum {string} */
-            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "academic_year.close";
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "academic_year.close";
         };
         StepUpVerifyDto: {
             /** @description The approver's email or phone. */
@@ -14217,7 +14576,43 @@ export interface components {
             /** @description The approver's password — required when method is PASSWORD. */
             password?: string;
             /** @enum {string} */
-            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "academic_year.close";
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "academic_year.close";
+        };
+        PlatformStepUpDto: {
+            /** @enum {string} */
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "payments.backdate" | "discount_rules.manage" | "grading_scale.manage" | "results.reopen" | "promotion.override" | "platform.owner_lock" | "platform.owner_unlock" | "platform.approvals_switch" | "platform.approval_decide" | "platform.recovery_codes" | "academic_year.close";
+            /** @description Current 6-digit authenticator code. Recovery codes are refused. */
+            code: string;
+        };
+        PlatformApprovalSettingDto: {
+            /** @description Whether gated platform actions need the other owner. */
+            enabled: boolean;
+        };
+        UpdatePlatformApprovalSettingDto: {
+            enabled: boolean;
+        };
+        PlatformOwnerDto: {
+            userId: string;
+            fullName: string;
+            email: string | null;
+            phone: string | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "LOCKED";
+            lockedAt: string | null;
+            lockedByName: string | null;
+            lastLoginAt: string | null;
+            mfaEnrolled: boolean;
+        };
+        PlatformHistoryRowDto: {
+            id: string;
+            action: string;
+            actorName: string | null;
+            at: string;
+            label: string;
+        };
+        PlatformHistoryPageDto: {
+            data: components["schemas"]["PlatformHistoryRowDto"][];
+            nextCursor: string | null;
         };
         CreateAcademicYearDto: {
             name: string;
@@ -20579,6 +20974,39 @@ export interface components {
             alert_id: string;
             recipient_count: number;
         };
+        CockpitLoginDto: {
+            /** Format: email */
+            email?: string;
+            phone?: string;
+            password: string;
+        };
+        CockpitMfaDto: {
+            mfaToken: string;
+            code: string;
+        };
+        CockpitDeviceOtpDto: {
+            deviceToken: string;
+            smsCode: string;
+            emailCode: string;
+            rememberDevice?: boolean;
+        };
+        CockpitEnrolStartDto: {
+            enrolToken: string;
+            smsCode: string;
+            emailCode: string;
+        };
+        CockpitEnrolConfirmDto: {
+            enrolToken: string;
+            code: string;
+            rememberDevice?: boolean;
+        };
+        CockpitForgotPasswordDto: {
+            identifier: string;
+        };
+        CockpitResetPasswordDto: {
+            token: string;
+            newPassword: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -22583,7 +23011,7 @@ export interface operations {
     AuditController_findAll_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -22624,7 +23052,7 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "CSV" | "XLSX";
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -22662,7 +23090,7 @@ export interface operations {
     AuditController_findByEntity_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -26886,6 +27314,270 @@ export interface operations {
             };
         };
     };
+    PlatformStepUpController_issue_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformStepUpDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    PlatformApprovalsController_list_v1: {
+        parameters: {
+            query?: {
+                status?: "PENDING" | "GRANTED" | "DENIED" | "USED" | "EXPIRED";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
+                };
+            };
+        };
+    };
+    PlatformApprovalsController_approve_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.approval_decide" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformApprovalsController_deny_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.approval_decide" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformSettingsController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformApprovalSettingDto"];
+                };
+            };
+        };
+    };
+    PlatformSettingsController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.approvals_switch" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlatformApprovalSettingDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformApprovalSettingDto"];
+                };
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformOwnersController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformOwnerDto"][];
+                };
+            };
+        };
+    };
+    PlatformOwnersController_history_v1: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHistoryPageDto"];
+                };
+            };
+        };
+    };
+    PlatformOwnersController_lock_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.owner_lock" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    PlatformOwnersController_unlock_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Single-use JWT proving a fresh admin approval for scope "platform.owner_unlock" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     AcademicYearController_findAll_v1: {
         parameters: {
             query?: {
@@ -27238,6 +27930,8 @@ export interface operations {
                 "X-Tenant-ID": string;
                 /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
                 "X-Role"?: string;
+                /** @description Single-use JWT proving a fresh admin approval for scope "academic_year.close" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
             };
             path: {
                 id: string;
@@ -27260,6 +27954,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
         };
     };
@@ -30183,7 +30886,7 @@ export interface operations {
     AttendanceController_getRecordHistory_v1: {
         parameters: {
             query?: {
-                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT";
+                action?: "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | "LOGIN_FAILED" | "LOGOUT" | "TOKEN_REUSE_DETECTED" | "PAYMENT_RECEIVED" | "INVOICE_GENERATED" | "BULK_UPLOAD" | "REMINDER_SENT" | "REMINDER_PREVIEWED" | "FEE_STRUCTURE_CHANGE" | "SETTINGS_CHANGE" | "SETTINGS_TEST" | "INVITATION_SENT" | "INVITATION_REVOKED" | "YEAR_CLOSE" | "YEAR_REOPEN" | "YEAR_ROLLOVER" | "ACCOUNT_ACTIVATED" | "PASSWORD_RESET_REQUESTED" | "PASSWORD_RESET" | "CONTACT_VERIFIED" | "SESSION_REVOKED" | "SUSPEND" | "REACTIVATE" | "BACKUP_DELETED" | "REPORT_EXPORT" | "PLATFORM_LOGIN" | "PLATFORM_LOGIN_FAILED" | "PLATFORM_OWNER_LOCKED" | "PLATFORM_OWNER_UNLOCKED" | "PLATFORM_MFA_ENROLLED" | "PLATFORM_RECOVERY_USED" | "PLATFORM_APPROVAL_REQUESTED" | "PLATFORM_APPROVAL_GRANTED" | "PLATFORM_APPROVAL_DENIED" | "PLATFORM_OWNER_REPLACED" | "PLATFORM_MFA_RESET" | "PLATFORM_PASSWORD_RESET" | "PLATFORM_SETTINGS_CHANGED";
                 entity_type?: string;
                 performed_by_user_id?: string;
                 entity_id?: string;
@@ -35865,7 +36568,7 @@ export interface operations {
             query: {
                 /** @description School-local month, within the last 12 months. */
                 month: string;
-                ruleKey?: "setup.incomplete" | "trial.ending" | "comms.provider_missing" | "staff.invite_pending" | "year.next_missing" | "year.close_due" | "promotion.groups_pending" | "comms.sms_credit_low" | "comms.failed_messages" | "system.backup_failed" | "routine.not_published" | "section.no_class_teacher" | "routine.subject_no_teacher" | "guardian.contact_missing" | "attendance.not_taken" | "class.starting" | "routine.substitution_today" | "routine.uncovered_periods" | "homework.not_submitted" | "homework.due_today" | "homework.due_tomorrow" | "homework.to_grade" | "class.absent_streak" | "class.guardian_contact_missing" | "fees.overdue_rising" | "fees.reminders_pending" | "fees.unassigned_students" | "fees.structure_missing_new_year" | "exams.marks_overdue" | "exams.my_marks_due" | "exams.results_unpublished" | "exams.schedule_unpublished" | "exams.seat_plan_missing" | "admission.applications_pending" | "admission.intake_window" | "students.records_incomplete" | "leave.staff_pending" | "leave.my_request_decided" | "acr.incomplete" | "child.absent_today" | "fees.due_soon" | "fees.overdue_family" | "exams.tomorrow" | "results.published" | "routine.changed_today" | "guardian.profile_incomplete" | "calendar.holiday_tomorrow" | "surveys.pending" | "platform.backup_failing" | "platform.trials_ending" | "platform.provider_failures" | "study_plan.unreported" | "study_plan.behind" | "admin.mfa_missing" | "approvals.pending" | "print.queue_pending" | "billing.renewal_due" | "students.at_risk" | "committee.monthly_report_ready" | "seats.expiring" | "seats.exhausted" | "account.idle" | "platform.seats.expiring" | "platform.bkash.refund_due";
+                ruleKey?: "setup.incomplete" | "trial.ending" | "comms.provider_missing" | "staff.invite_pending" | "year.next_missing" | "year.close_due" | "promotion.groups_pending" | "comms.sms_credit_low" | "comms.failed_messages" | "system.backup_failed" | "routine.not_published" | "section.no_class_teacher" | "routine.subject_no_teacher" | "guardian.contact_missing" | "attendance.not_taken" | "class.starting" | "routine.substitution_today" | "routine.uncovered_periods" | "homework.not_submitted" | "homework.due_today" | "homework.due_tomorrow" | "homework.to_grade" | "class.absent_streak" | "class.guardian_contact_missing" | "fees.overdue_rising" | "fees.reminders_pending" | "fees.unassigned_students" | "fees.structure_missing_new_year" | "exams.marks_overdue" | "exams.my_marks_due" | "exams.results_unpublished" | "exams.schedule_unpublished" | "exams.seat_plan_missing" | "admission.applications_pending" | "admission.intake_window" | "students.records_incomplete" | "leave.staff_pending" | "leave.my_request_decided" | "acr.incomplete" | "child.absent_today" | "fees.due_soon" | "fees.overdue_family" | "exams.tomorrow" | "results.published" | "routine.changed_today" | "guardian.profile_incomplete" | "calendar.holiday_tomorrow" | "surveys.pending" | "platform.backup_failing" | "platform.trials_ending" | "platform.provider_failures" | "platform.recovery_codes_low" | "platform.approval_pending" | "study_plan.unreported" | "study_plan.behind" | "admin.mfa_missing" | "approvals.pending" | "print.queue_pending" | "billing.renewal_due" | "students.at_risk" | "committee.monthly_report_ready" | "seats.expiring" | "seats.exhausted" | "account.idle" | "platform.seats.expiring" | "platform.bkash.refund_due";
                 sectionId?: string;
                 format?: "json" | "csv";
             };
@@ -49264,6 +49967,250 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CockpitSessionController_refresh_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CockpitSessionController_logout_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CockpitSessionController_logoutAll_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CockpitSessionController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CockpitSessionController_revoke_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CockpitAuthController_login_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CockpitLoginDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    CockpitAuthController_mfa_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CockpitMfaDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    CockpitAuthController_deviceOtp_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CockpitDeviceOtpDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    CockpitEnrolController_start_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CockpitEnrolStartDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    CockpitEnrolController_confirm_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CockpitEnrolConfirmDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    CockpitPasswordController_forgot_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CockpitForgotPasswordDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CockpitPasswordController_reset_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CockpitResetPasswordDto"];
+            };
+        };
+        responses: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

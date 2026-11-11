@@ -18,6 +18,11 @@ const prodConfig = {
   CORS_ORIGINS: 'https://app.school.org,https://admin.school.org',
   S3_ACCESS_KEY_ID: 'AKIA7QW3ER9TY2UI',
   S3_SECRET_ACCESS_KEY: 'sk9Jd3Kc7Vb1Nx5Mz8Qw2Er4Ty6Ui0Op',
+  COCKPIT_DOMAIN: 'cockpit.school.org',
+  COCKPIT_OWNER_1_EMAIL: 'owner1@school.org',
+  COCKPIT_OWNER_1_PHONE: '+8801711111111',
+  COCKPIT_OWNER_2_EMAIL: 'owner2@school.org',
+  COCKPIT_OWNER_2_PHONE: '+8801722222222',
 };
 
 describe('BILLING_FREE_UNTIL (49.4)', () => {
@@ -80,9 +85,9 @@ describe('Umami pair (40.4.08)', () => {
 
   it('production refuses a URL with a query string or fragment', () => {
     for (const bad of ['https://umami.example.org/?x=1', 'https://umami.example.org/#f']) {
-      expect(() =>
-        validate({ ...prodConfig, UMAMI_API_URL: bad, UMAMI_API_TOKEN: 't' }),
-      ).toThrow(/UMAMI_API_URL/);
+      expect(() => validate({ ...prodConfig, UMAMI_API_URL: bad, UMAMI_API_TOKEN: 't' })).toThrow(
+        /UMAMI_API_URL/,
+      );
     }
   });
 
@@ -476,5 +481,98 @@ describe('assertMessageSinkAllowed (87 D22)', () => {
         MESSAGE_SINK_PUBLIC_URL: 'http://localhost:8025',
       }),
     ).not.toThrow();
+  });
+});
+
+describe('cockpit owners (98 #3737)', () => {
+  const owners = [
+    'COCKPIT_DOMAIN',
+    'COCKPIT_OWNER_1_EMAIL',
+    'COCKPIT_OWNER_1_PHONE',
+    'COCKPIT_OWNER_2_EMAIL',
+    'COCKPIT_OWNER_2_PHONE',
+  ] as const;
+
+  it.each(owners)('production refuses a missing %s, naming it', (key) => {
+    const rest: Record<string, unknown> = { ...prodConfig };
+    delete rest[key];
+    expect(() => validate(rest)).toThrow(new RegExp(`${key} is required`));
+  });
+
+  it('production refuses equal or malformed owner emails and phones', () => {
+    expect(() => validate({ ...prodConfig, COCKPIT_OWNER_2_EMAIL: 'OWNER1@school.org' })).toThrow(
+      /EMAIL and COCKPIT_OWNER_2_EMAIL must differ/,
+    );
+    expect(() => validate({ ...prodConfig, COCKPIT_OWNER_1_EMAIL: 'nope' })).toThrow(
+      /COCKPIT_OWNER_1_EMAIL must be a valid email/,
+    );
+    expect(() =>
+      validate({ ...prodConfig, COCKPIT_OWNER_2_PHONE: prodConfig.COCKPIT_OWNER_1_PHONE }),
+    ).toThrow(/PHONE and COCKPIT_OWNER_2_PHONE must differ/);
+    expect(() => validate({ ...prodConfig, COCKPIT_OWNER_1_PHONE: '01711111111' })).toThrow(
+      /COCKPIT_OWNER_1_PHONE must be an E.164/,
+    );
+  });
+
+  it('error text never carries the value', () => {
+    const run = () => validate({ ...prodConfig, COCKPIT_OWNER_1_PHONE: '01799999999' });
+    expect(run).toThrow(/COCKPIT_OWNER_1_PHONE/);
+    expect(run).not.toThrow('01799999999');
+  });
+
+  it('demo mode needs no owners', () => {
+    const rest: Record<string, unknown> = { ...prodConfig, DEMO_MODE: 'true' };
+    for (const k of owners) delete rest[k];
+    let message = '';
+    try {
+      validate(rest);
+    } catch (e) {
+      message = String(e);
+    }
+    // Compare the problem list, not a substring of the whole message.
+    const problems = message.split('\n- ').slice(1);
+    expect(problems.filter((p) => p.startsWith('COCKPIT_OWNER'))).toEqual([]);
+  });
+
+  it('COCKPIT_TEST_TOTP_SECRET is refused in production and accepted in test', () => {
+    expect(() => validate({ ...prodConfig, COCKPIT_TEST_TOTP_SECRET: 'JBSWY3DPEHPK3PXP' })).toThrow(
+      /COCKPIT_TEST_TOTP_SECRET/,
+    );
+    expect(() =>
+      validate({ ...validConfig, NODE_ENV: 'test', COCKPIT_TEST_TOTP_SECRET: 'JBSWY3DPEHPK3PXP' }),
+    ).not.toThrow();
+  });
+
+  it('DEMO_MODE with SMOKE_COCKPIT_* outside staging lists the SMOKE_COCKPIT_* refusals', () => {
+    const rest: Record<string, unknown> = {
+      ...prodConfig,
+      DEMO_MODE: 'true',
+      DEMO_PASSWORD: 'demo-pass-1',
+      SMOKE_COCKPIT_EMAIL: 's@school.org',
+      SMOKE_COCKPIT_PASSWORD: 'pw-for-smoke-1234',
+      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXP',
+    };
+    let lines: string[] = [];
+    try {
+      validate(rest);
+    } catch (e) {
+      lines = String(e).split('\n- ');
+    }
+    for (const k of ['EMAIL', 'PASSWORD', 'TOTP_SECRET']) {
+      expect(lines).toContain(`SMOKE_COCKPIT_${k} is allowed only when ENV_NAME=staging`);
+    }
+  });
+
+  it('SMOKE_COCKPIT_* are accepted only with ENV_NAME=staging', () => {
+    const smoke = {
+      SMOKE_COCKPIT_EMAIL: 's@school.org',
+      SMOKE_COCKPIT_PASSWORD: 'pw-for-smoke-1234',
+      SMOKE_COCKPIT_TOTP_SECRET: 'JBSWY3DPEHPK3PXP',
+    };
+    expect(() => validate({ ...prodConfig, ...smoke })).toThrow(/SMOKE_COCKPIT_EMAIL is allowed/);
+    expect(() => validate({ ...prodConfig, ...smoke, ENV_NAME: 'prod' })).toThrow(
+      /SMOKE_COCKPIT_TOTP_SECRET is allowed/,
+    );
+    expect(() => validate({ ...prodConfig, ...smoke, ENV_NAME: 'staging' })).not.toThrow();
   });
 });

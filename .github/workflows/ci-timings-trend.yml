@@ -38,7 +38,13 @@ jobs:
       - name: Fetch recent CI runs
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?per_page=60" > runs.json
+        # [101.4.02] Three tries, 10 s apart: one HTTP 502 (run 42642653008) must not kill the trend.
+        run: |
+          for try in 1 2 3; do
+            gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?per_page=60" > runs.json && break
+            [ "$try" = 3 ] && exit 1
+            sleep 10
+          done
 
       # One `gh api` call per run for its jobs, appended as one JSON object
       # per line — a plain array here would mean holding all 60 responses
@@ -52,12 +58,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -o pipefail
           : > jobs.jsonl
           for id in $(jq -r '.workflow_runs[].id' runs.json); do
             # --paginate follows every page (a run can have >100 jobs across
             # a matrix); --slurp can't combine with -q, so pages are
             # flattened separately below.
-            jobs=$(gh api "repos/${{ github.repository }}/actions/runs/$id/jobs?per_page=100" --paginate --slurp | jq -c '[.[].jobs[]]')
+            for try in 1 2 3; do
+              jobs=$(gh api "repos/${{ github.repository }}/actions/runs/$id/jobs?per_page=100" --paginate --slurp | jq -c '[.[].jobs[]]') && break
+              [ "$try" = 3 ] && exit 1
+              sleep 10
+            done
             jq -c -n --argjson runId "$id" --argjson jobs "$jobs" '{runId: $runId, jobs: $jobs}' >> jobs.jsonl
           done
 

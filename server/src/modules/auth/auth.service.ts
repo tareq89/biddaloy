@@ -33,6 +33,7 @@ import {
   IssuedRefreshToken,
   RequestContext,
 } from './refresh-token.service';
+import { PlatformAdminService } from '../platform-identity/platform-admin.service';
 import { SessionCutoffService } from './session-cutoff.service';
 import { AccessTokenDenylistService } from './access-token-denylist.service';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
@@ -78,6 +79,7 @@ export class AuthService {
     @Inject(PushSubscriptionsService)
     private readonly pushSubscriptions: PushSubscriptionsService,
     private readonly sessionCutoff: SessionCutoffService,
+    private readonly platformAdmins: PlatformAdminService,
     // Inject JwtStrategy to force eager creation — PassportModule needs it
     // to discover the strategy for AuthGuard('jwt').
     @Optional() @Inject(JwtStrategy) private readonly _jwtStrategy?: JwtStrategy,
@@ -114,7 +116,10 @@ export class AuthService {
     // response, same audit action — so account status is never observable
     // from the outside, and a deactivated account can't just log back in
     // to route around logoutAll/refresh rejecting it (see refresh() below).
-    const success = !!user && !alreadyLocked && user.status === UserStatus.ACTIVE;
+    // [98.2.04] A platform owner fails here like a wrong password. The lookup runs for every
+    // caller (user or not) so timing never reveals who is an owner (Rule 18).
+    const isOwner = await this.platformAdmins.isPlatformAdmin(user?.id ?? randomUUID());
+    const success = !!user && !alreadyLocked && !isOwner && user.status === UserStatus.ACTIVE;
 
     if (!success) {
       if (!alreadyLocked) {
@@ -185,7 +190,16 @@ export class AuthService {
    * to a credentialed sign-in. Every rotation family starts fresh
    * (`randomUUID()`), same as `login()`.
    */
+  /** Same generic 401 a wrong password gets. */
+  private async assertNotPlatformOwner(userId: string): Promise<void> {
+    if (await this.platformAdmins.isPlatformAdmin(userId)) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+  }
+
   async startSession(user: User, context: RequestContext): Promise<AuthResult> {
+    // [98.2.04] Every app sign-in method ends here: owners never get an app-host session.
+    await this.assertNotPlatformOwner(user.id);
     // Before the membership read: see signAccessToken's `issuedAtMs`.
     const issuedAtMs = Date.now();
     const membershipPayload = await this.fetchMembershipPayload(user.id);
@@ -217,6 +231,12 @@ export class AuthService {
     // must get an iat_ms that predates the cut-off too. Its successor refresh token is revoked
     // as well: the revoke locks the user row and waits for the rotation (review m-new-2).
     const issuedAtMs = Date.now();
+    // [98.2.04] Owner check before rotate(): no successor token is minted for an owner, and the
+    // refusal reads exactly like the suspended/deleted-user one (Security Rule 23).
+    const cookieUserId = await this.refreshTokens.userIdForCookie(cookieValue);
+    if (cookieUserId && (await this.platformAdmins.isPlatformAdmin(cookieUserId))) {
+      throw new UnauthorizedException('User no longer exists');
+    }
     let rotated;
     try {
       rotated = await this.refreshTokens.rotate(cookieValue, context);

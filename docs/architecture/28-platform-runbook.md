@@ -2348,7 +2348,9 @@ sits behind the same Cloudflare Access login as `staging.<root>` (#3715).
 
 cloudflared cannot match `*-staging.<root>` (it only understands a leading `*.`), so each staging
 school is **listed**, by exact host, in one key: `STAGING_SITE_HOSTS` in `infra/secrets/edge.enc.env`
-(space separated, may be empty, the key must exist). That one list drives three things.
+(space separated). No school listed means **no key at all**, not `STAGING_SITE_HOSTS=`: sops
+leaves an empty value in plain text, and CI's `check-tracked-files` refuses a plain-text line in
+an `.enc.env` (#4013). Every reader treats a missing key as an empty list. That one list drives three things.
 
 ```mermaid
 flowchart TD

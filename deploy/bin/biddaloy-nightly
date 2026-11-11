@@ -117,6 +117,7 @@ drill_smoke() {
     -e REDIS_URL=redis://redis:6379/15 \
     -e SMOKE_SCHOOL_SLUG -e SMOKE_ADMIN_EMAIL -e SMOKE_ADMIN_PASSWORD -e SMOKE_TEACHER_EMAIL \
     -e SMOKE_TEACHER_PASSWORD -e SMOKE_SUPER_ADMIN_EMAIL -e SMOKE_SUPER_ADMIN_PASSWORD \
+    -e SMOKE_COCKPIT_DOMAIN -e SMOKE_APP_DOMAIN -e SMOKE_FENCE_ORIGIN \
     app sh -c 'node server/dist/main.js >&2 & pid=$!
       for i in $(seq 1 60); do
         wget -q -O /dev/null http://127.0.0.1:3000/api/health && break
@@ -128,7 +129,7 @@ drill_smoke() {
 }
 restore_drill() {
   load POSTGRES_DB POSTGRES_USER SMOKE_SCHOOL_SLUG SMOKE_ADMIN_EMAIL SMOKE_ADMIN_PASSWORD SMOKE_TEACHER_EMAIL \
-    SMOKE_TEACHER_PASSWORD SMOKE_SUPER_ADMIN_EMAIL SMOKE_SUPER_ADMIN_PASSWORD
+    SMOKE_TEACHER_PASSWORD SMOKE_SUPER_ADMIN_EMAIL SMOKE_SUPER_ADMIN_PASSWORD SMOKE_COCKPIT_DOMAIN SMOKE_APP_DOMAIN SMOKE_FENCE_ORIGIN
   # staging's active db is biddaloy_staging_dev by default (88.2.04), biddaloy_staging once loaded
   [[ "$POSTGRES_DB" =~ ^biddaloy_staging(_dev)?$ ]] || { say "POSTGRES_DB is not a staging db"; fail guard; }
 

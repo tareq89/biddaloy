@@ -724,7 +724,9 @@ server test:integration = vitest run 'integration.spec.ts' --exclude '**/demo-se
 `postgres` superuser, so the guard can create and drop its databases. To run it
 alone: `yarn test-env run -- yarn workspace @biddaloy/server vitest run src/scripts/demo-seed/demo-seed.coverage.integration.spec.ts`.
 Entities with no rows on purpose are listed in the `EXEMPT` map in `slices.ts`,
-each with a reason.
+each with a reason. The six cockpit identity tables (Epic 98: `PlatformAdmin`, `PlatformAdminDevice`,
+`PlatformApproval`, `PlatformSetting`, `UserMfa`, `UserRecoveryCode`) are exempt with the reason
+`platform data, no cockpit on demo`.
 
 | Rule | Fails when                                                     | Exact message                                                                                                                                           |
 | ---- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |

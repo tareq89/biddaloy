@@ -89,6 +89,11 @@ describe('16.1.1 fee/payment enums [#638]', () => {
         'grading_scale.manage',
         'results.reopen',
         'promotion.override',
+        'platform.owner_lock',
+        'platform.owner_unlock',
+        'platform.approvals_switch',
+        'platform.approval_decide',
+        'platform.recovery_codes',
         'academic_year.close',
       ].sort(),
     );

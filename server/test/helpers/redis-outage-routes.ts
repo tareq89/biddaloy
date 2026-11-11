@@ -5,6 +5,10 @@ import { AccountAccessController } from '../../src/modules/account-access/accoun
 import { FirstPasswordController } from '../../src/modules/account-access/first-password.controller';
 import { SchoolInvitesController } from '../../src/modules/account-access/school-invites.controller';
 import { RegistrationController } from '../../src/modules/registration/registration.controller';
+import { CockpitAuthController } from '../../src/modules/auth/cockpit/cockpit-auth.controller';
+import { CockpitEnrolController } from '../../src/modules/auth/cockpit/cockpit-enrol.controller';
+import { CockpitPasswordController } from '../../src/modules/auth/cockpit/cockpit-password.controller';
+import { CockpitSessionController } from '../../src/modules/auth/cockpit/cockpit-session.controller';
 import { UserController } from '../../src/modules/users/users.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
@@ -25,6 +29,10 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   RegistrationController,
   UserController,
   MarksController,
+  CockpitAuthController,
+  CockpitEnrolController,
+  CockpitPasswordController,
+  CockpitSessionController,
 ];
 
 // Checks a password, or sends or checks a one-time code: answers 503 without Redis, because
@@ -51,6 +59,19 @@ export const FAIL_CLOSED = [
   'DELETE /auth/social/identities/:provider',
   'POST /auth/social/facebook/data-deletion',
   'POST /users/me/contact-change',
+  // [Epic 98] Cockpit sign-in: every route checks a password, a code, or a session marker kept in Redis.
+  'POST /auth/cockpit/login',
+  'POST /auth/cockpit/mfa',
+  'POST /auth/cockpit/device-otp',
+  'POST /auth/cockpit/enrol/start',
+  'POST /auth/cockpit/enrol/confirm',
+  'POST /auth/cockpit/forgot-password',
+  'POST /auth/cockpit/reset-password',
+  'POST /auth/cockpit/refresh',
+  'POST /auth/cockpit/logout',
+  'POST /auth/cockpit/logout-all',
+  'GET /auth/cockpit/sessions',
+  'DELETE /auth/cockpit/sessions/:id',
   // MarksController: the sheet import stages in Redis, so without it validate and commit cannot work.
   'POST /exams/:examId/marks/sheet/validate',
   'POST /exams/:examId/marks/sheet/commit',

@@ -13,9 +13,9 @@ import {
 const meta = (k: string) => ALERT_RULES.find((r) => r.key === k)!;
 
 describe('alert rule catalogue', () => {
-  it('has 65 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
-    expect(ALERT_RULES).toHaveLength(65);
-    expect(new Set(ALERT_RULE_KEYS).size).toBe(65);
+  it('has 67 unique, well-formed keys that match ALERT_RULE_KEYS in order', () => {
+    expect(ALERT_RULES).toHaveLength(67);
+    expect(new Set(ALERT_RULE_KEYS).size).toBe(67);
     expect(ALERT_RULES.map((r) => r.key)).toEqual([...ALERT_RULE_KEYS]);
     for (const k of ALERT_RULE_KEYS) expect(k).toMatch(/^[a-z_]+(\.[a-z_]+)+$/);
   });
@@ -30,6 +30,13 @@ describe('alert rule catalogue', () => {
       expect(isAlertRuleKey(k), k).toBe(true);
     }
     expect(meta('platform.seats.expiring').roles).toEqual([UserRole.SUPER_ADMIN]);
+  });
+
+  it('registers the cockpit identity rules for platform owners (Epic 98)', () => {
+    for (const k of ['platform.recovery_codes_low', 'platform.approval_pending']) {
+      expect(isAlertRuleKey(k), k).toBe(true);
+      expect(meta(k).roles).toEqual([UserRole.SUPER_ADMIN]);
+    }
   });
 
   it('does not contain incidents.open', () => {
@@ -81,7 +88,7 @@ describe('alert rule catalogue', () => {
     expect(meta('attendance.not_taken').cadence).toContain(AlertCadence.FAST);
   });
 
-  it('ownerEpic is set on exactly the 13 later-epic rows', () => {
+  it('ownerEpic is set on exactly the 15 later-epic rows', () => {
     expect(
       ALERT_RULES.filter((r) => r.ownerEpic)
         .map((r) => r.key)
@@ -101,6 +108,8 @@ describe('alert rule catalogue', () => {
         'account.idle',
         'platform.seats.expiring',
         'platform.bkash.refund_due',
+        'platform.recovery_codes_low',
+        'platform.approval_pending',
       ].sort(),
     );
   });

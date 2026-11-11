@@ -18,6 +18,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserTenant } from './entities/user-tenant.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { User } from '../users/entities/user.entity';
+import { PlatformAdmin } from '../platform-identity/entities/platform-admin.entity';
+import { PlatformIdentityModule } from '../platform-identity/platform-identity.module';
 import { AuditModule } from '../audit/audit.module';
 import { PushModule } from '../push/push.module';
 import { SessionCutoffService } from './session-cutoff.service';
@@ -57,8 +59,9 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
 @Global()
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserTenant, RefreshToken]),
+    TypeOrmModule.forFeature([User, UserTenant, RefreshToken, PlatformAdmin]),
     AuditModule,
+    PlatformIdentityModule,
     PushModule,
     // `ContextGuard`'s `TenantStatusService` dependency comes from
     // `TenantStatusModule`'s `@Global()` export, not from an explicit
@@ -184,6 +187,7 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
     PermissionsGuard,
     ApprovalGuard,
     ApprovalService,
+    StepUpService, // Epic 98: PlatformStepUpController
     JwtStrategy,
     ACCESS_TOKEN_TTL_MS,
     SessionCutoffService,
