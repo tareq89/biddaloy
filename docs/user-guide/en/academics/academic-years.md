@@ -9,6 +9,11 @@ sources:
   - client-admin/src/routes/_staff/academic-years/-year-form-dialog.tsx
   - client-admin/src/routes/_staff/academic-years/-set-current-dialog.tsx
   - client-admin/src/routes/_staff/academic-years/-delete-year-dialog.tsx
+  - client-admin/src/routes/_staff/academic-years/-close-year-dialog.tsx
+  - client-admin/src/routes/_staff/academic-years/$academicYearId_.next.tsx
+  - client-admin/src/routes/_staff/academic-years/-next-year/name-step.tsx
+  - client-admin/src/routes/_staff/academic-years/-next-year/preview-step.tsx
+  - client-admin/src/routes/_staff/academic-years/-next-year/done-step.tsx
   - client-admin/src/routes/_staff/academic-years/-detail/terms-tab.tsx
   - client-admin/src/routes/_staff/academic-years/-detail/classes-tab.tsx
   - client-admin/src/routes/_staff/academic-years/-detail/fee-structures-tab.tsx
@@ -22,6 +27,10 @@ labels:
     academicYears:deleteDialog.*,
     academicYears:setCurrentDialog.*,
     academicYears:detail.*,
+    academicYears:nextYear.*,
+    academicYears:closeYear.*,
+    academicYears:readiness.*,
+    academicYears:closedNotice.*,
     nav:items.academicYears,
     nav:groups.academics,
     common:accessDenied.*,
@@ -56,7 +65,7 @@ Add academic years, set which one is running now, arrange the terms of a year, a
 
 Almost everything in the school lives inside an academic year: [classes](classes.md), fee structures, admissions, exams. Only one year is **current** at a time. When you create a new class or view a list, the app usually picks the current year first. So when a new year begins, remember to make it the current one.
 
-[Add an academic year](#task-main) · [Set the current year](#task-current) · [Arrange terms](#task-terms) · [Delete](#task-delete) · [Problems and fixes](#trouble)
+[Add an academic year](#task-main) · [Set the current year](#task-current) · [Arrange terms](#task-terms) · [Create next year](#task-next) · [Close a year](#task-close) · \1 · [Problems and fixes](#trouble)
 
 **On this page**
 
@@ -65,6 +74,10 @@ Almost everything in the school lives inside an academic year: [classes](classes
 - [How to tell the year was added](#confirm)
 - [Other situations](#other)
   - [Change the current academic year](#task-current)
+  - [Create next year from this one](#task-next)
+  - [Before you make a year current](#task-before-current)
+  - [Close a year](#task-close)
+  - [Reopen a year](#task-reopen)
   - [Change the name or dates](#task-edit)
   - [Add and arrange terms](#task-terms)
   - [Delete an academic year](#task-delete)
@@ -153,7 +166,96 @@ Do this when a new year begins. Only one year is current at a time.
 
 > **Remember:** changing the current year does not move students into the new year by themselves. Moving students up to the next class is a separate job.
 
+The dialog also shows three numbers about the year. See [Before you make a year current](#task-before-current).
+
 If it fails, the dialog shows **Failed to set the current academic year**.
+
+### Create next year from this one <a href="#task-next" id="task-next"></a>
+
+Do this when a year is ending. The app copies the setup of this year into the new year, so you do not build classes, subjects and fees again. Nothing is made until the last step.
+
+```mermaid
+flowchart LR
+  A["1. Name and dates"] --> B["2. What will be copied<br/>(tick, nothing is made yet)"]
+  B -->|Create year| C["3. Done<br/>new year is ready"]
+  B -->|Back| A
+```
+
+1. On the year list, press **Create next year** at the end of the row. Or open the year and press **Create next year from this one**. A year that is already closed does not have this button. (You can also press Ctrl+K and type **Create next year**; it starts from the current year.)
+
+   → The **Create next year** page opens. The steps are **Name and dates**, **What will be copied**, **Done**.
+
+2. Check the **Name of the new year**, **First day** and **Last day**, then press **Next**.
+
+   → The app fills them in for you: `2026-2027` becomes `2027-2028`, the first day is the day after this year ends, and the last day is one year later, less one day. Change them if your school differs. Empty name shows **Enter a name**; a missing date shows **Enter the first and last day**; a last day that is not after the first shows **The last day must be after the first day**.
+
+3. On **What will be copied**, look at the seven boxes: **Classes**, **Sections**, **Class subjects**, **Teacher assignments**, **Fee structures**, **Grading scales**, **Terms**. Each one says, for example, **New 12 · Already there 0 · Skipped 0**. Remove the tick from anything you do not want.
+
+   → **New** is what will be added. **Already there** is what the new year already has, so it is left as it is. **Skipped** is what could not be copied. If every box is unticked, it shows **Tick at least one thing to copy.** and **Create year** stays off.
+
+4. If a card **Teachers left out** appears, read it. It lists each teacher with the section and subject.
+
+   → A teacher is left out when the new year has no section to match. Add that section, then run **Create next year** again; it only adds what is missing.
+
+5. Press **Create year**.
+
+   → The **Done** step opens: **2027-2028 is ready**, with the same three numbers added up. If something goes wrong, it shows **Nothing was created. Try again.** and no half-made year is left behind.
+
+6. Under **Also copy from 2026-2027:** press what you need. **Class routine** opens the routine review page, **Calendar** opens the calendar copy, **Fine rules** opens a small window, and **Recurring fee schedules** opens the fee schedules page. Then press **Next: check fee amounts on Fee structures** to look at the new fees, or **Go to the new year**.
+
+| You pressed                    | What happens                                                         | Saved?              |
+| ------------------------------ | -------------------------------------------------------------------- | ------------------- |
+| **Create year**                | The new year and the ticked things are made, all together            | Yes                 |
+| **Back** (on the second step)  | Returns to the name and dates; nothing is made                       | No                  |
+| **Back** (on the first step), or the close mark | Leaves the page; nothing is made                    | No                  |
+
+You can run it again for the same new year. **Already there** things are never changed or duplicated. After this, [make the new year current](#task-current) when its first day comes.
+
+### Before you make a year current <a href="#task-before-current" id="task-before-current"></a>
+
+When you press **Set as current** (see [Change the current academic year](#task-current)), the dialog first shows three numbers for the year you are about to make current:
+
+> **Classes: 12 · Teacher assignments: 40 · Promotions committed: 1**
+
+| Number                      | What to check                                                                                   |
+| --------------------------- | ----------------------------------------------------------------------------------------------- |
+| **Classes**                 | The classes of the new year are there                                                           |
+| **Teacher assignments**     | Teachers are given their subjects and sections                                                  |
+| **Promotions committed**    | How many [promotion lists](../exams-results/promotion.md) were finalised into this year         |
+
+If **Teacher assignments** is 0, a yellow note says **Teachers will see no students until assignments exist in this year.** It is only a warning. You can still press **Set as current**; teachers will then see no students until assignments are added.
+
+### Close a year <a href="#task-close" id="task-close"></a>
+
+Close a year when its work is finished, so nobody changes its exams, marks or bills by mistake. You can open it again.
+
+1. Make sure the year is not the current one. Then open it and press **Close year**. (Ctrl+K → **Close year** opens the latest open year that is not current.) A current year has no **Close year** button: [make another year current](#task-current) first.
+
+   → The **Close 2026-2027** dialog opens: "After a year is closed, its exams, marks, bills, attendance and enrolments can no longer change. Payments can still be taken. You can reopen the year later."
+
+2. Read **What will no longer change**. It lists only the things that have records in this year, with the number of each, for example **Exams: 6**, **Bills: 1,240**, **Enrolments: 380**. If nothing was recorded it says **Nothing has been recorded in this year yet.**
+
+3. Read **Check before you close**, if it appears. The lines are **Classes not promoted**, **Students still active**, **Groups pending**, **Dues outstanding** and **Results not published**, each with a number or an amount.
+
+   → These are only reminders. You may close with them. To clear **Groups pending**, see [Set groups for many students](../exams-results/promotion.md#task-groups).
+
+4. If a red bar says **A promotion draft is still open for this year. Commit it or delete it first.**, press **Open promotions**, and finish or delete that draft. **Close year** stays off until you do.
+
+5. Press **Close year**. An extra approval window opens; finish it as it asks, and the year closes.
+
+   → The year page shows a grey mark **Closed on** and the date. Pages that work inside this year show **2026-2027 is closed. Reopen it on Academic years to change this.**
+
+A closed year still takes payments, but no new bills are made in it. If someone tries to change a closed year, the app says **This year is closed. Reopen it on Academic years to change this.**
+
+### Reopen a year <a href="#task-reopen" id="task-reopen"></a>
+
+1. Open the closed year and press **Reopen year**.
+
+   → The **Reopen 2026-2027** dialog asks: Reopen "2026-2027"? Its exams, marks, bills, attendance and enrolments can change again.
+
+2. Press **Reopen year**. Finish the extra approval window.
+
+   → The **Closed on** mark goes away and the year can be changed again. If it fails: **Could not reopen the year**.
 
 ### Change the name or dates <a href="#task-edit" id="task-edit"></a>
 
@@ -233,6 +335,14 @@ Press the year's name in the list, or **View**, to open its page. At the top are
 | **Failed to save term**                                                                                                          | Check the internet and try again.                                                                        | Admin        |
 | **Could not change the order**                                                                                                   | Reload the page and press the arrow again.                                                               | Admin        |
 | A new class or a list shows the old year                                                                                         | [Set the new year as current](#task-current).                                                            | Admin        |
+| **Nothing was created. Try again.** | Check the internet and press **Create year** again. Nothing half-made is left behind. | Admin |
+| **Tick at least one thing to copy.** | Tick at least one box on the **What will be copied** step. | Admin |
+| A teacher is under **Teachers left out** | The new year has no matching section. Add the section, then [create next year](#task-next) again. | Admin |
+| **Create next year** is not on a year | That year is closed. [Reopen it](#task-reopen) first. | Admin |
+| **Close year** is not on a year | A current year cannot be closed. [Make another year current](#task-current) first. | Admin |
+| **A promotion draft is still open for this year. …** | Press **Open promotions**, then [finalise or delete the draft](../exams-results/promotion.md). | Admin |
+| **Could not close the year** or **Could not reopen the year** | Check the internet and the approval window, then try again. | Admin |
+| **This year is closed. Reopen it on Academic years to change this.** | [Reopen the year](#task-reopen) if the change is needed. | Admin |
 
 If a page or button is missing, see [Why can't I see this?](../help/cant-see-this.md).
 
@@ -240,7 +350,7 @@ If a page or button is missing, see [Why can't I see this?](../help/cant-see-thi
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role                                                                                                 | See the list and year page | Add, edit, set current, delete a year | Add and change terms |
+| Role                                                                                                 | See the list and year page | Add, edit, set current, delete, create next, close, reopen a year | Add and change terms |
 | ---------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------- | -------------------- |
 | Admin                                                                                                | Yes                        | Yes                                   | Yes                  |
 | Academic coordinator, teacher, accountant, office assistant, exam controller, governing board member | No                         | No                                    | No                   |
