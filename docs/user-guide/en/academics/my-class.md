@@ -153,7 +153,7 @@ Homework in detail: [Homework](homework.md). **See all** on the **Dues** card ap
 When the school makes a promotion list for the next year and the next class has groups (for example Science, Arts), every student needs a group. If some students of your section have none yet, an extra card, **Groups**, appears among the cards. It is not there when nobody in your section is waiting, and it is not there when the school has no open promotion list.
 
 1. Look at the **Groups** card. → It says **Groups pending: 8**, the number of students in your section with no group.
-2. Press **Set groups**. → The **Set groups** page opens with your section's students. Tick them, choose a group, press **Apply**. Steps: [Set groups for many students at once](../exams-results/promotion.md#task-groups).
+2. Press **Set groups**. → The **Set groups** page opens with your section's students. Tick them, choose a group, press **Apply to N**. Steps: [Set groups for many students at once](../exams-results/promotion.md#task-groups).
 3. Come back to **My class**. → When every student has a group, the card goes away.
 
 You see only your own section's students there. The Admin sees everyone on the promotion list.

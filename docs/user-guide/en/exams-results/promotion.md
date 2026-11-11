@@ -237,14 +237,16 @@ flowchart LR
   S --> G["Choose group, Apply"]
 ```
 
-1. Admin: on the draft list press **Set groups**. Class teacher: on [My class](../academics/my-class.md#task-groups-card), press **Set groups** on the **Groups pending** card. → The **Set groups** page opens, with a table: **Student**, **Section**, **GPA**, **Result**, **Group**. A student with no group yet shows **No group**.
+1. Admin: on the draft list press **Set groups**. Class teacher: on [My class](../academics/my-class.md#task-groups-card), press **Set groups** on the **Groups** card (it shows **Groups pending: N**). → The **Set groups** page opens, with a table: **Student**, **Section**, **GPA**, **Result**, **Group**. A student with no group yet shows **No group**.
 2. Optional: to pick students by marks, set **GPA from** / **GPA up to**, or choose a **Subject** and then **Marks at least**. → Only matching students are shown, and a column with that subject's marks appears. The **Result** column says **From final result** or **From exam average**, so you know where the numbers come from. If the students have no result yet, the page says **No results to filter on**; tick the students by hand.
 3. Tick the students, or press **Select all matching (N)**. → It picks everyone who matches, on every page of the table, not only the page you see. The bottom bar shows **N selected**.
 4. Choose a **Group** (only the school's own groups are listed), then press **Apply to N**. → A message says **Group set for N students**, and the **Group** column fills in.
 
-Example: to put students with GPA 4.00 or more in Science, type `4` in **GPA from**, press **Select all matching**, choose **Science**, press **Apply**.
+Example: to put students with GPA 4.00 or more in Science, type `4` in **GPA from**, press **Select all matching**, choose **Science**, press **Apply to N**.
 
 If the school has no groups yet, the page says **This school has no groups yet** and the group controls are hidden. An Admin can press **Open school settings**, add the groups, and come back. If a year is closed, the groups cannot be set; reopen it on [Academic years](../academics/academic-years.md#task-reopen). If some students are not set, it shows **Couldn't set the group for everyone. Some students may already be set, so check the list and try again.**
+
+A class teacher can open this page only for the promotion list that includes their own section. A teacher who is class teacher of a different section sees **Couldn't load the students. Please try again.**, and a teacher with no section sees **No students to show**. In both cases, ask the Admin to set the groups.
 
 ---
 
@@ -270,11 +272,11 @@ If the school has no groups yet, the page says **This school has no groups yet**
 
 ## Who can do what <a href="#roles" id="roles"></a>
 
-| Role | Open this page and make a draft | Finalise, including decisions changed by hand | Set groups for many students |
-| --- | --- | --- | --- |
-| Admin | Yes | Yes (with extra approval) | Yes, all students of the draft |
-| Class teacher | No | No | Yes, own section only, from [My class](../academics/my-class.md#task-groups-card) |
-| All others | No | No | No |
+| Role          | Open this page and make a draft | Finalise, including decisions changed by hand | Set groups for many students                                                      |
+| ------------- | ------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------- |
+| Admin         | Yes                             | Yes (with extra approval)                     | Yes, all students of the draft                                                    |
+| Class teacher | No                              | No                                            | Yes, own section only, from [My class](../academics/my-class.md#task-groups-card) |
+| All others    | No                              | No                                            | No                                                                                |
 
 **Class promotion** is not in the left menu of the other roles. The mark for a promotion changed by hand on a student's page can still be seen by anyone who is allowed to view students.
 
