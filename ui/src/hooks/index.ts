@@ -1472,6 +1472,7 @@ export {
   usePlatformAttentionHealth,
   useStudentAttention,
 } from './attention/use-attention-queries';
+export { configureCockpitAttention } from './attention/cockpit-source';
 export {
   useHideAttentionItem,
   useMarkAttentionSeen,

@@ -51,6 +51,10 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/verify-email': 'pre-auth screen, no shell',
   '/register': 'pre-auth screen, no shell',
   '/auth/social/done': 'redirect-only landing, never renders a page',
+  '/sign-in/forgot': 'cockpit pre-auth screen, no shell',
+  '/sign-in/reset': 'cockpit pre-auth screen, no shell',
+  // Chromeless and outside `_platform` (no session yet), so no trail: the page has its own title.
+  '/owner-security/two-step': 'cockpit first-time set-up, chromeless, no shell',
   '/select-school': 'post-auth, pre-tenant-selection — no tenant nav to trail into yet',
   '/i/$token': 'public invite-accept link, opened signed-out',
   '/v/$token': 'public document-verify page, opened signed-out from a printed QR code',
@@ -88,6 +92,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   ],
   '/_platform/subscriptions/': [{ label: { key: 'subscriptions' } }],
   '/_platform/reports-usage': [{ label: { key: 'reportsUsage' } }],
+  '/_platform/platform-owners/': [{ label: { key: 'platformOwners' } }],
+  '/_platform/owner-security/': [{ label: { key: 'security' } }],
   '/_platform/schools/': [{ label: { key: 'schools' } }],
   '/_platform/schools/new': [{ label: { key: 'schools' } }, { label: { key: 'new' } }],
   '/_platform/schools/$schoolId': [

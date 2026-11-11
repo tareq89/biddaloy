@@ -146,6 +146,31 @@
       "archetype": "list"
     },
     {
+      "path": "/platform-owners",
+      "role": "super_admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/owner-security",
+      "role": "super_admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/owner-security/two-step",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/sign-in/forgot",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/sign-in/reset",
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/holiday-sets/$setId",
       "params": {
         "setId": "seeded"

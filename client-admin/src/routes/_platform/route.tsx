@@ -7,22 +7,44 @@ import {
   LocaleSwitcher,
   NotificationBell,
   ThemeToggle,
+  toast,
 } from '@biddaloy/ui/components';
+import {
+  ApprovalModalHostProvider,
+  cockpitRequest,
+  configureCockpitAttention,
+  logout,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
-import { createFileRoute, Outlet, useMatches, useRouterState } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  createFileRoute,
+  Outlet,
+  useMatches,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router';
 import * as React from 'react';
 
+import { PLATFORM_ACTIONS } from '../../action-registry';
+import { isCockpitHost } from '../../cockpit-host';
 import { CommandPaletteLauncher } from '../../components/command-palette-launcher';
 import { PlatformAlertBanner } from '../../components/platform-alert-banner';
 import { StaffUserMenu } from '../../components/staff-user-menu';
 import { useAttentionCenter } from '../../features/attention/attention-center';
+import { CockpitIdleWarning } from '../../features/cockpit/idle-warning';
 import { DemoCornerFrame } from '../../features/demo/demo-corner-frame';
 import { useDemoMode } from '../../features/demo/use-demo-mode';
 import { MORE_ICON, PLATFORM_NAV_ICONS, STAFF_NAV_ICONS } from '../../nav-icons';
 import { isPathUnder } from '../../nav-tree';
 import { loadRouteNamespaces } from '../../route-loaders';
 import { useBreadcrumbs } from '../../use-breadcrumbs';
+
+// [98.4.07] On the cockpit host the owner has no school: the attention bar reads
+// `/platform/attention` over a plain request. Module scope, once; the school shells never call it.
+const COCKPIT = typeof location !== 'undefined' && isCockpitHost();
+if (COCKPIT) configureCockpitAttention();
 
 /**
  * #533's SUPER_ADMIN platform console — a pathless layout, same
@@ -50,18 +72,20 @@ import { useBreadcrumbs } from '../../use-breadcrumbs';
  * Holidays · Dashboard (back to the school app) plus More (C8).
  */
 export const Route = createFileRoute('/_platform')({
-  loader: () => loadRouteNamespaces('nav', 'platform', 'auth', 'attention'),
+  loader: () =>
+    loadRouteNamespaces('nav', 'platform', 'auth', 'attention', 'ownerSecurity', 'approval'),
   component: PlatformLayout,
 });
 
 function PlatformLayout() {
   const demo = useDemoMode();
   // `nav` first: `check-i18n-keys.mjs` resolves bare keys off the first call.
-  const { t } = useTranslation('nav');
+  const { t, i18n } = useTranslation('nav');
   const { t: tPlatform } = useTranslation('platform');
   const { t: tAuth } = useTranslation('auth');
   const attention = useAttentionCenter({ todoTo: '/notifications' });
   const SchoolsIcon = PLATFORM_NAV_ICONS['/schools'];
+  const PlatformOwnersIcon = PLATFORM_NAV_ICONS['/platform-owners'];
   const HolidaySetsIcon = PLATFORM_NAV_ICONS['/holiday-sets'];
   const SubscriptionsIcon = PLATFORM_NAV_ICONS['/subscriptions'];
   const ReportsUsageIcon = PLATFORM_NAV_ICONS['/reports-usage'];
@@ -84,6 +108,15 @@ function PlatformLayout() {
       label: t('items.schools'),
       icon: <SchoolsIcon aria-hidden="true" />,
     },
+    ...(COCKPIT
+      ? [
+          {
+            to: '/platform-owners',
+            label: t('items.platformOwners'),
+            icon: <PlatformOwnersIcon aria-hidden="true" />,
+          },
+        ]
+      : []),
     {
       to: '/holiday-sets',
       label: t('items.holidaySets'),
@@ -100,17 +133,29 @@ function PlatformLayout() {
       icon: <ReportsUsageIcon aria-hidden="true" />,
     },
   ];
-  const platformPages = navItems.map((i) => ({ id: i.to, label: i.label, to: i.to }));
+  const locale = i18n.language.startsWith('bn') ? 'bn' : 'en';
+  const platformPages = [
+    ...navItems.map((i) => ({ id: i.to, label: i.label, to: i.to })),
+    ...(COCKPIT
+      ? PLATFORM_ACTIONS.map((a) => ({
+          id: a.id,
+          label: a.label[locale],
+          to: a.to,
+          ...(a.synonyms && { synonyms: a.synonyms }),
+        }))
+      : []),
+  ];
   // The console's bottom bar keeps Schools and Holidays (Subscriptions and Report usage are under More); the third cell goes back to the school app (C8).
   const cells = [
-    { ...navItems[0]!, label: t('bottomNavCells.schools') },
-    { ...navItems[1]!, label: t('bottomNavCells.holidays') },
+    { ...navItems.find((i) => i.to === '/schools')!, label: t('bottomNavCells.schools') },
+    { ...navItems.find((i) => i.to === '/holiday-sets')!, label: t('bottomNavCells.holidays') },
     {
       to: '/dashboard',
       label: t('bottomNavCells.dashboard'),
       icon: <DashboardIcon aria-hidden="true" />,
     },
   ];
+  const securityTo = COCKPIT ? '/owner-security' : '/security';
   const consoleTitle = tPlatform('breadcrumb.platformAdmin');
   const notificationBell = (
     <NotificationBell viewAllTo="/notifications" attention={attention.bell} />
@@ -119,75 +164,105 @@ function PlatformLayout() {
   return (
     <DemoCornerFrame>
       <RequireRole allow={[UserRole.SUPER_ADMIN]} redirectTo="/dashboard">
-        {chromeless ? (
-          <Outlet />
-        ) : (
-          <AppShell
-            reserveCorner={demo.enabled}
-            navItems={navItems}
-            brand={t('brand')}
-            topBar={
-              <div className="hidden md:flex">
-                <AppHeader
-                  reserveCorner={demo.enabled}
-                  start={
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{consoleTitle}</span>
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary">
-                        {tAuth('schoolPicker.roles.SUPER_ADMIN')}
-                      </span>
-                    </div>
-                  }
-                  end={
-                    <>
-                      <CommandPaletteLauncher pages={platformPages} />
-                      {notificationBell}
-                      <LocaleSwitcher />
-                      <ThemeToggle />
-                      <StaffUserMenu />
-                    </>
-                  }
-                />
-              </div>
-            }
-            mobileTitle={consoleTitle}
-            mobileActions={
-              <>
-                <CommandPaletteLauncher pages={platformPages} />
-                {notificationBell}
-                <StaffUserMenu />
-              </>
-            }
-            bottomNav={
-              <BottomNav
-                items={cells}
-                label={t('bottomNavStaffLabel')}
-                more={{
-                  label: t('items.more'),
-                  icon: <MORE_ICON className="size-5" aria-hidden="true" />,
-                  active: !cells.some((c) => isPathUnder(pathname, c.to)),
-                }}
-              />
-            }
-            openMenuLabel={t('openMenuLabel')}
-            closeMenuLabel={t('closeMenuLabel')}
-            navLabel={t('navLabel')}
-            skipLinkLabel={t('skipToContent')}
-          >
-            <PlatformAlertBanner enabled />
-            {attention.bar}
-            {attention.modal}
-            {breadcrumbItems.length > 0 && (
-              <Breadcrumbs
-                items={breadcrumbItems}
-                aria-label={t('breadcrumb.navLabel')}
-                className="mb-4"
-              />
-            )}
+        {/* One code-prompt host for every cockpit page (owners, security): step-up asks for a code anywhere. */}
+        <ApprovalModalHostProvider>
+          {COCKPIT && <CockpitIdle />}
+          {chromeless ? (
             <Outlet />
-          </AppShell>
-        )}
+          ) : (
+            <AppShell
+              reserveCorner={demo.enabled}
+              navItems={navItems}
+              brand={t('brand')}
+              topBar={
+                <div className="hidden md:flex">
+                  <AppHeader
+                    reserveCorner={demo.enabled}
+                    start={
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{consoleTitle}</span>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary">
+                          {tAuth('schoolPicker.roles.SUPER_ADMIN')}
+                        </span>
+                      </div>
+                    }
+                    end={
+                      <>
+                        <CommandPaletteLauncher pages={platformPages} />
+                        {notificationBell}
+                        <LocaleSwitcher />
+                        <ThemeToggle />
+                        <StaffUserMenu securityTo={securityTo} />
+                      </>
+                    }
+                  />
+                </div>
+              }
+              mobileTitle={consoleTitle}
+              mobileActions={
+                <>
+                  <CommandPaletteLauncher pages={platformPages} />
+                  {notificationBell}
+                  <StaffUserMenu securityTo={securityTo} />
+                </>
+              }
+              bottomNav={
+                <BottomNav
+                  items={cells}
+                  label={t('bottomNavStaffLabel')}
+                  more={{
+                    label: t('items.more'),
+                    icon: <MORE_ICON className="size-5" aria-hidden="true" />,
+                    active: !cells.some((c) => isPathUnder(pathname, c.to)),
+                  }}
+                />
+              }
+              openMenuLabel={t('openMenuLabel')}
+              closeMenuLabel={t('closeMenuLabel')}
+              navLabel={t('navLabel')}
+              skipLinkLabel={t('skipToContent')}
+            >
+              <PlatformAlertBanner enabled />
+              {attention.bar}
+              {attention.modal}
+              {breadcrumbItems.length > 0 && (
+                <Breadcrumbs
+                  items={breadcrumbItems}
+                  aria-label={t('breadcrumb.navLabel')}
+                  className="mb-4"
+                />
+              )}
+              <Outlet />
+            </AppShell>
+          )}
+        </ApprovalModalHostProvider>
       </RequireRole>
     </DemoCornerFrame>
+  );
+}
+
+/** [98.4.07] The one-minute warning before the server's 30-minute idle limit; cockpit host only. */
+function CockpitIdle() {
+  const { t: tSecurity } = useTranslation('ownerSecurity');
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  return (
+    <CockpitIdleWarning
+      strings={{
+        title: tSecurity('idle.warnTitle'),
+        body: tSecurity('idle.warnBody'),
+        stay: tSecurity('idle.stay'),
+        signOut: tSecurity('idle.signOut'),
+        expired: tSecurity('idle.expired'),
+      }}
+      // Any authenticated cockpit GET renews the server's idle key.
+      renew={() => cockpitRequest({ url: '/auth/cockpit/mfa-status' })}
+      signOut={() => logout(queryClient)}
+      onSignedOut={(notice) => {
+        void navigate({ to: '/sign-in' as '/' });
+        // The sign-in route belongs to another screen, so the notice is a toast, not a search param.
+        if (notice) toast(notice, { duration: 15_000 });
+      }}
+    />
   );
 }
