@@ -1,3 +1,4 @@
+import { DenyWhenImpersonating } from './decorators/deny-when-impersonating.decorator';
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -31,6 +32,7 @@ export class StepUpController {
   constructor(private readonly stepUp: StepUpService) {}
 
   @AllowWhenReadOnly()
+  @DenyWhenImpersonating()
   @Post('otp/request')
   @RequirePermissions(Permission.STEP_UP_REQUEST)
   @HttpCode(HttpStatus.ACCEPTED)
@@ -47,6 +49,7 @@ export class StepUpController {
   }
 
   @AllowWhenReadOnly()
+  @DenyWhenImpersonating()
   @Post()
   @RequirePermissions(Permission.STEP_UP_REQUEST)
   @HttpCode(HttpStatus.OK)

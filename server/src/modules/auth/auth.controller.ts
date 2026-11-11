@@ -1,3 +1,4 @@
+import { DenyWhenImpersonating } from './decorators/deny-when-impersonating.decorator';
 import {
   Controller,
   Post,
@@ -225,6 +226,7 @@ export class AuthController {
    * construction, and `forbidNonWhitelisted` turns a smuggled `user_id`
    * field into a 400.
    */
+  @DenyWhenImpersonating()
   @Post('change-password')
   @FailClosedWithoutRedis()
   @HttpCode(HttpStatus.OK)
