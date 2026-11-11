@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import {
@@ -11,7 +11,12 @@ import {
   UserRole,
 } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
-import { SEED_TENANT_ID, SEED_ACADEMIC_YEAR_ID, SEED_CLASS_1_ID } from '@test/constants';
+import {
+  SEED_TENANT_ID,
+  SEED_ACADEMIC_YEAR_ID,
+  SEED_CLASS_1_ID,
+  SEED_SECTION_1_ID,
+} from '@test/constants';
 import { MarkGridService } from './mark-grid.service';
 import { Exam } from './entities/exam.entity';
 import { ExamComponent } from './entities/exam-component.entity';
@@ -369,5 +374,79 @@ describe('MarkGridService blank cells (integration)', () => {
       },
     });
     expect(err.message).not.toContain(secB);
+  });
+});
+
+// [69.3.02] A closed year refuses grid submit and reopen on the real database.
+describe('MarkGridService in a closed year (integration)', () => {
+  let app: TestingModule;
+  let dataSource: DataSource;
+  let grids: MarkGridService;
+  let examId: string;
+  let subjectId: string;
+  const closed = { response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } };
+  const dto = () => ({ section_id: SEED_SECTION_1_ID, subject_id: subjectId }) as never;
+
+  beforeAll(async () => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-do-not-use-in-production';
+    process.env.NODE_ENV = 'test';
+    app = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    dataSource = app.get(DataSource);
+    grids = app.get(MarkGridService, { strict: false });
+  }, 60000);
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(async () => {
+    examId = (
+      await dataSource.getRepository(Exam).save({
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        class_id: SEED_CLASS_1_ID,
+        name: 'Closed Grid Exam',
+        kind: ExamKind.TERM,
+        status: ExamStatus.DRAFT,
+        tenant_id: SEED_TENANT_ID,
+      })
+    ).id;
+    subjectId = (
+      await dataSource
+        .getRepository(Subject)
+        .save({ tenant_id: SEED_TENANT_ID, name_en: 'Art', code: 'CG-ART' })
+    ).id;
+    await dataSource.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
+  });
+
+  afterEach(async () => {
+    await dataSource.query(
+      `UPDATE academic_years SET closed_at = NULL, is_current = true WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
+  });
+
+  it('submit is refused and creates no grid row', async () => {
+    await expect(
+      grids.submit(examId, dto(), SEED_TENANT_ID, UserRole.ADMIN, SEED_ADMIN_USER_ID),
+    ).rejects.toMatchObject(closed);
+    expect(await dataSource.getRepository(MarkGrid).count({ where: { exam_id: examId } })).toBe(0);
+  });
+
+  it('reopen is refused and the grid stays SUBMITTED', async () => {
+    await dataSource.getRepository(MarkGrid).save({
+      tenant_id: SEED_TENANT_ID,
+      exam_id: examId,
+      section_id: SEED_SECTION_1_ID,
+      subject_id: subjectId,
+      state: MarkGridState.SUBMITTED,
+    });
+    await expect(
+      grids.reopen(examId, dto(), SEED_TENANT_ID, UserRole.ADMIN, SEED_ADMIN_USER_ID),
+    ).rejects.toMatchObject(closed);
+    const grid = await dataSource.getRepository(MarkGrid).findOneByOrFail({ exam_id: examId });
+    expect(grid.state).toBe(MarkGridState.SUBMITTED);
   });
 });
