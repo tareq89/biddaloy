@@ -117,6 +117,8 @@ export {
   type LessonStatusGroupProps,
 } from './lesson-status-group';
 export { RadioRows, type RadioRowOption, type RadioRowsProps } from './radio-rows';
+export { PersonPicker, type PersonPickerItem, type PersonPickerProps } from './person-picker';
+export { ReasonChips, type ReasonChipsProps } from './reason-chips';
 export { ChoiceCards, type ChoiceCardOption, type ChoiceCardsProps } from './choice-cards';
 export { SchoolPicker, type SchoolPickerOption, type SchoolPickerProps } from './school-picker';
 export { TenantBar } from './tenant-bar';
@@ -329,6 +331,7 @@ export {
 } from './app-shell';
 export { AppHeader, type AppHeaderProps } from './app-header';
 export { DemoRibbon, type DemoRibbonProps } from './demo-ribbon';
+export { ImpersonationBanner, type ImpersonationBannerProps } from './impersonation-banner';
 export { UserMenu, type UserMenuProps } from './user-menu';
 export { SkipLink, type SkipLinkProps } from './skip-link';
 export { RouteAnnouncer, type RouteAnnouncerProps } from './route-announcer';
