@@ -29,6 +29,7 @@ import * as React from 'react';
 import { useTranslation } from '../i18n';
 
 import { Button } from './button';
+import { CodeField } from './code-field';
 import {
   Dialog,
   DialogContent,
@@ -45,7 +46,8 @@ export type ApprovalMethod = 'otp' | 'password';
 
 export interface ApprovalResult {
   approval_token: string;
-  approver: { id: string; name: string };
+  /** Absent for an owner (cockpit) approval: the token is all that comes back. */
+  approver?: { id: string; name: string };
 }
 
 /** Duck-typed against the server's error envelope
@@ -65,6 +67,10 @@ export interface AdminVerificationModalProps {
    * `false` (OTP-only) so a caller that hasn't wired the setting yet gets
    * the safe default rather than an unexpectedly-available password field. */
   passwordAllowed?: boolean;
+  /** Owner (cockpit) scopes: ask only for the 6-digit authenticator code. No identifier,
+   * no method toggle, no "send code" (the code comes from the owner's authenticator app).
+   * `onRequestOtp` is never called; `onVerify` gets `{ identifier: '', method: 'otp', code }`. */
+  codeOnly?: boolean;
   onRequestOtp: (identifier: string) => Promise<void>;
   onVerify: (input: {
     identifier: string;
@@ -89,12 +95,18 @@ const SCOPE_LABEL_KEYS: Record<string, string> = {
   'fees.discount': 'scopes.fees.discount',
   'payments.reverse': 'scopes.payments.reverse',
   'payments.backdate': 'scopes.payments.backdate',
+  'platform.owner_lock': 'scopes.platform.owner_lock',
+  'platform.owner_unlock': 'scopes.platform.owner_unlock',
+  'platform.approvals_switch': 'scopes.platform.approvals_switch',
+  'platform.approval_decide': 'scopes.platform.approval_decide',
+  'platform.recovery_codes': 'scopes.platform.recovery_codes',
 };
 
 export function AdminVerificationModal({
   open,
   scope,
   passwordAllowed = false,
+  codeOnly = false,
   onRequestOtp,
   onVerify,
   onSuccess,
@@ -138,9 +150,11 @@ export function AdminVerificationModal({
     if (!error) return null;
     if (error.code === 'PASSWORD_NOT_ALLOWED') return t('errors.passwordNotAllowed');
     if (error.code === 'RATE_LIMITED') return t('errors.rateLimited');
+    // An owner code is refused with one fixed sentence whether it was wrong or already used.
+    if (codeOnly) return t('errors.codeNotValid');
     if (error.code === 'INVALID_CODE') return t('errors.invalidCode');
     return error.message || t('errors.generic');
-  }, [error, t]);
+  }, [error, t, codeOnly]);
 
   async function handleSendCode() {
     try {
@@ -158,7 +172,11 @@ export function AdminVerificationModal({
     event.preventDefault();
     try {
       const result = await onVerify(
-        method === 'otp' ? { identifier, method, code } : { identifier, method, password },
+        codeOnly
+          ? { identifier: '', method: 'otp', code }
+          : method === 'otp'
+            ? { identifier, method, code }
+            : { identifier, method, password },
       );
       onSuccess(result);
     } catch {
@@ -166,9 +184,10 @@ export function AdminVerificationModal({
     }
   }
 
-  const canSubmit =
-    identifier.trim().length > 0 &&
-    (method === 'otp' ? codeSent && code.length === 6 : password.length > 0);
+  const canSubmit = codeOnly
+    ? code.length === 6
+    : identifier.trim().length > 0 &&
+      (method === 'otp' ? codeSent && code.length === 6 : password.length > 0);
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
@@ -179,84 +198,98 @@ export function AdminVerificationModal({
             <DialogDescription>{t('description')}</DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="admin-verification-identifier" className="text-sm font-medium">
-              {t('identifierLabel')}
-            </label>
-            <Input
-              id="admin-verification-identifier"
-              value={identifier}
-              onChange={(event) => setIdentifier(event.target.value)}
-              autoComplete="off"
-              required
+          {codeOnly ? (
+            <CodeField
+              id="admin-verification-code"
+              label={t('codeOnly.label')}
+              hint={t('codeOnly.hint')}
+              value={code}
+              onValueChange={setCode}
+              disabled={loading}
+              {...(errorMessage ? { error: errorMessage } : {})}
             />
-          </div>
-
-          {passwordAllowed && (
-            <fieldset className="flex flex-col gap-1.5">
-              <legend className="text-sm font-medium">{t('methodLabel')}</legend>
-              <RadioGroup
-                value={method}
-                onValueChange={(value) => setMethod(value as ApprovalMethod)}
-                className="flex gap-4"
-              >
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="otp" id="admin-verification-method-otp" />
-                  {t('methodOtp')}
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="password" id="admin-verification-method-password" />
-                  {t('methodPassword')}
-                </label>
-              </RadioGroup>
-            </fieldset>
-          )}
-
-          {method === 'otp' ? (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="admin-verification-code" className="text-sm font-medium">
-                {t('otp.codeLabel')}
-              </label>
-              <div className="flex gap-2">
-                <OtpInput
-                  id="admin-verification-code"
-                  aria-label={t('otp.codeLabel')}
-                  value={code}
-                  onValueChange={setCode}
-                  disabled={loading}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  loading={requestingOtp}
-                  disabled={!identifier.trim() || secondsLeft > 0 || requestingOtp}
-                  onClick={() => void handleSendCode()}
-                >
-                  {secondsLeft > 0
-                    ? t('otp.resendIn', { count: secondsLeft })
-                    : codeSent
-                      ? t('otp.resend')
-                      : t('otp.sendCode')}
-                </Button>
-              </div>
-            </div>
           ) : (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="admin-verification-password" className="text-sm font-medium">
-                {t('passwordLabel')}
-              </label>
-              <Input
-                id="admin-verification-password"
-                type="password"
-                autoComplete="off"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </div>
+            <>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="admin-verification-identifier" className="text-sm font-medium">
+                  {t('identifierLabel')}
+                </label>
+                <Input
+                  id="admin-verification-identifier"
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                  autoComplete="off"
+                  required
+                />
+              </div>
+
+              {passwordAllowed && (
+                <fieldset className="flex flex-col gap-1.5">
+                  <legend className="text-sm font-medium">{t('methodLabel')}</legend>
+                  <RadioGroup
+                    value={method}
+                    onValueChange={(value) => setMethod(value as ApprovalMethod)}
+                    className="flex gap-4"
+                  >
+                    <label className="flex items-center gap-2 text-sm">
+                      <RadioGroupItem value="otp" id="admin-verification-method-otp" />
+                      {t('methodOtp')}
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <RadioGroupItem value="password" id="admin-verification-method-password" />
+                      {t('methodPassword')}
+                    </label>
+                  </RadioGroup>
+                </fieldset>
+              )}
+
+              {method === 'otp' ? (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="admin-verification-code" className="text-sm font-medium">
+                    {t('otp.codeLabel')}
+                  </label>
+                  <div className="flex gap-2">
+                    <OtpInput
+                      id="admin-verification-code"
+                      aria-label={t('otp.codeLabel')}
+                      value={code}
+                      onValueChange={setCode}
+                      disabled={loading}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      loading={requestingOtp}
+                      disabled={!identifier.trim() || secondsLeft > 0 || requestingOtp}
+                      onClick={() => void handleSendCode()}
+                    >
+                      {secondsLeft > 0
+                        ? t('otp.resendIn', { count: secondsLeft })
+                        : codeSent
+                          ? t('otp.resend')
+                          : t('otp.sendCode')}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="admin-verification-password" className="text-sm font-medium">
+                    {t('passwordLabel')}
+                  </label>
+                  <Input
+                    id="admin-verification-password"
+                    type="password"
+                    autoComplete="off"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    required
+                  />
+                </div>
+              )}
+            </>
           )}
 
-          {errorMessage && (
+          {errorMessage && !codeOnly && (
             <p id="admin-verification-error" role="alert" className="text-sm text-destructive">
               {errorMessage}
             </p>
@@ -270,7 +303,7 @@ export function AdminVerificationModal({
               type="submit"
               loading={loading}
               disabled={!canSubmit || loading}
-              aria-describedby={errorMessage ? 'admin-verification-error' : undefined}
+              aria-describedby={errorMessage && !codeOnly ? 'admin-verification-error' : undefined}
             >
               {loading ? t('submitting') : t('submit')}
             </Button>
