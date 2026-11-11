@@ -194,6 +194,7 @@ DELETE FROM user_mfa;
 DELETE FROM user_recovery_codes;
 DELETE FROM platform_admin_devices;
 DELETE FROM platform_approvals;
+DELETE FROM platform_settings;
 -- verify_token_hash is CHAR(64) NOT NULL UNIQUE, so it cannot be NULL: 64 hex chars from the id.
 UPDATE print_job_items SET
   verify_token_hash = md5(id::text) || md5(reverse(id::text)),
