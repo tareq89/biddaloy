@@ -423,15 +423,15 @@ export function shiftTerms<
   const offset = day(targetStart) - day(sourceStart);
   const move = (iso: string) =>
     new Date((day(iso) + offset) * 86_400_000).toISOString().slice(0, 10);
-  const out = terms.map((t) => ({
-    seq: t.seq,
-    name: t.name,
-    start_date: move(t.start_date),
-    end_date: move(t.end_date),
-  }));
-  const last = out[out.length - 1];
-  if (last && last.end_date > targetEnd) last.end_date = targetEnd;
-  return out;
+  return terms.map((t) => {
+    const end = move(t.end_date);
+    return {
+      seq: t.seq,
+      name: t.name,
+      start_date: move(t.start_date),
+      end_date: end > targetEnd ? targetEnd : end,
+    };
+  });
 }
 
 /** `AcademicYear.start_date`/`end_date` are typed `Date` on the entity but
