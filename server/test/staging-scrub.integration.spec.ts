@@ -306,6 +306,8 @@ describe('scrub.sql', () => {
     await q(
       `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ('${adminUserId}', '${platformId}', 'SUPER_ADMIN')`,
     );
+    // [98.5.02] a production owner: the scrub keeps this row but must reset the password.
+    await q(`INSERT INTO platform_admins (user_id) VALUES ('${adminUserId}')`);
     await q(
       `INSERT INTO user_tenants (user_id, tenant_id, role) VALUES ('${smokeUserId}', '${smokeId}', 'ADMIN')`,
     );
@@ -461,6 +463,22 @@ describe('scrub.sql', () => {
         const row = await one(`SELECT count(*)::int AS n FROM "${c.table}"`);
         expect(row.n, c.table).toBe(0);
       }
+    },
+  ]);
+
+  checks.push([
+    'keeps platform_admins and leaves no owner password hash',
+    async () => {
+      const row = await one(
+        `SELECT count(*)::int AS n FROM platform_admins pa JOIN users u ON u.id = pa.user_id
+         WHERE u.password_hash = $1`,
+        [HASH],
+      );
+      expect(row.n).toBe(1);
+      const old = await one(
+        `SELECT count(*)::int AS n FROM users WHERE password_hash = 'old-hash'`,
+      );
+      expect(old.n).toBe(0);
     },
   ]);
 
