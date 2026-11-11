@@ -932,6 +932,26 @@ export const ACTIONS: readonly PaletteAction[] = [
     group: 'academics',
     run: (ctx) => ctx.navigate({ to: '/academic-years?new=1' }),
   },
+  // [69.4.02] `run()` knows no year id, so both land on the list with a one-shot flag; the list
+  // looks up the current year (next) or the latest non-current year (close) and goes on from there.
+  {
+    id: 'academic-year.create-next',
+    label: { en: 'Create next year', bn: 'পরের বছর বানাও' },
+    synonyms: ['new year', 'next academic year', 'নতুন বছর', 'পরের শিক্ষাবর্ষ'],
+    permission: Permission.ACADEMIC_YEAR_MANAGE,
+    kind: 'navigate',
+    group: 'academics',
+    run: (ctx) => ctx.navigate({ to: '/academic-years?next=1' }),
+  },
+  {
+    id: 'academic-year.close',
+    label: { en: 'Close year', bn: 'বছর বন্ধ করো' },
+    synonyms: ['close academic year', 'শিক্ষাবর্ষ বন্ধ'],
+    permission: Permission.ACADEMIC_YEAR_MANAGE,
+    kind: 'navigate',
+    group: 'academics',
+    run: (ctx) => ctx.navigate({ to: '/academic-years?close=1' }),
+  },
   {
     id: 'classes.create',
     label: { en: 'Add class', bn: 'শ্রেণি যোগ করুন' },

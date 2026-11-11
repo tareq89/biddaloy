@@ -142,7 +142,7 @@ Exams & Results
   Results [19.0] · Result by student ID · Final result [70.0, shipped]
   Analysis [have] · Merit list · Defaulted list · Pass/fail (+ by component)
   Promotion [have] · Draft run · Grid override · Commit                   A E
-  Segregation [26.0, not yet shipped]
+  (Segregation / groups: inside Promotion [69.0], not its own item)
   Seat plans [25.0] · Exam printables [48.0] — Exams › exam › Print tab
 
 Finance
