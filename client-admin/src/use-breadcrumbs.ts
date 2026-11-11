@@ -238,7 +238,7 @@ export const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
       return `${place} ${renderDigits(String(year), ctx.region.numerals)}`;
     },
   },
-  // There is no `GET /schools/:id`; the page reads the `useSchools()` list.
+  // There is no `GET /platform/schools/:id`; the page reads the `useSchools()` list.
   schoolDetail: {
     queryKeys: () => [schoolsKeys.lists()],
     getName: (data, id) =>
