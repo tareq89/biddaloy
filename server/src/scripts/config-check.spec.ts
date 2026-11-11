@@ -110,7 +110,6 @@ describe('runStackConfigCheck', () => {
     // base64 of a real bcrypt cost-12 hash of 'Stage-Pass-2026' (config:check verifies the pair)
     STAGING_PASSWORD_HASH_B64:
       'JDJiJDEyJERlS1E4enBkYkxRSk1JV21NbkJBdS44NXZaVGxrcGp1b3lKdUlyMjQ4dUs4RjVRL1ZhTVd1',
-    PLATFORM_TENANT_ID: '00000000-0000-4000-8000-000000000001',
     SMOKE_SCHOOL_SLUG: 'smoke-school',
     BACKUP_S3_ENDPOINT: 'https://r2.example.org',
     BACKUP_S3_BUCKET: 'biddaloy-backups',
@@ -333,7 +332,6 @@ describe('runStackConfigCheck', () => {
       'HEALTH_TOKEN',
       'SETTINGS_ENCRYPTION_KEY',
       'SETTINGS_ENCRYPTION_KEY_PREVIOUS',
-      'PLATFORM_TENANT_ID',
       'TURNSTILE_SECRET_KEY',
       // Epic 40 school-site custom domains and analytics: not messaging providers.
       'CF_SAAS_API_TOKEN',
@@ -357,6 +355,10 @@ describe('runStackConfigCheck', () => {
       'COCKPIT_OWNER_1_PHONE',
       'COCKPIT_OWNER_2_EMAIL',
       'COCKPIT_OWNER_2_PHONE',
+      // Staging's owner sign-in (98.5.01): OwnerSeedingService reads them; refused elsewhere by env.validation.
+      'SMOKE_COCKPIT_EMAIL',
+      'SMOKE_COCKPIT_PASSWORD',
+      'SMOKE_COCKPIT_TOTP_SECRET',
       'SITE_ROOT_DOMAIN', // the apex school websites hang under (Epic 40), not a provider
     ]);
     expect(keys.length).toBeGreaterThan(20);
@@ -462,11 +464,9 @@ describe('runStackConfigCheck', () => {
   it('staging checks the shapes the nightly refresh checks', async () => {
     const result = await runStackConfigCheck('staging', {
       ...staging,
-      PLATFORM_TENANT_ID: 'platform',
       SMOKE_SCHOOL_SLUG: 'Smoke School',
       BACKUP_S3_ENDPOINT: 'http://r2.example.org',
     });
-    expect(result.output).toContain('PLATFORM_TENANT_ID must be a uuid');
     expect(result.output).toContain('SMOKE_SCHOOL_SLUG must be lowercase');
     expect(result.output).toContain('BACKUP_S3_ENDPOINT must start with https://');
   });
@@ -505,7 +505,6 @@ describe('runStackConfigCheck', () => {
       ['staging', staging, 'STAGING_PASSWORD'],
       // what the nightly refresh refuses to run without
       ['staging', staging, 'STAGING_PASSWORD_HASH_B64'],
-      ['staging', staging, 'PLATFORM_TENANT_ID'],
       ['staging', staging, 'SMOKE_SCHOOL_SLUG'],
       ['staging', staging, 'BACKUP_S3_BUCKET'],
       ['demo', demo, 'DEMO_PASSWORD'],

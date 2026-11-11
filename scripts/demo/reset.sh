@@ -3,7 +3,7 @@
 #
 #   1. create biddaloy_demo_next, migrate, seed, validate, sweep   (live DB untouched)
 #   2. swap with /app/db-swap.sh: live -> _prev, _next -> live   (a few seconds of downtime)
-#   3. write default-school's id, flush Redis                    (always attempted)
+#   3. write the built marker, flush Redis                       (always attempted)
 #   4. drop _prev_old and its S3 objects, Sentry / Kuma check-in (best effort)
 #
 # It runs ONCE per invocation (the host timer decides when, D11) and never restarts a container.
@@ -213,10 +213,6 @@ build_next() {
   DATABASE_URL="$url" REDIS_URL="$SWEEP_REDIS" bash -c "$DEMO_SEED_CMD" 9>&-
   log "validating ${NEXT}"
   DATABASE_URL="$url" REDIS_URL="$SWEEP_REDIS" bash -c "$DEMO_VALIDATE_CMD" 9>&- || die "validator found violations in ${NEXT}"
-  # A freshly migrated DB holds a random default-school id. The app's PLATFORM_TENANT_ID must name
-  # it (TenantStatusService.platformTenantId(): platform authority), so main() hands it over.
-  PLATFORM_ID="$(psql_db "$NEXT" "SELECT id FROM schools WHERE slug = 'default-school'")" || die "could not read default-school"
-  [[ "$PLATFORM_ID" =~ $UUID_RE ]] || die "no default-school row in ${NEXT}"
 }
 
 sweep_next() {
@@ -225,7 +221,7 @@ sweep_next() {
   # The runner shares this container's network namespace and uses http://127.0.0.1:3999 (loopback
   # keeps the Secure session cookie over plain HTTP). Not published to the host. 9>&- so it never
   # holds the reset lock.
-  PORT="$SWEEP_PORT" DATABASE_URL="$(url_for "$NEXT")" REDIS_URL="$SWEEP_REDIS" PLATFORM_TENANT_ID="$PLATFORM_ID" \
+  PORT="$SWEEP_PORT" DATABASE_URL="$(url_for "$NEXT")" REDIS_URL="$SWEEP_REDIS" \
     bash -c "$DEMO_APP_CMD" 9>&- &
   APP_PID=$!
   for _ in $(seq 1 90); do
@@ -299,7 +295,7 @@ main() {
   trap on_exit EXIT
   cron_checkin in_progress
 
-  local state="${DEMO_STATE_DIR}/platform-tenant-id"
+  local state="${DEMO_STATE_DIR}/last-built" # deploy.yml tests it: has the demo been built yet?
   failed=""  # global: swap() adds to it
 
   build_next
@@ -308,10 +304,10 @@ main() {
 
   swap
 
-  # From here every step is attempted even if an earlier one failed. Order: the id file the app
-  # reads at boot, then a clean Redis. The host restarts the app on exit 0 or 3.
+  # From here every step is attempted even if an earlier one failed. Order: the built marker
+  # the deploy reads, then a clean Redis. The host restarts the app on exit 0 or 3.
   log "swap done; downtime from backend terminate to reconnect: $(( $(date +%s) - SWAP_T0 )) s"
-  { printf '%s\n' "$PLATFORM_ID" > "${state}.tmp" && mv "${state}.tmp" "$state"; } || failed+=" state-file"
+  { date -u '+%Y-%m-%dT%H:%M:%SZ' > "${state}.tmp" && mv "${state}.tmp" "$state"; } || failed+=" state-file"
   log "flushing Redis db ${REDIS_DB}"
   "$DEMO_REDIS_CLI" -u "$REDIS_URL" FLUSHDB >/dev/null || failed+=" redis-flush"
   log "dropping ${PREV_OLD} and its S3 objects"

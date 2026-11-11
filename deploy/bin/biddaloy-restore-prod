@@ -20,8 +20,9 @@
 #      prod has no user; this is the second guard). latest-* is for a dead old VM. For a planned
 #      move, stop the old VM's writes and pass its final dump as an exact --from (the newest
 #      skipped dump is printed).
-#   5. Empty means: no user and no school except the migration-made 'default-school' (a missing
-#      table counts as 0), else exit 2. restore.sh checks it again, first and inside its transaction.
+#   5. Empty means: no user and no school except the migration-made 'default-school', the
+#      is_platform home school and the cockpit owners (platform_admins users); a missing table
+#      counts as 0, else exit 2. restore.sh checks it again, first and inside its transaction.
 #   6. The emptiness check, the wipe (DROP SCHEMA public CASCADE) and the dump load are ONE
 #      transaction inside restore.sh: if anything fails, the database is exactly as it was.
 # Why not restore into <prod>_next and swap: scripts/backup/db-swap.sh accepts only
@@ -112,12 +113,14 @@ STACK_YML="$(kept_file prod stack.yml deploy/stack.yml)"
 dc() { docker compose -p prod --project-directory "$ROOT/prod" -f "$STACK_YML" "$@"; }
 psql_db() { dc exec -T -e PGPASSWORD db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -tAqc "$1"; }
 
-# Prints <schools except default-school>|<users>|<current database>. A missing table counts as 0
+# Prints <schools except default-school and the is_platform home>|<users except cockpit owners>|<current database>. A missing table counts as 0
 # (query_to_xml keeps a missing table from failing at parse time). Counts only.
 COUNT_SQL="SELECT (CASE WHEN to_regclass('public.schools') IS NULL THEN 0
-    ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.schools where slug <> ''default-school''', false, true, '')))[1]::text::int END)
+    ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.schools s where slug <> ''default-school'' and coalesce(to_jsonb(s)->>''is_platform'', ''false'') <> ''true''', false, true, '')))[1]::text::int END)
   || '|' || (CASE WHEN to_regclass('public.users') IS NULL THEN 0
-    ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.users', false, true, '')))[1]::text::int END)
+    ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.users', false, true, '')))[1]::text::int END
+    - CASE WHEN to_regclass('public.users') IS NULL OR to_regclass('public.platform_admins') IS NULL THEN 0
+    ELSE (xpath('/row/c/text()', query_to_xml('select count(*) c from public.platform_admins', false, true, '')))[1]::text::int END)
   || '|' || current_database()"
 
 STATE="nothing was modified" OUTCOME=failed
@@ -148,7 +151,7 @@ counts="$(psql_db "$COUNT_SQL")" || fail check-empty "could not read the prod da
 n_schools="${BASH_REMATCH[1]}" n_users="${BASH_REMATCH[2]}" got_db="${BASH_REMATCH[3]}"
 [[ "$got_db" == "$POSTGRES_DB" ]] || refuse "connected to database '$got_db', expected '$POSTGRES_DB'"
 if [[ "$n_schools" != 0 || "$n_users" != 0 ]]; then
-  say "check: schools=$n_schools users=$n_users in $POSTGRES_DB (both must be 0; the default-school the migrations make is not counted)"
+  say "check: schools=$n_schools users=$n_users in $POSTGRES_DB (both must be 0; default-school, the platform home school and the cockpit owners are not counted)"
   say "this VM already has prod data - you probably want a normal deploy (biddaloy-deploy prod <sha>), not a restore"
   refuse "target database is not empty"
 fi
@@ -251,7 +254,7 @@ echo "step: verify"
 counts="$(psql_db "$COUNT_SQL")" || fail verify "could not count the restored rows" "check the db container; the restore itself finished"
 [[ "$counts" =~ ^([0-9]+)\|([0-9]+)\|([a-z0-9_]+)$ ]] || fail verify "unexpected answer from the count query" "check the db container; the restore itself finished"
 say "restored: schools=${BASH_REMATCH[1]} users=${BASH_REMATCH[2]} in ${BASH_REMATCH[3]}"
-[[ "${BASH_REMATCH[1]}" -gt 0 ]] || fail verify "the restored database has no school besides default-school" "check that '$KEY' is a prod backup; the database now holds an empty schema"
+[[ "${BASH_REMATCH[1]}" -gt 0 ]] || fail verify "the restored database has no school besides default-school and the platform home" "check that '$KEY' is a prod backup; the database now holds an empty schema"
 
 STATE="restored and migrated; app, app2 and backup are stopped"
 if [[ -n "$WARNINGS" ]]; then log_deploy ok-files-missing; else log_deploy ok; fi
