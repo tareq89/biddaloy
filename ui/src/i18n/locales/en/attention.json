@@ -183,6 +183,16 @@
       "next_missing": {
         "name": "Next academic year not created",
         "help": "Warns near year end when next year isn't set up."
+      },
+      "close_due": {
+        "name": "Ended academic year not closed",
+        "help": "Reminds admins to close a year 60 days after it ends."
+      }
+    },
+    "promotion": {
+      "groups_pending": {
+        "name": "Promoted students without a group",
+        "help": "Tells class teachers and admins how many students in a draft promotion still need a group."
       }
     },
     "system": {
