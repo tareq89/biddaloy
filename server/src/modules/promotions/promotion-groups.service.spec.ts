@@ -73,15 +73,24 @@ describe('ListPromotionGroupsQueryDto', () => {
 
 describe('PromotionGroupsService', () => {
   const actor = { tenantId: 't1', role: UserRole.TEACHER, userId: 'u1' };
+  const admin = { tenantId: 't1', role: UserRole.ADMIN, userId: 'u1' };
 
-  function build(opts: { homeroom?: string[]; groups?: string[]; status?: string } = {}) {
+  function build(
+    opts: { homeroom?: string[]; groups?: string[]; status?: string; entries?: object[] } = {},
+  ) {
     const runRepo = {
       findOne: vi.fn().mockResolvedValue({
         id: 'r1',
         status: opts.status ?? PromotionRunStatus.DRAFT,
       }),
     };
-    const entryRepo = { find: vi.fn().mockResolvedValue([]) };
+    const entryRepo = {
+      find: vi
+        .fn()
+        .mockResolvedValue(
+          opts.entries ?? [{ id: 'e1', student_id: 'st1', source_section_id: 's1' }],
+        ),
+    };
     const promotions = { patchEntries: vi.fn() };
     const teacherScope = {
       homeroomSections: vi
@@ -109,13 +118,13 @@ describe('PromotionGroupsService', () => {
   });
 
   it('list: a teacher whose homeroom has no entry in the run gets 404', async () => {
-    const { service } = build({ homeroom: ['sec-1'] });
+    const { service } = build({ homeroom: ['sec-1'], entries: [] });
     await expect(service.list('r1', {}, actor)).rejects.toThrow('Promotion run not found');
   });
 
   it('set: no groups vocabulary is 422 GROUPS_NOT_CONFIGURED', async () => {
     const { service, promotions } = build({ groups: [] });
-    await expect(service.set('r1', ['e1'], 'Science', actor)).rejects.toMatchObject({
+    await expect(service.set('r1', ['e1'], 'Science', admin)).rejects.toMatchObject({
       response: { details: { code: 'GROUPS_NOT_CONFIGURED' } },
     });
     expect(promotions.patchEntries).not.toHaveBeenCalled();
@@ -123,14 +132,32 @@ describe('PromotionGroupsService', () => {
 
   it('set: a non-DRAFT run is 409', async () => {
     const { service } = build({ status: PromotionRunStatus.COMMITTED });
-    await expect(service.set('r1', ['e1'], 'Science', actor)).rejects.toThrow(
+    await expect(service.set('r1', ['e1'], 'Science', admin)).rejects.toThrow(
       'Only DRAFT runs can be edited',
     );
   });
 
-  it('set: an unknown entry id is 404 and nothing is written', async () => {
-    const { service, promotions } = build();
+  it('set: a teacher outside the entries gets 404 on a COMMITTED run, never 409', async () => {
+    const { service, promotions } = build({
+      status: PromotionRunStatus.COMMITTED,
+      homeroom: ['other'],
+    });
     await expect(service.set('r1', ['e1'], 'Science', actor)).rejects.toThrow(
+      'Promotion entries not found',
+    );
+    expect(promotions.patchEntries).not.toHaveBeenCalled();
+  });
+
+  it('list: gpa_min above gpa_max is 400', async () => {
+    const { service } = build();
+    await expect(service.list('r1', { gpa_min: 4, gpa_max: 3 }, admin)).rejects.toThrow(
+      'gpa_min must not be greater than gpa_max.',
+    );
+  });
+
+  it('set: an unknown entry id is 404 and nothing is written', async () => {
+    const { service, promotions } = build({ entries: [] });
+    await expect(service.set('r1', ['e1'], 'Science', admin)).rejects.toThrow(
       'Promotion entries not found',
     );
     expect(promotions.patchEntries).not.toHaveBeenCalled();
