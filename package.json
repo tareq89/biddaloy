@@ -59,6 +59,7 @@
     "test:unit": "yarn workspace @biddaloy/server test:unit",
     "test:unit:changed": "yarn workspace @biddaloy/server test:unit:changed",
     "test:integration": "yarn workspace @biddaloy/server test:integration",
+    "test:integration:seed": "yarn workspace @biddaloy/server test:integration:seed",
     "test:e2e": "yarn workspace @biddaloy/server test:e2e",
     "test:file": "yarn workspace @biddaloy/server test:file",
     "e2e": "playwright test",
@@ -66,7 +67,7 @@
     "ci:local": "bash scripts/ci-local.sh",
     "prepare": "husky",
     "check": "node scripts/check.mjs",
-    "test:server": "bash scripts/test-env.sh run -- sh -c \"yarn test:unit && yarn test:integration && yarn test:e2e\"",
+    "test:server": "bash scripts/test-env.sh run -- sh -c \"yarn test:unit && yarn test:integration && yarn test:integration:seed && yarn test:e2e\"",
     "test-env": "bash scripts/test-env.sh",
     "e2e:changed": "playwright test --only-changed=origin/main"
   },

@@ -634,10 +634,12 @@ flowchart TB
     subgraph PR["Pull request / push to main"]
         direction LR
         changes1["changes\n(path filters)"] --> verify1["verify"]
-        changes1 --> frontend1["frontend\n3-way shard"]
+        changes1 --> frontend1["frontend\n6-way shard"]
         frontend1 --> merge1["frontend-merge\ncoverage merge"]
-        changes1 --> integration1["integration"]
-        changes1 --> e2e1["e2e\nE2E smoke (chromium)\n3-way shard"]
+        changes1 --> integration1["integration x3\nserver-e2e x2"]
+        changes1 --> seed1["demo-seed-specs\n(seed/migration/entity changes,\nor push to main)"]
+        changes1 --> e2e1["e2e\nE2E smoke (chromium)\n4-way shard"]
+        changes1 --> pwa1["e2e-pwa"]
         changes1 --> storybook1["storybook"]
         changes1 --> audit1["audit"]
         changes1 --> bundledelta1["bundle-delta\nPR-comment only"]
@@ -646,7 +648,7 @@ flowchart TB
         direction LR
         changes2["changes\n(short-circuits to\n'everything changed')"] --> verify2["verify"]
         changes2 --> frontend2["frontend + frontend-merge"]
-        changes2 --> integration2["integration + e2e"]
+        changes2 --> integration2["integration, server-e2e,\ndemo-seed-specs, e2e, e2e-pwa"]
         changes2 --> storybook2["storybook"]
         changes2 --> audit2["audit"]
         changes2 --> sweeps["sweeps\nRoute sweeps (chromium-sweeps)"]
@@ -667,11 +669,11 @@ label (`nightly-quality-red`, `nightly-e2e-red`, `flake-hunt`) and the
 shared `nightly-red` label; see the root README's "Nightly failure
 visibility" section for the full mechanism.
 
-Concretely, each `e2e` (`E2E smoke (chromium N/3)`) shard job: starts Postgres/Redis
+Concretely, each `e2e` (`E2E smoke (chromium N/4)`) shard job: starts Postgres/Redis
 service containers → installs deps → builds `shared` → resolves and
 caches the Playwright browser → runs migrations → seeds the database →
 builds and starts the production client-admin + server → runs the
-chromium journeys, smoke and PWA/offline specs against that build →
+chromium journeys and smoke specs against that build (the PWA/offline specs run in the separate `e2e-pwa` job) →
 collects and uploads E2E timings.
 
 Every job above reports its wall time into `timings`, which checks it

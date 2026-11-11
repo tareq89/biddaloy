@@ -676,15 +676,70 @@ including the opt-in `--storybook` section (mirrors the PR-blocking
 "Storybook build" job, ~100s, so it's off by default rather than paid on
 every green `ci:local`).
 
+### Pipeline shape (Epic 101)
+
+Goal (D1): PR median **10 min or less, p90 15 min or less**, with the full suite still running on every PR.
+The time comes from running the work in parallel jobs, not from skipping tests.
+
+```mermaid
+flowchart LR
+    changes["changes\n(path filters)"] --> verify
+    changes --> fe["frontend x6"] --> fem["frontend-merge\n(coverage)"]
+    changes --> int["integration x3"]
+    changes --> se["server-e2e x2"]
+    changes -- "seed, migration or entity\nfiles, or push to main" --> ds["demo-seed-specs"]
+    changes --> e2e["e2e x4\n(Playwright)"]
+    changes --> pwa["e2e-pwa"]
+    changes --> small["infra, guide, storybook,\naudit, site, landing"]
+    verify & fem & int & se & ds & e2e & pwa & small --> timings["timings\n(budgets)"]
+```
+
+| Job | Shape | Notes |
+|---|---|---|
+| `integration` | 3 shards (`--shard=N/3`) | each has its own Postgres, Redis, SeaweedFS; OpenAPI + API-types check only on shard 1 |
+| `server-e2e` | 2 shards | |
+| `demo-seed-specs` | 1 job, path-gated (D3) | the 16 slice specs plus `demo-seed.coverage`; always on push to main and in the merge queue |
+| `frontend` | 6 shards + `frontend-merge` | the merge job takes the `vitest-shard-*` artifacts by pattern, no count |
+| `e2e` | 4 shards (chromium) | |
+| `e2e-pwa` | 1 job | was a step on shard 1 |
+| `infra` | 19 scripts, 4 at a time | `scripts/run-infra-tests.sh`; two pairs share a docker subnet and run alone afterwards |
+| Lighthouse (site, landing) | nightly | `nightly-quality.yml`, never on PR, push or the merge queue (D6) |
+| CodeQL | PR + weekly | not on main push (D9) |
+| `main-red.yml` | on every `CI` run on main | one sticky `main-red` issue while main is red, closed by the next green run |
+
+**Rule (D7): at most about 20 jobs start at once** (the free-plan concurrent-job limit). The heavy jobs alone are
+6 + 3 + 2 + 1 + 4 + 1 = 17, before `verify`, `infra`, `guide`, `storybook`, `audit`, `landing` and `site`.
+So adding a shard means removing one somewhere else.
+
+| | PR median | PR p90 | PR pass rate |
+|---|---|---|---|
+| Before (last 100 `ci.yml` runs, 2026-11-11) | 34 min | 65 min | 3 of 78 |
+| After | TODO: measure over 20 PR runs after the Epic 101 PRs merge (`gh run list --workflow ci.yml --limit 30 --json event,conclusion,createdAt,updatedAt`) | TODO | TODO |
+
+Per-job budgets for the new shards are `null` in `ci-budgets.json` until they are measured (the summary shows no
+budget and never fails for them); `enforce` stays off until then.
+
+Learnings (Epic 101):
+
+- 2026-11: moving a job into `nightly-quality.yml` also put it in the merge queue, because ci.yml's `quality` job
+  calls that whole workflow. Rule: a nightly-only job there carries `if: github.event_name != 'merge_group'`.
+- 2026-11: `yarn test:integration --shard=N/3` appends the flag to the end of the script. A script that chains two
+  vitest runs with `&&` shards only the last one. Rule: a shardable script is one vitest run.
+- 2026-11: a login is a bcrypt check (about 0.4 s, seconds under CI load). Doing one per role in every `beforeEach`
+  turned `certificates.e2e-spec.ts` into a 120 s timeout. Rule: log in once in `beforeAll`.
+- 2026-11: a pure unit test inside a DB-heavy spec file inherits that file's per-test reset, which after the demo
+  dataset takes more than 30 s (`importDays` failed on every main push). Rule: pure tests get their own `*.spec.ts`.
+- 2026-11: a plaintext line in a sops `*.enc.env` fails `check-tracked-files`, and only the age key can fix it.
+
 ### Merging to main
 
 `main` is protected by a repository ruleset (`main-gate`, applied by
 `scripts/apply-main-ruleset.sh` — see that script's header for the exact
 checks/merge-queue settings). Direct pushes to `main` are rejected; every
-change lands through a pull request that passes four required checks
-(`Build, lint, unit tests`, `Frontend tests`, `Integration & e2e tests`,
-`E2E smoke (chromium N/3)` — a check a PR's path filters skip counts as
-passing, not missing) and then goes through GitHub's merge queue:
+change lands through a pull request that passes the required checks
+(`Build, lint, unit tests`, `Frontend coverage merge`, `Integration tests (N/3)`,
+`Server e2e (N/2)`, `E2E smoke (chromium N/4)`, `E2E PWA` — a check a PR's path
+filters skip counts as passing, not missing) and then goes through GitHub's merge queue:
 
 ```mermaid
 flowchart LR
@@ -791,11 +846,11 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
   `client-admin` vitest suites with coverage. No infrastructure required.
 - **integration** — spins up its own Postgres 18 and Redis 8 service
   containers, then runs `yarn test:integration` and `yarn test:e2e`.
-- **e2e** — `E2E smoke (chromium N/3)` jobs: Postgres/Redis service
+- **e2e** — `E2E smoke (chromium N/4)` jobs: Postgres/Redis service
   containers, migrated and seeded, Playwright against a **production build**
   (`vite build` + `vite preview`, `node dist/main.js`) of both clients and
-  the server, split 3 ways with `--shard`. The PWA/offline suite runs once,
-  on shard 1 (the lightest measured leg). See "End-to-end Testing" above.
+  the server, split 4 ways with `--shard`. The PWA/offline suite runs in its
+  own `E2E PWA` job. See "End-to-end Testing" above.
 - **storybook** — `yarn build:storybook`, PR-blocking build-only check
   (no visual regression yet).
 - **audit** — two gates in `scripts/ci-audit.js` (yarn classic's `--level`
@@ -813,18 +868,19 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 
 ```mermaid
 flowchart LR
-    PR["PR / push to main\n(ci.yml e2e job)"] --> C["E2E smoke (chromium 1/3 … 3/3)\n3 shards\njourneys + smoke; PWA on shard 1"]
+    PR["PR / push to main\n(ci.yml e2e job)"] --> C["E2E smoke (chromium 1/4 … 4/4)\n4 shards\njourneys + smoke\n+ E2E PWA job"]
     N["Nightly, 21:00 UTC\n(nightly-e2e.yml)"] --> CH["chromium\n3 shards"]
     N --> FF["firefox\n3 shards (advisory)"]
     N --> WK["webkit\n3 shards (advisory)"]
 ```
 
-- **PRs and pushes to `main`** run chromium only, as three
-  `E2E smoke (chromium N/3)` jobs (`ci.yml`'s `e2e` matrix, `--shard=N/3`).
+- **PRs and pushes to `main`** run chromium only, as four
+  `E2E smoke (chromium N/4)` jobs (`ci.yml`'s `e2e` matrix, `--shard=N/4`)
+  plus a separate `E2E PWA` job.
   **[18.2.3]** had folded everything into one unsharded job when a leg ran
   ~5 min; by Epic 2642 the ~500-spec suite took 15.6 min of tests on 4
-  workers and overran the job's 20-minute timeout, so the 3-way shard is
-  back. The PWA/offline suite still runs once, pinned to the lightest shard.
+  workers and overran the job's 20-minute timeout, so sharding is back (Epic 101:
+  4 shards). The PWA/offline suite runs in its own `E2E PWA` job.
 - **Nightly** (`.github/workflows/nightly-e2e.yml`, `workflow_dispatch`-able)
   still runs all three engines — chromium, firefox, webkit — each split
   into 3 shards, on a schedule instead of blocking PRs; it runs the full,
