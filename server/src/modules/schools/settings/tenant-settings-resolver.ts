@@ -1,3 +1,4 @@
+import { readSupportAccess } from './support-access-settings';
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
@@ -392,6 +393,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     attention: overlayAttentionSettings(stored?.attention),
     dashboard,
     exams: overlayExamsSettings(stored?.exams),
+    supportAccess: readSupportAccess(stored),
     ...(communications ? { communications } : {}),
     ...(preset ? { preset } : {}),
     ...(evaluations ? { evaluations } : {}),

@@ -90,3 +90,14 @@ describe('DEFAULT_TENANT_SETTINGS', () => {
     expect(DEFAULT_TENANT_SETTINGS.version).toBe(TENANT_SETTINGS_SCHEMA_VERSION);
   });
 });
+
+describe('DEFAULT_SUPPORT_ACCESS_SETTINGS [99.1.04]', () => {
+  it('is allowed and unconfirmed, and is part of the tenant defaults', () => {
+    expect(DEFAULT_TENANT_SETTINGS.supportAccess).toEqual({
+      mode: 'allowed',
+      confirmedAt: null,
+      confirmedBy: null,
+      textVersion: 0,
+    });
+  });
+});

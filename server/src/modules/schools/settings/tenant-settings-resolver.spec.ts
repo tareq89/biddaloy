@@ -549,3 +549,27 @@ describe('resolveTenantSettings', () => {
     });
   });
 });
+
+describe('resolveTenantSettings supportAccess [99.1.04]', () => {
+  it('is present with the default on every school', () => {
+    expect(resolveTenantSettings(null).supportAccess).toEqual({
+      mode: 'allowed',
+      confirmedAt: null,
+      confirmedBy: null,
+      textVersion: 0,
+    });
+  });
+  it('stored value wins', () => {
+    const supportAccess = {
+      mode: 'blocked',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+      confirmedBy: 'u',
+      textVersion: 1,
+    };
+    expect(resolveTenantSettings({ supportAccess }).supportAccess).toEqual(supportAccess);
+  });
+  it('garbage falls back to the default', () => {
+    const out = resolveTenantSettings({ supportAccess: { mode: 'NONSENSE' } });
+    expect(out.supportAccess?.mode).toBe('allowed');
+  });
+});
