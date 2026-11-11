@@ -286,6 +286,13 @@ describe('Promotion groups E2E (69.4.01)', () => {
       await call('get', `/promotions/${runId}/groups?marks_min=60`, UserRole.ADMIN).expect(400);
     });
 
+    it('rejects gpa_min above gpa_max with 400', async () => {
+      const { runId } = await seedRun();
+      await call('get', `/promotions/${runId}/groups?gpa_min=4&gpa_max=3`, UserRole.ADMIN).expect(
+        400,
+      );
+    });
+
     it('rejects a limit above 100 with 400', async () => {
       const { runId } = await seedRun();
       await call('get', `/promotions/${runId}/groups?limit=101`, UserRole.ADMIN).expect(400);
@@ -445,6 +452,26 @@ describe('Promotion groups E2E (69.4.01)', () => {
       await call('patch', `/promotions/${runId}/groups`, UserRole.ADMIN)
         .send({ entry_ids: [entryA], group_name: 'Science' })
         .expect(409);
+    });
+
+    it('TEACHER on a COMMITTED run: 404 outside their section, 409 inside, nothing written', async () => {
+      const { runId, entryA, entryB, sectionA } = await seedRun();
+      await makeTeacherOf(sectionA);
+      await dataSource.query(`UPDATE promotion_runs SET status = 'COMMITTED' WHERE id = $1`, [
+        runId,
+      ]);
+      const body = (id: string) => ({ entry_ids: [id], group_name: 'Science' });
+
+      // Not their section: the same 404 as on a draft run, so the status is not leaked.
+      await call('patch', `/promotions/${runId}/groups`, UserRole.TEACHER)
+        .send(body(entryB))
+        .expect(404);
+      await call('patch', `/promotions/${runId}/groups`, UserRole.TEACHER)
+        .send(body(entryA))
+        .expect(409);
+
+      expect(await groupOf(entryA)).toBeNull();
+      expect(await groupOf(entryB)).toBeNull();
     });
 
     it('a run of a closed academic year is refused with ACADEMIC_YEAR_CLOSED', async () => {

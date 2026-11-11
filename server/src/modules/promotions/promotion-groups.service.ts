@@ -1,6 +1,7 @@
 import {
   Injectable,
   NotFoundException,
+  BadRequestException,
   ConflictException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -121,6 +122,13 @@ export class PromotionGroupsService {
   }
 
   async list(runId: string, query: ListPromotionGroupsQueryDto, actor: Actor) {
+    if (
+      query.gpa_min !== undefined &&
+      query.gpa_max !== undefined &&
+      query.gpa_min > query.gpa_max
+    ) {
+      throw new BadRequestException('gpa_min must not be greater than gpa_max.');
+    }
     const run = await this.loadRun(runId, actor.tenantId);
     const allowed = await this.allowedSections(actor);
     const page = query.page ?? 1;
@@ -169,6 +177,24 @@ export class PromotionGroupsService {
 
   async set(runId: string, entryIds: string[], groupName: string | null, actor: Actor) {
     const run = await this.loadRun(runId, actor.tenantId);
+
+    // Scope first: a teacher must get the same 404 for a run or entries outside their homeroom
+    // whatever its status, so a 409 never tells them a run outside their scope is committed.
+    // ponytail: entries are read before patchEntries takes its row lock; patchEntries re-checks
+    // DRAFT and that every student is on the run, so a concurrent change only yields the same
+    // 404/409 it would give. Move the read into the lock if a stricter guarantee is needed.
+    const entries = await this.entryRepo.find({
+      where: { id: In(entryIds), run_id: run.id, tenant_id: actor.tenantId },
+    });
+    const allowed = await this.allowedSections(actor);
+    const outOfScope =
+      allowed !== null &&
+      entries.some((e) => !e.source_section_id || !allowed.includes(e.source_section_id));
+    // One answer for "not in this run" and "not your section": nothing is updated either way.
+    if (entries.length !== entryIds.length || outOfScope) {
+      throw new NotFoundException('Promotion entries not found');
+    }
+
     if (run.status !== PromotionRunStatus.DRAFT) {
       throw new ConflictException('Only DRAFT runs can be edited');
     }
@@ -186,18 +212,6 @@ export class PromotionGroupsService {
         message: 'The group is not one of the configured groups.',
         details: { code: 'GROUP_NOT_IN_VOCABULARY' },
       });
-    }
-
-    const entries = await this.entryRepo.find({
-      where: { id: In(entryIds), run_id: run.id, tenant_id: actor.tenantId },
-    });
-    const allowed = await this.allowedSections(actor);
-    const outOfScope =
-      allowed !== null &&
-      entries.some((e) => !e.source_section_id || !allowed.includes(e.source_section_id));
-    // One answer for "not in this run" and "not your section": nothing is updated either way.
-    if (entries.length !== entryIds.length || outOfScope) {
-      throw new NotFoundException('Promotion entries not found');
     }
 
     await this.promotions.patchEntries(
