@@ -140,7 +140,11 @@
     "path": "academics/academic-years",
     "route": "/academic-years",
     "roles": ["ADMIN"],
-    "routes": ["/academic-years", "/academic-years/$academicYearId"]
+    "routes": [
+      "/academic-years",
+      "/academic-years/$academicYearId",
+      "/academic-years/$academicYearId/next"
+    ]
   },
   {
     "id": "academics.classes",
@@ -341,7 +345,7 @@
     "path": "exams-results/promotion",
     "route": "/promotions",
     "roles": ["ADMIN"],
-    "routes": ["/promotions", "/promotions/$runId", "/promotions/new"]
+    "routes": ["/promotions", "/promotions/$runId", "/promotions/$runId/groups", "/promotions/new"]
   },
   {
     "id": "finance.dues",
