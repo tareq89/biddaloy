@@ -7,7 +7,12 @@ export type AdminNoticeKey =
   | 'seats_d7'
   | 'seats_expired'
   | 'seats_suspended'
-  | 'receipt';
+  | 'receipt'
+  /** [Epic 99] Biddaloy support access. Plain words only: see the glossary (D14). */
+  | 'support_session_started'
+  | 'support_emergency'
+  | 'support_request'
+  | 'support_mode_changed';
 export type NoticeLocale = 'en' | 'bn';
 
 export interface NoticeVars {
@@ -22,7 +27,23 @@ export interface NoticeVars {
   free?: boolean;
   /** The school has more ACTIVE students than seats once they end: it goes read-only, then paused. */
   over?: boolean;
+  /** [Epic 99] Biddaloy staff member who entered the school. */
+  person?: string;
+  /** [Epic 99] Role they entered as, already a plain label. */
+  role?: string;
+  /** [Epic 99] The new support-access setting. */
+  mode?: SupportSetting;
+  /** [Epic 99] Free-text reason given for the entry. */
+  reason?: string;
+  /** [Epic 99] When it happened, already formatted for the reader. */
+  time?: string;
 }
+
+export type SupportSetting = 'allowed' | 'ask' | 'off';
+const SETTING_LABEL: Record<NoticeLocale, Record<SupportSetting, string>> = {
+  en: { allowed: 'allowed', ask: 'ask every time', off: 'off' },
+  bn: { allowed: 'অনুমতি আছে', ask: 'প্রতিবার জিজ্ঞেস করুন', off: 'বন্ধ' },
+};
 
 interface Template {
   subject: (v: NoticeVars) => string;
@@ -138,6 +159,54 @@ const TEMPLATES: Record<AdminNoticeKey, Record<NoticeLocale, Template>> = {
       subject: (v) => `${v.school}: সিট শেষ, স্কুল সাময়িক বন্ধ`,
       body: (v) =>
         `সিটের মেয়াদ শেষ হওয়ায় ${v.school} সাময়িক বন্ধ আছে। আপনার তথ্য নিরাপদ আছে। সেটিংস, সিট ও বিলিং থেকে সিট কিনলে স্কুল সঙ্গে সঙ্গে আবার চালু হবে।`,
+    },
+  },
+  support_session_started: {
+    en: {
+      subject: (v) => `${v.school}: Biddaloy support entered your school`,
+      body: (v) =>
+        `${v.person ?? ''} from Biddaloy support entered ${v.school} as ${v.role ?? ''} at ${v.time ?? ''}. Reason: ${v.reason ?? ''}. You can see this in Settings, Biddaloy support access.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: Biddaloy সহায়তা স্কুলে প্রবেশ করেছে`,
+      body: (v) =>
+        `Biddaloy সহায়তার ${v.person ?? ''} ${v.time ?? ''} সময়ে ${v.school}-এ ${v.role ?? ''} হিসেবে প্রবেশ করেছেন। কারণ: ${v.reason ?? ''}। সেটিংস, Biddaloy সহায়তা প্রবেশ-এ এটি দেখতে পাবেন।`,
+    },
+  },
+  support_emergency: {
+    en: {
+      subject: (v) => `${v.school}: emergency access by Biddaloy support`,
+      body: (v) =>
+        `Biddaloy support used emergency access to ${v.school}. ${v.person ?? ''} entered as ${v.role ?? ''} at ${v.time ?? ''}. Reason: ${v.reason ?? ''}. The entry is view only. Check it in Settings, Biddaloy support access.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: Biddaloy সহায়তার জরুরি প্রবেশ`,
+      body: (v) =>
+        `Biddaloy সহায়তা ${v.school}-এ জরুরি প্রবেশ করেছে। ${v.person ?? ''} ${v.time ?? ''} সময়ে ${v.role ?? ''} হিসেবে প্রবেশ করেছেন। কারণ: ${v.reason ?? ''}। এই প্রবেশে শুধু দেখা যায়। সেটিংস, Biddaloy সহায়তা প্রবেশ-এ দেখুন।`,
+    },
+  },
+  support_request: {
+    en: {
+      subject: (v) => `${v.school}: Biddaloy support asks to enter`,
+      body: (v) =>
+        `${v.person ?? ''} from Biddaloy support asks to enter ${v.school} as ${v.role ?? ''}. Reason: ${v.reason ?? ''}. Allow or refuse within 24 hours: ${v.link ?? ''}`.trim(),
+    },
+    bn: {
+      subject: (v) => `${v.school}: Biddaloy সহায়তা প্রবেশের অনুমতি চেয়েছে`,
+      body: (v) =>
+        `Biddaloy সহায়তার ${v.person ?? ''} ${v.school}-এ ${v.role ?? ''} হিসেবে প্রবেশের অনুমতি চেয়েছেন। কারণ: ${v.reason ?? ''}। ২৪ ঘণ্টার মধ্যে অনুমতি দিন বা না করুন: ${v.link ?? ''}`.trim(),
+    },
+  },
+  support_mode_changed: {
+    en: {
+      subject: (v) => `${v.school}: Biddaloy support access changed`,
+      body: (v) =>
+        `${v.person ?? ''} changed Biddaloy support access for ${v.school} to "${v.mode ? SETTING_LABEL.en[v.mode] : ''}" at ${v.time ?? ''}. If this was not expected, check Settings, Biddaloy support access.`,
+    },
+    bn: {
+      subject: (v) => `${v.school}: Biddaloy সহায়তা প্রবেশ বদলানো হয়েছে`,
+      body: (v) =>
+        `${v.person ?? ''} ${v.time ?? ''} সময়ে ${v.school}-এর Biddaloy সহায়তা প্রবেশ "${v.mode ? SETTING_LABEL.bn[v.mode] : ''}" করেছেন। এটি আপনার জানা না থাকলে সেটিংস, Biddaloy সহায়তা প্রবেশ দেখুন।`,
     },
   },
 };
