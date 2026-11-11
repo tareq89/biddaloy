@@ -1370,6 +1370,50 @@ describe('StudentService (integration)', () => {
   });
 
   describe('[69.3.04] closed year (D4)', () => {
+    const status = async (sid: string) =>
+      (await dataSource.query(
+        `SELECT academic_year_id, enrollment_status FROM enrollments WHERE student_id = $1`,
+        [sid],
+      )) as { academic_year_id: string; enrollment_status: string }[];
+
+    it('remove closes the open-year ACTIVE row and leaves the closed-year frozen row alone', async () => {
+      const created = await service.create(
+        { full_name: 'Two Years', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      const OLD = '69304000-0000-4000-8000-000000000001';
+      await dataSource.query(
+        `INSERT INTO academic_years (id, name, start_date, end_date, is_current, closed_at, tenant_id, created_at, updated_at)
+         VALUES ($1, 'Old', '2020-01-01', '2020-12-31', false, now(), $2, NOW(), NOW())`,
+        [OLD, TENANT_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO enrollments (student_id, class_id, section_id, academic_year_id, enrollment_status, tenant_id)
+         SELECT $1, class_id, section_id, $2, 'ACTIVE', $3 FROM enrollments WHERE student_id = $1 LIMIT 1`,
+        [created.id, OLD, TENANT_ID],
+      );
+      await service.remove(created.id, TENANT_ID, null, NO_CTX);
+      const rows = await status(created.id);
+      expect(rows.find((r) => r.academic_year_id === OLD)?.enrollment_status).toBe('ACTIVE');
+      expect(
+        rows.find((r) => r.academic_year_id === SEED_ACADEMIC_YEAR_ID)?.enrollment_status,
+      ).toBe('INACTIVE');
+      expect(await studentRepo.findOne({ where: { id: created.id } })).toBeNull();
+      await dataSource.query(`DELETE FROM enrollments WHERE student_id = $1`, [created.id]);
+      await dataSource.query(`DELETE FROM academic_years WHERE id = $1`, [OLD]);
+    });
+
+    it('remove of a student whose only ACTIVE row is in a closed year succeeds without touching it', async () => {
+      const created = await service.create(
+        { full_name: 'Only Closed', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      await closeSeedYear();
+      await service.remove(created.id, TENANT_ID, null, NO_CTX);
+      expect((await status(created.id)).map((r) => r.enrollment_status)).toEqual(['ACTIVE']);
+      expect(await studentRepo.findOne({ where: { id: created.id } })).toBeNull();
+    });
+
     afterEach(async () => {
       await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
     });
@@ -2640,7 +2684,7 @@ describe('GuardianService (integration)', () => {
         TENANT_ID,
       );
 
-      await service.remove(created.id, TENANT_ID);
+      await service.remove(created.id, TENANT_ID, null, NO_CTX);
 
       await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
 
