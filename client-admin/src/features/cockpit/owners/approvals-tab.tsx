@@ -44,6 +44,12 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
   const setSetting = useSetApprovalsSetting();
   const [confirmSwitch, setConfirmSwitch] = React.useState(false);
   const [switchWaiting, setSwitchWaiting] = React.useState(false);
+  const [decidingId, setDecidingId] = React.useState<string | null>(null);
+  // The switch's waiting note goes once no request of mine is pending (or on dismiss).
+  const showSwitchWaiting =
+    switchWaiting &&
+    (!approvals.data ||
+      approvals.data.some((a) => a.status === 'PENDING' && a.requested_by === currentUserId));
 
   const nameOf = (id: string) => owners.data?.find((o) => o.userId === id)?.fullName;
   const otherName = owners.data?.find((o) => o.userId !== currentUserId)?.fullName;
@@ -59,6 +65,7 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
         // Code prompt closed: nothing to say.
       } else if (getApprovalRequestId(error)) {
         setSwitchWaiting(true);
+        void approvals.refetch();
       } else {
         toast.error(t('approvals.actionError'));
       }
@@ -67,11 +74,14 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
   }
 
   async function answer(id: string, decision: 'approve' | 'deny') {
+    setDecidingId(id);
     try {
       await decide.mutateAsync({ id, decision });
       toast.success(t(decision === 'approve' ? 'approvals.approved' : 'approvals.denied'));
     } catch (error) {
       if (!(error instanceof ApprovalCancelledError)) toast.error(t('approvals.actionError'));
+    } finally {
+      setDecidingId(null);
     }
   }
 
@@ -104,7 +114,7 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
                 variant="outline"
                 size="lg"
                 className="min-h-11"
-                disabled={decide.isPending}
+                disabled={decidingId === a.id}
                 onClick={() => void answer(a.id, 'deny')}
               >
                 {t('approvals.deny')}
@@ -112,7 +122,7 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
               <Button
                 size="lg"
                 className="min-h-11"
-                disabled={decide.isPending}
+                disabled={decidingId === a.id}
                 onClick={() => void answer(a.id, 'approve')}
               >
                 {t('approvals.approve')}
@@ -144,10 +154,13 @@ export function ApprovalsTab({ currentUserId }: { currentUserId: string | null }
             />
           )}
         </div>
-        {switchWaiting && (
-          <p role="status" className="text-body">
-            {t('approvals.switch.waiting')}
-          </p>
+        {showSwitchWaiting && (
+          <div role="status" className="flex flex-wrap items-center gap-2 text-body">
+            <span>{t('approvals.switch.waiting')}</span>
+            <Button variant="outline" size="lg" onClick={() => setSwitchWaiting(false)}>
+              {t('approvals.switch.dismiss')}
+            </Button>
+          </div>
         )}
       </Card>
       {approvals.isError ? (
