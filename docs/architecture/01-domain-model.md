@@ -816,4 +816,19 @@ fix, and a rule worth keeping.
 
 **Learning (2026-11-11, Epic 69 wave 2).** The current academic year is no longer always built by hand: `YearRolloverService` (`modules/academics/year-rollover.service.ts`) copies classes, sections, class subjects, teacher assignments, fee structures, grading scales and terms from a source year into a target year by natural key (D14), all-or-nothing, and re-running it counts rows `existing` instead of duplicating them. A closed year (`academic_years.closed_at`) is read-only for writes that call `assertYearOpen`.
 
+**Learning (2026-11-11, Epic 69 wave 4).** Closing and creating a year are now screens, so the data rules show up in the UI. Example: closing a year asks for the approval code, then every page that writes into it greys its write buttons. Four things to remember:
+
+```mermaid
+flowchart LR
+  A[Close year] --> B{Draft promotion open?}
+  B -- yes --> C[Close refused, link to Promotions]
+  B -- no --> D[closed_at set, 409 on every write]
+  D --> E[Reopen year clears closed_at]
+```
+
+- `GET /academic-years/:id/close-preview` reports `DUES_OUTSTANDING` in **whole paisa** (Rule 26). The dialog passes it straight to `formatCurrency`, which also takes minor units: 150000 paisa shows as `৳1,500.00`. Never divide by 100 in the page.
+- A `DRAFT` promotion run blocks closing its source year (`DRAFT_PROMOTION_RUN_OPEN`, D9). The demo school keeps one such draft (College's lowest class, half its entries without a group) so `promotion.groups_pending` has something to show.
+- The wizard's preview and create answers are typed by hand (`YearRolloverResult` in `ui/src/hooks/academic-years.ts`) because the controller declares no response DTO. Change the service shape and that interface together.
+- `POST academic-years/:id/next` and `PATCH promotions/:id/groups` are idempotency-key routes: a double click must not write twice.
+
 **Learning (2026-11-11, Epic 69 close).** Every year-scoped write is now guarded: `YEAR_SCOPED_WRITES` has 21 entries, none can be unwired, and the registry test also checks the listed service really calls `assertYearOpen`. `Program` was listed by mistake (no `academic_year_id`, D2) and was removed. Report card notes have no year column, so their guard reads the year from the target exam or final result. A student whose latest ACTIVE enrollment is in a just-closed year, with no next-year enrollment, cannot be recorded as leaving until the year is reopened: promote before you close.
