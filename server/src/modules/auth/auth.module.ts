@@ -34,6 +34,7 @@ import { RefreshTokenCleanupScheduler } from './refresh-token-cleanup.scheduler'
 import { REFRESH_TOKEN_CLEANUP_QUEUE } from './refresh-token-cleanup.constants';
 import { ACCESS_TOKEN_TTL_MS } from './auth-tokens';
 import { JWT_ALGORITHM, JWT_ISSUER } from './jwt-secrets';
+import { IMPERSONATION_REDIS } from '../support-access/sessions/impersonation-redis';
 
 const DEFAULT_ACCESS_TOKEN_TTL_MS = 15 * 60_000; // 15 minutes
 const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000; // 30 days
@@ -162,6 +163,13 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
       useFactory: (config: ConfigService) => createFailFastRedis(config, 1000),
     },
     {
+      // [Epic 99] Login as session + one-time code store, read by JwtStrategy on every `imp` token.
+      // SupportAccessModule reuses this client by importing AuthModule (no second connection).
+      provide: IMPERSONATION_REDIS,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => createFailFastRedis(config, 1000),
+    },
+    {
       provide: ACCESS_TOKEN_TTL_MS,
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -190,6 +198,7 @@ function createFailFastRedis(config: ConfigService, commandTimeout: number): Red
     StepUpService, // Epic 98: PlatformStepUpController
     JwtStrategy,
     ACCESS_TOKEN_TTL_MS,
+    IMPERSONATION_REDIS,
     SessionCutoffService,
     RefreshTokenService,
     AccessTokenDenylistService,

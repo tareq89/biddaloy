@@ -127,6 +127,9 @@ POST   /api/v1/auth/cockpit/reset-password                                      
 GET    /api/v1/auth/cockpit/sessions                                             401 401 401 401 401 401 401 401 401 401 401 401
 DELETE /api/v1/auth/cockpit/sessions/:id                                         401 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/auth/forgot-password                                              PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
+POST   /api/v1/auth/impersonation/end                                            401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
+POST   /api/v1/auth/impersonation/exchange                                       PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
+GET    /api/v1/auth/impersonation/me                                             401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 POST   /api/v1/auth/login                                                        PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 POST   /api/v1/auth/logout                                                       PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
 POST   /api/v1/auth/logout-all                                                   401 PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS
@@ -508,11 +511,15 @@ PUT    /api/v1/platform/holiday-sets/:id/entries                                
 POST   /api/v1/platform/holiday-sets/:id/publish                                 401 PASS 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/holiday-sets/:id/unpublish                               401 PASS 403 403 403 403 403 403 403 403 403 403
 POST   /api/v1/platform/holiday-sets/fetch                                       401 PASS 403 403 403 403 403 403 403 403 403 403
+GET    /api/v1/platform/impersonation                                            401 401 401 401 401 401 401 401 401 401 401 401
+POST   /api/v1/platform/impersonation                                            401 401 401 401 401 401 401 401 401 401 401 401
+DELETE /api/v1/platform/impersonation/:id                                        401 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/platform/owners                                                   401 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/owners/:userId/lock                                      401 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/owners/:userId/unlock                                    401 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/platform/owners/history                                           401 401 401 401 401 401 401 401 401 401 401 401
 GET    /api/v1/platform/reports/usage                                            401 PASS 403 403 403 403 403 403 403 403 403 403
+GET    /api/v1/platform/schools/:id/login-as/candidates                          401 401 401 401 401 401 401 401 401 401 401 401
 POST   /api/v1/platform/schools/:id/preset/reset                                 401 PASS 403 403 403 403 403 403 403 403 403 403
 GET    /api/v1/platform/settings/approvals                                       401 401 401 401 401 401 401 401 401 401 401 401
 PATCH  /api/v1/platform/settings/approvals                                       401 401 401 401 401 401 401 401 401 401 401 401

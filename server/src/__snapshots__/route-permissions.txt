@@ -36,6 +36,7 @@ DELETE /notices/:id | NoticesController | perm: NOTICE_POST
 DELETE /notices/:id/files/:fileId | NoticeFilesController | perm: NOTICE_POST
 DELETE /notices/:id/public-link | NoticesController | perm: NOTICE_POST
 DELETE /notices/:id/recipients | NoticesController | perm: NOTICE_POST
+DELETE /platform/impersonation/:id | PlatformImpersonationController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 DELETE /programs/:id | ProgramsController | perm: PROGRAM_MANAGE
 DELETE /programs/:id/milestones/:milestoneId | ProgramsController | perm: PROGRAM_MANAGE
 DELETE /promotions/:id | PromotionsController | perm: PROMOTION_MANAGE
@@ -114,6 +115,7 @@ GET /audit-logs | AuditController | perm: AUDIT_LOG_READ
 GET /audit-logs/entity/:entityType/:entityId | AuditController | perm: AUDIT_ENTITY_HISTORY_READ
 GET /audit-logs/export | AuditController | perm: AUDIT_LOG_READ,REPORTS_EXPORT
 GET /auth/cockpit/sessions | CockpitSessionController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
+GET /auth/impersonation/me | ImpersonationExchangeController | allowlist: AuthGuard('jwt')
 GET /auth/sessions | AuthController | allowlist: AuthGuard('jwt')
 GET /auth/social/:provider/callback | SocialAuthController | allowlist: none
 GET /auth/social/:provider/start | SocialAuthController | allowlist: none
@@ -306,9 +308,11 @@ GET /platform/billing/schools | PlatformBillingController | identity | roles: SU
 GET /platform/billing/schools/:id | PlatformBillingController | identity | roles: SUPER_ADMIN
 GET /platform/holiday-sets | PublicHolidaysController | identity | roles: SUPER_ADMIN
 GET /platform/holiday-sets/:id | PublicHolidaysController | identity | roles: SUPER_ADMIN
+GET /platform/impersonation | PlatformImpersonationController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/owners | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/owners/history | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/reports/usage | PlatformReportUsageController | identity | roles: SUPER_ADMIN
+GET /platform/schools/:id/login-as/candidates | LoginAsCandidatesController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /platform/settings/approvals | PlatformSettingsController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard
 GET /portal/arrival-subscriptions | PortalArrivalSubscriptionsController | identity | roles: PARENT
 GET /portal/students/:studentId/statement | StudentStatementController | perm: FEE_READ
@@ -596,6 +600,8 @@ POST /auth/cockpit/mfa | CockpitAuthController | allowlist: SameOriginGuard
 POST /auth/cockpit/refresh | CockpitSessionController | allowlist: SameOriginGuard
 POST /auth/cockpit/reset-password | CockpitPasswordController | allowlist: SameOriginGuard
 POST /auth/forgot-password | AccountAccessController | allowlist: none
+POST /auth/impersonation/end | ImpersonationExchangeController | allowlist: AuthGuard('jwt')
+POST /auth/impersonation/exchange | ImpersonationExchangeController | allowlist: none
 POST /auth/login | AuthController | allowlist: none
 POST /auth/logout | AuthController | allowlist: SameOriginGuard
 POST /auth/logout-all | AuthController | allowlist: AuthGuard('jwt')
@@ -719,6 +725,7 @@ POST /platform/billing/schools/:id/grant | PlatformBillingController | identity 
 POST /platform/holiday-sets/:id/publish | PublicHolidaysController | identity | roles: SUPER_ADMIN
 POST /platform/holiday-sets/:id/unpublish | PublicHolidaysController | identity | roles: SUPER_ADMIN
 POST /platform/holiday-sets/fetch | PublicHolidaysController | identity | roles: SUPER_ADMIN
+POST /platform/impersonation | PlatformImpersonationController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.login_as
 POST /platform/owners/:userId/lock | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.owner_lock
 POST /platform/owners/:userId/unlock | PlatformOwnersController | allowlist: AuthGuard('cockpit-jwt'), PlatformAdminGuard, ApprovalGuard | approval: platform.owner_unlock
 POST /platform/schools/:id/preset/reset | PlatformPresetsController | identity | roles: SUPER_ADMIN

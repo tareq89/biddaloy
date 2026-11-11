@@ -9,6 +9,7 @@ import { CockpitAuthController } from '../../src/modules/auth/cockpit/cockpit-au
 import { CockpitEnrolController } from '../../src/modules/auth/cockpit/cockpit-enrol.controller';
 import { CockpitPasswordController } from '../../src/modules/auth/cockpit/cockpit-password.controller';
 import { CockpitSessionController } from '../../src/modules/auth/cockpit/cockpit-session.controller';
+import { ImpersonationExchangeController } from '../../src/modules/support-access/exchange/impersonation-exchange.controller';
 import { UserController } from '../../src/modules/users/users.controller';
 import { MarksController } from '../../src/modules/exams/marks.controller';
 
@@ -33,6 +34,7 @@ export const REDIS_OUTAGE_CONTROLLERS: Function[] = [
   CockpitEnrolController,
   CockpitPasswordController,
   CockpitSessionController,
+  ImpersonationExchangeController,
 ];
 
 // Checks a password, or sends or checks a one-time code: answers 503 without Redis, because
@@ -53,6 +55,8 @@ export const FAIL_CLOSED = [
   'POST /auth/register/verify',
   'POST /auth/step-up',
   'POST /auth/step-up/otp/request',
+  // [Epic 99] The one-time Login as code lives in Redis; no Redis, no exchange.
+  'POST /auth/impersonation/exchange',
   'GET /auth/social/:provider/start',
   'GET /auth/social/:provider/callback',
   'POST /auth/social/:provider/link-start',
@@ -84,6 +88,9 @@ export const FAIL_OPEN = [
   'POST /auth/refresh',
   'POST /auth/logout',
   'POST /auth/logout-all',
+  // [Epic 99] Bearer routes: the session check itself answers 503 when Redis is down.
+  'GET /auth/impersonation/me',
+  'POST /auth/impersonation/end',
   'GET /auth/sessions',
   'DELETE /auth/sessions/:id',
   'GET /auth/social/providers',

@@ -950,3 +950,24 @@ sequenceDiagram
   - `JwtStrategy` (#3791) must call `setImpersonation` exactly once per request.
 - **Open follow-ups.** #4081 (`SMOKE_IMPERSONATION` not forwarded in CI), #4087 (workbook restore race).
 - **`ci:local` caught a stale `schema.d.ts` (#3788).** No route changed, but the 16 new `AuditAction` values reached the OpenAPI schema; `client-admin` audit-logs failed `tsc -b`. Fix: `yarn api:types` and commit `schema.d.ts`. Rule candidate: a shared enum used in a DTO means regenerate the API types.
+
+## Learning: tenant control and Login as, Wave 2
+
+2026-11-12, Epic 99 wave 2 core (#3797). The server pieces from #3789 to #3796 are now wired.
+
+```mermaid
+flowchart LR
+  A[Owner starts a session<br/>POST /platform/impersonation] --> B[one-time code]
+  B --> C[POST /auth/impersonation/exchange<br/>public, code is the credential]
+  C --> D[short imp token]
+  D --> E[JwtStrategy checks imp:sid in Redis<br/>and fills the request actor store]
+  E --> F[ContextGuard, deny interceptor, audit stamp]
+```
+
+- **One Redis client.** `AuthModule` provides and exports `IMPERSONATION_REDIS` (fail-fast, 1 s command timeout). `SupportAccessModule` imports `AuthModule` instead of opening a second connection. `JwtStrategy` was already waiting for the token as `@Optional()`.
+- **The per-request store comes from a middleware.** `SupportAccessModule.configure` applies `requestActorContextMiddleware` to every route. `JwtStrategy` fills the store once per request; with no store it answers 401, so a missing middleware fails closed. Nothing else in the repo implements `configure`.
+- **Route lists.** `POST /auth/impersonation/exchange` is public by design (ALLOWLIST) and fail-closed without Redis. `GET /auth/impersonation/me` and `POST /auth/impersonation/end` are bearer-only like `/auth/logout-all` and fail-open. The four `/platform/*` routes are cockpit-jwt + `PlatformAdminGuard` rows, like `/platform/approvals`.
+- **No-store on exchange.** `main.ts` sets `no-store` for `/api/*`, but e2e apps do not run `main.ts`, so the exchange route sets the header itself (`@Header`).
+- **Test reset order.** `impersonation_sessions` (RESTRICT FK to `platform_admins` and `users`) was missing from `test/reset-order.ts`. One leftover row made the next spec file's setup fail with a foreign key error. `platform_school_notes` and `platform_announcements` were missing too, and the reset-order coverage guard caught them. Any new RESTRICT-FK table joins that list in the same ticket.
+- **Stale header.** The deny-list snapshot header said "empty until #3793"; it now lists marked routes, and the generating string in the e2e spec was changed to match.
+- **Open.** `SMOKE_IMPERSONATION=1` still reaches no workflow in this branch (#4081).
