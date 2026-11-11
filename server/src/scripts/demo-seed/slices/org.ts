@@ -5,6 +5,8 @@ import {
   PublicHolidaySource,
   DailyAttendanceSource,
   SchoolStatus,
+  SUPPORT_ACCESS_TEXT_VERSION,
+  SupportAccessMode,
   UserRole,
   UserStatus,
   YEAR_ROLLOVER_BLOCKS,
@@ -297,6 +299,13 @@ export const slice: DemoSlice = {
           trial_ends_at: null, // the trial job must never touch the demo
           onboarding: { finished_at: stamp.toISOString() },
           settings: {
+            // [99.1.05] Confirmed from the start, so a demo visit never meets the first-login page.
+            supportAccess: {
+              mode: SupportAccessMode.ALLOWED,
+              confirmedAt: stamp.toISOString(),
+              confirmedBy: null,
+              textVersion: SUPPORT_ACCESS_TEXT_VERSION,
+            },
             attendance: {
               // [76.2.8] D25: High is gate-driven, the first other branch is teacher-only, the rest ANY.
               ...(b.kind === 'HIGH' && { dailySource: DailyAttendanceSource.DEVICE }),

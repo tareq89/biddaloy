@@ -87,6 +87,7 @@ import { ensureAttentionRulesSeed } from './seed.attention-rules';
 import { ensureAttentionW5Seed } from './seed.attention-w5';
 import { ensureDashboardSeed } from './seed.dashboard';
 import { ensureArrivalNoticeSetting, ensureArrivalSeed } from './seed.arrival';
+import { ensureSupportAccessConfirmed } from './seed.support-access';
 import { ensureCoordinatorsSeed } from './seed.coordinators';
 import { ensureNoticeSeed } from './seed.notices';
 import { ArrivalNoticeSubscription } from '../modules/attendance/entities/arrival-notice-subscription.entity';
@@ -452,6 +453,14 @@ export async function seed() {
     .set({ onboarding: () => `jsonb_build_object('finished_at', now())` })
     .where(`onboarding IS NULL AND ${demoSchools}`, demo)
     .execute();
+
+  // [99.1.05] Support access confirmed on every dev-seed school, so no e2e journey meets the
+  // first-login page. A hand-set value survives a re-run.
+  for (const s of await schoolRepository.find({
+    where: [{ slug: In(demo.slugs) }, { id: demo.platformId }],
+  })) {
+    if (ensureSupportAccessConfirmed(s)) await schoolRepository.save(s);
+  }
 
   // [98.6.1] Dev platform owner with a known TOTP secret (cockpit e2e sign-in, Wave 2).
   // Opt-in: a platform owner is refused by the legacy /auth/login (98.2.04), and every e2e
