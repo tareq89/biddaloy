@@ -4,6 +4,9 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { QueryFailedError } from 'typeorm';
 import { SubjectChoicesService } from './subject-choices.service';
+
+// [69.3.04] The guard has its own integration spec; unit managers here are mocks without `query`.
+vi.mock('../../common/utils/year-open.guard', () => ({ assertYearOpen: vi.fn() }));
 import { Student } from './entities/student.entity';
 import { StudentSubjectChoice } from './entities/student-subject-choice.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';

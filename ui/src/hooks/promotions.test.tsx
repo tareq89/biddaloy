@@ -16,6 +16,8 @@ import { cleanupTestState, renderWithProviders } from '../test/render-with-provi
 import {
   useCommitPromotionRun,
   useCreatePromotionRun,
+  usePromotionGroupEntries,
+  useSetPromotionGroups,
   type PromotionRunDetail,
 } from './promotions';
 
@@ -187,5 +189,43 @@ describe('useCreatePromotionRun sends an Idempotency-Key [#2631]', () => {
 
     expect(keys).toHaveLength(2);
     expect(keys[1]).toBe(keys[0]);
+  });
+});
+
+describe('promotion group hooks [69.5.01]', () => {
+  it('lists with the filters as query params', async () => {
+    let search = '';
+    server.use(
+      http.get('/api/v1/promotions/run-1/groups', ({ request }) => {
+        search = new URL(request.url).search;
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 50 });
+      }),
+    );
+    const { result } = renderHookWithProviders(
+      () => usePromotionGroupEntries('run-1', { gpa_min: 4, subject_code: 'MAT', marks_min: 60 }),
+      { tenantId: 'tenant-1' },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(search).toContain('gpa_min=4');
+    expect(search).toContain('subject_code=MAT');
+    expect(search).toContain('marks_min=60');
+  });
+
+  it('PATCHes ids + group with an Idempotency-Key and does not retry a failure', async () => {
+    const seen: { key: string | null; body: unknown }[] = [];
+    server.use(
+      http.patch('/api/v1/promotions/run-1/groups', async ({ request }) => {
+        seen.push({ key: request.headers.get('Idempotency-Key'), body: await request.json() });
+        return HttpResponse.json({ message: 'down', statusCode: 503 }, { status: 503 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useSetPromotionGroups('run-1'), {
+      tenantId: 'tenant-1',
+    });
+    result.current.mutate({ entry_ids: ['e1', 'e2'], group_name: 'Science' });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.key).toBeTruthy();
+    expect(seen[0]?.body).toEqual({ entry_ids: ['e1', 'e2'], group_name: 'Science' });
   });
 });

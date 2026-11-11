@@ -156,12 +156,12 @@ shows, so a back-dated leave never hides one.
 
 Example: Rahim leaves section 7-B on 3 Oct.
 
-| Register date | On the roll? |
-| --- | --- |
-| 2 Oct | yes |
-| 3 Oct (leaving day) | no |
-| 7 Oct | no |
-| September matrix | yes |
+| Register date       | On the roll? |
+| ------------------- | ------------ |
+| 2 Oct               | yes          |
+| 3 Oct (leaving day) | no           |
+| 7 Oct               | no           |
+| September matrix    | yes          |
 
 ```mermaid
 flowchart LR
@@ -276,9 +276,13 @@ The workbook has three new tabs (`student_lifecycle_events`, `student_notes`,
 
 ## 9. Known gaps (honest list)
 
-- **Leave closes only the latest-year ACTIVE enrollment.** A promoted student can keep an older
-  year's enrollment ACTIVE (promotion does not close the source year). Billing is unaffected, but
-  readmitting into that older year is a 409. Needs a product decision.
+- **Leave closes only the latest-year ACTIVE enrollment (decided, Epic 69 D10, answers #1217).**
+  A promoted student can keep an older year's enrollment ACTIVE (promotion does not close the
+  source year). We keep it on purpose: once that older year is closed its rows are frozen, and
+  `leave` never touches them (`student-lifecycle.service.ts`). Billing is unaffected, and
+  readmitting into the older year stays a 409. Promote before you close: a student whose latest
+  ACTIVE row is in a just-closed year with no next-year enrollment cannot be recorded as leaving
+  until the year is reopened (409 `ACADEMIC_YEAR_CLOSED`).
 - **Append-only is a convention, not a database rule.** Nothing at the database level blocks an
   `UPDATE` or `DELETE` on `student_lifecycle_events`.
 - **Notes and exam edits are audited as entity `Student`.** The shared `AuditEntityType` has no

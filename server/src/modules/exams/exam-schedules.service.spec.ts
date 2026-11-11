@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+vi.mock('../../common/utils/year-open.guard', () => ({
+  assertYearOpen: vi.fn(async () => undefined),
+}));
 import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -10,6 +13,8 @@ import { ExamComponent } from './entities/exam-component.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AuditService } from '../audit/audit.service';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
+import { yearClosed } from '../../common/filters/known-errors';
 
 /**
  * Unit tests for 19.11.1's `ExamSchedulesService`: CRUD validation
@@ -269,6 +274,15 @@ describe('ExamSchedulesService published seat-plan guard [68.3.12]', () => {
     ).rejects.toMatchObject({
       response: { details: { code: 'SITTING_IN_PUBLISHED_SEAT_PLAN' } },
     });
+    expect(scheduleRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('[69.3.02] a move in a closed year is a 409 before any write', async () => {
+    const { service, scheduleRepo } = await buildService({ existingSchedules: existing });
+    vi.mocked(assertYearOpen).mockRejectedValueOnce(yearClosed());
+    await expect(
+      service.update(EXAM_ID, 'sched-1', { venue: 'Hall B' } as any, TENANT_ID),
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
     expect(scheduleRepo.update).not.toHaveBeenCalled();
   });
 

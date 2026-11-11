@@ -7,6 +7,10 @@ import { ALL_ENTITIES } from '@test/all-entities';
 import { AuditService } from '../../../modules/audit/audit.service';
 import { StorageService } from '../../../modules/storage/storage.service';
 import { TenantSettingsCache } from '../../../modules/schools/settings/tenant-settings-cache.service';
+import { YearRolloverService } from '../../../modules/academics/year-rollover.service';
+import { FeeStructureService } from '../../../modules/fees/fees.service';
+import { GradingService } from '../../../modules/grading/grading.service';
+import { AcademicTermsService } from '../../../modules/calendar/academic-terms.service';
 import { PresetApplyService } from '../../../modules/presets/preset-apply.service';
 import { PresetRegistryService } from '../../../modules/presets/preset-registry.service';
 import { AuthTokenService } from '../../../modules/account-access/auth-token.service';
@@ -48,6 +52,10 @@ describe('exams slice (integration, 2 years, scale 0.05)', () => {
   beforeAll(async () => {
     app = await createTestModule(ALL_ENTITIES, [
       PresetApplyService,
+      YearRolloverService,
+      FeeStructureService,
+      GradingService,
+      AcademicTermsService,
       PresetRegistryService,
       AuditService,
       AuthTokenService,

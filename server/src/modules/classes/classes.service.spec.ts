@@ -37,7 +37,12 @@ function createRepoStub() {
     findOne: vi.fn(async () => null),
   };
   repo.manager = {
-    transaction: vi.fn(async (cb: any) => cb({ getRepository: () => repo })),
+    transaction: vi.fn(async (cb: any) =>
+      cb({
+        getRepository: () => repo,
+        query: async () => [{ closed_at: null }], // assertYearOpen [69.3.05]
+      }),
+    ),
   };
   return repo;
 }

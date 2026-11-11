@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, IsNull, QueryFailedError, Repository } from 'typeorm';
 import {
@@ -8,6 +8,7 @@ import {
   AuditAction,
   EnrollmentStatus,
 } from '@biddaloy/shared';
+import { assertDateNotInClosedYear } from '../../../common/utils/year-open.guard';
 import { AttendanceDevice } from '../entities/attendance-device.entity';
 import { AttendanceDeviceEvent } from '../entities/attendance-device-event.entity';
 import { AttendanceSession } from '../entities/attendance-session.entity';
@@ -289,6 +290,17 @@ export class DeviceEventsService {
         return { device_event_id: event.device_event_id, outcome: 'out_of_window' };
       }
 
+      // [69.3.06] D12: the event stays stored, but a date inside a closed year makes no register.
+      if (await this.isInClosedYear(manager, device.tenant_id, eventDate)) {
+        this.logger.debug(`Device ${device.id}: event date is in a closed academic year`);
+        await eventRepo.update(eventRow.id, { outcome: 'rejected', student_id: student.id });
+        return {
+          device_event_id: event.device_event_id,
+          outcome: 'rejected',
+          reason: 'year_closed',
+        };
+      }
+
       if (device.section_id && student.class_section_id !== device.section_id) {
         await eventRepo.update(eventRow.id, { outcome: 'rejected', student_id: student.id });
         return {
@@ -364,6 +376,20 @@ export class DeviceEventsService {
         .catch((err: unknown) =>
           this.logger.warn(`Arrival notice failed for device ${device.id}: ${String(err)}`),
         );
+    }
+  }
+
+  private async isInClosedYear(
+    manager: EntityManager,
+    tenantId: string,
+    dateIso: string,
+  ): Promise<boolean> {
+    try {
+      await assertDateNotInClosedYear(manager, tenantId, dateIso);
+      return false;
+    } catch (err) {
+      if (err instanceof ConflictException) return true;
+      throw err;
     }
   }
 

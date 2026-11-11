@@ -13,6 +13,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../../../routeTree.gen';
 import { pickDate } from '../../../test/pick-date';
 
+/** Delete sits in the row's More actions menu now that the row has four actions. */
+async function openDeleteFromMenu(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+}
+
 /**
  * [8.11.1]'s list page — real `ListShell`/`DataTable` against the real
  * route tree, same reasoning `students/index.test.tsx`'s own header
@@ -95,7 +101,11 @@ describe('/academic-years', () => {
     await screen.findByRole('button', { name: 'Edit' });
     expect(screen.getByRole('button', { name: 'Add academic year' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'View' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+    // [69.4.03] Four row actions: the first three stay inline, Delete moves into More actions.
+    expect(screen.getByRole('link', { name: 'Create next year' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Delete' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Set as current' })).toBeNull();
   });
 
@@ -211,7 +221,7 @@ describe('/academic-years', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await openDeleteFromMenu(user);
     const dialog = within(await screen.findByRole('alertdialog'));
     expect(dialog.getByText(/Delete "Delete Me"\?/)).toBeTruthy();
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
@@ -257,7 +267,7 @@ describe('/academic-years', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await openDeleteFromMenu(user);
     const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
@@ -309,7 +319,7 @@ describe('/academic-years', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await openDeleteFromMenu(user);
     const dialog = within(await screen.findByRole('alertdialog'));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
@@ -468,5 +478,50 @@ describe('/academic-years', () => {
     // as an unwrapped `act()` update against a since-finished test.
     await screen.findByText('17');
     await expect(container).toHaveNoViolations();
+  });
+
+  describe('[69.4.02] palette flags', () => {
+    const years = [
+      academicYearFactory({
+        id: 'cur',
+        name: 'Now',
+        is_current: true,
+        end_date: '2026-12-31T00:00:00Z',
+      }),
+      academicYearFactory({ id: 'old', name: 'Older', end_date: '2024-12-31T00:00:00Z' }),
+      academicYearFactory({ id: 'prev', name: 'Previous', end_date: '2025-12-31T00:00:00Z' }),
+    ];
+    function serveYears() {
+      server.use(
+        http.get('/api/v1/academic-years', () =>
+          HttpResponse.json({ data: years, total: 3, page: 1, limit: 100, totalPages: 1 }),
+        ),
+        http.get('/api/v1/academic-years/:id', ({ params }) =>
+          HttpResponse.json(years.find((y) => y.id === params.id)),
+        ),
+      );
+    }
+
+    it("?next=1 goes on to the current year's Create next year wizard", async () => {
+      serveYears();
+      const { router } = renderWithRouter(routeTree, {
+        initialEntries: ['/academic-years?next=1'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      await waitFor(() => expect(router.state.location.pathname).toBe('/academic-years/cur/next'));
+    });
+
+    it('?close=1 goes to the latest non-current year, where Close year lives', async () => {
+      serveYears();
+      const { router } = renderWithRouter(routeTree, {
+        initialEntries: ['/academic-years?close=1'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
+      await waitFor(() => expect(router.state.location.pathname).toBe('/academic-years/prev'));
+    });
   });
 });

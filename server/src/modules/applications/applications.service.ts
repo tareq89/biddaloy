@@ -6,6 +6,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -146,6 +147,7 @@ export class ApplicationsService {
       const academicYear = await manager.findOne(AcademicYear, {
         where: { tenant_id: tenantId, is_current: true },
       });
+      // No year guard: the current year can never be closed (CHK_academic_years_closed_not_current).
       const no = await nextApplicationSerial(manager, tenantId, year);
       const draft = manager.create(Application, {
         tenant_id: tenantId,
@@ -747,6 +749,7 @@ export class ApplicationsService {
       if (found.applicant_user_id !== user.userId) {
         throw new ForbiddenException('Only the applicant can withdraw an application');
       }
+      if (found.academic_year_id) await assertYearOpen(manager, tenantId, found.academic_year_id); // [69.3.05] D4
       if (!isOpenApplication(found)) {
         throw new UnprocessableEntityException(
           err('Only a pending application can be withdrawn', 'APPLICATION_NOT_PENDING'),

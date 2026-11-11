@@ -20,6 +20,8 @@ import { Permission, type PromotionOutcome } from '@biddaloy/shared';
 import { ApiError, isNotFoundError } from '@biddaloy/ui/api';
 import {
   Button,
+  closedYearErrorText,
+  ClosedYearNotice,
   ConfirmDialog,
   ErrorState,
   RecordNotFoundState,
@@ -32,7 +34,9 @@ import {
   SelectValue,
   Skeleton,
   StatusBadge,
+  isYearClosedError,
   toast,
+  useIsYearClosed,
   type StatusTone,
   HelpHint,
 } from '@biddaloy/ui/components';
@@ -57,7 +61,13 @@ import { DetailShell, type DetailShellAction } from '@biddaloy/ui/shells';
 import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { CircleCheckIcon, RotateCcwIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
+import {
+  CircleCheckIcon,
+  RotateCcwIcon,
+  Trash2Icon,
+  TriangleAlertIcon,
+  UsersIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -84,7 +94,7 @@ export const Route = createFileRoute('/_staff/promotions/$runId')({
   loader: ({ context: { queryClient }, params: { runId } }) =>
     Promise.all([
       queryClient.ensureQueryData(promotionRunQueryOptions(runId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('promotions', 'common'),
+      loadRouteNamespaces('promotions', 'common', 'academicYears'),
     ]),
   pendingComponent: PromotionRunPending,
   component: PromotionRunPage,
@@ -163,6 +173,8 @@ function PromotionRunPage() {
   );
 
   const run = runQuery.data;
+  // [69.4.05] A run of a closed source year cannot change: banner, grid and actions read-only.
+  const sourceYearClosed = useIsYearClosed(run?.source_academic_year_id);
   const classesQuery = useAllClasses();
   const yearsQuery = useAcademicYears({ limit: 100 });
   const sectionsQuery = useClassSections(run?.target_class_id ?? undefined);
@@ -178,7 +190,7 @@ function PromotionRunPage() {
   // Same rule as the Commit button (`!readOnly && canManage`): the shortcut
   // must not open the dialog on a committed run or for a role that can't
   // commit.
-  const canCommit = run?.status === 'DRAFT' && canManage;
+  const canCommit = run?.status === 'DRAFT' && canManage && !sourceYearClosed;
   React.useEffect(() => {
     if (typeof window === 'undefined' || !canCommit || deleteOpen) return;
     function handleKeyDown(event: KeyboardEvent) {
@@ -207,6 +219,8 @@ function PromotionRunPage() {
   }
 
   const readOnly = run.status === 'COMMITTED';
+  // `readOnly` also drives the Committed wording; `frozen` only switches the write controls off.
+  const frozen = readOnly || sourceYearClosed;
   const groups = vocabulary.data?.groups ?? [];
   const sectionNames = new Map(
     (sectionsQuery.data ?? []).map((section) => [section.id, section.section_name]),
@@ -308,7 +322,8 @@ function PromotionRunPage() {
       () => true,
       (error: unknown) => {
         if (!(error instanceof ApiError && error.statusCode === 403)) {
-          toast.error(t('grid.saveFailed'));
+          // [69.4.05] No inline slot in the grid: the toast carries the server's closed-year sentence.
+          toast.error(closedYearErrorText(error, t('grid.saveFailed')));
         }
         return false;
       },
@@ -456,7 +471,7 @@ function PromotionRunPage() {
           setCommitOpen(false);
           toast.error(t('blocking.retainClassMissing'));
         } else if (error instanceof ApiError && error.statusCode !== 403) {
-          toast.error(t('grid.commitFailed'));
+          toast.error(closedYearErrorText(error, t('grid.commitFailed')));
         }
       },
     });
@@ -479,7 +494,9 @@ function PromotionRunPage() {
       onSuccess: () => void navigate({ to: '/promotions' }),
       onError: (error: unknown) => {
         setDeleteOpen(false);
-        if (error instanceof ApiError && error.statusCode === 409) {
+        if (isYearClosedError(error)) {
+          toast.error(error.message);
+        } else if (error instanceof ApiError && error.statusCode === 409) {
           // Finalised (or otherwise changed) elsewhere: show the current state.
           toast.error(t('grid.deleteConflict'));
           void queryClient.invalidateQueries({
@@ -542,7 +559,7 @@ function PromotionRunPage() {
   }
 
   const actions: DetailShellAction[] =
-    !readOnly && canManage
+    !frozen && canManage
       ? [
           {
             id: 'refresh',
@@ -552,6 +569,13 @@ function PromotionRunPage() {
             priority: 'secondary',
             busy: refreshRun.isPending,
             onClick: () => void refresh(),
+          },
+          {
+            id: 'set-groups',
+            label: t('groups.setGroupsAction'),
+            icon: <UsersIcon aria-hidden="true" />,
+            priority: 'secondary',
+            onClick: () => void navigate({ to: '/promotions/$runId/groups', params: { runId } }),
           },
           {
             id: 'commit',
@@ -606,6 +630,7 @@ function PromotionRunPage() {
       actions={actions}
     >
       <div className="space-y-4">
+        <ClosedYearNotice academicYearId={run.source_academic_year_id} />
         <div role="status" aria-label={t('grid.countsLabel')} className="flex flex-wrap gap-2">
           {countBadge(t('grid.counts.promoted'), counts.promoted, 'success')}
           {countBadge(t('grid.counts.retained'), counts.retained, 'warning')}
@@ -664,7 +689,7 @@ function PromotionRunPage() {
             index={mobileIndex}
             onIndexChange={setMobileIndex}
             groups={groups}
-            readOnly={readOnly}
+            readOnly={frozen}
             effective={effective}
             isOverride={isOverride}
             noteErrors={noteErrors}
@@ -738,7 +763,7 @@ function PromotionRunPage() {
                         </td>
                         <td className="px-4 py-1.5">{t(OUTCOME_KEY[entry.suggested_outcome])}</td>
                         <td className="px-4 py-1.5">
-                          {readOnly ? (
+                          {frozen ? (
                             t(OUTCOME_KEY[eff.final_outcome])
                           ) : (
                             <>
@@ -799,7 +824,7 @@ function PromotionRunPage() {
                             <Select
                               value={eff.group_name ?? NONE_VALUE}
                               onValueChange={(value) => setGroup(entry, value)}
-                              disabled={readOnly}
+                              disabled={frozen}
                             >
                               <SelectTrigger
                                 ref={(el) => {
@@ -834,7 +859,7 @@ function PromotionRunPage() {
                         )}
                         <td className="px-4 py-1.5">{placement(entry, eff.final_outcome)}</td>
                         <td className="px-4 py-1.5">
-                          {readOnly ? (
+                          {frozen ? (
                             (eff.override_note ?? dash)
                           ) : override ? (
                             <>

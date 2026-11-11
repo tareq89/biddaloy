@@ -12,7 +12,13 @@ import {
   useAcademicYear,
   useAcademicYears,
   useAcademicYearStats,
+  useCloseYear,
   useCreateAcademicYear,
+  useCreateNextYear,
+  useReopenYear,
+  useYearClosePreview,
+  useYearReadiness,
+  useYearRolloverPreview,
   useDeleteAcademicYear,
   useSetCurrentAcademicYear,
   useUpdateAcademicYear,
@@ -224,5 +230,95 @@ describe('useSetCurrentAcademicYear', () => {
     // `is_current` flag — invalidating `detail(id)` alone would leave it
     // stuck at `true` and this assertion would fail.
     await waitFor(() => expect(result.current.otherYear.data?.is_current).toBe(false));
+  });
+});
+
+describe('year rollover hooks [69.4.02]', () => {
+  const input = {
+    name: '2027',
+    start_date: '2027-01-01',
+    end_date: '2027-12-31',
+    include: ['classes' as const, 'terms' as const],
+  };
+
+  it('previews with include joined into one query value', async () => {
+    let url: URL | undefined;
+    server.use(
+      http.get('/api/v1/academic-years/:id/next/preview', ({ request }) => {
+        url = new URL(request.url);
+        return HttpResponse.json({ target_year_id: null, skipped_staff: [] });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useYearRolloverPreview('year-1', input), {
+      tenantId: 'tenant-1',
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(url?.searchParams.get('include')).toBe('classes,terms');
+    expect(url?.searchParams.get('name')).toBe('2027');
+  });
+
+  it('stays idle when every block is unticked', () => {
+    const { result } = renderHookWithProviders(
+      () => useYearRolloverPreview('year-1', { ...input, include: [] }),
+      { tenantId: 'tenant-1' },
+    );
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+
+  it('creates the next year with an Idempotency-Key header', async () => {
+    let key: string | null = null;
+    server.use(
+      http.post('/api/v1/academic-years/:id/next', ({ request }) => {
+        key = request.headers.get('Idempotency-Key');
+        return HttpResponse.json({ target_year_id: 'year-2', skipped_staff: [] }, { status: 201 });
+      }),
+    );
+    const { result } = renderHookWithProviders(() => useCreateNextYear('year-1'), {
+      tenantId: 'tenant-1',
+    });
+    result.current.mutate(input);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(key).toBeTruthy();
+    expect(result.current.data?.target_year_id).toBe('year-2');
+  });
+});
+
+describe('year close hooks [69.4.02]', () => {
+  it('reads the close preview and the readiness counts', async () => {
+    server.use(
+      http.get('/api/v1/academic-years/:id/close-preview', () =>
+        HttpResponse.json({ blocks: [], warnings: [], freezes: [{ table: 'exams', count: 3 }] }),
+      ),
+      http.get('/api/v1/academic-years/:id/readiness', () =>
+        HttpResponse.json({ classes: 2, teacher_assignments: 0, committed_promotion_runs: 1 }),
+      ),
+    );
+    const { result } = renderHookWithProviders(
+      () => ({ preview: useYearClosePreview('year-1'), readiness: useYearReadiness('year-1') }),
+      { tenantId: 'tenant-1' },
+    );
+    await waitFor(() => expect(result.current.preview.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.readiness.isSuccess).toBe(true));
+    expect(result.current.preview.data?.freezes[0]?.count).toBe(3);
+    expect(result.current.readiness.data?.teacher_assignments).toBe(0);
+  });
+
+  it('close and reopen post to their own routes', async () => {
+    const hits: string[] = [];
+    server.use(
+      http.post('/api/v1/academic-years/:id/:action', ({ params }) => {
+        hits.push(String(params.action));
+        return HttpResponse.json(academicYearFactory({ id: params.id as string }));
+      }),
+    );
+    const { result } = renderHookWithProviders(
+      () => ({ close: useCloseYear(), reopen: useReopenYear() }),
+      { tenantId: 'tenant-1' },
+    );
+    result.current.close.mutate('year-1');
+    await waitFor(() => expect(result.current.close.isSuccess).toBe(true));
+    result.current.reopen.mutate('year-1');
+    await waitFor(() => expect(result.current.reopen.isSuccess).toBe(true));
+    expect(hits).toEqual(['close', 'reopen']);
   });
 });

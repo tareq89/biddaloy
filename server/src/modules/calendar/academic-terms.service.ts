@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository, QueryFailedError } from 'typeorm';
+import { EntityManager, IsNull, Repository, QueryFailedError } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import { AcademicTerm } from './entities/academic-term.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CreateTermDto, UpdateTermDto, toTermResponseDto } from './dto/academic-terms.dto';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 
@@ -92,6 +93,7 @@ export class AcademicTermsService {
     this.assertInsideYear(year, dto.start_date, dto.end_date);
 
     return this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, dto.academic_year_id); // [69.3.05] D4
       const repo = manager.getRepository(AcademicTerm);
       const existing = await repo.find({
         where: {
@@ -152,6 +154,7 @@ export class AcademicTermsService {
       if (!existing) {
         throw new NotFoundException('Academic term not found');
       }
+      await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
 
       const startDate = dto.start_date ?? existing.start_date;
       const endDate = dto.end_date ?? existing.end_date;
@@ -210,6 +213,7 @@ export class AcademicTermsService {
       if (!existing) {
         throw new NotFoundException('Academic term not found');
       }
+      await assertYearOpen(manager, tenantId, existing.academic_year_id); // [69.3.05] D4
 
       await repo.softDelete({ id, tenant_id: tenantId });
 
@@ -257,6 +261,7 @@ export class AcademicTermsService {
     context: RequestContext,
   ): Promise<AcademicTerm[]> {
     return this.repo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, academicYearId); // [69.3.05] D4
       const repo = manager.getRepository(AcademicTerm);
       const terms = await repo.find({
         where: { tenant_id: tenantId, academic_year_id: academicYearId, deleted_at: IsNull() },
@@ -325,6 +330,113 @@ export class AcademicTermsService {
       });
     });
   }
+
+  /**
+   * [69.1.09] Year rollover: copy `sourceYearId`'s terms into `targetYearId`,
+   * every date moved by (target.start_date - source.start_date) days and the
+   * last term's end clamped to the target year's end. Key is `seq` (D14): a
+   * target term with the same seq is `existing` and left alone. A shifted
+   * term that overlaps a target term (or one copied earlier in this run) is
+   * `skipped` as `OVERLAP`; one that would start after the target year ends
+   * is `skipped` as `OUTSIDE_YEAR`. `dryRun` matches identically but writes
+   * nothing. Runs on the caller's transaction `manager`.
+   */
+  async copyTermsToYear(
+    manager: EntityManager,
+    tenantId: string,
+    sourceYearId: string,
+    targetYearId: string,
+    dryRun: boolean,
+  ): Promise<{
+    created: number;
+    existing: number;
+    skipped: { name: string; reason: 'OVERLAP' | 'OUTSIDE_YEAR' }[];
+  }> {
+    const years = manager.getRepository(AcademicYear);
+    const [source, target] = await Promise.all(
+      [sourceYearId, targetYearId].map((id) =>
+        years.findOne({ where: { id, tenant_id: tenantId, deleted_at: IsNull() } }),
+      ),
+    );
+    if (!source || !target) throw new NotFoundException('Academic year not found');
+
+    const repo = manager.getRepository(AcademicTerm);
+    const live = (yearId: string) => ({
+      tenant_id: tenantId,
+      academic_year_id: yearId,
+      deleted_at: IsNull(),
+    });
+    const sources = await repo.find({ where: live(sourceYearId), order: { seq: 'ASC' } });
+    const taken = await repo.find({ where: live(targetYearId), order: { seq: 'ASC' } });
+    const shifted = shiftTerms(
+      sources,
+      toIso(source.start_date),
+      toIso(target.start_date),
+      toIso(target.end_date),
+    );
+
+    const result = {
+      created: 0,
+      existing: 0,
+      skipped: [] as { name: string; reason: 'OVERLAP' | 'OUTSIDE_YEAR' }[],
+    };
+    const toInsert: AcademicTerm[] = [];
+    const occupied = taken.map((t) => ({ start: t.start_date, end: t.end_date }));
+    for (const term of shifted) {
+      if (taken.some((t) => t.seq === term.seq)) {
+        result.existing++;
+        continue;
+      }
+      if (term.start_date > toIso(target.end_date) || term.start_date > term.end_date) {
+        result.skipped.push({ name: term.name, reason: 'OUTSIDE_YEAR' });
+        continue;
+      }
+      if (occupied.some((o) => term.start_date <= o.end && o.start <= term.end_date)) {
+        result.skipped.push({ name: term.name, reason: 'OVERLAP' });
+        continue;
+      }
+      occupied.push({ start: term.start_date, end: term.end_date });
+      result.created++;
+      toInsert.push(
+        repo.create({
+          tenant_id: tenantId,
+          academic_year_id: targetYearId,
+          seq: term.seq,
+          name: term.name,
+          start_date: term.start_date,
+          end_date: term.end_date,
+        }),
+      );
+    }
+    if (!dryRun && toInsert.length) await repo.insert(toInsert);
+    return result;
+  }
+}
+
+/** [69.1.09] Moves each term by the gap between the two years' start dates
+ * and clamps the last term's end to `targetEnd`. Pure, so it is unit-tested
+ * without a database (leap years, clamping). */
+export function shiftTerms<
+  T extends { seq: number; name: string; start_date: string; end_date: string },
+>(
+  terms: T[],
+  sourceStart: string,
+  targetStart: string,
+  targetEnd: string,
+): { seq: number; name: string; start_date: string; end_date: string }[] {
+  const day = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
+  const offset = day(targetStart) - day(sourceStart);
+  const move = (iso: string) =>
+    new Date((day(iso) + offset) * 86_400_000).toISOString().slice(0, 10);
+  return terms.map((t) => {
+    const end = move(t.end_date);
+    return {
+      seq: t.seq,
+      name: t.name,
+      start_date: move(t.start_date),
+      end_date: end > targetEnd ? targetEnd : end,
+    };
+  });
 }
 
 /** `AcademicYear.start_date`/`end_date` are typed `Date` on the entity but

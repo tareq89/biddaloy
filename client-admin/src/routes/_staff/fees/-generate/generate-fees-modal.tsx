@@ -23,9 +23,11 @@ import {
 import {
   Card,
   Checkbox,
+  ClosedYearNotice,
   ConfirmDialog,
   DatePicker,
   HelpHint,
+  isYearClosedError,
   Label,
   MonthPicker,
   Select,
@@ -82,7 +84,9 @@ function toDateInputValue(date: Date): string {
 
 function describeSubmitError(error: unknown, t: TFunction<'feeGeneration'>): string {
   if (error instanceof RateLimitedError) return t('errors.rateLimited');
-  // Only translated sentences reach the screen, never the server's own message.
+  // [69.4.05] The closed-year 409 is a fixed server sentence (Rule 23), shown beside the button.
+  if (isYearClosedError(error)) return error.message;
+  // Otherwise only translated sentences reach the screen, never the server's own message.
   if (error instanceof ApiError && error.statusCode === 429) return t('errors.rateLimited');
   return t('errors.unknown');
 }
@@ -134,6 +138,7 @@ function GenerateFeesFullPage({
   preselectedStudent: { id: string; name: string } | null;
 }) {
   const { t } = useTranslation('feeGeneration');
+  const { t: tYears } = useTranslation('academicYears');
   const regionConfig = useRegionConfig();
 
   const yearsQuery = useAcademicYears();
@@ -254,6 +259,8 @@ function GenerateFeesFullPage({
   const effectiveStudentCount = resolvedStudentCount ?? studentCount;
   const canGenerate =
     academicYearId !== '' &&
+    // [69.4.05] Bills cannot be added to a closed year (the notice below says why).
+    !selectedYear?.closed_at &&
     periodStart !== undefined &&
     dueDate !== undefined &&
     // [34.5.3] `program_id` alone resolves the whole program server-side
@@ -401,6 +408,7 @@ function GenerateFeesFullPage({
         onClick: () => handleGenerateClick(),
         busy: previewMutation.isPending || generate.isPending,
         disabled: !canGenerate,
+        ...(selectedYear?.closed_at ? { disabledReason: tYears('closedNotice.tooltip') } : {}),
       }}
       // Cancel asks first when something changed, same as Close / Esc.
       secondary={{
@@ -408,6 +416,7 @@ function GenerateFeesFullPage({
         onClick: () => (dirty ? setConfirmingCancel(true) : onClose()),
       }}
     >
+      <ClosedYearNotice academicYearId={academicYearId || undefined} />
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Cmd/Ctrl+Enter submit shortcut */}
       <form
         className="space-y-6"

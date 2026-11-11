@@ -1,3 +1,4 @@
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
@@ -60,6 +61,8 @@ export class FeeGenerationsService {
   ) {}
 
   async create(input: CreateFeeGenerationInput, manager: EntityManager): Promise<FeeGeneration> {
+    // [69.3.03] Also the guard for the `student_fees` inserted in the same transaction (D4).
+    await assertYearOpen(manager, input.tenant_id, input.academic_year_id);
     const repo = manager.getRepository(FeeGeneration);
     const saved = await repo.save(
       repo.create({

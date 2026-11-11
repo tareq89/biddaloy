@@ -23,4 +23,11 @@ describe('saveErrorKey', () => {
     expect(saveErrorKey(apiError(500, { reason: 'CLASS_TEACHER_ONLY' }))).toBe('mark.errorToast');
     expect(saveErrorKey(new Error('offline'))).toBe('mark.errorToast');
   });
+
+  it('[69.4.05] a 409 ACADEMIC_YEAR_CLOSED names the closed year, not a generic failure', () => {
+    expect(saveErrorKey(apiError(409, { code: 'ACADEMIC_YEAR_CLOSED' }))).toBe(
+      'academicYears:closedNotice.tooltip',
+    );
+    expect(saveErrorKey(apiError(409, { code: 'OTHER' }))).toBe('mark.errorToast');
+  });
 });

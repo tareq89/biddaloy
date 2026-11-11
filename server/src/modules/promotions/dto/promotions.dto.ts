@@ -9,7 +9,14 @@ import {
   IsNotEmpty,
   MaxLength,
   ValidateIf,
+  ArrayMaxSize,
+  ArrayUnique,
+  IsInt,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PlacementAlgorithm, PromotionOutcome } from '@biddaloy/shared';
 
 /** The outcomes `commit` handles. CONDITIONAL moves up like PROMOTE (#2296). */
@@ -80,4 +87,66 @@ export class ListPromotionRunsQueryDto {
   @IsOptional()
   @IsUUID()
   source_class_id?: string;
+}
+
+/** [69.4.01] Filters and paging for `GET promotions/:id/groups`; all filtering is server-side. */
+export class ListPromotionGroupsQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(5)
+  gpa_min?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(5)
+  gpa_max?: number;
+
+  /** Required with `marks_min`: the minimum applies to this subject's marks. */
+  @ValidateIf(
+    (o: ListPromotionGroupsQueryDto) => o.subject_code !== undefined || o.marks_min !== undefined,
+  )
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  subject_code?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(1000)
+  marks_min?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 50;
+}
+
+/** [69.4.01] Bulk group set; `group_name: null` clears the group. */
+export class SetPromotionGroupsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  entry_ids: string[];
+
+  @ValidateIf((o: SetPromotionGroupsDto) => o.group_name !== null)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  group_name: string | null;
 }

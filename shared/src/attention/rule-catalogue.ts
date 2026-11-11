@@ -7,6 +7,8 @@ export const ALERT_RULE_KEYS = [
   'comms.provider_missing',
   'staff.invite_pending',
   'year.next_missing',
+  'year.close_due',
+  'promotion.groups_pending',
   'comms.sms_credit_low',
   'comms.failed_messages',
   'system.backup_failed',
@@ -112,6 +114,10 @@ const ROWS: Row[] = [
   ['comms.provider_missing', C.SETUP, S.WARNING, [K.ON_CHANGE, K.DAILY], [R.ADMIN], true, true, false],
   ['staff.invite_pending', C.SETUP, S.REMINDER, [K.DAILY], [R.ADMIN], false, true, false],
   ['year.next_missing', C.SETUP, S.WARNING, [K.DAILY], [R.ADMIN], true, true, false],
+
+  ['year.close_due', C.SETUP, S.WARNING, [K.DAILY], [R.ADMIN], true, true, false],
+
+  ['promotion.groups_pending', C.STRUCTURE, S.REMINDER, [K.DAILY, K.ON_CHANGE], [R.TEACHER, R.ADMIN], true, true, false],
   ['comms.sms_credit_low', C.SYSTEM, S.WARNING, [K.HOURLY], [R.ADMIN], true, true, false],
   ['comms.failed_messages', C.SYSTEM, S.WARNING, [K.HOURLY], [R.ADMIN], true, true, false],
   ['system.backup_failed', C.SYSTEM, S.CRITICAL, [K.HOURLY], [R.ADMIN], true, false, false],

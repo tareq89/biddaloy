@@ -8,6 +8,7 @@ import { AttendanceStatus, Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  ClosedYearNotice,
   HelpHint,
   DatePicker,
   Dialog,
@@ -24,6 +25,7 @@ import {
   MenuTrigger,
   Skeleton,
   StatusBadge,
+  isYearClosedError,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -33,6 +35,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   sectionRegisterQueryOptions,
+  useAcademicYears,
   useActiveTenant,
   useHasPermission,
   useOnline,
@@ -95,7 +98,7 @@ export const Route = createFileRoute('/_staff/attendance/$sectionId')({
       queryClient
         .ensureQueryData(sectionRegisterQueryOptions(params.sectionId, deps.date, deps.period))
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('attendance'),
+      loadRouteNamespaces('attendance', 'academicYears'),
     ]),
   component: SectionRegisterPage,
 });
@@ -173,7 +176,15 @@ function SectionRegisterPage() {
   const regionConfig = useTenantRegionConfig();
 
   const registerQuery = useSectionRegister(sectionId, date, period);
+  // [69.4.05] D12: a date inside ANY closed year is read-only, even if an open year overlaps it.
+  const yearsQuery = useAcademicYears({ limit: 100 });
+  const closedYear = yearsQuery.data?.data.find(
+    (y) =>
+      y.closed_at !== null && y.start_date.slice(0, 10) <= date && date <= y.end_date.slice(0, 10),
+  );
   const submitRegister = useSubmitRegister(sectionId);
+  // [69.4.05] The server's closed-year sentence, shown beside Submit when a save races a close.
+  const [closedMessage, setClosedMessage] = React.useState<string | null>(null);
 
   const [correctionStudentId, setCorrectionStudentId] = React.useState<string | null>(null);
   const [historyStudentId, setHistoryStudentId] = React.useState<string | null>(null);
@@ -383,6 +394,7 @@ function SectionRegisterPage() {
   }
 
   function doSubmit() {
+    setClosedMessage(null);
     submitRegister.mutate(buildInput(), {
       onSuccess: (result) => {
         if (result.queued) {
@@ -397,6 +409,8 @@ function SectionRegisterPage() {
         if (!result.queued) void navigate({ to: '/attendance' });
       },
       onError: (error) => {
+        // [69.4.05] Before the 409 stale-version branch: a closed year is not a conflict.
+        if (isYearClosedError(error)) return setClosedMessage(error.message);
         if (error instanceof ApiError && error.statusCode === 409) {
           const details = error.details as
             { current_version?: number; register?: Register } | undefined;
@@ -449,6 +463,10 @@ function SectionRegisterPage() {
           if (!result.queued) void navigate({ to: '/attendance' }); // see doSubmit
         },
         onError: (error) => {
+          if (isYearClosedError(error)) {
+            setConflict(null);
+            return setClosedMessage(error.message);
+          }
           if (error instanceof ApiError && error.statusCode === 409) {
             const details = error.details as
               { current_version?: number; register?: Register } | undefined;
@@ -509,13 +527,13 @@ function SectionRegisterPage() {
   const register = registerQuery.data;
   // [76.5.03] Whole-day register the server says this caller may not save: calm banner, no controls.
   const writeBlocked = period === undefined && register.can_write === false;
-  const editable = register.editable && canMark && !writeBlocked;
+  const editable = register.editable && canMark && !writeBlocked && !closedYear;
   // [9.7] Whether the correction dialog (PATCH, reason-captured) is on
   // offer for this register, as distinct from `editable` (the normal
   // inline PUT flow). See `canCorrect`'s own comment above for why this
   // can only ever be true for a caller who holds ATTENDANCE_CORRECT but
   // whose `register.editable` still came back `false`.
-  const canCorrectOutsideWindow = !register.editable && canCorrect;
+  const canCorrectOutsideWindow = !register.editable && canCorrect && !closedYear;
   const futureDateLeaveOnly =
     date > tenantTodayIso(regionConfig) && register.policy.allow_future_dates;
   const allowedStatuses = futureDateLeaveOnly ? [AttendanceStatus.LEAVE] : undefined;
@@ -618,6 +636,8 @@ function SectionRegisterPage() {
           />
         </div>
       </header>
+
+      <ClosedYearNotice academicYearId={closedYear?.id} />
 
       <PeriodSwitcher
         sectionId={sectionId}
@@ -801,6 +821,11 @@ function SectionRegisterPage() {
             </Button>
             <HelpHint helpId="attendance.attendance.action.submit" />
           </>
+          {closedMessage !== null && (
+            <p role="alert" className="text-caption text-destructive">
+              {closedMessage}
+            </p>
+          )}
         </div>
       )}
 

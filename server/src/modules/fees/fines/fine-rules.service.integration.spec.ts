@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { Repository, DataSource } from 'typeorm';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { FineRulesService } from './fine-rules.service';
@@ -108,6 +108,10 @@ describe('FineRulesService (integration)', () => {
   // `fee_structures`/`fine_rules` are truncated before every test by the
   // global `beforeEach` (`test/setup.ts`) — reseed per test, not once in
   // `beforeAll` (same convention as `discount-rules.service.integration.spec.ts`).
+  afterEach(async () => {
+    await ds.query(`UPDATE academic_years SET closed_at = NULL`);
+  });
+
   beforeEach(async () => {
     // `audit_logs.performed_by_user_id` has a real FK to `users` — every
     // `service.create`/`update`/`remove`/`copy` call below writes an audit
@@ -236,6 +240,60 @@ describe('FineRulesService (integration)', () => {
           fee_structure_id: OTHER_TENANT_STRUCTURE_ID,
         }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('closed year [69.3.03]', () => {
+    const closedCode = { response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } };
+
+    it('refuses create, update and remove once the year is closed (409) and writes nothing', async () => {
+      const rule = await service.create(SEED_TENANT_ID, USER_ID, {
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        trigger: FineTrigger.ATTENDANCE_ABSENT,
+        fee_structure_id: FINE_STRUCTURE_ID,
+      });
+      await ds.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
+      await expect(
+        service.create(SEED_TENANT_ID, USER_ID, {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          trigger: FineTrigger.ATTENDANCE_LATE,
+          fee_structure_id: FINE_STRUCTURE_ID,
+        }),
+      ).rejects.toMatchObject(closedCode);
+      await expect(
+        service.update(SEED_TENANT_ID, rule.id, USER_ID, { is_active: false }),
+      ).rejects.toMatchObject(closedCode);
+      await expect(service.remove(SEED_TENANT_ID, rule.id, USER_ID)).rejects.toMatchObject(
+        closedCode,
+      );
+      const rules = await ruleRepo.find({ where: { tenant_id: SEED_TENANT_ID } });
+      expect(rules.map((r) => [r.id, r.is_active])).toEqual([[rule.id, true]]);
+    });
+
+    it('copy into a closed target year refuses (409) and creates nothing', async () => {
+      await service.create(SEED_TENANT_ID, USER_ID, {
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        trigger: FineTrigger.ATTENDANCE_ABSENT,
+        fee_structure_id: FINE_STRUCTURE_ID,
+      });
+      await ds.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [TARGET_ACADEMIC_YEAR_ID],
+      );
+      const structuresBefore = await feeStructureRepo.count();
+      await expect(
+        service.copy(SEED_TENANT_ID, USER_ID, {
+          from_academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          to_academic_year_id: TARGET_ACADEMIC_YEAR_ID,
+        }),
+      ).rejects.toMatchObject(closedCode);
+      expect(await feeStructureRepo.count()).toBe(structuresBefore);
+      expect(await ruleRepo.count({ where: { academic_year_id: TARGET_ACADEMIC_YEAR_ID } })).toBe(
+        0,
+      );
     });
   });
 

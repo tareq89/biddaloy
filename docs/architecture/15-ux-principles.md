@@ -142,7 +142,7 @@ Exams & Results
   Results [19.0] · Result by student ID · Final result [70.0, shipped]
   Analysis [have] · Merit list · Defaulted list · Pass/fail (+ by component)
   Promotion [have] · Draft run · Grid override · Commit                   A E
-  Segregation [26.0, not yet shipped]
+  (Segregation / groups: inside Promotion [69.0], not its own item)
   Seat plans [25.0] · Exam printables [48.0] — Exams › exam › Print tab
 
 Finance
@@ -229,6 +229,7 @@ See [34-onboarding.md](34-onboarding.md) and [23-attention.md](23-attention.md).
 | P13 | **Applications** is a top-level staff item (like Dashboard) because every staff role both files and decides; its report also sits in the Reports hub (P5). Portal item "আবেদন" sits under More.                                                                                                                                                                                                                                                                                                                                                                   |
 | P14 | **My coordination** (Epic 83) lives under **Academics**, next to My class. TEACHER only (`COORDINATION_VIEW`); the nav item shows for every teacher like My class. Route `/my-coordination`; palette actions `coordination.open` and `coordination.notify-teachers` (`/my-coordination?then=notify`). A teacher with no coordinator rows sees "You are not a coordinator of any class yet — ask an admin." One card per coordinated class; current academic year only. Admins assign coordinators on Teaching assignments › Coordinators (`coordinators.assign`). |
 | P15 | **Final result** (Epic 70) lives under **Exams & Results**, next to Results. Routes `/results/final`, `/results/final/$finalResultId?tab=setup\|results\|print`; class teachers write remarks at `/my-class/$sectionId/notes?for=<examId\|final>`; the conduct item list is edited in Settings › Organisation. Portal Results and student detail show the final first. Palette: `final-result.open`, `final-result.process`, `final-result.publish`, `my-class.notes`.                                                                                            |
+| P16 | **Year end** (Epic 69) adds no nav item. It lives on **Academic years** (P1): the detail page holds Close year, Reopen year and Make current; "Create next year" is the wizard at `/academic-years/$academicYearId/next`. Palette actions `academic-year.create-next` and `academic-year.close`. Promotion groups are set at `/promotions/$runId/groups` (ADMIN and TEACHER, `PROMOTION_GROUP_SET`) and from the My class groups card. A page that writes into a closed year shows a closed-year notice and disables its write buttons.                           |
 
 ## 4. Command palette — `Ctrl/Cmd+K`
 

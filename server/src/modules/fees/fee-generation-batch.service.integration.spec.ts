@@ -409,6 +409,39 @@ describe('FeeGenerationBatchService (integration)', () => {
     return payment;
   }
 
+  describe('closed year [69.3.03]', () => {
+    const closedCode = { response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } };
+
+    it('patch, deleteBatch, removeStudent and removeUncollected refuse (409) and change nothing', async () => {
+      const batch = await createBatch();
+      const student = await studentRepo.save(makeStudent());
+      await addBill(batch.id, student.id);
+      await dataSource.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
+      try {
+        const req = requestWithToken();
+        await expect(
+          service.patch(batch.id, { due_date: '2030-01-01' } as any, TENANT_ID, ACTOR_USER_ID, req),
+        ).rejects.toMatchObject(closedCode);
+        await expect(
+          service.deleteBatch(batch.id, TENANT_ID, ACTOR_USER_ID, req),
+        ).rejects.toMatchObject(closedCode);
+        await expect(
+          service.removeStudent(batch.id, student.id, TENANT_ID, ACTOR_USER_ID, req),
+        ).rejects.toMatchObject(closedCode);
+        await expect(
+          service.removeUncollected(batch.id, TENANT_ID, ACTOR_USER_ID),
+        ).rejects.toMatchObject(closedCode);
+      } finally {
+        await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
+      }
+      expect(await generationRepo.count({ where: { id: batch.id } })).toBe(1);
+      expect(await studentFeeRepo.count({ where: { fee_generation_id: batch.id } })).toBe(1);
+    });
+  });
+
   describe('deleteBatch', () => {
     it('soft-deletes an uncollected batch and all its bills with no approval', async () => {
       const batch = await createBatch();

@@ -352,6 +352,33 @@ describe('ReportCardNotesService (integration)', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('409 ACADEMIC_YEAR_CLOSED and nothing written when the exam year is closed (69.3.99)', async () => {
+    const e = await exam(ExamStatus.PROCESSED);
+    const s = await student(1);
+    await ds.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [YEAR_ID],
+    );
+    try {
+      await expect(
+        service.save(
+          TENANT_ID,
+          USER_ID,
+          { exam_id: e.id },
+          SEC_A,
+          [{ student_id: s.id, remark: 'x', conduct: {} }],
+          CTX,
+        ),
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      expect(await ds.getRepository(ReportCardNote).count({ where: { student_id: s.id } })).toBe(0);
+    } finally {
+      await ds.query(
+        `UPDATE academic_years SET closed_at = NULL, is_current = true WHERE id = $1`,
+        [YEAR_ID],
+      );
+    }
+  });
+
   it('rejects a bad conduct key, a bad grade, a long remark path, a duplicate and an outsider', async () => {
     const e = await exam();
     const s = await student(1);

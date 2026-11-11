@@ -1,5 +1,7 @@
 {
   "list": {
+    "noCurrentYear": "কোনো চলতি শিক্ষাবর্ষ নেই, তাই পরের বছর তৈরি করা যাচ্ছে না।",
+    "noOpenYearToClose": "বন্ধ করার মতো কোনো খোলা শিক্ষাবর্ষ নেই।",
     "title": "শিক্ষাবর্ষ",
     "caption": "শিক্ষাবর্ষ",
     "addYear": "শিক্ষাবর্ষ যোগ করুন",
@@ -140,6 +142,112 @@
     "feeStructureCount_other": "{{count}}টি",
     "statsUnavailable": "লোড করা যায়নি"
   },
+  "closedNotice": {
+    "text": "{{name}} বন্ধ আছে। এটা বদলাতে হলে শিক্ষাবর্ষ পাতায় গিয়ে বছরটি আবার খুলুন।",
+    "link": "শিক্ষাবর্ষ",
+    "tooltip": "এই বছর বন্ধ আছে। এটা বদলাতে হলে শিক্ষাবর্ষ পাতায় গিয়ে বছরটি আবার খুলুন।"
+  },
+  "nextYear": {
+    "action": "পরের বছর বানাও",
+    "fromThisOne": "এই বছর থেকে পরের বছর বানাও",
+    "title": "পরের বছর বানাও",
+    "subtitle": "{{name}} এর সাজানো তথ্য নতুন বছরের জন্য তৈরি করুন।",
+    "steps": { "name": "নাম ও তারিখ", "preview": "কী কপি হবে", "done": "শেষ" },
+    "nameLabel": "নতুন বছরের নাম",
+    "startLabel": "প্রথম দিন",
+    "endLabel": "শেষ দিন",
+    "errorNameRequired": "একটি নাম লিখুন",
+    "errorDatesRequired": "প্রথম ও শেষ দিন লিখুন",
+    "errorEndBeforeStart": "শেষ দিন প্রথম দিনের পরে হতে হবে",
+    "next": "এরপর",
+    "back": "পিছনে",
+    "create": "বছর বানাও",
+    "creating": "বানানো হচ্ছে…",
+    "previewIntro": "{{name}} থেকে কী কপি হবে তা টিক দিন। \"বছর বানাও\" চাপার আগে কিছুই তৈরি হবে না।",
+    "previewError": "কী কপি হবে তা দেখা যায়নি",
+    "retry": "আবার চেষ্টা করুন",
+    "noBlockChosen": "কপি করার জন্য অন্তত একটি টিক দিন।",
+    "tile": "নতুন {{created}} · আগেই আছে {{existing}} · বাদ {{skipped}}",
+    "skippedStaffTitle": "যে শিক্ষকরা বাদ পড়েছেন",
+    "skippedStaffRow": "{{teacher}} — {{section}}, {{subject}}",
+    "createFailed": "কিছুই তৈরি হয়নি। আবার চেষ্টা করুন।",
+    "blocks": {
+      "classes": "শ্রেণি",
+      "sections": "শাখা",
+      "class_subjects": "শ্রেণির বিষয়",
+      "teacher_assignments": "শিক্ষকের দায়িত্ব",
+      "fee_structures": "ফির কাঠামো",
+      "grading_scales": "গ্রেডিং স্কেল",
+      "terms": "সাময়িক"
+    },
+    "done": {
+      "title": "{{name}} তৈরি হয়েছে",
+      "counts": "নতুন {{created}} · আগেই আছে {{existing}} · বাদ {{skipped}}",
+      "alsoCopy": "{{name}} থেকে আরও কপি করুন:",
+      "routines": "ক্লাস রুটিন",
+      "calendar": "ক্যালেন্ডার",
+      "fineRules": "জরিমানার নিয়ম",
+      "schedules": "নিয়মিত ফির সূচি",
+      "feeStructuresLink": "এরপর: ফির কাঠামো পাতায় ফির পরিমাণ দেখে নিন",
+      "finish": "নতুন বছরে যান"
+    }
+  },
+  "closeYear": {
+    "action": "বছর বন্ধ করো",
+    "reopenAction": "আবার খোলো",
+    "closedOn": "{{date}} তারিখে বন্ধ হয়েছে",
+    "title": "{{name}} বন্ধ করুন",
+    "description": "বছর বন্ধ হলে এর পরীক্ষা, নম্বর, বিল, উপস্থিতি ও ভর্তির তথ্য আর বদলানো যাবে না। টাকা নেওয়া যাবে। পরে চাইলে বছরটি আবার খুলতে পারবেন।",
+    "freezeTitle": "যা আর বদলাবে না",
+    "freezeRow": "{{label}}: {{count}}",
+    "warningTitle": "বন্ধ করার আগে দেখে নিন",
+    "warnings": {
+      "CLASSES_NOT_PROMOTED": "উত্তীর্ণ করানো হয়নি এমন শ্রেণি: {{count}}",
+      "STUDENTS_STILL_ACTIVE": "এখনও সক্রিয় শিক্ষার্থী: {{count}}",
+      "GROUPS_PENDING": "গ্রুপ বাকি আছে: {{count}}",
+      "DUES_OUTSTANDING": "বকেয়া টাকা: {{amount}}",
+      "RESULTS_UNPUBLISHED": "ফল প্রকাশ হয়নি: {{count}}"
+    },
+    "freezesEmpty": "এই বছরে এখনও কিছু লেখা হয়নি।",
+    "freezes": {
+      "classes": "শ্রেণি",
+      "class_subjects": "শ্রেণির বিষয়",
+      "academic_terms": "সাময়িক",
+      "calendar_events": "ক্যালেন্ডারের ঘটনা",
+      "exams": "পরীক্ষা",
+      "fee_generations": "ফি তৈরির কাজ",
+      "fee_structures": "ফির কাঠামো",
+      "fine_rules": "জরিমানার নিয়ম",
+      "recurring_schedules": "নিয়মিত ফির সূচি",
+      "student_fees": "বিল",
+      "grading_scales": "গ্রেডিং স্কেল",
+      "promotion_runs": "উত্তীর্ণ করানোর কাজ",
+      "routines": "ক্লাস রুটিন",
+      "enrollments": "ভর্তি",
+      "student_lifecycle_events": "শিক্ষার্থীর অবস্থার পরিবর্তন",
+      "student_subject_choices": "বিষয় বাছাই",
+      "study_plans": "পড়ার পরিকল্পনা",
+      "acr_assessments": "কর্মীর মূল্যায়ন",
+      "applications": "আবেদন",
+      "final_results": "চূড়ান্ত ফল",
+      "attendance_sessions": "উপস্থিতির দিন"
+    },
+    "blocked": "এই বছরের একটি উত্তীর্ণ করানোর খসড়া এখনও খোলা। আগে সেটি চূড়ান্ত করুন বা মুছে ফেলুন।",
+    "blockedLink": "উত্তীর্ণ করানো খুলুন",
+    "previewError": "কী বদলাবে তা দেখা যায়নি",
+    "confirm": "বছর বন্ধ করো",
+    "closing": "বন্ধ করা হচ্ছে…",
+    "errorMessage": "বছর বন্ধ করা যায়নি",
+    "reopenTitle": "{{name}} আবার খুলুন",
+    "reopenDescription": "\"{{name}}\" আবার খুলবেন? এর পরীক্ষা, নম্বর, বিল, উপস্থিতি ও ভর্তির তথ্য আবার বদলানো যাবে।",
+    "reopenConfirm": "আবার খোলো",
+    "reopenError": "বছর আবার খোলা যায়নি"
+  },
+  "readiness": {
+    "summary": "শ্রেণি: {{classes}} · শিক্ষকের দায়িত্ব: {{teachers}} · উত্তীর্ণ করানো চূড়ান্ত: {{runs}}",
+    "noTeachers": "এই বছরে শিক্ষকের দায়িত্ব দেওয়া না হওয়া পর্যন্ত শিক্ষকরা কোনো শিক্ষার্থী দেখতে পাবেন না।",
+    "loadError": "এই বছরের প্রস্তুতি দেখা যায়নি।"
+  },
   "fields": {
     "name": "নাম",
     "startDate": "শুরুর তারিখ",
@@ -156,7 +264,14 @@
     "isCurrent": "টিক দিলে এটি চলমান হয়, আর অন্য চলমান বর্ষ থেকে চিহ্ন সরে যায়। টিক দিলে নিশ্চিত করতে হয়।",
     "termName": "যেমন প্রথম সাময়িক।",
     "termStartAndEndDates": "বছরের তারিখের মধ্যে, অন্য টার্মের সঙ্গে না মিলিয়ে।",
-    "dates": "বছরের প্রথম ও শেষ দিন। শেষ দিন প্রথম দিনের পরে হতে হবে।"
+    "dates": "বছরের প্রথম ও শেষ দিন। শেষ দিন প্রথম দিনের পরে হতে হবে।",
+    "yearRollover": {
+      "skippedStaff": "নতুন বছরে মিল থাকা শাখা না থাকলে শিক্ষক বাদ পড়েন। শাখা যোগ করে আবার চালান।",
+      "rerun": "আবার চালাতে পারেন। এতে শুধু যা নেই তা যোগ হয়, যা আছে তা বদলায় না।"
+    },
+    "yearClose": {
+      "payments": "বন্ধ বছরেও টাকা নেওয়া যায়। নতুন বিল করা যায় না।"
+    }
   },
   "helpRequired": {
     "name": "হ্যাঁ",

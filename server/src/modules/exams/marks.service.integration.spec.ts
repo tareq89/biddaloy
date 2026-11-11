@@ -4,6 +4,7 @@ import { MarksService } from './marks.service';
 import { ResultsService } from './results.service';
 import { MarkGridService } from './mark-grid.service';
 import { Exam } from './entities/exam.entity';
+import { Mark } from './entities/mark.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
@@ -226,5 +227,25 @@ describe('MarksService audit (integration)', () => {
 
     const [row] = await markRows();
     expect((row.new_values as AuditCells).cells[0].value).toBe('72.46');
+  });
+  // [69.3.02] A closed year refuses the save (real DB) and writes neither a mark nor an audit row.
+  // The marks import commit goes through this same `upsertBatch`.
+  it('a closed year refuses the save: no mark, no audit row', async () => {
+    await ds.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [YEAR_ID],
+    );
+    try {
+      await expect(save([{ student_id: studentA, value: '72' }])).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+      });
+      expect(await ds.getRepository(Mark).count()).toBe(0);
+      expect(await markRows()).toHaveLength(0);
+    } finally {
+      await ds.query(
+        `UPDATE academic_years SET closed_at = NULL, is_current = true WHERE id = $1`,
+        [YEAR_ID],
+      );
+    }
   });
 });

@@ -1,3 +1,4 @@
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
@@ -80,6 +81,7 @@ export class FeeGenerationBatchService {
     const newDueDate = dto.due_date ? new Date(dto.due_date) : batch.due_date;
 
     await this.studentFeeRepo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, batch.academic_year_id); // [69.3.03] D4
       const bills = await this.lockBills(manager, { fee_generation_id: batch.id });
       const billIds = bills.map((b) => b.id);
 
@@ -201,6 +203,7 @@ export class FeeGenerationBatchService {
     const batch = await this.findBatch(id, tenantId);
 
     await this.studentFeeRepo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, batch.academic_year_id); // [69.3.03] D4
       const bills = await this.lockBills(manager, { fee_generation_id: batch.id });
       const billIds = bills.map((b) => b.id);
 
@@ -261,6 +264,7 @@ export class FeeGenerationBatchService {
     const batch = await this.findBatch(id, tenantId);
 
     await this.studentFeeRepo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, batch.academic_year_id); // [69.3.03] D4
       const bills = await this.lockBills(manager, {
         fee_generation_id: batch.id,
         student_id: studentId,
@@ -327,6 +331,7 @@ export class FeeGenerationBatchService {
     let removedCount = 0;
 
     await this.studentFeeRepo.manager.transaction(async (manager) => {
+      await assertYearOpen(manager, tenantId, batch.academic_year_id); // [69.3.03] D4
       // [F-140] Lock first (same order as checkout) so a committing checkout is
       // waited for and its paid_amount is visible to the filter below.
       const locked = await this.lockBills(manager, { fee_generation_id: batch.id });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -18,6 +18,7 @@ import { User } from '../users/entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
+import { toPaisa } from '../../common/constants/money';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import {
@@ -172,6 +173,10 @@ describe('FeeStructureService (integration)', () => {
     }
   });
 
+  afterEach(async () => {
+    await dataSource.query(`UPDATE academic_years SET closed_at = NULL`);
+  });
+
   beforeEach(async () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM payment_allocations');
@@ -268,6 +273,30 @@ describe('FeeStructureService (integration)', () => {
       };
 
       await expect(service.create(dto, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('[69.3.03] refuses create, update and remove on a closed year (409)', async () => {
+      const dto = {
+        fee_type: 'MONTHLY_TUITION' as any,
+        name: 'Closed Year Fee',
+        amount: 1000,
+        class_id: SEED_CLASS_1_ID,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      };
+      const created = await service.create(dto, TENANT_ID);
+      await dataSource.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
+
+      const closedCode = { response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } };
+      await expect(service.create(dto, TENANT_ID)).rejects.toMatchObject(closedCode);
+      await expect(
+        service.update(created.id, { amount: 5 }, TENANT_ID, SEED_ADMIN_USER_ID),
+      ).rejects.toMatchObject(closedCode);
+      await expect(service.remove(created.id, TENANT_ID)).rejects.toMatchObject(closedCode);
+      const rows = await feeRepo.find();
+      expect(rows.map((r) => [r.id, Number(r.amount)])).toEqual([[created.id, 1000]]);
     });
   });
 
@@ -1000,6 +1029,186 @@ describe('FeeStructureService (integration)', () => {
       expect(listed.data).toHaveLength(0);
       expect(listed.total).toBe(0);
       await expect(service.remove(created.id, otherTenant)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ────────────────────────
+  //  copyStructuresToYear()  [69.1.07]
+  // ────────────────────────
+  describe('copyStructuresToYear', () => {
+    const TARGET_YEAR_ID = '00000000-0000-4000-8000-0000000069a1';
+    const TARGET_CLASS_ID = '00000000-0000-4000-8000-0000000069a2';
+    const TARGET_SECTION_ID = '00000000-0000-4000-8000-0000000069a3';
+    const UNMAPPED_CLASS_ID = '00000000-0000-4000-8000-0000000069a4';
+    const UNMAPPED_SECTION_ID = '00000000-0000-4000-8000-0000000069a5';
+
+    beforeEach(async () => {
+      const ayRepo = dataSource.getRepository(AcademicYear);
+      const classRepo = dataSource.getRepository(Class);
+      const sectionRepo = dataSource.getRepository(ClassSection);
+      if (!(await ayRepo.findOne({ where: { id: TARGET_YEAR_ID } }))) {
+        await ayRepo.save(
+          ayRepo.create({
+            id: TARGET_YEAR_ID,
+            name: '2027-2028',
+            start_date: new Date('2027-01-01'),
+            end_date: new Date('2027-12-31'),
+            is_current: false,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        await classRepo.save([
+          classRepo.create({
+            id: TARGET_CLASS_ID,
+            name: 'Class One 27',
+            academic_year_id: TARGET_YEAR_ID,
+            tenant_id: TENANT_ID,
+          }),
+          classRepo.create({
+            id: UNMAPPED_CLASS_ID,
+            name: 'Class Two 26',
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            tenant_id: TENANT_ID,
+          }),
+        ]);
+        await sectionRepo.save([
+          sectionRepo.create({
+            id: TARGET_SECTION_ID,
+            section_name: 'Section A 27',
+            class_id: TARGET_CLASS_ID,
+            tenant_id: TENANT_ID,
+          }),
+          sectionRepo.create({
+            id: UNMAPPED_SECTION_ID,
+            section_name: 'Section B 26',
+            class_id: UNMAPPED_CLASS_ID,
+            tenant_id: TENANT_ID,
+          }),
+        ]);
+      }
+    });
+
+    const classMap = () => new Map([[SEED_CLASS_1_ID, TARGET_CLASS_ID]]);
+    const sectionMap = () => new Map([[SEED_SECTION_1_ID, TARGET_SECTION_ID]]);
+    const copy = (dryRun: boolean) =>
+      dataSource.transaction((m) =>
+        service.copyStructuresToYear(
+          m,
+          TENANT_ID,
+          SEED_ACADEMIC_YEAR_ID,
+          TARGET_YEAR_ID,
+          classMap(),
+          sectionMap(),
+          dryRun,
+        ),
+      );
+
+    async function seedFive() {
+      const base = { academic_year_id: SEED_ACADEMIC_YEAR_ID, tenant_id: TENANT_ID };
+      await feeRepo.save([
+        feeRepo.create({
+          ...base,
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'School-wide',
+          amount: 1500.5,
+        }),
+        feeRepo.create({
+          ...base,
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Class',
+          amount: 0.1,
+          class_id: SEED_CLASS_1_ID,
+        }),
+        feeRepo.create({
+          ...base,
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Section',
+          amount: 99999.99,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+        }),
+        feeRepo.create({
+          ...base,
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Lab',
+          amount: 250,
+          class_id: SEED_CLASS_1_ID,
+        }),
+        feeRepo.create({ ...base, fee_type: 'MONTHLY_TUITION' as any, name: 'Exam', amount: 300 }),
+      ]);
+    }
+
+    it('copies five structures, re-run is idempotent, amounts equal in paisa', async () => {
+      await seedFive();
+      const first = await copy(false);
+      expect(first).toEqual({ created: 5, existing: 0, skipped: [] });
+      const second = await copy(false);
+      expect(second).toEqual({ created: 0, existing: 5, skipped: [] });
+
+      const copied = await feeRepo.find({ where: { academic_year_id: TARGET_YEAR_ID } });
+      expect(copied).toHaveLength(5);
+      const byName = new Map(copied.map((c) => [c.name, c]));
+      expect(toPaisa(byName.get('School-wide')!.amount)).toBe(150050);
+      expect(toPaisa(byName.get('Class')!.amount)).toBe(10);
+      expect(toPaisa(byName.get('Section')!.amount)).toBe(9999999);
+      expect(byName.get('School-wide')!.class_id).toBeNull();
+      expect(byName.get('Section')!.class_id).toBe(TARGET_CLASS_ID);
+      expect(byName.get('Section')!.section_id).toBe(TARGET_SECTION_ID);
+    });
+
+    it('dryRun counts but writes nothing', async () => {
+      await seedFive();
+      expect(await copy(true)).toEqual({ created: 5, existing: 0, skipped: [] });
+      expect(await feeRepo.count({ where: { academic_year_id: TARGET_YEAR_ID } })).toBe(0);
+    });
+
+    it('never updates an existing target row', async () => {
+      await seedFive();
+      await feeRepo.save(
+        feeRepo.create({
+          academic_year_id: TARGET_YEAR_ID,
+          tenant_id: TENANT_ID,
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'School-wide',
+          amount: 1,
+        }),
+      );
+      expect(await copy(false)).toEqual({ created: 4, existing: 1, skipped: [] });
+      const row = await feeRepo.findOneByOrFail({
+        academic_year_id: TARGET_YEAR_ID,
+        name: 'School-wide',
+      });
+      expect(toPaisa(row.amount)).toBe(100);
+    });
+
+    it('skips a structure whose class or section is not in the maps, naming it', async () => {
+      await feeRepo.save([
+        feeRepo.create({
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          tenant_id: TENANT_ID,
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Other class fee',
+          amount: 10,
+          class_id: UNMAPPED_CLASS_ID,
+        }),
+        feeRepo.create({
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          tenant_id: TENANT_ID,
+          fee_type: 'MONTHLY_TUITION' as any,
+          name: 'Other section fee',
+          amount: 10,
+          class_id: SEED_CLASS_1_ID,
+          section_id: UNMAPPED_SECTION_ID,
+        }),
+      ]);
+      const res = await copy(false);
+      expect(res.created).toBe(0);
+      expect(res.skipped).toEqual(
+        expect.arrayContaining([
+          { name: 'Other class fee', reason: 'CLASS_NOT_COPIED' },
+          { name: 'Other section fee', reason: 'SECTION_NOT_COPIED' },
+        ]),
+      );
     });
   });
 });

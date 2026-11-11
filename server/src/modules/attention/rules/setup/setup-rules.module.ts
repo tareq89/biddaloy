@@ -11,6 +11,7 @@ import { SetupIncompleteRule } from './setup-incomplete.rule';
 import { CommsProviderMissingRule } from './comms-provider-missing.rule';
 import { StaffInvitePendingRule } from './staff-invite-pending.rule';
 import { YearNextMissingRule } from './year-next-missing.rule';
+import { YearCloseDueRule } from './year-close-due.rule';
 
 /** Rules of category SETUP. The seat rules and AccountIdleRule read the database directly (SchoolsModule/TrialModule sit in an import cycle); the others use SchoolsService/OnboardingService. */
 @Module({
@@ -23,6 +24,7 @@ import { YearNextMissingRule } from './year-next-missing.rule';
     CommsProviderMissingRule,
     StaffInvitePendingRule,
     YearNextMissingRule,
+    YearCloseDueRule,
   ],
 })
 export class SetupRulesModule {}

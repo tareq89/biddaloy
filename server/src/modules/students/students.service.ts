@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   PayloadTooLargeException,
 } from '@nestjs/common';
+import { assertYearOpen } from '../../common/utils/year-open.guard';
 import { nextTenantSerial } from '../../common/utils/next-serial.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { cardNoTaken } from '../../common/filters/known-errors';
@@ -233,6 +234,8 @@ export class StudentService {
       // `section` (validated above, `relations: ['class']`) supplies both
       // the class and its academic year without an extra query.
       const txEnrollmentRepo = txManager.getRepository(Enrollment);
+      // [69.3.04] The day-one enrollment is a write into the section's year (D4).
+      await assertYearOpen(txManager, tenantId, section.class.academic_year_id);
       await txEnrollmentRepo.save(
         txEnrollmentRepo.create({
           student_id: savedStudent.id,
@@ -618,6 +621,11 @@ export class StudentService {
       const txStudentRepo = manager.getRepository(Student);
       const txEnrollmentRepo = manager.getRepository(Enrollment);
 
+      // [69.3.04] A section move writes the target section's year enrollment (D4).
+      if (sectionChanged && section) {
+        await assertYearOpen(manager, tenantId, section.class.academic_year_id);
+      }
+
       // The validated DTO instance carries every declared property, `undefined` when the caller
       // did not send it. Only what was actually supplied counts: for the empty-body guard below
       // and for the audit diff (otherwise every unsent field looked like a change).
@@ -797,14 +805,20 @@ export class StudentService {
         });
       }
 
-      const closed = await manager
-        .createQueryBuilder()
-        .update(Enrollment)
-        .set({ enrollment_status: EnrollmentStatus.INACTIVE })
-        .where({ student_id: id, tenant_id: tenantId, enrollment_status: EnrollmentStatus.ACTIVE })
-        .returning(['id'])
-        .execute();
-      const active = closed.raw as { id: string }[];
+      // [69.3.04] Frozen rows of a closed year stay as they are (D4, D10): only open-year
+      // ACTIVE enrollments are closed. The guard can't see a bulk update, so filter here.
+      const closed = (await manager.query(
+        `UPDATE enrollments SET enrollment_status = $3
+          WHERE student_id = $1 AND tenant_id = $2 AND enrollment_status = $4
+            AND academic_year_id IN (
+              SELECT id FROM academic_years WHERE tenant_id = $2 AND closed_at IS NULL)
+          RETURNING id`,
+        [id, tenantId, EnrollmentStatus.INACTIVE, EnrollmentStatus.ACTIVE],
+      )) as [{ id: string }[], number] | { id: string }[];
+      // pg UPDATE..RETURNING via manager.query yields [rows, count] on newer typeorm, rows on older.
+      const active = Array.isArray(closed[0])
+        ? (closed[0] as { id: string }[])
+        : (closed as { id: string }[]);
       await manager
         .getRepository(Student)
         .update({ id, tenant_id: tenantId }, { enrollment_status: EnrollmentStatus.INACTIVE });
