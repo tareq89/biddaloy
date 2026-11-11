@@ -25,6 +25,7 @@ import {
   MenuTrigger,
   Skeleton,
   StatusBadge,
+  isYearClosedError,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -182,6 +183,8 @@ function SectionRegisterPage() {
       y.closed_at !== null && y.start_date.slice(0, 10) <= date && date <= y.end_date.slice(0, 10),
   );
   const submitRegister = useSubmitRegister(sectionId);
+  // [69.4.05] The server's closed-year sentence, shown beside Submit when a save races a close.
+  const [closedMessage, setClosedMessage] = React.useState<string | null>(null);
 
   const [correctionStudentId, setCorrectionStudentId] = React.useState<string | null>(null);
   const [historyStudentId, setHistoryStudentId] = React.useState<string | null>(null);
@@ -391,6 +394,7 @@ function SectionRegisterPage() {
   }
 
   function doSubmit() {
+    setClosedMessage(null);
     submitRegister.mutate(buildInput(), {
       onSuccess: (result) => {
         if (result.queued) {
@@ -405,6 +409,8 @@ function SectionRegisterPage() {
         if (!result.queued) void navigate({ to: '/attendance' });
       },
       onError: (error) => {
+        // [69.4.05] Before the 409 stale-version branch: a closed year is not a conflict.
+        if (isYearClosedError(error)) return setClosedMessage(error.message);
         if (error instanceof ApiError && error.statusCode === 409) {
           const details = error.details as
             { current_version?: number; register?: Register } | undefined;
@@ -457,6 +463,10 @@ function SectionRegisterPage() {
           if (!result.queued) void navigate({ to: '/attendance' }); // see doSubmit
         },
         onError: (error) => {
+          if (isYearClosedError(error)) {
+            setConflict(null);
+            return setClosedMessage(error.message);
+          }
           if (error instanceof ApiError && error.statusCode === 409) {
             const details = error.details as
               { current_version?: number; register?: Register } | undefined;
@@ -811,6 +821,11 @@ function SectionRegisterPage() {
             </Button>
             <HelpHint helpId="attendance.attendance.action.submit" />
           </>
+          {closedMessage !== null && (
+            <p role="alert" className="text-caption text-destructive">
+              {closedMessage}
+            </p>
+          )}
         </div>
       )}
 

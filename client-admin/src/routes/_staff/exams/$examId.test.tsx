@@ -237,6 +237,27 @@ describe('/exams/$examId', () => {
     expect(within(dialog).queryByText(/raw server text/)).toBeNull();
   });
 
+  it('[69.4.05] a 409 ACADEMIC_YEAR_CLOSED shows the server sentence in the delete dialog', async () => {
+    const user = userEvent.setup();
+    renderExam('DRAFT');
+    server.use(
+      http.delete('/api/v1/exams/:id', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'This academic year is closed.',
+            requestId: 'req-1',
+            details: { code: 'ACADEMIC_YEAR_CLOSED' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const dialog = await openDelete(user);
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(await within(dialog).findByText(/This academic year is closed\./)).toBeTruthy();
+  });
+
   it('hides the Print tab without DOCUMENT_PRINT', async () => {
     grant.only = new Set(['EXAM_MANAGE', 'EXAM_READ']);
     renderExam('PUBLISHED');
@@ -277,13 +298,21 @@ describe('/exams/$examId', () => {
       );
     }
 
-    it('shows the notice and removes Edit and Delete from the header', async () => {
+    it('shows the notice and turns Edit and Delete off, with the reason as tooltip', async () => {
       renderExam('DRAFT', '/exams/exam-1', 'ADMIN', '2026-12-31T00:00:00.000Z');
 
       expect(await screen.findByText(/2026-2027 is closed/)).toBeTruthy();
-      const names = await actionNames();
-      expect(names).not.toContain('Edit');
-      expect(names.some((n) => n?.startsWith('Delete'))).toBe(false);
+      await actionNames();
+      const off = [...screen.queryAllByRole('button'), ...screen.queryAllByRole('menuitem')].filter(
+        (el) => /^(Edit|Delete)/.test(el.textContent?.trim() ?? ''),
+      );
+      expect(off).toHaveLength(2);
+      for (const el of off) {
+        expect(el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true').toBe(
+          true,
+        );
+        expect(el.getAttribute('title')).toMatch(/This year is closed/);
+      }
     });
 
     it('an open year keeps Edit and shows no notice', async () => {

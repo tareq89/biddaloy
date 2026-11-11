@@ -132,6 +132,7 @@ export const Route = createFileRoute('/_staff/fee-structures/')({
 
 function FeeStructuresListPage() {
   const { t } = useTranslation('feeStructures');
+  const { t: tYears } = useTranslation('academicYears');
   const regionConfig = useTenantRegionConfig();
   const [state, actions] = useListShellState();
   const filters = state.filters as FeeStructureFilters;
@@ -290,7 +291,9 @@ function FeeStructuresListPage() {
             label: t('list.addStructure'),
             icon: <PlusIcon />,
             priority: 'primary',
-            allowed: canCreate && !filterYearClosed,
+            allowed: canCreate,
+            disabled: filterYearClosed,
+            disabledReason: tYears('closedNotice.tooltip'),
             onClick: () => setCreateOpen(true),
           },
         ]}

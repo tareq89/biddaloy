@@ -1,5 +1,11 @@
 import { Permission } from '@biddaloy/shared';
-import { RoutePending, Skeleton, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import {
+  RoutePending,
+  Skeleton,
+  StatusBadge,
+  toast,
+  type DataTableColumn,
+} from '@biddaloy/ui/components';
 import {
   academicYearsQueryOptions,
   useAcademicYearStats,
@@ -123,6 +129,7 @@ function AcademicYearsListPage() {
           .filter((y) => !y.is_current && y.closed_at === null)
           .sort((a, b) => b.end_date.localeCompare(a.end_date))[0];
     if (!target) {
+      toast.info(t(wantsNext ? 'list.noCurrentYear' : 'list.noOpenYearToClose'));
       void navigate({
         search: (prev) => ({ ...prev, next: undefined, close: undefined }),
         replace: true,
@@ -134,7 +141,7 @@ function AcademicYearsListPage() {
       params: { academicYearId: target.id },
       replace: true,
     });
-  }, [canManage, years, search.next, search.close, navigate]);
+  }, [canManage, years, search.next, search.close, navigate, t]);
 
   const createYear = useCreateAcademicYear();
   const [createOpen, setCreateOpen] = useLandingFlag('new', canManage);
@@ -227,7 +234,7 @@ function AcademicYearsListPage() {
             intent: 'duplicate',
             label: t('nextYear.action'),
             to: `/academic-years/${row.id}/next`,
-            allowed: canManage,
+            allowed: canManage && row.closed_at === null,
           },
           {
             intent: 'edit',

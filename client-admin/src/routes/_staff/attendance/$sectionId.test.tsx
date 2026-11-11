@@ -1286,6 +1286,31 @@ describe('/attendance/$sectionId', () => {
       expect(screen.queryByText('Present 1')).toBeNull();
     });
 
+    it('a submit that races a close shows the server sentence beside Submit, not a stale-version dialog', async () => {
+      server.use(
+        http.put('/api/v1/attendance/sections/section-1/register', () =>
+          HttpResponse.json(
+            {
+              statusCode: 409,
+              message: 'This academic year is closed.',
+              requestId: 'req-1',
+              details: { code: 'ACADEMIC_YEAR_CLOSED' },
+            },
+            { status: 409 },
+          ),
+        ),
+      );
+      renderOn(false);
+
+      const user = userEvent.setup();
+      await user.click(await screen.findByText('Rafi Ahmed'));
+      await user.click(screen.getByText('Nusrat Jahan'));
+      await user.click(screen.getByRole('button', { name: 'Submit attendance' }));
+
+      expect(await screen.findByText('This academic year is closed.')).toBeTruthy();
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
     it('a date in an open year marks as before', async () => {
       renderOn(false);
 

@@ -352,7 +352,7 @@ describe('/promotions/$runId', () => {
   // Only the commit endpoint returns these codes — so drive a real commit
   // (Ctrl+Enter → confirm) rather than faking them on the entries PATCH.
   async function commitAndGetConflict(
-    code: 'STALE_RESULTS' | 'COHORT_CHANGED' | 'RETAIN_CLASS_MISSING',
+    code: 'STALE_RESULTS' | 'COHORT_CHANGED' | 'RETAIN_CLASS_MISSING' | 'ACADEMIC_YEAR_CLOSED',
   ) {
     const user = userEvent.setup();
     stubCommon();
@@ -360,7 +360,13 @@ describe('/promotions/$runId', () => {
       http.get(RUN_URL, () => HttpResponse.json(baseRun())),
       http.post(`${RUN_URL}/commit`, () =>
         HttpResponse.json(
-          { ...apiErrorBody(409, 'Conflict', `${RUN_URL}/commit`), details: { code } },
+          {
+            ...apiErrorBody(409, 'Conflict', `${RUN_URL}/commit`),
+            ...(code === 'ACADEMIC_YEAR_CLOSED'
+              ? { message: 'This academic year is closed.' }
+              : {}),
+            details: { code },
+          },
           { status: 409 },
         ),
       ),

@@ -621,7 +621,64 @@ describe('/fee-structures', () => {
       render('ADMIN', '/fee-structures?academic_year_id=year-1');
 
       expect(await screen.findByText(/2026-2027 is closed/)).toBeTruthy();
-      expect(screen.queryAllByRole('button', { name: 'Add fee structure' })).toHaveLength(0);
+      const add = (await screen.findAllByRole('button', { name: 'Add fee structure' }))[0]!;
+      expect((add as HTMLButtonElement).disabled).toBe(true);
+      expect(add.getAttribute('title')).toMatch(/This year is closed/);
+    });
+
+    it('the Create dialog refuses a closed year picked in it', async () => {
+      server.use(
+        listHandler([]),
+        paisaRegionHandler(),
+        http.get('/api/v1/academic-years', () =>
+          HttpResponse.json({
+            data: [{ ...YEAR, closed_at: CLOSED_AT }],
+            total: 1,
+            page: 1,
+            limit: 10,
+            totalPages: 1,
+          }),
+        ),
+        http.get('/api/v1/classes', () =>
+          HttpResponse.json({ data: [KLASS], total: 1, page: 1, limit: 100, totalPages: 1 }),
+        ),
+      );
+      render();
+      const user = userEvent.setup();
+      await user.click((await screen.findAllByRole('button', { name: 'Add fee structure' }))[0]!);
+      const dialog = within(await screen.findByRole('dialog'));
+      await user.click(dialog.getByRole('combobox', { name: /^Academic year/ }));
+      await user.click(await screen.findByRole('option', { name: '2026-2027' }));
+      expect(await dialog.findByText(/This year is closed/)).toBeTruthy();
+      expect(dialog.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+    });
+
+    it('a 409 ACADEMIC_YEAR_CLOSED on create shows the server sentence in the dialog', async () => {
+      server.use(
+        listHandler([]),
+        ...referenceHandlers(),
+        http.post('/api/v1/fee-structures', () =>
+          HttpResponse.json(
+            {
+              statusCode: 409,
+              message: 'This academic year is closed.',
+              requestId: 'req-1',
+              details: { code: 'ACADEMIC_YEAR_CLOSED' },
+            },
+            { status: 409 },
+          ),
+        ),
+      );
+      render();
+      const user = userEvent.setup();
+      await user.click((await screen.findAllByRole('button', { name: 'Add fee structure' }))[0]!);
+      const dialog = within(await screen.findByRole('dialog'));
+      await user.type(dialog.getByLabelText('Name * (required)'), 'Monthly tuition');
+      await user.type(dialog.getByLabelText('Amount * (required)'), '500');
+      await user.click(dialog.getByRole('combobox', { name: /^Academic year/ }));
+      await user.click(await screen.findByRole('option', { name: '2026-2027' }));
+      await user.click(dialog.getByRole('button', { name: 'Save' }));
+      expect(await dialog.findByText('This academic year is closed.')).toBeTruthy();
     });
 
     it('an open year keeps Edit and Add structure', async () => {

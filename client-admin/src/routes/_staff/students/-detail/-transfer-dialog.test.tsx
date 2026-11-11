@@ -78,4 +78,26 @@ describe('TransferDialog class lock [68.3.17.1]', () => {
     expect(classPicker.hasAttribute('disabled')).toBe(false);
     expect(screen.queryByText(/use promotion/)).toBeNull();
   });
+
+  it('[69.4.05] a 409 ACADEMIC_YEAR_CLOSED shows the server sentence in the dialog', async () => {
+    mockApi();
+    server.use(
+      http.patch('/api/v1/enrollments/e1', () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'This academic year is closed.',
+            requestId: 'req-1',
+            details: { code: 'ACADEMIC_YEAR_CLOSED' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = await renderDialog('ACCOUNTANT');
+    await user.click(await screen.findByRole('combobox', { name: 'Section' }));
+    await user.click(await screen.findByRole('option', { name: 'A' }));
+    await user.click(screen.getByRole('button', { name: 'Move' }));
+    expect((await screen.findByRole('alert')).textContent).toBe('This academic year is closed.');
+  });
 });
