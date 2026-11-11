@@ -9,8 +9,6 @@
     "passwordSaved": "Your new password is saved. Sign in with it.",
     "identifierLabel": "Email or phone number",
     "passwordLabel": "Password",
-    "showPassword": "Show password",
-    "hidePassword": "Hide password",
     "code": {
       "title": "Enter the code from your authenticator app",
       "label": "6-digit code from your authenticator app",

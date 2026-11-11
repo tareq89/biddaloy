@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CockpitSignInCard } from './cockpit-sign-in-card';
-import { readEnrolHandoff, clearEnrolHandoff } from './enrol-handoff';
+import { clearEnrolHandoff, readEnrolHandoff, saveEnrolHandoff } from './enrol-handoff';
 
 afterEach(async () => {
   clearEnrolHandoff();
@@ -98,6 +98,15 @@ describe('CockpitSignInCard', () => {
     await user.type(screen.getByLabelText('Code from the email'), '222222{Enter}');
     await waitFor(() => expect(onEnrol).toHaveBeenCalled());
     expect(readEnrolHandoff()).toMatchObject({ enrolToken: 'enrol-1', rememberDevice: true });
+  });
+
+  it('start again after the enrol codes clears the hand-off', async () => {
+    saveEnrolHandoff({ enrolToken: 'old', otpauthUri: 'x', secret: 'y', rememberDevice: true });
+    server.use(login({ step: 'enrol', enrolToken: 'enrol-1' }));
+    const { user } = setup();
+    await password(user);
+    await user.click(await screen.findByRole('button', { name: 'Start again' }));
+    expect(readEnrolHandoff()).toBeNull();
   });
 
   it('start again returns to the password step', async () => {

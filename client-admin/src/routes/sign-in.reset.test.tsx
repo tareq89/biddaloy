@@ -45,6 +45,46 @@ describe('/sign-in/reset', () => {
     expect(await screen.findByText('Your new password is saved. Sign in with it.')).toBeTruthy();
   });
 
+  it('the link secret leaves the address bar but is still sent', async () => {
+    let body: unknown;
+    server.use(
+      authHandlers.refreshFailure,
+      http.post('*/auth/cockpit/reset-password', async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/sign-in/reset?token=abc'],
+      locale: 'en',
+    });
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('New password'), 'A-strong-pass1!');
+    await user.type(screen.getByLabelText('Confirm password'), 'A-strong-pass1!');
+    await user.click(screen.getByRole('button', { name: 'Save password' }));
+    await waitFor(() => expect(body).toMatchObject({ token: 'abc' }));
+  });
+
+  it('a password over 72 bytes is stopped before it is sent', async () => {
+    const posted = vi.fn();
+    server.use(
+      authHandlers.refreshFailure,
+      http.post('*/auth/cockpit/reset-password', () => {
+        posted();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderWithRouter(routeTree, { initialEntries: ['/sign-in/reset?token=abc'], locale: 'en' });
+    const long = `Aa1!${'ক'.repeat(25)}`; // 4 + 75 bytes, only 29 characters
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('New password'), long);
+    await user.type(screen.getByLabelText('Confirm password'), long);
+    await user.click(screen.getByRole('button', { name: 'Save password' }));
+    await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0));
+    expect(posted).not.toHaveBeenCalled();
+  });
+
   it('no link token shows the bad-link page', async () => {
     server.use(authHandlers.refreshFailure);
     renderWithRouter(routeTree, { initialEntries: ['/sign-in/reset'], locale: 'en' });
