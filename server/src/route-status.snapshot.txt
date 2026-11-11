@@ -575,6 +575,8 @@ DELETE /api/v1/promotions/:id                                                   
 GET    /api/v1/promotions/:id                                                    401 PASS PASS PASS 403 403 403 403 403 403 403 403
 POST   /api/v1/promotions/:id/commit                                             401 PASS PASS PASS 403 403 403 403 403 403 403 403
 PATCH  /api/v1/promotions/:id/entries                                            401 PASS PASS PASS 403 403 403 403 403 403 403 403
+GET    /api/v1/promotions/:id/groups                                             401 PASS PASS PASS 403 PASS 403 403 403 403 403 403
+PATCH  /api/v1/promotions/:id/groups                                             401 PASS PASS PASS 403 PASS 403 403 403 403 403 403
 POST   /api/v1/promotions/:id/refresh                                            401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/promotions/suggest-target                                         401 PASS PASS PASS 403 403 403 403 403 403 403 403
 GET    /api/v1/public/admission/:slug                                            PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS PASS

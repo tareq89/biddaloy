@@ -337,6 +337,7 @@ GET /programs/:id | ProgramsController | perm: PROGRAM_READ
 GET /programs/:id/enrollments | ProgramEnrollmentsController | perm: PROGRAM_READ | roles: ADMIN,EXECUTIVE,TEACHER
 GET /promotions | PromotionsController | perm: PROMOTION_MANAGE
 GET /promotions/:id | PromotionsController | perm: PROMOTION_MANAGE
+GET /promotions/:id/groups | PromotionsController | perm: PROMOTION_GROUP_SET
 GET /promotions/suggest-target | PromotionsController | perm: PROMOTION_MANAGE
 GET /public/admission/:slug | PublicAdmissionController | allowlist: none
 GET /public/invoices/:token | PublicInvoiceController | allowlist: none
@@ -509,6 +510,7 @@ PATCH /program-enrollments/:id | ProgramEnrollmentStatusController | perm: PROGR
 PATCH /programs/:id | ProgramsController | perm: PROGRAM_MANAGE
 PATCH /programs/:id/milestones/:milestoneId | ProgramsController | perm: PROGRAM_MANAGE
 PATCH /promotions/:id/entries | PromotionsController | perm: PROMOTION_MANAGE
+PATCH /promotions/:id/groups | PromotionsController | perm: PROMOTION_GROUP_SET
 PATCH /reports/definitions/:id | ReportDefinitionsController | perm: REPORTS_DESIGN
 PATCH /reports/definitions/:id/schedules/:scheduleId | ReportDeliveryController | perm: REPORTS_DESIGN
 PATCH /routines/change-requests/:id | ChangeRequestsController | perm: ROUTINE_MANAGE

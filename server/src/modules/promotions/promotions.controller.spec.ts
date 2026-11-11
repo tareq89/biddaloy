@@ -33,7 +33,7 @@ describe('PromotionsController (unit)', () => {
       commit: vi.fn().mockResolvedValue({ id: 'run-1' }),
       findStudentOverrides: vi.fn().mockResolvedValue([]),
     };
-    controller = new PromotionsController(service as any, familyAccess as any);
+    controller = new PromotionsController(service as any, {} as any, familyAccess as any);
   });
 
   it('suggestTarget forwards the query and tenant', async () => {
