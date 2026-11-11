@@ -244,27 +244,55 @@ describe('FineRulesService (integration)', () => {
   });
 
   describe('closed year [69.3.03]', () => {
-    it('refuses create, update and remove once the year is closed (409)', async () => {
+    const closedCode = { response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } };
+
+    it('refuses create, update and remove once the year is closed (409) and writes nothing', async () => {
       const rule = await service.create(SEED_TENANT_ID, USER_ID, {
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
         trigger: FineTrigger.ATTENDANCE_ABSENT,
         fee_structure_id: FINE_STRUCTURE_ID,
       });
-      await ds.query(`UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`, [
-        SEED_ACADEMIC_YEAR_ID,
-      ]);
+      await ds.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
       await expect(
         service.create(SEED_TENANT_ID, USER_ID, {
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
           trigger: FineTrigger.ATTENDANCE_LATE,
           fee_structure_id: FINE_STRUCTURE_ID,
         }),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toMatchObject(closedCode);
       await expect(
         service.update(SEED_TENANT_ID, rule.id, USER_ID, { is_active: false }),
-      ).rejects.toThrow(ConflictException);
-      await expect(service.remove(SEED_TENANT_ID, rule.id, USER_ID)).rejects.toThrow(
-        ConflictException,
+      ).rejects.toMatchObject(closedCode);
+      await expect(service.remove(SEED_TENANT_ID, rule.id, USER_ID)).rejects.toMatchObject(
+        closedCode,
+      );
+      const rules = await ruleRepo.find({ where: { tenant_id: SEED_TENANT_ID } });
+      expect(rules.map((r) => [r.id, r.is_active])).toEqual([[rule.id, true]]);
+    });
+
+    it('copy into a closed target year refuses (409) and creates nothing', async () => {
+      await service.create(SEED_TENANT_ID, USER_ID, {
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        trigger: FineTrigger.ATTENDANCE_ABSENT,
+        fee_structure_id: FINE_STRUCTURE_ID,
+      });
+      await ds.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [TARGET_ACADEMIC_YEAR_ID],
+      );
+      const structuresBefore = await feeStructureRepo.count();
+      await expect(
+        service.copy(SEED_TENANT_ID, USER_ID, {
+          from_academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          to_academic_year_id: TARGET_ACADEMIC_YEAR_ID,
+        }),
+      ).rejects.toMatchObject(closedCode);
+      expect(await feeStructureRepo.count()).toBe(structuresBefore);
+      expect(await ruleRepo.count({ where: { academic_year_id: TARGET_ACADEMIC_YEAR_ID } })).toBe(
+        0,
       );
     });
   });

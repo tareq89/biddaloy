@@ -170,14 +170,18 @@ describe('LateFeeService (integration)', () => {
       MONTHLY_TUITION: { enabled: true, grace_days: 5, kind: DiscountKind.FLAT, value: 100 },
     });
     await seedBill('2026-03-01');
-    await ds.query(`UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`, [
-      SEED_ACADEMIC_YEAR_ID,
-    ]);
+    await ds.query(
+      `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
 
     await service.applyDue(SEED_TENANT_ID, TODAY);
 
     const bills = await ds.getRepository(StudentFee).find({ where: { student_id: STUDENT_ID } });
     expect(bills).toHaveLength(1);
+    expect(
+      await ds.getRepository(FeeStructure).count({ where: { fee_type: FeeType.LATE_FEE } }),
+    ).toBe(0);
   });
 
   // [F-149] A fully discounted bill is still PENDING but owes nothing: no flat late fee on it.

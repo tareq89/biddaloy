@@ -284,15 +284,19 @@ describe('FeeStructureService (integration)', () => {
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
       };
       const created = await service.create(dto, TENANT_ID);
-      await dataSource.query(`UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`, [
-        SEED_ACADEMIC_YEAR_ID,
-      ]);
+      await dataSource.query(
+        `UPDATE academic_years SET closed_at = now(), is_current = false WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
 
-      await expect(service.create(dto, TENANT_ID)).rejects.toThrow(ConflictException);
+      const closedCode = { response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } };
+      await expect(service.create(dto, TENANT_ID)).rejects.toMatchObject(closedCode);
       await expect(
         service.update(created.id, { amount: 5 }, TENANT_ID, SEED_ADMIN_USER_ID),
-      ).rejects.toThrow(ConflictException);
-      await expect(service.remove(created.id, TENANT_ID)).rejects.toThrow(ConflictException);
+      ).rejects.toMatchObject(closedCode);
+      await expect(service.remove(created.id, TENANT_ID)).rejects.toMatchObject(closedCode);
+      const rows = await feeRepo.find();
+      expect(rows.map((r) => [r.id, Number(r.amount)])).toEqual([[created.id, 1000]]);
     });
   });
 
