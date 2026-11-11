@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { DataSource } from 'typeorm';
 import { TestingModule } from '@nestjs/testing';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -7,13 +9,9 @@ import { YEAR_SCOPED_WRITES } from '../src/common/utils/year-open.guard';
 
 /**
  * [69.1.04] Year-open registry. A new entity with an `academic_year_id` column fails here until
- * it is listed in `YEAR_SCOPED_WRITES` (and so, in the end, wired to `assertYearOpen`).
+ * it is listed in `YEAR_SCOPED_WRITES` and its service calls the guard.
  * Same shape as delete-guard-registry.integration.spec.ts.
  */
-
-// Part (b): how to call each wired entry's methods against a closed year. An entry that is
-// `wired: true` with no entry here fails; #3526-#3532 add theirs as they flip `wired`.
-const CLOSED_YEAR_CALLS: Record<string, () => Promise<void>> = {};
 
 // Entities with no `academic_year_id` column that the registry lists anyway (guarded by date).
 const DATE_KEYED = ['AttendanceRecord'];
@@ -56,23 +54,20 @@ describe('year-open guard registry (integration)', () => {
     });
   });
 
-  describe('(b) wired entries refuse a closed year', () => {
-    it('has a closed-year call for every wired entry', () => {
-      const wired = YEAR_SCOPED_WRITES.filter((e) => e.wired);
-      const uncovered = wired.filter((e) => !CLOSED_YEAR_CALLS[e.entity]).map((e) => e.entity);
-      expect(uncovered, 'wired entry without a CLOSED_YEAR_CALLS entry').toEqual([]);
-    });
+  describe('(b) every listed service calls the guard', () => {
+    // Behaviour (409, nothing written) is proven per service in its own integration spec;
+    // this fails when a listed service file has no guard call at all.
+    const srcDir = join(__dirname, '../src');
+    const sources = readdirSync(srcDir, { recursive: true, encoding: 'utf8' })
+      .filter((f) => f.endsWith('.ts') && !/\.(spec|e2e-spec)\.ts$/.test(f))
+      .map((f) => readFileSync(join(srcDir, f), 'utf8'));
 
     for (const entry of YEAR_SCOPED_WRITES) {
-      // Unwired entries are reported as skipped, not failed, until their ticket wires them.
-      it.skipIf(!entry.wired)(`${entry.entity}: ${entry.methods.join(', ')} -> 409`, async () => {
-        await expect(CLOSED_YEAR_CALLS[entry.entity]()).rejects.toMatchObject({
-          response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
-        });
+      it(`${entry.entity}: ${entry.service} calls assertYearOpen / assertDateNotInClosedYear`, () => {
+        const src = sources.find((t) => new RegExp(`export class ${entry.service}\\b`).test(t));
+        expect(src, `no file declares ${entry.service}`).toBeDefined();
+        expect(src).toMatch(/assertYearOpen\(|assertDateNotInClosedYear\(/);
       });
     }
   });
-
-  // (c) Attendance is keyed by date: its CLOSED_YEAR_CALLS entry must use a date inside the
-  // closed year (see assertDateNotInClosedYear). Wired by the attendance guard ticket.
 });

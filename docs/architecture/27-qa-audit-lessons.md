@@ -310,3 +310,11 @@ Dated learning (2026-11-05, Epic 70 close):
 - **Surprise:** restoring `final_result_rows` could change published numbers. Fix: restore adds, never changes (#3422). Rule candidate: derived result rows are add-only on restore.
 
 Open Epic 70 follow-ups (all in the Biddaloy Development project): #3461 (scale recompute can race a build), #3462 (preview mixes final ids into the exam list, reopen 409 unnamed, missing index), #3463 (leavers cannot get a remark or conduct grade), #3484 (no UI to issue certificates from a final; final prints not in print history).
+
+## Epic 69 — year rollover (wave 3 close)
+
+Dated learning (2026-11-11):
+
+- **Surprise:** the registry listed `Program` as year-scoped though it has no `academic_year_id`; the close preview would have queried a missing column. Fix: removed it. Rule candidate: a registry entry needs a test that its entity has the column.
+- **Surprise:** the demo seed closed old years, then ran real `promotions.commit` into them, which the new guard refuses. Fix: the students slice reopens the closed years around the loop and restores the exact stamps. Rule candidate: any seed step that runs a real service runs before the year is closed.
+- **Surprise:** a registry test needing one hand-written closed-year call per entity is 21 mini-fixtures. Fix: each service spec proves its own 409; the registry scans that the service calls the guard. → Rule 28
