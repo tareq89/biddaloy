@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
@@ -96,11 +96,21 @@ export class CockpitPasswordService {
 
     // Rules last, so a weak password does not burn the link. No roles: strictest staff rules.
     assertPasswordAllowed(dto.newPassword, []);
-    await this.authTokens.consume(result.row.id);
+    const password_hash = await hashPassword(dto.newPassword);
 
-    await this.users.update(user.id, { password_hash: await hashPassword(dto.newPassword) });
-    await this.refreshTokens.revokeAllForUser(user.id);
-    await this.sessionCutoff.cutOff(user.id); // Rule 8: access tokens too
+    // One transaction: the link, the new password and the end of every session commit together,
+    // so a failure never leaves a changed password with live sessions, or a burnt link unused.
+    await this.users.manager
+      .transaction(async (em) => {
+        await this.authTokens.consume(result.row.id, em);
+        await em.update(User, user.id, { password_hash });
+        await this.refreshTokens.revokeAllForUser(user.id, em);
+        await this.sessionCutoff.cutOff(user.id, em); // Rule 8: access tokens too
+      })
+      .catch((error: unknown) => {
+        // A link used or expired since verify() is the same one sentence (Rule 23).
+        throw error instanceof ConflictException ? refused() : error;
+      });
     const keys = [user.email, user.phone]
       .filter((v): v is string => !!v?.trim())
       .map((v) => cockpitIdentifierLockKey(normalizeLoginIdentifier(v)));
