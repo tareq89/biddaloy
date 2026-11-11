@@ -422,6 +422,33 @@ used, so tickets cannot collide and nothing is built twice:
 4. Tickets that share a file form one lane and run in order; lanes of a wave share
    no file — check it with a script over every `## Files` list, not by eye.
 
+### Epic 69 patterns (year rollover, close, closed years)
+
+Three small patterns came out of Epic 69. Reuse them instead of inventing a fourth.
+
+```mermaid
+flowchart LR
+  P[Palette action<br/>'Create next year'] --> L["/academic-years?next=1"]
+  L -->|list finds the current year, drops the flag| W["/academic-years/:id/next<br/>chromeless wizard"]
+  Y[Closed year] --> N[ClosedYearNotice + disabled writes]
+  N -->|server still has the last word| E[409 ACADEMIC_YEAR_CLOSED sentence]
+```
+
+- **Closed-year notice, writes disabled.** A page that writes year data calls
+  `useIsYearClosed(yearId)` and renders `<ClosedYearNotice academicYearId={…} />` under
+  the header. It turns its write buttons off (tooltip: `academicYears.closedNotice.tooltip`)
+  and shows nothing for an open or still-loading year. The server stays the judge: a save that
+  races a close gets `409 ACADEMIC_YEAR_CLOSED`; read it with `isYearClosedError(error)` and show
+  its one sentence beside the control. Example: the marks grid hides Submit and makes cells
+  read-only for a closed year.
+- **Chromeless wizard route: the trailing underscore.** A full-page wizard that must not nest
+  inside a detail page (which has no outlet) is a sibling file, named
+  `$academicYearId_.next.tsx`. The `_` after the param opts out of the parent layout.
+  Set `staticData: { chromeless: true }` so the app shell steps aside.
+- **Flag-based palette actions.** A Ctrl+K action's `run()` knows no record id. It navigates to
+  the list with a one-shot flag (`/academic-years?next=1` or `?close=1`). The list page picks the
+  record once its data has loaded, navigates on, and drops the flag so Back does not bounce.
+
 ## 13. What a ticket with a screen must state
 
 In addition to the three sections [15-ux-principles.md](15-ux-principles.md) §8 asks for:
