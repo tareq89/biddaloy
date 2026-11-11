@@ -30,7 +30,10 @@ describe('PlatformOwnersService', () => {
       { user_id: 'c', status: 'ACTIVE' },
     ]);
     await expect(svc.lock('b', 'c')).rejects.toMatchObject({ status: 403 });
-    em.query.mockReset().mockResolvedValueOnce([]).mockResolvedValueOnce([{ status: 'SUSPENDED' }]);
+    em.query
+      .mockReset()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ status: 'SUSPENDED' }]);
     await expect(svc.unlock('b', 'c')).rejects.toMatchObject({ status: 403 });
     // Nothing was written: only the lock and the status reads ran.
     expect(em.query.mock.calls.every(([sql]) => !/^\s*UPDATE/i.test(sql))).toBe(true);

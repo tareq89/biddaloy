@@ -34,7 +34,10 @@ describe('PlatformAdminService', () => {
   });
 
   it('activeOwnerIds share-locks every owner row before reading ACTIVE owners', async () => {
-    const query = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([{ user_id: 'u1' }]);
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ user_id: 'u1' }]);
     const em = { query };
     const transaction = vi.fn(async (work: (m: unknown) => unknown) => work(em));
     const svc = new PlatformAdminService({ manager: { transaction } } as never);

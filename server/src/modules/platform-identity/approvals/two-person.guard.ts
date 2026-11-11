@@ -59,7 +59,8 @@ export class TwoPersonGuard implements CanActivate {
     // ponytail: the handler's own write runs after this check; a lock that lands in that gap is
     // the same window every request has between its auth check and its write.
     const active = await this.owners.activeOwnerIds();
-    if (!active.includes(actorId)) throw new ForbiddenException('This area is for platform owners only');
+    if (!active.includes(actorId))
+      throw new ForbiddenException('This area is for platform owners only');
     if (active.length < 2) return;
 
     const payload = {

@@ -146,7 +146,9 @@ describe('CockpitPasswordService', () => {
     }
 
     it('a link used since verify() is the same refusal, and a failing write ends nothing outside', async () => {
-      authTokens.consume.mockRejectedValueOnce(new ConflictException('This link has already been used'));
+      authTokens.consume.mockRejectedValueOnce(
+        new ConflictException('This link has already been used'),
+      );
       const err: any = await reset().catch((e) => e);
       expect(err).toBeInstanceOf(UnauthorizedException);
       expect(err.message).toBe(COCKPIT_RESET_REFUSED);
