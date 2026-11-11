@@ -175,3 +175,51 @@ describe('AdminVerificationModal', () => {
     await screen.findByText('Approve: not.a_known_scope');
   });
 });
+
+describe('AdminVerificationModal codeOnly (owner scopes)', () => {
+  function renderCodeOnly(overrides: Partial<Parameters<typeof AdminVerificationModal>[0]> = {}) {
+    const onVerify = vi.fn().mockResolvedValue({ approval_token: 't' });
+    const onSuccess = vi.fn();
+    renderWithProviders(
+      <AdminVerificationModal
+        open
+        codeOnly
+        scope="platform.owner_lock"
+        onRequestOtp={vi.fn()}
+        onVerify={onVerify}
+        onSuccess={onSuccess}
+        onCancel={vi.fn()}
+        {...overrides}
+      />,
+      { locale: 'en' },
+    );
+    return { onVerify, onSuccess };
+  }
+
+  it('shows only the code field: no identifier, method toggle or send-code button', async () => {
+    renderCodeOnly({ passwordAllowed: true });
+    await screen.findByText('Approve: lock an owner');
+    expect(screen.getByLabelText('Authenticator code')).toBeTruthy();
+    expect(screen.queryByLabelText('Email or phone')).toBeNull();
+    expect(screen.queryByText('Verification method')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send code' })).toBeNull();
+  });
+
+  it('Enter submits once six digits are typed; Verify stays disabled before that', async () => {
+    const { onVerify, onSuccess } = renderCodeOnly();
+    const user = userEvent.setup();
+    const field = await screen.findByLabelText('Authenticator code');
+    await user.type(field, '12345');
+    expect(screen.getByRole('button', { name: 'Verify' }).hasAttribute('disabled')).toBe(true);
+    await user.type(field, '6');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(onVerify).toHaveBeenCalledWith({ identifier: '', method: 'otp', code: '123456' });
+  });
+
+  it('shows the fixed sentence under the field for any refused code', async () => {
+    renderCodeOnly({ error: { code: 'WHATEVER', message: 'server text that must not show' } });
+    await screen.findByText("That code isn't valid. Wait for the next code and try again.");
+    expect(screen.queryByText('server text that must not show')).toBeNull();
+  });
+});

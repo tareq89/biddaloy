@@ -9,6 +9,7 @@ import { authDefaultHandlers } from './handlers/auth';
 import { backupDefaultHandlers } from './handlers/backup';
 import { billingDefaultHandlers } from './handlers/billing';
 import { classDefaultHandlers } from './handlers/classes';
+import { cockpitDefaultHandlers } from './handlers/cockpit';
 import { communicationDefaultHandlers } from './handlers/communications';
 import { enrollmentDefaultHandlers } from './handlers/enrollments';
 import { feeDefaultHandlers, feeStructureDefaultHandlers } from './handlers/fees';
@@ -85,4 +86,5 @@ export const handlers: readonly HttpHandler[] = [
   ...surveyDefaultHandlers,
   ...performanceDefaultHandlers,
   ...applicationDefaultHandlers,
+  ...cockpitDefaultHandlers,
 ];
