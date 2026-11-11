@@ -706,24 +706,65 @@ describe('AcademicYearService (integration)', () => {
       return service.create({ name, start_date: start, end_date: end }, TENANT_ID);
     }
     async function makeClass(yearId: string) {
-      return dataSource
-        .getRepository(Class)
-        .save({
-          name: `C-${randomUUID().slice(0, 6)}`,
-          academic_year_id: yearId,
-          tenant_id: TENANT_ID,
-        });
+      return dataSource.getRepository(Class).save({
+        name: `C-${randomUUID().slice(0, 6)}`,
+        academic_year_id: yearId,
+        tenant_id: TENANT_ID,
+      });
     }
     async function makeRun(classId: string, srcYear: string, tgtYear: string, status: string) {
-      await dataSource.query(
+      const rows: Array<{ id: string }> = await dataSource.query(
         `INSERT INTO promotion_runs (tenant_id, source_class_id, source_academic_year_id,
            target_academic_year_id, exam_ids, algorithm, status, created_by_user_id,
            refreshed_at, override_count, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, '{}', 'MERIT', $5, $6, now(), 0, now(), now())`,
+         VALUES ($1, $2, $3, $4, '{}', 'MERIT', $5, $6, now(), 0, now(), now())
+         RETURNING id`,
         [TENANT_ID, classId, srcYear, tgtYear, status, randomUUID()],
       );
+      return rows[0].id;
+    }
+    /** One entry in a run, with its own student and source enrollment. */
+    async function makeEntry(
+      runId: string,
+      klass: Class,
+      yearId: string,
+      targetClassId: string | null,
+    ) {
+      const section = await dataSource
+        .getRepository(ClassSection)
+        .save({
+          class_id: klass.id,
+          section_name: `S${randomUUID().slice(0, 4)}`,
+          tenant_id: TENANT_ID,
+        });
+      const student = await dataSource.getRepository(Student).save({
+        full_name: 'Entry Student',
+        registration_number: `REG-${randomUUID().slice(0, 8)}`,
+        roll_number: 1,
+        class_section_id: section.id,
+        tenant_id: TENANT_ID,
+      });
+      const enrollment = await dataSource.getRepository(Enrollment).save({
+        student_id: student.id,
+        class_id: klass.id,
+        section_id: section.id,
+        academic_year_id: yearId,
+        tenant_id: TENANT_ID,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      });
+      await dataSource.query(
+        `INSERT INTO promotion_entries (tenant_id, run_id, student_id, source_enrollment_id,
+           passed_all, suggested_outcome, final_outcome, target_class_id)
+         VALUES ($1, $2, $3, $4, true, 'PROMOTE', 'PROMOTE', $5)`,
+        [TENANT_ID, runId, student.id, enrollment.id, targetClassId],
+      );
+    }
+    async function groupsPending(yearId: string) {
+      const preview = await service.closePreview(yearId, TENANT_ID);
+      return preview.warnings.find((w) => w.code === 'GROUPS_PENDING')?.count;
     }
     afterEach(async () => {
+      await dataSource.query('DELETE FROM promotion_entries');
       await dataSource.query('DELETE FROM promotion_runs');
     });
 
@@ -820,6 +861,41 @@ describe('AcademicYearService (integration)', () => {
       expect(freeze.exams).toBe(1);
       expect(freeze.promotion_runs).toBe(1);
       expect(freeze).toHaveProperty('attendance_sessions');
+    });
+
+    // GROUPS_PENDING must match the attention rule (promotion-groups-pending.rule.ts).
+    describe('GROUPS_PENDING', () => {
+      async function setup(withGroupedSection: boolean, graduating: boolean) {
+        const year = await makeYear(`GP ${randomUUID().slice(0, 6)}`);
+        const next = await makeYear(
+          `GP next ${randomUUID().slice(0, 6)}`,
+          '2026-01-01',
+          '2026-12-31',
+        );
+        const src = await makeClass(year.id);
+        const target = await makeClass(next.id);
+        await dataSource.getRepository(ClassSection).save({
+          class_id: target.id,
+          section_name: 'T',
+          tenant_id: TENANT_ID,
+          group_name: withGroupedSection ? 'Science' : null,
+        });
+        const runId = await makeRun(src.id, year.id, next.id, 'DRAFT');
+        await makeEntry(runId, src, year.id, graduating ? null : target.id);
+        return year;
+      }
+
+      it('does not count a graduating entry (no target class)', async () => {
+        expect(await groupsPending((await setup(true, true)).id)).toBe(0);
+      });
+
+      it('does not count an entry whose target class has no grouped section', async () => {
+        expect(await groupsPending((await setup(false, false)).id)).toBe(0);
+      });
+
+      it('counts an entry with a grouped target class and no group chosen', async () => {
+        expect(await groupsPending((await setup(true, false)).id)).toBe(1);
+      });
     });
 
     it('readiness counts classes and committed runs targeting the year', async () => {
