@@ -287,6 +287,21 @@ export async function ensureRoleTestUsers(
 /** [Epic 98] The dev platform owner: the dev seed's SUPER_ADMIN account. */
 export const DEV_COCKPIT_OWNER_EMAIL = 'superadmin@biddaloy.test';
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+/** Host the DataSource is really connected to (url wins over host, as in the pg driver). */
+function dataSourceHost(ds: DataSource): string {
+  const o = ds.options as { url?: string; host?: string };
+  if (o.url) {
+    try {
+      return new URL(o.url).hostname;
+    } catch {
+      return '';
+    }
+  }
+  return o.host ?? '';
+}
+
 /**
  * [98.6.1] Makes the dev SUPER_ADMIN a platform owner with a known TOTP secret, so e2e can sign in
  * to the cockpit. Idempotent. The old SUPER_ADMIN membership stays until Wave 5 (D23).
@@ -301,6 +316,13 @@ export async function ensureDevCockpitOwner(
     DEV_COCKPIT_OWNER_EMAIL,
   ]);
   if (!user) return;
+  // DEV_COCKPIT_TOTP_SECRET is public: enrolling it on a non-local database would hand anyone a
+  // working second factor. Remote targets must bring their own COCKPIT_TEST_TOTP_SECRET.
+  if (!env.COCKPIT_TEST_TOTP_SECRET && !LOCAL_HOSTS.has(dataSourceHost(ds))) {
+    throw new Error(
+      'refusing to enrol the public dev TOTP secret on a non-local database: set COCKPIT_TEST_TOTP_SECRET',
+    );
+  }
   await home.ensure();
   await ds.query(
     `INSERT INTO platform_admins (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
