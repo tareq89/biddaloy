@@ -94,6 +94,7 @@ export {
   setSelection as setListSelection,
 } from './list-selection-memory';
 export {
+  configureSessionEndpoints,
   decodeAccessTokenMemberships,
   ensureSessionLoaded,
   resetSessionBootstrap,
