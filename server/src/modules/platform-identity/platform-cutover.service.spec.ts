@@ -8,7 +8,7 @@ const build = (rows: unknown[][]) => {
   const ds = { query, transaction, manager: { query } };
   const svc = new PlatformCutoverService(
     ds as never,
-    { platformTenantId: vi.fn() } as never,
+    { platformSchoolIds: vi.fn().mockResolvedValue([]) } as never,
     { cutOff: vi.fn() } as never,
     { record: vi.fn() } as never,
   );
@@ -33,6 +33,13 @@ describe('PlatformCutoverService (no database)', () => {
 
   it('skips on a database with no owners yet (retries next boot)', async () => {
     const { svc, transaction } = build([[], [{ n: 0 }]]);
+    expect(await svc.run()).toBeNull();
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('skips without writing anything when no platform school resolves', async () => {
+    // done? no; owners? yes; platformSchoolIds() => [] (production without PLATFORM_TENANT_ID)
+    const { svc, transaction } = build([[], [{ n: 2 }]]);
     expect(await svc.run()).toBeNull();
     expect(transaction).not.toHaveBeenCalled();
   });

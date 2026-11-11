@@ -52,12 +52,19 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
     const [{ n }] = await this.ds.query(`SELECT count(*)::int AS n FROM platform_admins`);
     if (n === 0) return null;
 
-    const oldPlatformId = await this.tenantStatus.platformTenantId();
+    // D18/D3b: "the platform school" is BOTH the legacy platform tenant and the `is_platform` home
+    // row. Owners and SUPER_ADMINs lose membership on either. If neither resolves we cannot tell
+    // platform rows from ordinary ones, so do nothing and leave `cutover.done` unset (retry next boot).
+    const platformIds = await this.tenantStatus.platformSchoolIds();
+    if (platformIds.length === 0) {
+      this.logger.warn('Platform cutover skipped: no platform school could be resolved');
+      return null;
+    }
     // `cutover.done` is written inside the transaction, so it exists only if everything committed.
     const counts = await this.ds.transaction(async (em) => {
       await em.query(`SELECT pg_advisory_xact_lock($1)`, [CUTOVER_LOCK_KEY]);
       if (await this.isDone(em)) return null; // another container finished while we queued
-      const c = await this.convert(em, oldPlatformId);
+      const c = await this.convert(em, platformIds);
       await em.query(
         `INSERT INTO platform_settings (key, value) VALUES ($1, 'true'::jsonb)
          ON CONFLICT (key) DO UPDATE SET value = 'true'::jsonb`,
@@ -83,17 +90,17 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
     return rows.length > 0;
   }
 
-  private async convert(em: EntityManager, oldPlatformId?: string): Promise<CutoverCounts> {
+  private async convert(em: EntityManager, platformIds: string[]): Promise<CutoverCounts> {
     const counts: CutoverCounts = { removed: 0, downgraded: 0, duplicatesRemoved: 0 };
     const affected = new Set<string>();
 
-    if (oldPlatformId) {
-      // Owners lose any membership on the old platform school (D2); so does every SUPER_ADMIN.
+    {
+      // Owners lose any membership on a platform school (D2); so does every SUPER_ADMIN.
       const rows: Membership[] = await em.query(
         `SELECT id, user_id, tenant_id, role FROM user_tenants
-          WHERE tenant_id = $1 AND deleted_at IS NULL
+          WHERE tenant_id = ANY($1::uuid[]) AND deleted_at IS NULL
             AND (role = $2 OR user_id IN (SELECT user_id FROM platform_admins))`,
-        [oldPlatformId, UserRole.SUPER_ADMIN],
+        [platformIds, UserRole.SUPER_ADMIN],
       );
       for (const m of rows) {
         await this.softDelete(em, m);
@@ -104,8 +111,8 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
 
     const legacy: Membership[] = await em.query(
       `SELECT id, user_id, tenant_id, role FROM user_tenants
-        WHERE role = $1 AND deleted_at IS NULL AND ($2::uuid IS NULL OR tenant_id <> $2)`,
-      [UserRole.SUPER_ADMIN, oldPlatformId ?? null],
+        WHERE role = $1 AND deleted_at IS NULL AND NOT (tenant_id = ANY($2::uuid[]))`,
+      [UserRole.SUPER_ADMIN, platformIds],
     );
     for (const m of legacy) {
       // The unique key spans soft-deleted rows too, so look for any ADMIN row.
@@ -118,6 +125,12 @@ export class PlatformCutoverService implements OnApplicationBootstrap {
         counts.duplicatesRemoved++;
         if (admin.deleted_at) {
           await em.query(`UPDATE user_tenants SET deleted_at = NULL WHERE id = $1`, [admin.id]);
+          await this.record(
+            em,
+            { ...m, id: admin.id, role: UserRole.ADMIN },
+            { restored: true, role: UserRole.ADMIN },
+            AuditAction.UPDATE,
+          );
         }
       } else {
         await em.query(`UPDATE user_tenants SET role = $2 WHERE id = $1`, [m.id, UserRole.ADMIN]);
