@@ -73,10 +73,13 @@ test('open from the sidebar, fill by keyboard, Esc asks, Ctrl+Enter sends', asyn
     await expect(page.getByRole('option', { name: /^Teacher User/ })).toBeVisible();
     // The filter also matches "Assistant Teacher User": ArrowDown to the exact one.
     const active = page.locator('[role="option"][data-active="true"]');
-    for (let i = 0; i < 5 && !/^Teacher User/.test((await active.textContent()) ?? ''); i += 1) {
-      await page.keyboard.press('ArrowDown');
-    }
-    await expect(active).toHaveText(/^Teacher User/);
+    // toPass retries until the list has settled: the active option is absent while results reload.
+    await expect(async () => {
+      if (!/^Teacher User/.test((await active.textContent({ timeout: 500 }).catch(() => '')) ?? '')) {
+        await page.keyboard.press('ArrowDown');
+      }
+      await expect(active).toHaveText(/^Teacher User/, { timeout: 500 });
+    }).toPass({ timeout: 10_000 });
     await page.keyboard.press('Enter');
     await expect(page.getByText(/^(1|১) person in total$/)).toBeVisible();
   });
