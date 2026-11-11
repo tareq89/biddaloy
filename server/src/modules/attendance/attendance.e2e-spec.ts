@@ -1091,6 +1091,12 @@ describe('Attendance E2E', () => {
       );
       const res = await putDay(yesterday()).expect(409);
       expect(res.body.details.code).toBe('ACADEMIC_YEAR_CLOSED');
+      const rows = await dataSource.query(
+        `SELECT (SELECT count(*) FROM attendance_sessions WHERE tenant_id = $1 AND date = $2)::int AS s,
+                (SELECT count(*) FROM attendance_records WHERE tenant_id = $1 AND date = $2)::int AS r`,
+        [TENANT_ID, yesterday()],
+      );
+      expect(rows[0]).toEqual({ s: 0, r: 0 });
       // another tenant-day outside the closed year is unaffected
       await putDay(todayIso()).expect(200);
     });

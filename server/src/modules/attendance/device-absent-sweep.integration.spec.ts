@@ -245,6 +245,34 @@ describe('DeviceAbsentSweepScheduler (integration)', () => {
     expect((await records(TENANT)).length).toBe(after.length);
   });
 
+  it('writes nothing when today is inside a closed year, even with an open year overlapping (D12)', async () => {
+    const closedId = '00000000-0000-4000-8000-000000003531';
+    await addScan(TENANT, studentIds[0]);
+    const [{ d }] = await dataSource.query(`SELECT (now() AT TIME ZONE 'Asia/Dhaka')::date AS d`);
+    const today = new Date(d).toLocaleDateString('en-CA');
+    const auditCount = () =>
+      dataSource.getRepository(AuditLog).count({ where: { tenant_id: TENANT } });
+    const auditBefore = await auditCount();
+    // a closed year cannot be current (CHK_academic_years_closed_not_current)
+    await dataSource.query(
+      `INSERT INTO academic_years (id, name, start_date, end_date, is_current, closed_at, tenant_id, created_at, updated_at)
+       VALUES ($1, 'Closed overlap', $2, $2, false, NOW(), $3, NOW(), NOW())`,
+      [closedId, today, TENANT],
+    );
+    try {
+      expect(await sweeper.sweepTenant(TENANT)).toBe(0);
+      expect(
+        await dataSource.getRepository(AttendanceSession).count({ where: { tenant_id: TENANT } }),
+      ).toBe(0);
+      expect(await records(TENANT)).toHaveLength(0);
+      expect(await auditCount()).toBe(auditBefore);
+    } finally {
+      await dataSource.query(`DELETE FROM academic_years WHERE id = $1`, [closedId]);
+    }
+    // Closed year gone: same state sweeps normally.
+    expect(await sweeper.sweepTenant(TENANT)).toBeGreaterThan(0);
+  });
+
   it('does nothing for a tenant with no device scans today, and never touches another tenant', async () => {
     // TENANT has no scans; OTHER has one and its own unmarked student.
     expect(await sweeper.sweepTenant(TENANT)).toBe(0);
