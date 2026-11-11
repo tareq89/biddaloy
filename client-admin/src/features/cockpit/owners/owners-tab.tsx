@@ -10,6 +10,7 @@ import {
   ApprovalCancelledError,
   getApprovalRequestId,
   useLockOwner,
+  usePlatformApprovals,
   usePlatformOwners,
   useUnlockOwner,
   type PlatformOwner,
@@ -37,7 +38,13 @@ export function OwnersTab({ currentUserId, onOpenApprovals }: OwnersTabProps) {
   const lock = useLockOwner();
   const unlock = useUnlockOwner();
   const [target, setTarget] = React.useState<PlatformOwner | null>(null);
+  const approvals = usePlatformApprovals();
   const [waiting, setWaiting] = React.useState(false);
+  // Gone once the server shows no pending request of mine (decided, expired), or when dismissed.
+  const showWaiting =
+    waiting &&
+    (!approvals.data ||
+      approvals.data.some((a) => a.status === 'PENDING' && a.requested_by === currentUserId));
 
   if (owners.isError) {
     return <ErrorState message={t('owners.loadError')} onRetry={() => void owners.refetch()} />;
@@ -58,6 +65,7 @@ export function OwnersTab({ currentUserId, onOpenApprovals }: OwnersTabProps) {
         // The owner closed the code prompt: nothing to say.
       } else if (getApprovalRequestId(error)) {
         setWaiting(true);
+        void approvals.refetch();
       } else {
         toast.error(t('owners.actionError'));
       }
@@ -67,12 +75,17 @@ export function OwnersTab({ currentUserId, onOpenApprovals }: OwnersTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {waiting && (
+      {showWaiting && (
         <Card role="status" className="flex flex-wrap items-center justify-between gap-2 p-4">
           <span>{t('owners.waiting')}</span>
-          <Button variant="outline" size="lg" onClick={onOpenApprovals}>
-            {t('owners.seeRequests')}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="lg" onClick={onOpenApprovals}>
+              {t('owners.seeRequests')}
+            </Button>
+            <Button variant="outline" size="lg" onClick={() => setWaiting(false)}>
+              {t('owners.dismiss')}
+            </Button>
+          </div>
         </Card>
       )}
       {list.map((owner) => {
@@ -102,9 +115,11 @@ export function OwnersTab({ currentUserId, onOpenApprovals }: OwnersTabProps) {
               </div>
               <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-body sm:grid-cols-2">
                 <div>
+                  <dt className="sr-only">{t('owners.email')}</dt>
                   <dd>{owner.email ?? t('owners.noContact')}</dd>
                 </div>
                 <div>
+                  <dt className="sr-only">{t('owners.phone')}</dt>
                   <dd>{owner.phone ?? t('owners.noContact')}</dd>
                 </div>
                 <div>

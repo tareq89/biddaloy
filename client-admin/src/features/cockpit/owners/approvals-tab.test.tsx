@@ -118,6 +118,19 @@ describe('ApprovalsTab', () => {
     expect(screen.queryByRole('button', { name: 'Deny' })).toBeNull();
   });
 
+  it('only the row being answered disables its buttons', async () => {
+    serve([approval(), approval({ id: '55555555-5555-4555-8555-555555555555' })]);
+    server.use(http.post('*/platform/approvals/:id/approve', needsCode([])));
+    const user = userEvent.setup();
+    view();
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Approve' })).toHaveLength(2));
+    await user.click(screen.getAllByRole('button', { name: 'Approve' })[0]!);
+    await screen.findByLabelText('Authenticator code');
+    const approves = screen.getAllByRole('button', { name: 'Approve', hidden: true });
+    expect(approves[0]).toHaveProperty('disabled', true);
+    expect(approves[1]).toHaveProperty('disabled', false);
+  });
+
   it('empty state says no request is waiting', async () => {
     serve([]);
     view();
@@ -131,7 +144,7 @@ describe('ApprovalsTab', () => {
   });
 
   it('turning approvals off asks first, and shows waiting when the other owner must agree', async () => {
-    serve([]);
+    serve([approval({ requested_by: ME })]);
     server.use(
       http.patch('*/platform/settings/approvals', () =>
         HttpResponse.json(
