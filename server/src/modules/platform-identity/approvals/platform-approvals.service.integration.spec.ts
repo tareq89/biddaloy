@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { TestingModule } from '@nestjs/testing';
 import { UserStatus } from '@biddaloy/shared';
+import { waitForLockWaiters } from '@test/helpers/db.helper';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { AuditService } from '../../audit/audit.service';
@@ -74,12 +75,26 @@ describe('PlatformApprovalsService (integration)', () => {
     await svc.decide(id, b, 'approve'); // the other owner can
   });
 
-  it('two parallel consume calls: exactly one wins', async () => {
+  it('two parallel consume calls held at the claim: exactly one wins', async () => {
     const { id } = await svc.request(a, SCOPE, PAYLOAD, { action: 'lock' });
     await svc.decide(id, b, 'approve');
     const hash = hashPayload(PAYLOAD);
-    const results = await Promise.all([svc.consume(id, a, hash), svc.consume(id, a, hash)]);
-    expect(results.filter(Boolean)).toHaveLength(1);
+    // Latch: another transaction holds the row, so both claims are waiting on it at once.
+    const holder = ds.createQueryRunner();
+    await holder.connect();
+    await holder.startTransaction();
+    try {
+      await holder.query(`SELECT id FROM platform_approvals WHERE id = $1 FOR UPDATE`, [id]);
+      const racers = [svc.consume(id, a, hash), svc.consume(id, a, hash)];
+      racers.forEach((p) => p.catch(() => undefined));
+      await waitForLockWaiters(ds, '%used_at = now()%', 2);
+      await holder.commitTransaction();
+      const results = await Promise.all(racers);
+      expect(results.filter(Boolean)).toHaveLength(1);
+    } finally {
+      if (holder.isTransactionActive) await holder.rollbackTransaction();
+      await holder.release();
+    }
   });
 
   it('consume fails for a changed payload, another actor, or a request never approved', async () => {

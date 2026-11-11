@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import { authenticator } from 'otplib';
 import { ApprovalScope, DEV_COCKPIT_TOTP_SECRET, UserStatus } from '@biddaloy/shared';
 import { AppModule } from '../../app.module';
+import { waitForLockWaiters } from '@test/helpers/db.helper';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } from '@test/constants';
@@ -240,19 +241,35 @@ describe('Platform identity E2E', () => {
     const tokenA = await stepUp(a, ApprovalScope.PLATFORM_OWNER_LOCK);
     const tokenB = await stepUp(b, ApprovalScope.PLATFORM_OWNER_LOCK);
 
-    const [ra, rb] = await Promise.all([
-      http()
-        .post(`${PLATFORM}/owners/${b.id}/lock`)
-        .set(auth(a))
-        .set('X-Approval-Token', tokenA),
-      http()
-        .post(`${PLATFORM}/owners/${a.id}/lock`)
-        .set(auth(b))
-        .set('X-Approval-Token', tokenB),
-    ]);
-    // One wins (204). The other is either refused as the last active owner (409) or already
-    // locked out (401, its bearer was cut off by the winner).
-    expect([ra.status, rb.status].filter((s) => s === 204)).toHaveLength(1);
+    // Latch: hold the owner rows, so both requests are waiting inside lock() before either runs.
+    const holder = ds.createQueryRunner();
+    await holder.connect();
+    await holder.startTransaction();
+    let statuses: number[];
+    try {
+      await holder.query(`SELECT 1 FROM platform_admins ORDER BY user_id FOR UPDATE`);
+      // `.then` sends the request now; both pass auth (plain reads) and block on the row lock.
+      const racers = Promise.all([
+        http()
+          .post(`${PLATFORM}/owners/${b.id}/lock`)
+          .set(auth(a))
+          .set('X-Approval-Token', tokenA)
+          .then((r) => r.status),
+        http()
+          .post(`${PLATFORM}/owners/${a.id}/lock`)
+          .set(auth(b))
+          .set('X-Approval-Token', tokenB)
+          .then((r) => r.status),
+      ]);
+      await waitForLockWaiters(ds, '%FROM platform_admins ORDER BY user_id FOR UPDATE%', 2);
+      await holder.commitTransaction();
+      statuses = await racers;
+    } finally {
+      if (holder.isTransactionActive) await holder.rollbackTransaction();
+      await holder.release();
+    }
+    // One wins (204). The other was already inside lock(), so it sees no other active owner (409).
+    expect(statuses.sort()).toEqual([204, 409]);
     const rows: { status: string }[] = await ds.query(
       `SELECT status FROM users WHERE id = ANY($1::uuid[])`,
       [[a.id, b.id]],
@@ -278,7 +295,10 @@ describe('Platform identity E2E', () => {
       /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
     )![0];
 
-    const pending = await http().get(`${PLATFORM}/approvals?status=PENDING`).set(auth(b)).expect(200);
+    const pending = await http()
+      .get(`${PLATFORM}/approvals?status=PENDING`)
+      .set(auth(b))
+      .expect(200);
     expect(pending.body.some((r: { id: string }) => r.id === requestId)).toBe(true);
 
     // The requester cannot approve their own request.

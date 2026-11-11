@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { TestingModule } from '@nestjs/testing';
 import { AuditAction, UserStatus } from '@biddaloy/shared';
+import { waitForLockWaiters } from '@test/helpers/db.helper';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { AuditService } from '../../audit/audit.service';
@@ -123,8 +124,26 @@ describe('PlatformOwnersService (integration)', () => {
   });
 
   it('two owners locking each other at once: exactly one lock lands', async () => {
-    const results = await Promise.allSettled([svc.lock(a, b), svc.lock(b, a)]);
+    // Latch: hold the owner rows, so both locks are waiting on them at once before either runs.
+    const holder = ds.createQueryRunner();
+    await holder.connect();
+    await holder.startTransaction();
+    let results: PromiseSettledResult<void>[];
+    try {
+      await holder.query(`SELECT 1 FROM platform_admins ORDER BY user_id FOR UPDATE`);
+      const racers = Promise.allSettled([svc.lock(a, b), svc.lock(b, a)]);
+      await waitForLockWaiters(ds, '%FROM platform_admins ORDER BY user_id FOR UPDATE%', 2);
+      await holder.commitTransaction();
+      results = await racers;
+    } finally {
+      if (holder.isTransactionActive) await holder.rollbackTransaction();
+      await holder.release();
+    }
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    // The loser saw the winner's lock: no other active owner is left for it.
+    expect(results.find((r) => r.status === 'rejected')).toMatchObject({
+      reason: { status: 409, response: { details: { code: 'LAST_OWNER' } } },
+    });
     const active = await ds.query(
       `SELECT count(*)::int n FROM users u JOIN platform_admins pa ON pa.user_id = u.id WHERE u.status = 'ACTIVE'`,
     );
