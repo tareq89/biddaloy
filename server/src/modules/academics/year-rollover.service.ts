@@ -4,6 +4,7 @@ import { DataSource, EntityManager, IsNull } from 'typeorm';
 import { randomUUID } from 'crypto';
 import {
   AuditAction,
+  TeacherAssignmentType,
   UserStatus,
   YEAR_ROLLOVER_BLOCKS,
   type YearRolloverBlock,
@@ -452,6 +453,13 @@ export class YearRolloverService {
     const taken = new Set(
       existing.map((e) => k(e.teacher_id, e.section_id, e.subject_id, e.assignment_type)),
     );
+    // One CLASS_TEACHER per section (UQ_tcs_section_class_teacher): a different teacher already
+    // there counts the source row as `existing` instead of aborting the transaction.
+    const classTeacherSections = new Set(
+      existing
+        .filter((e) => e.assignment_type === TeacherAssignmentType.CLASS_TEACHER)
+        .map((e) => e.section_id),
+    );
     const toInsert: TeacherClassSection[] = [];
     for (const row of rows) {
       const teacher = teacherById.get(row.teacher_id);
@@ -470,11 +478,13 @@ export class YearRolloverService {
       }
       const sectionId = sectionMap.get(row.section_id)!;
       const key = k(row.teacher_id, sectionId, row.subject_id, row.assignment_type);
-      if (taken.has(key)) {
+      const isClassTeacher = row.assignment_type === TeacherAssignmentType.CLASS_TEACHER;
+      if (taken.has(key) || (isClassTeacher && classTeacherSections.has(sectionId))) {
         result.existing++;
         continue;
       }
       taken.add(key);
+      if (isClassTeacher) classTeacherSections.add(sectionId);
       result.created++;
       toInsert.push(
         manager.create(TeacherClassSection, {

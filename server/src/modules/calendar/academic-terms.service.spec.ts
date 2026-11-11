@@ -45,6 +45,16 @@ describe('shiftTerms', () => {
     expect(out[0].end_date).toBe('2027-12-30');
   });
 
+  it('clamps a non-last term that would end after a shorter target year', () => {
+    const out = shiftTerms(
+      [term(1, 'T1', '2026-01-01', '2026-06-30'), term(2, 'T2', '2026-07-01', '2026-12-31')],
+      '2026-01-01',
+      '2027-01-01',
+      '2027-03-31',
+    );
+    expect(out.map((t) => t.end_date)).toEqual(['2027-03-31', '2027-03-31']);
+  });
+
   it('returns an empty list for no terms', () => {
     expect(shiftTerms([], '2026-01-01', '2027-01-01', '2027-12-31')).toEqual([]);
   });
