@@ -978,18 +978,30 @@ describe('CalendarEventsService (integration)', () => {
       closed.id,
     ]);
     try {
-      await expect(service.create(dto('Late'), TENANT_ID, SEED_ADMIN_USER_ID)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.create(dto('Late'), TENANT_ID, SEED_ADMIN_USER_ID),
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
       await expect(
         service.update(draft.id, { name: 'Renamed' } as any, TENANT_ID, SEED_ADMIN_USER_ID),
-      ).rejects.toThrow(ConflictException);
-      await expect(service.publish(draft.id, TENANT_ID, SEED_ADMIN_USER_ID)).rejects.toThrow(
-        ConflictException,
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      await expect(service.publish(draft.id, TENANT_ID, SEED_ADMIN_USER_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+      });
+      await expect(service.remove(draft.id, TENANT_ID, SEED_ADMIN_USER_ID)).rejects.toMatchObject({
+        response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } },
+      });
+      // nothing written: only the draft, old name, still draft, not deleted
+      const rows = await dataSource.query(
+        `SELECT id, name, published_at, deleted_at FROM calendar_events WHERE academic_year_id = $1`,
+        [closed.id],
       );
-      await expect(service.remove(draft.id, TENANT_ID, SEED_ADMIN_USER_ID)).rejects.toThrow(
-        ConflictException,
-      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        id: draft.id,
+        name: 'Draft',
+        published_at: null,
+        deleted_at: null,
+      });
     } finally {
       await dataSource.query(`UPDATE academic_years SET closed_at = NULL WHERE id = $1`, [
         closed.id,

@@ -118,6 +118,7 @@ export class YearRolloverService {
       throw new BadRequestException('The new year must be different from the source year');
     }
     if (target) await assertYearOpen(manager, tenantId, target.id);
+    // A brand-new target year is open by construction, so it needs no guard.
     else if (!dryRun) {
       target = await years.save(
         years.create({

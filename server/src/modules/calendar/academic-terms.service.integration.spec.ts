@@ -440,16 +440,21 @@ describe('AcademicTermsService (integration)', () => {
         SEED_ADMIN_USER_ID,
         CONTEXT,
       ),
-    ).rejects.toThrow(ConflictException);
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
     await expect(
       service.update(TENANT_A, term.id, { name: 'X' }, SEED_ADMIN_USER_ID, CONTEXT),
-    ).rejects.toThrow(ConflictException);
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
     await expect(
       service.reorder(TENANT_A, closed.id, [term.id], SEED_ADMIN_USER_ID, CONTEXT),
-    ).rejects.toThrow(ConflictException);
-    await expect(service.remove(TENANT_A, term.id, SEED_ADMIN_USER_ID, CONTEXT)).rejects.toThrow(
-      ConflictException,
-    );
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+    await expect(
+      service.remove(TENANT_A, term.id, SEED_ADMIN_USER_ID, CONTEXT),
+    ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+    // nothing written: one live term, old name
+    const terms = await dataSource
+      .getRepository(AcademicTerm)
+      .find({ where: { academic_year_id: closed.id } });
+    expect(terms.map((t) => [t.id, t.name])).toEqual([[term.id, 'T1']]);
     await dataSource.query(`UPDATE academic_years SET closed_at = NULL WHERE id = $1`, [closed.id]);
   });
 });

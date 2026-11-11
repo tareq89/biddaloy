@@ -5,6 +5,7 @@ import { UnprocessableEntityException } from '@nestjs/common';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
+import { YEAR_CLOSED_MESSAGE } from '../../common/filters/known-errors';
 import { CalendarModule } from './calendar.module';
 import { AuthModule } from '../auth/auth.module';
 import { CalendarImportService } from './calendar-import.service';
@@ -410,6 +411,8 @@ describe('CalendarImportService (integration)', () => {
       const res = await service.commit(TENANT_ID, SEED_ADMIN_USER_ID, validated.staging_id, false);
       expect(res.created).toBe(0);
       expect(res.failed).toHaveLength(1);
+      // the row error is the ACADEMIC_YEAR_CLOSED 409's message (commit records only message)
+      expect(res.failed[0].message).toBe(YEAR_CLOSED_MESSAGE);
     } finally {
       await dataSource.query(`UPDATE academic_years SET closed_at = NULL WHERE id = $1`, [yearId]);
     }

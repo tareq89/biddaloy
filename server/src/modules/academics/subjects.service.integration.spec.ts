@@ -433,7 +433,7 @@ describe('SubjectService (integration)', () => {
           { subject_id: other.id, academic_year_id: academicYearId },
           TENANT_ID,
         ),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
       await expect(
         service.updateClassSubject(
           classId,
@@ -441,10 +441,21 @@ describe('SubjectService (integration)', () => {
           { academic_year_id: academicYearId, is_optional: true },
           TENANT_ID,
         ),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
       await expect(
         service.detachFromClass(classId, subject.id, academicYearId, TENANT_ID),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toMatchObject({ response: { details: { code: 'ACADEMIC_YEAR_CLOSED' } } });
+      // nothing written: only the original offering, unchanged and not deleted
+      const rows = await dataSource.query(
+        'SELECT subject_id, is_optional, deleted_at FROM class_subjects WHERE class_id = $1',
+        [classId],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        subject_id: subject.id,
+        is_optional: false,
+        deleted_at: null,
+      });
     });
   });
 });
