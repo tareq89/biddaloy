@@ -55,9 +55,13 @@ test('desktop: strip, heatmap with the absent day, homework, result trend, next 
   await expect(heat).toBeVisible();
 
   await expect(page.getByRole('region', { name: t('portal.homeworkCard.title') })).toBeVisible();
+  // A trend line shows. Which way it points is not fixed: final-result.spec.ts may publish a newer
+  // exam for this same child (roll 1) first, turning the seeded "better" into "worse" (#4048 CI).
   const result = page.getByRole('region', { name: t('portal.latestResult.title') });
+  const trend = (key: 'better' | 'worse') =>
+    t(`portal.latestResult.${key}`, { previous: '' }).split('(')[0]!.trim();
   await expect(result).toContainText(
-    t('portal.latestResult.better', { previous: '' }).split('(')[0]!.trim(),
+    new RegExp([trend('better'), trend('worse'), t('portal.latestResult.same')].join('|')),
   );
   const holiday = page.getByRole('region', { name: t('portal.nextHoliday.title') });
   await expect(holiday).toContainText(/২০|20/); // "in 20 days" (seeded 20 days ahead)
