@@ -220,6 +220,9 @@ describe('org slice (integration, 2 years)', () => {
     for (const s of schools) {
       expect(s.settings.attendance.periodAttendance.enabled).toBe(true);
       expect(s.settings.attendance.arrivalNotice.enabled).toBe(true);
+      // [99.1.05] confirmed with a date, never the unconfirmed default
+      expect(s.settings.supportAccess.mode).toBe('allowed');
+      expect(typeof s.settings.supportAccess.confirmedAt).toBe('string');
       // [76.2.8] D25: High on the gate, Primary teacher-only, College untouched; SMS fallback stays off.
       const want = { 'bmsc-high': 'DEVICE', 'bmsc-primary': 'CLASS_TEACHER' }[s.slug as string];
       expect(s.settings.attendance.dailySource).toBe(want);
